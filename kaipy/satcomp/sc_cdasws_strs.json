@@ -431,12 +431,12 @@
 			"CoordSys" : "GSE"
 		},
 		"MagneticFootprintNorth" : {
-			"Id" : "mms3_mec_srvy_l2_ephts89d",
+			"Id" : "MMS3_MEC_SRVY_L2_EPHT89D",
 			"Data" : "mms3_mec_pfn_gsm",
 			"CoordSys" : "GSM"
 		},
 		"MagneticFootprintSouth" : {
-			"Id" : "mms3_mec_srvy_l2_ephts89d",
+			"Id" : "MMS3_MEC_SRVY_L2_EPHT89D",
 			"Data" : "mms3_mec_pfs_gsm",
 			"CoordSys" : "GSM"
 		}
@@ -466,12 +466,12 @@
 			"CoordSys" : "GSE"
 		},
 		"MagneticFootprintNorth" : {
-			"Id" : "mms4_mec_srvy_l2_ephts89d",
+			"Id" : "MMS4_MEC_SRVY_L2_EPHT89D",
 			"Data" : "mms4_mec_pfn_gsm",
 			"CoordSys" : "GSM"
 		},
 		"MagneticFootprintSouth" : {
-			"Id" : "mms4_mec_srvy_l2_ephts89d",
+			"Id" : "MMS4_MEC_SRVY_L2_EPHT89D",
 			"Data" : "mms4_mec_pfs_gsm",
 			"CoordSys" : "GSM"
 		}
