@@ -381,6 +381,11 @@ module volthelpers_mpi
         call recvChimpUpdate(vApp)
 
         call mpi_bcast(vApp%ebTrcApp%ebSquish%numSquishBlocks, 1, MPI_INTEGER, 0, vApp%vHelpComm, ierr)
+        if(vApp%ebTrcApp%ebSquish%numSquishBlocks /= size(vApp%ebTrcApp%ebSquish%blockStartIndices)) then
+            ! number of squish blocks changed or was wrong, reallocate
+            deallocate(vApp%ebTrcApp%ebSquish%blockStartIndices)
+            allocate(vApp%ebTrcApp%ebSquish%blockStartIndices(vApp%ebTrcApp%ebSquish%numSquishBlocks))
+        endif
         call mpi_bcast(vApp%ebTrcApp%ebSquish%blockStartIndices, vApp%ebTrcApp%ebSquish%numSquishBlocks, MPI_INTEGER, 0, vApp%vHelpComm, ierr)
         vApp%ebTrcApp%ebSquish%myNumBlocks = 1 ! helpers always have 1 block
         if(vApp%masterSquish) then

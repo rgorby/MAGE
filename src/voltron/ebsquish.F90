@@ -40,6 +40,10 @@ module ebsquish
         associate(ebSquish=>vApp%ebTrcApp%ebSquish,ebGr=>vApp%ebTrcApp%ebState%ebGr)
 
         if(.not. allocated(assignedPercents)) allocate(assignedPercents(ebSquish%numSquishBlocks))
+        if(ebSquish%numSquishBlocks /= SIZE(assignedPercents)) then
+            deallocate(assignedPercents)
+            allocate(assignedPercents(ebSquish%numSquishBlocks))
+        endif
 
         if(.not. present(balanceVals)) then
             ! make all blocks equal

@@ -363,6 +363,14 @@ module voltapp_mpi
                 else
                     vApp%ebTrcApp%ebSquish%numSquishBlocks = nHelpers
                 endif
+
+                if(vApp%ebTrcApp%ebSquish%numSquishBlocks /= size(vApp%ebTrcApp%ebSquish%blockStartIndices)) then
+                    ! number of squish blocks changed
+                    deallocate(vApp%ebTrcApp%ebSquish%blockStartIndices)
+                    allocate(vApp%ebTrcApp%ebSquish%blockStartIndices(vApp%ebTrcApp%ebSquish%numSquishBlocks))
+                    call LoadBalanceBlocks(vApp) ! redo the default load balancing for this number of blocks
+                endif
+
             endif
 
             ! send initial timing data to helper voltron ranks
