@@ -2,6 +2,7 @@ module siftypes
 
     use helpertypes
     use shellgrid
+    use xml_input
 
     use sifdefs
 
@@ -57,15 +58,22 @@ module siftypes
 
         ! Plasmasphere settings
         logical :: doPlasmasphere
-        ! Extra paramr for efilling rate, determining initial profile, etc.
+            !! Use for now to determine if we should be doing plasmasphere stuff
+            !! Likely, in the future, we will determine automatically by the presence of a flavor 0
+        ! TODO: Extra params for efilling rate, determining initial profile, etc.
 
         ! Lambda bounds controls
-        logical :: doDynamicLambdaRanges  ! Dynamic lambda ranges so we only evolve certain energies at certain L shells
+        logical :: doDynamicLambdaRanges
+            !! Dynamic lambda ranges so we only evolve certain energies at certain L shells
 
         ! Detailed information
-        type(planet_T) :: planet  ! Planet info like radius, mag. moment, etc.
-        !type(precip_T) :: precip  ! Precipitation model info
+        type(planet_T) :: planet  
+            !! Planet info like radius, mag. moment, etc.
+        !type(precip_T) :: precip  ! Precipitation model info (Shanshan and Dong)
         !type(waveModel_T) :: wModel  ! Wave model info (Shanshan)
+
+        ! Hack functions
+        ! e.g. hackDP2Eta
 
     end type sifModel_T
 
@@ -82,7 +90,7 @@ module siftypes
 
         ! MPI things
         integer :: NumRk  ! Number of ranks in energy space
-        integer :: Rk=0  ! Number of this rank
+        integer :: Rk=0   ! Number of this rank
 
         ! Face-centered coordinates
         !!! Maybe don't need because shGrid has centers in lat and lon directions already
@@ -143,6 +151,28 @@ module siftypes
 
 
     end type sifState_T
+
+
+!------
+! Higher-level types, using above types
+!------
+
+    type sifApp_T
+        type(sifModel_T) :: Model
+        type(sifGrid_T ) :: Grid
+        type(sifState_T) :: State
+    end type sifApp_T
+
+    abstract interface
+        subroutine sifStateIC_T(Model,Grid,State,inpXML)
+            Import :: sifModel_T, sifGrid_T, sifState_T, strLen, XML_Input_T
+            type(sifModel_T) , intent(inout) :: Model
+            type(sifGrid_T)  , intent(inout) :: Grid
+            type(sifState_T) , intent(inout) :: State
+            type(XML_Input_T), intent(in) :: inpXML
+        end subroutine sifStateIC_T
+
+    end interface
 
 
 end module siftypes

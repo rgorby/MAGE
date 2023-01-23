@@ -1,11 +1,15 @@
 ! Initialize kaimag
 module sifstarter
-    use sifdefs
-    use siftypes
-    use sifgrids
     use shellgrid
     use xml_input
     use planethelper
+
+    use sifdefs
+    use siftypes
+    use sifgrids
+    use sifio
+    use sific
+    use sifuseric
 
     implicit none
 
@@ -16,14 +20,30 @@ module sifstarter
 ! Main Initialization Routines
 !------
 
+    subroutine sifInit(app, iXML)
+        type(sifApp_T), intent(inout) :: app
+        type(XML_Input_T), intent(in) :: iXML
+        !procedure(sifStateIC_T), pointer, intent(in) :: stateIC        
+
+        ! Init model, grid, state
+        call sifInitModel(app%Model, iXML)
+        call sifInitGrid(app%Model, app%Grid, iXML)
+
+        ! Init output file
+        call sifInitIO(app%Model, app%Grid)
+
+        call sifInitState(app%Model,app%Grid,app%State,iXML)
+
+    end subroutine sifInit
+
     ! Sets up Model, but Grid and State must be set up separately
-    subroutine sifInitModel(Model, planet, iXML)
+    subroutine sifInitModel(Model, iXML)
         type(sifModel_T) , intent(inout) :: Model
-        type(planet_T)   , intent(in)    :: planet
         type(XML_Input_T), intent(in)    :: iXML
+        
+        procedure(sifStateIC_T), pointer :: stateIC        
  
         write(*,*) "sifInitModel is starting"
-
 
 
         !! NOT SET HERE:
@@ -34,7 +54,7 @@ module sifstarter
         ! (Currently no decisions are made based on being SA, just means we set the RunID ourselves)
         if (trim(Model%RunID) .eq. "") then
             write(*,*) "Setting RunID to be sifSA"
-            call iXML%Set_Val(Model%RunID, "sim/RunID","sifSA")  ! sif stand-alone
+            call iXML%Set_Val(Model%RunID, "prob/RunID","sifSA")  ! sif stand-alone
         endif
 
         ! Config file
@@ -60,7 +80,7 @@ module sifstarter
         else
             Model%nSpc = 2
         endif
-        call iXML%Set_Val(Model%nSpc, "sim/nSpc",Model%nSpc)
+        call iXML%Set_Val(Model%nSpc, "prob/nSpc",Model%nSpc)
 
 
         ! Lambda channel settings
@@ -70,8 +90,14 @@ module sifstarter
         ! Set planet params
         !! This should only be kept for as long as planet_T doesn't contain pointers
         !! In this current case, there should be a full copy to our own planet params
-        Model%planet = planet
-
+        call getPlanetParams(Model%planet, iXML)
+        ! Store pointer to stateIC so that initState can get to it later
+        !Model%stateIC = stateIC
+        !stateIC => NULL()
+        !Model%stateIC => stateIC
+        !stateIC => testStateIC
+        !Model%stateIC => initSifIC
+        
         ! Set up timing
         !!TODO
         ! If we are running stand-alone, look for timing info inside SIF XML block
@@ -80,10 +106,9 @@ module sifstarter
 
     end subroutine sifInitModel
 
-    
 
     subroutine sifInitGrid(Model, Grid, iXML, shGridO)
-        type(sifModel_T)  , intent(inout) :: Model
+        type(sifModel_T) , intent(inout) :: Model
         type(sifGrid_T)  , intent(inout) :: Grid
         type(XML_Input_T), intent(in)   :: iXML
         type(ShellGrid_T), optional, intent(in)    :: shGridO
@@ -94,7 +119,6 @@ module sifstarter
         ! Set grid params
         ! Grid settings
         call iXML%Set_Val(tmpStr, "grid/gType","UNISPH")
-
 
         ! Fill out Grid object depending on chosen method
         select case(tmpStr)
@@ -129,22 +153,41 @@ module sifstarter
     end subroutine sifInitGrid
 
 
+    subroutine sifInitState(Model, Grid, State, iXML)
+        type(sifModel_T), intent(in)    :: Model
+        type(sifGrid_T) , intent(in)    :: Grid
+        type(sifState_T), intent(inout) :: State
+        type(XML_Input_T), intent(in)   :: iXML
 
+        character(len=strLen) :: icStr
+
+        call iXML%Set_Val(icStr, "prob/IC","USER")
+
+
+        
+        select case(trim(icStr))
+            case("DIP")
+                !! Simple Maxwellian in a dipole field
+                call initSifIC_DIP(Model, Grid, State, iXML)
+            case("USER")
+                ! Call the IC in the module sifuseric
+                ! This module is set in cmake via the SIFIC variable
+                call initSifUserIC(Model, Grid, State, iXML)
+            case DEFAULT
+                write(*,*)"Invalid IC name to SIF, see sifStarter.F90:sifInitState. Bye."
+                stop
+        end select
+
+        
+
+    end subroutine sifInitState
 
 
 !------
 ! Defaults
 !------
 
-    ! This will make a simple Maxwellian distribution in a dipole field
-    ! TODO: This should be in an IC file
-    subroutine sifInitStateDefault(Model, Grid, State, D, T, r)
-        type(sifModel_T), intent(inout) :: Model
-        type(sifGrid_T) , intent(inout) :: Grid
-        type(sifState_T), intent(inout) :: State
-        real(rp), intent(in) :: D, T, r  ! density, temperature, r value
-        !! TODO
-    end subroutine sifInitStateDefault
+
 
 
 end module sifstarter

@@ -63,6 +63,9 @@ set(GAMIC ${GAMICDEF} CACHE FILEPATH "Gamera IC file")
 file(GLOB VOLTICDEF src/voltron/ICs/earthcmi.F90)
 set(VOLTIC ${VOLTICDEF} CACHE FILEPATH "Voltron IC file")
 
+file(GLOB SIFICDEF src/sif/ICs/testIC.F90)
+set(SIFIC ${SIFICDEF} CACHE FILEPATH "SIF IC file")
+
 file(GLOB TPICDEF src/chimp/tpICs/tpICstd.F90)
 set(TPIC ${TPICDEF} CACHE FILEPATH "CHIMP TP IC file")
 
@@ -207,6 +210,7 @@ add_dependencies(rcm rcm.x baselib)
 #-------------
 #Kaiju: SIF
 message("Adding SIF module ...")
+message("\tIC file is ${SIFIC}")
 # Add source
 add_subdirectory(src/sif)
 add_custom_target(sif ALL)

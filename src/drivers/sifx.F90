@@ -6,18 +6,16 @@ program sifx
 
     use sifdefs
     use sifstarter
-    use sifio
 
     use shellgrid
 
     implicit none
 
-    ! Could use sifApp, but that depends on voltlib which is annoying to build
-    type(sifModel_T) :: Model
-    type(sifGrid_T ) :: Grid
-    type(sifState_T) :: State
+    !type(sifModel_T) :: Model
+    !type(sifGrid_T ) :: Grid
+    !type(sifState_T) :: State
 
-    type(planet_T) :: planet
+    type(sifApp_T) :: sifApp
 
     character(len=strLen) :: XMLStr
     type(XML_Input_T) :: inpXML
@@ -27,15 +25,9 @@ program sifx
     call getIDeckStr(XMLStr)
     inpXML = New_XML_Input(trim(XMLStr),"Kaiju/SIF",.true.)
 
-    ! Init planet specs, default Earth
-    call getPlanetParams(planet, inpXML)
 
-    ! Init model, grid, state
-    call sifInitModel(Model, planet, inpXML)
-    call sifInitGrid(Model, Grid, inpXML)
 
-    ! Init output file
-    call sifInitIO(Model, Grid)
+    call sifInit(sifApp, inpXML)
 
     !associate(sh=>Grid%shGrid)
     !write(*,*)"Grid:"
