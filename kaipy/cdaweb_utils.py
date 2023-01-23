@@ -151,7 +151,6 @@ def fetch_satellite_magnetic_northern_footprint_position(spacecraft, when):
     variable = sc_info[spacecraft]['MagneticFootprintNorth']['Data']
     coordsys = sc_info[spacecraft]['MagneticFootprintNorth']['CoordSys']
     status, data = cdas.get_data(dataset, variable, t0, t1)
-    print("data = %s" % data)
 
     # Return if no data found.
     if data is None:
@@ -243,7 +242,6 @@ def fetch_satellite_magnetic_southern_footprint_position(spacecraft, when):
     variable = sc_info[spacecraft]['MagneticFootprintSouth']['Data']
     coordsys = sc_info[spacecraft]['MagneticFootprintSouth']['CoordSys']
     status, data = cdas.get_data(dataset, variable, t0, t1)
-    print("data = %s" % data)
 
     # Return if no data found.
     if data is None:

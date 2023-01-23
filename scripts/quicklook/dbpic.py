@@ -99,12 +99,8 @@ def create_command_line_parser():
         '-k0', type=int, metavar="layer", default=default_k0,
         help="Vertical layer to plot (default: %(default)s)")
     parser.add_argument(
-        "--magspacecraft", type=str, metavar="magspacecraft", default=None,
-        help="Names of spacecraft to plot magnetic footprints, separated by commas (default: %(default)s)"
-    )
-    parser.add_argument(
         "--spacecraft", type=str, metavar="spacecraft", default=None,
-        help="Names of spacecraft to plot subsatellite positions, separated by commas (default: %(default)s)"
+        help="Names of spacecraft to plot magnetic footprints, separated by commas (default: %(default)s)"
     )
     parser.add_argument(
         "-v", "--verbose", action="store_true", default=False,
@@ -127,7 +123,6 @@ if __name__ == "__main__":
     nStp = args.n
     k0 = args.k0
     doJr = args.Jr
-    magspacecraft = args.magspacecraft
     spacecraft = args.spacecraft
     verbose = args.verbose
     if debug:
@@ -233,43 +228,15 @@ if __name__ == "__main__":
     # Make the plot.
     AxM.pcolormesh(LonI, LatI, Q, norm=vQ, cmap=cmap)
 
-    # If requested, overlay the spacecraft positions.
+    # If requested, overlay the spacecraft magnetic footprints.
     if spacecraft:
-        print("Overplotting positions of %s." % spacecraft)
+        print("Overplotting magnetic footprints of %s." % spacecraft)
 
         # Split the list into individual spacecraft names.
         spacecraft = spacecraft.split(',')
 
-        # Fetch the position of each spacecraft from CDAWeb.
-        for sc in spacecraft:
-
-            # Fetch the current spacecraft position.
-            sc_rad, sc_lat, sc_lon = cdaweb_utils.fetch_satellite_geographic_position(
-                sc, utS[0]
-            )
-            if debug:
-                print("sc_rad, sc_lat, sc_lon = %s, %s, %s" %
-                    (sc_rad, sc_lat, sc_lon))
-
-            # Plot a labelled dot at the location of the spacecraft position.
-            # Skip if no spacecraft position found.
-            if sc_lon is not None:
-                AxM.plot(sc_lon, sc_lat, 'o')
-                lon_nudge = 2.0
-                lat_nudge = 2.0
-                AxM.text(sc_lon + lon_nudge, sc_lat + lat_nudge, sc)
-            else:
-                print("No position found for spacecraft %s." % sc)
-
-    # If requested, overlay the spacecraft magnetic footprints.
-    if magspacecraft:
-        print("Overplotting magnetic footprints of %s." % magspacecraft)
-
-        # Split the list into individual spacecraft names.
-        magspacecraft = magspacecraft.split(',')
-
         # Fetch the position of each footprint pair from CDAWeb.
-        for sc in magspacecraft:
+        for sc in spacecraft:
 
             # Fetch the northern footprint position.
             fp_nlat, fp_nlon = cdaweb_utils.fetch_satellite_magnetic_northern_footprint_position(
