@@ -149,6 +149,7 @@ def fetch_satellite_magnetic_northern_footprint_position(spacecraft, when):
     # Fetch the footprint position from CDAWeb.
     dataset = sc_info[spacecraft]['MagneticFootprintNorth']['Id']
     variable = sc_info[spacecraft]['MagneticFootprintNorth']['Data']
+    coordsys = sc_info[spacecraft]['MagneticFootprintNorth']['CoordSys']
     status, data = cdas.get_data(dataset, variable, t0, t1)
     print("data = %s" % data)
 
@@ -156,29 +157,42 @@ def fetch_satellite_magnetic_northern_footprint_position(spacecraft, when):
     if data is None:
         return fp_lat, fp_lon
 
-    # The position is in cartesian GSM coordinates (kilometers).
-    if data[variable].shape == (3,):
-        # Only 1 position was returned, so copy its first 3 elements.
-        xyz = data[variable][:3]
+    # Convert the position if needed.
+    if coordsys == 'GEO':
+        if type(variable) is list:
+            # <HACK>
+            # Assume index 0 is latitude, index 1 is longitude.
+            fp_lat = data[variable[0]][0]
+            fp_lon = data[variable[1]][0]
+            # </HACK>
+        else:
+            raise TypeError("Unexpected variable type!")
+    elif coordsys == 'GSM':
+        # The position is in cartesian GSM coordinates (kilometers).
+        if data[variable].shape == (3,):
+            # Only 1 position was returned, so copy its first 3 elements.
+            xyz = data[variable][:3]
+        else:
+            # More than 1 position was returned, so copy the first 3 elements of
+            # the first position.
+            xyz = data[variable][0, :3]  # >1 position returned
+
+        # Create a Coords object for the Cartesian position in the coordinate system used by
+        # the spacecraft, at the start time.
+        fp_pos_orig = Coords(xyz, coordsys, 'car', use_irbem=False)
+        fp_pos_orig.ticks = Ticktock(t0)
+
+        # Convert the footprint coordinates to geographic spherical coordinates.
+        fp_pos_sph = fp_pos_orig.convert('GEO', 'sph')
+        fp_rad = fp_pos_sph.data[0][0]
+        fp_lat = fp_pos_sph.data[0][1]
+        fp_lon = fp_pos_sph.data[0][2]
     else:
-        # More than 1 position was returned, so copy the first 3 elements of
-        # the first position.
-        xyz = data[variable][0, :3]  # >1 position returned
+        raise TypeError("Unexpected coordinate system: %s" % coordsys)
 
-    # Create a Coords object for the Cartesian position in the coordinate system used by
-    # the spacecraft, at the start time.
-    fp_pos_orig = Coords(
-        xyz,
-        sc_info[spacecraft]['MagneticFootprintNorth']['CoordSys'],
-        'car', use_irbem=False
-    )
-    fp_pos_orig.ticks = Ticktock(t0)
-
-    # Convert the footprint coordinates to geographic spherical coordinates.
-    fp_pos_sph = fp_pos_orig.convert('GEO', 'sph')
-    fp_rad = fp_pos_sph.data[0][0]
-    fp_lat = fp_pos_sph.data[0][1]
-    fp_lon = fp_pos_sph.data[0][2]
+    # Canonicalize longitude to [-180, +180] range.
+    if fp_lon > 180:
+        fp_lon = fp_lon - 360
 
     # Return the spacecraft longitude and latitude.
     return fp_lat, fp_lon
@@ -227,6 +241,7 @@ def fetch_satellite_magnetic_southern_footprint_position(spacecraft, when):
     # Fetch the footprint position from CDAWeb.
     dataset = sc_info[spacecraft]['MagneticFootprintSouth']['Id']
     variable = sc_info[spacecraft]['MagneticFootprintSouth']['Data']
+    coordsys = sc_info[spacecraft]['MagneticFootprintSouth']['CoordSys']
     status, data = cdas.get_data(dataset, variable, t0, t1)
     print("data = %s" % data)
 
@@ -234,29 +249,42 @@ def fetch_satellite_magnetic_southern_footprint_position(spacecraft, when):
     if data is None:
         return fp_lat, fp_lon
 
-    # The position is in cartesian GSM coordinates (kilometers).
-    if data[variable].shape == (3,):
-        # Only 1 position was returned, so copy its first 3 elements.
-        xyz = data[variable][:3]
+    # Convert the position if needed.
+    if coordsys == 'GEO':
+        if type(variable) is list:
+            # <HACK>
+            # Assume index 0 is latitude, index 1 is longitude.
+            fp_lat = data[variable[0]][0]
+            fp_lon = data[variable[1]][0]
+            # </HACK>
+        else:
+            raise TypeError("Unexpected variable type!")
+    elif coordsys == 'GSM':
+        # The position is in cartesian GSM coordinates (kilometers).
+        if data[variable].shape == (3,):
+            # Only 1 position was returned, so copy its first 3 elements.
+            xyz = data[variable][:3]
+        else:
+            # More than 1 position was returned, so copy the first 3 elements of
+            # the first position.
+            xyz = data[variable][0, :3]  # >1 position returned
+
+        # Create a Coords object for the Cartesian position in the coordinate system used by
+        # the spacecraft, at the start time.
+        fp_pos_orig = Coords(xyz, coordsys, 'car', use_irbem=False)
+        fp_pos_orig.ticks = Ticktock(t0)
+
+        # Convert the footprint coordinates to geographic spherical coordinates.
+        fp_pos_sph = fp_pos_orig.convert('GEO', 'sph')
+        fp_rad = fp_pos_sph.data[0][0]
+        fp_lat = fp_pos_sph.data[0][1]
+        fp_lon = fp_pos_sph.data[0][2]
     else:
-        # More than 1 position was returned, so copy the first 3 elements of
-        # the first position.
-        xyz = data[variable][0, :3]  # >1 position returned
+        raise TypeError("Unexpected coordinate system: %s" % coordsys)
 
-    # Create a Coords object for the Cartesian position in the coordinate system used by
-    # the spacecraft, at the start time.
-    fp_pos_orig = Coords(
-        xyz,
-        sc_info[spacecraft]['MagneticFootprintSouth']['CoordSys'],
-        'car', use_irbem=False
-    )
-    fp_pos_orig.ticks = Ticktock(t0)
-
-    # Convert the footprint coordinates to geographic spherical coordinates.
-    fp_pos_sph = fp_pos_orig.convert('GEO', 'sph')
-    fp_rad = fp_pos_sph.data[0][0]
-    fp_lat = fp_pos_sph.data[0][1]
-    fp_lon = fp_pos_sph.data[0][2]
+    # Canonicalize longitude to [-180, +180] range.
+    if fp_lon > 180:
+        fp_lon = fp_lon - 360
 
     # Return the spacecraft longitude and latitude.
     return fp_lat, fp_lon

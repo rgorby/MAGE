@@ -10,6 +10,16 @@
 			"Data" : "B_GSM_c",
 			"CoordSys" : "GSM"	
 		},
+		"MagneticFootprintNorth" : {
+			"Id" : "GOES11_EPHEMERIS_SSC",
+			"Data" : ["NorthBtrace_GEO_LAT", "NorthBtrace_GEO_LON"],
+			"CoordSys" : "GEO"
+		},
+		"MagneticFootprintSouth" : {
+			"Id" : "GOES11_EPHEMERIS_SSC",
+			"Data" : ["SouthBtrace_GEO_LAT", "SouthBtrace_GEO_LON"],
+			"CoordSys" : "GEO"
+		},
 		"_testing" : {
 			"t0" : "2010-12-30T00:00:00Z",
 			"t1" : "2010-12-31T00:00:00Z"
@@ -25,6 +35,16 @@
 			"Id" : "GOES12_K0_MAG",
 			"Data" : "B_GSM_c",
 			"CoordSys" : "GSM"	
+		},
+		"MagneticFootprintNorth" : {
+			"Id" : "GOES12_EPHEMERIS_SSC",
+			"Data" : ["NorthBtrace_GEO_LAT", "NorthBtrace_GEO_LON"],
+			"CoordSys" : "GEO"
+		},
+		"MagneticFootprintSouth" : {
+			"Id" : "GOES12_EPHEMERIS_SSC",
+			"Data" : ["SouthBtrace_GEO_LAT", "SouthBtrace_GEO_LON"],
+			"CoordSys" : "GEO"
 		},
 		"_testing" : {
 			"t0" : "2010-09-23T00:00:00Z",
