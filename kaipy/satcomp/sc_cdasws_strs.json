@@ -254,6 +254,16 @@
 			"Data" : "tha_peim_velocity_gsm",
 			"EpochStr" : "tha_peim_epoch",
 			"CoordSys" : "GSM"
+		},
+		"MagneticFootprintNorth" : {
+			"Id" : "THA_OR_SSC",
+			"Data" : ["NorthBtrace_GEO_LAT", "NorthBtrace_GEO_LON"],
+			"CoordSys" : "GEO"
+		},
+		"MagneticFootprintSouth" : {
+			"Id" : "THA_OR_SSC",
+			"Data" : ["SouthBtrace_GEO_LAT", "SouthBtrace_GEO_LON"],
+			"CoordSys" : "GEO"
 		}
 	},
 	"THEMISB" : {
@@ -279,6 +289,16 @@
 			"Id" : "THB_L2_MOM",
 			"Data" : "thb_peim_velocity_gsm",
 			"CoordSys" : "GSM"
+		},
+		"MagneticFootprintNorth" : {
+			"Id" : "THB_OR_SSC",
+			"Data" : ["NorthBtrace_GEO_LAT", "NorthBtrace_GEO_LON"],
+			"CoordSys" : "GEO"
+		},
+		"MagneticFootprintSouth" : {
+			"Id" : "THB_OR_SSC",
+			"Data" : ["SouthBtrace_GEO_LAT", "SouthBtrace_GEO_LON"],
+			"CoordSys" : "GEO"
 		}
 	},
 	"THEMISC" : {
@@ -304,6 +324,16 @@
 			"Id" : "THC_L2_MOM",
 			"Data" : "thc_peim_velocity_gsm",
 			"CoordSys" : "GSM"
+		},
+		"MagneticFootprintNorth" : {
+			"Id" : "THC_OR_SSC",
+			"Data" : ["NorthBtrace_GEO_LAT", "NorthBtrace_GEO_LON"],
+			"CoordSys" : "GEO"
+		},
+		"MagneticFootprintSouth" : {
+			"Id" : "THC_OR_SSC",
+			"Data" : ["SouthBtrace_GEO_LAT", "SouthBtrace_GEO_LON"],
+			"CoordSys" : "GEO"
 		}
 	},
 	"THEMISD" : {
@@ -329,6 +359,16 @@
 			"Id" : "THD_L2_MOM",
 			"Data" : "thd_peim_velocity_gsm",
 			"CoordSys" : "GSM"
+		},
+		"MagneticFootprintNorth" : {
+			"Id" : "THD_OR_SSC",
+			"Data" : ["NorthBtrace_GEO_LAT", "NorthBtrace_GEO_LON"],
+			"CoordSys" : "GEO"
+		},
+		"MagneticFootprintSouth" : {
+			"Id" : "THD_OR_SSC",
+			"Data" : ["SouthBtrace_GEO_LAT", "SouthBtrace_GEO_LON"],
+			"CoordSys" : "GEO"
 		}
 	},
 	"THEMISE" : {
@@ -354,6 +394,16 @@
 			"Id" : "THE_L2_MOM",
 			"Data" : "the_peim_velocity_gsm",
 			"CoordSys" : "GSM"
+		},
+		"MagneticFootprintNorth" : {
+			"Id" : "THE_OR_SSC",
+			"Data" : ["NorthBtrace_GEO_LAT", "NorthBtrace_GEO_LON"],
+			"CoordSys" : "GEO"
+		},
+		"MagneticFootprintSouth" : {
+			"Id" : "THE_OR_SSC",
+			"Data" : ["SouthBtrace_GEO_LAT", "SouthBtrace_GEO_LON"],
+			"CoordSys" : "GEO"
 		}
 	},
 	"MMS1" : {
