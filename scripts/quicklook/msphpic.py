@@ -23,11 +23,15 @@ import matplotlib.pyplot as plt
 from mpl_toolkits.axes_grid1.inset_locator import inset_axes
 
 # Import project-specific modules.
+from kaipy import cdaweb_utils
 import kaipy.gamera.gampp as gampp
 import kaipy.gamera.magsphere as msph
 import kaipy.gamera.msphViz as mviz
 import kaipy.gamera.rcmpp as rcmpp
+import kaipy.kaiH5 as kh5
 import kaipy.kaiViz as kv
+import kaipy.kaiTools as ktools
+import kaipy.kdefs as kdefs
 import kaipy.remix.remix as remix
 
 
@@ -49,6 +53,9 @@ default_step = -1
 
 # Name of plot output file.
 fOut = "qkpic.png"
+
+# Color to use for spacecraft position symbols.
+SPACECRAFT_COLOR = 'red'
 
 
 def create_command_line_parser():
@@ -125,6 +132,10 @@ def create_command_line_parser():
         "-v", "--verbose", action="store_true", default=False,
         help="Print verbose output (default: %(default)s)."
     )
+    parser.add_argument(
+        "--spacecraft", type=str, metavar="spacecraft", default=None,
+        help="Names of spacecraft to plot positions, separated by commas (default: %(default)s)"
+    )
     # Add an option for plot domain size.
     mviz.AddSizeArgs(parser)
     return parser
@@ -153,6 +164,7 @@ if __name__ == "__main__":
     doBz = args.bz
     noRCM = args.norcm
     doBigRCM = args.bigrcm
+    spacecraft = args.spacecraft
     if debug:
         print("args = %s" % args)
 
@@ -271,6 +283,63 @@ if __name__ == "__main__":
     if doMPI:
         mviz.PlotMPI(gsph, AxL)
         mviz.PlotMPI(gsph, AxR)
+
+    # If requested, overlay the spacecraft locations.
+    if spacecraft:
+        print("Overplotting spacecraft positions of %s." % spacecraft)
+
+        # Split the list into individual spacecraft names.
+        spacecraft = spacecraft.split(',')
+        if debug:
+            print("spacecraft = %s" % spacecraft)
+
+        # Fetch the time from the step used for plotting.
+        fname = gsph.f0
+        if debug:
+            print("fname = %s" % fname)
+        MJD = kh5.tStep(fname, nStp, aID="MJD")
+        if debug:
+            print("MJD = %s" % MJD)
+        utS = ktools.MJD2UT([MJD])
+        if debug:
+            print("utS = %s" % utS)
+
+        # Fetch the position of each spacecraft from CDAWeb.
+        for sc in spacecraft:
+
+            # Fetch the spacecraft position in solar magnetic cartesian.
+            sc_x, sc_y, sc_z = cdaweb_utils.fetch_satellite_SM_position(
+                sc, utS[0]
+            )
+            if debug:
+                print("sc_x, sc_y, sc_z = %s, %s, %s" % (sc_x, sc_y, sc_z))
+
+            # Skip if no position found.
+            if sc_x is None:
+                print("No position found for spacecraft %s." % sc)
+                continue
+
+            # Convert coordinates to units of Earth radius.
+            CM_TO_KM = 1e-5  # Centimeters to kilometers
+            Re_km = kdefs.Re_cgs*CM_TO_KM  # Earth radius in kilometers
+            sc_x_Re = sc_x/Re_km
+            sc_y_Re = sc_y/Re_km
+            sc_z_Re = sc_z/Re_km
+            if debug:
+                print("sc_x_Re, sc_y_Re, sc_z_Re = %s, %s, %s" %
+                (sc_x_Re, sc_y_Re, sc_z_Re))
+
+            # Plot a labelled dot at the location of the spacecraft.
+            # Left plot
+            AxL.plot(sc_x_Re, sc_y_Re, 'o', c=SPACECRAFT_COLOR)
+            x_nudge = 1.0
+            y_nudge = 1.0
+            AxL.text(sc_x_Re + x_nudge, sc_y_Re + y_nudge, sc, c=SPACECRAFT_COLOR)
+            # Right plot
+            AxR.plot(sc_x_Re, sc_z_Re, 'o', c=SPACECRAFT_COLOR)
+            x_nudge = 1.0
+            z_nudge = 1.0
+            AxR.text(sc_x_Re + x_nudge, sc_z_Re + z_nudge, sc, c=SPACECRAFT_COLOR)
 
     # Save the plot to a file.
     kv.savePic(fOut, bLenX=45)
