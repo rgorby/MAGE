@@ -293,30 +293,39 @@ if __name__ == "__main__":
         if debug:
             print("spacecraft = %s" % spacecraft)
 
-        # Fetch the time from the step used for plotting.
+        # Fetch the MJD start and end time of the model results.
         fname = gsph.f0
         if debug:
             print("fname = %s" % fname)
-        MJD = kh5.tStep(fname, nStp, aID="MJD")
+        MJD_start = kh5.tStep(fname, 0, aID="MJD")
         if debug:
-            print("MJD = %s" % MJD)
-        utS = ktools.MJD2UT([MJD])
+            print("MJD_start = %s" % MJD_start)
+        MJD_end = kh5.tStep(fname, gsph.sFin, aID="MJD")
         if debug:
-            print("utS = %s" % utS)
+            print("MJD_end = %s" % MJD_end)
 
-        # Fetch the position of each spacecraft from CDAWeb.
-        for sc in spacecraft:
+        # Convert the statrt and stop MJD to a datetime object in UT.
+        ut_start = ktools.MJD2UT(MJD_start)
+        if debug:
+            print("ut_start = %s" % ut_start)
+        ut_end = ktools.MJD2UT(MJD_end)
+        if debug:
+            print("ut_end = %s" % ut_end)
 
-            # Fetch the spacecraft position in solar magnetic cartesian.
-            sc_x, sc_y, sc_z = cdaweb_utils.fetch_satellite_SM_position(
-                sc, utS[0]
+        # Fetch and plot the trajectory of each spacecraft from CDAWeb.
+        for (i_sc, sc) in enumerate(spacecraft):
+
+            # Fetch the spacecraft trajectory in Solar Magnetic (SM)
+            # Cartesian coordinates between the start and end times.
+            sc_x, sc_y, sc_z = cdaweb_utils.fetch_spacecraft_SM_trajectory(
+                sc, ut_start, ut_end
             )
             if debug:
                 print("sc_x, sc_y, sc_z = %s, %s, %s" % (sc_x, sc_y, sc_z))
 
-            # Skip if no position found.
+            # Skip if no trajectory found.
             if sc_x is None:
-                print("No position found for spacecraft %s." % sc)
+                print("No trajectory found for spacecraft %s." % sc)
                 continue
 
             # Convert coordinates to units of Earth radius.
@@ -329,17 +338,22 @@ if __name__ == "__main__":
                 print("sc_x_Re, sc_y_Re, sc_z_Re = %s, %s, %s" %
                 (sc_x_Re, sc_y_Re, sc_z_Re))
 
-            # Plot a labelled dot at the location of the spacecraft.
+            # Plot a labelled trajectory of the spacecraft. Also plot a larger
+            # dot at the last point in the trajectory.
             # Left plot
-            AxL.plot(sc_x_Re, sc_y_Re, 'o', c=SPACECRAFT_COLOR)
+            SPACECRAFT_COLORS = list(mpl.colors.TABLEAU_COLORS.keys())
+            color = SPACECRAFT_COLORS[i_sc % len(SPACECRAFT_COLORS)]
+            AxL.plot(sc_x_Re, sc_y_Re, marker=None, linewidth=1, c=color)
+            AxL.plot(sc_x_Re[-1], sc_y_Re[-1], 'o', c=color)
             x_nudge = 1.0
             y_nudge = 1.0
-            AxL.text(sc_x_Re + x_nudge, sc_y_Re + y_nudge, sc, c=SPACECRAFT_COLOR)
+            AxL.text(sc_x_Re[-1] + x_nudge, sc_y_Re[-1] + y_nudge, sc, c=color)
             # Right plot
-            AxR.plot(sc_x_Re, sc_z_Re, 'o', c=SPACECRAFT_COLOR)
+            AxR.plot(sc_x_Re, sc_z_Re, marker=None, linewidth=1, c=color)
+            AxR.plot(sc_x_Re[-1], sc_z_Re[-1], 'o', c=color)
             x_nudge = 1.0
             z_nudge = 1.0
-            AxR.text(sc_x_Re + x_nudge, sc_z_Re + z_nudge, sc, c=SPACECRAFT_COLOR)
+            AxR.text(sc_x_Re[-1] + x_nudge, sc_z_Re[-1] + z_nudge, sc, c=color)
 
     # Save the plot to a file.
     kv.savePic(fOut, bLenX=45)

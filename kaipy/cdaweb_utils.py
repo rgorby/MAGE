@@ -16,6 +16,7 @@ import datetime
 
 # Import supplemental modules.
 from cdasws import CdasWs
+import numpy as np
 from spacepy.coordinates import Coords
 from spacepy.time import Ticktock
 
@@ -180,6 +181,77 @@ def fetch_satellite_SM_position(spacecraft, when):
 
     # Return the spacecraft cartesian SM coordinates.
     return sc_x, sc_y, sc_z
+
+
+def fetch_spacecraft_SM_trajectory(spacecraft, t_start, t_end):
+    """Fetch the Solar Magnetic trajectory of a spacecraft in a time range.
+
+    Fetch the trajectory of a spacecraft in a time range, in Solar Magnetic
+    Cartesian coordinates. Data is fetched from CDAWeb.
+
+    Parameters
+    ----------
+    spacecraft : str
+        CDAWeb-compliant spacecraft ID.
+    t_start, t_end : datetime.datetime
+        Start and end datetime for trajectory fetch.
+
+    Returns
+    -------
+    XXX : XXX
+        XXX
+    """
+    # Read the CDAWeb spacecraft database.
+    sc_info = scutils.getScIds()
+
+    # Create the CDAWeb connection.
+    cdas = CdasWs()
+
+    # Format the start and end time strings.
+    t0 = t_start.strftime(CDAWEB_DATETIME_FORMAT)
+    t1 = t_end.strftime(CDAWEB_DATETIME_FORMAT)
+
+    # Fetch the satellite position from CDAWeb.
+    dataset = sc_info[spacecraft]['Ephem']['Id']
+    variable = sc_info[spacecraft]['Ephem']['Data']
+    coord_sys = sc_info[spacecraft]['Ephem']['CoordSys']
+    status, data = cdas.get_data(dataset, variable, t0, t1)
+
+    # Return if no data found.
+    if data is None:
+        return None, None, None
+
+    # Extract the trajectory times as datetime objects.
+    # <HACK>
+    # Add code to handle this in the YAML file.
+    if 'Epoch_state' in data.keys():
+        t_trajectory = data['Epoch_state']
+    elif 'Epoch' in data.keys():
+        t_trajectory = data['Epoch']
+    # </HACK>
+
+    # The ephemeris is in Cartesian coordinates in an arbitrary frame.
+    # GSM coordinates have r = SQRT(x**2 + y**2 + z**2) as a 4th element,
+    # and we don't need that, so only copy the first 3 elements of any
+    # position.
+    if len(data[variable].shape) == 1:
+        # Only 1 position was returned, so copy its first 3 elements
+        # into a 2-D array.
+        xyz_trajectory = np.array([data[variable][:3]])
+    else:
+        # More than 1 position was returned, so copy the first 3 elements of
+        # each position.
+        xyz_trajectory = data[variable][:, :3]  # >1 position
+
+    # Create a Coords object for the Cartesian trajectory.
+    trajectory = Coords(xyz_trajectory, coord_sys, 'car', use_irbem=False)
+    trajectory.ticks = Ticktock(t_trajectory)
+
+    # Convert the spacecraft coordinates to SM cartesian coordinates.
+    trajectory_sm = trajectory.convert('SM', 'car')
+
+    # Return the spacecraft cartesian SM coordinates.
+    return trajectory_sm.x, trajectory_sm.y, trajectory_sm.z
 
 
 def fetch_satellite_magnetic_northern_footprint_position(spacecraft, when):
