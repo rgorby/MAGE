@@ -82,6 +82,10 @@ def create_command_line_parser():
         help="Print list of all steps and time labels, then exit (default: %(default)s)"
     )
     parser.add_argument(
+        "--spacecraft", type=str, metavar="spacecraft", default=None,
+        help="Names of spacecraft to plot magnetic footprints, separated by commas (default: %(default)s)"
+    )
+    parser.add_argument(
         "-v", "--verbose", action="store_true", default=False,
         help="Print verbose output (default: %(default)s)."
     )
@@ -101,6 +105,7 @@ if __name__ == "__main__":
     nStp = args.n
     do_nflux = args.nflux
     do_print = args.print
+    spacecraft = args.spacecraft
     verbose = args.verbose
     if debug:
         print("args = %s" % args)
@@ -109,7 +114,13 @@ if __name__ == "__main__":
     remixFile = runid + '.mix.h5'
     if debug:
         print("remixFile = %s" % remixFile)
- 
+
+    # Split the original string into a list of spacecraft IDs.
+    if spacecraft:
+        spacecraft = spacecraft.split(',')
+        if debug:
+            print("spacecraft = %s" % spacecraft)
+
     # Enumerate the steps in the results file.
     nsteps, sIds = kaiH5.cntSteps(remixFile)
     if debug:
@@ -177,6 +188,13 @@ if __name__ == "__main__":
             ion.plot('flux', gs=gs[1, 2])
         else:
             ion.plot('eflux', gs=gs[1, 2])
+
+        # If requested, plot the magnetic footprints for the specified
+        # spacecraft.
+        if spacecraft:
+            for sc in spacecraft:
+                if verbose:
+                    print("Overplotting %s magnetic footprint for %s." % (h, sc))
 
         # Save the plot for the current hemisphere to a file.
         if h.lower() == 'north':
