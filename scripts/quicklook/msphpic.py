@@ -286,7 +286,7 @@ if __name__ == "__main__":
 
     # If requested, overlay the spacecraft locations.
     if spacecraft:
-        print("Overplotting spacecraft positions of %s." % spacecraft)
+        print("Overplotting spacecraft trajectories of %s." % spacecraft)
 
         # Split the list into individual spacecraft names.
         spacecraft = spacecraft.split(',')
