@@ -161,79 +161,80 @@ MODULE lossutils
         gammar = 1.0+K/mec2
         V = vc_cgs*sqrt(1.0-1.0/gammar**2)/Re_cgs ! Re/s
         TauSS = 3.D0*2.D0*ftv*bfp/V*gammar        ! Strong scattering lifetime [s], assuming eta=2/3.
+
     END FUNCTION RatefnC_tau_s
 
     FUNCTION Ratefn_sub_1keV (kpx,MLT,L,Ek,vm,beq,lossc,tau_ss) result(tau)
     !Function return electron lifetime in sub-1keV energy range 
 
-    IMPLICIT NONE
-    REAL (rprec), INTENT (IN) :: kpx,MLT,L,Ek,vm,beq,lossc,tau_ss
-    REAL (rprec) :: tau, tau_c_1keV,tau_ss_1keV,ratio_c2s
-    REAL (rprec) :: E_1keV = 1.0e-3 !in MeV
+        IMPLICIT NONE
+        REAL (rprec), INTENT (IN) :: kpx,MLT,L,Ek,vm,beq,lossc,tau_ss
+        REAL (rprec) :: tau, tau_c_1keV,tau_ss_1keV,ratio_c2s
+        REAL (rprec) :: E_1keV = 1.0e-3 !in MeV
  
-    tau_c_1keV = RatefnDW_tau_c(kpx, MLT,L,E_1keV) ! 1keV = 1e-3MeV
-    tau_ss_1keV = RatefnC_tau_s(E_1keV*1.0e6/vm,vm,beq,lossc)
-    if (tau_c_1keV < Tiny) then !L > max(Li)in DW model,replace 0 by strong scattering
-       tau_c_1keV = tau_ss_1keV
-    endif
+        tau_c_1keV = RatefnDW_tau_c(kpx, MLT,L,E_1keV) ! 1keV = 1e-3MeV
+        tau_ss_1keV = RatefnC_tau_s(E_1keV*1.0e6/vm,vm,beq,lossc)
+        if (tau_c_1keV < Tiny) then !L > max(Li)in DW model,replace 0 by strong scattering
+           tau_c_1keV = tau_ss_1keV
+        endif
    
-    ratio_c2s = tau_c_1keV/tau_ss_1keV !ratio between chorus wave model and strong scattering at 1keV
+        ratio_c2s = tau_c_1keV/tau_ss_1keV !ratio between chorus wave model and strong scattering at 1keV
  
-    tau = tau_ss*ratio_c2s !use scaled strong scattering lifetime to ensure smooth transition at 1keV
+        tau = tau_ss*ratio_c2s !use scaled strong scattering lifetime to ensure smooth transition at 1keV
 
     END FUNCTION Ratefn_sub_1keV
 
     FUNCTION Ratefn_sub_1keV_linear (kpx,MLT,L,Ek,vm,beq,lossc,tau_ss) result(tau)
     !Function return electron lifetime in sub-1keV energy range 
 
-    IMPLICIT NONE
-    REAL (rprec), INTENT (IN) :: kpx,MLT,L,Ek,vm,beq,lossc,tau_ss
-    REAL (rprec) :: tau, tau_E_thres_ss, tau_c_1keV !in MeV
-    REAL (rprec) :: E_thres = 0.8e-3, E_1keV = 1.0e-3 !in MeV, strong scattering energy limit 0.8keV, if E < 0.8keV, strong scattering only
+        IMPLICIT NONE
+        REAL (rprec), INTENT (IN) :: kpx,MLT,L,Ek,vm,beq,lossc,tau_ss
+        REAL (rprec) :: tau, tau_E_thres_ss, tau_c_1keV !in MeV
+        REAL (rprec) :: E_thres = 0.8e-3, E_1keV = 1.0e-3 !in MeV, strong scattering energy limit 0.8keV, if E < 0.8keV, strong scattering only
                                   ! if E_thres < E < 1keV, use linear ramping in log10(tau) between E_thres and 1keV
     
-    tau_c_1keV = RatefnDW_tau_c(kpx, MLT,L,E_1keV) ! 1keV = 1e-3MeV
-    if (tau_c_1keV < Tiny) then !L > max(Li)in DW model,replace 0 by strong scattering
-       tau_c_1keV = RatefnC_tau_s(E_1keV*1.0e6/vm,vm,beq,lossc)
-    endif
-    tau_E_thres_ss = RatefnC_tau_s(E_thres*1.0e6/vm,vm,beq,lossc) ! strong scattering lifetime at E_thres
-    if (tau_ss <= tau_c_1keV) then 
-       tau = tau_c_1keV  ! use tau_c_1keV as the lower bound of strong scattering lifetime
-    else ! tau_ss > tau_c_1keV
-      if (Ek < E_thres) then
-         tau = tau_ss
-      else ! E_thres <= Ek < 1keV
-         tau = EXP(log(tau_E_thres_ss)+(Ek-E_thres)*log(tau_c_1keV/tau_E_thres_ss)/(E_1keV-E_thres))  ! linear ramping algorithm
-      endif
-    endif
+        tau_c_1keV = RatefnDW_tau_c(kpx, MLT,L,E_1keV) ! 1keV = 1e-3MeV
+        if (tau_c_1keV < Tiny) then !L > max(Li)in DW model,replace 0 by strong scattering
+           tau_c_1keV = RatefnC_tau_s(E_1keV*1.0e6/vm,vm,beq,lossc)
+        endif
+        tau_E_thres_ss = RatefnC_tau_s(E_thres*1.0e6/vm,vm,beq,lossc) ! strong scattering lifetime at E_thres
+        if (tau_ss <= tau_c_1keV) then 
+           tau = tau_c_1keV  ! use tau_c_1keV as the lower bound of strong scattering lifetime
+        else ! tau_ss > tau_c_1keV
+           if (Ek < E_thres) then
+              tau = tau_ss
+           else ! E_thres <= Ek < 1keV
+              tau = EXP(log(tau_E_thres_ss)+(Ek-E_thres)*log(tau_c_1keV/tau_E_thres_ss)/(E_1keV-E_thres))  ! linear ramping algorithm
+           endif
+        endif
 
     END FUNCTION Ratefn_sub_1keV_linear
 
     FUNCTION Ratefn_tau_TDS(Ekx) result(tau)
     ! linearly interpolate tau from EWMTauInput to Ekx value
-    USE rice_housekeeping_module, ONLY: EWMTauInput
-    IMPLICIT NONE
-    REAL (rprec), INTENT (IN) :: Ekx
-    REAL(rprec) :: taui,tau
-    REAL(rprec) :: dE,wE
-    INTEGER :: eL,eU
+        USE rice_housekeeping_module, ONLY: EWMTauInput
+        IMPLICIT NONE
+        REAL (rprec), INTENT (IN) :: Ekx
+        REAL(rprec) :: taui,tau
+        REAL(rprec) :: dE,wE
+        INTEGER :: eL,eU
      
-    associate(Ne=>EWMTauInput%TDSTauInput%NeTDS,&
-              Eki=>EWMTauInput%TDSTauInput%EkTDSi,&
-              taui=>EWMTauInput%TDSTauInput%tauTDSi)
+        associate(Ne=>EWMTauInput%TDSTauInput%NeTDS,&
+                 Eki=>EWMTauInput%TDSTauInput%EkTDSi,&
+                 taui=>EWMTauInput%TDSTauInput%tauTDSi)
 
-    if (Ekx < minval(Eki)) then
-       tau = taui(1)
-    else if (Ekx > maxval(Eki)) then ! default lifetime is 10^10s ~ 10^3 years.
-       tau = 1.D10 
-    else
-       eL = maxloc(Eki,dim=1,mask=(Eki<Ekx))
-       eU = eL + 1
-       dE = Eki(eU)-Eki(eL)
-       wE = (Ekx-Eki(eL))/dE
-       tau = taui(eL) + wE*(taui(eU)-taui(eL))
-    endif
-    end associate
+        if (Ekx < minval(Eki)) then
+           tau = taui(1)
+        else if (Ekx > maxval(Eki)) then ! default lifetime is 10^10s ~ 10^3 years.
+           tau = 1.D10 
+        else
+           eL = maxloc(Eki,dim=1,mask=(Eki<Ekx))
+           eU = eL + 1
+           dE = Eki(eU)-Eki(eL)
+           wE = (Ekx-Eki(eL))/dE
+           tau = taui(eL) + wE*(taui(eU)-taui(eL))
+        endif
+        end associate
 
     END FUNCTION Ratefn_tau_TDS
 

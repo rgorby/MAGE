@@ -1474,7 +1474,7 @@
 !
 !
 !
-       SUBROUTINE Rcm (itimei_in, itimef_in, nstep_in, icontrol, stropt, nslcopt, iXML)
+      SUBROUTINE Rcm (itimei_in, itimef_in, nstep_in, icontrol, stropt, nslcopt, iXML)
 !---------------------------------------------
 ! notes
 !     icontrol controls behaviour of the RCM
