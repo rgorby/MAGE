@@ -24,7 +24,9 @@ import matplotlib.gridspec as gridspec
 import matplotlib.pyplot as plt
 
 # Import project-specific modules.
+import kaipy.cdaweb_utils as cdaweb_utils
 import kaipy.kaiH5 as kaiH5
+import kaipy.kaiTools as ktools
 import kaipy.remix.remix as remix
 
 
@@ -41,6 +43,9 @@ default_runid = "msphere"
 
 # Plot the last step by default.
 default_step = -1
+
+# Color to use for magnetic footprint positions.
+FOOTPRINT_COLOR = 'red'
 
 
 def create_command_line_parser():
@@ -135,16 +140,20 @@ if __name__ == "__main__":
         for i, tt in enumerate(T):
             print('Step#%06d: ' % sorted(sIds)[i], Time(tt, format='mjd').iso)
         sys.exit(0)
-    else:
-        if nStp == -1:
-            # Take the last step.
-            nStp = sorted(sIds)[-1]
-        if debug:
-            print("nStp = %s" % nStp)
-        foundT = T[nStp]
-        if debug:
-            print("foundT = %s" % foundT)
-        print('Found time:', Time(foundT, format='mjd').iso)
+
+    # Find the time for the specified step.
+    if nStp == -1:
+        # Take the last step.
+        nStp = sorted(sIds)[-1]
+    if debug:
+        print("nStp = %s" % nStp)
+    foundT = T[nStp]
+    if debug:
+        print("foundT = %s" % foundT)
+    print('Found time:', Time(foundT, format='mjd').iso)
+    utS = ktools.MJD2UT(foundT)
+    if debug:
+        print("utS = %s" % utS)
 
     # Create the plots in a memory buffer.
     mpl.use('Agg')
@@ -179,15 +188,16 @@ if __name__ == "__main__":
         )
 
         # Create the individual plots for the current hemisphere.
-        ion.plot('current', gs=gs[0, 0])
-        ion.plot('sigmap', gs=gs[0, 1])
-        ion.plot('sigmah', gs=gs[0, 2])
-        ion.plot('joule', gs=gs[1, 0])
-        ion.plot('energy', gs=gs[1, 1])
+        axs = [None]*6
+        axs[0] = ion.plot('current', gs=gs[0, 0])
+        axs[1] = ion.plot('sigmap', gs=gs[0, 1])
+        axs[2] = ion.plot('sigmah', gs=gs[0, 2])
+        axs[3] = ion.plot('joule', gs=gs[1, 0])
+        axs[4] = ion.plot('energy', gs=gs[1, 1])
         if do_nflux:
-            ion.plot('flux', gs=gs[1, 2])
+            axs[5] = ion.plot('flux', gs=gs[1, 2])
         else:
-            ion.plot('eflux', gs=gs[1, 2])
+            axs[5] = ion.plot('eflux', gs=gs[1, 2])
 
         # If requested, plot the magnetic footprints for the specified
         # spacecraft.
@@ -195,6 +205,29 @@ if __name__ == "__main__":
             for sc in spacecraft:
                 if verbose:
                     print("Overplotting %s magnetic footprint for %s." % (h, sc))
+
+                # Fetch the footprint position for this hemisphere.
+                if h.lower() == 'north':
+                    fp_lat, fp_lon = cdaweb_utils.fetch_satellite_magnetic_northern_footprint_position(
+                        sc, utS
+                    )
+                else:
+                    fp_lat, fp_lon = cdaweb_utils.fetch_satellite_magnetic_southern_footprint_position(
+                        sc, utS
+                    )
+                if debug:
+                    print("fp_lat, fp_lon = %s, %s" % (fp_lat, fp_lon))
+                
+                # Plot a labelled dot at the location of each footprint.
+                # Skip if no footprint position found.
+                if fp_lon is not None:
+                    for ax in axs:
+                        ax.plot(fp_lon, fp_lat, 'o', c=FOOTPRINT_COLOR)
+                        lon_nudge = 2.0
+                        lat_nudge = 2.0
+                        ax.text(fp_lon + lon_nudge, fp_lat + lat_nudge, sc)
+                else:
+                    print("No %s footprint found for spacecraft %s." % (h, sc))
 
         # Save the plot for the current hemisphere to a file.
         if h.lower() == 'north':
