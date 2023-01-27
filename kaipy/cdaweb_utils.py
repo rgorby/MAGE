@@ -228,6 +228,10 @@ def fetch_spacecraft_SM_trajectory(spacecraft, t_start, t_end):
         t_trajectory = data['Epoch_state']
     elif 'Epoch' in data.keys():
         t_trajectory = data['Epoch']
+    elif 'time_tags__C1_CP_FGM_SPIN' in data.keys():
+        t_trajectory = data['time_tags__C1_CP_FGM_SPIN']
+    else:
+        raise TypeError("Unexpected time variable!")
     # </HACK>
 
     # The ephemeris is in Cartesian coordinates in an arbitrary frame.
