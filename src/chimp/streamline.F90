@@ -3,7 +3,8 @@ module streamline
     use ebtypes
     use math
     use ebinterp
-    use earthhelper
+    !use earthhelper
+    use planethelper
     use streamutils
     use imaghelper
 
