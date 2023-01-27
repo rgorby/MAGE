@@ -2,8 +2,6 @@ import h5py
 import numpy as np
 import os, sys, subprocess
 import kaipy.kdefs as kdefs
-import os, sys, subprocess
-import kaipy.kdefs as kdefs
 
 #Generate MPI-style name
 def genName(bStr,i,j,k,Ri,Rj,Rk,nRes=None):
