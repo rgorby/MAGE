@@ -24,11 +24,13 @@ import matplotlib.pyplot as plt
 import numpy as np
 
 # Import project-specific modules.
+import kaipy.cdaweb_utils as cdaweb_utils
 import kaipy.gamera.gampp as gampp
 import kaipy.gamera.rcmpp as rcmpp
 import kaipy.kaiH5 as kh5
 import kaipy.kaiTools as ktools
 import kaipy.kaiViz as kv
+import kaipy.kdefs as kdefs
 
 
 # Program constants and defaults
@@ -108,6 +110,10 @@ def create_command_line_parser():
         help="Time slice to plot (default: %(default)s)"
     )
     parser.add_argument(
+        "--spacecraft", type=str, metavar="spacecraft", default=None,
+        help="Names of spacecraft to plot trajectories, separated by commas (default: %(default)s)"
+    )
+    parser.add_argument(
         '-tbnc', action='store_true', default=False,
         help="Show Tb instead of FTE (default: %(default)s)"
     )
@@ -144,6 +150,7 @@ if __name__ == "__main__":
     ftag = args.id + ".mhdrcm"
     doT   = args.kt
     nStp = args.n
+    spacecraft = args.spacecraft
     doTb   = args.tbnc
     verbose = args.verbose
     doVol = args.vol
@@ -310,9 +317,55 @@ if __name__ == "__main__":
     utS = ktools.MJD2UT([MJD])
     if debug:
         print("utS = %s" % utS)
-    utDT= utS[0]
+    utDT = utS[0]
     if debug:
         print("utDT = %s" % utDT)
+
+    # Fetch the start date.
+    MJD = kh5.tStep(fStr, 0, aID="MJD")
+    if debug:
+        print("MJD = %s" % MJD)
+    utS = ktools.MJD2UT([MJD])
+    if debug:
+        print("utS = %s" % utS)
+    ut0 = utS[0]
+    if debug:
+        print("ut0 = %s" % ut0)
+
+    # If needed, fetch the trajectory of each spacecraft from CDAWeb.
+    sc_X = []
+    sc_Y = []
+    sc_Z = []
+    if spacecraft:
+        spacecrafts = spacecraft.split(',')
+        for (i_sc, sc) in enumerate(spacecrafts):
+            if debug:
+                print("i_sc, sc = %s, %s" % (i_sc, sc))
+
+            # Fetch the spacecraft trajectory in Solar Magnetic (SM)
+            # Cartesian coordinates between the start and end times.
+            sc_x, sc_y, sc_z = cdaweb_utils.fetch_spacecraft_SM_trajectory(
+                sc, ut0, utDT
+            )
+            if debug:
+                print("sc_x, sc_y, sc_z = %s, %s, %s" % (sc_x, sc_y, sc_z))
+            sc_X.append(sc_x)
+            sc_Y.append(sc_y)
+            sc_Z.append(sc_z)
+
+            # Skip if no trajectory found.
+            if sc_x is None:
+                print("No trajectory found for spacecraft %s." % sc)
+                continue
+
+            # Convert coordinates to units of Earth radius.
+            CM_TO_KM = 1e-5  # Centimeters to kilometers
+            Re_km = kdefs.Re_cgs*CM_TO_KM  # Earth radius in kilometers
+            sc_X[-1] = sc_x/Re_km
+            sc_Y[-1] = sc_y/Re_km
+            sc_Z[-1] = sc_z/Re_km
+            if debug:
+                print("sc_X, sc_Y, sc_Z = %s, %s, %s" % (sc_X, sc_Y, sc_Z))
 
     # Assemble the left-hand plot.
     AxL.set_title("RCM Pressure")
@@ -377,6 +430,47 @@ if __name__ == "__main__":
     AxR.plot(bmX.T, bmY.T, color=eCol, linewidth=eLW)
     kv.addEarth2D(ax=AxR)
     kv.SetAx(xyBds, AxR)
+
+    # Overlay spacecraft trajectories if requested.
+    if spacecraft:
+        spacecrafts = spacecraft.split(',')
+        for (i_sc, sc) in enumerate(spacecrafts):
+            if debug:
+                print("i_sc, sc = %s, %s" % (i_sc, sc))
+
+            # Skip this spacecraft if no trajectory is available.
+            if sc_X[i_sc] is None:
+                continue
+
+            # Plot a labelled trajectory of the spacecraft. Also plot a larger
+            # dot at the last point in the trajectory.
+
+            # NOTE: Need to add a filter to not plot spacecraft positions
+            # outside of the plot limits. Many X values are > +10, which puts
+            # them off the right side of the plots.
+
+            # Left plot
+            SPACECRAFT_COLORS = list(mpl.colors.TABLEAU_COLORS.keys())
+            color = SPACECRAFT_COLORS[i_sc % len(SPACECRAFT_COLORS)]
+            AxL.plot(sc_X[i_sc], sc_Y[i_sc], marker=None, linewidth=1, c=color)
+            AxL.plot(sc_X[i_sc][-1], sc_Y[i_sc][-1], 'o', c=color)
+            x_nudge = 1.0
+            y_nudge = 1.0
+            AxL.text(sc_X[i_sc][-1] + x_nudge, sc_Y[i_sc][-1] + y_nudge, sc, c=color)
+
+            # Middle plot
+            AxM.plot(sc_X[i_sc], sc_Y[i_sc], marker=None, linewidth=1, c=color)
+            AxM.plot(sc_X[i_sc][-1], sc_Y[i_sc][-1], 'o', c=color)
+            x_nudge = 1.0
+            y_nudge = 1.0
+            AxM.text(sc_X[i_sc][-1] + x_nudge, sc_Y[i_sc][-1] + y_nudge, sc, c=color)
+
+            # Right plot
+            AxR.plot(sc_X[i_sc], sc_Y[i_sc], marker=None, linewidth=1, c=color)
+            AxR.plot(sc_X[i_sc][-1], sc_Y[i_sc][-1], 'o', c=color)
+            x_nudge = 1.0
+            y_nudge = 1.0
+            AxR.text(sc_X[i_sc][-1] + x_nudge, sc_Y[i_sc][-1] + y_nudge, sc, c=color)
 
     # Create the title for the complete figure.
     tStr = "\n\n\n" + utDT.strftime("%m/%d/%Y, %H:%M:%S")
