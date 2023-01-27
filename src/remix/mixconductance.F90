@@ -1,7 +1,7 @@
 module mixconductance
   use mixdefs
   use mixtypes
-  use earthhelper
+  use planethelper
   use gcmtypes
   use gcminterp
   use math

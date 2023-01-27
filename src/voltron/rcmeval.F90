@@ -3,7 +3,7 @@ module rcmeval
     use volttypes
     use rcm_mhd_interfaces
     use rcmdefs, only : DenPP0
-    use earthhelper
+    use planethelper
     use gdefs, only : dFloor,pFloor
 
     implicit none
