@@ -156,9 +156,9 @@ module usergamic
             bounds(1) = 1
             bounds(2) = Model%Ng
             bounds(3) = Grid%js
-            bounds(4) = Grid%je + 1
+            bounds(4) = Grid%je
             bounds(5) = Grid%ks
-            bounds(6) = Grid%ke + 1
+            bounds(6) = Grid%ke
             call getIDeckStr(inpXMLStr)
             inpXMLCME = New_XML_Input(trim(inpXMLStr),'Kaiju/CME',.true.)
             call inpXMLCME%Set_Val(Model%cmeModel,"sim/model","GL") 
@@ -179,7 +179,7 @@ module usergamic
                                 type is(glState_T)
                                     select type (cccmeModel)
                                         type is(glModel_T)
-                                            call initGLInterface(Grid%xyzcc(Grid%isg:Grid%is-1, Grid%js:Grid%je + 1, Grid%ks:Grid%ke + 1, :),cccmeModel, cccmeState, ccCMESolution, inpXMLCME, bounds)
+                                            call initGLInterface(Grid%xyzcc(Grid%isg:Grid%is-1, Grid%js:Grid%je, Grid%ks:Grid%ke, :),cccmeModel, cccmeState, ccCMESolution, inpXMLCME, bounds)
                                             emergence_times = calcEmergenceTimes(cccmeModel,cccmeState, Model%Units%gT0)
                                             emerge_lastP = maxval(emergence_times)
                                     end select
@@ -191,7 +191,7 @@ module usergamic
                                 type is(glState_T)
                                     select type (jfcmeModel)
                                         type is(glModel_T)
-                                        call initGLInterface(Grid%xfc(Grid%isg:Grid%is-1, Grid%js:Grid%je + 1, Grid%ks:Grid%ke + 1, :, JDIR), jfcmeModel, jfcmeState, jfCMESolution, inpXMLCME, bounds)
+                                        call initGLInterface(Grid%xfc(Grid%isg:Grid%is-1, Grid%js:Grid%je, Grid%ks:Grid%ke, :, JDIR), jfcmeModel, jfcmeState, jfCMESolution, inpXMLCME, bounds)
                                     end select
                             end select
                     end select
@@ -201,7 +201,7 @@ module usergamic
                                 type is(glState_T)
                                     select type (kfcmeModel)
                                         type is(glModel_T)
-                                        call initGLInterface(Grid%xfc(Grid%isg:Grid%is-1, Grid%js:Grid%je + 1, Grid%ks:Grid%ke + 1, :, KDIR), kfcmeModel, kfcmeState, kfCMESolution, inpXMLCME, bounds)
+                                        call initGLInterface(Grid%xfc(Grid%isg:Grid%is-1, Grid%js:Grid%je, Grid%ks:Grid%ke, :, KDIR), kfcmeModel, kfcmeState, kfCMESolution, inpXMLCME, bounds)
                                     end select
                             end select
                     end select            
@@ -265,12 +265,13 @@ module usergamic
                  ibcVarsStatic = 1._rp
 
                  if ( (jg>=Grid%js).and.(jg<=size(ibcVars,2)) ) then
-                 ! interpolate BRIN linearly from rotating to inertial frame
-                    ibcVarsStatic = a*ibcVars(Model%Ng,jg,kb,BRIN)+(1-a)*ibcVars(Model%Ng,jg,ke,BRIN)
+                     ! interpolate BRIN linearly from rotating to inertial frame
+                     ibcVarsStatic = a*ibcVars(Model%Ng,jg,kb,BRIN)+(1-a)*ibcVars(Model%Ng,jg,ke,BRIN)
                  endif
 
                  ! FIXME: calc Rbc appropriately above!
                  Rfactor = Rbc/norm2(Grid%xfc(Grid%is,j,k,:,IDIR))
+                 !write(*,*) shape(Grid%xfc)
                  ! note scaling br to the first active face
                  ! this is opposite to what we did on the python side
                  ! not elegant, but otherwise we'd have to store both br and br_iface in teh innerbc.h5 file
@@ -347,9 +348,9 @@ module usergamic
       real(rp) :: ibcVarsStatic(NVARSIN)
 
       !including ghost cells in k
-      real(rp) :: ccCMEVars(Model%Ng, Grid%js:Grid%je + 1, Grid%ksg:Grid%keg + 1, NCMEVARS)
-      real(rp) :: jfCMEVars(Model%Ng, Grid%js:Grid%je + 1, Grid%ksg:Grid%keg + 1, NCMEVARS)  ! j-face
-      real(rp) :: kfCMEVars(Model%Ng, Grid%js:Grid%je + 1, Grid%ksg:Grid%keg + 1, NCMEVARS)  ! k-face
+      real(rp) :: ccCMEVars(Model%Ng, Grid%js:Grid%je, Grid%ks:Grid%ke, NCMEVARS)
+      real(rp) :: jfCMEVars(Model%Ng, Grid%js:Grid%je, Grid%ks:Grid%ke, NCMEVARS)  ! j-face
+      real(rp) :: kfCMEVars(Model%Ng, Grid%js:Grid%je, Grid%ks:Grid%ke, NCMEVARS)  ! k-face
 
       real(rp) :: ccCMEVarsStatic(NCMEVARS)
       real(rp) :: jfCMEVarsStatic(NCMEVARS)
@@ -376,9 +377,9 @@ module usergamic
                 jfcmeModel%longitude = dphi
                 kfcmeModel%longitude = dphi
                 ! Update model grid based on the above longitude update
-                call cccmeState%updateGrid(Grid%xyzcc(Grid%isg:Grid%is-1, Grid%js:Grid%je + 1, Grid%ks:Grid%ke + 1, :), cccmeModel)
-                call jfcmeState%updateGrid(Grid%xfc(Grid%isg:Grid%is-1, Grid%js:Grid%je + 1, Grid%ks:Grid%ke + 1, :, JDIR), jfcmeModel)
-                call kfcmeState%updateGrid(Grid%xfc(Grid%isg:Grid%is-1, Grid%js:Grid%je + 1, Grid%ks:Grid%ke + 1, :, KDIR), kfcmeModel)                               
+                call cccmeState%updateGrid(Grid%xyzcc(Grid%isg:Grid%is-1, Grid%js:Grid%je, Grid%ks:Grid%ke, :), cccmeModel)
+                call jfcmeState%updateGrid(Grid%xfc(Grid%isg:Grid%is-1, Grid%js:Grid%je, Grid%ks:Grid%ke, :, JDIR), jfcmeModel)
+                call kfcmeState%updateGrid(Grid%xfc(Grid%isg:Grid%is-1, Grid%js:Grid%je, Grid%ks:Grid%ke, :, KDIR), kfcmeModel)                               
             end if
             cccmeModel%time = (Model%t - cccmeModel%Tstart_transient/Model%Units%gT0)*Model%Units%gT0
             if (cccmeModel%isDebug) then
@@ -395,18 +396,18 @@ module usergamic
             kfcmeModel%time = (Model%t - kfcmeModel%Tstart_transient/Model%Units%gT0)*Model%Units%gT0
             call kfCMESolution%generateSolution(kfCMESolution, kfcmeModel, kfcmeState)
             if (cccmeModel%isDebug) then
-            write(*,"(1X,A14,2X,3F)") "Max Vr: ", maxval(ccCMESolution%v(:,:,:,XDIR)), maxval(jfCMESolution%v(:,:,:,XDIR)), maxval(kfCMESolution%v(:,:,:,XDIR))
-            write(*,"(1X,A14,2X,3F)") "Max Br: ", maxval(ccCMESolution%b(:,:,:,XDIR)), maxval(jfCMESolution%b(:,:,:,XDIR)), maxval(kfCMESolution%b(:,:,:,XDIR))
+                write(*,"(1X,A14,2X,3F)") "Max Vr: ", maxval(ccCMESolution%v(:,:,:,XDIR)), maxval(jfCMESolution%v(:,:,:,XDIR)), maxval(kfCMESolution%v(:,:,:,XDIR))
+                write(*,"(1X,A14,2X,3F)") "Max Br: ", maxval(ccCMESolution%b(:,:,:,XDIR)), maxval(jfCMESolution%b(:,:,:,XDIR)), maxval(kfCMESolution%b(:,:,:,XDIR))
             end if
-            ccCMEVars(:, :, Grid%ks:Grid%ke + 1, CMEBR:CMEBP) = ccCMESolution%b
-            ccCMEVars(:, :, Grid%ks:Grid%ke + 1, CMEVR) = ccCMESolution%v(:, :, :, XDIR)
-            ccCMEVars(:, :, Grid%ks:Grid%ke + 1, CMEMASK) = ccCMESolution%inside_mask
-            jfCMEVars(:, :, Grid%ks:Grid%ke + 1, CMEBR:CMEBP) = jfCMESolution%b
-            jfCMEVars(:, :, Grid%ks:Grid%ke + 1, CMEVR) = jfCMESolution%v(:, :, :, XDIR)
-            jfCMEVars(:, :, Grid%ks:Grid%ke + 1, CMEMASK) = jfCMESolution%inside_mask
-            kfCMEVars(:, :, Grid%ks:Grid%ke + 1, CMEBR:CMEBP) = kfCMESolution%b
-            kfCMEVars(:, :, Grid%ks:Grid%ke + 1, CMEVR) = kfCMESolution%v(:, :, :, XDIR)
-            kfCMEVars(:, :, Grid%ks:Grid%ke + 1, CMEMASK) = kfCMESolution%inside_mask
+            ccCMEVars(:, :, :, CMEBR:CMEBP) = ccCMESolution%b
+            ccCMEVars(:, :, :, CMEVR) = ccCMESolution%v(:, :, :, XDIR)
+            ccCMEVars(:, :, :, CMEMASK) = ccCMESolution%inside_mask
+            jfCMEVars(:, :, :, CMEBR:CMEBP) = jfCMESolution%b
+            jfCMEVars(:, :, :, CMEVR) = jfCMESolution%v(:, :, :, XDIR)
+            jfCMEVars(:, :, :, CMEMASK) = jfCMESolution%inside_mask
+            kfCMEVars(:, :, :, CMEBR:CMEBP) = kfCMESolution%b
+            kfCMEVars(:, :, :, CMEVR) = kfCMESolution%v(:, :, :, XDIR)
+            kfCMEVars(:, :, :, CMEMASK) = kfCMESolution%inside_mask
       end if
 
       !i-boundaries (IN)
@@ -430,7 +431,7 @@ module usergamic
                 ! set everything arbitrarily to 1. in the global corners (on low and high j boundaries)
                 ! we then apply the j-boundary after i boundary anyway, so the corners will be overwritten
                 ibcVarsStatic = 1._rp  
-                 ! otherwise
+                ! otherwise
                 ! interpolate linearly from rotating to inertial frame 
                 if ((jg>=Grid%js) .and. (jg<=size(ibcVars,2))) then
                     do var=1,NVARSIN
@@ -441,33 +442,35 @@ module usergamic
                 ! Set CME local values
                 if(Model%doCME .and. (Model%t >= cccmeModel%Tstart_transient/Model%Units%gT0)) then
                     !filling ghost cells in k with for CME Solution
-                    if (k .gt. Grid%ke) then
-                        knew = modulo(k, Grid%ke)
-                        ccCMEVars(ig, j, k, CMEBR:CMEBP) = ccCMESolution%b(ig, j, knew, :)
-                        ccCMEVars(ig, j, k, CMEVR) = ccCMESolution%v(ig, j, knew, XDIR)
-                        ccCMEVars(ig, j, k, CMEMASK) = ccCMESolution%inside_mask(ig, j, knew)
-                        jfCMEVars(ig, j, k, CMEBR:CMEBP) = jfCMESolution%b(ig, j, knew, :)
-                        jfCMEVars(ig, j, k, CMEVR) = jfCMESolution%v(ig, j, knew, XDIR)
-                        jfCMEVars(ig, j, k, CMEMASK) = jfCMESolution%inside_mask(ig, j, knew)
-                        kfCMEVars(ig, j, k, CMEBR:CMEBP) = kfCMESolution%b(ig, j, knew, :)
-                        kfCMEVars(ig, j, k, CMEVR) = kfCMESolution%v(ig, j, knew, 1)
-                        kfCMEVars(ig, j, k, CMEMASK) = kfCMESolution%inside_mask(ig, j, knew)
+                    !if (k .gt. Grid%ke) then
+                    !    knew = modulo(k, Grid%ke)
+                    !    ccCMEVars(ig, j, k, CMEBR:CMEBP) = ccCMESolution%b(ig, j, knew, :)
+                    !    ccCMEVars(ig, j, k, CMEVR) = ccCMESolution%v(ig, j, knew, XDIR)
+                    !    ccCMEVars(ig, j, k, CMEMASK) = ccCMESolution%inside_mask(ig, j, knew)
+                    !    jfCMEVars(ig, j, k, CMEBR:CMEBP) = jfCMESolution%b(ig, j, knew, :)
+                    !    jfCMEVars(ig, j, k, CMEVR) = jfCMESolution%v(ig, j, knew, XDIR)
+                    !    jfCMEVars(ig, j, k, CMEMASK) = jfCMESolution%inside_mask(ig, j, knew)
+                    !    kfCMEVars(ig, j, k, CMEBR:CMEBP) = kfCMESolution%b(ig, j, knew, :)
+                    !    kfCMEVars(ig, j, k, CMEVR) = kfCMESolution%v(ig, j, knew, 1)
+                    !    kfCMEVars(ig, j, k, CMEMASK) = kfCMESolution%inside_mask(ig, j, knew)
+                    !end if
+                    !if (k .lt. Grid%ks) then
+                    !    knew = Grid%ke + k
+                    !    ccCMEVars(ig, j, k, CMEBR:CMEBP) = ccCMESolution%b(ig, j, knew, :)
+                    !    ccCMEVars(ig, j, k, CMEVR) = ccCMESolution%v(ig, j, knew, XDIR)
+                    !    ccCMEVars(ig, j, k, CMEMASK) = ccCMESolution%inside_mask(ig, j, knew)
+                    !    jfCMEVars(ig, j, k, CMEBR:CMEBP) = jfCMESolution%b(ig, j, knew, :)
+                    !    jfCMEVars(ig, j, k, CMEVR) = jfCMESolution%v(ig, j, knew, XDIR)
+                    !    jfCMEVars(ig, j, k, CMEMASK) = jfCMESolution%inside_mask(ig, j, knew)
+                    !    kfCMEVars(ig, j, k, CMEBR:CMEBP) = kfCMESolution%b(ig, j, knew, :)
+                    !    kfCMEVars(ig, j, k, CMEVR) = kfCMESolution%v(ig, j, knew, XDIR)
+                    !    kfCMEVars(ig, j, k, CMEMASK) = kfCMESolution%inside_mask(ig, j, knew)
+                    !end if
+                    if ((j<=Grid%je) .and. (k>=Grid%ks) .and. (k<=Grid%ke)) then
+	                cccmeVarsStatic = ccCMEVars(ig, j, k, :)
+                        jfcmeVarsStatic = jfCMEVars(ig, j, k, :)
+                        kfcmeVarsStatic = kfCMEVars(ig, j, k, :)
                     end if
-                    if (k .lt. Grid%ks) then
-                        knew = Grid%ke + k
-                        ccCMEVars(ig, j, k, CMEBR:CMEBP) = ccCMESolution%b(ig, j, knew, :)
-                        ccCMEVars(ig, j, k, CMEVR) = ccCMESolution%v(ig, j, knew, XDIR)
-                        ccCMEVars(ig, j, k, CMEMASK) = ccCMESolution%inside_mask(ig, j, knew)
-                        jfCMEVars(ig, j, k, CMEBR:CMEBP) = jfCMESolution%b(ig, j, knew, :)
-                        jfCMEVars(ig, j, k, CMEVR) = jfCMESolution%v(ig, j, knew, XDIR)
-                        jfCMEVars(ig, j, k, CMEMASK) = jfCMESolution%inside_mask(ig, j, knew)
-                        kfCMEVars(ig, j, k, CMEBR:CMEBP) = kfCMESolution%b(ig, j, knew, :)
-                        kfCMEVars(ig, j, k, CMEVR) = kfCMESolution%v(ig, j, knew, XDIR)
-                        kfCMEVars(ig, j, k, CMEMASK) = kfCMESolution%inside_mask(ig, j, knew)
-                    end if
-                    cccmeVarsStatic = ccCMEVars(ig, j, k, :)
-                    jfcmeVarsStatic = jfCMEVars(ig, j, k, :)
-                    kfcmeVarsStatic = kfCMEVars(ig, j, k, :)
                 end if
                 
                 ! do cell centered things for cell-centers only
@@ -497,8 +500,8 @@ module usergamic
                                             (Model%t - emerge_lastP)/(3600./Model%Units%gt0)*(ibcVarsStatic(RHOIN) - Den_CME/Model%Units%gD0)
                             pVar(PRESSURE)  = Pres_CME + &
                                                 (Model%t - emerge_lastP)/(3600./Model%Units%gt0)*(ibcVarsStatic(RHOIN)*Model%Units%gD0*Kbltz*ibcVarsStatic(TIN)/(Model%Units%gP0) - Pres_CME)
-                            !pVar(VELX:VELZ) = rHat*max(ccCMEVarsStatic(CMEVR)/(1.d-5*Model%Units%gv0), ibcVarsStatic(VRIN))
-                            pVar(VELX:VELZ) = rHat*ccCMEVarsStatic(CMEVR)/(1.d-5*Model%Units%gv0)
+                            pVar(VELX:VELZ) = rHat*max(ccCMEVarsStatic(CMEVR)/(1.d-5*Model%Units%gv0), ibcVarsStatic(VRIN))
+                            !pVar(VELX:VELZ) = rHat*ccCMEVarsStatic(CMEVR)/(1.d-5*Model%Units%gv0)
                         else ! when Model%t is larger than t_smooth use WSA
                             if(cccmeModel%isDebug) write(*,"(1X,A14,2X,2F)") "Time is greater then t_smooth: ", Model%t, t_smooth
 			                pVar(DEN) = ibcVarsStatic(RHOIN)
@@ -510,7 +513,7 @@ module usergamic
                     else if (Model%doCME .and. (Model%t >= cccmeModel%Tstart_transient/Model%Units%gT0)) then !outside the bubble mask is 0
                         pVar(DEN) = ibcVarsStatic(RHOIN)
                         pVar(PRESSURE) = ibcVarsStatic(RHOIN)*Model%Units%gD0*Kbltz*ibcVarsStatic(TIN)/(Model%Units%gP0)
-                        pVar(VELX:VELZ) = rHat*max(ccCMEVarsStatic(CMEVR)/(1.d-5*Model%Units%gv0), ibcVarsStatic(VRIN))
+                        pVar(VELX:VELZ) = rhat*ibcVarsStatic(VRIN)
                         !pVar(VELX:VELZ) = rHat*ccCMEVarsStatic(CMEVR)/(1.d-5*Model%Units%gv0)
                     else !Spin-up wind
                         !Set primitives
@@ -587,8 +590,8 @@ module usergamic
       type(State_T), intent(inout) :: State
 
       ! see example of how to do this in voltron/ICs/earthcmi.F90
-       !Grid%externalBCs(1)%p
-!      State%Efld(Gr%is  ,:,:,JDIR:KDIR) = inEijk(1,:,:,JDIR:KDIR)*Gr%edge(Gr%is  ,:,:,JDIR:KDIR)
+      ! Grid%externalBCs(1)%p
+      ! State%Efld(Gr%is  ,:,:,JDIR:KDIR) = inEijk(1,:,:,JDIR:KDIR)*Gr%edge(Gr%is  ,:,:,JDIR:KDIR)
 
 
     end subroutine eFix
@@ -667,9 +670,9 @@ module usergamic
         integer :: i, j, k, ig, jg, kg
         character(len=strLen) :: swmodel
 
-        !write(*,"(1x,A16,2x,3I)") "innerbc dims: ", Model%Ng, Grid%Njp*Grid%NumRj, Grid%Nkp*Grid%NumRk
-        write(*,"(1x,A16,2x,6I)") "innerbc dims: ", Grid%isg, Grid%is-1, Grid%js, Grid%je + 1, Grid%ks, Grid%ke + 1
-        if (.not. allocated(ibcVars)) allocate (ibcVars(Model%Ng, Grid%js:Grid%je + 1, Grid%ks:Grid%ke + 1, NVARSIN))
+        write(*,"(1x,A16,2x,3I)") "innerbc dims: ", Model%Ng, Grid%Njp*Grid%NumRj, Grid%Nkp*Grid%NumRk
+        !write(*,"(1x,A16,2x,6I)") "innerbc dims: ", Grid%isg, Grid%is-1, Grid%js, Grid%je + 1, Grid%ks, Grid%ke + 1
+        if (.not. allocated(ibcVars)) allocate (ibcVars(Model%Ng, Grid%Njp*Grid%NumRj, Grid%Nkp*Grid%NumRk, NVARSIN))
         allocate (R_gc(Grid%isg:Grid%is - 1))
         ibcVars = 0.0
         call inpXML%Set_Val(helioVarsIn(TIN), "helio/tin", 3.d5 )
@@ -689,10 +692,10 @@ module usergamic
         write(*,"(1x,A14,4F)") "Rgc: ", R_gc
 
         ! ibcVars(1:4, ....)
-        do k = Grid%ks, Grid%ke + 1
-            !kg = k+Grid%ijkShift(KDIR)
-            do j = Grid%js, Grid%je + 1
-                !jg = j+Grid%ijkShift(JDIR)
+        do kg = 1, Grid%Nkp*Grid%NumRk
+            k = modulo(kg, Grid%Nkp)
+            do jg = 1, Grid%Njp*Grid%NumRj
+                j = modulo(jg, Grid%Njp)
                 do ig = 1, Model%Ng
                     i = ig - Model%Ng
 
@@ -703,20 +706,20 @@ module usergamic
                     ratio_sq = R_gc(Grid%is-1)*R_gc(Grid%is-1)/R_gc(i)/R_gc(i)
 
                     if( swmodel == "dipole") then
-                        ibcVars(ig, j, k, BRIN) = helioVarsIn(BRIN)/Model%Units%gB0*ratio_sq*cos(Theta)/abs(cos(Theta))
-                        ibcVars(ig, j, k, BRKFIN) = helioVarsIn(BRKFIN)/Model%Units%gB0*ratio_sq*cos(Theta)/abs(cos(Theta))
-                        ibcVars(ig, j, k, RHOIN) = helioVarsIn(RHOIN)/Model%Units%gD0*ratio_sq
+                        ibcVars(ig, jg, kg, BRIN) = helioVarsIn(BRIN)/Model%Units%gB0*ratio_sq*cos(Theta)/abs(cos(Theta))
+                        ibcVars(ig, jg, kg, BRKFIN) = helioVarsIn(BRKFIN)/Model%Units%gB0*ratio_sq*cos(Theta)/abs(cos(Theta))
+                        ibcVars(ig, jg, kg, RHOIN) = helioVarsIn(RHOIN)/Model%Units%gD0*ratio_sq
                     elseif ( swmodel == "monopole") then                    
-                        ibcVars(ig, j, k, BRIN) = helioVarsIn(BRIN)/Model%Units%gB0*ratio_sq
-                        ibcVars(ig, j, k, BRKFIN) = helioVarsIn(BRKFIN)/Model%Units%gB0*ratio_sq
-                        ibcVars(ig, j, k, RHOIN) = helioVarsIn(RHOIN)/Model%Units%gD0*ratio_sq
+                        ibcVars(ig, jg, kg, BRIN) = helioVarsIn(BRIN)/Model%Units%gB0*ratio_sq
+                        ibcVars(ig, jg, kg, BRKFIN) = helioVarsIn(BRKFIN)/Model%Units%gB0*ratio_sq
+                        ibcVars(ig, jg, kg, RHOIN) = helioVarsIn(RHOIN)/Model%Units%gD0*ratio_sq
                     else 
                         write(*,*) "Please specify a valid solar wind model, stoppin..."
                         stop
                     end if
-                    ibcVars(ig, j, k, VRIN) = helioVarsIn(VRIN)/(1.d-5*Model%Units%gv0)
-                    ibcVars(ig, j, k, VRKFIN) = helioVarsIn(VRKFIN)/(1.d-5*Model%Units%gv0)
-                    ibcVars(ig, j, k, TIN) = helioVarsIn(TIN)
+                    ibcVars(ig, jg, kg, VRIN) = helioVarsIn(VRIN)/(1.d-5*Model%Units%gv0)
+                    ibcVars(ig, jg, kg, VRKFIN) = helioVarsIn(VRKFIN)/(1.d-5*Model%Units%gv0)
+                    ibcVars(ig, jg, kg, TIN) = helioVarsIn(TIN)
                 end do
             end do
         end do
