@@ -2,6 +2,8 @@ import h5py
 import numpy as np
 import os, sys, subprocess
 import kaipy.kdefs as kdefs
+import os, sys, subprocess
+import kaipy.kdefs as kdefs
 
 #Generate MPI-style name
 def genName(bStr,i,j,k,Ri,Rj,Rk,nRes=None):
@@ -45,7 +47,7 @@ def StampHash(fname):
 			gh = subprocess.check_output(['git', '-C', cwd, 'rev-parse', 'HEAD']).decode('ascii').strip()
 		except:
 			print("ERROR: Couldn't grab git hash")
-			return
+			gh = "XXXXX"
 		f5.attrs['GITHASH'] = gh
 
 # Stamp file with git branch (using this script's location)
@@ -56,7 +58,7 @@ def StampBranch(fname):
 			gb = subprocess.check_output(['git', '-C', cwd, 'rev-parse', '--abbrev-ref', 'HEAD']).decode('ascii').strip()
 		except:
 			print("ERROR: Couldn't grab git branch")
-			return
+			gb = "XXXXX"
 		f5.attrs['GITBRANCH'] = gb
 
 #Get git hash from file if it exists

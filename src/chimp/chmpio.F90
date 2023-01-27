@@ -179,7 +179,7 @@ module chmpio
         write (*, '(a,a,a,a,a)') ANSIGREEN, '<Writing HDF5 RESTART @ t = ', trim(oStr), ' >', ANSIRESET
 
 
-        call writeTPRes(Model,ebState,tpState,ResF)
+        call writeTPres(Model,ebState,tpState,ResF)
 
         !Setup for next restart
         Model%IO%tRes = Model%IO%tRes + Model%IO%dtRes
