@@ -14,7 +14,7 @@ import json
 
 #### NEED TO POINT TO SUPERMAG API SCRIPT
 #### /glade/p/hao/msphere/gamshare/supermag/supermag_api.py 
-import supermag_api as smapi
+import kaipy.supermag_api as smapi
 ####
 
 # this warning is very annoying
