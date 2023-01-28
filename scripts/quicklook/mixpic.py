@@ -22,6 +22,7 @@ from astropy.time import Time
 import matplotlib as mpl
 import matplotlib.gridspec as gridspec
 import matplotlib.pyplot as plt
+import numpy as np
 
 # Import project-specific modules.
 import kaipy.cdaweb_utils as cdaweb_utils
@@ -162,7 +163,7 @@ if __name__ == "__main__":
     mpl.rc('mathtext', fontset='stixsans', default='regular')
     mpl.rc('font', size=10)
 
-    # Initialize the remix class
+    # Read the data into the remix object.
     ion = remix.remix(remixFile, nStp)
     if debug:
         print("ion = %s" % ion)
@@ -217,17 +218,36 @@ if __name__ == "__main__":
                     )
                 if debug:
                     print("fp_lat, fp_lon = %s, %s" % (fp_lat, fp_lon))
-                
+
+                # Skip if no footprint found.
+                if fp_lat is None:
+                    print("No %s footprint found for spacecraft %s." % (h, sc))
+                    continue
+
+                # The footprint locations are in geographic (GEO) coordinates.
+                # They must be converted to Solar Magnetic (SM) coordinates
+                # for plotting.
+
+                # Convert the footprint position to the coordinate system used
+                # by these plots, which show contours at the surface of the
+                # ionosphere, about 122 km above the surface ofn the Earth.
+                # Note that this adjustment assumes the field lines impinging
+                # on the magnetic footprint descend vertically at the
+                # footprint point, which is not technically accurate.
+                fp_lat_rad = np.radians(fp_lat)
+                fp_lon_rad = np.radians(fp_lon)
+                fp_x = np.cos(fp_lat_rad)*np.cos(fp_lon_rad)
+                fp_y = np.cos(fp_lat_rad)*np.sin(fp_lon_rad)
+                fp_theta = np.arctan2(fp_y, fp_x)  # [-pi, pi]
+                fp_r = np.sqrt(fp_x**2 + fp_y**2)
+
                 # Plot a labelled dot at the location of each footprint.
                 # Skip if no footprint position found.
-                if fp_lon is not None:
-                    for ax in axs:
-                        ax.plot(fp_lon, fp_lat, 'o', c=FOOTPRINT_COLOR)
-                        lon_nudge = 2.0
-                        lat_nudge = 2.0
-                        ax.text(fp_lon + lon_nudge, fp_lat + lat_nudge, sc)
-                else:
-                    print("No %s footprint found for spacecraft %s." % (h, sc))
+                for ax in axs:
+                    ax.plot(fp_theta, fp_r, 'o', c=FOOTPRINT_COLOR)
+                    theta_nudge = 0.0
+                    r_nudge = 0.0
+                    ax.text(fp_theta + theta_nudge, fp_r + r_nudge, sc)
 
         # Save the plot for the current hemisphere to a file.
         if h.lower() == 'north':
