@@ -90,7 +90,8 @@ if __name__ == "__main__":
 				for k in range(Rk):
 					nMPI = j + i*Rj + k*Ri*Rj
 					h5F = kh5.genName(ftag,i,j,k,Ri,Rj,Rk)
-
+					h5F = os.path.join(fdir, h5F)
+					
 					#Get variable info
 					gDims = np.array([gamData.dNk+1,gamData.dNj+1,gamData.dNi+1])
 					vDims = np.array([gamData.dNk,gamData.dNj,gamData.dNi])
