@@ -127,4 +127,219 @@ module planethelper
         write(*,*) "-------------"
     end subroutine
 
+
+! Helpful thermo conversion functions
+
+    !Turn pressure [nPa] and temperature [keV] to density [#/cc]
+    function PkT2Den(P,kT) result(D)
+        real(rp), intent(in) :: P,kT
+        real(rp) :: D
+
+        D = 6.25*P/max(kT,TINY)
+
+    end function PkT2Den
+
+    !Turn density [#/cc] and temperature [keV] to pressure [nPa]
+    function DkT2P(D,kT) result(P)
+        real(rp), intent(in) :: D,kT
+        real(rp) :: P
+
+        P = max(kT,TINY)*D/6.25
+    end function DkT2P
+
+    !Turn density [#/cc] and pressure [nPa] to temperature [keV]
+    function DP2kT(D,P) result(kT)
+        real(rp), intent(in) :: D,P
+        real(rp) :: kT
+        kT = 6.25*P/max(D,TINY)
+    end function DP2kT
+
+    !Turn density [#/cc] and velocity [km/s] to dynamic pressure
+    function PV2PDyn(D,V) result(PDyn)
+        real(rp), intent(in) :: D,V
+        real(rp) :: PDyn
+
+        PDyn = (1.94e-6)*(D*V*V) !nPa
+    end function PV2PDyn
+
+! Helpful dipole and FTV functions
+
+    !Dipole field from moment
+    function MagsphereDipole(xyz,M0) result(Bd)
+        real(rp), intent(in) :: xyz(NDIM), M0
+        real(rp) :: Bd(NDIM)
+
+        real(rp) :: rad
+        real(rp), dimension(NDIM) :: m
+
+        rad = norm2(xyz)
+        m = [0.0_rp,0.0_rp,M0]
+        Bd = 3*dot_product(m,xyz)*xyz/rad**5.0 - m/rad**3.0
+
+    end function MagsphereDipole
+
+    !Take point xyz0 and push along dipole to point with radius r
+    function DipoleShift(xyz0,r) result(xyz)
+        real(rp), intent(in) :: xyz0(NDIM), r
+        real(rp), dimension(NDIM) :: xyz
+
+        real(rp) :: L,mlat,mlon
+        !Find L of this point
+        L = DipoleL(xyz0)
+
+        !Avoid bad values if L<r, push as far as possible
+        L = max(L,r)
+
+        !Use r = L*cos^2(latitude)
+        mlat = abs(acos(sqrt(r/L)))
+        mlon = atan2(xyz0(YDIR),xyz0(XDIR)) !No change in longitude
+        if (mlon<0) mlon = mlon+2*PI
+
+        if (xyz0(ZDIR)<0) then
+            mlat = -abs(mlat)
+        endif
+        
+        !Get cartesian coordinates
+        xyz(XDIR) = r*cos(mlat)*cos(mlon)
+        xyz(YDIR) = r*cos(mlat)*sin(mlon)
+        xyz(ZDIR) = r*sin(mlat)
+
+    end function DipoleShift
+
+    !Calculate dipole L shell for point
+    function DipoleL(r) result(Leq)
+        real(rp), intent(in) :: r(NDIM)
+        real(rp) :: Leq
+
+        real(rp) :: z,rad,lat
+        z = r(ZDIR)
+
+        rad = norm2(r)
+        lat = abs( asin(z/rad) )
+        Leq = rad/( cos(lat)*cos(lat) )
+    end function DipoleL
+
+    !Calculate invariant latitude (RADIANS) for x,y,z vector (in Rx)
+    function InvLatitude(r) result(invlat)
+        real(rp), intent(in) :: r(NDIM)
+        real(rp) :: invlat
+
+        real(rp) :: z,rad,lat,Leq
+
+        z = r(ZDIR)
+        rad = norm2(r)
+
+        lat = abs( asin(z/rad) )
+        Leq = rad/( cos(lat)*cos(lat) )
+        invlat = abs(acos(sqrt(1.0/Leq)))
+
+    end function InvLatitude
+
+    !Get mirror ratio at R for a given invariant latitude
+    function MirrorRatio(invlat,rad) result(Rm)
+        real(rp), intent(in) :: invlat,rad
+        real(rp) :: Rm
+        real(rp) :: mlat,mlon,M0
+        real(rp), dimension(NDIM) :: xyzIon,xyzMir
+        M0 = 1.0
+
+        mlat = invlat
+        mlon = 0.0
+
+        xyzIon(XDIR) = cos(mlat)*cos(mlon)
+        xyzIon(YDIR) = cos(mlat)*sin(mlon)
+        xyzIon(ZDIR) = sin(mlat)
+
+        xyzMir = DipoleShift(xyzIon,rad)
+        Rm = norm2(MagsphereDipole(xyzIon,M0))/norm2(MagsphereDipole(xyzMir,M0))
+
+    end function MirrorRatio
+
+    !Calculate FTV of dipole, Rx/nT
+    !M0g is optional mag moment in Gauss, otherwise use Earth
+    function DipFTV_L(L,M0gO) result(V)
+        real(rp), intent(in) :: L
+        real(rp), intent(in), optional :: M0gO
+        real(rp) :: V
+        real(rp) :: M0g,colat
+        if (present(M0gO)) then
+            M0g = M0gO
+        else
+            M0g = EarthM0g
+        endif
+        
+        !Now get colat
+        colat = asin( sqrt(1.0/L) )
+        V = DipFTV_colat(colat,M0g)
+    end function DipFTV_L
+
+    !Same units as above but w/ colat as input
+    function DipFTV_colat(colat,M0gO) result(V)
+        real(rp), intent(in) :: colat
+        real(rp), intent(in), optional :: M0gO
+        real(rp) :: V
+        real(rp) :: M0g,M0,cSum,S8
+
+        if (present(M0gO)) then
+            M0g = M0gO
+        else
+            M0g = EarthM0g
+        endif
+        M0 = abs(M0g*G2nT) !Convert to nano-tesa
+        cSum =  35.0     *cos(1.0*colat) -      7.0 *cos(3.0*colat) &
+              +(7.0/5.0) *cos(5.0*colat) - (1.0/7.0)*cos(7.0*colat)
+
+        cSum = cSum/64.0
+        S8 = sin(colat)**8.0
+        V = 2*cSum/S8/M0
+    end function DipFTV_colat
+
+    !Dipole volume between L1,L2 (m3)
+    !See Gkioulidou 2016
+    function MagDV(L1,L2)
+        real(rp), intent(in) :: L1,L2
+        real(rp) :: MagDV
+
+        real(rp) :: L21,Re3,a
+        L21 = L2**3.0 - L1**3.0
+        Re3 = REarth**3.0 !m^3
+        a = 64.0*PI/105.0
+        MagDV = a*Re3*L21
+    end function MagDV
+
+    !Derivative wrt colat of dipole FTV
+    function DerivDipFTV(colat,M0gO) result(dVdcol)
+        real(rp), intent(in) :: colat
+        real(rp), intent(in), optional :: M0gO
+        real(rp) :: dVdcol
+        real(rp) :: M0g,M0,cSum,dSum,S8
+        real(rp) :: wtfgnu
+
+        if (present(M0gO)) then
+            M0g = M0gO
+        else
+            M0g = EarthM0g
+        endif
+        M0 = abs(M0g*G2nT) !Convert to nano-tesa
+        cSum =  35.0     *cos(1.0*colat) -      7.0 *cos(3.0*colat) &
+              +(7.0/5.0) *cos(5.0*colat) - (1.0/7.0)*cos(7.0*colat)
+
+        cSum = cSum/64.0
+        S8 = sin(colat)**8.0
+
+        !Do cotan w/ tan b/c of gnu not having cotan by default
+        if (abs(colat)>TINY) then
+            wtfgnu = 1/tan(colat) ! = cotan(colat)
+        else
+            dVdcol = 0.0
+            return
+        endif
+
+        !Deriv of csum wrt colat
+        dSum = (-35.0*sin(1.0*colat) + 21.0*sin(3.0*colat) &
+                - 7.0*sin(5.0*colat) +  1.0*sin(7.0*colat) )/64.0
+        dVdcol = (2.0/S8/M0)*( -8.0*wtfgnu*cSum + dSum )
+
+    end function DerivDipFTV
+
 end module planethelper

@@ -6,7 +6,7 @@ module gioH5
     use gridutils
     use ioH5
     use multifluid
-    use earthhelper
+    use planethelper
     use dates
     use files
     

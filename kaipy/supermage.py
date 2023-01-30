@@ -698,7 +698,6 @@ def MakeIndicesPlot(SMI, SMinterp, fignumber = 1):
     plt.legend()
     plt.grid(True)
     plt.ylabel("SMR 6-hour bins", fontsize = 20)
-
     plt.show()
 
 #-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#
