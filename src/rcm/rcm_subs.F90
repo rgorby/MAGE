@@ -2240,7 +2240,7 @@ SUBROUTINE Move_plasma_grid_MHD (dt,nstep)
     use rice_housekeeping_module, ONLY : LowLatMHD,doNewCX,ELOSSMETHOD,doTDSLoss,doFLCLoss,dp_on,doPPRefill,doSmoothDDV,staticR,NowKp
     use math, ONLY : SmoothOpTSC,SmoothOperator33
     use lossutils, ONLY : CXKaiju,FLCRat
-    use earthhelper, ONLY : DipFTV_colat,DerivDipFTV
+    use planethelper, ONLY : DipFTV_colat,DerivDipFTV
     use constants, ONLY : nt,radius_earth_m
     IMPLICIT NONE
     REAL (rprec), INTENT (IN) :: dt
