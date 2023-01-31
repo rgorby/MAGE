@@ -121,7 +121,14 @@ module voltapp
         call IOSync(vApp%IO,gApp%Model%IO,1.0/gTScl)
       
         !Deep coupling
-        call xmlInp%Set_Val(vApp%DeepDT, "coupling/dtDeep", -1.0_rp)
+        if (xmlInp%Exists("coupling/dtShallow") .or. xmlInp%Exists("coupling/dtDeep")) then
+                write(*,*) 'Please remove all instances of voltron/coupling/dtShallow and voltron/coupling/dtDeep'
+                write(*,*) '   from the input XML. They have been replaced with a single unified input named'
+                write(*,*) '   voltron/coupling/dtCouple, which controls all coupling and is set to 5 seconds by default'
+                stop
+        endif
+
+        call xmlInp%Set_Val(vApp%DeepDT, "coupling/dtCouple", -1.0_rp)
         vApp%TargetDeepDT = vApp%DeepDT
         call xmlInp%Set_Val(vApp%rTrc,   "coupling/rTrc"  , 40.0)
 
@@ -195,7 +202,7 @@ module voltapp
             vApp%ts   = gApp%Model%ts !Timestep
             vApp%MJD = T2MJD(vApp%time,gApp%Model%MJD0)
             !Set first deep coupling (defaulting to coupling right away since shallow is part of deep now)
-            call xmlInp%Set_Val(vApp%DeepT, "coupling/tDeep", vApp%time)
+            call xmlInp%Set_Val(vApp%DeepT, "coupling/tCouple", vApp%time)
         endif
 
         if (vApp%doDeep) then

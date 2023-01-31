@@ -258,7 +258,7 @@ module voltio
         call AddInVar(IOVars,"ts"      ,vTypeO=IOINT)
         call AddInVar(IOVars,"MJD"     ,vTypeO=IOREAL)
         call AddInVar(IOVars,"time"    ,vTypeO=IOREAL)
-        call AddInVar(IOVars,"DeepT"   ,vTypeO=IOREAL)
+        call AddInVar(IOVars,"CoupleT"   ,vTypeO=IOREAL)
 
 
         !Get data
@@ -269,7 +269,7 @@ module voltio
         vApp%ts       = GetIOInt(IOVars,"ts")
         vApp%MJD      = GetIOReal(IOVars,"MJD")
         vApp%time     = GetIOReal(IOVars,"time")
-        vApp%DeepT    = GetIOReal(IOVars,"DeepT")
+        vApp%DeepT    = GetIOReal(IOVars,"CoupleT")
 
         !Check to see if gB0 is present
         n0 = FindIO(IOVars,"gBAvg")
