@@ -9,6 +9,7 @@ module voltio
     use wind
     use dyncoupling
     use dstutils
+    use planethelper
     
     implicit none
 

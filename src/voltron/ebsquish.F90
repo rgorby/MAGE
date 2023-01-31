@@ -5,7 +5,7 @@ module ebsquish
     use ebtypes
     use volttypes
     use streamline
-    use earthhelper
+    use planethelper
     use imaghelper
     use clocks, only: Tic,Toc
     

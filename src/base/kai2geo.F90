@@ -2,7 +2,7 @@
 module kai2geo
     use kdefs
     use geopack
-    use earthhelper
+    use planethelper
     use math
 
     implicit none

@@ -1,160 +1,359 @@
 #!/usr/bin/env python
-#Make a quick figure of a Gamera magnetosphere run
 
+
+"""Make a quick figure of a Gamera magnetosphere run.
+
+Make a quick figure of a Gamera magnetosphere run.
+
+Author
+------
+Kareem Sorathia (kareem.sorathia@jhuapl.edu)
+Eric Winter (eric.winter@jhuapl.edu)
+"""
+
+
+# Import standard modules.
 import argparse
-from argparse import RawTextHelpFormatter
-import matplotlib as mpl
-mpl.use('Agg')
-import matplotlib.pyplot as plt
-import kaipy.kaiViz as kv
-from mpl_toolkits.axes_grid1.inset_locator import inset_axes
-import matplotlib.gridspec as gridspec
-import numpy as np
-import kaipy.gamera.msphViz as mviz
-import kaipy.remix.remix as remix
-import kaipy.gamera.magsphere as msph
-import kaipy.gamera.gampp as gampp
-import kaipy.gamera.rcmpp as rcmpp
 import os
 
+# Import supplemental modules.
+import matplotlib as mpl
+import matplotlib.gridspec as gridspec
+import matplotlib.pyplot as plt
+from mpl_toolkits.axes_grid1.inset_locator import inset_axes
+
+# Import project-specific modules.
+from kaipy import cdaweb_utils
+import kaipy.gamera.gampp as gampp
+import kaipy.gamera.magsphere as msph
+import kaipy.gamera.msphViz as mviz
+import kaipy.gamera.rcmpp as rcmpp
+import kaipy.kaiH5 as kh5
+import kaipy.kaiViz as kv
+import kaipy.kaiTools as ktools
+import kaipy.kdefs as kdefs
+import kaipy.remix.remix as remix
+
+
+# Program constants and defaults
+
+# Program description.
+description = """Creates simple multi-panel figure for Gamera magnetosphere run
+Top Panel - Residual vertical magnetic field
+Bottom Panel - Pressure (or density) and hemispherical insets
+NOTE: There is an optional -size argument for domain bounds options
+(default: std), which is passed to kaiViz functions.
+"""
+
+# Default identifier for results to read.
+default_runid = "msphere"
+
+# Plot the last step by default.
+default_step = -1
+
+# Name of plot output file.
+fOut = "qkpic.png"
+
+# Color to use for spacecraft position symbols.
+SPACECRAFT_COLOR = 'red'
+
+
+def create_command_line_parser():
+    """Create the command-line argument parser.
+    
+    Create the parser for command-line arguments.
+
+    Parameters
+    ----------
+    None
+
+    Returns
+    -------
+    parser : argparse.ArgumentParser
+        Command-line argument parser for this script.
+    """
+    parser = argparse.ArgumentParser(
+        description=description,
+        formatter_class=argparse.RawTextHelpFormatter
+    )
+    parser.add_argument(
+        "--debug", action="store_true", default=False,
+        help="Print debugging output (default: %(default)s)."
+    )
+    parser.add_argument(
+        "-d", type=str, metavar="directory", default=os.getcwd(),
+        help="Directory containing data to read (default: %(default)s)"
+    )
+    parser.add_argument(
+        "-id", type=str, metavar="runid", default=default_runid,
+        help="Run ID of data (default: %(default)s)"
+    )
+    parser.add_argument(
+        "-n", type=int, metavar="step", default=default_step,
+        help="Time slice to plot (default: %(default)s)"
+    )
+    parser.add_argument(
+        "-bz", action="store_true", default=False,
+        help="Show Bz instead of dBz (default: %(default)s)."
+    )
+    parser.add_argument(
+        "-den", action="store_true", default=False,
+        help="Show density instead of pressure (default: %(default)s)."
+    )
+    parser.add_argument(
+        "-jy", action="store_true", default=False,
+        help="Show Jy instead of pressure (default: %(default)s)."
+    )
+    parser.add_argument(
+        "-ephi", action="store_true", default=False,
+        help="Show Ephi instead of pressure (default: %(default)s)."
+    )
+    parser.add_argument(
+        "-noion", action="store_true", default=False,
+        help="Don't show ReMIX data (default: %(default)s)."
+    )
+    parser.add_argument(
+        "-nompi", action="store_true", default=False,
+        help="Don't show MPI boundaries (default: %(default)s)."
+    )
+    parser.add_argument(
+        "-norcm", action="store_true", default=False,
+        help="Don't show RCM data (default: %(default)s)."
+    )
+    parser.add_argument(
+        "-bigrcm", action="store_true", default=False,
+        help="Show entire RCM domain (default: %(default)s)."
+    )
+    parser.add_argument(
+        "-src", action="store_true", default=False,
+        help="Show source term (default: %(default)s)."
+    )
+    parser.add_argument(
+        "-v", "--verbose", action="store_true", default=False,
+        help="Print verbose output (default: %(default)s)."
+    )
+    parser.add_argument(
+        "--spacecraft", type=str, metavar="spacecraft", default=None,
+        help="Names of spacecraft to plot positions, separated by commas (default: %(default)s)"
+    )
+    # Add an option for plot domain size.
+    mviz.AddSizeArgs(parser)
+    return parser
+
+
 if __name__ == "__main__":
-	#Defaults
-	fdir = os.getcwd()
-	ftag = "msphere"
-	nStp = -1
-	fOut = "qkpic.png"
-	doDen = False
-	noIon = False
-	noMPI = False
-	noRCM = False
-	doJy = False
-	doEphi = False
-	doBz = False
-	doBigRCM = False
-	doSrc = False
+    """Make a quick figure of a Gamera magnetosphere run."""
 
-	MainS = """Creates simple multi-panel figure for Gamera magnetosphere run
-	Top Panel - Residual vertical magnetic field
-	Bottom Panel - Pressure (or density) and hemispherical insets
-	"""
+    # Set up the command-line parser.
+    parser = create_command_line_parser()
 
-	parser = argparse.ArgumentParser(description=MainS, formatter_class=RawTextHelpFormatter)
-	parser.add_argument('-d',type=str,metavar="directory",default=fdir,help="Directory to read from (default: %(default)s)")
-	parser.add_argument('-id',type=str,metavar="runid",default=ftag,help="RunID of data (default: %(default)s)")
-	parser.add_argument('-n' ,type=int,metavar="step" ,default=nStp,help="Time slice to plot (default: %(default)s)")
-	parser.add_argument('-bz'   , action='store_true', default=doBz ,help="Show Bz instead of dBz (default: %(default)s)")
-	parser.add_argument('-den'  , action='store_true', default=doDen,help="Show density instead of pressure (default: %(default)s)")
-	parser.add_argument('-jy'   , action='store_true', default=doJy ,help="Show Jy instead of pressure (default: %(default)s)")
-	parser.add_argument('-ephi'   , action='store_true', default=doEphi ,help="Show Ephi instead of pressure (default: %(default)s)")
-	parser.add_argument('-noion', action='store_true', default=noIon,help="Don't show ReMIX data (default: %(default)s)")
-	parser.add_argument('-nompi', action='store_true', default=noMPI,help="Don't show MPI boundaries (default: %(default)s)")
-	parser.add_argument('-norcm', action='store_true', default=noRCM,help="Don't show RCM data (default: %(default)s)")
-	parser.add_argument('-bigrcm', action='store_true',default=doBigRCM,help="Show entire RCM domain (default: %(default)s)")
-	parser.add_argument('-src'   , action='store_true', default=doSrc ,help="Show source term (default: %(default)s)")
+    # Parse the command-line arguments.
+    args = parser.parse_args()
+    debug = args.debug
+    verbose = args.verbose
+    fdir = args.d
+    ftag = args.id
+    nStp = args.n
+    doDen = args.den
+    noIon = args.noion
+    noMPI = args.nompi
+    doMPI = not noMPI
+    doJy = args.jy
+    doEphi = args.ephi
+    doSrc = args.src
+    doBz = args.bz
+    noRCM = args.norcm
+    doBigRCM = args.bigrcm
+    spacecraft = args.spacecraft
+    if debug:
+        print("args = %s" % args)
 
-	mviz.AddSizeArgs(parser)
+    # Get the domain size in Re.
+    xyBds = mviz.GetSizeBds(args)
+    if debug:
+        print("xyBds = %s" % xyBds)
 
-	#Finalize parsing
-	args = parser.parse_args()
-	fdir = args.d
-	ftag = args.id
-	nStp = args.n
-	doDen = args.den
-	noIon = args.noion
-	#noMPI = args.nompi
-	doMPI = (not noMPI)
-	doJy = args.jy
-	doEphi = args.ephi
-	doSrc = args.src
-	doBz = args.bz
-	noRCM = args.norcm
-	doBigRCM = args.bigrcm
+    # Set figure parameters.
+    doFast = False
+    doIon = not noIon
+    figSz = (12, 7.5)
 
-	#Get domain size
-	xyBds = mviz.GetSizeBds(args)
+    # Open the gamera results pipe.
+    gsph = msph.GamsphPipe(fdir, ftag, doFast=doFast)
 
+    # If needed, fetch the number of the last step.
+    if nStp < 0:
+        nStp = gsph.sFin
+        print("Using Step %d" % nStp)
 
-	#---------------------
-	#Do work
-	doFast=False
-	doIon = not noIon
+    # Check for the presence of RCM results.
+    rcmChk = os.path.join(fdir, "%s.mhdrcm.h5" % ftag)
+    doRCM = os.path.exists(rcmChk)
+    if debug:
+        print("rcmChk = %s" % rcmChk)
+        print("doRCM = %s" % doRCM)
 
-	#---------
-	#Figure parameters
-	figSz = (12,7.5)
-	
-	#======
-	#Init data
-	gsph = msph.GamsphPipe(fdir,ftag,doFast=doFast)
+    # Check for the presence of remix results.
+    rmxChk = os.path.join(fdir, "%s.mix.h5" % ftag)
+    doMIX = os.path.exists(rmxChk)
+    if debug:
+        print("rmxChk = %s" % rmxChk)
+        print("doMIX = %s" % doMIX)
 
-	if (nStp<0):
-		nStp = gsph.sFin
-		print("Using Step %d"%(nStp))
+    # Open RCM data if available, and initialize visualization.
+    if doRCM:
+        print("Found RCM data")
+        rcmdata = gampp.GameraPipe(fdir, ftag + ".mhdrcm")
+        mviz.vP = kv.genNorm(1.0e-2, 100.0, doLog=True)
+        rcmpp.doEll = not doBigRCM
+        if debug:
+            print("rcmdata = %s" % rcmdata)
 
-	#Check for remix
-	rcmChk = fdir + "/%s.mhdrcm.h5"%(ftag)
-	rmxChk = fdir + "/%s.mix.h5"%(ftag)
-	doRCM = os.path.exists(rcmChk)
-	doMIX = os.path.exists(rmxChk)
+    # Open remix data if available.
+    if doMIX:
+        print("Found ReMIX data")
+        ion = remix.remix(rmxChk, nStp)
+        if debug:
+            print("ion = %s" % ion)
 
-	if (doRCM):
-		print("Found RCM data")
-		rcmdata = gampp.GameraPipe(fdir,ftag+".mhdrcm")
-		mviz.vP = kv.genNorm(1.0e-2,100.0,doLog=True)
-		rcmpp.doEll = not doBigRCM
-	if (doMIX):
-		print("Found ReMIX data")
-		ion = remix.remix(rmxChk,nStp)
+    # Setup the figure.
+    mpl.use('Agg')  # Plot in memory buffer.
+    fig = plt.figure(figsize=figSz)
+    gs = gridspec.GridSpec(3, 6, height_ratios=[20, 1, 1], hspace=0.025)
+    if debug:
+        print("fig = %s" % fig)
+        print("gs = %s" % gs)
 
-	#======
-	#Setup figure
-	fig = plt.figure(figsize=figSz)
-	gs = gridspec.GridSpec(3,6,height_ratios=[20,1,1],hspace=0.025)
-	
+    # Create the plotting Axes objects.
+    AxL = fig.add_subplot(gs[0, 0:3])
+    AxR = fig.add_subplot(gs[0, 3:])
+    AxC1 = fig.add_subplot(gs[-1, 0:2])
+    AxC2 = fig.add_subplot(gs[-1, 2:4])
+    AxC3 = fig.add_subplot(gs[-1, 4:6])
+    if debug:
+        print("AxL = %s" % AxL)
+        print("AxR = %s" % AxR)
+        print("AxC1 = %s" % AxC1)
+        print("AxC2 = %s" % AxC2)
+        print("AxC3 = %s" % AxC3)
 
-	AxL = fig.add_subplot(gs[0,0:3])
-	AxR = fig.add_subplot(gs[0,3:])
+    # Create the field-aligned current colorbar on Axes #2.
+    cbM = kv.genCB(
+        AxC2, kv.genNorm(remix.facMax), "FAC", cM=remix.facCM, Ntk=4
+    )
+    AxC2.xaxis.set_ticks_position('top')
+    if debug:
+        print("cbM = %s" % cbM)
 
-	AxC1 = fig.add_subplot(gs[-1,0:2])
-	AxC2 = fig.add_subplot(gs[-1,2:4])
-	AxC3 = fig.add_subplot(gs[-1,4:6])
+    # On the left, plot the z-component of the residual magnetic field.
+    Bz = mviz.PlotEqB(gsph, nStp, xyBds, AxL, AxC1, doBz=doBz)
 
+    # Make any requested optional plots, or just pressure.
+    if doJy:
+        mviz.PlotJyXZ(gsph, nStp, xyBds, AxR, AxC3)
+    elif doEphi:
+        mviz.PlotEqEphi(gsph, nStp, xyBds, AxR, AxC3)
+    else:
+        mviz.PlotMerid(gsph, nStp, xyBds, AxR, doDen, doRCM, AxC3, doSrc=doSrc)
 
-	cbM = kv.genCB(AxC2,kv.genNorm(remix.facMax),"FAC",cM=remix.facCM,Ntk=4)
-	AxC2.xaxis.set_ticks_position('top')
+    # Add the date and time for the plot.
+    gsph.AddTime(nStp, AxL, xy=[0.025, 0.89], fs="x-large")
 
-	
-	Bz = mviz.PlotEqB(gsph,nStp,xyBds,AxL,AxC1,doBz=doBz)
+    # Add the solar wind description text.
+    gsph.AddSW(nStp, AxL, xy=[0.625, 0.025], fs="small")
 
-	if (doJy):
-		mviz.PlotJyXZ(gsph,nStp,xyBds,AxR,AxC3)
-	elif (doEphi):
-		mviz.PlotEqEphi(gsph,nStp,xyBds,AxR,AxC3)
-	else:
-		mviz.PlotMerid(gsph,nStp,xyBds,AxR,doDen,doRCM,AxC3,doSrc=doSrc)
-	
+    # If available, add the inset RCM plot.
+    if not noRCM:
+        AxRCM = inset_axes(AxL, width="30%", height="30%", loc=3)
+        rcmpp.RCMInset(AxRCM, rcmdata, nStp, mviz.vP)
+        # Add dBz contours.
+        AxRCM.contour(
+            kv.reWrap(gsph.xxc), kv.reWrap(gsph.yyc), kv.reWrap(Bz), [0.0],
+            colors=mviz.bz0Col, linewidths=mviz.cLW
+        )
+        # Show the RCM region as a box.
+        rcmpp.AddRCMBox(AxL)
 
-	gsph.AddTime(nStp,AxL,xy=[0.025,0.89],fs="x-large")
-	gsph.AddSW(nStp,AxL,xy=[0.625,0.025],fs="small")
+    # Plot the REMIX data, if requested.
+    if doIon:
+        gsph.AddCPCP(nStp, AxR, xy=[0.610, 0.925])
+        mviz.AddIonBoxes(gs[0, 3:], ion)
 
-	#Add inset RCM plot
-	if (not noRCM):
-		AxRCM = inset_axes(AxL,width="30%",height="30%",loc=3)
-		rcmpp.RCMInset(AxRCM,rcmdata,nStp,mviz.vP)
-		#Add some dBz contours
-		AxRCM.contour(kv.reWrap(gsph.xxc),kv.reWrap(gsph.yyc),kv.reWrap(Bz),[0.0],colors=mviz.bz0Col,linewidths=mviz.cLW)
-		#AxRCM.contour(kv.reWrap(gsph.xxc),kv.reWrap(gsph.yyc),kv.reWrap(dBz),dbzVals,norm=vDB,cmap=mviz.dbCM,linewidths=0.25)
-		rcmpp.AddRCMBox(AxL)
+    # Show the MPI decomposition, if requested.
+    if doMPI:
+        mviz.PlotMPI(gsph, AxL)
+        mviz.PlotMPI(gsph, AxR)
 
-	if (doIon):
-		gsph.AddCPCP(nStp,AxR,xy=[0.610,0.925])
+    # If requested, overlay the spacecraft locations.
+    if spacecraft:
+        print("Overplotting spacecraft trajectories of %s." % spacecraft)
 
-	if (doIon):
-		mviz.AddIonBoxes(gs[0,3:],ion)
+        # Split the list into individual spacecraft names.
+        spacecraft = spacecraft.split(',')
+        if debug:
+            print("spacecraft = %s" % spacecraft)
 
-	#Add MPI decomp
-	if (doMPI):
-		mviz.PlotMPI(gsph,AxL)
-		mviz.PlotMPI(gsph,AxR)
+        # Fetch the MJD start and end time of the model results.
+        fname = gsph.f0
+        if debug:
+            print("fname = %s" % fname)
+        MJD_start = kh5.tStep(fname, 0, aID="MJD")
+        if debug:
+            print("MJD_start = %s" % MJD_start)
+        MJD_end = kh5.tStep(fname, gsph.sFin, aID="MJD")
+        if debug:
+            print("MJD_end = %s" % MJD_end)
 
-	kv.savePic(fOut,bLenX=45)
+        # Convert the statrt and stop MJD to a datetime object in UT.
+        ut_start = ktools.MJD2UT(MJD_start)
+        if debug:
+            print("ut_start = %s" % ut_start)
+        ut_end = ktools.MJD2UT(MJD_end)
+        if debug:
+            print("ut_end = %s" % ut_end)
+
+        # Fetch and plot the trajectory of each spacecraft from CDAWeb.
+        for (i_sc, sc) in enumerate(spacecraft):
+
+            # Fetch the spacecraft trajectory in Solar Magnetic (SM)
+            # Cartesian coordinates between the start and end times.
+            sc_x, sc_y, sc_z = cdaweb_utils.fetch_spacecraft_SM_trajectory(
+                sc, ut_start, ut_end
+            )
+            if debug:
+                print("sc_x, sc_y, sc_z = %s, %s, %s" % (sc_x, sc_y, sc_z))
+
+            # Skip if no trajectory found.
+            if sc_x is None:
+                print("No trajectory found for spacecraft %s." % sc)
+                continue
+
+            # Convert coordinates to units of Earth radius.
+            CM_TO_KM = 1e-5  # Centimeters to kilometers
+            Re_km = kdefs.Re_cgs*CM_TO_KM  # Earth radius in kilometers
+            sc_x_Re = sc_x/Re_km
+            sc_y_Re = sc_y/Re_km
+            sc_z_Re = sc_z/Re_km
+            if debug:
+                print("sc_x_Re, sc_y_Re, sc_z_Re = %s, %s, %s" %
+                (sc_x_Re, sc_y_Re, sc_z_Re))
+
+            # Plot a labelled trajectory of the spacecraft. Also plot a larger
+            # dot at the last point in the trajectory.
+            # Left plot
+            SPACECRAFT_COLORS = list(mpl.colors.TABLEAU_COLORS.keys())
+            color = SPACECRAFT_COLORS[i_sc % len(SPACECRAFT_COLORS)]
+            AxL.plot(sc_x_Re, sc_y_Re, marker=None, linewidth=1, c=color)
+            AxL.plot(sc_x_Re[-1], sc_y_Re[-1], 'o', c=color)
+            x_nudge = 1.0
+            y_nudge = 1.0
+            AxL.text(sc_x_Re[-1] + x_nudge, sc_y_Re[-1] + y_nudge, sc, c=color)
+            # Right plot
+            AxR.plot(sc_x_Re, sc_z_Re, marker=None, linewidth=1, c=color)
+            AxR.plot(sc_x_Re[-1], sc_z_Re[-1], 'o', c=color)
+            x_nudge = 1.0
+            z_nudge = 1.0
+            AxR.text(sc_x_Re[-1] + x_nudge, sc_z_Re[-1] + z_nudge, sc, c=color)
+
+    # Save the plot to a file.
+    kv.savePic(fOut, bLenX=45)

@@ -2,7 +2,7 @@
 
 module dstutils
     use gamtypes
-    use earthhelper
+    use planethelper
     use volttypes
     use gridutils
     use gamutils
