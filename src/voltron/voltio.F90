@@ -212,8 +212,8 @@ module voltio
         call AddOutVar(IOVars,"time",vApp%time)
 
         !Coupling info
-        call AddOutVar(IOVars,"DeepT"   ,vApp%DeepT)
-        call AddOutVar(IOVars,"gBAvg", vApp%mhd2Mix%gBAvg)
+        call AddOutVar(IOVars,"CoupleT", vApp%DeepT)
+        call AddOutVar(IOVars,"gBAvg",   vApp%mhd2Mix%gBAvg)
         
         call WriteVars(IOVars,.false.,ResF)
         !Create link to latest restart
@@ -258,7 +258,7 @@ module voltio
         call AddInVar(IOVars,"ts"      ,vTypeO=IOINT)
         call AddInVar(IOVars,"MJD"     ,vTypeO=IOREAL)
         call AddInVar(IOVars,"time"    ,vTypeO=IOREAL)
-        call AddInVar(IOVars,"CoupleT"   ,vTypeO=IOREAL)
+        call AddInVar(IOVars,"CoupleT" ,vTypeO=IOREAL)
 
 
         !Get data
