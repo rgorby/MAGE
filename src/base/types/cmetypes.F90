@@ -25,6 +25,8 @@ module cmetypes
     end type
 
     type, abstract :: baseCMEState_T
+        real(rp) :: currentLatitude = 0.
+        real(rp) :: currentLongitude = 0.
         contains
             procedure(updateGrid_I), deferred :: updateGrid
     end type

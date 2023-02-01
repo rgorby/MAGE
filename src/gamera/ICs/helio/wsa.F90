@@ -372,10 +372,10 @@ module usergamic
             !call cccmeModel%updateModelTime(Model%t, Model%Units%gT0)
             if(Model%rotateCME) then 
                 ! Set new longitude in this rank for model based on solar rotation
-                dphi = 2.*PI*(State%time+DeltaT)/Tsolar
-                cccmeModel%longitude = dphi
-                jfcmeModel%longitude = dphi
-                kfcmeModel%longitude = dphi
+                dphi = 2.*PI*(Model%t+DeltaT)/Tsolar
+                cccmeState%currentLongitude = cccmeModel%longitude + dphi
+                jfcmeState%currentLongitude = jfcmeModel%longitude + dphi
+                kfcmeState%currentLongitude = kfcmeModel%longitude + dphi
                 ! Update model grid based on the above longitude update
                 call cccmeState%updateGrid(Grid%xyzcc(Grid%isg:Grid%is-1, Grid%js:Grid%je, Grid%ks:Grid%ke, :), cccmeModel)
                 call jfcmeState%updateGrid(Grid%xfc(Grid%isg:Grid%is-1, Grid%js:Grid%je, Grid%ks:Grid%ke, :, JDIR), jfcmeModel)
@@ -466,15 +466,15 @@ module usergamic
                     !    kfCMEVars(ig, j, k, CMEVR) = kfCMESolution%v(ig, j, knew, XDIR)
                     !    kfCMEVars(ig, j, k, CMEMASK) = kfCMESolution%inside_mask(ig, j, knew)
                     !end if
-                    if ((j<=Grid%je) .and. (k>=Grid%ks) .and. (k<=Grid%ke)) then
-	                cccmeVarsStatic = ccCMEVars(ig, j, k, :)
-                        jfcmeVarsStatic = jfCMEVars(ig, j, k, :)
-                        kfcmeVarsStatic = kfCMEVars(ig, j, k, :)
-                    end if
+                    !if ((j<=Grid%je) .and. (k>=Grid%ks) .and. (k<=Grid%ke)) then
+                    cccmeVarsStatic = ccCMEVars(ig, j, k, :)
+                    jfcmeVarsStatic = jfCMEVars(ig, j, k, :)
+                    kfcmeVarsStatic = kfCMEVars(ig, j, k, :)
+                    !end if
                 end if
                 
                 ! do cell centered things for cell-centers only
-                if ( (j/=Grid%jeg+1).and.(k/=Grid%keg+1) ) then
+                if ( (j/=Grid%je+1).and.(k/=Grid%keg+1) ) then
                     ! various geometrical quantities for the cell center
                     xyz  = Grid%xyzcc(i,j,k,:)
                     R    = norm2(xyz)
@@ -493,15 +493,15 @@ module usergamic
                             pVar(PRESSURE) = Pres_CME
                             !pVar(VELX:VELZ) = rHat*max(ccCMEVarsStatic(CMEVR)/(1.d-5*Model%Units%gv0), ibcVarsStatic(VRIN))
                             pVar(VELX:VELZ) = rHat*ccCMEVarsStatic(CMEVR)/(1.d-5*Model%Units%gv0)
-
                         else if ((Model%t > emerge_lastP) .and. (Model%t <= t_smooth)) then !last point passed -- smoothly transition to WSA via linear changing from CME values to WSA over 1 hour
                             if(ccCMEModel%isDebug) write(*,"(1X,A14,2X,4F)") "CME VR After emerge_lastP: time, unscaled VR, scaled VR, WSA VRIN:", Model%t, ccCMEVarsStatic(CMEVR), ccCMEVarsStatic(CMEVR)/(1.d-5*Model%Units%gv0), ibcVarsStatic(VRIN)
                             pVar(DEN) = Den_CME/Model%Units%gD0 + &
                                             (Model%t - emerge_lastP)/(3600./Model%Units%gt0)*(ibcVarsStatic(RHOIN) - Den_CME/Model%Units%gD0)
                             pVar(PRESSURE)  = Pres_CME + &
                                                 (Model%t - emerge_lastP)/(3600./Model%Units%gt0)*(ibcVarsStatic(RHOIN)*Model%Units%gD0*Kbltz*ibcVarsStatic(TIN)/(Model%Units%gP0) - Pres_CME)
-                            pVar(VELX:VELZ) = rHat*max(ccCMEVarsStatic(CMEVR)/(1.d-5*Model%Units%gv0), ibcVarsStatic(VRIN))
+                            !pVar(VELX:VELZ) = rHat*max(ccCMEVarsStatic(CMEVR)/(1.d-5*Model%Units%gv0), ibcVarsStatic(VRIN))
                             !pVar(VELX:VELZ) = rHat*ccCMEVarsStatic(CMEVR)/(1.d-5*Model%Units%gv0)
+                            pVar(VELX:VELZ) = rHat*ibcVarsStatic(VRIN)
                         else ! when Model%t is larger than t_smooth use WSA
                             if(cccmeModel%isDebug) write(*,"(1X,A14,2X,2F)") "Time is greater then t_smooth: ", Model%t, t_smooth
 			                pVar(DEN) = ibcVarsStatic(RHOIN)
@@ -520,8 +520,7 @@ module usergamic
                         pVar(DEN)       = ibcVarsStatic(RHOIN)
                         ! note conversion to my units with B0^2/4pi in the denominator
                         pVar(PRESSURE)  = ibcVarsStatic(RHOIN)*Model%Units%gD0*Kbltz*ibcVarsStatic(TIN)/(Model%Units%gP0)
-                        pVar(VELX:VELZ) = rHat*ibcVarsStatic(VRIN)
-                        
+                        pVar(VELX:VELZ) = rHat*ibcVarsStatic(VRIN) 
                         !if(cccmeModel%isDebug) write(*,"(1X,A36,2X,5F,3I)") "Outside pVar(Dens, Pres, VELX:VELZ): ", pVar(DEN), pVar(PRESSURE), pVar(VELX:VELZ), i, j, k
                     end if
                     !if(cccmeModel%isDebug) write(*,"(1X,A14,2X,1F)") "Current Time: ", Model%t
@@ -529,7 +528,6 @@ module usergamic
                     !Swap prim->con in ghost variables
                     call CellP2C(Model,pVar,conVar)
                     State%Gas(i,j,k,:,BLK) = conVar
-
                     ! note, don't need cc Bxyz because we run flux2field through ghosts
                 end if
 

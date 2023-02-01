@@ -226,7 +226,11 @@ module glinit
             type(glState_T), intent(inout) :: State
             integer, optional, dimension(6), intent(in) :: bounds
 
+            State%currentLatitude = Model%latitude
+            State%currentLongitude = Model%longitude
+            
             if(present(bounds)) then
+                write(*,"(A14,x,6I4)") "Bounds: ", bounds
                 State%is = bounds(1)
                 State%ie = bounds(2)
                 State%js = bounds(3)

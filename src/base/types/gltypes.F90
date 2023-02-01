@@ -105,8 +105,6 @@ module gltypes
         ! to define user specified 3D grid dimensions to supply r,theta,phi to 
         ! construct state and to define size of solution ranks
         integer :: Nip,Njp,Nkp,is,js,ks,ie,je,ke
-        real(rp) :: latitude = 0.
-        real(rp) :: longitude = 0.
 
         ! Solution State Radii index (r(i))
         integer :: ri
@@ -181,8 +179,8 @@ module gltypes
             select type (Model)
                 type is (glModel_T)
                     State%r = r
-                    State%thpb = theta + Model%latitude
-                    State%phpb = phi - Model%longitude
+                    State%thpb = theta + State%currentLatitude
+                    State%phpb = phi - State%currentLongitude
             end select
 
         end subroutine setGLStateRTP
@@ -207,13 +205,14 @@ module gltypes
             allocate(r(State%is:State%ie))
             allocate(theta(State%js:State%je, State%ks:State%ke))
             allocate(phi(State%js:State%je, State%ks:State%ke))
+            !write(*,*) "Allocated r, theta, phi"
             do i=State%is, State%ie
-                r(i) = norm2(xyz(i,1,1,:))
+                r(i) = norm2(xyz(i,State%js,State%ks,:))
             end do
-            theta = acos(xyz(1,:,:,ZDIR)/norm2(xyz(1,1,1,:)))
-            phi = atan2(xyz(1,:,:,YDIR),xyz(1,:,:,XDIR))
-
+            theta = acos(xyz(State%is,:,:,ZDIR)/norm2(xyz(State%is,State%js,State%ks,:)))
+            phi = atan2(xyz(State%is,:,:,YDIR),xyz(State%is,:,:,XDIR))
             call setGLStateRTP(r, theta, phi, Model, State)
+            !write(*,*) "Set r, theta, phi"
 
         end subroutine setGLStateXYZ
 
