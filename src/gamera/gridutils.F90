@@ -5,7 +5,7 @@ module gridutils
     use gamutils
     use quadrature
     use metric
-    use earthhelper
+    use planethelper
     
     implicit none
 
