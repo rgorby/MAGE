@@ -495,6 +495,8 @@ module gioH5
             call AddOutVar(IOVars,"MJD",MJD)
         endif
         call AddOutVar(IOVars,"nSpc",Model%nSpc)
+        call AddOutVar(IOVars,"kzcsMHD",Model%kzcsMHD,uStr="kZCs",dStr="MHD-only kZCs")
+        call AddOutVar(IOVars,"kzcsTOT",Model%kzcsTOT,uStr="kZCs",dStr="Total kZCs"   )
 
         !---------------------
 

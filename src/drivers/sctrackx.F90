@@ -216,7 +216,7 @@ program sctrackx
             integer          , intent(out) :: nS,nE
 
             integer :: NumB,dN
-
+            NumB = 0
             call inpXML%Set_Val(NumB,'parintime/NumB',NumB)
             write(*,*) "XML NumB",NumB
              if (NumB > 1) then

@@ -53,3 +53,9 @@ kbltz  = 1.38e-16 #Boltzmann constant [erg/K]
 mp     = 1.67e-24 #Proton mass in grams
 Tsolar = 25.38    #Siderial solar rotation period
 JD2MJD = 2400000.5 #Conversion from JD to MJD: MJD = JD - 2400000.5
+
+#------
+#Output defaults
+#------
+barLen = 30
+barLab = 30 

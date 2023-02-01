@@ -28,6 +28,12 @@ program gamerax
         
         if (gApp%Model%IO%doConsole(gApp%Model%ts)) then
             call consoleOutput(gApp%Model,gApp%Grid,gApp%State)
+            !Timing info
+            if (gApp%Model%IO%doTimerOut) call printClocks()
+            call cleanClocks()
+        elseif (gApp%Model%IO%doTimer(gApp%Model%ts)) then
+            if (gApp%Model%IO%doTimerOut) call printClocks()
+            call cleanClocks()
         endif
 
         if (gApp%Model%IO%doOutput(gApp%Model%t)) then
@@ -39,12 +45,6 @@ program gamerax
         endif
 
         call Toc("IO")
-
-    !Do timing info
-        if (gApp%Model%IO%doTimer(gApp%Model%ts)) then
-            if (gApp%Model%IO%doTimerOut) call printClocks()
-            call cleanClocks()
-        endif
 
         call Toc("Omega")
     end do

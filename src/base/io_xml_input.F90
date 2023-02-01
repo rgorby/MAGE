@@ -205,9 +205,9 @@ module XML_Input
       character(len=strLen) :: fname ! fname
       character(len=strLen) :: buf ! string buffer
       type(XML_Data_T), dimension(:), allocatable :: xmld ! XML buffer
-      integer :: fid ! ID number of opened File
-      integer :: fst ! status of file
-      logical :: vrb ! flag for debug verbosity
+      integer :: fid = 0 ! ID number of opened File
+      integer :: fst = 0 ! status of file
+      logical :: vrb = .false.! flag for debug verbosity
 
       !-------------------------------------------------------------------
 

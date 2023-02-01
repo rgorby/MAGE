@@ -24,7 +24,7 @@
 		}
 		
 	},
-	"Parker Solar Probe" : {
+	"Parker_Solar_Probe" : {
 		"Ephem" : {
 			"Id" : "PSP_COHO1HR_MERGED_MAG_PLASMA",
 			"Data" : ["radialDistance", "heliographicLatitude", "heliographicLongitude"],
@@ -32,7 +32,7 @@
 		},
 		"MagneticField" : {
 			"Id" : "PSP_COHO1HR_MERGED_MAG_PLASMA",
-			"Data" : ["BR", "BT", "BN", "B"], 
+			"Data" : ["BR"], 
 			"CoordSys" : "RTN"	
 		},
 		"Density" : {
@@ -41,7 +41,7 @@
 		},
 		"Velocity" : {
 			"Id" : "PSP_COHO1HR_MERGED_MAG_PLASMA",
-			"Data" : ["VR","VT","VN", "ProtonSpeed"],
+			"Data" : ["VR"],
 			"CoordSys" : "RTN"
 		},
 		"Temperature" : {
@@ -50,7 +50,7 @@
 		}
 		
 	},
-	"Solar Orbiter" : {
+	"Solar_Orbiter" : {
 		"Ephem" : {
 			"Id" : "SOLO_HELIO1DAY_POSITION",
 			"Data" : ["RAD_AU", "HGI_LAT", "HGI_LON"],
@@ -76,7 +76,7 @@
 		}
 		
 	},
-	"STEREO A" : {
+	"STEREO_A" : {
 		"Ephem" : {
 			"Id" : "STA_HELIO1DAY_POSITION",
 			"Data" : ["RAD_AU", "HGI_LAT", "HGI_LON"],
@@ -102,7 +102,7 @@
 		}
 		
 	},
-	"STEREO B" : {
+	"STEREO_B" : {
 		"Ephem" : {
 			"Id" : "STB_HELIO1DAY_POSITION",
 			"Data" : ["RAD_AU", "HGI_LAT", "HGI_LON"],
