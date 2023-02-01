@@ -12,6 +12,7 @@ module usergamic
     use glutils
     use glsolution
     use helioutils
+    use clocks
 
     implicit none
 
@@ -368,6 +369,7 @@ module usergamic
       kfCMEVarsStatic = 0.
       ! After Initial transient passage, generate CME solution
       if (Model%doCME .and. (Model%t >= cccmeModel%Tstart_transient/Model%Units%gT0)) then
+            call Tic("CME Update")
             ! cell-center
             !call cccmeModel%updateModelTime(Model%t, Model%Units%gT0)
             if(Model%rotateCME) then 
@@ -408,6 +410,7 @@ module usergamic
             kfCMEVars(:, :, :, CMEBR:CMEBP) = kfCMESolution%b
             kfCMEVars(:, :, :, CMEVR) = kfCMESolution%v(:, :, :, XDIR)
             kfCMEVars(:, :, :, CMEMASK) = kfCMESolution%inside_mask
+            call Toc("CME Update")
       end if
 
       !i-boundaries (IN)
