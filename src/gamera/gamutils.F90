@@ -7,18 +7,66 @@ module gamutils
     
     contains
 
+!Front end routines to brickette loaders
+!NOTE: xxxLoadBlock assumes that memory being pulled from is aligned (ie cell-centered data
+!      xxxLoadBlockI does not assume alignment, is for interface/edge variables
+
     !Loads a brickette of size (iMax,recLen) 
     !Into a brickette of size (vecLen,recLen)
-    !Necessary to reconstruct in direction d, all cells from iS:iS+iMax,j,k
-    !Here we recast Q from 3D->1D, and use explicit stride to ensure proper vector instructions
-    !NOTE: Assuming that memory being pulled from is aligned
-    subroutine LoadBlock(Model,Gr,Qb,Q,iS,j,k,iMax,d)
+    subroutine recLoadBlock(Model,Gr,Qb,Q,iS,j,k,iMax,d)
         type(Model_T), intent(in) :: Model
         type(Grid_T),  intent(in) :: Gr
         integer, intent(in) :: iS,j,k,iMax,d
         !Remap Q to 1D from (isg:ieg,jsg:jeg,ksg:keg)
-        real(rp), intent(in) :: Q(Gr%Ni*Gr%Nj*Gr%Nk) 
+        real(rp), intent(in ) :: Q (Gr%Ni*Gr%Nj*Gr%Nk) 
         real(rp), intent(out) :: Qb(vecLen,-Nr2:Nr2-1)
+
+        call gamLoadBlock(Model,Gr,Qb,Q,iS,j,k,iMax,d,Nr2)
+    end subroutine recLoadBlock
+
+    !Same as above but for limiter stencil instead of reconstruction stencil
+    subroutine limLoadBlock(Model,Gr,Qb,Q,iS,j,k,iMax,d)
+        type(Model_T), intent(in) :: Model
+        type(Grid_T),  intent(in) :: Gr
+        integer, intent(in) :: iS,j,k,iMax,d
+        !Remap Q to 1D from (isg:ieg,jsg:jeg,ksg:keg)
+        real(rp), intent(in ) :: Q (Gr%Ni*Gr%Nj*Gr%Nk) 
+        real(rp), intent(out) :: Qb(vecLen,-Nl2:Nl2-1)
+
+        call gamLoadBlock(Model,Gr,Qb,Q,iS,j,k,iMax,d,Nl2)
+    end subroutine limLoadBlock
+
+    subroutine recLoadBlockI(Model,Gr,Qb,Q,iS,j,k,iMax,d)
+        type(Model_T), intent(in) :: Model
+        type(Grid_T),  intent(in) :: Gr
+        integer, intent(in) :: iS,j,k,iMax,d
+        !Remap Q to 1D from (isg:ieg,jsg:jeg,ksg:keg)
+        real(rp), intent(in ) :: Q ( (Gr%Ni+1)*(Gr%Nj+1)*(Gr%Nk+1) ) 
+        real(rp), intent(out) :: Qb(vecLen,-Nr2:Nr2-1)
+
+        call gamLoadBlockI(Model,Gr,Qb,Q,iS,j,k,iMax,d,Nr2)
+    end subroutine recLoadBlockI
+
+    subroutine limLoadBlockI(Model,Gr,Qb,Q,iS,j,k,iMax,d)
+        type(Model_T), intent(in) :: Model
+        type(Grid_T),  intent(in) :: Gr
+        integer, intent(in) :: iS,j,k,iMax,d
+        !Remap Q to 1D from (isg:ieg,jsg:jeg,ksg:keg)
+        real(rp), intent(in ) :: Q ( (Gr%Ni+1)*(Gr%Nj+1)*(Gr%Nk+1) ) 
+        real(rp), intent(out) :: Qb(vecLen,-Nl2:Nl2-1)
+
+        call gamLoadBlockI(Model,Gr,Qb,Q,iS,j,k,iMax,d,Nl2)
+    end subroutine limLoadBlockI
+
+    !----
+    !Core block routines
+    subroutine gamLoadBlock(Model,Gr,Qb,Q,iS,j,k,iMax,d,Nx2)
+        type(Model_T), intent(in) :: Model
+        type(Grid_T),  intent(in) :: Gr
+        integer, intent(in) :: iS,j,k,iMax,d,Nx2
+        !Remap Q to 1D from (isg:ieg,jsg:jeg,ksg:keg)
+        real(rp), intent(in ) :: Q(Gr%Ni*Gr%Nj*Gr%Nk) 
+        real(rp), intent(out) :: Qb(vecLen,-Nx2:Nx2-1)
         
         integer :: l,n,l0,nSi,nSj,nSk,nSt
         !DIR$ ASSUME_ALIGNED Qb: ALIGN
@@ -33,7 +81,7 @@ module gamutils
         !Set nSt equal to nSi/nSj/nSk for given direction
         nSt = nSi*ijkD(d,IDIR) + nSj*ijkD(d,JDIR) + nSk*ijkD(d,KDIR)
 
-        do n = -Nr2,Nr2-1
+        do n = -Nx2,Nx2-1
             l = l0 + nSt*n !Jump to next 1:iMax in direction d
             Qb(1:iMax,n) = Q(l:l+iMax-1)
 
@@ -51,17 +99,17 @@ module gamutils
         !     enddo
         ! enddo   
 
-    end subroutine LoadBlock
+    end subroutine gamLoadBlock
 
     !Same as LoadBlock but for interface-centered variables
     !Not necessarily aligned
-    subroutine LoadBlockI(Model,Gr,Qb,Q,iS,j,k,iMax,d)
+    subroutine gamLoadBlockI(Model,Gr,Qb,Q,iS,j,k,iMax,d,Nx2)
         type(Model_T), intent(in) :: Model
         type(Grid_T),  intent(in) :: Gr
-        integer, intent(in) :: iS,j,k,iMax,d
+        integer, intent(in) :: iS,j,k,iMax,d,Nx2
         !Remap Q to 1D from (isg:ieg,jsg:jeg,ksg:keg)
         real(rp), intent(in) :: Q( (Gr%Ni+1)*(Gr%Nj+1)*(Gr%Nk+1) ) 
-        real(rp), intent(out) :: Qb(vecLen,-Nr2:Nr2-1)
+        real(rp), intent(out) :: Qb(vecLen,-Nx2:Nx2-1)
         
         integer :: l,n,l0,nSi,nSj,nSk,nSt
             
@@ -74,13 +122,89 @@ module gamutils
         !Set nSt equal to nSi/nSj/nSk for given direction
         nSt = nSi*ijkD(d,IDIR) + nSj*ijkD(d,JDIR) + nSk*ijkD(d,KDIR)
         Qb = 0.0
-        do n = -Nr2,Nr2-1
+        do n = -Nx2,Nx2-1
             l = l0 + nSt*n !Jump to next 1:iMax in direction d
             Qb(1:iMax,n) = Q(l:l+iMax-1)
 
         enddo
 
-    end subroutine LoadBlockI
+    end subroutine gamLoadBlockI
+
+    ! !----
+    ! !Loads a brickette of size (iMax,recLen) 
+    ! !Into a brickette of size (vecLen,recLen)
+    ! !Necessary to reconstruct in direction d, all cells from iS:iS+iMax,j,k
+    ! !Here we recast Q from 3D->1D, and use explicit stride to ensure proper vector instructions
+    ! !NOTE: Assuming that memory being pulled from is aligned
+    ! subroutine LoadBlock(Model,Gr,Qb,Q,iS,j,k,iMax,d)
+    !     type(Model_T), intent(in) :: Model
+    !     type(Grid_T),  intent(in) :: Gr
+    !     integer, intent(in) :: iS,j,k,iMax,d
+    !     !Remap Q to 1D from (isg:ieg,jsg:jeg,ksg:keg)
+    !     real(rp), intent(in) :: Q(Gr%Ni*Gr%Nj*Gr%Nk) 
+    !     real(rp), intent(out) :: Qb(vecLen,-Nr2:Nr2-1)
+        
+    !     integer :: l,n,l0,nSi,nSj,nSk,nSt
+    !     !DIR$ ASSUME_ALIGNED Qb: ALIGN
+    !     !DIR$ ASSUME_ALIGNED Q: ALIGN
+            
+    !     !Mapping of iS,j,k to 1D (l0)
+    !     l0 = ijk2n(Gr,iS,j,k)
+
+    !     !Strides dep. on direction
+    !     nSi = 1; nSj = Gr%Ni; nSk = Gr%Ni*Gr%Nj
+
+    !     !Set nSt equal to nSi/nSj/nSk for given direction
+    !     nSt = nSi*ijkD(d,IDIR) + nSj*ijkD(d,JDIR) + nSk*ijkD(d,KDIR)
+
+    !     do n = -Nr2,Nr2-1
+    !         l = l0 + nSt*n !Jump to next 1:iMax in direction d
+    !         Qb(1:iMax,n) = Q(l:l+iMax-1)
+
+    !     enddo
+
+    !     !In comments: long-form loop using Q(isg:,jsg:,ksg:)
+    !     !Does same thing, slower but more readable
+    !     ! do n = -Nr2,Nr2-1
+    !     !     do i=1,iMax
+    !     !         iG = i+iS-1 !Global index into Q
+    !     !         ip = iG + n*ijkD(d,IDIR)
+    !     !         jp = j  + n*ijkD(d,JDIR)
+    !     !         kp = k  + n*ijkD(d,KDIR)
+    !     !         Qb(i,n) = Q(ip,jp,kp)
+    !     !     enddo
+    !     ! enddo   
+
+    ! end subroutine LoadBlock
+
+    ! !Same as LoadBlock but for interface-centered variables
+    ! !Not necessarily aligned
+    ! subroutine LoadBlockI(Model,Gr,Qb,Q,iS,j,k,iMax,d)
+    !     type(Model_T), intent(in) :: Model
+    !     type(Grid_T),  intent(in) :: Gr
+    !     integer, intent(in) :: iS,j,k,iMax,d
+    !     !Remap Q to 1D from (isg:ieg,jsg:jeg,ksg:keg)
+    !     real(rp), intent(in) :: Q( (Gr%Ni+1)*(Gr%Nj+1)*(Gr%Nk+1) ) 
+    !     real(rp), intent(out) :: Qb(vecLen,-Nr2:Nr2-1)
+        
+    !     integer :: l,n,l0,nSi,nSj,nSk,nSt
+            
+    !     !Mapping of iS,j,k to 1D (l0)
+    !     l0 = ijk2nI(Gr,iS,j,k)
+
+    !     !Strides dep. on direction
+    !     nSi = 1; nSj = Gr%Ni+1; nSk = (Gr%Ni+1)*(Gr%Nj+1)
+
+    !     !Set nSt equal to nSi/nSj/nSk for given direction
+    !     nSt = nSi*ijkD(d,IDIR) + nSj*ijkD(d,JDIR) + nSk*ijkD(d,KDIR)
+    !     Qb = 0.0
+    !     do n = -Nr2,Nr2-1
+    !         l = l0 + nSt*n !Jump to next 1:iMax in direction d
+    !         Qb(1:iMax,n) = Q(l:l+iMax-1)
+
+    !     enddo
+
+    ! end subroutine LoadBlockI
 
     ! subroutine LoadBlockI_Old(Model,Gr,Qb,Q,iS,j,k,iMax,d)
     !     type(Model_T), intent(in) :: Model

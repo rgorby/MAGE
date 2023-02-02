@@ -1105,10 +1105,10 @@ module init
                     iMax = min(vecLen,ie-iB+1)
 
                     !Get stencils in the dT2 direction
-                    call LoadBlockI(Model,Gr,fArB           ,Gr%face(:,:,:,dT1)    ,iB,j,k,iMax,dT2)
-                    call LoadBlockI(Model,Gr,NxyzB(:,:,XDIR),Gr%Tf(:,:,:,NORMX,dT1),iB,j,k,iMax,dT2)
-                    call LoadBlockI(Model,Gr,NxyzB(:,:,YDIR),Gr%Tf(:,:,:,NORMY,dT1),iB,j,k,iMax,dT2)
-                    call LoadBlockI(Model,Gr,NxyzB(:,:,ZDIR),Gr%Tf(:,:,:,NORMZ,dT1),iB,j,k,iMax,dT2)
+                    call recLoadBlockI(Model,Gr,fArB           ,Gr%face(:,:,:,dT1)    ,iB,j,k,iMax,dT2)
+                    call recLoadBlockI(Model,Gr,NxyzB(:,:,XDIR),Gr%Tf(:,:,:,NORMX,dT1),iB,j,k,iMax,dT2)
+                    call recLoadBlockI(Model,Gr,NxyzB(:,:,YDIR),Gr%Tf(:,:,:,NORMY,dT1),iB,j,k,iMax,dT2)
+                    call recLoadBlockI(Model,Gr,NxyzB(:,:,ZDIR),Gr%Tf(:,:,:,NORMZ,dT1),iB,j,k,iMax,dT2)
 
                     !Do weighted interpolation from face to corner of each component
                     do i=1,iMax

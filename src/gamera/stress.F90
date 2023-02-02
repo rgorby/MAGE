@@ -259,7 +259,7 @@ module stress
     !Load non-species data into local work arrays
     !---------------------------
         !Get geometric information, Need recLen/2 radius about each i,j,k in brickette
-        call LoadBlock(Model,Gr,VolB,Gr%volume,iB,j,k,iMax,dN)
+        call recLoadBlock(Model,Gr,VolB,Gr%volume,iB,j,k,iMax,dN)
 
         !Get relevant face transforms/area (no stencil needed)
         TfB(1:iMax,:) = Gr%Tf  (isB:ieB,j,k,:,dN)
@@ -268,7 +268,7 @@ module stress
         !If MHD pull field info and do L/R's and interface calculations
         if (Model%doMHD) then
             do nv=1,NDIM
-                call LoadBlock(Model,Gr,MagB(:,:,nv),State%Bxyz(:,:,:,nv),iB,j,k,iMax,dN)
+                call recLoadBlock(Model,Gr,MagB(:,:,nv),State%Bxyz(:,:,:,nv),iB,j,k,iMax,dN)
             enddo
             call BlockLRs(VolB,MagB,MagLRB(:,:,LEFT),MagLRB(:,:,RIGHT),NDIM)
 
@@ -298,7 +298,7 @@ module stress
         !Load conserved quantities for this species and get LR's
         !---------------------------
             do nv=1,NVAR
-                call LoadBlock(Model,Gr,ConB(:,:,nv),State%Gas(:,:,:,nv,s),iB,j,k,iMax,dN)
+                call recLoadBlock(Model,Gr,ConB(:,:,nv),State%Gas(:,:,:,nv,s),iB,j,k,iMax,dN)
             enddo
             call BlockStateLRs(Model,VolB,ConB,PrimLRB(:,:,LEFT),PrimLRB(:,:,RIGHT))
             if (.not. isBulk) then

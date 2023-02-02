@@ -439,11 +439,11 @@ module fields
         VolB = 0.0
 
         !Get stencils
-        call LoadBlock(Model,Gr,VolB          ,Gr%volume    ,iB,j,k,iMax,dT)
-        call LoadBlock(Model,Gr,DenB          ,W(:,:,:,DEN ),iB,j,k,iMax,dT)
-        call LoadBlock(Model,Gr,MomB(:,:,XDIR),W(:,:,:,MOMX),iB,j,k,iMax,dT)
-        call LoadBlock(Model,Gr,MomB(:,:,YDIR),W(:,:,:,MOMY),iB,j,k,iMax,dT)
-        call LoadBlock(Model,Gr,MomB(:,:,ZDIR),W(:,:,:,MOMZ),iB,j,k,iMax,dT)
+        call recLoadBlock(Model,Gr,VolB          ,Gr%volume    ,iB,j,k,iMax,dT)
+        call recLoadBlock(Model,Gr,DenB          ,W(:,:,:,DEN ),iB,j,k,iMax,dT)
+        call recLoadBlock(Model,Gr,MomB(:,:,XDIR),W(:,:,:,MOMX),iB,j,k,iMax,dT)
+        call recLoadBlock(Model,Gr,MomB(:,:,YDIR),W(:,:,:,MOMY),iB,j,k,iMax,dT)
+        call recLoadBlock(Model,Gr,MomB(:,:,ZDIR),W(:,:,:,MOMZ),iB,j,k,iMax,dT)
 
         !Get stencil for VdV
         do n=1,recLen
@@ -493,8 +493,8 @@ module fields
 
         !Get stencils for this sweep
         !dT1 faces in dT2 direction
-        call LoadBlockI(Model,Gr,AreaB      ,Gr%Face(:,:,:,dT1),iB,j,k,iMax,dT2)
-        call LoadBlockI(Model,Gr,MagB(:,:,1),  bFlux(:,:,:,dT1),iB,j,k,iMax,dT2)
+        call recLoadBlockI(Model,Gr,AreaB      ,Gr%Face(:,:,:,dT1),iB,j,k,iMax,dT2)
+        call recLoadBlockI(Model,Gr,MagB(:,:,1),  bFlux(:,:,:,dT1),iB,j,k,iMax,dT2)
         
         !Split into L/Rs
         if (doBdA) then
@@ -646,14 +646,14 @@ module fields
 
         if (doVdA) then
             !Get face areas for scaling, dT1 faces in dT2 direction
-            call LoadBlockI(Model,Gr,AreaB      ,Gr%Face(:,:,:,dT1),iB,j,k,iMax,dT2)
+            call recLoadBlockI(Model,Gr,AreaB      ,Gr%Face(:,:,:,dT1),iB,j,k,iMax,dT2)
             !Interpolate first
             do i=1,iMax
                 dA(i) = dot_product(interpWgt,AreaB(i,:))
             enddo
             !Loop over face Vxyz
             do d=1,NDIM
-                call LoadBlock(Model,Gr,VelB(:,:,d),Vf(:,:,:,d),iB,j,k,iMax,dT2)
+                call recLoadBlock(Model,Gr,VelB(:,:,d),Vf(:,:,:,d),iB,j,k,iMax,dT2)
                 do i=1,iMax
                     VxyzC(i,d) = dot_product(interpWgt,AreaB(i,:)*VelB(i,:,d))/dA(i)
                 enddo
@@ -661,7 +661,7 @@ module fields
         else
             !Loop over face Vxyz
             do d=1,NDIM
-                call LoadBlock(Model,Gr,VelB(:,:,d),Vf(:,:,:,d),iB,j,k,iMax,dT2)
+                call recLoadBlock(Model,Gr,VelB(:,:,d),Vf(:,:,:,d),iB,j,k,iMax,dT2)
                 do i=1,iMax
                     VxyzC(i,d) = dot_product(interpWgt,VelB(i,:,d))
                 enddo
