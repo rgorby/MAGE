@@ -121,7 +121,7 @@ module voltapp
         call IOSync(vApp%IO,gApp%Model%IO,1.0/gTScl)
       
         !Deep coupling
-        if (xmlInp%Exists("coupling/dtShallow") .or. xmlInp%Exists("coupling/dtDeep")) then
+        if (xmlInp%Exists("coupling/dt") .or. xmlInp%Exists("coupling/dtDeep")) then
                 write(*,*) 'Please remove all instances of voltron/coupling/dtShallow and voltron/coupling/dtDeep'
                 write(*,*) '   from the input XML. They have been replaced with a single unified input named'
                 write(*,*) '   voltron/coupling/dtCouple, which controls all coupling and is set to 5 seconds by default'
