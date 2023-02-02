@@ -265,6 +265,17 @@ module voltio
         !Get data
         call ReadVars(IOVars,.false.,ResF)
 
+        !Check to see if CoupleT is present
+        n0 = FindIO(IOVars,"CoupleT")
+        if (.not. IOVars(n0)%isDone) then
+            write(*,*) "CoupleT not found in Voltron restart."
+            write(*,*) "This restart must have been written with an older"
+            write(*,*) " version of the code that used ShallowT and DeepT."
+            write(*,*) "This code is not compatible with this restart file."
+            write(*,*) "Please regenerate the restart file."
+            stop
+        endif
+
         vApp%IO%nOut  = GetIOInt(IOVars,"nOut")
         vApp%IO%nRes  = GetIOInt(IOVars,"nRes") + 1
         vApp%ts       = GetIOInt(IOVars,"ts")
