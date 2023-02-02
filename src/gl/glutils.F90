@@ -104,10 +104,10 @@ module glutils
             integer :: i
 
             tmp1 = [4, 3, 2, 1, 0]*Model%r0/2 ! distance to travel in [solar radii]
-            tmp2 = sqrt(eta0)*Model%velmult*(Model%frontheight + tmp1) ! velocity in [solar radii]/h
+            tmp2 = sqrt(eta0)*Model%velmult*(Model%frontheight - tmp1) ! velocity in [solar radii]/h
     
             do i = 1, 5
-                if (tmp1(i) .ge. Model%frontheight) then ! collapsed, r le 0, or tmp1(i) ge frontheight
+                if ((tmp1(i)) >= Model%frontheight) then ! collapsed, r le 0, or tmp1(i) ge frontheight
                     etimes(i) = 0.
                 else
                     etimes(i) = ((tmp1(i)/tmp2(i))*3600. +  Model%Tstart_transient)/gT0
