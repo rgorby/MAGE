@@ -13,8 +13,8 @@ module pusher
     integer, parameter :: Nrk = 4 !Number of RK steps
     logical :: doGCKill = .FALSE. !Kill particles in GC that violate adiabaticity
     logical :: doRK4 = .true. !Do RK4 or RK2
-    logical, private, parameter :: doBoris = .true. !Do Boris vs. Higuera-Cary pusher
-    real(rp), parameter :: MinK = 1.0e-3 !Min K [keV] to kill GC particles
+    !logical, private, parameter :: doBoris = .true. !Do Boris vs. Higuera-Cary pusher
+    
     contains
     !Advance particle prt using ebState fields
     !Advance from t->t+dt
@@ -58,7 +58,7 @@ module pusher
             if (prt%isIn) prt%isIn = inDomain(prt%Q(XPOS:ZPOS),Model,ebState%ebGr)
 
             !Check for suicide conditions
-            doKill = ( prt%ddt <= TINY ) .or. ( prt2kev(Model,prt)<=MinK )
+            doKill = ( prt%ddt <= TINY ) .or. ( prt2kev(Model,prt)<=Model%MinK )
             if (doKill) then
                 call KillParticle(Model,prt)
             endif
