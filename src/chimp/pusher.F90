@@ -98,7 +98,7 @@ module pusher
 
         logical :: isGood,isOuts(Nrk)
         integer :: n, ijk(NDIM)
-        real(rp) :: htOld,htNew, p11,pMag, eGCs(Nrk)
+        real(rp) :: htOld,htNew, p11,pMag,eGCs(Nrk),dtCut
         real(rp), dimension(NVARTP) :: xGC,dxGC1,dxGC2,dxGC3,dxGC4,dQ,oQ
 
         xGC = prt%Q !GC configuration
@@ -142,7 +142,6 @@ module pusher
 
         endif
 
-
         !If still here then the step was good (or ignoring it)
         isGood = .true.
 
@@ -160,12 +159,25 @@ module pusher
 
     !Test update: gamma
         if ( Q(GAMGC) <= (1.0 + TINY) ) then
-            !Bad update, redo with smaller timestep
-            Q = oQ
-            prt%ddt = 0.5*prt%ddt            
-            isGood = .false.
-            return
-            !call FixGC(prt,t+ht,Model,ebState)
+            !Bad update, decide what to do
+
+            if (Model%isDynamic) then
+                !Flip to FO
+                call gc2fo(Model,prt,t,ebState)
+                return
+            endif
+            !If still here, stuck w/ GC
+            dtCut = MinDT(Model,prt,t,ebState)
+            if (prt%ddt <= 10*dtCut) then
+                !Timestep already too low, let's just fix this
+                call FixGC(prt,t+ht,Model,ebState)
+            else
+                !Reduce timestep and try again
+                Q = oQ
+                prt%ddt = 0.5*prt%ddt            
+                isGood = .false.
+                return
+            endif
         endif
 
     !Test update: p11
@@ -199,8 +211,155 @@ module pusher
             write(*,*) '2D Integration not implemented for GC yet'
             stop
         endif
+
+        contains
+            !Calculate some min threshold for GC timestep
+            function MinDT(Model,prt,t,ebState)
+                type(chmpModel_T), intent(in) :: Model
+                type(prt_T), intent(in) :: prt
+                real(rp), intent(in) :: t
+                type(ebState_T), intent(in)   :: ebState
+
+                real(rp) :: MinDT
+
+                real(rp), dimension(NDIM) :: Rgc,E,B,vExB,Ro,pFO,pPerp
+                real(rp), dimension(NDIM) :: xhat,yhat,bhat,ebhat,phat
+                real(rp) :: bAbs,ebx,eby,psi,absPp,pAbs
+                integer :: ijk(NDIM)
+
+                Rgc = prt%Q(XPOS:ZPOS) !Save GC position
+                !Get field values @ GC
+                ijk = prt%ijk0
+                call ebFields(Rgc,t,Model,ebState,E,B,vExB=vExB,ijkO=ijk)
+
+                !Get coordinate system
+                call MagTriad(Rgc,B,xhat,yhat,bhat)
+                bAbs = norm2(B)
+                ebhat = normVec(vExB)
+
+                !Calculate phase angle such that phat is orthogonal to ebhat
+                !phat = cos(psi)*xhat + sin(psi)*yhat
+                ebx = dot_product(ebhat,xhat)
+                eby = dot_product(ebhat,yhat)
+                psi = atan2(-ebx,eby)
+
+                !Get perp. p (only gyro)
+                !Can use mu, because mu is already corrected for ExB
+                phat = cos(psi)*xhat + sin(psi)*yhat
+                absPp = sqrt(2*Model%m0*prt%Q(MUGC)*bAbs)
+                pPerp = absPp*phat
+
+                !Calculate FO properties
+                Ro = cross(bhat,pPerp)/(Model%q0*bAbs) !Gyroradius
+                !Calculate provisional FO momentum
+                pFO = bhat*prt%Q(P11GC) + pPerp + Model%m0*vExB
+                !Constrain magnitude of momentum to conserve energy
+                pAbs = Model%m0*sqrt(prt%Q(GAMGC)**2.0 - 1.0) !Original |p|
+                pFO = normVec(pFO)*pAbs
+
+                MinDT = dtFO(Model,pFO,E,B)         
+            end function MinDT
     end function StepGC
-    
+
+
+    !Full orbit integrator, Boris push w/ matching x/v time states (ie not leapfrog)
+    !x^* = x^n + 0.5*h v^n
+    !v^- = v^n + 0.5*h E^*
+    !w/ Q^* = Q(x=x*,t=t^n+1/2), interpolant at half-step position/time
+    !v^+ = Boris[v^-,B^*], ie Boris rotation
+    !v^n+1 = v^+ + 0.5*h E^*
+    !x^n+1 = x^* + 0.5*h*v^n+1
+
+    function StepFO(prt,t,ht,Model,ebState) result(isGood)
+        type(prt_T), intent(inout) :: prt
+        real(rp), intent(in) :: t,ht
+        type(chmpModel_T), intent(in) :: Model
+        type(ebState_T), intent(in)   :: ebState
+
+        logical :: isGood
+        real(rp), dimension(NDIM) :: r0,rS,p0,E,B
+        real(rp), dimension(NDIM) :: pMin,pPos,pF,rF,pHf
+        real(rp) :: gamma,ht2,htNew,htOld
+
+        associate(Q=>prt%Q,q0=>Model%q0,m0=>Model%m0)
+        r0 = Q(XPOS:ZPOS)
+        p0 = Q(PXFO:PZFO)
+
+        ht2 = 0.5*ht
+        !Advance position to half time
+        rS = r0 + ht2*p0/(m0*p2Gam(p0,m0))
+
+        !Get fields at rS,t+h/2
+        call ebFields(rS,t+ht2,Model,ebState,E,B,ijkO=prt%ijk0)
+
+        !Do half E
+        pMin = p0 + q0*ht2*E
+
+        !Do Boris rotation for B field
+        pPos = Boris(Model,pMin,B,ht)
+
+        !Finish E push
+        pF = pPos + q0*ht2*E
+
+        if (Model%do2D) then
+            !Force momentum to xy plane
+            call p2xy(pF)
+        endif
+
+        !Finish position push
+        rF = rS + ht2*pF/(m0*p2Gam(pF,m0))
+
+    !Store update
+        isGood = .true.
+        Q(XPOS:ZPOS) = rF
+        Q(PXFO:PZFO) = pF
+        prt%Nfo = prt%Nfo+1
+
+    !Get new timestep/alpha
+        !NOTE: Using fields from half-step to avoid extra field evaluation
+        !Use half substep estimation of momentum in Lorentz force
+        !Also using half-substep lag for calculating alpha (doesn't feed back)
+        pHf = 0.5*(pF+p0)
+        htNew = dtFO(Model,pHf,E,B)
+        prt%alpha = angVec(B,pHf) !Half substep lag
+
+        !Store timestep (dtFO multiplies by epsdt)
+        htOld = prt%ddt
+        prt%ddt = min(htNew,dtX*htOld)
+
+        !We're done here, will test for FO->GC upgrade upstairs
+        
+        end associate
+
+        contains
+
+            !Boris rotation, ie p^- -> p^+
+            !Note, using relativistic formulation where rotation angle depends on gamma
+            !See chapter 15 of Birdsall & Langdon
+            function Boris(Model,pMin,B,ht) result(pPos)
+                type(chmpModel_T), intent(in) :: Model
+                real(rp), dimension(NDIM), intent(in) :: pMin,B
+                real(rp), intent(in) :: ht
+                real(rp), dimension(NDIM) :: pPos
+                real(rp) :: gamma
+                real(rp), dimension(NDIM) :: Tv,Sv,pbi
+
+                !Use updated gamma to account for first half of E push
+                gamma = p2Gam(pMin,Model%m0)
+
+                Tv = 0.5*ht*Model%q0*B/(Model%m0*gamma)
+                Sv = 2*Tv/(1+dot_product(Tv,Tv))
+
+                pbi = pMin + cross(pMin,Tv) !Bisector
+                pPos = pMin + cross(pbi,Sv)
+
+            end function Boris
+
+    end function StepFO
+
+
+
+!--- Partial implementation 
     !Full orbit integrator, synchronized integrator w/ matching x/v time states (ie not leapfrog)
     !See excellent description by Ripperda++ 2018, 10.3847/1538-4365/aab114
 
@@ -211,98 +370,6 @@ module pusher
     !4: Rotation to get u^+ and u^n+1
     !5: x^n+1 = x^n+1/2 + u^n+1 / gamma^n+1 x dt/2
 
-    function StepFO(prt,t,ht,Model,ebState) result(isGood)
-        type(prt_T), intent(inout) :: prt
-        real(rp), intent(in) :: t,ht
-        type(chmpModel_T), intent(in) :: Model
-        type(ebState_T), intent(in)   :: ebState
-
-        logical :: isGood
-        real(rp), dimension(NDIM) :: X_n,X_n12,X_np1
-        real(rp), dimension(NDIM) :: P_n,P_n12,P_np1
-        real(rp), dimension(NDIM) :: U_n,U_m,U_p,U_np1
-        real(rp), dimension(NDIM) :: E_n12,B_n12,tvec,svec,tauvec
-        real(rp) :: Gam_n,Gam_np1,Gam_m,Gam_p,s,tau2,ht2
-        real(rp) :: Ust,Sig,htNew,htOld
-
-        associate(Q=>prt%Q,q0=>Model%q0,m0=>Model%m0)
-    !0: Setup
-        X_n = Q(XPOS:ZPOS)
-        P_n = Q(PXFO:PZFO)
-        Gam_n = p2Gam(P_n,m0)
-        U_n = P_n/m0
-
-        ht2 = 0.5*ht
-
-    !1: 
-        !Advance position to half time
-        X_n12 = X_n + (U_n/Gam_n)*ht2
-    !2:
-        call ebFields(X_n12,t+ht2,Model,ebState,E_n12,B_n12,ijkO=prt%ijk0)
-    !3:
-        U_m = U_n + (q0/m0)*E_n12*ht2
-    !4:
-        Gam_m = sqrt(1 + dot_product(U_m,U_m))
-
-        if (doBoris) then
-            tvec = B_n12 * (q0/m0) * ht2 / Gam_m
-            svec = 2*tvec/(1+dot_product(tvec,tvec))
-            U_p = U_m + cross( U_m + cross(U_m,tvec), svec )
-            U_np1 = U_p + (q0/m0)*ht2*E_n12
-            !Gam_p = sqrt(1 + U_p**2.0) !Don't actually need this
-        else
-            !Do Higuera-Cary
-            tauvec = (q0/m0)*B_n12*ht2
-            Ust = dot_product(U_m,tauvec)
-            tau2 = dot_product(tauvec,tauvec)
-            Sig = Gam_m**2.0 - tau2
-            Gam_p = sqrt( Sig + sqrt(Sig**2.0 + 4*(tau2 + Ust**2.0)) )/sqrt(2.0)
-            tvec = tauvec/Gam_p
-            s = 1.0/(1.0+dot_product(tvec,tvec))
-
-            U_p = s*( U_m + dot_product(U_m,tvec)*tvec + cross(U_m,tvec) )
-            U_np1 = U_p + (q0/m0)*ht2*E_n12 + cross(U_m,tvec) !Note extra term relative to Boris
-
-        endif
-
-    !5:
-        P_np1 = m0*U_np1
-        Gam_np1 = p2Gam(P_np1,m0)
-        X_np1 = X_n12 + (U_np1/Gam_np1)*ht2
-        
-
-    !Finish up
-        !Store update
-        isGood = .true.
-        Q(XPOS:ZPOS) = X_np1
-        Q(PXFO:PZFO) = P_np1
-        prt%Nfo = prt%Nfo+1
-
-        !Get new timestep/alpha
-        !NOTE: Using fields from half-step to avoid extra field evaluation
-        !Use half substep estimation of momentum in Lorentz force
-        !Also using half-substep lag for calculating alpha (doesn't feed back)
-        P_n12 = 0.5*( P_n + P_np1 )
-        htNew = dtFO(Model,P_n12,E_n12,B_n12)
-        prt%alpha = angVec(B_n12,P_n12) !Half substep lag
-
-        !Store timestep (dtFO multiplies by epsdt)
-        htOld = prt%ddt
-        prt%ddt = min(htNew,dtX*htOld)
-
-        !We're done here, will test for FO->GC upgrade upstairs
-        end associate
-
-    end function StepFO
-
-    ! !Full orbit integrator, Boris push w/ matching x/v time states (ie not leapfrog)
-    ! !x^* = x^n + 0.5*h v^n
-    ! !v^- = v^n + 0.5*h E^*
-    ! !w/ Q^* = Q(x=x*,t=t^n+1/2), interpolant at half-step position/time
-    ! !v^+ = Boris[v^-,B^*], ie Boris rotation
-    ! !v^n+1 = v^+ + 0.5*h E^*
-    ! !x^n+1 = x^* + 0.5*h*v^n+1
-
     ! function StepFO(prt,t,ht,Model,ebState) result(isGood)
     !     type(prt_T), intent(inout) :: prt
     !     real(rp), intent(in) :: t,ht
@@ -310,82 +377,82 @@ module pusher
     !     type(ebState_T), intent(in)   :: ebState
 
     !     logical :: isGood
-    !     real(rp), dimension(NDIM) :: r0,rS,p0,E,B
-    !     real(rp), dimension(NDIM) :: pMin,pPos,pF,rF,pHf
-    !     real(rp) :: gamma,ht2,htNew,htOld
+    !     real(rp), dimension(NDIM) :: X_n,X_n12,X_np1
+    !     real(rp), dimension(NDIM) :: P_n,P_n12,P_np1
+    !     real(rp), dimension(NDIM) :: U_n,U_m,U_p,U_np1
+    !     real(rp), dimension(NDIM) :: E_n12,B_n12,tvec,svec,tauvec
+    !     real(rp) :: Gam_n,Gam_np1,Gam_m,Gam_p,s,tau2,ht2
+    !     real(rp) :: Ust,Sig,htNew,htOld
 
     !     associate(Q=>prt%Q,q0=>Model%q0,m0=>Model%m0)
-    !     r0 = Q(XPOS:ZPOS)
-    !     p0 = Q(PXFO:PZFO)
+    ! !0: Setup
+    !     X_n = Q(XPOS:ZPOS)
+    !     P_n = Q(PXFO:PZFO)
+    !     Gam_n = p2Gam(P_n,m0)
+    !     U_n = P_n/m0
 
     !     ht2 = 0.5*ht
+
+    ! !1: 
     !     !Advance position to half time
-    !     rS = r0 + ht2*p0/(m0*p2Gam(p0,m0))
+    !     X_n12 = X_n + (U_n/Gam_n)*ht2
+    ! !2:
+    !     call ebFields(X_n12,t+ht2,Model,ebState,E_n12,B_n12,ijkO=prt%ijk0)
+    ! !3:
+    !     U_m = U_n + (q0/m0)*E_n12*ht2
+    ! !4:
+    !     Gam_m = sqrt(1 + dot_product(U_m,U_m))
 
-    !     !Get fields at rS,t+h/2
-    !     call ebFields(rS,t+ht2,Model,ebState,E,B,ijkO=prt%ijk0)
+    !     if (doBoris) then
+    !         tvec = B_n12 * (q0/m0) * ht2 / Gam_m
+    !         svec = 2*tvec/(1+dot_product(tvec,tvec))
+    !         U_p = U_m + cross( U_m + cross(U_m,tvec), svec )
+    !         U_np1 = U_p + (q0/m0)*ht2*E_n12
+    !         !Gam_p = sqrt(1 + U_p**2.0) !Don't actually need this
+    !     else
+    !         !Do Higuera-Cary
+    !         tauvec = (q0/m0)*B_n12*ht2
+    !         Ust = dot_product(U_m,tauvec)
+    !         tau2 = dot_product(tauvec,tauvec)
+    !         Sig = Gam_m**2.0 - tau2
+    !         Gam_p = sqrt( Sig + sqrt(Sig**2.0 + 4*(tau2 + Ust**2.0)) )/sqrt(2.0)
+    !         tvec = tauvec/Gam_p
+    !         s = 1.0/(1.0+dot_product(tvec,tvec))
 
-    !     !Do half E
-    !     pMin = p0 + q0*ht2*E
+    !         U_p = s*( U_m + dot_product(U_m,tvec)*tvec + cross(U_m,tvec) )
+    !         U_np1 = U_p + (q0/m0)*ht2*E_n12 + cross(U_m,tvec) !Note extra term relative to Boris
 
-    !     !Do Boris rotation for B field
-    !     pPos = Boris(Model,pMin,B,ht)
-
-    !     !Finish E push
-    !     pF = pPos + q0*ht2*E
-
-    !     if (Model%do2D) then
-    !         !Force momentum to xy plane
-    !         call p2xy(pF)
     !     endif
 
-    !     !Finish position push
-    !     rF = rS + ht2*pF/(m0*p2Gam(pF,m0))
+    ! !5:
+    !     P_np1 = m0*U_np1
+    !     Gam_np1 = p2Gam(P_np1,m0)
+    !     X_np1 = X_n12 + (U_np1/Gam_np1)*ht2
+        
 
-    ! !Store update
+    ! !Finish up
+    !     !Store update
     !     isGood = .true.
-    !     Q(XPOS:ZPOS) = rF
-    !     Q(PXFO:PZFO) = pF
+    !     Q(XPOS:ZPOS) = X_np1
+    !     Q(PXFO:PZFO) = P_np1
     !     prt%Nfo = prt%Nfo+1
 
-    ! !Get new timestep/alpha
+    !     !Get new timestep/alpha
     !     !NOTE: Using fields from half-step to avoid extra field evaluation
     !     !Use half substep estimation of momentum in Lorentz force
     !     !Also using half-substep lag for calculating alpha (doesn't feed back)
-    !     pHf = 0.5*(pF+p0)
-    !     htNew = dtFO(Model,pHf,E,B)
-    !     prt%alpha = angVec(B,pHf) !Half substep lag
+    !     P_n12 = 0.5*( P_n + P_np1 )
+    !     htNew = dtFO(Model,P_n12,E_n12,B_n12)
+    !     prt%alpha = angVec(B_n12,P_n12) !Half substep lag
 
     !     !Store timestep (dtFO multiplies by epsdt)
     !     htOld = prt%ddt
     !     prt%ddt = min(htNew,dtX*htOld)
 
     !     !We're done here, will test for FO->GC upgrade upstairs
-        
     !     end associate
+
     ! end function StepFO
-
-    ! !Boris rotation, ie p^- -> p^+
-    ! !Note, using relativistic formulation where rotation angle depends on gamma
-    ! !See chapter 15 of Birdsall & Langdon
-    ! function Boris(Model,pMin,B,ht) result(pPos)
-    !     type(chmpModel_T), intent(in) :: Model
-    !     real(rp), dimension(NDIM), intent(in) :: pMin,B
-    !     real(rp), intent(in) :: ht
-    !     real(rp), dimension(NDIM) :: pPos
-    !     real(rp) :: gamma
-    !     real(rp), dimension(NDIM) :: Tv,Sv,pbi
-
-    !     !Use updated gamma to account for first half of E push
-    !     gamma = p2Gam(pMin,Model%m0)
-
-    !     Tv = 0.5*ht*Model%q0*B/(Model%m0*gamma)
-    !     Sv = 2*Tv/(1+dot_product(Tv,Tv))
-
-    !     pbi = pMin + cross(pMin,Tv) !Bisector
-    !     pPos = pMin + cross(pbi,Sv)
-
-    ! end function Boris
 
 end module pusher
 
