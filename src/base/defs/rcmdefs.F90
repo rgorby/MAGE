@@ -38,7 +38,7 @@ module rcmdefs
     REAL(krp), PARAMETER :: tiote_RCM = 4.0
 
     enum, bind(C)
-      enumerator :: ELOSS_FDG=1,ELOSS_SS,ELOSS_C05,ELOSS_C19,ELOSS_DW !Choice of electron loss model
+      enumerator :: ELOSS_FDG=1,ELOSS_SS,ELOSS_C05,ELOSS_C19,ELOSS_WM !Choice of electron loss model
     end enum
 
     REAL(krp), PARAMETER :: bMin_C_DEF  = 1.0 ![nT], default min allowable field strength

@@ -6,6 +6,7 @@ module imagtubes
     use streamline
     use chmpdbz, ONLY : DipoleB0
     use imaghelper
+    use planethelper
     USE rcmdefs, ONLY : bMin_C_DEF,wImag_C_DEF
 	implicit none
 

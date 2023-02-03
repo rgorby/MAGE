@@ -227,7 +227,7 @@ class GameraPipe(object):
 			else:
 				titStr = "%s/Step#%d/%s"%(self.ftag,sID,vID)
 		else:
-			titStr = None
+			titStr = ''
 
 		if (self.is2D):
 			V = np.zeros((self.Ni,self.Nj))
