@@ -443,14 +443,9 @@ module init
         case("8CENT","8C")
             GetLRs => Cen8LRs
             if (Model%isLoud) write(*,*) 'Using 8CENT Reconstruction'
-            
-        case("8CENTG","8CG")
-            GetLRs => Cen8GLRs
-            if (Model%isLoud) write(*,*) 'Using 8CENT-GEOM Reconstruction'
-
-        case("HIGH5")
-            GetLRs => High5LRs
-            if (Model%isLoud) write(*,*) 'Using High-5 Reconstruction'
+        case default
+            write(*,*) "Uknown sim/rmeth, exiting ..."
+            stop
         end select
 
         RingLR => NULL()
@@ -465,6 +460,9 @@ module init
             RingLR => WENO_IntLR
         case("PCM")
             RingLR => PCM_IntLR
+        case default
+            write(*,*) "Uknown sim/rmeth, exiting ..."
+            stop
         end select
 
         !Get RNG seed and setup RNG
