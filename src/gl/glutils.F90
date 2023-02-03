@@ -115,7 +115,7 @@ module glutils
             end do
 
             etimes(5) = 0 ! in DOICMEM, frontheight is at 0.1AU always -- in the future for other tasks, we might need to change this
-            if(Model%isLoud) write(*,"(1x,A40,2x,7F13.4)") "Emergence times, lastP, eta0*velmult: ",  etimes, maxval(etimes), sqrt(eta0)*Model%velmult
+            if(Model%isLoud) write(*,"(1x,A52,2x,7F13.4)") "Emergence times (5) [hr], lastP [hr], eta0*velmult: ",  etimes*(gT0/3600.), maxval(etimes*(gT0/3600.)), sqrt(eta0)*Model%velmult
         end function
 
         !> xyz must have dimensions of xyz(Model%Ni, Model%Nj, Model%Nk, NDIM)
