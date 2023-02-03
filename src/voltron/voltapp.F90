@@ -122,7 +122,7 @@ module voltapp
       
         !Deep coupling
         if (xmlInp%Exists("coupling/dt") .or. xmlInp%Exists("coupling/dtDeep")) then
-                write(*,*) 'Please remove all instances of voltron/coupling/dtShallow and voltron/coupling/dtDeep'
+                write(*,*) 'Please remove all instances of voltron/coupling/dt and voltron/coupling/dtDeep'
                 write(*,*) '   from the input XML. They have been replaced with a single unified input named'
                 write(*,*) '   voltron/coupling/dtCouple, which controls all coupling and is set to 5 seconds by default'
                 stop
