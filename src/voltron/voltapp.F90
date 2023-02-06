@@ -153,7 +153,7 @@ module voltapp
         endif
 
         if (vApp%doGCM) then
-            call init_gcm(vApp%gcm,gApp%Model%isRestart)
+            call init_gcm(vApp%gcm,vApp%remixApp%ion,gApp%Model%isRestart)
         end if
 
         if(gApp%Model%isRestart) then
