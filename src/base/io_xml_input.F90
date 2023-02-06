@@ -919,16 +919,18 @@ contains
    logical function Exists(this, path)
       class(XML_Input_T)              :: this
       character(len=*)                :: path
-      integer                         :: cnt, i
+      integer                         :: i, matchI
       character(len=strLen)           :: buf
       Exists = .false.
       if(size(this%xmld).eq.0) return
-      cnt = 0
       do i=1, size(this%xmld), 1
          buf = trim(this%xmld(i)%root) // &
                trim("/") // trim(this%xmld(i)%key)
-         cnt = cnt + index(toUpper(buf),toUpper(trim(path)))
-         if(cnt>0) then
+         matchI = index(toUpper(trim(buf)),toUpper(trim(path)))
+         if(matchI .ge. 1 .and. matchI == (1 + len_trim(buf) - len_trim(path))) then
+            ! allow the path to start inside if the user only gave part of the path
+            ! but insist that it match the end of the buffer, so that we match the entire
+            ! variable name
             Exists = .true.
             return
          endif

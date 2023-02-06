@@ -6,7 +6,7 @@
     <time tFin="36000.0"/>
     <output dtOut="60.0" tsOut="100" doTimer="F"/>
     <restart dtRes="1800.0"/>
-    <coupling dt="5.0" dtDeep="60.0" rDeep="8.0" imType="RCM"/>
+    <coupling dtCouple="5.0" rDeep="8.0" imType="RCM"/>
   </VOLTRON>
   <Gamera>
     <sim runid="msphere" doH5g="T" H5Grid="lfmD.h5" icType="user" pdmb="1.0" pFloor="1.0e-8" dFloor="1.0e-6" rmeth="7UP"/>

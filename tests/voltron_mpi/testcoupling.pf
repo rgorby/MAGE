@@ -76,15 +76,10 @@ contains
             call stepGamera_mpi(gamAppMpi)
             call localStepVoltronTime(g2vCommMpi, gamAppMpi)
             if( (g2vCommMpi%time >= g2vCommMpi%DeepT .and. g2vCommMpi%doDeep) .or. &
-                (g2vCommMpi%time >= g2vCommMpi%ShallowT) .or. &
                 (g2vCommMpi%time >= tFin)) then
                 call performStepVoltron(g2vCommMpi,gamAppMpi)
-                if(g2vCommMpi%doDeep .and. g2vCommMpi%time >= g2vCommMpi%DeepT .and. g2vCommMpi%time >= g2vCommMpi%ShallowT) then
-                    call performShallowAndDeepUpdate(g2vCommMpi, gamAppMpi)
-                elseif ( g2vCommMpi%time >= g2vCommMpi%DeepT .and. g2vCommMpi%doDeep ) then
+                if ( g2vCommMpi%time >= g2vCommMpi%DeepT .and. g2vCommMpi%doDeep ) then
                     call performDeepUpdate(g2vCommMpi, gamAppMpi)
-                elseif (g2vCommMpi%time >= g2vCommMpi%ShallowT) then
-                    call performShallowUpdate(g2vCommMpi, gamAppMpi)
                 endif
             endif
           end do
@@ -93,12 +88,8 @@ contains
             if(gameraStepReady(voltAppMpi)) then
                 call stepVoltron_mpi(voltAppMpi)
                 write (*,'(a,f8.3)') '    Time = ',voltAppMpi%time
-                if(voltAppMpi%doDeep .and. voltAppMpi%time >= voltAppMpi%DeepT .and. voltAppMpi%time >= voltAppMpi%ShallowT) then ! both
-                    call shallowAndDeepUpdate_Mpi(voltAppMpi, voltAppMpi%time)
-                elseif (voltAppMpi%time >= voltAppMpi%DeepT .and. voltAppMpi%doDeep ) then
+                if (voltAppMpi%time >= voltAppMpi%DeepT .and. voltAppMpi%doDeep ) then
                     call DeepUpdate_mpi(voltAppMpi, voltAppMpi%time)
-                elseif (voltAppMpi%time >= voltAppMpi%ShallowT) then
-                    call ShallowUpdate_mpi(voltAppMpi, voltAppMpi%time)
                 endif
             elseif(deepInProgress(voltAppMpi)) then
                 call doDeepBlock(voltAppMpi)
@@ -122,8 +113,7 @@ contains
           ! adjust coupling parameters
           call endGam2VoltWaits(g2vCommMpi, gamAppMpi)
           g2vCommMpi%doSerialVoltron = .true.
-          g2vCommMpi%doAsyncShallow = .false.
-          g2vCommMpi%firstShallowUpdate = .true.
+          g2vCommMpi%doAsyncCoupling = .false.
           g2vCommMpi%firstDeepUpdate = .true.
 
           ! run case for 20 additional seconds
@@ -134,8 +124,7 @@ contains
           !adjust coupling parameters
           call endVoltronWaits(voltAppMpi)
           voltAppMpi%doSerialVoltron = .true.
-          voltAppMpi%doAsyncShallow = .false.
-          voltAppMpi%firstShallowUpdate = .true.
+          voltAppMpi%doAsyncCoupling = .false.
           voltAppMpi%firstDeepUpdate = .true.
           voltAppMpi%firstStepUpdate = .true.
 
@@ -156,8 +145,7 @@ contains
       if(isGamera) then
           call endGam2VoltWaits(g2vCommMpi, gamAppMpi)
           g2vCommMpi%doSerialVoltron = .false.
-          g2vCommMpi%doAsyncShallow = .false.
-          g2vCommMpi%firstShallowUpdate = .true.
+          g2vCommMpi%doAsyncCoupling = .false.
           g2vCommMpi%firstDeepUpdate = .true.
 
           ! run case for 20 additional seconds
@@ -167,8 +155,7 @@ contains
 
           call endVoltronWaits(voltAppMpi)
           voltAppMpi%doSerialVoltron = .false.
-          voltAppMpi%doAsyncShallow = .false.
-          voltAppMpi%firstShallowUpdate = .true.
+          voltAppMpi%doAsyncCoupling = .false.
           voltAppMpi%firstDeepUpdate = .true.
           voltAppMpi%firstStepUpdate = .true.
 
@@ -189,8 +176,7 @@ contains
       if(isGamera) then
           call endGam2VoltWaits(g2vCommMpi, gamAppMpi)
           g2vCommMpi%doSerialVoltron = .false.
-          g2vCommMpi%doAsyncShallow = .true.
-          g2vCommMpi%firstShallowUpdate = .true.
+          g2vCommMpi%doAsyncCoupling = .true.
           g2vCommMpi%firstDeepUpdate = .true.
 
           ! run case for 20 additional seconds
@@ -200,8 +186,7 @@ contains
 
           call endVoltronWaits(voltAppMpi)
           voltAppMpi%doSerialVoltron = .false.
-          voltAppMpi%doAsyncShallow = .true.
-          voltAppMpi%firstShallowUpdate = .true.
+          voltAppMpi%doAsyncCoupling = .true.
           voltAppMpi%firstDeepUpdate = .true.
           voltAppMpi%firstStepUpdate = .true.
 
@@ -210,58 +195,6 @@ contains
       endif
 
   end subroutine testAsyncCoupling
-
-  @test(npes=[9])
-  subroutine testAdjustShallowCoupling(this)
-      class (MpiTestMethod), intent(inout) :: this
-
-      character(len=strLen) :: caseFile
-      write(caseFile,'(A,I0,A)') 'cmiD_deep_', this%getNumProcesses()-1, '_res0.xml'
-      call initializeWithCaseXml(this, caseFile)
-
-      if(isGamera) then
-          call endGam2VoltWaits(g2vCommMpi, gamAppMpi)
-          g2vCommMpi%doSerialVoltron = .false.
-          g2vCommMpi%doAsyncShallow = .true.
-          g2vCommMpi%firstShallowUpdate = .true.
-          g2vCommMpi%firstDeepUpdate = .true.
-
-          ! couple three times and check DT
-          call performShallowUpdate(g2vCommMpi,gamAppMpi)
-          call performShallowUpdate(g2vCommMpi,gamAppMpi)
-          call performShallowUpdate(g2vCommMpi,gamAppMpi)
-
-          ! couple three more times and check DT again
-          call performShallowUpdate(g2vCommMpi,gamAppMpi)
-          call performShallowUpdate(g2vCommMpi,gamAppMpi)
-          call performShallowUpdate(g2vCommMpi,gamAppMpi)
-      else
-          write (*,'(a,I0)') 'Testing DynDT Shallow ',this%getNumProcesses()
-
-          call endVoltronWaits(voltAppMpi)
-          voltAppMpi%doSerialVoltron = .false.
-          voltAppMpi%doAsyncShallow = .true.
-          voltAppMpi%firstShallowUpdate = .true.
-          voltAppMpi%firstDeepUpdate = .true.
-          voltAppMpi%firstStepUpdate = .true.
-          voltAppMpi%ShallowDT = 5.0
-          voltAppMpi%TargetShallowDT = 5.0
-
-          ! couple three times and check DT
-          call ShallowUpdate_mpi(voltAppMpi, voltAppMpi%time)
-          call ShallowUpdate_mpi(voltAppMpi, voltAppMpi%time)
-          call ShallowUpdate_mpi(voltAppMpi, voltAppMpi%time)
-          @assertEqual(5.0_rp, voltAppMpi%ShallowDT, trim("Voltron ShallowDT not 5.0 after first couplings"))
-
-          ! couple three more times and check DT again
-          call resetShallowCoupling(voltAppMpi, 2.5_rp)
-          call ShallowUpdate_mpi(voltAppMpi, voltAppMpi%time)
-          call ShallowUpdate_mpi(voltAppMpi, voltAppMpi%time)
-          call ShallowUpdate_mpi(voltAppMpi, voltAppMpi%time)
-          @assertEqual(2.5_rp, voltAppMpi%ShallowDT, trim("Voltron ShallowDT not 2.5 after second couplings"))
-      endif
-
-  end subroutine testAdjustShallowCoupling
 
   @test(npes=[9])
   subroutine testAdjustDeepCoupling(this)
@@ -274,8 +207,7 @@ contains
       if(isGamera) then
           call endGam2VoltWaits(g2vCommMpi, gamAppMpi)
           g2vCommMpi%doSerialVoltron = .false.
-          g2vCommMpi%doAsyncShallow = .true.
-          g2vCommMpi%firstShallowUpdate = .true.
+          g2vCommMpi%doAsyncCoupling = .true.
           g2vCommMpi%firstDeepUpdate = .true.
 
           ! couple three times and check DT
@@ -292,8 +224,7 @@ contains
 
           call endVoltronWaits(voltAppMpi)
           voltAppMpi%doSerialVoltron = .false.
-          voltAppMpi%doAsyncShallow = .true.
-          voltAppMpi%firstShallowUpdate = .true.
+          voltAppMpi%doAsyncCoupling = .true.
           voltAppMpi%firstDeepUpdate = .true.
           voltAppMpi%firstStepUpdate = .true.
           voltAppMpi%DeepDT = 10.0
@@ -328,8 +259,7 @@ contains
       if(isGamera) then
           call endGam2VoltWaits(g2vCommMpi, gamAppMpi)
           g2vCommMpi%doSerialVoltron = .false.
-          g2vCommMpi%doAsyncShallow = .true.
-          g2vCommMpi%firstShallowUpdate = .true.
+          g2vCommMpi%doAsyncCoupling = .true.
           g2vCommMpi%firstDeepUpdate = .true.
 
           ! explicitly deeo couple once to update deep data
@@ -339,8 +269,7 @@ contains
 
           call endVoltronWaits(voltAppMpi)
           voltAppMpi%doSerialVoltron = .false.
-          voltAppMpi%doAsyncShallow = .true.
-          voltAppMpi%firstShallowUpdate = .true.
+          voltAppMpi%doAsyncCoupling = .true.
           voltAppMpi%firstDeepUpdate = .true.
           voltAppMpi%firstStepUpdate = .true.
 
@@ -386,8 +315,7 @@ contains
       if(isGamera) then
           call endGam2VoltWaits(g2vCommMpi, gamAppMpi)
           g2vCommMpi%doSerialVoltron = .false.
-          g2vCommMpi%doAsyncShallow = .true.
-          g2vCommMpi%firstShallowUpdate = .true.
+          g2vCommMpi%doAsyncCoupling = .true.
           g2vCommMpi%firstDeepUpdate = .true.
 
           ! explicitly deeo couple once to update deep data
@@ -397,8 +325,7 @@ contains
 
           call endVoltronWaits(voltAppMpi)
           voltAppMpi%doSerialVoltron = .false.
-          voltAppMpi%doAsyncShallow = .true.
-          voltAppMpi%firstShallowUpdate = .true.
+          voltAppMpi%doAsyncCoupling = .true.
           voltAppMpi%firstDeepUpdate = .true.
           voltAppMpi%firstStepUpdate = .true.
 

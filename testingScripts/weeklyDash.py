@@ -111,9 +111,10 @@ subprocess.call("genRCM.py -o NEWrcmconfig.h5", shell=True)
 subprocess.call("cp ../../dashRestarts/* .", shell=True)
 
 # Compare new supporting files to originals
-p = subprocess.Popen("h5diff lfmX.h5 NEWlfmX.h5", shell=True, stdout=subprocess.PIPE)
-gridDiff = p.stdout.read().decode('ascii').rstrip()
-if(gridDiff != ""):
+lfmp = subprocess.Popen("h5diff lfmX.h5 NEWlfmX.h5", shell=True, stdout=subprocess.PIPE)
+lfmp.wait()
+gridDiff = lfmp.stdout.read().decode('ascii').rstrip()
+if(gridDiff != "" or lfmp.returncode != 0):
     message = "Quad grid for weekly dash has changed on branch " + gBranch + ". Case cannot be run. Please re-generate restart data, and ensure the grid change was intentional."
     if(not isTest):
         try:
@@ -128,9 +129,10 @@ if(gridDiff != ""):
         print(message)
     exit()
 
-p = subprocess.Popen("h5diff bcwind.h5 NEWbcwind.h5", shell=True, stdout=subprocess.PIPE)
-windDiff = p.stdout.read().decode('ascii').rstrip()
-if(windDiff != ""):
+bcp = subprocess.Popen("h5diff bcwind.h5 NEWbcwind.h5", shell=True, stdout=subprocess.PIPE)
+bcp.wait()
+windDiff = bcp.stdout.read().decode('ascii').rstrip()
+if(windDiff != "" or bcp.returncode != 0):
     message = "solar wind file for weekly dash has changed on branch " + gBranch + ". Case cannot be run. Please re-generate restart data, and ensure the wind data change was intentional."
     if(not isTest):
         try:
@@ -145,9 +147,10 @@ if(windDiff != ""):
         print(message)
     exit()
 
-p = subprocess.Popen("h5diff rcmconfig.h5 NEWrcmconfig.h5", shell=True, stdout=subprocess.PIPE)
-rcmDiff = p.stdout.read().decode('ascii').rstrip()
-if(rcmDiff != ""):
+rcmp = subprocess.Popen("h5diff rcmconfig.h5 NEWrcmconfig.h5", shell=True, stdout=subprocess.PIPE)
+rcmp.wait()
+rcmDiff = rcmp.stdout.read().decode('ascii').rstrip()
+if(rcmDiff != "" or rcmp.returncode != 0):
     message = "rcmconfig for weekly dash has changed on branch " + gBranch + ". Case cannot be run. Please re-generate restart data, and ensure the rcmconfig change was intentional."
     if(not isTest):
         try:

@@ -119,10 +119,25 @@ module voltapp
         
         !Force Gamera IO times to match Voltron IO
         call IOSync(vApp%IO,gApp%Model%IO,1.0/gTScl)
+      
+        !Deep coupling
+        if (xmlInp%Exists("coupling/dt") .or. xmlInp%Exists("coupling/dtDeep")) then
+                write(*,*) 'Please remove all instances of voltron/coupling/dt and voltron/coupling/dtDeep'
+                write(*,*) '   from the input XML. They have been replaced with a single unified input named'
+                write(*,*) '   voltron/coupling/dtCouple, which controls all coupling and is set to 5 seconds by default'
+                stop
+        endif
 
-    !Shallow coupling
-        call xmlInp%Set_Val(vApp%ShallowDT ,"coupling/dt" , 0.1_rp)
-        vApp%TargetShallowDT = vApp%ShallowDT
+        call xmlInp%Set_Val(vApp%DeepDT, "coupling/dtCouple", -1.0_rp)
+        vApp%TargetDeepDT = vApp%DeepDT
+        call xmlInp%Set_Val(vApp%rTrc,   "coupling/rTrc"  , 40.0)
+
+        if (vApp%DeepDT>0) then
+            vApp%doDeep = .true.
+        else
+            vApp%doDeep = .false.
+        endif
+
         call xmlInp%Set_Val(vApp%doGCM, "coupling/doGCM",.false.)
         if (vApp%isEarth) then
             call xmlInp%Set_Val(vApp%mhd2mix%dtAvg ,"coupling/dtAvgB0",900.0)
@@ -132,21 +147,14 @@ module voltapp
         !Figure out weighting for exponential moving average (EMA)
         !Want weighting such that ~95% of the weight comes from the last dtAvg seconds
         if (vApp%mhd2mix%dtAvg > 0) then
-            vApp%mhd2mix%wAvg = 1.0 - exp(-3*vApp%ShallowDT/max(vApp%mhd2mix%dtAvg,vApp%ShallowDT))
+            vApp%mhd2mix%wAvg = 1.0 - exp(-3*vApp%DeepDT/max(vApp%mhd2mix%dtAvg,vApp%DeepDT))
         else
             vApp%mhd2mix%wAvg = 0.0 !Ignore any corrections after initial dipole value
         endif
 
-    !Deep coupling
-        call xmlInp%Set_Val(vApp%DeepDT, "coupling/dtDeep", -1.0_rp)
-        vApp%TargetDeepDT = vApp%DeepDT
-        call xmlInp%Set_Val(vApp%rTrc,   "coupling/rTrc"  , 40.0)
-
-        if (vApp%DeepDT>0) then
-            vApp%doDeep = .true.
-        else
-            vApp%doDeep = .false.
-        endif
+        if (vApp%doGCM) then
+            call init_gcm(vApp%gcm,gApp%Model%isRestart)
+        end if
 
         if(gApp%Model%isRestart) then
             call readVoltronRestart(vApp, xmlInp)
@@ -193,9 +201,8 @@ module voltapp
             vApp%time = gApp%Model%t*gTScl !Time in seconds
             vApp%ts   = gApp%Model%ts !Timestep
             vApp%MJD = T2MJD(vApp%time,gApp%Model%MJD0)
-            vApp%ShallowT = vApp%time ! shallow coupling immediately
-            !Set first deep coupling (defaulting to 0)
-            call xmlInp%Set_Val(vApp%DeepT, "coupling/tDeep", 0.0_rp)
+            !Set first deep coupling (defaulting to coupling right away since shallow is part of deep now)
+            call xmlInp%Set_Val(vApp%DeepT, "coupling/tCouple", vApp%time)
         endif
 
         if (vApp%doDeep) then
@@ -263,10 +270,6 @@ module voltapp
 
         if(.not. vApp%isSeparate) then
             !Do first couplings if the gamera data is local and therefore uptodate
-            call Tic("IonCoupling")
-            call ShallowUpdate(vApp,gApp,vApp%time)
-            call Toc("IonCoupling")
-        
             if (vApp%doDeep .and. (vApp%time>=vApp%DeepT)) then
                 call Tic("DeepCoupling")
                 call DeepUpdate(vApp,gApp)
@@ -418,34 +421,8 @@ module voltapp
     end subroutine initializeFromGamera
 
 !----------
-!Shallow coupling stuff
-    subroutine ShallowUpdate(vApp, gApp, time)
-        type(gamApp_T), intent(inout) :: gApp
+    subroutine runRemix(vApp)
         class(voltApp_T), intent(inout) :: vApp
-        real(rp) :: time
-
-        ! convert gamera data to mixInput
-        call Tic("G2R")
-        call convertGameraToRemix(vApp%mhd2mix, gApp, vApp%remixApp)
-        call Toc("G2R")
-
-        ! run remix
-        call Tic("ReMIX")
-        call runRemix(vApp, time)
-        call Toc("ReMIX")
-
-        ! convert mixOutput to gamera data
-        call Tic("R2G")
-        call convertRemixToGamera(vApp%mix2mhd, vApp%remixApp, gApp)
-        call Toc("R2G")
-
-        vApp%ShallowT = vApp%ShallowT + vApp%ShallowDT
-
-    end subroutine ShallowUpdate
-
-    subroutine runRemix(vApp, time)
-        type(voltApp_T), intent(inout) :: vApp
-        real(rp), intent(in) :: time
         real(rp) :: curTilt
 
         ! convert gamera inputs to remix
@@ -458,14 +435,14 @@ module voltapp
         ! determining the current dipole tilt
         call vApp%tilt%getValue(vApp%time,curTilt)
 
-        if (vApp%doGCM .and. time >=0 .and. .not.(vApp%gcm%isRestart)) then
+        if (vApp%doGCM .and. vApp%time >=0 .and. .not.(vApp%gcm%isRestart)) then
             call Tic("GCM2MIX")
             call coupleGCM2MIX(vApp%gcm,vApp%remixApp%ion,vApp%doGCM,mjd=vApp%MJD,time=vApp%time)
             call Toc("GCM2MIX")
         end if
 
         ! solve for remix output
-        if (time<=0) then
+        if (vApp%time<=0) then
             call run_mix(vApp%remixApp%ion,curTilt,doModelOpt=.false.,mjd=vApp%MJD)
         else if (vApp%doGCM) then
             call run_mix(vApp%remixApp%ion,curTilt,gcm=vApp%gcm,mjd=vApp%MJD)
@@ -489,21 +466,42 @@ module voltapp
             return
         endif
 
-        call PreDeep(vApp, gApp)
-          call DoImag(vApp)
-          call SquishStart(vApp)
-            call Squish(vApp) ! do all squish blocks here
-          call SquishEnd(vApp)
-        call PostDeep(vApp, gApp)
+        !Remix code moved from old shallow coupling
+        ! convert gamera data to mixInput
+        call Tic("G2R")
+        call convertGameraToRemix(vApp%mhd2mix, gApp, vApp%remixApp)
+        call Toc("G2R")
+
+        ! run remix
+        call Tic("ReMIX")
+        call runRemix(vApp)
+        call Toc("ReMIX")
+
+        ! convert mixOutput to gamera data
+        call Tic("R2G")
+        call convertRemixToGamera(vApp%mix2mhd, vApp%remixApp, gApp)
+        call Toc("R2G")
+
+        !Update coupling time now so that voltron knows what to expect
+        vApp%DeepT = vApp%DeepT + vApp%DeepDT
+
+        ! only do imag after spinup
+        if(vApp%time >= 0) then
+            call PreDeep(vApp, gApp)
+              call DoImag(vApp)
+              call SquishStart(vApp)
+                call Squish(vApp) ! do all squish blocks here
+              call SquishEnd(vApp)
+            call PostDeep(vApp, gApp)
+        else
+            gApp%Grid%Gas0 = 0
+        endif
 
     end subroutine DeepUpdate
 
     subroutine PreDeep(vApp, gApp)
         type(gamApp_T) , intent(inout) :: gApp
         class(voltApp_T), intent(inout) :: vApp
-
-        !Update coupling time now so that voltron knows what to expect
-        vApp%DeepT = vApp%DeepT + vApp%DeepDT
 
         !Update i-shell to trace within in case rTrc has changed
         vApp%iDeep = ShellBoundary(gApp%Model,gApp%Grid,vApp%rTrc)
