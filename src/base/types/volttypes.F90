@@ -136,12 +136,6 @@ module volttypes
 
         class(innerMagBase_T), allocatable :: imagApp
 
-        !Shallow coupling information
-        real(rp) :: ShallowT ! Time of next shallow coupling
-        real(rp) :: ShallowDT ! Time between shallow couplings
-        real(rp) :: TargetShallowDT ! Desired shallow step from Voltron
-        logical  :: doGCM = .false.
-
         !Deep coupling information
         real(rp) :: DeepT ! Time of next deep coupling
         real(rp) :: DeepDT ! Time between deep couplings
@@ -154,6 +148,7 @@ module volttypes
         integer  :: prType = 0 !Type of projection for coupling   (0 = None)
         logical  :: doQkSquish = .false. !Whether or not to do fast squishing
         integer  :: qkSquishStride = 2 ! Stride to use when fast squishing
+        logical  :: doGCM = .false.
 
         !Dynamic coupling info
         logical :: doDynCplDT = .false. !Whether to do dynamic coupling cadence

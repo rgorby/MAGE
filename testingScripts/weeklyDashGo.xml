@@ -5,7 +5,7 @@
       <time tFin="32405.0"/>
       <spinup doSpin="T" tSpin="7200.0"/>
       <output dtOut="300.0" tsOut="100"/>
-      <coupling dt="5.0" dtDeep="10.0" imType="RCM" doQkSquish="F" qkSquishStride="2"/>
+      <coupling dtCouple="5.0" imType="RCM" doQkSquish="F" qkSquishStride="2"/>
       <restart dtRes="10800.0"/>
       <imag doInit="T"/>
       <threading NumTh="36"/>

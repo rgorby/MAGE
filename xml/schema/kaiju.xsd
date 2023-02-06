@@ -610,8 +610,7 @@
         <xs:complexType>
           <xs:attribute name="doGCM" type="TorF"/>
           <xs:attribute name="doQkSquish" type="TorF"/>
-          <xs:attribute name="dt" type="xs:decimal"/>
-          <xs:attribute name="dtDeep" type="xs:decimal"/>
+          <xs:attribute name="dtCouple" type="xs:decimal"/>
           <xs:attribute name="imType" type="imType_type"/>
           <xs:attribute name="qkSquishStride" type="xs:integer"/>
           <xs:attribute name="rDeep" type="xs:decimal"/>
