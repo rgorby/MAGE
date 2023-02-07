@@ -24,6 +24,7 @@ module pusher
         type(prt_t), intent(inout) :: prt
         real(rp), intent(in) :: t,dt
         
+        real(rp) :: xyz(NDIM)
         type(prt_t) :: oprt
         real(rp) :: dtCum,dtRem,ddt
         real(rp) :: t1,t2
@@ -76,7 +77,8 @@ module pusher
                 call ChkEQX(oprt,prt,t1,t2,Model,ebState)
             endif
             !Try to upgrade FO->GC
-            if ( Model%isDynamic .and. (.not. prt%isGC) .and. prt%isIn) then
+            xyz = prt%Q(XPOS:ZPOS)
+            if ( Model%isDynamic .and. (.not. prt%isGC) .and. prt%isIn .and. (.not. inGap(xyz,Model,ebState%ebGr))) then
                 !Test adiabaticity (and update alpha)
                 call Upgrade2GC(prt,t+dtCum,Model,ebState)
             endif
@@ -129,7 +131,7 @@ module pusher
         if (maxval(eGCs)>=Model%epsgc) then
             !Field variation is too large for GC, throw away everything
             isGood = .false.
-            if (Model%isDynamic) then
+            if (Model%isDynamic .and. (.not. inGap(prt%Q(XPOS:ZPOS),Model,ebState%ebGr))) then
                 !Flip to FP
                 !write(*,*) 'Downgrading particle ', prt%id
                 call gc2fo(Model,prt,t,ebState)
