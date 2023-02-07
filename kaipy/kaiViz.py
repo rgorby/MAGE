@@ -520,14 +520,24 @@ def helioCompPlot(plotname, scId, data):
     keys = data.keys()
     if "Speed" in keys:
         keysToPlot.append("Speed")
+    else:
+        print("No 'Speed' data found at CDAWeb for %s for this period." % scId)
     if "Velocity" in keys:
         keysToPlot.append("Velocity")
+    else:
+        print("No 'Velocity' data found at CDAWeb for %s for this period." % scId)
     if "Br" in keys:
         keysToPlot.append("Br")
+    else:
+        print("No 'Br' data found at CDAWeb for %s for this period." % scId)
     if "Density" in keys:
         keysToPlot.append("Density")
+    else:
+        print("No 'Density' data found at CDAWeb for %s for this period." % scId)
     if "Temperature" in keys:
         keysToPlot.append("Temperature")
+    else:
+        print("No 'Temperature' data found at CDAWeb for %s for this period." % scId)
     numPlots = len(keysToPlot)
 
     # Create the figure in memory to hold the plots.
