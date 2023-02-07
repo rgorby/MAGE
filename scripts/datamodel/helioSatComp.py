@@ -113,6 +113,32 @@ def create_command_line_parser():
     return parser
 
 
+def convert_fill_to_nan(data):
+    """Convert fill values to np.nan.
+
+    Replace all instances of fill values with np.nan so they will not be
+    plotted. This is only done for a subset of the possible variables.
+
+    Parameters
+    ----------
+    data : dict
+        Dictionary of CDAWeb results.
+
+    Returns
+    -------
+    None
+    """
+    # Replace missing data values with np.nan.
+    CDAWEB_MISSING_VALUE = -999.9
+    keys_to_check = ['Br', 'Density', 'Speed', 'Temperature', 'Velocity']
+    for k in keys_to_check:
+        if not k in keys_to_check:
+            continue
+        for (i, x) in enumerate(data[k]):
+            if np.isclose(x, CDAWEB_MISSING_VALUE):
+                data[k][i] = np.nan
+
+
 if __name__ == "__main__":
     """Begin main program."""
 
@@ -289,6 +315,10 @@ if __name__ == "__main__":
         # </HACK>
         dm.toCDF(cdfname, data)
         plotname = os.path.join(fdir, scId + ".png")
+
+        # Replace fill values with np.nan, so they will not be plotted.
+        convert_fill_to_nan(data)
+
         if verbose:
             print("Plotting results to %s." % plotname)
         kv.helioCompPlot(plotname, scId, data)
