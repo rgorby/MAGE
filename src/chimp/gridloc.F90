@@ -91,20 +91,33 @@ module gridloc
 
         integer :: i,j
         real(rp) :: xJ(NDIM),xJp(NDIM)
-        character(len=strLen) :: domStr,gapStr
+        character(len=strLen) :: domStr,gapStr,gapDefStr
 
         call cleanupLoc()
+
+        !Setting default of using a dipole in the gap region between grid inner boundary and ionosphere
+        ! not used unless it MAGE/Earth simulations
+        gapDefStr = "NONE"
 
         !Initialize aux grid variables for inDomain function
         select case(ebGr%GrID)
         case(LFMGRID,EGGGRID)
-            !Take Rin/Rout from sunward line
-            DomR(1) = ebGr%xyz(ebGr%is,ebGr%js,ebGr%ks,XDIR)
+            ! if MAGE/Earth run turn on gap region be default
+            if (Model%isMAGE .or. trim(toUpper(Model%uID))=="EARTH") then
+                gapDefStr = "LFM"
+
+                ! Set Gap radius from sunward line
+                buffR = ebGr%xyz(ebGr%is+2,ebGr%js,ebGr%ks,XDIR)
+
+                ! Setting Rin to be the ionosphere
+                DomR(1) = 1.01
+            else
+                !Take Rin from sunward line
+                DomR(1) = ebGr%xyz(ebGr%is,ebGr%js,ebGr%ks,XDIR)
+            endif
+            !Take Rout from sunward line
             !DomR(2) = ebGr%xyz(ebGr%ie+1,ebGr%js,ebGr%ks,XDIR)
             DomR(2) = ebGr%xyz(ebGr%ie,ebGr%js,ebGr%ks,XDIR)
-
-            !set Gap radius from sunward line
-            buffR = ebGr%xyz(ebGr%is+2,ebGr%js,ebGr%ks,XDIR)
 
             !Find min/max r and phi along each line of constant i or j
             allocate(locAux%rMin(ebGr%Nip+1))
@@ -204,7 +217,8 @@ module gridloc
         end select
         
         ! Gap region options
-        call inpXML%Set_Val(gapStr,'domain/gtype',"NONE")
+        gapDefStr = trim(toUpper(gapDefStr))
+        call inpXML%Set_Val(gapStr,'domain/gtype',gapDefStr)
         select case (trim(toUpper(gapStr)))
             case("NONE")
                 write(*,*) 'Not using inGap'
