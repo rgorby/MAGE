@@ -6,20 +6,20 @@
 			"CoordSys" : "GSE"
 		},
 		"MagneticField" : {
-			"Id" : "AC_H2_MFI",
+			"Id" : "AC_H2_MFI",u
 			"Data" : "BGSEc",
 			"CoordSys" : "GSE"	
 		},
 		"Density" : {
-			"Id" : "AC_H2_SWE",
+			"Id" : "AC_K1_SWE",
 			"Data" : "Np"
 		},
 		"Speed" : {
-			"Id" : "AC_H2_SWE",
+			"Id" : "AC_K1_SWE",
 			"Data" : "Vp"
 		},
 		"Temperature" : {
-			"Id" : "AC_H2_SWE",
+			"Id" : "AC_K1_SWE",
 			"Data" : "Tpr"
 		}
 		
