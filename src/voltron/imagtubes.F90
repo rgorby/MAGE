@@ -110,16 +110,20 @@ module imagtubes
         real(rp) :: VaMKS,CsMKS,VebMKS !Speeds in km/s
         real(rp) :: TiEV !Temperature in ev
     !First get seed for trace
+        associate(ebModel=>vApp%ebTrcApp%ebModel,ebGr=>vApp%ebTrcApp%ebState%ebGr,ebState=>vApp%ebTrcApp%ebState)
+
         !Assume lat/lon @ Earth, dipole push to first cell + epsilon
         xyzIon(XDIR) = RIonRCM*cos(lat)*cos(lon)
         xyzIon(YDIR) = RIonRCM*cos(lat)*sin(lon)
         xyzIon(ZDIR) = RIonRCM*sin(lat)
-        x0 = DipoleShift(xyzIon,vApp%mhd2chmp%Rin+TINY)
+        if (ebModel%isMAGE .and. inDomain(xyzIon,ebModel,ebState%ebGr)) then
+           x0 = DipoleShift(xyzIon,norm2(xyzIon)+TINY)
+        else
+           x0 = DipoleShift(xyzIon,vApp%mhd2chmp%Rin+TINY)
+        endif
         bIon = norm2(DipoleB0(xyzIon))*oBScl*1.0e-9 !EB=>T, ionospheric field strength
 
     !Now do field line trace
-        associate(ebModel=>vApp%ebTrcApp%ebModel,ebGr=>vApp%ebTrcApp%ebState%ebGr,ebState=>vApp%ebTrcApp%ebState)
-
         t = ebState%eb1%time !Time in CHIMP units
         
         if (present(nTrcO)) then
