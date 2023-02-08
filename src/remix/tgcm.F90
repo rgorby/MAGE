@@ -164,7 +164,7 @@ module gcminterp
       call IOArray1DFill(IOVars,"Lat",gcm%lat)
       call IOArray1DFill(IOVars,"Lon",gcm%lon)
 
-      call CheckAndKill(lockStr)
+      !call CheckAndKill(lockStr)
       
       write(*,*) "REMIX: DONE WITH INIT GCM READ"
 
@@ -221,6 +221,7 @@ module gcminterp
       Nh = gcm%nhemi
       !Now do remix mapping
 
+      write(*,*) "Loc 1:"
       !if (.not.allocated(gcmp)) allocate(gcmp(Np,Nt))
       !if (.not.allocated(gcmt)) allocate(gcmt(Np,Nt))
       if (.not.allocated(gcm%GEO)) allocate(gcm%GEO(Nh))
@@ -228,6 +229,7 @@ module gcminterp
       if (.not.allocated(gcm%r2tMaps)) allocate(gcm%r2tMaps(Nh))
       if (.not.allocated(gcm%t2rMaps)) allocate(gcm%t2rMaps(Nh))
 
+      write(*,*) "Loc 2:"
       ! construct the 2-D grid
       !do j=1,Np
       !   gcmt(j,:) = deg2rad*gcm%gcolat
@@ -245,25 +247,31 @@ module gcminterp
       !  end do
       !end do
 
+      write(*,*) "Loc 3:"
       !do h=1,Nh
       call init_grid_fromTP(gcm%GEO(GCMNORTH),gcm%gclat(:,:,GCMNORTH)*deg2rad,gcm%glon(:,:,GCMNORTH)*deg2rad,isSolverGrid=.true.)
       call init_grid_fromTP(gcm%GEO(GCMSOUTH),gcm%gclat(:,:,GCMSOUTH)*deg2rad,gcm%glon(:,:,GCMSOUTH)*deg2rad,isSolverGrid=.true.)
       !call init_grid_fromXY(gcmG(GCMNORTH),gcm%gx,gcm%gy,isSolverGrid=.true.)
       !call init_grid_fromXY(gcmG(GCMSOUTH),gcm%gx,gcm%gy,isSolverGrid=.true.)
-      !write(*,*) "Array Check: ",gcmG(GCMSOUTH)%Np,gcmG(GCMSOUTH)%Nt,shape(gcm%gx)
+      !write(*,*) "Array Check: ",gcm%GEO(GCMSOUTH)%Np,gcm%GEO(GCMSOUTH)%Nt
         ! call remix grid constructor
         !write(*,*) 'do interpolant ',h
         !call mix_interpolant(gcmG(h))
+      write(*,*) "Loc 4: ",Nh,gcm2mix_nvar
       do h=1,Nh
+        write(*,*) "ARRAY CHECK0: ",h  
         do v=1,gcm2mix_nvar
+          write(*,*) "ARRAY CHECK: ",ion(h)%G%Np,ion(h)%G%Nt,h,v
           if (.not.allocated(gcm%mixInput(h,v)%var)) allocate(gcm%mixInput(h,v)%var(ion(h)%G%Np,ion(h)%G%Nt))
           if (.not.allocated(gcm%gcmInput(h,v)%var)) allocate(gcm%gcmInput(h,v)%var(gcm%nlon,gcm%nhlat))
+          write(*,*) "ARRAY CHECK 2: "
         end do
         do v=1,mix2gcm_nvar
+          write(*,*) "ARRAY CHECK 3: ",h, v
           if (.not. allocated(gcm%gcmOutput(h,v)%var)) allocate(gcm%gcmOutput(h,v)%var(gcm%nlon,gcm%nhlat))
         end do
       enddo
-      !write(*,*) 'Grid check 1: ',gcmG(h)%
+      write(*,*) 'Grid check 1: '
     end subroutine init_gcm_mix
 
     subroutine coupleGCM2MIX(gcm,ion,do2way,mjd,time)

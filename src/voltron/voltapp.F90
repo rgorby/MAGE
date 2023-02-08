@@ -152,9 +152,9 @@ module voltapp
             vApp%mhd2mix%wAvg = 0.0 !Ignore any corrections after initial dipole value
         endif
 
-        if (vApp%doGCM) then
-            call init_gcm(vApp%gcm,vApp%remixApp%ion,gApp%Model%isRestart)
-        end if
+        !if (vApp%doGCM) then
+        !    call init_gcm(vApp%gcm,vApp%remixApp%ion,gApp%Model%isRestart)
+        !end if
 
         if(gApp%Model%isRestart) then
             call readVoltronRestart(vApp, xmlInp)
