@@ -22,6 +22,8 @@ module gcminterp
       type(mixIon_T),dimension(:),intent(inout) :: ion
       logical, intent(in) :: isRestart
 
+      write(*,*) "start init_gcm"
+
       if (.not. allocated(gcm%outlist)) allocate(gcm%outlist(mix2gcm_nvar))
       gcm%outlist(1) = POT
       gcm%outlist(2) = AVG_ENG
@@ -29,12 +31,7 @@ module gcminterp
       call initGCMNames()
 
       gcm%isRestart = isRestart
-      write(*,*) "init_gcm: ",gcm%isRestart
-      !if (gcm%cplStep == 1) then
-      !  call CheckAndKill(gcm%mix2gcmLock)
-      !  call CheckAndKill(gcm%mix2gcmH5)
-      !endif
-      write(*,*) "start init_gcm_mix"
+
       call init_gcm_mix(gcm,ion)
       
       
@@ -108,15 +105,6 @@ module gcminterp
       logical :: fExist = .false., doSP = .false.
       type(IOVAR_T), dimension(MAXMIXIOVAR) :: IOVars
 
-    !Create gcm object
-      !call read_from_netcdf(gcm)
-      ! let's assume gcm grid in the form of a mix grid for now
-      ! not sure if true
-      !gcm%remixGrid = remixApp%
-      !call mix_interpolant(gcm%remixGrid)
-      !write(*,*) 'Hello from init_gcm_mix'
-      !call readH5init(gcm)
-
       !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
       !Prepare for reading
       H5file  = "init_"//trim(gcm%gcm2mixH5)
@@ -146,16 +134,11 @@ module gcminterp
       !Now do actual reading
       call ReadVars(IOVars,doSP,H5File)
 
-      !if (.not. allocated(gcm%
-      !call IOArray1DFill()
-
       !Find grid dimension
       N = FindIO(IOVars,"Lon")
       nlon = IOVars(N)%dims(1)
       N = FindIO(IOVars,"Lat")
       nlat = IOVars(N)%dims(1)
-      !nlev = IOVars(N)%dims(3)
-      !ntime = IOVars(N)%dims(4)
       Nh = GCMhemispheres
       
       if (.not.allocated(gcm%lat)) allocate(gcm%lat(nlat))
@@ -166,7 +149,7 @@ module gcminterp
 
       !call CheckAndKill(lockStr)
       
-      write(*,*) "REMIX: DONE WITH INIT GCM READ"
+      write(*,*) "mix: Done init GCM read"
 
       !Save dimension information
       gcm%nlon  = nlon
@@ -195,12 +178,14 @@ module gcminterp
       if (.not.allocated(gcm%gclat)) allocate(gcm%gclat(gcm%nlon,gcm%nhlat,Nh))
       if (.not.allocated(gcm%glon)) allocate(gcm%glon(gcm%nlon,gcm%nhlat,Nh))
 
+      ! Convert things from latitude to colatitude (and funky colat for south)
       do i=1,gcm%nlon
         gcm%gclat(i,:,GCMNORTH) = 90.-gcm%lat(gcm%t2N)
         gcm%gclat(i,:,GCMNORTH) = gcm%gclat(i,gcm%nhlat:1:-1,GCMNORTH) ! reverse order. Ascending.
         gcm%gclat(i,:,GCMSOUTH) = 90.+gcm%lat(gcm%t2S) !For mapping to work, we're going to use remix's funky southern colat
       enddo
         
+      ! This complicated looking thing converts [-180,180] longitude into [0,360] and also shifts it so that longitude starts at 0
       do j=1,gcm%nhlat
         gcm%glon(:gcm%nlon-1,j,GCMNORTH) = modulo(cshift(gcm%lon(:nlon-1),gcm%lonshift)+360.,360.)!modulo((atan2(G2%y,G2%x)+2*pi),(2*pi))
         gcm%glon(:gcm%nlon-1,j,GCMSOUTH) = modulo(cshift(gcm%lon(:nlon-1),gcm%lonshift)+360.,360.)
@@ -209,69 +194,30 @@ module gcminterp
         gcm%glon(gcm%nlon,j,GCMSOUTH) = 360. ! hard coding the value of last point for now
       enddo
 
-      !write(*,*) 'GCM: LAT: N: ',gcm%gclat(gcm%nlon,:,GCMNORTH)
-      !write(*,*) 'GCM: LAT: S: ',gcm%gclat(gcm%nlon,:,GCMSOUTH)
-      !write(*,*) 'GCM: LON: ',gcm%glon(:,gcm%nhlat,GCMNORTH)
-
-
       !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
 
       Np = gcm%nlon
       Nt = gcm%nhlat
       Nh = gcm%nhemi
-      !Now do remix mapping
 
-      !write(*,*) "Loc 1:"
-      !if (.not.allocated(gcmp)) allocate(gcmp(Np,Nt))
-      !if (.not.allocated(gcmt)) allocate(gcmt(Np,Nt))
+      !Now do remix mapping
       if (.not.allocated(gcm%GEO)) allocate(gcm%GEO(Nh))
       if (.not.allocated(gcm%SM)) allocate(gcm%SM(Nh))
       if (.not.allocated(gcm%r2tMaps)) allocate(gcm%r2tMaps(Nh))
       if (.not.allocated(gcm%t2rMaps)) allocate(gcm%t2rMaps(Nh))
 
-      !write(*,*) "Loc 2:"
-      ! construct the 2-D grid
-      !do j=1,Np
-      !   gcmt(j,:) = deg2rad*gcm%gcolat
-      !enddo
-
-      !do i=1,Nt
-      !   gcmp(:,i) = deg2rad*(gcm%glon)
-      !   !write(*,*) 'gcolat check: ',gcmt(9,i)
-      !enddo
-
-      !do j=1,Np
-      !  do i=1,Nt
-      !    gcmt(j,i) = deg2rad*gcm%gclat(j,i)!deg2rad*(gcm%gcolat(i)-gcm%gcolat(1)) !Shift pole
-      !    gcmp(j,i) = modulo(deg2rad*gcm%glon(j)+2*pi,(2*pi))  !Positive only.
-      !  end do
-      !end do
-
-      !write(*,*) "Loc 3:"
-      !do h=1,Nh
       call init_grid_fromTP(gcm%GEO(GCMNORTH),gcm%gclat(:,:,GCMNORTH)*deg2rad,gcm%glon(:,:,GCMNORTH)*deg2rad,isSolverGrid=.true.)
       call init_grid_fromTP(gcm%GEO(GCMSOUTH),gcm%gclat(:,:,GCMSOUTH)*deg2rad,gcm%glon(:,:,GCMSOUTH)*deg2rad,isSolverGrid=.true.)
-      !call init_grid_fromXY(gcmG(GCMNORTH),gcm%gx,gcm%gy,isSolverGrid=.true.)
-      !call init_grid_fromXY(gcmG(GCMSOUTH),gcm%gx,gcm%gy,isSolverGrid=.true.)
-      !write(*,*) "Array Check: ",gcm%GEO(GCMSOUTH)%Np,gcm%GEO(GCMSOUTH)%Nt
-        ! call remix grid constructor
-        !write(*,*) 'do interpolant ',h
-        !call mix_interpolant(gcmG(h))
-      !write(*,*) "Loc 4: ",Nh,gcm2mix_nvar
+
       do h=1,Nh
-        write(*,*) "ARRAY CHECK0: ",h  
         do v=1,gcm2mix_nvar
-          write(*,*) "ARRAY CHECK: ",ion(h)%G%Np,ion(h)%G%Nt,h,v
           if (.not.allocated(gcm%mixInput(h,v)%var)) allocate(gcm%mixInput(h,v)%var(ion(h)%G%Np,ion(h)%G%Nt))
           if (.not.allocated(gcm%gcmInput(h,v)%var)) allocate(gcm%gcmInput(h,v)%var(gcm%nlon,gcm%nhlat))
-          write(*,*) "ARRAY CHECK 2: "
         end do
         do v=1,mix2gcm_nvar
-          write(*,*) "ARRAY CHECK 3: ",h, v
           if (.not. allocated(gcm%gcmOutput(h,v)%var)) allocate(gcm%gcmOutput(h,v)%var(gcm%nlon,gcm%nhlat))
         end do
       enddo
-      !write(*,*) 'Grid check 1: '
     end subroutine init_gcm_mix
 
     subroutine coupleGCM2MIX(gcm,ion,do2way,mjd,time)
@@ -288,22 +234,19 @@ module gcminterp
 
 
       !Must MIX export first.  TIEGCM will also import first.
-      !call writeMIX2GCM(ion,gcm%mix2gcmH5,gcm%mix2gcmLock,gcm%cplStep,mjd,time)
       call Tic("Export")
       call exportgcm(ion,gcm,mjd,time)
       call Toc("Export")
 
       !Import gcm data
-      !if (gcm%cplStep == 1) then
-      !  call init_gcm_mix(gcm,ion)
-      !else
-      !  call ReadH5gcm(gcm)
-      !end if
       call Tic("Import")
       call importgcm(gcm, ion)
       call Toc("Import")
 
       if (gcm%isRestart) gcm%isRestart=.false.
+      ! We have a separate internal counter for coupling here. 
+      ! This may be used later on for WACCM-X coupling which is desync from remix coupling time
+      ! TIEGCM coupling time is also 5s while WACCM-X will couple at 1 min default
       gcm%cplStep = gcm%cplStep + 1
         
     end subroutine coupleGCM2MIX
@@ -317,6 +260,7 @@ module gcminterp
       call ReadH5gcm(gcm)
       call Toc("Read")      
 
+      ! The weird ymod here is to undo the funky southern hemisphere colat issue.
       do h=1,size(ion)
         if (h == GCMSOUTH) then
           ymod1 = -1
@@ -324,9 +268,9 @@ module gcminterp
           ymod1 = 1
         endif
         !ymod1 = 1
-        write(*,*) "SM -> GEO START:",h,ymod1
+        !write(*,*) "SM -> GEO START:",h,ymod1
         call transform_grid(ion(h)%G,ion(h)%Ggeo,iSMtoGEO,h,ym1=ymod1)
-        write(*,*) "SM -> GEO END: ",h
+        !write(*,*) "SM -> GEO END: ",h
       end do
       
       !Map the data to MIX grid
@@ -340,6 +284,7 @@ module gcminterp
       real(rp), optional, intent(in) :: time, mjd
       integer :: h,ymod2
 
+      ! The weird ymod here is to undo the funky southern hemisphere colat issue.
       do h=1,gcm%nhemi
         if (h == GCMSOUTH) then
           ymod2 = -1
@@ -347,13 +292,15 @@ module gcminterp
           ymod2 = 1
         endif
         !ymod2 = 1
-        write(*,*) "GEO -> SM START:",h,ymod2
+        !write(*,*) "GEO -> SM START:",h,ymod2
         call transform_grid(gcm%GEO(h),gcm%SM(h),iGEOtoSM,h,ym2=ymod2)
-        write(*,*) "GEO -> SM END: ",h
+        !write(*,*) "GEO -> SM END: ",h
       end do
-      write(*,*) "GCM: mapMIX2GCM"
+
+      ! Map from mix grid to gcm grid
       call mapMIX2GCM(ion,gcm)
-      write(*,*) "GCM: writeMIX2GCM"
+
+      ! write the coupling file
       call writeMIX2GCM(ion,gcm,mjd,time)
 
     end subroutine
@@ -373,7 +320,6 @@ module gcminterp
       logical :: fExist = .false.
 
       !Prepare for reading
-      !H5file = "LITd-p32_mar26_2003_80F_no_tsoft_sech_tie_2003-03-28T12-01-00_2003-03-28T12-30-00.nc4"
       call Tic("Wait4File")
       H5file = gcm%gcm2mixH5
       lockStr = gcm%gcm2mixLock    
@@ -410,23 +356,15 @@ module gcminterp
       
       !4D Arrays
       
-      !write(*,*) 'ReadVars'
       !Now do actual reading
       call ReadVars(IOVars,doSP,H5File)
       
-      !allocate(etac(lon))
-      !write(*,*) 'Allocate arrays: ',nlon,nlat
       !The arrays are read in in the opposite order as listed by netcdf.
       !The time array is the last dimension
       if (.not. allocated(var2d)) allocate(var2d(gcm%nlat,gcm%nlon,gcm2mix_nvar))
-      !if (.not. allocated(gcm%gcmInput(GCMNORTH,GCMSIGMAP)%var)) allocate(gcm%gcmInput(GCMNORTH,GCMSIGMAP)%var(gcm%nlon,gcm%nlat))
-      !if (.not. allocated(gcm%gcmInput(GCMSOUTH,GCMSIGMAP)%var)) allocate(gcm%gcmInput(GCMSOUTH,GCMSIGMAP)%var(gcm%nlon,gcm%nlat))
-      !if (.not. allocated(gcm%gcmInput(GCMNORTH,GCMSIGMAH)%var)) allocate(gcm%gcmInput(GCMNORTH,GCMSIGMAH)%var(gcm%nlon,gcm%nlat))
-      !if (.not. allocated(gcm%gcmInput(GCMSOUTH,GCMSIGMAH)%var)) allocate(gcm%gcmInput(GCMSOUTH,GCMSIGMAH)%var(gcm%nlon,gcm%nlat))
 
       !Pull Scalars
 
-      !write(*,*) 'Pull 1D Arrays'
       !Pull 1D Arrays
 
       !Pull 2D Arrays
@@ -436,15 +374,6 @@ module gcminterp
       !Pull 3D Arrays
       
       !Pull 4D Arrays
-      
-      !do i = 1,nlon
-      !  do j = 1,nlat
-      !    do v = 1,gcm2mix_nvar
-      !      gcm%gcmInput(GCMNORTH,v)%var(i,j) = var2d(j,i,GCMNORTH,v)
-      !      gcm%gcmInput(GCMSOUTH,v)%var(i,j) = var2d(j,i,GCMSOUTH,v)
-      !    end do
-      !  end do
-      !end do
 
       ! Split global GCM array into two hemispheres
       ! then shift the array so that longitude starts at 0
@@ -455,10 +384,10 @@ module gcminterp
           gcm%gcmInput(GCMNORTH,v)%var(gcm%nlon,i) = gcm%gcmInput(GCMNORTH,v)%var(1,i)
           gcm%gcmInput(GCMSOUTH,v)%var(gcm%nlon,i) = gcm%gcmInput(GCMSOUTH,v)%var(1,i)
         enddo
-        write(*,*) "SHAPES: ",shape(var2d),shape(gcm%gcmInput(GCMNORTH,v)%var)
-        write(*,*) "var2d: ",maxval(var2d(:,:,v)),minval(var2d(:,:,v)),v
-        write(*,*) "GCMINPUT NORTH: ",maxval(gcm%gcmInput(GCMNORTH,v)%var),minval(gcm%gcmInput(GCMNORTH,v)%var),v
-        write(*,*) "GCMINPUT SOUTH: ",maxval(gcm%gcmInput(GCMSOUTH,v)%var),minval(gcm%gcmInput(GCMSOUTH,v)%var),v
+        !write(*,*) "SHAPES: ",shape(var2d),shape(gcm%gcmInput(GCMNORTH,v)%var)
+        !write(*,*) "var2d: ",maxval(var2d(:,:,v)),minval(var2d(:,:,v)),v
+        !write(*,*) "GCMINPUT NORTH: ",maxval(gcm%gcmInput(GCMNORTH,v)%var),minval(gcm%gcmInput(GCMNORTH,v)%var),v
+        !write(*,*) "GCMINPUT SOUTH: ",maxval(gcm%gcmInput(GCMSOUTH,v)%var),minval(gcm%gcmInput(GCMSOUTH,v)%var),v
       end do
 
       if (allocated(var2d)) deallocate(var2d)
@@ -483,7 +412,6 @@ module gcminterp
     subroutine mapGCM2MIX(gcm,ion)
       type(mixIon_T),dimension(:),intent(inout) :: ion
       type(gcm_T), intent(inout) :: gcm
-      !type(mixState_T), intent(inout) :: St
       type(Map_T) :: Map
       
       real(rp), dimension(:,:), allocatable :: F
@@ -491,18 +419,13 @@ module gcminterp
 
       do h=1,gcm%nhemi
         call mix_set_map(gcm%GEO(h),ion(h)%Ggeo,gcm%t2rMaps(h))
-        !write(*,*) "GCM2ION: ",maxval(gcm%GEO(h)%t),maxval(ion(h)%Ggeo%t),minval(gcm%GEO(h)%t),minval(ion(h)%Ggeo%t)
         do v=1,gcm2mix_nvar
           call mix_map_grids(gcm%t2rMaps(h),gcm%gcmInput(h,v)%var(:,:),F)
           select case (v)
           case (GCMSIGMAP)
             gcm%mixInput(h,v)%var(:,:) = F
-            !write(*,*) "GCM2MIX SIGMAP: ",minval(gcm%gcmInput(h,v)%var(:,:)),minval(F),maxval(gcm%gcmInput(h,v)%var(:,:)),maxval(F)
-            !write(*,*) "GCM2MIX SHAPE: ",shape(gcm%mixInput(h,v)%var(:,:)),shape(F)
-            !write(*,*) "GCM2MIX SP: ",gcm%gcmInput(h,v)%var(gcm%GEO(h)%Np,:)
           case (GCMSIGMAH)
             gcm%mixInput(h,v)%var(:,:) = F
-            !write(*,*) "GCM2MIX SIGMAH: ",minval(gcm%gcmInput(h,v)%var(:,:)),minval(F),maxval(gcm%gcmInput(h,v)%var(:,:)),maxval(F)
           end select
         end do
       end do
@@ -511,24 +434,16 @@ module gcminterp
     subroutine mapMIX2GCM(ion,gcm)
       type(mixIon_T),dimension(:),intent(inout) :: ion
       type(gcm_T), intent(inout) :: gcm
-      !type(mixState_T), intent(inout) :: St
       type(Map_T) :: Map
       
       real(rp), dimension(:,:), allocatable :: F
       integer :: h,v
 
       do h=1,gcm%nhemi
-        !write(*,*) "GCM: mix_set_map: ",h
         call mix_set_map(ion(h)%G,gcm%SM(h),gcm%r2tMaps(h))
-        !write(*,*) "ION2GCM: ",maxval(ion(h)%G%t),maxval(gcm%SM(h)%t),minval(ion(h)%G%t),minval(gcm%SM(h)%t)
-        !write(*,*) "GCM: mixmap_grids: ",h
         do v=1,mix2gcm_nvar
           call mix_map_grids(gcm%r2tMaps(h),ion(h)%St%Vars(:,:,gcm%outlist(v)),F)
-          write(*,*) "MIX2GCM SHAPE: ",v,shape(gcm%gcmOutput(h,v)%var(:,:)),shape(F)
           gcm%gcmOutput(h,v)%var(:,:) = F
-          !write(*,*) "MIX2GCM: ",v,minval(ion(h)%St%Vars(:,:,gcm%outlist(v))),minval(F),maxval(ion(h)%St%Vars(:,:,gcm%outlist(v))),maxval(F)
-            !write(*,*) "MIX2GCM SHAPE: ",v,shape(gcm%gcmOutput(h,v)%var(:,:)),shape(F)
-            !write(*,*) "MIX2GCM CHECK: ",v,gcm%gcmOutput(h,v)%var(gcm%nlon,:)
         end do
       end do
     end subroutine mapMIX2GCM
@@ -541,16 +456,12 @@ module gcminterp
       do v=1,gcm2mix_nvar
         select case (v)
         case (GCMSIGMAP)
-          !write(*,*) 'SigmaP size: ',shape(St%Vars(:,:,SIGMAP)),shape(gcm%mixInput(h,v)%var(:,:))
           St%Vars(:,:,SIGMAP) = gcm%mixInput(h,v)%var(:,:)
         case (GCMSIGMAH)
-          !write(*,*) 'SigmaH size: ',shape(St%Vars(:,:,SIGMAH)),shape(gcm%mixInput(h,v)%var(:,:))
           St%Vars(:,:,SIGMAH) = gcm%mixInput(h,v)%var(:,:)
-          !write(*,*) 'SigmaH maxval: ',maxval(gcm%mixInput(h,v)%var(:,:))
         end select
       end do
       
-      !write(*,*) 'Done applying GCM!'
     end subroutine apply_gcm2mix
 
     subroutine writeMIX2GCM(I,gcm,mjd,time)
@@ -573,7 +484,6 @@ module gcminterp
 
 
       if (.not. allocated(var2d)) allocate(var2d(gcm%nlat,gcm%nlon,mix2gcm_nvar))
-      !write(*,*) 'VAR2D SHAPE: ',shape(var2d),shape(gcm%gcmOutput(GCMNORTH,1)%var)
       var2d = 0.
       ! Before we start, we collapse to 1 globe instead of 2 hemispheres
       do v=1,mix2gcm_nvar
@@ -583,9 +493,6 @@ module gcminterp
         var2d(gcm%t2S,gcm%nlon,v) = var2d(gcm%t2S,1,v)
       end do
 
-      !h5gcm = "mix4gcm.h5"
-      !gcmlock = "mixgcmcoupling.txt"
-      !%mix2gcmH5,gcm%mix2gcmLock,gcm%cplStep,
       cplStr = gcm%mix2gcmH5
       lockStr = gcm%mix2gcmLock
       cplStep = gcm%cplStep
@@ -602,33 +509,13 @@ module gcminterp
       
       !Reset IO chain
       call ClearIO(IOVars)
-      
-      ! Create grid info (why is this not stored?)
-      !call genOutGrid(I(NORTH)%G%x,I(NORTH)%G%y,xc,yc)
-
-      ! save grid only for north
-      !call AddOutVar(IOVars,"X",xc,uStr="Ri")
-      !call AddOutVar(IOVars,"Y",yc,uStr="Ri")
-
-      !call AddOutVar(IOVars,"UnitsID","ReMIX")
-      
-      !Write out the chain (to root)
-      !call WriteVars(IOVars,.false.,cplStr)
-
-      !Reset IO chain
-      !call ClearIO(IOVars)
               
       do v=1,mix2gcm_nvar
-
-
         ! NOTE: assuming initMIXNames got called before
         vStr = trim(mixVarNames(gcm%outlist(v)))
         uStr = trim(mixUnitNames(gcm%outlist(v)))
         
         call AddOutVar(IOVars,vStr,var2d(:,:,v),uStr)
-        !! inelegantly specifying the units       
-        !n0 = FindIO(IOVars,vStr)
-        !IOVars(n0)%unitStr = uStr
       enddo
 
       ! now add time
@@ -649,8 +536,6 @@ module gcminterp
       write(gStr,'(A,I0)') "Step#", cplStep
       call WriteVars(IOVars,.false.,cplStr,gStr)
      
-      !write(*,*) "nCPCP",maxval(I(NORTH)%St%Vars(:,:,POT))-minval(I(NORTH)%St%Vars(:,:,POT))
-      !write(*,*) "sCPCP",maxval(I(SOUTH)%St%Vars(:,:,POT))-minval(I(SOUTH)%St%Vars(:,:,POT))
       write(*,*) "Done making ",trim(cplStr)," so locking"
       open(303,file=trim(lockStr))
         write(303,*) mjd
