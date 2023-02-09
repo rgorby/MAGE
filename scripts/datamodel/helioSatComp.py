@@ -132,7 +132,7 @@ def convert_fill_to_nan(data):
     CDAWEB_MISSING_VALUE = -999.9
     keys_to_check = ['Br', 'Density', 'Speed', 'Temperature', 'Velocity']
     for k in keys_to_check:
-        if not k in keys_to_check:
+        if not k in data.keys():
             continue
         for (i, x) in enumerate(data[k]):
             if np.isclose(x, CDAWEB_MISSING_VALUE):
