@@ -481,7 +481,7 @@ def helioItemPlot(Ax,
             data['GAMERA_inDom'][:] == 0.0, data['GAMERA_' + key][:]
         )
     if key == "Br":
-        Ax.axhline(y=0)
+        Ax.axhline(y=0, linestyle='--', color='black')
     Ax.plot(data['Epoch_bin'], observed)
     Ax.plot(data['Epoch_bin'], predicted)
     if (plotNum % 2) == 0:
