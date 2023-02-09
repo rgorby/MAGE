@@ -28,7 +28,7 @@ module pusher
         type(prt_t) :: oprt
         real(rp) :: dtCum,dtRem,ddt
         real(rp) :: t1,t2
-        logical :: isGood,doKill
+        logical :: isGood,doKill,doUpCheck
 
         dtCum = 0.0 !How far we've advanced
         do while ( (dtCum<dt) .and. prt%isIn )
@@ -76,10 +76,14 @@ module pusher
                 t1 = t2-ddt
                 call ChkEQX(oprt,prt,t1,t2,Model,ebState)
             endif
-            !Try to upgrade FO->GC
+
+            !Should we try to upgrade FO=>GC
+            !To upgrade we need: DYN integrator, we just took a good step, it's in and it's not in the gap
             xyz = prt%Q(XPOS:ZPOS)
-            if ( Model%isDynamic .and. (.not. prt%isGC) .and. prt%isIn .and. (.not. inGap(xyz,Model,ebState%ebGr))) then
-                !Test adiabaticity (and update alpha)
+            doUpCheck = Model%isDynamic .and. isGood .and. prt%isIn &
+                      & .and. (.not. prt%isGC) .and. (.not. inGap(xyz,Model,ebState%ebGr))
+            if (doUpCheck) then
+                !Test adiabaticity (and update alpha), if adiabaticity is good it'll do FO=>GC
                 call Upgrade2GC(prt,t+dtCum,Model,ebState)
             endif
 
