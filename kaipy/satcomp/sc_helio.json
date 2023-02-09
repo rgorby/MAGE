@@ -6,7 +6,7 @@
 			"CoordSys" : "GSE"
 		},
 		"MagneticField" : {
-			"Id" : "AC_H2_MFI",u
+			"Id" : "AC_H2_MFI",
 			"Data" : "BGSEc",
 			"CoordSys" : "GSE"	
 		},
