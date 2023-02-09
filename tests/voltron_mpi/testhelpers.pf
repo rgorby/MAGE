@@ -77,15 +77,10 @@ contains
               call stepGamera_mpi(gamAppMpi)
               call localStepVoltronTime(g2vCommMpi, gamAppMpi)
               if( (g2vCommMpi%time >= g2vCommMpi%DeepT .and. g2vCommMpi%doDeep) .or. &
-                  (g2vCommMpi%time >= g2vCommMpi%ShallowT) .or. &
                   (g2vCommMpi%time >= g2vCommMpi%tFin)) then
                   call performStepVoltron(g2vCommMpi,gamAppMpi)
-                  if(g2vCommMpi%doDeep .and. g2vCommMpi%time >= g2vCommMpi%DeepT .and. g2vCommMpi%time >= g2vCommMpi%ShallowT) then
-                      call performShallowAndDeepUpdate(g2vCommMpi, gamAppMpi)
-                  elseif ( g2vCommMpi%time >= g2vCommMpi%DeepT .and. g2vCommMpi%doDeep ) then
+                  if ( g2vCommMpi%time >= g2vCommMpi%DeepT .and. g2vCommMpi%doDeep ) then
                       call performDeepUpdate(g2vCommMpi, gamAppMpi)
-                  elseif (g2vCommMpi%time >= g2vCommMpi%ShallowT) then
-                      call performShallowUpdate(g2vCommMpi, gamAppMpi)
                   endif
               endif
           end do
@@ -100,12 +95,8 @@ contains
                   if(gameraStepReady(voltAppMpi)) then
                       call stepVoltron_mpi(voltAppMpi)
                       write (*,'(a,f8.3)') '    Time = ',voltAppMpi%time
-                      if(voltAppMpi%doDeep .and. voltAppMpi%time >= voltAppMpi%DeepT .and. voltAppMpi%time >= voltAppMpi%ShallowT) then ! both
-                          call shallowAndDeepUpdate_Mpi(voltAppMpi, voltAppMpi%time)
-                      elseif (voltAppMpi%time >= voltAppMpi%DeepT .and. voltAppMpi%doDeep ) then
+                      if (voltAppMpi%time >= voltAppMpi%DeepT .and. voltAppMpi%doDeep ) then
                           call DeepUpdate_mpi(voltAppMpi, voltAppMpi%time)
-                      elseif (voltAppMpi%time >= voltAppMpi%ShallowT) then
-                          call ShallowUpdate_mpi(voltAppMpi, voltAppMpi%time)
                       endif
                   elseif(deepInProgress(voltAppMpi)) then
                       call doDeepBlock(voltAppMpi)
