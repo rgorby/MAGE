@@ -110,7 +110,7 @@ module gridloc
                 buffR = ebGr%xyz(ebGr%is+2,ebGr%js,ebGr%ks,XDIR)
 
                 ! Setting Rin to be the ionosphere
-                DomR(1) = 1.01
+                DomR(1) = (RionE*1.0e+6)/REarth !Ionospheric radius in units of Re, ~1.01880
             else
                 !Take Rin from sunward line
                 DomR(1) = ebGr%xyz(ebGr%is,ebGr%js,ebGr%ks,XDIR)
