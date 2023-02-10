@@ -5,11 +5,6 @@
 Perform a comparison of ground magnetic field perturbations computed for a
 MAGE magnetosphere simulation with measured data from SuperMag.
 
-This code caches SuperMAG data in your home directory, in a subdirectory
-called "supermag". Make sure this directory exists (even if it is empty)
-before running this script. Note that this caching can be very time-consuming
-the first time it is run.
-
 Author
 ------
 Eric Winter (eric.winter@jhuapl.edu)
@@ -18,8 +13,8 @@ Eric Winter (eric.winter@jhuapl.edu)
 
 # Import standard modules.
 import argparse
-import math
 import os
+# import shutil
 import subprocess
 
 # Import 3rd-party modules.
@@ -35,43 +30,13 @@ import kaipy.supermage as sm
 # Program description.
 description = "Compare MAGE ground delta-B to SuperMag measurements."
 
-# Default identifier for results to read.
-default_runid = "msphere"
-
 # Location of template XML file.
-xml_template_path = os.path.join(
+xml_template = os.path.join(
     os.environ["KAIJUHOME"], "scripts", "postproc", "calcdb.xml.template"
 )
 
 # Name of XML file read by calcdb.x.
 xml_filename_template = "calcdb_RUNID.xml"
-
-# Command to run for calcdb.x.
-calcdb_cmd = "calcdb.x"
-
-# calcdb.x file to capture stdout, stderr.
-calcdb_output_file = "calcdb.out"
-
-# Tempalte for filename for delta-B values.
-deltab_filename_template = "%s.deltab.h5"
-
-# User ID to use when fetching SupreMAG data.
-supermag_user_id = "ewinter"
-
-# Number of seconds in a day.
-SECONDS_PER_DAY = 86400
-
-# Local cache folder for SuperMAG data.
-SUPERMAG_CACHE_FOLDER = os.path.join(os.environ["HOME"], "supermag")
-
-# Limit of fraction of bad data to keep SuperMAG results.
-SUPERMAG_BAD_FRAC = 0.1
-
-# Template for file containing index plot.
-INDEX_PLOT_FILENAME_TEMPLATE = "%s_indices.png"
-
-# Template for file containing contour plots.
-CONTOUR_PLOT_FILENAME_TEMPLATE = "%s_contours.png"
 
 
 def create_command_line_parser():
@@ -90,29 +55,46 @@ def create_command_line_parser():
     """
     parser = argparse.ArgumentParser(description=description)
     parser.add_argument(
-        "--debug", action="store_true", default=False,
+        "-d", "--debug", action="store_true", default=False,
         help="Print debugging output (default: %(default)s)."
-    )
-    parser.add_argument(
-        "-d", type=str, metavar="directory", default=os.getcwd(),
-        help="Directory containing data to read (default: %(default)s)"
-    )
-    parser.add_argument(
-        "-id", type=str, metavar="runid", default=default_runid,
-        help="Run ID of data (default: %(default)s)"
     )
     parser.add_argument(
         "-v", "--verbose", action="store_true", default=False,
         help="Print verbose output (default: %(default)s)."
     )
+    parser.add_argument(
+        "mage_results_path",
+        help='Path to a result file for a MAGE magnetosphere run.'
+    )
     return parser
 
 
-def create_calcdb_xml_file(runid):
+def filename_to_runid(filename):
+    """Parse the runid from a MAGE results file name.
+
+    Parse the runid from a MAGE results file name.
+
+    The runid is all text before the first period in the name.
+
+    Parameters
+    ----------
+    filename : str
+        Name of MAGE results file.
+
+    Returns
+    -------
+    runid : str
+        The MAGE runid for the file.
+    """
+    parts = filename.split('.')
+    runid = parts[0]
+    return runid
+
+
+def create_xml_file(runid):
     """Create the XML input file for calcdb.x from a template.
 
-    Create the XML input file for calcdb.x from a template. The file is
-    created in the current directory.
+    Create the XML input file for calcdb.x from a template.
 
     Parameters
     ----------
@@ -125,7 +107,7 @@ def create_calcdb_xml_file(runid):
         Name of XML file.
     """
     # Read the template file.
-    with open(xml_template_path) as t:
+    with open(xml_template) as t:
         lines = t.readlines()
 
     # Process the template here.
@@ -140,7 +122,6 @@ def create_calcdb_xml_file(runid):
     with open(xml_file, "w") as f:
         f.writelines(lines)
 
-    # Return the name of the XML file.
     return xml_file
 
 
@@ -158,24 +139,18 @@ def compute_ground_delta_B(runid):
     Returns
     -------
     delta_B_file : str
-        Name of file in cirrent directory containing calcdb.x results.
+        Name of file containing calcdb.x results.
     """
     # Create the XML file for calcdb.x from the template.
-    xml_file = create_calcdb_xml_file(runid)
+    xml_file = create_xml_file(runid)
 
     # Run the command to compute ground delta B values.
-    # Capture stdout and stderr to a file, raise exception on non-zero exit.
-    # result = subprocess.run([calcdb_cmd, xml_file], stdout=subprocess.PIPE, stderr=subprocess.STDOUT)
-    # with open(calcdb_output_file, "w") as f:
-    #     f.write(result.stdout.decode('utf-8'))
+    cmd = 'calcdb.x'
+    args = [xml_file]
+    subprocess.run([cmd] + args)
 
     # Compute the name of the file containing the delta B values.
-    delta_B_file = deltab_filename_template % runid
-
-    # Verify that the file was created.
-    assert os.path.isfile(delta_B_file)
-
-    # Return the name of the file containing the delta B results.
+    delta_B_file = runid + 'deltab.h5'
     return delta_B_file
 
 
@@ -188,68 +163,45 @@ if __name__ == "__main__":
     # Parse the command-line arguments.
     args = parser.parse_args()
     debug = args.debug
-    results_directory = args.d
-    runid = args.id
     verbose = args.verbose
-    if debug:
-        print("args = %s" % args)
+    mage_results_path = args.mage_results_path
+
+    # Split the MAGE results path into a directory and a file.
+    (mage_results_dir, mage_results_file) = os.path.split(mage_results_path)
+
+    # Compute the runid from the file name.
+    runid = filename_to_runid(mage_results_file)
 
     # Move to the results directory.
-    os.chdir(results_directory)
+    os.chdir(mage_results_dir)
 
     # Compute the ground delta B values for this run.
-    delta_B_file = compute_ground_delta_B(runid)
-    if debug:
-        print("delt_B_file = %s" % delta_B_file)
+    # delta_B_file = compute_ground_delta_B(runid)
+    delta_B_file = 'msphere.deltab.h5'
 
     # Read the delta B values.
     SIM = sm.ReadSimData(delta_B_file)
 
     # Fetch the SuperMag indices for the desired time range.
-    supermag_user = supermag_user_id    # username used with SuperMag
-    datetime_start = SIM['td'][0]       # start time of simulation data
-    datetime_end = SIM['td'][-1]        # end time of simulation data
-    # Fetch data in 1-day chunks to ensure proper caching?
-    num_days = int(math.ceil((datetime_end - datetime_start).seconds/SECONDS_PER_DAY))
-    if debug:
-        print("supermag_user = %s" % supermag_user)
-        print("datetime_start = %s" % datetime_start)
-        print("datetime_end = %s" % datetime_end)
-        print("num_days = %s" % num_days)
-    SMI = sm.FetchSMIndices(
-        user=supermag_user,
-        start=datetime_start,
-        numofdays=num_days
-    )
-    if debug:
-        print("SMI = %s" % SMI)
+    user = 'ewinter'    # username used with SuperMag
+    start = SIM['td'][0] # start time of simulation data
+    numofdays = 3        # retrieve 4 days of data 
+    SMI  = sm.FetchSMIndices(user, start, numofdays)
 
-    # Fetch the SuperMag station data for the desired time range.
-    local_supermag_cache_path = SUPERMAG_CACHE_FOLDER
-    if debug:
-        print("local_supermag_cache_path = %s" % local_supermag_cache_path)
-    SM = sm.FetchSMData(
-        user=supermag_user,
-        start=datetime_start,
-        numofdays=num_days,
-        savefolder=local_supermag_cache_path,
-        badfrac=SUPERMAG_BAD_FRAC
-    )
-    if debug:
-        print("SM = %s" % SM)
+    # Fetch the SuperMag data for the desired time range.
+    savefolder = '/Users/winteel1/supermag'
+    SM = sm.FetchSMData(user, start, numofdays, savefolder, badfrac = 0.1)
 
     # Interpolate the simulated delta B to the measurement times from SuperMag.
-    SMinterp = sm.InterpolateSimData(SIM=SIM, SM=SM)
-    if debug:
-        print("SMinterp = %s" % SMinterp)
+    SMinterp = sm.InterpolateSimData(SIM, SM)
 
     # Create the plots in memory.
     mpl.use('Agg')
 
     # Make the indices plot.
-    sm.MakeIndicesPlot(SMI=SMI, SMinterp=SMinterp, fignumber=1)
-    plt.savefig(INDEX_PLOT_FILENAME_TEMPLATE % runid)
+    sm.MakeIndicesPlot(SMI, SMinterp, fignumber = 1)
+    plt.savefig(runid + '_indices.png')
 
     # Make the contour plots.
-    sm.MakeContourPlots(SM=SM, SMinterp=SMinterp, fignumber=2)
-    plt.savefig(CONTOUR_PLOT_FILENAME_TEMPLATE % runid)
+    sm.MakeContourPlots(SM, SMinterp, maxx = 1000, fignumber = 2)
+    plt.savefig(runid + '_contours.png')
