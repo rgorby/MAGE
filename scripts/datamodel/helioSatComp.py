@@ -134,9 +134,7 @@ def convert_fill_to_nan(data):
     for k in keys_to_check:
         if not k in data.keys():
             continue
-        for (i, x) in enumerate(data[k]):
-            if np.isclose(x, CDAWEB_MISSING_VALUE):
-                data[k][i] = np.nan
+        data[k][np.where(np.isclose(data[k], CDAWEB_MISSING_VALUE))] = np.nan
 
 
 if __name__ == "__main__":
