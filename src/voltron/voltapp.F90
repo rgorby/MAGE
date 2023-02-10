@@ -431,7 +431,7 @@ module voltapp
         ! determining the current dipole tilt
         call vApp%tilt%getValue(vApp%time,curTilt)
 
-        if (vApp%doGCM .and. vApp%time >=0 .and. .not.(vApp%gcm%isRestart)) then
+        if (vApp%doGCM .and. vApp%time >=0) then
             call Tic("GCM2MIX")
             call coupleGCM2MIX(vApp%gcm,vApp%remixApp%ion,vApp%doGCM,mjd=vApp%MJD,time=vApp%time)
             call Toc("GCM2MIX")
