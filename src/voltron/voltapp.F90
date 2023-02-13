@@ -132,11 +132,8 @@ module voltapp
         vApp%TargetDeepDT = vApp%DeepDT
         call xmlInp%Set_Val(vApp%rTrc,   "coupling/rTrc"  , 40.0)
 
-        if (vApp%DeepDT>0) then
-            vApp%doDeep = .true.
-        else
-            vApp%doDeep = .false.
-        endif
+        !Coupling is unified, so adding a separate XML option to control "deep" parts
+        call xmlInp%Set_Val(vApp%doDeep, "coupling/doDeep", .true.)
 
         call xmlInp%Set_Val(vApp%doGCM, "coupling/doGCM",.false.)
         if (vApp%isEarth) then
