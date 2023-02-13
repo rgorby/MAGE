@@ -98,23 +98,48 @@ module volthelpers_mpi
         type(MPI_Comm), intent(in) :: vHelpComm
 
         integer :: ierr, length
+	integer :: sendCount
+	integer, allocatable, save :: mpiCounts(:), mpiZeroes(:)
         character( len = MPI_MAX_ERROR_STRING) :: message
+
+	if(.not. allocated(mpiCounts)) then
+		call mpi_comm_size(vHelpComm, length, ierr)
+		allocate(mpiCounts(length))
+		allocate(mpiZeroes(length))
+		mpiZeroes(:) = 0
+		mpiCounts(:) = 0
+	endif
 
         ! Fields
         !  eb1
-        call mpi_bcast(ebState%eb1%dB, size(ebState%eb1%dB), MPI_MYFLOAT, 0, vHelpComm, ierr)
+	sendCount = size(ebState%eb1%dB)
+	mpiCounts(:) = sendCount
+	mpiCounts(1) = 0
+	call mpi_alltoallv(ebState%eb1%dB, mpiCounts, mpiZeroes, MPI_MYFLOAT, &
+		ebState%eb1%dB, mpiZeroes, mpiZeroes, MPI_MYFLOAT, vHelpComm, ierr)
+        !call mpi_bcast(ebState%eb1%dB, size(ebState%eb1%dB), MPI_MYFLOAT, 0, vHelpComm, ierr)
         if(ierr /= MPI_Success) then
             call MPI_Error_string( ierr, message, length, ierr)
             print *,message(1:length)
             call mpi_Abort(MPI_COMM_WORLD, 1, ierr)
         end if
-        call mpi_bcast(ebState%eb1%E, size(ebState%eb1%E), MPI_MYFLOAT, 0, vHelpComm, ierr)
+	sendCount = size(ebState%eb1%E)
+        mpiCounts(:) = sendCount
+        mpiCounts(1) = 0
+        call mpi_alltoallv(ebState%eb1%E, mpiCounts, mpiZeroes, MPI_MYFLOAT, &
+                ebState%eb1%E, mpiZeroes, mpiZeroes, MPI_MYFLOAT, vHelpComm, ierr)
+        !call mpi_bcast(ebState%eb1%E, size(ebState%eb1%E), MPI_MYFLOAT, 0, vHelpComm, ierr)
         if(ierr /= MPI_Success) then
             call MPI_Error_string( ierr, message, length, ierr)
             print *,message(1:length)
             call mpi_Abort(MPI_COMM_WORLD, 1, ierr)
         end if
-        call mpi_bcast(ebState%eb1%W, size(ebState%eb1%W), MPI_MYFLOAT, 0, vHelpComm, ierr)
+	sendCount = size(ebState%eb1%W)
+        mpiCounts(:) = sendCount
+        mpiCounts(1) = 0
+        call mpi_alltoallv(ebState%eb1%W, mpiCounts, mpiZeroes, MPI_MYFLOAT, &
+                ebState%eb1%W, mpiZeroes, mpiZeroes, MPI_MYFLOAT, vHelpComm, ierr)
+        !call mpi_bcast(ebState%eb1%W, size(ebState%eb1%W), MPI_MYFLOAT, 0, vHelpComm, ierr)
         if(ierr /= MPI_Success) then
             call MPI_Error_string( ierr, message, length, ierr)
             print *,message(1:length)
@@ -127,19 +152,34 @@ module volthelpers_mpi
             call mpi_Abort(MPI_COMM_WORLD, 1, ierr)
         end if
         !  eb2
-        call mpi_bcast(ebState%eb2%dB, size(ebState%eb2%dB), MPI_MYFLOAT, 0, vHelpComm, ierr)
+	sendCount = size(ebState%eb2%dB)
+        mpiCounts(:) = sendCount
+        mpiCounts(1) = 0
+        call mpi_alltoallv(ebState%eb2%dB, mpiCounts, mpiZeroes, MPI_MYFLOAT, &
+                ebState%eb2%dB, mpiZeroes, mpiZeroes, MPI_MYFLOAT, vHelpComm, ierr)
+        !call mpi_bcast(ebState%eb2%dB, size(ebState%eb2%dB), MPI_MYFLOAT, 0, vHelpComm, ierr)
         if(ierr /= MPI_Success) then
             call MPI_Error_string( ierr, message, length, ierr)
             print *,message(1:length)
             call mpi_Abort(MPI_COMM_WORLD, 1, ierr)
         end if
-        call mpi_bcast(ebState%eb2%E, size(ebState%eb2%E), MPI_MYFLOAT, 0, vHelpComm, ierr)
+	sendCount = size(ebState%eb2%E)
+        mpiCounts(:) = sendCount
+        mpiCounts(1) = 0
+        call mpi_alltoallv(ebState%eb2%E, mpiCounts, mpiZeroes, MPI_MYFLOAT, &
+                ebState%eb2%E, mpiZeroes, mpiZeroes, MPI_MYFLOAT, vHelpComm, ierr)
+        !call mpi_bcast(ebState%eb2%E, size(ebState%eb2%E), MPI_MYFLOAT, 0, vHelpComm, ierr)
         if(ierr /= MPI_Success) then
             call MPI_Error_string( ierr, message, length, ierr)
             print *,message(1:length)
             call mpi_Abort(MPI_COMM_WORLD, 1, ierr)
         end if
-        call mpi_bcast(ebState%eb2%W, size(ebState%eb2%W), MPI_MYFLOAT, 0, vHelpComm, ierr)
+	sendCount = size(ebState%eb2%W)
+        mpiCounts(:) = sendCount
+        mpiCounts(1) = 0
+        call mpi_alltoallv(ebState%eb2%W, mpiCounts, mpiZeroes, MPI_MYFLOAT, &
+                ebState%eb2%W, mpiZeroes, mpiZeroes, MPI_MYFLOAT, vHelpComm, ierr)
+        !call mpi_bcast(ebState%eb2%W, size(ebState%eb2%W), MPI_MYFLOAT, 0, vHelpComm, ierr)
         if(ierr /= MPI_Success) then
             call MPI_Error_string( ierr, message, length, ierr)
             print *,message(1:length)
@@ -160,22 +200,47 @@ module volthelpers_mpi
 
         integer :: ierr, length
         character( len = MPI_MAX_ERROR_STRING) :: message
+	integer :: sendCount
+        integer, allocatable, save :: mpiCounts(:), mpiZeroes(:)
+
+        if(.not. allocated(mpiCounts)) then
+                call mpi_comm_size(vHelpComm, length, ierr)
+                allocate(mpiCounts(length))
+                allocate(mpiZeroes(length))
+                mpiZeroes(:) = 0
+                mpiCounts(:) = 0
+        endif
 
         ! Fields
         !  eb1
-        call mpi_bcast(ebState%eb1%dB, size(ebState%eb1%dB), MPI_MYFLOAT, 0, vHelpComm, ierr)
+	sendCount = size(ebState%eb1%dB)
+        mpiCounts(:) = 0
+        mpiCounts(1) = sendCount
+        call mpi_alltoallv(ebState%eb1%dB, mpiZeroes, mpiZeroes, MPI_MYFLOAT, &
+                ebState%eb1%dB, mpiCounts, mpiZeroes, MPI_MYFLOAT, vHelpComm, ierr)
+        !call mpi_bcast(ebState%eb1%dB, size(ebState%eb1%dB), MPI_MYFLOAT, 0, vHelpComm, ierr)
         if(ierr /= MPI_Success) then
             call MPI_Error_string( ierr, message, length, ierr)
             print *,message(1:length)
             call mpi_Abort(MPI_COMM_WORLD, 1, ierr)
         end if
-        call mpi_bcast(ebState%eb1%E, size(ebState%eb1%E), MPI_MYFLOAT, 0, vHelpComm, ierr)
+	sendCount = size(ebState%eb1%E)
+        mpiCounts(:) = 0
+        mpiCounts(1) = sendCount
+        call mpi_alltoallv(ebState%eb1%E, mpiZeroes, mpiZeroes, MPI_MYFLOAT, &
+                ebState%eb1%E, mpiCounts, mpiZeroes, MPI_MYFLOAT, vHelpComm, ierr)
+        !call mpi_bcast(ebState%eb1%E, size(ebState%eb1%E), MPI_MYFLOAT, 0, vHelpComm, ierr)
         if(ierr /= MPI_Success) then
             call MPI_Error_string( ierr, message, length, ierr)
             print *,message(1:length)
             call mpi_Abort(MPI_COMM_WORLD, 1, ierr)
         end if
-        call mpi_bcast(ebState%eb1%W, size(ebState%eb1%W), MPI_MYFLOAT, 0, vHelpComm, ierr)
+	sendCount = size(ebState%eb1%W)
+        mpiCounts(:) = 0
+        mpiCounts(1) = sendCount
+        call mpi_alltoallv(ebState%eb1%W, mpiZeroes, mpiZeroes, MPI_MYFLOAT, &
+                ebState%eb1%W, mpiCounts, mpiZeroes, MPI_MYFLOAT, vHelpComm, ierr)
+        !call mpi_bcast(ebState%eb1%W, size(ebState%eb1%W), MPI_MYFLOAT, 0, vHelpComm, ierr)
         if(ierr /= MPI_Success) then
             call MPI_Error_string( ierr, message, length, ierr)
             print *,message(1:length)
@@ -188,19 +253,34 @@ module volthelpers_mpi
             call mpi_Abort(MPI_COMM_WORLD, 1, ierr)
         end if
         !  eb2
-        call mpi_bcast(ebState%eb2%dB, size(ebState%eb2%dB), MPI_MYFLOAT, 0, vHelpComm, ierr)
+	sendCount = size(ebState%eb2%dB)
+        mpiCounts(:) = 0
+        mpiCounts(1) = sendCount
+        call mpi_alltoallv(ebState%eb2%dB, mpiZeroes, mpiZeroes, MPI_MYFLOAT, &
+                ebState%eb2%dB, mpiCounts, mpiZeroes, MPI_MYFLOAT, vHelpComm, ierr)
+        !call mpi_bcast(ebState%eb2%dB, size(ebState%eb2%dB), MPI_MYFLOAT, 0, vHelpComm, ierr)
         if(ierr /= MPI_Success) then
             call MPI_Error_string( ierr, message, length, ierr)
             print *,message(1:length)
             call mpi_Abort(MPI_COMM_WORLD, 1, ierr)
         end if
-        call mpi_bcast(ebState%eb2%E, size(ebState%eb2%E), MPI_MYFLOAT, 0, vHelpComm, ierr)
+	sendCount = size(ebState%eb2%E)
+        mpiCounts(:) = 0
+        mpiCounts(1) = sendCount
+        call mpi_alltoallv(ebState%eb2%E, mpiZeroes, mpiZeroes, MPI_MYFLOAT, &
+                ebState%eb2%E, mpiCounts, mpiZeroes, MPI_MYFLOAT, vHelpComm, ierr)
+        !call mpi_bcast(ebState%eb2%E, size(ebState%eb2%E), MPI_MYFLOAT, 0, vHelpComm, ierr)
         if(ierr /= MPI_Success) then
             call MPI_Error_string( ierr, message, length, ierr)
             print *,message(1:length)
             call mpi_Abort(MPI_COMM_WORLD, 1, ierr)
         end if
-        call mpi_bcast(ebState%eb2%W, size(ebState%eb2%W), MPI_MYFLOAT, 0, vHelpComm, ierr)
+	sendCount = size(ebState%eb2%W)
+        mpiCounts(:) = 0
+        mpiCounts(1) = sendCount
+        call mpi_alltoallv(ebState%eb2%W, mpiZeroes, mpiZeroes, MPI_MYFLOAT, &
+                ebState%eb2%W, mpiCounts, mpiZeroes, MPI_MYFLOAT, vHelpComm, ierr)
+        !call mpi_bcast(ebState%eb2%W, size(ebState%eb2%W), MPI_MYFLOAT, 0, vHelpComm, ierr)
         if(ierr /= MPI_Success) then
             call MPI_Error_string( ierr, message, length, ierr)
             print *,message(1:length)
