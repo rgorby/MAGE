@@ -110,11 +110,12 @@ module mixmain
       I%St%Vars(:,:,POT) = reshape(I%S%solution,[I%G%Np,I%G%Nt])*(I%rad_iono_m*1.e-6)**2*1.D3 ! in kV
     end subroutine get_potential
 
-    subroutine run_mix(I,tilt,doModelOpt,gcm)
+    subroutine run_mix(I,tilt,doModelOpt,gcm,mjd)
       type(mixIon_T),dimension(:),intent(inout) :: I 
       type(gcm_T),optional,intent(inout) :: gcm
       real(rp),intent(in) :: tilt
       logical, optional, intent(in) :: doModelOpt  ! allow to change on the fly whether we use conductance model
+      real(rp), optional, intent(in) :: mjd ! used to calculate the remix GEO grid as a function of time
 
       logical :: doModel=.true.   ! always default to xml input deck unless doModelOpt is present and on
       logical :: isRestart = .false.
@@ -122,6 +123,7 @@ module mixmain
 
       if (present(doModelOpt)) doModel = doModelOpt
       if (present(gcm)) isRestart = gcm%isRestart
+      if (present(mjd)) call MJDRecalc(mjd)
 
       NumH = size(I)
 
@@ -137,6 +139,16 @@ module mixmain
           I(h)%conductance%const_sigma = I(h)%P%const_sigma         
         else
           I(h)%conductance%const_sigma = .true.            
+        end if
+
+        if (present(mjd) .and. .not. present(gcm)) then
+          !write(*,*) "GRID TRANSFORM!"
+          if (I(h)%St%hemisphere .eq. NORTH) then
+            call transform_grid(I(h)%G,I(h)%Ggeo,iSMtoGEO,h,ym1=1)
+          else
+            call transform_grid(I(h)%G,I(h)%Ggeo,iSMtoGEO,h,ym1=-1)
+          endif
+          !write(*,*) "GRID TRANSFORM!!"
         end if
 
         if (present(gcm) .and. isRestart) then

@@ -283,7 +283,8 @@ def ReadSimData(filename, quiet = True):
     lon[lon>180] -= 360
 
 
-    data = f['Step#1']
+    first_step_name = "Step#%s" % sIds[0]
+    data = f[first_step_name]
     dBt, dBp = np.array(data['dBt'])[0], np.array(data['dBp'])[0]
     BH = np.sqrt(dBt**2 + dBp**2)
     maglat = np.array(data['smlat'])[0].flatten()
