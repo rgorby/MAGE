@@ -237,6 +237,57 @@ contains
       endif
   end subroutine testVolt2MhdDeepCopy
 
+  @test(npes=[2,5,9])
+  subroutine VMPIdipoleTest(this)
+    class (MpiTestMethod), intent(inout) :: this
+
+    ! testing that a dipole field from gamera results in 0 FAC in remix
+    procedure(VectorField_T), pointer :: Axyz
+    real(rp) testValue
+
+    if(isGamera) then
+        ! create a dipole field in Gamera. This code is copied from prob.F90
+        Axyz => VP_Dipole
+        call VectorPot2Flux(gamAppMpi%Model,gamAppMpi%Grid,gamAppMpi%State,Axyz)
+
+        call bFlux2Fld(gamAppMpi%Model, gamAppMpi%Grid, gamAppMpi%State%magFlux, gamAppMpi%State%Bxyz)
+
+        call sendDeepData(g2vCommMpi, gamAppMpi)
+
+    else
+        call recvDeepData_mpi(voltAppMpi)
+
+        call convertGameraToRemix(voltAppMpi%mhd2mix, voltAppMpi%gAppLocal, voltAppMpi%remixApp)
+
+        call mapGameraToRemix(voltAppMpi%mhd2mix, voltAppMpi%remixApp)
+
+        ! verify that remix input FAC is all zeroes
+        testValue = sum(abs(voltAppMpi%remixApp%ion(NORTH)%St%Vars(:,:,FAC))) + sum(abs(voltAppMpi%remixApp%ion(SOUTH)%St%Vars(:,:,FAC)))
+
+        @assertLessThanOrEqual(testValue, 1e-1_rp, 'Remix did not get all 0 FAC from an input dipole field')
+    endif
+
+    contains
+
+    ! modified to hard-code M2 constant to 1.0 (therefore removed)
+    subroutine VP_Dipole(x,y,z,Ax,Ay,Az)
+        real(rp), intent(in) :: x,y,z
+        real(rp), intent(out) :: Ax,Ay,Az
+
+        real(rp), dimension(NDIM) :: A,m,r,rhat
+        m = [0,0,1]
+        r = [x,y,z]
+        rhat = r/norm2(r)
+
+        A = cross(m,rhat)/(dot_product(r,r))
+        Ax = A(XDIR)
+        Ay = A(YDIR)
+        Az = A(ZDIR)
+
+    end subroutine VP_Dipole
+
+  end subroutine VMPIdipoleTest
+
   !@test(npes=[2,5,9])
   subroutine testDeepUpdate(this)
       class (MpiTestMethod), intent(inout) :: this

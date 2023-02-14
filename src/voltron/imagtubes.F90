@@ -301,7 +301,8 @@ module imagtubes
         
 
     !     !Based on ratio of mix vs. rcm coupling
-    !     !Ns = nint(vApp%DeepDT/vApp%ShallowDT) - 1
+    !     !After shallow coupling was removed, this will always be 0
+    !     !Ns = 0
 
     !     !Based on ratio of mix/RCM resolutions
     !     dphi_mix = 360.0/vApp%remixApp%ion(1)%G%Np
