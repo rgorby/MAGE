@@ -39,4 +39,10 @@ module mixdefs
      enumerator :: AT_MHD=1,AT_RCM,AT_RMnoE,AT_RMfnE,AT_RMono
   end enum
 
+  ! enumerator for transform variables
+  enum, bind(C)
+    enumerator :: iSMtoGEO,iGEOtoSM,iSMtoGSM,iGSMtoSM,iGEOtoGSM,iGSMtoGEO
+  end enum
+
+
 end module mixdefs

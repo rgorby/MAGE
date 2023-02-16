@@ -5,11 +5,8 @@ module gcmtypes
   
   integer,parameter :: gcm2mix_nvar = 2 ! SigmaP, SigmaH, Neutral Winds(eventually)
   integer,parameter :: mix2gcm_nvar = 3 ! pot, eng, flux
-  
-  integer,parameter :: iSMtoGSM=1,iGSMtoSM=-1,iGEOtoGSM=1,iGSMtoGEO=-1
-  integer,parameter :: iSMtoGEO=1,iGEOtoSM=-1
 
-  integer,parameter :: GCMSIGMAP = 1,GCMSIGMAH = 2, GCMNORTH=1, GCMSOUTH=2
+  integer,parameter :: GCMSIGMAP = 1,GCMSIGMAH = 2, GCMNORTH=NORTH, GCMSOUTH=SOUTH
   integer,parameter :: GCMhemispheres=2
 
   
@@ -21,13 +18,17 @@ module gcmtypes
       !type(mixGrid_T) :: rGEOGrid,tGEOGrid,tSMGrid ! GEO&SM Grid for tgcm, remix GEO grid
       !type(mixGrid_T) :: mixGrid,gcmGrid
       type(Map_T), allocatable, dimension(:) :: r2tMaps, t2rMaps
+      type(mixGrid_T), allocatable, dimension(:) :: SM,GEO
       type(var_T), dimension(GCMhemispheres,gcm2mix_nvar) :: gcmInput,mixInput
       type(var_T), dimension(GCMhemispheres,mix2gcm_nvar) :: gcmOutput,mixOutput
       !real(rp), dimension(:,:,:,:), allocatable :: mixInput, mixOutput
       !real(rp), dimension(:,:,:,:), allocatable :: gcmInput, gcmOutput
-      integer :: nlat,nlon,nlev,nlathemi,ntime,order,nhemi
-      real(rp), dimension(:), allocatable :: time,lev
-      real(rp),dimension(:,:),allocatable :: glon,glat,gx,gy
+      integer :: nlat,nlon,nlev,nhlat,ntime,order,nhemi,lonshift
+      integer, dimension(:), allocatable :: outlist
+      integer, dimension(:), allocatable :: t2N, t2S
+      real(rp), dimension(:), allocatable :: time,lev,lon,clat,lat
+      real(rp),dimension(:,:),allocatable :: gx,gy
+      real(rp),dimension(:,:,:),allocatable :: glon,gclat
       integer :: cplStep = 1
       !character(len=strlen) :: mix2gcmH5,gcm2mixH5,mix2gcmLock,gcm2mixLock
       character(len=strlen) :: mix2gcmH5 = "mix4gcm.h5"

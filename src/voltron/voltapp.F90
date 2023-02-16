@@ -152,10 +152,6 @@ module voltapp
             vApp%mhd2mix%wAvg = 0.0 !Ignore any corrections after initial dipole value
         endif
 
-        if (vApp%doGCM) then
-            call init_gcm(vApp%gcm,gApp%Model%isRestart)
-        end if
-
         if(gApp%Model%isRestart) then
             call readVoltronRestart(vApp, xmlInp)
             vApp%IO%tOut = floor(vApp%time/vApp%IO%dtOut)*vApp%IO%dtOut
@@ -348,6 +344,10 @@ module voltapp
         endif
         
         vApp%remixApp%ion%rad_iono_m = vApp%planet%ri_m
+        if (vApp%doGCM) then
+            write(*,*) "Initializing GCM ..."
+            call init_gcm(vApp%gcm,vApp%remixApp%ion,gApp%Model%isRestart)
+        end if
         !Ensure remix and voltron restart numbers match
         if (isRestart .and. vApp%IO%nRes /= vApp%remixApp%ion(1)%P%nRes) then
             write(*,*) "Voltron and Remix disagree on restart number, you should sort that out."
@@ -422,6 +422,7 @@ module voltapp
         real(rp) :: curTilt
 
         ! convert gamera inputs to remix
+        call MJDRecalc(vApp%MJD)
         if (vApp%doDeep) then
             call mapIMagToRemix(vApp%imag2mix,vApp%remixApp)
         endif
@@ -430,17 +431,19 @@ module voltapp
         ! determining the current dipole tilt
         call vApp%tilt%getValue(vApp%time,curTilt)
 
-        if (vApp%doGCM .and. vApp%time >=0 .and. .not.(vApp%gcm%isRestart)) then
+        if (vApp%doGCM .and. vApp%time >=0) then
+            call Tic("GCM2MIX")
             call coupleGCM2MIX(vApp%gcm,vApp%remixApp%ion,vApp%doGCM,mjd=vApp%MJD,time=vApp%time)
+            call Toc("GCM2MIX")
         end if
 
         ! solve for remix output
         if (vApp%time<=0) then
-            call run_mix(vApp%remixApp%ion,curTilt,doModelOpt=.false.)
+            call run_mix(vApp%remixApp%ion,curTilt,doModelOpt=.false.,mjd=vApp%MJD)
         else if (vApp%doGCM) then
-            call run_mix(vApp%remixApp%ion,curTilt,gcm=vApp%gcm)
+            call run_mix(vApp%remixApp%ion,curTilt,gcm=vApp%gcm,mjd=vApp%MJD)
         else
-            call run_mix(vApp%remixApp%ion,curTilt,doModelOpt=.true.)
+            call run_mix(vApp%remixApp%ion,curTilt,doModelOpt=.true.,mjd=vApp%MJD)
         endif
 
         ! get stuff from mix to gamera
