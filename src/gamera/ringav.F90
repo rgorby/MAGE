@@ -502,6 +502,7 @@ module ringav
         !DIR$ ASSUME_ALIGNED Q: ALIGN
         !DIR$ ASSUME_ALIGNED w: ALIGN
 
+        cFT = 0.0
         if (.not. all(isG)) return !Don't clean if some cells in this ring are vacuum
         !If still here convert to Q/w and clean that
         do n=1,Model%Ring%Np
