@@ -1332,3 +1332,86 @@ def read_MJDc(path):
     with h5py.File(path, "r") as hf:
         mjdc = hf.attrs["MJDc"]
     return mjdc
+
+
+def getHelioSatData(scDic:dict, t0:str, t1:str, deltaT:float):
+    """Fetch heliospheric spacecraft data in the specified time range.
+
+    Fetch heliospheric spacecraft data in the specified time range.
+
+    Parameters
+    ----------
+    scDic: dict
+        Spacecraft descriptive information.
+    t0: str
+        Start time for data, in format "%Y-%m-%dT%H:%M:%SZ".
+    t1: str
+        Stop time for data, in format "%Y-%m-%dT%H:%M:%SZ".
+    deltaT: float
+        Cadence for requested spacecraft data (seconds).
+
+    Returns
+    -------
+    status: dict
+        Query status returned by CDAWeb.
+    mydata: spacepy.datamodel.SpaceData
+        All of the spacecraft for the specified time range and cadence.
+    """
+    # Fetch the empheris data. If not found, abort this query.
+    status, data = pullVar(
+        scDic['Ephem']['Id'], scDic['Ephem']['Data'], t0, t1, deltaT
+    )
+    if status['http']['status_code'] != 200 or data is None:
+        print('Unable to get data for ', scDic['Ephem']['Id'])
+        return status, data
+
+    # Create a new SpaceData object to hold the results of the query.
+    mydata = dm.SpaceData(attrs={'Satellite':data.attrs['Source_name']})
+
+    # Determine which of the returned data should be used for the time of the
+    # ephemeris positions.
+    if 'Epoch_bin' in data.keys():
+        mytime = data['Epoch_bin']
+        epochStr = 'Epoch_bin'
+    elif 'Epoch' in data.keys():
+        mytime = data['Epoch']
+        epochStr = 'Epoch'
+    elif ([key for key in data.keys() if key.endswith('_state_epoch')]):
+        epochStr = [key for key in data.keys() if key.endswith('_state_epoch')][0]
+        #mytime = data[[key for key in data.keys()
+        #if key.endswith('_state_epoch')][0]]
+        mytime = data[epochStr]
+    else:
+        print('Unable to determine time type')
+        status = {'http':{'status_code':404}}
+        return status, data
+
+    # Extract the times assigned to the ephemeris positions.
+    mydata['Epoch_bin'] = dm.dmarray(mytime, attrs=mytime.attrs)
+
+    # Extract the ephemeris positions.
+    mydata['Ephemeris'] = dm.dmarray(
+        data[scDic['Ephem']['Data']],
+        attrs=data[scDic['Ephem']['Data']].attrs
+    )
+
+    # Now fetch the data measured by the spacecraft.
+    keys = ['MagneticField', 'Velocity', 'Density', 'Pressure', "Speed", "Temperature"]
+    for key in keys:
+        if key in scDic:
+            status1 = addVar(
+                mydata, scDic, key, t0, t1, deltaT, epochStr=epochStr
+            )
+
+    #Add any metavar since they might be needed for unit/label determination
+    search_key = 'metavar'
+    res = [key for key,val in data.items() if search_key in key]
+    for name in res:
+        try:
+            len(mydata[name])
+        except:
+            mydata[name] = dm.dmarray([data[name]],attrs=data[name].attrs)
+        else:
+            mydata[name] = dm.dmarray(data[name],attrs=data[name].attrs)
+
+    return status,mydata

@@ -237,7 +237,7 @@ if __name__ == "__main__":
         # Fetch the ephemeris and observed data for the current spacecraft.
         if verbose:
             print("Getting ephemeris and instrument data from CDAWeb for %s." % scId)
-        status, data = scutils.getSatData(
+        status, data = scutils.getHelioSatData(
             scIds[scId],  # ID string of spacecraft
             t0.strftime("%Y-%m-%dT%H:%M:%SZ"),  # Start time for gamhelio results
             t1.strftime("%Y-%m-%dT%H:%M:%SZ"),  # Stop time for gamhelio results
