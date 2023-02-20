@@ -11,15 +11,15 @@
 			"CoordSys" : "GSE"	
 		},
 		"Density" : {
-			"Id" : "AC_K1_SWE",
+			"Id" : "AC_H2_SWE",
 			"Data" : "Np"
 		},
 		"Speed" : {
-			"Id" : "AC_K1_SWE",
+			"Id" : "AC_H2_SWE",
 			"Data" : "Vp"
 		},
 		"Temperature" : {
-			"Id" : "AC_K1_SWE",
+			"Id" : "AC_H2_SWE",
 			"Data" : "Tpr"
 		}
 		
