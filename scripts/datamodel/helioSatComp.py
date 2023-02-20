@@ -268,7 +268,7 @@ if __name__ == "__main__":
         if verbose:
             print("Creating CDF file %s with %s and GAMERA data" % (cdfname, scId))
         # <HACK>
-        # Massage PSP data to work with toCDF().
+        # Massage PSP and STEREO-A data to work with toCDF().
         if scId == "Parker_Solar_Probe":
             print("Massaging PSP data for output.")
             data["radialDistance"] = dm.dmarray(
@@ -310,6 +310,47 @@ if __name__ == "__main__":
             del data["Ephemeris"]
             del data["MagneticField"]
             del data["Velocity"]
+        elif scId == "STEREO_A":
+            print("Massaging STEREO-A data for output.")
+            data["RAD_AU"] = dm.dmarray(
+                data["Ephemeris"].flatten()[0]["RAD_AU"],
+                attrs = {
+                    "UNITS": "AU",
+                    "CATDESC": "Radial distance",
+                    "FIELDNAM": "Radial distance",
+                    "AXISLABEL": "radialDistance"
+                }
+            )
+            data["HGI_LAT"] = dm.dmarray(
+                data["Ephemeris"].flatten()[0]["HGI_LAT"],
+                attrs = {
+                    "UNITS": "degrees",
+                    "CATDESC": "Heliographic latitude",
+                    "FIELDNAM": "Heliographic latitude",
+                    "AXISLABEL": "Heliographic latitude"
+                }
+            )
+            data["HGI_LON"] = dm.dmarray(
+                data["Ephemeris"].flatten()[0]["HGI_LON"],
+                attrs = {
+                    "UNITS": "degrees",
+                    "CATDESC": "Heliographic longitude",
+                    "FIELDNAM": "Heliographic longitude",
+                    "AXISLABEL": "Heliographic longitude"
+                }
+            )
+            data["VR"] = dm.dmarray(
+                data["Speed"],
+                attrs = {
+                    "UNITS": "km/s",
+                    "CATDESC": "Radial velocity",
+                    "FIELDNAM": "Radial velocity",
+                    "AXISLABEL": "Vr"
+                }
+            )
+            del data["Ephemeris"]
+            del data["MagneticField"]
+            # del data["Velocity"]
         # </HACK>
         dm.toCDF(cdfname, data)
         plotname = os.path.join(fdir, scId + ".png")

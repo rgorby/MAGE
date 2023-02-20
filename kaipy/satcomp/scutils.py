@@ -936,10 +936,35 @@ def createHelioInputFiles(data, scDic, scId, mjd0, sec0, fdir, ftag, numSegments
         Rsun_per_AU = AU_km/Rsun_km
 
         # Create SkyCoord objects for each HGI(t)/HCI(t) position/time.
-        lon = data["Ephemeris"].flatten()[0]["heliographicLongitude"]
-        lat = data["Ephemeris"].flatten()[0]["heliographicLatitude"]
+
+        # Fetch HGI longitude (degrees).
+        if "heliographicLongitude" in data["Ephemeris"].flatten()[0]:
+            lon = data["Ephemeris"].flatten()[0]["heliographicLongitude"]
+        elif "HGI_LON" in data["Ephemeris"].flatten()[0]:
+            lon = data["Ephemeris"].flatten()[0]["HGI_LON"]
+        else:
+            raise KeyError
+
+        # Fetch HGI latitude (degrees).
+        if "heliographicLatitude" in data["Ephemeris"].flatten()[0]:
+            lat = data["Ephemeris"].flatten()[0]["heliographicLatitude"]
+        elif "HGI_LAT" in data["Ephemeris"].flatten()[0]:
+            lat = data["Ephemeris"].flatten()[0]["HGI_LAT"]
+        else:
+            raise KeyError
+
+        # Fetch radial distance (AU).
+        if "radialDistance" in data["Ephemeris"].flatten()[0]:
+            rad = data["Ephemeris"].flatten()[0]["radialDistance"]
+        elif "RAD_AU" in data["Ephemeris"].flatten()[0]:
+            rad = data["Ephemeris"].flatten()[0]["RAD_AU"]
+        else:
+            raise KeyError
+
         # Convert radius to Rsun.
-        rad = data["Ephemeris"].flatten()[0]["radialDistance"]*Rsun_per_AU
+        rad = rad*Rsun_per_AU
+
+        # Create the SkyCoord object for the original ephemeris.
         t = data["Epoch_bin"]
         c = SkyCoord(
             lon*u.deg, lat*u.deg, rad*u.Rsun,
@@ -978,7 +1003,7 @@ def createHelioInputFiles(data, scDic, scId, mjd0, sec0, fdir, ftag, numSegments
     h5traj=os.path.basename(scTrackName)
 
     # Create the XML describing the required interpolations.
-    if scId in ["ACE", "Parker_Solar_Probe"]:
+    if scId in ["ACE", "Parker_Solar_Probe", "STEREO_A"]:
         chimpxml = genHelioSCXML(fdir,ftag, scId,h5traj, num_parallel_segments=0)
     else:
         raise TypeError
