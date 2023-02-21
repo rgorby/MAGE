@@ -950,8 +950,9 @@ def genSatCompPbsScript(scId,fdir,cmd,account='P28100045'):
 module load git/2.22.0 intel/18.0.5 hdf5/1.10.5 impi/2018.4.274
 module load ncarenv/1.3 ncarcompilers/0.5.0 python/3.7.9 cmake/3.14.4
 module load ffmpeg/4.1.3 paraview/5.8.1 mkl/2018.0.5
-ncar_pylib /glade/p/hao/msphere/gamshare/casper_satcomp_pylib
+module load conda
 module list
+conda activate /glade/p/hao/msphere/gamshare/kaiju-npl-clone
 """
     commandString = """cd %s
 setenv JNUM ${PBS_ARRAY_INDEX}
