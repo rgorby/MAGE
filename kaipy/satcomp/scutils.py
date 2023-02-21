@@ -1003,7 +1003,7 @@ def createHelioInputFiles(data, scDic, scId, mjd0, sec0, fdir, ftag, numSegments
     h5traj=os.path.basename(scTrackName)
 
     # Create the XML describing the required interpolations.
-    if scId in ["ACE", "Parker_Solar_Probe", "STEREO_A"]:
+    if scId in ["ACE", "Parker_Solar_Probe", "STEREO_A", "STEREO_B"]:
         chimpxml = genHelioSCXML(fdir,ftag, scId,h5traj, num_parallel_segments=0)
     else:
         raise TypeError
@@ -1367,6 +1367,8 @@ def getHelioSatData(scDic:dict, t0:str, t1:str, deltaT:float):
 
     # Create a new SpaceData object to hold the results of the query.
     mydata = dm.SpaceData(attrs={'Satellite':data.attrs['Source_name']})
+    if len(mydata) == 0:
+        raise TypeError
 
     # Determine which of the returned data should be used for the time of the
     # ephemeris positions.

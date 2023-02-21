@@ -505,8 +505,8 @@ def helioItemPlot(Ax,
         predicted = np.ma.masked_where(
             data['GAMERA_inDom'][:] == 0.0, data['GAMERA_' + key][:]
         )
-    # if key == "Br":
-    Ax.axhline(y=0, linestyle='--', color='black')
+    if key == "Br":
+        Ax.axhline(y=0, linestyle='--', color='black')
     Ax.plot(data['Epoch_bin'], observed)
     Ax.plot(data['Epoch_bin'], predicted)
     if (plotNum % 2) == 0:
