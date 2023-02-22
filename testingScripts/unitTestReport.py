@@ -11,7 +11,7 @@ from os import path
 import argparse
 
 # read arguments
-parser = argparse.ArgumentParser(description=MainS, formatter_class=RawTextHelpFormatter)
+parser = argparse.ArgumentParser()
 parser.add_argument('-t',action='store_true',default=False, help='Enables testing mode')
 parser.add_argument('-l',action='store_true',default=False, help='Enables loud mode')
 parser.add_argument('-a',action='store_true',default=False, help='Run all tests')
