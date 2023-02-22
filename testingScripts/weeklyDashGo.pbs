@@ -1,7 +1,6 @@
 #!/bin/bash
 #Initialize weekly dash restart
 
-#PBS -A UJHB0015
 #PBS -N wDashGo
 #PBS -l walltime=12:00:00
 #PBS -q regular

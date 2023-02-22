@@ -7,6 +7,22 @@ from slack import WebClient
 from slack.errors import SlackApiError
 import logging
 logging.basicConfig(level=logging.DEBUG)
+import argparse
+
+# read arguments
+parser = argparse.ArgumentParser(description=MainS, formatter_class=RawTextHelpFormatter)
+parser.add_argument('-t',action='store_true',default=False, help='Enables testing mode')
+parser.add_argument('-l',action='store_true',default=False, help='Enables loud mode')
+parser.add_argument('-a',action='store_true',default=False, help='Run all tests')
+parser.add_argument('-f',action='store_true',default=False, help='Force the tests to run')
+parser.add_argument('--account',type=str, default='', help='qsub account number')
+
+args = parser.parse_args()
+isTest = args.t
+beLoud = args.l
+doAll = args.a
+forceRun = args.f
+account = args.account
 
 # Get Slack API token
 slack_token = os.environ["SLACK_BOT_TOKEN"]
@@ -26,31 +42,6 @@ print(home)
 # Delete all build folders
 os.system("rm -rf build*/")
 os.system('ls')
-
-# NOT NEEDED. HANDLED IN MASTER SCRIPT
-# Git Status and then attempt to pull
-#os.system('git status')
-#print('Attempting git pull via subprocess...')
-#p = subprocess.Popen("git pull", shell=True, stdout=subprocess.PIPE)
-#text = p.stdout.read()
-#text = text.decode('ascii')
-#text = text.rstrip()
-#print(text)
-isTest = False
-beLoud = False
-# print(str(sys.argv[1]))
-
-# Check argument flags
-if (len(sys.argv) >= 2):
-    for i in range(1,len(sys.argv)):
-        if(str(sys.argv[i]) == '-t'):
-            print("Test Mode: On")
-            isTest = True
-        elif(str(sys.argv[i]) == '-l'):
-            print("Being Loud")
-            beLoud = True
-        else:
-            print("Unrecognized argument: ", sys.argv[i])
 
 # Create a test build folder, get the list of executables to be generated and store them
 os.chdir(home)

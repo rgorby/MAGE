@@ -7,6 +7,22 @@ from slack import WebClient
 from slack.errors import SlackApiError
 import logging
 logging.basicConfig(level=logging.DEBUG)
+import argparse
+
+# read arguments
+parser = argparse.ArgumentParser(description=MainS, formatter_class=RawTextHelpFormatter)
+parser.add_argument('-t',action='store_true',default=False, help='Enables testing mode')
+parser.add_argument('-l',action='store_true',default=False, help='Enables loud mode')
+parser.add_argument('-a',action='store_true',default=False, help='Run all tests')
+parser.add_argument('-f',action='store_true',default=False, help='Force the tests to run')
+parser.add_argument('--account',type=str, default='', help='qsub account number')
+
+args = parser.parse_args()
+isTest = args.t
+beLoud = args.l
+doAll = args.a
+forceRun = args.f
+account = args.account
 
 # Get Slack API token
 slack_token = os.environ["SLACK_BOT_TOKEN"]
@@ -19,21 +35,6 @@ os.chdir(calledFrom)
 orig = os.getcwd()
 os.chdir('..')
 home = os.getcwd()
-
-isTest = False
-beLoud = False
-
-# Check argument flags
-if (len(sys.argv) >= 2):
-    for i in range(1,len(sys.argv)):
-        if(str(sys.argv[i]) == '-t'):
-            print("Test Mode: On")
-            isTest = True
-        elif(str(sys.argv[i]) == '-l'):
-            print("Being Loud")
-            beLoud = True
-        else:
-            print("Unrecognized argument: ", sys.argv[i])
 
 # Delete everything in the unitTest folder
 os.chdir(home)
@@ -127,12 +128,6 @@ subprocess.call(arguments, shell=True)
 # Go to correct directory
 os.chdir(home)
 os.chdir('tests')
-#arguments = "qsub runNonCaseTests.pbs"
-#print(arguments)
-#submission = subprocess.call(arguments, shell=True, stdout=subprocess.PIPE)
-#readString = submission.stdout.read()
-#readString = readString.decode('ascii')
-#print(submission)
 
 #finalString = readString + "\n"
 subprocess.call("cp ../tests/genTestData.pbs ../unitTest1/bin", shell=True)
@@ -149,7 +144,7 @@ for line in ModuleList[0]:
     modset = modset + line + " "
 
 # submit job to generate data needed for automated tests
-arguments = 'qsub -v MODULE_LIST="' + modset + '",KAIJUROOTDIR=' + home + ' genTestData.pbs'
+arguments = 'qsub -A ' + account + ' -v MODULE_LIST="' + modset + '",KAIJUROOTDIR=' + home + ' genTestData.pbs'
 print(arguments)
 submission = subprocess.Popen(arguments, shell=True, stdout=subprocess.PIPE)
 readString = submission.stdout.read()
@@ -159,7 +154,7 @@ dataGenJob = readString.split('.')[0]
 print(dataGenJob)
 
 # now submit the three automated testing jobs, all contingent on the data gen job
-arguments = 'qsub -v MODULE_LIST="' + modset + '",KAIJUROOTDIR=' + home + ' -W depend=afterok:' + dataGenJob + ' runCaseTests.pbs'
+arguments = 'qsub -A ' + account + ' -v MODULE_LIST="' + modset + '",KAIJUROOTDIR=' + home + ' -W depend=afterok:' + dataGenJob + ' runCaseTests.pbs'
 print(arguments)
 submission = subprocess.Popen(arguments, shell=True, stdout=subprocess.PIPE)
 readString = submission.stdout.read()
@@ -170,7 +165,7 @@ finalString = readString
 firstJob = readString.split('.')[0]
 print(firstJob)
 
-arguments = 'qsub -v MODULE_LIST="' + modset + '",KAIJUROOTDIR=' + home + ' -W depend=afterok:' + dataGenJob + ' runNonCaseTests1.pbs'
+arguments = 'qsub -A ' + account + ' -v MODULE_LIST="' + modset + '",KAIJUROOTDIR=' + home + ' -W depend=afterok:' + dataGenJob + ' runNonCaseTests1.pbs'
 print(arguments)
 submission = subprocess.Popen(arguments, shell=True, stdout=subprocess.PIPE)
 readString = submission.stdout.read()
@@ -182,7 +177,7 @@ finalString = finalString + readString
 secondJob = readString.split('.')[0]
 print (secondJob)
 
-arguments = 'qsub -v MODULE_LIST="' + modset + '",KAIJUROOTDIR=' + home + ' -W depend=afterok:' + dataGenJob + ' runNonCaseTests2.pbs'
+arguments = 'qsub -A ' + account + ' -v MODULE_LIST="' + modset + '",KAIJUROOTDIR=' + home + ' -W depend=afterok:' + dataGenJob + ' runNonCaseTests2.pbs'
 print(arguments)
 submission = subprocess.Popen(arguments, shell=True, stdout=subprocess.PIPE)
 readString = submission.stdout.read()
