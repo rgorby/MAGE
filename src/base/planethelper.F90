@@ -255,6 +255,12 @@ module planethelper
 
     end function MirrorRatio
 
+    function DipColat2L(colat) result(L)
+        real(rp), intent(in) :: colat
+        real(rp) :: L
+        L = 1.0/sin(colat)**2
+    end function DipColat2L
+
     !Calculate FTV of dipole, Rx/nT
     !M0g is optional mag moment in Gauss, otherwise use Earth
     function DipFTV_L(L,M0gO) result(V)

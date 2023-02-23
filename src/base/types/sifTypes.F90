@@ -72,6 +72,10 @@ module siftypes
         !type(precip_T) :: precip  ! Precipitation model info (Shanshan and Dong)
         !type(waveModel_T) :: wModel  ! Wave model info (Shanshan)
 
+
+        procedure(sifStateIC_T), pointer, nopass :: initState => NULL()
+        procedure(sifUpdateV_T), pointer, nopass :: updateV => NULL()
+        
         ! Hack functions
         ! e.g. hackDP2Eta
 
@@ -109,6 +113,8 @@ module siftypes
             !! Collection of SIFSpecies that contain all relevant species info, including alami
         real(rp), dimension(:), allocatable :: alamc
             !! Cell-centered lamba channel values
+        real(rp), dimension(:,:,:,:), allocatable :: kBnds
+            !! (Ni, Nj, Ns, 2) Lower/upper lambda boudnaries for each species when doDynamicLambdaRanges=True
 
     end type sifGrid_T
 
@@ -122,8 +128,6 @@ module siftypes
         real(rp), dimension(:,:,:), allocatable :: iVel
         ! (Ni, Nj, 2) Cell-centered velocities
         real(rp), dimension(:,:,:), allocatable :: cVel
-        ! (Ni, Nj, Ns, 2) Lower/upper lambda boudnaries for each species when doDynamicLambdaRanges=True
-        real(rp), dimension(:,:,:,:), allocatable :: kBnds
 
 
         ! Variables coming from MHD flux tube tracing, size (Ni, Nj, Ns)
@@ -166,11 +170,21 @@ module siftypes
     abstract interface
         subroutine sifStateIC_T(Model,Grid,State,inpXML)
             Import :: sifModel_T, sifGrid_T, sifState_T, strLen, XML_Input_T
-            type(sifModel_T) , intent(inout) :: Model
-            type(sifGrid_T)  , intent(inout) :: Grid
+            type(sifModel_T) , intent(in) :: Model
+            type(sifGrid_T)  , intent(in) :: Grid
             type(sifState_T) , intent(inout) :: State
             type(XML_Input_T), intent(in) :: inpXML
         end subroutine sifStateIC_T
+
+    end interface
+
+    abstract interface
+        subroutine sifUpdateV_T(Model,Grid,State)
+            Import :: sifModel_T, sifGrid_T, sifState_T
+            type(sifModel_T) , intent(in) :: Model
+            type(sifGrid_T)  , intent(in) :: Grid
+            type(sifState_T) , intent(inout) :: State
+        end subroutine sifUpdateV_T
 
     end interface
 

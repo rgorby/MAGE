@@ -49,11 +49,11 @@ module sifstarter
         !! NOT SET HERE:
         ! nG, nB, t0, tFin, dt, fixedTimestep
 
-        ! Assuming that if being controlled by e.g. Voltron, SIFApp will set RunID accordingly
+        ! Assuming that if being controlled by e.g. Voltron, someone else will set RunID accordingly
         ! If getting here without RunID being set, assume we're running in stand-alone
         ! (Currently no decisions are made based on being SA, just means we set the RunID ourselves)
         if (trim(Model%RunID) .eq. "") then
-            write(*,*) "Setting RunID to be sifSA"
+            write(*,*) "Setting default RunID to be sifSA"
             call iXML%Set_Val(Model%RunID, "prob/RunID","sifSA")  ! sif stand-alone
         endif
 
@@ -154,7 +154,7 @@ module sifstarter
 
 
     subroutine sifInitState(Model, Grid, State, iXML)
-        type(sifModel_T), intent(in)    :: Model
+        type(sifModel_T), intent(inout) :: Model
         type(sifGrid_T) , intent(in)    :: Grid
         type(sifState_T), intent(inout) :: State
         type(XML_Input_T), intent(in)   :: iXML
@@ -168,7 +168,7 @@ module sifstarter
         select case(trim(icStr))
             case("DIP")
                 !! Simple Maxwellian in a dipole field
-                call initSifIC_DIP(Model, Grid, State, iXML)
+                Model%initState => initSifIC_DIP
             case("USER")
                 ! Call the IC in the module sifuseric
                 ! This module is set in cmake via the SIFIC variable
@@ -178,7 +178,7 @@ module sifstarter
                 stop
         end select
 
-        
+        call Model%initState(Model, Grid, State, iXML)
 
     end subroutine sifInitState
 

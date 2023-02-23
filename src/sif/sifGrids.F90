@@ -101,14 +101,12 @@ module sifgrids
 
 !! Maybe should leave just spatial grid stuff in sifGrids and move lambda stuff to a lambdaUtils
 
-    
-
     subroutine initLambdaGrid(Model, Grid, configfname)
         type(sifModel_T)  , intent(inout) :: Model
         type(sifGrid_T), intent(inout) :: Grid
         character(len=strLen), intent(in) :: configfname
 
-        ! First read in speies information from config file
+        ! First read in species information from config file
         call populateSpeciesFromConfig(Model, Grid, configfname)
 
         ! Now prepare our alamc grid, tell each Species what its range is in alamc array
