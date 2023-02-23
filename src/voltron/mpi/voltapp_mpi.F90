@@ -137,6 +137,18 @@ module voltapp_mpi
                 call mpi_Abort(MPI_COMM_WORLD, 1, ierr)
             endif
 
+	    ! add topology to the helper communicator to permit neighborhood operations
+	    reorder = .false. ! don't allow MPI to reorder the ranks, master must remain master
+	    call mpi_dist_graph_create_adjacent(helperComm, &
+                1,(/0/),(/1/), &
+                1,(/0/),(/1/), &
+                MPI_INFO_NULL, reorder, vApp%vHelpComm, ierr)
+            if(ierr /= MPI_Success) then
+                call MPI_Error_string( ierr, message, length, ierr)
+                print *,message(1:length)
+                call mpi_Abort(MPI_COMM_WORLD, 1, ierr)
+            end if
+
             ! initialize a full baby voltron
             vApp%gAppLocal%Grid%ijkShift(1:3) = 0
             call ReadCorners(vApp%gAppLocal%Model,vApp%gAppLocal%Grid,xmlInp,childGameraOpt=.true.)
@@ -355,6 +367,11 @@ module voltapp_mpi
                        1, MPI_MYFLOAT, vApp%myRank, vApp%voltMpiComm, ierr)
         call mpi_bcast(vApp%IO%tsOut, 1, MPI_INTEGER, vApp%myRank, vApp%voltMpiComm, ierr)
 
+	! create the MPI datatypes needed to transfer state data
+        call createVoltDataTypes(vApp, iRanks, jRanks, kRanks)
+
+        deallocate(neighborRanks, inData, outData, iRanks, jRanks, kRanks)
+
         if(vApp%useHelpers) then
             if(vApp%doSquishHelp) then
                 ! over-ride the number of squish blocks
@@ -373,6 +390,35 @@ module voltapp_mpi
 
             endif
 
+            call MPI_Comm_Size(vApp%vHelpComm, commSize, ierr)
+            if(ierr /= MPI_Success) then
+                call MPI_Error_string( ierr, message, length, ierr)
+                print *,message(1:length)
+                call mpi_Abort(MPI_COMM_WORLD, 1, ierr)
+            end if
+
+            ! add topology to the helper communicator to permit neighborhood operations
+            reorder = .false. ! don't allow MPI to reorder the ranks, master must remain master
+            allocate(neighborRanks(1:commSize-1))
+            allocate(inData(1:commSize-1))
+            allocate(outData(1:commSize-1))
+            do ic=1,commSize-1
+                neighborRanks(ic) = ic
+            enddo
+            ! currently all helpers only send and receive data from rank 0
+            inData(:) = 1
+            outData(:) = 1
+            call mpi_dist_graph_create_adjacent(helperComm, &
+                commSize-1,neighborRanks,inData, &
+                commSize-1,neighborRanks,outData, &
+                MPI_INFO_NULL, reorder, vApp%vHelpComm, ierr)
+            if(ierr /= MPI_Success) then
+                call MPI_Error_string( ierr, message, length, ierr)
+                print *,message(1:length)
+                call mpi_Abort(MPI_COMM_WORLD, 1, ierr)
+            end if
+            deallocate(neighborRanks, inData, outData)
+
             ! send initial timing data to helper voltron ranks
             call mpi_bcast(vApp%tFin, 1, MPI_MYFLOAT, 0, vApp%vHelpComm, ierr)
             call mpi_bcast(vApp%time, 1, MPI_MYFLOAT, 0, vApp%vHelpComm, ierr)
@@ -389,11 +435,6 @@ module voltapp_mpi
                 call mpi_Abort(MPI_COMM_WORLD, 1, ierr)
             end if
         endif
-
-        ! create the MPI datatypes needed to transfer state data
-        call createVoltDataTypes(vApp, iRanks, jRanks, kRanks)
-
-        deallocate(neighborRanks, inData, outData, iRanks, jRanks, kRanks)
 
         ! perform initial deep update if appropriate
         call Tic("Coupling")
