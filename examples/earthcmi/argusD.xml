@@ -6,7 +6,7 @@
     <time tFin="36000.0"/>
     <output dtOut="60.0" tsOut="100" doTimer="F"/>
     <restart dtRes="1800.0"/>
-    <coupling dtCouple="5.0" rDeep="8.0" imType="SST"/>
+    <coupling dtCouple="5.0" doDeep="F" rDeep="8.0" imType="SST"/>
     <eqmap eqFile="JulySST.h5"/>
   </VOLTRON>
   <Gamera>
