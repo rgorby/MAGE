@@ -1,5 +1,4 @@
 #!/bin/bash
-#PBS -A UJHB0015
 #PBS -N caseTests
 #PBS -j oe
 #PBS -q regular
