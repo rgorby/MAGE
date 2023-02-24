@@ -295,7 +295,7 @@ def labelStr(data, key, vecComp):
     else:
         label = (
             data['GAMERA_' + key].attrs['AXISLABEL'] +
-            ' [' + data['GAMERA_' + key].attrs['UNITS'].decode() + ']'
+            ' [' + data['GAMERA_' + key].attrs['UNITS'] + ']'
         )
     return label
 
@@ -314,26 +314,26 @@ def itemPlot(Ax,data,key,plotNum,numPlots,vecComp=-1):
         # </HACK>
         if key == "Velocity":
             maskedData = np.ma.masked_where(
-                data['GAMERA_inDom'][:]==0.0,
+                data["GAMERA_inDom"][:]==0.0,
                 data[key].flatten()[0]["VR"][:]
             )
             maskedGamera = np.ma.masked_where(
-                data['GAMERA_inDom'][:]==0.0, data['GAMERA_Speed'][:]
+                data["GAMERA_inDom"][:]==0.0, data['GAMERA_Speed'][:]
             )
         else:
             maskedData = np.ma.masked_where(
-                data['GAMERA_inDom'][:]==0.0, data[key][:]
+                data["GAMERA_inDom"][:]==0.0, data[key][:]
             )
             maskedGamera = np.ma.masked_where(
-                data['GAMERA_inDom'][:]==0.0, data['GAMERA_' + key][:]
+                data["GAMERA_inDom"][:]==0.0, data['GAMERA_' + key][:]
             )
         Ax.plot(data['Epoch_bin'],maskedData)
         Ax.plot(data['Epoch_bin'],maskedGamera)
     else:
-        maskedData = np.ma.masked_where(data['GAMERA_inDom'][:]==0.0,
+        maskedData = np.ma.masked_where(data["GAMERA_inDom"][:]==0.0,
             data[key][:,vecComp])
         Ax.plot(data['Epoch_bin'],maskedData)
-        maskedGamera = np.ma.masked_where(data['GAMERA_inDom'][:]==0.0,
+        maskedGamera = np.ma.masked_where(data["GAMERA_inDom"][:]==0.0,
             data['GAMERA_'+key][:,vecComp])
         Ax.plot(data['Epoch_bin'],maskedGamera)
     if (plotNum % 2) == 0:
@@ -352,30 +352,30 @@ def itemPlot(Ax,data,key,plotNum,numPlots,vecComp=-1):
 def compPlot(plotname,scId,data):
 
     numPlots = 0
-    keysToPlot = []
+    variables_to_plot = []
     keys = data.keys()
     #print(keys)
     if 'Density' in keys:
         numPlots = numPlots + 1
-        keysToPlot.append('Density')
+        variables_to_plot.append('Density')
     if 'Pressue' in keys:
         numPlots = numPlots + 1
-        keysToPlot.append('Pressue')
+        variables_to_plot.append('Pressue')
     if 'Temperature' in keys:
         numPlots = numPlots + 1
-        keysToPlot.append('Temperature')
+        variables_to_plot.append('Temperature')
     if 'MagneticField' in keys:
         numPlots = numPlots + 3
-        keysToPlot.append('MagneticField')
+        variables_to_plot.append('MagneticField')
     if 'Velocity' in keys:
         numPlots = numPlots + 3
-        keysToPlot.append('Velocity')
+        variables_to_plot.append('Velocity')
 
     figsize = (10,10)
     fig = plt.figure(figsize=figsize)
     gs = fig.add_gridspec(numPlots,1)
     plotNum = 0
-    for key in keysToPlot:
+    for key in variables_to_plot:
         #print('Plotting',key)
         if 'MagneticField' == key or 'Velocity' == key:
             doVecPlot = True
@@ -465,9 +465,7 @@ def get_aspect(ax):
 # spacecraft.
 
 
-def helioItemPlot(Ax,
-                  data,
-                  key:str, plotNum:int, numPlots:int, vecComp:int=-1):
+def helioItemPlot_new(Ax, data, key, plotNum, numPlots, show_zero=False):
     """Plot a single variable for the comparison plot.
 
     Plot a single variable for the comparison plot.
@@ -484,63 +482,6 @@ def helioItemPlot(Ax,
         Position of plot in sequence of plots.
     numPlots: int
         Number of plots in sequence.
-    vecComp: int, default -1
-        Not used.
-
-    Returns
-    -------
-    None
-    """
-    if key == "Velocity":
-        observed = np.ma.masked_where(
-            data['GAMERA_inDom'][:] == 0.0, data[key].flatten()[0]["VR"][:]
-        )
-        predicted = np.ma.masked_where(
-            data['GAMERA_inDom'][:]==0.0, data['GAMERA_Speed'][:]
-        )
-    else:
-        observed = np.ma.masked_where(
-            data['GAMERA_inDom'][:] == 0.0, data[key][:]
-        )
-        predicted = np.ma.masked_where(
-            data['GAMERA_inDom'][:] == 0.0, data['GAMERA_' + key][:]
-        )
-    if key == "Br":
-        Ax.axhline(y=0, linestyle='--', color='black')
-    Ax.plot(data['Epoch_bin'], observed)
-    Ax.plot(data['Epoch_bin'], predicted)
-    if (plotNum % 2) == 0:
-        left = True
-    else:
-        left = False
-    label = labelStr(data, key, vecComp)
-    if plotNum == numPlots - 1:
-        SetAxLabs(Ax, 'UT', label, doLeft=left)
-        SetAxDate(Ax)
-    else:
-        SetAxLabs(Ax, None, label, doLeft=left)
-    return
-
-
-def helioItemPlot_new(Ax, data, key, plotNum, numPlots, vecComp=-1, show_zero=False):
-    """Plot a single variable for the comparison plot.
-
-    Plot a single variable for the comparison plot.
-
-    Parameters
-    ----------
-    Ax: matplotlib.axes._subplots.AxesSubplot
-        Matplotlib axis for plot.
-    data: spacepy.datamodel.SpaceData
-        Object containing the measured spacecraft data.
-    key: str
-        Name of variable to plot.
-    plotNum: int
-        Position of plot in sequence of plots.
-    numPlots: int
-        Number of plots in sequence.
-    vecComp: int, default -1
-        Not used.
     show_zero ": bool, default False
         Set to True to show a black dashed line at the 0 level for the variable.
 
@@ -548,47 +489,67 @@ def helioItemPlot_new(Ax, data, key, plotNum, numPlots, vecComp=-1, show_zero=Fa
     -------
     None
     """
-    if key == "Velocity":
-        observed = np.ma.masked_where(
-            data['GAMERA_inDom'][:] == 0.0, data[key].flatten()[0]["VR"][:]
-        )
-        predicted = np.ma.masked_where(
-            data['GAMERA_inDom'][:]==0.0, data['GAMERA_Speed'][:]
-        )
-    else:
-        observed = np.ma.masked_where(
-            data['GAMERA_inDom'][:] == 0.0, data[key][:]
-        )
-        predicted = np.ma.masked_where(
-            data['GAMERA_inDom'][:] == 0.0, data['GAMERA_' + key][:]
-        )
-    if show_zero:
-        Ax.axhline(y=0, linestyle='--', color='black')
-    if key in data:
-        Ax.plot(data['Epoch_bin'], observed)
-        Ax.plot(data['Epoch_bin'], predicted)
-    else:
-        fontsize = 18
-        Ax.text(
-            0.5, 0.5, "No data available",
-            transform=Ax.transAxes,
-            ha="center", va="center", fontsize=fontsize, color="darkgrey"
-        )
+    # if key == "Velocity":
+    #     observed = np.ma.masked_where(
+    #         data["GAMERA_inDom"][:] == 0.0, data[key].flatten()[0]["VR"][:]
+    #     )
+    #     predicted = np.ma.masked_where(
+    #         data["GAMERA_inDom"][:]==0.0, data['GAMERA_Speed'][:]
+    #     )
+    # else:
+    #     observed = np.ma.masked_where(
+    #         data["GAMERA_inDom"][:] == 0.0, data[key][:]
+    #     )
+    #     predicted = np.ma.masked_where(
+    #         data["GAMERA_inDom"][:] == 0.0, data['GAMERA_' + key][:]
+    #     )
 
-    if (plotNum % 2) == 0:
+    # Extract the times and values which fall within the gamhelio simulation
+    # domain.
+    t = np.ma.masked_where(
+        data["GAMERA_inDom"][:] == 0.0, data["Ephemeris_Epoch"][:]
+    )
+    observed = np.ma.masked_where(
+        data["GAMERA_inDom"][:] == 0.0, data[key][:]
+    )
+    predicted = np.ma.masked_where(
+        data["GAMERA_inDom"][:] == 0.0, data["GAMERA_" + key][:]
+    )
+
+    # Show a black dotted line at y = 0 if requested.
+    if show_zero:
+        Ax.axhline(y=0, linestyle="--", color="black")
+
+    # Plot the observed and predicted data for the current variable.
+    # if key in data:
+    Ax.plot(t, observed)
+    Ax.plot(t, predicted)
+    # else:
+    #     fontsize = 18
+    #     Ax.text(
+    #         0.5, 0.5, "No data available",
+    #         transform=Ax.transAxes,
+    #         ha="center", va="center", fontsize=fontsize, color="darkgrey"
+    #     )
+
+    # Even-numbered plots (0-based) show the y-axis label on the left.
+    left = False
+    if plotNum % 2 == 0:
         left = True
-    else:
-        left = False
-    label = labelStr(data, key, vecComp)
+
+    # Compute the y-axis label string.
+    label = labelStr(data, key, vecComp=-1)
+
+    # Show the x-axis on the last plot.
     if plotNum == numPlots - 1:
-        SetAxLabs(Ax, 'UT', label, doLeft=left)
+        SetAxLabs(Ax, "UT", label, doLeft=left)
         SetAxDate(Ax)
     else:
         SetAxLabs(Ax, None, label, doLeft=left)
     return
 
 
-def helioCompPlot(plotname, scId, data):
+def helioCompPlot_new(plot_file_path, sc_id, sc_data):
     """Create comparison plots for heliospheric results.
 
     Create comparison plots for heliospheric results and save the plots to a
@@ -610,138 +571,57 @@ def helioCompPlot(plotname, scId, data):
     None
     """
     # Determine which data are available to plot.
-    numPlots = 0
-    keysToPlot = []
-    keys = data.keys()
-    if "Speed" in keys:
-        keysToPlot.append("Speed")
-    else:
-        print("No 'Speed' data found at CDAWeb for %s for this period." % scId)
-    # if "Velocity" in keys:
-    #     keysToPlot.append("Velocity")
+    variables_to_plot = ["Speed", "Br", "Density", "Temperature"]
+    # keys = sc_data.keys()
+    # if "Speed" in keys:
+    #     variables_to_plot.append("Speed")
     # else:
-    #     print("No 'Velocity' data found at CDAWeb for %s for this period." % scId)
-    if "Br" in keys:
-        keysToPlot.append("Br")
-    else:
-        print("No 'Br' data found at CDAWeb for %s for this period." % scId)
-    if "Density" in keys:
-        keysToPlot.append("Density")
-    else:
-        print("No 'Density' data found at CDAWeb for %s for this period." % scId)
-    if "Temperature" in keys:
-        keysToPlot.append("Temperature")
-    else:
-        print("No 'Temperature' data found at CDAWeb for %s for this period." % scId)
-    numPlots = len(keysToPlot)
+    #     print("No 'Speed' data found at CDAWeb for %s for this period." % sc_id)
+    # if "Br" in keys:
+    #     variables_to_plot.append("Br")
+    # else:
+    #     print("No 'Br' data found at CDAWeb for %s for this period." % sc_id)
+    # if "Density" in keys:
+    #     variables_to_plot.append("Density")
+    # else:
+    #     print("No 'Density' data found at CDAWeb for %s for this period." % sc_id)
+    # if "Temperature" in keys:
+    #     variables_to_plot.append("Temperature")
+    # else:
+    #     print("No 'Temperature' data found at CDAWeb for %s for this period." % sc_id)
+
+    # Compute the number of variables to plot.
+    n_plots = len(variables_to_plot)
 
     # Create the figure in memory.
     mpl.use("AGG")
 
-    # Define figure size (width, height), in inches.
-    figsize = (10, 10)
-
     # Create the figure.
-    fig = plt.figure(figsize=figsize)
-
-    # Create a layout grid for the subplots: numPlots rows, 1 column
-    gs = fig.add_gridspec(numPlots, 1)
-
-    # Plot each variable in its own subplot.
-    plotNum = 0
-    for key in keysToPlot:
-        if plotNum == 0:
-            ax1 = fig.add_subplot(gs[plotNum, 0])
-            helioItemPlot(ax1, data, key, plotNum, numPlots)
-            plotNum += 1
-        else:
-            ax = fig.add_subplot(gs[plotNum, 0], sharex=ax1)
-            helioItemPlot(ax, data, key, plotNum, numPlots)
-            plotNum += 1
-
-    # Display the legend which delineates gamera and spacecraft data.
-    ax1.legend([scId, "GAMERA"], loc="best")
-
-    # Use the plot file path as the figure title.
-    ax1.set_title(plotname)
-
-    plt.subplots_adjust(hspace=0)
-
-    # Save the figure.
-    savePic(plotname, doClose=True)
-
-
-def helioCompPlot_new(plotname, scId, data):
-    """Create comparison plots for heliospheric results.
-
-    Create comparison plots for heliospheric results and save the plots to a
-    file. The plots will compare simulation results to measured spacecraft
-    data. The compared variables are radial velocity, radial magnetic field,
-    number density, and temperature.
-
-    Parameters
-    ----------
-    plotname : str
-        Path to file to hold plot image.
-    scId : str
-        ID string for spacecraft.
-    data : spacepy.datamodel.SpaceData
-        The current spacecraft and model data
-
-    Returns
-    -------
-    None
-    """
-    # Determine which data are available to plot.
-    numPlots = 0
-    keysToPlot = []
-    keys = data.keys()
-    if "Speed" in keys:
-        keysToPlot.append("Speed")
-    else:
-        print("No 'Speed' data found at CDAWeb for %s for this period." % scId)
-    if "Br" in keys:
-        keysToPlot.append("Br")
-    else:
-        print("No 'Br' data found at CDAWeb for %s for this period." % scId)
-    if "Density" in keys:
-        keysToPlot.append("Density")
-    else:
-        print("No 'Density' data found at CDAWeb for %s for this period." % scId)
-    if "Temperature" in keys:
-        keysToPlot.append("Temperature")
-    else:
-        print("No 'Temperature' data found at CDAWeb for %s for this period." % scId)
-    numPlots = len(keysToPlot)
-
-    # Create the figure in memory.
-    mpl.use("AGG")
-
-    # Define figure size (width, height), in inches.
-    figsize = (10, 10)
-
-    # Create the figure.
-    fig = plt.figure(figsize=figsize)
-
-    # Create a layout grid for the subplots: numPlots rows, 1 column
-    gs = fig.add_gridspec(numPlots, 1)
-
-    # Plot each variable in its own subplot.
     HELIO_COMP_PLOT_FIGSIZE = (10, 10)
+    fig = plt.figure(figsize=HELIO_COMP_PLOT_FIGSIZE)
+
+    # Create a layout grid for the subplots: numPlots rows, 1 column
+    # gs = fig.add_gridspec(n_plots, 1)
+
+    # Plot each variable in its own subplot.
     plotNum = 0
-    fig, axd = plt.subplot_mosaic(
-        [['Speed'], ['Br'], ['Density'], ['Temperature']],
-        figsize=HELIO_COMP_PLOT_FIGSIZE, layout='constrained',
-        gridspec_kw={"hspace": 0}
-    )
-    del data["Speed"]
-    for variable_name in axd:
+    # fig, axd = plt.subplot_mosaic(
+    #     [variables_to_plot],
+    #     figsize=HELIO_COMP_PLOT_FIGSIZE, layout="constrained",
+    #     gridspec_kw={"hspace": 0}
+    # )
+    for i in range(n_plots):
+        variable_name = variables_to_plot[i]
         show_zero = False
-        if variable_name is "Br":
+        if variable_name == "Br":
             show_zero = True
-        # Skip variables not found.
-        # if variable_name in data:
-        helioItemPlot_new(axd[variable_name], data, variable_name, plotNum, numPlots, show_zero=show_zero)
+        ax = plt.subplot(n_plots, 1, i + 1)
+        helioItemPlot_new(
+            ax, sc_data, variable_name,
+            plotNum, n_plots, show_zero=show_zero
+        )
+        if i == 0:
+            ax.legend([sc_id, "GAMERA"], loc="best")
         # else:
         #     fontsize = 18
         #     axd[variable_name].text(
@@ -751,22 +631,23 @@ def helioCompPlot_new(plotname, scId, data):
         plotNum += 1
 
     # Display the legend which delineates gamera and spacecraft data.
-    axd["Speed"].legend([scId, "GAMERA"], loc="best")
+    # axd["Speed"].legend([sc_id, "GAMERA"], loc="best")
 
     # Use the plot file path as the figure title.
-    fig.suptitle(plotname)
+    fig.suptitle(plot_file_path)
 
     # Stack the plots directly on top of each other.
-    # plt.subplots_adjust(hspace=0)
+    plt.subplots_adjust(hspace=0)
 
     # Save the figure.
-    savePic(plotname, doClose=True)
+    savePic(plot_file_path, doClose=True)
 
 
-def helioTrajPlot(plot_name:str, scId:str, data):
-    """Create a set of trajectory plots for a heliospgeric spacecraft.
+def helioTrajPlot(plot_file_path, sc_id, sc_data):
+    """Create a set of trajectory plots for a heliospheric spacecraft.
 
-    Create a set of trajectory plots for a heliospgeric spacecraft.
+    Create a set of trajectory plots for a heliospheric spacecraft.
+    These plots are created in the original spacecraft frame.
 
     Parameters
     ----------
@@ -795,10 +676,10 @@ def helioTrajPlot(plot_name:str, scId:str, data):
     ax3 = fig.add_subplot(gs[0, 2])
 
     # Plot the components against each other.
-    if scId == "ACE":
-        X = data["Ephemeris"][:, 0]
-        Y = data["Ephemeris"][:, 1]
-        Z = data["Ephemeris"][:, 2]
+    if sc_id == "ACE":
+        X = sc_data["Ephemeris"][:, 0]
+        Y = sc_data["Ephemeris"][:, 1]
+        Z = sc_data["Ephemeris"][:, 2]
         ax1.plot(X, Y)
         ax1.set_xlabel("GSE X (km)")
         ax1.set_ylabel("GSE Y (km)")
@@ -809,37 +690,37 @@ def helioTrajPlot(plot_name:str, scId:str, data):
         ax3.set_xlabel("GSE Y (km)")
         ax3.set_ylabel("GSE Z (km)")
         fig.subplots_adjust(wspace=0.25)
-    elif scId == "Parker_Solar_Probe":
-        ax1.plot(data["heliographicLongitude"][:], data["radialDistance"][:])
-        ax1.set_xlabel("HGI longitude (deg)")
-        ax1.set_ylabel("HGI radius ($R_{sun})$")
-        ax2.plot(data["heliographicLatitude"][:], data["radialDistance"][:])
-        ax2.set_xlabel("HGI latitude (deg)")
-        ax2.set_ylabel("HGI radius ($R_{sun})$")
-        ax3.plot(data["heliographicLongitude"][:], data["heliographicLatitude"][:])
-        ax3.set_xlabel("HGI longitude (deg)")
-        ax3.set_ylabel("HGI latitude (deg)$")
-    elif scId == "STEREO_A":
-        ax1.plot(data["HGI_LON"][:], data["RAD_AU"][:])
-        ax1.set_xlabel("HGI longitude (deg)")
-        ax1.set_ylabel("HGI radius ($R_{sun})$")
-        ax2.plot(data["HGI_LAT"][:], data["RAD_AU"][:])
-        ax2.set_xlabel("HGI latitude (deg)")
-        ax2.set_ylabel("HGI radius ($R_{sun})$")
-        ax3.plot(data["HGI_LON"][:], data["HGI_LAT"][:])
-        ax3.set_xlabel("HGI longitude (deg)")
-        ax3.set_ylabel("HGI latitude (deg)$")
+    # elif sc_id == "Parker_Solar_Probe":
+    #     ax1.plot(sc_data["heliographicLongitude"][:], sc_data["radialDistance"][:])
+    #     ax1.set_xlabel("HGI longitude (deg)")
+    #     ax1.set_ylabel("HGI radius ($R_{sun})$")
+    #     ax2.plot(sc_data["heliographicLatitude"][:], sc_data["radialDistance"][:])
+    #     ax2.set_xlabel("HGI latitude (deg)")
+    #     ax2.set_ylabel("HGI radius ($R_{sun})$")
+    #     ax3.plot(sc_data["heliographicLongitude"][:], sc_data["heliographicLatitude"][:])
+    #     ax3.set_xlabel("HGI longitude (deg)")
+    #     ax3.set_ylabel("HGI latitude (deg)$")
+    # elif sc_id == "STEREO_A":
+    #     ax1.plot(sc_data["HGI_LON"][:], sc_data["RAD_AU"][:])
+    #     ax1.set_xlabel("HGI longitude (deg)")
+    #     ax1.set_ylabel("HGI radius ($R_{sun})$")
+    #     ax2.plot(sc_data["HGI_LAT"][:], sc_data["RAD_AU"][:])
+    #     ax2.set_xlabel("HGI latitude (deg)")
+    #     ax2.set_ylabel("HGI radius ($R_{sun})$")
+    #     ax3.plot(sc_data["HGI_LON"][:], sc_data["HGI_LAT"][:])
+    #     ax3.set_xlabel("HGI longitude (deg)")
+    #     ax3.set_ylabel("HGI latitude (deg)$")
     else:
         raise TypeError
 
     # Apply the overall title.
     title = (
-        scId + " - " +
-        data["Epoch_bin"][0].strftime("%m/%d/%Y - %H:%M:%S") +
+        sc_id + " - " +
+        sc_data["Ephemeris_Epoch"][0].strftime("%m/%d/%Y - %H:%M:%S") +
         " to " +
-        data["Epoch_bin"][-1].strftime("%m/%d/%Y - %H:%M:%S")
+        sc_data["Ephemeris_Epoch"][-1].strftime("%m/%d/%Y - %H:%M:%S")
     )
     fig.suptitle(title)
 
     # Save the figure to a file.
-    savePic(plot_name, doClose=True)
+    savePic(plot_file_path, doClose=True)
