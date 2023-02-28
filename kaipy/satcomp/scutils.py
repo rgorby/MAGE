@@ -899,18 +899,35 @@ def get_cdaweb_data(
     cdaweb_dataset_name = sc_metadata["Ephem"]["Id"]
     cdaweb_variable_name = sc_metadata["Ephem"]["Data"]
     if verbose:
-        print("Fetching dataset %s, variable %s from CDAWeb." %
+        print("Fetching dataset %s, variable(s) %s from CDAWeb." %
               (cdaweb_dataset_name, cdaweb_variable_name))
-    cdaweb_query_status, cdaweb_query_results = pullVar(
-        cdaweb_dataset_name, cdaweb_variable_name,
-        start_time, end_time, cdaweb_data_interval
-    )
-    if debug:
-        print("cdaweb_query_status = %s" % cdaweb_query_status)
-        print("cdaweb_query_results = %s" % cdaweb_query_results)
-    if (cdaweb_query_status["http"]["status_code"] != HTTP_STATUS_OK or
-        cdaweb_query_results is None):
-        return None
+    if isinstance(cdaweb_variable_name, (list,)):
+        # Is this YAML entry a list of variables?
+        for variable_name in cdaweb_variable_name:
+            print("Fetching dataset %s, variable(s) %s from CDAWeb." %
+                (cdaweb_dataset_name, variable_name))
+            cdaweb_query_status, cdaweb_query_results = pullVar(
+                cdaweb_dataset_name, variable_name,
+                start_time, end_time, cdaweb_data_interval
+            )
+            if debug:
+                print("cdaweb_query_status = %s" % cdaweb_query_status)
+                print("cdaweb_query_results = %s" % cdaweb_query_results)
+            if (cdaweb_query_status["http"]["status_code"] != HTTP_STATUS_OK or
+                cdaweb_query_results is None):
+                return None
+    else:
+        # The YAML entry is a single variable.
+        cdaweb_query_status, cdaweb_query_results = pullVar(
+            cdaweb_dataset_name, cdaweb_variable_name,
+            start_time, end_time, cdaweb_data_interval
+        )
+        if debug:
+            print("cdaweb_query_status = %s" % cdaweb_query_status)
+            print("cdaweb_query_results = %s" % cdaweb_query_results)
+        if (cdaweb_query_status["http"]["status_code"] != HTTP_STATUS_OK or
+            cdaweb_query_results is None):
+            return None
 
     # Create a new SpaceData object to hold the ingested results of the
     # query.

@@ -23,5 +23,30 @@
             "Id" : "AC_H2_SWE",
             "Data" : "Tpr"
         }
+    },
+    "STEREO_A" : {
+        "Ephem" : {
+            "Id" : "STA_HELIO1DAY_POSITION",
+            "Data" : ["RAD_AU", "HGI_LAT", "HGI_LON"],
+            "CoordSys" : "HGI",
+            "Epoch_Name" : "Epoch_bin"
+        },
+        "Speed" : {
+            "Id" : "STA_COHO1HR_MERGED_MAG_PLASMA",
+            "Data" : "plasmaSpeed"
+        },
+        "MagneticField" : {
+            "Id" : "STA_COHO1HR_MERGED_MAG_PLASMA",
+            "Data" : ["BR", "BT", "BN", "B"],
+            "CoordSys" : "RTN"	
+        },
+        "Density" : {
+            "Id" : "STA_COHO1HR_MERGED_MAG_PLASMA",
+            "Data" : "plasmaDensity"
+        },
+        "Temperature" : {
+            "Id" : "STA_COHO1HR_MERGED_MAG_PLASMA",
+            "Data" : "plasmaTemp"
+        }
     }
 }

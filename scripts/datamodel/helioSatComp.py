@@ -318,8 +318,8 @@ if __name__ == "__main__":
             os.system("rm %s" % cdf_path)
         if verbose:
             print("Creating CDF file %s with %s and GAMERA data" % (cdf_path, sc_id))
-        # # <HACK>
-        # # Massage PSP data to work with toCDF().
+        # <HACK>
+        # Massage PSP data to work with toCDF().
         # if sc_id == "Parker_Solar_Probe":
         #     print("Massaging PSP data for output.")
         #     data["radialDistance"] = dm.dmarray(
