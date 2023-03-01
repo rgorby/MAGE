@@ -540,16 +540,16 @@ def helioItemPlot_new(Ax, data, key, plotNum, numPlots, show_zero=False):
     #         ha="center", va="center", fontsize=fontsize, color="darkgrey"
     #     )
 
-    # Even-numbered plots (0-based) show the y-axis label on the left.
+    # Even-numbered plots (1-based) show the y-axis label on the left.
     left = False
-    if plotNum % 2 == 0:
+    if plotNum % 2 == 1:
         left = True
 
     # Compute the y-axis label string.
     label = helio_labelStr(data, key, vecComp=-1)
 
     # Show the x-axis on the last plot.
-    if plotNum == numPlots - 1:
+    if plotNum == numPlots:
         SetAxLabs(Ax, "UT", label, doLeft=left)
         SetAxDate(Ax)
     else:
@@ -580,23 +580,6 @@ def helioCompPlot_new(plot_file_path, sc_id, sc_data):
     """
     # Determine which data are available to plot.
     variables_to_plot = ["Speed", "Br", "Density", "Temperature"]
-    # keys = sc_data.keys()
-    # if "Speed" in keys:
-    #     variables_to_plot.append("Speed")
-    # else:
-    #     print("No 'Speed' data found at CDAWeb for %s for this period." % sc_id)
-    # if "Br" in keys:
-    #     variables_to_plot.append("Br")
-    # else:
-    #     print("No 'Br' data found at CDAWeb for %s for this period." % sc_id)
-    # if "Density" in keys:
-    #     variables_to_plot.append("Density")
-    # else:
-    #     print("No 'Density' data found at CDAWeb for %s for this period." % sc_id)
-    # if "Temperature" in keys:
-    #     variables_to_plot.append("Temperature")
-    # else:
-    #     print("No 'Temperature' data found at CDAWeb for %s for this period." % sc_id)
 
     # Compute the number of variables to plot.
     n_plots = len(variables_to_plot)
@@ -608,38 +591,29 @@ def helioCompPlot_new(plot_file_path, sc_id, sc_data):
     HELIO_COMP_PLOT_FIGSIZE = (10, 10)
     fig = plt.figure(figsize=HELIO_COMP_PLOT_FIGSIZE)
 
-    # Create a layout grid for the subplots: numPlots rows, 1 column
-    # gs = fig.add_gridspec(n_plots, 1)
-
     # Plot each variable in its own subplot.
-    plotNum = 0
-    # fig, axd = plt.subplot_mosaic(
-    #     [variables_to_plot],
-    #     figsize=HELIO_COMP_PLOT_FIGSIZE, layout="constrained",
-    #     gridspec_kw={"hspace": 0}
-    # )
     for i in range(n_plots):
+        plotNum = i + 1
         variable_name = variables_to_plot[i]
         show_zero = False
         if variable_name == "Br":
             show_zero = True
-        ax = plt.subplot(n_plots, 1, i + 1)
-        helioItemPlot_new(
-            ax, sc_data, variable_name,
-            plotNum, n_plots, show_zero=show_zero
-        )
-        if i == 0:
-            ax.legend([sc_id, "GAMERA"], loc="best")
-        # else:
-        #     fontsize = 18
-        #     axd[variable_name].text(
-        #         0.5, 0.5, "No data available",
-        #         transform=axd[variable_name].transAxes,
-        #         ha="center", va="center", fontsize=fontsize, color="darkgrey")
-        plotNum += 1
+        ax = plt.subplot(n_plots, 1, plotNum)
+        if variable_name in sc_data:
+            helioItemPlot_new(
+                ax, sc_data, variable_name,
+                plotNum, n_plots, show_zero=show_zero
+            )
+        else:
+            fontsize = 18
+            ax.text(
+                0.5, 0.5, "No spacecraft data available.",
+                transform=ax.transAxes,
+                ha="center", va="center", fontsize=fontsize, color="darkgrey")
 
-    # Display the legend which delineates gamera and spacecraft data.
-    # axd["Speed"].legend([sc_id, "GAMERA"], loc="best")
+        # Add the shared legend to the first plot.
+        if plotNum == 1:
+            ax.legend([sc_id, "GAMERA"], loc="best")
 
     # Use the plot file path as the figure title.
     fig.suptitle(plot_file_path)

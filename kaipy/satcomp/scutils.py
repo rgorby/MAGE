@@ -1062,11 +1062,11 @@ def get_helio_cdaweb_data(
             cdaweb_dataset_name, cdaweb_variable_name,
             start_time, end_time, cdaweb_data_interval
         )
-        if cdaweb_query_status["http"]["status_code"] != HTTP_STATUS_OK:
-            print("No data found for spacecraft %s, dataset %s, variable %s,"
-                  " aborting comparison!" %
-                  (sc_id, cdaweb_dataset_name, cdaweb_variable_name))
-            return None
+        if (cdaweb_query_status["http"]["status_code"] != HTTP_STATUS_OK or
+            cdaweb_query_results is None) :
+            print("No data found for spacecraft %s, dataset %s, variable %s!"
+                  % (sc_id, cdaweb_dataset_name, cdaweb_variable_name))
+            continue
 
         # Extract the CDAWeb variable(s) which define this local variable.
         if isinstance(cdaweb_variable_name, list):
@@ -1404,29 +1404,33 @@ def ingest_helio_cdaweb_data(sc_id, sc_data, sc_metadata, MJDc, verbose=False, d
         verbose=verbose, debug=debug
     )
 
-    # Ingest the speed measurements.
-    ingest_cdaweb_speed(
-        sc_data, sc_metadata, MJDc,
-        verbose=verbose, debug=debug
-    )
+    # Ingest the speed measurements, if available.
+    if sc_metadata["Speed"]["Data"] in sc_data:
+        ingest_cdaweb_speed(
+            sc_data, sc_metadata, MJDc,
+            verbose=verbose, debug=debug
+        )
 
     # Ingest the magnetic field measurements.
-    ingest_cdaweb_magnetic_field(
-        sc_data, sc_metadata, MJDc,
-        verbose=verbose, debug=debug
-    )
+    if sc_metadata["MagneticField"]["Data"] in sc_data:
+        ingest_cdaweb_magnetic_field(
+            sc_data, sc_metadata, MJDc,
+            verbose=verbose, debug=debug
+        )
 
     # Ingest the density measurements.
-    ingest_cdaweb_density(
-        sc_data, sc_metadata, MJDc,
-        verbose=verbose, debug=debug
-    )
+    if sc_metadata["Density"]["Data"] in sc_data:
+        ingest_cdaweb_density(
+            sc_data, sc_metadata, MJDc,
+            verbose=verbose, debug=debug
+        )
 
     # Ingest the temperature measurements.
-    ingest_cdaweb_temperature(
-        sc_data, sc_metadata, MJDc,
-        verbose=verbose, debug=debug
-    )
+    if sc_metadata["Temperature"]["Data"] in sc_data:
+        ingest_cdaweb_temperature(
+            sc_data, sc_metadata, MJDc,
+            verbose=verbose, debug=debug
+        )
 
 
 def create_sctrack_helio_trajectory_file(
@@ -1974,19 +1978,20 @@ def write_helio_error_report(error_file_path, sc_id, sc_data):
     # Compute and save the error report for each variable.
     with open(error_file_path, "w") as f:
         for key in keysToCompute:
-            maskedData = np.ma.masked_where(
-                sc_data["GAMHELIO_inDom"][:] == 0.0, sc_data[key][:]
-            )
-            maskedGamera = np.ma.masked_where(
-                sc_data["GAMHELIO_inDom"][:] == 0.0, sc_data["GAMHELIO_" + key][:]
-            )
-            MAE, MSE, RMSE, MAPE, RSE, PE = computeErrors(
-                maskedData, maskedGamera
-            )
-            f.write(f"Errors for: {key}\n")
-            f.write(f"MAE: {MAE}\n")
-            f.write(f"MSE: {MSE}\n")
-            f.write(f"RMSE: {RMSE}\n")
-            f.write(f"MAPE: {MAPE}\n")
-            f.write(f"RSE: {RSE}\n")
-            f.write(f"PE: {PE}\n")
+            if key in sc_data:
+                maskedData = np.ma.masked_where(
+                    sc_data["GAMHELIO_inDom"][:] == 0.0, sc_data[key][:]
+                )
+                maskedGamera = np.ma.masked_where(
+                    sc_data["GAMHELIO_inDom"][:] == 0.0, sc_data["GAMHELIO_" + key][:]
+                )
+                MAE, MSE, RMSE, MAPE, RSE, PE = computeErrors(
+                    maskedData, maskedGamera
+                )
+                f.write(f"Errors for: {key}\n")
+                f.write(f"MAE: {MAE}\n")
+                f.write(f"MSE: {MSE}\n")
+                f.write(f"RMSE: {RMSE}\n")
+                f.write(f"MAPE: {MAPE}\n")
+                f.write(f"RSE: {RSE}\n")
+                f.write(f"PE: {PE}\n")
