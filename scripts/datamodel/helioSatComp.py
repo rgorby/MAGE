@@ -268,7 +268,7 @@ if __name__ == "__main__":
         # Fetch the ephemeris and observed data for the current spacecraft.
         if verbose:
             print("Fetching ephemeris and instrument data for %s from CDAWeb." % sc_id)
-        sc_data = scutils.get_cdaweb_data(
+        sc_data = scutils.get_helio_cdaweb_data(
             sc_id, sc_metadata[sc_id],
             datestr_start, datestr_end, cdaweb_data_interval,
             verbose=verbose, debug=debug
@@ -281,8 +281,9 @@ if __name__ == "__main__":
             print("No data found for %s." % sc_id)
             continue
 
-        # At this point, the data object contains only spacecraft-measured data,
-        # as returned from CDAWeb.
+        # At this point, the data object contains only the raw spacecraft
+        # ephemeris, and the raw spacecraft-measured data, as returned from
+        # CDAWeb.
 
         # Ingest the CDAWeb data. This means convert the data as originally
         # retrieved from CDAWeb to the units and coordinate systems used by
@@ -291,7 +292,7 @@ if __name__ == "__main__":
         # corresponding gamhelio variables.
         if verbose:
             print("Converting CDAWeb data for %s into gamhelio format." % sc_id)
-        scutils.ingest_cdaweb_data(
+        scutils.ingest_helio_cdaweb_data(
             sc_id, sc_data, sc_metadata[sc_id], gh_MJDc,
             verbose=verbose, debug=debug
         )
@@ -306,7 +307,7 @@ if __name__ == "__main__":
             gh_result_directory, gh_run_id,
             cmd_sctrack, num_segments, keep, gh_MJDc
         )
-    
+
         # Save the important measured and simulated data as a CDF file for
         # comparison.
         cdf_path = os.path.join(gh_result_directory, sc_id + ".comp.cdf")
@@ -380,7 +381,7 @@ if __name__ == "__main__":
         kv.helioCompPlot_new(plot_file_path, sc_id, sc_data)
 
         # Plot the spacecraft trajectory.
-        plot_file_path = os.path.join(gh_result_directory, sc_id + "-traj.png")
-        if verbose:
-            print("Plotting %s trajectory in spacecraft frame to %s." % (sc_id, plot_file_path))
-        kv.helioTrajPlot(plot_file_path, sc_id, sc_data)
+        # plot_file_path = os.path.join(gh_result_directory, sc_id + "-traj.png")
+        # if verbose:
+        #     print("Plotting %s trajectory in spacecraft frame to %s." % (sc_id, plot_file_path))
+        # kv.helioTrajPlot(plot_file_path, sc_id, sc_data)

@@ -858,14 +858,91 @@ def read_MJDc(path):
     return mjdc
 
 
-def get_cdaweb_data(
+def helio_pullVar(
+        cdaObsId, cdaDataId,
+        t0, t1, deltaT=60,
+        epochStr="Epoch", doVerbose=False
+):
+    """Pull spacecraft data from CDAWeb.
+
+    Pull spacecraft data from CDAWeb.
+
+    Parameters
+    ----------
+    cdaObsId: str
+        Dataset name.
+    cdaDataId: str or list of str
+        Desired variable(s) from dataset.
+    t0: str
+        Data start time, formatted as '%Y-%m-%dT%H:%M:%S.%f'.
+    t1: str
+        Data end time, formatted as '%Y-%m-%dT%H:%M:%S.%f'.
+    deltaT: float, default 60
+        Time cadence (seconds), used when interpolating through time with
+        no data.
+    epochStr: str, default "Epoch"
+        Name of time variable in dataset.
+    doVerbose: bool, default False
+        Helpful for debugging/diagnostics.
+
+    Returns
+    -------
+    status: dict
+        Status information returned for the query.
+    data: spacepy.pycdf.CDFCopy
+        Object containing data returned by the query, None if no results.
+    """
+
+    # Specify how CDAWeb should bin the data.
+    binData = {
+        "interval": deltaT, 
+        "interpolateMissingValues": True,
+        "sigmaMultipler": 4
+    }
+
+    # Create the CDAWeb query object.
+    cdas = CdasWs()
+
+    # Perform the query.
+    status, data = cdas.get_data(cdaObsId, cdaDataId, t0, t1, binData=binData)
+
+    # Process the query status.
+    if status["http"]["status_code"] in (204, HTTP_STATUS_NOT_FOUND):
+        # 204 = No Content
+        # HTTP_STATUS_NOT_FOUND = Not Found
+        if doVerbose:
+            print("No data found.")
+
+    # Return the query status and results.
+    return status, data
+
+
+def helio_addVar(my_data, scDic, varname, t0, t1, deltaT, epochStr="Epoch"):
+    cdaweb_dataset_name = scDic[varname]["Id"]
+    cdaweb_variable_name = scDic[varname]["Data"]
+    if cdaweb_variable_name is not None:
+        status,data = helio_pullVar(
+            cdaweb_variable_name, cdaweb_dataset_name,
+            t0, t1, deltaT, epochStr=epochStr)
+        if status["http"]["status_code"] == HTTP_STATUS_OK and data is not None:
+            my_data[varname] = dm.dmarray(data[scDic[varname]["Data"]],
+                                         attrs=data[scDic[varname]["Data"]].attrs)
+    else:
+        #Mimic the cdasws return code for case when id isn't provided
+        status = {"http": {"status_code": HTTP_STATUS_NOT_FOUND}}
+    return status
+
+
+def get_helio_cdaweb_data(
     sc_id, sc_metadata, start_time, end_time, cdaweb_data_interval,
     verbose=False, debug=False
 ):
     """Fetch heliosphere spacecraft data in the specified time range.
 
     Fetch heliosphere spacecraft data for the specified time range, at the
-    specified cadence.
+    specified cadence. This function copies the raw CDAWeb data from the
+    query result object into a local data object. The raw data must then
+    be ingested to convert it to a form that gamhelio understands.
 
     Parameters
     ----------
@@ -894,40 +971,18 @@ def get_cdaweb_data(
     ------
 
     """
-    # Fetch the ephemeris data for this spacecraft.
-    # If not found, abort this query.
+    # Fetch the ephemeris variable(s) from CDAWeb.
     cdaweb_dataset_name = sc_metadata["Ephem"]["Id"]
     cdaweb_variable_name = sc_metadata["Ephem"]["Data"]
-    if verbose:
-        print("Fetching dataset %s, variable(s) %s from CDAWeb." %
-              (cdaweb_dataset_name, cdaweb_variable_name))
-    if isinstance(cdaweb_variable_name, (list,)):
-        # Is this YAML entry a list of variables?
-        for variable_name in cdaweb_variable_name:
-            print("Fetching dataset %s, variable(s) %s from CDAWeb." %
-                (cdaweb_dataset_name, variable_name))
-            cdaweb_query_status, cdaweb_query_results = pullVar(
-                cdaweb_dataset_name, variable_name,
-                start_time, end_time, cdaweb_data_interval
-            )
-            if debug:
-                print("cdaweb_query_status = %s" % cdaweb_query_status)
-                print("cdaweb_query_results = %s" % cdaweb_query_results)
-            if (cdaweb_query_status["http"]["status_code"] != HTTP_STATUS_OK or
-                cdaweb_query_results is None):
-                return None
-    else:
-        # The YAML entry is a single variable.
-        cdaweb_query_status, cdaweb_query_results = pullVar(
-            cdaweb_dataset_name, cdaweb_variable_name,
-            start_time, end_time, cdaweb_data_interval
-        )
-        if debug:
-            print("cdaweb_query_status = %s" % cdaweb_query_status)
-            print("cdaweb_query_results = %s" % cdaweb_query_results)
-        if (cdaweb_query_status["http"]["status_code"] != HTTP_STATUS_OK or
-            cdaweb_query_results is None):
-            return None
+    print("Fetching spacecraft %s, dataset %s, variable(s) %s from CDAWeb." %
+          (sc_id, cdaweb_dataset_name, cdaweb_variable_name))
+    cdaweb_query_status, cdaweb_query_results = helio_pullVar(
+        cdaweb_dataset_name, cdaweb_variable_name,
+        start_time, end_time, cdaweb_data_interval
+    )
+    if debug:
+        print("cdaweb_query_status = %s" % cdaweb_query_status)
+        print("cdaweb_query_results = %s" % cdaweb_query_results)
 
     # Create a new SpaceData object to hold the ingested results of the
     # query.
@@ -966,21 +1021,24 @@ def get_cdaweb_data(
                 attrs=cdaweb_query_results[key].attrs
             )
 
-    # Extract the times assigned to the ephemeris positions.
-    cdaweb_ephemeris_time_name = sc_metadata["Ephem"]["Epoch_Name"]
-    cdaweb_ephemeris_datetimes = cdaweb_query_results[cdaweb_ephemeris_time_name]
-    sc_data[SC_DATA_EPHEMERIS_EPOCH_NAME] = dm.dmarray(
-        cdaweb_ephemeris_datetimes,
-        attrs=cdaweb_ephemeris_datetimes.attrs
+    # Extract the times assigned to the ephemeris times.
+    sc_data[sc_metadata["Ephem"]["Epoch_Name"]] = dm.dmarray(
+        cdaweb_query_results[sc_metadata["Ephem"]["Epoch_Name"]],
+        attrs=cdaweb_query_results[sc_metadata["Ephem"]["Epoch_Name"]].attrs
     )
 
-    # Extract the ephemeris positions as a dmarray of shape (n, 3).
-    # Each row can be an (x, y, z) tuple, an (r, lat, lon) tuple, or something
-    # similar. Also copy the attributes returned from CDAWeb.
-    sc_data["Ephemeris"] = dm.dmarray(
-        cdaweb_query_results[cdaweb_variable_name],
-        attrs=cdaweb_query_results[cdaweb_variable_name].attrs
-    )
+    # Extract the variable(s) which define the ephemeris positions.
+    if isinstance(cdaweb_variable_name, list):
+        for variable_name in cdaweb_variable_name:
+            sc_data[variable_name] = dm.dmarray(
+                cdaweb_query_results[variable_name],
+                attrs=cdaweb_query_results[variable_name].attrs
+            )
+    else:
+        sc_data[cdaweb_variable_name] = dm.dmarray(
+            cdaweb_query_results[cdaweb_variable_name],
+            attrs=cdaweb_query_results[cdaweb_variable_name].attrs
+        )
 
     # Now fetch the physical data measured by the spacecraft.
     # Each spacecraft entry in the spacecraft metadata database can have
@@ -990,25 +1048,38 @@ def get_cdaweb_data(
     # 2. MagneticField = components of the magnetic field (nT)
     # 3. Density = number density of solar wind (#/cc)
     # 4. Temperature = temperature of solar wind (K)
-    # Note that in this case, the addVsr() function directly adds each
+    # Note that in this case, the addVar() function directly adds each
     # new variable directly to the my_data object.
     variable_names = ["Speed", "MagneticField", "Density", "Temperature"]
-    for cdaweb_variable_name in variable_names:
-        cdaweb_dataset_name = sc_metadata[cdaweb_variable_name]["Id"]
+    for variable_name in variable_names:
+        cdaweb_dataset_name = sc_metadata[variable_name]["Id"]
+        cdaweb_variable_name = sc_metadata[variable_name]["Data"]
         if verbose:
-            print("Fetching dataset %s, variable %s from CDAWeb." %
-                  (cdaweb_dataset_name, cdaweb_variable_name))
-        cdaweb_query_status = addVar(
-            sc_data,
-            sc_metadata, cdaweb_variable_name,
-            start_time, end_time, cdaweb_data_interval,
-            epochStr=cdaweb_ephemeris_time_name
+            print("Fetching spacecraft %s, dataset %s, variable %s from "
+                  "CDAWeb." % (sc_id, cdaweb_dataset_name,
+                               cdaweb_variable_name))
+        cdaweb_query_status, cdaweb_query_results = helio_pullVar(
+            cdaweb_dataset_name, cdaweb_variable_name,
+            start_time, end_time, cdaweb_data_interval
         )
         if cdaweb_query_status["http"]["status_code"] != HTTP_STATUS_OK:
             print("No data found for spacecraft %s, dataset %s, variable %s,"
                   " aborting comparison!" %
                   (sc_id, cdaweb_dataset_name, cdaweb_variable_name))
             return None
+
+        # Extract the CDAWeb variable(s) which define this local variable.
+        if isinstance(cdaweb_variable_name, list):
+            for variable_name in cdaweb_variable_name:
+                sc_data[variable_name] = dm.dmarray(
+                    cdaweb_query_results[variable_name],
+                    attrs=cdaweb_query_results[variable_name].attrs
+                )
+        else:
+            sc_data[cdaweb_variable_name] = dm.dmarray(
+                cdaweb_query_results[cdaweb_variable_name],
+                attrs=cdaweb_query_results[cdaweb_variable_name].attrs
+            )
 
     # Return the accumulated data from CDAWeb.
     return sc_data
@@ -1019,7 +1090,12 @@ def ingest_cdaweb_ephemeris(sc_data, sc_metadata, MJDc, verbose=False, debug=Fal
 
     Convert CDAWeb spacecraft ephemeris to gamhelio format. This process
     converts the CDAWeb coordinates (which may be in any supported coordinate
-    system) to the Cartesian GH(MJDc) frame used by gamhelio.
+    system) to the Cartesian GH(MJDc) frame used by gamhelio. This function
+    also makes a copy of the times associated with the ephemeris, and saves
+    them with a standard name.
+
+    Once the variables are ingested, they are referred to using the names of
+    the local variables listed in the spacecraft metadata.
 
     Parameters
     ----------
@@ -1045,15 +1121,20 @@ def ingest_cdaweb_ephemeris(sc_data, sc_metadata, MJDc, verbose=False, debug=Fal
     # Ingest the trajectory by converting it to the gamhelio  frame.
     if cdaweb_coordinate_system == "GSE":
 
+        # GSE(t) coordinates from CDAWeb are provided as a single 2-D array
+        # of Cartesian (x, y, z) values, of shape (n, 3), called "XYZ_GSE".
+        # These values are in units of kilometers. The ephemeris time is
+        # in a variable called "Epoch_bin".
+
         # Convert the GSE(t) ephemeris locations to the gamhelio frame
-        # so that sctrack.x can interpolate gamhelio model data to the
-        # spacecraft ephemeris locations.
+        # (GH(MJDc) so that sctrack.x can interpolate gamhelio model data to
+        # the spacecraft ephemeris locations.
 
         # Convert the GSE(t) Cartesian coordinates from kilometers to R_sun.
-        x = sc_data[SC_DATA_EPHEMERIS_NAME][:, 0]/R_SUN_KILOMETERS
-        y = sc_data[SC_DATA_EPHEMERIS_NAME][:, 1]/R_SUN_KILOMETERS
-        z = sc_data[SC_DATA_EPHEMERIS_NAME][:, 2]/R_SUN_KILOMETERS
-        t = sc_data[SC_DATA_EPHEMERIS_EPOCH_NAME]
+        x = sc_data["XYZ_GSE"][:, 0]/R_SUN_KILOMETERS
+        y = sc_data["XYZ_GSE"][:, 1]/R_SUN_KILOMETERS
+        z = sc_data["XYZ_GSE"][:, 2]/R_SUN_KILOMETERS
+        t = sc_data["Epoch_bin"]
 
         # Create astropy.coordinates.SkyCoord objects for each GSE(t)
         # position and time.
@@ -1080,7 +1161,9 @@ def ingest_cdaweb_ephemeris(sc_data, sc_metadata, MJDc, verbose=False, debug=Fal
         c = c.transform_to(gh_frame)
 
         # Save the HGS(MJDc) Cartesian coordinates as GH(MJDc) coordinates.
-        sc_data["T"] = dm.dmarray(t)
+        # These variable names (T, X, Y, Z) are the same as those used in
+        # the gamhelio output files.
+        sc_data["Ephemeris_time"] = dm.dmarray(t)
         sc_data["X"] = dm.dmarray(-c.cartesian.x)
         sc_data["Y"] = dm.dmarray(-c.cartesian.y)
         sc_data["Z"] = dm.dmarray(c.cartesian.z)
@@ -1088,6 +1171,56 @@ def ingest_cdaweb_ephemeris(sc_data, sc_metadata, MJDc, verbose=False, debug=Fal
     else:
         raise KeyError("Unknown ephemeris coordinate system: %s!" %
                        cdaweb_coordinate_system)
+
+    # At this point, sc_data contains all of the ephemeris times, and the
+    # Cartesian ephemeris positions as (X, Y, Z) in the GH(MJDc) frame.
+
+
+def ingest_cdaweb_speed(sc_data, sc_metadata, MJDc, verbose=False, debug=False):
+    """Convert CDAWeb speed to gamhelio format.
+
+    Convert CDAWeb speed to gamhelio format. If needed, compute
+    the radial component of the speed in the GH(MJDc) frame.
+
+    Parameters
+    ----------
+    sc_data : dm.SpaceData
+        SpaceData object for all data as originally returned from CDAWeb.
+    sc_metadata : dict
+        Spacecraft descriptive information for the heliosphere spacecraft YML
+        file.
+    MJDc : float
+        Value of MJDc attribute from gamhelio result files.
+    verbose : bool, default False
+        Set to True for printing verbose progress messages.
+    debug : bool, default False
+        Set to True for printing debugging messages.
+
+    Returns
+    -------
+    None
+    """
+    # Fetch the dataset and name of the variable.
+    cdaweb_dataset_name = sc_metadata["Speed"]["Id"]
+    cdaweb_variable_name = sc_metadata["Speed"]["Data"]
+
+    # Add the radial component of the *spacecraft-measured* speed as
+    # a new variable.
+    if cdaweb_variable_name == "Vp":
+        # The proton velocity is the desired radial velocity.
+        sc_data["Speed"] = dm.dmarray(
+            sc_data["Vp"],
+            attrs = {
+                "UNITS": "km/s",
+                "CATDESC": "Radial speed",
+                "FIELDNAM": "Radial speed",
+                "AXISLABEL": "Vr"
+            }
+        )
+    else:
+        raise TypeError("Unexpected variable: dataset %s, "
+                        "variable %s!" %
+                        (cdaweb_dataset_name, cdaweb_variable_name))
 
 
 def ingest_cdaweb_magnetic_field(sc_data, sc_metadata, MJDc, verbose=False, debug=False):
@@ -1114,21 +1247,28 @@ def ingest_cdaweb_magnetic_field(sc_data, sc_metadata, MJDc, verbose=False, debu
     -------
     None
     """
+    # Fetch the dataset and name of the variable.
+    cdaweb_dataset_name = sc_metadata["MagneticField"]["Id"]
+    cdaweb_variable_name = sc_metadata["MagneticField"]["Data"]
+
     # Add the radial component of the *spacecraft-measured* magnetic field as
     # a new variable.
     magnetic_field_coordinate_frame = sc_metadata["MagneticField"]["CoordSys"]
     if magnetic_field_coordinate_frame == "GSE":
-        # The radial component of B in GSE is just the x-component, since the
-        # GSE +x axis points in the same direction as the GH(MHDc) +x axis.
-        sc_data["Br"] = dm.dmarray(
-            sc_data["MagneticField"][:, 0],
-            attrs = {
-                "UNITS": "nT",
-                "CATDESC": "Radial magnetic field",
-                "FIELDNAM": "Radial magnetic field",
-                "AXISLABEL": "Br"
-            }
-        )
+        if cdaweb_variable_name == "BGSEc":
+            # The magnetic fiels was returned as a 2-D array of shape (n, 3)
+            # containing (Bx, By, Bz) in units of nT.
+            # The radial component of B in GSE is just the x-component, since the
+            # GSE +x axis points in the same direction as the GH(MHDc) +x axis.
+            sc_data["Br"] = dm.dmarray(
+                sc_data["BGSEc"][:, 0],
+                attrs = {
+                    "UNITS": "nT",
+                    "CATDESC": "Radial magnetic field",
+                    "FIELDNAM": "Radial magnetic field",
+                    "AXISLABEL": "Br"
+                }
+            )
     # elif sc_coord_sys == "RTN":
     #     sc_data["Br"] = dm.dmarray(
     #         sc_data["MagneticField"].flatten()[0]["BR"][:],
@@ -1139,13 +1279,103 @@ def ingest_cdaweb_magnetic_field(sc_data, sc_metadata, MJDc, verbose=False, debu
     #             "AXISLABEL":"Br"
     #         }
     #     )
-    # else:
-    #     raise TypeError
-    # </HACK>
+    else:
+        raise TypeError("Unexpected variable: dataset %s, "
+                        "variable %s!" %
+                        (cdaweb_dataset_name, cdaweb_variable_name))
 
 
+def ingest_cdaweb_density(sc_data, sc_metadata, MJDc, verbose=False, debug=False):
+    """Convert CDAWeb density to gamhelio format.
 
-def ingest_cdaweb_data(sc_id, sc_data, sc_metadata, MJDc, verbose=False, debug=False):
+    Convert CDAWeb density to gamhelio format.
+
+    Parameters
+    ----------
+    sc_data : dm.SpaceData
+        SpaceData object for all data as originally returned from CDAWeb.
+    sc_metadata : dict
+        Spacecraft descriptive information for the heliosphere spacecraft YML
+        file.
+    MJDc : float
+        Value of MJDc attribute from gamhelio result files.
+    verbose : bool, default False
+        Set to True for printing verbose progress messages.
+    debug : bool, default False
+        Set to True for printing debugging messages.
+
+    Returns
+    -------
+    None
+    """
+    # Fetch the dataset and name of the variable.
+    cdaweb_dataset_name = sc_metadata["Density"]["Id"]
+    cdaweb_variable_name = sc_metadata["Density"]["Data"]
+
+    # Add the *spacecraft-measured* number density as a new variable.
+    if cdaweb_variable_name == "Np":
+        # The proton density is the desired density.
+        sc_data["Density"] = dm.dmarray(
+            sc_data["Np"],
+            attrs = {
+                "UNITS": "#/cc",
+                "CATDESC": "Number density",
+                "FIELDNAM": "Number density",
+                "AXISLABEL": "N"
+            }
+        )
+    else:
+        raise TypeError("Unexpected variable: dataset %s, "
+                        "variable %s!" %
+                        (cdaweb_dataset_name, cdaweb_variable_name))
+
+
+def ingest_cdaweb_temperature(sc_data, sc_metadata, MJDc, verbose=False, debug=False):
+    """Convert CDAWeb temperature to gamhelio format.
+
+    Convert CDAWeb temperature to gamhelio format.
+
+    Parameters
+    ----------
+    sc_data : dm.SpaceData
+        SpaceData object for all data as originally returned from CDAWeb.
+    sc_metadata : dict
+        Spacecraft descriptive information for the heliosphere spacecraft YML
+        file.
+    MJDc : float
+        Value of MJDc attribute from gamhelio result files.
+    verbose : bool, default False
+        Set to True for printing verbose progress messages.
+    debug : bool, default False
+        Set to True for printing debugging messages.
+
+    Returns
+    -------
+    None
+    """
+    # Fetch the dataset and name of the variable.
+    cdaweb_dataset_name = sc_metadata["Temperature"]["Id"]
+    cdaweb_variable_name = sc_metadata["Temperature"]["Data"]
+
+    # Add the *spacecraft-measured* number density as a new variable.
+    if cdaweb_variable_name == "Tpr":
+        # The proton density is the desired density.
+        sc_data["Temperature"] = dm.dmarray(
+            sc_data["Tpr"],
+            attrs = {
+                "UNITS": "K",
+                "CATDESC": "Temperature",
+                "FIELDNAM": "Temperature",
+                "AXISLABEL": "T"
+            }
+        )
+    else:
+        raise TypeError("Unexpected variable: dataset %s, "
+                        "variable %s!" %
+                        (cdaweb_dataset_name, cdaweb_variable_name))
+
+
+def ingest_helio_cdaweb_data(sc_id, sc_data, sc_metadata, MJDc, verbose=False, debug=False):
     """Ingest CDAWeb data to gamhelio format.
 
     Convert CDAWeb data to gamhelio format.
@@ -1174,8 +1404,26 @@ def ingest_cdaweb_data(sc_id, sc_data, sc_metadata, MJDc, verbose=False, debug=F
         verbose=verbose, debug=debug
     )
 
+    # Ingest the speed measurements.
+    ingest_cdaweb_speed(
+        sc_data, sc_metadata, MJDc,
+        verbose=verbose, debug=debug
+    )
+
     # Ingest the magnetic field measurements.
     ingest_cdaweb_magnetic_field(
+        sc_data, sc_metadata, MJDc,
+        verbose=verbose, debug=debug
+    )
+
+    # Ingest the density measurements.
+    ingest_cdaweb_density(
+        sc_data, sc_metadata, MJDc,
+        verbose=verbose, debug=debug
+    )
+
+    # Ingest the temperature measurements.
+    ingest_cdaweb_temperature(
         sc_data, sc_metadata, MJDc,
         verbose=verbose, debug=debug
     )
@@ -1199,7 +1447,7 @@ def create_sctrack_helio_trajectory_file(
     """
     # Fetch the times and coordinates of the trajectory. They should already
     # be in the Cartesian GH(MJDc) frame.
-    t = sc_data["T"]
+    t = sc_data["Ephemeris_time"]
     x = sc_data["X"]
     y = sc_data["Y"]
     z = sc_data["Z"]
@@ -1353,8 +1601,8 @@ def create_sctrack_helio_input_files(
     )
 
     # Write the XML to a file.
-    xml_path = os.path.join(gamhelio_results_directory, scId+'.xml')
-    with open(xml_path,"w") as f:
+    xml_path = os.path.join(gamhelio_results_directory, scId + ".xml")
+    with open(xml_path, "w") as f:
         f.write(chimp_xml.toprettyxml())
 
     # Return the paths to the HDF5 and XML files.
@@ -1406,7 +1654,7 @@ def ingest_interpolated_radial_velocity(h5file, sc_data):
         Vr[i] = V[i].dot(R[i])/radius[i]
 
     # Add the interpolated model solar wind radial velocity as a new variable.
-    sc_data["GAMERA_Speed"] = dm.dmarray(
+    sc_data["GAMHELIO_Speed"] = dm.dmarray(
         Vr,
         attrs = {
             "UNITS": "km/s",
@@ -1467,7 +1715,7 @@ def ingest_interpolated_radial_magnetic_field(h5file, sc_data):
     # Add the radial component of the interpolated model magnetic field as a
     # new variable. The negative of Br is needed to reverse the x-axis from
     # GH(t0) to GSE(t).
-    sc_data["GAMERA_Br"] = dm.dmarray(
+    sc_data["GAMHELIO_Br"] = dm.dmarray(
         Br,
         attrs = {
             "UNITS": "nT",
@@ -1496,7 +1744,7 @@ def ingest_interpolated_number_density(h5file, sc_data):
     None
     """
     density = h5file["D"]
-    sc_data["GAMERA_Density"] = dm.dmarray(
+    sc_data["GAMHELIO_Density"] = dm.dmarray(
         density[:],
         attrs={
             "UNITS": "#/cc",
@@ -1537,13 +1785,42 @@ def ingest_interpolated_temperature(h5file, sc_data):
     # The factor of 2 is needed since we have a neutral 2-component plasma.
     # The factor of 1e-8 converts nPa to erg/cm**3.
     temperature = pressure[:]*1e-8/(2*kaipy.kdefs.kbltz*density[:])
-    sc_data["GAMERA_Temperature"] = dm.dmarray(
+    sc_data["GAMHELIO_Temperature"] = dm.dmarray(
         temperature[:],
         attrs={
             "UNITS": "K",
             "CATDESC": "Temperature",
             "FIELDNAM": "Temperature",
             "AXISLABEL": "T"
+        }
+    )
+
+
+def ingest_interpolated_inDomain(h5file, sc_data):
+    """Ingest the interpolated inDomain flag.
+
+    Ingest the interpolated inDomain flag.
+
+    Parameters
+    ----------
+    XXX
+
+    Returns
+    -------
+    None
+
+    Raises
+    ------
+    None
+    """
+    inDom = h5file["inDom"]
+    sc_data["GAMHELIO_inDom"] = dm.dmarray(
+        inDom[:],
+        attrs={
+            "UNITS": inDom.attrs["Units"],
+            "CATDESC": "In GAMERA Domain",
+            "FIELDNAM": "InDom",
+            "AXISLABEL": "In Domain"
         }
     )
 
@@ -1595,20 +1872,12 @@ def ingest_interpolated_variables(
     ingest_interpolated_temperature(h5file, sc_data)
 
     # Ingest the in-domain flag.
-    inDom = h5file["inDom"]
-    sc_data["GAMERA_inDom"] = dm.dmarray(
-        inDom[:],
-        attrs={
-            "UNITS": inDom.attrs["Units"],
-            "CATDESC": "In GAMERA Domain",
-            "FIELDNAM": "InDom",
-            "AXISLABEL": "In Domain"
-        }
-    )
+    ingest_interpolated_inDomain(h5file, sc_data)
 
     # At this point, we have added the interpolated model values to
     # the data object, along with extra metadata needed for comparison
-    # plotting.
+    # plotting. The names of the interpolated variables are prefixed
+    # with "GAMHELIO_".
 
 
 def interpolate_gamhelio_results_to_trajectory(
@@ -1706,10 +1975,10 @@ def write_helio_error_report(error_file_path, sc_id, sc_data):
     with open(error_file_path, "w") as f:
         for key in keysToCompute:
             maskedData = np.ma.masked_where(
-                sc_data["GAMERA_inDom"][:] == 0.0, sc_data[key][:]
+                sc_data["GAMHELIO_inDom"][:] == 0.0, sc_data[key][:]
             )
             maskedGamera = np.ma.masked_where(
-                sc_data["GAMERA_inDom"][:] == 0.0, sc_data["GAMERA_" + key][:]
+                sc_data["GAMHELIO_inDom"][:] == 0.0, sc_data["GAMHELIO_" + key][:]
             )
             MAE, MSE, RMSE, MAPE, RSE, PE = computeErrors(
                 maskedData, maskedGamera

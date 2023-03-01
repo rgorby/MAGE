@@ -465,6 +465,14 @@ def get_aspect(ax):
 # spacecraft.
 
 
+def helio_labelStr(data, key, vecComp):
+    label = (
+        data['GAMHELIO_' + key].attrs['AXISLABEL'] +
+        ' [' + data['GAMHELIO_' + key].attrs['UNITS'] + ']'
+    )
+    return label
+
+
 def helioItemPlot_new(Ax, data, key, plotNum, numPlots, show_zero=False):
     """Plot a single variable for the comparison plot.
 
@@ -507,13 +515,13 @@ def helioItemPlot_new(Ax, data, key, plotNum, numPlots, show_zero=False):
     # Extract the times and values which fall within the gamhelio simulation
     # domain.
     t = np.ma.masked_where(
-        data["GAMERA_inDom"][:] == 0.0, data["Ephemeris_Epoch"][:]
+        data["GAMHELIO_inDom"][:] == 0.0, data["Ephemeris_time"][:]
     )
     observed = np.ma.masked_where(
-        data["GAMERA_inDom"][:] == 0.0, data[key][:]
+        data["GAMHELIO_inDom"][:] == 0.0, data[key][:]
     )
     predicted = np.ma.masked_where(
-        data["GAMERA_inDom"][:] == 0.0, data["GAMERA_" + key][:]
+        data["GAMHELIO_inDom"][:] == 0.0, data["GAMHELIO_" + key][:]
     )
 
     # Show a black dotted line at y = 0 if requested.
@@ -538,7 +546,7 @@ def helioItemPlot_new(Ax, data, key, plotNum, numPlots, show_zero=False):
         left = True
 
     # Compute the y-axis label string.
-    label = labelStr(data, key, vecComp=-1)
+    label = helio_labelStr(data, key, vecComp=-1)
 
     # Show the x-axis on the last plot.
     if plotNum == numPlots - 1:
