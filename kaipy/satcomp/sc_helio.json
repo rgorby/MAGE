@@ -37,7 +37,7 @@
         },
         "MagneticField" : {
             "Id" : "STA_COHO1HR_MERGED_MAG_PLASMA",
-            "Data" : ["BR", "BT", "BN", "B"],
+            "Data" : "BR",
             "CoordSys" : "RTN"	
         },
         "Density" : {
@@ -62,7 +62,7 @@
         },
         "MagneticField" : {
             "Id" : "STB_COHO1HR_MERGED_MAG_PLASMA",
-            "Data" : ["BR", "BT", "BN", "B"],
+            "Data" : "BR",
             "CoordSys" : "RTN"	
         },
         "Density" : {
