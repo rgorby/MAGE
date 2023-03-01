@@ -11,9 +11,9 @@ import astropy.units as u
 from cdasws import CdasWs
 import h5py
 import numpy as np
-# from spacepy.coordinates import Coords
-# from spacepy.time import Ticktock
+from spacepy.coordinates import Coords
 import spacepy.datamodel as dm
+from spacepy.time import Ticktock
 from sunpy.coordinates import frames
 
 # Import project-specific modules.
@@ -28,6 +28,7 @@ import kaipy.kdefs
 TINY = 1.0e-8
 
 # Compute the path to the directory containing this module.
+package_directory = os.path.dirname(os.path.abspath(__file__))
 PACKAGE_DIRECTORY = os.path.dirname(os.path.abspath(__file__))
 
 # Compute the path to the magnetospheric spacecraft metadata file.
@@ -52,7 +53,7 @@ HTTP_STATUS_NOT_FOUND = 404
 # solar radii.
 R_MIN_HELIO = 21.5
 R_MAX_HELIO = 220.0
-
+scstrs_fname = os.path.join(package_directory, 'sc_cdasws_strs.json')
 
 #======
 #General
@@ -145,12 +146,12 @@ def computeErrors(obs,pred):
     PE = 1-RSE
     return MAE,MSE,RMSE,MAPE,RSE,PE
 
-# #======
-# #Cdaweb-related
-# #======
+#======
+#Cdaweb-related
+#======
 
 
-def getScIds(spacecraft_data_file:str=MAGNETOSPHERIC_SPACECRAFT_METADATA_PATH, doPrint:bool=False):
+def getScIds(spacecraft_data_file:str=scstrs_fname, doPrint:bool=False):
     """Fetch spacecraft descriptions from the database file.
 
     Load the spacecraft descriptions (a file) containing information needed
@@ -238,12 +239,12 @@ def pullVar(cdaObsId:str, cdaDataId, t0:str, t1:str, deltaT:float=60,
     status, data = cdas.get_data(cdaObsId, cdaDataId, t0, t1, binData=binData)
 
     # Process the query status.
-    if status["http"]["status_code"] in (204, HTTP_STATUS_NOT_FOUND):
+    if status["http"]["status_code"] in (204, 404):
         # 204 = No Content
-        # HTTP_STATUS_NOT_FOUND = Not Found
+        # 404 = Not Found
         if doVerbose:
             print("No data found.")
-    elif status["http"]["status_code"] != HTTP_STATUS_OK or data is None:
+    elif status['http']['status_code'] != 200 or data is None:
         # Handle the case where CdasWs just doesn't work if you give it variables in arg 2
         # If given empty var list instead, it'll return the full day on day in t0, and that's it
         # So, call for as many days as we need data for and build one big data object
@@ -268,12 +269,12 @@ def pullVar(cdaObsId:str, cdaDataId, t0:str, t1:str, deltaT:float=60,
         status, data = cdas.get_data(cdaObsId, [], tstamp_arr[0], tstamp_deltas[0], binData=binData)
         if doVerbose: print("Pulling " + t0)
         
-        if status["http"]["status_code"] != HTTP_STATUS_OK:
+        if status['http']['status_code'] != 200:
             # If it still fails, its some other problem and we'll die
             if doVerbose: print("Still bad pull. Dying.")
             return status,data
         if data is None:
-            if doVerbose: print("Cdas responded with HTTP_STATUS_OK but returned no data")
+            if doVerbose: print("Cdas responded with 200 but returned no data")
             return status,data
         if epochStr not in data.keys():
             if doVerbose: print(epochStr + " not in dataset, can't build day-by-day")
@@ -283,7 +284,7 @@ def pullVar(cdaObsId:str, cdaDataId, t0:str, t1:str, deltaT:float=60,
             if doVerbose: print(cdaDataId + " not in dataset, can't build day-by-day")
             # Mimic the cdasws return code for case when id isn't provided
             if not (cdaDataId in data.keys()):
-                status = {"http": {"status_code": HTTP_STATUS_NOT_FOUND}}
+                status = {'http': {'status_code': 404}}
                 data = None
                 return status,data
         if isinstance(cdaDataId,list):
@@ -291,7 +292,7 @@ def pullVar(cdaObsId:str, cdaDataId, t0:str, t1:str, deltaT:float=60,
                 print(item + " not in dataset, can't build day-by-day")
                 if not (item in data.keys()):
                     # Mimic the cdasws return code for case when id isn't provided
-                    status = {"http": {"status_code": HTTP_STATUS_NOT_FOUND}}
+                    status = {'http': {'status_code': 404}}
                     data = None
                     return status,data
 
@@ -323,23 +324,22 @@ def pullVar(cdaObsId:str, cdaDataId, t0:str, t1:str, deltaT:float=60,
     # Return the query status and results.
     return status, data
 
-
-def addVar(my_data,scDic,varname,t0,t1,deltaT,epochStr="Epoch"):
+def addVar(mydata,scDic,varname,t0,t1,deltaT,epochStr='Epoch'):
     #print(scDic,varname,idname,dataname,scDic[idname])
-    if scDic[varname]["Id"] is not None:
-        status,data = pullVar(scDic[varname]["Id"],scDic[varname]["Data"],t0,t1,deltaT,epochStr=epochStr)
+    if scDic[varname]['Id'] is not None:
+        status,data = pullVar(scDic[varname]['Id'],scDic[varname]['Data'],t0,t1,deltaT,epochStr=epochStr)
         #print(status)
-        if status["http"]["status_code"] == HTTP_STATUS_OK and data is not None:
-            my_data[varname] = dm.dmarray(data[scDic[varname]["Data"]],
-                                         attrs=data[scDic[varname]["Data"]].attrs)
-            #my_data.tree(attrs=True)
+        if status['http']['status_code'] == 200 and data is not None:
+            mydata[varname] = dm.dmarray(data[scDic[varname]['Data']],
+                                         attrs=data[scDic[varname]['Data']].attrs)
+            #mydata.tree(attrs=True)
     else:
         #Mimic the cdasws return code for case when id isn't provided
-        status = {"http": {"status_code": HTTP_STATUS_NOT_FOUND}}
+        status = {'http': {'status_code': 404}}
     return status
 
 
-def getSatData(scDic:dict, t0:str, t1:str, cdaweb_data_interval:float):
+def getSatData(scDic:dict, t0:str, t1:str, deltaT:float):
     """Fetch spacecraft data in the specified time range.
 
     Fetch spacecraft data for the specified time range, at the specified cadence.
@@ -352,64 +352,60 @@ def getSatData(scDic:dict, t0:str, t1:str, cdaweb_data_interval:float):
         Start time for data, in format "%Y-%m-%dT%H:%M:%SZ".
     t1: str
         Stop time for data, in format "%Y-%m-%dT%H:%M:%SZ".
-    cdaweb_data_interval: float
+    deltaT: float
         Cadence for requested spacecraft data (seconds).
 
     Returns
     -------
     status: dict
         Query status returned by CDAWeb.
-    my_data: spacepy.datamodel.SpaceData
+    mydata: spacepy.datamodel.SpaceData
         All of the spacecraft for the specified time range and cadence.
     """
     # Fetch the empheris data. If not found, abort this query.
     status, data = pullVar(
-        scDic["Ephem"]["Id"], scDic["Ephem"]["Data"], t0, t1, cdaweb_data_interval
+        scDic['Ephem']['Id'], scDic['Ephem']['Data'], t0, t1, deltaT
     )
-    if status["http"]["status_code"] != HTTP_STATUS_OK or data is None:
-        print('Unable to get data for ', scDic["Ephem"]["Id"])
+    if status['http']['status_code'] != 200 or data is None:
+        print('Unable to get data for ', scDic['Ephem']['Id'])
         return status, data
 
     # Create a new SpaceData object to hold the results of the query.
-    my_data = dm.SpaceData(
-        attrs={
-            "Satellite": data.attrs["Source_name"]
-        }
-    )
+    mydata = dm.SpaceData(attrs={'Satellite':data.attrs['Source_name']})
 
     # Determine which of the returned data should be used for the time of the
     # ephemeris positions.
-    if "Epoch_bin" in data.keys():
-        mytime = data["Epoch_bin"]
-        cdaweb_ephemeris_time_name = "Epoch_bin"
-    elif "Epoch" in data.keys():
-        mytime = data["Epoch"]
-        cdaweb_ephemeris_time_name = "Epoch"
-    elif ([key for key in data.keys() if key.endswith("_state_epoch")]):
-        cdaweb_ephemeris_time_name = [key for key in data.keys() if key.endswith("_state_epoch")][0]
+    if 'Epoch_bin' in data.keys():
+        mytime = data['Epoch_bin']
+        epochStr = 'Epoch_bin'
+    elif 'Epoch' in data.keys():
+        mytime = data['Epoch']
+        epochStr = 'Epoch'
+    elif ([key for key in data.keys() if key.endswith('_state_epoch')]):
+        epochStr = [key for key in data.keys() if key.endswith('_state_epoch')][0]
         #mytime = data[[key for key in data.keys()
-        #if key.endswith("_state_epoch")][0]]
-        mytime = data[cdaweb_ephemeris_time_name]
+        #if key.endswith('_state_epoch')][0]]
+        mytime = data[epochStr]
     else:
         print('Unable to determine time type')
-        status = {"http":{"status_code":HTTP_STATUS_NOT_FOUND}}
+        status = {'http':{'status_code':404}}
         return status, data
 
     # Extract the times assigned to the ephemeris positions.
-    my_data["Epoch_bin"] = dm.dmarray(mytime, attrs=mytime.attrs)
+    mydata['Epoch_bin'] = dm.dmarray(mytime, attrs=mytime.attrs)
 
     # Extract the ephemeris positions.
-    my_data["Ephemeris"] = dm.dmarray(
-        data[scDic["Ephem"]["Data"]],
-        attrs=data[scDic["Ephem"]["Data"]].attrs
+    mydata['Ephemeris'] = dm.dmarray(
+        data[scDic['Ephem']['Data']],
+        attrs=data[scDic['Ephem']['Data']].attrs
     )
 
     # Now fetch the data measured by the spacecraft.
-    keys = ["MagneticField", "Velocity", "Density", "Pressure", "Speed", "Temperature"]
+    keys = ['MagneticField', 'Velocity', 'Density', 'Pressure', "Speed", "Temperature"]
     for key in keys:
         if key in scDic:
             status1 = addVar(
-                my_data, scDic, key, t0, t1, cdaweb_data_interval, cdaweb_ephemeris_time_name=cdaweb_ephemeris_time_name
+                mydata, scDic, key, t0, t1, deltaT, epochStr=epochStr
             )
 
     #Add any metavar since they might be needed for unit/label determination
@@ -417,13 +413,13 @@ def getSatData(scDic:dict, t0:str, t1:str, cdaweb_data_interval:float):
     res = [key for key,val in data.items() if search_key in key]
     for name in res:
         try:
-            len(my_data[name])
+            len(mydata[name])
         except:
-            my_data[name] = dm.dmarray([data[name]],attrs=data[name].attrs)
+            mydata[name] = dm.dmarray([data[name]],attrs=data[name].attrs)
         else:
-            my_data[name] = dm.dmarray(data[name],attrs=data[name].attrs)
+            mydata[name] = dm.dmarray(data[name],attrs=data[name].attrs)
 
-    return status,my_data
+    return status,mydata
 
 
 #======
@@ -460,10 +456,10 @@ def getJScl(Bmag,Beq,en=2.0):
             It[n] = Ic.sum()/I0
     return It
 
-def genSCXML(gamhelio_results_directory,ftag,
+def genSCXML(fdir,ftag,
     scid="sctrack_A",h5traj="sctrack_A.h5",numSegments=1):
 
-    (fname,isMPI,Ri,Rj,Rk) = kaiTools.getRunInfo(gamhelio_results_directory,ftag)
+    (fname,isMPI,Ri,Rj,Rk) = kaiTools.getRunInfo(fdir,ftag)
     root = minidom.Document()
     xml = root.createElement('Kaiju')
     root.appendChild(xml)
@@ -513,42 +509,42 @@ def convertGameraVec(x,y,z,ut,fromSys,fromType,toSys,toType):
     outvec = invec.convert(toSys,toType)
     return outvec
 
-def createInputFiles(data,scDic,scId,mjd0,sec0,gamhelio_results_directory,ftag,numSegments):
+def createInputFiles(data,scDic,scId,mjd0,sec0,fdir,ftag,numSegments):
     Re = 6380.0
     toRe = 1.0
-    if 'UNITS' in data["Ephemeris"].attrs:
-        if "km" in data["Ephemeris"].attrs['UNITS']:
+    if 'UNITS' in data['Ephemeris'].attrs:
+        if "km" in data['Ephemeris'].attrs['UNITS']:
             toRe = 1.0/Re
-    elif 'UNIT_PTR' in data["Ephemeris"].attrs:
-        if data[data["Ephemeris"].attrs['UNIT_PTR']][0]:
+    elif 'UNIT_PTR' in data['Ephemeris'].attrs:
+        if data[data['Ephemeris'].attrs['UNIT_PTR']][0]:
             toRe = 1.0/Re
-    if 'SM' == scDic["Ephem"]['CoordSys']:
-        smpos = Coords(data["Ephemeris"][:,0:3]*toRe,'SM','car', use_irbem=False)
-        smpos.ticks = Ticktock(data["Epoch_bin"])
-    elif 'GSM' == scDic["Ephem"]['CoordSys']:
-        scpos = Coords(data["Ephemeris"][:,0:3]*toRe,'GSM','car', use_irbem=False)
-        scpos.ticks = Ticktock(data["Epoch_bin"])
+    if 'SM' == scDic['Ephem']['CoordSys']:
+        smpos = Coords(data['Ephemeris'][:,0:3]*toRe,'SM','car', use_irbem=False)
+        smpos.ticks = Ticktock(data['Epoch_bin'])
+    elif 'GSM' == scDic['Ephem']['CoordSys']:
+        scpos = Coords(data['Ephemeris'][:,0:3]*toRe,'GSM','car', use_irbem=False)
+        scpos.ticks = Ticktock(data['Epoch_bin'])
         smpos = scpos.convert('GSE','car')
-        scpos = Coords(data["Ephemeris"][:,0:3]*toRe,'GSM','car', use_irbem=False)
-        scpos.ticks = Ticktock(data["Epoch_bin"])
+        scpos = Coords(data['Ephemeris'][:,0:3]*toRe,'GSM','car', use_irbem=False)
+        scpos.ticks = Ticktock(data['Epoch_bin'])
         smpos = scpos.convert('SM','car')
-    elif 'GSE'== scDic["Ephem"]['CoordSys']:
-        scpos = Coords(data["Ephemeris"][:,0:3]*toRe,'GSE','car', use_irbem=False)
-        scpos.ticks = Ticktock(data["Epoch_bin"])
+    elif 'GSE'== scDic['Ephem']['CoordSys']:
+        scpos = Coords(data['Ephemeris'][:,0:3]*toRe,'GSE','car', use_irbem=False)
+        scpos.ticks = Ticktock(data['Epoch_bin'])
         smpos = scpos.convert('SM','car')
     else:
         print('Coordinate system transformation failed')
         return
     elapsedSecs = (smpos.ticks.getMJD()-mjd0)*86400.0+sec0
-    scTrackName = os.path.join(gamhelio_results_directory,scId+".sc.h5")
+    scTrackName = os.path.join(fdir,scId+".sc.h5")
     with h5py.File(scTrackName,'w') as hf:
         hf.create_dataset("T" ,data=elapsedSecs)
         hf.create_dataset("X" ,data=smpos.x)
         hf.create_dataset("Y" ,data=smpos.y)
         hf.create_dataset("Z" ,data=smpos.z)
-    chimpxml = genSCXML(gamhelio_results_directory,ftag,
+    chimpxml = genSCXML(fdir,ftag,
         scid=scId,h5traj=os.path.basename(scTrackName),numSegments=numSegments)
-    xmlFileName = os.path.join(gamhelio_results_directory,scId+'.xml')
+    xmlFileName = os.path.join(fdir,scId+'.xml')
     with open(xmlFileName,"w") as f:
         f.write(chimpxml.toprettyxml())
 
@@ -563,10 +559,10 @@ def addGAMERA(data,scDic,h5name):
     by = h5file['By']
     bz = h5file['Bz']
 
-    if not "MagneticField" in scDic:
+    if not 'MagneticField' in scDic:
         toCoordSys = 'GSM'
     else:
-        toCoordSys = scDic["MagneticField"]['CoordSys']
+        toCoordSys = scDic['MagneticField']['CoordSys']
     lfmb_out = convertGameraVec(bx[:],by[:],bz[:],ut,
         'SM','car',toCoordSys,'car')
     data['GAMERA_MagneticField'] = dm.dmarray(lfmb_out.data,
@@ -576,10 +572,10 @@ def addGAMERA(data,scDic,h5name):
     vx = h5file['Vx']
     vy = h5file['Vy']
     vz = h5file['Vz']
-    if not "Velocity" in scDic:
+    if not 'Velocity' in scDic:
         toCoordSys = 'GSM'
     else:
-        toCoordSys = scDic["Velocity"]['CoordSys']
+        toCoordSys = scDic['Velocity']['CoordSys']
     lfmv_out = convertGameraVec(vx[:],vy[:],vz[:],ut,
         'SM','car',toCoordSys,'car')
     data['GAMERA_Velocity'] = dm.dmarray(lfmv_out.data,
@@ -593,11 +589,11 @@ def addGAMERA(data,scDic,h5name):
     den = h5file['D']
     data['GAMERA_Density'] = dm.dmarray(den[:],
         attrs={'UNITS':den.attrs['Units'],
-        'CATDESC':"Density",'FIELDNAM':"Density",'AXISLABEL':'n'})
+        'CATDESC':'Density','FIELDNAM':"Density",'AXISLABEL':'n'})
     pres = h5file['P']
     data['GAMERA_Pressure'] = dm.dmarray(pres[:],
         attrs={'UNITS':pres.attrs['Units'],
-        'CATDESC':"Pressure",'FIELDNAM':"Pressure",'AXISLABEL':'P'})
+        'CATDESC':'Pressure','FIELDNAM':"Pressure",'AXISLABEL':'P'})
     inDom = h5file['inDom']
     data['GAMERA_inDom'] = dm.dmarray(inDom[:],
         attrs={'UNITS':inDom.attrs['Units'],
@@ -607,7 +603,7 @@ def addGAMERA(data,scDic,h5name):
 
 
 def matchUnits(data):
-    vars = ["Density","Pressure",'Temperature',"Velocity","MagneticField"]
+    vars = ['Density','Pressure','Temperature','Velocity','MagneticField']
     for var in vars:
         try:
             data[var]
@@ -617,57 +613,57 @@ def matchUnits(data):
             if (data[var].attrs['UNITS'] == data['GAMERA_'+var].attrs['UNITS'].decode()):
                 print(var,'units match')
             else:
-                if "Density" == var:
+                if 'Density' == var:
                     if (data[var].attrs['UNITS'] == 'cm^-3' or data[var].attrs['UNITS'] == '/cc'):
                         data[var].attrs['UNITS'] = data['GAMERA_'+var].attrs['UNITS']
                         print(var,'units match')
                     else:
                         print('WARNING ',var,'units do not match')
-                if "Velocity" == var:
+                if 'Velocity' == var:
                     if (data[var].attrs['UNITS'] == 'km/sec'):
                         data[var].attrs['UNITS'] = data['GAMERA_'+var].attrs['UNITS']
                         print(var,'units match')
                     else:
                         print('WARNING ',var,'units do not match')
-                if "MagneticField" == var:
+                if 'MagneticField' == var:
                     if (data[var].attrs['UNITS'] == '0.1nT'):
                         print('Magnetic Field converted from 0.1nT to nT')
                         data[var]=data[var]/10.0
                         data[var].attrs['UNITS'] = 'nT'
                     else:
                         print('WARNING ',var,'units do not match')
-                if "Pressure" == var:
+                if 'Pressure' == var:
                     print('WARNING ',var,'units do not match')
                 if 'Temperature' == var:
                     print('WARNING ',var,'units do not match')
 
     return
 
-def extractGAMERA(data,scDic,scId,mjd0,sec0,gamhelio_results_directory,ftag,cmd,numSegments,keep):
+def extractGAMERA(data,scDic,scId,mjd0,sec0,fdir,ftag,cmd,numSegments,keep):
 
     (scTrackName,xmlFileName) = createInputFiles(data,scDic,scId,
-        mjd0,sec0,gamhelio_results_directory,ftag,numSegments)
+        mjd0,sec0,fdir,ftag,numSegments)
 
     if 1 == numSegments:
-        sctrack = subprocess.run([cmd, xmlFileName], cwd=gamhelio_results_directory, capture_output=True,
+        sctrack = subprocess.run([cmd, xmlFileName], cwd=fdir, capture_output=True,
                             # stdout=subprocess.PIPE, stderr=subprocess.PIPE,
                             text=True)
-        with open(os.path.join(gamhelio_results_directory, "sctrack.out"), "w") as f:
+        with open(os.path.join(fdir, "sctrack.out"), "w") as f:
             f.write(sctrack.stdout)
 
         #print(sctrack)
-        h5name = os.path.join(gamhelio_results_directory, scId + '.sc.h5')
+        h5name = os.path.join(fdir, scId + '.sc.h5')
 
     else:
         process = []
         for seg in range(1,numSegments+1):
             process.append(subprocess.Popen([cmd, xmlFileName,str(seg)],
-                            cwd=gamhelio_results_directory,
+                            cwd=fdir,
                             stdout=subprocess.PIPE, stderr=subprocess.PIPE,
                             text=True))
         for proc in process:
             proc.communicate()
-        h5name = mergeFiles(scId,gamhelio_results_directory,numSegments)
+        h5name = mergeFiles(scId,fdir,numSegments)
 
 
     addGAMERA(data,scDic,h5name)
@@ -677,7 +673,7 @@ def extractGAMERA(data,scDic,scId,mjd0,sec0,gamhelio_results_directory,ftag,cmd,
         subprocess.run(['rm',xmlFileName])
         subprocess.run(['rm',scTrackName])
         if numSegments > 1:
-            h5parts = os.path.join(gamhelio_results_directory,scId+'.*.sc.h5')
+            h5parts = os.path.join(fdir,scId+'.*.sc.h5')
             subprocess.run(['rm',h5parts])
     return
 
@@ -706,20 +702,20 @@ def addFileToMerge(mergeH5,nextH5):
         dset[nS-1:nE]=nextH5[varname][:]
     return
 
-def mergeFiles(scId,gamhelio_results_directory,numSegments):
+def mergeFiles(scId,fdir,numSegments):
     seg = 1
-    inH5Name = os.path.join(gamhelio_results_directory,scId+'.%04d'%seg+'.sc.h5')
-    mergeH5Name = os.path.join(gamhelio_results_directory,scId+'.sc.h5')
+    inH5Name = os.path.join(fdir,scId+'.%04d'%seg+'.sc.h5')
+    mergeH5Name = os.path.join(fdir,scId+'.sc.h5')
     mergeH5 = createMergeFile(inH5Name,mergeH5Name)
     #print(inH5Name,mergeH5Name)
     for seg in range(2,numSegments+1):
-        nextH5Name = os.path.join(gamhelio_results_directory,scId+'.%04d'%seg+'.sc.h5')
+        nextH5Name = os.path.join(fdir,scId+'.%04d'%seg+'.sc.h5')
         nextH5 = h5py.File(nextH5Name,'r')
         addFileToMerge(mergeH5,nextH5)
 
     return mergeH5Name
 
-def genSatCompPbsScript(scId,gamhelio_results_directory,cmd,account='P28100045'):
+def genSatCompPbsScript(scId,fdir,cmd,account='P28100045'):
     headerString = """#!/bin/tcsh
 #PBS -A %s
 #PBS -N %s
@@ -742,17 +738,17 @@ echo 'Running analysis'
 %s %s $JNUM
 date
 """
-    xmlFileName = os.path.join(gamhelio_results_directory,scId+'.xml')
-    pbsFileName = os.path.join(gamhelio_results_directory,scId+'.pbs')
+    xmlFileName = os.path.join(fdir,scId+'.xml')
+    pbsFileName = os.path.join(fdir,scId+'.pbs')
     pbsFile = open(pbsFileName,'w')
     pbsFile.write(headerString%(account,scId))
     pbsFile.write(moduleString)
-    pbsFile.write(commandString%(gamhelio_results_directory,cmd,xmlFileName))
+    pbsFile.write(commandString%(fdir,cmd,xmlFileName))
     pbsFile.close()
 
     return pbsFileName
 
-def genSatCompLockScript(scId,gamhelio_results_directory,account='P28100045'):
+def genSatCompLockScript(scId,fdir,account='P28100045'):
     headerString = """#!/bin/tcsh
 #PBS -A %s
 #PBS -N %s
@@ -764,10 +760,10 @@ def genSatCompLockScript(scId,gamhelio_results_directory,account='P28100045'):
     commandString = """cd %s
 touch %s
 """
-    pbsFileName = os.path.join(gamhelio_results_directory,scId+'.done.pbs')
+    pbsFileName = os.path.join(fdir,scId+'.done.pbs')
     pbsFile = open(pbsFileName,'w')
     pbsFile.write(headerString%(account,scId))
-    pbsFile.write(commandString%(gamhelio_results_directory,scId+'.lock'))
+    pbsFile.write(commandString%(fdir,scId+'.lock'))
     pbsFile.close()
 
     return pbsFileName
@@ -779,20 +775,20 @@ def errorReport(errorName,scId,data):
 
     print('Writing Error to ',errorName)
     f = open(errorName,'w')
-    if "Density" in keys:
-        keysToCompute.append("Density")
+    if 'Density' in keys:
+        keysToCompute.append('Density')
     if 'Pressue' in keys:
         keysToCompute.append('Pressue')
     if 'Temperature' in keys:
         keysToCompute.append('Temperature')
-    if "MagneticField" in keys:
-        keysToCompute.append("MagneticField")
-    if "Velocity" in keys:
-        keysToCompute.append("Velocity")
+    if 'MagneticField' in keys:
+        keysToCompute.append('MagneticField')
+    if 'Velocity' in keys:
+        keysToCompute.append('Velocity')
 
     for key in keysToCompute:
         #print('Plotting',key)
-        if "MagneticField" == key or "Velocity" == key:
+        if 'MagneticField' == key or 'Velocity' == key:
             for vecComp in range(3):
                 maskedData = np.ma.masked_where(data['GAMERA_inDom'][:]==0.0,
                     data[key][:,vecComp])
@@ -1372,6 +1368,16 @@ def ingest_cdaweb_magnetic_field(sc_data, sc_metadata, MJDc, verbose=False, debu
     elif magnetic_field_coordinate_frame == "RTN":
         # Just use the radial component.
         if "Br" in sc_data:
+            sc_data["Br"] = dm.dmarray(
+                sc_data["BR"][:],
+                attrs = {
+                    "UNITS": "nT",
+                    "CATDESC": "Radial magnetic field",
+                    "FIELDNAM": "Radial magnetic field",
+                    "AXISLABEL": "Br"
+                }
+            )
+        elif "BR" in sc_data:
             sc_data["Br"] = dm.dmarray(
                 sc_data["BR"][:],
                 attrs = {
