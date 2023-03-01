@@ -48,5 +48,30 @@
             "Id" : "STA_COHO1HR_MERGED_MAG_PLASMA",
             "Data" : "plasmaTemp"
         }
+    },
+    "STEREO_B" : {
+        "Ephem" : {
+            "Id" : "STB_HELIO1DAY_POSITION",
+            "Data" : ["RAD_AU", "HGI_LAT", "HGI_LON"],
+            "CoordSys" : "HGI",
+            "Epoch_Name" : "Epoch_bin"
+        },
+        "Speed" : {
+            "Id" : "STB_COHO1HR_MERGED_MAG_PLASMA",
+            "Data" : "plasmaSpeed"
+        },
+        "MagneticField" : {
+            "Id" : "STB_COHO1HR_MERGED_MAG_PLASMA",
+            "Data" : ["BR", "BT", "BN", "B"],
+            "CoordSys" : "RTN"	
+        },
+        "Density" : {
+            "Id" : "STB_COHO1HR_MERGED_MAG_PLASMA",
+            "Data" : "plasmaDensity"
+        },
+        "Temperature" : {
+            "Id" : "STBA_COHO1HR_MERGED_MAG_PLASMA",
+            "Data" : "plasmaTemp"
+        }
     }
 }

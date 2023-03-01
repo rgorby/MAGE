@@ -319,50 +319,6 @@ if __name__ == "__main__":
             os.system("rm %s" % cdf_path)
         if verbose:
             print("Creating CDF file %s with %s and GAMERA data" % (cdf_path, sc_id))
-        # <HACK>
-        # Massage PSP data to work with toCDF().
-        # if sc_id == "Parker_Solar_Probe":
-        #     print("Massaging PSP data for output.")
-        #     data["radialDistance"] = dm.dmarray(
-        #         data["Ephemeris"].flatten()[0]["radialDistance"],
-        #         attrs = {
-        #             "UNITS": "AU",
-        #             "CATDESC": "Radial distance",
-        #             "FIELDNAM": "Radial distance",
-        #             "AXISLABEL": "radialDistance"
-        #         }
-        #     )
-        #     data["heliographicLatitude"] = dm.dmarray(
-        #         data["Ephemeris"].flatten()[0]["heliographicLatitude"],
-        #         attrs = {
-        #             "UNITS": "degrees",
-        #             "CATDESC": "Heliographic latitude",
-        #             "FIELDNAM": "Heliographic latitude",
-        #             "AXISLABEL": "Heliographic latitude"
-        #         }
-        #     )
-        #     data["heliographicLongitude"] = dm.dmarray(
-        #         data["Ephemeris"].flatten()[0]["heliographicLongitude"],
-        #         attrs = {
-        #             "UNITS": "degrees",
-        #             "CATDESC": "Heliographic longitude",
-        #             "FIELDNAM": "Heliographic longitude",
-        #             "AXISLABEL": "Heliographic longitude"
-        #         }
-        #     )
-        #     data["VR"] = dm.dmarray(
-        #         data["Velocity"].flatten()[0]["VR"],
-        #         attrs = {
-        #             "UNITS": "km/s",
-        #             "CATDESC": "Radial velocity",
-        #             "FIELDNAM": "Radial velocity",
-        #             "AXISLABEL": "Vr"
-        #         }
-        #     )
-        #     del data["Ephemeris"]
-        #     del data["MagneticField"]
-        #     del data["Velocity"]
-        # </HACK>
         dm.toCDF(cdf_path, sc_data)
 
         # Compute the errors in the simulated data relative to the measured

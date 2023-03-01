@@ -1161,7 +1161,47 @@ def ingest_cdaweb_ephemeris(sc_data, sc_metadata, MJDc, verbose=False, debug=Fal
         c = c.transform_to(gh_frame)
 
         # Save the HGS(MJDc) Cartesian coordinates as GH(MJDc) coordinates.
-        # These variable names (T, X, Y, Z) are the same as those used in
+        # These variable names (X, Y, Z) are the same as those used in
+        # the gamhelio output files.
+        sc_data["Ephemeris_time"] = dm.dmarray(t)
+        sc_data["X"] = dm.dmarray(-c.cartesian.x)
+        sc_data["Y"] = dm.dmarray(-c.cartesian.y)
+        sc_data["Z"] = dm.dmarray(c.cartesian.z)
+
+    elif cdaweb_coordinate_system == "HGI":
+
+        # Fetch the value of 1 AU in kilometers.
+        AU_km = u.Quantity(1*u.astrophys.AU, u.km).value
+
+        # Fetch the value of 1 Rsun in kilometers.
+        Rsun_km = u.Quantity(1*u.Rsun, u.km).value
+
+        # Compute the conversion factor from AU to Rsun.
+        Rsun_per_AU = AU_km/Rsun_km
+
+        # Fetch time, HGI latitude, longitude, and radius (convert to Rsun).
+        t = sc_data["Epoch_bin"]
+        lat = sc_data["HGI_LAT"]
+        lon = sc_data["HGI_LON"]
+        # Convert radius to Rsun.
+        rad = sc_data["RAD_AU"]*Rsun_per_AU
+
+        # Create SkyCoord objects for each HGI(t) position and time.
+        # Note HGI = Heliographic Inertial = Heliocentric Inertial
+        c = SkyCoord(
+            lon*u.deg, lat*u.deg, rad*u.Rsun,
+            frame=frames.HeliocentricInertial, obstime=t,
+            representation_type="spherical"
+        )
+
+        # Create the HGS(t0) coordinate frame.
+        mjdc_frame = frames.HeliographicStonyhurst(obstime=kaiTools.MJD2UT(MJDc))
+
+        # Convert the HGI(t) spherical (lon, lat, radius) positions to HGS(MJDc)).
+        c = c.transform_to(mjdc_frame)
+
+        # Save the HGS(MJDc) Cartesian coordinates as GH(MJDc) coordinates.
+        # These variable names (X, Y, Z) are the same as those used in
         # the gamhelio output files.
         sc_data["Ephemeris_time"] = dm.dmarray(t)
         sc_data["X"] = dm.dmarray(-c.cartesian.x)
@@ -1200,6 +1240,10 @@ def ingest_cdaweb_speed(sc_data, sc_metadata, MJDc, verbose=False, debug=False):
     -------
     None
     """
+    # If this variable was not found, skip ingest.
+    if not sc_metadata["Speed"]["Data"] in sc_data:
+        return
+
     # Fetch the dataset and name of the variable.
     cdaweb_dataset_name = sc_metadata["Speed"]["Id"]
     cdaweb_variable_name = sc_metadata["Speed"]["Data"]
@@ -1210,6 +1254,16 @@ def ingest_cdaweb_speed(sc_data, sc_metadata, MJDc, verbose=False, debug=False):
         # The proton velocity is the desired radial velocity.
         sc_data["Speed"] = dm.dmarray(
             sc_data["Vp"],
+            attrs = {
+                "UNITS": "km/s",
+                "CATDESC": "Radial speed",
+                "FIELDNAM": "Radial speed",
+                "AXISLABEL": "Vr"
+            }
+        )
+    elif cdaweb_variable_name == "plasmaSpeed":
+        sc_data["Speed"] = dm.dmarray(
+            sc_data["plasmaSpeed"],
             attrs = {
                 "UNITS": "km/s",
                 "CATDESC": "Radial speed",
@@ -1247,6 +1301,14 @@ def ingest_cdaweb_magnetic_field(sc_data, sc_metadata, MJDc, verbose=False, debu
     -------
     None
     """
+    # If this variable was not found, skip ingest.
+    if isinstance(sc_metadata["MagneticField"]["Data"], list):
+        cdaweb_variable_name = sc_metadata["MagneticField"]["Data"][0]
+    else:
+        cdaweb_variable_name = sc_metadata["MagneticField"]["Data"]
+    if not cdaweb_variable_name in sc_data:
+        return
+
     # Fetch the dataset and name of the variable.
     cdaweb_dataset_name = sc_metadata["MagneticField"]["Id"]
     cdaweb_variable_name = sc_metadata["MagneticField"]["Data"]
@@ -1269,16 +1331,17 @@ def ingest_cdaweb_magnetic_field(sc_data, sc_metadata, MJDc, verbose=False, debu
                     "AXISLABEL": "Br"
                 }
             )
-    # elif sc_coord_sys == "RTN":
-    #     sc_data["Br"] = dm.dmarray(
-    #         sc_data["MagneticField"].flatten()[0]["BR"][:],
-    #         attrs = {
-    #             "UNITS":Bx.attrs["Units"],
-    #             "CATDESC":"Radial magnetic field",
-    #             "FIELDNAM":"Radial magnetic field",
-    #             "AXISLABEL":"Br"
-    #         }
-    #     )
+    elif magnetic_field_coordinate_frame == "RTN":
+        # Just use the radial component.
+        sc_data["Br"] = dm.dmarray(
+            sc_data["BR"][:],
+            attrs = {
+                "UNITS": "nT",
+                "CATDESC": "Radial magnetic field",
+                "FIELDNAM": "Radial magnetic field",
+                "AXISLABEL": "Br"
+            }
+        )
     else:
         raise TypeError("Unexpected variable: dataset %s, "
                         "variable %s!" %
@@ -1317,6 +1380,17 @@ def ingest_cdaweb_density(sc_data, sc_metadata, MJDc, verbose=False, debug=False
         # The proton density is the desired density.
         sc_data["Density"] = dm.dmarray(
             sc_data["Np"],
+            attrs = {
+                "UNITS": "#/cc",
+                "CATDESC": "Number density",
+                "FIELDNAM": "Number density",
+                "AXISLABEL": "N"
+            }
+        )
+    elif cdaweb_variable_name == "plasmaDensity":
+        # The proton density is the desired density.
+        sc_data["Density"] = dm.dmarray(
+            sc_data["plasmaDensity"],
             attrs = {
                 "UNITS": "#/cc",
                 "CATDESC": "Number density",
@@ -1369,6 +1443,16 @@ def ingest_cdaweb_temperature(sc_data, sc_metadata, MJDc, verbose=False, debug=F
                 "AXISLABEL": "T"
             }
         )
+    elif cdaweb_variable_name == "plasmaTemp":
+        sc_data["Temperature"] = dm.dmarray(
+            sc_data["plasmaTemp"],
+            attrs = {
+                "UNITS": "K",
+                "CATDESC": "Temperature",
+                "FIELDNAM": "Temperature",
+                "AXISLABEL": "T"
+            }
+        )
     else:
         raise TypeError("Unexpected variable: dataset %s, "
                         "variable %s!" %
@@ -1412,11 +1496,11 @@ def ingest_helio_cdaweb_data(sc_id, sc_data, sc_metadata, MJDc, verbose=False, d
         )
 
     # Ingest the magnetic field measurements.
-    if sc_metadata["MagneticField"]["Data"] in sc_data:
-        ingest_cdaweb_magnetic_field(
-            sc_data, sc_metadata, MJDc,
-            verbose=verbose, debug=debug
-        )
+    # if sc_metadata["MagneticField"]["Data"] in sc_data:
+    ingest_cdaweb_magnetic_field(
+        sc_data, sc_metadata, MJDc,
+        verbose=verbose, debug=debug
+    )
 
     # Ingest the density measurements.
     if sc_metadata["Density"]["Data"] in sc_data:
