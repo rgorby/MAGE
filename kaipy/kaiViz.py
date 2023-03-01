@@ -473,7 +473,7 @@ def helio_labelStr(data, key, vecComp):
     return label
 
 
-def helioItemPlot_new(Ax, data, key, plotNum, numPlots, show_zero=False):
+def helioItemPlot_new(Ax, sc_id, data, key, plotNum, numPlots, show_zero=False):
     """Plot a single variable for the comparison plot.
 
     Plot a single variable for the comparison plot.
@@ -497,29 +497,17 @@ def helioItemPlot_new(Ax, data, key, plotNum, numPlots, show_zero=False):
     -------
     None
     """
-    # if key == "Velocity":
-    #     observed = np.ma.masked_where(
-    #         data["GAMERA_inDom"][:] == 0.0, data[key].flatten()[0]["VR"][:]
-    #     )
-    #     predicted = np.ma.masked_where(
-    #         data["GAMERA_inDom"][:]==0.0, data['GAMERA_Speed'][:]
-    #     )
-    # else:
-    #     observed = np.ma.masked_where(
-    #         data["GAMERA_inDom"][:] == 0.0, data[key][:]
-    #     )
-    #     predicted = np.ma.masked_where(
-    #         data["GAMERA_inDom"][:] == 0.0, data['GAMERA_' + key][:]
-    #     )
-
     # Extract the times and values which fall within the gamhelio simulation
     # domain.
     t = np.ma.masked_where(
         data["GAMHELIO_inDom"][:] == 0.0, data["Ephemeris_time"][:]
     )
-    observed = np.ma.masked_where(
-        data["GAMHELIO_inDom"][:] == 0.0, data[key][:]
-    )
+    observed = None
+    if key in data:
+        observed = np.ma.masked_where(
+            data["GAMHELIO_inDom"][:] == 0.0, data[key][:]
+        )
+    # gamhelio results should always be available.
     predicted = np.ma.masked_where(
         data["GAMHELIO_inDom"][:] == 0.0, data["GAMHELIO_" + key][:]
     )
@@ -530,15 +518,17 @@ def helioItemPlot_new(Ax, data, key, plotNum, numPlots, show_zero=False):
 
     # Plot the observed and predicted data for the current variable.
     # if key in data:
-    Ax.plot(t, observed)
+    if observed is not None:
+        Ax.plot(t, observed)
+    else:
+        fontsize = 18
+        Ax.plot(t, [None]*len(t))
+        Ax.text(
+            0.5, 0.5, "No spacecraft data available.",
+            transform=Ax.transAxes,
+            ha="center", va="center", fontsize=fontsize, color="darkgrey"
+        )
     Ax.plot(t, predicted)
-    # else:
-    #     fontsize = 18
-    #     Ax.text(
-    #         0.5, 0.5, "No data available",
-    #         transform=Ax.transAxes,
-    #         ha="center", va="center", fontsize=fontsize, color="darkgrey"
-    #     )
 
     # Even-numbered plots (1-based) show the y-axis label on the left.
     left = False
@@ -554,7 +544,10 @@ def helioItemPlot_new(Ax, data, key, plotNum, numPlots, show_zero=False):
         SetAxDate(Ax)
     else:
         SetAxLabs(Ax, None, label, doLeft=left)
-    return
+
+    # Add the shared legend to the first plot.
+    if plotNum == 1:
+        Ax.legend([sc_id, "GAMHELIO"], loc="best")
 
 
 def helioCompPlot_new(plot_file_path, sc_id, sc_data):
@@ -599,21 +592,10 @@ def helioCompPlot_new(plot_file_path, sc_id, sc_data):
         if variable_name == "Br":
             show_zero = True
         ax = plt.subplot(n_plots, 1, plotNum)
-        if variable_name in sc_data:
-            helioItemPlot_new(
-                ax, sc_data, variable_name,
-                plotNum, n_plots, show_zero=show_zero
-            )
-        else:
-            fontsize = 18
-            ax.text(
-                0.5, 0.5, "No spacecraft data available.",
-                transform=ax.transAxes,
-                ha="center", va="center", fontsize=fontsize, color="darkgrey")
-
-        # Add the shared legend to the first plot.
-        if plotNum == 1:
-            ax.legend([sc_id, "GAMERA"], loc="best")
+        helioItemPlot_new(
+            ax, sc_id, sc_data, variable_name,
+            plotNum, n_plots, show_zero=show_zero
+        )
 
     # Use the plot file path as the figure title.
     fig.suptitle(plot_file_path)
