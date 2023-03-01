@@ -73,5 +73,57 @@
             "Id" : "STBA_COHO1HR_MERGED_MAG_PLASMA",
             "Data" : "plasmaTemp"
         }
-    }
+    },
+    "Parker_Solar_Probe" : {
+        "Ephem" : {
+            "Id" : "PSP_COHO1HR_MERGED_MAG_PLASMA",
+            "Data" : ["radialDistance", "heliographicLatitude", "heliographicLongitude"],
+            "CoordSys" : "HGI",
+            "Epoch_Name" : "Epoch_bin"
+        },
+        "Speed" : {
+            "Id" : "PSP_COHO1HR_MERGED_MAG_PLASMA",
+            "Data" : "VR",
+            "CoordSys" : "RTN"
+        },
+        "MagneticField" : {
+            "Id" : "PSP_COHO1HR_MERGED_MAG_PLASMA",
+            "Data" : "BR", 
+            "CoordSys" : "RTN"	
+        },
+        "Density" : {
+            "Id" : "PSP_COHO1HR_MERGED_MAG_PLASMA",
+            "Data" : "protonDensity"
+        },
+        "Temperature" : {
+            "Id" : "PSP_COHO1HR_MERGED_MAG_PLASMA",
+            "Data" : "protonTemp"
+        }
+    },
+	"Solar_Orbiter" : {
+		"Ephem" : {
+			"Id" : "SOLO_HELIO1DAY_POSITION",
+			"Data" : ["RAD_AU", "HGI_LAT", "HGI_LON"],
+			"CoordSys" : "HGI",
+            "Epoch_Name" : "Epoch_bin"
+		},
+		"Speed" : {
+			"Id" : "SOLO_L2_SWA-PAS-GRND-MOM",
+			"Data" : "V_RTN",
+			"CoordSys" : "RTN"
+		},
+		"MagneticField" : {
+			"Id" : "SOLO_L2_MAG-RTN-NORMAL-1-MINUTE",
+			"Data" : "B_RTN",
+			"CoordSys" : "RTN"	
+		},
+		"Density" : {
+			"Id" : "SOLO_L2_SWA-PAS-GRND-MOM",
+			"Data" : "N"
+		},
+		"Temperature" : {
+			"Id" : "SOLO_L2_SWA-PAS-GRND-MOM",
+			"Data" : "T"
+		}
+	}
 }

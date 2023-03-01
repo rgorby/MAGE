@@ -984,6 +984,11 @@ def get_helio_cdaweb_data(
         print("cdaweb_query_status = %s" % cdaweb_query_status)
         print("cdaweb_query_results = %s" % cdaweb_query_results)
 
+    # Return if no data found (which can happen if the requested time range
+    # if before the spacecraft launch date).
+    if cdaweb_query_results is None:
+        return None
+
     # Create a new SpaceData object to hold the ingested results of the
     # query.
     # NOTE: This object is treated as a Python dictionary for adding and
@@ -1180,11 +1185,23 @@ def ingest_cdaweb_ephemeris(sc_data, sc_metadata, MJDc, verbose=False, debug=Fal
         Rsun_per_AU = AU_km/Rsun_km
 
         # Fetch time, HGI latitude, longitude, and radius (convert to Rsun).
-        t = sc_data["Epoch_bin"]
-        lat = sc_data["HGI_LAT"]
-        lon = sc_data["HGI_LON"]
-        # Convert radius to Rsun.
-        rad = sc_data["RAD_AU"]*Rsun_per_AU
+        # Note that these vaariables have different names for different
+        # spacecraft.
+        if "HGI_LAT" in sc_metadata["Ephem"]["Data"]:
+            t = sc_data["Epoch_bin"]
+            lat = sc_data["HGI_LAT"]
+            lon = sc_data["HGI_LON"]
+            # Convert radius to Rsun.
+            rad = sc_data["RAD_AU"]*Rsun_per_AU
+        elif "heliographicLatitude" in sc_metadata["Ephem"]["Data"]:
+            t = sc_data["Epoch_bin"]
+            lat = sc_data["heliographicLatitude"]
+            lon = sc_data["heliographicLongitude"]
+            # Convert radius to Rsun.
+            rad = sc_data["radialDistance"]*Rsun_per_AU
+        else:
+            raise TypeError("Unexpected HGI variable names: %s" %
+                            sc_metadata["Ephem"]["Data"])
 
         # Create SkyCoord objects for each HGI(t) position and time.
         # Note HGI = Heliographic Inertial = Heliocentric Inertial
@@ -1271,6 +1288,27 @@ def ingest_cdaweb_speed(sc_data, sc_metadata, MJDc, verbose=False, debug=False):
                 "AXISLABEL": "Vr"
             }
         )
+    elif cdaweb_variable_name == "VR":
+        sc_data["Speed"] = dm.dmarray(
+            sc_data["VR"],
+            attrs = {
+                "UNITS": "km/s",
+                "CATDESC": "Radial speed",
+                "FIELDNAM": "Radial speed",
+                "AXISLABEL": "Vr"
+            }
+        )
+    elif cdaweb_variable_name == "V_RTN":
+        # This is a set of Vr, Vt, Vn components.
+        sc_data["Speed"] = dm.dmarray(
+            sc_data["V_RTN"][:, 0],
+            attrs = {
+                "UNITS": "km/s",
+                "CATDESC": "Radial speed",
+                "FIELDNAM": "Radial speed",
+                "AXISLABEL": "Vr"
+            }
+        )
     else:
         raise TypeError("Unexpected variable: dataset %s, "
                         "variable %s!" %
@@ -1333,18 +1371,34 @@ def ingest_cdaweb_magnetic_field(sc_data, sc_metadata, MJDc, verbose=False, debu
             )
     elif magnetic_field_coordinate_frame == "RTN":
         # Just use the radial component.
-        sc_data["Br"] = dm.dmarray(
-            sc_data["BR"][:],
-            attrs = {
-                "UNITS": "nT",
-                "CATDESC": "Radial magnetic field",
-                "FIELDNAM": "Radial magnetic field",
-                "AXISLABEL": "Br"
-            }
-        )
+        if "Br" in sc_data:
+            sc_data["Br"] = dm.dmarray(
+                sc_data["BR"][:],
+                attrs = {
+                    "UNITS": "nT",
+                    "CATDESC": "Radial magnetic field",
+                    "FIELDNAM": "Radial magnetic field",
+                    "AXISLABEL": "Br"
+                }
+            )
+        elif "B_RTN" in sc_data:
+            sc_data["Br"] = dm.dmarray(
+                sc_data["B_RTN"][:, 0],
+                attrs = {
+                    "UNITS": "nT",
+                    "CATDESC": "Radial magnetic field",
+                    "FIELDNAM": "Radial magnetic field",
+                    "AXISLABEL": "Br"
+                }
+            )
+        else:
+            raise TypeError("Unexpected variable: dataset %s, "
+                "variable %s!" %
+                (cdaweb_dataset_name, cdaweb_variable_name))
+
     else:
-        raise TypeError("Unexpected variable: dataset %s, "
-                        "variable %s!" %
+        raise TypeError("Unexpected magnetic coordinate frame: "
+                        "dataset %s, variable %s!" %
                         (cdaweb_dataset_name, cdaweb_variable_name))
 
 
@@ -1391,6 +1445,28 @@ def ingest_cdaweb_density(sc_data, sc_metadata, MJDc, verbose=False, debug=False
         # The proton density is the desired density.
         sc_data["Density"] = dm.dmarray(
             sc_data["plasmaDensity"],
+            attrs = {
+                "UNITS": "#/cc",
+                "CATDESC": "Number density",
+                "FIELDNAM": "Number density",
+                "AXISLABEL": "N"
+            }
+        )
+    elif cdaweb_variable_name == "protonDensity":
+        # The proton density is the desired density.
+        sc_data["Density"] = dm.dmarray(
+            sc_data["protonDensity"],
+            attrs = {
+                "UNITS": "#/cc",
+                "CATDESC": "Number density",
+                "FIELDNAM": "Number density",
+                "AXISLABEL": "N"
+            }
+        )
+    elif cdaweb_variable_name == "N":
+        # The proton density is the desired density.
+        sc_data["Density"] = dm.dmarray(
+            sc_data["N"],
             attrs = {
                 "UNITS": "#/cc",
                 "CATDESC": "Number density",
@@ -1446,6 +1522,26 @@ def ingest_cdaweb_temperature(sc_data, sc_metadata, MJDc, verbose=False, debug=F
     elif cdaweb_variable_name == "plasmaTemp":
         sc_data["Temperature"] = dm.dmarray(
             sc_data["plasmaTemp"],
+            attrs = {
+                "UNITS": "K",
+                "CATDESC": "Temperature",
+                "FIELDNAM": "Temperature",
+                "AXISLABEL": "T"
+            }
+        )
+    elif cdaweb_variable_name == "protonTemp":
+        sc_data["Temperature"] = dm.dmarray(
+            sc_data["protonTemp"],
+            attrs = {
+                "UNITS": "K",
+                "CATDESC": "Temperature",
+                "FIELDNAM": "Temperature",
+                "AXISLABEL": "T"
+            }
+        )
+    elif cdaweb_variable_name == "T":
+        sc_data["Temperature"] = dm.dmarray(
+            sc_data["T"],
             attrs = {
                 "UNITS": "K",
                 "CATDESC": "Temperature",
