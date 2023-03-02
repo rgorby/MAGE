@@ -13,14 +13,20 @@ Eric Winter (eric.winter62@gmail.com)
 
 # Import standard modules.
 import datetime
+import os
+import sys
 
 # Import supplemental modules.
+from astropy.coordinates import SkyCoord
+import astropy.units as u
 from cdasws import CdasWs
 import numpy as np
 from spacepy.coordinates import Coords
 from spacepy.time import Ticktock
+from sunpy.coordinates import frames
 
 # Import project modules.
+import kaipy.kaiTools as kaiTools
 import kaipy.satcomp.scutils as scutils
 
 
@@ -438,3 +444,81 @@ def fetch_satellite_magnetic_southern_footprint_position(spacecraft, when):
 
     # Return the spacecraft longitude and latitude.
     return fp_lat, fp_lon
+
+
+def fetch_helio_spacecraft_HGS_trajectory(spacecraft, t_start, t_end, mjdc):
+    """Fetch the HGS trajectory of a spacecraft in a time range.
+
+    Fetch the trajectory of a spacecraft in a time range, in the HGS
+    frame. Data is fetched from CDAWeb.
+
+    Parameters
+    ----------
+    spacecraft : str
+        CDAWeb-compliant spacecraft ID.
+    t_start, t_end : datetime.datetime
+        Start and end datetime for trajectory fetch.
+
+    Returns
+    -------
+    XXX : XXX
+        XXX
+    """
+    # Read the CDAWeb spacecraft database.
+    spacecraft_data_file = os.path.join(
+        os.environ["KAIJUHOME"], "kaipy", "satcomp", "sc_helio.json"
+    )
+    sc_info = scutils.getScIds(spacecraft_data_file=spacecraft_data_file)
+
+    # Create the CDAWeb connection.
+    cdas = CdasWs()
+
+    # Format the start and end time strings.
+    t0 = t_start.strftime(CDAWEB_DATETIME_FORMAT)
+    t1 = t_end.strftime(CDAWEB_DATETIME_FORMAT)
+
+    # Fetch the satellite position from CDAWeb.
+    dataset = sc_info[spacecraft]['Ephem']['Id']
+    variable = sc_info[spacecraft]['Ephem']['Data']
+    coord_sys = sc_info[spacecraft]['Ephem']['CoordSys']
+    status, data = cdas.get_data(dataset, variable, t0, t1)
+
+    # Return if no data found.
+    if data is None:
+        return None, None, None
+
+    # Fetch the value of 1 AU in kilometers.
+    AU_km = u.Quantity(1*u.astrophys.AU, u.km).value
+
+    # Fetch the value of 1 Rsun in kilometers.
+    Rsun_km = u.Quantity(1*u.Rsun, u.km).value
+
+    # Compute the conversion factor from AU to Rsun.
+    Rsun_per_AU = AU_km/Rsun_km
+
+    # Create SkyCoord objects for each HGI(t)/HCI(t) position/time.
+    lon = data["HGI_LON"]
+    lat = data["HGI_LAT"]
+    # Convert radius to Rsun.
+    rad = data["RAD_AU"]*Rsun_per_AU
+    t = data["Epoch"]
+    c = SkyCoord(
+        lon*u.deg, lat*u.deg, rad*u.Rsun,
+        frame=frames.HeliocentricInertial, obstime=t,
+        representation_type="spherical"
+    )
+
+    # Create the HGS(t0) coordinate frame.
+    mjdc_frame = frames.HeliographicStonyhurst(obstime=kaiTools.MJD2UT(mjdc))
+
+    # Convert the HGI(t)/HCI(t) spherical (lon, lat, radius) positions to
+    # HGS(mjdc).
+    c = c.transform_to(mjdc_frame)
+
+    # Extract the Cartesian coordinates in units of Rsun.
+    x = np.array(c.cartesian.x)
+    y = np.array(c.cartesian.y)
+    z = np.array(c.cartesian.z)
+
+    # Return the spacecraft Cartesian HGS coordinates.
+    return x, y, z
