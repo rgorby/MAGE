@@ -689,6 +689,6 @@ def ingest_helio_spacecraft_trajectory(sc_id, sc_data, MJDc):
     else:
         raise TypeError("Unexpected ephemeris coordinate system: %s!" %
                         cdaweb_coordinate_system)
-    
+
     # Return the converted coordinates.
     return x, y, z
