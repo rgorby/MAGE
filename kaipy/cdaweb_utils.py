@@ -22,6 +22,7 @@ import astropy.units as u
 from cdasws import CdasWs
 import numpy as np
 from spacepy.coordinates import Coords
+import spacepy.datamodel as dm
 from spacepy.time import Ticktock
 from sunpy.coordinates import frames
 
@@ -521,4 +522,173 @@ def fetch_helio_spacecraft_HGS_trajectory(spacecraft, t_start, t_end, mjdc):
     z = np.array(c.cartesian.z)
 
     # Return the spacecraft Cartesian HGS coordinates.
+    return x, y, z
+
+
+def fetch_helio_spacecraft_trajectory(sc_id, t_start, t_end):
+    """Fetch the trajectory of a spacecraft in a time range.
+
+    Fetch the trajectory of a spacecraft in a time range, in the HGS
+    frame. Data is fetched from CDAWeb.
+
+    Parameters
+    ----------
+    spacecraft : str
+        CDAWeb-compliant spacecraft ID.
+    t_start, t_end : datetime.datetime
+        Start and end datetime for trajectory fetch.
+
+    Returns
+    -------
+    XXX : XXX
+        XXX
+    """
+    # Read the CDAWeb spacecraft database.
+    sc_metadata_path = os.path.join(
+        os.environ["KAIJUHOME"], "kaipy", "satcomp", "sc_helio.json"
+    )
+    sc_metadata = scutils.getScIds(spacecraft_data_file=sc_metadata_path)
+
+    # Create the CDAWeb connection.
+    cdas = CdasWs()
+
+    # Format the start and end time strings.
+    t0 = t_start.strftime(CDAWEB_DATETIME_FORMAT)
+    t1 = t_end.strftime(CDAWEB_DATETIME_FORMAT)
+
+    # Fetch the satellite position from CDAWeb.
+    cdaweb_dataset_name = sc_metadata[sc_id]["Ephem"]["Id"]
+    cdaweb_variable_name = sc_metadata[sc_id]["Ephem"]["Data"]
+    # coord_sys = sc_metadata[sc_id]["Ephem"]["CoordSys"]
+    cdaweb_query_status, cdaweb_query_results = cdas.get_data(
+        cdaweb_dataset_name, cdaweb_variable_name, t0, t1
+    )
+
+    # Return the spacecraft data (could be None).
+    return cdaweb_query_results
+
+
+def ingest_helio_spacecraft_trajectory(sc_id, sc_data, MJDc):
+    """XXX
+
+    XXX
+
+    Parameters
+    ----------
+    XXX : XXX
+        XXX
+
+    Returns
+    -------
+    XXX : XXX
+        XXX
+    """
+    # Read the CDAWeb spacecraft database.
+    sc_metadata_path = os.path.join(
+        os.environ["KAIJUHOME"], "kaipy", "satcomp", "sc_helio.json"
+    )
+    sc_metadata = scutils.getScIds(spacecraft_data_file=sc_metadata_path)
+
+    # Determine the coordinate system used by the CDAWeb ephemeris.
+    cdaweb_coordinate_system = sc_metadata[sc_id]["Ephem"]["CoordSys"]
+
+    # Convert the coordinates to the GH(MJSc) frame.
+    if cdaweb_coordinate_system == "GSE":
+
+        # GSE(t) coordinates from CDAWeb are provided as a single 2-D array
+        # of Cartesian (x, y, z) values, of shape (n, 3), called "XYZ_GSE".
+        # These values are in units of kilometers. The ephemeris time is
+        # in a variable called "Epoch_bin".
+
+        # Convert the GSE(t) ephemeris locations to the gamhelio frame
+        # (GH(MJDc) so that sctrack.x can interpolate gamhelio model data to
+        # the spacecraft ephemeris locations.
+
+        # Radius of Sun in kilometers.
+        R_SUN_KILOMETERS = u.Quantity(1*u.Rsun, u.km).value
+
+        # Convert the GSE(t) Cartesian coordinates from kilometers to R_sun.
+        x = sc_data["XYZ_GSE"][:, 0]/R_SUN_KILOMETERS
+        y = sc_data["XYZ_GSE"][:, 1]/R_SUN_KILOMETERS
+        z = sc_data["XYZ_GSE"][:, 2]/R_SUN_KILOMETERS
+        t = sc_data["Epoch"]  # Always "Epoch" since results are unbinned.
+
+        # Create astropy.coordinates.SkyCoord objects for each GSE(t)
+        # position and time.
+        c = SkyCoord(
+            x*u.Rsun, y*u.Rsun, z*u.Rsun,
+            frame=frames.GeocentricSolarEcliptic, obstime=t,
+            representation_type="cartesian"
+        )
+
+        # Convert the MJDc from a float MJD to a UTC datetime.
+        obstime = kaiTools.MJD2UT(MJDc)
+
+        # Create the HGS(MJDc) frame for this data.
+        hgs_frame = frames.HeliographicStonyhurst(obstime=obstime)
+
+        # Convert the coordinates to the HGS(MJDc) frame.
+        # As a SkyCoord object, the converted coordinates are available
+        # in a variety of coordinate systems.
+        c = c.transform_to(hgs_frame)
+
+        # Convert the coordinates to the GH(MJDc) frame.
+        x = dm.dmarray(-c.cartesian.x)
+        y = dm.dmarray(-c.cartesian.y)
+        z = dm.dmarray(c.cartesian.z)
+
+    elif cdaweb_coordinate_system == "HGI":
+
+        # Fetch the value of 1 AU in kilometers.
+        AU_km = u.Quantity(1*u.astrophys.AU, u.km).value
+
+        # Fetch the value of 1 Rsun in kilometers.
+        Rsun_km = u.Quantity(1*u.Rsun, u.km).value
+
+        # Compute the conversion factor from AU to Rsun.
+        Rsun_per_AU = AU_km/Rsun_km
+
+        # Fetch time, HGI latitude, longitude, and radius (convert to Rsun).
+        # Note that these vaariables have different names for different
+        # spacecraft.
+        if "HGI_LAT" in sc_metadata[sc_id]["Ephem"]["Data"]:
+            t = sc_data["Epoch"]  # Unbinned
+            lat = sc_data["HGI_LAT"]
+            lon = sc_data["HGI_LON"]
+            # Convert radius to Rsun.
+            rad = sc_data["RAD_AU"]*Rsun_per_AU
+        elif "heliographicLatitude" in sc_metadata[sc_id]["Ephem"]["Data"]:
+            t = sc_data["Epoch"]  # Unbinned
+            lat = sc_data["heliographicLatitude"]
+            lon = sc_data["heliographicLongitude"]
+            # Convert radius to Rsun.
+            rad = sc_data["radialDistance"]*Rsun_per_AU
+        else:
+            raise TypeError("Unexpected HGI variable name(s): %s" %
+                            sc_metadata[sc_id]["Ephem"]["Data"])
+
+        # Create SkyCoord objects for each HGI(t) position and time.
+        # Note HGI = Heliographic Inertial = Heliocentric Inertial
+        c = SkyCoord(
+            lon*u.deg, lat*u.deg, rad*u.Rsun,
+            frame=frames.HeliocentricInertial, obstime=t,
+            representation_type="spherical"
+        )
+
+        # Create the HGS(t0) coordinate frame.
+        mjdc_frame = frames.HeliographicStonyhurst(obstime=kaiTools.MJD2UT(MJDc))
+
+        # Convert the HGI(t) spherical (lon, lat, radius) positions to HGS(MJDc)).
+        c = c.transform_to(mjdc_frame)
+
+        # Convert the coordinates to the GH(MJDc) frame.
+        x = dm.dmarray(-c.cartesian.x)
+        y = dm.dmarray(-c.cartesian.y)
+        z = dm.dmarray(c.cartesian.z)
+
+    else:
+        raise TypeError("Unexpected ephemeris coordinate system: %s!" %
+                        cdaweb_coordinate_system)
+    
+    # Return the converted coordinates.
     return x, y, z

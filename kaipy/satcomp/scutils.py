@@ -1703,7 +1703,7 @@ def create_sctrack_helio_xml(
     kaiju_el = xml_doc.createElement("Kaiju")
     xml_doc.appendChild(kaiju_el)
 
-    # Create and the <Chimp> element.
+    # Create the <Chimp> element.
     chimp_el = xml_doc.createElement("Chimp")
     kaiju_el.appendChild(chimp_el)
 
