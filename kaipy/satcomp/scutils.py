@@ -1364,10 +1364,11 @@ def ingest_cdaweb_magnetic_field(sc_data, sc_metadata, MJDc, verbose=False, debu
         if cdaweb_variable_name == "BGSEc":
             # The magnetic fiels was returned as a 2-D array of shape (n, 3)
             # containing (Bx, By, Bz) in units of nT.
-            # The radial component of B in GSE is just the x-component, since the
-            # GSE +x axis points in the same direction as the GH(MHDc) +x axis.
+            # The radial component of B in GSE is just the negative
+            # x-component, since the GSE +x axis points in the opposite
+            # direction as the GH(MHDc) +x axis.
             sc_data["Br"] = dm.dmarray(
-                sc_data["BGSEc"][:, 0],
+                -sc_data["BGSEc"][:, 0],
                 attrs = {
                     "UNITS": "nT",
                     "CATDESC": "Radial magnetic field",
