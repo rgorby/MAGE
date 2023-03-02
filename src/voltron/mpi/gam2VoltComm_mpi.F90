@@ -195,7 +195,7 @@ module gam2VoltComm_mpi
         call createG2VDataTypes(g2vComm, gApp)
 
         ! perform initial deep update if appropriate
-        if (g2vComm%doDeep .and. (g2vComm%time>=g2vComm%DeepT)) then
+        if (g2vComm%time>=g2vComm%DeepT) then
             ! deep update
             call performDeepUpdate(g2vComm, gApp)
         endif
@@ -269,11 +269,6 @@ module gam2VoltComm_mpi
         type(gam2VoltCommMpi_T), intent(inout) :: g2vComm
         type(gamAppMpi_T), intent(inout) :: gApp
 
-        if (.not. g2vComm%doDeep) then
-            !Why are you even here?
-            return
-        endif
-
         if(g2vComm%doSerialVoltron) then
             call doSerialDeepUpdate(g2vComm, gApp)
         else
@@ -305,9 +300,11 @@ module gam2VoltComm_mpi
         call Toc("ShallowRecv")
 
         ! receive deep data
-        call Tic("DeepRecv")
-        call recvDeepData(g2vComm, gApp)
-        call Toc("DeepRecv")
+        if(g2vComm%doDeep) then
+            call Tic("DeepRecv")
+            call recvDeepData(g2vComm, gApp)
+            call Toc("DeepRecv")
+        endif
 
         ! receive next time for deep calculation
         call mpi_bcast(g2vComm%DeepT, 1, MPI_MYFLOAT, g2vComm%voltRank, g2vComm%voltMpiComm, ierr)
@@ -325,9 +322,11 @@ module gam2VoltComm_mpi
         call recvShallowData(g2vComm, gApp)
         call Toc("ShallowRecv")
 
-        call Tic("DeepRecv")
-        call recvDeepData(g2vComm, gApp)
-        call Toc("DeepRecv")
+        if(g2vComm%doDeep) then
+            call Tic("DeepRecv")
+            call recvDeepData(g2vComm, gApp)
+            call Toc("DeepRecv")
+        endif
 
         ! receive next time for deep calculation
         call mpi_bcast(g2vComm%DeepT, 1, MPI_MYFLOAT, g2vComm%voltRank, g2vComm%voltMpiComm, ierr)

@@ -126,7 +126,7 @@ program voltron_mpix
             ! If it needs to do deep coupling, file io, restart io, or
             ! Terminate the simulation
             ! Don't synchronize for console or timing output, not worth it (?)
-            if( (g2vComm%time >= g2vComm%DeepT .and. g2vComm%doDeep) .or. &
+            if( (g2vComm%time >= g2vComm%DeepT) .or. &
                 gApp%Model%IO%doRestart(gApp%Model%t) .or. &
                 gApp%Model%IO%doOutput(gApp%Model%t) .or. &
                 (g2vComm%time >= g2vComm%tFin)) then
@@ -136,7 +136,7 @@ program voltron_mpix
                 call Toc("StepVoltron")
         
                 !Coupling
-                if ( g2vComm%time >= g2vComm%DeepT .and. g2vComm%doDeep ) then
+                if ( g2vComm%time >= g2vComm%DeepT ) then
                     call Tic("Coupling")
                     call performDeepUpdate(g2vComm, gApp)
                     call Toc("Coupling")
@@ -215,7 +215,7 @@ program voltron_mpix
 
                     !Coupling
                     call Tic("Coupling")
-                    if (vApp%time >= vApp%DeepT .and. vApp%doDeep ) then
+                    if (vApp%time >= vApp%DeepT ) then
                         call DeepUpdate_mpi(vApp, vApp%time)
                     endif
                     call Toc("Coupling")

@@ -401,5 +401,58 @@ contains
       endif
   end subroutine VMPIcorotationTest
 
+  @test(npes=[9])
+  subroutine remixEnabledWithoutDeepTest(this)
+      if(isGamera) then
+
+          if(gamAppMpi%Grid%hasLowerBC(IDIR)) then
+              SELECT type(iiBC=>gamAppMpi%Grid%externalBCs(INI)%p)
+                  TYPE IS (IonInnerBC_T)
+
+                      ! ensure Eijk and Exyz start as all zero
+                      iiBC%inEijk(:,:,:,:) = 0
+                      iiBC%inExyz(:,:,:,:) = 0
+              END SELECT
+          endif
+
+          do while (g2vCommMpi%time < 30.0)
+              call stepGamera_mpi(gamAppMpi)
+              call localStepVoltronTime(g2vCommMpi, gamAppMpi)
+              if( (g2vCommMpi%time >= g2vCommMpi%DeepT) .or. &
+                (g2vCommMpi%time >= tFin)) then
+                  call performStepVoltron(g2vCommMpi,gamAppMpi)
+                  if ( g2vCommMpi%time >= g2vCommMpi%DeepT) then
+                      call performDeepUpdate(g2vCommMpi, gamAppMpi)
+                  endif
+              endif
+          end do
+
+          if(gamAppMpi%Grid%hasLowerBC(IDIR)) then
+              SELECT type(iiBC=>gamAppMpi%Grid%externalBCs(INI)%p)
+                  TYPE IS (IonInnerBC_T)
+
+                      ! confirm cells are non-zero now
+                      @assertGreaterThanOrEqual(sum(abs(iiBC%inEijk)), 0.0_rp, 'inEijk is all zeroes')
+                      @assertGreaterThanOrEqual(sum(abs(iiBC%inExyz)), 0.0_rp, 'inExyz is all zeroes')
+               END SELECT
+          endif
+      else
+          do while (voltAppMpi%time < 30.0)
+              if(gameraStepReady(voltAppMpi)) then
+                  call stepVoltron_mpi(voltAppMpi)
+                  write (*,'(a,f8.3)') '    Time = ',voltAppMpi%time
+                  if (voltAppMpi%time >= voltAppMpi%DeepT) then
+                      call DeepUpdate_mpi(voltAppMpi, voltAppMpi%time)
+                  endif
+              elseif(deepInProgress(voltAppMpi)) then
+                  call doDeepBlock(voltAppMpi)
+              else
+                  call waitForGameraStep(voltAppMpi)
+              endif
+          end do
+      endif
+
+  end subroutine remixEnabledWithoutDeepTest
+
 end module testVMpi
 
