@@ -1070,17 +1070,27 @@ def get_helio_cdaweb_data(
             continue
 
         # Extract the CDAWeb variable(s) which define this local variable.
+        # Then mask out the measured values that were interpolated by CDAWeb.
+        # Such points are identified by entries where the VARNAME_NBIN
+        # value is 0.
         if isinstance(cdaweb_variable_name, list):
             for variable_name in cdaweb_variable_name:
                 sc_data[variable_name] = dm.dmarray(
                     cdaweb_query_results[variable_name],
                     attrs=cdaweb_query_results[variable_name].attrs
                 )
+                nbin_varname = variable_name.upper() + "_NBIN"
+                w = np.where(cdaweb_query_results[nbin_varname] == 0)
+                sc_data[variable_name][w] = np.nan
         else:
             sc_data[cdaweb_variable_name] = dm.dmarray(
                 cdaweb_query_results[cdaweb_variable_name],
                 attrs=cdaweb_query_results[cdaweb_variable_name].attrs
             )
+            nbin_varname = cdaweb_variable_name.upper() + "_NBIN"
+            w = np.where(cdaweb_query_results[nbin_varname] == 0)
+            sc_data[cdaweb_variable_name][w] = np.nan
+
 
     # Return the accumulated data from CDAWeb.
     return sc_data
