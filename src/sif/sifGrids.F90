@@ -29,10 +29,10 @@ module sifgrids
         integer :: i
 
 
-        call iXML%Set_Val(thetaL , "grid/ThetaL", 50.0)
-            !! Lower lat boundary [deg]
-        call iXML%Set_Val(thetaU , "grid/ThetaU", 80.0)
-            !! Upper lat boundary [deg]
+        call iXML%Set_Val(thetaL , "grid/ThetaL", 45.0)
+            !! Lower lat boundary [deg], 2 Re in dipole
+        call iXML%Set_Val(thetaU , "grid/ThetaU", 75.0)
+            !! Upper lat boundary [deg], ~15 Re in dipole
         call iXML%Set_Val(Nt, "grid/Nt", 61 )  ! 1 deg resolution
         call iXML%Set_Val(Np, "grid/Np", 361)  ! 1 deg resolution
         call iXML%Set_Val(Ng, "grid/Ng", 4  )  ! Number of ghosts, in every direction for now

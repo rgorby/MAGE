@@ -8,11 +8,12 @@ module siftypes
 
     implicit none
 
+    !  var*Var0 = CODE units --> In/Out units
     type kmUnits_T
         real(rp) :: V0   = 1.0  ! [m/s]
         real(rp) :: N0   = 1.0  ! [kg/m3]
         real(rp) :: T0   = 1.0  ! [s]
-        real(rp) :: Eta0 = 1.0  ! [N/bVol]
+        real(rp) :: Eta0 = 1.0  ! [#/(Bs*Rx^2)] --> [#/Wb]
         real(rp) :: Pot0 = 1.0  ! [Volts]
     end type kmUnits_T
 

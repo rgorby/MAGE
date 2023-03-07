@@ -16,7 +16,7 @@ module sifdefs
 
     ! Species
     enum, bind(c)
-        enumerator :: PSPH=0,HOTE,HOTP
+        enumerator :: F_PSPH=0,F_HOTE,F_HOTP
             !! These flavors have reserved numbers
     endenum
 

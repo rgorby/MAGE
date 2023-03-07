@@ -15,7 +15,27 @@ module sifSpeciesHelper
     ! Helper helpers
     !------
 
+    function spcIdx(Grid, flav) result(idx)
+        !! Get the index corresponding to a certain species
+        type(SIFGrid_T), intent(in) :: Grid
+        integer, intent(in) :: flav
+        
+        integer :: i, idx
+
+        do i=1,Grid%nSpc
+            if (Grid%spc(i)%flav .eq. flav) then
+                idx = i
+                return
+            endif
+        enddo
+
+        ! If we exited the loop that means flav not in species list
+        idx = -1
+        
+    end function
+
     function spcExists(Grid, flav) result(fExist)
+        !! Determine if a certain species is in the species list, using flavor value
         type(SIFGrid_T), intent(in) :: Grid
         integer, intent(in) :: flav
         
@@ -23,13 +43,9 @@ module sifSpeciesHelper
         logical :: fExist
 
         fExist = .false.
-
-        do i=1,Grid%nSpc
-            if (Grid%spc(i)%flav .eq. flav) then
-                fExist = .true.
-                exit
-            endif
-        enddo
+        if(spcIdx(Grid, flav) .ne. -1) then
+            fExist = .true.
+        endif
     end function spcExists
 
 
@@ -116,10 +132,10 @@ module sifSpeciesHelper
 
         ! Ensure that we have the core species we expect to have
         if (Model%doPlasmasphere) then
-            call assertSpcExists(PSPH) ! Plasmasphere
+            call assertSpcExists(F_PSPH) ! Plasmasphere
         endif
-        call assertSpcExists(HOTE)  ! Hot electrons
-        call assertSpcExists(HOTP)  ! Hot protons
+        call assertSpcExists(F_HOTE)  ! Hot electrons
+        call assertSpcExists(F_HOTP)  ! Hot protons
 
 
         contains

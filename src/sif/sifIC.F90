@@ -17,10 +17,12 @@ module sific
         type(sifState_T) , intent(inout) :: State
         type(XML_Input_T), intent(in)    :: iXML
 
-        integer :: i,j,k
         real(rp) :: D, kT, L_peak, dL, tiote
             !! Things we get from the xml file
-        real(rp) :: D0, L, bVol
+        real(rp) :: D0, L, bVol, vm
+            !! Calculated quantities
+        integer :: i,j,sIdx
+            !! Loops and indices
 
         write(*,*) "Initializing a Maxwellian in a dipole field"
 
@@ -31,20 +33,24 @@ module sific
         call iXML%Set_Val(dL,"prob/dL", 0.625)  ! [Re]
         call iXML%Set_Val(tiote,"prob/tiote", 4.0)  ! Ratio of ion temp over electron temp
 
-        !P0 = DkT2P(D,kT)  ! [nPa]
-
         ! Start by setting all species etas to zero
         State%eta = 0.0
 
-        ! Fully symmetric, so only need to set certain things per i
         do i=1,Grid%shGrid%Nt
+            ! Fully symmetric, so only need to set certain things per i
             L = DipColat2L(Grid%shGrid%thc(i))
-            D = D0*exp(-(L-L_peak)/dL)
+            D = D0*exp(-abs(L-L_peak)/dL)
 
             bVol = DipFTV_L(L, Model%planet%magMoment) ! [Rx/nT]
+            vm = bVol**(-2./3.)
 
-            ! Protons first
-            call DkT2SpcEta(Model, State, Grid%spc(HOTE)%flav, D, kT)
+            do j=1,Grid%shGrid%Np
+                ! Protons first
+                sIdx = spcIdx(Grid, F_HOTE)
+                associate(spc => Grid%spc(sIdx))
+                    call DkT2SpcEta(spc, State%eta(i,j,spc%kStart:spc%kEnd), D, kT, vm)
+                end associate
+            enddo
             
         enddo
 

@@ -161,9 +161,11 @@ module sifstarter
 
         character(len=strLen) :: icStr
 
+        ! Allocate arrays
+        allocate( State%eta(Grid%shGrid%Np, Grid%shGrid%Nt, Grid%Nk) )
+        !!TODO: the rest of them
+
         call iXML%Set_Val(icStr, "prob/IC","USER")
-
-
         
         select case(trim(icStr))
             case("DIP")
