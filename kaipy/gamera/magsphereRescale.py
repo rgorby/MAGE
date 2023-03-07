@@ -18,8 +18,7 @@ KDIR = 2
 # add oG and oM for one step older for reproducible restart.
 # These variables are used by mhd predictor/corrector.
 def PushRestartMPI(outid,nRes,Ri,Rj,Rk,X,Y,Z,G,M,oG,oM,fInA,G0=None):
-	if (G0 is not None):
-		doGas0 = True
+	doGas0 = (G0 is not None)  # Make sure doGas0 is either True or False
 
 	print("Reading attributes from %s"%(fInA))
 	iH5 = h5py.File(fInA,'r')
