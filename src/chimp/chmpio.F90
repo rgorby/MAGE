@@ -66,18 +66,13 @@ module chmpio
 
             if (Model%doStream) then
                 write(*,'(a,I0,a,I0)')              '        TPs (  Born/Total) = ', count(TPs(:)%isInit),' / ',Np
-
             endif
-            ! if (NpT>0) then
-            !     write(*,'(a,f6.2,a,f6.2,a)')      '        Particle Fraction (FO/GC) = ', 100.0*Npfo/NpT, '% / ', 100.0*Npgc/NpT,'%'
-            ! endif
-            ! if (Ntot>0) then
-            !     write(*,'(a,f6.2,a,f6.2,a)')      '        Substep  Fraction (FO/GC) = ', 100.0*Nfo/Ntot, '% / ', 100.0*Ngc/Ntot,'%'
-            ! endif
+            if (Model%isDynamic) then
+                write(*,'(a,I0,a,I0)')              '        TPs (    FO/GC   ) = ', Npfo,' / ',Npgc
+            endif
+
             if (Ntot>0) then
                 write(*,'(a,f12.3,a,f12.3,a)') '        Substeps (FO/GC) = ', Nfo*1.0e-6, 'M / ', Ngc*1.0e-6,'M'
-                !write(*,*) 'Nfo = ',Nfo
-                !write(*,*) 'Ngc = ',Ngc
             endif
             if (NpT>0) then
                 write(*,'(a,f12.3)')     '     Avg K = ', sum(Kevs,mask=TPs(:)%isIn)/NpT

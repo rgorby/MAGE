@@ -140,7 +140,7 @@ module gamapp_mpi
         real(rp), dimension(:,:,:), allocatable :: tempX,tempY,tempZ
         real(rp) :: tmpDT
         character(len=strLen) :: inH5
-        logical :: doH5g
+        logical :: doH5g, allLoud
         integer, dimension(NDIM) :: dims
         integer, dimension(:), allocatable :: gamRestartNumbers
 
@@ -155,6 +155,9 @@ module gamapp_mpi
         call xmlInp%Set_Val(periodicK,'kPdir/bcPeriodic',.false.)
 
         call xmlInp%Set_Val(doH5g ,"sim/doH5g" ,.false.)
+
+        ! debugging flag to make all gamera ranks loud
+        call xmlInp%Set_Val(allLoud, "output/allLoud", .false.)
 
         if(Grid%NumRi*Grid%NumRj*Grid%NumRk > 1) then
             Grid%isTiled = .true.
@@ -317,7 +320,7 @@ module gamapp_mpi
             Grid%Ri = rank
 
             ! only rank 0 should be loud
-            if(Grid%Ri==0 .and. Grid%Rj==0 .and. Grid%Rk==0) then
+            if((Grid%Ri==0 .and. Grid%Rj==0 .and. Grid%Rk==0) .or. allLoud) then
                 Model%isLoud = .true.
             else
                 Model%isLoud = .false.

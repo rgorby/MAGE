@@ -7,6 +7,22 @@ from slack.errors import SlackApiError
 import logging
 logging.basicConfig(level=logging.DEBUG)
 import time
+import argparse
+
+# read arguments
+parser = argparse.ArgumentParser()
+parser.add_argument('-t',action='store_true',default=False, help='Enables testing mode')
+parser.add_argument('-l',action='store_true',default=False, help='Enables loud mode')
+parser.add_argument('-a',action='store_true',default=False, help='Run all tests')
+parser.add_argument('-f',action='store_true',default=False, help='Force the tests to run')
+parser.add_argument('--account',type=str, default='', help='qsub account number')
+
+args = parser.parse_args()
+isTest = args.t
+beLoud = args.l
+doAll = args.a
+forceRun = args.f
+account = args.account
 
 # Get Slack API token
 slack_token = os.environ["SLACK_BOT_TOKEN"]
@@ -42,29 +58,6 @@ gBranch = gBranch.decode('ascii')
 gBranch = gBranch.rstrip()
 print(gBranch)
 
-isTest = False
-doAll = False
-forceRun = False
-beLoud = False
-
-# Check argument flags
-if (len(sys.argv) >= 2):
-    for i in range(1,len(sys.argv)):
-        if(str(sys.argv[i]) == '-f'):
-            print("Buuuuut you forced me to do it anyway...")
-            forceRun = True
-        elif(str(sys.argv[i]) == '-t'):
-            print("Test Mode: On")
-            isTest = True
-        elif(str(sys.argv[i]) == '-a'):
-            print("Running All Tests")
-            doAll = True
-        elif(str(sys.argv[i]) == '-l'):
-            print("Being Loud")
-            beLoud = True
-        else:
-            print("Unrecognized argument: ", sys.argv[i])
-
 if(forceRun == False):
     # If not forced, check for update
     if (text == 'Already up to date.'):
@@ -81,6 +74,7 @@ if isTest:
     subArgString = subArgString + " -t"
 if beLoud:
     subArgString = subArgString + " -l"
+subArgString = subArgString + " --account " + account
 
 if (doAll == True):
     buildTest = subprocess.Popen("python3 buildTest.py"+subArgString, shell = True)

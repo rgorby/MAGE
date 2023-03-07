@@ -224,8 +224,10 @@ contains
     do while ((1.0 - gameraApp%Model%t*gameraApp%Model%Units%gT0) > 1e-15)
         call stepGamera(gameraApp)
 
-        if (gameraApp%Model%t >= voltronApp%ShallowT) then
-            call ShallowUpdate(voltronApp, gameraApp, gameraApp%Model%t)
+        if (gameraApp%Model%t >= voltronApp%DeepT) then
+            call convertGameraToRemix(voltronApp%mhd2mix, gameraApp, voltronApp%remixApp)
+            call runRemix(voltronApp)
+            call convertRemixToGamera(voltronApp%mix2mhd, voltronApp%remixApp, gameraApp)
         endif
     end do
     write(*,*) 'End time = ', gameraApp%Model%t

@@ -1322,7 +1322,7 @@
               stop
            end if        
  
-           if(EWMTauInput%TDSTauInput%EkTDSi(1) > EWMTauInput%TDSTauInput%EkTDSi(Ne)) then
+           if(EWMTauInput%TDSTauInput%EkTDSi(1) > EWMTauInput%TDSTauInput%EkTDSi(NeTDS)) then
               write(*,*) "EkTDS: ",EWMTauInput%TDSTauInput%EkTDSi
               write(*,*) "reorder wave model so EkTDS is in ascending order"
               stop

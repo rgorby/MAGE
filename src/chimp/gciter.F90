@@ -54,6 +54,8 @@ module gciter
         logical :: isIn
         type(gcFields_T) :: gcFields
 
+        if (present(isConvO)) isConvO=.true.
+        if (present(NitO)) NitO = 1
 
         call locate(xFO,ijk,Model,ebState%ebGr,isIn)
         if (.not. isIn) then
@@ -99,9 +101,6 @@ module gciter
 
         Rgc = xFO + r0 + rE + r1
         
-        if (present(isConvO)) isConvO=.true.
-        if (present(NitO)) NitO = 1
-
     end function DirectGC
 
     !Fast direct GC calculation (no iteration, only first term)
@@ -121,6 +120,9 @@ module gciter
         
         real(rp) :: v11,MagB,gamma,Om
         logical :: isIn
+
+        if (present(isConvO)) isConvO=.true.
+        if (present(NitO)) NitO = 1
 
         call locate(xFO,ijk,Model,ebState%ebGr,isIn)
         if (.not. isIn) then
@@ -147,9 +149,6 @@ module gciter
 
         Rgc = xFO + r0 + rE
         
-        if (present(isConvO)) isConvO=.true.
-        if (present(NitO)) NitO = 1
-
     end function FastGC
 
     !Hopefully final GC iteration function

@@ -90,7 +90,10 @@ def PlotStuff(i,remixFile,T,sIds,foundT,Time,args):
 
     #print(np.size(sorted(sIds)))
     # Initialize the remix class
-    ion = remix.remix(remixFile,i,coord)
+    try:
+      ion = remix.remix(remixFile,i,coord)
+    except:
+      ion = remix.remix(remixFile,i)
     foundT = T[sorted(sIds).index(i)]
     print('Found time:',Time(foundT,format='mjd').iso)	
 
