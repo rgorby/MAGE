@@ -127,6 +127,36 @@ module planethelper
         write(*,*) "-------------"
     end subroutine
 
+    subroutine writePlanetParams(planet, doIOp, h5File, gStrO)
+        !! Write planet parameters as attributes to a "Planet" group
+        !! Include a gStrO if you want it to be nested within some other group for some reason
+        type(planet_T), intent(in) :: planet
+        logical, intent(in) :: doIOp
+        character(len=strLen) :: h5File
+        character(len=strLen), optional :: gStrO
+
+        type(IOVAR_T), dimension(8) :: IOVars
+
+        call clearIO(IOVars)
+        ! All attributes
+        call AddOutVar(IOVars, "Name", planet%name)
+        call AddOutVar(IOVars, "Rad_surface"   , planet%rp_m, uStr="m")
+        call AddOutVar(IOVars, "Rad_ionosphere", planet%ri_m, uStr="m")
+        call AddOutVar(IOVars, "Gravity", planet%grav, uStr="m/s^2")
+        call AddOutVar(IOVars, "Mag Moment", planet%magMoment, uStr="Gauss")
+        call AddOutVar(IOVars, "Psi Corot", planet%psiCorot, uStr="kV")
+        if (planet%doGrav) then
+            call AddOutVar(IOVars, "doGrav", "True")
+        else
+            call AddOutVar(IOVars, "doGrav", "False")
+        endif
+
+        if(present(gStrO)) then
+            call WriteVars(IOVars, doIOp, h5File, gStrO, "Planet")
+        else
+            call WriteVars(IOVars, doIOp, h5File, "Planet")
+        endif
+    end subroutine writePlanetParams
 
 ! Helpful thermo conversion functions
 

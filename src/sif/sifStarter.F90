@@ -7,7 +7,7 @@ module sifstarter
     use sifdefs
     use siftypes
     use sifgrids
-    use sifio
+    use sifout
     use sific
     use sifuseric
 
@@ -29,10 +29,15 @@ module sifstarter
         call sifInitModel(app%Model, iXML)
         call sifInitGrid(app%Model, app%Grid, iXML)
 
+        ! TODO: Handle restart here. For now, assuming no restart
+
         ! Init output file
         call sifInitIO(app%Model, app%Grid)
 
         call sifInitState(app%Model,app%Grid,app%State,iXML)
+
+        ! Save first state to file
+        call sifOutput(app%Model,app%Grid,app%State)
 
     end subroutine sifInit
 
@@ -161,12 +166,34 @@ module sifstarter
 
         character(len=strLen) :: icStr
 
-        ! Allocate arrays
-        allocate( State%eta(Grid%shGrid%Np, Grid%shGrid%Nt, Grid%Nk) )
-        !!TODO: the rest of them
+    ! Allocate arrays
+        ! Where we keep all our stuff
+        allocate( State%eta (Grid%shGrid%Nt, Grid%shGrid%Np, Grid%Nk) )
+        ! Interface and cell velocities
+        allocate( State%iVel(Grid%shGrid%Nt+1, Grid%shGrid%Np+1, Grid%Nk, 2) )
+        allocate( State%cVel(Grid%shGrid%Nt  , Grid%shGrid%Np  , Grid%Nk, 2) )
+        ! Coupling input moments
+        allocate( State%Pavg(Grid%shGrid%Nt, Grid%shGrid%Np, Grid%nSpc) )
+        allocate( State%Davg(Grid%shGrid%Nt, Grid%shGrid%Np, Grid%nSpc) )
+        ! Bmin surface
+        allocate( State%Bmin  (Grid%shGrid%Nt, Grid%shGrid%Np, 3 ) )
+        allocate( State%xyzMin(Grid%shGrid%Nt, Grid%shGrid%Np, 3 ) )
+        ! 2D quantities
+        allocate( State%topo  (Grid%shGrid%Nt, Grid%shGrid%Np) )
+        allocate( State%active(Grid%shGrid%Nt, Grid%shGrid%Np) )
+        allocate( State%latc  (Grid%shGrid%Nt, Grid%shGrid%Np) )
+        allocate( State%lonc  (Grid%shGrid%Nt, Grid%shGrid%Np) )
+        allocate( State%espot (Grid%shGrid%Nt, Grid%shGrid%Np) )
+        allocate( State%bvol  (Grid%shGrid%Nt, Grid%shGrid%Np) )
+        ! Coupling output data
+        allocate( State%precipFlux(Grid%shGrid%Nt, Grid%shGrid%Np, Grid%Nk) )
+        allocate( State%precipAvgE(Grid%shGrid%Nt, Grid%shGrid%Np, Grid%Nk) )
+        allocate( State%Den  (Grid%shGrid%Nt, Grid%shGrid%Np, Grid%nSpc) )
+        allocate( State%Press(Grid%shGrid%Nt, Grid%shGrid%Np, Grid%nSpc) )
 
-        call iXML%Set_Val(icStr, "prob/IC","USER")
-        
+        call iXML%Set_Val(icStr, "prob/IC","DIP")
+    
+    ! Init state
         select case(trim(icStr))
             case("DIP")
                 !! Simple Maxwellian in a dipole field

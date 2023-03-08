@@ -1,9 +1,15 @@
 module sifIO
     use ioh5
+    use planethelper
     
     use siftypes
 
     implicit none
+
+    integer, parameter, private :: MAXIOVAR = 50
+    type(IOVAR_T), dimension(MAXIOVAR), private :: IOVars
+    logical, private :: doRoot = .true. !Whether root variables need to be written
+    logical, private :: doFat = .false. !Whether to output lots of extra datalogical, private :: doRoot = .true. !Whether root variables need to be written
 
     contains
 
@@ -16,6 +22,8 @@ module sifIO
         real(rp), dimension(:,:), allocatable :: lat2D, lon2D
         type(IOVAR_T), dimension(6) :: IOVars
         character(len=strLen) :: gStr
+
+        doRoot = .false. ! Don't call again
 
         associate(SIO => Model%SIFIO, sh => Grid%shGrid, spc=>Grid%spc)
         SIO%SIFH5 = trim(Model%RunID) // ".sif.h5"
@@ -52,25 +60,67 @@ module sifIO
         !! TODO: Stamp with git hash and branch
         call ClearIO(IOVars)
 
+        ! Grid data
         call AddOutVar(IOVars,"X",lat2D,uStr="radians")
         call AddOutVar(IOVars,"Y",lon2D,uStr="radians")
-        call AddOutVar(IOVars,"alamc",Grid%alamc)  ! TODO: Units
+        call AddOutVar(IOVars,"alamc",Grid%alamc,uStr="eV * (Rx/nT)^(2/3)")
         call WriteVars(IOVars,.true.,SIO%SIFH5)
 
         ! Output detailed lambda grid info
         do i=1,Grid%nSpc
             call ClearIO(IOVars)
+            ! Attrs
             call AddOutVar(IOVars,"flav" ,spc(i)%flav )
             call AddOutVar(IOVars,"N"    ,spc(i)%N    )
             call AddOutVar(IOVars,"fudge",spc(i)%fudge)
-            call AddOutVar(IOVars,"alami",spc(i)%alami)  ! TODO: Units
+            ! Datasets
+            call AddOutVar(IOVars,"alami",spc(i)%alami,uStr="eV * (Rx/nT)^(2/3)")
             write(gStr,'(I0)') spc(i)%flav  ! Idk if this is the easiest way to format ints as strings
             call WriteVars(IOVars,.true.,SIO%SIFH5,"Species",gStr)
-
         enddo
+
+        ! Output planet info
+        call writePlanetParams(Model%planet, .true., SIO%SIFH5)
 
         end associate
 
     end subroutine sifInitIO
+
+
+    subroutine WriteSIF(Model, Grid, State, gStr)
+        type(sifModel_T), intent(inout) :: Model
+        type(sifGrid_T ), intent(in) :: Grid
+        type(sifState_T), intent(in) :: State
+        character(len=strLen), intent(in) :: gStr
+
+        ! First, make sure root variables are there
+        if (doRoot) then
+            call sifInitIO(Model, Grid)
+            doRoot = .false.
+        endif
+        !Reset IO chain
+        call ClearIO(IOVars)
+
+        ! Add attributes
+        call AddOutVar(IOVars,"time",State%time)
+
+        ! Add State variables
+        call AddOutVar(IOVars,"bmin",State%Bmin,uStr="nT")
+        call AddOutVar(IOVars,"xmin",State%xyzmin(:,:,1),uStr="Rx")
+        call AddOutVar(IOVars,"ymin",State%xyzmin(:,:,2),uStr="Rx")
+        call AddOutVar(IOVars,"zmin",State%xyzmin(:,:,3),uStr="Rx")
+
+        call AddOutVar(IOVars,"eta",State%eta,uStr="#/cm^3 * Rx/nT") !! TODO: Maybe swap with intensity instead
+
+        call AddOutVar(IOVars,"topo",State%topo*1.0_rp,uStr="0=Open, 1=Closed")
+        call AddOutVar(IOVars,"active",State%active*1.0_rp,uStr="-1=Inactive, 0=Buffer, 1=Active")
+        call AddOutVar(IOVars,"espot",State%espot,uStr="kV")
+        call AddOutVar(IOVars,"latc",State%latc,uStr="radians")
+        call AddOutVar(IOVars,"lonc",State%lonc,uStr="radians")
+        call AddOutVar(IOVars,"bVol",State%bvol,uStr="Rx/nT")
+
+        call WriteVars(IOVars,.true.,Model%SIFIO%SIFH5, gStr)
+
+    end subroutine WriteSIF
 
 end module sifIO

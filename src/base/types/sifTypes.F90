@@ -33,6 +33,8 @@ module siftypes
 
     type SIFIO_T
         character(len=strLen) :: SIFH5
+        integer :: nOut = 0  ! Next output time
+        real(rp) :: intScl = 1.0  ! Scaling for intensisty [TODO]
     end type SIFIO_T
 
 
@@ -123,36 +125,37 @@ module siftypes
     type sifState_T
         real(rp) :: time, MJD, dt
 
-        ! (Ni, Nj, Nk) etas
         real(rp), dimension(:,:,:), allocatable :: eta
-        ! (Ni+1, Nj+1, 2) Edge-centered normal velocities
-        real(rp), dimension(:,:,:), allocatable :: iVel
-        ! (Ni, Nj, 2) Cell-centered velocities
-        real(rp), dimension(:,:,:), allocatable :: cVel
+            !! (Ni, Nj, Nk) etas
+        real(rp), dimension(:,:,:,:), allocatable :: iVel
+            !! (Ni+1, Nj+1, Nk, 2) Edge-centered normal velocities
+        real(rp), dimension(:,:,:,:), allocatable :: cVel
+            !! (Ni, Nj, Nk, 2) Cell-centered velocities
 
 
-        ! Variables coming from MHD flux tube tracing, size (Ni, Nj, Ns)
+        !> Variables coming from MHD flux tube tracing, size (Ni, Nj, Ns)
         real(rp), dimension(:,:,:), allocatable :: Pavg
         real(rp), dimension(:,:,:), allocatable :: Davg
-        ! (Ni, Nk, NDIM)
-        real(rp), dimension(:,:,:), allocatable :: Bmin
-        real(rp), dimension(:,:,:), allocatable :: xyzMin
-        ! (Ni, Nj)
-        integer , dimension(:,:), allocatable :: topo    ! Topology (open, closed)
-        integer , dimension(:,:), allocatable :: active  ! (active, buffer, inactive)
-        real(rp), dimension(:,:), allocatable :: espot  ! electro-static potential from REMIX
+        !> (Ni, Nk, NDIM)
+        real(rp), dimension(:,:,:), allocatable :: Bmin  ! [nT]
+        real(rp), dimension(:,:,:), allocatable :: xyzMin ! [Rx]
+        !> (Ni, Nj)
+        integer , dimension(:,:), allocatable :: topo    ! Topology (0=open, 1=closed)
+        integer , dimension(:,:), allocatable :: active  ! (-1=inactive, 0=buffer, 1=active)
+        real(rp), dimension(:,:), allocatable :: espot  ! electro-static potential from REMIX [kV]
         real(rp), dimension(:,:), allocatable :: latc  ! Latitude  of conjugate points
         real(rp), dimension(:,:), allocatable :: lonc  ! Longitude of conjugate points
-        real(rp), dimension(:,:), allocatable :: bvol  ! Flux-tube volume [!!units]
+        real(rp), dimension(:,:), allocatable :: bvol  ! Flux-tube volume [Rx/nT]
 
-        ! Varibles coming from RCM, size (Ni, Nj, Ns)
-        real(rp), dimension(:,:), allocatable :: precipFlux  ! Precipitation fluxes [!!units]
-        real(rp), dimension(:,:), allocatable :: precipAvgE  ! Precipitation avg energy [!!units]
-        ! (Ni, Nj, Ns+?)
+        !> Varibles coming from SIF, size (Ni, Nj, Nk)
+        real(rp), dimension(:,:,:), allocatable :: precipFlux  ! Precipitation fluxes [!!units]
+        real(rp), dimension(:,:,:), allocatable :: precipAvgE  ! Precipitation avg energy [!!units]
+        ! (Ni, Nj, Ns)
         ! Last dimension will be D/P of different populations (not necessarily same as species)
         ! Example: Total, hot protons, cold protons, electrons, other species
-        real(rp), dimension(:,:,:), allocatable :: Den    ! Density  [!!units]
-        real(rp), dimension(:,:,:), allocatable :: Press  ! Pressure [!!units]
+        real(rp), dimension(:,:,:), allocatable :: Den    ! Density  [#/cc]
+        real(rp), dimension(:,:,:), allocatable :: Press  ! Pressure [nPa]
+        real(rp), dimension(:,:,:), allocatable :: vAvg   ! Average cell velocity [km/s]
 
 
     end type sifState_T
