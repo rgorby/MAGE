@@ -44,7 +44,7 @@ if __name__ == '__main__':
         help='Enables testing mode')
     parser.add_argument('-l',action='store_true',default=False,
         help='Enables loud mode')
-    parser.add_argument('-a','--account',type=str,default='UJHB0015',
+    parser.add_argument('--account',type=str,default='',
         help='qsub account number')
 
     args = parser.parse_args()

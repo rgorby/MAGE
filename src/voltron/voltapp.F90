@@ -132,11 +132,8 @@ module voltapp
         vApp%TargetDeepDT = vApp%DeepDT
         call xmlInp%Set_Val(vApp%rTrc,   "coupling/rTrc"  , 40.0)
 
-        if (vApp%DeepDT>0) then
-            vApp%doDeep = .true.
-        else
-            vApp%doDeep = .false.
-        endif
+        !Coupling is unified, so adding a separate XML option to control "deep" parts
+        call xmlInp%Set_Val(vApp%doDeep, "coupling/doDeep", .true.)
 
         call xmlInp%Set_Val(vApp%doGCM, "coupling/doGCM",.false.)
         if (vApp%isEarth) then
@@ -252,6 +249,18 @@ module voltapp
             call initializeFromGamera(vApp, gApp, optFilename)
         else
             call initializeFromGamera(vApp, gApp)
+        endif
+
+        ! now that remix is initialized, check if precipitation model is OK with deep choice
+        if(.not. vApp%doDeep) then
+            ! if we aren't using "deep" parts such as RCM, we need to use a
+            !    precipitation model that doesn't rely on them
+            if(vApp%remixApp%ion(NORTH)%P%aurora_model_type /= FEDDER .and. vApp%remixApp%ion(NORTH)%P%aurora_model_type /= ZHANG) then
+                write(*,*) 'Either the "FEDDER" or "ZHANG" precipitation model MUST be used when deep coupling is disabled.'
+                write(*,*) 'Please either enable the "voltron/coupling/doDeep" option, or'
+                write(*,*) ' set "remix/precipitation/aurora_model_type" to "FEDDER" or "ZHANG"'
+                stop
+            endif
         endif
 
         if (gApp%Grid%Nkp>=512) then
