@@ -311,7 +311,7 @@ module glinit
 
         !> This init routine is to be used for standalone runs of the Gibson-Low Model
         !> on a State. Used mainly for testing purposes and to export h5 file of the 
-        !> GL soluiton on a State for additional analysis or reading into an external 
+        !> GL solution on a standalone State grid for additional analysis or reading into an external 
         !> program. 
         subroutine initGLStandalone(Model, State, Solution, inpXML)
             type(glModel_T), intent(inout) :: Model

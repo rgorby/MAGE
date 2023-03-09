@@ -1181,8 +1181,8 @@ module glsolution
             ao = Model%bmax / bmagmax 
         end function calcModelBmax
 
-        !> For a previously initialized take Model
-        !> and calculate the Gibson-Low solution and populate
+        !> For a previously initialized configuration take Model
+        !> and State to calculate the Gibson-Low solution and populate
         !> Solution to be used in other boundary condition code
         !> or ingested into LOS code
         subroutine generateGLSolution(Solution, Model, State)
