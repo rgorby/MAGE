@@ -403,15 +403,21 @@ contains
 
   @test(npes=[9])
   subroutine remixEnabledWithoutDeepTest(this)
+      class (MpiTestMethod), intent(inout) :: this
+
+      real(rp) :: eijkSum, exyzSum
+
       if(isGamera) then
 
           if(gamAppMpi%Grid%hasLowerBC(IDIR)) then
               SELECT type(iiBC=>gamAppMpi%Grid%externalBCs(INI)%p)
                   TYPE IS (IonInnerBC_T)
 
-                      ! ensure Eijk and Exyz start as all zero
-                      iiBC%inEijk(:,:,:,:) = 0
-                      iiBC%inExyz(:,:,:,:) = 0
+                      ! confirm cells are non-zero now
+                      eijkSum = sum(abs(iiBC%inEijk))
+                      exyzSum = sum(abs(iiBC%inExyz))
+                      @assertGreaterThan(eijkSum, 0.0_rp, 'inEijk is all zeroes at start')
+                      @assertGreaterThan(exyzSum, 0.0_rp, 'inExyz is all zeroes at start')
               END SELECT
           endif
 
@@ -419,7 +425,7 @@ contains
               call stepGamera_mpi(gamAppMpi)
               call localStepVoltronTime(g2vCommMpi, gamAppMpi)
               if( (g2vCommMpi%time >= g2vCommMpi%DeepT) .or. &
-                (g2vCommMpi%time >= tFin)) then
+                (g2vCommMpi%time >= 30.0)) then
                   call performStepVoltron(g2vCommMpi,gamAppMpi)
                   if ( g2vCommMpi%time >= g2vCommMpi%DeepT) then
                       call performDeepUpdate(g2vCommMpi, gamAppMpi)
@@ -431,9 +437,9 @@ contains
               SELECT type(iiBC=>gamAppMpi%Grid%externalBCs(INI)%p)
                   TYPE IS (IonInnerBC_T)
 
-                      ! confirm cells are non-zero now
-                      @assertGreaterThanOrEqual(sum(abs(iiBC%inEijk)), 0.0_rp, 'inEijk is all zeroes')
-                      @assertGreaterThanOrEqual(sum(abs(iiBC%inExyz)), 0.0_rp, 'inExyz is all zeroes')
+                      ! confirm cells have changed
+                      @assertGreaterThan(abs(sum(abs(iiBC%inEijk)) - eijkSum), 0.0_rp, 'inEijk has not changed')
+                      @assertGreaterThan(abs(sum(abs(iiBC%inExyz)) - exyzSum), 0.0_rp, 'inExyz has not changed')
                END SELECT
           endif
       else

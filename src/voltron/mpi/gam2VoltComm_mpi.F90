@@ -463,15 +463,16 @@ module gam2VoltComm_mpi
         g2vComm%recvTypesInexyzShallow = MPI_DATATYPE_NULL
         g2vComm%recvTypesIneijkShallow = MPI_DATATYPE_NULL
 
+        g2vComm%sendCountsGasDeep = 1
+        g2vComm%sendCountsBxyzDeep = 1
+        g2vComm%sendDisplsGasDeep = 0
+        g2vComm%sendDisplsBxyzDeep = 0
+        g2vComm%sendTypesGasDeep = MPI_DATATYPE_NULL
+        g2vComm%sendTypesBxyzDeep = MPI_DATATYPE_NULL
+
         if(g2vComm%doDeep) then
-            g2vComm%sendCountsGasDeep = 1
-            g2vComm%sendCountsBxyzDeep = 1
             g2vComm%recvCountsGas0Deep = 1
-            g2vComm%sendDisplsGasDeep = 0
-            g2vComm%sendDisplsBxyzDeep = 0
             g2vComm%recvDisplsGas0Deep = 0
-            g2vComm%sendTypesGasDeep = MPI_DATATYPE_NULL
-            g2vComm%sendTypesBxyzDeep = MPI_DATATYPE_NULL
             g2vComm%recvTypesGas0Deep = MPI_DATATYPE_NULL
         endif
 
@@ -530,16 +531,16 @@ module gam2VoltComm_mpi
                                    g2vComm%recvTypesIneijkShallow(1), ierr)
         endif
 
+        ! Gas
+        sendDataOffset = Model%nG*Grid%Nj*Grid%Ni + &
+                         Model%nG*Grid%Ni + &
+                         Model%nG
+        call mpi_type_hindexed(1,(/1/),sendDataOffset*dataSize,iPjPkP5Gas,g2vComm%sendTypesGasDeep(1),ierr)
+
+        ! Bxyz
+        call mpi_type_hindexed(1,(/1/),sendDataOffset*dataSize,iPjPkP4Bxyz,g2vComm%sendTypesBxyzDeep(1),ierr)
+
         if(g2vComm%doDeep) then
-            ! Gas
-            sendDataOffset = Model%nG*Grid%Nj*Grid%Ni + &
-                             Model%nG*Grid%Ni + &
-                             Model%nG
-            call mpi_type_hindexed(1,(/1/),sendDataOffset*dataSize,iPjPkP5Gas,g2vComm%sendTypesGasDeep(1),ierr)
-
-            ! Bxyz
-            call mpi_type_hindexed(1,(/1/),sendDataOffset*dataSize,iPjPkP4Bxyz,g2vComm%sendTypesBxyzDeep(1),ierr)
-
             ! Gas0
             recvDataOffset = 0
             call mpi_type_hindexed(1,(/1/),recvDataOffset*dataSize,iPG2jPG2kPG25Gas, &
@@ -549,9 +550,11 @@ module gam2VoltComm_mpi
         ! commit new mpi datatypes
         call mpi_type_commit(g2vComm%recvTypesIneijkShallow(1), ierr)
         call mpi_type_commit(g2vComm%recvTypesInexyzShallow(1), ierr)
+
+        call mpi_type_commit(g2vComm%sendTypesGasDeep(1), ierr)
+        call mpi_type_commit(g2vComm%sendTypesBxyzDeep(1), ierr)
+
         if(g2vComm%doDeep) then
-            call mpi_type_commit(g2vComm%sendTypesGasDeep(1), ierr)
-            call mpi_type_commit(g2vComm%sendTypesBxyzDeep(1), ierr)
             call mpi_type_commit(g2vComm%recvTypesGas0Deep(1), ierr)
         endif
 
