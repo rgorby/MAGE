@@ -34,7 +34,7 @@ description = "Create a quick-look plot (Pb at start and end) for the %s test ca
 
 def create_command_line_parser():
     """Create the command-line argument parser.
-    
+
     Ceate the parser for command-line arguments.
 
     Parameters
@@ -68,9 +68,9 @@ def create_command_line_parser():
 
 def create_quicklook_plot(directory, runid):
     """Create the quicklook plot for the loop2d run.
-    
+
     Create the quicklook plot for the loop2d run.
-    
+
     Parameters
     ----------
     directory : str
@@ -106,7 +106,6 @@ def create_quicklook_plot(directory, runid):
     Pb_last = (Bx**2 + By**2 + Bz**2)/2
 
     # Plot parameters
-    name = "Magnetic pressure"
     units = "code units"
     vmin = 0
     vmax = 6e-7
