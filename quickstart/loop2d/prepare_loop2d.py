@@ -25,17 +25,11 @@ import subprocess
 default_runid = "loop2d"
 
 # Program description.
-description = "Prepare to run serial gamera on the %s model." % default_runid
+description = "Prepare to run serial gamera on the %s quickstart case." % default_runid
 
 # Location of template .ini file file for run.
 ini_template = os.path.join(
     os.environ["KAIJUHOME"], "quickstart", default_runid, "%s_template.ini"
-    % default_runid
-)
-
-# Location of template XML file file for run.
-xml_template = os.path.join(
-    os.environ["KAIJUHOME"], "quickstart", default_runid, "%s_template.xml"
     % default_runid
 )
 
@@ -138,9 +132,6 @@ def convert_ini_to_xml(ini_file:str, xml_file:str):
 
     Convert the .ini file to a .xml file.
 
-    NOTE: Conversion of .ini to .xml does not work yet, so just copy
-    the template.
-
     Parameters
     ----------
     ini_file : str
@@ -152,19 +143,9 @@ def convert_ini_to_xml(ini_file:str, xml_file:str):
     -------
     None
     """
-    # cmd = "XMLGenerator.py"
-    # args = [ini_file, xml_file]
-    # subprocess.run([cmd] + args)
-
-    # No conversion is performed yet. Just process the XML template.
-    with open(xml_template) as t:
-        lines = t.readlines()
-
-    # Process the template here.
-
-    # Write out the processed XML file.
-    with open(xml_file, "w") as f:
-        f.writelines(lines)
+    cmd = "XMLGenerator.py"
+    args = [ini_file, xml_file]
+    subprocess.run([cmd] + args)
 
 
 def create_pbs_job_script(directory:str, runid:str):
