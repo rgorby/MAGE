@@ -29,19 +29,19 @@ description = "Prepare to run serial gamera on the %s model." % default_runid
 
 # Location of template .ini file file for run.
 ini_template = os.path.join(
-    os.environ["KAIJUHOME"], "quickstart", default_runid, "%s.ini.template"
+    os.environ["KAIJUHOME"], "quickstart", default_runid, "%s_template.ini"
     % default_runid
 )
 
 # Location of template XML file file for run.
 xml_template = os.path.join(
-    os.environ["KAIJUHOME"], "quickstart", default_runid, "%s.xml.template"
+    os.environ["KAIJUHOME"], "quickstart", default_runid, "%s_template.xml"
     % default_runid
 )
 
 # Location of template PBS script script for run.
 pbs_template = os.path.join(
-    os.environ["KAIJUHOME"], "quickstart", default_runid, "%s.pbs.template"
+    os.environ["KAIJUHOME"], "quickstart", default_runid, "%s_template.pbs"
     % default_runid
 )
 
