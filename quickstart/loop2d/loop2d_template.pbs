@@ -99,10 +99,6 @@ export OMP_STACKSIZE=100M
 echo "The active environment variables are:"
 printenv
 
-# Move to the job directory (by default, the job directory is $HOME.
-# cd $PBS_O_WORKDIR
-# echo "The current directory is `pwd`."
-
 # Run the model. Direct output from the program is saved in a text file.
 EXE=gamera.x
 echo "Running $EXE on model $RUNID."
