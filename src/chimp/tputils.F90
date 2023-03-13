@@ -71,11 +71,13 @@ module tputils
         real(rp), dimension(NDIM,NDIM) :: JacB
         real(rp) :: eps
         real(rp) :: MagB,rgScl,bScl
-        MagB = norm2(B)
+
+        MagB = max(norm2(B),TINY)
         rgScl = Model%m0*sqrt(2*Mu*MagB/Model%m0)/( abs(Model%q0)*MagB )
         bScl = MagB/sqrt(sum(JacB**2.0))
         eps = rgScl/bScl
-        
+
+
     end function eGC_Mu
 
     function eGC_p(Model,B,JacB,p) result(eps)
@@ -85,7 +87,7 @@ module tputils
         real(rp) :: eps
         real(rp) :: MagB,rgScl,bScl
 
-        MagB = norm2(B)
+        MagB = max(norm2(B),TINY)
         rgScl = norm2(p)/( abs(Model%q0)*MagB )
         bScl = MagB/sqrt(sum(JacB**2.0))
         eps = rgScl/bScl

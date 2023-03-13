@@ -220,6 +220,19 @@ contains
              IOVars(n0)%unitStr = uStr
           endif
        enddo
+      ! add geographic latgeo and longeo
+      vstr = trim("Latitude (Geographic)") // " "//trim(hStr)
+      ustr = trim("radians")
+      call AddOutVar(IOVars,vstr,I(h)%Ggeo%t,uStr)
+      vstr = trim("Longitude (Geographic)") // " "//trim(hStr)
+      ustr = trim("radians")
+      call AddOutVar(IOVars,vstr,I(h)%Ggeo%p,uStr)
+      vstr = trim("X (Geographic)") // " "//trim(hStr)
+      ustr = trim("Ri")
+      call AddOutVar(IOVars,vstr,I(h)%Ggeo%x,uStr)
+      vstr = trim("Y (Geographic)") // " "//trim(hStr)
+      ustr = trim("Ri")
+      call AddOutVar(IOVars,vstr,I(h)%Ggeo%y,uStr)
     enddo
 
     ! now add time
@@ -236,139 +249,6 @@ contains
     write(gStr,'(A,I0)') "Step#", Step
     call WriteVars(IOVars,.false.,h5File,gStr)
   end subroutine writeMIX
-
-  subroutine writeMIX2GCM(I,cplStr,lockStr,cplStep,mjd,time)
-    type(mixIon_T),dimension(:),intent(in) :: I
-    real(rp), optional, intent(in) :: time, mjd
-    character(len=strLen) :: vStr
-
-    integer :: v,h,n0,cplStep
-    character(len=strLen) :: gStr,uStr,hStr
-    logical :: doDump = .true.,fExist=.true.
-    real(rp) :: cpcp = 0.0
-    real(rp), dimension(:,:),allocatable :: xc,yc
-    
-    character(len=strLen) :: cplStr,lockStr
-
-    !h5gcm = "mix4gcm.h5"
-    !gcmlock = "mixgcmcoupling.txt"
-
-    inquire(file=lockStr,exist=fExist)
-
-    write(*,*) "waiting for ",trim(lockStr)," to be disappear"
-    do while (fExist)
-       inquire(file=lockStr,exist=fExist)
-       call sleep(1)
-    end do
-    write(*,*) trim(lockStr)," is gone so creating ",trim(cplStr),' start coupling @ ',mjd
-    call CheckAndKill(cplStr)
-
-    ! I don't know how to handle the IO when the I object has more than one hemisphere
-    ! because they're labeled by appending the hemisphere stirng to the data set name
-    ! so kill it for now and worry about it when a case like this actually appears
-    if (size(I)>2) then
-       write(*,*) "writeMIX: Wrong hemisphere identifier. Stopping..."
-       stop
-    end if
-    
-    !Reset IO chain
-    call ClearIO(IOVars)
-    
-    ! Create grid info (why is this not stored?)
-    !call genOutGrid(I(NORTH)%G%x,I(NORTH)%G%y,xc,yc)
-
-    ! save grid only for north
-    !call AddOutVar(IOVars,"X",xc,uStr="Ri")
-    !call AddOutVar(IOVars,"Y",yc,uStr="Ri")
-
-    !call AddOutVar(IOVars,"UnitsID","ReMIX")
-    
-    !Write out the chain (to root)
-    !call WriteVars(IOVars,.false.,cplStr)
-
-    !Reset IO chain
-    !call ClearIO(IOVars)
-    
-    do h=1,size(I)
-       ! hemisphere should be set up properly by now but still check just in case
-       if (I(h)%St%hemisphere.eq.NORTH) then
-          hStr = "NORTH"          
-       else if (I(h)%St%hemisphere.eq.SOUTH) then
-          hStr = "SOUTH"          
-       else
-          write(*,*) "writeMIX: Wrong hemisphere identifier. Stopping..."
-          stop
-       end if
-       
-       do v=1,nVars
-          select case (v)
-          case (POT)
-             doDump = .true.
-          case (FAC)
-             doDump = .true.             
-          case (SIGMAP)
-             doDump = .true.             
-          case (SIGMAH)
-             doDump = .true.             
-          case (SOUND_SPEED)
-             doDump = .true.             
-          case (DENSITY)
-             doDump = .true.             
-          case (AVG_ENG)
-             doDump = .true.             
-          case (NUM_FLUX)
-             doDump = .true.             
-          case (NEUTRAL_WIND) 
-             doDump = .false.
-          case (EFIELD)
-             ! we never compute it
-             doDump = .false.
-          case DEFAULT
-             doDump = .false. ! only dump the variables explicitely set to be dumped above
-          end select
-
-          ! NOTE: assuming initMIXNames got called before
-          vStr = trim(mixVarNames(v)) // " "//trim(hStr)
-          uStr = trim(mixUnitNames(v))
-          
-          if (doDump) then
-             call AddOutVar(IOVars,vStr,I(h)%St%Vars(:,:,v))
-             ! inelegantly specifying the units       
-             n0 = FindIO(IOVars,vStr)
-             IOVars(n0)%unitStr = uStr
-          endif
-       enddo
-    enddo
-
-    ! now add time
-    if (present(time)) call AddOutVar(IOVars,"time",time)
-    if (present(mjd))  call AddOutVar(IOVars,"MJD",mjd)
-    ! also add tilt
-    call AddOutVar(IOVars,"tilt",I(NORTH)%St%tilt)
-
-    ! add grid info
-    call AddOutVar(IOVars,"colat",I(NORTH)%G%t)
-    call AddOutVar(IOVars,"lon",I(NORTH)%G%p)
-    call AddOutVar(IOVars,"Grid X",I(NORTH)%G%x)
-    call AddOutVar(IOVars,"Grid Y",I(NORTH)%G%y)
-
-    ! add cpcp
-    call AddOutVar(IOVars,"nCPCP",maxval(I(NORTH)%St%Vars(:,:,POT))-minval(I(NORTH)%St%Vars(:,:,POT)))
-    call AddOutVar(IOVars,"sCPCP",maxval(I(SOUTH)%St%Vars(:,:,POT))-minval(I(SOUTH)%St%Vars(:,:,POT)))    
-    
-    !Write out the chain (to root)
-    write(gStr,'(A,I0)') "Step#", cplStep
-    call WriteVars(IOVars,.false.,cplStr,gStr)
-   
-    !write(*,*) "nCPCP",maxval(I(NORTH)%St%Vars(:,:,POT))-minval(I(NORTH)%St%Vars(:,:,POT))
-    !write(*,*) "sCPCP",maxval(I(SOUTH)%St%Vars(:,:,POT))-minval(I(SOUTH)%St%Vars(:,:,POT))
-    write(*,*) "Done making ",trim(cplStr)," so locking"
-    open(303,file=trim(lockStr))
-      write(303,*) mjd
-    close(303)
-    write(*,*) trim(lockStr)," done, so go ahead"
-  end subroutine writeMIX2GCM
-
 
   subroutine readMIX(inH5,Step,mixIOobj)
     character(len=*), intent(in) :: inH5

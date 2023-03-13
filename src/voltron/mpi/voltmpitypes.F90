@@ -22,8 +22,8 @@ module voltmpitypes
         type(MPI_Comm) :: voltMpiComm
         integer :: myRank
         type(gamApp_T) :: gAppLocal
-        logical :: doSerialVoltron = .false., doAsyncShallow = .true.
-        logical :: firstShallowUpdate = .true., firstDeepUpdate = .true., firstStepUpdate = .true.
+        logical :: doSerialVoltron = .false., doAsyncCoupling = .true.
+        logical :: firstDeepUpdate = .true., firstStepUpdate = .true.
 
         ! array of all zeroes to simplify various send/receive calls
         integer, dimension(:), allocatable :: zeroArrayCounts
@@ -39,12 +39,6 @@ module voltmpitypes
         integer :: timeStepBuffer
 
         ! SHALLOW COUPLING VARIABLES
-        integer, dimension(:), allocatable :: recvCountsGasShallow
-        type(MPI_Datatype), dimension(:), allocatable :: recvTypesGasShallow
-        integer(kind=MPI_AN_MYADDR), dimension(:), allocatable :: recvDisplsGasShallow
-        integer, dimension(:), allocatable :: recvCountsBxyzShallow
-        type(MPI_Datatype), dimension(:), allocatable :: recvTypesBxyzShallow
-        integer(kind=MPI_AN_MYADDR), dimension(:), allocatable :: recvDisplsBxyzShallow
         integer, dimension(:), allocatable :: sendCountsIneijkShallow
         type(MPI_Datatype), dimension(:), allocatable :: sendTypesIneijkShallow
         integer(kind=MPI_AN_MYADDR), dimension(:), allocatable :: sendDisplsIneijkShallow
@@ -52,7 +46,7 @@ module voltmpitypes
         type(MPI_Datatype), dimension(:), allocatable :: sendTypesInexyzShallow
         integer(kind=MPI_AN_MYADDR), dimension(:), allocatable :: sendDisplsInexyzShallow
         ! SHALLOW ASYNCHRONOUS VARIABLES
-        type(MPI_Request) :: shallowIneijkSendReq, shallowInexyzSendReq, asyncShallowBcastReq
+        type(MPI_Request) :: shallowIneijkSendReq, shallowInexyzSendReq
 
         ! DEEP COUPLING VARIABLES
         integer, dimension(:), allocatable :: recvCountsGasDeep

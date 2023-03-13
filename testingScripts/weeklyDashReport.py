@@ -16,6 +16,26 @@ import kaipy.kaiH5 as kh5
 import kaipy.kaiViz as kv
 from astropy.time import Time
 import re
+import argparse
+
+# read arguments
+parser = argparse.ArgumentParser()
+parser.add_argument('-t',action='store_true',default=False, help='Enables testing mode')
+parser.add_argument('-l',action='store_true',default=False, help='Enables loud mode')
+parser.add_argument('-a',action='store_true',default=False, help='Run all tests')
+parser.add_argument('-f',action='store_true',default=False, help='Force the tests to run')
+parser.add_argument('--account',type=str, default='', help='qsub account number')
+parser.add_argument('-d',action='store_true',default=False, help='Debugging mode')
+parser.add_argument('-w',type=str, default='', help='Wiki Path')
+
+args = parser.parse_args()
+isTest = args.t
+beLoud = args.l
+doAll = args.a
+forceRun = args.f
+account = args.account
+debugMode = args.d
+wikiPath = args.w
 
 # Get Slack API token
 slack_token = os.environ["SLACK_BOT_TOKEN"]
@@ -28,31 +48,6 @@ os.chdir(calledFrom)
 orig = os.getcwd()
 os.chdir('..')
 home = os.getcwd()
-
-isTest = False
-beLoud = False
-debugMode = False
-wikiPath = ""
-
-# Check argument flags
-if (len(sys.argv) >= 2):
-    i=1
-    while(i < len(sys.argv)):
-        if(str(sys.argv[i]) == '-t'):
-            print("Test Mode: On")
-            isTest = True
-        elif(str(sys.argv[i]) == '-l'):
-            print("Being Loud")
-            beLoud = True
-        elif(str(sys.argv[i]) == "-w"):
-            wikiPath = sys.argv[i+1]
-            i=i+1
-        elif(str(sys.argv[i]) == '-d'):
-            print("Debugging Mode: On")
-            debugMode = True
-        else:
-            print("Unrecognized argument: ", sys.argv[i])
-        i=i+1
 
 print(wikiPath)
 if(not os.path.exists(wikiPath)):

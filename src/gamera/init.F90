@@ -443,14 +443,9 @@ module init
         case("8CENT","8C")
             GetLRs => Cen8LRs
             if (Model%isLoud) write(*,*) 'Using 8CENT Reconstruction'
-            
-        case("8CENTG","8CG")
-            GetLRs => Cen8GLRs
-            if (Model%isLoud) write(*,*) 'Using 8CENT-GEOM Reconstruction'
-
-        case("HIGH5")
-            GetLRs => High5LRs
-            if (Model%isLoud) write(*,*) 'Using High-5 Reconstruction'
+        case default
+            write(*,*) "Uknown sim/rmeth, exiting ..."
+            stop
         end select
 
         RingLR => NULL()
@@ -465,6 +460,9 @@ module init
             RingLR => WENO_IntLR
         case("PCM")
             RingLR => PCM_IntLR
+        case default
+            write(*,*) "Uknown sim/rmeth, exiting ..."
+            stop
         end select
 
         !Get RNG seed and setup RNG
@@ -1105,10 +1103,10 @@ module init
                     iMax = min(vecLen,ie-iB+1)
 
                     !Get stencils in the dT2 direction
-                    call LoadBlockI(Model,Gr,fArB           ,Gr%face(:,:,:,dT1)    ,iB,j,k,iMax,dT2)
-                    call LoadBlockI(Model,Gr,NxyzB(:,:,XDIR),Gr%Tf(:,:,:,NORMX,dT1),iB,j,k,iMax,dT2)
-                    call LoadBlockI(Model,Gr,NxyzB(:,:,YDIR),Gr%Tf(:,:,:,NORMY,dT1),iB,j,k,iMax,dT2)
-                    call LoadBlockI(Model,Gr,NxyzB(:,:,ZDIR),Gr%Tf(:,:,:,NORMZ,dT1),iB,j,k,iMax,dT2)
+                    call recLoadBlockI(Model,Gr,fArB           ,Gr%face(:,:,:,dT1)    ,iB,j,k,iMax,dT2)
+                    call recLoadBlockI(Model,Gr,NxyzB(:,:,XDIR),Gr%Tf(:,:,:,NORMX,dT1),iB,j,k,iMax,dT2)
+                    call recLoadBlockI(Model,Gr,NxyzB(:,:,YDIR),Gr%Tf(:,:,:,NORMY,dT1),iB,j,k,iMax,dT2)
+                    call recLoadBlockI(Model,Gr,NxyzB(:,:,ZDIR),Gr%Tf(:,:,:,NORMZ,dT1),iB,j,k,iMax,dT2)
 
                     !Do weighted interpolation from face to corner of each component
                     do i=1,iMax
