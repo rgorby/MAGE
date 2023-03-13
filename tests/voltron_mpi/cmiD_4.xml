@@ -2,7 +2,7 @@
 <!-- Gamera Magnetosphere -->
 <Kaiju>
   <voltron>
-    <sim tFin="677.115987461"/>
+    <time tFin="677.115987461"/>
     <spinup doSpin="F"/>
     <coupling dtCouple="5.0" doDeep="F" doAsyncCoupling="F"/>
   </voltron>
