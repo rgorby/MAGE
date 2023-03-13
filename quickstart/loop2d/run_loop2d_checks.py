@@ -11,7 +11,6 @@ gamera.
 # Import standard modules.
 import argparse
 import os
-import subprocess
 
 # Import 3rd-party modules.
 import numpy as np
