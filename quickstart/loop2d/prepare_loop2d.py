@@ -1,10 +1,10 @@
 #!/usr/bin/env python
 
 
-"""Prepare for running serial gamera on the loop2d example.
+"""Prepare for running serial kaiju on the loop2d example.
 
-Perform the preprocessing required to run the serial gamera code on
-the loop2d example. Create any required data files, and create the PBS
+Perform the preprocessing required to run the serial kaiju code on the
+loop2d example. Create any required data files, and create the PBS
 script to run the code.
 """
 
@@ -25,7 +25,7 @@ import subprocess
 default_runid = "loop2d"
 
 # Program description.
-description = "Prepare to run serial gamera on the %s quickstart case." % default_runid
+description = "Prepare to run serial kaiju on the %s quickstart case." % default_runid
 
 # Location of template .ini file file for run.
 ini_template = os.path.join(
@@ -43,7 +43,7 @@ pbs_template = os.path.join(
 def create_command_line_parser():
     """Create the command-line argument parser.
 
-    Prepare the command-line parser.
+    Create the parser for command-line arguments.
 
     Parameters
     ----------
@@ -97,9 +97,6 @@ def create_ini_file(directory:str, runid:str):
     """Create the .ini file from a template.
 
     Create the .ini file from a template.
-
-    NOTE: Conversion of .ini to .xml does not work yet, so just copy
-    the template.
 
     Parameters
     ----------
@@ -170,9 +167,9 @@ def create_pbs_job_script(directory:str, runid:str):
         lines = t.readlines()
 
     # Process the template here.
-    pbs_file = os.path.join(directory, "%s.pbs" % runid)
 
     # Write out the processed file.
+    pbs_file = os.path.join(directory, "%s.pbs" % runid)
     with open(pbs_file, "w") as f:
         f.writelines(lines)
     return pbs_file

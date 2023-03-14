@@ -1,12 +1,12 @@
 #!/bin/bash
 
-#PBS -N loop2d
+#PBS -N helio_serial
 #PBS -j oe
-#PBS -l walltime=00:05:00
+#PBS -l walltime=04:00:00
 #PBS -m abe
 #PBS -M eric.winter@jhuapl.edu
 # In the lines below, uncomment the set appropriate for your system,
-# and comment out the other set. The default is pleades/electra.
+# and comment out the other set. The default is pleiades/electra.
 # For the pleiades or electra HPC systems at NASA Ames HECC:
 #PBS -q normal
 #PBS -l select=1:ncpus=28:ompthreads=28:model=bro
@@ -17,17 +17,17 @@
 
 # Explanation of #PBS lines:
 
-# -N loop2d -> The PBS job is named "loop2d". This name will appear in the
-# "qstat" output for this job. Set this string to whatever value is useful
-# for your job.
+# -N helio_serial -> The PBS job is named "helio_serial". This name
+# will appear in the "qstat" output for this job. Set this string to
+# whatever value is useful for your job.
 
 # -j oe -> Combine job script std(o)ut and std(e)rr into stdout. This
-# combined output will be saved in the file loop2d.oJOB_NUM, where
+# combined output will be saved in the file geo_serial.oJOB_NUM, where
 # JOB_NUM is the PBS job number assigned when the job is
 # submitted. Note that the output from the kaiju software itself is
 # captured in a separate file (see below).
 
-# -l walltime=00:05:00 -> Request 5 minutes of compute time on the
+# -l walltime=04:00:00 -> Request 4 hours of compute time on the
 # allocated compute node(s). The format is hh:mm:ss, where hh is
 # hours, mm is minutes, and ss is seconds. Set this value high enough
 # to ensure that your job runs to completion. Use a margin of perhaps
@@ -89,13 +89,13 @@
 #------------------------------------------------------------------------------
 
 # This PBS job script will run the serial version of the kaiju
-# software on the loop2d quickstart case.
+# software on the helio_serial quickstart case.
 
-# This job should run in roughly a minute of wall-clock time on pleiades.
-# On cheyenne, the job should run in roughly XXX.
+# This job should run in roughly XX minutes of wall-clock time on
+# pleiades.  On cheyenne, the job should run in roughly XXX.
 
 # Example usage
-# qsub -v loop2d.pbs
+# qsub -v helio_serial.pbs
 
 echo "Job $PBS_JOBID started at `date` on `hostname`."
 
@@ -103,7 +103,6 @@ echo "Job $PBS_JOBID started at `date` on `hostname`."
 # string. PBS_JOBNAME is used here as an example.
 export RUNID=$PBS_JOBNAME
 
-# Load the required modules for serial kaiju.
 # NOTE: pleiades and electra do not have the "module restore" facility
 # found on cheyenne. The modules must be explicitly loaded each time
 # they are needed.
@@ -161,7 +160,7 @@ printenv
 
 # Run the model. Direct output from the program is saved in a text
 # file.
-EXE=gamera.x
+EXE=gamhelio.x
 echo "Running $EXE on model $RUNID."
 $EXE $RUNID.xml >& ${EXE}.${RUNID}.out
 

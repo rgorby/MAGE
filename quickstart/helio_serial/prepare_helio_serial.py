@@ -1,11 +1,11 @@
 #!/usr/bin/env python
 
 
-"""Prepare the PBS script for a helio_serial job.
+"""Prepare for running serial kaiju on the helio_serial example.
 
-Perform the preprocessing required to run the serial gamera code on
-the helio_serial example. Create any required data files, and create
-the PBS script to run the code.
+Perform the preprocessing required to run the serial kaiju code on the
+helio_serial example. Create any required data files, and create the
+PBS script to run the code.
 """
 
 
@@ -25,24 +25,24 @@ import subprocess
 default_runid = "helio_serial"
 
 # Program description.
-description = "Prepare to run serial gamera on the %s test case." % default_runid
+description = "Prepare to run serial kaiju on the %s quickstart case." % default_runid
 
-# Location of template .ini file.
+# Location of template .ini file for run.
 ini_template = os.path.join(
-    os.environ["KAIJUHOME"], "quickstart", default_runid, "%s.ini.template"
+    os.environ["KAIJUHOME"], "quickstart", default_runid, "%s_template.ini"
     % default_runid
 )
 
-# Location of template XML file.
-xml_template = os.path.join(
-    os.environ["KAIJUHOME"], "quickstart", default_runid, "%s.xml.template"
-    % default_runid
-)
-
-# Location of template PBS script.
+# Location of template PBS script for run.
 pbs_template = os.path.join(
-    os.environ["KAIJUHOME"], "quickstart", default_runid, "%s.pbs.template"
+    os.environ["KAIJUHOME"], "quickstart", default_runid, "%s_template.pbs"
     % default_runid
+)
+
+# Location of default .ini file for wsa2gamera.py.
+default_wsa2gamera_ini_path = os.path.join(
+    os.environ["KAIJUHOME"], "kaipy", "gamhelio", "ConfigScripts",
+    "startup.config"
 )
 
 
@@ -58,7 +58,7 @@ def create_command_line_parser():
     Returns
     -------
     parser : argparse.ArgumentParser
-        Command-line argument parser for this script.
+        Parser for command-line arguments.
     """
     parser = argparse.ArgumentParser(description=description)
     parser.add_argument(
@@ -68,6 +68,10 @@ def create_command_line_parser():
     parser.add_argument(
         "--directory", type=str, metavar="directory", default=os.getcwd(),
         help="Directory to contain files generated for the run (default: %(default)s)"
+    )
+    parser.add_argument(
+        "--ini", type=str, metavar="ini_file", default=default_wsa2gamera_ini_path,
+        help="Path to .ini file for wsa2gamera.py (default: %(default)s)"
     )
     parser.add_argument(
         "--runid", type=str, metavar="runid", default=default_runid,
@@ -80,10 +84,10 @@ def create_command_line_parser():
     return parser
 
 
-def run_preprocessing_steps(directory, runid):
-    """Run any preprocessing steps needed for the helio_serial run.
+def run_preprocessing_steps(directory, runid, ini_path=default_wsa2gamera_ini_path):
+    """Run any preprocessing steps needed for this run.
 
-    Run any required preprocessing steps to prepare for the helio_serial run.
+    Perform required preprocessing steps.
 
     Parameters
     ----------
@@ -91,6 +95,8 @@ def run_preprocessing_steps(directory, runid):
         Path to directory to receive preprocessing results.
     runid : str
         ID string for the model to run.
+    ini : str, default default_wsa2gamera_ini_path
+        Path to .ini file to use for wsa2gamera.py.
 
     Returns
     -------
@@ -104,10 +110,6 @@ def run_preprocessing_steps(directory, runid):
 
     # Create the grid and inner boundary conditions files.
     cmd = "wsa2gamera.py"
-    ini_path = os.path.join(
-        os.environ["KAIJUHOME"], "kaipy", "gamhelio", "ConfigScripts",
-        "startup.config"
-    )
     args = [ini_path]
     subprocess.run([cmd] + args)
 
@@ -118,9 +120,7 @@ def run_preprocessing_steps(directory, runid):
 def create_ini_file(directory, runid):
     """Create the .ini file from a template.
 
-    Create the .ini file describing the helio_serial model run.
-
-    For now, we simply make a copy of the .ini template.
+    Create the .ini file from a template.
 
     Parameters
     ----------
@@ -132,12 +132,15 @@ def create_ini_file(directory, runid):
     Returns
     -------
     ini_file : str
-        Path to the .ini file for the helio_serial model run.
+        Path to .ini file.
     """
-    # Just use the template for now.
+    # Read the file template.
     with open(ini_template) as t:
         lines = t.readlines()
+
     # Process the template here.
+
+    # Write the processed .ini file to the run directory.
     ini_file = os.path.join(directory, "%s.ini" % runid)
     with open(ini_file, "w") as f:
         f.writelines(lines)
@@ -147,8 +150,7 @@ def create_ini_file(directory, runid):
 def convert_ini_to_xml(ini_file, xml_file):
     """Convert the .ini file to XML.
     
-    Convert the .ini file describing the helio_serial run to the corresponding
-    XML file.
+    Convert the .ini file to a .xml file.
 
     Parameters
     ----------
@@ -161,16 +163,9 @@ def convert_ini_to_xml(ini_file, xml_file):
     -------
     None
     """
-    # cmd = "XMLGenerator.py"
-    # args = [ini_file, xml_file]
-    # subprocess.run([cmd] + args)
-
-    # No conversion is performed yet. Just process the XML template.
-    with open(xml_template) as t:
-        lines = t.readlines()
-    # Process the template here.
-    with open(xml_file, "w") as f:
-        f.writelines(lines)
+    cmd = "XMLGenerator.py"
+    args = [ini_file, xml_file]
+    subprocess.run([cmd] + args)
 
 
 def create_pbs_job_script(directory, runid):
@@ -190,9 +185,13 @@ def create_pbs_job_script(directory, runid):
     pbs_file : str
         Path to PBS job script.
     """
+    # Read the template.
     with open(pbs_template) as t:
         lines = t.readlines()
+
     # Process the template here.
+
+    # Write out the processed file.
     pbs_file = os.path.join(directory, "%s.pbs" % runid)
     with open(pbs_file, "w") as f:
         f.writelines(lines)
@@ -209,13 +208,14 @@ if __name__ == "__main__":
     args = parser.parse_args()
     debug = args.debug
     directory = args.directory
+    ini_path = args.ini
     runid = args.runid
     verbose = args.verbose
 
     # Run the preprocessing steps.
     if verbose:
         print("Running preprocessing steps.")
-    run_preprocessing_steps(directory, runid)
+    run_preprocessing_steps(directory, runid, ini_path)
 
     # Create the .ini file.
     if verbose:
@@ -234,5 +234,7 @@ if __name__ == "__main__":
     pbs_file = create_pbs_job_script(directory, runid)
     if verbose:
         print("The PBS job script %s is ready." % pbs_file)
+        print("Edit this file as needed for your system (see comments in %s"
+              " for more information)." % pbs_file)
         print("Submit the job to PBS with the command:")
         print("    qsub %s" % pbs_file)
