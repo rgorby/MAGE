@@ -5,6 +5,8 @@
 #PBS -l walltime=00:05:00
 #PBS -l select=1:ncpus=28:ompthreads=28:model=bro
 
+# This job should run in roughly a minute of wall-clock time on pleiades.
+
 # This script was designed to run on the pleiades (or electra) supercomputer
 # at NASA Ames. Modify this job script as needed for other HPC systems, such
 # as cheyenne.ucar.edu. Typically, the only changes needed are the queue name,
