@@ -1,51 +1,133 @@
-! Main data objects and functions to perform a gamera simulation
+! implementation of subroutines in GameraApp type
 
 module gamapp
     use gamtypes
     use step
     use init
     use mhdgroup
+    use output
 
     implicit none
 
-    type gamApp_T
+    type, extends(BaseOptions_T) :: GameraOptions_T
+        procedure(StateIC_T), pointer, nopass :: userInitFunc
+
+        contains
+    end type GameraOptions_T
+
+    type, extends(BaseApp_T) :: GameraApp_T
         type(Model_T)  :: Model
         type(Grid_T)   :: Grid
         type(State_T)  :: State, oState
         type(Solver_T) :: Solver
-    end type gamApp_T
+        type(GameraOptions_T) :: Options
+
+        contains
+
+        procedure :: InitModel => gamInitModel
+        procedure :: InitIO => gamInitIO
+        procedure :: WriteRestart => gamWriteRestart
+        procedure :: ReadRestart => gamReadRestart
+        procedure :: WriteConsoleOutput => gamWriteConsoleOutput
+        procedure :: WriteFileOutput => gamWriteFileOutput
+        procedure :: WriteSlimFileOutput => gamWriteSlimFileOutput
+        procedure :: AdvanceModel => gamAdvanceModel
+
+    end type GameraApp_T
+
 
     contains
 
-    subroutine initGamera(gameraApp, userInitFunc, optFilename,doIO)
-        type(gamApp_T), intent(inout) :: gameraApp
-        procedure(StateIC_T), pointer, intent(in) :: userInitFunc
-        character(len=*), optional, intent(in) :: optFilename
-        logical, optional, intent(in) :: doIO
+    ! procedures for GameraApp_T
+    subroutine gamInitModel(App, Xml)
+        class(GameraApp_T), intent(inout) :: App
+        type(XML_Input_T), intent(inout) :: Xml
 
-        character(len=strLen) :: inpXML,kaijuRoot
-        type(XML_Input_T) :: xmlInp
-        logical :: doIOX
+        call initGamera(App, Xml)
 
-        if(present(optFilename)) then
-            ! read from the prescribed file
-            inpXML = optFilename
-        else
-            !Find input deck
-            call getIDeckStr(inpXML)
+    end subroutine gamInitModel
+
+    subroutine gamInitIO(App, Xml)
+        class(GameraApp_T), intent(inout) :: App
+        type(XML_Input_T), intent(inout) :: Xml
+
+        call initGamIO(App%Model, Xml)
+
+    end subroutine gamInitIO
+
+    subroutine gamWriteRestart(App, resFile)
+        class(GameraApp_T), intent(inout) :: App
+        character(len=*), intent(in) :: resFile
+
+        call resOutput(App%Model, App%Grid, App%oState, App%State)
+
+    end subroutine gamWriteRestart
+
+    subroutine gamReadRestart(App, resFile)
+        class(GameraApp_T), intent(inout) :: App
+        character(len=*), intent(in) :: resFile
+
+        call readH5Restart(App%Model, App%Grid, App%State, App%oState,resFile)
+
+    end subroutine gamReadRestart
+
+    subroutine gamWriteConsoleOutput(App)
+        class(GameraApp_T), intent(inout) :: App
+
+        call consoleOutput(App%Model, App%Grid, App%State)
+
+    end subroutine gamWriteConsoleOutput
+
+    subroutine gamWriteFileOutput(App, outFile, nStep)
+        class(GameraApp_T), intent(inout) :: App
+        character(len=*), intent(in) :: outFile
+        integer, intent(in) :: nStep
+
+        call fOutput(App%Model, App%Grid, App%State)
+
+    end subroutine gamWriteFileOutput
+
+    subroutine gamWriteSlimFileOutput(App, outFile, nStep)
+        class(GameraApp_T), intent(inout) :: App
+        character(len=*), intent(in) :: outFile
+        integer, intent(in) :: nStep
+
+        call App%WriteFileOutput(outFile, nStep)
+
+    end subroutine gamWriteSlimFileOutput
+
+    subroutine gamAdvanceModel(App, dt)
+        class(GameraApp_T), intent(inout) :: App
+        real(rp), intent(in) :: dt
+
+        call stepGamera(App)
+
+    end subroutine gamAdvanceModel
+
+    ! implementation
+    subroutine initGamIO(Model, xmlInp)
+        type(Model_T), intent(inout) :: Model
+        type(XML_Input_T), intent(inout) :: xmlInp
+
+        logical :: doFatIO
+
+        !Output/Restart (IOCLOCK)
+        call Model%IO%init(xmlInp,Model%t,Model%ts)
+        call xmlInp%Set_Val(Model%doDivB ,'output/DivB'    ,.true. )
+        call xmlInp%Set_Val(doFatIO      ,'output/doFatIO' ,.false.)
+        if (doFatIO) then
+            call SetFatIO()
         endif
-        call CheckFileOrDie(inpXML,"Error opening input deck, exiting ...")
+    end subroutine
 
-        if (present(doIO)) then
-            doIOX = doIO
-        else
-            doIOX = .true.
-        endif
+    subroutine initGamera(gameraApp, xmlInp)
+        class(GameraApp_T), intent(inout) :: gameraApp
+        type(XML_Input_T), intent(inout) :: xmlInp
 
-        !Create XML reader
-        if (gameraApp%Model%isLoud) write(*,*) 'Gamera Reading input deck from ', trim(inpXML)
-        xmlInp = New_XML_Input(trim(inpXML),'Kaiju/Gamera',.true.)
-        if (.not. gameraApp%Model%isLoud) call xmlInp%BeQuiet()
+        character(len=strLen) :: kaijuRoot
+
+        call xmlInp%SetRootStr('Kaiju/Gamera')
+        call xmlinp%SetVerbose(.true.)
 
         ! try to verify that the XML file has "Kaiju" as a root element
         kaijuRoot = ""
@@ -70,10 +152,10 @@ module gamapp
 
         !Initialize Grid/State/Model (Hatch Gamera)
         !Will enforce 1st BCs, caculate 1st timestep, set oldState
-        call Hatch(gameraApp%Model,gameraApp%Grid,gameraApp%State,gameraApp%oState,gameraApp%Solver,xmlInp,userInitFunc)
+        call Hatch(gameraApp%Model,gameraApp%Grid,gameraApp%State,gameraApp%oState,gameraApp%Solver,xmlInp,gameraApp%Options%userInitFunc)
         call cleanClocks()
 
-        if (doIOX) then
+        if (.not. gameraApp%Model%isSub) then
             if (.not. gameraApp%Model%isRestart) call fOutput(gameraApp%Model,gameraApp%Grid,gameraApp%State)
             call consoleOutput(gameraApp%Model,gameraApp%Grid,gameraApp%State)
         endif
@@ -81,7 +163,7 @@ module gamapp
     end subroutine initGamera
 
     subroutine stepGamera(gameraApp)
-        type(gamApp_T), intent(inout) :: gameraApp
+        class(GameraApp_T), intent(inout) :: gameraApp
 
         !update the state variables to the next timestep
         call UpdateStateData(gameraApp)
@@ -99,7 +181,7 @@ module gamapp
     end subroutine stepGamera
 
     subroutine UpdateStateData(gameraApp)
-        class(gamApp_T), intent(inout) :: gameraApp
+        class(GameraApp_T), intent(inout) :: gameraApp
 
         call Tic("Gamera",.true.)
         !Advance system
@@ -120,5 +202,5 @@ module gamapp
 
     end subroutine UpdateStateData
 
-end module gamapp
+end module
 

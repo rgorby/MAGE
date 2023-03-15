@@ -7,27 +7,38 @@ program gamerax
 
     implicit none
 
-    type(gamApp_T) :: gApp
-    procedure(StateIC_T), pointer :: userInitFunc => initUser
+    type(GameraApp_T) :: gApp
+    character(len=strLen) :: inpXML
+    type(XML_Input_T) :: xmlInp
+
 
     !call printConfigStamp()
     call initClocks()
 
     gApp%Model%isLoud = .true.
     
-    call initGamera(gApp,userInitFunc)
+    gApp%Options%userInitFunc => initUser
+
+    !Find input deck
+    call getIDeckStr(inpXML)
+    !Create XML reader
+    write(*,*) 'Reading input deck from ', trim(inpXML)
+    xmlInp = New_XML_Input(trim(inpXML),'Kaiju/Gamera',.true.)
+
+    call gApp%InitModel(xmlInp)
+    call gApp%InitIO(xmlInp)
 
     do while (gApp%Model%t < gApp%Model%tFin)
         call Tic("Omega") !Start root timer
     
     !Step model/s    
-        call stepGamera(gApp)
+        call gApp%AdvanceModel(0.0_rp)
 
     !Output if necessary
         call Tic("IO")
         
         if (gApp%Model%IO%doConsole(gApp%Model%ts)) then
-            call consoleOutput(gApp%Model,gApp%Grid,gApp%State)
+            call gApp%WriteConsoleOutput()
             !Timing info
             if (gApp%Model%IO%doTimerOut) call printClocks()
             call cleanClocks()
@@ -37,11 +48,11 @@ program gamerax
         endif
 
         if (gApp%Model%IO%doOutput(gApp%Model%t)) then
-            call fOutput(gApp%Model,gApp%Grid,gApp%State)
+            call gApp%WriteFileOutput('', 0)
         endif
 
         if (gApp%Model%IO%doRestart(gApp%Model%t)) then
-            call resOutput(gApp%Model,gApp%Grid,gApp%oState,gApp%State)
+            call gApp%WriteRestart('')
         endif
 
         call Toc("IO")

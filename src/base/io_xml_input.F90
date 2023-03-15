@@ -396,10 +396,14 @@ module XML_Input
       !   This subroutine should be the most widely used for users as
       !   it does not care about the type the user wishes to set.
       !   Errors will be thrown should a problem arise in dectecting the type
+      procedure :: GetIsVerbose
+      procedure :: SetVerbose
       procedure :: BeQuiet
 
       procedure :: GetFileStr
       procedure :: GetRootStr
+      procedure :: SetRootStr
+
    end type XML_Input_T
 
 contains
@@ -418,9 +422,31 @@ contains
       fStr = this%root
    end subroutine GetRootStr
 
+   subroutine SetRootStr(this,fStr)
+      class(XML_Input_T) :: this
+      character(len=*), intent(in) :: fStr
+
+      this%root = trim(fStr)
+   end subroutine SetRootStr
+
+   subroutine GetIsVerbose(this, vrbOut)
+      class(XML_Input_T) :: this
+      logical, intent(out) :: vrbOut
+
+      vrbOut = this%vrb
+   end subroutine GetIsVerbose
+
+   subroutine SetVerbose(this, setVrb)
+      class(XML_Input_T) :: this
+      logical, intent(in) :: setVrb
+
+      this%vrb = setVrb
+   end subroutine SetVerbose
+
    subroutine BeQuiet(this)
       class(XML_Input_T) :: this
-      this%vrb = .false.
+
+      call SetVerbose(this, .false.)
    end subroutine BeQuiet
 
    subroutine Set_Real_RpSp(this, val, xmlp, dflt)
