@@ -91,7 +91,7 @@
 # This PBS job script will run the serial version of the kaiju
 # software on the helio_serial quickstart case.
 
-# This job should run in roughly XX minutes of wall-clock time on
+# This job should run in roughly 2 hour, 54 minutes of wall-clock time on
 # pleiades.  On cheyenne, the job should run in roughly XXX.
 
 # Example usage
