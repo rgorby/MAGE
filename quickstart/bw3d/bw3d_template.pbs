@@ -63,7 +63,7 @@
 # problem into MPI ranks is specified by the XML elements <iPdir>, <jPdir>,
 # and <kPdir>. This breakdown is implemented on the resource request line by
 # using select=N/2, where N=iPdir*jPdir*kPdir. This tells PBS to give you
-# N/2 nodes, eavh of which will run 2 MPI ranks. More simply:
+# N/2 nodes, each of which will run 2 MPI ranks. More simply:
 # iPdir*jPdir*kPdir = select*mpiprocs
 #PBS -l select=4:ncpus=28:mpiprocs=2:ompthreads=14:model=bro
 
