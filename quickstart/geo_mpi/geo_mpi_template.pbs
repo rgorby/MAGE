@@ -1,6 +1,6 @@
 #!/bin/bash
 
-# This PBS script illustrates how to run the "bw3d" model using the MPI
+# This PBS script illustrates how to run the "geo_mpi" model using the MPI
 # version of the kaiju software.
 
 # The lines starting with "#PBS" are directives for the PBS job control
@@ -12,11 +12,11 @@
 
 # Provide a useful name for this PBS jpb. This name will appear in the "qstat"
 # output for this job.
-#PBS -N bw3d
+#PBS -N geo_mpi
 
 # Combine job script std(o)ut and std(e)rr into stdout. This combined
-# output will be saved in the file bw3d.oJOB_NUM, where JOB_NUM is the PBS job
-# number assigned when the job is submitted. Note that the output from the
+# output will be saved in the file geo_mpi.oJOB_NUM, where JOB_NUM is the PBS
+# job number assigned when the job is submitted. Note that the output from the
 # kaiju software itself is captured in a separate file (see below).
 #PBS -j oe
 
@@ -24,7 +24,7 @@
 # hh:mm:ss, where hh is hours, mm is minutes, and ss is seconds. Set this
 # value high enough to ensure that your job runs to completion, but low ehough
 # to stay within the time limits of the queue you are submitting to.
-#PBS -l walltime=00:20:00
+#PBS -l walltime=04:00:00
 
 # Send an email to the address specified in -M when the job is (a)borted,
 # (b)egins, and/or (e)nds.
@@ -48,7 +48,7 @@
 #PBS -q normal
 
 # This is the line where you request specific resources from the PBS system.
-# select=4 -> Request 4 compute nodes.
+# select=2 -> Request 2 compute nodes.
 # ncpus=28 -> Each compute node must have at least 28 cores. This requirement
 # implies the use of the 2-socket, 14 cores/socket Broadwell nodes.
 # mpiprocs=2 -> Each node will run 2 MPI ranks of the kaiju code. NOTE: This
@@ -59,13 +59,15 @@
 # model=bro -> Each compute node must contain Broadwell chips. Specifying
 # "model" is a HECC-specific PBS requirement. The node(s) may be on pleiades
 # OR electra (not both), using whichever system is available first.
+# Everything after the "+" is am additional equest for resources for "helper"
+# applications in the MPI kaiju code.
 # IMPORTANT NOTE: In the XML file for your run, the "decomposition" of the
 # problem into MPI ranks is specified by the XML elements <iPdir>, <jPdir>,
 # and <kPdir>. This breakdown is implemented on the resource request line by
 # using select=N/2, where N=iPdir*jPdir*kPdir. This tells PBS to give you
-# N/2 nodes, eavh of which will run 2 MPI ranks. More simply:
+# N/2 nodes, each of which will run 2 MPI ranks. More simply:
 # iPdir*jPdir*kPdir = select*mpiprocs
-#PBS -l select=4:ncpus=28:mpiprocs=2:ompthreads=14:model=bro
+#PBS -l select=2:ncpus=28:mpiprocs=2:ompthreads=14:model=bro+1:ncpus=28:mpiprocs=1:ompthreads=28:model=bro
 
 #-----------------------------------------------------------------------------
 
@@ -83,21 +85,21 @@
 # This is the line where you request specific resources from the PBS system.
 # See the comments above the pleiades example above for an explanation of the
 # components of this line.
-##PBS -l select=4:ncpus=36:mpiprocs=2:ompthreads=18
+##PBS -l select=2:ncpus=36:mpiprocs=2:ompthreads=18
 
 #------------------------------------------------------------------------------
 # END OF PBS DIRECTIVES
 #------------------------------------------------------------------------------
 
 # This PBS job script will run the MPI version of the kaiju software on the
-# bw3d quickstart case.
+# geo_mpi quickstart case.
 
-# This job should run in roughly 8.5 minutes of wall-clock time on pleiades,
-# when run using the default 4-node configuration.
+# This job should run in roughly XX minutes of wall-clock time on pleiades,
+# when run using the default XX-node configuration.
 # On cheyenne, the job should run in roughly XXX.
 
 # Example usage
-# qsub -v bw3d.pbs
+# qsub -v geo_mpi.pbs
 
 echo "Job $PBS_JOBID started at `date` on `hostname`."
 
@@ -146,6 +148,13 @@ export KAIJU_INSTALL_DIR=$HOME/kaiju
 source $KAIJU_INSTALL_DIR/scripts/setupEnvironment.sh
 
 # Add the kaiju binary directory to the command path.
+export PATH=$KAIJUHOME/build_mpi/bin:$PATH
+
+# Add the kaiju quickstart code for this model to the PATH.
+export KAIJU_QUICKSTART_DIR=$KAIJUHOME/quickstart
+export PATH=$KAIJU_QUICKSTART_DIR/geo_mpi:$PATH
+
+# Add the kaiju binary directory to the command path.
 # NOTE: You should set this variable to the path to the bin subdirectory of
 # your kaiju build directory. The setting below assumes that the MPI version
 # of kaiju was built in the build_mpi subdirectory of the kaiju home directory
@@ -173,7 +182,7 @@ echo "The active environment variables are:"
 printenv
 
 # Run the model. Direct output from the program is saved in a text file.
-EXE=gamera_mpi.x
+EXE=voltron_mpi.x
 echo "Running $EXE on model $RUNID."
 # The omplace tool is used to ensure efficient pinning of MPI ranks and OMP
 # threads to appropriate sockets and cores. If you omit omplace, your job

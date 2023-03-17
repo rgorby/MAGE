@@ -1,11 +1,11 @@
 #!/usr/bin/env python
 
 
-"""Prepare the PBS script for a geo_mpi job.
+"""Prepare for running MPI kaiju on the geo_mpi example.
 
-Perform the preprocessing required to run the MPI voltron code on
-the geo_mpi example. Create any required data files, and create the
-PBS script to run the code.
+Perform the preprocessing required to run the MPI kaiju code on the geo_mpi
+example. Create any required data files, and create the PBS script to run the
+code.
 """
 
 
@@ -26,27 +26,19 @@ import subprocess
 default_runid = "geo_mpi"
 
 # Program description.
-description = "Prepare to run MPI voltron on the %s test case." % default_runid
+description = "Prepare to run MPI kaiju on the %s model." % default_runid
 
 # Location of template .ini file.
 ini_template = os.path.join(
-    os.environ["KAIJUHOME"], "quickstart", default_runid, "%s.ini.template"
-    % default_runid
-)
-
-# Location of template XML file.
-xml_template = os.path.join(
-    os.environ["KAIJUHOME"], "quickstart", default_runid, "%s.xml.template"
+    os.environ["KAIJUHOME"], "quickstart", default_runid, "%s_template.ini"
     % default_runid
 )
 
 # Location of template PBS script.
 pbs_template = os.path.join(
-    os.environ["KAIJUHOME"], "quickstart", default_runid, "%s.pbs.template"
+    os.environ["KAIJUHOME"], "quickstart", default_runid, "%s_template.pbs"
     % default_runid
 )
-# Name of HDF5 file containing solar wind data for initial conditions.
-sw_file_name = "bcwind.h5"
 
 
 def create_command_line_parser():

@@ -3,9 +3,9 @@
 
 """Prepare for running MPI kaiju on the bw3d example.
 
-Perform the preprocessing required to run the MPI kaiju code on the
-bw3d example. Create any required data files, and create the PBS
-script to run the code.
+Perform the preprocessing required to run the MPI kaiju code on the bw3d
+example. Create any required data files, and create the PBS script to run
+the code.
 """
 
 
