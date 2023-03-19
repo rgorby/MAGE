@@ -85,7 +85,7 @@
 # This is the line where you request specific resources from the PBS system.
 # See the comments above the pleiades example above for an explanation of the
 # components of this line.
-##PBS -l select=2:ncpus=36:mpiprocs=2:ompthreads=18
+##PBS -l select=2:ncpus=36:mpiprocs=2:ompthreads=18+1:ncpus=36:mpiprocs=1:ompthreads=36
 
 #------------------------------------------------------------------------------
 # END OF PBS DIRECTIVES
@@ -146,13 +146,6 @@ export KAIJU_INSTALL_DIR=$HOME/kaiju
 # Set kaiju-related environment variables.
 # This script sets KAIJUHOME and other environment variables.
 source $KAIJU_INSTALL_DIR/scripts/setupEnvironment.sh
-
-# Add the kaiju binary directory to the command path.
-export PATH=$KAIJUHOME/build_mpi/bin:$PATH
-
-# Add the kaiju quickstart code for this model to the PATH.
-export KAIJU_QUICKSTART_DIR=$KAIJUHOME/quickstart
-export PATH=$KAIJU_QUICKSTART_DIR/geo_mpi:$PATH
 
 # Add the kaiju binary directory to the command path.
 # NOTE: You should set this variable to the path to the bin subdirectory of

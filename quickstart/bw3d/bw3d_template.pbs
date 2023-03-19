@@ -92,8 +92,7 @@
 # This PBS job script will run the MPI version of the kaiju software on the
 # bw3d quickstart case.
 
-# This job should run in roughly 8.5 minutes of wall-clock time on pleiades,
-# when run using the default 4-node configuration.
+# This job should run in roughly 10 minutes of wall-clock time on pleiades.
 # On cheyenne, the job should run in roughly XXX.
 
 # Example usage
