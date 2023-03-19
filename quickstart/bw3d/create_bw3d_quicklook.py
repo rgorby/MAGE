@@ -7,7 +7,8 @@ The quick-look plot displays the magnetic pressure:
 
 Pb = 0.5*(Bx**2 + By**2 + Bz**2)
 
-from the first and nth steps in the HDF file.
+from the first and nth steps in the HDF file, with an overlayt of the
+magnetic field lines.
 """
 
 
@@ -32,7 +33,7 @@ import kaipy.gamera.gampp as gampp
 default_runid = "bw3d"
 
 # Program description.
-description = "Create a quick-look plot (Pb at start and end) for the %s test case." % default_runid
+description = "Create a quick-look plot for the %s example." % default_runid
 
 # Some RGB colors
 light_grey = (0.5, 0.5, 0.5)
@@ -41,8 +42,8 @@ transparent_red = (1.0, 0, 0, 0.5)
 
 def create_command_line_parser():
     """Create the command-line argument parser.
-    
-    Ceate the parser for command-line arguments.
+
+    Create the command-line argument parser.
 
     Parameters
     ----------
@@ -119,9 +120,9 @@ def determine_mpi_grid_shape(directory, runid):
 
 
 def create_quicklook_plot(directory, runid):
-    """Create the quicklook plot for the bw3d run.
+    """Create the quicklook plot for the run.
 
-    Create the quicklook plot for the bw3d run.
+    Create the quicklook plot for the run.
 
     Parameters
     ----------
@@ -135,7 +136,6 @@ def create_quicklook_plot(directory, runid):
     figure_file_name : str
         Path to quicklook plot file.
     """
-
     # Determine the shape of the MPI grid.
     (n_x, n_y, n_z) = determine_mpi_grid_shape(directory, runid)
 
@@ -189,7 +189,6 @@ def create_quicklook_plot(directory, runid):
     By_last = data_pipe.GetVar("By", step, doVerb=False)[..., kz_0]
 
     # Plot parameters
-    name = "Pressure at z = %s" % z_0
     units = "code units"
     vmin = 0
     vmax = 1
@@ -202,8 +201,10 @@ def create_quicklook_plot(directory, runid):
     # with MPI tiling.
     axes[0].set_aspect("equal")
     axes[0].set_ylabel("Y")
-    values = axes[0].pcolormesh(X, Y, P_first, cmap="viridis", vmin=vmin, vmax=vmax)
-    axes[0].streamplot(XTC, YTC, Bx_first.T, By_first.T, linewidth=0.5, color="tab:orange", density=[0.5, 1])
+    values = axes[0].pcolormesh(X, Y, P_first, cmap="viridis", vmin=vmin,
+                                vmax=vmax)
+    axes[0].streamplot(XTC, YTC, Bx_first.T, By_first.T, linewidth=0.5,
+                       color="tab:orange", density=[0.5, 1])
     for x in mpi_tiles_x[1:-1]:
         axes[0].axvline(x, linestyle="--", linewidth=0.5, color=light_grey)
     for y in mpi_tiles_y[1:-1]:
@@ -215,8 +216,10 @@ def create_quicklook_plot(directory, runid):
     axes[1].set_aspect("equal")
     axes[1].set_xlabel("X")
     axes[1].set_ylabel("Y")
-    values = axes[1].pcolormesh(X, Y, P_last, cmap="viridis", vmin=vmin, vmax=vmax)
-    axes[1].streamplot(XTC, YTC, Bx_last.T, By_last.T, linewidth=0.5, color="tab:orange", density=[0.5, 1])
+    values = axes[1].pcolormesh(X, Y, P_last, cmap="viridis", vmin=vmin,
+                                vmax=vmax)
+    axes[1].streamplot(XTC, YTC, Bx_last.T, By_last.T, linewidth=0.5,
+                       color="tab:orange", density=[0.5, 1])
     for x in mpi_tiles_x[1:-1]:
         axes[1].axvline(x, linestyle="--", linewidth=0.5, color=light_grey)
     for y in mpi_tiles_y[1:-1]:
@@ -239,7 +242,7 @@ def create_quicklook_plot(directory, runid):
 
 
 if __name__ == "__main__":
-    """Make a quick-look plot for the bw3d example run."""
+    """Begin main program."""
 
     # Set up the command-line parser.
     parser = create_command_line_parser()
