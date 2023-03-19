@@ -15,14 +15,14 @@
 #PBS -N loop2d
 
 # Combine job script std(o)ut and std(e)rr into stdout. This combined
-# output will be saved in the file loop2d.oJOB_NUM, where JOB_NUM is the PBS job
-# number assigned when the job is submitted. Note that the output from the
+# output will be saved in the file loop2d.oJOB_NUM, where JOB_NUM is the PBS
+# job number assigned when the job is submitted. Note that the output from the
 # kaiju software itself is captured in a separate file (see below).
 #PBS -j oe
 
 # Request compute time on the allocated compute node(s). The format is
 # hh:mm:ss, where hh is hours, mm is minutes, and ss is seconds. Set this
-# value high enough to ensure that your job runs to completion, but low ehough
+# value high enough to ensure that your job runs to completion, but low enough
 # to stay within the time limits of the queue you are submitting to.
 #PBS -l walltime=00:05:00
 
@@ -72,7 +72,7 @@
 ##PBS -q regular
 
 # This is the line where you request specific resources from the PBS system.
-# See the comments above the pleiades example above for an explanation of the
+# See the comments in the pleiades example above for an explanation of the
 # components of this line.
 ##PBS -l select=1:ncpus=36:ompthreads=36
 
@@ -80,11 +80,11 @@
 # END OF PBS DIRECTIVES
 #------------------------------------------------------------------------------
 
-# This PBS job script will run the serial version of the kaiju
-# software on the loop2d quickstart case.
+# This PBS job script will run the serial version of the kaiju software on the
+# loop2d quickstart case.
 
-# This job should run in roughly a minute of wall-clock time on pleiades.
-# On cheyenne, the job should run in roughly XXX.
+# On pleiades, this job should run in roughly a minute of wall-clock time.
+# On cheyenne, the job should run in roughly XXX of wall-clock time.
 
 # Example usage
 # qsub -v loop2d.pbs
@@ -105,8 +105,7 @@ export RUNID=$PBS_JOBNAME
 # build time (for example, if you used a GNU compiler), update this
 # list to use the modules from your build-time environment.
 
-# Comment out the module lines for all systems except the one you are
-# using.
+# Comment out the module lines for all systems except the one you are using.
 module purge
 
 # For pleiades/electra:
