@@ -63,7 +63,8 @@ def getRootVars(fname,gDims):
 				doV = False
 			if ((vID == "X") or (vID=="Y") or (vID=="Z")):
 				doV = False
-			if (doV):
+			# For now, ignore anything burried in groups
+			if (doV and type(hf[k]) != h5py._hl.group.Group):
 				Nv = hf[k].shape
 				vLoc = getLoc(gDims,Nv)
 				if (vLoc != "Other"):

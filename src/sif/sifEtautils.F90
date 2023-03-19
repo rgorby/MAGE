@@ -29,9 +29,9 @@ module sifetautils
         ! TODO: Logical check to determine which distribution we should do.
         !       Hard coding as Kappa for now
 
-        write(*,*)"flav=",spc%flav,"N=",spc%N
+        !write(*,*)"flav=",spc%flav,"N=",spc%N
         !do k=1,spc%N-1
-        do k=1,1
+        do k=1,spc%N
             eta(k) = Kappa2Eta(D,kT,vm, spc%alami(k),spc%alami(k+1))
         enddo
 
@@ -74,9 +74,9 @@ module sifetautils
 
         A0 = (2/sqrt(PI)) * D/(vm**1.5)*1e9  ! [#/cc * Rx/T]
         etak = A0*kapgam/(kapbar**1.5) * sqrt(E_ev/E0_ev)*delscl*((kArg)**(-kap-1.0))
-        write(*,*)"D=",D,"vm=",vm
-        write(*,*)"  A0=",A0,"delscl=",delscl
-        write(*,*)"  etaK=",etaK
+        !write(*,*)"D=",D,"vm=",vm
+        !write(*,*)"  A0=",A0,"delscl=",delscl
+        !write(*,*)"  etaK=",etaK
 
     end function Kappa2Eta
 

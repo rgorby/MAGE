@@ -176,13 +176,13 @@ module sifstarter
         allocate( State%Pavg(Grid%shGrid%Nt, Grid%shGrid%Np, Grid%nSpc) )
         allocate( State%Davg(Grid%shGrid%Nt, Grid%shGrid%Np, Grid%nSpc) )
         ! Bmin surface
-        allocate( State%Bmin  (Grid%shGrid%Nt, Grid%shGrid%Np, 3 ) )
-        allocate( State%xyzMin(Grid%shGrid%Nt, Grid%shGrid%Np, 3 ) )
+        allocate( State%Bmin  (Grid%shGrid%Nt  , Grid%shGrid%Np  , 3 ) )
+        allocate( State%xyzMin(Grid%shGrid%Nt+1, Grid%shGrid%Np+1, 3 ) )
         ! 2D quantities
         allocate( State%topo  (Grid%shGrid%Nt, Grid%shGrid%Np) )
         allocate( State%active(Grid%shGrid%Nt, Grid%shGrid%Np) )
-        allocate( State%latc  (Grid%shGrid%Nt, Grid%shGrid%Np) )
-        allocate( State%lonc  (Grid%shGrid%Nt, Grid%shGrid%Np) )
+        allocate( State%thc   (Grid%shGrid%Nt, Grid%shGrid%Np) )
+        allocate( State%phc   (Grid%shGrid%Nt, Grid%shGrid%Np) )
         allocate( State%espot (Grid%shGrid%Nt, Grid%shGrid%Np) )
         allocate( State%bvol  (Grid%shGrid%Nt, Grid%shGrid%Np) )
         ! Coupling output data

@@ -20,7 +20,7 @@ module sifIO
         integer :: i
         logical :: fExist
         real(rp), dimension(:,:), allocatable :: lat2D, lon2D
-        type(IOVAR_T), dimension(6) :: IOVars
+        type(IOVAR_T), dimension(MAXIOVAR) :: IOVars
         character(len=strLen) :: gStr
 
         doRoot = .false. ! Don't call again
@@ -70,9 +70,11 @@ module sifIO
         do i=1,Grid%nSpc
             call ClearIO(IOVars)
             ! Attrs
-            call AddOutVar(IOVars,"flav" ,spc(i)%flav )
-            call AddOutVar(IOVars,"N"    ,spc(i)%N    )
-            call AddOutVar(IOVars,"fudge",spc(i)%fudge)
+            call AddOutVar(IOVars,"flav"  ,spc(i)%flav  )
+            call AddOutVar(IOVars,"N"     ,spc(i)%N     )
+            call AddOutVar(IOVars,"fudge" ,spc(i)%fudge )
+            call AddOutVar(IOVars,"kStart",spc(i)%kStart-1)  ! Change to assume zero-based
+            call AddOutVar(IOVars,"kEnd"  ,spc(i)%kEnd  -1)  ! Change to assume zero-based
             ! Datasets
             call AddOutVar(IOVars,"alami",spc(i)%alami,uStr="eV * (Rx/nT)^(2/3)")
             write(gStr,'(I0)') spc(i)%flav  ! Idk if this is the easiest way to format ints as strings
@@ -106,17 +108,17 @@ module sifIO
 
         ! Add State variables
         call AddOutVar(IOVars,"bmin",State%Bmin,uStr="nT")
-        call AddOutVar(IOVars,"xmin",State%xyzmin(:,:,1),uStr="Rx")
-        call AddOutVar(IOVars,"ymin",State%xyzmin(:,:,2),uStr="Rx")
-        call AddOutVar(IOVars,"zmin",State%xyzmin(:,:,3),uStr="Rx")
+        call AddOutVar(IOVars,"xmin",State%xyzmin(:,:,XDIR),uStr="Rx")
+        call AddOutVar(IOVars,"ymin",State%xyzmin(:,:,YDIR),uStr="Rx")
+        call AddOutVar(IOVars,"zmin",State%xyzmin(:,:,ZDIR),uStr="Rx")
 
         call AddOutVar(IOVars,"eta",State%eta,uStr="#/cm^3 * Rx/nT") !! TODO: Maybe swap with intensity instead
 
         call AddOutVar(IOVars,"topo",State%topo*1.0_rp,uStr="0=Open, 1=Closed")
         call AddOutVar(IOVars,"active",State%active*1.0_rp,uStr="-1=Inactive, 0=Buffer, 1=Active")
         call AddOutVar(IOVars,"espot",State%espot,uStr="kV")
-        call AddOutVar(IOVars,"latc",State%latc,uStr="radians")
-        call AddOutVar(IOVars,"lonc",State%lonc,uStr="radians")
+        call AddOutVar(IOVars,"colatc",State%thc,uStr="radians")
+        call AddOutVar(IOVars,"lonc"  ,State%phc,uStr="radians")
         call AddOutVar(IOVars,"bVol",State%bvol,uStr="Rx/nT")
 
         call WriteVars(IOVars,.true.,Model%SIFIO%SIFH5, gStr)
