@@ -93,7 +93,7 @@ def run_preprocessing_steps(directory, runid):
     # The bw3d example does not require any preprocessing steps.
 
 
-def create_ini_file(directory:str, runid:str):
+def create_ini_file(directory, runid):
     """Create the .ini file from a template.
 
     Create the .ini file from a template.
@@ -109,7 +109,6 @@ def create_ini_file(directory:str, runid:str):
     -------
     ini_file : str
         Path to .ini file.
-
     """
     # Read the file template.
     with open(ini_template) as t:
@@ -124,7 +123,7 @@ def create_ini_file(directory:str, runid:str):
     return ini_file
 
 
-def convert_ini_to_xml(ini_file:str, xml_file:str):
+def convert_ini_to_xml(ini_file, xml_file):
     """Convert the .ini file to XML.
 
     Convert the .ini file to a .xml file.
@@ -145,7 +144,7 @@ def convert_ini_to_xml(ini_file:str, xml_file:str):
     subprocess.run([cmd] + args)
 
 
-def create_pbs_job_script(directory:str, runid:str):
+def create_pbs_job_script(directory, runid):
     """Create the PBS job script for the run.
 
     Create the PBS job script from a template.
