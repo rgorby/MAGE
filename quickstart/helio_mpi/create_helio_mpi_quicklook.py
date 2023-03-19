@@ -28,7 +28,7 @@ description = "Create a quick-look plot for the %s example." % default_runid
 
 def create_command_line_parser():
     """Create the command-line argument parser.
-    
+
     Create the command-line argument parser.
 
     Parameters
@@ -83,6 +83,7 @@ def create_quicklook_plot(directory, runid):
     # Move to the directory containing the results.
     os.chdir(directory)
 
+    # Run the quicklook generation script.
     cmd = "heliopic.py"
     args = []
     subprocess.run([cmd] + args)
