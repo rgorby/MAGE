@@ -55,7 +55,7 @@
 # value should always be 2 for the kaiju software.
 # ompthreads=14 -> Each MPI rank will run 14 OMP threads. Note that this will
 # also cause the OMP_THREADS environment variable to be set to 14. This value
-# should always be 14 on pleiades and electra.
+# should always be 14 for MPI jobs on pleiades and electra.
 # model=bro -> Each compute node must contain Broadwell chips. Specifying
 # "model" is a HECC-specific PBS requirement. The node(s) may be on pleiades
 # OR electra (not both), using whichever system is available first.
