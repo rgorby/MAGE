@@ -46,7 +46,7 @@ sw_file_name = "bcwind.h5"
 
 def create_command_line_parser():
     """Create the command-line argument parser.
-    
+
     Create the parser for command-line arguments.
 
     Parameters
@@ -140,7 +140,7 @@ def run_preprocessing_steps(directory, runid, startdate, stopdate, swfile=None):
     args = []
     subprocess.run([cmd] + args)
 
-    # Move back to the originaldirectory.
+    # Move back to the original directory.
     os.chdir(original_directory)
 
 
@@ -160,6 +160,7 @@ def create_ini_file(directory, runid):
     -------
     ini_file : str
         Path to .ini file.
+
     """
     # Read the file template.
     with open(ini_template) as t:

@@ -48,8 +48,8 @@ default_wsa2gamera_ini_path = os.path.join(
 
 def create_command_line_parser():
     """Create the command-line argument parser.
-    
-    Ceate the parser for command-line arguments.
+
+    Create the parser for command-line arguments.
 
     Parameters
     ----------
@@ -57,7 +57,7 @@ def create_command_line_parser():
 
     Returns
     -------
-    parser : argparse.ArgumentParser
+    parse : argparse.ArgumentParser
         Parser for command-line arguments.
     """
     parser = argparse.ArgumentParser(description=description)
@@ -149,16 +149,16 @@ def create_ini_file(directory, runid):
 
 def convert_ini_to_xml(ini_file, xml_file):
     """Convert the .ini file to XML.
-    
+
     Convert the .ini file to a .xml file.
 
     Parameters
     ----------
     ini_file : str
-        Path to the .ini file to convert.
+        Path to .ini file to convert.
     xml_file : str
-        Path to the resulting XML file.
-    
+        Path to .xml file to create.
+
     Returns
     -------
     None
