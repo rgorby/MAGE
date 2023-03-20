@@ -24,7 +24,7 @@
 # hh:mm:ss, where hh is hours, mm is minutes, and ss is seconds. Set this
 # value high enough to ensure that your job runs to completion, but low ehough
 # to stay within the time limits of the queue you are submitting to.
-#PBS -l walltime=04:00:00
+#PBS -l walltime=02:00:00
 
 # Send an email to the address specified in -M when the job is (a)borted,
 # (b)egins, and/or (e)nds.
