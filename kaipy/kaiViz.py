@@ -10,78 +10,103 @@ from matplotlib.colors import Normalize
 
 
 #Create 2D equatorial grid (Ni,Nj*2+1) from lfm/egg-style
-def genEQGrid(fIn):
-    with h5py.File(fIn,'r') as hf:
-        Nk,Nj,Ni = hf.get("X")[()].shape
-        X3 = hf.get("X")[()].T
-        Y3 = hf.get("Y")[()].T
-        Z3 = hf.get("Z")[()].T
-    print("Ni,Nj,Nk = %d,%d,%d"%(Ni,Nj,Nk))
-    #Create grid
-    Nr = Ni-1
-    Np = 2*(Nj-1)
-    xx = np.zeros((Nr+1,Np+1))
-    yy = np.zeros((Nr+1,Np+1))
+# def genEQGrid(fIn):
+#     with h5py.File(fIn,'r') as hf:
+#         Nk,Nj,Ni = hf.get("X")[()].shape
+#         X3 = hf.get("X")[()].T
+#         Y3 = hf.get("Y")[()].T
+#         Z3 = hf.get("Z")[()].T
+#     print("Ni,Nj,Nk = %d,%d,%d"%(Ni,Nj,Nk))
+#     #Create grid
+#     Nr = Ni-1
+#     Np = 2*(Nj-1)
+#     xx = np.zeros((Nr+1,Np+1))
+#     yy = np.zeros((Nr+1,Np+1))
 
-    for i in range(Nr+1):
-        for j in range(Nj):
-            xx[i,j] = X3[i,j,0]
-            yy[i,j] = Y3[i,j,0]
-        for j in range(Nj,Np+1):
-            jp = Np-j
-            xx[i,j] =  X3[i,jp,0]
-            yy[i,j] = -Y3[i,jp,0]
-    return xx,yy
-def getEQVar(fIn,StpN=0,vID="D"):
-    gID = "Step#%d"%(StpN)
-    with h5py.File(fIn,'r') as hf:
-        V = hf.get(gID).get(vID)[()].T
-        Ni,Nj,Nk = V.shape #Cell-centered (not node)
-    Nr = Ni
-    Np = 2*(Nj)
-    kp = (Nk)/2
-    vv = np.zeros((Nr,Np))
-    for i in range(Nr):
-        for j in range(Np):
-            if (j>=Nj):
-                jp = Np-j-1
-                vv[i,j] = V[i,jp,kp]
-            else:
-                jp = j
-                vv[i,j] = V[i,jp,0]
-    return vv
+#     for i in range(Nr+1):
+#         for j in range(Nj):
+#             xx[i,j] = X3[i,j,0]
+#             yy[i,j] = Y3[i,j,0]
+#         for j in range(Nj,Np+1):
+#             jp = Np-j
+#             xx[i,j] =  X3[i,jp,0]
+#             yy[i,j] = -Y3[i,jp,0]
+#     return xx,yy
+# def getEQVar(fIn,StpN=0,vID="D"):
+#     gID = "Step#%d"%(StpN)
+#     with h5py.File(fIn,'r') as hf:
+#         V = hf.get(gID).get(vID)[()].T
+#         Ni,Nj,Nk = V.shape #Cell-centered (not node)
+#     Nr = Ni
+#     Np = 2*(Nj)
+#     kp = (Nk)/2
+#     vv = np.zeros((Nr,Np))
+#     for i in range(Nr):
+#         for j in range(Np):
+#             if (j>=Nj):
+#                 jp = Np-j-1
+#                 vv[i,j] = V[i,jp,kp]
+#             else:
+#                 jp = j
+#                 vv[i,j] = V[i,jp,0]
+#     return vv
 
 #Calculate equatorial Bz-D
-def getEQBzD(xx,yy,MagM=-EarthM0g):
-    Nip,Njp = xx.shape
-    Ni = Nip-1
-    Nj = Njp-1
+# def getEQBzD(xx,yy,MagM=-EarthM0g):
+#     Nip,Njp = xx.shape
+#     Ni = Nip-1
+#     Nj = Njp-1
 
-    BzD = np.zeros((Ni,Nj))
-    xxc = np.zeros((Ni,Nj))
-    yyc = np.zeros((Ni,Nj))
+#     BzD = np.zeros((Ni,Nj))
+#     xxc = np.zeros((Ni,Nj))
+#     yyc = np.zeros((Ni,Nj))
 
-    for i in range(Ni):
-        for j in range(Nj):
-            xc = 0.25*(xx[i,j]+xx[i+1,j]+xx[i,j+1]+xx[i+1,j+1])
-            yc = 0.25*(yy[i,j]+yy[i+1,j]+yy[i,j+1]+yy[i+1,j+1])
-            xxc[i,j] = xc
-            yyc[i,j] = yc
-            r = np.sqrt(xc**2.0+yc**2.0)
-            rm5 = r**(-5.0)
-            BzD[i,j] = -r*r*MagM*rm5
-    return xxc,yyc,BzD
+#     for i in range(Ni):
+#         for j in range(Nj):
+#             xc = 0.25*(xx[i,j]+xx[i+1,j]+xx[i,j+1]+xx[i+1,j+1])
+#             yc = 0.25*(yy[i,j]+yy[i+1,j]+yy[i,j+1]+yy[i+1,j+1])
+#             xxc[i,j] = xc
+#             yyc[i,j] = yc
+#             r = np.sqrt(xc**2.0+yc**2.0)
+#             rm5 = r**(-5.0)
+#             BzD[i,j] = -r*r*MagM*rm5
+#     return xxc,yyc,BzD
 
 #---------------------------------
 #Matplotlib helpers
 
-#Set axis bounds w/ aspect ratio
-def SetAx(xyBds=[-1,1,-1,1],ax=None,Adj='box'):
+
+def SetAx(xyBds=[-1, 1, -1, 1], ax=None, Adj='box'):
+    """Set axis plot bounds and aspect ratio.
+
+    Set axis plot bounds and aspect ratio.
+
+    Parameters
+    ----------
+    xyBds : list of 4 float, optional, default [-1, 1, -1, 1]
+        Axis limits for x and y as (xmin, xmax, ymin, ymax).
+    ax: matplotlib.Axes, optional, default None
+        Axes object to modify.
+    Adj: str, optional, default 'box
+        Specify what aspect of the plot to adjust to achieve equal aspect
+        ratio.
+
+    Returns
+    -------
+    None
+    """
+    # If no Axes object is specified, fetch the current Axes object.
     if ax is None:
         ax = plt.gca()
-    ax.set_xlim(xyBds[0],xyBds[1])
-    ax.set_ylim(xyBds[2],xyBds[3])
-    ax.set_aspect('equal',adjustable=Adj)
+
+    # Set the axis limits for x and y.
+    ax.set_xlim(xyBds[0], xyBds[1])
+    ax.set_ylim(xyBds[2], xyBds[3])
+
+    # Make the plot have an equal aspect ratio, adjusting positions as
+    # allowed by Adj.
+    ax.set_aspect('equal', adjustable=Adj)
+
 
 #Set axis labels and locations
 def SetAxLabs(Ax,xLab,yLab,doBot=True,doLeft=True,fs="medium"):
@@ -270,7 +295,7 @@ def labelStr(data, key, vecComp):
     else:
         label = (
             data['GAMERA_' + key].attrs['AXISLABEL'] +
-            ' [' + data['GAMERA_' + key].attrs['UNITS'].decode() + ']'
+            ' [' + data['GAMERA_' + key].attrs['UNITS'] + ']'
         )
     return label
 
@@ -289,26 +314,26 @@ def itemPlot(Ax,data,key,plotNum,numPlots,vecComp=-1):
         # </HACK>
         if key == "Velocity":
             maskedData = np.ma.masked_where(
-                data['GAMERA_inDom'][:]==0.0,
+                data["GAMERA_inDom"][:]==0.0,
                 data[key].flatten()[0]["VR"][:]
             )
             maskedGamera = np.ma.masked_where(
-                data['GAMERA_inDom'][:]==0.0, data['GAMERA_Speed'][:]
+                data["GAMERA_inDom"][:]==0.0, data['GAMERA_Speed'][:]
             )
         else:
             maskedData = np.ma.masked_where(
-                data['GAMERA_inDom'][:]==0.0, data[key][:]
+                data["GAMERA_inDom"][:]==0.0, data[key][:]
             )
             maskedGamera = np.ma.masked_where(
-                data['GAMERA_inDom'][:]==0.0, data['GAMERA_' + key][:]
+                data["GAMERA_inDom"][:]==0.0, data['GAMERA_' + key][:]
             )
         Ax.plot(data['Epoch_bin'],maskedData)
         Ax.plot(data['Epoch_bin'],maskedGamera)
     else:
-        maskedData = np.ma.masked_where(data['GAMERA_inDom'][:]==0.0,
+        maskedData = np.ma.masked_where(data["GAMERA_inDom"][:]==0.0,
             data[key][:,vecComp])
         Ax.plot(data['Epoch_bin'],maskedData)
-        maskedGamera = np.ma.masked_where(data['GAMERA_inDom'][:]==0.0,
+        maskedGamera = np.ma.masked_where(data["GAMERA_inDom"][:]==0.0,
             data['GAMERA_'+key][:,vecComp])
         Ax.plot(data['Epoch_bin'],maskedGamera)
     if (plotNum % 2) == 0:
@@ -327,30 +352,30 @@ def itemPlot(Ax,data,key,plotNum,numPlots,vecComp=-1):
 def compPlot(plotname,scId,data):
 
     numPlots = 0
-    keysToPlot = []
+    variables_to_plot = []
     keys = data.keys()
     #print(keys)
     if 'Density' in keys:
         numPlots = numPlots + 1
-        keysToPlot.append('Density')
+        variables_to_plot.append('Density')
     if 'Pressue' in keys:
         numPlots = numPlots + 1
-        keysToPlot.append('Pressue')
+        variables_to_plot.append('Pressue')
     if 'Temperature' in keys:
         numPlots = numPlots + 1
-        keysToPlot.append('Temperature')
+        variables_to_plot.append('Temperature')
     if 'MagneticField' in keys:
         numPlots = numPlots + 3
-        keysToPlot.append('MagneticField')
+        variables_to_plot.append('MagneticField')
     if 'Velocity' in keys:
         numPlots = numPlots + 3
-        keysToPlot.append('Velocity')
+        variables_to_plot.append('Velocity')
 
     figsize = (10,10)
     fig = plt.figure(figsize=figsize)
     gs = fig.add_gridspec(numPlots,1)
     plotNum = 0
-    for key in keysToPlot:
+    for key in variables_to_plot:
         #print('Plotting',key)
         if 'MagneticField' == key or 'Velocity' == key:
             doVecPlot = True
@@ -440,9 +465,15 @@ def get_aspect(ax):
 # spacecraft.
 
 
-def helioItemPlot(Ax,
-                  data,
-                  key:str, plotNum:int, numPlots:int, vecComp:int=-1):
+def helio_labelStr(data, key, vecComp):
+    label = (
+        data['GAMHELIO_' + key].attrs['AXISLABEL'] +
+        ' [' + data['GAMHELIO_' + key].attrs['UNITS'] + ']'
+    )
+    return label
+
+
+def helioItemPlot_new(Ax, sc_id, data, key, plotNum, numPlots, show_zero=False):
     """Plot a single variable for the comparison plot.
 
     Plot a single variable for the comparison plot.
@@ -459,47 +490,73 @@ def helioItemPlot(Ax,
         Position of plot in sequence of plots.
     numPlots: int
         Number of plots in sequence.
-    vecComp: int, default -1
-        Not used.
+    show_zero ": bool, default False
+        Set to True to show a black dashed line at the 0 level for the variable.
 
     Returns
     -------
     None
     """
-    if key == "Velocity":
+    # Extract the times and values which fall within the gamhelio simulation
+    # domain.
+    t = np.ma.masked_where(
+        data["GAMHELIO_inDom"][:] == 0.0, data["Ephemeris_time"][:]
+    )
+    observed = None
+    if key in data:
         observed = np.ma.masked_where(
-            data['GAMERA_inDom'][:] == 0.0, data[key].flatten()[0]["VR"][:]
+            data["GAMHELIO_inDom"][:] == 0.0, data[key][:]
         )
-        predicted = np.ma.masked_where(
-            data['GAMERA_inDom'][:]==0.0, data['GAMERA_Speed'][:]
-        )
+    # gamhelio results should always be available.
+    predicted = np.ma.masked_where(
+        data["GAMHELIO_inDom"][:] == 0.0, data["GAMHELIO_" + key][:]
+    )
+
+    # Show a black dotted line at y = 0 if requested.
+    if show_zero:
+        Ax.axhline(y=0, linestyle="--", color="black")
+
+    # Plot the observed and predicted data for the current variable.
+    # if key in data:
+    if observed is not None:
+        Ax.plot(t, observed)
     else:
-        observed = np.ma.masked_where(
-            data['GAMERA_inDom'][:] == 0.0, data[key][:]
+        fontsize = 18
+        Ax.plot(t, [None]*len(t))
+        Ax.text(
+            0.5, 0.5, "No spacecraft data available.",
+            transform=Ax.transAxes,
+            ha="center", va="center", fontsize=fontsize, color="darkgrey"
         )
-        predicted = np.ma.masked_where(
-            data['GAMERA_inDom'][:] == 0.0, data['GAMERA_' + key][:]
-        )
-    Ax.plot(data['Epoch_bin'], observed)
-    Ax.plot(data['Epoch_bin'], predicted)
-    if (plotNum % 2) == 0:
+    Ax.plot(t, predicted)
+
+    # Even-numbered plots (1-based) show the y-axis label on the left.
+    left = False
+    if plotNum % 2 == 1:
         left = True
-    else:
-        left = False
-    label = labelStr(data, key, vecComp)
-    if plotNum == numPlots - 1:
-        SetAxLabs(Ax, 'UT', label, doLeft=left)
+
+    # Compute the y-axis label string.
+    label = helio_labelStr(data, key, vecComp=-1)
+
+    # Show the x-axis on the last plot.
+    if plotNum == numPlots:
+        SetAxLabs(Ax, "UT", label, doLeft=left)
         SetAxDate(Ax)
     else:
         SetAxLabs(Ax, None, label, doLeft=left)
-    return
+
+    # Add the shared legend to the first plot.
+    if plotNum == 1:
+        Ax.legend([sc_id, "GAMHELIO"], loc="best")
 
 
-def helioCompPlot(plotname, scId, data):
+def helioCompPlot_new(plot_file_path, sc_id, sc_data):
     """Create comparison plots for heliospheric results.
 
     Create comparison plots for heliospheric results and save the plots to a
-    file.
+    file. The plots will compare simulation results to measured spacecraft
+    data. The compared variables are radial velocity, radial magnetic field,
+    number density, and temperature.
 
     Parameters
     ----------
@@ -515,50 +572,46 @@ def helioCompPlot(plotname, scId, data):
     None
     """
     # Determine which data are available to plot.
-    numPlots = 0
-    keysToPlot = []
-    keys = data.keys()
-    if "Speed" in keys:
-        keysToPlot.append("Speed")
-    if "Velocity" in keys:
-        keysToPlot.append("Velocity")
-    if "Br" in keys:
-        keysToPlot.append("Br")
-    if "Density" in keys:
-        keysToPlot.append("Density")
-    if "Temperature" in keys:
-        keysToPlot.append("Temperature")
-    numPlots = len(keysToPlot)
+    variables_to_plot = ["Speed", "Br", "Density", "Temperature"]
 
-    # Create the figure in memory to hold the plots.
+    # Compute the number of variables to plot.
+    n_plots = len(variables_to_plot)
+
+    # Create the figure in memory.
     mpl.use("AGG")
-    figsize = (10, 10)
-    fig = plt.figure(figsize=figsize)
-    gs = fig.add_gridspec(numPlots, 1)
 
-    # Plot each variabble in its own subplot.
-    plotNum = 0
-    for key in keysToPlot:
-        if plotNum == 0:
-            ax1 = fig.add_subplot(gs[plotNum, 0])
-            helioItemPlot(ax1, data, key, plotNum, numPlots)
-            plotNum += 1
-        else:
-            ax = fig.add_subplot(gs[plotNum, 0], sharex=ax1)
-            helioItemPlot(ax, data, key, plotNum, numPlots)
-            plotNum += 1
-    ax1.legend([scId, "GAMERA"], loc="best")
-    ax1.set_title(plotname)
+    # Create the figure.
+    HELIO_COMP_PLOT_FIGSIZE = (10, 10)
+    fig = plt.figure(figsize=HELIO_COMP_PLOT_FIGSIZE)
+
+    # Plot each variable in its own subplot.
+    for i in range(n_plots):
+        plotNum = i + 1
+        variable_name = variables_to_plot[i]
+        show_zero = False
+        if variable_name == "Br":
+            show_zero = True
+        ax = plt.subplot(n_plots, 1, plotNum)
+        helioItemPlot_new(
+            ax, sc_id, sc_data, variable_name,
+            plotNum, n_plots, show_zero=show_zero
+        )
+
+    # Use the plot file path as the figure title.
+    fig.suptitle(plot_file_path)
+
+    # Stack the plots directly on top of each other.
     plt.subplots_adjust(hspace=0)
 
     # Save the figure.
-    savePic(plotname, doClose=True)
+    savePic(plot_file_path, doClose=True)
 
 
-def helioTrajPlot(plot_name:str, scId:str, data):
-    """Create a set of trajectory plots for a heliospgeric spacecraft.
+def helioTrajPlot(plot_file_path, sc_id, sc_data):
+    """Create a set of trajectory plots for a heliospheric spacecraft.
 
-    Create a set of trajectory plots for a heliospgeric spacecraft.
+    Create a set of trajectory plots for a heliospheric spacecraft.
+    These plots are created in the original spacecraft frame.
 
     Parameters
     ----------
@@ -587,10 +640,10 @@ def helioTrajPlot(plot_name:str, scId:str, data):
     ax3 = fig.add_subplot(gs[0, 2])
 
     # Plot the components against each other.
-    if scId == "ACE":
-        X = data["Ephemeris"][:, 0]
-        Y = data["Ephemeris"][:, 1]
-        Z = data["Ephemeris"][:, 2]
+    if sc_id == "ACE":
+        X = sc_data["Ephemeris"][:, 0]
+        Y = sc_data["Ephemeris"][:, 1]
+        Z = sc_data["Ephemeris"][:, 2]
         ax1.plot(X, Y)
         ax1.set_xlabel("GSE X (km)")
         ax1.set_ylabel("GSE Y (km)")
@@ -601,27 +654,37 @@ def helioTrajPlot(plot_name:str, scId:str, data):
         ax3.set_xlabel("GSE Y (km)")
         ax3.set_ylabel("GSE Z (km)")
         fig.subplots_adjust(wspace=0.25)
-    elif scId == "Parker_Solar_Probe":
-        ax1.plot(data["heliographicLongitude"][:], data["radialDistance"][:])
-        ax1.set_xlabel("HGI longitude (deg)")
-        ax1.set_ylabel("HGI radius ($R_{sun})$")
-        ax2.plot(data["heliographicLatitude"][:], data["radialDistance"][:])
-        ax2.set_xlabel("HGI latitude (deg)")
-        ax2.set_ylabel("HGI radius ($R_{sun})$")
-        ax3.plot(data["heliographicLongitude"][:], data["heliographicLatitude"][:])
-        ax3.set_xlabel("HGI longitude (deg)")
-        ax3.set_ylabel("HGI latitude (deg)$")
+    # elif sc_id == "Parker_Solar_Probe":
+    #     ax1.plot(sc_data["heliographicLongitude"][:], sc_data["radialDistance"][:])
+    #     ax1.set_xlabel("HGI longitude (deg)")
+    #     ax1.set_ylabel("HGI radius ($R_{sun})$")
+    #     ax2.plot(sc_data["heliographicLatitude"][:], sc_data["radialDistance"][:])
+    #     ax2.set_xlabel("HGI latitude (deg)")
+    #     ax2.set_ylabel("HGI radius ($R_{sun})$")
+    #     ax3.plot(sc_data["heliographicLongitude"][:], sc_data["heliographicLatitude"][:])
+    #     ax3.set_xlabel("HGI longitude (deg)")
+    #     ax3.set_ylabel("HGI latitude (deg)$")
+    # elif sc_id == "STEREO_A":
+    #     ax1.plot(sc_data["HGI_LON"][:], sc_data["RAD_AU"][:])
+    #     ax1.set_xlabel("HGI longitude (deg)")
+    #     ax1.set_ylabel("HGI radius ($R_{sun})$")
+    #     ax2.plot(sc_data["HGI_LAT"][:], sc_data["RAD_AU"][:])
+    #     ax2.set_xlabel("HGI latitude (deg)")
+    #     ax2.set_ylabel("HGI radius ($R_{sun})$")
+    #     ax3.plot(sc_data["HGI_LON"][:], sc_data["HGI_LAT"][:])
+    #     ax3.set_xlabel("HGI longitude (deg)")
+    #     ax3.set_ylabel("HGI latitude (deg)$")
     else:
         raise TypeError
 
     # Apply the overall title.
     title = (
-        scId + " - " +
-        data["Epoch_bin"][0].strftime("%m/%d/%Y - %H:%M:%S") +
+        sc_id + " - " +
+        sc_data["Ephemeris_Epoch"][0].strftime("%m/%d/%Y - %H:%M:%S") +
         " to " +
-        data["Epoch_bin"][-1].strftime("%m/%d/%Y - %H:%M:%S")
+        sc_data["Ephemeris_Epoch"][-1].strftime("%m/%d/%Y - %H:%M:%S")
     )
     fig.suptitle(title)
 
     # Save the figure to a file.
-    savePic(plot_name, doClose=True)
+    savePic(plot_file_path, doClose=True)
