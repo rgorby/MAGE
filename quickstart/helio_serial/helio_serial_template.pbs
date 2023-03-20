@@ -10,9 +10,9 @@
 # START OF PBS DIRECTIVES
 #------------------------------------------------------------------------------
 
-# Provide a useful name for this PBS jpb. This name will appear in the "qstat"
+# Provide a useful name for this PBS job. This name will appear in the "qstat"
 # output for this job.
-#PBS -N helio_serial``
+#PBS -N helio_serial
 
 # Combine job script std(o)ut and std(e)rr into stdout. This combined
 # output will be saved in the file helio_serial.oJOB_NUM, where JOB_NUM is the
@@ -83,7 +83,7 @@
 # This PBS job script will run the serial version of the kaiju software on the
 # helio_serial quickstart case.
 
-# On pleiades, this job should run in roughly 82 minutes of wall-clock time.
+# On pleiades, this job should run in roughly 1h51m of wall-clock time.
 # On cheyenne, the job should run in roughly XXX of wall clock time.
 
 # Example usage

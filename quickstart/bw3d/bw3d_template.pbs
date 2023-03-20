@@ -10,7 +10,7 @@
 # START OF PBS DIRECTIVES
 #------------------------------------------------------------------------------
 
-# Provide a useful name for this PBS jpb. This name will appear in the "qstat"
+# Provide a useful name for this PBS job. This name will appear in the "qstat"
 # output for this job.
 #PBS -N bw3d
 
