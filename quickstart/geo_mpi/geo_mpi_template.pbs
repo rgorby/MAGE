@@ -94,8 +94,7 @@
 # This PBS job script will run the MPI version of the kaiju software on the
 # geo_mpi quickstart case.
 
-# This job should run in roughly XX minutes of wall-clock time on pleiades,
-# when run using the default XX-node configuration.
+# This job should run in roughly 75 minutes of wall-clock time on pleiades.
 # On cheyenne, the job should run in roughly XXX.
 
 # Example usage
