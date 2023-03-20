@@ -11,13 +11,14 @@ module shellInterp
 
     contains
 
-    ! Interpolate on grid shGr a cell-centered variable (Q) at point t(heta),p(hi)
+    ! Interpolate on grid shGr a cell-centered variable at point t(heta),p(hi)
+    ! The cell-centered variable is selected via the Qind parameter
     ! Result is Qinterp
     ! Optional : isGood (Nt,Np), a mask for good/bad data
     ! Optional : isGoodP, whether Qinterp is a good value
-    subroutine InterpShell(shGr,Q,t,pin,Qinterp,isGoodP,isGood)
+    subroutine InterpShell(shGr,Qind,t,pin,Qinterp,isGoodP,isGood)
         type(ShellGrid_T), intent(in) :: shGr
-        real(rp), intent(in)  :: Q(shGr%Nt,shGr%Np)
+        integer, intent(in)  :: Qind
         real(rp), intent(out) :: Qinterp
         real(rp), intent(in)  :: t,pin
         logical , intent(out), optional :: isGoodP
@@ -99,7 +100,7 @@ module shellInterp
                 if (ip<1)         ip = 1
                 if (ip>shGr%Nt) ip = shGr%Nt
 
-                Qs(n) = Q(ip,jp)
+                Qs(n) = shGr%shellVars(Qind)%cellData(ip,jp)
                 Ws(n) = wE(di)*wZ(dj)
                 
                 if (present(isGood)) then

@@ -5,6 +5,9 @@ module shellGrid
 
     ! Data type for holding 2D spherical shell grid
     type ShellGrid_T
+        integer :: nShellVars = 1 ! number of shell grid functions
+        type(shellGridFunction_T), dimension(:), allocatable :: shellVars
+
         integer :: Np,Nt ! Number of lon/lat cells (phi/theta)
         ! xxc = centers (Nx)
         ! xx  = corners (Nx+1)
@@ -29,26 +32,34 @@ module shellGrid
         logical :: isPhiUniform ! Define this to speed up search for interpolation
     end type ShellGrid_T
 
+    type ShellGridFunction_T
+        real(rp), dimension(:,:), allocatable :: cellData
+! corner data currently unused. If ever uncommented, need to allocate/init in initShellGridFunctions below
+!        real(rp), dimension(:,:), allocatable :: cornerData 
+        logical, dimension(4) :: bcsApplied ! flag indicating whether BCs were applied (ghosts filled) for [n,s,e,w] boundaries
+    end type ShellGridFunction_T
+
     contains
 
     ! Create a shell grid data structure
     ! Takes Theta and Phi 1D arrays (uniform or not)
     ! Decides if isPeriodic and isPhiUniform based on the Phi array passed in
-    subroutine GenShellGrid(shGr,Theta,Phi,Ngn,Ngs,Nge,Ngw)
+    subroutine GenShellGrid(shGr,Theta,Phi,nGhosts)
         type(ShellGrid_T), intent(inout) :: shGr
         real(rp), dimension(:), intent(in) :: Theta, Phi
-        integer, optional, intent(in) :: Ngn, Ngs, Nge, Ngw  ! how many ghosts on each side
+        integer, optional, dimension(4), intent(in) :: nGhosts ! how many ghosts on each side (n,s,e,w)
 
         integer :: i,j
-        integer :: Np, Nt
         real(rp) :: delta
         real(rp), dimension(:), allocatable :: dphi
 
         ! Parse optional parameters
-        if (present(Ngn)) shGr%Ngn = Ngn ! otherwise, always 0 as set in ShellGrid type
-        if (present(Ngs)) shGr%Ngs = Ngs ! otherwise, always 0 as set in ShellGrid type
-        if (present(Ngw)) shGr%Ngw = Ngw ! otherwise, always 1 as set in ShellGrid type
-        if (present(Nge)) shGr%Nge = Nge ! otherwise, always 1 as set in ShellGrid type
+        if (present(nGhosts)) then
+            shGr%Ngn = nGhosts(1) ! otherwise, always 0 as set in ShellGrid type
+            shGr%Ngs = nGhosts(2) ! otherwise, always 0 as set in ShellGrid type
+            shGr%Nge = nGhosts(3) ! otherwise, always 1 as set in ShellGrid type
+            shGr%Ngw = nGhosts(4) ! otherwise, always 1 as set in ShellGrid type
+        end if
 
         ! do some checks first
         if (.not.(isAscending(Theta))) then 
@@ -211,16 +222,37 @@ module shellGrid
            shGr%ph(je+1+j) = shGr%ph(js+j) + 2*PI
         end do
 
-        !Set centers
+        ! Set centers
         shGr%thc = ( shGr%th(isg+1:ieg+1) + shGr%th(isg:ieg) )/2.
         shGr%phc = ( shGr%ph(jsg+1:jeg+1) + shGr%ph(jsg:jeg) )/2.
 
-        shGr%minTheta = minval(shGr%th)
-        shGr%maxTheta = maxval(shGr%th)
-        shGr%minPhi   = minval(shGr%ph)
-        shGr%maxPhi   = maxval(shGr%ph)
+        ! Note, the bounds below only include the active cells
+        shGr%minTheta = minval(shGr%th(is:ie+1))
+        shGr%maxTheta = maxval(shGr%th(is:ie+1))
+        shGr%minPhi   = minval(shGr%ph(js:je+1))
+        shGr%maxPhi   = maxval(shGr%ph(js:je+1))
 
         end associate
+
+        ! finally, initialize the shell grid functions
+        ! nuke everything 
+        if (allocated(shGr%shellVars))   deallocate(shGr%shellVars)
+        allocate(shGr%shellVars(shGr%nShellVars)) 
+        do i=1,shGr%nShellVars
+            call initShellGridFunctions(shGr%shellVars(i))
+        end do
+
+        contains
+            subroutine initShellGridFunctions(shellVar)
+                type(shellGridFunction_T), intent(out) :: shellVar
+
+                if (.not.allocated(shellVar%cellData)) allocate(shellVar%cellData(shGr%Nt,shGr%Np))
+                shellVar%cellData = 0.  ! initialize to 0
+
+                ! unset all BC's
+                shellVar%bcsApplied = .false.
+                
+            end subroutine initShellGridFunctions
 
     end subroutine GenShellGrid
 end module shellGrid
