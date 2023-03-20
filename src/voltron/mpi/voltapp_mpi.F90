@@ -438,7 +438,7 @@ module voltapp_mpi
 
         ! perform initial deep update if appropriate
         call Tic("Coupling")
-        if (vApp%doDeep .and. vApp%time >= vApp%DeepT) then
+        if (vApp%time >= vApp%DeepT) then
             ! do deep
             call DeepUpdate_mpi(vApp, vApp%time)
         endif
@@ -529,8 +529,8 @@ module voltapp_mpi
         !Update coupling time now so that voltron knows what to expect
         vApp%DeepT = vApp%DeepT + vApp%DeepDT
 
-        ! only do imag after spinup
-        if(vApp%time > 0) then
+        ! only do imag after spinup with deep enabled
+        if(vApp%doDeep .and. vApp%time > 0) then
             call Tic("DeepUpdate")
             call PreDeep(vApp, vApp%gAppLocal)
             call SquishStart(vApp)
@@ -558,8 +558,8 @@ module voltapp_mpi
 
         vApp%deepProcessingInProgress = .false.
 
-        ! only do imag after spinup
-        if(vApp%time >= 0) then
+        ! only do imag after spinup with deep enabled
+        if(vApp%doDeep .and. vApp%time >= 0) then
             call Tic("DeepUpdate")
 
             if(vApp%useHelpers .and. vApp%doSquishHelp) then
@@ -638,11 +638,6 @@ module voltapp_mpi
         real(rp) :: tAdv
         integer :: ierr
 
-        if (.not. vApp%doDeep) then
-            !Why are you even here?
-            return
-        endif
-
         if(vApp%firstDeepUpdate) call firstDeep(vApp)
 
         if(vApp%doSerialVoltron) then
@@ -663,10 +658,6 @@ module voltapp_mpi
         real(rp) :: tAdv
         integer :: ierr
 
-        if (.not. vApp%doDeep) then
-            !Why are you even here?
-            return
-        else
             ! Update coupling DT
             vApp%DeepDT = vApp%TargetDeepDT
 
@@ -687,12 +678,13 @@ module voltapp_mpi
 
             ! send updated data to Gamera ranks
             call Tic("DeepSend")
-            call sendDeepData_mpi(vApp)
+            if(vApp%doDeep) then
+                call sendDeepData_mpi(vApp)
+            endif
 
             ! send next time for deep calculation to all gamera ranks
             call mpi_bcast(vApp%DeepT,1,MPI_MYFLOAT, vApp%myRank, vApp%voltMpiComm, ierr)
             call Toc("DeepSend")
-        endif
 
     end subroutine
 
@@ -703,11 +695,6 @@ module voltapp_mpi
         real(rp) :: tAdv
         integer :: ierr
 
-        if (.not. vApp%doDeep) then
-            !Why are you even here?
-            return
-        else
-
             ! send updated data to Gamera ranks
             call Tic("ShallowSend")
             call sendShallowData_mpi(vApp)
@@ -715,7 +702,9 @@ module voltapp_mpi
 
             ! send updated data to Gamera ranks
             call Tic("DeepSend")
-            call sendDeepData_mpi(vApp)
+            if(vApp%doDeep) then
+                call sendDeepData_mpi(vApp)
+            endif
 
             ! Update coupling DT
             vApp%DeepDT = vApp%TargetDeepDT
@@ -731,7 +720,7 @@ module voltapp_mpi
 
             ! setup squish operation but don't yet perform the computations
             call startDeep(vApp)
-        endif
+
     end subroutine
 
     subroutine recvDeepData_mpi(vApp)
@@ -839,13 +828,14 @@ module voltapp_mpi
         allocate(vApp%sendDisplsIneijkShallow(1:SIZE(vApp%sendRanks)))
         allocate(vApp%sendTypesIneijkShallow(1:SIZE(vApp%sendRanks)))
 
+        allocate(vApp%recvCountsGasDeep(1:SIZE(vApp%recvRanks)))
+        allocate(vApp%recvDisplsGasDeep(1:SIZE(vApp%recvRanks)))
+        allocate(vApp%recvTypesGasDeep(1:SIZE(vApp%recvRanks)))
+        allocate(vApp%recvCountsBxyzDeep(1:SIZE(vApp%recvRanks)))
+        allocate(vApp%recvDisplsBxyzDeep(1:SIZE(vApp%recvRanks)))
+        allocate(vApp%recvTypesBxyzDeep(1:SIZE(vApp%recvRanks)))
+
         if(vApp%doDeep) then
-            allocate(vApp%recvCountsGasDeep(1:SIZE(vApp%recvRanks)))
-            allocate(vApp%recvDisplsGasDeep(1:SIZE(vApp%recvRanks)))
-            allocate(vApp%recvTypesGasDeep(1:SIZE(vApp%recvRanks)))
-            allocate(vApp%recvCountsBxyzDeep(1:SIZE(vApp%recvRanks)))
-            allocate(vApp%recvDisplsBxyzDeep(1:SIZE(vApp%recvRanks)))
-            allocate(vApp%recvTypesBxyzDeep(1:SIZE(vApp%recvRanks)))
             allocate(vApp%sendCountsGas0Deep(1:SIZE(vApp%sendRanks)))
             allocate(vApp%sendDisplsGas0Deep(1:SIZE(vApp%sendRanks)))
             allocate(vApp%sendTypesGas0Deep(1:SIZE(vApp%sendRanks)))
@@ -861,17 +851,16 @@ module voltapp_mpi
         vApp%sendTypesInexyzShallow(:) = MPI_DATATYPE_NULL
         vApp%sendTypesIneijkShallow(:) = MPI_DATATYPE_NULL
 
+        vApp%recvCountsGasDeep(:) = 1
+        vApp%recvCountsBxyzDeep(:) = 1
+        vApp%recvDisplsGasDeep(:) = 0
+        vApp%recvDisplsBxyzDeep(:) = 0
+        vApp%recvTypesGasDeep(:) = MPI_DATATYPE_NULL
+        vApp%recvTypesBxyzDeep(:) = MPI_DATATYPE_NULL
+
         if(vApp%doDeep) then
-            vApp%recvCountsGasDeep(:) = 1
-            vApp%recvCountsBxyzDeep(:) = 1
             vApp%sendCountsGas0Deep(:) = 1
-
-            vApp%recvDisplsGasDeep(:) = 0
-            vApp%recvDisplsBxyzDeep(:) = 0
             vApp%sendDisplsGas0Deep(:) = 0
-
-            vApp%recvTypesGasDeep(:) = MPI_DATATYPE_NULL
-            vApp%recvTypesBxyzDeep(:) = MPI_DATATYPE_NULL
             vApp%sendTypesGas0Deep(:) = MPI_DATATYPE_NULL
         endif
 
@@ -921,17 +910,15 @@ module voltapp_mpi
         do r=1,SIZE(vApp%recvRanks)
             rRank = vApp%recvRanks(r)+1
 
-            if(vApp%doDeep) then
-                ! gas
-                recvDataOffset = (Model%nG + kRanks(rRank)*NkpT)*Grid%Nj*Grid%Ni + &
-                                 (Model%nG + jRanks(rRank)*NjpT)*Grid%Ni + &
-                                 (Model%nG + iRanks(rRank)*NipT)
-                call mpi_type_hindexed(1, (/1/), recvDataOffset*dataSize, iPjPkP5Gas, &
-                                       vApp%recvTypesGasDeep(r), ierr)
-                ! Bxyz
-                call mpi_type_hindexed(1, (/1/), recvDataOffset*dataSize, iPjPkP4Bxyz, &
-                                       vApp%recvTypesBxyzDeep(r), ierr)
-            endif
+            ! gas
+            recvDataOffset = (Model%nG + kRanks(rRank)*NkpT)*Grid%Nj*Grid%Ni + &
+                             (Model%nG + jRanks(rRank)*NjpT)*Grid%Ni + &
+                             (Model%nG + iRanks(rRank)*NipT)
+            call mpi_type_hindexed(1, (/1/), recvDataOffset*dataSize, iPjPkP5Gas, &
+                             vApp%recvTypesGasDeep(r), ierr)
+            ! Bxyz
+            call mpi_type_hindexed(1, (/1/), recvDataOffset*dataSize, iPjPkP4Bxyz, &
+                             vApp%recvTypesBxyzDeep(r), ierr)
         enddo
 
         do r=1,SIZE(vApp%sendRanks)
@@ -976,9 +963,10 @@ module voltapp_mpi
             call mpi_type_commit(vApp%sendTypesInexyzShallow(r), ierr)
             call mpi_type_commit(vApp%sendTypesIneijkShallow(r), ierr)
 
+            call mpi_type_commit(vApp%recvTypesGasDeep(r), ierr)
+            call mpi_type_commit(vApp%recvTypesBxyzDeep(r), ierr)
+
             if(vApp%doDeep) then
-                call mpi_type_commit(vApp%recvTypesGasDeep(r), ierr)
-                call mpi_type_commit(vApp%recvTypesBxyzDeep(r), ierr)
                 call mpi_type_commit(vApp%sendTypesGas0Deep(r), ierr)
             endif
         enddo
