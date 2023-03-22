@@ -100,6 +100,7 @@ if __name__ == "__main__":
 						vIds ,vLocs  = kxmf.getVars(h5F,'Step#'+str(n),gDims)
 						rvIds,rvLocs = kxmf.getRootVars(h5F,gDims)
 						Nv = len(vIds)
+						Nrv = len(rvIds)
 
 					#Create new subgrid
 					gName = "gMesh%d"%(nMPI)
@@ -155,6 +156,8 @@ if __name__ == "__main__":
 					"""
 					for v in range(Nv):
 						kxmf.AddData(Grid,h5F,vIds[v],vLocs[v],vDimStr,n)
+					for rv in range(Nrv):
+						kxmf.AddData(Grid,h5F,rvIds[rv],rvLocs[rv],vDimStr)
 
 		#Write output
 		fOut = "%s/%s.%06d.xmf"%(fdir,outid,tOut)

@@ -161,14 +161,16 @@ def MultiPlotN(varDicts, Xname, variables, colors = [], legendLabels=[]):
     if legendLabels:
         plt.legend(legendLabels, loc='best')
 
-def swQuickPlot(UT,D,Temp,Vx,Vy,Vz,Bx,By,Bz,SYMH,interped,fname,xBS=None,yBS=None,zBS=None,doEps=False,doTrim=True):
+def swQuickPlot(UT,D,Temp,Vx,Vy,Vz,Bx,By,Bz,SYMH,interped,fname,
+                xBS=None,yBS=None,zBS=None,
+                t0fmt='%Y-%m-%d %H:%M:%S',
+                utfmt='%H:%M\n%Y-%m%d',
+                title="Solar Wind",
+                doTrim=True,doEps=False,returnAxs=False):
     """
     Plot solar wind n,T, dyn p, V, B and sym/h over time period specified by the user.
 
     """
-    ## UT formats for plotting
-    t0fmt = '%Y-%m-%d %H:%M:%S'
-    utfmt='%H:%M \n%Y-%m-%d'
 
     utall = []
     for n in range(len(UT)):
@@ -209,7 +211,7 @@ def swQuickPlot(UT,D,Temp,Vx,Vy,Vz,Bx,By,Bz,SYMH,interped,fname,xBS=None,yBS=Non
     smlabel = ['SM-X','SM-Y','SM-Z']
     xvec = np.zeros((len(D),3))+1e9
 
-    fig.suptitle("Solar Wind",y=0.92,fontsize=14)
+    fig.suptitle(title,y=0.92,fontsize=14)
     Dlim=np.max(D)-np.min(D)
     ax11.plot(utall,D,color=clrs[3])
     for i in range(3):
@@ -272,6 +274,22 @@ def swQuickPlot(UT,D,Temp,Vx,Vy,Vz,Bx,By,Bz,SYMH,interped,fname,xBS=None,yBS=Non
     xfmt = dates.DateFormatter(utfmt)
     ax32.xaxis.set_major_formatter(xfmt)
     kv.SetAxLabs(ax32,"UT","SYM/H [nT]",doBot=True,doLeft=True)
+
+    # Give axes back to user if they want them
+    if returnAxs:
+        axDict = {}
+        axDict['D'] = ax11
+        axDict['Temp'] = ax21
+        axDict['dynP'] = ax31
+        axDict['V'] = ax12
+        axDict['B'] = ax22
+        axDict['symh'] = ax32
+        if xBS is not None:
+            axDict['BowS'] = ax41
+
+        return axDict
+    
+    # Otherwise, save the figure and leave
     kv.savePic(fname,doEps=doEps,doTrim=doTrim)
     plt.close('all')
 
