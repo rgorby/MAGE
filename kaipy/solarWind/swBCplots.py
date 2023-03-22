@@ -166,7 +166,7 @@ def swQuickPlot(UT,D,Temp,Vx,Vy,Vz,Bx,By,Bz,SYMH,interped,fname,
                 t0fmt='%Y-%m-%d %H:%M:%S',
                 utfmt='%H:%M\n%Y-%m%d',
                 title="Solar Wind",
-                doEps=False,returnAxs=False):
+                doTrim=True,doEps=False,returnAxs=False):
     """
     Plot solar wind n,T, dyn p, V, B and sym/h over time period specified by the user.
 
