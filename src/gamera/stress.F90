@@ -39,10 +39,10 @@ module stress
         !j-fluxes: (k,iBlk) & (j,i)
         !k-fluxes: (j,iBlk) & (k,i)
         !Inner loop is always i=1,vecLen/iMax for vectorization
-    subroutine CalcStress(Model,Gr,State,gFlx,mFlx,dGasH,dGasM)
+    subroutine CalcStress(Model,Gr,nState,hfState,gFlx,mFlx,dGasH,dGasM)
         type(Model_T), intent(in) :: Model
         type(Grid_T), intent(in) :: Gr
-        type(State_T), intent(in) :: State
+        type(State_T), intent(in) :: nState,hfState
         real(rp), intent(out) :: gFlx(Gr%isg:Gr%ieg,Gr%jsg:Gr%jeg,Gr%ksg:Gr%keg,1:NVAR,1:NDIM,BLK:Model%nSpc)
         real(rp), intent(out) :: mFlx(Gr%isg:Gr%ieg,Gr%jsg:Gr%jeg,Gr%ksg:Gr%keg,1:NDIM,1:NDIM)
         real(rp), intent(out) :: dGasH(Gr%isg:Gr%ieg,Gr%jsg:Gr%jeg,Gr%ksg:Gr%keg,1:NVAR,BLK:Model%nSpc)
@@ -93,7 +93,7 @@ module stress
                     do j=Gr%js,Gr%je
                         do iB=Gr%is,Gr%ie+1,vecLen
                             !Do block of i-interface fluxes
-                            call Fluxes(Model,Gr,State,iB,j,k,d,gFlx,mFlx)
+                            call Fluxes(Model,Gr,nState,hfState,iB,j,k,d,gFlx,mFlx)
                         enddo
                     enddo
                 enddo !K loop
@@ -106,7 +106,7 @@ module stress
                     do iB=Gr%is,Gr%ie,vecLen
                         do j=Gr%js,Gr%je+1
                             !Do block of j-interface fluxes
-                            call Fluxes(Model,Gr,State,iB,j,k,d,gFlx,mFlx)
+                            call Fluxes(Model,Gr,nState,hfState,iB,j,k,d,gFlx,mFlx)
                         enddo
                     enddo
                 enddo !K loop
@@ -119,7 +119,7 @@ module stress
                     do iB=Gr%is,Gr%ie,vecLen
                         do k=ks,ke+1
                             !Do block of k-interface fluxes
-                            call Fluxes(Model,Gr,State,iB,j,k,d,gFlx,mFlx)
+                            call Fluxes(Model,Gr,nState,hfState,iB,j,k,d,gFlx,mFlx)
                         enddo
                     enddo
                 enddo
@@ -184,10 +184,11 @@ module stress
 
     !Calculate vecLen block of fluxes (iB:iB+vecLen,j,k) in direction d
     !dGasM passed but unused in hydro case
-    subroutine Fluxes(Model,Gr,State,iB,j,k,dN,gFlx,mFlx)
+    !nState @ tn (for limiting), hfState @ tn+1/2 (for reconstructing)
+    subroutine Fluxes(Model,Gr,nState,hfState,iB,j,k,dN,gFlx,mFlx)
         type(Model_T), intent(in) :: Model
         type(Grid_T), intent(in) :: Gr
-        type(State_T), intent(in) :: State
+        type(State_T), intent(in) :: nState,hfState
         integer, intent(in) :: iB,j,k,dN
         real(rp), intent(inout) :: gFlx(Gr%isg:Gr%ieg,Gr%jsg:Gr%jeg,Gr%ksg:Gr%keg,1:NVAR,1:NDIM,BLK:Model%nSpc)
         real(rp), intent(inout) :: mFlx(Gr%isg:Gr%ieg,Gr%jsg:Gr%jeg,Gr%ksg:Gr%keg,1:NDIM,1:NDIM)
@@ -198,8 +199,12 @@ module stress
         real(rp) :: VolB(vecLen,recLen)
         real(rp) :: ConB(vecLen,recLen,NVAR)
         real(rp) :: MagB(vecLen,recLen,NDIM)
-        real(rp) :: TfB(vecLen,NDIM*NDIM) !Face transform
-        real(rp) :: faB(vecLen) !Face area in this direction
+        real(rp) :: TfB (vecLen,NDIM*NDIM) !Face transform
+        real(rp) :: faB (vecLen) !Face area in this direction
+
+        !Limiting stencils
+        real(rp) :: nConB(vecLen,limLen,NVAR)
+        real(rp) :: nMagB(vecLen,limLen,NDIM)
 
         !Reconstructed values, L/Rs
         real(rp) :: PrimLRB(vecLen,NVAR,2), MagLRB(vecLen,NDIM,2)
@@ -222,7 +227,7 @@ module stress
         integer :: i,nv,q,s
         logical :: isBulk,doI
 
-        !DIR$ attributes align : ALIGN :: VolB,ConB,MagB,TfB,faB
+        !DIR$ attributes align : ALIGN :: VolB,ConB,MagB,TfB,faB,nConB,nMagB
         !DIR$ attributes align : ALIGN :: PrimLRB,MagLRB,gFlxB,mFlxB
         !DIR$ attributes align : ALIGN :: VnB,dW,VaD,B0,B0n,Bn
         !DIR$ attributes align : ALIGN :: bbD,dVel
@@ -249,6 +254,8 @@ module stress
         VolB = 0.0
         MagB = 0.0
         ConB = 0.0
+        nMagB = 0.0
+        nConB = 0.0
         TfB = 0.0
         B0 = 0.0
         Bn = 0.0
@@ -259,7 +266,7 @@ module stress
     !Load non-species data into local work arrays
     !---------------------------
         !Get geometric information, Need recLen/2 radius about each i,j,k in brickette
-        call LoadBlock(Model,Gr,VolB,Gr%volume,iB,j,k,iMax,dN)
+        call recLoadBlock(Model,Gr,VolB,Gr%volume,iB,j,k,iMax,dN)
 
         !Get relevant face transforms/area (no stencil needed)
         TfB(1:iMax,:) = Gr%Tf  (isB:ieB,j,k,:,dN)
@@ -268,14 +275,15 @@ module stress
         !If MHD pull field info and do L/R's and interface calculations
         if (Model%doMHD) then
             do nv=1,NDIM
-                call LoadBlock(Model,Gr,MagB(:,:,nv),State%Bxyz(:,:,:,nv),iB,j,k,iMax,dN)
+                call recLoadBlock(Model,Gr, MagB(:,:,nv),hfState%Bxyz(:,:,:,nv),iB,j,k,iMax,dN)
+                call limLoadBlock(Model,Gr,nMagB(:,:,nv), nState%Bxyz(:,:,:,nv),iB,j,k,iMax,dN)
             enddo
-            call BlockLRs(VolB,MagB,MagLRB(:,:,LEFT),MagLRB(:,:,RIGHT),NDIM)
+            call BlockLRs(VolB,nMagB,MagB,MagLRB(:,:,LEFT),MagLRB(:,:,RIGHT),NDIM)
 
-            Bn(1:iMax) = State%magFlux(isB:ieB,j,k,dN)/faB(1:iMax)
+            Bn(1:iMax) = hfState%magFlux(isB:ieB,j,k,dN)/faB(1:iMax)
             if (Model%doBackground) then
-                B0(1:iMax,:) = Gr%fcB0(isB:ieB,j,k,:,dN)
-                B0n(1:iMax) = Gr%bFlux0(isB:ieB,j,k,dN)/faB(1:iMax)
+                B0 (1:iMax,:) = Gr%fcB0  (isB:ieB,j,k,:,dN)
+                B0n(1:iMax)   = Gr%bFlux0(isB:ieB,j,k,dN)/faB(1:iMax)
             endif
 
         endif
@@ -298,9 +306,11 @@ module stress
         !Load conserved quantities for this species and get LR's
         !---------------------------
             do nv=1,NVAR
-                call LoadBlock(Model,Gr,ConB(:,:,nv),State%Gas(:,:,:,nv,s),iB,j,k,iMax,dN)
+                call recLoadBlock(Model,Gr, ConB(:,:,nv),hfState%Gas(:,:,:,nv,s),iB,j,k,iMax,dN)
+                call limLoadBlock(Model,Gr,nConB(:,:,nv), nState%Gas(:,:,:,nv,s),iB,j,k,iMax,dN)
             enddo
-            call BlockStateLRs(Model,VolB,ConB,PrimLRB(:,:,LEFT),PrimLRB(:,:,RIGHT))
+            call BlockStateLRs(Model,VolB,nConB,ConB,PrimLRB(:,:,LEFT),PrimLRB(:,:,RIGHT))
+
             if (.not. isBulk) then
                 !For non-bulk species, test both sides of interface
                 doFlx(:,:) = ( PrimLRB(:,DEN,:) >= Spcs(s)%dVac )

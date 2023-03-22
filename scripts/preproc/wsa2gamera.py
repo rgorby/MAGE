@@ -42,7 +42,7 @@ Ni   = prm.Ni
 Nj   = prm.Nj
 Nk   = prm.Nk 
 
-ffits = os.path.join(os.getenv('KAIJUHOME'),prm.wsaFile)
+ffits = prm.wsaFile
 
 # Generate spherical helio grid
 print("Generating gamera-helio grid Ni = %d, Nj  = %d, Nk = %d " % (Ni, Nj, Nk))

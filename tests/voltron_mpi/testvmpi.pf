@@ -401,5 +401,64 @@ contains
       endif
   end subroutine VMPIcorotationTest
 
+  @test(npes=[9])
+  subroutine remixEnabledWithoutDeepTest(this)
+      class (MpiTestMethod), intent(inout) :: this
+
+      real(rp) :: eijkSum, exyzSum
+
+      if(isGamera) then
+
+          if(gamAppMpi%Grid%hasLowerBC(IDIR)) then
+              SELECT type(iiBC=>gamAppMpi%Grid%externalBCs(INI)%p)
+                  TYPE IS (IonInnerBC_T)
+
+                      ! confirm cells are non-zero now
+                      eijkSum = sum(abs(iiBC%inEijk))
+                      exyzSum = sum(abs(iiBC%inExyz))
+                      @assertGreaterThan(eijkSum, 0.0_rp, 'inEijk is all zeroes at start')
+                      @assertGreaterThan(exyzSum, 0.0_rp, 'inExyz is all zeroes at start')
+              END SELECT
+          endif
+
+          do while (g2vCommMpi%time < 30.0)
+              call stepGamera_mpi(gamAppMpi)
+              call localStepVoltronTime(g2vCommMpi, gamAppMpi)
+              if( (g2vCommMpi%time >= g2vCommMpi%DeepT) .or. &
+                (g2vCommMpi%time >= 30.0)) then
+                  call performStepVoltron(g2vCommMpi,gamAppMpi)
+                  if ( g2vCommMpi%time >= g2vCommMpi%DeepT) then
+                      call performDeepUpdate(g2vCommMpi, gamAppMpi)
+                  endif
+              endif
+          end do
+
+          if(gamAppMpi%Grid%hasLowerBC(IDIR)) then
+              SELECT type(iiBC=>gamAppMpi%Grid%externalBCs(INI)%p)
+                  TYPE IS (IonInnerBC_T)
+
+                      ! confirm cells have changed
+                      @assertGreaterThan(abs(sum(abs(iiBC%inEijk)) - eijkSum), 0.0_rp, 'inEijk has not changed')
+                      @assertGreaterThan(abs(sum(abs(iiBC%inExyz)) - exyzSum), 0.0_rp, 'inExyz has not changed')
+               END SELECT
+          endif
+      else
+          do while (voltAppMpi%time < 30.0)
+              if(gameraStepReady(voltAppMpi)) then
+                  call stepVoltron_mpi(voltAppMpi)
+                  write (*,'(a,f8.3)') '    Time = ',voltAppMpi%time
+                  if (voltAppMpi%time >= voltAppMpi%DeepT) then
+                      call DeepUpdate_mpi(voltAppMpi, voltAppMpi%time)
+                  endif
+              elseif(deepInProgress(voltAppMpi)) then
+                  call doDeepBlock(voltAppMpi)
+              else
+                  call waitForGameraStep(voltAppMpi)
+              endif
+          end do
+      endif
+
+  end subroutine remixEnabledWithoutDeepTest
+
 end module testVMpi
 
