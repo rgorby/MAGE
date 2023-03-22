@@ -3,7 +3,7 @@
   		<time tFin="18005.0"/>
   		<spinup doSpin="T" tSpin="3600.0" tIO="0.0" doSeq="F"/>
   		<output dtOut="15.0" tsOut="100"/>
-  		<coupling dt="5.0" dtDeep="10.0" rTrc="40.0" imType="RCM" doQkSquish="F" doDynDT="T" doAsyncShallow="T" qkSquishStride="2"/>
+  		<coupling dtCouple="5.0" rTrc="40.0" imType="RCM" doQkSquish="F" doDynDT="T" doAsyncShallow="T" qkSquishStride="2"/>
   		<restart dtRes="1800.0"/>
   		<imag doInit="T"/>
   		<ebsquish epsSquish="0.05"/>

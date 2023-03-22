@@ -3,7 +3,7 @@ module streamline
     use ebtypes
     use math
     use ebinterp
-    use earthhelper
+    use planethelper
     use streamutils
     use imaghelper
 
@@ -230,8 +230,10 @@ module streamline
             bMag = 0.5*(bTrc%lnVars(0)%V(k+1) + bTrc%lnVars(0)%V(k))
             !Convert B to nT, eD in #/cc
             bMag = oBScl*bMag
-            Va = 22.0*bMag/sqrt(eD) !Alfven speed in km/s, NRL formulary
-            dtX = dtX + dL/Va
+            if (eD > TINY) then
+                Va = 22.0*bMag/sqrt(eD) !Alfven speed in km/s, NRL formulary
+                dtX = dtX + dL/Va
+            endif
         enddo
 
     end function FLAlfvenX
@@ -258,11 +260,13 @@ module streamline
 
             !Convert B to nT, eD in #/cc, eP in nPa
             bMag = oBScl*bMag
-            Va = 22.0*bMag/sqrt(eD) !Alfven speed in km/s, NRL formulary
-            !CsMKS = 9.79 x sqrt(5/3 * Ti) km/s, Ti eV
-            TiEV = (1.0e+3)*DP2kT(eD,eP) !Temp in eV
-            Cs = 9.79*sqrt((5.0/3)*TiEV)
-            dtX = dtX + dL/(Va+Cs)
+            if (eD > TINY) then
+                Va = 22.0*bMag/sqrt(eD) !Alfven speed in km/s, NRL formulary
+                !CsMKS = 9.79 x sqrt(5/3 * Ti) km/s, Ti eV
+                TiEV = (1.0e+3)*DP2kT(eD,eP) !Temp in eV
+                Cs = 9.79*sqrt((5.0/3)*TiEV)
+                dtX = dtX + dL/(Va+Cs)
+            endif
         enddo
 
     end function FLFastX
@@ -357,7 +361,9 @@ module streamline
             bAvg = 0.5*(bTrc%lnVars(0)%V(k+1) + bTrc%lnVars(0)%V(k))
             dV = dl*Phi0/bAvg
             pAvg = 0.5*(bTrc%lnVars(PRESSURE)%V(k+1) + bTrc%lnVars(PRESSURE)%V(k))
-            S = S + dV*(pAvg**(1.0/Gam))
+            if (pAvg > TINY) then
+                S = S + dV*(pAvg**(1.0/Gam))
+            endif
         enddo
 
         end associate

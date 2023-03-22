@@ -14,6 +14,10 @@ module kdefs
     integer, parameter :: rp = dp
     integer, parameter :: iop = sp !Precision for IO
 
+    ! Byte length of integer and floating types
+    integer, parameter :: Float32 = 4 !bytes = 32 bits (1.2E-38 to 3.4E+38) at 6 decimal places
+    integer, parameter :: Float64 = REAL64 !bytes = 64 bits (2.3E-308 to 1.7E+308) at 15 decimal places
+
 !Globals
     real(rp), parameter :: PI  = 4.0D0 *atan(1.0D0)
     real(qp), parameter :: QPI = 4.0_qp*atan(1.0_qp)

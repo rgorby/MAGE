@@ -125,7 +125,8 @@ module starter
         call inpXML%Set_Val(Model%epsht,'pusher/epsht',5.0e-2)
         call inpXML%Set_Val(Model%epsgc,'pusher/epsgc',5.0e-2)
         call inpXML%Set_Val(Model%do2D ,'pusher/do2D',.false.)
-        
+        call inpXML%Set_Val(Model%MinK ,'pusher/MinK',Model%MinK)
+
         !Get integrator type
         call setIntegrator(Model,inpXML)
 

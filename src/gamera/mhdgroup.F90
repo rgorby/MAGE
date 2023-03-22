@@ -36,7 +36,7 @@ module mhdgroup
         if (Model%doMHD) then
             !NOTE, CalcElecField and CalcStress are independent of each other
             call Tic("E-Field")
-            call CalcElecField(Model,Grid,Solver%StateHf,Solver%Vf,State%Efld)
+            call CalcElecField(Model,Grid,State,Solver%StateHf,Solver%Vf,State%Efld)
             !Call user hack function if defined
             if (associated(Model%HackE)) then
                 call Tic("HackE")
@@ -51,7 +51,7 @@ module mhdgroup
         !Send dGasM in hydro/MHD, but unallocated w/ hydro
         !Calculate stresses for all species
         call Tic("Stress")
-        call CalcStress(Model,Grid,Solver%StateHF,Solver%gFlx,Solver%mFlx,Solver%dGasH,Solver%dGasM)
+        call CalcStress(Model,Grid,State,Solver%StateHF,Solver%gFlx,Solver%mFlx,Solver%dGasH,Solver%dGasM)
         call Toc("Stress")
 
         !Finalize, apply stresses and save State->oState for next predictor step

@@ -8,7 +8,6 @@ module fields
 
     implicit none
 
-    logical, parameter, private :: doSafeE = .true. !Use safer E field calculation (avoid intel compiler bugs)
     logical, parameter, private :: doVa  = .true. !Use Alfven speed in diffusive velocity
     logical, parameter, private :: doVdA = .true. !Do area scaling for velocity->corner
     logical, parameter, private :: doBdA = .true. !Do area scaling for face flux->edge
@@ -51,28 +50,27 @@ module fields
         
     end subroutine E2Flux
 
-    !Calculates electric field using variables in State (generally predictor state)
-    subroutine CalcElecField(Model,Gr,State,Vf,E)
+!Calculates electric field using variables in State (generally predictor state)
+    !General structure of computation
+    !Calculate all cell-centered velocities (XYZ)
+    !Loop over E-field directions (eD)
+    !--Set triad, (eD,dT1,dT2)
+    !--Push cell-center Vxyz velocities to faces along dT1
+    !-----Vary loop order for cache locality
+    !-----NEED IMPLICIT OMP BARRIERS at end of loops 
+    !--Loop over active i,j,k edges (block inner i dimension)
+    !----Get corner Vxyz's from face-centers by pushing from face->edge along dT2
+    !----Turn corner Vxyz's into V1/V2 using edge transforms
+    !----Now have full v1/v2
+    !----Get bT1,bT2.  Map to 1/2, calculate dB1,dB2
+    !----Add B0 corrections
+    !----Calculate diffusive velocity and finish EMF calculation, scale w/ edge length
+    !Finally, do any other E field relevant calculations, ie resistivity
+
+    subroutine CalcElecField(Model,Gr,nState,hfState,Vf,E)
         type(Model_T), intent(in) :: Model
         type(Grid_T), intent(in) :: Gr
-        type(State_T), intent(in) :: State
-        real(rp), dimension(Gr%isg:Gr%ieg,Gr%jsg:Gr%jeg,Gr%ksg:Gr%keg,NDIM), intent(inout) :: Vf
-        real(rp), dimension(Gr%isg:Gr%ieg,Gr%jsg:Gr%jeg,Gr%ksg:Gr%keg,NDIM), intent(inout) :: E
-
-        E = 0.0
-
-        if (doSafeE) then
-            call CalcElecField_Safe(Model,Gr,State,Vf,E)
-        else
-            call CalcElecField_Fast(Model,Gr,State,Vf,E)
-        endif
-
-    end subroutine CalcElecField
-
-    subroutine CalcElecField_Safe(Model,Gr,State,Vf,E)
-        type(Model_T), intent(in) :: Model
-        type(Grid_T), intent(in) :: Gr
-        type(State_T), intent(in) :: State
+        type(State_T), intent(in) :: nState,hfState
         real(rp), dimension(Gr%isg:Gr%ieg,Gr%jsg:Gr%jeg,Gr%ksg:Gr%keg,NDIM), intent(inout) :: Vf
         real(rp), dimension(Gr%isg:Gr%ieg,Gr%jsg:Gr%jeg,Gr%ksg:Gr%keg,NDIM), intent(inout) :: E
 
@@ -87,6 +85,8 @@ module fields
         !DIR$ ASSUME_ALIGNED E: ALIGN
         !DIR$ ASSUME_ALIGNED Vf: ALIGN
         !DIR$ ATTRIBUTES align : ALIGN :: v1,v2,b1,b2,Jd,Dc,vDiff,VelB
+
+        E = 0.0
 
         !Prep bounds for this timestep
         eD0 = 1 !Starting direction for EMF
@@ -125,7 +125,7 @@ module fields
                                 iMax = min(vecLen,Gr%ieg-iB+1)
                                 ieB = iB+iMax-1
 
-                                call Mom2Face(Model,Gr,State%Gas(:,:,:,:,BLK),VelB,iB,j,k,iMax,dT1)
+                                call Mom2Face(Model,Gr,hfState%Gas(:,:,:,:,BLK),VelB,iB,j,k,iMax,dT1)
 
                                 Vf(iB:ieB,j,k,:) = VelB(1:iMax,:)
                             enddo
@@ -146,7 +146,7 @@ module fields
                                 iMax = min(vecLen,Gr%ieg-iB+1)
                                 ieB = iB+iMax-1
 
-                                call Mom2Face(Model,Gr,State%Gas(:,:,:,:,BLK),VelB,iB,j,k,iMax,dT1)
+                                call Mom2Face(Model,Gr,hfState%Gas(:,:,:,:,BLK),VelB,iB,j,k,iMax,dT1)
 
                                 Vf(iB:ieB,j,k,:) = VelB(1:iMax,:)
                             enddo
@@ -167,7 +167,7 @@ module fields
                                 iMax = min(vecLen,Gr%ie+1-iB+1)
                                 ieB = iB+iMax-1
 
-                                call Mom2Face(Model,Gr,State%Gas(:,:,:,:,BLK),VelB,iB,j,k,iMax,dT1)
+                                call Mom2Face(Model,Gr,hfState%Gas(:,:,:,:,BLK),VelB,iB,j,k,iMax,dT1)
 
                                 Vf(iB:ieB,j,k,:) = VelB(1:iMax,:)
                             enddo
@@ -197,8 +197,8 @@ module fields
                         !Push from face to edge (v1/v2) and get diffusive flow speed (vDiff)
                         call GetCornerV(Model,Gr,Vf,v1,v2,vDiff,iB,j,k,iMax,eD,dT1,dT2)
 
-                        call GetCornerD(Model,Gr,State%Gas(:,:,:,DEN,BLK),Dc,iB,j,k,iMax,eD)
-                        call GetCornerB(Model,Gr,State%magFlux,b1,b2,Jd,iB,j,k,iMax,eD,dT1,dT2)
+                        call GetCornerD(Model,Gr,hfState%Gas(:,:,:,DEN,BLK),Dc,iB,j,k,iMax,eD)
+                        call GetCornerB(Model,Gr,nState%magFlux,hfState%magFlux,b1,b2,Jd,iB,j,k,iMax,eD,dT1,dT2)
 
                         !Now we have everything, calculate diffusive speed and do field
                         do i=1,iMax
@@ -227,195 +227,11 @@ module fields
             !write(*,*) 'E bad = ', count(isnan((E)))
         enddo !eD loop, EMF direction
         
-        if(Model%doResistive) call resistivity(Model,Gr,State,E)
+        if(Model%doResistive) call resistivity(Model,Gr,hfState,E)
 
-    end subroutine CalcElecField_Safe
-    !Calculates electric field using variables in State (generally predictor state)
-    !General structure of computation
-    !Calculate all cell-centered velocities (XYZ)
-    !Loop over E-field directions (eD)
-    !--Set triad, (eD,dT1,dT2)
-    !--Push cell-center Vxyz velocities to faces along dT1
-    !-----Vary loop order for cache locality
-    !-----NEED IMPLICIT OMP BARRIERS at end of loops 
-    !--Loop over active i,j,k edges (block inner i dimension)
-    !----Get corner Vxyz's from face-centers by pushing from face->edge along dT2
-    !----Turn corner Vxyz's into V1/V2 using edge transforms
-    !----Now have full v1/v2
-    !----Get bT1,bT2.  Map to 1/2, calculate dB1,dB2
-    !----Add B0 corrections
-    !----Calculate diffusive velocity and finish EMF calculation, scale w/ edge length
-    !Finally, do any other E field relevant calculations, ie resistivity
-
-    subroutine CalcElecField_Fast(Model,Gr,State,Vf,E)
-        type(Model_T), intent(in) :: Model
-        type(Grid_T), intent(in) :: Gr
-        type(State_T), intent(in) :: State
-        real(rp), dimension(Gr%isg:Gr%ieg,Gr%jsg:Gr%jeg,Gr%ksg:Gr%keg,NDIM), intent(inout) :: Vf
-        real(rp), dimension(Gr%isg:Gr%ieg,Gr%jsg:Gr%jeg,Gr%ksg:Gr%keg,NDIM), intent(inout) :: E
-
-        !Vector buffers
-        real(rp), dimension(vecLen) :: v1,v2,b1,b2,Jd,Dc,vDiff
-        real(rp) :: VelB(vecLen,NDIM)
-        real(rp) :: vA
-        integer :: i,iB,ieB,j,k,iG,iMax
-        integer :: ie,je,ke,ksg,keg
-        integer :: eD,eD0,dT1,dT2
-
-        !DIR$ ASSUME_ALIGNED E: ALIGN
-        !DIR$ ASSUME_ALIGNED Vf: ALIGN
-        !DIR$ ATTRIBUTES align : ALIGN :: v1,v2,b1,b2,Jd,Dc,vDiff,VelB
-
-        !Prep bounds for this timestep
-        eD0 = 1 !Starting direction for EMF
-
-        ksg = Gr%ksg
-        keg = Gr%keg
-
-        !Open big parallel region
-        !$OMP PARALLEL default(shared) &
-        !$OMP private(v1,v2,b1,b2,Jd,Dc,vDiff,VelB) &
-        !$OMP private(i,iB,ieB,j,k,iG,iMax,ie,je,ke,eD,dT1,dT2,vA)
-        
-        !Initialize thread-private blocks
-        v1 = 0.0
-        v2 = 0.0
-        b1 = 0.0
-        b2 = 0.0
-        Jd = 0.0
-        Dc = 0.0
-        VelB = 0.0
-        
-
-        do eD=eD0,NDIM
-            !$OMP SINGLE
-            call Tic("Mom2Face")
-            !$OMP END SINGLE NOWAIT
-
-            !Use edge normal direction to calculate local triad
-            !Push cell-centered velocities along dT1 to face
-            !TODO: Vary loop order for locality
-            !TODO: Combine I/J center->face
-            select case(eD)
-                !Ei fields
-                case(IDIR)
-                    dT1 = JDIR; dT2 = KDIR !Sweep directions
-                    ie = Gr%ie; je = Gr%je+1; ke = Gr%ke+1 !Set last active edges in IJK
-
-                    !$OMP DO collapse(2)
-                    do k=ksg,keg
-                        do iB=Gr%isg,Gr%ieg,vecLen !Block loop
-                            do j=Gr%js,Gr%je+1 !J reconstruction
-                            
-                                iMax = min(vecLen,Gr%ieg-iB+1)
-                                ieB = iB+iMax-1
-
-                                call Mom2Face(Model,Gr,State%Gas(:,:,:,:,BLK),VelB,iB,j,k,iMax,dT1)
-
-                                Vf(iB:ieB,j,k,:) = VelB(1:iMax,:)
-                            enddo
-                        enddo
-                    enddo
-
-                case(JDIR)
-                    !Ej fields
-                    dT1 = KDIR; dT2 = IDIR !Sweep directions
-                    ie = Gr%ie+1; je = Gr%je; ke = Gr%ke+1 !Set last active edges in IJK
-
-                    !$OMP DO collapse(2)
-                    do j=Gr%jsg,Gr%jeg
-                        do iB=Gr%isg,Gr%ieg,vecLen !Block loop
-                            do k=Gr%ks,Gr%ke+1 !K reconstruction
-                            
-                                iMax = min(vecLen,Gr%ieg-iB+1)
-                                ieB = iB+iMax-1
-
-                                call Mom2Face(Model,Gr,State%Gas(:,:,:,:,BLK),VelB,iB,j,k,iMax,dT1)
-
-                                Vf(iB:ieB,j,k,:) = VelB(1:iMax,:)
-                            enddo
-                        enddo
-                    enddo
-
-                case(KDIR)
-                    !Ek fields
-                    dT1 = IDIR; dT2 = JDIR !Sweep directions
-                    ie = Gr%ie+1; je = Gr%je+1; ke = Gr%ke !Set last active edges in IJK
-
-                    !$OMP DO collapse(2)
-                    do k=ksg,keg
-                        do j=Gr%jsg,Gr%jeg
-                            do iB=Gr%is,Gr%ie+1,vecLen !Block loop/I reconstruction
-                            
-                                iMax = min(vecLen,Gr%ie+1-iB+1)
-                                ieB = iB+iMax-1
-
-                                call Mom2Face(Model,Gr,State%Gas(:,:,:,:,BLK),VelB,iB,j,k,iMax,dT1)
-
-                                Vf(iB:ieB,j,k,:) = VelB(1:iMax,:)
-                            enddo
-                        enddo
-                    enddo
-                !NOTE: Each OMP DO has an implicit barrier at the end
-            end select
-
-            !$OMP SINGLE
-            call Toc("Mom2Face")
-            call Tic("VxB")
-            !$OMP END SINGLE NOWAIT
-
-            !Loop over active edges
-            !$OMP DO collapse(2)
-            do k=Gr%ks, ke
-                do j=Gr%js, je
-                    do iB=Gr%is,ie,vecLen
-                        !Get size of this vector brick
-                        iMax = min(vecLen,ie-iB+1)
-
-                        vDiff = 0.0 !Zero out by default
-                        !Push from face to edge (v1/v2) and get diffusive flow speed (vDiff)
-                        call GetCornerV(Model,Gr,Vf,v1,v2,vDiff,iB,j,k,iMax,eD,dT1,dT2)
-
-                        call GetCornerD(Model,Gr,State%Gas(:,:,:,DEN,BLK),Dc,iB,j,k,iMax,eD)
-                        call GetCornerB(Model,Gr,State%magFlux,b1,b2,Jd,iB,j,k,iMax,eD,dT1,dT2)
-
-                        !Now we have everything, calculate diffusive speed and do field
-                        do i=1,iMax
-                            iG =iB+i-1
-                            
-                            if (doVa) then
-                                !Add Alfven speed to diffusive speed
-                                vA = sqrt(b1(i)**2.0 + b2(i)**2.0)/sqrt(Dc(i))
-                                !Boris correct
-                                if (Model%doBoris) then
-                                    vA = Model%Ca*vA/sqrt(Model%Ca**2.0 + vA**2.0)
-                                endif
-                                vDiff(i) = vDiff(i) + vA
-                                vDiff(i) = min(vDiff(i),Model%CFL*Gr%edge(iG,j,k,eD)/Model%dt)
-                            endif
-
-                            !Final field (w/ edge length)
-                            E(iG,j,k,eD) = -( v1(i)*b2(i) - v2(i)*b1(i) ) + Model%Vd0*vDiff(i)*Jd(i)
-                            E(iG,j,k,eD) = E(iG,j,k,eD)*Gr%edge(iG,j,k,eD)
-                        enddo
-                    enddo !iB loop
-                enddo
-
-            enddo !k loop
-
-            !$OMP SINGLE
-            call Toc("VxB")
-            !$OMP END SINGLE !IMPLICIT BARRIER 
-            
-        enddo !eD loop, EMF direction
-
-        !$OMP END PARALLEL
-
-        if(Model%doResistive) call resistivity(Model,Gr,State,E)
-        
-    end subroutine CalcElecField_Fast
-
-
+    end subroutine CalcElecField
+ 
+    !Take cell-centered momentum, push to face
     subroutine Mom2Face(Model,Gr,W,VfB,iB,j,k,iMax,dT)
         type(Model_T), intent(in) :: Model
         type(Grid_T), intent(in) :: Gr
@@ -439,11 +255,11 @@ module fields
         VolB = 0.0
 
         !Get stencils
-        call LoadBlock(Model,Gr,VolB          ,Gr%volume    ,iB,j,k,iMax,dT)
-        call LoadBlock(Model,Gr,DenB          ,W(:,:,:,DEN ),iB,j,k,iMax,dT)
-        call LoadBlock(Model,Gr,MomB(:,:,XDIR),W(:,:,:,MOMX),iB,j,k,iMax,dT)
-        call LoadBlock(Model,Gr,MomB(:,:,YDIR),W(:,:,:,MOMY),iB,j,k,iMax,dT)
-        call LoadBlock(Model,Gr,MomB(:,:,ZDIR),W(:,:,:,MOMZ),iB,j,k,iMax,dT)
+        call recLoadBlock(Model,Gr,VolB          ,Gr%volume    ,iB,j,k,iMax,dT)
+        call recLoadBlock(Model,Gr,DenB          ,W(:,:,:,DEN ),iB,j,k,iMax,dT)
+        call recLoadBlock(Model,Gr,MomB(:,:,XDIR),W(:,:,:,MOMX),iB,j,k,iMax,dT)
+        call recLoadBlock(Model,Gr,MomB(:,:,YDIR),W(:,:,:,MOMY),iB,j,k,iMax,dT)
+        call recLoadBlock(Model,Gr,MomB(:,:,ZDIR),W(:,:,:,MOMZ),iB,j,k,iMax,dT)
 
         !Get stencil for VdV
         do n=1,recLen
@@ -469,22 +285,27 @@ module fields
     end subroutine Mom2Face
 
     !Get Edge LRs for field/face areas in triad dN,dT1,dT2
-    subroutine EdgeLRs(Model,Gr,bFlux,bL,bR,fA,iB,j,k,iMax,dN,dT1,dT2)
+    subroutine EdgeLRs(Model,Gr,bFluxn,bFluxHf,bL,bR,fA,iB,j,k,iMax,dN,dT1,dT2)
         type(Model_T), intent(in) :: Model
         type(Grid_T), intent(in) :: Gr
-        real(rp), intent(in) :: bFlux(Gr%isg:Gr%ieg+1,Gr%jsg:Gr%jeg+1,Gr%ksg:Gr%keg+1,NDIM)
+        real(rp), intent(in) :: bFluxn (Gr%isg:Gr%ieg+1,Gr%jsg:Gr%jeg+1,Gr%ksg:Gr%keg+1,NDIM)
+        real(rp), intent(in) :: bFluxHf(Gr%isg:Gr%ieg+1,Gr%jsg:Gr%jeg+1,Gr%ksg:Gr%keg+1,NDIM)
+
         integer, intent(in) :: iB,j,k,iMax,dN,dT1,dT2
         real(rp), dimension(vecLen), intent(out) :: bL,bR,fA
 
         real(rp), dimension(vecLen,recLen) :: AreaB,VolB
+        real(rp), dimension(vecLen,limLen) :: nAreaB
         real(rp), dimension(vecLen,recLen,1) :: MagB
+        real(rp), dimension(vecLen,limLen,1) :: nMagB
+
         real(rp), dimension(vecLen,1) :: MagLB,MagRB
         integer :: i,n
         !Note, bFlux is *NOT* aligned
         !DIR$ ASSUME_ALIGNED bL: ALIGN
         !DIR$ ASSUME_ALIGNED bR: ALIGN
         !DIR$ ASSUME_ALIGNED fA: ALIGN
-        !DIR$ attributes align : ALIGN :: AreaB,VolB,MagB,MagLB,MagRB
+        !DIR$ attributes align : ALIGN :: AreaB,nAreaB,VolB,MagB,nMagB,MagLB,MagRB
 
         fA   = 0.0
         bL   = 0.0
@@ -493,21 +314,25 @@ module fields
 
         !Get stencils for this sweep
         !dT1 faces in dT2 direction
-        call LoadBlockI(Model,Gr,AreaB      ,Gr%Face(:,:,:,dT1),iB,j,k,iMax,dT2)
-        call LoadBlockI(Model,Gr,MagB(:,:,1),  bFlux(:,:,:,dT1),iB,j,k,iMax,dT2)
-        
+        call recLoadBlockI(Model,Gr,AreaB       ,Gr%Face(:,:,:,dT1),iB,j,k,iMax,dT2)
+        call recLoadBlockI(Model,Gr, MagB(:,:,1),bFluxn (:,:,:,dT1),iB,j,k,iMax,dT2)
+        call limLoadBlockI(Model,Gr,nAreaB      ,Gr%Face(:,:,:,dT1),iB,j,k,iMax,dT2)
+        call limLoadBlockI(Model,Gr,nMagB(:,:,1),bFluxHf(:,:,:,dT1),iB,j,k,iMax,dT2)
+
         !Split into L/Rs
         if (doBdA) then
             !Do area weighting
             do i=1,iMax
                 VolB(i,:) = AreaB(i,:)
-                MagB(i,:,1) = MagB(i,:,1)/max(AreaB(i,:),TINY)
+                MagB (i,:,1) =  MagB(i,:,1)/max( AreaB(i,:),TINY)
+                nMagB(i,:,1) = nMagB(i,:,1)/max(nAreaB(i,:),TINY)
             enddo
         else
             !Fake volume-weighting for BlockLR routine
             VolB = 1.0 
         endif !doBdA
-        call BlockLRs(VolB,MagB,MagLB,MagRB,1)
+        
+        call BlockLRs(VolB,nMagB,MagB,MagLB,MagRB,1)
 
         bL = MagLB(:,1)
         bR = MagRB(:,1)
@@ -529,10 +354,12 @@ module fields
     end subroutine EdgeLRs
 
     !Get corner fields and diffusive current
-    subroutine GetCornerB(Model,Gr,bFlux,b1,b2,Jd,iB,j,k,iMax,dN,dT1,dT2)
+    subroutine GetCornerB(Model,Gr,bFluxn,bFluxHf,b1,b2,Jd,iB,j,k,iMax,dN,dT1,dT2)
         type(Model_T), intent(in) :: Model
         type(Grid_T), intent(in) :: Gr
-        real(rp), intent(in) :: bFlux(Gr%isg:Gr%ieg+1,Gr%jsg:Gr%jeg+1,Gr%ksg:Gr%keg+1,NDIM)
+        real(rp), intent(in) :: bFluxn (Gr%isg:Gr%ieg+1,Gr%jsg:Gr%jeg+1,Gr%ksg:Gr%keg+1,NDIM)
+        real(rp), intent(in) :: bFluxHf(Gr%isg:Gr%ieg+1,Gr%jsg:Gr%jeg+1,Gr%ksg:Gr%keg+1,NDIM)
+
         real(rp), dimension(vecLen), intent(out) :: b1,b2,Jd
         integer, intent(in) :: iB,j,k,iMax,dN,dT1,dT2
 
@@ -548,8 +375,8 @@ module fields
         !DIR$ attributes align : ALIGN :: bT1L,bT1R,fA1,bT1,bT2L,bT2R,fA2,bT2
 
         !Start by getting bT1LRs and bT2LRs
-        call EdgeLRs(Model,Gr,bFlux,bT1L,bT1R,fA1,iB,j,k,iMax,dN,dT1,dT2)
-        call EdgeLRs(Model,Gr,bFlux,bT2L,bT2R,fA2,iB,j,k,iMax,dN,dT2,dT1)
+        call EdgeLRs(Model,Gr,bFluxn,bFluxHf,bT1L,bT1R,fA1,iB,j,k,iMax,dN,dT1,dT2)
+        call EdgeLRs(Model,Gr,bFluxn,bFluxHf,bT2L,bT2R,fA2,iB,j,k,iMax,dN,dT2,dT1)
 
         
         do i=1,iMax
@@ -646,14 +473,14 @@ module fields
 
         if (doVdA) then
             !Get face areas for scaling, dT1 faces in dT2 direction
-            call LoadBlockI(Model,Gr,AreaB      ,Gr%Face(:,:,:,dT1),iB,j,k,iMax,dT2)
+            call recLoadBlockI(Model,Gr,AreaB      ,Gr%Face(:,:,:,dT1),iB,j,k,iMax,dT2)
             !Interpolate first
             do i=1,iMax
                 dA(i) = dot_product(interpWgt,AreaB(i,:))
             enddo
             !Loop over face Vxyz
             do d=1,NDIM
-                call LoadBlock(Model,Gr,VelB(:,:,d),Vf(:,:,:,d),iB,j,k,iMax,dT2)
+                call recLoadBlock(Model,Gr,VelB(:,:,d),Vf(:,:,:,d),iB,j,k,iMax,dT2)
                 do i=1,iMax
                     VxyzC(i,d) = dot_product(interpWgt,AreaB(i,:)*VelB(i,:,d))/dA(i)
                 enddo
@@ -661,7 +488,7 @@ module fields
         else
             !Loop over face Vxyz
             do d=1,NDIM
-                call LoadBlock(Model,Gr,VelB(:,:,d),Vf(:,:,:,d),iB,j,k,iMax,dT2)
+                call recLoadBlock(Model,Gr,VelB(:,:,d),Vf(:,:,:,d),iB,j,k,iMax,dT2)
                 do i=1,iMax
                     VxyzC(i,d) = dot_product(interpWgt,VelB(i,:,d))
                 enddo

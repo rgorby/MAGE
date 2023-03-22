@@ -9,6 +9,22 @@ import logging
 logging.basicConfig(level=logging.DEBUG)
 import time
 from os import path
+import argparse
+
+# read arguments
+parser = argparse.ArgumentParser()
+parser.add_argument('-t',action='store_true',default=False, help='Enables testing mode')
+parser.add_argument('-l',action='store_true',default=False, help='Enables loud mode')
+parser.add_argument('-a',action='store_true',default=False, help='Run all tests')
+parser.add_argument('-f',action='store_true',default=False, help='Force the tests to run')
+parser.add_argument('--account',type=str, default='', help='qsub account number')
+
+args = parser.parse_args()
+isTest = args.t
+beLoud = args.l
+doAll = args.a
+forceRun = args.f
+account = args.account
 
 # Get Slack API token
 slack_token = os.environ["SLACK_BOT_TOKEN"]
@@ -21,21 +37,6 @@ os.chdir(calledFrom)
 orig = os.getcwd()
 os.chdir('..')
 home = os.getcwd()
-
-isTest = False
-beLoud = False
-
-# Check argument flags
-if (len(sys.argv) >= 2):
-    for i in range(1,len(sys.argv)):
-        if(str(sys.argv[i]) == '-t'):
-            print("Test Mode: On")
-            isTest = True
-        elif(str(sys.argv[i]) == '-l'):
-            print("Being Loud")
-            beLoud = True
-        else:
-            print("Unrecognized argument: ", sys.argv[i])
 
 # Go to ICBuilds folder
 os.chdir(home)
