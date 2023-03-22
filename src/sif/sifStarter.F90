@@ -188,8 +188,9 @@ module sifstarter
         ! Coupling output data
         allocate( State%precipFlux(Grid%shGrid%Nt, Grid%shGrid%Np, Grid%Nk) )
         allocate( State%precipAvgE(Grid%shGrid%Nt, Grid%shGrid%Np, Grid%Nk) )
-        allocate( State%Den  (Grid%shGrid%Nt, Grid%shGrid%Np, Grid%nSpc) )
-        allocate( State%Press(Grid%shGrid%Nt, Grid%shGrid%Np, Grid%nSpc) )
+        allocate( State%Den  (Grid%shGrid%Nt, Grid%shGrid%Np, Grid%nSpc+1) )
+        allocate( State%Press(Grid%shGrid%Nt, Grid%shGrid%Np, Grid%nSpc+1) )
+        allocate( State%vAvg (Grid%shGrid%Nt, Grid%shGrid%Np, Grid%nSpc+1) )
 
         call iXML%Set_Val(icStr, "prob/IC","DIP")
     

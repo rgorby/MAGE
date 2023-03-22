@@ -73,6 +73,7 @@ module sifIO
             call AddOutVar(IOVars,"flav"  ,spc(i)%flav  )
             call AddOutVar(IOVars,"N"     ,spc(i)%N     )
             call AddOutVar(IOVars,"fudge" ,spc(i)%fudge )
+            call AddOutVar(IOVars,"amu"   ,spc(i)%amu   )
             call AddOutVar(IOVars,"kStart",spc(i)%kStart-1)  ! Change to assume zero-based
             call AddOutVar(IOVars,"kEnd"  ,spc(i)%kEnd  -1)  ! Change to assume zero-based
             ! Datasets
@@ -94,6 +95,9 @@ module sifIO
         type(sifGrid_T ), intent(in) :: Grid
         type(sifState_T), intent(in) :: State
         character(len=strLen), intent(in) :: gStr
+
+        integer :: s
+        real(rp), dimension(:,:,:), allocatable :: outDen
 
         ! First, make sure root variables are there
         if (doRoot) then
@@ -120,6 +124,21 @@ module sifIO
         call AddOutVar(IOVars,"colatc",State%thc,uStr="radians")
         call AddOutVar(IOVars,"lonc"  ,State%phc,uStr="radians")
         call AddOutVar(IOVars,"bVol",State%bvol,uStr="Rx/nT")
+
+    ! Moments
+        call AddOutVar(IOVars,"Pressure",State%Press,uStr="nPa")
+        ! Add density moment as #/cc instead of amu/cc
+        allocate(outDen(Grid%shGrid%Nt,Grid%shGrid%Np,Grid%nSpc+1))
+        outDen = 0.0
+        do s=1, Grid%nSpc
+            outDen(:,:,s+1) = State%Den(:,:,s+1)/Grid%spc(s)%amu
+            ! Don't include electrons to total number density
+            if(Grid%spc(s)%isElectron .eq. .false.) then
+                outDen(:,:,1) = outDen(:,:,1) + outDen(:,:,s+1)
+            endif
+        enddo
+        call AddOutVar(IOVars,"Density",outDen,uStr="#/cc")
+
 
         call WriteVars(IOVars,.true.,Model%SIFIO%SIFH5, gStr)
 

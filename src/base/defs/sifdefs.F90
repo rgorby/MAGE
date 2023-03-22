@@ -34,5 +34,6 @@ module sifdefs
     ! Defaults
     !------
 
+    real(rp) :: sclEta = 1.0e9  ! [1/nT -> 1/T on DkT2eta conversion]
 
 end module sifdefs

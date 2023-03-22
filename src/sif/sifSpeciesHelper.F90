@@ -8,9 +8,11 @@ module sifSpeciesHelper
     use siftypes
 
     implicit none 
+
+    integer, parameter, private :: MAXIOVAR = 50
+
     contains
-
-
+    
     !------
     ! Helper helpers
     !------
@@ -62,7 +64,7 @@ module sifSpeciesHelper
 
         integer :: i
         character(len=strLen) :: gStr
-        type(IOVAR_T), dimension(5) :: IOVars ! Just grabbing lami and we're done
+        type(IOVAR_T), dimension(MAXIOVAR) :: IOVars ! Just grabbing lami and we're done
 
 
         ! Make sure Species group exists with at least 1 entry
@@ -95,6 +97,7 @@ module sifSpeciesHelper
             call ClearIO(IOVars)
             call AddInVar(IOVars, "flav" )  ! Attr
             call AddInVar(IOVars, "N"    )  ! Attr
+            call AddInVar(IOVars, "amu")  ! Attr
             call AddInVar(IOVars, "fudge")  ! Attr
             call AddInVar(IOVars, "alami")  ! Dataset
             call ReadVars(IOVars, .false., configfname, gStr)
@@ -102,13 +105,16 @@ module sifSpeciesHelper
             ! Assign
             spc%flav  = IOVars(FindIO(IOVars, "flav" ))%data(1)
             spc%N     = IOVars(FindIO(IOVars, "N"    ))%data(1)
+            spc%amu   = IOVars(FindIO(IOVars, "amu"  ))%data(1)
             spc%fudge = IOVars(FindIO(IOVars, "fudge"))%data(1)
+            spc%isElectron = (spc%amu*100.0 < 1) ! Gonna assume this will always work, but is dependent on config having the right amu value
 
             allocate(spc%alami(spc%N+1))
             call IOArray1DFill(IOVars,"alami",spc%alami)
 
             write(*,*)" Flav: ", spc%flav
             write(*,*)" N:    ", spc%N
+            write(*,*)" amu:  ", spc%amu
             write(*,*)" Fudge:", spc%fudge
             !write(*,*) spc%alami
 

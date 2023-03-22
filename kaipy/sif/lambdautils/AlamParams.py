@@ -39,6 +39,7 @@ class SpecParams:
 	distType: dT.DistType  # DistType params used to generate final lambad distribution
 	flav: int  # "Flavor", used to distinguish species types in RCM
 			   # 0 = 0-channel plasmasphere, 1 = electrons, 2 = protons
+	amu: Optional[float]  # Mass in amu
 	fudge: Optional[float] = 0  # "Fudge factor" loss ratio
 	name: Optional[str] = None
 

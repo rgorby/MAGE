@@ -25,7 +25,11 @@ module siftypes
         integer :: N
         integer :: flav
         integer :: kStart, kEnd
+        logical :: isElectron
+        real(rp) :: amu
+            !! Species mass in amu
         real(rp) :: fudge
+            !! Strong-scattering limit
         real(rp), dimension(:), allocatable :: alami
             !! Lambda channel cell interfaces/edges
 
@@ -151,10 +155,10 @@ module siftypes
         !> Varibles coming from SIF, size (Ni, Nj, Nk)
         real(rp), dimension(:,:,:), allocatable :: precipFlux  ! Precipitation fluxes [!!units]
         real(rp), dimension(:,:,:), allocatable :: precipAvgE  ! Precipitation avg energy [!!units]
-        ! (Ni, Nj, Ns)
+        ! (Ni, Nj, Nspc+1) (First index is bulk)
         ! Last dimension will be D/P of different populations (not necessarily same as species)
         ! Example: Total, hot protons, cold protons, electrons, other species
-        real(rp), dimension(:,:,:), allocatable :: Den    ! Density  [#/cc]
+        real(rp), dimension(:,:,:), allocatable :: Den    ! Density  [amu/cc]
         real(rp), dimension(:,:,:), allocatable :: Press  ! Pressure [nPa]
         real(rp), dimension(:,:,:), allocatable :: vAvg   ! Average cell velocity [km/s]
 

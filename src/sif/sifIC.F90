@@ -55,16 +55,22 @@ module sific
             enddo
         enddo
 
+
+         ! TODO: Implement psphere IC
+        if (Model%doPlasmasphere .and. spcExists(Grid, F_PSPH)) then
+            write(*,*) "SIF Warning: plasmasphere on but no IC is implemented in initSIFIC_DIP."
+        endif
+
         ! Ni, Nj variables
-        do i=1,Grid%shGrid%Nt
+        do i=Grid%shGrid%is,Grid%shGrid%ie
             ! Fully symmetric, so only need to set certain things per i
             L = DipColat2L(Grid%shGrid%thc(i))
             D = D0*exp(-abs(L-L_peak)/dL)
 
             bVol = DipFTV_L(L, Model%planet%magMoment) ! [Rx/nT]
             vm = bVol**(-2./3.)
-            write(*,*) "L=",L
-            do j=1,Grid%shGrid%Np
+
+            do j=Grid%shGrid%js,Grid%shGrid%je
             ! Init etas
                 ! Protons first
                 sIdx = spcIdx(Grid, F_HOTP)
@@ -79,9 +85,6 @@ module sific
                 end associate
 
                 ! TODO: Implement psphere IC
-                if (Model%doPlasmasphere .and. spcExists(Grid, F_PSPH)) then
-                    write(*,*) "SIF Warning: plasmasphere on but no IC is implemented in initSIFIC_DIP."
-                endif
 
             ! Bmin surface vars
                 State%Bmin(i,j,ZDIR) = Model%planet%magMoment/L**3.0
@@ -99,6 +102,8 @@ module sific
             enddo  
         enddo
 
+        ! Calc moments
+        call EvalMoments(Grid, State)
 
     end subroutine initSifIC_DIP
 

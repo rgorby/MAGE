@@ -5,6 +5,7 @@ import h5py as h5
 import argparse
 from argparse import RawTextHelpFormatter
 
+import kaipy.kdefs as kdefs
 import kaipy.kaiTools as kT
 import kaipy.kaijson as kj
 import kaipy.kaiH5 as kh5
@@ -100,14 +101,18 @@ if __name__ == "__main__":
     dtManual = dT.DT_Single()
     dtWolf   = dT.DT_Wolf(p1=wolfP1,p2=wolfP2)  # Lambda channels will have a (slightly modified) Wolf distribution type
 
-    # For reference: SpecParams(n, amin, amax, distType, flav, fudge, name)
+    # Calculate masses in amu
+    Me_amu = kdefs.Me_cgs*1e-3/kdefs.dalton
+    Mp_amu = kdefs.Mp_cgs*1e-3/kdefs.dalton
 
-    if not noPsph: sPsphere = aP.SpecParams(1, 0, 0, dtManual, 0, 0, name="0_Plasmasphere") # Zero-energy plasmasphere channel
-    sPe = aP.SpecParams(num_e, alamMin_e, alamMax_e, dtWolf, EFLAV, EFUDGE, name='Hot Electrons')  # Parameters to create electron channels
-    sPp = aP.SpecParams(num_p, alamMin_p, alamMax_p, dtWolf, PFLAV, PFUDGE, name='Hot Protons'  )  # Parameters to create proton channels
+    # For reference: SpecParams(n, amin, amax, distType, flav, amu, fudge, name)
+
+    if not noPsph: sPsphere = aP.SpecParams(1, 0, 0, dtManual, 0, Mp_amu, 0, name="0_Plasmasphere") # Zero-energy plasmasphere channel
+    sPe = aP.SpecParams(num_e, alamMin_e, alamMax_e, dtWolf, EFLAV, Me_amu, EFUDGE, name='Hot Electrons')  # Parameters to create electron channels
+    sPp = aP.SpecParams(num_p, alamMin_p, alamMax_p, dtWolf, PFLAV, Mp_amu, PFUDGE, name='Hot Protons'  )  # Parameters to create proton channels
 
     # Stuff into an AlamData object, which will automatically generate the fully realized species distribution for us
-    # NOTE: ORDER MATTERS. They will show up in the 1D lami, flav, fudge in this order
+    # NOTE: ORDER MATTERS. They will show up in the 1D lamc in this order
     alamData = aD.AlamData([sPe, sPp]) if noPsph else aD.AlamData([sPsphere, sPe, sPp])
 
 
