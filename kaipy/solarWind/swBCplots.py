@@ -290,6 +290,6 @@ def swQuickPlot(UT,D,Temp,Vx,Vy,Vz,Bx,By,Bz,SYMH,interped,fname,
         return axDict
     
     # Otherwise, save the figure and leave
-    kv.savePic(fname,doEps=doEps)
+    kv.savePic(fname,doEps=doEps,doTrim=doTrim)
     plt.close('all')
 
