@@ -7,6 +7,7 @@ module sifstarter
     use sifdefs
     use siftypes
     use sifgrids
+    use sifetautils
     use sifout
     use sific
     use sifuseric
@@ -23,7 +24,6 @@ module sifstarter
     subroutine sifInit(app, iXML)
         type(sifApp_T), intent(inout) :: app
         type(XML_Input_T), intent(in) :: iXML
-        !procedure(sifStateIC_T), pointer, intent(in) :: stateIC        
 
         ! Init model, grid, state
         call sifInitModel(app%Model, iXML)
@@ -45,9 +45,9 @@ module sifstarter
     subroutine sifInitModel(Model, iXML)
         type(sifModel_T) , intent(inout) :: Model
         type(XML_Input_T), intent(in)    :: iXML
-        
-        procedure(sifStateIC_T), pointer :: stateIC        
- 
+         
+        character(len=strLen) :: tmpStr
+
         write(*,*) "sifInitModel is starting"
 
 
@@ -91,17 +91,25 @@ module sifstarter
         ! Lambda channel settings
         call iXML%Set_Val(Model%doDynamicLambdaRanges, "lambdas/dynamicRanges",.false.)
 
+        ! Determine which DP2eta mapping should be used (e.g. Maxwellian, Kappa, user-defined)
+        call iXML%Set_Val(tmpStr, "moments/DP2EtaMap","MAXWELL")
+        select case(tmpStr)
+            case("MAXWELL")
+                Model%dp2etaMap => Maxwell2Eta
+            case("KAPPA")
+                Model%dp2etaMap => Kappa2Eta
+                call iXML%Set_Val(Model%kappa, "moments/kappa",6.0)
+            ! TODO: Add user option, which will point to whatever is in the chosen IC file
+            case DEFAULT
+                write(*,*) "SIF received unavailable DP2Eta mapping: ",tmpStr
+                write(*,*) " Dying."
+                stop
+        end select
 
         ! Set planet params
         !! This should only be kept for as long as planet_T doesn't contain pointers
         !! In this current case, there should be a full copy to our own planet params
         call getPlanetParams(Model%planet, iXML)
-        ! Store pointer to stateIC so that initState can get to it later
-        !Model%stateIC = stateIC
-        !stateIC => NULL()
-        !Model%stateIC => stateIC
-        !stateIC => testStateIC
-        !Model%stateIC => initSifIC
         
         ! Set up timing
         !!TODO
@@ -202,7 +210,7 @@ module sifstarter
             case("USER")
                 ! Call the IC in the module sifuseric
                 ! This module is set in cmake via the SIFIC variable
-                call initSifUserIC(Model, Grid, State, iXML)
+                call SIFinitStateUserIC(Model, Grid, State, iXML)
             case DEFAULT
                 write(*,*)"Invalid IC name to SIF, see sifStarter.F90:sifInitState. Bye."
                 stop

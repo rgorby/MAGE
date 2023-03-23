@@ -22,7 +22,7 @@ module sific
             !! Things we get from the xml file
         real(rp) :: D0, L, bVol, vm
             !! Calculated quantities
-        integer :: i,j,sIdx
+        integer :: i,j,k,sIdx
             !! Loops and indices
 
         write(*,*) "Initializing a Maxwellian in a dipole field"
@@ -74,15 +74,15 @@ module sific
             ! Init etas
                 ! Protons first
                 sIdx = spcIdx(Grid, F_HOTP)
-                associate(spc => Grid%spc(sIdx))
-                    call DkT2SpcEta(spc, State%eta(i,j,spc%kStart:spc%kEnd), D, kT_i, vm)
-                end associate
+                call DkT2SpcEta(Model, Grid%spc(sIdx), &
+                            State%eta(i,j,Grid%spc(sIdx)%kStart:Grid%spc(sIdx)%kEnd), &
+                            D, kT_i, vm)
 
                 ! Then electrons
                 sIdx = spcIdx(Grid, F_HOTE)
-                associate(spc => Grid%spc(sIdx))
-                    call DkT2SpcEta(spc, State%eta(i,j,spc%kStart:spc%kEnd), D, kT_e, vm)
-                end associate
+                call DkT2SpcEta(Model, Grid%spc(sIdx), &
+                            State%eta(i,j,Grid%spc(sIdx)%kStart:Grid%spc(sIdx)%kEnd), &
+                            D, kT_e, vm)
 
                 ! TODO: Implement psphere IC
 

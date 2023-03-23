@@ -79,7 +79,9 @@ module siftypes
             !! Likely, in the future, we will determine automatically by the presence of a flavor 0
         ! TODO: Extra params for efilling rate, determining initial profile, etc.
 
-        ! Lambda bounds controls
+        ! Lambda controls
+        real(rp) :: kappa
+            !! Kappa value, used in case of Kappa mapping from moments to eta channels
         logical :: doDynamicLambdaRanges
             !! Dynamic lambda ranges so we only evolve certain energies at certain L shells
 
@@ -92,9 +94,7 @@ module siftypes
 
         procedure(sifStateIC_T), pointer, nopass :: initState => NULL()
         procedure(sifUpdateV_T), pointer, nopass :: updateV => NULL()
-        
-        ! Hack functions
-        ! e.g. hackDP2Eta
+        procedure(sifDP2EtaMap_T), pointer, nopass :: dp2etaMap => NULL()
 
     end type sifModel_T
 
@@ -195,9 +195,6 @@ module siftypes
             type(XML_Input_T), intent(in) :: inpXML
         end subroutine sifStateIC_T
 
-    end interface
-
-    abstract interface
         subroutine sifUpdateV_T(Model,Grid,State)
             Import :: sifModel_T, sifGrid_T, sifState_T
             type(sifModel_T) , intent(in) :: Model
@@ -205,7 +202,15 @@ module siftypes
             type(sifState_T) , intent(inout) :: State
         end subroutine sifUpdateV_T
 
+        function sifDP2EtaMap_T(Model,D,kT,vm,amin,amax) result (etaK)
+            Import :: rp, sifModel_T
+            type(sifModel_T), intent(in) :: Model
+            real(rp), intent(in) :: D,kT,vm,amin,amax
+            real(rp) :: etaK
+        end function sifDP2EtaMap_T
     end interface
+
+
 
 
 end module siftypes

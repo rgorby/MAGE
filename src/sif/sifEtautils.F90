@@ -10,6 +10,14 @@ module sifetautils
 
     real(rp), private, parameter :: kapDefault = 6.0
 
+    !Quad prec. parameters for erf difference
+    real(qp), parameter, private :: p  =  0.3275911  , &
+                                    a1 =  0.254829592, &
+                                    a2 = -0.284496736, &
+                                    a3 =  1.421413741, &
+                                    a4 = -1.453152027, &
+                                    a5 =  1.061405429
+
     contains
 
 ! High-level control
@@ -117,8 +125,9 @@ module sifetautils
     end function SpcEta2Press
 
 
-    subroutine DkT2SpcEta(spc, eta, D, kT, vm)
+    subroutine DkT2SpcEta(Model, spc, eta, D, kT, vm)
         !! Take a density and pressure, and map it to SIF eta channels for given flavor
+        type(sifModel_T), intent(in) :: Model
         type(SIFSpecies_T), intent(in) :: spc
             !! Species info
         real(rp), dimension(:), intent(inout) :: eta
@@ -129,38 +138,31 @@ module sifetautils
         integer :: k
             !! loop variable
 
-        ! TODO: Logical check to determine which distribution we should do.
-        !       Hard coding as Kappa for now
-
         do k=1,spc%N
-            eta(k) = Kappa2Eta(D,kT,vm, spc%alami(k),spc%alami(k+1))
+            eta(k) = Model%dp2etaMap(Model,D,kT,vm,spc%alami(k),spc%alami(k+1))
+                !! Model%dp2etaMap may point to one of the functions below, like Maxwell2Eta
+                !! or it may point to a user-defined mapping function
         enddo
 
         
     end subroutine DkT2SpcEta
 
-    function Kappa2Eta(D,kT,vm,amin,amax,kapO) result(etaK)
+    function Kappa2Eta(Model,D,kT,vm,amin,amax) result(etaK)
         !! Convert density and temperature to eta at specific lambda value
         !! Adapted from eqn 3.12 from 10.1007/s11214-013-9982-9 ?
-
+        type(sifModel_T), intent(in) :: Model
         real(rp), intent(in) :: D,kT,vm,amin,amax
             !! Density [#/cc], kT [keV], vm [(Rx/nT)^(-2/3)],
             !! min and max lambda vals [eV * (Rx/nT)^(2/3)]
-        real(rp), intent(in), optional :: kapO
             !! Optional Kappa value
 
         real(rp) :: kap,kap15,E_ev,E0_ev
         real(rp) :: A0,kapgam,kapbar,kArg,delscl
         real(rp) :: etaK
             !! Eta in units of [#/cc * Rx/T]
-
         etaK = 0.0
 
-        if (present(kapO)) then
-            kap = kapO
-        else
-            kap = kapDefault
-        endif
+        kap = Model%kappa
 
         kap15 = kap-1.5
         kapgam = gamma(kap+1.0)/gamma(kap-0.5)
@@ -179,19 +181,44 @@ module sifetautils
 
     end function Kappa2Eta
 
-    function Maxwell2Eta(D,kT,vm,amin,amax) result(etaK)
+    function Maxwell2Eta(Model,D,kT,vm,amin,amax) result(etaK)
+        !! This calculates Maxwellian DP2Eta mapping using experfdiff
+        !! Original equation comes from B5 from Pembroke+ 2012
+        !! But has been adapted by Kareem to calculate the erfdiff as the diff between two expansions (high vs low cell interface)
+        !! This way, the 1 term cancels and you don't have a huge value minus another huge value
+        !! From Kareem:
+        !!   Difference of erf's using Abramowitz & Stegun, 7.1.26
+        !!   erfdiff(qp,qm) = erf(qp)-erf(qm)
+        !!   erf(x) ~ 1 - (a1.t + a2.t^2 + a3.t^3 + a4.t^5 + a5.t^5)*exp(-x^2) + eps(x)
+        !!   t = 1/(1+px)
+        !!   |eps(x)| <= 1.5e-7
+        type(sifModel_T), intent(in) :: Model
         real(rp), intent(in) :: D,kT,vm,amin,amax
             !! Density [#/cc], kT [keV], vm [(Rx/nT)^(-2/3)],
             !! min and max lambda vals [eV * (Rx/nT)^(2/3)]
-        
         real(rp) :: A0
             !! Flux tube content
-        real(qp) :: xp, xm
-            !! (Quad precision) Args for upper and lower cell interfaces to calculate experfdiff 
+        real(qp) :: xp,xm,tp,tm,ep,em,erfdiff,expdiff,etaq
+            !! (Quad precision) Variables for experfdiff calculation
         real(rp) :: etaK
+            !! Eta in units of [#/cc * Rx/T]
+        etaK = 0.0
 
         A0 = D/(vm**1.5)*sclEta ! #/cc * Rx/nT * 1/nT -> 1/T
-        xp = sqrt(abs(amax)*vm / (kT*1.e3))
+        xp = sqrt(abs(amax)*vm / (kT*1.e3))  ! [eV/eV]
+        xm = sqrt(abs(amin)*vm / (kT*1.e3))
+
+        tp = 1.0/(1.0+p*xp)
+        tm = 1.0/(1.0+p*xm)
+        ep = exp(-(xp**2.0))
+        em = exp(-(xm**2.0))
+
+        erfdiff = - (a1*tp + a2*(tp**2.0) + a3*(tp**3.0) + a4*(tp**4.0) + a5*(tp**5.0))*ep &
+                + (a1*tm + a2*(tm**2.0) + a3*(tm**3.0) + a4*(tm**4.0) + a5*(tm**5.0))*em
+
+        expdiff = 2.0*(xp*ep - xm*em)/sqrt(QPI) !Using quad prec PI
+        etaq = A0*(erfdiff-expdiff)
+        etaK = etaq !Cast back down to rp
 
     end function Maxwell2Eta
 
