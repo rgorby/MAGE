@@ -124,7 +124,7 @@ contains
         !2097152 bytes {64,64,128} float
     
         integer :: d
-        real(Float64) :: nbytes
+        real(dp) :: nbytes
 
         d = size(cdims)
         cdims(1:d) = dims(1:d)
@@ -710,9 +710,9 @@ contains
                 call h5screate_simple_f(Nr, h5dims(1:Nr), sid, herr)
                 call h5pcreate_f(H5P_DATASET_CREATE_F, pId, herr)
                 if (doIOP) then
-                    call chunk_size(Float32, h5dims(1:Nr), cdims)
+                    call chunk_size(sp, h5dims(1:Nr), cdims)
                 else
-                    call chunk_size(Float64, h5dims(1:Nr), cdims)
+                    call chunk_size(dp, h5dims(1:Nr), cdims)
                 endif
                 call h5pset_chunk_f(pId, Nr, cdims, herr)
 
