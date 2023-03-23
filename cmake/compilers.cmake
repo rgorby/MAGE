@@ -48,6 +48,9 @@ endif()
 #Set base release options
 set(CMAKE_DEFOPT "-O3") #Default optimization
 
+#Enable arch
+set(ARCH AVX2 CACHE STRING "Enable Architecture Flags, default AVX2")
+
 #-------------
 #Set minimum compiler versions
 if(CMAKE_Fortran_COMPILER_ID MATCHES Intel)
@@ -97,12 +100,16 @@ if(CMAKE_Fortran_COMPILER_ID MATCHES Intel)
 		string(APPEND PROD " -march=corei7 -axCORE-AVX2")
 		string(APPEND PRODWITHDEBUGINFO " -march=corei7 -axCORE-AVX2")
 	elseif(HOST MATCHES pfe)
-		string(APPEND PROD " -march=corei7 -axCORE-AVX2")
-		string(APPEND PRODWITHDEBUGINFO " -march=corei7 -axCORE-AVX2")
+		if(ARCH MATCHES AVX2)
+			string(APPEND PROD " -march=corei7 -axCORE-AVX2")
+			string(APPEND PRODWITHDEBUGINFO " -march=corei7 -axCORE-AVX2")
+		elseif(ARCH MATCHES CASCADELAKE)
+			string(APPEND PROD " -march=cascadelake")
+			string(APPEND PRODWITHDEBUGINFO " -march=cascadelake")
+		endif()
 	elseif(HOST MATCHES gust)
 		string(APPEND PROD " -march=core-avx2")
 		string(APPEND PRODWITHDEBUGINFO " -march=core-avx2")
-	
 	endif()
 
 	#Check Intel Fortran version
