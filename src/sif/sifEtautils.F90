@@ -174,9 +174,6 @@ module sifetautils
 
         A0 = (2.0/sqrt(PI)) * D/(vm**1.5)*sclEta  ! #/cc * Rx/nT * 1/nT -> 1/T
         etak = A0*kapgam/(kapbar**1.5) * sqrt(E_ev/E0_ev)*delscl*((kArg)**(-kap-1.0))
-        !write(*,*)"D=",D,"vm=",vm
-        !write(*,*)"  A0=",A0,"delscl=",delscl
-        !write(*,*)"  etaK=",etaK
 
     end function Kappa2Eta
 

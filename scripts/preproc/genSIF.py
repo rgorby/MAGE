@@ -101,15 +101,19 @@ if __name__ == "__main__":
     dtManual = dT.DT_Single()
     dtWolf   = dT.DT_Wolf(p1=wolfP1,p2=wolfP2)  # Lambda channels will have a (slightly modified) Wolf distribution type
 
-    # Calculate masses in amu
-    Me_amu = kdefs.Me_cgs*1e-3/kdefs.dalton
-    Mp_amu = kdefs.Mp_cgs*1e-3/kdefs.dalton
+    # For reference: SpecParams(n, amin, amax, distType, 
+    #           flav, numNuc_p, numNuc_n, q,
+    #           fudge, name)
 
-    # For reference: SpecParams(n, amin, amax, distType, flav, amu, fudge, name)
-
-    if not noPsph: sPsphere = aP.SpecParams(1, 0, 0, dtManual, 0, Mp_amu, 0, name="0_Plasmasphere") # Zero-energy plasmasphere channel
-    sPe = aP.SpecParams(num_e, alamMin_e, alamMax_e, dtWolf, EFLAV, Me_amu, EFUDGE, name='Hot Electrons')  # Parameters to create electron channels
-    sPp = aP.SpecParams(num_p, alamMin_p, alamMax_p, dtWolf, PFLAV, Mp_amu, PFUDGE, name='Hot Protons'  )  # Parameters to create proton channels
+    if not noPsph: sPsphere = aP.SpecParams(1, 0, 0, dtManual, 
+                                            0, numNuc_p=1, numNuc_n=0, q=1,
+                                            fudge=0, name="0_Plasmasphere") # Zero-energy plasmasphere channel
+    sPe = aP.SpecParams(num_e, alamMin_e, alamMax_e, dtWolf, 
+                        EFLAV, numNuc_p=1, numNuc_n=0, q=1, 
+                        fudge=EFUDGE, name='Hot Electrons')  # Parameters to create electron channels
+    sPp = aP.SpecParams(num_p, alamMin_p, alamMax_p, dtWolf, 
+                        PFLAV, numNuc_p=0, numNuc_n=0, q=-1, 
+                        fudge=PFUDGE, name='Hot Protons'  )  # Parameters to create proton channels
 
     # Stuff into an AlamData object, which will automatically generate the fully realized species distribution for us
     # NOTE: ORDER MATTERS. They will show up in the 1D lamc in this order

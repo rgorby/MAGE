@@ -50,6 +50,23 @@ module sifSpeciesHelper
         endif
     end function spcExists
 
+    function SpcAmu(spc) result (amu)
+        !! Calculates a species's mass in amu/daltons
+        type(SIFSpecies_T), intent(in) :: spc
+
+        integer :: num_e
+        real(rp) :: amu
+
+        !! TODO: This is technically wrong. 
+        !  1 mass_proton = 1.00727647 amu, but He = 4.0026 amu = 3.9736 mass_proton
+        !  Because binding energy is a thing
+        !  Also mass_proton != mass_neutron, but that's an even smaller difference
+        ! Swap this out for a lookup table later
+
+        num_e = spc%numNuc_p - spc%q
+        amu = ((spc%numNuc_p + spc%numNuc_n)*Mp_cgs + num_e*Me_cgs)*100.0/dalton
+
+    end function SpcAmu
 
     !------
     ! Do-stuff helpers
@@ -95,27 +112,35 @@ module sifSpeciesHelper
                 
             ! Read
             call ClearIO(IOVars)
-            call AddInVar(IOVars, "flav" )  ! Attr
-            call AddInVar(IOVars, "N"    )  ! Attr
-            call AddInVar(IOVars, "amu")  ! Attr
-            call AddInVar(IOVars, "fudge")  ! Attr
-            call AddInVar(IOVars, "alami")  ! Dataset
+            call AddInVar(IOVars, "flav"    )  ! Attr
+            call AddInVar(IOVars, "N"       )  ! Attr
+            call AddInVar(IOVars, "numNuc_p")  ! Attr
+            call AddInVar(IOVars, "numNuc_n")  ! Attr
+            call AddInVar(IOVars, "q"       )  ! Attr
+            call AddInVar(IOVars, "fudge"   )  ! Attr
+            call AddInVar(IOVars, "alami"   )  ! Dataset
             call ReadVars(IOVars, .false., configfname, gStr)
 
             ! Assign
-            spc%flav  = IOVars(FindIO(IOVars, "flav" ))%data(1)
-            spc%N     = IOVars(FindIO(IOVars, "N"    ))%data(1)
-            spc%amu   = IOVars(FindIO(IOVars, "amu"  ))%data(1)
-            spc%fudge = IOVars(FindIO(IOVars, "fudge"))%data(1)
-            spc%isElectron = (spc%amu*100.0 < 1) ! Gonna assume this will always work, but is dependent on config having the right amu value
+            spc%flav     = IOVars(FindIO(IOVars, "flav"    ))%data(1)
+            spc%N        = IOVars(FindIO(IOVars, "N"       ))%data(1)
+            spc%numNuc_p = IOVars(FindIO(IOVars, "numNuc_p"))%data(1)
+            spc%numNuc_n = IOVars(FindIO(IOVars, "numNuc_n"))%data(1)
+            spc%q        = IOVars(FindIO(IOVars, "q"       ))%data(1)
+            spc%fudge    = IOVars(FindIO(IOVars, "fudge"   ))%data(1)
+            
+            spc%amu = SpcAmu(spc)
+            spc%isElectron = (spc%numNuc_p .eq. 0) ! Gonna assume this will always work
 
             allocate(spc%alami(spc%N+1))
             call IOArray1DFill(IOVars,"alami",spc%alami)
 
-            write(*,*)" Flav: ", spc%flav
-            write(*,*)" N:    ", spc%N
-            write(*,*)" amu:  ", spc%amu
-            write(*,*)" Fudge:", spc%fudge
+            write(*,*)" Flav:    ", spc%flav
+            write(*,*)" N:       ", spc%N
+            write(*,*)" # nuc_p: ", spc%numNuc_p
+            write(*,*)" # nuc_n: ", spc%numNuc_n
+            write(*,*)" q:       ", spc%q
+            write(*,*)" Fudge:   ", spc%fudge
             !write(*,*) spc%alami
 
                 

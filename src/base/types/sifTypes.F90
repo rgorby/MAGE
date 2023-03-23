@@ -21,17 +21,27 @@ module siftypes
     type SIFSpecies_T
         !! Container for all info related to a specific species
         
+        !> These are all specified by sifconfig.h5
         character(len=strLen) :: name
         integer :: N
         integer :: flav
         integer :: kStart, kEnd
-        logical :: isElectron
-        real(rp) :: amu
-            !! Species mass in amu
+        integer :: numNuc_p
+            !! Number of protons in nucleus
+        integer :: numNuc_n
+            !! Number of neutrons in nucleus
+        integer :: q
+            !! Net charge of species
         real(rp) :: fudge
             !! Strong-scattering limit
         real(rp), dimension(:), allocatable :: alami
             !! Lambda channel cell interfaces/edges
+
+        !> These are calculated after read-in
+        real(rp) :: amu
+            !! Species mass in amu (even the electrons)
+        logical :: isElectron
+            !! Is this species actually an electron? Determine on initialization and store it here
 
     end type SIFSpecies_T
 
