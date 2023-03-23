@@ -150,7 +150,9 @@ module sifetautils
             !! Optional Kappa value
 
         real(rp) :: kap,kap15,E_ev,E0_ev
-        real(rp) :: A0,kapgam,kapbar,kArg,delscl, etaK
+        real(rp) :: A0,kapgam,kapbar,kArg,delscl
+        real(rp) :: etaK
+            !! Eta in units of [#/cc * Rx/T]
 
         etaK = 0.0
 
@@ -176,5 +178,21 @@ module sifetautils
         etak = A0*kapgam/(kapbar**1.5) * sqrt(E_ev/E0_ev)*delscl*((kArg)**(-kap-1.0))
 
     end function Kappa2Eta
+
+    function Maxwell2Eta(D,kT,vm,amin,amax) result(etaK)
+        real(rp), intent(in) :: D,kT,vm,amin,amax
+            !! Density [#/cc], kT [keV], vm [(Rx/nT)^(-2/3)],
+            !! min and max lambda vals [eV * (Rx/nT)^(2/3)]
+        
+        real(rp) :: A0
+            !! Flux tube content
+        real(qp) :: xp, xm
+            !! (Quad precision) Args for upper and lower cell interfaces to calculate experfdiff 
+        real(rp) :: etaK
+
+        A0 = D/(vm**1.5)*sclEta ! #/cc * Rx/nT * 1/nT -> 1/T
+        xp = sqrt(abs(amax)*vm / (kT*1.e3))
+
+    end function Maxwell2Eta
 
 end module sifetautils
