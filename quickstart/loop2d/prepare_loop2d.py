@@ -1,10 +1,10 @@
 #!/usr/bin/env python
 
 
-"""Prepare for running serial gamera on the loop2d example.
+"""Prepare for running serial kaiju on the loop2d example.
 
-Perform the preprocessing required to run the serial gamera code on
-the loop2d example. Create any required data files, and create the PBS
+Perform the preprocessing required to run the serial kaiju code on the
+loop2d example. Create any required data files, and create the PBS
 script to run the code.
 """
 
@@ -25,23 +25,17 @@ import subprocess
 default_runid = "loop2d"
 
 # Program description.
-description = "Prepare to run serial gamera on the %s model." % default_runid
+description = "Prepare to run serial kaiju on the %s quickstart case." % default_runid
 
 # Location of template .ini file file for run.
 ini_template = os.path.join(
-    os.environ["KAIJUHOME"], "quickstart", default_runid, "%s.ini.template"
-    % default_runid
-)
-
-# Location of template XML file file for run.
-xml_template = os.path.join(
-    os.environ["KAIJUHOME"], "quickstart", default_runid, "%s.xml.template"
+    os.environ["KAIJUHOME"], "quickstart", default_runid, "%s_template.ini"
     % default_runid
 )
 
 # Location of template PBS script script for run.
 pbs_template = os.path.join(
-    os.environ["KAIJUHOME"], "quickstart", default_runid, "%s.pbs.template"
+    os.environ["KAIJUHOME"], "quickstart", default_runid, "%s_template.pbs"
     % default_runid
 )
 
@@ -49,7 +43,7 @@ pbs_template = os.path.join(
 def create_command_line_parser():
     """Create the command-line argument parser.
 
-    Prepare the command-line parser.
+    Create the parser for command-line arguments.
 
     Parameters
     ----------
@@ -80,7 +74,7 @@ def create_command_line_parser():
     return parser
 
 
-def run_preprocessing_steps(directory:str, runid:str):
+def run_preprocessing_steps(directory, runid):
     """Run any preprocessing steps needed for the run.
 
     Perform required preprocessing steps.
@@ -99,13 +93,10 @@ def run_preprocessing_steps(directory:str, runid:str):
     # The loop2d example does not require any preprocessing steps.
 
 
-def create_ini_file(directory:str, runid:str):
+def create_ini_file(directory, runid):
     """Create the .ini file from a template.
 
     Create the .ini file from a template.
-
-    NOTE: Conversion of .ini to .xml does not work yet, so just copy
-    the template.
 
     Parameters
     ----------
@@ -133,13 +124,10 @@ def create_ini_file(directory:str, runid:str):
     return ini_file
 
 
-def convert_ini_to_xml(ini_file:str, xml_file:str):
+def convert_ini_to_xml(ini_file, xml_file):
     """Convert the .ini file to XML.
 
     Convert the .ini file to a .xml file.
-
-    NOTE: Conversion of .ini to .xml does not work yet, so just copy
-    the template.
 
     Parameters
     ----------
@@ -152,22 +140,12 @@ def convert_ini_to_xml(ini_file:str, xml_file:str):
     -------
     None
     """
-    # cmd = "XMLGenerator.py"
-    # args = [ini_file, xml_file]
-    # subprocess.run([cmd] + args)
-
-    # No conversion is performed yet. Just process the XML template.
-    with open(xml_template) as t:
-        lines = t.readlines()
-
-    # Process the template here.
-
-    # Write out the processed XML file.
-    with open(xml_file, "w") as f:
-        f.writelines(lines)
+    cmd = "XMLGenerator.py"
+    args = [ini_file, xml_file]
+    subprocess.run([cmd] + args)
 
 
-def create_pbs_job_script(directory:str, runid:str):
+def create_pbs_job_script(directory, runid):
     """Create the PBS job script for the run.
 
     Create the PBS job script from a template.
@@ -189,9 +167,9 @@ def create_pbs_job_script(directory:str, runid:str):
         lines = t.readlines()
 
     # Process the template here.
-    pbs_file = os.path.join(directory, "%s.pbs" % runid)
 
     # Write out the processed file.
+    pbs_file = os.path.join(directory, "%s.pbs" % runid)
     with open(pbs_file, "w") as f:
         f.writelines(lines)
     return pbs_file
@@ -232,6 +210,8 @@ if __name__ == "__main__":
     pbs_file = create_pbs_job_script(directory, runid)
     if verbose:
         print("The PBS job script %s is ready." % pbs_file)
+        print("Edit this file as needed for your system (see comments in %s"
+              " for more information)." % pbs_file)
         print("Submit the job to PBS with the command:")
         print("    qsub %s" % pbs_file)
   
