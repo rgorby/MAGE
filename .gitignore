@@ -58,6 +58,3 @@ analysis/notebooks/Tutorial/.ipynb_checkpoints
 
 # Visual Studio Code configuration directory
 .vscode/
-
-# Visual Studio code environment vaariable files
-.env
