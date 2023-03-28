@@ -321,8 +321,9 @@ if __name__ == "__main__":
     if debug:
         print("utDT = %s" % utDT)
 
-    # Fetch the start date.
-    MJD = kh5.tStep(fStr, 0, aID="MJD")
+    # Fetch the date of the earliest available step.
+    n_steps, step_numbers = kh5.cntSteps(fStr)
+    MJD = kh5.tStep(fStr, step_numbers[0], aID="MJD")
     if debug:
         print("MJD = %s" % MJD)
     utS = ktools.MJD2UT([MJD])
