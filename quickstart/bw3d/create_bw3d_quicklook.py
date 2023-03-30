@@ -7,7 +7,7 @@ The quick-look plot displays the magnetic pressure:
 
 Pb = 0.5*(Bx**2 + By**2 + Bz**2)
 
-from the first and nth steps in the HDF file, with an overlayt of the
+from the first and nth steps in the HDF file, with an overlay of the
 magnetic field lines.
 """
 

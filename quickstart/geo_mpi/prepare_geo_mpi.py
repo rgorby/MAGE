@@ -44,7 +44,7 @@ pbs_template = os.path.join(
 def create_command_line_parser():
     """Create the command-line argument parser.
 
-    Ceate the parser for command-line arguments.
+    Create the parser for command-line arguments.
 
     Parameters
     ----------
