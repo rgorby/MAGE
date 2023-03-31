@@ -24,6 +24,8 @@ module ioH5
         enumerator :: ZFP,ZSTD,ZLIB,SZIP,BLOSC
     end enum
 
+    integer, private :: oCount = 1
+    integer, private :: rCount = 0
     logical, parameter, private :: ENABLE_COMPRESS = .TRUE.
     integer, parameter, private :: COMPRESS_ZSTD = 32015
     integer, parameter, private :: COMPRESS_ZFP = 32013
@@ -32,13 +34,13 @@ module ioH5
 
     ! Compression Algorithm Selection
 #ifdef __ENABLE_SZIP
-    integer, parameter :: Z_ALG = SZIP
+    integer, parameter, private :: Z_ALG = SZIP
 #endif
 #ifdef __ENABLE_ZLIB
-    integer, parameter :: Z_ALG = ZLIB
+    integer, parameter, private :: Z_ALG = ZLIB
 #endif
 #ifdef __ENABLE_ZFP
-    integer, parameter :: Z_ALG = ZFP
+    integer, parameter, private :: Z_ALG = ZFP
     ! ZFP compression parameters (defaults taken from ZFP header)
     integer(C_INT) :: zfpmode = 5 !1=rate, 2=prec, 3=acc, 4=expert, 5=lossless
     real(dp) :: rate = 4.0_dp
@@ -52,10 +54,10 @@ module ioH5
     integer(C_INT) :: minexp = -1074
 #endif
 #ifdef __ENABLE_ZSTD
-    integer, parameter :: Z_ALG = ZSTD
+    integer, parameter, private :: Z_ALG = ZSTD
 #endif
 #ifdef __ENABLE_BLOCSC
-    integer, parameter :: Z_ALG = BLOCSC
+    integer, parameter, private :: Z_ALG = BLOCSC
 #endif
 
 #else
@@ -124,7 +126,7 @@ contains
         !2097152 bytes {64,64,128} float
     
         integer :: d
-        real(Float64) :: nbytes
+        real(dp) :: nbytes
 
         d = size(cdims)
         cdims(1:d) = dims(1:d)
@@ -627,6 +629,51 @@ contains
         IOVar%isDone = .true.
     end subroutine ReadHDFAtt
 
+    subroutine WriteCacheAtt(IOVar,gId)
+        type(IOVAR_T), intent(inout) :: IOVar
+        integer(HID_T), intent(in) :: gId
+        integer(HID_T) :: sId, dId, pId
+        integer :: herr
+        integer :: Nr = 1
+        integer :: initSize = 2048
+        integer :: dSetExists
+        integer(HSIZE_T) :: cdims(1), maxdims(1), offset(1), bCount(1), dataDim(1)
+        dataDim = (/1/)
+        maxdims(1) = H5S_UNLIMITED_F
+        cdims(1) = initSize
+
+        dSetExists = h5ltfind_dataset_f(gId, trim(IOVar%idStr))
+        ! Create dataspace and dataset initially in group
+        if (.not. dSetExists) then
+            call h5screate_simple_f(Nr, cdims, sId, herr, maxdims=maxdims)
+            call h5pcreate_f(H5P_DATASET_CREATE_F, pId, herr)
+            call h5pset_chunk_f(pId, Nr, cdims, herr)
+            call h5dcreate_f(gId, trim(IOVar%idStr), H5T_NATIVE_REAL, sId, &
+                        dId, herr, dcpl_id=pId)
+            call h5pclose_f(dId,herr)
+        endif
+
+        ! Open dataset on subsequent time steps
+        call h5dopen_f(gId, trim(IOVar%idStr), dId, herr)
+        ! Check to see if we need to resize length of array
+        if(oCount > initSize) then
+            call h5dset_extent_f(sId, cdims*initSize, herr)
+            oCount = 1
+            rCount = rCount + 1
+        endif
+        ! Get the proper dataspae to select the hyperslabe position of the next element
+        call h5dget_space_f(dId, sId, herr)
+        offset = (/rCount*initSize + oCount + 1/)
+        bCount = (/1/)
+        CALL h5sselect_hyperslab_f(sId, H5S_SELECT_SET_F, offset, bCount, herr)  
+        call h5dwrite_f(dId, H5T_NATIVE_REAL, IOVar%data(1), bCount, herr)
+        
+        ! Cleanup 
+        call h5dclose_f(dId,herr)
+        call h5sclose_f(sId,herr)
+        oCount = oCount + 1
+    end subroutine WriteCacheAtt
+
     !FIXME: Add scaling to attributes
     subroutine WriteHDFAtt(IOVar,gId)
         type(IOVAR_T), intent(inout) :: IOVar
@@ -637,18 +684,18 @@ contains
 
         !Write based on data type
         select case(IOVar%vType)
-        case(IONULL,IOREAL)
-            X = IOVar%data(1)
-            call writeReal2HDF(gId,trim(IOVar%idStr),X)
-        case(IOINT)
-            X = IOVar%data(1)
-            call writeInt2HDF(gId,trim(IOVar%idStr),int(X))
-        case(IOSTR)
-            call writeString2HDF(gId,trim(IOVar%idStr),trim(IOVar%dStr))
-            !call h5ltmake_dataset_string_f(gID,trim(IOVar%idStr),trim(IOVar%dStr),herr)
-        case default
-            write(*,*) 'Unknown HDF data type, bailing ...'
-            stop
+            case(IONULL,IOREAL)
+                X = IOVar%data(1)
+                call writeReal2HDF(gId,trim(IOVar%idStr),X)
+            case(IOINT)
+                X = IOVar%data(1)
+                call writeInt2HDF(gId,trim(IOVar%idStr),int(X))
+            case(IOSTR)
+                call writeString2HDF(gId,trim(IOVar%idStr),trim(IOVar%dStr))
+                !call h5ltmake_dataset_string_f(gID,trim(IOVar%idStr),trim(IOVar%dStr),herr)
+            case default
+                write(*,*) 'Unknown HDF data type, bailing ...'
+                stop
         end select
         IOVar%isDone = .true.
     end subroutine WriteHDFAtt
@@ -672,9 +719,10 @@ contains
         integer(HID_T) :: dId, sId, pId
         real(rp) :: vScl
         integer(HSIZE_T), dimension(:), allocatable :: cdims
+        !real(dp), dimension(:), allocatable, target:: data
 #ifdef __ENABLE_COMPRESS
         logical :: avail
-        type(C_PTR) :: f_ptr
+        !type(C_PTR) :: f_ptr
         integer :: status
         ! Used for ZFP HDF5 plugin
         integer(C_INT), dimension(:), allocatable :: cd_values
@@ -684,6 +732,8 @@ contains
 #endif
         Nr = IOVar%Nr
         allocate(cdims(Nr))
+        !allocate(data(size(IOVar%data)))
+        !data = 0.0_dp
         h5dims(1:Nr) = IOVar%dims(1:Nr)
         vScl = IOVar%scale
 
@@ -710,13 +760,14 @@ contains
                 call h5screate_simple_f(Nr, h5dims(1:Nr), sid, herr)
                 call h5pcreate_f(H5P_DATASET_CREATE_F, pId, herr)
                 if (doIOP) then
-                    call chunk_size(Float32, h5dims(1:Nr), cdims)
+                    call chunk_size(sp, h5dims(1:Nr), cdims)
                 else
-                    call chunk_size(Float64, h5dims(1:Nr), cdims)
+                    call chunk_size(dp, h5dims(1:Nr), cdims)
                 endif
                 call h5pset_chunk_f(pId, Nr, cdims, herr)
 
                 if(Z_ALG == ZLIB) then
+                    call h5pset_shuffle(pId, herr)
                     call h5pset_deflate_f(pId, 6, herr)
                 elseif(Z_ALG == SZIP) then
                     szip_options_mask = H5_SZIP_NN_OM_F
@@ -736,7 +787,7 @@ contains
                         cd_nelmts, cd_values, herr)
                     else
                         write(*,*) 'ZSTD filter not initailized, please ensure the ZSTD HDF5 plugin is loaded. \n'
-                        write(*,*) 'You may also use the default SZIP without needing plugins.'
+                        write(*,*) 'You may also use the default compression SZIP without needing plugins.'
                         stop
                     endif
 #ifdef __ENABLE_ZFP
@@ -809,12 +860,10 @@ contains
                         !     status = H5Pset_zfp_reversible(pId)
                         !     !call check("H5Pset_zfp_reversible", status, nerr)
                         ! endif
-                        
-
                         ! status = H5Z_zfp_finalize()
                     else
                         write(*,*) 'ZFP filter not initailized, please ensure the ZFP HDF5 plugin is loaded. \n'
-                        write(*,*) 'You may also use the default SZIP without needing plugins.'
+                        write(*,*) 'You may also use the default compression SZIP without needing plugins.'
                         stop
                     endif
 #endif              
@@ -823,13 +872,15 @@ contains
                 if (doIOP) then
                     call h5dcreate_f(gId, trim(IOVar%idStr), H5T_NATIVE_REAL, sId, &
                     dId, herr, dcpl_id=pId)
-                    f_ptr = C_LOC(real(vScl*IOVar%data,sp))
-                    call h5dwrite_f(dId, H5T_NATIVE_REAL, f_ptr, herr)
+                    !data = vScl*IOVar%data
+                    !f_ptr = C_LOC(data(1))
+                    call h5dwrite_f(dId, H5T_NATIVE_REAL, real(vScl*IOVar%data,sp), h5dims(1:Nr), herr)
                 else
                     call h5dcreate_f(gId, trim(IOVar%idStr), H5T_NATIVE_DOUBLE, sId, &
                     dId, herr, dcpl_id=pId)
-                    f_ptr = C_LOC(real(vScl*IOVar%data,dp))
-                    call h5dwrite_f(dId, H5T_NATIVE_DOUBLE, f_ptr, herr)
+                    !data = vScl*IOVar%data
+                    !f_ptr = C_LOC(data(1))
+                    call h5dwrite_f(dId, H5T_NATIVE_DOUBLE, real(vScl*IOVar%data,dp), h5dims(1:Nr), herr)
                 endif
 
                 call h5pclose_f(pId, herr)
@@ -872,8 +923,9 @@ contains
         logical :: fExist,gExist,doStampCheck
         logical :: doCompress = .false.
         integer :: herr
-        integer(HID_T) :: h5fId, gId, ggId,outId
+        integer(HID_T) :: h5fId, gId, ggId, outId, cacheId
         character(len=strLen) :: h5File
+        character(len=strLen) :: attrGrpName = "timeAttributeCache"
 
         !Set filename to baseStr
         !FIXME: Correct to add .h5 to baseStr
@@ -899,7 +951,9 @@ contains
             call h5fopen_f(trim(h5File), H5F_ACC_RDWR_F, h5fId, herr)
         else
             !Create file
-            call h5fcreate_f(trim(h5File),H5F_ACC_TRUNC_F, h5fId, herr)            
+            call h5fcreate_f(trim(h5File),H5F_ACC_TRUNC_F, h5fId, herr)   
+            !Set up cach group
+            call h5gcreate_f(h5fId,trim(attrGrpName),cacheId,herr)         
         endif
 
         !Figure out output location (outId) and create groups as necessary
@@ -949,7 +1003,7 @@ contains
         endif !gStrO
 
         !Do writing
-        call WriteVars2ID(IOVars,outId,doIOp,doCompress)
+        call WriteVars2ID(IOVars,outId,doIOp,cacheId=cacheId,doCompress=doCompress)
 
         !Now done, close up shop
         if (present(gStrOO)) call h5gclose_f(ggId,herr)
@@ -961,10 +1015,11 @@ contains
     end subroutine WriteVars
 
     !> Write out all IOVars to their respective IDs
-    subroutine WriteVars2ID(IOVars,outId,doIOp,doCompress)
+    subroutine WriteVars2ID(IOVars,outId,doIOp,cacheId,doCompress)
         type(IOVAR_T), dimension(:), intent(inout) :: IOVars
         logical, intent(in) :: doIOp
         integer(HID_T), intent(in) :: outId
+        integer(HID_T), intent(in), optional :: cacheId
         logical, intent(in), optional :: doCompress
         integer :: n, Nv
         integer(HID_T) :: Nr
@@ -985,6 +1040,7 @@ contains
                         stop
                     else
                         call WriteHDFAtt(IOVars(n),outId)
+                        call WriteCacheAtt(IOVars(n),cacheId)
                     endif
                 else
                 !N-rank array

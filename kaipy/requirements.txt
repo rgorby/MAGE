@@ -12,3 +12,4 @@ pyhdf==0.10.3
 rpy==0.99.2
 scipy==1.5.2
 spacepy==0.2.2
+hdf5plugin==4.0.0
