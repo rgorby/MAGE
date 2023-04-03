@@ -110,8 +110,8 @@ def get_mpi_decomposition(filename):
     iPdir, jPdir, kPdir : int
         Values of "N" attribute of elements (iPdir, jPdir, kPdir).
     """
-    iPdir = jPdir = kPdir = None
     # Parse the XML file.
+    iPdir = jPdir = kPdir = None
     tree = ElementTree.parse(filename)
     Kaiju_el = tree.getroot()
     iPdir = int(Kaiju_el.findall("Gamera/iPdir")[0].attrib["N"])
@@ -208,12 +208,12 @@ def compute_ground_delta_B(runid, mpixml=None):
         Name of file containing calcdb.x results.
     """
     # Create the XML file for calcdb.x from the template.
-    # xml_file = create_xml_file(runid, mpixml)
+    xml_file = create_xml_file(runid, mpixml)
 
     # Run the command to compute ground delta B values.
-    # cmd = "calcdb.x"
-    # args = [xml_file]
-    # subprocess.run([cmd] + args)
+    cmd = "calcdb.x"
+    args = [xml_file]
+    subprocess.run([cmd] + args)
 
     # Compute the name of the file containing the delta B values.
     delta_B_file = runid + ".deltab.h5"
