@@ -26,6 +26,7 @@ module ioH5
 
     integer, private :: oCount = 1
     integer, private :: rCount = 0
+    integer(HSIZE_T), parameter, private ::  INIT_CACHE_SIZE = 2
     logical, parameter, private :: ENABLE_COMPRESS = .TRUE.
     integer, parameter, private :: COMPRESS_ZSTD = 32015
     integer, parameter, private :: COMPRESS_ZFP = 32013
@@ -629,49 +630,114 @@ contains
         IOVar%isDone = .true.
     end subroutine ReadHDFAtt
 
-    subroutine WriteCacheAtt(IOVar,gId)
-        type(IOVAR_T), intent(inout) :: IOVar
-        integer(HID_T), intent(in) :: gId
-        integer(HID_T) :: sId, dId, pId
-        integer :: herr
-        integer :: Nr = 1
-        integer :: initSize = 2048
-        integer :: dSetExists
-        integer(HSIZE_T) :: cdims(1), maxdims(1), offset(1), bCount(1), dataDim(1)
-        dataDim = (/1/)
-        maxdims(1) = H5S_UNLIMITED_F
-        cdims(1) = initSize
+    function GetAttCacheSize() result(size)
+        integer :: size
+        size = (rCount + 1)*INIT_CACHE_SIZE
+    end function
 
-        dSetExists = h5ltfind_dataset_f(gId, trim(IOVar%idStr))
+    subroutine CheckAttCacheSize(stepStr)
+        character(len=*), intent(in) :: stepStr
+        integer :: nStep, status
+
+        read(stepStr(6:),*,iostat=status) nStep
+        if(status == 0) then
+            if ( nStep > (rCount + 1)*INIT_CACHE_SIZE ) then
+                rCount = rCount + 1
+            end if 
+            oCount = oCount + 1
+        else 
+            write(*,*), "Conversion of step ", stepStr, " failed.", & 
+                        " Update to timeAttributeCache dataset size failed."
+            stop
+        endif
+    end subroutine
+
+    subroutine WriteCacheAtt(IOVar,gId)
+        !> IOVar to write
+        type(IOVAR_T), intent(inout) :: IOVar
+        !> Group ID of attribute cache
+        integer(HID_T), intent(in) :: gId
+
+        integer(HID_T) :: sId, dId, pId, memId = 0
+        integer :: herr
+        integer :: Nr = 1, memRank = 1
+        logical :: dSetExists
+        real :: X
+        integer(HSIZE_T) :: dSize, rank = 1
+        integer(HSIZE_T), dimension(1) :: cdims(1), maxdims(1), bCount(1), dataDim(1), memDim(1)
+        integer(HSIZE_T), dimension(1,1) :: coord
+        dataDim = (/1/)
+        memDim = (/1/)
+        maxdims(1) = H5S_UNLIMITED_F
+        cdims(1) = INIT_CACHE_SIZE
+        bCount = (/1/)
+
+        call h5ltpath_valid_f(gId, trim(IOVar%idStr), .True., dSetExists, herr)
         ! Create dataspace and dataset initially in group
         if (.not. dSetExists) then
+            !write(*,*) "Create var ", trim(IOVar%idStr)
             call h5screate_simple_f(Nr, cdims, sId, herr, maxdims=maxdims)
             call h5pcreate_f(H5P_DATASET_CREATE_F, pId, herr)
             call h5pset_chunk_f(pId, Nr, cdims, herr)
             call h5dcreate_f(gId, trim(IOVar%idStr), H5T_NATIVE_REAL, sId, &
                         dId, herr, dcpl_id=pId)
-            call h5pclose_f(dId,herr)
-        endif
+            coord(1,1) = 1
+            call h5sselect_elements_f(sId, H5S_SELECT_SET_F, Nr, 1, coord, herr)
+            call h5pclose_f(pId,herr)
+        else
+            ! write(*,*) "Found var ", trim(IOVar%idStr)
+            ! Open dataset on subsequent time steps
+            call h5dopen_f(gId, trim(IOVar%idStr), dId, herr)
+            ! Get the proper dataspae to select the hyperslabe position 
+            ! of the next attribute element to write/add to the dataset
+            call h5dget_space_f(dId, sId, herr)
+            ! Check to see if we need to resize size of dataset
+            if(oCount >= GetAttCacheSize()) then
+                !write(*,*) "Extending cache for ", trim(IOVar%idStr), " from N=", &
+                !            (rCount + 1)*INIT_CACHE_SIZE, &
+                !            " to N= ", (rCount + 2)*INIT_CACHE_SIZE
+                dSize = GetAttCacheSize() + INIT_CACHE_SIZE
+                call h5dset_extent_f(dId, (/dSize/), herr)
+            endif
+            cdims(1) = 1
+            ! Create memory space for (extended) current size of dataset
+            call h5screate_simple_f(Nr, cdims, memId, herr)
+            coord(1,1) = oCount
+            ! Select the single element at coord = offset in the file space
+            call h5sselect_elements_f(sId, H5S_SELECT_SET_F, Nr, 1, coord, herr)
+            ! Select the single element at coord = offset in the memory space
+            coord(1,1) = 1
+            call h5sselect_elements_f(memId, H5S_SELECT_SET_F, Nr, 1, coord, herr) 
+        end if
 
-        ! Open dataset on subsequent time steps
-        call h5dopen_f(gId, trim(IOVar%idStr), dId, herr)
-        ! Check to see if we need to resize length of array
-        if(oCount > initSize) then
-            call h5dset_extent_f(sId, cdims*initSize, herr)
-            oCount = 1
-            rCount = rCount + 1
-        endif
-        ! Get the proper dataspae to select the hyperslabe position of the next element
-        call h5dget_space_f(dId, sId, herr)
-        offset = (/rCount*initSize + oCount + 1/)
-        bCount = (/1/)
-        CALL h5sselect_hyperslab_f(sId, H5S_SELECT_SET_F, offset, bCount, herr)  
-        call h5dwrite_f(dId, H5T_NATIVE_REAL, IOVar%data(1), bCount, herr)
+        select case(IOVar%vType)
+            case(IONULL,IOREAL)
+                X = IOVar%data(1)
+                if (memId /= 0) then
+                    call h5dwrite_f(dId, H5T_NATIVE_REAL, X, bCount, herr, &
+                                    mem_space_id=memId, file_space_id=sId)
+                    call h5sclose_f(memId,herr)
+                else
+                    call h5dwrite_f(dId, H5T_NATIVE_REAL, X, bCount, herr)
+                end if
+            case(IOINT)
+                X = IOVar%data(1)
+                if (memId /= 0) then
+                    call h5dwrite_f(dId, H5T_NATIVE_INTEGER, int(X), bCount, herr, &
+                                    mem_space_id=memId, file_space_id=sId)
+                    call h5sclose_f(memId,herr)
+                else
+                    call h5dwrite_f(dId, H5T_NATIVE_INTEGER, int(X), bCount, herr)
+                end if
+        end select
         
         ! Cleanup 
         call h5dclose_f(dId,herr)
         call h5sclose_f(sId,herr)
-        oCount = oCount + 1
+
+        if(herr == -1) then
+            write(*,*) "There was an error creating or writing to the attribute cache"
+        endif
     end subroutine WriteCacheAtt
 
     !FIXME: Add scaling to attributes
@@ -942,6 +1008,10 @@ contains
             call StampIO(h5File)
         endif      
 
+        if(present(gStrO)) then
+            call CheckAttCacheSize(trim(gStrO))
+        end if
+
         call h5open_f(herr) !Setup Fortran interface
 
         !Start by opening file, create if necessary
@@ -951,10 +1021,15 @@ contains
             call h5fopen_f(trim(h5File), H5F_ACC_RDWR_F, h5fId, herr)
         else
             !Create file
-            call h5fcreate_f(trim(h5File),H5F_ACC_TRUNC_F, h5fId, herr)   
-            !Set up cach group
-            call h5gcreate_f(h5fId,trim(attrGrpName),cacheId,herr)         
+            call h5fcreate_f(trim(h5File),H5F_ACC_TRUNC_F, h5fId, herr)         
         endif
+
+        !Check if cache group exists
+        call h5lexists_f(h5fId,trim(attrGrpName),gExist,herr)
+        if (.not. gExist) then
+            !Create cache group
+            call h5gcreate_f(h5fId,trim(attrGrpName),cacheId,herr)         
+        endif 
 
         !Figure out output location (outId) and create groups as necessary
         if (present(gStrO)) then
@@ -1003,11 +1078,21 @@ contains
         endif !gStrO
 
         !Do writing
-        call WriteVars2ID(IOVars,outId,doIOp,cacheId=cacheId,doCompress=doCompress)
+        if(present(doStampCheckO)) then
+            call WriteVars2ID(IOVars,outId,doIOp, &
+                cacheId=cacheId,doCompress=doCompress,isRoot=.true.)
+        else
+            !Open attribute cache group
+            call h5gopen_f(h5fId,trim(attrGrpName),cacheId,herr)  
+            call WriteVars2ID(IOVars,outId,doIOp, &
+                cacheId=cacheId,doCompress=doCompress)
+        end if
 
         !Now done, close up shop
         if (present(gStrOO)) call h5gclose_f(ggId,herr)
         if (present(gStrO )) call h5gclose_f( gId,herr)
+
+        call h5gclose_f(cacheId,herr) !Close cache group
 
         call h5fclose_f(h5fId,herr) !Close file
         call h5close_f(herr) !Close intereface
@@ -1015,15 +1100,15 @@ contains
     end subroutine WriteVars
 
     !> Write out all IOVars to their respective IDs
-    subroutine WriteVars2ID(IOVars,outId,doIOp,cacheId,doCompress)
+    subroutine WriteVars2ID(IOVars,outId,doIOp,cacheId,doCompress,isRoot)
         type(IOVAR_T), dimension(:), intent(inout) :: IOVars
         logical, intent(in) :: doIOp
         integer(HID_T), intent(in) :: outId
         integer(HID_T), intent(in), optional :: cacheId
         logical, intent(in), optional :: doCompress
+        logical, intent(in), optional :: isRoot
         integer :: n, Nv
         integer(HID_T) :: Nr
-
         Nv = size(IOVars)
 
         do n=1,Nv
@@ -1040,7 +1125,9 @@ contains
                         stop
                     else
                         call WriteHDFAtt(IOVars(n),outId)
-                        call WriteCacheAtt(IOVars(n),cacheId)
+                        if(.not. present(isRoot)) then
+                            call WriteCacheAtt(IOVars(n),cacheId)
+                        endif
                     endif
                 else
                 !N-rank array
