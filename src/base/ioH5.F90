@@ -635,12 +635,21 @@ contains
         size = (rCount + 1)*INIT_CACHE_SIZE
     end function
 
-    subroutine UpdateAttCacheSize(nStep)
-        integer, intent(in) :: nStep
-        if ( nStep > (rCount + 1)*INIT_CACHE_SIZE ) then
-            rCount = rCount + 1
-        end if 
-        oCount = oCount + 1
+    subroutine CheckAttCacheSize(stepStr)
+        character(len=*), intent(in) :: stepStr
+        integer :: nStep, status
+
+        read(stepStr(6:),*,iostat=status) nStep
+        if(status == 0) then
+            if ( nStep > (rCount + 1)*INIT_CACHE_SIZE ) then
+                rCount = rCount + 1
+            end if 
+            oCount = oCount + 1
+        else 
+            write(*,*), "Conversion of step ", stepStr, " failed.", & 
+                        " Update to timeAttributeCache dataset size failed."
+            stop
+        endif
     end subroutine
 
     subroutine WriteCacheAtt(IOVar,gId)
@@ -666,7 +675,7 @@ contains
         call h5ltpath_valid_f(gId, trim(IOVar%idStr), .True., dSetExists, herr)
         ! Create dataspace and dataset initially in group
         if (.not. dSetExists) then
-            write(*,*) "Create var ", trim(IOVar%idStr)
+            !write(*,*) "Create var ", trim(IOVar%idStr)
             call h5screate_simple_f(Nr, cdims, sId, herr, maxdims=maxdims)
             call h5pcreate_f(H5P_DATASET_CREATE_F, pId, herr)
             call h5pset_chunk_f(pId, Nr, cdims, herr)
@@ -676,7 +685,7 @@ contains
             call h5sselect_elements_f(sId, H5S_SELECT_SET_F, Nr, 1, coord, herr)
             call h5pclose_f(pId,herr)
         else
-            write(*,*) "Found var ", trim(IOVar%idStr)
+            ! write(*,*) "Found var ", trim(IOVar%idStr)
             ! Open dataset on subsequent time steps
             call h5dopen_f(gId, trim(IOVar%idStr), dId, herr)
             ! Get the proper dataspae to select the hyperslabe position 
@@ -684,9 +693,9 @@ contains
             call h5dget_space_f(dId, sId, herr)
             ! Check to see if we need to resize size of dataset
             if(oCount >= GetAttCacheSize()) then
-                write(*,*) "Extending cache for ", trim(IOVar%idStr), " from N=", &
-                            (rCount + 1)*INIT_CACHE_SIZE, &
-                            " to N= ", (rCount + 2)*INIT_CACHE_SIZE
+                !write(*,*) "Extending cache for ", trim(IOVar%idStr), " from N=", &
+                !            (rCount + 1)*INIT_CACHE_SIZE, &
+                !            " to N= ", (rCount + 2)*INIT_CACHE_SIZE
                 dSize = GetAttCacheSize() + INIT_CACHE_SIZE
                 call h5dset_extent_f(dId, (/dSize/), herr)
             endif
@@ -998,6 +1007,10 @@ contains
         if (.not. present(gStrO) .and. doStampCheck) then
             call StampIO(h5File)
         endif      
+
+        if(present(gStrO)) then
+            call CheckAttCacheSize(trim(gStrO))
+        end if
 
         call h5open_f(herr) !Setup Fortran interface
 
