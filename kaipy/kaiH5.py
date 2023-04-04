@@ -1,5 +1,5 @@
 import h5py
-import hdf5plugin
+#import hdf5plugin
 import numpy as np
 import os, sys, subprocess
 import kaipy.kdefs as kdefs

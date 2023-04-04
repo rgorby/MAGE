@@ -135,6 +135,7 @@ contains
         !Setup for next output
         Model%IO%tOut = Model%IO%tOut + Model%IO%dtOut
         Model%IO%nOut = Model%IO%nOut + 1
+        call UpdateAttCacheSize(Model%IO%nOut)
     end subroutine fOutput
 
     subroutine resOutput(Model,Grid,oState,State)
