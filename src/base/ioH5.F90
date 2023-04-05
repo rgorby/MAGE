@@ -142,6 +142,8 @@ contains
 
     ! -------------------------------------------   
     ! Various routines to quickly pull scalars from IOVar_T
+    !
+    !> Helper funciton to pull INT from an IOVar data
     function GetIOInt(IOVars,vID) result(vOut)
         type(IOVAR_T), dimension(:), intent(in) :: IOVars
         character(len=*), intent(in) :: vID
@@ -151,6 +153,7 @@ contains
         vOut = IOVars(nvar)%data(1)
     end function GetIOInt
 
+    !> Helper funciton to pull REAL from an IOVar data
     function GetIOReal(IOVars,vID) result(vOut)
         type(IOVAR_T), dimension(:), intent(in) :: IOVars
         character(len=*), intent(in) :: vID
@@ -164,6 +167,7 @@ contains
     !-------------------------------------------   
     !Various routines to get information about step structure of H5 file
 
+    !> Determine grid size from HDF5 file
     function GridSizeH5(fIn) result(Nijk)
         !> File Name
         character(len=*), intent(in) :: fIn
@@ -494,6 +498,7 @@ contains
     !Routines to read/write individual variables or attributes
 
     !FIXME: Assuming double precision for input binary data
+    !> Read HDF dataset from group
     subroutine ReadHDFVar(IOVar,gId)
         type(IOVAR_T), intent(inout) :: IOVar
         integer(HID_T), intent(in) :: gId
@@ -600,6 +605,8 @@ contains
     end subroutine ReadHDFVarHyper
 
     !FIXME: Add scaling to attributes
+    !> Read an HDF attribute from a group
+    !> 
     subroutine ReadHDFAtt(IOVar,gId)
         type(IOVAR_T), intent(inout) :: IOVar
         integer(HID_T), intent(in) :: gId
@@ -630,11 +637,16 @@ contains
         IOVar%isDone = .true.
     end subroutine ReadHDFAtt
 
+    !> Helper function to get current timeAttributeCache 
+    !> datasets' size
     function GetAttCacheSize() result(size)
         integer :: size
         size = (rCount + 1)*INIT_CACHE_SIZE
     end function
 
+    !> Helper function to check for resizing 
+    !> of the timeAttributeCache datasets' size
+    !> 
     subroutine CheckAttCacheSize(stepStr)
         character(len=*), intent(in) :: stepStr
         integer :: nStep, status
@@ -652,6 +664,9 @@ contains
         endif
     end subroutine
 
+    !> Writes an Attribute that is a float or integer to
+    !> timeAttributeCache group for each attribute written
+    !> to a Step# group
     subroutine WriteCacheAtt(IOVar,gId)
         !> IOVar to write
         type(IOVAR_T), intent(inout) :: IOVar
@@ -741,8 +756,14 @@ contains
     end subroutine WriteCacheAtt
 
     !FIXME: Add scaling to attributes
+    !> Write a variable as an attribue for the
+    !> specified HDF group
+    !>
+    !>
     subroutine WriteHDFAtt(IOVar,gId)
+        !> Variable to write to group
         type(IOVAR_T), intent(inout) :: IOVar
+        !> HDF ID for Group
         integer(HID_T), intent(in) :: gId
 
         integer :: herr
@@ -768,6 +789,9 @@ contains
 
     !FIXME: Assuming IOP is single and double otherwise
     !FIXME: Add variable attributes (units, scaling, etc)
+    !> Write a variable to an HDF dataset and add
+    !> attributes to the dataset
+    !>
     subroutine WriteHDFVar(IOVar,gId,doIOPO,doCompress)
         !> IO Var to write
         type(IOVAR_T), intent(inout)    :: IOVar
@@ -1009,8 +1033,10 @@ contains
         endif      
 
         if(present(gStrO)) then
-            call CheckAttCacheSize(trim(gStrO))
-        end if
+            if(trim(toUpper(gStrO(1:5))) == "STEP#") then
+                call CheckAttCacheSize(trim(gStrO))
+            endif 
+        endif
 
         call h5open_f(herr) !Setup Fortran interface
 
@@ -1244,7 +1270,7 @@ contains
 
     !-----------------------------
     !HDF 5 helper routines
-    !Converts Fortran real kind to HDF5 precision
+    !> Converts Fortran real kind to HDF5 precision
     function H5Precision(h5p) result(h5gReal)
         integer, intent(in) :: h5p
         integer(HID_T):: h5gReal
@@ -1316,6 +1342,8 @@ contains
 
     end subroutine writeReal2HDF
 
+    !> Write a string to HDF group 
+    !> as an attribute
     subroutine writeString2HDF(gId,vId,data)
         integer(HID_T), intent(in) :: gId
         character(len=*),intent(in) :: vId
