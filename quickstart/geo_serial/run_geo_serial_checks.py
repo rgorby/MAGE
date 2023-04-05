@@ -11,7 +11,6 @@ through gamera.
 # Import standard modules.
 import argparse
 import os
-import subprocess
 
 # Import 3rd-party modules.
 import numpy as np
@@ -27,14 +26,14 @@ default_runid = "geo_serial"
 
 # Program description.
 description = (
-    "Perform consistency checks on the gamera %s test case." % default_runid
+    "Perform sample computations on the gamera %s test case." % default_runid
 )
 
     
 def create_command_line_parser():
     """Create the command-line argument parser.
-    
-    Ceate the parser for command-line arguments.
+
+    Create the command-line argument parser.
 
     Parameters
     ----------
@@ -66,7 +65,7 @@ def create_command_line_parser():
 
 
 def compute_volume_integrated_magnetic_pressure(directory, runid):
-    """Compute the volume-integrated magnetic pressure at start and endxs.
+    """Compute the volume-integrated magnetic pressure at start and ends.
 
     Compute the volume-integrated magnetic pressure for the first and
     last steps.
@@ -83,7 +82,6 @@ def compute_volume_integrated_magnetic_pressure(directory, runid):
     Pb_integrated_first, Pb_integrated_last : float
         Volume-integrated magnetic pressure for first and last steps.
     """
-
     # Open a pipe to the data file.
     data_pipe = gampp.GameraPipe(directory, runid, doVerbose=False)
 

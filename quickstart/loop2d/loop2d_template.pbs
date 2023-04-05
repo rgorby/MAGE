@@ -1,0 +1,156 @@
+#!/bin/bash
+
+# This PBS script illustrates how to run the "loop2d" model using the serial
+# version of the kaiju software.
+
+# The lines starting with "#PBS" are directives for the PBS job control
+# system, used on pleiades, electra, cheyenne, and many other HPC systems.
+
+#------------------------------------------------------------------------------
+# START OF PBS DIRECTIVES
+#------------------------------------------------------------------------------
+
+# Provide a useful name for this PBS job. This name will appear in the "qstat"
+# output for this job.
+#PBS -N loop2d
+
+# Combine job script std(o)ut and std(e)rr into stdout. This combined
+# output will be saved in the file loop2d.oJOB_NUM, where JOB_NUM is the PBS
+# job number assigned when the job is submitted. Note that the output from the
+# kaiju software itself is captured in a separate file (see below).
+#PBS -j oe
+
+# Request compute time on the allocated compute node(s). The format is
+# hh:mm:ss, where hh is hours, mm is minutes, and ss is seconds. Set this
+# value high enough to ensure that your job runs to completion, but low enough
+# to stay within the time limits of the queue you are submitting to.
+#PBS -l walltime=00:05:00
+
+# Send an email to the address specified in -M when the job is (a)borted,
+# (b)egins, and/or (e)nds.
+#PBS -m abe
+#PBS -M eric.winter@jhuapl.edu
+
+#-----------------------------------------------------------------------------
+
+# In the lines below, uncomment the set appropriate for your system, and
+# comment out the other set. The default is pleades/electra.
+
+#-----------------------------------------------------------------------------
+
+# For the pleiades or electra HPC systems at NASA Ames HECC:
+
+# Submit the job to the PBS queue called "normal". The queues on pleiades have
+# the following time limits: "low" (4 hours), "normal" (8 hours), "long" (120
+# hours), "debug" (2 hours), "devel" (2 hours). For more information on
+# pleiades queues, see:
+# https://www.nas.nasa.gov/hecc/support/kb/pbs-job-queue-structure_187.html
+#PBS -q normal
+
+# This is the line where you request specific resources from the PBS system.
+# select=1 -> Request 1 compute node.
+# ncpus=28 -> Each compute node must have at least 28 cores. This requirement
+# implies the use of the 2-socket, 14 cores/socket Broadwell nodes.
+# ompthreads=28 -> Each node will run 28 OMP threads. Note that this will
+# also cause the OMP_THREADS environment variable to be set to 28.
+# model=bro -> Each compute node must contain Broadwell chips. Specifying
+# "model" is a HECC-specific PBS requirement. The node(s) may be on pleiades
+# OR electra (not both), using whichever system is available first.
+#PBS -l select=1:ncpus=28:ompthreads=28:model=bro
+
+#-----------------------------------------------------------------------------
+
+# For the cheyenne HPC system at UCAR:
+
+# Specify the user account under which the job should be run.
+##PBS -A UJHB0015
+
+# Submit the job to the PBS queue called "regular". The queues on cheyenne
+# have the following time limits: "premium" (12 hours), "regular" (12 hours),
+# "economy" (12 hours). For more information on cheyenne queues, see:
+# https://arc.ucar.edu/knowledge_base/72581495
+##PBS -q regular
+
+# This is the line where you request specific resources from the PBS system.
+# See the comments in the pleiades example above for an explanation of the
+# components of this line.
+##PBS -l select=1:ncpus=36:ompthreads=36
+
+#------------------------------------------------------------------------------
+# END OF PBS DIRECTIVES
+#------------------------------------------------------------------------------
+
+# This PBS job script will run the serial version of the kaiju software on the
+# loop2d quickstart case.
+
+# On pleiades, this job should run in roughly a minute of wall-clock time.
+# On cheyenne, the job should run in roughly XXX of wall-clock time.
+
+# Example usage
+# qsub -v loop2d.pbs
+
+echo "Job $PBS_JOBID started at `date` on `hostname`."
+
+# Specify the ID string for the run. This can be set to any desired string.
+# PBS_JOBNAME is used here as an example, as it is set by the #PBS -N
+# directive near the top of this file.
+export RUNID=$PBS_JOBNAME
+
+# Load the required modules for serial kaiju.
+# NOTE: pleiades and electra do not have the "module restore" facility
+# found on cheyenne. The modules must be explicitly loaded each time
+# they are needed.
+# NOTE: This set of modules assumes your kaiju installation was built
+# using this same list of modules. If you used different modules at
+# build time (for example, if you used a GNU compiler), update this
+# list to use the modules from your build-time environment.
+
+# Comment out the module lines for all systems except the one you are using.
+module purge
+
+# For pleiades/electra:
+module load pkgsrc/2021Q2
+module load comp-intel/2020.4.304
+module load hdf5/1.8.18_serial
+
+# For cheyenne:
+# module load ncarenv/1.3
+# module load intel/19.1.1
+# module load ncarcompilers/0.5.0  # Must be after intel
+# module load cmake/3.18.2
+# module load hdf5/1.10.8
+
+echo "The following modules are loaded:"
+module list
+
+# Define the kaiju installation location.
+# NOTE: You MUST set this variable to the path to your kaiju directory, which
+# is the top-level directory created when you cloned the kaiju repository.
+export KAIJU_INSTALL_DIR=$HOME/kaiju
+
+# Set kaiju-related environment variables.
+# This script sets KAIJUHOME and other environment variables.
+source $KAIJU_INSTALL_DIR/scripts/setupEnvironment.sh
+
+# Add the kaiju binary directory to the command path.
+# NOTE: You should set this variable to the path to the bin subdirectory of
+# your kaiju build directory. The setting below assumes that the serial version
+# of kaiju was built in the build_serial subdirectory of the kaiju home directory
+# (which is typically the same as KAIJU_INSTALL_DIR).
+export PATH=$KAIJUHOME/build_serial/bin:$PATH
+
+# Set the OMP stack size to prevent a crash.
+# If this setting is ignored, the model may cause the kaiju code to crash
+# with a segmentation fault and core dump. The value of "100M" was chosen
+# ~arbitrarily; experimentation may allow a smaller value to be used.
+export OMP_STACKSIZE=100M
+
+echo "The active environment variables are:"
+printenv
+
+# Run the model. Direct output from the program is saved in a text file.
+EXE=gamera.x
+echo "Running $EXE on model $RUNID."
+$EXE $RUNID.xml >& ${EXE}.${RUNID}.out
+
+echo "Job $PBS_JOBID ended at `date` on `hostname`."
