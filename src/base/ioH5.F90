@@ -24,9 +24,10 @@ module ioH5
         enumerator :: ZFP,ZSTD,ZLIB,SZIP,BLOSC
     end enum
 
-    integer, private :: oCount = 1
+    integer, private :: oCount = 0
     integer, private :: rCount = 0
-    integer(HSIZE_T), parameter, private ::  INIT_CACHE_SIZE = 2
+    integer(HSIZE_T), parameter, private ::  INIT_CACHE_SIZE = 1
+    integer(HSIZE_T), parameter, private ::  CACHE_CHUNK_SIZE = 256
     logical, parameter, private :: ENABLE_COMPRESS = .TRUE.
     integer, parameter, private :: COMPRESS_ZSTD = 32015
     integer, parameter, private :: COMPRESS_ZFP = 32013
@@ -606,7 +607,6 @@ contains
 
     !FIXME: Add scaling to attributes
     !> Read an HDF attribute from a group
-    !> 
     subroutine ReadHDFAtt(IOVar,gId)
         type(IOVAR_T), intent(inout) :: IOVar
         integer(HID_T), intent(in) :: gId
@@ -658,7 +658,7 @@ contains
             end if 
             oCount = oCount + 1
         else 
-            write(*,*), "Conversion of step ", stepStr, " failed.", & 
+            write(*,"(A,I,A,A)"), "Conversion of step ", stepStr, " failed.", & 
                         " Update to timeAttributeCache dataset size failed."
             stop
         endif
@@ -678,21 +678,22 @@ contains
         integer :: Nr = 1, memRank = 1
         logical :: dSetExists
         real :: X
-        integer(HSIZE_T) :: dSize, rank = 1
+        integer(HSIZE_T) :: dSize = 1, rank = 1
         integer(HSIZE_T), dimension(1) :: cdims(1), maxdims(1), bCount(1), dataDim(1), memDim(1)
         integer(HSIZE_T), dimension(1,1) :: coord
         dataDim = (/1/)
         memDim = (/1/)
         maxdims(1) = H5S_UNLIMITED_F
-        cdims(1) = INIT_CACHE_SIZE
         bCount = (/1/)
 
         call h5ltpath_valid_f(gId, trim(IOVar%idStr), .True., dSetExists, herr)
         ! Create dataspace and dataset initially in group
         if (.not. dSetExists) then
             !write(*,*) "Create var ", trim(IOVar%idStr)
+            cdims(1) = INIT_CACHE_SIZE
             call h5screate_simple_f(Nr, cdims, sId, herr, maxdims=maxdims)
             call h5pcreate_f(H5P_DATASET_CREATE_F, pId, herr)
+            cdims(1) = CACHE_CHUNK_SIZE
             call h5pset_chunk_f(pId, Nr, cdims, herr)
             call h5dcreate_f(gId, trim(IOVar%idStr), H5T_NATIVE_REAL, sId, &
                         dId, herr, dcpl_id=pId)
@@ -703,14 +704,14 @@ contains
             ! write(*,*) "Found var ", trim(IOVar%idStr)
             ! Open dataset on subsequent time steps
             call h5dopen_f(gId, trim(IOVar%idStr), dId, herr)
-            ! Get the proper dataspae to select the hyperslabe position 
-            ! of the next attribute element to write/add to the dataset
+            ! Get the proper dataspae to select the element position 
+            ! of the next attribute element to add and write to the dataset
             call h5dget_space_f(dId, sId, herr)
             ! Check to see if we need to resize size of dataset
-            if(oCount >= GetAttCacheSize()) then
-                !write(*,*) "Extending cache for ", trim(IOVar%idStr), " from N=", &
-                !            (rCount + 1)*INIT_CACHE_SIZE, &
-                !            " to N= ", (rCount + 2)*INIT_CACHE_SIZE
+            if(oCount > GetAttCacheSize()) then
+                !write(*,"(A,1x,i,A,A,A,i,A,i)") "Step Count ", oCount, " Extending cache for ", trim(IOVar%idStr), " from N=", &
+                !           (rCount + 1)*INIT_CACHE_SIZE, &
+                !            " to N= ", GetAttCacheSize() + INIT_CACHE_SIZE
                 dSize = GetAttCacheSize() + INIT_CACHE_SIZE
                 call h5dset_extent_f(dId, (/dSize/), herr)
             endif
@@ -720,9 +721,6 @@ contains
             coord(1,1) = oCount
             ! Select the single element at coord = offset in the file space
             call h5sselect_elements_f(sId, H5S_SELECT_SET_F, Nr, 1, coord, herr)
-            ! Select the single element at coord = offset in the memory space
-            coord(1,1) = 1
-            call h5sselect_elements_f(memId, H5S_SELECT_SET_F, Nr, 1, coord, herr) 
         end if
 
         select case(IOVar%vType)
@@ -758,8 +756,6 @@ contains
     !FIXME: Add scaling to attributes
     !> Write a variable as an attribue for the
     !> specified HDF group
-    !>
-    !>
     subroutine WriteHDFAtt(IOVar,gId)
         !> Variable to write to group
         type(IOVAR_T), intent(inout) :: IOVar
@@ -791,7 +787,6 @@ contains
     !FIXME: Add variable attributes (units, scaling, etc)
     !> Write a variable to an HDF dataset and add
     !> attributes to the dataset
-    !>
     subroutine WriteHDFVar(IOVar,gId,doIOPO,doCompress)
         !> IO Var to write
         type(IOVAR_T), intent(inout)    :: IOVar
@@ -897,36 +892,36 @@ contains
                         cd_nelmts = H5Z_ZFP_CD_NELMTS_MEM
                         
                         if (zfpmode .EQ. H5Z_ZFP_MODE_RATE)  then
-                        call H5pset_zfp_rate_cdata(rate, cd_nelmts, cd_values)
-                        if(cd_values(1).NE.1 .OR. cd_nelmts.NE.4) then
-                            print*,'H5Pset_zfp_rate_cdata failed'
-                            stop 1
-                        ENDif
-                        ELSE if (zfpmode .EQ. H5Z_ZFP_MODE_PRECISION)  then
-                        call H5pset_zfp_precision_cdata(prec, cd_nelmts, cd_values)
-                        if(cd_values(1).NE.2 .OR. cd_nelmts.NE.3) then
-                            print*,'H5Pset_zfp_precision_cdata failed'
-                            stop 1
-                        ENDif
-                        ELSE if (zfpmode .EQ. H5Z_ZFP_MODE_ACCURACY) then
-                        call H5pset_zfp_accuracy_cdata(0._dp, cd_nelmts, cd_values)
-                        if(cd_values(1).NE.3 .OR. cd_nelmts.NE.4) then
-                            print*,'H5Pset_zfp_accuracy_cdata failed'
-                            stop 1
-                        ENDif
-                        ELSE if (zfpmode .EQ. H5Z_ZFP_MODE_EXPERT)  then
-                        call H5pset_zfp_expert_cdata(minbits, maxbits, maxprec, minexp, cd_nelmts, cd_values)
-                        if(cd_values(1).NE.4 .OR. cd_nelmts.NE.6) then
-                            print*,'H5Pset_zfp_expert_cdata failed'
-                            stop 1
-                        ENDif
-                        ELSE if (zfpmode .EQ. H5Z_ZFP_MODE_REVERSIBLE)  then
-                        call H5pset_zfp_reversible_cdata(cd_nelmts, cd_values)
-                        if(cd_values(1).NE.5 .OR. cd_nelmts.NE.1) then
-                            print*,'H5Pset_zfp_reversible_cdata failed'
-                            stop 1
-                        ENDif
-                        ENDif
+                            call H5pset_zfp_rate_cdata(rate, cd_nelmts, cd_values)
+                            if(cd_values(1).NE.1 .OR. cd_nelmts.NE.4) then
+                                print*,'H5Pset_zfp_rate_cdata failed'
+                                stop 1
+                            endif
+                        else if (zfpmode .EQ. H5Z_ZFP_MODE_PRECISION)  then
+                            call H5pset_zfp_precision_cdata(prec, cd_nelmts, cd_values)
+                            if(cd_values(1).NE.2 .OR. cd_nelmts.NE.3) then
+                                print*,'H5Pset_zfp_precision_cdata failed'
+                                stop 1
+                            endif
+                        else if (zfpmode .EQ. H5Z_ZFP_MODE_ACCURACY) then
+                            call H5pset_zfp_accuracy_cdata(0._dp, cd_nelmts, cd_values)
+                            if(cd_values(1).NE.3 .OR. cd_nelmts.NE.4) then
+                                print*,'H5Pset_zfp_accuracy_cdata failed'
+                                stop 1
+                            endif
+                        else if (zfpmode .EQ. H5Z_ZFP_MODE_EXPERT)  then
+                            call H5pset_zfp_expert_cdata(minbits, maxbits, maxprec, minexp, cd_nelmts, cd_values)
+                            if(cd_values(1).NE.4 .OR. cd_nelmts.NE.6) then
+                                print*,'H5Pset_zfp_expert_cdata failed'
+                                stop 1
+                            endif
+                        else if (zfpmode .EQ. H5Z_ZFP_MODE_REVERSIBLE)  then
+                            call H5pset_zfp_reversible_cdata(cd_nelmts, cd_values)
+                            if(cd_values(1).NE.5 .OR. cd_nelmts.NE.1) then
+                                print*,'H5Pset_zfp_reversible_cdata failed'
+                                stop 1
+                            endif
+                        endif
                 
                         call h5pset_filter_f(pId, COMPRESS_ZFP, H5Z_FLAG_MANDATORY, &
                                 cd_nelmts, cd_values, herr)
@@ -952,7 +947,7 @@ contains
                         ! endif
                         ! status = H5Z_zfp_finalize()
                     else
-                        write(*,*) 'ZFP filter not initailized, please ensure the ZFP HDF5 plugin is loaded. \n'
+                        write(*,*) 'ZFP filter not initailized, please ensure the ZFP HDF5 plugin is loaded.'
                         write(*,*) 'You may also use the default compression SZIP without needing plugins.'
                         stop
                     endif
