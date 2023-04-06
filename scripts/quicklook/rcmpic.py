@@ -22,6 +22,7 @@ mpl.use('Agg')  # Create figures in memory.
 import matplotlib.gridspec as gridspec
 import matplotlib.pyplot as plt
 import numpy as np
+import sys
 
 # Import project-specific modules.
 import kaipy.cdaweb_utils as cdaweb_utils
@@ -244,7 +245,11 @@ if __name__ == "__main__":
     AxR.clear()
 
     # Fetch the coordinates to plot.
-    bmX, bmY = rcmpp.RCMEq(rcmdata, nStp, doMask=True)
+    try:
+        bmX, bmY = rcmpp.RCMEq(rcmdata, nStp, doMask=True)
+    except:
+        print(f"Step #{nStp} does not exist!")
+        sys.exit(1)
     I = rcmpp.GetMask(rcmdata, nStp)
     Ni = (~I).sum()
     if debug:
