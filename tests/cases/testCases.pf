@@ -40,7 +40,7 @@ contains
     finalTotalMagneticField = SUM(NORM2(gameraApp%State%magFlux,4))
     totalError = SUM(ABS(initialMagneticField - NORM2(gameraApp%State%magFlux,4)))
     
-    @assertLessThanOrEqual(abs(finalTotalMagneticField - initialTotalMagneticField)/initialTotalMagneticField, 0.005_rp, 'Lost more than 0.1% of total magnetic field')
+    @assertLessThanOrEqual(abs(finalTotalMagneticField - initialTotalMagneticField)/initialTotalMagneticField, 0.005_rp, 'Lost more than 0.5% of total magnetic field')
     @assertLessThanOrEqual(totalError/initialTotalMagneticField, 0.05_rp, 'Dissipation was more than 5% of total magnetic field')
 
   end subroutine testLoop2D
@@ -68,7 +68,7 @@ contains
     finalTotalDensity = SUM(gameraApp%State%Gas(:,:,:,DEN,BLK))
     totalError = SUM(ABS(initialGasDensity - gameraApp%State%Gas(:,:,:,DEN,BLK)))
 
-    @assertLessThanOrEqual(abs(finalTotalDensity-initialTotalDensity)/initialTotalDensity, 0.005_rp, 'Lost more than 0.5% of total density')
+    @assertLessThanOrEqual(abs(finalTotalDensity-initialTotalDensity)/initialTotalDensity, 0.0001_rp, 'Lost more than 0.01% of total density')
     @assertLessThanOrEqual(totalError/initialTotalDensity, 0.05_rp, 'Dissipation was more than 5% of total density')
 
   end subroutine testAdv2D
