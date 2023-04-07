@@ -295,8 +295,7 @@ def ReadSimData(filename, quiet = True):
     mastersmlon, masterMLT = np.copy(masterdBn), np.copy(masterdBn)
 
     # make big array of all of the data
-    for i in range(nSteps):
-        #print(i)
+    for i in sIds:
         data = f['Step#%01d' % i]
         dBt = np.array(data['dBt'])[0].flatten()
         dBp = np.array(data['dBp'])[0].flatten()
