@@ -197,7 +197,7 @@ if __name__ == "__main__":
     rcmdata = gampp.GameraPipe(fdir, ftag)
     if debug:
         print("rcmdata = %s" % rcmdata)
-    if nStp < 0:
+    if nStp < 0:  # ANY negative index gets the last step.
         nStp = rcmdata.sFin
         print("Using Step %d"%(nStp))
     if debug:

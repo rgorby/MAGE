@@ -134,7 +134,7 @@ if __name__ == "__main__":
         print("sIds = %s" % sIds)
 
     # Check that the requested step exists.
-    if nStp != -1 and not nStp in sIds:
+    if nStp >= 0 and not nStp in sIds:  # ANY nStp<0 gets last step.
         raise TypeError(f"Step #{nStp} not found in {remixFile}!")
 
     # Get the times from the result file.
