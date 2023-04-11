@@ -35,21 +35,23 @@ DEFAULT_HPC_SYSTEM = "pleiades"
 
 # Default path to configuration file for wsa2gamera.py.
 DEFAULT_CONFIG_FILE = os.path.join(
-    os.environ["KAIJUHOME"], "kaipy", "gamhelio", "ConfigScripts",
-    "startup.config"
+    os.environ["KAIJUHOME"], "scripts", "makeitso", "wsa2gamera.ini"
 )
 
+# Default run type.
+DEFAULT_RUN_TYPE = "serial"
+
 # Location of template .ini file.
-ini_template = os.path.join(
+INI_TEMPLATE = os.path.join(
     os.environ["KAIJUHOME"], "scripts", "makeitso",
-    f"{DEFAULT_RUNID}.ini.template"
+    f"{DEFAULT_RUNID}_template.ini"
 )
 
 # Location of template PBS script.
-# pbs_template = os.path.join(
-#     os.environ["KAIJUHOME"], "quickstart", default_runid, "%s.pbs.template"
-#     % default_runid
-# )
+pbs_template = os.path.join(
+    os.environ["KAIJUHOME"], "scripts", "makeitso",
+    f"{DEFAULT_RUNID}_template.pbs"
+)
 
 
 def create_command_line_parser():
@@ -78,6 +80,68 @@ def create_command_line_parser():
     return parser
 
 
+def get_run_options():
+    """Prompt the user for run options.
+
+    Prompt the user for run options.
+
+    Parameters
+    ----------
+    None
+
+    Returns
+    -------
+    options : dict
+        Dictionary of program options, each entry maps str to str.
+    """
+
+    # Initialize the dictionary of program options.
+    options = {}
+
+    # Get the run ID.
+    runid = input(f"Enter the name of the run ({DEFAULT_RUNID}): ")
+    if runid == "":
+        runid = DEFAULT_RUNID
+    options["runid"] = runid
+
+    # Enter the working directory for the run.
+    run_directory = input(
+        f"Enter the path to the run directory ({DEFAULT_RUN_DIRECTORY}): "
+    )
+    if run_directory == "":
+        run_directory = DEFAULT_RUN_DIRECTORY
+    options["run_directory"] = run_directory
+
+    # Specify the HPC system to use.
+    hpc_system = input(
+        f"Enter the name of the HPC system to use ({DEFAULT_HPC_SYSTEM}): "
+    )
+    if hpc_system == "":
+        hpc_system = DEFAULT_HPC_SYSTEM
+    options["hpc_system"] = hpc_system
+
+    # Specify the path to the location of the configuration file for
+    # wsa2gamera.py.
+    config_file = input(
+        f"Enter the path to the wsa2gamera.py configuration file to use "
+        f"({DEFAULT_CONFIG_FILE}): "
+    )
+    if config_file == "":
+        config_file = DEFAULT_CONFIG_FILE
+    options["config_file"] = config_file
+
+    # Specify the run type (MPI or serial).
+    run_type = input(
+        f"Specify the run type (serial or mpi) ({DEFAULT_RUN_TYPE}): "
+    )
+    if run_type == "":
+        run_type = DEFAULT_RUN_TYPE
+    options["run_type"] = run_type
+
+    # Return the options dictionary.
+    return options
+
+
 def run_preprocessing_steps(options):
     """Execute any preprocessing steps required for the run.
 
@@ -101,8 +165,12 @@ def run_preprocessing_steps(options):
     # Create the grid and inner boundary conditions files.
     # NOTE: Assumes wsa2gamera.py is in PATH.
     cmd = "wsa2gamera.py"
-    args = [options["config_file"]]
-    subprocess.run([cmd] + args)
+    args = [cmd, options["config_file"]]
+    subprocess.run(
+        args, check=True,
+        stdout=subprocess.PIPE, stderr=subprocess.STDOUT
+    )
+    # Print captured output if needed.
 
     # Move back to the originaldirectory.
     os.chdir(original_directory)
@@ -123,69 +191,91 @@ def create_ini_file(options):
     ini_file : str
         Path to the .ini file for the gamhelio run.
     """
-    # Just use the template for now.
-    with open(ini_template) as t:
+    # Read the template.
+    with open(INI_TEMPLATE) as t:
         lines = t.readlines()
+
     # Process the template here.
-    ini_file = os.path.join(directory, "%s.ini" % runid)
+
+    # Write out the .ini file.
+    ini_file = os.path.join(
+        options["run_directory"], f"{options['runid']}.ini"
+    )
     with open(ini_file, "w") as f:
         f.writelines(lines)
+
+    # Return the path to the .ini file.
     return ini_file
 
 
-# def convert_ini_to_xml(ini_file, xml_file):
-#     """Convert the .ini file to XML.
-    
-#     Convert the .ini file describing the helio_mpi run to the corresponding
-#     XML file.
+def convert_ini_to_xml(options, ini_file):
+    """Convert the .ini file to XML.
 
-#     Parameters
-#     ----------
-#     ini_file : str
-#         Path to the .ini file to convert.
-#     xml_file : str
-#         Path to the resulting XML file.
-    
-#     Returns
-#     -------
-#     None
-#     """
-#     # cmd = "XMLGenerator.py"
-#     # args = [ini_file, xml_file]
-#     # subprocess.run([cmd] + args)
+    Convert the .ini file describing the run to an XML file.
 
-#     # No conversion is performed yet. Just process the XML template.
-#     with open(xml_template) as t:
-#         lines = t.readlines()
-#     # Process the template here.
-#     with open(xml_file, "w") as f:
-#         f.writelines(lines)
+    Parameters
+    ----------
+    options : dict
+        Dictionary of program options, each entry maps str to str.
+    ini_file : str
+        Path to the .ini file to convert.
+
+    Returns
+    -------
+    xml_file : str
+        Path to the resulting XML file.
+    """
+    # Put the XML file in the same directory as the .ini file.
+    xml_file = os.path.join(
+        options["run_directory"], f"{options['runid']}.xml"
+    )
+
+    # Convert the .ini file to .xml.
+    # NOTE: assumes XMLGenerator.py is in PATH.
+    cmd = "XMLGenerator.py"
+    args = [cmd, ini_file, xml_file]
+    subprocess.run(
+        args, check=True,
+        stdout=subprocess.PIPE, stderr=subprocess.STDOUT
+    )
+    # Print captured output if needed.
+
+    # Return the path to the XML file.
+    return xml_file
 
 
-# def create_pbs_job_script(directory, runid):
-#     """Create the PBS job script for the run.
+def create_pbs_job_script(options):
+    """Create the PBS job script for the run.
 
-#     Create the PBS job script from a template.
+    Create the PBS job script from a template.
 
-#     Parameters
-#     ----------
-#     directory : str
-#         Path to directory to contain PBS job script.
-#     runid : str
-#         ID string for model to run.
+    Parameters
+    ----------
+    options : dict
+        Dictionary of program options, each entry maps str to str.
 
-#     Returns
-#     -------
-#     pbs_file : str
-#         Path to PBS job script.
-#     """
-#     with open(pbs_template) as t:
-#         lines = t.readlines()
-#     # Process the template here.
-#     pbs_file = os.path.join(directory, "%s.pbs" % runid)
-#     with open(pbs_file, "w") as f:
-#         f.writelines(lines)
-#     return pbs_file
+    Returns
+    -------
+    pbs_script : str
+        Path to PBS job script.
+    """
+    # Put the PBS script in the run directory.
+    pbs_script = os.path.join(
+        options["run_directory"], f"{options['runid']}.pbs"
+    )
+
+    # Read the PBS script template.
+    with open(pbs_template) as t:
+        lines = t.readlines()
+
+    # Process the template here.
+
+    # Write the PBS job script.
+    with open(pbs_script, "w") as f:
+        f.writelines(lines)
+
+    # Return the path to the PBS script.
+    return pbs_script
 
 
 def main():
@@ -215,53 +305,10 @@ def main():
     if debug:
         print(f"args = {args}")
 
-    # Initialize the dictionary of program options.
-    options = {}
-
-    # Get the run ID.
-    runid = input(f"Enter the name of the run ({DEFAULT_RUNID}): ")
-    if runid is "":
-        runid = DEFAULT_RUNID
+    # Fetch the run options.
+    options = get_run_options()
     if debug:
-        print(f"runid = {runid}")
-    options["runid"] = runid
-
-    # Enter the working directory for the run.
-    run_directory = input(
-        f"Enter the path to the run directory ({DEFAULT_RUN_DIRECTORY}): "
-    )
-    if run_directory is "":
-        run_directory = DEFAULT_RUN_DIRECTORY
-    if debug:
-        print(f"run_directory = {run_directory}")
-    options["run_directory"] = run_directory
-
-    # Specify the HPC system to use.
-    hpc_system = input(
-        f"Enter the name of the HPC system to use ({DEFAULT_HPC_SYSTEM}): "
-    )
-    if hpc_system is "":
-        hpc_system = DEFAULT_HPC_SYSTEM
-    if debug:
-        print(f"hpc_system = {hpc_system}")
-    options["hpc_system"] = hpc_system
-
-    # Specify the path to the location of the configuration file for
-    # wsa2gamera.py.
-    config_file = input(
-        f"Enter the path to the wsa2gamera.py configuration file to use "
-        f"({DEFAULT_CONFIG_FILE}): "
-    )
-    if config_file is "":
-        config_file = DEFAULT_CONFIG_FILE
-    if debug:
-        print(f"config_file = {config_file}")
-    options["config_file"] = config_file
-
-    # Summarize the inputs.
-    if verbose:
-        print("Summary of input:")
-        print(f"  options = {options}")
+        print(f"options = {options}")
 
     # Run the preprocessing steps.
     if verbose:
@@ -276,19 +323,18 @@ def main():
         print(f"ini_file = {ini_file}")
 
     # Convert the .ini file to a .xml file.
-    # if verbose:
-    #     print("Converting .ini file to .xml file for run.")
-    # xml_file = os.path.join(directory, "%s.xml" % runid)
-    # convert_ini_to_xml(ini_file, xml_file)
+    if verbose:
+        print("Converting .ini file to .xml file.")
+    xml_file = convert_ini_to_xml(options, ini_file)
+    if debug:
+        print(f"xml_file = {xml_file}")
 
-    # # Create the PBS job script.
-    # if verbose:
-    #     print("Creating PBS job script for run.")
-    # pbs_file = create_pbs_job_script(directory, runid)
-    # if verbose:
-    #     print("The PBS job script %s is ready." % pbs_file)
-    #     print("Submit the job to PBS with the command:")
-    #     print("    qsub %s" % pbs_file)
+    # Create the PBS job script.
+    if verbose:
+        print("Creating PBS job script for run.")
+    pbs_script = create_pbs_job_script(options)
+    if verbose:
+        print(f"The PBS job script {pbs_script} is ready.")
 
 
 if __name__ == "__main__":
