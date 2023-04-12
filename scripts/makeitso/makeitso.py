@@ -15,6 +15,7 @@ import os
 import subprocess
 
 # Import 3rd-party modules.
+from jinja2 import Template
 
 # Import project modules.
 
@@ -28,7 +29,8 @@ DESCRIPTION = "Interactive script to prepare and run a kaiju job."
 DEFAULT_RUNID = "helio"
 
 # Default directory to run in.
-DEFAULT_RUN_DIRECTORY = "."
+# DEFAULT_RUN_DIRECTORY = "."
+DEFAULT_RUN_DIRECTORY = "/Users/winteel1/cgs/runs/test/makeitso"
 
 # Default HPC system.
 DEFAULT_HPC_SYSTEM = "pleiades"
@@ -40,6 +42,16 @@ DEFAULT_CONFIG_FILE = os.path.join(
 
 # Default run type.
 DEFAULT_RUN_TYPE = "serial"
+
+# Default number of hours after spinup to simulate.
+DEFAULT_TFIN = "200.0"
+
+# Default screen output interval (in timesteps).
+DEFAULT_TSOUT = "50"
+
+# Default simulated time interval between outputs of results as "Step#nn"
+# groups in the output HDF5 files. For gamhelio, units are simulated hours.
+DEFAULT_DTOUT = "10.0"
 
 # Location of template .ini file.
 INI_TEMPLATE = os.path.join(
@@ -138,6 +150,34 @@ def get_run_options():
         run_type = DEFAULT_RUN_TYPE
     options["run_type"] = run_type
 
+    # Specify the number of hours to simulate after spinup.
+    tFin = input(
+        f"Specify number of hours after spinup to be simulated ({DEFAULT_TFIN}): "
+    )
+    if tFin == "":
+        tFin = DEFAULT_TFIN
+    options["tFin"] = tFin
+
+    # Specify the screen output interval. This is the interval (in timesteps)
+    # between screen dumps of information during the simulation.
+    tsOut = input(
+        f"Specify screen output interval (in timesteps) ({DEFAULT_TSOUT}): "
+    )
+    if tsOut == "":
+        tsOut = DEFAULT_TSOUT
+    options["tsOut"] = tsOut
+
+    # Specify the simulation step output interval. This is the time interval
+    # between outputs of data slices in "Step#nn" groups in the output HDF5
+    # file. For gamhelio, the units of dtOut are *hours*. For gamera, the
+    # units of dtOut are *seconds*.
+    dtOut = input(
+        f"Specify step output interval (in simulated hours) ({DEFAULT_DTOUT}): "
+    )
+    if dtOut == "":
+        dtOut = DEFAULT_DTOUT
+    options["dtOut"] = dtOut
+
     # Return the options dictionary.
     return options
 
@@ -191,18 +231,20 @@ def create_ini_file(options):
     ini_file : str
         Path to the .ini file for the gamhelio run.
     """
-    # Read the template.
-    with open(INI_TEMPLATE) as t:
-        lines = t.readlines()
+    # Read the template and create the Template object.
+    with open(INI_TEMPLATE) as f:
+        template_content = f.read()
+    template = Template(template_content)
 
-    # Process the template here.
+    # Render the template.
+    ini_content = template.render(options)
 
     # Write out the .ini file.
     ini_file = os.path.join(
         options["run_directory"], f"{options['runid']}.ini"
     )
     with open(ini_file, "w") as f:
-        f.writelines(lines)
+        f.write(ini_content)
 
     # Return the path to the .ini file.
     return ini_file
