@@ -48,6 +48,12 @@ DEFAULT_TSOUT = "50"
 # groups in the output HDF5 files. For gamhelio, units are simulated hours.
 DEFAULT_DTOUT = "10.0"
 
+# Path to WSA FITS file for creating boundary conditions.
+DEFAULT_WSAFILE = os.path.join(
+    os.environ["KAIJUHOME"], "scripts", "makeitso",
+    "vel_201708132000R002_ahmi.fits"
+)
+
 # Location of template wsa2gamera.py .ini file.
 WSA2GAMERA_INI_TEMPLATE = os.path.join(
     os.environ["KAIJUHOME"], "scripts", "makeitso", "wsa2gamera_template.ini"
@@ -167,6 +173,14 @@ def get_run_options():
     if dtOut == "":
         dtOut = DEFAULT_DTOUT
     options["dtOut"] = dtOut
+
+    # Specify the path to the WSA FITS file to use for initial conditions.
+    wsafile = input(
+        f"Path to WSA FITS file for initial conditions ({DEFAULT_WSAFILE}): "
+    )
+    if wsafile == "":
+        wsafile = DEFAULT_WSAFILE
+    options["wsafile"] = wsafile
 
     # Return the options dictionary.
     return options
