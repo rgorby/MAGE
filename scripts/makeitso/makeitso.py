@@ -35,11 +35,6 @@ DEFAULT_RUN_DIRECTORY = "/Users/winteel1/cgs/runs/test/makeitso"
 # Default HPC system.
 DEFAULT_HPC_SYSTEM = "pleiades"
 
-# Default path to configuration file for wsa2gamera.py.
-DEFAULT_CONFIG_FILE = os.path.join(
-    os.environ["KAIJUHOME"], "scripts", "makeitso", "wsa2gamera.ini"
-)
-
 # Default run type.
 DEFAULT_RUN_TYPE = "serial"
 
@@ -53,14 +48,19 @@ DEFAULT_TSOUT = "50"
 # groups in the output HDF5 files. For gamhelio, units are simulated hours.
 DEFAULT_DTOUT = "10.0"
 
-# Location of template .ini file.
-INI_TEMPLATE = os.path.join(
+# Location of template wsa2gamera.py .ini file.
+WSA2GAMERA_INI_TEMPLATE = os.path.join(
+    os.environ["KAIJUHOME"], "scripts", "makeitso", "wsa2gamera_template.ini"
+)
+
+# Location of template gamhelio.x .ini file.
+GAMHELIO_INI_TEMPLATE = os.path.join(
     os.environ["KAIJUHOME"], "scripts", "makeitso",
     f"{DEFAULT_RUNID}_template.ini"
 )
 
 # Location of template PBS script.
-pbs_template = os.path.join(
+GAMHELIO_PBS_TEMPLATE = os.path.join(
     os.environ["KAIJUHOME"], "scripts", "makeitso",
     f"{DEFAULT_RUNID}_template.pbs"
 )
@@ -132,16 +132,6 @@ def get_run_options():
         hpc_system = DEFAULT_HPC_SYSTEM
     options["hpc_system"] = hpc_system
 
-    # Specify the path to the location of the configuration file for
-    # wsa2gamera.py.
-    config_file = input(
-        f"Enter the path to the wsa2gamera.py configuration file to use "
-        f"({DEFAULT_CONFIG_FILE}): "
-    )
-    if config_file == "":
-        config_file = DEFAULT_CONFIG_FILE
-    options["config_file"] = config_file
-
     # Specify the run type (MPI or serial).
     run_type = input(
         f"Specify the run type (serial or mpi) ({DEFAULT_RUN_TYPE}): "
@@ -202,10 +192,19 @@ def run_preprocessing_steps(options):
     # Move to the output directory.
     os.chdir(options["run_directory"])
 
+    # Read and create the template, then render and write it.
+    with open(WSA2GAMERA_INI_TEMPLATE) as f:
+        template_content = f.read()
+    template = Template(template_content)
+    ini_content = template.render(options)
+    ini_file = os.path.join(options["run_directory"], "wsa2gamera.ini")
+    with open(ini_file, "w") as f:
+        f.write(ini_content)
+
     # Create the grid and inner boundary conditions files.
     # NOTE: Assumes wsa2gamera.py is in PATH.
     cmd = "wsa2gamera.py"
-    args = [cmd, options["config_file"]]
+    args = [cmd, "wsa2gamera.ini"]
     subprocess.run(
         args, check=True,
         stdout=subprocess.PIPE, stderr=subprocess.STDOUT
@@ -231,15 +230,11 @@ def create_ini_file(options):
     ini_file : str
         Path to the .ini file for the gamhelio run.
     """
-    # Read the template and create the Template object.
-    with open(INI_TEMPLATE) as f:
+    # Read and create the template, then render and write it.
+    with open(GAMHELIO_INI_TEMPLATE) as f:
         template_content = f.read()
     template = Template(template_content)
-
-    # Render the template.
     ini_content = template.render(options)
-
-    # Write out the .ini file.
     ini_file = os.path.join(
         options["run_directory"], f"{options['runid']}.ini"
     )
@@ -301,20 +296,16 @@ def create_pbs_job_script(options):
     pbs_script : str
         Path to PBS job script.
     """
-    # Put the PBS script in the run directory.
+    # Read and create the template, then render and write it.
+    with open(GAMHELIO_PBS_TEMPLATE) as f:
+        template_content = f.read()
+    template = Template(template_content)
+    ini_content = template.render(options)
     pbs_script = os.path.join(
         options["run_directory"], f"{options['runid']}.pbs"
     )
-
-    # Read the PBS script template.
-    with open(pbs_template) as t:
-        lines = t.readlines()
-
-    # Process the template here.
-
-    # Write the PBS job script.
     with open(pbs_script, "w") as f:
-        f.writelines(lines)
+        f.write(ini_content)
 
     # Return the path to the PBS script.
     return pbs_script
