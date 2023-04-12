@@ -12,7 +12,7 @@
 
 # Provide a useful name for this PBS job. This name will appear in the "qstat"
 # output for this job.
-#PBS -N helio_mpi
+#PBS -N {{ runid }}
 
 # Combine job script std(o)ut and std(e)rr into stdout. This combined
 # output will be saved in the file helio_mpi.oJOB_NUM, where JOB_NUM is the PBS
