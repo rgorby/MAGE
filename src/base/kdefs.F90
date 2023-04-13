@@ -102,7 +102,20 @@ module kdefs
     enum, bind(C)
         enumerator :: VELX=MOMX,VELY,VELZ,PRESSURE
     endenum
-    
+
+#ifdef NOCOLORTEXT
+!Fake values to avoid text
+integer, parameter :: ANSILEN = 0
+character(ANSILEN), parameter :: &
+    ANSIRED    = "", &
+    ANSIGREEN  = "", &
+    ANSIYELLOW = "", &
+    ANSIBLUE   = "", &
+    ANSIPURPLE = "", &
+    ANSICYAN   = "", &
+    ANSIWHITE  = "", &
+    ANSIRESET  = ""
+#else    
 !Color options for funsies
 character, parameter :: ANSIESCAPE = char(27) !Escape character
 integer, parameter :: ANSILEN = 5
@@ -115,6 +128,7 @@ character(ANSILEN), parameter :: &
     ANSICYAN   = ANSIESCAPE // '[36m', &
     ANSIWHITE  = ANSIESCAPE // '[37m', &
     ANSIRESET  = ANSIESCAPE // '[0m'
+#endif
 
     contains
 
