@@ -82,3 +82,11 @@ Suppression = {
     }
 }
 
+Suppression = {
+    Stacks = {
+        {
+            mod=voltron_mpi.x, func=for__io_return;
+        }
+    }
+}
+
