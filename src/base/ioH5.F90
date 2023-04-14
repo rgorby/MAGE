@@ -24,16 +24,13 @@ module ioH5
         enumerator :: ZFP,ZSTD,ZLIB,SZIP,BLOSC
     end enum
 
-    integer, private :: oCount = 0
-    integer, private :: rCount = 0
-    integer(HSIZE_T), parameter, private ::  INIT_CACHE_SIZE = 1
+    integer, private :: cacheSize = 0
     integer(HSIZE_T), parameter, private ::  CACHE_CHUNK_SIZE = 256
     logical, parameter, private :: ENABLE_COMPRESS = .TRUE.
     integer, parameter, private :: COMPRESS_ZSTD = 32015
     integer, parameter, private :: COMPRESS_ZFP = 32013
     integer, parameter, private :: COMPRESS_BLOSC = 32026
     integer, parameter, private :: H5Z_FLAG_MANDATORY = INT(Z'00000000')
-
     ! Compression Algorithm Selection
 #ifdef __ENABLE_SZIP
     integer, parameter, private :: Z_ALG = SZIP
@@ -272,6 +269,66 @@ contains
         
     end subroutine StepInfo
 
+    !> 
+    subroutine StepAttributes_Int(fStr,attr,s0,sE,attrs)
+        character(len=*), intent(in) :: fStr
+        character(len=*), intent(in) :: attr
+        integer, intent(in) :: s0,sE
+        real(rp), intent(inout) :: attrs(1:sE-s0+1)
+
+        integer :: n, Nstp,herr
+        character(len=strLen) :: aStr
+        integer(HID_T) :: h5fId
+        integer:: att(1)
+        attrs = 0
+        Nstp = sE-s0+1
+
+        call CheckFileOrDie(fStr,"Unable to open file")
+        !Do HDF5 prep
+        call h5open_f(herr) !Setup Fortran interface
+        !Open file
+        call h5fopen_f(trim(fStr), H5F_ACC_RDONLY_F, h5fId, herr)
+
+        do n=1,Nstp
+            write(aStr,('(A,I0)')) "/Step#",s0+n-1
+            call h5ltget_attribute_int_f(h5fId,trim(aStr),trim(attr),att,herr)
+            attrs(n) = att(1)
+        enddo
+        call h5fclose_f(h5fId,herr) !Close file
+        call h5close_f(herr) !Close intereface
+
+    end subroutine StepAttributes_Int
+
+    !> 
+    subroutine StepAttributes_Real(fStr,attr,s0,sE,attrs)
+        character(len=*), intent(in) :: fStr
+        character(len=*), intent(in) :: attr
+        integer, intent(in) :: s0,sE
+        real(rp), intent(inout) :: attrs(1:sE-s0+1)
+
+        integer :: n, Nstp,herr
+        character(len=strLen) :: aStr
+        integer(HID_T) :: h5fId
+        real(sp):: att(1)
+        attrs = 0
+        Nstp = sE-s0+1
+
+        call CheckFileOrDie(fStr,"Unable to open file")
+        !Do HDF5 prep
+        call h5open_f(herr) !Setup Fortran interface
+        !Open file
+        call h5fopen_f(trim(fStr), H5F_ACC_RDONLY_F, h5fId, herr)
+
+        do n=1,Nstp
+            write(aStr,('(A,I0)')) "/Step#",s0+n-1
+            call h5ltget_attribute_float_f(h5fId,trim(aStr),trim(attr),att,herr)
+            attrs(n) = att(1)
+        enddo
+        call h5fclose_f(h5fId,herr) !Close file
+        call h5close_f(herr) !Close intereface
+
+    end subroutine StepAttributes_Real
+
     !> Find step times between s0,sE and store in pre-allocated array
     subroutine StepTimes(fStr,s0,sE,Ts)
         character(len=*), intent(in) :: fStr
@@ -413,7 +470,7 @@ contains
         
         integer :: n, Nv
         ! integer(HID_T) :: Nr
-        logical :: fExist,gExist,dsExist,aExist
+        logical :: fExist, gExist, dsExist = .false., aExist = .false.
         integer :: herr, dsTest
         integer(HID_T) :: h5fId, gId, inId
         character(len=strLen) :: h5File
@@ -557,6 +614,7 @@ contains
             inStr = "NULL"
         endif
         IOVar%descStr = inStr
+        !write(*,"(A,A,A,I)") 'Read dataset ', trim(IOVar%idStr), ' from ', gId
 
         IOVar%isDone = .true.
     end subroutine ReadHDFVar
@@ -633,35 +691,42 @@ contains
             write(*,*) 'Unknown HDF data type, bailing ...'
             stop
         end select
-        !write(*,*) 'Read attribute ', IOVar%data(1)
+        write(*,"(A,A,F,A,I)") 'Read attribute ', trim(IOVar%idStr), IOVar%data(1), " from ", gId
         IOVar%isDone = .true.
     end subroutine ReadHDFAtt
 
-    !> Helper function to get current timeAttributeCache 
-    !> datasets' size
-    function GetAttCacheSize() result(size)
-        integer :: size
-        size = (rCount + 1)*INIT_CACHE_SIZE
-    end function
+    !> Helper function to get integer step from
+    !> string name of Step#XXX format
+    function GetStepInt(stepStr) result(nStep)
+        character(len=*), intent(in) :: stepStr
+        integer :: nStep, status
+        read(stepStr(6:),*,iostat=status) nStep
+        if(status /= 0) then
+            write(*,"(A,I,A,A)"), "Conversion of step ", stepStr, " failed.", & 
+            " Update to timeAttributeCache dataset size failed."
+            stop
+        endif
+    end function 
 
     !> Helper function to check for resizing 
     !> of the timeAttributeCache datasets' size
     !> 
-    subroutine CheckAttCacheSize(stepStr)
+    subroutine CheckAttCacheSize(stepStr, cacheExist, cacheCreated)
         character(len=*), intent(in) :: stepStr
-        integer :: nStep, status
+        logical, intent(in) :: cacheExist
+        logical, intent(in) :: cacheCreated
+        integer :: nStep
 
-        read(stepStr(6:),*,iostat=status) nStep
-        if(status == 0) then
-            if ( nStep > (rCount + 1)*INIT_CACHE_SIZE ) then
-                rCount = rCount + 1
-            end if 
-            oCount = oCount + 1
+        nStep = GetStepInt(stepStr)
+
+        if(cacheExist .and. .not. cacheCreated) then
+            !write(*,"(A,1x,I)") "timeAttributeCache exists, and not just created, set cacheSize to ", nstep + 1
+            cacheSize = nStep + 1
         else 
-            write(*,"(A,I,A,A)"), "Conversion of step ", stepStr, " failed.", & 
-                        " Update to timeAttributeCache dataset size failed."
-            stop
-        endif
+            !write(*,"(A,1x,I)") "timeAttributeCache exists, and just created, set cachesize to ", cacheSize + 1
+            cacheSize = cacheSize + 1
+        end if
+        
     end subroutine
 
     !> Writes an Attribute that is a float or integer to
@@ -673,84 +738,81 @@ contains
         !> Group ID of attribute cache
         integer(HID_T), intent(in) :: gId
 
-        integer(HID_T) :: sId, dId, pId, memId = 0
+        integer(HID_T) :: sId, dId, pId, memId
         integer :: herr
         integer :: Nr = 1, memRank = 1
-        logical :: dSetExists
-        real :: X
+        logical :: dSetExists = .False.
+        real(rp) :: X
         integer(HSIZE_T) :: dSize = 1, rank = 1
-        integer(HSIZE_T), dimension(1) :: cdims(1), maxdims(1), bCount(1), dataDim(1), memDim(1)
+        integer(HSIZE_T), dimension(1) :: cdims(1), maxdims(1), dataDim(1), memDim(1)
         integer(HSIZE_T), dimension(1,1) :: coord
         dataDim = (/1/)
         memDim = (/1/)
         maxdims(1) = H5S_UNLIMITED_F
-        bCount = (/1/)
 
         call h5ltpath_valid_f(gId, trim(IOVar%idStr), .True., dSetExists, herr)
         ! Create dataspace and dataset initially in group
         if (.not. dSetExists) then
-            !write(*,*) "Create var ", trim(IOVar%idStr)
-            cdims(1) = INIT_CACHE_SIZE
+            !write(*,"(A,1x,A)") "Create var ", trim(IOVar%idStr)
+            cdims(1) = 1
             call h5screate_simple_f(Nr, cdims, sId, herr, maxdims=maxdims)
             call h5pcreate_f(H5P_DATASET_CREATE_F, pId, herr)
             cdims(1) = CACHE_CHUNK_SIZE
             call h5pset_chunk_f(pId, Nr, cdims, herr)
-            call h5dcreate_f(gId, trim(IOVar%idStr), H5T_NATIVE_REAL, sId, &
-                        dId, herr, dcpl_id=pId)
+            select case(IOVar%vType)
+                case(IONULL,IOREAL)
+                    call h5dcreate_f(gId, trim(IOVar%idStr), H5T_NATIVE_DOUBLE, sId, &
+                                    dId, herr, dcpl_id=pId)
+                case(IOINT)
+                    call h5dcreate_f(gId, trim(IOVar%idStr), H5T_NATIVE_INTEGER, sId, &
+                                    dId, herr, dcpl_id=pId)
+            end select
+
             coord(1,1) = 1
             call h5sselect_elements_f(sId, H5S_SELECT_SET_F, Nr, 1, coord, herr)
             call h5pclose_f(pId,herr)
         else
-            ! write(*,*) "Found var ", trim(IOVar%idStr)
+            !write(*,"(A,1x,A)") "Found var ", trim(IOVar%idStr)
             ! Open dataset on subsequent time steps
             call h5dopen_f(gId, trim(IOVar%idStr), dId, herr)
             ! Get the proper dataspae to select the element position 
             ! of the next attribute element to add and write to the dataset
             call h5dget_space_f(dId, sId, herr)
-            ! Check to see if we need to resize size of dataset
-            if(oCount > GetAttCacheSize()) then
-                !write(*,"(A,1x,i,A,A,A,i,A,i)") "Step Count ", oCount, " Extending cache for ", trim(IOVar%idStr), " from N=", &
-                !           (rCount + 1)*INIT_CACHE_SIZE, &
-                !            " to N= ", GetAttCacheSize() + INIT_CACHE_SIZE
-                dSize = GetAttCacheSize() + INIT_CACHE_SIZE
-                call h5dset_extent_f(dId, (/dSize/), herr)
-            endif
+            ! Resize dataset
+            dSize = cacheSize
+            call h5dset_extent_f(dId, (/dSize/), herr)
+            ! Create memory space for (extended) dataset addition
             cdims(1) = 1
-            ! Create memory space for (extended) current size of dataset
             call h5screate_simple_f(Nr, cdims, memId, herr)
-            coord(1,1) = oCount
             ! Select the single element at coord = offset in the file space
+            coord(1,1) = cacheSize
             call h5sselect_elements_f(sId, H5S_SELECT_SET_F, Nr, 1, coord, herr)
         end if
 
         select case(IOVar%vType)
             case(IONULL,IOREAL)
                 X = IOVar%data(1)
-                if (memId /= 0) then
-                    call h5dwrite_f(dId, H5T_NATIVE_REAL, X, bCount, herr, &
+                if (dSetExists) then
+                    call h5dwrite_f(dId, H5T_NATIVE_DOUBLE, X, dataDim, herr, &
                                     mem_space_id=memId, file_space_id=sId)
                     call h5sclose_f(memId,herr)
                 else
-                    call h5dwrite_f(dId, H5T_NATIVE_REAL, X, bCount, herr)
+                    call h5dwrite_f(dId, H5T_NATIVE_DOUBLE, X, dataDim, herr)
                 end if
             case(IOINT)
                 X = IOVar%data(1)
-                if (memId /= 0) then
-                    call h5dwrite_f(dId, H5T_NATIVE_INTEGER, int(X), bCount, herr, &
+                if (dSetExists) then
+                    call h5dwrite_f(dId, H5T_NATIVE_INTEGER, int(X), dataDim, herr, &
                                     mem_space_id=memId, file_space_id=sId)
                     call h5sclose_f(memId,herr)
                 else
-                    call h5dwrite_f(dId, H5T_NATIVE_INTEGER, int(X), bCount, herr)
+                    call h5dwrite_f(dId, H5T_NATIVE_INTEGER, int(X), dataDim, herr)
                 end if
         end select
         
         ! Cleanup 
         call h5dclose_f(dId,herr)
         call h5sclose_f(sId,herr)
-
-        if(herr == -1) then
-            write(*,*) "There was an error creating or writing to the attribute cache"
-        endif
     end subroutine WriteCacheAtt
 
     !FIXME: Add scaling to attributes
@@ -1005,16 +1067,20 @@ contains
         !> Check if output file has been stamped
         logical         , intent(in), optional :: doStampCheckO
 
-        logical :: fExist,gExist,doStampCheck
-        logical :: doCompress = .false.
+        logical :: fExist, gExist, doStampCheck
+        logical :: writeCache, cacheExist, cacheCreate
+        logical :: doCompress
         integer :: herr
         integer(HID_T) :: h5fId, gId, ggId, outId, cacheId
         character(len=strLen) :: h5File
-        character(len=strLen) :: attrGrpName = "timeAttributeCache"
-
+        character(len=strLen), parameter :: attrGrpName = "timeAttributeCache"
+        type(IOVAR_T) :: stepVar
         !Set filename to baseStr
         !FIXME: Correct to add .h5 to baseStr
         h5File = baseStr
+        writeCache = .false.
+        cacheCreate = .false.
+        doCompress = .false.
 
         if (present(doStampCheckO)) then
             doStampCheck = doStampCheckO
@@ -1027,12 +1093,6 @@ contains
             call StampIO(h5File)
         endif      
 
-        if(present(gStrO)) then
-            if(trim(toUpper(gStrO(1:5))) == "STEP#") then
-                call CheckAttCacheSize(trim(gStrO))
-            endif 
-        endif
-
         call h5open_f(herr) !Setup Fortran interface
 
         !Start by opening file, create if necessary
@@ -1044,13 +1104,6 @@ contains
             !Create file
             call h5fcreate_f(trim(h5File),H5F_ACC_TRUNC_F, h5fId, herr)         
         endif
-
-        !Check if cache group exists
-        call h5lexists_f(h5fId,trim(attrGrpName),gExist,herr)
-        if (.not. gExist) then
-            !Create cache group
-            call h5gcreate_f(h5fId,trim(attrGrpName),cacheId,herr)         
-        endif 
 
         !Figure out output location (outId) and create groups as necessary
         if (present(gStrO)) then
@@ -1076,6 +1129,7 @@ contains
                     gExist = .false.
                 endif
             endif
+
             if (.not. gExist) then
                 !Create group
                 call h5gcreate_f(h5fId,trim(gStrO),gId,herr)
@@ -1083,6 +1137,29 @@ contains
                 !Open group
                 call h5gopen_f(h5fId,trim(gStrO),gId,herr)
             endif
+
+            if(trim(toUpper(gStrO(1:5))) == "STEP#") then
+                writeCache = .true.
+                !Check if cache group exists
+                call h5lexists_f(h5fId,trim(attrGrpName),cacheExist,herr)
+                if (.not. cacheExist) then
+                    !write(*,*) "Cache group does not exist, creating it."
+                    !Create cache group
+                    call h5gcreate_f(h5fId,trim(attrGrpName),cacheId,herr)     
+                    cacheCreate = .true.    
+                endif 
+                ! Open attribute cache group
+                call h5gopen_f(h5fId,trim(attrGrpName),cacheId,herr)  
+
+                ! Check attribute cache size and resize
+                call CheckAttCacheSize(trim(gStrO), cacheExist, cacheCreate)
+                ! Write Step# to cache
+                stepVar%Nr = 0
+                stepVar%idStr = "step"
+                stepVar%vType = IOINT
+                stepVar%data = [GetStepInt(trim(gStrO))]
+                call WriteCacheAtt(stepVar,cacheId)
+            endif 
 
             if (present(gStrOO)) then
                 !Create subgroup
@@ -1101,19 +1178,21 @@ contains
         !Do writing
         if(present(doStampCheckO)) then
             call WriteVars2ID(IOVars,outId,doIOp, &
-                cacheId=cacheId,doCompress=doCompress,isRoot=.true.)
+                                doCompress=doCompress,isRoot=.true.)
         else
-            !Open attribute cache group
-            call h5gopen_f(h5fId,trim(attrGrpName),cacheId,herr)  
-            call WriteVars2ID(IOVars,outId,doIOp, &
-                cacheId=cacheId,doCompress=doCompress)
+            ! Write step vars and attributes to group outId
+            if(writeCache) then  
+                call WriteVars2ID(IOVars,outId,doIOp, &
+                    cacheId=cacheId,doCompress=doCompress)
+            else
+                call WriteVars2ID(IOVars,outId,doIOp,doCompress=doCompress)
+            end if
         end if
 
         !Now done, close up shop
         if (present(gStrOO)) call h5gclose_f(ggId,herr)
         if (present(gStrO )) call h5gclose_f( gId,herr)
-
-        call h5gclose_f(cacheId,herr) !Close cache group
+        if (writeCache) call h5gclose_f(cacheId,herr) !Close cache group
 
         call h5fclose_f(h5fId,herr) !Close file
         call h5close_f(herr) !Close intereface
@@ -1146,7 +1225,7 @@ contains
                         stop
                     else
                         call WriteHDFAtt(IOVars(n),outId)
-                        if(.not. present(isRoot)) then
+                        if(present(cacheId)) then
                             call WriteCacheAtt(IOVars(n),cacheId)
                         endif
                     endif
