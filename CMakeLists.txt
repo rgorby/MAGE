@@ -31,6 +31,7 @@ add_compile_definitions(GITBRANCH=${GIT_BRANCH})
 option(ENABLE_OMP "Enable OMP parallelization" ON )
 option(ENABLE_MPI "Enable MPI parallelization" OFF)
 option(ENABLE_MKL "Enable Intel MKL usage" OFF)
+option(ENABLE_COLORTEXT "Enable ascii color in text output" ON)
 option(ENABLE_CODECOV "Enable Code Coverage tracking" OFF)
 option(ALLOW_INVALID_COMPILERS "Allow Invalid Compiler Versions" OFF)
 
@@ -93,6 +94,9 @@ endif()
 
 if(ENABLE_MKL)
     add_compile_definitions(USEMKL)
+endif()
+if(ENABLE_COLORTEXT)
+    add_compile_definitions(USECOLORTEXT)
 endif()
 
 #Include compile flag generator
