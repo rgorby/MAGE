@@ -90,3 +90,12 @@ Suppression = {
     }
 }
 
+Suppression = {
+    Type = { uninitialized_memory_access }
+    Stacks = {
+        {
+            mod=voltron_mpi.x, func=writehdfvar;
+        }
+    }
+}
+
