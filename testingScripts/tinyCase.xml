@@ -2,8 +2,8 @@
 <!-- Gamera Magnetosphere -->
 <kaiju>
   <voltron>
-    <time tFin="20.0"/>
-    <spinup doSpin="T" tSpin="10.0" tIO="0.0"/>
+    <time tFin="6.5"/>
+    <spinup doSpin="T" tSpin="5.0" tIO="0.0"/>
     <coupling dtCouple="5.0" rTrc="40.0" imType="RCM" doQkSquish="T" doDynDT="F" doAsyncCoupling="T"/>
     <restart dtRes="1800.0"/>
     <imag doInit="T"/>
