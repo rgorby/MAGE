@@ -119,7 +119,7 @@ module sifetautils
             alamc = abs(spc%alami(k) + spc%alami(k+1))/2.0
             !P = P + eta(k)*alamc*vm**2.5 * ev2J * 1.e6
             !! Note: 10^-9 from 1/sclEta cancels with 10^9 from Pa -> nPa
-            P = P + eta(k)*alamc*bVol**(-5./3.) * ev2J * 1.e6
+            P = P + 2./3.*eta(k)*alamc*bVol**(-5./3.) * ev2J * 1.e6
         enddo
 
     end function SpcEta2Press
@@ -176,7 +176,7 @@ module sifetautils
         delscl = vm*abs(amax-amin)/E0_ev  ! Channel width / temp
             ! TODO: why?
 
-        A0 = (2.0/sqrt(PI)) * D/(vm**1.5)*sclEta  ! #/cc * Rx/nT * 1/nT -> 1/T
+        A0 = (2.0/sqrt(PI)) * D/(vm**1.5)*sclEta  ! #/cc * Rx/nT * (1/nT -> 1/T)
         etak = A0*kapgam/(kapbar**1.5) * sqrt(E_ev/E0_ev)*delscl*((kArg)**(-kap-1.0))
 
     end function Kappa2Eta

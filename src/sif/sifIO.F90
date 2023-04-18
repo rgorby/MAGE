@@ -70,12 +70,15 @@ module sifIO
         do i=1,Grid%nSpc
             call ClearIO(IOVars)
             ! Attrs
-            call AddOutVar(IOVars,"flav"  ,spc(i)%flav  )
-            call AddOutVar(IOVars,"N"     ,spc(i)%N     )
-            call AddOutVar(IOVars,"fudge" ,spc(i)%fudge )
-            call AddOutVar(IOVars,"amu"   ,spc(i)%amu   )
-            call AddOutVar(IOVars,"kStart",spc(i)%kStart-1)  ! Change to assume zero-based
-            call AddOutVar(IOVars,"kEnd"  ,spc(i)%kEnd  -1)  ! Change to assume zero-based
+            call AddOutVar(IOVars,"flav"     ,spc(i)%flav    )
+            call AddOutVar(IOVars,"N"        ,spc(i)%N       )
+            call AddOutVar(IOVars,"fudge"    ,spc(i)%fudge   )
+            call AddOutVar(IOVars,"numNuc_p" ,spc(i)%numNuc_p)
+            call AddOutVar(IOVars,"numNuc_n" ,spc(i)%numNuc_n)
+            call AddOutVar(IOVars,"q       " ,spc(i)%q       )
+            call AddOutVar(IOVars,"amu"      ,spc(i)%amu     )
+            call AddOutVar(IOVars,"kStart"   ,spc(i)%kStart-1)  ! Change to assume zero-based
+            call AddOutVar(IOVars,"kEnd"     ,spc(i)%kEnd  -1)  ! Change to assume zero-based
             ! Datasets
             call AddOutVar(IOVars,"alami",spc(i)%alami,uStr="eV * (Rx/nT)^(2/3)")
             write(gStr,'(I0)') spc(i)%flav  ! Idk if this is the easiest way to format ints as strings
@@ -116,7 +119,10 @@ module sifIO
         call AddOutVar(IOVars,"ymin",State%xyzmin(:,:,YDIR),uStr="Rx")
         call AddOutVar(IOVars,"zmin",State%xyzmin(:,:,ZDIR),uStr="Rx")
 
-        call AddOutVar(IOVars,"eta",State%eta,uStr="#/cm^3 * Rx/nT") !! TODO: Maybe swap with intensity instead
+        call AddOutVar(IOVars,"eta",State%eta,uStr="#/cm^3 * Rx/T") !! TODO: Maybe swap with intensity instead
+
+        ! Calc intensity
+        
 
         call AddOutVar(IOVars,"topo",State%topo*1.0_rp,uStr="0=Open, 1=Closed")
         call AddOutVar(IOVars,"active",State%active*1.0_rp,uStr="-1=Inactive, 0=Buffer, 1=Active")
