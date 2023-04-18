@@ -64,7 +64,7 @@ module sifSpeciesHelper
         ! Swap this out for a lookup table later
 
         num_e = spc%numNuc_p - spc%q
-        amu = ((spc%numNuc_p + spc%numNuc_n)*Mp_cgs + num_e*Me_cgs)*100.0/dalton
+        amu = ((spc%numNuc_p + spc%numNuc_n)*Mp_cgs + num_e*Me_cgs)*1.e-3/dalton
 
     end function SpcAmu
 

@@ -3,6 +3,7 @@ module sifIO
     use planethelper
     
     use siftypes
+    use sifetautils
 
     implicit none
 
@@ -99,8 +100,9 @@ module sifIO
         type(sifState_T), intent(in) :: State
         character(len=strLen), intent(in) :: gStr
 
-        integer :: s
-        real(rp), dimension(:,:,:), allocatable :: outDen
+        integer :: i,j,s
+        real(rp), dimension(:,:,:), allocatable :: outDen, outIntensity
+
 
         ! First, make sure root variables are there
         if (doRoot) then
@@ -122,6 +124,23 @@ module sifIO
         call AddOutVar(IOVars,"eta",State%eta,uStr="#/cm^3 * Rx/T") !! TODO: Maybe swap with intensity instead
 
         ! Calc intensity
+        allocate(outIntensity(Grid%shGrid%Nt,Grid%shGrid%Np,Grid%Nk))
+        outIntensity = 0.0
+        do s=1,Grid%nSpc
+            if (Grid%spc(s)%flav==F_PSPH) then
+                cycle  ! Skip plasmasphere since it has zero energy
+            endif
+            do i=1,Grid%shGrid%Nt
+                do j=1,Grid%shGrid%Np
+                    outIntensity(i,j,Grid%spc(s)%kStart:Grid%spc(s)%kEnd) = &
+                        eta2intensity(Grid%spc(s)%amu,   &
+                                      State%bVol(i,j),   &
+                                      Grid%spc(s)%alami, &
+                                      State%eta (i,j,Grid%spc(s)%kStart:Grid%spc(s)%kEnd))
+                enddo
+            enddo
+        enddo
+        call AddOutVar(IOVars,"intensity",outIntensity,uStr="1/(s*sr*keV*cm^2)")
         
 
         call AddOutVar(IOVars,"topo",State%topo*1.0_rp,uStr="0=Open, 1=Closed")

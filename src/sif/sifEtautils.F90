@@ -147,6 +147,7 @@ module sifetautils
         
     end subroutine DkT2SpcEta
 
+    
     function Kappa2Eta(Model,D,kT,vm,amin,amax) result(etaK)
         !! Convert density and temperature to eta at specific lambda value
         !! Adapted from eqn 3.12 from 10.1007/s11214-013-9982-9 ?
@@ -180,6 +181,7 @@ module sifetautils
         etak = A0*kapgam/(kapbar**1.5) * sqrt(E_ev/E0_ev)*delscl*((kArg)**(-kap-1.0))
 
     end function Kappa2Eta
+
 
     function Maxwell2Eta(Model,D,kT,vm,amin,amax) result(etaK)
         !! This calculates Maxwellian DP2Eta mapping using experfdiff
@@ -221,5 +223,34 @@ module sifetautils
         etaK = etaq !Cast back down to rp
 
     end function Maxwell2Eta
+
+
+! General helpers
+    function eta2intensity(amu, bVol, alami, eta) result (intensity)
+        real(rp), intent(in) :: amu, bVol
+            !! amu  = mass [amu]
+            !! bVol = flux tube volume [Rx/nT]
+        real(rp), dimension(:), intent(in) :: alami
+            !! alami = energy inv channel edges for a single species [eV]
+        real(rp), dimension(:), intent(in) :: eta
+            !! eta   = etas for a single species
+
+        real(rp), dimension(:), allocatable :: intensity
+        integer :: N
+        real(rp), dimension(:), allocatable :: alamc, lamdiff   
+
+        N = size(eta)
+        allocate(alamc(N))
+        allocate(lamdiff(N))
+        allocate(intensity(N))
+
+        alamc   = abs(alami(2:)+alami(1:N-1))/2.0
+        lamdiff = abs(alami(2:)-alami(1:N-1))
+
+        intensity =   sclIntens/sqrt(amu)  &
+                    * sqrt(alamc)/lamdiff  &
+                    * bVol**(-2./3.) * eta
+
+    end function eta2intensity
 
 end module sifetautils

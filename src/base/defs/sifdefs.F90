@@ -35,5 +35,6 @@ module sifdefs
     !------
 
     real(rp) :: sclEta = 1.0e9  ! [1/nT -> 1/T on DkT2eta conversion]
+    real(rp) :: sclIntens = 1.e-4*sqrt(ev2J/(8.0*dalton))/PI ! code eta to intensity [1/(s*sr*keV*cm^2)]
 
 end module sifdefs
