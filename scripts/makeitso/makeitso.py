@@ -66,6 +66,24 @@ DEFAULT_WSAFILE = os.path.join(
     "vel_201708132000R002_ahmi.fits"
 )
 
+# Default wall time request as hh:mm:ss.
+DEFAULT_WALLTIME = "12:00:00"
+
+# Default PBS job queue.
+DEFAULT_PBS_QUEUE = "normal"
+
+# Default PBS account.
+DEFAULT_PBS_ACCOUNT = "UJHB0015"
+
+# Default PBS node request.
+DEFAULT_PBS_SELECT = "4"
+
+# Default PBS cores per node.
+DEFAULT_PBS_NCPUS = "28"
+
+# Default PBS OMP threads per MPI rank.
+DEFAULT_PBS_OMPTHREADS = "14"
+
 # Location of template wsa2gamera.py .ini file.
 WSA2GAMERA_INI_TEMPLATE = os.path.join(
     os.environ["KAIJUHOME"], "scripts", "makeitso", "wsa2gamera_template.ini"
@@ -245,10 +263,10 @@ def get_run_options():
 
     # Parameters for the [jPdir] section of the .ini file.
     jPdir_N = input(
-        f"Specify the nuber of MPI chunks in the k-dimension: ({DEFAULT_KPDIR_N}): "
+        f"Specify the nuber of MPI chunks in the k-dimension: ({DEFAULT_JPDIR_N}): "
     )
     if jPdir_N == "":
-        jPdir_N = DEFAULT_KPDIR_N
+        jPdir_N = DEFAULT_JPDIR_N
     options["jPdir_N"] = jPdir_N
 
     #-------------------------------------------------------------------------
@@ -263,7 +281,59 @@ def get_run_options():
 
     #-------------------------------------------------------------------------
 
-    # Parameters for the .ini file for wsa2gamera.py..
+    # PBS job parameters
+
+    # Requested wall time as hh:mm:ss.
+    walltime = input(
+        f"Specify the walltime request (hh:mm:ss): ({DEFAULT_WALLTIME}): "
+    )
+    if walltime == "":
+        walltime = DEFAULT_WALLTIME
+    options["walltime"] = walltime
+
+    # PBS queue name.
+    pbs_queue = input(
+        f"Specify the PBS queue: ({DEFAULT_PBS_QUEUE}): "
+    )
+    if pbs_queue == "":
+        pbs_queue = DEFAULT_PBS_QUEUE
+    options["pbs_queue"] = pbs_queue
+
+    # PBS account name.
+    pbs_account = input(
+        f"Specify the walltime request (hh:mm:ss): ({DEFAULT_PBS_ACCOUNT}): "
+    )
+    if pbs_account == "":
+        pbs_account = DEFAULT_PBS_ACCOUNT
+    options["pbs_account"] = pbs_account
+
+    # Number of nodes to use.
+    pbs_select = input(
+        f"Specify the number of nodes to use: ({DEFAULT_PBS_SELECT}): "
+    )
+    if pbs_select == "":
+        pbs_select = DEFAULT_PBS_SELECT
+    options["pbs_select"] = pbs_select
+
+    # Number of cores per node.
+    pbs_ncpus = input(
+        f"Specify the number of cores per node: ({DEFAULT_PBS_NCPUS}): "
+    )
+    if pbs_ncpus == "":
+        pbs_ncpus = DEFAULT_PBS_NCPUS
+    options["pbs_ncpus"] = pbs_ncpus
+
+    # Number of OMP threads per MPI rank.
+    pbs_ompthreads = input(
+        f"Specify the number of OMP threads per MPI rank: ({DEFAULT_PBS_OMPTHREADS}): "
+    )
+    if pbs_ompthreads == "":
+        pbs_ompthreads = DEFAULT_PBS_OMPTHREADS
+    options["pbs_ompthreads"] = pbs_ompthreads
+
+    #-------------------------------------------------------------------------
+
+    # Parameters for the .ini file for wsa2gamera.py.
 
     # Specify the path to the WSA FITS file to use for initial conditions.
     wsafile = input(

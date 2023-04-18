@@ -1,102 +1,17 @@
 #!/bin/bash
 
-# This PBS script illustrates how to run the "helio_mpi" model using the MPI
-# version of the kaiju software.
-
-# The lines starting with "#PBS" are directives for the PBS job control
-# system, used on pleiades, electra, cheyenne, and many other HPC systems.
-
-#------------------------------------------------------------------------------
-# START OF PBS DIRECTIVES
-#------------------------------------------------------------------------------
-
-# Provide a useful name for this PBS job. This name will appear in the "qstat"
-# output for this job.
 #PBS -N {{ runid }}
-
-# Combine job script std(o)ut and std(e)rr into stdout. This combined
-# output will be saved in the file helio_mpi.oJOB_NUM, where JOB_NUM is the PBS
-# job number assigned when the job is submitted. Note that the output from the
-# kaiju software itself is captured in a separate file (see below).
 #PBS -j oe
-
-# Request compute time on the allocated compute node(s). The format is
-# hh:mm:ss, where hh is hours, mm is minutes, and ss is seconds. Set this
-# value high enough to ensure that your job runs to completion, but low ehough
-# to stay within the time limits of the queue you are submitting to.
-#PBS -l walltime=00:20:00
-
-# Send an email to the address specified in -M when the job is (a)borted,
-# (b)egins, and/or (e)nds.
+#PBS -l walltime={{ walltime }}
 #PBS -m abe
-#PBS -M eric.winter@jhuapl.edu
+##PBS -M eric.winter@jhuapl.edu
 
-#-----------------------------------------------------------------------------
+#PBS -q {{ pbs_queue}}
+#PBS -l select={{ pbs_select }}:ncpus={{ pbs_ncpus }}:mpiprocs=2:ompthreads={{ pbs_ompthreads }}:model=bro
 
-# In the lines below, uncomment the set appropriate for your system, and
-# comment out the other set. The default is pleades/electra.
-
-#-----------------------------------------------------------------------------
-
-# For the pleiades or electra HPC systems at NASA Ames HECC:
-
-# Submit the job to the PBS queue called "normal". The queues on pleiades have
-# the following time limits: "low" (4 hours), "normal" (8 hours), "long" (120
-# hours), "debug" (2 hours), "devel" (2 hours). For more information on
-# pleiades queues, see:
-# https://www.nas.nasa.gov/hecc/support/kb/pbs-job-queue-structure_187.html
-#PBS -q normal
-
-# This is the line where you request specific resources from the PBS system.
-# select=4 -> Request 4 compute nodes.
-# ncpus=28 -> Each compute node must have at least 28 cores. This requirement
-# implies the use of the 2-socket, 14 cores/socket Broadwell nodes.
-# mpiprocs=2 -> Each node will run 2 MPI ranks of the kaiju code. NOTE: This
-# value should always be 2 for the kaiju software.
-# ompthreads=14 -> Each MPI rank will run 14 OMP threads. Note that this will
-# also cause the OMP_THREADS environment variable to be set to 14. This value
-# should always be 14 for MPI jobs on pleiades and electra.
-# model=bro -> Each compute node must contain Broadwell chips. Specifying
-# "model" is a HECC-specific PBS requirement. The node(s) may be on pleiades
-# OR electra (not both), using whichever system is available first.
-# IMPORTANT NOTE: In the XML file for your run, the "decomposition" of the
-# problem into MPI ranks is specified by the XML elements <iPdir>, <jPdir>,
-# and <kPdir>. This breakdown is implemented on the resource request line by
-# using select=N/2, where N=iPdir*jPdir*kPdir. This tells PBS to give you
-# N/2 nodes, each of which will run 2 MPI ranks. More simply:
-# iPdir*jPdir*kPdir = select*mpiprocs
-#PBS -l select=4:ncpus=28:mpiprocs=2:ompthreads=14:model=bro
-
-#-----------------------------------------------------------------------------
-
-# For the cheyenne HPC system at UCAR:
-
-# Specify the user account under which the job should be run.
-##PBS -A UJHB0015
-
-# Submit the job to the PBS queue called "regular". The queues on cheyenne
-# have the following time limits: "premium" (12 hours), "regular" (12 hours),
-# "economy" (12 hours). For more information on cheyenne queues, see:
-# https://arc.ucar.edu/knowledge_base/72581495
+##PBS -A {{ pbs_account }}
 ##PBS -q regular
-
-# This is the line where you request specific resources from the PBS system.
-# See the comments above the pleiades example above for an explanation of the
-# components of this line.
-##PBS -l select=4:ncpus=36:mpiprocs=2:ompthreads=18
-
-#------------------------------------------------------------------------------
-# END OF PBS DIRECTIVES
-#------------------------------------------------------------------------------
-
-# This PBS job script will run the MPI version of the kaiju software on the
-# bw3d quickstart case.
-
-# This job should run in roughly 10 minutes of wall-clock time on pleiades.
-# On cheyenne, the job should run in roughly XXX.
-
-# Example usage
-# qsub -v bw3d.pbs
+##PBS -l select={{ pbs_select }}:ncpus=36:mpiprocs=2:ompthreads=18
 
 echo "Job $PBS_JOBID started at `date` on `hostname`."
 
