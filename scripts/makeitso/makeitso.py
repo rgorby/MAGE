@@ -48,6 +48,18 @@ DEFAULT_TSOUT = "50"
 # groups in the output HDF5 files. For gamhelio, units are simulated hours.
 DEFAULT_DTOUT = "10.0"
 
+# Default MPI decomposition in i-dimension.
+DEFAULT_IPDIR_N = 2
+
+# Default MPI decomposition in j-dimension.
+DEFAULT_JPDIR_N = 2
+
+# Default MPI decomposition in k-dimension.
+DEFAULT_KPDIR_N = 2
+
+# Default spinup time.
+DEFAULT_TSPIN = 200.0
+
 # Path to WSA FITS file for creating boundary conditions.
 DEFAULT_WSAFILE = os.path.join(
     os.environ["KAIJUHOME"], "scripts", "makeitso",
@@ -116,19 +128,7 @@ def get_run_options():
     # Initialize the dictionary of program options.
     options = {}
 
-    # Get the run ID.
-    runid = input(f"Enter the name of the run ({DEFAULT_RUNID}): ")
-    if runid == "":
-        runid = DEFAULT_RUNID
-    options["runid"] = runid
-
-    # Enter the working directory for the run.
-    run_directory = input(
-        f"Enter the path to the run directory ({DEFAULT_RUN_DIRECTORY}): "
-    )
-    if run_directory == "":
-        run_directory = DEFAULT_RUN_DIRECTORY
-    options["run_directory"] = run_directory
+    # The following parameters are HPC-system-specific.
 
     # Specify the HPC system to use.
     hpc_system = input(
@@ -146,6 +146,32 @@ def get_run_options():
         run_type = DEFAULT_RUN_TYPE
     options["run_type"] = run_type
 
+    # Enter the working directory for the run.
+    run_directory = input(
+        f"Enter the path to the run directory ({DEFAULT_RUN_DIRECTORY}): "
+    )
+    if run_directory == "":
+        run_directory = DEFAULT_RUN_DIRECTORY
+    options["run_directory"] = run_directory
+
+    #-------------------------------------------------------------------------
+
+    # The following parameters are run-specific.
+
+    #-------------------------------------------------------------------------
+
+    # Parameters for the [sim] section of the .ini file.
+
+    # Get the run ID.
+    runid = input(f"Enter the name of the run ({DEFAULT_RUNID}): ")
+    if runid == "":
+        runid = DEFAULT_RUNID
+    options["runid"] = runid
+
+    #-------------------------------------------------------------------------
+
+    # Parameters for the [time] section of the .ini file.
+
     # Specify the number of hours to simulate after spinup.
     tFin = input(
         f"Specify number of hours after spinup to be simulated ({DEFAULT_TFIN}): "
@@ -153,6 +179,25 @@ def get_run_options():
     if tFin == "":
         tFin = DEFAULT_TFIN
     options["tFin"] = tFin
+
+    #-------------------------------------------------------------------------
+
+    # Parameters for the [spinup] section of the .ini file.
+
+    # Specify the number of simulated hours to spinup the simulation.
+    tSpin = input(
+        f"Specify number of hours of spinup to be simulated ({DEFAULT_TSPIN}): "
+    )
+    if tSpin == "":
+        tSpin = DEFAULT_TSPIN
+    options["tSpin"] = tSpin
+
+    # Start output at spinup start.
+    options["tIO"] = f"-{tSpin}"
+
+    #-------------------------------------------------------------------------
+
+    # Parameters for the [output] section of the .ini file.
 
     # Specify the screen output interval. This is the interval (in timesteps)
     # between screen dumps of information during the simulation.
@@ -174,6 +219,52 @@ def get_run_options():
         dtOut = DEFAULT_DTOUT
     options["dtOut"] = dtOut
 
+    #-------------------------------------------------------------------------
+
+    # Parameters for the [physics] section of the .ini file.
+
+    #-------------------------------------------------------------------------
+
+    # Parameters for the [prob] section of the .ini file.
+
+    #-------------------------------------------------------------------------
+
+    # Parameters for the [restart] section of the .ini file.
+
+    #-------------------------------------------------------------------------
+
+    # Parameters for the [iPdir] section of the .ini file.
+    iPdir_N = input(
+        f"Specify the nuber of MPI chunks in the i-dimension: ({DEFAULT_IPDIR_N}): "
+    )
+    if iPdir_N == "":
+        iPdir_N = DEFAULT_IPDIR_N
+    options["iPdir_N"] = iPdir_N
+
+    #-------------------------------------------------------------------------
+
+    # Parameters for the [jPdir] section of the .ini file.
+    jPdir_N = input(
+        f"Specify the nuber of MPI chunks in the k-dimension: ({DEFAULT_KPDIR_N}): "
+    )
+    if jPdir_N == "":
+        jPdir_N = DEFAULT_KPDIR_N
+    options["jPdir_N"] = jPdir_N
+
+    #-------------------------------------------------------------------------
+
+    # Parameters for the [kPdir] section of the .ini file.
+    kPdir_N = input(
+        f"Specify the nuber of MPI chunks in the j-dimension: ({DEFAULT_KPDIR_N}): "
+    )
+    if kPdir_N == "":
+        kPdir_N = DEFAULT_KPDIR_N
+    options["kPdir_N"] = kPdir_N
+
+    #-------------------------------------------------------------------------
+
+    # Parameters for the .ini file for wsa2gamera.py..
+
     # Specify the path to the WSA FITS file to use for initial conditions.
     wsafile = input(
         f"Path to WSA FITS file for initial conditions ({DEFAULT_WSAFILE}): "
@@ -181,6 +272,8 @@ def get_run_options():
     if wsafile == "":
         wsafile = DEFAULT_WSAFILE
     options["wsafile"] = wsafile
+
+    #-------------------------------------------------------------------------
 
     # Return the options dictionary.
     return options
