@@ -63,16 +63,6 @@ defaults_global = {
     "wsa2gamera_Grid_Nk": "128",
 }
 
-# Defaults for serial runs on cheyenne.
-defaults_cheyenne_serial = {
-    "pbs_account": "UJHB0015",
-    "pbs_queue": "regular",
-    "pbs_walltime": "12:00:00",
-    "pbs_select": "1",
-    "pbs_ncpus": "36",
-    "pbs_ompthreads": "36",
-}
-
 # Defaults for MPI runs on cheyenne.
 defaults_cheyenne_mpi = {
     "pbs_account": "UJHB0015",
@@ -84,6 +74,26 @@ defaults_cheyenne_mpi = {
     "pbs_ompthreads": "18",
 }
 
+# Defaults for serial runs on cheyenne.
+defaults_cheyenne_serial = {
+    "pbs_account": "UJHB0015",
+    "pbs_queue": "regular",
+    "pbs_walltime": "12:00:00",
+    "pbs_select": "1",
+    "pbs_ncpus": "36",
+    "pbs_ompthreads": "36",
+}
+
+# Defaults for MPI runs on pleiades.
+defaults_pleiades_mpi = {
+    "pbs_queue": "normal",
+    "pbs_walltime": "12:00:00",
+    "pbs_select": "4",
+    "pbs_ncpus": "28",
+    "pbs_mpiprocs": "2",
+    "pbs_ompthreads": "14",
+}
+
 # Defaults for serial runs on pleiades.
 defaults_pleiades_serial = {
     # "pbs_account": "UJHB0015",
@@ -93,17 +103,6 @@ defaults_pleiades_serial = {
     # "pbs_ncpus": "36",
     # "pbs_ompthreads": "36",
     # "kaiju_build_bin": DEFAULT_SERIAL_KAIJU_BUILD_BIN,
-}
-
-# Defaults for MPI runs on pleiades.
-defaults_pleiades_mpi = {
-    # "pbs_walltime": "12:00:00",
-    # "pbs_queue": "normal",
-    # "pbs_account": "UNKNOWN",
-    # "pbs_select": "4",
-    # "pbs_ncpus": "28",
-    # "pbs_mpiprocs": "2",
-    # "pbs_ompthreads": "14",
 }
 
 # Gather all defaults in one dictionary.
@@ -383,12 +382,13 @@ def get_run_options():
 
     # PBS job parameters
 
-    # PBS account name 
-    options["pbs_account"] = get_run_option(
-        name="pbs_account",
-        prompt="PBS account name",
-        default=defaults["pbs_account"]
-    )
+    # PBS account name
+    if "pbs_account" in defaults:
+        options["pbs_account"] = get_run_option(
+            name="pbs_account",
+            prompt="PBS account name",
+            default=defaults["pbs_account"]
+        )
 
     # PBS queue name
     options["pbs_queue"] = get_run_option(
