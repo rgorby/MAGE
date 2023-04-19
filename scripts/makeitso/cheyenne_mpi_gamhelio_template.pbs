@@ -2,11 +2,11 @@
 
 #PBS -N {{ runid }}
 #PBS -j oe
-#PBS -l walltime={{ walltime }}
+#PBS -l walltime={{ pbs_walltime }}
 #PBS -m abe
 ##PBS -M eric.winter@jhuapl.edu
 
-#PBS -q {{ pbs_queue}}
+#PBS -q {{ pbs_queue }}
 #PBS -l select={{ pbs_select }}:ncpus={{ pbs_ncpus }}:mpiprocs=2:ompthreads={{ pbs_ompthreads }}:model=bro
 
 ##PBS -A {{ pbs_account }}
