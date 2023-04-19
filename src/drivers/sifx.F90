@@ -28,6 +28,15 @@ program sifx
     ! Save first state to file
     call sifOutput(sifApp%Model,sifApp%Grid,sifApp%State)
 
+    do while ( sifApp%State%t < (sifApp%Model%tFin + 0.5) )
+        if (sifApp%State%IO%doOutput(sifApp%State%t)) then
+            call sifOutput(sifApp%Model,sifApp%Grid,sifApp%State)
+        endif
+
+        ! No advance yet, just increase time by 1
+        sifApp%State%t = sifApp%State%t + 1
+
+    enddo
 
 
 end program sifx

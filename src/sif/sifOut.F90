@@ -27,6 +27,7 @@ module sifOut
 
         !Setup for next output
         State%IO%nOut = State%IO%nOut + 1
+        State%IO%tOut = State%t + State%IO%dtOut
     end subroutine sifOutput
 
 end module sifOut
