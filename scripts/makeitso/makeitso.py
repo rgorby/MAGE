@@ -96,13 +96,11 @@ defaults_pleiades_mpi = {
 
 # Defaults for serial runs on pleiades.
 defaults_pleiades_serial = {
-    # "pbs_account": "UJHB0015",
-    # "pbs_queue": "regular",
-    # "pbs_walltime": "12:00:00",
-    # "pbs_select": "1",
-    # "pbs_ncpus": "36",
-    # "pbs_ompthreads": "36",
-    # "kaiju_build_bin": DEFAULT_SERIAL_KAIJU_BUILD_BIN,
+    "pbs_queue": "normal",
+    "pbs_walltime": "12:00:00",
+    "pbs_select": "1",
+    "pbs_ncpus": "28",
+    "pbs_ompthreads": "28",
 }
 
 # Gather all defaults in one dictionary.
