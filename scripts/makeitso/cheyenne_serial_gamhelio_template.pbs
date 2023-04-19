@@ -29,7 +29,7 @@ module list
 # Define the kaiju installation location.
 # NOTE: You MUST set this variable to the path to your kaiju directory, which
 # is the top-level directory created when you cloned the kaiju repository.
-export KAIJU_INSTALL_DIR=$HOME/kaiju
+export KAIJU_INSTALL_DIR={{ kaiju_home }}
 
 # Set kaiju-related environment variables.
 # This script sets KAIJUHOME and other environment variables.
@@ -40,18 +40,7 @@ source $KAIJU_INSTALL_DIR/scripts/setupEnvironment.sh
 # your kaiju build directory. The setting below assumes that the MPI version
 # of kaiju was built in the build_mpi subdirectory of the kaiju home directory
 # (which is typically the same as KAIJU_INSTALL_DIR).
-export PATH=$KAIJUHOME/build_mpi/bin:$PATH
-
-# Set the MPI_TYPE_DEPTH to 32.
-# If this is not done, gamera_mpi.x will crash with a stack traceback that
-# includes an error messge like this:
-# ...
-# MPT ERROR: The program attempted to construct a derived datatype with
-# depth 15, but the maximum allowed depth is 14. You can increase...
-# ...
-# If you see error messages like this at run time, try increasing the value
-# assigned to MPI_TYPE_DEPTH in the line below.
-export MPI_TYPE_DEPTH=32
+export PATH={{ kaiju_build_bin }}:$PATH
 
 # Set the OMP stack size to prevent a crash.
 # If this setting is ignored, the model may cause the MPI kaiju code to crash
@@ -63,12 +52,8 @@ echo "The active environment variables are:"
 printenv
 
 # Run the model. Direct output from the program is saved in a text file.
-EXE=gamhelio_mpi.x
+EXE=gamhelio.x
 echo "Running $EXE on model $RUNID."
-# The omplace tool is used to ensure efficient pinning of MPI ranks and OMP
-# threads to appropriate sockets and cores. If you omit omplace, your job
-# will still run, but it probably be an order of magnitude slower than it
-# would be when using omplace.
-mpiexec omplace $EXE $RUNID.xml >& ${EXE}.${RUNID}.out
+$EXE $RUNID.xml >& ${EXE}.${RUNID}.out
 
 echo "Job $PBS_JOBID ended at `date` on `hostname`."

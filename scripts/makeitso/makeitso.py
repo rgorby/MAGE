@@ -65,12 +65,12 @@ defaults_global = {
 
 # Defaults for serial runs on cheyenne.
 defaults_cheyenne_serial = {
-    # "pbs_account": "UJHB0015",
-    # "pbs_queue": "regular",
-    # "pbs_walltime": "12:00:00",
-    # "pbs_select": "1",
-    # "pbs_ncpus": "36",
-    # "pbs_ompthreads": "36",
+    "pbs_account": "UJHB0015",
+    "pbs_queue": "regular",
+    "pbs_walltime": "12:00:00",
+    "pbs_select": "1",
+    "pbs_ncpus": "36",
+    "pbs_ompthreads": "36",
 }
 
 # Defaults for MPI runs on cheyenne.
