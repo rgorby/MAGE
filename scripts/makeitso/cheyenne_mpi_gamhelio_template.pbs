@@ -30,7 +30,7 @@ module list
 # Define the kaiju installation location.
 # NOTE: You MUST set this variable to the path to your kaiju directory, which
 # is the top-level directory created when you cloned the kaiju repository.
-export KAIJU_INSTALL_DIR=$HOME/kaiju
+export KAIJU_INSTALL_DIR={{ kaiju_home }}
 
 # Set kaiju-related environment variables.
 # This script sets KAIJUHOME and other environment variables.

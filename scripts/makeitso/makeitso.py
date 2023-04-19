@@ -36,6 +36,9 @@ VALIDS_HPC_SYSTEM = ["cheyenne", "pleiades"]
 DEFAULT_RUN_TYPE = "mpi"
 VALIDS_RUN_TYPE = ["mpi", "serial"]
 
+# Default installation path for the kaiju software
+DEFAULT_KAIJU_HOME = os.path.join(os.environ["HOME"], "kaiju")
+
 # Path to directory containing makeitso support files.
 MAKEITSO_DIR = os.path.join(os.environ["KAIJUHOME"], "scripts", "makeitso")
 
@@ -46,30 +49,29 @@ DEFAULT_WSAFILE = os.path.join(MAKEITSO_DIR, "vel_201708132000R002_ahmi.fits")
 defaults_global = {
     "run_directory": ".",
     "wsafile": DEFAULT_WSAFILE,
-    "runid": "gamhelio",
-    "tFin": "200.0",
-    "tSpin": "200.0",
-    "dtOut": "10.0",
-    "tsOut": "50",
+    "kaiju_home": DEFAULT_KAIJU_HOME,
+    "sim_runid": "gamhelio",
+    "time_tFin": "200.0",
+    "spinup_tSpin": "200.0",
+    "output_dtOut": "10.0",
+    "output_tsOut": "50",
     "iPdir_N": "2",
     "jPdir_N": "1",
     "kPdir_N": "2",
+    "wsa2gamera_Grid_Ni": "128",
+    "wsa2gamera_Grid_Nj": "64",
+    "wsa2gamera_Grid_Nk": "128",
 }
 
 # Defaults for serial runs on cheyenne.
 defaults_cheyenne_serial = {
-    # "pbs_walltime": "12:00:00",
-    # "pbs_queue": "regular",
     # "pbs_account": "UJHB0015",
+    # "pbs_queue": "regular",
+    # "pbs_walltime": "12:00:00",
     # "pbs_select": "1",
     # "pbs_ncpus": "36",
-    # "pbs_mpiprocs": "2",
     # "pbs_ompthreads": "36",
 }
-
-# Default locations for MPI and serial builds of kaiju.
-DEFAULT_MPI_KAIJU_BUILD_BIN = os.path.join(os.environ["KAIJUHOME"], "build_mpi", "bin")
-DEFAULT_SERIAL_KAIJU_BUILD_BIN = os.path.join(os.environ["KAIJUHOME"], "build_serial", "bin")
 
 # Defaults for MPI runs on cheyenne.
 defaults_cheyenne_mpi = {
@@ -80,18 +82,17 @@ defaults_cheyenne_mpi = {
     "pbs_ncpus": "36",
     "pbs_mpiprocs": "2",
     "pbs_ompthreads": "18",
-    "kaiju_build_bin": DEFAULT_MPI_KAIJU_BUILD_BIN,
 }
 
 # Defaults for serial runs on pleiades.
 defaults_pleiades_serial = {
+    # "pbs_account": "UJHB0015",
+    # "pbs_queue": "regular",
     # "pbs_walltime": "12:00:00",
-    # "pbs_queue": "normal",
-    # "pbs_account": "UNKNOWN",
     # "pbs_select": "1",
-    # "pbs_ncpus": "28",
-    # "pbs_mpiprocs": "2",
-    # "pbs_ompthreads": "28",
+    # "pbs_ncpus": "36",
+    # "pbs_ompthreads": "36",
+    # "kaiju_build_bin": DEFAULT_SERIAL_KAIJU_BUILD_BIN,
 }
 
 # Defaults for MPI runs on pleiades.
@@ -262,11 +263,52 @@ def get_run_options():
         default=defaults["run_directory"]
     )
 
-    # Specify the path to the WSA FITS file to use for initial conditions.
+    # Path to the WSA FITS file to use for initial conditions
     options["wsafile"] = get_run_option(
         name="wsafile",
         prompt="Path to WSA FITS file for initial conditions",
-        default=DEFAULT_WSAFILE
+        default=defaults["wsafile"]
+    )
+
+    # Number of grid points in i-dimension
+    options["wsa2gamera_Grid_Ni"] = get_run_option(
+        name="wsa2gamera_Grid_Ni",
+        prompt="Number of grid points in i-dimension",
+        default=defaults["wsa2gamera_Grid_Ni"]
+    )
+
+    # Number of grid points in j-dimension
+    options["wsa2gamera_Grid_Nj"] = get_run_option(
+        name="wsa2gamera_Grid_Nj",
+        prompt="Number of grid points in j-dimension",
+        default=defaults["wsa2gamera_Grid_Nj"]
+    )
+
+    # Number of grid points in k-dimension
+    options["wsa2gamera_Grid_Nk"] = get_run_option(
+        name="wsa2gamera_Grid_Nk",
+        prompt="Number of grid points in k-dimension",
+        default=defaults["wsa2gamera_Grid_Nk"]
+    )
+
+    # Path to kaiju installation to use
+    options["kaiju_home"] = get_run_option(
+        name="kaiju_home",
+        prompt="Path to kaiju installation",
+        default=defaults["kaiju_home"],
+    )
+
+    # Path to kaiju binaries
+    if options["run_type"] == "mpi":
+        defaults["kaiju_build_bin"] = os.path.join(options["kaiju_home"], "build_mpi", "bin")
+    elif options["run_type"] == "serial":
+        defaults["kaiju_build_bin"] = os.path.join(options["kaiju_home"], "build_serial", "bin")
+    else:
+        raise TypeError(f"Invalid run type: {options['run_type']}!")
+    options["kaiju_build_bin"] = get_run_option(
+        name="kaiju_build_bin",
+        prompt="Path to kaiju build bin/ directory",
+        default=defaults["kaiju_build_bin"]
     )
 
     #-------------------------------------------------------------------------
@@ -276,41 +318,41 @@ def get_run_options():
     # run type.
 
     # [sim] runid: Run ID string
-    options["runid"] = get_run_option(
-        name="runid",
+    options["sim_runid"] = get_run_option(
+        name="sim_runid",
         prompt="Run ID",
-        default=defaults["runid"]
+        default=defaults["sim_runid"]
     )
 
     # [time] tFin: Number of hours to simulate after spinup
-    options["tFin"] = get_run_option(
-        name="tFin",
+    options["time_tFin"] = get_run_option(
+        name="time_tFin",
         prompt="Time duration to simulate (hours)",
-        default=defaults["tFin"]
+        default=defaults["time_tFin"]
     )
 
     # [spinup] tSpin: Number of simulated hours for spinup time
-    options["tSpin"] = get_run_option(
-        name="tSpin",
+    options["spinup_tSpin"] = get_run_option(
+        name="spinup_tSpin",
         prompt="Spinup time duration (simulated hours)",
-        default=defaults["tSpin"]
+        default=defaults["spinup_tSpin"]
     )
 
     # [spinup] tIO: Simulated time (hours) to start screen output.
-    options["tIO"] = f"-{options['tSpin']}"
+    options["spinup_tIO"] = f"-{options['spinup_tSpin']}"
 
     # [output] dtOut: Screen output interval (timesteps)
-    options["dtOut"] = get_run_option(
-        name="dtOut",
+    options["output_dtOut"] = get_run_option(
+        name="output_dtOut",
         prompt="Screen output interval (timesteps)",
-        default=defaults["dtOut"]
+        default=defaults["output_dtOut"]
     )
 
     # [output] tsOut: Time step output interval to HDF5 (simulated hours)
-    options["tsOut"] = get_run_option(
-        name="tsOut",
+    options["output_tsOut"] = get_run_option(
+        name="output_tsOut",
         prompt="Timestep slice output interval (simulated hours)",
-        default=defaults["tsOut"]
+        default=defaults["output_tsOut"]
     )
 
     #-------------------------------------------------------------------------
@@ -336,10 +378,6 @@ def get_run_options():
             prompt="Number of MPI chunks in k-dimension",
             default=defaults["kPdir_N"]
         )
-    elif options["run_type"] == "serial":
-        pass
-    else:
-        raise TypeError(f"Invalid run type: {options['run_type']}!")
 
     #-------------------------------------------------------------------------
 
@@ -382,24 +420,18 @@ def get_run_options():
 
     # Number of MPI ranks to run on each compute node
     # Should be the same as the number of CPU sockets in the node.
-    options["pbs_mpiprocs"] = get_run_option(
-        name="pbs_mpiprocs",
-        prompt="Number of MPI ranks per compute node",
-        default=defaults["pbs_mpiprocs"]
-    )
+    if options["run_type"] == "mpi":
+        options["pbs_mpiprocs"] = get_run_option(
+            name="pbs_mpiprocs",
+            prompt="Number of MPI ranks per compute node",
+            default=defaults["pbs_mpiprocs"]
+        )
 
     # Number of OMP threads per MPI rank
     options["pbs_ompthreads"] = get_run_option(
         name="pbs_ompthreads",
         prompt="Number of OMP threads per MPI rank",
         default=defaults["pbs_ompthreads"]
-    )
-
-    # Path to kaiju binaries
-    options["kaiju_build_bin"] = get_run_option(
-        name="kaiju_build_bin",
-        prompt="Path to kaiju build bin/ directory",
-        default=defaults["kaiju_build_bin"]
     )
 
     #-------------------------------------------------------------------------
@@ -473,7 +505,7 @@ def create_ini_file(options):
     template = Template(template_content)
     ini_content = template.render(options)
     ini_file = os.path.join(
-        options["run_directory"], f"{options['runid']}.ini"
+        options["run_directory"], f"{options['sim_runid']}.ini"
     )
     with open(ini_file, "w") as f:
         f.write(ini_content)
@@ -501,7 +533,7 @@ def convert_ini_to_xml(options, ini_file):
     """
     # Put the XML file in the same directory as the .ini file.
     xml_file = os.path.join(
-        options["run_directory"], f"{options['runid']}.xml"
+        options["run_directory"], f"{options['sim_runid']}.xml"
     )
 
     # Convert the .ini file to .xml.
@@ -540,7 +572,7 @@ def create_pbs_script(options):
     template = Template(template_content)
     ini_content = template.render(options)
     pbs_script = os.path.join(
-        options["run_directory"], f"{options['runid']}.pbs"
+        options["run_directory"], f"{options['sim_runid']}.pbs"
     )
     with open(pbs_script, "w") as f:
         f.write(ini_content)
