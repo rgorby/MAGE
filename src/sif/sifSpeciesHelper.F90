@@ -150,6 +150,10 @@ module sifSpeciesHelper
         
 
         ! Check if there are more species in the file than what we read
+        ! TODO: Maybe instead:
+        !  Read desired flavors from xml file (default to psph, hote, hotp)
+        !  Read config file and load in flavors that match
+        !  If desired flavors are missing from config, complain and die
         write(gStr, '(A,I0)') "Species/",Grid%nSpc  ! Species indexing in config starts at 0
         if(ioExist(configfname, gStr)) then
             if (.not. Grid%ignoreConfigMismatch) then

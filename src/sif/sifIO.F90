@@ -26,15 +26,15 @@ module sifIO
 
         doRoot = .false. ! Don't call again
 
-        associate(SIO => Model%SIFIO, sh => Grid%shGrid, spc=>Grid%spc)
-        SIO%SIFH5 = trim(Model%RunID) // ".sif.h5"
+        associate(sh => Grid%shGrid, spc=>Grid%spc)
+        Model%SIFH5 = trim(Model%RunID) // ".sif.h5"
 
-        fExist = CheckFile(SIO%SIFH5)
-        write(*,*) "SIF outputting to ",trim(SIO%SIFH5)
+        fExist = CheckFile(Model%SIFH5)
+        write(*,*) "SIF outputting to ",trim(Model%SIFH5)
 
         if(.not. Model%isRestart) then
             ! Remove all old files, start fresh
-            call CheckAndKill(SIO%SIFH5)
+            call CheckAndKill(Model%SIFH5)
         endif
 
         if (Model%isRestart .and. fExist) then
@@ -65,7 +65,7 @@ module sifIO
         call AddOutVar(IOVars,"X",lat2D,uStr="radians")
         call AddOutVar(IOVars,"Y",lon2D,uStr="radians")
         call AddOutVar(IOVars,"alamc",Grid%alamc,uStr="eV * (Rx/nT)^(2/3)")
-        call WriteVars(IOVars,.true.,SIO%SIFH5)
+        call WriteVars(IOVars,.true.,Model%SIFH5)
 
         ! Output detailed lambda grid info
         do i=1,Grid%nSpc
@@ -83,11 +83,11 @@ module sifIO
             ! Datasets
             call AddOutVar(IOVars,"alami",spc(i)%alami,uStr="eV * (Rx/nT)^(2/3)")
             write(gStr,'(I0)') spc(i)%flav  ! Idk if this is the easiest way to format ints as strings
-            call WriteVars(IOVars,.true.,SIO%SIFH5,"Species",gStr)
+            call WriteVars(IOVars,.true.,Model%SIFH5,"Species",gStr)
         enddo
 
         ! Output planet info
-        call writePlanetParams(Model%planet, .true., SIO%SIFH5)
+        call writePlanetParams(Model%planet, .true., Model%SIFH5)
 
         end associate
 
@@ -113,7 +113,7 @@ module sifIO
         call ClearIO(IOVars)
 
         ! Add attributes
-        call AddOutVar(IOVars,"time",State%time)
+        call AddOutVar(IOVars,"time",State%t)
 
         ! Add State variables
         call AddOutVar(IOVars,"bmin",State%Bmin,uStr="nT")
@@ -121,7 +121,7 @@ module sifIO
         call AddOutVar(IOVars,"ymin",State%xyzmin(:,:,YDIR),uStr="Rx")
         call AddOutVar(IOVars,"zmin",State%xyzmin(:,:,ZDIR),uStr="Rx")
 
-        call AddOutVar(IOVars,"eta",State%eta,uStr="#/cm^3 * Rx/T") !! TODO: Maybe swap with intensity instead
+        call AddOutVar(IOVars,"eta",State%eta,uStr="#/cm^3 * Rx/T") !! TODO: Maybe swap with just intensity instead
 
         ! Calc intensity
         allocate(outIntensity(Grid%shGrid%Nt,Grid%shGrid%Np,Grid%Nk))
@@ -141,6 +141,7 @@ module sifIO
             enddo
         enddo
         call AddOutVar(IOVars,"intensity",outIntensity,uStr="1/(s*sr*keV*cm^2)")
+        deallocate(outIntensity)
         
 
         call AddOutVar(IOVars,"topo",State%topo*1.0_rp,uStr="0=Open, 1=Closed")
@@ -163,9 +164,10 @@ module sifIO
             endif
         enddo
         call AddOutVar(IOVars,"Density",outDen,uStr="#/cc")
+        deallocate(outDen)
 
 
-        call WriteVars(IOVars,.true.,Model%SIFIO%SIFH5, gStr)
+        call WriteVars(IOVars,.true.,Model%SIFH5, gStr)
 
     end subroutine WriteSIF
 

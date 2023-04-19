@@ -3,6 +3,7 @@ module siftypes
     use helpertypes
     use shellgrid
     use xml_input
+    use ioclock
 
     use sifdefs
 
@@ -25,7 +26,7 @@ module siftypes
         character(len=strLen) :: name
         integer :: N
         integer :: flav
-        integer :: kStart, kEnd
+            !! Species flavor
         integer :: numNuc_p
             !! Number of protons in nucleus
         integer :: numNuc_n
@@ -38,18 +39,14 @@ module siftypes
             !! Lambda channel cell interfaces/edges
 
         !> These are calculated after read-in
+        integer :: kStart, kEnd
+            !! Start and end indices for this species in Nk-size arrays
         real(rp) :: amu
             !! Species mass in amu (even the electrons)
         logical :: isElectron
             !! Is this species actually an electron? Determine on initialization and store it here
 
     end type SIFSpecies_T
-
-    type SIFIO_T
-        character(len=strLen) :: SIFH5
-        integer :: nOut = 0  ! Next output time
-        real(rp) :: intScl = 1.0  ! Scaling for intensisty [TODO]
-    end type SIFIO_T
 
 
     type sifModel_T
@@ -58,16 +55,18 @@ module siftypes
         character(len=strLen) :: RunID = ""    
         character(len=strLen) :: configFName
             !! Filename of the .h5 config that holds lambda grid, wavemodel values, etc.
-        type(SIFIO_T) :: SIFIO
+        character(len=strLen) :: SIFH5
+            !! Filename of the h5 file we output to
         
         integer :: nSpc, nG, nB
             !! Number of species, # ghosts, # coupling boundary cells
         real(rp) :: t0, tFin, dt
             !! Start and end time, delta coupling time (may be replaced/ignored later by voltron setting a dynamic coupling time)
-        logical  :: fixedTimestep
-            !! Fixed or dynamic timestep
+        
 
         ! https://media0.giphy.com/media/XfDPdSRhYFUhIU7EPw/giphy.gif
+        logical  :: fixedTimestep
+            !! Fixed or dynamic timestep
         logical :: isMPI
         logical :: isRestart
         logical :: isLoud       ! For debug
@@ -137,7 +136,12 @@ module siftypes
 
 
     type sifState_T
-        real(rp) :: time, MJD, dt
+        real(rp) :: t, dt
+            !! Current time and last coupling dt made
+        integer :: ts, tss
+            !! Current coupling timestep and sub-stepping timestep
+        type(IOClock_T) :: IO
+            !! Timers for IO operations
 
         real(rp), dimension(:,:,:), allocatable :: eta
             !! (Ni, Nj, Nk) etas

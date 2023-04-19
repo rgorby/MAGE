@@ -7,8 +7,6 @@ program sifx
     use sifdefs
     use sifstarter
 
-    use shellgrid
-
     implicit none
 
     !type(sifModel_T) :: Model
@@ -25,10 +23,10 @@ program sifx
     call getIDeckStr(XMLStr)
     inpXML = New_XML_Input(trim(XMLStr),"Kaiju/SIF",.true.)
 
-
-
     call sifInit(sifApp, inpXML)
 
+    ! Save first state to file
+    call sifOutput(sifApp%Model,sifApp%Grid,sifApp%State)
 
 
 

@@ -8,17 +8,17 @@ module sifOut
     subroutine sifOutput(Model, Grid, State)
         type(sifModel_T), intent(inout) :: Model
         type(sifGrid_T), intent(in) :: Grid
-        type(sifState_T), intent(in) :: State
+        type(sifState_T), intent(inout) :: State
 
         character(len=strLen) :: gStr,tStr
 
-        write (gStr, '(A,I0)') "Step#", Model%SIFIO%nOut
+        write (gStr, '(A,I0)') "Step#", State%IO%nOut
 
         if (Model%isLoud) then
-            if (State%time>1.0e-2) then
-                write(tStr,'(f9.3,a)' ) State%time, ' [code]'
+            if (State%t>1.0e-2) then
+                write(tStr,'(f9.3,a)' ) State%t, ' [code]'
             else
-                write(tStr,'(es9.2,a)') State%time, ' [code]'
+                write(tStr,'(es9.2,a)') State%t, ' [code]'
             endif
             write (*, '(a,a,a,a,a)') ANSIGREEN, '<Writing SIF HDF5 DATA @ t = ', trim(tStr), ' >', ANSIRESET
         endif
@@ -26,7 +26,7 @@ module sifOut
         call WriteSIF(Model, Grid, State, gStr)
 
         !Setup for next output
-        Model%SIFIO%nOut = Model%SIFIO%nOut + 1
+        State%IO%nOut = State%IO%nOut + 1
     end subroutine sifOutput
 
 end module sifOut

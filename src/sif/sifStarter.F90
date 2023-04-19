@@ -36,8 +36,8 @@ module sifstarter
 
         call sifInitState(app%Model,app%Grid,app%State,iXML)
 
-        ! Save first state to file
-        call sifOutput(app%Model,app%Grid,app%State)
+        ! Initialize IOCLOCK
+        call app%State%IO%init(iXML,app%State%t,app%State%ts)
 
     end subroutine sifInit
 
@@ -50,10 +50,6 @@ module sifstarter
 
         write(*,*) "sifInitModel is starting"
 
-
-        !! NOT SET HERE:
-        ! nG, nB, t0, tFin, dt, fixedTimestep
-
         ! Assuming that if being controlled by e.g. Voltron, someone else will set RunID accordingly
         ! If getting here without RunID being set, assume we're running in stand-alone
         ! (Currently no decisions are made based on being SA, just means we set the RunID ourselves)
@@ -61,6 +57,11 @@ module sifstarter
             write(*,*) "Setting default RunID to be sifSA"
             call iXML%Set_Val(Model%RunID, "prob/RunID","sifSA")  ! sif stand-alone
         endif
+
+        ! Timing info, if provided
+        call iXML%Set_Val(Model%t0  ,'time/T0',0.0)
+        call iXML%Set_Val(Model%tFin,'time/tFin',60.0)
+        call iXML%Set_Val(Model%dt  ,'time/dt',1.0)
 
         ! Config file
         call iXML%Set_Val(Model%configFName, "config/fname","sifconfig.h5")
@@ -99,7 +100,7 @@ module sifstarter
             case("KAPPA")
                 Model%dp2etaMap => Kappa2Eta
                 call iXML%Set_Val(Model%kappa, "moments/kappa",6.0)
-            ! TODO: Add user option, which will point to whatever is in the chosen IC file
+            ! TODO: Add user option which will point to whatever is in the chosen IC file
             case DEFAULT
                 write(*,*) "SIF received unavailable DP2Eta mapping: ",tmpStr
                 write(*,*) " Dying."
@@ -200,9 +201,13 @@ module sifstarter
         allocate( State%Press(Grid%shGrid%Nt, Grid%shGrid%Np, Grid%nSpc+1) )
         allocate( State%vAvg (Grid%shGrid%Nt, Grid%shGrid%Np, Grid%nSpc+1) )
 
-        call iXML%Set_Val(icStr, "prob/IC","DIP")
-    
+        !! TODO: Handle restart somewhere around here
+        ! For now, just set t to tStart and ts to 0
+        State%t = Model%t0
+        State%ts = 0
+
     ! Init state
+        call iXML%Set_Val(icStr, "prob/IC","DIP")
         select case(trim(icStr))
             case("DIP")
                 !! Simple Maxwellian in a dipole field
