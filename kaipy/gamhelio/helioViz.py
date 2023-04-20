@@ -34,8 +34,8 @@ TMin = 0.2
 TMax = 2.
 TCM = "copper"
 
-T0Min = 0.01
-T0Max = 0.25
+T0Min = 0.1
+T0Max = 1.2
 
 BMax = 150.
 BMin = -150.
@@ -65,11 +65,13 @@ def GetSizeBds(pic):
 	elif (pic == "pic3"):
 		xyBds = [0.,360.,-75.,75.]
 	elif (pic == "pic4"):
-                xyBds = [0.,360.,-90.,90.]
+		xyBds = [0.,360.,-90.,90.]
 	elif (pic == "pic5"):
 		xyBds = [20.,220.,1.,2000.]
+	elif (pic == "pic6"):
+		xyBds = [-220.,220.,-220.,220.]
 	else:		
-		print ("No pic type specified.")
+		raise RuntimeError("No compatible pic type specified.")
 	return xyBds
 
 #Plot speed in equatorial plane
@@ -267,6 +269,72 @@ def PlotEqBr(gsph,nStp,xyBds,Ax,AxCB=None,doClear=True,doDeco=True):
 		Ax.yaxis.tick_right()
 		Ax.yaxis.set_label_position('right')
 	return Br
+
+#Plor Br in equatorial plane
+def PlotEqBx(gsph,nStp,xyBds,Ax,AxCB=None,doClear=True,doDeco=True):
+	vB = kv.genNorm(BMin, BMax, doLog=False, midP=None)
+
+	if (AxCB is not None):
+		AxCB.clear()
+		kv.genCB(AxCB,vB,r'MF B$_x$(r/r$_0)^2$ [nT]',cM=BCM,Ntk=7)
+	if (doClear):
+		Ax.clear()
+
+	Bx = gsph.eqBx(nStp)
+	Ax.pcolormesh(gsph.xxi,gsph.yyi,Bx,cmap=BCM,norm=vB)
+
+	kv.SetAx(xyBds,Ax)
+
+	if (doDeco):
+		Ax.set_xlabel('X [R_S]')
+		Ax.set_ylabel('Y [R_S]')
+		Ax.yaxis.tick_right()
+		Ax.yaxis.set_label_position('right')
+	return Bx
+
+#Plor Br in equatorial plane
+def PlotEqBy(gsph,nStp,xyBds,Ax,AxCB=None,doClear=True,doDeco=True):
+	vB = kv.genNorm(BMin, BMax, doLog=False, midP=None)
+
+	if (AxCB is not None):
+		AxCB.clear()
+		kv.genCB(AxCB,vB,r'MF B$_y$(r/r$_0)^2$ [nT]',cM=BCM,Ntk=7)
+	if (doClear):
+		Ax.clear()
+
+	By = gsph.eqBy(nStp)
+	Ax.pcolormesh(gsph.xxi,gsph.yyi,By,cmap=BCM,norm=vB)
+
+	kv.SetAx(xyBds,Ax)
+
+	if (doDeco):
+		Ax.set_xlabel('X [R_S]')
+		Ax.set_ylabel('Y [R_S]')
+		Ax.yaxis.tick_right()
+		Ax.yaxis.set_label_position('right')
+	return By
+
+#Plor Br in equatorial plane
+def PlotEqBz(gsph,nStp,xyBds,Ax,AxCB=None,doClear=True,doDeco=True):
+	vB = kv.genNorm(BMin, BMax, doLog=False, midP=None)
+
+	if (AxCB is not None):
+		AxCB.clear()
+		kv.genCB(AxCB,vB,r'MF B$_z$(r/r$_0)^2$ [nT]',cM=BCM,Ntk=7)
+	if (doClear):
+		Ax.clear()
+
+	Bz = gsph.eqBz(nStp)
+	Ax.pcolormesh(gsph.xxi,gsph.yyi,Bz,cmap=BCM,norm=vB)
+
+	kv.SetAx(xyBds,Ax)
+
+	if (doDeco):
+		Ax.set_xlabel('X [R_S]')
+		Ax.set_ylabel('Y [R_S]')
+		Ax.yaxis.tick_right()
+		Ax.yaxis.set_label_position('right')
+	return Bz
 
 
 #Plot Speed at 1 AU

@@ -313,6 +313,42 @@ class GamsphPipe(GameraPipe):
 		Br = self.bScl*(Bx*x_c + By*y_c + Bz*z_c)/np.sqrt(x_c**2.+y_c**2.+z_c**2.)
 		return Br
 
+	#Bx at 1AU
+	def iSliceBx(self,s0=0):
+		Bx = self.iSliceVar("Bx",s0) #Unscaled
+
+		self.GetGrid(doVerbose=True)
+		x = self.X[-1,:,:]
+
+		#centers
+		x_c = 0.25*( x[:-1,:-1]+x[:-1,1:]+x[1:,:-1]+x[1:,1:] )
+
+		BxScl = self.bScl*Bx*x_c
+		return BxScl
+
+	#By at 1AU
+	def iSliceBy(self,s0=0):
+		By = self.iSliceVar("By",s0) #Unscaled
+
+		self.GetGrid(doVerbose=True)
+		y = self.Y[-1,:,:]
+		#centers
+		y_c = 0.25*( y[:-1,:-1]+y[:-1,1:]+y[1:,:-1]+y[1:,1:] )
+		ByScl = self.bScl*By*y_c
+		return ByScl
+	
+	#Bz at 1AU
+	def iSliceBz(self,s0=0):
+		Bz = self.iSliceVar("Bz",s0) #Unscaled
+
+		self.GetGrid(doVerbose=True)
+		z = self.Z[-1,:,:]
+		#centers
+
+		z_c = 0.25*( z[:-1,:-1]+z[:-1,1:]+z[1:,:-1]+z[1:,1:] )
+		BzScl = self.bScl*Bz*z_c
+		return BzScl
+	
 	#Br at first cell
 	def iSliceBrBound(self,s0=0):
 		Bx = self.iSliceVar("Bx",s0) #Unscaled
@@ -368,6 +404,34 @@ class GamsphPipe(GameraPipe):
 		
 		NormBreq = self.bScl*Br
 		return NormBreq
+	
+	#Normalized Br (Br*r*r/21.5/21.5) in eq plane
+	def eqBx (self,s0=0):
+		Bx = self.EqSlice("Bx",s0) #Unscaled
+
+		BxScl = (Bx*self.xxc + Bx*self.yyc)*np.sqrt(self.xxc**2.0 + self.yyc**2.0)/self.R0/self.R0
+		
+		BxScl = self.bScl*BxScl
+		return BxScl
+
+	#Normalized Br (Br*r*r/21.5/21.5) in eq plane
+	def eqBy (self,s0=0):
+		By = self.EqSlice("By",s0) #Unscaled
+
+		ByScl = (By*self.xxc + By*self.yyc)*np.sqrt(self.xxc**2.0 + self.yyc**2.0)/self.R0/self.R0
+		
+		ByScl= self.bScl*ByScl
+		return ByScl
+
+	#Normalized Br (Br*r*r/21.5/21.5) in eq plane
+	def eqBz (self,s0=0):
+		Bz = self.EqSlice("Bz",s0) #Unscaled
+
+		BzScl = (Bz*self.xxc + Bz*self.yyc)*np.sqrt(self.xxc**2.0 + self.yyc**2.0)/self.R0/self.R0
+		
+		BzScl = self.bScl*BzScl
+		return BzScl
+
 
 	#Temperature T(r/r0) in eq plane
 	def eqTemp (self,s0=0):
@@ -463,10 +527,10 @@ class GamsphPipe(GameraPipe):
 		else:	
 			#Get time in seconds
 			t = self.T[n-self.s0] - T0
-			Nm = np.int( (t-T0)/60.0 ) #Minutes, integer
+			Nm = int( (t-T0)/60.0 ) #Minutes, integer
 			Hr = Nm/60
 			Min = np.mod(Nm,60)
-			Sec = np.mod(np.int(t),60)
+			Sec = np.mod(int(t),60)
 
 			tStr = "Elapsed Time\n  %02d:%02d:%02d"%(Hr,Min,Sec)
 		if (doBox):
