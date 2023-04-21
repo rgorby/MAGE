@@ -56,7 +56,7 @@ defaults_global = {
     "output_dtOut": "10.0",
     "output_tsOut": "50",
     "iPdir_N": "2",
-    "jPdir_N": "1",
+    "jPdir_N": "2",
     "kPdir_N": "2",
     "wsa2gamera_Grid_Ni": "128",
     "wsa2gamera_Grid_Nj": "64",
@@ -67,7 +67,7 @@ defaults_global = {
 defaults_cheyenne_mpi = {
     "pbs_account": "UJHB0015",
     "pbs_queue": "regular",
-    "pbs_walltime": "12:00:00",
+    "pbs_walltime": "00:30:00",
     "pbs_select": "4",
     "pbs_ncpus": "36",
     "pbs_mpiprocs": "2",
@@ -78,7 +78,7 @@ defaults_cheyenne_mpi = {
 defaults_cheyenne_serial = {
     "pbs_account": "UJHB0015",
     "pbs_queue": "regular",
-    "pbs_walltime": "12:00:00",
+    "pbs_walltime": "02:00:00",
     "pbs_select": "1",
     "pbs_ncpus": "36",
     "pbs_ompthreads": "36",
@@ -87,7 +87,7 @@ defaults_cheyenne_serial = {
 # Defaults for MPI runs on pleiades.
 defaults_pleiades_mpi = {
     "pbs_queue": "normal",
-    "pbs_walltime": "12:00:00",
+    "pbs_walltime": "00:30:00",
     "pbs_select": "4",
     "pbs_ncpus": "28",
     "pbs_mpiprocs": "2",
@@ -97,7 +97,7 @@ defaults_pleiades_mpi = {
 # Defaults for serial runs on pleiades.
 defaults_pleiades_serial = {
     "pbs_queue": "normal",
-    "pbs_walltime": "12:00:00",
+    "pbs_walltime": "02:00:00",
     "pbs_select": "1",
     "pbs_ncpus": "28",
     "pbs_ompthreads": "28",
@@ -426,11 +426,21 @@ def get_run_options():
         )
 
     # Number of OMP threads per MPI rank
-    options["pbs_ompthreads"] = get_run_option(
-        name="pbs_ompthreads",
-        prompt="Number of OMP threads per MPI rank",
-        default=defaults["pbs_ompthreads"]
-    )
+    if options["run_type"] == "mpi":
+        options["pbs_ompthreads"] = get_run_option(
+            name="pbs_ompthreads",
+            prompt="Number of OMP threads per MPI rank",
+            default=defaults["pbs_ompthreads"]
+        )
+    elif options["run_type"] == "serial":
+        options["pbs_ompthreads"] = get_run_option(
+            name="pbs_ompthreads",
+            prompt="Number of OMP threads per node",
+            default=defaults["pbs_ompthreads"]
+        )
+        pass
+    else:
+        raise TypeError(f"Invalid run type: {options['run_type']}!")
 
     #-------------------------------------------------------------------------
 

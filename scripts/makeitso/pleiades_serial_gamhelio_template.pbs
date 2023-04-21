@@ -3,7 +3,7 @@
 #PBS -N {{ sim_runid }}
 #PBS -q {{ pbs_queue }}
 #PBS -l walltime={{ pbs_walltime }}
-#PBS -l select={{ pbs_select }}:ncpus={{ pbs_ncpus }}:ompthreads={{ pbs_ompthreads }}
+#PBS -l select={{ pbs_select }}:ncpus={{ pbs_ncpus }}:ompthreads={{ pbs_ompthreads }}:model=bro
 #PBS -m abe
 #PBS -j oe
 
