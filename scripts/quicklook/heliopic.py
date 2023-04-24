@@ -32,6 +32,7 @@ Eric Winter (eric.winter@jhuapl.edu)
 # Import standard modules.
 import argparse
 import os
+import time
 
 # Import supplemental modules.
 import matplotlib as mpl
@@ -139,8 +140,10 @@ def initFig(pic):
         figSz = (10, 6.5)
     elif pic == "pic4":
         figSz = (10, 6)
-    elif pic == "pic5" or pic == "pic6":
+    elif pic == "pic5":
         figSz = (12, 12)
+    elif  pic == "pic6":
+        figSz = (12.5, 12.5)
 
     # Create the figure.
     fig = plt.figure(figsize=figSz)
@@ -176,19 +179,24 @@ if __name__ == "__main__":
     # Invert the MPI flag for convenience.
     doMPI = not noMPI
 
+    tic = time.perf_counter()
     # Fetch the plot domain based on the picture type.
     xyBds = hviz.GetSizeBds(pic)
+    toc = time.perf_counter()
     print(xyBds)
-
-    # Do work?
+    print(f"Get bounds took {toc-tic} s")
+    # Do work?ß
     doFast = False
 
     # Create figures in a memory buffer.
     mpl.use("Agg")
 
     # Open a pipe to the results data.
+    tic = time.perf_counter()
     gsph = hsph.GamsphPipe(fdir, ftag, doFast=doFast)
+    toc = time.perf_counter()
 
+    print(f"Open pipe took {toc-tic} s")
 
     if(slices):
         steps = range(gsph.sFin)[slice(slices[0],slices[1],slices[2])]
@@ -196,6 +204,7 @@ if __name__ == "__main__":
     nsteps = len(steps)
 
     for nStp in steps: 
+        tic = time.perf_counter()
         print(f"Generating {pic} for time step {nStp}")
         fig = initFig(pic)
 
@@ -360,5 +369,7 @@ if __name__ == "__main__":
 
         # Save the figure to a file.
         path = os.path.join(fdir, fOut(ftag, pic, nStp))
-        kv.savePic(path, bLenX=45)
+        kv.savePic(path, bLenX=40)
         fig.clear()
+        toc = time.perf_counter()
+        print(f"Step {nStp} took {toc-tic} s")

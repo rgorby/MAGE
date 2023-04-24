@@ -206,7 +206,6 @@ class GamsphPipe(GameraPipe):
 		#Get full 3D variable first
 		Q = self.GetVar(vID,sID,vScl,doVerb)
 		
-	
 		Nk2 = self.Nk//2
 		Np = self.Nk
 		
@@ -223,12 +222,12 @@ class GamsphPipe(GameraPipe):
 		return Qright, Qleft
 
 	#Var at 1 AU
-	def iSliceVar(self,vID,sID=None,vScl=None,doVerb=True):
+	def iSliceVar(self,vID,sID=None,vScl=None,doVerb=True,idx=-1):
 		#Get full 3D variable first
 		Q = self.GetVar(vID,sID,vScl,doVerb)
 
 		#cell centered values from the last cell
-		Qi = Q[-1,:,:]
+		Qi = Q[idx,:,:]
                 #cell centered values from the first cell
 		#Qi = Q[0,:,:]
 		#jd_c = self.MJDs[sID]
@@ -367,7 +366,6 @@ class GamsphPipe(GameraPipe):
 
 		return Br
 
-
 	#temperature at 1 AU
 	def iSliceT(self,s0=0):
 		Pi = self.iSliceVar("P",s0) #Unscaled
@@ -376,7 +374,6 @@ class GamsphPipe(GameraPipe):
 		Temp = Pi/Di*self.TScl
 		return Temp
 		
-
 	#Equatorial speed (in km/s) in eq plane
 	def eqMagV(self,s0=0):
 		Vx = self.EqSlice("Vx",s0) #Unscaled
