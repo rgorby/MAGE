@@ -130,6 +130,10 @@ def create_command_line_parser():
         "-v", "--verbose", action="store_true", default=False,
         help="Print verbose output (default: %(default)s)."
     )
+    parser.add_argument(
+        "-o", "--outfile", type=str, metavar="outFile", default=fOut,
+        help="Output file name (default: %(default)s)."
+    )
     return parser
 
 def initFig(pic):
@@ -172,6 +176,7 @@ if __name__ == "__main__":
     pic = args.p
     spacecraft = args.spacecraft
     verbose = args.verbose
+    fOut = args.outfile
     if debug:
         print("args = %s" % args)
     if slices:
