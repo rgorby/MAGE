@@ -91,8 +91,8 @@ module siftypes
         !type(waveModel_T) :: wModel  ! Wave model info (Shanshan)
 
 
-        procedure(sifStateIC_T), pointer, nopass :: initState => NULL()
-        procedure(sifUpdateV_T), pointer, nopass :: updateV => NULL()
+        procedure(sifStateIC_T  ), pointer, nopass :: initState => NULL()
+        procedure(sifUpdateV_T  ), pointer, nopass :: updateV   => NULL()
         procedure(sifDP2EtaMap_T), pointer, nopass :: dp2etaMap => NULL()
 
     end type sifModel_T

@@ -23,7 +23,7 @@ program sifx
     call getIDeckStr(XMLStr)
     inpXML = New_XML_Input(trim(XMLStr),"Kaiju/SIF",.true.)
 
-    call sifInit(sifApp, inpXML)
+    call sifInitCore(sifApp, inpXML)
 
     ! Save first state to file
     call sifOutput(sifApp%Model,sifApp%Grid,sifApp%State)
@@ -35,6 +35,7 @@ program sifx
 
         ! No advance yet, just increase time by 1
         sifApp%State%t = sifApp%State%t + 1
+        sifApp%State%ts = sifApp%State%ts + 1
 
     enddo
 

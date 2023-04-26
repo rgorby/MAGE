@@ -9,11 +9,11 @@ module rcmimag
     use volttypes
     use files
     use earthhelper
-    use imagtubes
     use imaghelper
     use planethelper
     use rcm_mhd_interfaces
     use rcm_mix_interface
+    use rcmtubes
     use clocks
     use kronos
     use rcm_mhd_mod, ONLY : rcm_mhd

@@ -21,7 +21,7 @@ module sifstarter
 ! Main Initialization Routines
 !------
 
-    subroutine sifInit(app, iXML)
+    subroutine sifInitCore(app, iXML)
         type(sifApp_T), intent(inout) :: app
         type(XML_Input_T), intent(in) :: iXML
 
@@ -39,7 +39,7 @@ module sifstarter
         ! Initialize IOCLOCK
         call app%State%IO%init(iXML,app%State%t,app%State%ts)
 
-    end subroutine sifInit
+    end subroutine sifInitCore
 
     ! Sets up Model, but Grid and State must be set up separately
     subroutine sifInitModel(Model, iXML)
@@ -117,6 +117,7 @@ module sifstarter
         ! If we are running stand-alone, look for timing info inside SIF XML block
         ! If voltron is present, look for timing information there
 
+        !TODO: Add flags to output certain data, like coupling information
 
     end subroutine sifInitModel
 

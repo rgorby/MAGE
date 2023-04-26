@@ -117,9 +117,9 @@ module sifIO
 
         ! Add State variables
         call AddOutVar(IOVars,"bmin",State%Bmin,uStr="nT")
-        call AddOutVar(IOVars,"xmin",State%xyzmin(:,:,XDIR),uStr="Rx")
-        call AddOutVar(IOVars,"ymin",State%xyzmin(:,:,YDIR),uStr="Rx")
-        call AddOutVar(IOVars,"zmin",State%xyzmin(:,:,ZDIR),uStr="Rx")
+        call AddOutVar(IOVars,"xmin",State%xyzMin(:,:,XDIR),uStr="Rx")
+        call AddOutVar(IOVars,"ymin",State%xyzMin(:,:,YDIR),uStr="Rx")
+        call AddOutVar(IOVars,"zmin",State%xyzMin(:,:,ZDIR),uStr="Rx")
 
         call AddOutVar(IOVars,"eta",State%eta,uStr="#/cm^3 * Rx/T") !! TODO: Maybe swap with just intensity instead
 
@@ -130,8 +130,8 @@ module sifIO
             if (Grid%spc(s)%flav==F_PSPH) then
                 cycle  ! Skip plasmasphere since it has zero energy
             endif
-            do i=1,Grid%shGrid%Nt
-                do j=1,Grid%shGrid%Np
+            do i=Grid%shGrid%is,Grid%shGrid%ie
+                do j=Grid%shGrid%js,Grid%shGrid%je
                     outIntensity(i,j,Grid%spc(s)%kStart:Grid%spc(s)%kEnd) = &
                         eta2intensity(Grid%spc(s)%amu,   &
                                       State%bVol(i,j),   &
@@ -144,12 +144,15 @@ module sifIO
         deallocate(outIntensity)
         
 
+        ! Coupling things
         call AddOutVar(IOVars,"topo",State%topo*1.0_rp,uStr="0=Open, 1=Closed")
         call AddOutVar(IOVars,"active",State%active*1.0_rp,uStr="-1=Inactive, 0=Buffer, 1=Active")
         call AddOutVar(IOVars,"espot",State%espot,uStr="kV")
         call AddOutVar(IOVars,"colatc",State%thc,uStr="radians")
         call AddOutVar(IOVars,"lonc"  ,State%phc,uStr="radians")
         call AddOutVar(IOVars,"bVol",State%bvol,uStr="Rx/nT")
+        call AddOutVar(IOVars,"Pavg_in",State%Pavg,uStr="nPa")
+        call AddOutVar(IOVars,"Davg_in",State%Davg,uStr="#/cc")
 
     ! Moments
         call AddOutVar(IOVars,"Pressure",State%Press,uStr="nPa")

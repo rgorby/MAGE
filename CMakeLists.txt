@@ -221,8 +221,8 @@ add_dependencies(sif sif.x baselib)
 
 message("\tAdding executable sif_gamDrive.x")
 add_executable(sif_gamDrive.x src/drivers/sif_gamDrive.F90)
-target_link_libraries(sif_gamDrive.x siflib baselib chimplib)
-add_dependencies(sif sif_gamDrive.x baselib chimplib)
+target_link_libraries(sif_gamDrive.x siflib baselib chimplib voltlib)
+add_dependencies(sif sif_gamDrive.x baselib chimplib voltlib)
 
 
 #-------------
