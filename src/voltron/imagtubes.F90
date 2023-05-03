@@ -22,14 +22,14 @@ module imagtubes
 
     contains
 
-    subroutine MHDTube(ebTrcApp,planet,colat,lon,r,ijTube,bTrc,nTrcO,doShiftO)
+    subroutine MHDTube(ebTrcApp,planet,colat,lon,r,ijTube,bTrc,nTrcO,doShiftO,doShueO)
         type(ebTrcApp_T), intent(in) :: ebTrcApp
         type(planet_T), intent(in) :: planet
         real(rp), intent(in) :: colat, lon, r
         type(IMAGTube_T), intent(out) :: ijTube
         type(fLine_T), intent(inout) :: bTrc
         integer, intent(in), optional :: nTrcO
-        logical, intent(in), optional :: doShiftO
+        logical, intent(in), optional :: doShiftO,doShueO
 
         real(rp) :: t, bMin,bIon
         real(rp), dimension(NDIM) :: x0, bEq, xyzIon
@@ -39,8 +39,7 @@ module imagtubes
         real(rp) :: VaMKS,CsMKS,VebMKS !Speeds in km/s
         real(rp) :: TiEV !Temperature in ev
 
-        logical :: doShift
-
+        logical :: doShift,doShue
 
         if (present(doShiftO)) then
             doShift = doShiftO
@@ -48,10 +47,16 @@ module imagtubes
             doShift = .false.
         endif
 
+        if (present(doShueO)) then
+            doShue = doShueO
+        else
+            doShue = .true.
+        endif
+
         ! Take seed point in spherical coordinates
-        xyzIon(XDIR) = 2.1*r*sin(colat)*cos(lon)
-        xyzIon(YDIR) = 2.1*r*sin(colat)*sin(lon)
-        xyzIon(ZDIR) = 2.1*r*cos(colat)
+        xyzIon(XDIR) = r*sin(colat)*cos(lon)
+        xyzIon(YDIR) = r*sin(colat)*sin(lon)
+        xyzIon(ZDIR) = r*cos(colat)
         if (doShift) then
             !! TODO: Decide if this is how we want to do it
             x0 = DipoleShift(xyzIon, planet%ri_m/planet%rp_m + TINY)
@@ -66,12 +71,14 @@ module imagtubes
 
     !Now do field line trace
         t = ebState%eb1%time !Time in CHIMP units
+            !!TODO: What do we do when we want times in between steps? Somethign similar to what slice/chop do to output
         
         if (present(nTrcO)) then
-            call genStream(ebModel,ebState,x0,t,bTrc,nTrcO,doShueO=.true.,doNHO=.true.)
+            call genStream(ebModel,ebState,x0,t,bTrc,nTrcO,doShueO=doShue,doNHO=.true.)
         else
-            call genStream(ebModel,ebState,x0,t,bTrc,      doShueO=.true.,doNHO=.true.)
+            call genStream(ebModel,ebState,x0,t,bTrc,      doShueO=doShue,doNHO=.true.)
         endif
+
 
         !Topology
         !OCB =  0 (solar wind), 1 (half-closed), 2 (both ends closed)

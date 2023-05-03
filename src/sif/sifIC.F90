@@ -47,9 +47,9 @@ module sific
         State%bvol = 0.0
 
         ! Ni+1, Nj+1 variables
-        do i=1,Grid%shGrid%Nt+1
+        do i=Grid%shGrid%is,Grid%shGrid%ie+1
             L = DipColat2L(Grid%shGrid%th(i))
-            do j=1,Grid%shGrid%Np+1
+            do j=Grid%shGrid%js,Grid%shGrid%je+1
                 State%xyzMin(i,j,XDIR) = L*cos(Grid%shGrid%ph(j))
                 State%xyzMin(i,j,YDIR) = L*sin(Grid%shGrid%ph(j))
             enddo

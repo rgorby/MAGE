@@ -138,6 +138,8 @@ module siftypes
     type sifState_T
         real(rp) :: t, dt
             !! Current time and last coupling dt made
+        real(rp) :: mjd
+            !! Current mjd
         integer :: ts, tss
             !! Current coupling timestep and sub-stepping timestep
         type(IOClock_T) :: IO

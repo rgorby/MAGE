@@ -48,6 +48,7 @@ module sifCpl
         type(sifApp_T ), intent(inout) :: sApp
         
         integer :: i,j
+        real(rp) :: seedR
         type(fLine_T) :: fLine
         ! Get field line info and potential from voltron
         ! And put the data into SIF
@@ -56,13 +57,20 @@ module sifCpl
             sh    =>sApp%Grid%shGrid , &
             planet=>sApp%Model%planet, &
             ebApp =>vApp%ebTrcApp)
-            ! Do field line tracing, poopulate fromV%ijTubes
+
+            seedR =  planet%ri_m/planet%rp_m + TINY
+            ! Do field line tracing, populate fromV%ijTubes
+            !$OMP PARALLEL DO default(shared) collapse(2) &
+            !$OMP schedule(dynamic) &
+            !$OMP private(i,j)
             do i=sh%is,sh%ie+1
                 do j=sh%js,sh%je+1
+                    call CleanStream(fromV%fLines(i,j))
+
                     call MHDTube(ebApp, planet,   & !ebTrcApp, planet
-                        sh%th(i), sh%ph(j), planet%ri_m/planet%rp_m, &  ! colat, lon, r
-                        fromV%ijTubes(i,j), fLine, &  ! IMAGTube_T, fLine_T
-                        doShiftO=.true. &
+                        sh%th(i), sh%ph(j), seedR, &  ! colat, lon, r
+                        fromV%ijTubes(i,j), fromV%fLines(i,j), &  ! IMAGTube_T, fLine_T
+                        doShiftO=.true.,doShueO=.false. &
                         )
                 enddo
             enddo
@@ -95,22 +103,28 @@ module sifCpl
             !! TODO: Handle multispecies
 
             ! Corner quantities
+            !$OMP PARALLEL DO default(shared) collapse(2) &
+            !$OMP schedule(dynamic) &
+            !$OMP private(i,j)
             do i=sh%is,sh%ie+1
                 do j=sh%js,sh%je+1
-                    State%xyzMin(i,j,:)  = ijTubes(i,j)%X_bmin / Model%planet%rp_m  ! xyzMn in Rp
+                    State%xyzMin(i,j,:)  = ijTubes(i,j)%X_bmin / Model%planet%rp_m  ! xyzMin in Rp
                 enddo
             enddo
             ! Cell-centered quantities
+            !$OMP PARALLEL DO default(shared) collapse(2) &
+            !$OMP schedule(dynamic) &
+            !$OMP private(i,j)
             do i=sh%is,sh%ie
                 do j=sh%js,sh%je
                     State%Pavg(i,j,1)    = Vcc2D(ijTubes(i:i+1,j:j+1)%Pave) * 1.0e+9  ! Pa -> nPa
                     State%Davg(i,j,1)    = Vcc2D(ijTubes(i:i+1,j:j+1)%Nave) * 1.0e-6  ! #/m^3 -> #/cc
                     State%Bmin(i,j,ZDIR) = Vcc2D(ijTubes(i:i+1,j:j+1)%bmin) * 1.0e+9  ! Tesla -> nT
-                    !State%topo(i,j)      = Vcc2D(ijTubes(i:i+1,j:j+1)%topo)
-                    !State%active(i,j)    = Vcc2D(ijTubes(i:i+1,j:j+1)%topo) !! TODO: Handle active
+                    State%topo(i,j)      = int(Vcc2D(real(ijTubes(i:i+1,j:j+1)%topo,rp)))
+                    !State%active(i,j)    = Vcc2D(ijTubes(i:i+1,j:j+1)%active) !! TODO: Handle active
                     State%thc(i,j)  = Vcc2D(PI/2-ijTubes(i:i+1,j:j+1)%latc)
                     State%phc(i,j)       = Vcc2D(ijTubes(i:i+1,j:j+1)%lonc)
-                    State%bvol(i,j)      = Vcc2D(ijTubes(i:i+1,j:j+1)%Vol)  ! Rp/T
+                    State%bvol(i,j)      = Vcc2D(ijTubes(i:i+1,j:j+1)%Vol) * 1.0e-9  ! Rp/T -> Rp/nT
                 enddo
             enddo
         end associate
