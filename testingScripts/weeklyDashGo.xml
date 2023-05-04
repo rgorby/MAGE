@@ -5,11 +5,12 @@
       <time tFin="32405.0"/>
       <spinup doSpin="T" tSpin="7200.0"/>
       <output dtOut="300.0" tsOut="100"/>
-      <coupling dtCouple="5.0" imType="RCM" doQkSquish="F" qkSquishStride="2"/>
+      <coupling dtCouple="5.0" imType="RCM" doQkSquish="T" qkSquishStride="2"/>
       <restart dtRes="10800.0"/>
       <imag doInit="T"/>
       <threading NumTh="36"/>
-      <helpers numHelpers="3" useHelpers="T" doSquishHelp="T"/>
+      <!-- without quick squish, estimated 13 helpers required -->
+      <helpers numHelpers="2" useHelpers="T" doSquishHelp="T"/>
    </VOLTRON>
    <Gamera>
       <sim runid="msphere" doH5g="T" H5Grid="lfmX.h5" icType="user" pdmb="1.0" rmeth="7UP"/>
