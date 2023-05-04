@@ -35,7 +35,7 @@ TMax = 2.
 TCM = "copper"
 
 T0Min = 0.1
-T0Max = 1.2
+T0Max = 0.5
 
 BMax = 150.
 BMin = -150.
@@ -98,7 +98,7 @@ def PlotEqMagV(gsph,nStp,xyBds,Ax,AxCB=None,doClear=True,doDeco=True):
 	return MagV
 
 #Plot speed in meridional plane Y=0
-def PlotMerMagV(gsph,nStp,xyBds,Ax,AxCB=None,doClear=True,doDeco=True):
+def PlotMerMagV(gsph,nStp,xyBds,Ax,AxCB=None,doClear=True,doDeco=True,indx=(None,None)):
         vMagV = kv.genNorm(VMin, VMax, doLog=False, midP=None)
 
         if (AxCB is not None):
@@ -109,21 +109,21 @@ def PlotMerMagV(gsph,nStp,xyBds,Ax,AxCB=None,doClear=True,doDeco=True):
         if (doClear):
                 Ax.clear()
 	#r is for +X plane and l is for -X plane
-        Vr, Vl = gsph.MerMagV(nStp)
+        Vr, Vl = gsph.MerMagV(nStp,indx=indx)
 	#cell corners
-        xr, zr, xl, zl, r = gsph.MeridGridHalfs()
+        xr, zr, xl, zl, r = gsph.MeridGridHalfs(*indx)
         Ax.pcolormesh(xr,zr,Vr,cmap=MagVCM,norm=vMagV)
         Ax.pcolormesh(xl,zl,Vl,cmap=MagVCM,norm=vMagV)
 
         kv.SetAx(xyBds,Ax)
 
         if (doDeco):
-                Ax.set_xlabel('X [R_S]')
+                Ax.set_xlabel('R_XY [R_S]')
                 Ax.set_ylabel('Z [R_S]')
         return Vr, Vl
 
 #Plot normalized density n(r/r0)^2 in meridional plane Y=0
-def PlotMerDNorm(gsph,nStp,xyBds,Ax,AxCB=None,doClear=True,doDeco=True):
+def PlotMerDNorm(gsph,nStp,xyBds,Ax,AxCB=None,doClear=True,doDeco=True,indx=[None,None]):
 	vD = kv.genNorm(DMin, DMax, doLog=False, midP=None)
 
 	if (AxCB is not None):
@@ -134,22 +134,22 @@ def PlotMerDNorm(gsph,nStp,xyBds,Ax,AxCB=None,doClear=True,doDeco=True):
 	if (doClear):
 		Ax.clear()
 
-	Dr, Dl = gsph.MerDNrm(nStp)
-	xr, zr, xl, zl, r = gsph.MeridGridHalfs()
+	Dr, Dl = gsph.MerDNrm(nStp,indx=indx)
+	xr, zr, xl, zl, r = gsph.MeridGridHalfs(*indx)
 	Ax.pcolormesh(xr,zr,Dr,cmap=DCM,norm=vD, shading='auto')
 	Ax.pcolormesh(xl,zl,Dl,cmap=DCM,norm=vD, shading='auto')
 
 	kv.SetAx(xyBds,Ax)
 
 	if (doDeco):
-		Ax.set_xlabel('X [R_S]')
+		Ax.set_xlabel('R_XY [R_S]')
 		Ax.set_ylabel('Z [R_S]')
 		Ax.yaxis.tick_right()
 		Ax.yaxis.set_label_position('right')
 	return Dr, Dl
 
 #Plot normalized Br Br(r/r0)^2 in meridional plane Y=0
-def PlotMerBrNorm(gsph,nStp,xyBds,Ax,AxCB=None,doClear=True,doDeco=True):
+def PlotMerBrNorm(gsph,nStp,xyBds,Ax,AxCB=None,doClear=True,doDeco=True,indx=[None,None]):
 	vB = kv.genNorm(BMin, BMax, doLog=False, midP=None)
 
 	if (AxCB is not None):
@@ -159,8 +159,8 @@ def PlotMerBrNorm(gsph,nStp,xyBds,Ax,AxCB=None,doClear=True,doDeco=True):
 	if (doClear):
 		Ax.clear()
 
-	Br_r, Br_l = gsph.MerBrNrm(nStp)
-	xr, zr, xl, zl, r = gsph.MeridGridHalfs()
+	Br_r, Br_l = gsph.MerBrNrm(nStp,indx=indx)
+	xr, zr, xl, zl, r = gsph.MeridGridHalfs(*indx)
 	Ax.pcolormesh(xr,zr,Br_r,cmap=BCM,norm=vB,shading='auto')
 	Ax.pcolormesh(xl,zl,Br_l,cmap=BCM,norm=vB,shading='auto')
 	#plot heliospheric current sheet
@@ -175,14 +175,14 @@ def PlotMerBrNorm(gsph,nStp,xyBds,Ax,AxCB=None,doClear=True,doDeco=True):
 	kv.SetAx(xyBds,Ax)
 
 	if (doDeco):
-		Ax.set_xlabel('X [R_S]')
+		Ax.set_xlabel('R_XY [R_S]')
 		Ax.set_ylabel('Z [R_S]')
 		Ax.yaxis.tick_right()
 		Ax.yaxis.set_label_position('right')
 	return Br_r, Br_l
 
 #Plot normalized temperature T(r/r0) in meridional plane
-def PlotMerTemp(gsph,nStp,xyBds,Ax,AxCB=None,doClear=True,doDeco=True):
+def PlotMerTemp(gsph,nStp,xyBds,Ax,AxCB=None,doClear=True,doDeco=True,indx=[None,None]):
 	vT = kv.genNorm(TMin, TMax, doLog=False, midP=None)
 
 	if (AxCB is not None):
@@ -191,15 +191,15 @@ def PlotMerTemp(gsph,nStp,xyBds,Ax,AxCB=None,doClear=True,doDeco=True):
 	if (doClear):
 		Ax.clear()
 
-	Tempr, Templ = gsph.MerTemp(nStp)
-	xr, zr, xl, zl, r = gsph.MeridGridHalfs()
+	Tempr, Templ = gsph.MerTemp(nStp,indx=indx)
+	xr, zr, xl, zl, r = gsph.MeridGridHalfs(*indx)
 	Ax.pcolormesh(xr,zr,Tempr,cmap=TCM,norm=vT)
 	Ax.pcolormesh(xl,zl,Templ,cmap=TCM,norm=vT)
 
 	kv.SetAx(xyBds,Ax)
 
 	if (doDeco):
-		Ax.set_xlabel('X [R_S]')
+		Ax.set_xlabel('R_XY [R_S]')
 		Ax.set_ylabel('Z [R_S]')
 	return Tempr, Templ
 
@@ -222,7 +222,7 @@ def PlotEqD(gsph,nStp,xyBds,Ax,AxCB=None,doClear=True,doDeco=True):
 	kv.SetAx(xyBds,Ax)
 
 	if (doDeco):
-		Ax.set_xlabel('X [R_S]')
+		Ax.set_xlabel('R [R_S]')
 		Ax.set_ylabel('Y [R_S]')
 		Ax.yaxis.tick_right()
 		Ax.yaxis.set_label_position('right')
