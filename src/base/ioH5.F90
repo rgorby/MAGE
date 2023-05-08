@@ -24,6 +24,7 @@ module ioH5
         enumerator :: ZFP,ZSTD,ZLIB,SZIP,BLOSC
     end enum
 
+    character(len=strLen), parameter :: attrGrpName = "timeAttributeCache"
     integer, private :: cacheSize = 0
     integer(HSIZE_T), parameter, private ::  CACHE_CHUNK_SIZE = 256
     logical, parameter, private :: ENABLE_COMPRESS = .TRUE.
@@ -109,8 +110,32 @@ contains
         call WriteVars(IOVars,.true.,fIn,doStampCheckO=.false.)
     end subroutine StampIO
 
+    ! -------------------------------------------   
+    ! Various routines to quickly pull scalars from IOVar_T
+    !
+    !> Helper funciton to pull INT from an IOVar data
+    function GetIOInt(IOVars,vID) result(vOut)
+        type(IOVAR_T), dimension(:), intent(in) :: IOVars
+        character(len=*), intent(in) :: vID
+        integer :: nvar
+        integer :: vOut
+        nvar = FindIO(IOVars,vID,.true.)
+        vOut = IOVars(nvar)%data(1)
+    end function GetIOInt
+
+    !> Helper funciton to pull REAL from an IOVar data
+    function GetIOReal(IOVars,vID) result(vOut)
+        type(IOVAR_T), dimension(:), intent(in) :: IOVars
+        character(len=*), intent(in) :: vID
+        integer :: nvar
+
+        real(rp) :: vOut
+        nvar = FindIO(IOVars,vID,.true.)
+        vOut = IOVars(nvar)%data(1)
+    end function GetIOReal
+
     !> Calculate cdims for a given dataset size
-    subroutine chunk_size(elsize, dims, cdims)
+    subroutine CalcChunkSize(elsize, dims, cdims)
         !> Size of elements in bytes
         integer, intent(in)                          :: elsize
         !> Dimensions of dataset
@@ -136,31 +161,7 @@ contains
             d = d - 1
         enddo
     
-    end subroutine chunk_size
-
-    ! -------------------------------------------   
-    ! Various routines to quickly pull scalars from IOVar_T
-    !
-    !> Helper funciton to pull INT from an IOVar data
-    function GetIOInt(IOVars,vID) result(vOut)
-        type(IOVAR_T), dimension(:), intent(in) :: IOVars
-        character(len=*), intent(in) :: vID
-        integer :: nvar
-        integer :: vOut
-        nvar = FindIO(IOVars,vID,.true.)
-        vOut = IOVars(nvar)%data(1)
-    end function GetIOInt
-
-    !> Helper funciton to pull REAL from an IOVar data
-    function GetIOReal(IOVars,vID) result(vOut)
-        type(IOVAR_T), dimension(:), intent(in) :: IOVars
-        character(len=*), intent(in) :: vID
-        integer :: nvar
-
-        real(rp) :: vOut
-        nvar = FindIO(IOVars,vID,.true.)
-        vOut = IOVars(nvar)%data(1)
-    end function GetIOReal
+    end subroutine CalcChunkSize
 
     !-------------------------------------------   
     !Various routines to get information about step structure of H5 file
@@ -268,66 +269,6 @@ contains
         !write(*,*) 'Start/Stop/Num = ', s0,sE,NStp
         
     end subroutine StepInfo
-
-    !> 
-    subroutine StepAttributes_Int(fStr,attr,s0,sE,attrs)
-        character(len=*), intent(in) :: fStr
-        character(len=*), intent(in) :: attr
-        integer, intent(in) :: s0,sE
-        real(rp), intent(inout) :: attrs(1:sE-s0+1)
-
-        integer :: n, Nstp,herr
-        character(len=strLen) :: aStr
-        integer(HID_T) :: h5fId
-        integer:: att(1)
-        attrs = 0
-        Nstp = sE-s0+1
-
-        call CheckFileOrDie(fStr,"Unable to open file")
-        !Do HDF5 prep
-        call h5open_f(herr) !Setup Fortran interface
-        !Open file
-        call h5fopen_f(trim(fStr), H5F_ACC_RDONLY_F, h5fId, herr)
-
-        do n=1,Nstp
-            write(aStr,('(A,I0)')) "/Step#",s0+n-1
-            call h5ltget_attribute_int_f(h5fId,trim(aStr),trim(attr),att,herr)
-            attrs(n) = att(1)
-        enddo
-        call h5fclose_f(h5fId,herr) !Close file
-        call h5close_f(herr) !Close intereface
-
-    end subroutine StepAttributes_Int
-
-    !> 
-    subroutine StepAttributes_Real(fStr,attr,s0,sE,attrs)
-        character(len=*), intent(in) :: fStr
-        character(len=*), intent(in) :: attr
-        integer, intent(in) :: s0,sE
-        real(rp), intent(inout) :: attrs(1:sE-s0+1)
-
-        integer :: n, Nstp,herr
-        character(len=strLen) :: aStr
-        integer(HID_T) :: h5fId
-        real(sp):: att(1)
-        attrs = 0
-        Nstp = sE-s0+1
-
-        call CheckFileOrDie(fStr,"Unable to open file")
-        !Do HDF5 prep
-        call h5open_f(herr) !Setup Fortran interface
-        !Open file
-        call h5fopen_f(trim(fStr), H5F_ACC_RDONLY_F, h5fId, herr)
-
-        do n=1,Nstp
-            write(aStr,('(A,I0)')) "/Step#",s0+n-1
-            call h5ltget_attribute_float_f(h5fId,trim(aStr),trim(attr),att,herr)
-            attrs(n) = att(1)
-        enddo
-        call h5fclose_f(h5fId,herr) !Close file
-        call h5close_f(herr) !Close intereface
-
-    end subroutine StepAttributes_Real
 
     !> Find step times between s0,sE and store in pre-allocated array
     subroutine StepTimes(fStr,s0,sE,Ts)
@@ -708,8 +649,8 @@ contains
         endif
     end function 
 
-    !> Helper function to check for resizing 
-    !> of the timeAttributeCache datasets' size
+    !> Check for resizing of the timeAttributeCache 
+    !> datasets' size
     !> 
     subroutine CheckAttCacheSize(stepStr, cacheExist, cacheCreated)
         character(len=*), intent(in) :: stepStr
@@ -907,9 +848,9 @@ contains
                 call h5screate_simple_f(Nr, h5dims(1:Nr), sid, herr)
                 call h5pcreate_f(H5P_DATASET_CREATE_F, pId, herr)
                 if (doIOP) then
-                    call chunk_size(sp, h5dims(1:Nr), cdims)
+                    call CalcChunkSize(sp, h5dims(1:Nr), cdims)
                 else
-                    call chunk_size(dp, h5dims(1:Nr), cdims)
+                    call CalcChunkSize(dp, h5dims(1:Nr), cdims)
                 endif
                 call h5pset_chunk_f(pId, Nr, cdims, herr)
 
@@ -1073,7 +1014,6 @@ contains
         integer :: herr
         integer(HID_T) :: h5fId, gId, ggId, outId, cacheId
         character(len=strLen) :: h5File
-        character(len=strLen), parameter :: attrGrpName = "timeAttributeCache"
         type(IOVAR_T) :: stepVar
         !Set filename to baseStr
         !FIXME: Correct to add .h5 to baseStr
@@ -1143,7 +1083,6 @@ contains
                 !Check if cache group exists
                 call h5lexists_f(h5fId,trim(attrGrpName),cacheExist,herr)
                 if (.not. cacheExist) then
-                    !write(*,*) "Cache group does not exist, creating it."
                     !Create cache group
                     call h5gcreate_f(h5fId,trim(attrGrpName),cacheId,herr)     
                     cacheCreate = .true.    
