@@ -1,6 +1,6 @@
 #!/bin/bash
 
-#PBS -N {{ runid }}
+#PBS -N {{ sim_runid }}
 #PBS -A {{ pbs_account }}
 #PBS -q {{ pbs_queue }}
 #PBS -l walltime={{ pbs_walltime }}
@@ -70,6 +70,6 @@ echo "Running $EXE on model $RUNID."
 # threads to appropriate sockets and cores. If you omit omplace, your job
 # will still run, but it probably be an order of magnitude slower than it
 # would be when using omplace.
-mpiexec omplace $EXE $RUNID.xml >& ${EXE}.${RUNID}.out
+mpiexec $EXE $RUNID.xml >& ${EXE}.${RUNID}.out
 
 echo "Job $PBS_JOBID ended at `date` on `hostname`."
