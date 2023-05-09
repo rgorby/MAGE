@@ -26,6 +26,8 @@ module ioH5
 
     character(len=strLen), parameter :: attrGrpName = "timeAttributeCache"
     integer, private :: cacheSize = 0
+    logical, private :: createdThisFile = .false.
+
     integer(HSIZE_T), parameter, private ::  CACHE_CHUNK_SIZE = 256
     logical, parameter, private :: ENABLE_COMPRESS = .TRUE.
     integer, parameter, private :: COMPRESS_ZSTD = 32015
@@ -999,7 +1001,7 @@ contains
         type(IOVAR_T), dimension(:), intent(inout) :: IOVars
         !> Do IO Precision writes
         logical, intent(in) :: doIOp
-        !> Base String
+        !> Base filename
         character(len=*), intent(in) :: baseStr
         !> Group Name
         character(len=*), intent(in), optional :: gStrO
@@ -1042,6 +1044,7 @@ contains
             call h5fopen_f(trim(h5File), H5F_ACC_RDWR_F, h5fId, herr)
         else
             !Create file
+            createdThisFile = .true.
             call h5fcreate_f(trim(h5File),H5F_ACC_TRUNC_F, h5fId, herr)         
         endif
 
@@ -1083,6 +1086,13 @@ contains
                 !Check if cache group exists
                 call h5lexists_f(h5fId,trim(attrGrpName),cacheExist,herr)
                 if (.not. cacheExist) then
+                    if(.not. createdThisFile) then
+                        write(*,*) "Attempt to create the timeAttributeCache in an existing h5 file ", &
+                                   " that does not have the cache group."
+                        write(*,*) "Perform restart in a different directory, or create the timeAttributeCache,", &
+                                   " and populate it, in the exisitng h5 file."
+                        stop
+                    endif
                     !Create cache group
                     call h5gcreate_f(h5fId,trim(attrGrpName),cacheId,herr)     
                     cacheCreate = .true.    
