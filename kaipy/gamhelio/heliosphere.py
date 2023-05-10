@@ -158,26 +158,38 @@ class GamsphPipe(GameraPipe):
 		zmer_c = np.delete(zmer_c, Nt, axis = 1)
 		return xmer_c, zmer_c
 
-	#merid plane Y=0 from two halfs
-	def MeridGridHalfs(self):
+	#merid plane from kidx from two halfs
+	def MeridGridHalfs(self,kidx=None,phi=None):
 		self.GetGrid(doVerbose=True)
 
-		Nk2 = self.Nk//2
-		Nt = self.Nj
+		if(kidx):
+			Nk1 = kidx
+			Nk2 = self.Nk//2 + Nk1
+		elif(phi):
+			Nk1 = int(phi/(2*np.pi)*self.Nk)
+			Nk2 = self.Nk//2 + Nk1
+		else: 
+			Nk1 = 0
+			Nk2 = self.Nk//2
 
 		#looking from -Y to XZ plane
-		xright = self.X[:,:,0] #corners
-		zright = self.Z[:,:,0] #corners
+		xright = self.X[:,:,Nk1] #corners
+		yright = self.Y[:,:,Nk1] #corners
+		zright = self.Z[:,:,Nk1] #corners
+		rright = np.sqrt(xright**2. + yright**2)
 
-		xleft = self.X [:,:,Nk2]
+		xleft = self.X[:,:,Nk2]
+		yleft = self.Y[:,:,Nk2]
 		zleft = self.Z[:,:,Nk2]
+		rleft = -np.sqrt(xleft**2. + yleft**2)
 
 		xright_c = 0.25*( xright[:-1,:-1]+xright[:-1,1:]+xright[1:,:-1]+xright[1:,1:] )
+		yright_c = 0.25*( yright[:-1,:-1]+yright[:-1,1:]+yright[1:,:-1]+yright[1:,1:] )
 		zright_c = 0.25*( zright[:-1,:-1]+zright[:-1,1:]+zright[1:,:-1]+zright[1:,1:] )
-		r = np.sqrt(xright_c**2 + zright_c**2)
+		r = np.sqrt(xright_c**2 + zright_c**2 + yright_c**2)
 
 		#centers: right plane, left plane, radius
-		return xright, zright, xleft, zleft, r
+		return rright, zright, rleft, zleft, r
 
 	#Grid at 1 AU lat lon
 	def iSliceGrid(self):
@@ -202,19 +214,32 @@ class GamsphPipe(GameraPipe):
 		return lat, lon
 
 	#Vars at Y=0
-	def MeridSlice(self,vID,sID=None,vScl=None,doVerb=True):
+	def MeridSlice(self,vID,sID=None,vScl=None,doVerb=True,indx=(None,None)):
 		#Get full 3D variable first
 		Q = self.GetVar(vID,sID,vScl,doVerb)
 		
 		Nk2 = self.Nk//2
-		Np = self.Nk
+		kidx, phi = indx
+		
+		if(kidx):
+			Nk1 = kidx
+			Nk2 = self.Nk//2 + Nk1
+			Np = Nk1 - 1
+		elif(phi):
+			Nk1 = int(phi/(2*np.pi)*self.Nk)
+			Nk2 = self.Nk//2 + Nk1
+			Np =  Nk1 - 1
+		else: 
+			Nk1 = 0
+			Nk2 = self.Nk//2
+			Np = self.Nk
 		
 		#Nr = self.Ni
 		#Nt = 2*self.Nj
 		#XZ meridional slice (k=0) of var 
 		#Qj = np.zeros((Nr,Nt))
 		
-		Qright = 0.5*( Q[:,:,0] + Q[:,:,Np-1] ) 
+		Qright = 0.5*( Q[:,:,Nk1] + Q[:,:,Np-1] ) 
 		Qleft  = 0.5*( Q[:,:,Nk2-1] + Q[:,:,Nk2] )
 		#print (Qright.shape, Qleft.shape)
 		#Qj = np.hstack( (Qright, Qleft[:,::-1]) ) #reverse in j
@@ -441,27 +466,27 @@ class GamsphPipe(GameraPipe):
 		return Temp
 	
 	#Meridional speed (in km/s) in Y=0 plane
-	def MerMagV(self,s0=0):
-		Vxr, Vxl = self.MeridSlice("Vx",s0) #Unscaled
-		Vyr, Vyl = self.MeridSlice("Vy",s0) #Unscaled
-		Vzr, Vzl = self.MeridSlice("Vz",s0) #Unscaled
+	def MerMagV(self,s0=0,indx=(None,None)):
+		Vxr, Vxl = self.MeridSlice("Vx",s0,indx=indx) #Unscaled
+		Vyr, Vyl = self.MeridSlice("Vy",s0,indx=indx) #Unscaled
+		Vzr, Vzl = self.MeridSlice("Vz",s0,indx=indx) #Unscaled
 		MagVr = self.vScl*np.sqrt(Vxr**2.0+Vyr**2.0+Vzr**2.0)
 		MagVl = self.vScl*np.sqrt(Vxl**2.0+Vyl**2.0+Vzl**2.0)
 		return MagVr, MagVl
 
 	#Normalized D in Y=0 plane
-	def MerDNrm(self,s0=0):
-		xr, zr, xl, zl, r = self.MeridGridHalfs()
-		Dr, Dl = self.MeridSlice("D",s0) #Unscaled
+	def MerDNrm(self,s0=0,indx=(None,None)):
+		xr, zr, xl, zl, r = self.MeridGridHalfs(*indx)
+		Dr, Dl = self.MeridSlice("D",s0,indx=indx) #Unscaled
 		Drn = Dr*self.dScl*r*r/self.R0/self.R0
 		Dln = Dl*self.dScl*r*r/self.R0/self.R0
 		return Drn, Dln
 
 	#Mormalized Br in Y=0 plane
-	def MerBrNrm(self,s0=0):
-		xr, zr, xl, zl, r = self.MeridGridHalfs()
-		Bxr, Bxl = self.MeridSlice("Bx",s0) #Unscaled
-		Bzr, Bzl = self.MeridSlice("Bz",s0) #Unscaled
+	def MerBrNrm(self,s0=0,indx=(None,None)):
+		xr, zr, xl, zl, r = self.MeridGridHalfs(*indx)
+		Bxr, Bxl = self.MeridSlice("Bx",s0,indx=indx) #Unscaled
+		Bzr, Bzl = self.MeridSlice("Bz",s0,indx=indx) #Unscaled
 
 		#cell centers to calculate Br
 		xr_c = 0.25*( xr[:-1,:-1]+xr[:-1,1:]+xr[1:,:-1]+xr[1:,1:] )
@@ -476,11 +501,11 @@ class GamsphPipe(GameraPipe):
 		return Br_r, Br_l
 
 	#Normalized Temp in Y=0 plane 
-	def MerTemp(self,s0=0):
-		xr, zr, xl, zl, r = self.MeridGridHalfs()
+	def MerTemp(self,s0=0,indx=(None,None)):
+		xr, zr, xl, zl, r = self.MeridGridHalfs(*indx)
 
-		Pr, Pl = self.MeridSlice("P",s0) #Unscaled
-		Dr, Dl = self.MeridSlice("D",s0) #Unscaled
+		Pr, Pl = self.MeridSlice("P",s0,indx=indx) #Unscaled
+		Dr, Dl = self.MeridSlice("D",s0,indx=indx) #Unscaled
 
 		Tempr = Pr/Dr*self.TScl*r/self.R0
 		Templ = Pl/Dl*self.TScl*r/self.R0
