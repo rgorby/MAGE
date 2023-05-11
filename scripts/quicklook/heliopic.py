@@ -68,7 +68,7 @@ default_runid = "wsa"
 default_steps = "-1"
 
 # Default slices
-default_slice = "0:-1:1"
+default_slice = "1:2:1"
 
 # Code for default picture type.
 default_pictype = "pic1"
@@ -203,7 +203,7 @@ if __name__ == "__main__":
 
     print(f"Open pipe took {toc-tic} s")
 
-    if(slices):
+    if(slices and steps[0] == -1):
         steps = range(gsph.sFin)[slice(slices[0],slices[1],slices[2])]
 
     nsteps = len(steps)
@@ -249,10 +249,10 @@ if __name__ == "__main__":
             hviz.PlotEqTemp(gsph, nStp, xyBds, AxL1, AxC1_1)
             hviz.PlotEqBr(gsph, nStp, xyBds, AxR1, AxC2_1)
         elif pic == "pic2":
-            hviz.PlotMerMagV(gsph ,nStp, xyBds, AxL0, AxC1_0,indx=(None,2.35))
-            hviz.PlotMerDNorm(gsph, nStp, xyBds, AxR0, AxC2_0,indx=(None,2.35))
-            hviz.PlotMerTemp(gsph, nStp, xyBds, AxL1, AxC1_1,indx=(None,2.35))
-            hviz.PlotMerBrNorm(gsph, nStp, xyBds, AxR1, AxC2_1,indx=(None,2.35))
+            hviz.PlotMerMagV(gsph ,nStp, xyBds, AxL0, AxC1_0,indx=(None,2.95))
+            hviz.PlotMerDNorm(gsph, nStp, xyBds, AxR0, AxC2_0,indx=(None,2.95))
+            hviz.PlotMerTemp(gsph, nStp, xyBds, AxL1, AxC1_1,indx=(None,2.95))
+            hviz.PlotMerBrNorm(gsph, nStp, xyBds, AxR1, AxC2_1,indx=(None,2.95))
         elif pic == "pic3":
             hviz.PlotiSlMagV(gsph, nStp, xyBds, AxL0, AxC1_0)
             hviz.PlotiSlD(gsph, nStp, xyBds, AxR0, AxC2_0)
