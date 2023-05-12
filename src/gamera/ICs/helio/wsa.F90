@@ -84,9 +84,8 @@ module usergamic
 
         integer :: i,j,k,nvar,nr,d
         integer :: n1, n2
-        integer :: kg, ke, kb, jg, kbl, kel
-        real(rp) :: a, al
-        real(rp) :: R_kf, Theta_kf
+        integer :: kg, ke, kb, jg
+        real(rp) :: a
         real(rp) :: Tsolar_synodic
         real(rp) :: Br_left
         real(rp) :: ibcVarsStaticBRKFN !For brkfn
@@ -149,8 +148,8 @@ module usergamic
         eHack  => EFix
         Model%HackE => eHack
    
-         !Write MJD_center_of_WSA_map to the root of H5 output 
-         Model%HackIO_0 => writeMJDcH5Root
+        ! Write MJD_center_of_WSA_map to the root of H5 output 
+        Model%HackIO_0 => writeMJDcH5Root
 
         ! everybody reads WSA data
         call readIBC(wsaFile,Model)
