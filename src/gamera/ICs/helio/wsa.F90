@@ -86,7 +86,6 @@ module usergamic
         integer :: n1, n2
         integer :: kg, ke, kb, jg
         real(rp) :: a
-        real(rp) :: Tsolar_synodic
         real(rp) :: Br_left
         real(rp) :: ibcVarsStaticBRKFN !For brkfn
         real(rp) :: ibcVarsStatic !For br only
