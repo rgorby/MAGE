@@ -14,16 +14,22 @@ module usergamic
 
     enum, bind(C)
        ! variables passed via innerbc file
-       ! Br, Vr, Rho, Temperature, Br @ kface, Vr @ kface
-       enumerator :: BRIN=1,VRIN,RHOIN,TIN,BRKFIN,VRKFIN
+       ! Br, Vr, Rho, Temperature, Br @ kface, Vr @ kface, et @ kedge
+       enumerator :: BRIN=1,VRIN,RHOIN,TIN,BRKFIN,VRKFIN,ETKEDGE
     endenum 
 
 
     integer, private, parameter :: NVARSIN=6 ! SHOULD be the same as the number of vars in the above enumerator
     real(rp), dimension(:,:,:,:), allocatable :: ibcVars
+    real(rp), dimension(:,:), allocatable :: ibcEt
 
     !Various global would go here
     real (rp) :: Rho0, P0, Vslow,Vfast, wScl, Cs0, B0, MJD_c
+ 
+    !Scaling from innerbc to CGS
+    !Elena: May be move these conversion factors to kdefs?
+    real (rp) :: km2cm = 1.e5
+    real (rp) :: nT2Gs = 1.e-5
 
     ! things we keep reusing
     real(rp), dimension(NDIM) :: xyz,xyz0,rHat,phiHat
@@ -50,7 +56,7 @@ module usergamic
     character(len=strLen) :: wsaFile
  
     ! use this to fix the Efield at the inner boundary
-!    real(rp), allocatable :: inEijk(:,:,:,:)
+    real(rp), allocatable :: inEijk(:,:,:,:)
 
     ! type for solar wind BC
     type, extends(innerIBC_T) :: SWInnerBC_T
@@ -78,13 +84,16 @@ module usergamic
 
         integer :: i,j,k,nvar,nr,d
         integer :: n1, n2
-        integer :: kg, ke, kb, jg
-        real(rp) :: a
+        integer :: kg, ke, kb, jg, kbl, kel
+        real(rp) :: a, al
+        real(rp) :: R_kf, Theta_kf
         real(rp) :: Tsolar_synodic
-
+        real(rp) :: Br_left
+        real(rp) :: ibcVarsStaticBRKFN !For brkfn
         real(rp) :: ibcVarsStatic !For br only
 
-!        if (.not.allocated(inEijk)) allocate(inEijk(1,Grid%jsg:Grid%jeg+1,Grid%ksg:Grid%keg+1,1:NDIM))
+        if (.not.allocated(inEijk)) allocate(inEijk(1,Grid%jsg:Grid%jeg+1,Grid%ksg:Grid%keg+1,1:NDIM))
+        inEijk = 0.0
 
         ! set units and other thins, like Tsolar
         call setHeliosphere(Model,inpXML,Tsolar)
@@ -136,21 +145,17 @@ module usergamic
         Grid%ksDT = Grid%ks
         Grid%keDT = Grid%ke
 
-        ! Add gravity
-!        eHack  => EFix
-!        Model%HackE => eHack
-!        tsHack => PerStep
-!        Model%HackStep => tsHack
+        !Fixing Efield at the inner boundary
+        eHack  => EFix
+        Model%HackE => eHack
    
          !Write MJD_center_of_WSA_map to the root of H5 output 
          Model%HackIO_0 => writeMJDcH5Root
 
         ! everybody reads WSA data
-        call readIBC(wsaFile)
+        call readIBC(wsaFile,Model)
 
         !MJD0 is MJD_center_of_WSA_map - Tsolar_synodic/2; Tsolar_synodic = 27.28
-        ![EP] TO DO: add synodic Tsolar to constants
-        Tsolar_synodic = 27.28
         Model%MJD0 = MJD_c - Tsolar_synodic/2.
 
         !if not restart set State%time according the tSpin
@@ -167,13 +172,13 @@ module usergamic
 
         do k=Grid%ks,Grid%ke
            kg = k+Grid%ijkShift(KDIR)
-           ! map rotating to static grid
+           !initial spin of a map by Tsolar/2
            call mapKinit(kg,ke,kb,a)
 
            do j=Grid%js,Grid%je
               jg = j+Grid%ijkShift(JDIR)
-              do i=Grid%isg,Grid%ieg+1
 
+              do i=Grid%isg,Grid%ieg+1
                  ibcVarsStatic = 1._rp
 
                  if ( (jg>=Grid%js).and.(jg<=size(ibcVars,2)) ) then
@@ -189,7 +194,7 @@ module usergamic
                  !
                  ! note also that ibcVars(Model%Ng,:,:,:) corresponds to the center of the first ghost cell (just below the boundary)
                  !State%magFlux(i,j,k,IDIR) = ibcVars(Model%Ng,j+Grid%ijkShift(JDIR),k+Grid%ijkShift(KDIR),BRIN)*Rfactor**2*Grid%face(Grid%is,j,k,IDIR)
-                  State%magFlux(i,j,k,IDIR) = ibcVarsStatic*Rfactor**2*Grid%face(Grid%is,j,k,IDIR)
+                 State%magFlux(i,j,k,IDIR) = ibcVarsStatic*Rfactor**2*Grid%face(Grid%is,j,k,IDIR)
               enddo
            enddo
         enddo
@@ -248,6 +253,7 @@ module usergamic
       type(Model_T), intent(in) :: Model
       type(Grid_T), intent(in) :: Grid
       type(State_T), intent(inout) :: State
+      procedure(HackE_T), pointer :: eHack
 
       ! local variables
       integer :: i,j,k, kb, ke
@@ -258,6 +264,7 @@ module usergamic
       real(rp) :: R, Theta, Phi
       real(rp) :: Theta_kf, R_kf ! kface
       real(rp), dimension(NVAR) :: conVar, pVar
+      real(rp) :: Br_left
 
       !i-boundaries (IN)
       !$OMP PARALLEL DO default(shared) &
@@ -286,6 +293,9 @@ module usergamic
                   do var=1,NVARSIN
                      ibcVarsStatic(var) = a*ibcVars(ig,jg,kb,var)+(1-a)*ibcVars(ig,jg,ke,var)
                   end do
+                  ! use Br value from the left (kb) cell of the rotating grid  to calculate Ej
+                  ! Ensures constant Ej between Br updated  and linearly changing Br in time. 
+                  Br_left = ibcVars(ig,jg,kb,BRIN)
                end if
 
                ! do cell centered things for cell-centers only
@@ -325,12 +335,20 @@ module usergamic
                Rfactor = Rbc/norm2(Grid%xfc(Grid%is,j,k,:,IDIR))
                State%magFlux(i,j,k,IDIR) = ibcVarsStatic(BRIN)*Rfactor**2*Grid%face(Grid%is,j,k,IDIR)
                State%magFlux(i,j,k,JDIR) = 0.0
-               State%magFlux(i,j,k,KDIR) = - 2*PI/Tsolar*R_kf*sin(Theta_kf)/ibcVarsStatic(VRKFIN)*ibcVarsStatic(BRKFIN)*Grid%face(i,j,k,KDIR)
+               State%magFlux(i,j,k,KDIR) = -2*PI/Tsolar*R_kf*sin(Theta_kf)/ibcVarsStatic(VRKFIN)*ibcVarsStatic(BRKFIN)*Grid%face(i,j,k,KDIR)
+
+               if (ig == Model%Ng) then
+                    ! calculate E_theta at edges using Br_left value defined above
+                    inEijk(Grid%is,j,k,JDIR) = -2*PI/Tsolar*Rbc*sin(Theta_kf)*Br_left*Rfactor**2
+               end if
+
             end do
+               
          end do
       end do
+     
+      contains 
 
-    contains
       subroutine mapK(k,ke,kb,a)
         ! find the lower and upper k-index of the rotating cell on the static grid
         integer, intent(in) :: k
@@ -354,25 +372,27 @@ module usergamic
 
     end subroutine wsaBC
 
-    subroutine eFix(Model,Gr,State)
+    subroutine EFix(Model,Gr,State)
       type(Model_T), intent(in) :: Model
-      type(Grid_T), intent(in) :: Gr
+      type(Grid_T), intent(inout) :: Gr
       type(State_T), intent(inout) :: State
 
-      ! see example of how to do this in voltron/ICs/earthcmi.F90
-       !Grid%externalBCs(1)%p
-!      State%Efld(Gr%is  ,:,:,JDIR:KDIR) = inEijk(1,:,:,JDIR:KDIR)*Gr%edge(Gr%is  ,:,:,JDIR:KDIR)
+      if (Gr%hasLowerBC(IDIR)) then
+          State%Efld(Gr%is,:,:,JDIR) = inEijk(1,:,:,JDIR)*Gr%edge(Gr%is  ,:,:,JDIR)
+          State%Efld(Gr%is,:,:,KDIR) = 0.
+      endif
 
+    end subroutine EFix
 
-    end subroutine eFix
-
-    subroutine readIBC(ibcH5)
+    subroutine readIBC(ibcH5,Model)
       character(len=*), intent(in) :: ibcH5
+      type(Model_T), intent(in) :: Model
       logical :: fExist
-      integer :: i,nvar,dims(3)
+      integer :: i,nvar,dims(3), dimsE(2)
       integer, parameter :: MAXIOVAR = 50
       type(IOVAR_T), dimension(MAXIOVAR) :: IOVars
     
+      character(len=10) :: Grp = "Step#0"
 
       !Reset IO chain
       call ClearIO(IOVars)
@@ -385,22 +405,29 @@ module usergamic
       endif
 
       !Setup input chain
-      call AddInVar(IOVars,"vr")
-      call AddInVar(IOVars,"vr_kface")
-      call AddInVar(IOVars,"rho")
-      call AddInVar(IOVars,"temp")
-      call AddInVar(IOVars,"br")
-      call AddInVar(IOVars,"br_kface")
+      call AddInVar(IOVars,"vr",       vSclO=km2cm/Model%Units%gv0)
+      call AddInVar(IOVars,"vr_kface", vSclO=km2cm/Model%Units%gv0)
+      call AddInVar(IOVars,"rho",      vSclO=1/Model%Units%gD0)
+      call AddInVar(IOVars,"temp")     !Temp in K
+      call AddInVar(IOVars,"br",       vSclO=nT2Gs/Model%Units%gB0)
+      call AddInVar(IOVars,"br_kface", vSclO=nT2Gs/Model%Units%gB0)
+      call AddInVar(IOVars,"et_kedge", vSclO=1.e-3/(Model%Units%gv0*1.e-2*Model%Units%gB0*1.e-4))
       call AddInVar(IOVars,"MJD")
 
-      call ReadVars(IOVars,.false.,ibcH5) !Don't use io precision
+      call ReadVars(IOVars,.false.,ibcH5,Grp) !Don't use io precision
 
-      ! NOTE, assuming they all have the same dimesnions here (NO2,NJ,NK)
-      ! see wsa2gamera
       dims=IOVars(1)%dims(1:3) ! i,j,k
-      if (.not.allocated(ibcVars)) allocate(ibcVars(dims(1),dims(2),dims(3),NVARSIN))
+      dimsE(:) = dims(2:3) ! (Nj,Nk) for E_theta 
 
-      do i=1,NVARSIN
+      if (.not.allocated(ibcVars)) allocate(ibcVars(dims(1),dims(2),dims(3),NVARSIN))
+      if (.not.allocated(ibcEt))allocate(ibcEt(dimsE(1),dimsE(2)))
+
+      ! Zero out
+      ibcVars = 0.
+      ibcEt = 0.
+
+
+      do i=1,NVARSIN+1
          select case (i)
          case (BRIN)
             nvar= FindIO(IOVars,"br")
@@ -414,12 +441,19 @@ module usergamic
             nvar= FindIO(IOVars,"br_kface")
          case (VRKFIN)
             nvar= FindIO(IOVars,"vr_kface")
+         case (ETKEDGE)
+            nvar= FindIO(IOVars,"et_kedge")
          end select
 
-         ibcVars(:,:,:,i) = reshape(IOVars(nvar)%data,dims)
+         if (i <= NVARSIN) then
+         ibcVars(:,:,:,i) = reshape(IOVars(nvar)%data*IOVars(nvar)%scale,dims)
+         else if (i == ETKEDGE) then
+         ibcEt = reshape(IOVars(nvar)%data*IOVars(nvar)%scale,dimsE)
+         end if
       end do
-         !reading modified julian date from innerbc
-         MJD_c = GetIOReal(IOVars,"MJD")
+
+      !reading modified julian date from innerbc
+      MJD_c = GetIOReal(IOVars,"MJD")
    
     end subroutine readIBC
 
