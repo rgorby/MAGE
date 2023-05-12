@@ -11,6 +11,7 @@ each decision that must be made to prepare for the run.
 
 # Import standard modules.
 import argparse
+import json
 import os
 import subprocess
 
@@ -160,6 +161,10 @@ def create_command_line_parser():
     parser.add_argument(
         "-d", "--debug", action="store_true", default=False,
         help="Print debugging output (default: %(default)s)."
+    )
+    parser.add_argument(
+        "--options_path", default=None,
+        help="Path to JSON file of options (default: %(default)s)"
     )
     parser.add_argument(
         "-v", "--verbose", action="store_true", default=False,
@@ -518,6 +523,10 @@ def create_ini_file(options):
     with open(ini_file, "w") as f:
         f.write(ini_content)
 
+    # Save the options dictionary as a JSON file.
+    with open("options.json", "w") as f:
+        json.dump(options, f)
+
     # Return the path to the .ini file.
     return ini_file
 
@@ -612,12 +621,17 @@ def main():
     # Parse the command-line arguments.
     args = parser.parse_args()
     debug = args.debug
+    options_path = args.options_path
     verbose = args.verbose
     if debug:
         print(f"args = {args}")
 
     # Fetch the run options.
-    options = get_run_options()
+    if options_path is not None:
+        with open(options_path) as f:
+            options = json.load(f)
+    else:
+        options = get_run_options()
     if debug:
         print(f"options = {options}")
 
