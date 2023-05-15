@@ -19,7 +19,7 @@ module usergamic
     endenum 
 
 
-    integer, private, parameter :: NVARSIN=6 ! SHOULD be the same as the number of vars in the above enumerator
+    integer, private, parameter :: NVARSIN=7 ! SHOULD be the same as the number of vars in the above enumerator
     real(rp), dimension(:,:,:,:), allocatable :: ibcVars
     real(rp), dimension(:,:), allocatable :: ibcEt
 
@@ -425,7 +425,7 @@ module usergamic
       ibcEt = 0.
 
 
-      do i=1,NVARSIN+1
+      do i=1,NVARSIN
          select case (i)
          case (BRIN)
             nvar= FindIO(IOVars,"br")
@@ -443,11 +443,11 @@ module usergamic
             nvar= FindIO(IOVars,"et_kedge")
          end select
 
-         if (i <= NVARSIN) then
-         ibcVars(:,:,:,i) = reshape(IOVars(nvar)%data*IOVars(nvar)%scale,dims)
-         else if (i == ETKEDGE) then
-         ibcEt = reshape(IOVars(nvar)%data*IOVars(nvar)%scale,dimsE)
-         end if
+            if (i <= NVARSIN-1) then
+               ibcVars(:,:,:,i) = reshape(IOVars(nvar)%data*IOVars(nvar)%scale,dims)
+            else if (i == ETKEDGE) then
+               ibcEt = reshape(IOVars(nvar)%data*IOVars(nvar)%scale,dimsE)
+            end if
       end do
 
       !reading modified julian date from innerbc
