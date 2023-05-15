@@ -23,12 +23,6 @@ module ioH5
     enum, bind(C)
         enumerator :: ZFP,ZSTD,ZLIB,SZIP,BLOSC
     end enum
-
-    character(len=strLen), parameter :: attrGrpName = "timeAttributeCache"
-    integer, private :: cacheSize = 0
-    logical, private :: createdThisFile = .false.
-
-    integer(HSIZE_T), parameter, private ::  CACHE_CHUNK_SIZE = 256
     logical, parameter, private :: ENABLE_COMPRESS = .TRUE.
     integer, parameter, private :: COMPRESS_ZSTD = 32015
     integer, parameter, private :: COMPRESS_ZFP = 32013
@@ -65,6 +59,11 @@ module ioH5
 #else
     logical, parameter, private :: ENABLE_COMPRESS = .FALSE.
 #endif
+    ! timeAttributeCache options
+    integer(HSIZE_T), parameter, private ::  CACHE_CHUNK_SIZE = 256
+    character(len=strLen), parameter :: attrGrpName = "timeAttributeCache"
+    integer, private :: cacheSize = 0
+    logical, private :: createdThisFile = .false.
 
     !Overloader to add data (array or scalar/string) to output chain
     interface AddOutVar
@@ -857,16 +856,28 @@ contains
                 call h5pset_chunk_f(pId, Nr, cdims, herr)
 
                 if(Z_ALG == ZLIB) then
-                    call h5pset_shuffle(pId, herr)
-                    call h5pset_deflate_f(pId, 6, herr)
-                elseif(Z_ALG == SZIP) then
-                    szip_options_mask = H5_SZIP_NN_OM_F
-                    if (doIOP) then
-                        szip_pixels_per_block = 16
+                    call H5zfilter_avail_f(H5Z_FILTER_SZIP_F, avail, status)
+                    if(avail) then
+                        call h5pset_shuffle(pId, herr)
+                        call h5pset_deflate_f(pId, 6, herr)
                     else
-                        szip_pixels_per_block = 8
+                        write(*,*) 'ZLIB filter not available, please ensure HDF5 was built with ZLIB enabled \n'
+                        stop
                     endif
-                    call H5pset_szip_f(pId, szip_options_mask, szip_pixels_per_block, herr)
+                elseif(Z_ALG == SZIP) then
+                    call H5zfilter_avail_f(H5Z_FILTER_SZIP_F, avail, status)
+                    if(avail) then
+                        szip_options_mask = H5_SZIP_NN_OM_F
+                        if (doIOP) then
+                            szip_pixels_per_block = 16
+                        else
+                            szip_pixels_per_block = 8
+                        endif
+                        call H5pset_szip_f(pId, szip_options_mask, szip_pixels_per_block, herr)
+                    else
+                        write(*,*) 'SZIP filter not available, please ensure HDF5 was built with SZIP enabled \n'
+                        stop
+                    endif
                 elseif(Z_ALG == ZSTD) then
                     call H5zfilter_avail_f(COMPRESS_ZSTD, avail, status)
                     if(avail) then
@@ -876,7 +887,7 @@ contains
                         call h5pset_filter_f(pId, COMPRESS_ZSTD, H5Z_FLAG_MANDATORY, &
                         cd_nelmts, cd_values, herr)
                     else
-                        write(*,*) 'ZSTD filter not initailized, please ensure the ZSTD HDF5 plugin is loaded. \n'
+                        write(*,*) 'ZSTD filter not available, please ensure the ZSTD HDF5 plugin is loaded. \n'
                         write(*,*) 'You may also use the default compression SZIP without needing plugins.'
                         stop
                     endif
@@ -952,7 +963,7 @@ contains
                         ! endif
                         ! status = H5Z_zfp_finalize()
                     else
-                        write(*,*) 'ZFP filter not initailized, please ensure the ZFP HDF5 plugin is loaded.'
+                        write(*,*) 'ZFP filter not available, please ensure the ZFP HDF5 plugin is loaded.'
                         write(*,*) 'You may also use the default compression SZIP without needing plugins.'
                         stop
                     endif
