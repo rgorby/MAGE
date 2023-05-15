@@ -39,6 +39,8 @@ Nk   = prm.Nk
 #conversions from wsa to gamera units
 cms2kms = 1.e-5 # cm/s => km/s
 Gs2nT = 1.e5    # Gs => nT
+# Conversion for E field  1 statV/cm = 3.e7 mV/m
+eScl = 3.e7
 
 ffits = prm.wsaFile
 
@@ -78,7 +80,7 @@ zc = 0.125*(z[:-1,:-1,:-1]+z[:-1,1:,:-1]+z[:-1,:-1,1:]+z[:-1,1:,1:]
 # radius of the inner boundary
 R0 = np.sqrt(x[0,0,Ng]**2+y[0,0,Ng]**2+z[0,0,Ng]**2) 
 
-r = np.sqrt(x[:]**2+y[:]**2+z[:]**2)
+r = np.sqrt(x**2+y**2+z**2)
 
 # Calculate phi and theta in physical domain (excluding ghost cells)
 P = np.arctan2(y[Ng:-Ng,Ng:-Ng,:],x[Ng:-Ng,Ng:-Ng,:])
@@ -88,7 +90,7 @@ P[P<0]=P[P<0]+2*np.pi
                    # to 2*pi. This takes care of it.
 T = np.arccos(z[Ng:-Ng,Ng:-Ng,:]/r[Ng:-Ng,Ng:-Ng,:])
 
-#grid for output into innerbc.h5
+#grid for inner i-ghost region; output to innerbc.h5
 P_out = P[:,:,0:Ng+1]
 T_out = T[:,:,0:Ng+1]
 R_out = r[Ng:-Ng,Ng:-Ng,0:Ng+1]
@@ -123,7 +125,7 @@ rho = f(Pc[:,0,0],Tc[0,:,0])
 # AFTER interpolating br and rho to the gamera grid
 # n_CS*k*T_CS = n*k*T + Br^2/8pi  
 temp = (nCS*kbltz*TCS - br**2/8./np.pi)*Mp_cgs/rho/kbltz
-#temperature in K
+#temperature in [K]
 
 #check
 #print ("Max and min of temperature in MK")
@@ -140,7 +142,8 @@ fv  = interpolate.RectBivariateSpline(Pc[:,0,0],Tc[0,:,0],vr,kx=1,ky=1)
 br_kface = fbi(P[:-1,0,0],Tc[0,:,0]) #(Nk,Nj)
 vr_kface  = fv (P[:-1,0,0],Tc[0,:,0]) #(Nk,Nj)
 
-# before applying scaling to cell centers take br at kedges for Efld
+# before applying scaling inside ghost region
+# get br values to the left of an edge for E_theta calculation
 br_kedge = np.roll(br,1, axis=1)
 
 # Scale inside ghost region
@@ -151,7 +154,6 @@ br_kface*=(R0/Rc[0,0,:Ng])**2
 
 # Calculating E-field component on k_edges in [mV/m]
 # E_theta = B_phi*Vr/c = - Omega*R*sin(theta)/Vr*Br * Vr/c = - Omega*R*sin(theta)*Br/c
-eScl = 3.e7 # Conversion 1 statV/cm = 3.e7 mV/m
 omega = 2*np.pi/(Tsolar*Day2s) # [1/s]
 # Theta at centers of k-faces (== theta at kedges)
 Tcf = 0.25*(T[:,:-1,:-1] + T[:,1:,1:] + T[:,:-1,1:] + T[:,1:,:-1])
