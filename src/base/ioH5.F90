@@ -856,7 +856,7 @@ contains
                 call h5pset_chunk_f(pId, Nr, cdims, herr)
 
                 if(Z_ALG == ZLIB) then
-                    call H5zfilter_avail_f(H5Z_FILTER_SZIP_F, avail, status)
+                    call H5zfilter_avail_f(H5Z_FILTER_DEFLATE_F, avail, status)
                     if(avail) then
                         call h5pset_shuffle(pId, herr)
                         call h5pset_deflate_f(pId, 6, herr)
