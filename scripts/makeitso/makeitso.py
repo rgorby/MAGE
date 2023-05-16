@@ -77,7 +77,7 @@ defaults_cheyenne_mpi = {
 
 # Defaults for serial runs on cheyenne.
 defaults_cheyenne_serial = {
-    "pbs_account": "UJHB0015",
+    "pbs_account": "",
     "pbs_queue": "regular",
     "pbs_walltime": "02:00:00",
     "pbs_select": "1",
