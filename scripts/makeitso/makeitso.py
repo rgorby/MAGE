@@ -66,7 +66,7 @@ defaults_global = {
 
 # Defaults for MPI runs on cheyenne.
 defaults_cheyenne_mpi = {
-    "pbs_account": "UJHB0015",
+    "pbs_account": "",
     "pbs_queue": "regular",
     "pbs_walltime": "00:30:00",
     "pbs_select": "4",
