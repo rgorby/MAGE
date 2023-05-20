@@ -18,13 +18,12 @@ program sifx
     ! Remix, actually
     use calcdbtypes
     use calcdbio
-    use mixinterp
-    use mixgeom
 
     ! Voltron stuff
     use volttypes
     use sifCplTypes
     use sifCpl
+    use sifOWDcpl
 
     implicit none
 
@@ -32,7 +31,6 @@ program sifx
         !! Kinda hacky, just create a voltApp object and initialize only the parts we're gonna use ourselves
     !Holder for remix data
     type(rmState_T) :: rmState
-    type(Map_T) :: m2sMap
 
     type(sifApp_T   ) :: sApp
     type(sif_cplBase_T) :: sifCplBase
@@ -65,7 +63,7 @@ program sifx
         ! Init Remix reader
         call initRM  (ebModel,ebState,rmState,inpXML)
         ! Set mix->SIF map
-        call GenMixMap(sApp%Grid%shGrid, rmState, m2sMap)
+        call InitMixMap(sApp%Grid%shGrid, rmState)
         
         ! Init outputs
         ebModel%doEBOut = doChmpOut
@@ -96,12 +94,14 @@ program sifx
                         sApp%Grid%shGrid%Nt,sApp%Grid%shGrid%Np)
             endif
 
-        ! Update models
+        ! Update other models
             call updateFields(ebModel, ebState, ebModel%t)
             call updateRemix(ebModel,ebState,ebModel%t,rmState)
+
+            ! Populate sif's fromV object with updated model info
+            call packFromV(sifCplBase%fromV, vApp, rmState, sApp)
+            ! Now put fomV info into sif's State
             call sifCpl_Volt2SIF(sifCplBase, vApp, sApp)
-            call mix_map_grids(m2sMap,rmState%nPot,sApp%State%espot)
-            !write(*,*) rmState%nPot
 
 
             ! Advance model times
@@ -118,35 +118,6 @@ program sifx
 
 
     contains
-
-    subroutine GenMixMap(shGrid, mixState, map)
-        !! Adapted from rcmXimag.F90:rcmGrid
-        !! Take a shell grid and generate map from remix grid to shellGrid
-        type(ShellGrid_T), intent(in) :: shGrid
-        type(rmState_T), intent(in) :: mixState
-        type(Map_T), intent(out) :: map
-
-        integer :: i
-        type(mixGrid_T) :: mixGrid, mixedGrid  ! Mix grid from file, shGrid converted to mixGrid
-        real(rp), dimension(:,:), allocatable :: colat2D,lon2D
-
-        allocate(colat2D(shGrid%Nt,shGrid%Np))  ! +1 because we're doing corners
-        allocate(lon2D  (shGrid%Nt,shGrid%Np))
-
-        do i=1,shGrid%Np
-            colat2D(:,i) = shGrid%thc(shGrid%is:shGrid%ie)
-        enddo
-
-        do i=1,shGrid%Nt
-            lon2D(i,:) = shGrid%phc(shGrid%js:shGrid%je)
-        enddo
-
-        call init_grid_fromXY(mixGrid, mixState%XY(:,:,XDIR),mixState%XY(:,:,YDIR),.false.,.true.)
-        call init_grid_fromTP(mixedGrid, colat2D, lon2D,.false.,.true.)
-        call mix_set_map(mixGrid, mixedGrid, map)
-        !write(*,*) map%M(:,:,1)
-
-    end subroutine GenMixMap
 
     subroutine WriteRCMFLs(RCMFLs,nOut,MJD,time,Ni,Nj)
         USE ebtypes

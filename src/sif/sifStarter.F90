@@ -132,7 +132,7 @@ module sifstarter
         type(ShellGrid_T) :: shGrid
 
         ! Set grid params
-        ! Grid settings
+        call iXML%Set_Val(Grid%nB, "grid/Nbnd", 4  )  ! Number of cells between open boundary and active domain
         call iXML%Set_Val(tmpStr, "grid/gType","UNISPH")
 
         ! Fill out Grid object depending on chosen method
@@ -191,11 +191,12 @@ module sifstarter
         ! 2D corner quantities
         allocate( State%topo  (Grid%shGrid%Nt+1, Grid%shGrid%Np+1) )
         ! 2D cell-centered quantities
-        allocate( State%active(Grid%shGrid%Nt, Grid%shGrid%Np) )
-        allocate( State%thc   (Grid%shGrid%Nt, Grid%shGrid%Np) )
-        allocate( State%phc   (Grid%shGrid%Nt, Grid%shGrid%Np) )
-        allocate( State%espot (Grid%shGrid%Nt, Grid%shGrid%Np) )
-        allocate( State%bvol  (Grid%shGrid%Nt, Grid%shGrid%Np) )
+        allocate( State%active (Grid%shGrid%Nt, Grid%shGrid%Np) )
+        allocate( State%OCBDist(Grid%shGrid%Nt, Grid%shGrid%Np) )
+        allocate( State%thc    (Grid%shGrid%Nt, Grid%shGrid%Np) )
+        allocate( State%phc    (Grid%shGrid%Nt, Grid%shGrid%Np) )
+        allocate( State%espot  (Grid%shGrid%Nt, Grid%shGrid%Np) )
+        allocate( State%bvol   (Grid%shGrid%Nt, Grid%shGrid%Np) )
         ! Coupling output data
         allocate( State%precipFlux(Grid%shGrid%Nt, Grid%shGrid%Np, Grid%Nk) )
         allocate( State%precipAvgE(Grid%shGrid%Nt, Grid%shGrid%Np, Grid%Nk) )

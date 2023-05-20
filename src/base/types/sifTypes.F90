@@ -58,7 +58,7 @@ module siftypes
         character(len=strLen) :: SIFH5
             !! Filename of the h5 file we output to
         
-        integer :: nSpc, nG, nB
+        integer :: nSpc, nG
             !! Number of species, # ghosts, # coupling boundary cells
         real(rp) :: t0, tFin, dt
             !! Start and end time, delta coupling time (may be replaced/ignored later by voltron setting a dynamic coupling time)
@@ -102,6 +102,8 @@ module siftypes
         integer :: gType  ! Enum of grid type
 
         type(ShellGrid_T) :: shGrid
+
+        integer :: nB ! Number of buffer cells between open region and active domain
 
         ! Flags
         logical :: ignoreConfigMismatch
@@ -164,6 +166,7 @@ module siftypes
         integer , dimension(:,:), allocatable :: topo    ! Topology (0=open, 1=closed)
         !> (Ni, Nj)
         integer , dimension(:,:), allocatable :: active  ! (-1=inactive, 0=buffer, 1=active)
+        integer , dimension(:,:), allocatable :: OCBDist  ! Cell distance from open-closed boundary
         real(rp), dimension(:,:), allocatable :: espot  ! electro-static potential from REMIX [kV]
         real(rp), dimension(:,:), allocatable :: thc  ! Co-latitude  of conjugate points
         real(rp), dimension(:,:), allocatable :: phc  ! Longitude of conjugate points

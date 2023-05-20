@@ -147,6 +147,7 @@ module sifIO
         ! Coupling things
         call AddOutVar(IOVars,"topo",State%topo*1.0_rp,uStr="0=Open, 1=Closed")
         call AddOutVar(IOVars,"active",State%active*1.0_rp,uStr="-1=Inactive, 0=Buffer, 1=Active")
+        call AddOutVar(IOVars,"OCBDist",State%OCBDist*1.0_rp,uStr="Cell distance from an open closed boundary")
         call AddOutVar(IOVars,"espot",State%espot,uStr="kV")
         call AddOutVar(IOVars,"colatc",State%thc,uStr="radians")
         call AddOutVar(IOVars,"lonc"  ,State%phc,uStr="radians")

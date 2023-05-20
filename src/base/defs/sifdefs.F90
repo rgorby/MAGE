@@ -28,7 +28,7 @@ module sifdefs
 
     ! Active/buffer/inactive cells
     enum, bind(C)
-        enumerator :: SIFINACTIVE=-1, SIFACTIVE, SIFBUFFER
+        enumerator :: SIFINACTIVE=-1, SIFBUFFER, SIFACTIVE
             !! Helps determine how SIF is going to treat the grid point
     endenum
 

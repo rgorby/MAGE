@@ -4,6 +4,7 @@ module sifCpl
     use math
     use imagtubes
 
+    use sifdefs
     use sifTypes
     use sifCplTypes
 
@@ -52,33 +53,18 @@ module sifCpl
         integer :: i,j
         real(rp) :: seedR
         type(fLine_T) :: fLine
-        ! Get field line info and potential from voltron
-        ! And put the data into SIF
+        ! Take info from cplBase%fromV and put it into SIF state
 
-        associate(fromV=>cplBase%fromV, &
-            sh    =>sApp%Grid%shGrid , &
-            planet=>sApp%Model%planet, &
-            ebApp =>vApp%ebTrcApp)
+        ! Populate sif state with coupling info
+        ! Tubes
+        call imagTubes2SIF(cplBase%fromV%ijTubes, sApp%Model, sApp%Grid, sApp%State)
+        ! Potential
+        sApp%State%espot = cplBase%fromV%pot
 
-            seedR =  planet%ri_m/planet%rp_m + TINY
-            ! Do field line tracing, populate fromV%ijTubes
-            !$OMP PARALLEL DO default(shared) collapse(2) &
-            !$OMP schedule(dynamic) &
-            !$OMP private(i,j)
-            do i=sh%is,sh%ie+1
-                do j=sh%js,sh%je+1
-                    call CleanStream(fromV%fLines(i,j))
+        ! Determine active domain
+        call setActiveDomain(sApp%Grid%shGrid, sApp%Grid%nB, sApp%State)
 
-                    call MHDTube(ebApp, planet,   & !ebTrcApp, planet
-                        sh%th(i), sh%ph(j), seedR, &  ! colat, lon, r
-                        fromV%ijTubes(i,j), fromV%fLines(i,j), &  ! IMAGTube_T, fLine_T
-                        doShiftO=.true.,doShueO=.false. &
-                        )
-                enddo
-            enddo
-            call imagTubes2SIF(fromV%ijTubes, sApp%Model, sApp%Grid, sApp%State)
 
-        end associate
     end subroutine sifCpl_Volt2SIF
 
     subroutine sifCpl_SIF2Volt(cplBase, vApp, sApp)
@@ -87,8 +73,9 @@ module sifCpl
         type(sifApp_T) , intent(in   ) :: sApp
     end subroutine sifCpl_SIF2Volt
 
-
+!------
 ! Helpers
+!------
 
     subroutine imagTubes2SIF(ijTubes, Model, Grid, State)
         !! Map 2D array of IMAGTubes to SIF State
@@ -136,5 +123,82 @@ module sifCpl
         
     end subroutine imagTubes2SIF
 
+
+    subroutine setActiveDomain(shGrid, nB, State)
+        type(ShellGrid_T), intent(in) :: shGrid
+        integer, intent(in) :: nB
+            !! Number of cells between open boundary and active domain
+        type(sifState_T), intent(inout) :: State
+
+        integer :: i,j
+
+        logical, dimension(shGrid%is:shGrid%ie, &
+                            shGrid%js:shGrid%je) :: closedCC
+
+
+        State%active = SIFINACTIVE
+
+        ! Mark any cell center with an open corner as open
+        closedCC = .true.
+        do i=shGrid%is, shGrid%ie
+            do j=shGrid%js, shGrid%je
+                if (any(State%topo(i:i+1, j:j+1) < 2)) then
+                    closedCC(i,j) = .false.
+                endif
+            enddo
+        enddo
+
+        State%OCBDist = CalcOCBDist(shGrid, closedCC, nB)
+        write(*,*) State%OCBDist
+        ! Set zones
+        where (State%OCBDist .eq. 0)
+            State%active = SIFINACTIVE
+        else where (State%OCBDist .le. nB)
+            State%active = SIFBUFFER
+        elsewhere
+            State%active = SIFACTIVE
+        end where
+
+
+        contains
+
+        function CalcOCBDist(shGrid, closedCC, nBnd) result(ocbDist)
+            type(ShellGrid_T), intent(in) :: shGrid
+                !! SIF shell grid
+            logical, dimension(shGrid%is:shGrid%ie, &
+                    shGrid%js:shGrid%je), intent(in) :: closedCC
+                !! Whether cell centers are closed or open
+            integer, intent(in) :: nBnd
+                !! Number of desired layers between open/closed boundary and active domain
+
+            integer :: iL, i, j
+            integer, dimension(shGrid%is:shGrid%ie, &
+                    shGrid%js:shGrid%je) :: ocbDist
+
+            where (closedCC)
+                ocbDist = nBnd + 1
+            elsewhere
+                ocbDist = 0
+            end where
+
+
+            ! Grow out from open/closed boundary, set proper distance for closed points
+
+            do iL=1,nBnd
+                do i=shGrid%is, shGrid%ie
+                    do j=shGrid%js, shGrid%je
+                        if (closedCC(i,j) .eq. .false.) then
+                            cycle
+                        else if ( (ocbDist(i,j) .eq. nBnd+1) .and. any(ocbDist(i-1:i+1,j-1:j+1) .eq. iL-1) ) then
+                            !! If current point's distance hasn't been decided and its bordering cell with iL-1, this point is distance iL from ocb
+                            ocbDist(i,j) = iL
+                        endif
+                    enddo
+                enddo
+            enddo
+            
+        end function CalcOCBDist
+
+    end subroutine setActiveDomain
 
 end module sifCpl
