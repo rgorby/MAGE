@@ -1,6 +1,7 @@
 module sifCpl
     !! Contains functions used to pass data between voltron and SIF
 
+    use math
     use imagtubes
 
     use sifTypes
@@ -42,6 +43,7 @@ module sifCpl
 
     end subroutine sifCpl_init
 
+    
     subroutine sifCpl_Volt2SIF(cplBase, vApp, sApp)
         class(sif_cplBase_T), intent(inout) :: cplBase
         type(voltApp_T), intent(in   ) :: vApp
@@ -109,6 +111,7 @@ module sifCpl
             do i=sh%is,sh%ie+1
                 do j=sh%js,sh%je+1
                     State%xyzMin(i,j,:)  = ijTubes(i,j)%X_bmin / Model%planet%rp_m  ! xyzMin in Rp
+                    State%topo(i,j)      = ijTubes(i,j)%topo
                 enddo
             enddo
             ! Cell-centered quantities
@@ -117,28 +120,19 @@ module sifCpl
             !$OMP private(i,j)
             do i=sh%is,sh%ie
                 do j=sh%js,sh%je
-                    State%Pavg(i,j,1)    = Vcc2D(ijTubes(i:i+1,j:j+1)%Pave) * 1.0e+9  ! Pa -> nPa
-                    State%Davg(i,j,1)    = Vcc2D(ijTubes(i:i+1,j:j+1)%Nave) * 1.0e-6  ! #/m^3 -> #/cc
-                    State%Bmin(i,j,ZDIR) = Vcc2D(ijTubes(i:i+1,j:j+1)%bmin) * 1.0e+9  ! Tesla -> nT
-                    State%topo(i,j)      = int(Vcc2D(real(ijTubes(i:i+1,j:j+1)%topo,rp)))
-                    !State%active(i,j)    = Vcc2D(ijTubes(i:i+1,j:j+1)%active) !! TODO: Handle active
-                    State%thc(i,j)  = Vcc2D(PI/2-ijTubes(i:i+1,j:j+1)%latc)
-                    State%phc(i,j)       = Vcc2D(ijTubes(i:i+1,j:j+1)%lonc)
-                    State%bvol(i,j)      = Vcc2D(ijTubes(i:i+1,j:j+1)%Vol) * 1.0e-9  ! Rp/T -> Rp/nT
+                    State%Pavg(i,j,1)    = toCenter2D(ijTubes(i:i+1,j:j+1)%Pave) * 1.0e+9  ! Pa -> nPa
+                    State%Davg(i,j,1)    = toCenter2D(ijTubes(i:i+1,j:j+1)%Nave) * 1.0e-6  ! #/m^3 -> #/cc
+                    State%Bmin(i,j,ZDIR) = toCenter2D(ijTubes(i:i+1,j:j+1)%bmin) * 1.0e+9  ! Tesla -> nT
+                    State%thc(i,j)  = toCenter2D(PI/2-ijTubes(i:i+1,j:j+1)%latc)
+                    State%phc(i,j)       = toCenter2D(ijTubes(i:i+1,j:j+1)%lonc)
+                    State%bvol(i,j)      = toCenter2D(ijTubes(i:i+1,j:j+1)%Vol) * 1.0e-9  ! Rp/T -> Rp/nT
                 enddo
             enddo
         end associate
 
-        contains
+        ! TODO: Save calculating active domain for last, once we have all other info
+        !State%active(i,j)   = ??
 
-        function Vcc2D(v) result (vcc)
-            !! 2D cell center of a value
-            real(rp), dimension(2,2), intent(in) :: v
-
-            real(rp) :: vcc
-
-            vcc = 0.25*(v(1,1) + v(2,1) + v(1,2) + v(2,2))
-        end function Vcc2D
         
     end subroutine imagTubes2SIF
 

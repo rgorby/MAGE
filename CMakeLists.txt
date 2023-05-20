@@ -214,15 +214,11 @@ message("\tIC file is ${SIFIC}")
 # Add source
 add_subdirectory(src/sif)
 add_custom_target(sif ALL)
+
 message("\tAdding executable sif.x")
 add_executable(sif.x src/drivers/sifx.F90)
-target_link_libraries(sif.x siflib baselib)
-add_dependencies(sif sif.x baselib)
-
-message("\tAdding executable sif_gamDrive.x")
-add_executable(sif_gamDrive.x src/drivers/sif_gamDrive.F90)
-target_link_libraries(sif_gamDrive.x siflib baselib chimplib voltlib)
-add_dependencies(sif sif_gamDrive.x baselib chimplib voltlib)
+target_link_libraries(sif.x siflib baselib chimplib voltlib)
+add_dependencies(sif sif.x baselib chimplib voltlib)
 
 
 #-------------

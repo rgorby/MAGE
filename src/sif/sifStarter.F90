@@ -21,7 +21,7 @@ module sifstarter
 ! Main Initialization Routines
 !------
 
-    subroutine sifInitCore(app, iXML)
+    subroutine sifInit(app, iXML)
         type(sifApp_T), intent(inout) :: app
         type(XML_Input_T), intent(in) :: iXML
 
@@ -39,7 +39,7 @@ module sifstarter
         ! Initialize IOCLOCK
         call app%State%IO%init(iXML,app%State%t,app%State%ts)
 
-    end subroutine sifInitCore
+    end subroutine sifInit
 
     ! Sets up Model, but Grid and State must be set up separately
     subroutine sifInitModel(Model, iXML)
@@ -188,8 +188,9 @@ module sifstarter
         ! Bmin surface
         allocate( State%Bmin  (Grid%shGrid%Nt  , Grid%shGrid%Np  , 3 ) )
         allocate( State%xyzMin(Grid%shGrid%Nt+1, Grid%shGrid%Np+1, 3 ) )
-        ! 2D quantities
-        allocate( State%topo  (Grid%shGrid%Nt, Grid%shGrid%Np) )
+        ! 2D corner quantities
+        allocate( State%topo  (Grid%shGrid%Nt+1, Grid%shGrid%Np+1) )
+        ! 2D cell-centered quantities
         allocate( State%active(Grid%shGrid%Nt, Grid%shGrid%Np) )
         allocate( State%thc   (Grid%shGrid%Nt, Grid%shGrid%Np) )
         allocate( State%phc   (Grid%shGrid%Nt, Grid%shGrid%Np) )

@@ -22,12 +22,14 @@ module sifdefs
 
     ! Topology
     enum, bind(C)
-        enumerator :: SIFOPEN, SIFCLOSED
+        enumerator :: SIFOPEN=0, SIFCLOSED
+            !! Whether the field line corresponding to grid point is open or closed
     endenum
 
     ! Active/buffer/inactive cells
     enum, bind(C)
-        enumerator :: SIFACTIVE, SIFBUFFER, SIFINACTIVE
+        enumerator :: SIFINACTIVE=-1, SIFACTIVE, SIFBUFFER
+            !! Helps determine how SIF is going to treat the grid point
     endenum
 
     !------

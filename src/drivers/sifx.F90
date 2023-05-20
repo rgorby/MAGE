@@ -1,43 +1,227 @@
-
 program sifx
+
     use kdefs
     use planethelper
     use xml_input
 
+    ! Sif stuff
     use sifdefs
     use sifstarter
 
+    ! Chimp stuff
+    use ebtypes
+    use starter
+    use chmpfields
+    use chopio
+    use chmpunits
+
+    ! Remix, actually
+    use calcdbtypes
+    use calcdbio
+    use mixinterp
+    use mixgeom
+
+    ! Voltron stuff
+    use volttypes
+    use sifCplTypes
+    use sifCpl
+
     implicit none
 
-    !type(sifModel_T) :: Model
-    !type(sifGrid_T ) :: Grid
-    !type(sifState_T) :: State
+    type(voltApp_T)   :: vApp
+        !! Kinda hacky, just create a voltApp object and initialize only the parts we're gonna use ourselves
+    !Holder for remix data
+    type(rmState_T) :: rmState
+    type(Map_T) :: m2sMap
 
-    type(sifApp_T) :: sifApp
+    type(sifApp_T   ) :: sApp
+    type(sif_cplBase_T) :: sifCplBase
 
-    character(len=strLen) :: XMLStr
-    type(XML_Input_T) :: inpXML
-
+    character(len=strLen) :: XMLStr, gStr
+    type(XML_Input_T) :: inpXML    
     
-    ! Init xml
-    call getIDeckStr(XMLStr)
-    inpXML = New_XML_Input(trim(XMLStr),"Kaiju/SIF",.true.)
+    character(len=strLen) :: FLH5
+    
+    logical :: doChmpOut,doFLOut
 
-    call sifInitCore(sifApp, inpXML)
+    associate(ebModel=>vApp%ebTrcApp%ebModel, ebState=>vApp%ebTrcApp%ebState)
+            
+        ! Init xml
+        call getIDeckStr(XMLStr)
 
-    ! Save first state to file
-    call sifOutput(sifApp%Model,sifApp%Grid,sifApp%State)
+        ! Personal xml flags
+        inpXML = New_XML_Input(trim(XMLStr),"Kaiju/SIF",.true.)
+        call inpXML%Set_Val(doChmpOut,'driver/doChmpOut',.false.)
+        call inpXML%Set_Val(doFLOut,'driver/doFLOut',.false.)
 
-    do while ( sifApp%State%t < (sifApp%Model%tFin + 0.5) )
-        if (sifApp%State%IO%doOutput(sifApp%State%t)) then
-            call sifOutput(sifApp%Model,sifApp%Grid,sifApp%State)
+        ! Init SIF
+        call sifInit(sApp, inpXML)
+        call sifCpl_init(vApp, sApp, sifCplBase)
+
+        ! Init CHIMP
+        inpXML = New_XML_Input(trim(XMLStr),"Kaiju/Chimp",.true.)
+        call goApe(ebModel,ebState,iXML=inpXML)
+
+        ! Init Remix reader
+        call initRM  (ebModel,ebState,rmState,inpXML)
+        ! Set mix->SIF map
+        call GenMixMap(sApp%Grid%shGrid, rmState, m2sMap)
+        
+        ! Init outputs
+        ebModel%doEBOut = doChmpOut
+        if (ebModel%doEBOut) then
+            call initEB3Dio(ebModel,ebState,inpXML)
         endif
 
-        ! No advance yet, just increase time by 1
-        sifApp%State%t = sifApp%State%t + 1
-        sifApp%State%ts = sifApp%State%ts + 1
+        FLH5   = trim(sApp%Model%RunID) // ".fl.h5" !RCM field lines
+        call CheckAndKill(FLH5)
 
-    enddo
+        ! Ready to loop
+        do while ( sApp%State%t < (sApp%Model%tFin + 0.5) )
+            
+        ! Output if ready
+            if (sApp%State%IO%doOutput(sApp%State%t)) then
+                call sifOutput(sApp%Model,sApp%Grid,sApp%State)
 
+                if (ebModel%doEBOut) then
+                    ! Write eb at the same output cadence as imag
+                    write(gStr,'(A,I0)') "Step#", ebModel%nOut
+                    call writeEB3D(ebModel,ebState,gStr)
+                    ebModel%nOut = ebModel%nOut + 1
+                    ebModel%tOut = inTscl*sApp%State%IO%tOut  ! Idk if we need to set this since chimp isn't controlling its own output
+                endif
+
+                call WriteRCMFLs(sifCplBase%fromV%fLines,sApp%State%IO%nOut, &
+                        sApp%State%mjd,sApp%State%t, &
+                        sApp%Grid%shGrid%Nt,sApp%Grid%shGrid%Np)
+            endif
+
+        ! Update models
+            call updateFields(ebModel, ebState, ebModel%t)
+            call updateRemix(ebModel,ebState,ebModel%t,rmState)
+            call sifCpl_Volt2SIF(sifCplBase, vApp, sApp)
+            call mix_map_grids(m2sMap,rmState%nPot,sApp%State%espot)
+            !write(*,*) rmState%nPot
+
+
+            ! Advance model times
+            sApp%State%t  = sApp%State%t  + sApp%Model%dt
+            sApp%State%ts = sApp%State%ts + 1
+            ebModel%t  = ebModel%t  + inTscl*sApp%Model%dt
+            ebModel%ts = ebModel%ts + 1
+
+
+        enddo
+
+    end associate
+
+
+
+    contains
+
+    subroutine GenMixMap(shGrid, mixState, map)
+        !! Adapted from rcmXimag.F90:rcmGrid
+        !! Take a shell grid and generate map from remix grid to shellGrid
+        type(ShellGrid_T), intent(in) :: shGrid
+        type(rmState_T), intent(in) :: mixState
+        type(Map_T), intent(out) :: map
+
+        integer :: i
+        type(mixGrid_T) :: mixGrid, mixedGrid  ! Mix grid from file, shGrid converted to mixGrid
+        real(rp), dimension(:,:), allocatable :: colat2D,lon2D
+
+        allocate(colat2D(shGrid%Nt,shGrid%Np))  ! +1 because we're doing corners
+        allocate(lon2D  (shGrid%Nt,shGrid%Np))
+
+        do i=1,shGrid%Np
+            colat2D(:,i) = shGrid%thc(shGrid%is:shGrid%ie)
+        enddo
+
+        do i=1,shGrid%Nt
+            lon2D(i,:) = shGrid%phc(shGrid%js:shGrid%je)
+        enddo
+
+        call init_grid_fromXY(mixGrid, mixState%XY(:,:,XDIR),mixState%XY(:,:,YDIR),.false.,.true.)
+        call init_grid_fromTP(mixedGrid, colat2D, lon2D,.false.,.true.)
+        call mix_set_map(mixGrid, mixedGrid, map)
+        !write(*,*) map%M(:,:,1)
+
+    end subroutine GenMixMap
+
+    subroutine WriteRCMFLs(RCMFLs,nOut,MJD,time,Ni,Nj)
+        USE ebtypes
+        use rice_housekeeping_module, ONLY : nSkipFL
+        integer, intent(in) :: nOut,Ni,Nj
+        real(rp), intent(in) :: MJD,time
+        type(fLine_T), intent(in), dimension(Ni,Nj) :: RCMFLs
+
+        type(IOVAR_T), dimension(40) :: IOVars
+        character(len=strLen) :: gStr,lnStr
+        integer :: i,j,n
+        
+        !Bail out if we're not doing this
+        if (.not. doFLOut) return
+
+    !Create group and write base data
+        write(gStr,'(A,I0)') "Step#", nOut
+        call AddOutVar(IOVars,"time",time)
+        call AddOutVar(IOVars,"MJD",MJD)
+
+        
+        call WriteVars(IOVars,.true.,FLH5,gStr)
+        call ClearIO(IOVars)
+
+        !Now loop through and create subgroup for each line (w/ striding)
+        !TODO: Avoid the individual write for every line
+        n = 0
+        do i=1,Ni,nSkipFL
+            do j=1,Nj-1,nSkipFL
+                write(lnStr,'(A,I0)') "Line#", n
+                if (RCMFLs(i,j)%isGood) then
+                    call OutLine(RCMFLs(i,j),gStr,lnStr,IOVars)
+                    n = n + 1
+                endif
+            enddo
+        enddo
+    end subroutine WriteRCMFLs
+
+    ! Do our own fline output cause original is using globals
+    !Write out individual line
+    subroutine OutLine(fL,gStr,lnStr,IOVars)
+        USE ebtypes
+        use rice_housekeeping_module, ONLY : nSkipFL
+        type(fLine_T), intent(in) :: fL
+        character(len=strLen), intent(in) :: gStr,lnStr
+        type(IOVAR_T), intent(inout), dimension(40) :: IOVars
+        integer :: i,Np,Npp,n0
+        
+        call ClearIO(IOVars)
+        Np = fL%Nm + fL%Np + 1
+        if (Np<=nSkipFL) return
+        n0 = fL%Nm
+
+        !Add scalar stuff
+        !Record seed point
+        call AddOutVar(IOVars,"x0",fL%x0(XDIR))
+        call AddOutVar(IOVars,"y0",fL%x0(YDIR))
+        call AddOutVar(IOVars,"z0",fL%x0(ZDIR))
+
+        !Do striding through field line points
+        Npp = size(fL%xyz(0:-n0:-nSkipFL,XDIR))
+
+        call AddOutVar(IOVars,"xyz",transpose(fL%xyz(0:-n0:-nSkipFL,XDIR:ZDIR)))
+        call AddOutVar(IOVars,"Np",Npp)
+        call AddOutVar(IOVars,"n0",1) !Seed point is now the first point
+
+        !Only output some of the variables
+        call AddOutVar(IOVars,"B",fL%lnVars(0)       %V(0:-n0:-nSkipFL),uStr="nT")
+        call AddOutVar(IOVars,"D",fL%lnVars(DEN)     %V(0:-n0:-nSkipFL),uStr="#/cc")
+        call AddOutVar(IOVars,"P",fL%lnVars(PRESSURE)%V(0:-n0:-nSkipFL),uStr="nPa")
+
+        !Write output chain
+        call WriteVars(IOVars,.true.,FLH5,gStr,lnStr)
+        call ClearIO(IOVars)
+
+    end subroutine OutLine
 
 end program sifx

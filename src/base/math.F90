@@ -603,4 +603,14 @@ module math
          isAsc = .False. 
       end if
     end function isAscending
+
+    !> Simple corner-to-center function where everyone can get to it easily
+    function toCenter2D(v) result (vcc)
+        !! 2D cell center of a value
+        real(rp), dimension(2,2), intent(in) :: v
+
+        real(rp) :: vcc
+
+        vcc = 0.25*(v(1,1) + v(2,1) + v(1,2) + v(2,2))
+    end function toCenter2D
 end module math

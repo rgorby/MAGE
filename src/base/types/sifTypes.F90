@@ -160,8 +160,9 @@ module siftypes
         real(rp), dimension(:,:,:), allocatable :: Bmin
         !> (Ni+1, Nk+1, NDIM) bMin xyz coordinates [Rx]
         real(rp), dimension(:,:,:), allocatable :: xyzMin
-        !> (Ni, Nj)
+        !> (Ni+1, Nk+1) corner values
         integer , dimension(:,:), allocatable :: topo    ! Topology (0=open, 1=closed)
+        !> (Ni, Nj)
         integer , dimension(:,:), allocatable :: active  ! (-1=inactive, 0=buffer, 1=active)
         real(rp), dimension(:,:), allocatable :: espot  ! electro-static potential from REMIX [kV]
         real(rp), dimension(:,:), allocatable :: thc  ! Co-latitude  of conjugate points
