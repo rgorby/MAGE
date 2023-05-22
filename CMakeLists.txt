@@ -1,5 +1,5 @@
 cmake_minimum_required(VERSION 3.12)
-project(Kaiju Fortran C)
+project(Kaiju Fortran)
 
 # use the new version of CMP0074, this tells cmake to use <PACKAGE>_ROOT environment
 #   variables when looking for packages
