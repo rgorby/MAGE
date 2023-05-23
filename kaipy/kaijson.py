@@ -67,6 +67,7 @@ def dump(fname, data, action='w'):
 	"""Store data [dict] in file fname
 		action: (over)'w'rite or 'a'ppend
 	"""
+
 	with open(fname, action) as jfile:
 		json.dump(data, jfile, indent=4, cls=CustomEncoder)
 

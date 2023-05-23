@@ -77,6 +77,11 @@ def xyz2rtp(phi,theta,Ax,Ay,Az):
 	Ap = -Ax*np.sin(phi)+Ay*np.cos(phi)
 	At = Ax*np.cos(phi)*np.cos(theta)+Ay*np.sin(phi)*np.cos(theta)-Az*np.sin(theta)
 	return Ar,At,Ap
+#Transform spherical to polar
+def rtp2rt(r, theta, phi):
+	Ar = r*np.sin(theta)
+	Atheta = phi
+	return Ar, Atheta
 
 # Use the Burton 1975 Formula to compute Dst from solar wind parameters
 def burtonDst(secs,n,vx,vy,vz,bx,by,bz):

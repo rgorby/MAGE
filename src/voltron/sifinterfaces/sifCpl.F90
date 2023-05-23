@@ -183,7 +183,6 @@ module sifCpl
 
 
             ! Grow out from open/closed boundary, set proper distance for closed points
-
             do iL=1,nBnd
                 do i=shGrid%is, shGrid%ie
                     do j=shGrid%js, shGrid%je

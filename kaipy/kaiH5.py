@@ -1,7 +1,77 @@
 import h5py
 import numpy as np
 import os, sys, subprocess
+from dataclasses import dataclass
+from dataclasses_json import dataclass_json
+from typing import List
+import datetime
+from astropy.time import Time
+
+import kaipy.kaiTools as kt
 import kaipy.kdefs as kdefs
+
+@dataclass_json
+@dataclass
+class H5Info:
+    fname   : str
+    Nt      : int
+    steps   : List[float]
+    stepStrs: List[str]
+    times   : List[float]
+    MJDs    : List[float]
+    UTs     : List[float]
+
+    def getInfo(h5fname, noSubSec=True):
+        fname = h5fname.split('/')[-1]
+
+        f5 = h5py.File(h5fname)
+
+        steps = sorted([int(s.split('#')[1]) for s in f5.keys() if 'Step' in s])
+        stepStrs = ['Step#'+str(s) for s in steps]
+        Nt = len(steps)
+
+        t_arr = np.zeros(Nt)
+        MJD_arr = np.zeros(Nt)
+        UT_arr = np.zeros(Nt, dtype=datetime.datetime)
+        for i, s in zip(range(Nt), stepStrs):
+            s5 = f5[s]
+            t = s5.attrs['time']
+            MJD = s5.attrs.get('MJD',0)
+            #Do our own UT calculation to remove subseconds
+            if MJD is not 0:
+                if noSubSec:
+                    UTStr = Time(MJD,format='mjd').isot
+                    utTrim = UTStr.split('.')[0]
+                    UT = datetime.datetime.strptime(utTrim,'%Y-%m-%dT%H:%M:%S')
+                else:
+                    UT = kt.MJD2UT(MJD)
+            else:
+                UT = 0
+            
+            t_arr[i] = t
+            MJD_arr[i] = MJD
+            UT_arr[i] = UT
+
+        f5.close()
+
+        return H5Info(fname, Nt, steps, stepStrs, t_arr, MJD_arr, UT_arr)
+
+    def printStepInfo(self):
+        print("{} Step Info:".format(self.fname))
+        sStart = self.steps[0]
+        sEnd = self.steps[-1]
+        sStride = self.steps[1] - self.steps[0]
+        print("  Step start/end/stride: {}/{}/{}".format(sStart, sEnd, sStride))
+        tStart = self.times[0]
+        tEnd = self.times[-1]
+        tStride = self.times[1] - self.times[0]
+        print("  Time start/end/stride: {:1.2f}/{:1.2f}/{:1.2f}".format(tStart, tEnd, tStride))
+        mjdStart = self.MJDs[0]
+        mjdEnd = self.MJDs[-1]
+        print("  MJD  start/end: {:1.2f}/{:1.2f}".format(mjdStart, mjdEnd))
+        utStart = self.UTs[0]
+        utEnd = self.UTs[-1]
+        print("  UT   start/end: {:1.2f}/{:1.2f}".format(utStart, utEnd))
 
 #Generate MPI-style name
 def genName(bStr,i,j,k,Ri,Rj,Rk,nRes=None):
