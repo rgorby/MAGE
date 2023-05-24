@@ -38,7 +38,7 @@ def plotLonColat(Ax, lon, colat, var, unit="deg", norm=None, cmap='viridis'):
     Ax.pcolormesh(lon, colat, var, norm=norm, cmap=cmap)
     Ax.set_xlabel("Longitude " + uStr)
     Ax.set_ylabel("Colatitude " + uStr)
-    Ax.set_ylim([cMin, cMax])
+    #Ax.set_ylim([cMin, cMax])
 
 def plotIono(Ax, lon, colat, var, norm=None, cmap='viridis', Riono=1):
     """ Simple plot function to show ionosphere projection

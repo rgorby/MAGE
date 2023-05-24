@@ -74,9 +74,15 @@ if __name__=="__main__":
     colat = sif5['X'][:]
     lon = sif5['Y'][:]
 
-    espot = s5['espot'][:]
     mask = su.getMask(s5)
-    espot_m = np.ma.masked_where(mask, espot)
+
+    espot_m = np.ma.masked_where(mask, s5['espot'][:])
+
+    bVol_m = np.ma.masked_where(mask, s5['bVol'][:])
+    bVolNorm = kv.genNorm(np.min(bVol_m), np.max(bVol_m),doLog=True)
+
+    Pmhd_m = np.ma.masked_where(mask, s5['Pavg_in'][:][0])
+    pmhdNorm = kv.genNorm(np.min(Pmhd_m), np.max(Pmhd_m))
 
     # Plot setup
     fig = plt.figure(1,figsize=(14,10))
@@ -88,19 +94,8 @@ if __name__=="__main__":
     AxXYMin = fig.add_subplot(gs[2,0])
 
     su.plotLonColat(AxLC, lon, colat, s5['OCBDist'][:])
-    su.plotIono(AxPolar, lon, colat, s5['espot'][:])
-    su.plotXYMin(AxXYMin, s5['xmin'][:], s5['ymin'][:], espot_m)
+    su.plotIono(AxPolar, lon, colat, espot_m)
+    #su.plotIono(AxPolar, lon, colat, s5['OCBDist'][:])
+    su.plotXYMin(AxXYMin, s5['xmin'][:], s5['ymin'][:], Pmhd_m, norm=pmhdNorm)
     kv.setBndsByAspect(AxXYMin, [-20, 20])
-    #plt.colorbar()
     plt.show()
-
-    """
-    colat = sif5['X'][:]
-    lon = sif5['Y'][:]
-    colat_deg = colat*180/np.pi
-    lon_deg = lon*180/np.pi
-    plt.pcolormesh(lon_deg,colat_deg,s5['OCBDist'][:])
-    plt.ylim([np.max(colat_deg), np.min(colat_deg)])
-    plt.colorbar()
-    plt.show()
-    """

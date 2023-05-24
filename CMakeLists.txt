@@ -63,7 +63,7 @@ set(GAMIC ${GAMICDEF} CACHE FILEPATH "Gamera IC file")
 file(GLOB VOLTICDEF src/voltron/ICs/earthcmi.F90)
 set(VOLTIC ${VOLTICDEF} CACHE FILEPATH "Voltron IC file")
 
-file(GLOB SIFICDEF src/sif/ICs/testIC.F90)
+file(GLOB SIFICDEF src/voltron/ICs/sifOwdIC.F90)
 set(SIFIC ${SIFICDEF} CACHE FILEPATH "SIF IC file")
 
 file(GLOB TPICDEF src/chimp/tpICs/tpICstd.F90)

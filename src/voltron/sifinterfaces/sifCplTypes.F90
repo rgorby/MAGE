@@ -17,6 +17,8 @@ module sifCplTypes
             !! imagTubes with field-line averaged info
         real(rp), dimension(:,:), allocatable :: pot
             !! electrostatic potential from ionosphere [kV]
+        procedure(sifMHD2SpcMap_T), pointer, nopass :: mhd2spcMap => NULL()
+            !! This is called by convertToSIF to map MHD fluids to SIF species
 
     end type sif_fromV_T
     
@@ -36,20 +38,18 @@ module sifCplTypes
             !! Updates fromV object using Voltron information, then puts it into SIF
         procedure(sifCpl_s2v_T), pointer ::  convertToVoltron => NULL()
             !! Updates toV object using SIF information, then puts it into Voltron
-
     end type sif_cplBase_T
 
-
-   
 
 
     abstract interface
         subroutine sifCpl_v2s_T(cplBase, vApp, sApp)
             Import :: sif_cplBase_T, voltApp_T, sifApp_T
-            class(sif_cplBase_T), intent(inout) :: cplBase
+            class(sif_cplBase_T), intent(in) :: cplBase
             type(voltApp_T), intent(in   ) :: vApp
             type(sifApp_T ), intent(inout) :: sApp
         end subroutine sifCpl_v2s_T
+
 
         subroutine sifCpl_s2v_T(cplBase, vApp, sApp)
             Import :: sif_cplBase_T, voltApp_T, sifApp_T
@@ -58,6 +58,14 @@ module sifCplTypes
             type(sifApp_T) , intent(in   ) :: sApp
         end subroutine sifCpl_s2v_T
 
+
+        subroutine sifMHD2SpcMap_T(Model, Grid, State, fromV)
+            Import :: sifModel_T, sifGrid_T, sifState_T, sif_fromV_T
+            type(sifModel_T) , intent(in) :: Model
+            type(sifGrid_T)  , intent(in) :: Grid
+            type(sifState_T) , intent(inout) :: State
+            type(sif_fromV_T), intent(in) :: fromV
+        end subroutine sifMHD2SpcMap_T
     end interface
 
 

@@ -1,4 +1,4 @@
-module sific
+module sifICHelpers
     use kdefs
     use XML_Input
     use planethelper
@@ -42,8 +42,8 @@ module sific
         State%topo = 1  ! Everything closed
         State%active = 1 ! Everything active
         State%espot = 0.0
-        State%thc = 0.0  ! Conjugate points are the same
-        State%phc = 0.0
+        State%thcon = 0.0  ! Conjugate points are the same
+        State%phcon = 0.0
         State%bvol = 0.0
 
         ! Ni+1, Nj+1 variables
@@ -52,6 +52,9 @@ module sific
             do j=Grid%shGrid%js,Grid%shGrid%je+1
                 State%xyzMin(i,j,XDIR) = L*cos(Grid%shGrid%ph(j))
                 State%xyzMin(i,j,YDIR) = L*sin(Grid%shGrid%ph(j))
+            ! Conjugate points
+                State%thcon(i,j) = Grid%shGrid%th(i)
+                State%phcon(i,j) = Grid%shGrid%ph(j)
             enddo
         enddo
 
@@ -89,10 +92,6 @@ module sific
             ! Bmin surface vars
                 State%Bmin(i,j,ZDIR) = Model%planet%magMoment/L**3.0
                 State%bvol(i,j) = bVol
-            
-            ! Conjugate points
-                State%thc(i,j) = Grid%shGrid%thc(i)
-                State%phc(i,j) = Grid%shGrid%phc(j)
     
             ! Electrostatic potential [kV]
                 ! Taken from Toffoletto's rcm.x
@@ -107,4 +106,4 @@ module sific
 
     end subroutine initSifIC_DIP
 
-end module sific
+end module sifICHelpers

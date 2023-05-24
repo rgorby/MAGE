@@ -101,7 +101,8 @@ program sifx
             ! Populate sif's fromV object with updated model info
             call packFromV(sifCplBase%fromV, vApp, rmState, sApp)
             ! Now put fomV info into sif's State
-            call sifCpl_Volt2SIF(sifCplBase, vApp, sApp)
+            call sifCplBase%convertToSIF(sifCplBase, vApp, sApp)
+            !call sifCpl_Volt2SIF(sifCplBase, vApp, sApp)
 
 
             ! Advance model times

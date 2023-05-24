@@ -5,6 +5,7 @@ module siftypes
     use xml_input
     use ioclock
 
+
     use sifdefs
 
     implicit none
@@ -58,8 +59,10 @@ module siftypes
         character(len=strLen) :: SIFH5
             !! Filename of the h5 file we output to
         
-        integer :: nSpc, nG
-            !! Number of species, # ghosts, # coupling boundary cells
+        integer :: nSpc, nSpcMHD, nG
+            !! Number of species in sif
+            !! Number of species/fluids in MHD
+            !! # ghosts
         real(rp) :: t0, tFin, dt
             !! Start and end time, delta coupling time (may be replaced/ignored later by voltron setting a dynamic coupling time)
         
@@ -76,7 +79,7 @@ module siftypes
         logical :: doPlasmasphere
             !! Use for now to determine if we should be doing plasmasphere stuff
             !! Likely, in the future, we will determine automatically by the presence of a flavor 0
-        ! TODO: Extra params for efilling rate, determining initial profile, etc.
+        ! TODO: Extra params for refilling rate, determining initial profile, etc.
 
         ! Lambda controls
         real(rp) :: kappa
@@ -90,10 +93,11 @@ module siftypes
         !type(precip_T) :: precip  ! Precipitation model info (Shanshan and Dong)
         !type(waveModel_T) :: wModel  ! Wave model info (Shanshan)
 
-
-        procedure(sifStateIC_T  ), pointer, nopass :: initState => NULL()
-        procedure(sifUpdateV_T  ), pointer, nopass :: updateV   => NULL()
-        procedure(sifDP2EtaMap_T), pointer, nopass :: dp2etaMap => NULL()
+        character(len=strLen) :: icStr
+        procedure(sifStateIC_T     ), pointer, nopass :: initState => NULL()
+        procedure(sifUpdateV_T     ), pointer, nopass :: updateV   => NULL()
+        !> TODO: Retire this and just have a single function with certain options like maxwellian or kappa
+        procedure(sifDP2EtaMap_T   ), pointer, nopass :: dp2etaMap => NULL()
 
     end type sifModel_T
 
@@ -164,12 +168,12 @@ module siftypes
         real(rp), dimension(:,:,:), allocatable :: xyzMin
         !> (Ni+1, Nk+1) corner values
         integer , dimension(:,:), allocatable :: topo    ! Topology (0=open, 1=closed)
+        real(rp), dimension(:,:), allocatable :: thcon  ! Co-latitude  of conjugate points
+        real(rp), dimension(:,:), allocatable :: phcon  ! Longitude of conjugate points
         !> (Ni, Nj)
         integer , dimension(:,:), allocatable :: active  ! (-1=inactive, 0=buffer, 1=active)
         integer , dimension(:,:), allocatable :: OCBDist  ! Cell distance from open-closed boundary
         real(rp), dimension(:,:), allocatable :: espot  ! electro-static potential from REMIX [kV]
-        real(rp), dimension(:,:), allocatable :: thc  ! Co-latitude  of conjugate points
-        real(rp), dimension(:,:), allocatable :: phc  ! Longitude of conjugate points
         real(rp), dimension(:,:), allocatable :: bvol  ! Flux-tube volume [Rx/nT]
 
         !> Varibles coming from SIF, size (Ni, Nj, Nk)

@@ -13,6 +13,12 @@ import kaipy.kdefs as kdefs
 @dataclass_json
 @dataclass
 class H5Info:
+    """ Class to hold model data information from h5 output files
+		  ex: sliceInfo = H5Info.getInfo(sliceFilename)
+		dataclass_json makes sure it is serializable so you can read/write to json format easily
+		  ex: kaijson.dump(sliceInfo.to_dict(), jsonFilename)
+		      sliceInfo = H5Info.from_dict(kaijson.load(jsonFilename))
+	"""
     fname   : str
     Nt      : int
     steps   : List[float]
@@ -37,9 +43,9 @@ class H5Info:
             s5 = f5[s]
             t = s5.attrs['time']
             MJD = s5.attrs.get('MJD',0)
-            #Do our own UT calculation to remove subseconds
             if MJD is not 0:
                 if noSubSec:
+		    		# Do our own UT calculation to remove subseconds if desired
                     UTStr = Time(MJD,format='mjd').isot
                     utTrim = UTStr.split('.')[0]
                     UT = datetime.datetime.strptime(utTrim,'%Y-%m-%dT%H:%M:%S')
@@ -47,7 +53,7 @@ class H5Info:
                     UT = kt.MJD2UT(MJD)
             else:
                 UT = 0
-            
+
             t_arr[i] = t
             MJD_arr[i] = MJD
             UT_arr[i] = UT

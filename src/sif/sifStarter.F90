@@ -9,7 +9,7 @@ module sifstarter
     use sifgrids
     use sifetautils
     use sifout
-    use sific
+    use sifICHelpers
     use sifuseric
 
     implicit none
@@ -174,8 +174,6 @@ module sifstarter
         type(sifState_T), intent(inout) :: State
         type(XML_Input_T), intent(in)   :: iXML
 
-        character(len=strLen) :: icStr
-
     ! Allocate arrays
         ! Where we keep all our stuff
         allocate( State%eta (Grid%shGrid%Nt, Grid%shGrid%Np, Grid%Nk) )
@@ -188,13 +186,13 @@ module sifstarter
         ! Bmin surface
         allocate( State%Bmin  (Grid%shGrid%Nt  , Grid%shGrid%Np  , 3 ) )
         allocate( State%xyzMin(Grid%shGrid%Nt+1, Grid%shGrid%Np+1, 3 ) )
+        allocate( State%thcon (Grid%shGrid%Nt+1, Grid%shGrid%Np+1    ) )
+        allocate( State%phcon (Grid%shGrid%Nt+1, Grid%shGrid%Np+1    ) )
         ! 2D corner quantities
         allocate( State%topo  (Grid%shGrid%Nt+1, Grid%shGrid%Np+1) )
         ! 2D cell-centered quantities
         allocate( State%active (Grid%shGrid%Nt, Grid%shGrid%Np) )
         allocate( State%OCBDist(Grid%shGrid%Nt, Grid%shGrid%Np) )
-        allocate( State%thc    (Grid%shGrid%Nt, Grid%shGrid%Np) )
-        allocate( State%phc    (Grid%shGrid%Nt, Grid%shGrid%Np) )
         allocate( State%espot  (Grid%shGrid%Nt, Grid%shGrid%Np) )
         allocate( State%bvol   (Grid%shGrid%Nt, Grid%shGrid%Np) )
         ! Coupling output data
@@ -210,15 +208,16 @@ module sifstarter
         State%ts = 0
 
     ! Init state
-        call iXML%Set_Val(icStr, "prob/IC","DIP")
-        select case(trim(icStr))
+        call iXML%Set_Val(Model%icStr, "prob/IC","DIP")
+        select case(trim(Model%icStr))
             case("DIP")
                 !! Simple Maxwellian in a dipole field
                 Model%initState => initSifIC_DIP
             case("USER")
                 ! Call the IC in the module sifuseric
                 ! This module is set in cmake via the SIFIC variable
-                call SIFinitStateUserIC(Model, Grid, State, iXML)
+                Model%initState => SIFinitStateUserIC
+                !call SIFinitStateUserIC(Model, Grid, State, iXML)
             case DEFAULT
                 write(*,*)"Invalid IC name to SIF, see sifStarter.F90:sifInitState. Bye."
                 stop
