@@ -21,9 +21,10 @@ program sifx
 
     ! Voltron stuff
     use volttypes
+    use sifuseric
     use sifCplTypes
     use sifCpl
-    use sifOWDcpl
+    use sifowdcpl
 
     implicit none
 
@@ -101,8 +102,7 @@ program sifx
             ! Populate sif's fromV object with updated model info
             call packFromV(sifCplBase%fromV, vApp, rmState, sApp)
             ! Now put fomV info into sif's State
-            call sifCplBase%convertToSIF(sifCplBase, vApp, sApp)
-            !call sifCpl_Volt2SIF(sifCplBase, vApp, sApp)
+            call sifCpl_Volt2SIF(sifCplBase, vApp, sApp)
 
 
             ! Advance model times

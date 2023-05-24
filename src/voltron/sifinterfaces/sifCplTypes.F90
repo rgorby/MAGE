@@ -43,6 +43,7 @@ module sifCplTypes
 
 
     abstract interface
+
         subroutine sifCpl_v2s_T(cplBase, vApp, sApp)
             Import :: sif_cplBase_T, voltApp_T, sifApp_T
             class(sif_cplBase_T), intent(in) :: cplBase
@@ -59,12 +60,12 @@ module sifCplTypes
         end subroutine sifCpl_s2v_T
 
 
-        subroutine sifMHD2SpcMap_T(Model, Grid, State, fromV)
-            Import :: sifModel_T, sifGrid_T, sifState_T, sif_fromV_T
+        subroutine sifMHD2SpcMap_T(Model, Grid, State, ijTubes)
+            Import :: sifModel_T, sifGrid_T, sifState_T, IMAGTube_T
             type(sifModel_T) , intent(in) :: Model
             type(sifGrid_T)  , intent(in) :: Grid
             type(sifState_T) , intent(inout) :: State
-            type(sif_fromV_T), intent(in) :: fromV
+            type(IMAGTube_T),  dimension(:,:), intent(in) :: ijTubes
         end subroutine sifMHD2SpcMap_T
     end interface
 

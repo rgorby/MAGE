@@ -10,7 +10,6 @@ module sifstarter
     use sifetautils
     use sifout
     use sifICHelpers
-    use sifuseric
 
     implicit none
 
@@ -24,7 +23,6 @@ module sifstarter
     subroutine sifInit(app, iXML)
         type(sifApp_T), intent(inout) :: app
         type(XML_Input_T), intent(in) :: iXML
-
         ! Init model, grid, state
         call sifInitModel(app%Model, iXML)
         call sifInitGrid(app%Model, app%Grid, iXML)
@@ -216,8 +214,9 @@ module sifstarter
             case("USER")
                 ! Call the IC in the module sifuseric
                 ! This module is set in cmake via the SIFIC variable
-                Model%initState => SIFinitStateUserIC
-                !call SIFinitStateUserIC(Model, Grid, State, iXML)
+                !Model%initState => userInitStateFunc
+                write(*,*)"User initState not yet implemented"
+                stop
             case DEFAULT
                 write(*,*)"Invalid IC name to SIF, see sifStarter.F90:sifInitState. Bye."
                 stop
@@ -226,13 +225,6 @@ module sifstarter
         call Model%initState(Model, Grid, State, iXML)
 
     end subroutine sifInitState
-
-
-!------
-! Defaults
-!------
-
-
 
 
 end module sifstarter

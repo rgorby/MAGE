@@ -1,9 +1,9 @@
 module sifuseric
     !! IC for one way driving
     use XML_Input
+    use volttypes
 
     use sifTypes
-    use sifCplTypes
 
     implicit none
 
@@ -19,16 +19,5 @@ module sifuseric
         write(*,*)"lol"
         stop
     end subroutine SIFinitStateUserIC
-
-
-    subroutine SIFinitCplUserIC(Model,Grid,State,cplBase)
-        type(sifModel_T) , intent(in)    :: Model
-        type(sifGrid_T)  , intent(in)    :: Grid
-        type(sifState_T) , intent(in) :: State
-        type(sif_cplBase_T), intent(inout) :: cplBase
-
-        write(*,*)"lol"
-        stop
-    end subroutine SIFinitCplUserIC
 
 end module sifuseric

@@ -7,8 +7,6 @@ module sifCpl
     use sifdefs
     use sifTypes
     use sifCplTypes
-    use sifuseric
-
     implicit none
 
     contains
@@ -41,7 +39,10 @@ module sifCpl
         ! If using user IC, let user determine coupling
         !  (this assumes icStr was already set by sifInitState)
         if (trim(sApp%Model%icStr) .eq. "USER") then
-            call SIFinitCplUserIC(sApp%Model, sApp%Grid, sApp%State, cplBase)
+            !call SIFinitCplUserIC(sApp%Model, sApp%Grid, sApp%State, cplBase)
+            !call userInitCplFunc(vApp, sApp, cplBase)
+            write(*,*) "Can't do user initCpl yet"
+            stop
         else
             ! Point to default coupling functions
             cplBase%convertToSIF => sifCpl_Volt2SIF
@@ -199,19 +200,20 @@ module sifCpl
             enddo
 
             ! Use IC definition to map moments
-            ! call f_MHD2SpcMap(Model, Grid, State, fromV)
+            call f_MHD2SpcMap(Model, Grid, State, ijTubes)
+
         end associate
         
     end subroutine imagTubes2SIF
 
-    subroutine defaultMHD2SpcMap(Model, Grid, State, fromV)
+    subroutine defaultMHD2SpcMap(Model, Grid, State, ijTubes)
         !! Assumes:
         !!  MHD: single fluid
         !!  SIF: zero-energy psphere, hot electrons, hot protons
         type(sifModel_T) , intent(in) :: Model
         type(sifGrid_T)  , intent(in) :: Grid
         type(sifState_T) , intent(inout) :: State
-        type(sif_fromV_T), intent(in) :: fromV
+        type(IMAGTube_T),  dimension(:,:), intent(in) :: ijTubes
 
         write(*,*) "TBD lol"
         stop
