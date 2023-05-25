@@ -23,19 +23,23 @@ DCM = "copper_r"
 
 #limits for iSlice
 #21.5 R_S
-#D0Max = 1000.
-#D0Min = 300.
+D0Max = 2000.
+D0Min = 300.
 #1 au
-D0Max = 1.
-D0Min = 15.
+#D0Max = 1.
+#D0Min = 15.
 D0CM = "copper_r"
 
 TMin = 0.2
 TMax = 2.
 TCM = "copper"
 
-T0Min = 0.1
-T0Max = 0.5
+#1AU
+#T0Min = 0.1
+#T0Max = 0.5
+#21.5 R_S
+T0Min = 0.2
+T0Max = 2.0
 
 BMax = 150.
 BMin = -150.
@@ -43,8 +47,12 @@ BMin = -150.
 #BMin = -5.
 BCM = "coolwarm"
 
-B0Min = -4.
-B0Max = 4.
+#1 AU
+#B0Min = -4.
+#B0Max = 4.
+#21.5 R_S
+B0Min = -150.
+B0Max = 150.
 
 colorProf = "tab:orange"
 #Function to Add different size options to argument
@@ -377,7 +385,7 @@ def PlotEqBz(gsph,nStp,xyBds,Ax,AxCB=None,doClear=True,doDeco=True):
 
 
 #Plot Speed at 1 AU
-def PlotiSlMagV(gsph,nStp,xyBds,Ax,AxCB=None,doClear=True,doDeco=True):
+def PlotiSlMagV(gsph,nStp,xyBds,Ax,AxCB=None,doClear=True,doDeco=True,idx=-1):
     vMagV = kv.genNorm(VMin, VMax, doLog=False, midP=None)
 
     if (AxCB is not None):
@@ -389,8 +397,8 @@ def PlotiSlMagV(gsph,nStp,xyBds,Ax,AxCB=None,doClear=True,doDeco=True):
     if (doClear):
         Ax.clear()
 
-    V = gsph.iSliceMagV(nStp)
-    lat, lon = gsph.iSliceGrid()
+    V = gsph.iSliceMagV(nStp,idx=idx)
+    lat, lon = gsph.iSliceGrid(idx=idx)
     Ax.pcolormesh(lon,lat,V,cmap=MagVCM,norm=vMagV)
 
     kv.SetAx(xyBds,Ax)
@@ -401,7 +409,7 @@ def PlotiSlMagV(gsph,nStp,xyBds,Ax,AxCB=None,doClear=True,doDeco=True):
     return V
 
 #Plot Density at 1 AU
-def PlotiSlD(gsph,nStp,xyBds,Ax,AxCB=None,doClear=True,doDeco=True):
+def PlotiSlD(gsph,nStp,xyBds,Ax,AxCB=None,doClear=True,doDeco=True,idx=-1):
     vD = kv.genNorm(D0Min, D0Max, doLog=False, midP=None)
     if (AxCB is not None):
         AxCB.clear()
@@ -410,8 +418,8 @@ def PlotiSlD(gsph,nStp,xyBds,Ax,AxCB=None,doClear=True,doDeco=True):
     if (doClear):
         Ax.clear()
 
-    D = gsph.iSliceD(nStp)
-    lat, lon = gsph.iSliceGrid()
+    D = gsph.iSliceD(nStp,idx=idx)
+    lat, lon = gsph.iSliceGrid(idx=idx)
     Ax.pcolormesh(lon,lat,D,cmap=D0CM,norm=vD)
     kv.SetAx(xyBds,Ax)
 
@@ -423,7 +431,7 @@ def PlotiSlD(gsph,nStp,xyBds,Ax,AxCB=None,doClear=True,doDeco=True):
     return D
 
 #Plot Br and current sheet (Br=0) at 1 AU
-def PlotiSlBr(gsph,nStp,xyBds,Ax,AxCB=None,doClear=True,doDeco=True):
+def PlotiSlBr(gsph,nStp,xyBds,Ax,AxCB=None,doClear=True,doDeco=True,idx=-1):
     vB = kv.genNorm(B0Min, B0Max, doLog=False, midP=None)
     if (AxCB is not None):
         AxCB.clear()
@@ -431,8 +439,8 @@ def PlotiSlBr(gsph,nStp,xyBds,Ax,AxCB=None,doClear=True,doDeco=True):
     if (doClear):
         Ax.clear()
 
-    Br = gsph.iSliceBr(nStp)
-    lat, lon = gsph.iSliceGrid()
+    Br = gsph.iSliceBr(nStp,idx=idx)
+    lat, lon = gsph.iSliceGrid(idx=idx)
     #for contour cell-centered lon lat coordinates
     lon_c = 0.25*( lon[:-1,:-1]+lon[:-1,1:]+lon[1:,:-1]+lon[1:,1:] )
     lat_c = 0.25*( lat[:-1,:-1]+lat[:-1,1:]+lat[1:,:-1]+lat[1:,1:] )
@@ -451,7 +459,7 @@ def PlotiSlBr(gsph,nStp,xyBds,Ax,AxCB=None,doClear=True,doDeco=True):
     return Br
 
 #Plot Br and current sheet (Br=0) at certain distance set in iSliceBr
-def PlotiSlBrRotatingFrame(gsph,nStp,xyBds,Ax,AxCB=None,doClear=True,doDeco=True):
+def PlotiSlBrRotatingFrame(gsph,nStp,xyBds,Ax,AxCB=None,doClear=True,doDeco=True,idx=-1):
     BMin = -5.
     BMax = 5.
     vB = kv.genNorm(BMin, BMax, doLog=False, midP=None)
@@ -462,8 +470,8 @@ def PlotiSlBrRotatingFrame(gsph,nStp,xyBds,Ax,AxCB=None,doClear=True,doDeco=True
         Ax.clear()
 
     #Br from the i=0
-    Br = gsph.iSliceBrBound(nStp)
-    lat, lon = gsph.iSliceGrid()
+    Br = gsph.iSliceBrBound(nStp,idx=idx)
+    lat, lon = gsph.iSliceGrid(idx=idx)
     
     #transform into rotating frame
     #Julian date of the initial map
@@ -506,7 +514,7 @@ def PlotiSlBrRotatingFrame(gsph,nStp,xyBds,Ax,AxCB=None,doClear=True,doDeco=True
 
 
 #Plot Temperature at 1 AU
-def PlotiSlTemp(gsph,nStp,xyBds,Ax,AxCB=None,doClear=True,doDeco=True):
+def PlotiSlTemp(gsph,nStp,xyBds,Ax,AxCB=None,doClear=True,doDeco=True,idx=-1):
     vT = kv.genNorm(T0Min, T0Max, doLog=False, midP=None)
 
     if (AxCB is not None):
@@ -515,8 +523,8 @@ def PlotiSlTemp(gsph,nStp,xyBds,Ax,AxCB=None,doClear=True,doDeco=True):
     if (doClear):
         Ax.clear()
 
-    Temp = gsph.iSliceT(nStp)    
-    lat, lon = gsph.iSliceGrid()
+    Temp = gsph.iSliceT(nStp,idx=idx)    
+    lat, lon = gsph.iSliceGrid(idx=idx)
     Ax.pcolormesh(lon,lat,Temp,cmap=TCM,norm=vT)
 
     kv.SetAx(xyBds,Ax)

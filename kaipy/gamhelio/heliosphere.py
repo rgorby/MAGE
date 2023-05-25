@@ -191,7 +191,7 @@ class GamsphPipe(GameraPipe):
 		return xright, yright, zright, xleft, yleft, zleft, r
 
 	#Grid at 1 AU lat lon
-	def iSliceGrid(self):
+	def iSliceGrid(self,idx=-1):
 		#Get Grid
 		self.GetGrid(doVerbose=True)
 
@@ -206,8 +206,8 @@ class GamsphPipe(GameraPipe):
 		phi = phi*180./np.pi
 
 		#last i-index == face of the last cell
-		lat = theta[-1,::-1,:]
-		lon = phi[-1,:,:]
+		lat = theta[idx,::-1,:]
+		lon = phi[idx,:,:]
 		#these are corners
 
 		return lat, lon
@@ -306,24 +306,24 @@ class GamsphPipe(GameraPipe):
 		return Flux
 
 	#Speed at 1 AU
-	def iSliceMagV(self,s0=0):
-		Vx = self.iSliceVar("Vx",s0) #Unscaled
-		Vy = self.iSliceVar("Vy",s0) #Unscaled
-		Vz = self.iSliceVar("Vz",s0) #Unscaled
+	def iSliceMagV(self,s0=0,idx=-1):
+		Vx = self.iSliceVar("Vx",s0,idx=idx) #Unscaled
+		Vy = self.iSliceVar("Vy",s0,idx=idx) #Unscaled
+		Vz = self.iSliceVar("Vz",s0,idx=idx) #Unscaled
 		Vi = self.vScl*np.sqrt(Vx**2.0+Vy**2.0+Vz**2.0)
 		return Vi
 
 	#Density at 1 AU
-	def iSliceD(self,s0=0):
-		Di = self.iSliceVar("D",s0) #Unscaled
+	def iSliceD(self,s0=0,idx=-1):
+		Di = self.iSliceVar("D",s0,idx=idx) #Unscaled
 		Di = Di*self.dScl
 		return Di
 
 	#Br at 1 AU
-	def iSliceBr(self,s0=0):
-		Bx = self.iSliceVar("Bx",s0) #Unscaled
-		By = self.iSliceVar("By",s0) #Unscaled
-		Bz = self.iSliceVar("Bz",s0) #Unscaled
+	def iSliceBr(self,s0=0,idx=-1):
+		Bx = self.iSliceVar("Bx",s0,idx=idx) #Unscaled
+		By = self.iSliceVar("By",s0,idx=idx) #Unscaled
+		Bz = self.iSliceVar("Bz",s0,idx=idx) #Unscaled
 
 		self.GetGrid(doVerbose=True)
 		x = self.X[-1,:,:]
@@ -337,8 +337,8 @@ class GamsphPipe(GameraPipe):
 		return Br
 
 	#Bx at 1AU
-	def iSliceBx(self,s0=0):
-		Bx = self.iSliceVar("Bx",s0) #Unscaled
+	def iSliceBx(self,s0=0,idx=-1):
+		Bx = self.iSliceVar("Bx",s0,idx=idx) #Unscaled
 
 		self.GetGrid(doVerbose=True)
 		x = self.X[-1,:,:]
@@ -350,8 +350,8 @@ class GamsphPipe(GameraPipe):
 		return BxScl
 
 	#By at 1AU
-	def iSliceBy(self,s0=0):
-		By = self.iSliceVar("By",s0) #Unscaled
+	def iSliceBy(self,s0=0,idx=-1):
+		By = self.iSliceVar("By",s0,idx=idx) #Unscaled
 
 		self.GetGrid(doVerbose=True)
 		y = self.Y[-1,:,:]
@@ -361,8 +361,8 @@ class GamsphPipe(GameraPipe):
 		return ByScl
 	
 	#Bz at 1AU
-	def iSliceBz(self,s0=0):
-		Bz = self.iSliceVar("Bz",s0) #Unscaled
+	def iSliceBz(self,s0=0,idx=-1):
+		Bz = self.iSliceVar("Bz",s0,idx=idx) #Unscaled
 
 		self.GetGrid(doVerbose=True)
 		z = self.Z[-1,:,:]
@@ -373,10 +373,10 @@ class GamsphPipe(GameraPipe):
 		return BzScl
 	
 	#Br at first cell
-	def iSliceBrBound(self,s0=0):
-		Bx = self.iSliceVar("Bx",s0) #Unscaled
-		By = self.iSliceVar("By",s0) #Unscaled
-		Bz = self.iSliceVar("Bz",s0) #Unscaled
+	def iSliceBrBound(self,s0=0,idx=-1):
+		Bx = self.iSliceVar("Bx",s0,idx=idx) #Unscaled
+		By = self.iSliceVar("By",s0,idx=idx) #Unscaled
+		Bz = self.iSliceVar("Bz",s0,idx=idx) #Unscaled
 
 		self.GetGrid(doVerbose=True)
 		x = self.X[0,:,:]
@@ -391,9 +391,9 @@ class GamsphPipe(GameraPipe):
 		return Br
 
 	#temperature at 1 AU
-	def iSliceT(self,s0=0):
-		Pi = self.iSliceVar("P",s0) #Unscaled
-		Di = self.iSliceVar("D",s0) #Unscaled
+	def iSliceT(self,s0=0,idx=-1):
+		Pi = self.iSliceVar("P",s0,idx=idx) #Unscaled
+		Di = self.iSliceVar("D",s0,idx=idx) #Unscaled
 
 		Temp = Pi/Di*self.TScl
 		return Temp

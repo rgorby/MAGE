@@ -254,10 +254,10 @@ if __name__ == "__main__":
             hviz.PlotMerTemp(gsph, nStp, xyBds, AxL1, AxC1_1,indx=(None,2.95))
             hviz.PlotMerBrNorm(gsph, nStp, xyBds, AxR1, AxC2_1,indx=(None,2.95))
         elif pic == "pic3":
-            hviz.PlotiSlMagV(gsph, nStp, xyBds, AxL0, AxC1_0)
-            hviz.PlotiSlD(gsph, nStp, xyBds, AxR0, AxC2_0)
-            hviz.PlotiSlTemp(gsph, nStp, xyBds, AxL1, AxC1_1)
-            hviz.PlotiSlBr(gsph, nStp, xyBds, AxR1, AxC2_1)
+            hviz.PlotiSlMagV(gsph, nStp, xyBds, AxL0, AxC1_0,idx=0)
+            hviz.PlotiSlD(gsph, nStp, xyBds, AxR0, AxC2_0,idx=0)
+            hviz.PlotiSlTemp(gsph, nStp, xyBds, AxL1, AxC1_1,idx=0)
+            hviz.PlotiSlBr(gsph, nStp, xyBds, AxR1, AxC2_1,idx=0)
         elif pic == "pic4":
             hviz.PlotiSlBrRotatingFrame(gsph, nStp, xyBds, Ax, AxC)
         elif pic == "pic5":
