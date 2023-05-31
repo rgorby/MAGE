@@ -1,13 +1,81 @@
+import h5py as h5
 import numpy as np
 import matplotlib.pyplot as plt
-
+from dataclasses import dataclass
+from dataclasses_json import dataclass_json
+from typing import List
+from bidict import bidict
 
 import kaipy.kaiTools as kt
+import kaipy.kaiH5 as kh5
+
+import kaipy.sif.lambdautils.AlamParams as aP
 
 domain = {"INACTIVE" : -1,
           "BUFFER" : 0,
           "ACTIVE" : 1}
 
+flavs_s = {"PSPH" : 0,  # Flav dict, lookup by string name
+           "HOTE" : 1,
+           "HOTP" : 2}
+flavs_n = bidict(flavs_s).inv  # Flav dict, lookup by index
+
+
+@dataclass_json
+@dataclass
+class SpeciesInfo:
+    N: int
+    flav: int
+    kStart: int
+    kEnd: int
+    numNuc_p: int
+    numNuc_n: int
+    amu: float
+    q: int
+    alami: List[float]
+    name: str = None
+
+@dataclass_json
+@dataclass
+class SIFInfo(kh5.H5Info):
+    species: List[aP.SpecParams] = None
+
+    def getInfo(h5fname, noSubSec=True):
+        # Base 
+        fi = kh5.H5Info.getInfo(h5fname, noSubSec)
+        specs = []
+        with h5.File(h5fname) as f5:
+            for spc_key in f5['Species'].keys():
+                s5 = f5['Species'][spc_key]
+                att = s5.attrs
+                # Determine name if it exists
+                flav = att['flav']
+                if flav in flavs_n.keys():
+                    name = flavs_n[flav]
+                else:
+                    name = None
+                spc = SpeciesInfo(att['N'], att['flav'],
+                                  att['kStart'], att['kEnd']+1,
+                                  att['numNuc_p'], att['numNuc_p'],
+                                  att['amu'], att['q'],
+                                  s5['alami'][:], name)
+                specs.append(spc)
+        # Now make our final object
+        return SIFInfo(fi.fname, fi.Nt, fi.steps, fi.stepStrs, fi.times, fi.MJDs,
+                        fi.UTs, specs)
+    
+def spcIdx(spcList: List[SpeciesInfo], flav: int) -> int:
+    # Get index of a certain species based on its flavor
+    # spcList: list of SpeciesInfo
+    for idx, s in enumerate(spcList):
+        if s.flav == flav:
+            return idx
+    # If here, we didn't find index. Complain
+    print("Warning: spcIdx didn't find flav '{}' in spcList".format(flav))
+    return -1
+
+def getSpcFromNkArr():
+    pass
 
 def getMask(s5, dom="ACTIVE"):
     # s5 = step#X group object
@@ -15,6 +83,7 @@ def getMask(s5, dom="ACTIVE"):
     mask = s5['active'][:] != domain[dom]
         # Only include domain specified by caller
     return mask
+
 
 # TODO:
 #   Calc vcorot, vgc, veffective

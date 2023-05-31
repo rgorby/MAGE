@@ -7,6 +7,7 @@ program sifx
     ! Sif stuff
     use sifdefs
     use sifstarter
+    use sifBCs
 
     ! Chimp stuff
     use ebtypes
@@ -42,6 +43,7 @@ program sifx
     character(len=strLen) :: FLH5
     
     logical :: doChmpOut,doFLOut
+    logical :: isFirstCpl = .true.
 
     associate(ebModel=>vApp%ebTrcApp%ebModel, ebState=>vApp%ebTrcApp%ebState)
             
@@ -104,6 +106,10 @@ program sifx
             ! Now put fomV info into sif's State
             call sifCpl_Volt2SIF(sifCplBase, vApp, sApp)
 
+        ! Step SIF
+            call sifAdvance(sApp%Model,sApp%Grid,sApp%State, isFirstCpl)
+            !isFirstCpl = .false.
+
 
             ! Advance model times
             sApp%State%t  = sApp%State%t  + sApp%Model%dt
@@ -120,9 +126,36 @@ program sifx
 
     contains
 
+    subroutine sifAdvance(Model, Grid, State, isFirstCplO)
+        type(sifModel_T), intent(in) :: Model
+        type(sifGrid_T) , intent(in) :: Grid
+        type(sifState_T), intent(inout) :: State
+        logical, optional, intent(in) :: isFirstCplO
+
+        logical :: isFirstCpl
+
+        if (present(isFirstCplO)) then
+            isFirstCpl = isFirstCplO
+        else
+            isFirstCpl = .false.
+        endif
+
+        ! Moments to etas
+        call applySifBCs(Model, Grid, State, isFirstCpl) ! If isFirstCpl, we want to apply mom2eta to whole domain
+        ! Calc cell velocities
+        ! Determine active domain for each lambda
+        ! Calc sub-time step
+        ! Step
+            ! Push
+            ! Losses
+        ! etas to moments
+        call EvalMoments(Grid, State)
+
+    end subroutine sifAdvance
+
     subroutine WriteRCMFLs(RCMFLs,nOut,MJD,time,Ni,Nj)
-        USE ebtypes
-        use rice_housekeeping_module, ONLY : nSkipFL
+        use ebtypes
+        use rice_housekeeping_module, only : nSkipFL
         integer, intent(in) :: nOut,Ni,Nj
         real(rp), intent(in) :: MJD,time
         type(fLine_T), intent(in), dimension(Ni,Nj) :: RCMFLs
@@ -134,7 +167,7 @@ program sifx
         !Bail out if we're not doing this
         if (.not. doFLOut) return
 
-    !Create group and write base data
+        !Create group and write base data
         write(gStr,'(A,I0)') "Step#", nOut
         call AddOutVar(IOVars,"time",time)
         call AddOutVar(IOVars,"MJD",MJD)

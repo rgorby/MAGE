@@ -86,6 +86,8 @@ module sifstarter
         endif
         call iXML%Set_Val(Model%nSpc, "prob/nSpc",Model%nSpc)
 
+        ! Certain physical constants that shouldn't be constants
+        call iXML%Set_Val(Model%tiote, "prob/tiote",4.0)
 
         ! Lambda channel settings
         call iXML%Set_Val(Model%doDynamicLambdaRanges, "lambdas/dynamicRanges",.false.)
@@ -109,11 +111,7 @@ module sifstarter
         !! This should only be kept for as long as planet_T doesn't contain pointers
         !! In this current case, there should be a full copy to our own planet params
         call getPlanetParams(Model%planet, iXML)
-        
-        ! Set up timing
-        !!TODO
-        ! If we are running stand-alone, look for timing info inside SIF XML block
-        ! If voltron is present, look for timing information there
+
 
         !TODO: Add flags to output certain data, like coupling information
 
@@ -172,9 +170,12 @@ module sifstarter
         type(sifState_T), intent(inout) :: State
         type(XML_Input_T), intent(in)   :: iXML
 
-    ! Allocate arrays
+        ! Allocate arrays
+
         ! Where we keep all our stuff
         allocate( State%eta (Grid%shGrid%Nt, Grid%shGrid%Np, Grid%Nk) )
+        ! I shells shat should be evolved for each k
+        allocate( State%activeShells (Grid%shGrid%Nt, Grid%Nk) )
         ! Interface and cell velocities
         allocate( State%iVel(Grid%shGrid%Nt+1, Grid%shGrid%Np+1, Grid%Nk, 2) )
         allocate( State%cVel(Grid%shGrid%Nt  , Grid%shGrid%Np  , Grid%Nk, 2) )

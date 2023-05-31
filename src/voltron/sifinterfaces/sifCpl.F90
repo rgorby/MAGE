@@ -3,10 +3,12 @@ module sifCpl
 
     use math
     use imagtubes
+    use planethelper
 
     use sifdefs
     use sifTypes
     use sifCplTypes
+    use sifSpeciesHelper
     implicit none
 
     contains
@@ -166,6 +168,8 @@ module sifCpl
         type(sifState_T), intent(inout) :: State
 
         integer :: i,j
+        logical, dimension(Grid%shGrid%is:Grid%shGrid%ie,&
+                           Grid%shGrid%js:Grid%shGrid%je) :: isGood
 
         associate(sh=>Grid%shGrid)
             !! TODO: Actual checks and cleaning of data
@@ -186,20 +190,27 @@ module sifCpl
             enddo
 
 
+            ! Make sure we can safely cell-average (all 4 corners are closed field lines)
+            where (State%active .eq. SIFBUFFER .or. State%active .eq. SIFACTIVE)
+                isGood = .true.
+            elsewhere
+                isGood = .false.
+            end where
+
             ! Cell-centered quantities
             !$OMP PARALLEL DO default(shared) collapse(2) &
             !$OMP schedule(dynamic) &
             !$OMP private(i,j)
             do i=sh%is,sh%ie
                 do j=sh%js,sh%je
-                    State%Pavg(i,j,1)    = toCenter2D(ijTubes(i:i+1,j:j+1)%Pave) * 1.0e+9  ! Pa -> nPa
-                    State%Davg(i,j,1)    = toCenter2D(ijTubes(i:i+1,j:j+1)%Nave) * 1.0e-6  ! #/m^3 -> #/cc
-                    State%Bmin(i,j,ZDIR) = toCenter2D(ijTubes(i:i+1,j:j+1)%bmin) * 1.0e+9  ! Tesla -> nT
-                    State%bvol(i,j)      = toCenter2D(ijTubes(i:i+1,j:j+1)%Vol) * 1.0e-9  ! Rp/T -> Rp/nT
+                    if (isGood(i,j)) then
+                        State%Bmin(i,j,ZDIR) = toCenter2D(ijTubes(i:i+1,j:j+1)%bmin) * 1.0e+9  ! Tesla -> nT
+                        State%bvol(i,j)      = toCenter2D(ijTubes(i:i+1,j:j+1)%Vol) * 1.0e-9  ! Rp/T -> Rp/nT
+                    endif
                 enddo
             enddo
 
-            ! Use IC definition to map moments
+            ! Use provided definition to map moments
             call f_MHD2SpcMap(Model, Grid, State, ijTubes)
 
         end associate
@@ -215,8 +226,50 @@ module sifCpl
         type(sifState_T) , intent(inout) :: State
         type(IMAGTube_T),  dimension(:,:), intent(in) :: ijTubes
 
-        write(*,*) "TBD lol"
-        stop
+        integer :: i, j, k, sIdx
+        real(rp) :: P, D
+        logical, dimension(Grid%shGrid%is:Grid%shGrid%ie,&
+                           Grid%shGrid%js:Grid%shGrid%je) :: isGood
+
+        ! First clear out our previous moments input state
+        State%Pavg = 0.0
+        State%Davg = 0.0
+
+        where (State%active .eq. SIFBUFFER .or. State%active .eq. SIFACTIVE)
+            isGood = .true.
+        elsewhere
+            isGood = .false.
+        end where
+
+        associate(sh=>Grid%shGrid)
+
+            do i=sh%is,sh%ie
+                do j=sh%js,sh%je
+                    if (isGood(i,j)) then
+                        ! This means all 4 corners are good, can do cell centered stuff
+                        P = toCenter2D(ijTubes(i:i+1,j:j+1)%Pave) * 1.0e+9  ! Pa -> nPa
+                        D = toCenter2D(ijTubes(i:i+1,j:j+1)%Nave) * 1.0e-6  ! #/m^3 -> #/cc                      
+
+                        ! First do hot protons
+                        sIdx = spcIdx(Grid, F_HOTP)
+                        State%Pavg(i,j,sIdx) = P / (1.0 + 1.0/Model%tiote)
+                        State%Davg(i,j,sIdx) = D
+
+                        ! Electrons
+                        sIdx = spcIdx(Grid, F_HOTE)
+                        State%Pavg(i,j,sIdx) = P / (1.0 + Model%tiote)
+                        State%Davg(i,j,sIdx) = D
+
+                        !! Note: Plasmasphere input density is zero because we're doing a single fluid
+                    endif
+                enddo
+            enddo
+            sIdx = spcIdx(Grid, F_HOTP)
+            write(*,*)"Max ",sIdx," Davg_in=",maxval(State%Davg(:,:,sIdx))
+            sIdx = spcIdx(Grid, F_HOTE)
+            write(*,*)"Max ",sIdx," Davg_in=",maxval(State%Davg(:,:,sIdx))
+        end associate
+
     end subroutine defaultMHD2SpcMap
 
 

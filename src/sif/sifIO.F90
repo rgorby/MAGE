@@ -155,19 +155,25 @@ module sifIO
         call AddOutVar(IOVars,"Pavg_in",State%Pavg,uStr="nPa")
         call AddOutVar(IOVars,"Davg_in",State%Davg,uStr="#/cc")
 
+        call AddOutVar(IOVars,"activeShells",State%activeShells*1.0_rp,uStr="[Ni, Nk]")
+
     ! Moments
         call AddOutVar(IOVars,"Pressure",State%Press,uStr="nPa")
         ! Add density moment as #/cc instead of amu/cc
         allocate(outDen(Grid%shGrid%Nt,Grid%shGrid%Np,Grid%nSpc+1))
+        ! Convert amu/cc to #/cc
         outDen = 0.0
         do s=1, Grid%nSpc
             outDen(:,:,s+1) = State%Den(:,:,s+1)/Grid%spc(s)%amu
+            write(*,*)"Out Davg ",s,maxval(outDen(:,:,s+1))
+            write(*,*)"Out Davg_in",s,maxval(State%Davg(:,:,s))
             ! Don't include electrons to total number density
             if(Grid%spc(s)%isElectron .eq. .false.) then
                 outDen(:,:,1) = outDen(:,:,1) + outDen(:,:,s+1)
             endif
         enddo
         call AddOutVar(IOVars,"Density",outDen,uStr="#/cc")
+        !call AddOutVar(IOVars,"Density",State%Den,uStr="#/cc")
         deallocate(outDen)
 
 

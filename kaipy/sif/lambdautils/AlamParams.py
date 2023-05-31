@@ -36,7 +36,7 @@ class SpecParams:
 	n: int  # Number of channels
 	amin: float  # Lower lambda bound for species
 	amax: float  # Upper lambda bound for species
-	distType: dT.DistType  # DistType params used to generate final lambad distribution
+	distType: dT.DistType  # DistType params used to generate final lambda distribution
 	flav: int  # "Flavor", used to distinguish species types in RCM
 			   # 0 = 0-channel plasmasphere, 1 = electrons, 2 = protons
 	numNuc_p : int # Number of protons in nucleus

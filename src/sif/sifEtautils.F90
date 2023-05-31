@@ -20,7 +20,9 @@ module sifetautils
 
     contains
 
+!------
 ! High-level control
+!------
     subroutine EvalMoments(Grid, State)
         !! Calculate D,P, and vAvg for all species across entire grid
         type(sifGrid_T) , intent(in)    :: Grid
@@ -56,9 +58,12 @@ module sifetautils
             enddo  ! i
 
             ! Then add each species moment to the bulk
-            do s=2,Grid%nSpc+1
-                State%Den  (:,:,1) = State%Den  (:,:,1) + State%Den  (:,:,s)
-                State%Press(:,:,1) = State%Press(:,:,1) + State%Press(:,:,s)
+            do s=1,Grid%nSpc
+                ! Don't include electrons to total number density
+                if(Grid%spc(s)%isElectron .eq. .false.) then
+                    State%Den  (:,:,1) = State%Den  (:,:,1) + State%Den  (:,:,s+1)
+                endif
+                State%Press(:,:,1) = State%Press(:,:,1) + State%Press(:,:,s+1)
                 ! State%vAvg (:,:,1) = State%vAvg (:,:,1) + State%Den(:,:,s)*State%vAvg (:,:,s)
             enddo
             ! State%vAvg (:,:,1) = State%vAvg (:,:,1) / State%Den(:,:,1)
@@ -68,8 +73,35 @@ module sifetautils
 
 
 
-
+!------
 ! Species-level control
+!------
+    function etak2Den(etak, bVol) result (Dk)
+        !! Takes a single eta value and converts to density
+        real(rp), intent(in) :: etak
+        real(rp), intent(in) ::  bVol
+            !! Flux tube volume [Rx/nT]
+
+        real(rp) :: Dk
+            !! Density [#/cc]
+
+        Dk = (etak/sclEta)/bVol
+    end function etak2Den
+
+
+    function etak2Press(etak, alamc, bVol) result (Pk)
+        !! Takes a single eta value and converts to pressure
+        real(rp), intent(in) :: etak, alamc
+        real(rp), intent(in) ::  bVol
+            !! Flux tube volume [Rx/nT]
+
+        real(rp) :: Pk
+            !! Pressure [nPa]
+
+        !! Note: 10^-9 from 1/sclEta cancels with 10^9 from Pa -> nPa
+        Pk = 2./3.*etak*alamc*bVol**(-5./3.) * ev2J * 1.e6
+    end function etak2Press
+
 
     function SpcEta2Den(spc, eta, bVol) result(D)
         !! Take a species' eta at a specific point, and sum moments to get its density and pressure
@@ -89,8 +121,8 @@ module sifetautils
         if (bVol <= 0) return
 
         do k=1,spc%N
-            ! Di = Di + density_factor*sclmass(ikflavc(k))*eta(k)*vm**1.5
-            D = D + (eta(k)/sclEta)/bVol
+            !D = D + (eta(k)/sclEta)/bVol
+            D = D + etak2Den(eta(k), bVol)
         enddo
 
     end function SpcEta2Den
@@ -119,7 +151,7 @@ module sifetautils
             alamc = abs(spc%alami(k) + spc%alami(k+1))/2.0
             !P = P + eta(k)*alamc*vm**2.5 * ev2J * 1.e6
             !! Note: 10^-9 from 1/sclEta cancels with 10^9 from Pa -> nPa
-            P = P + 2./3.*eta(k)*alamc*bVol**(-5./3.) * ev2J * 1.e6
+            P = P + etak2Press(eta(k), alamc, bVol)
         enddo
 
     end function SpcEta2Press
@@ -137,6 +169,20 @@ module sifetautils
 
         integer :: k
             !! loop variable
+
+        eta = 0.0
+
+        if (size(eta) .eq. 1) then
+            ! Just throw all the density into the one channel
+            eta(1) = D/(vm**1.5)*sclEta ! #/cc * Rx/nT * 1/nT -> 1/T
+            return
+        endif
+
+        ! Trap for zero energy. If doint zero-energy plasmasphere, would be handled above
+        if (kT < TINY .and. abs(spc%alami(k+1)) > TINY) then
+            return
+        endif
+
 
         do k=1,spc%N
             eta(k) = Model%dp2etaMap(Model,D,kT,vm,spc%alami(k),spc%alami(k+1))

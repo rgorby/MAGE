@@ -70,7 +70,7 @@ if __name__=="__main__":
 
     # Start with just the first step
     sif5 = h5.File(sif5fname)
-    s5 = sif5[sifInfo.stepStrs[1]]
+    s5 = sif5[sifInfo.stepStrs[-1]]
     colat = sif5['X'][:]
     lon = sif5['Y'][:]
 
@@ -81,21 +81,42 @@ if __name__=="__main__":
     bVol_m = np.ma.masked_where(mask, s5['bVol'][:])
     bVolNorm = kv.genNorm(np.min(bVol_m), np.max(bVol_m),doLog=True)
 
-    Pmhd_m = np.ma.masked_where(mask, s5['Pavg_in'][:][0])
-    pmhdNorm = kv.genNorm(np.min(Pmhd_m), np.max(Pmhd_m))
+    Pmhd_e = np.ma.masked_where(mask, s5['Pavg_in'][:][1])
+    pmhd_eNorm = kv.genNorm(np.min(Pmhd_e), np.max(Pmhd_e))
+
+    Pmhd_p = np.ma.masked_where(mask, s5['Pavg_in'][:][2])
+    pmhd_pNorm = kv.genNorm(np.min(Pmhd_p), np.max(Pmhd_p))
 
     # Plot setup
-    fig = plt.figure(1,figsize=(14,10))
-    
-    gs = gridspec.GridSpec(3,3, wspace=1, hspace=0.3)
+    xBnd = [-20,10]
 
-    AxLC = fig.add_subplot(gs[0,0])
-    AxPolar = fig.add_subplot(gs[1,0], projection='polar')
-    AxXYMin = fig.add_subplot(gs[2,0])
+    fig = plt.figure(1,figsize=(14,10))
+    gsMain = gridspec.GridSpec(3,3, wspace=1, hspace=0.3)
+
+    AxLC = fig.add_subplot(gsMain[0,0])
+    AxPolar = fig.add_subplot(gsMain[1,0], projection='polar')
+
+    # Electron pressure
+    gsxymin1 = gsMain[2,0].subgridspec(1,8)
+    AxXYMin1   = fig.add_subplot(gsxymin1[0,:-1])
+    AxXYMin1CB = fig.add_subplot(gsxymin1[0,-1])
+
+    # Proton pressure
+    gsxymin2 = gsMain[2,1].subgridspec(1,8)
+    AxXYMin2   = fig.add_subplot(gsxymin2[0,:-1])
+    AxXYMin2CB = fig.add_subplot(gsxymin2[0,-1])
+
 
     su.plotLonColat(AxLC, lon, colat, s5['OCBDist'][:])
     su.plotIono(AxPolar, lon, colat, espot_m)
-    #su.plotIono(AxPolar, lon, colat, s5['OCBDist'][:])
-    su.plotXYMin(AxXYMin, s5['xmin'][:], s5['ymin'][:], Pmhd_m, norm=pmhdNorm)
-    kv.setBndsByAspect(AxXYMin, [-20, 20])
+
+    su.plotXYMin(AxXYMin1, s5['xmin'][:], s5['ymin'][:], Pmhd_e, norm=pmhd_eNorm)
+    kv.setBndsByAspect(AxXYMin1, xBnd)
+    kv.genCB(AxXYMin1CB,pmhd_eNorm,"Electron\npressure [nPa]",doVert=True)
+
+    su.plotXYMin(AxXYMin2, s5['xmin'][:], s5['ymin'][:], Pmhd_p, norm=pmhd_pNorm)
+    kv.setBndsByAspect(AxXYMin2, xBnd)
+    kv.genCB(AxXYMin2CB,pmhd_pNorm,"Proton\npressure [nPa]",doVert=True)
+    
+    
     plt.show()

@@ -36,7 +36,14 @@ module sifdefs
     ! Defaults
     !------
 
+    ! Units
     real(rp) :: sclEta = 1.0e9  ! [1/nT -> 1/T on DkT2eta conversion]
     real(rp) :: sclIntens = 1.e-4*sqrt(ev2J/(8.0*dalton))/PI ! code eta to intensity [1/(s*sr*keV*cm^2)]
+
+    ! Settings
+    integer :: nSpacesDef = 2
+        !! Number of i spaces between last good value and active i for species
+    real(rp) :: fracWorthyDef = 0.01
+        !! Fraction that a lambda channel must contribute to total pressure or density in order to be worthy of being evolved
 
 end module sifdefs

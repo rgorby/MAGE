@@ -81,6 +81,9 @@ module siftypes
             !! Likely, in the future, we will determine automatically by the presence of a flavor 0
         ! TODO: Extra params for refilling rate, determining initial profile, etc.
 
+        ! Some constants
+        real(rp) :: tiote  ! Ion temp over electron temp. In the future, should be fancier
+
         ! Lambda controls
         real(rp) :: kappa
             !! Kappa value, used in case of Kappa mapping from moments to eta channels
@@ -153,6 +156,8 @@ module siftypes
 
         real(rp), dimension(:,:,:), allocatable :: eta
             !! (Ni, Nj, Nk) etas
+        logical, dimension(:,:), allocatable :: activeShells
+            !! (Ni, Nk) I shells that should be evolved for a given lambda
         real(rp), dimension(:,:,:,:), allocatable :: iVel
             !! (Ni+1, Nj+1, Nk, 2) Edge-centered normal velocities
         real(rp), dimension(:,:,:,:), allocatable :: cVel
