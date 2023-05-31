@@ -65,7 +65,8 @@ module sifCplTypes
             type(sifModel_T) , intent(in) :: Model
             type(sifGrid_T)  , intent(in) :: Grid
             type(sifState_T) , intent(inout) :: State
-            type(IMAGTube_T),  dimension(:,:), intent(in) :: ijTubes
+            type(IMAGTube_T),  dimension(Grid%shGrid%isg:Grid%shGrid%ieg+1,&
+                                        Grid%shGrid%jsg:Grid%shGrid%jeg+1), intent(in) :: ijTubes
         end subroutine sifMHD2SpcMap_T
     end interface
 

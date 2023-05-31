@@ -47,9 +47,9 @@ module sifICHelpers
         State%bvol = 0.0
 
         ! Ni+1, Nj+1 variables
-        do i=Grid%shGrid%is,Grid%shGrid%ie+1
+        do i=Grid%shGrid%isg,Grid%shGrid%ieg+1
             L = DipColat2L(Grid%shGrid%th(i))
-            do j=Grid%shGrid%js,Grid%shGrid%je+1
+            do j=Grid%shGrid%jsg,Grid%shGrid%jeg+1
                 State%xyzMin(i,j,XDIR) = L*cos(Grid%shGrid%ph(j))
                 State%xyzMin(i,j,YDIR) = L*sin(Grid%shGrid%ph(j))
             ! Conjugate points
@@ -65,7 +65,7 @@ module sifICHelpers
         endif
 
         ! Ni, Nj variables
-        do i=Grid%shGrid%is,Grid%shGrid%ie
+        do i=Grid%shGrid%isg,Grid%shGrid%ieg
             ! Fully symmetric, so only need to set certain things per i
             L = DipColat2L(Grid%shGrid%thc(i))
             D = D0*exp(-abs(L-L_peak)/dL)
@@ -73,7 +73,7 @@ module sifICHelpers
             bVol = DipFTV_L(L, Model%planet%magMoment) ! [Rx/nT]
             vm = bVol**(-2./3.)
 
-            do j=Grid%shGrid%js,Grid%shGrid%je
+            do j=Grid%shGrid%jsg,Grid%shGrid%jeg
             ! Init etas
                 ! Protons first
                 sIdx = spcIdx(Grid, F_HOTP)

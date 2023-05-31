@@ -14,10 +14,13 @@ module sifIO
 
     contains
 
-    subroutine sifInitIO(Model, Grid)
+    subroutine sifInitIO(Model, Grid, doGhostsO)
         type(sifModel_T), intent(inout) :: Model
         type(sifGrid_T), intent(in) :: Grid
+        logical, optional, intent(in) :: doGhostsO
 
+        integer :: is, ie, js, je
+        logical :: doGhosts
         integer :: i
         logical :: fExist
         real(rp), dimension(:,:), allocatable :: lat2D, lon2D
@@ -25,6 +28,24 @@ module sifIO
         character(len=strLen) :: gStr
 
         doRoot = .false. ! Don't call again
+
+        if (present(doGhostsO)) then
+            doGhosts = doGhostsO
+        else
+            doGhosts = .false.
+        endif
+
+        if (doGhosts) then
+            is = Grid%shGrid%isg
+            ie = Grid%shGrid%ieg
+            js = Grid%shGrid%jsg
+            je = Grid%shGrid%jeg
+        else
+            is = Grid%shGrid%is
+            ie = Grid%shGrid%ie
+            js = Grid%shGrid%js
+            je = Grid%shGrid%je
+        endif
 
         associate(sh => Grid%shGrid, spc=>Grid%spc)
         Model%SIFH5 = trim(Model%RunID) // ".sif.h5"
@@ -46,15 +67,15 @@ module sifIO
         ! If still here, proceed to init
 
         ! Add spatial grid as 2D array
-        allocate(lat2D(sh%Nt+1,sh%Np+1))  ! +1 because we're doing corners
-        allocate(lon2D(sh%Nt+1,sh%Np+1))
+        allocate(lat2D(is:ie+1,js:je+1))  ! +1 because we're doing corners
+        allocate(lon2D(is:ie+1,je:je+1))
 
-        do i=1,sh%Np+1
-            lat2D(:,i) = sh%th(sh%is:sh%ie)
+        do i=js,je+1
+            lat2D(:,i) = sh%th(is:ie)
         enddo
 
-        do i=1,sh%Nt+1
-            lon2D(i,:) = sh%ph(sh%js:sh%je)
+        do i=is,ie+1
+            lon2D(i,:) = sh%ph(js:je)
         enddo
 
         ! Ready for output
@@ -94,19 +115,39 @@ module sifIO
     end subroutine sifInitIO
 
 
-    subroutine WriteSIF(Model, Grid, State, gStr)
+    subroutine WriteSIF(Model, Grid, State, gStr, doGhostsO)
         type(sifModel_T), intent(inout) :: Model
         type(sifGrid_T ), intent(in) :: Grid
         type(sifState_T), intent(in) :: State
         character(len=strLen), intent(in) :: gStr
+        logical, optional, intent(in) :: doGhostsO
 
         integer :: i,j,s
+        integer :: is, ie, js, je
+        logical :: doGhosts
         real(rp), dimension(:,:,:), allocatable :: outDen, outIntensity
 
+        if (present(doGhostsO)) then
+            doGhosts = doGhostsO
+        else
+            doGhosts = .false.
+        endif
+
+        if (doGhosts) then
+            is = Grid%shGrid%isg
+            ie = Grid%shGrid%ieg
+            js = Grid%shGrid%jsg
+            je = Grid%shGrid%jeg
+        else
+            is = Grid%shGrid%is
+            ie = Grid%shGrid%ie
+            js = Grid%shGrid%js
+            je = Grid%shGrid%je
+        endif
 
         ! First, make sure root variables are there
         if (doRoot) then
-            call sifInitIO(Model, Grid)
+            call sifInitIO(Model, Grid, doGhosts)
             doRoot = .false.
         endif
         !Reset IO chain
@@ -116,63 +157,64 @@ module sifIO
         call AddOutVar(IOVars,"time",State%t)
 
         ! Add State variables
-        call AddOutVar(IOVars,"bmin",State%Bmin,uStr="nT")
-        call AddOutVar(IOVars,"xmin",State%xyzMin(:,:,XDIR),uStr="Rx")
-        call AddOutVar(IOVars,"ymin",State%xyzMin(:,:,YDIR),uStr="Rx")
-        call AddOutVar(IOVars,"zmin",State%xyzMin(:,:,ZDIR),uStr="Rx")
+        call AddOutVar(IOVars,"bminX",State%Bmin(is:ie,js:je,XDIR),uStr="nT")
+        call AddOutVar(IOVars,"bminY",State%Bmin(is:ie,js:je,YDIR),uStr="nT")
+        call AddOutVar(IOVars,"bminZ",State%Bmin(is:ie,js:je,ZDIR),uStr="nT")
 
-        call AddOutVar(IOVars,"eta",State%eta,uStr="#/cm^3 * Rx/T") !! TODO: Maybe swap with just intensity instead
+        call AddOutVar(IOVars,"eta",State%eta(is:ie,js:je, :),uStr="#/cm^3 * Rx/T") !! TODO: Maybe swap with just intensity instead
 
         ! Calc intensity
-        allocate(outIntensity(Grid%shGrid%Nt,Grid%shGrid%Np,Grid%Nk))
+        allocate(outIntensity(is:ie,js:je,Grid%Nk))
         outIntensity = 0.0
         do s=1,Grid%nSpc
             if (Grid%spc(s)%flav==F_PSPH) then
                 cycle  ! Skip plasmasphere since it has zero energy
             endif
-            do i=Grid%shGrid%is,Grid%shGrid%ie
-                do j=Grid%shGrid%js,Grid%shGrid%je
+            do i=is,ie
+                do j=js,je
                     outIntensity(i,j,Grid%spc(s)%kStart:Grid%spc(s)%kEnd) = &
-                        eta2intensity(Grid%spc(s)%amu,   &
+                        eta2intensity(Grid%spc(s),   &
                                       State%bVol(i,j),   &
-                                      Grid%spc(s)%alami, &
                                       State%eta (i,j,Grid%spc(s)%kStart:Grid%spc(s)%kEnd))
                 enddo
             enddo
         enddo
-        call AddOutVar(IOVars,"intensity",outIntensity,uStr="1/(s*sr*keV*cm^2)")
+        call AddOutVar(IOVars,"intensity",outIntensity(is:ie,js:je, :),uStr="1/(s*sr*keV*cm^2)")
         deallocate(outIntensity)
         
 
         ! Coupling things
-        call AddOutVar(IOVars,"topo",State%topo*1.0_rp,uStr="0=Open, 1=Closed")
-        call AddOutVar(IOVars,"active",State%active*1.0_rp,uStr="-1=Inactive, 0=Buffer, 1=Active")
-        call AddOutVar(IOVars,"OCBDist",State%OCBDist*1.0_rp,uStr="Cell distance from an open closed boundary")
-        call AddOutVar(IOVars,"espot",State%espot,uStr="kV")
-        call AddOutVar(IOVars,"colatc",State%thcon,uStr="radians")
-        call AddOutVar(IOVars,"lonc"  ,State%phcon,uStr="radians")
-        call AddOutVar(IOVars,"bVol",State%bvol,uStr="Rx/nT")
-        call AddOutVar(IOVars,"Pavg_in",State%Pavg,uStr="nPa")
-        call AddOutVar(IOVars,"Davg_in",State%Davg,uStr="#/cc")
+        call AddOutVar(IOVars,"xmin"   ,State%xyzMin (is:ie+1,js:je+1,XDIR),uStr="Rx")
+        call AddOutVar(IOVars,"ymin"   ,State%xyzMin (is:ie+1,js:je+1,YDIR),uStr="Rx")
+        call AddOutVar(IOVars,"zmin"   ,State%xyzMin (is:ie+1,js:je+1,ZDIR),uStr="Rx")
+        call AddOutVar(IOVars,"topo"   ,State%topo   (is:ie+1,js:je+1)*1.0_rp,uStr="0=Open, 1=Closed")
+        call AddOutVar(IOVars,"colatc" ,State%thcon  (is:ie+1,js:je+1),uStr="radians")
+        call AddOutVar(IOVars,"lonc"   ,State%phcon  (is:ie+1,js:je+1),uStr="radians")
+        call AddOutVar(IOVars,"active" ,State%active (is:ie,js:je)*1.0_rp,uStr="-1=Inactive, 0=Buffer, 1=Active")
+        call AddOutVar(IOVars,"OCBDist",State%OCBDist(is:ie,js:je)*1.0_rp,uStr="Cell distance from an open closed boundary")
+        call AddOutVar(IOVars,"espot"  ,State%espot  (is:ie,js:je),uStr="kV")
+        call AddOutVar(IOVars,"bVol"   ,State%bvol   (is:ie,js:je),uStr="Rx/nT")
+        call AddOutVar(IOVars,"Pavg_in",State%Pavg   (is:ie,js:je, :),uStr="nPa")
+        call AddOutVar(IOVars,"Davg_in",State%Davg   (is:ie,js:je, :),uStr="#/cc")
 
-        call AddOutVar(IOVars,"activeShells",State%activeShells*1.0_rp,uStr="[Ni, Nk]")
+        call AddOutVar(IOVars,"activeShells",State%activeShells(is:ie, :)*1.0_rp,uStr="[Ni, Nk]")
 
     ! Moments
-        call AddOutVar(IOVars,"Pressure",State%Press,uStr="nPa")
+        call AddOutVar(IOVars,"Pressure",State%Press(is:ie,js:je, :),uStr="nPa")
         ! Add density moment as #/cc instead of amu/cc
-        allocate(outDen(Grid%shGrid%Nt,Grid%shGrid%Np,Grid%nSpc+1))
+        allocate(outDen(is:ie,js:je,Grid%nSpc+1))
         ! Convert amu/cc to #/cc
         outDen = 0.0
         do s=1, Grid%nSpc
-            outDen(:,:,s+1) = State%Den(:,:,s+1)/Grid%spc(s)%amu
-            write(*,*)"Out Davg ",s,maxval(outDen(:,:,s+1))
-            write(*,*)"Out Davg_in",s,maxval(State%Davg(:,:,s))
+            outDen(:,:,s+1) = State%Den(is:ie,js:je,s+1)/Grid%spc(s)%amu
+            write(*,*)"Davg_in ",s,maxval(State%Davg(is:ie,js:je,s))
+            write(*,*)"Den out ",s,maxval(outDen(:,:,s+1))
             ! Don't include electrons to total number density
             if(Grid%spc(s)%isElectron .eq. .false.) then
                 outDen(:,:,1) = outDen(:,:,1) + outDen(:,:,s+1)
             endif
         enddo
-        call AddOutVar(IOVars,"Density",outDen,uStr="#/cc")
+        call AddOutVar(IOVars,"Density",outDen(is:ie,js:je, :),uStr="#/cc")
         !call AddOutVar(IOVars,"Density",State%Den,uStr="#/cc")
         deallocate(outDen)
 

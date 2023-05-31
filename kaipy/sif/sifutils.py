@@ -11,6 +11,9 @@ import kaipy.kaiH5 as kh5
 
 import kaipy.sif.lambdautils.AlamParams as aP
 
+topo = {"OPEN" : 0,
+        "CLOSED" : 1}
+
 domain = {"INACTIVE" : -1,
           "BUFFER" : 0,
           "ACTIVE" : 1}

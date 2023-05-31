@@ -36,8 +36,8 @@ module sifetautils
 
         associate (shG => Grid%shGrid, spc => Grid%spc)
 
-            do i=shG%is,shG%ie
-                do j=shG%js,shG%je
+            do i=shG%isg,shG%ieg
+                do j=shG%jsg,shG%jeg
                     do s=1,Grid%nSpc
                         ! TODO: handle isGood regions?
 
@@ -56,7 +56,6 @@ module sifetautils
                     enddo  ! s
                 enddo  ! j
             enddo  ! i
-
             ! Then add each species moment to the bulk
             do s=1,Grid%nSpc
                 ! Don't include electrons to total number density
@@ -107,7 +106,7 @@ module sifetautils
         !! Take a species' eta at a specific point, and sum moments to get its density and pressure
         type(SIFSpecies_T), intent(in) :: spc
             !! Species info
-        real(rp), dimension(:), intent(in) :: eta
+        real(rp), dimension(spc%N), intent(in) :: eta
             !! Etas we are summing
         real(rp), intent(in) ::  bVol
             !! Flux tube volume [Rx/nT]
@@ -132,7 +131,7 @@ module sifetautils
         !! Take a species' eta at a specific point, and sum moments to get its density and pressure
         type(SIFSpecies_T), intent(in) :: spc
             !! Species info
-        real(rp), dimension(:), intent(in) :: eta
+        real(rp), dimension(spc%N), intent(in) :: eta
             !! Etas we are summing
         real(rp), intent(in) ::  bVol
             !! Flux tube volume [Rx/nT]
@@ -162,7 +161,7 @@ module sifetautils
         type(sifModel_T), intent(in) :: Model
         type(SIFSpecies_T), intent(in) :: spc
             !! Species info
-        real(rp), dimension(:), intent(inout) :: eta
+        real(rp), dimension(spc%N), intent(inout) :: eta
             !! Len(spc%N) etas we need to populate
         real(rp), intent(in) :: D, kT, vm
             !! Density [#/cc], Energy [keV], bVol^-2/3 [(Rx/nT)^(-2/3)]
@@ -178,8 +177,9 @@ module sifetautils
             return
         endif
 
-        ! Trap for zero energy. If doint zero-energy plasmasphere, would be handled above
-        if (kT < TINY .and. abs(spc%alami(k+1)) > TINY) then
+        ! Trap for zero energy. If doing zero-energy plasmasphere, would be handled above
+        if (kT < TINY .and. abs(spc%alami(2)) > TINY) then
+                            ! If upper bound of lowest cell isn't above TINY, there's nowhere for zero-energy stuff to go
             return
         endif
 
@@ -272,13 +272,11 @@ module sifetautils
 
 
 ! General helpers
-    function eta2intensity(amu, bVol, alami, eta) result (intensity)
-        real(rp), intent(in) :: amu, bVol
-            !! amu  = mass [amu]
+    function eta2intensity(spc, bVol, eta) result (intensity)
+        type(SIFSpecies_T), intent(in) :: spc
+        real(rp), intent(in) :: bVol
             !! bVol = flux tube volume [Rx/nT]
-        real(rp), dimension(:), intent(in) :: alami
-            !! alami = energy inv channel edges for a single species [eV]
-        real(rp), dimension(:), intent(in) :: eta
+        real(rp), dimension(spc%kStart:spc%kEnd), intent(in) :: eta
             !! eta   = etas for a single species
 
         real(rp), dimension(:), allocatable :: intensity
@@ -290,10 +288,10 @@ module sifetautils
         allocate(lamdiff(N))
         allocate(intensity(N))
 
-        alamc   = abs(alami(2:)+alami(1:N-1))/2.0
-        lamdiff = abs(alami(2:)-alami(1:N-1))
+        alamc   = abs(spc%alami(2:)+spc%alami(1:N-1))/2.0
+        lamdiff = abs(spc%alami(2:)-spc%alami(1:N-1))
 
-        intensity =   sclIntens/sqrt(amu)  &
+        intensity =   sclIntens/sqrt(spc%amu)  &
                     * sqrt(alamc)/lamdiff  &
                     * bVol**(-2./3.) * eta
 

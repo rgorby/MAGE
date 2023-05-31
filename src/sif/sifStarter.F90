@@ -88,6 +88,7 @@ module sifstarter
 
         ! Certain physical constants that shouldn't be constants
         call iXML%Set_Val(Model%tiote, "prob/tiote",4.0)
+        call iXML%Set_Val(Model%worthyFrac, "prob/worthyFrac",fracWorthyDef)
 
         ! Lambda channel settings
         call iXML%Set_Val(Model%doDynamicLambdaRanges, "lambdas/dynamicRanges",.false.)
@@ -172,35 +173,40 @@ module sifstarter
 
         ! Allocate arrays
 
-        ! Where we keep all our stuff
-        allocate( State%eta (Grid%shGrid%Nt, Grid%shGrid%Np, Grid%Nk) )
-        ! I shells shat should be evolved for each k
-        allocate( State%activeShells (Grid%shGrid%Nt, Grid%Nk) )
-        ! Interface and cell velocities
-        allocate( State%iVel(Grid%shGrid%Nt+1, Grid%shGrid%Np+1, Grid%Nk, 2) )
-        allocate( State%cVel(Grid%shGrid%Nt  , Grid%shGrid%Np  , Grid%Nk, 2) )
-        ! Coupling input moments
-        allocate( State%Pavg(Grid%shGrid%Nt, Grid%shGrid%Np, Grid%nSpc) )
-        allocate( State%Davg(Grid%shGrid%Nt, Grid%shGrid%Np, Grid%nSpc) )
-        ! Bmin surface
-        allocate( State%Bmin  (Grid%shGrid%Nt  , Grid%shGrid%Np  , 3 ) )
-        allocate( State%xyzMin(Grid%shGrid%Nt+1, Grid%shGrid%Np+1, 3 ) )
-        allocate( State%thcon (Grid%shGrid%Nt+1, Grid%shGrid%Np+1    ) )
-        allocate( State%phcon (Grid%shGrid%Nt+1, Grid%shGrid%Np+1    ) )
-        ! 2D corner quantities
-        allocate( State%topo  (Grid%shGrid%Nt+1, Grid%shGrid%Np+1) )
-        ! 2D cell-centered quantities
-        allocate( State%active (Grid%shGrid%Nt, Grid%shGrid%Np) )
-        allocate( State%OCBDist(Grid%shGrid%Nt, Grid%shGrid%Np) )
-        allocate( State%espot  (Grid%shGrid%Nt, Grid%shGrid%Np) )
-        allocate( State%bvol   (Grid%shGrid%Nt, Grid%shGrid%Np) )
-        ! Coupling output data
-        allocate( State%precipFlux(Grid%shGrid%Nt, Grid%shGrid%Np, Grid%Nk) )
-        allocate( State%precipAvgE(Grid%shGrid%Nt, Grid%shGrid%Np, Grid%Nk) )
-        allocate( State%Den  (Grid%shGrid%Nt, Grid%shGrid%Np, Grid%nSpc+1) )
-        allocate( State%Press(Grid%shGrid%Nt, Grid%shGrid%Np, Grid%nSpc+1) )
-        allocate( State%vAvg (Grid%shGrid%Nt, Grid%shGrid%Np, Grid%nSpc+1) )
+        associate(sh=>Grid%shGrid)
 
+        ! dt for every lambda channel
+            allocate( State%dtk (Grid%Nk) )
+            ! Where we keep all our stuff
+            allocate( State%eta (sh%isg:sh%ieg, sh%jsg:sh%jeg, Grid%Nk) )
+            ! I shells shat should be evolved for each k
+            allocate( State%activeShells (sh%is:sh%ie, Grid%Nk) )
+            ! Interface and cell velocities
+            allocate( State%iVel(sh%isg:sh%ieg+1, sh%jsg:sh%jeg+1, Grid%Nk, 2) )
+            allocate( State%cVel(sh%isg:sh%ieg  , sh%jsg:sh%jeg  , Grid%Nk, 2) )
+            ! Coupling input moments
+            allocate( State%Pavg(sh%isg:sh%ieg  , sh%jsg:sh%jeg, Grid%nSpc) )
+            allocate( State%Davg(sh%isg:sh%ieg  , sh%jsg:sh%jeg, Grid%nSpc) )
+            ! Bmin surface
+            allocate( State%Bmin  (sh%isg:sh%ieg  , sh%jsg:sh%jeg  , 3 ) )
+            allocate( State%xyzMin(sh%isg:sh%ieg+1, sh%jsg:sh%jeg+1, 3 ) )
+            allocate( State%thcon (sh%isg:sh%ieg+1, sh%jsg:sh%jeg+1    ) )
+            allocate( State%phcon (sh%isg:sh%ieg+1, sh%jsg:sh%jeg+1    ) )
+            ! 2D corner quantities
+            allocate( State%topo  (sh%isg:sh%ieg+1, sh%jsg:sh%jeg+1) )
+            ! 2D cell-centered quantities
+            allocate( State%active (sh%isg:sh%ieg, sh%jsg:sh%jeg) )
+            allocate( State%OCBDist(sh%isg:sh%ieg, sh%jsg:sh%jeg) )
+            allocate( State%espot  (sh%isg:sh%ieg, sh%jsg:sh%jeg) )
+            allocate( State%bvol   (sh%isg:sh%ieg, sh%jsg:sh%jeg) )
+            ! Coupling output data
+            allocate( State%precipFlux(sh%isg:sh%ieg, sh%jsg:sh%jeg, Grid%Nk) )
+            allocate( State%precipAvgE(sh%isg:sh%ieg, sh%jsg:sh%jeg, Grid%Nk) )
+            allocate( State%Den  (sh%isg:sh%ieg, sh%jsg:sh%jeg, Grid%nSpc+1) )
+            allocate( State%Press(sh%isg:sh%ieg, sh%jsg:sh%jeg, Grid%nSpc+1) )
+            allocate( State%vAvg (sh%isg:sh%ieg, sh%jsg:sh%jeg, Grid%nSpc+1) )
+        
+        end associate
         !! TODO: Handle restart somewhere around here
         ! For now, just set t to tStart and ts to 0
         State%t = Model%t0

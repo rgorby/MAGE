@@ -23,9 +23,9 @@ module sifCpl
 
         ! Init fromV first
             ! Allocations
-            allocate(fromV%fLines (sh%is:sh%ie+1, sh%js:sh%je+1))
-            allocate(fromV%ijTubes(sh%is:sh%ie+1, sh%js:sh%je+1))
-            allocate(fromV%pot    (sh%Nt, sh%Np))
+            allocate(fromV%fLines (sh%isg:sh%ieg+1, sh%jsg:sh%jeg+1))
+            allocate(fromV%ijTubes(sh%isg:sh%ieg+1, sh%jsg:sh%jeg+1))
+            allocate(fromV%pot    (sh%isg:sh%ieg, sh%jsg:sh%jeg))
 
             ! Initial values
             fromV%tLastUpdate = -1.0*HUGE
@@ -67,9 +67,9 @@ module sifCpl
 
         ! Populate sif state with coupling info
         ! Tubes
-        call imagTubes2SIF(cplBase%fromV%ijTubes, &
-                cplBase%fromV%mhd2spcMap, &
-                sApp%Model, sApp%Grid, sApp%State)
+        call imagTubes2SIF(sApp%Model, sApp%Grid, sApp%State, &
+                cplBase%fromV%ijTubes, &
+                cplBase%fromV%mhd2spcMap)
         ! Potential
         sApp%State%espot = cplBase%fromV%pot
 
@@ -90,19 +90,20 @@ module sifCpl
         type(ShellGrid_T), intent(in) :: sh
         integer, intent(in) :: nB
             !! Number of cells between open boundary and active domain
-        type(IMAGTube_T), dimension(sh%is:sh%ie+1, sh%js:sh%je+1), intent(in) :: ijTubes
+        type(IMAGTube_T), dimension(sh%isg:sh%ieg+1,sh%jsg:sh%jeg+1), intent(in) :: ijTubes
         type(sifState_T), intent(inout) :: State
 
         integer :: i,j
-        logical, dimension(sh%is:sh%ie, sh%js:sh%je) :: closedCC
+        logical, dimension(sh%isg:sh%ieg,sh%jsg:sh%jeg) :: closedCC
+
 
         ! We make sure the whole thing is initialized later, but just in case
         State%active = SIFINACTIVE
 
         ! Mark any cell center with an open corner as open
         closedCC = .true.
-        do i=sh%is, sh%ie
-            do j=sh%js, sh%je
+        do i=sh%isg, sh%ieg
+            do j=sh%jsg, sh%jeg
                 if (any(ijTubes(i:i+1, j:j+1)%topo < 2)) then
                     closedCC(i,j) = .false.
                 endif
@@ -126,13 +127,13 @@ module sifCpl
         function CalcOCBDist(sh, closedCC, nBnd) result(ocbDist)
             type(ShellGrid_T), intent(in) :: sh
                 !! SIF shell grid
-            logical, dimension(sh%is:sh%ie, sh%js:sh%je), intent(in) :: closedCC
+            logical, dimension(sh%isg:sh%ieg,sh%jsg:sh%jeg), intent(in) :: closedCC
                 !! Whether cell centers are closed or open
             integer, intent(in) :: nBnd
                 !! Number of desired layers between open/closed boundary and active domain
 
-            integer :: iL, i, j
-            integer, dimension(sh%is:sh%ie, sh%js:sh%je) :: ocbDist
+            integer :: iLayer, i, j, iL, iU, jL, jU
+            integer, dimension(sh%isg:sh%ieg,sh%jsg:sh%jeg) :: ocbDist
 
             where (closedCC)
                 ocbDist = nBnd + 1
@@ -142,14 +143,19 @@ module sifCpl
 
 
             ! Grow out from open/closed boundary, set proper distance for closed points
-            do iL=1,nBnd
-                do i=sh%is, sh%ie
-                    do j=sh%js, sh%je
+            do iLayer=1,nBnd
+                do i=sh%isg, sh%ieg
+                    do j=sh%jsg, sh%jeg
+                        iL = max(i-1, sh%isg)
+                        iU = min(i+1, sh%ieg)
+                        jL = max(j-1, sh%jsg)
+                        jU = min(j+1, sh%jeg)
+
                         if (closedCC(i,j) .eq. .false.) then
                             cycle
-                        else if ( (ocbDist(i,j) .eq. nBnd+1) .and. any(ocbDist(i-1:i+1,j-1:j+1) .eq. iL-1) ) then
+                        else if ( (ocbDist(i,j) .eq. nBnd+1) .and. any(ocbDist(iL:iU,jL:jU) .eq. iLayer-1) ) then
                             !! If current point's distance hasn't been decided and its bordering cell with iL-1, this point is distance iL from ocb
-                            ocbDist(i,j) = iL
+                            ocbDist(i,j) = iLayer
                         endif
                     enddo
                 enddo
@@ -159,17 +165,19 @@ module sifCpl
 
     end subroutine setActiveDomain
 
-    subroutine imagTubes2SIF(ijTubes, f_MHD2SpcMap, Model, Grid, State)
+    subroutine imagTubes2SIF(Model, Grid, State, ijTubes, f_MHD2SpcMap)
         !! Map 2D array of IMAGTubes to SIF State
-        type(IMAGTube_T), dimension(:,:), intent(in) :: ijTubes
-        procedure(sifMHD2SpcMap_T), pointer, intent(in) :: f_MHD2SpcMap
         type(sifModel_T), intent(in) :: Model
         type(sifGrid_T ), intent(in) :: Grid
         type(sifState_T), intent(inout) :: State
+        type(IMAGTube_T), dimension(Grid%shGrid%isg:Grid%shGrid%ieg+1,&
+                                    Grid%shGrid%jsg:Grid%shGrid%jeg+1), intent(in) :: ijTubes
+        procedure(sifMHD2SpcMap_T), pointer, intent(in) :: f_MHD2SpcMap
+        
 
         integer :: i,j
-        logical, dimension(Grid%shGrid%is:Grid%shGrid%ie,&
-                           Grid%shGrid%js:Grid%shGrid%je) :: isGood
+        logical, dimension(Grid%shGrid%isg:Grid%shGrid%ieg,&
+                            Grid%shGrid%jsg:Grid%shGrid%jeg) :: isGood
 
         associate(sh=>Grid%shGrid)
             !! TODO: Actual checks and cleaning of data
@@ -180,8 +188,8 @@ module sifCpl
             !$OMP PARALLEL DO default(shared) collapse(2) &
             !$OMP schedule(dynamic) &
             !$OMP private(i,j)
-            do i=sh%is,sh%ie+1
-                do j=sh%js,sh%je+1
+            do i=sh%isg,sh%ieg+1
+                do j=sh%jsg,sh%jeg+1
                     State%xyzMin(i,j,:)   = ijTubes(i,j)%X_bmin / Model%planet%rp_m  ! xyzMin in Rp
                     State%topo(i,j)       = ijTubes(i,j)%topo
                     State%thcon(i,j) = PI/2-ijTubes(i,j)%latc
@@ -201,8 +209,8 @@ module sifCpl
             !$OMP PARALLEL DO default(shared) collapse(2) &
             !$OMP schedule(dynamic) &
             !$OMP private(i,j)
-            do i=sh%is,sh%ie
-                do j=sh%js,sh%je
+            do i=sh%isg,sh%ieg
+                do j=sh%jsg,sh%jeg
                     if (isGood(i,j)) then
                         State%Bmin(i,j,ZDIR) = toCenter2D(ijTubes(i:i+1,j:j+1)%bmin) * 1.0e+9  ! Tesla -> nT
                         State%bvol(i,j)      = toCenter2D(ijTubes(i:i+1,j:j+1)%Vol) * 1.0e-9  ! Rp/T -> Rp/nT
@@ -221,15 +229,16 @@ module sifCpl
         !! Assumes:
         !!  MHD: single fluid
         !!  SIF: zero-energy psphere, hot electrons, hot protons
-        type(sifModel_T) , intent(in) :: Model
-        type(sifGrid_T)  , intent(in) :: Grid
-        type(sifState_T) , intent(inout) :: State
-        type(IMAGTube_T),  dimension(:,:), intent(in) :: ijTubes
+        type(sifModel_T), intent(in) :: Model
+        type(sifGrid_T) , intent(in) :: Grid
+        type(sifState_T), intent(inout) :: State
+        type(IMAGTube_T),  dimension(Grid%shGrid%isg:Grid%shGrid%ieg+1,&
+                                     Grid%shGrid%jsg:Grid%shGrid%jeg+1), intent(in) :: ijTubes
 
         integer :: i, j, k, sIdx
         real(rp) :: P, D
-        logical, dimension(Grid%shGrid%is:Grid%shGrid%ie,&
-                           Grid%shGrid%js:Grid%shGrid%je) :: isGood
+        logical, dimension(Grid%shGrid%isg:Grid%shGrid%ieg,&
+                           Grid%shGrid%jsg:Grid%shGrid%jeg) :: isGood
 
         ! First clear out our previous moments input state
         State%Pavg = 0.0
@@ -243,8 +252,8 @@ module sifCpl
 
         associate(sh=>Grid%shGrid)
 
-            do i=sh%is,sh%ie
-                do j=sh%js,sh%je
+            do i=sh%isg,sh%ieg
+                do j=sh%jsg,sh%jeg
                     if (isGood(i,j)) then
                         ! This means all 4 corners are good, can do cell centered stuff
                         P = toCenter2D(ijTubes(i:i+1,j:j+1)%Pave) * 1.0e+9  ! Pa -> nPa

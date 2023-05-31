@@ -83,6 +83,7 @@ module siftypes
 
         ! Some constants
         real(rp) :: tiote  ! Ion temp over electron temp. In the future, should be fancier
+        real(rp) :: worthyFrac  ! Fracton that a channel must contribute to pressure or density for its i shell to be evolved
 
         ! Lambda controls
         real(rp) :: kappa
@@ -147,6 +148,8 @@ module siftypes
     type sifState_T
         real(rp) :: t, dt
             !! Current time and last coupling dt made
+        real(rp), dimension(:), allocatable :: dtk
+            !! Time step for every lambda channel
         real(rp) :: mjd
             !! Current mjd
         integer :: ts, tss

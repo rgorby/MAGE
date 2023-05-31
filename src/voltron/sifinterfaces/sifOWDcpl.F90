@@ -61,15 +61,14 @@ module sifowdcpl
             !$OMP PARALLEL DO default(shared) collapse(2) &
             !$OMP schedule(dynamic) &
             !$OMP private(i,j)
-            do i=sh%is,sh%ie+1
-                do j=sh%js,sh%je+1
+            do i=sh%isg,sh%ieg+1
+                do j=sh%jsg,sh%jeg+1
                     call CleanStream(fromV%fLines(i,j))
 
                     call MHDTube(ebApp, planet,   & !ebTrcApp, planet
                         sh%th(i), sh%ph(j), seedR, &  ! colat, lon, r
                         fromV%ijTubes(i,j), fromV%fLines(i,j), &  ! IMAGTube_T, fLine_T
-                        doShiftO=.true.,doShueO=.false. &
-                        )
+                        doShiftO=.true.,doShueO=.false.)
                 enddo
             enddo
         end associate

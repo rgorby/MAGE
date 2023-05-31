@@ -43,7 +43,7 @@ module sifdefs
     ! Settings
     integer :: nSpacesDef = 2
         !! Number of i spaces between last good value and active i for species
-    real(rp) :: fracWorthyDef = 0.01
+    real(rp) :: fracWorthyDef = 0.001
         !! Fraction that a lambda channel must contribute to total pressure or density in order to be worthy of being evolved
 
 end module sifdefs
