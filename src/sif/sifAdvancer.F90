@@ -21,7 +21,7 @@ module sifadvancer
         real(rp), dimension(shGrid%isg:shGrid%ieg,shGrid%jsg:shGrid%jeg), intent(in) :: bVol
         integer, intent(in) :: k
             !! index for lambda dimension
-        real(rp), dimension(shGrid%isg:shGrid%ieg,shGrid%jsg:shGrid%jeg,spc%N), intent(in) :: etas
+        real(rp), dimension(shGrid%isg:shGrid%ieg,shGrid%jsg:shGrid%jeg,spc%kStart:spc%kEnd), intent(in) :: etas
         integer, optional, intent(in) :: nSpacesO
             !! Number of i spaces between last good value and active i for species
         real(rp), optional, intent(in) :: worthyFracO
@@ -46,6 +46,9 @@ module sifadvancer
         activeShells = .false.
 
         ! Determine shells with cells that have enough stuff to be evolved
+        !$OMP PARALLEL DO default(shared) collapse(1) &
+        !$OMP schedule(dynamic) &
+        !$OMP private(i,j,iL,iU)
         do i=shGrid%isg,shGrid%ieg
             do j=shGrid%jsg,shGrid%jeg
                 if (isWorthy(spc, bVol(i,j), etas(i,j,:), k, worthyFrac)) then
@@ -53,7 +56,7 @@ module sifadvancer
                     iL = max(i-nSpaces, shGrid%isg)
                     iU = min(i+nSpaces, shGrid%ieg)
                     activeShells(iL:iU) = .true.
-                    exit  ! No need to evaluate the rest of j
+                    !exit  ! No need to evaluate the rest of j
                 endif
             enddo
         enddo
@@ -66,7 +69,7 @@ module sifadvancer
         !! Evaluated at a single spatial point
         type(SIFSpecies_T), intent(in) :: spc
         real(rp), intent(in) :: bVol
-        real(rp), dimension(spc%N), intent(in) :: etas
+        real(rp), dimension(spc%kStart:spc%kEnd), intent(in) :: etas
         integer, intent(in) :: k
         real(rp), optional, intent(in) :: fracO
             ! Fraction of total den/press that channel must contribute in order to be 

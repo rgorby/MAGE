@@ -21,8 +21,8 @@ module sifBCs
         real(rp) :: kT,vm
         logical :: doWholeDomain
             !! Whether we should apply certain BCs (moments2eta mapping) to entire active domain or not
-        logical, dimension(Grid%shGrid%is:Grid%shGrid%ie,&
-                           Grid%shGrid%js:Grid%shGrid%je) :: doBC
+        logical, dimension(Grid%shGrid%isg:Grid%shGrid%ieg,&
+                           Grid%shGrid%jsg:Grid%shGrid%jeg) :: doBC
 
         if (present(doWholeDomainO)) then
             doWholeDomain = doWholeDomainO
@@ -46,33 +46,35 @@ module sifBCs
         endif
 
         
-        do s=1,Grid%nSpc
+        !$OMP PARALLEL DO default(shared) collapse(2) &
+        !$OMP schedule(dynamic) &
+        !$OMP private(i,j,vm,kT)
+        do i=Grid%shGrid%isg,Grid%shGrid%ieg
+            do j=Grid%shGrid%jsg,Grid%shGrid%jeg
+                ! Skip if we should leave point alone
+                if(.not. doBC(i,j)) then
+                    cycle
+                endif
 
-            do i=Grid%shGrid%is,Grid%shGrid%ie
-                do j=Grid%shGrid%js,Grid%shGrid%je
-                    ! Skip if we should leave point alone
-                    if(.not. doBC(i,j)) then
-                        cycle
-                    endif
-
-                    vm = State%bvol(i,j)**(-2./3.)
-                
+                vm = State%bvol(i,j)**(-2./3.)
+                do s=1,Grid%nSpc
                     kT = DP2kT(State%Davg(i,j,s), State%Pavg(i,j,s))  ! [keV]
                     call DkT2SpcEta(Model,Grid%spc(s), &
                         State%eta(i,j,Grid%spc(s)%kStart:Grid%spc(s)%kEnd),&
                         State%Davg(i,j,s), kT, vm)
                     !write(*,*)s,i,j,kT,maxval(State%eta(i,j,Grid%spc(s)%kStart:Grid%spc(s)%kEnd))
-                enddo  ! j
-            enddo  ! i
+                enddo  ! s
+            enddo  ! j
+        enddo  ! i
 
-            ! Do first round of determining active shells for each k
+        ! Do first round of determining active shells for each k
+        do s=1,Grid%nSpc
             do k=Grid%spc(s)%kStart,Grid%spc(s)%kEnd
                 State%activeShells(:,k) = setLambdaActiveShells(Grid%shGrid, Grid%spc(s), State%bVol, &
                         State%eta(:,:,Grid%spc(s)%kStart:Grid%spc(s)%kEnd), &
-                        k-Grid%spc(s)%kStart+1, &
+                        k, &
                         worthyFracO=Model%worthyFrac)
             enddo  ! k
-
         enddo  ! s
 
     end subroutine applySifBCs

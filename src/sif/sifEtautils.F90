@@ -106,7 +106,7 @@ module sifetautils
         !! Take a species' eta at a specific point, and sum moments to get its density and pressure
         type(SIFSpecies_T), intent(in) :: spc
             !! Species info
-        real(rp), dimension(spc%N), intent(in) :: eta
+        real(rp), dimension(spc%kStart:spc%kEnd), intent(in) :: eta
             !! Etas we are summing
         real(rp), intent(in) ::  bVol
             !! Flux tube volume [Rx/nT]
@@ -119,8 +119,7 @@ module sifetautils
 
         if (bVol <= 0) return
 
-        do k=1,spc%N
-            !D = D + (eta(k)/sclEta)/bVol
+        do k=spc%kStart,spc%kEnd
             D = D + etak2Den(eta(k), bVol)
         enddo
 
@@ -131,7 +130,7 @@ module sifetautils
         !! Take a species' eta at a specific point, and sum moments to get its density and pressure
         type(SIFSpecies_T), intent(in) :: spc
             !! Species info
-        real(rp), dimension(spc%N), intent(in) :: eta
+        real(rp), dimension(spc%kStart:spc%kEnd), intent(in) :: eta
             !! Etas we are summing
         real(rp), intent(in) ::  bVol
             !! Flux tube volume [Rx/nT]
@@ -146,8 +145,8 @@ module sifetautils
 
         if (bVol <= 0) return
 
-        do k=1,spc%N
-            alamc = abs(spc%alami(k) + spc%alami(k+1))/2.0
+        do k=spc%kStart,spc%kEnd
+            alamc = 0.5*abs(spc%alami(k) + spc%alami(k+1))
             !P = P + eta(k)*alamc*vm**2.5 * ev2J * 1.e6
             !! Note: 10^-9 from 1/sclEta cancels with 10^9 from Pa -> nPa
             P = P + etak2Press(eta(k), alamc, bVol)
@@ -161,7 +160,7 @@ module sifetautils
         type(sifModel_T), intent(in) :: Model
         type(SIFSpecies_T), intent(in) :: spc
             !! Species info
-        real(rp), dimension(spc%N), intent(inout) :: eta
+        real(rp), dimension(spc%kStart:spc%kEnd), intent(inout) :: eta
             !! Len(spc%N) etas we need to populate
         real(rp), intent(in) :: D, kT, vm
             !! Density [#/cc], Energy [keV], bVol^-2/3 [(Rx/nT)^(-2/3)]
@@ -173,18 +172,18 @@ module sifetautils
 
         if (size(eta) .eq. 1) then
             ! Just throw all the density into the one channel
-            eta(1) = D/(vm**1.5)*sclEta ! #/cc * Rx/nT * 1/nT -> 1/T
+            eta(spc%kStart) = D/(vm**1.5)*sclEta ! #/cc * Rx/nT * 1/nT -> 1/T
             return
         endif
 
         ! Trap for zero energy. If doing zero-energy plasmasphere, would be handled above
-        if (kT < TINY .and. abs(spc%alami(2)) > TINY) then
+        if (kT < TINY .and. abs(spc%alami(spc%kStart+1)) > TINY) then
                             ! If upper bound of lowest cell isn't above TINY, there's nowhere for zero-energy stuff to go
             return
         endif
 
 
-        do k=1,spc%N
+        do k=spc%kStart,spc%kEnd
             eta(k) = Model%dp2etaMap(Model,D,kT,vm,spc%alami(k),spc%alami(k+1))
                 !! Model%dp2etaMap may point to one of the functions below, like Maxwell2Eta
                 !! or it may point to a user-defined mapping function
@@ -288,8 +287,8 @@ module sifetautils
         allocate(lamdiff(N))
         allocate(intensity(N))
 
-        alamc   = abs(spc%alami(2:)+spc%alami(1:N-1))/2.0
-        lamdiff = abs(spc%alami(2:)-spc%alami(1:N-1))
+        alamc   = abs(spc%alami(spc%kStart+1:)+spc%alami(spc%kStart:spc%kEnd))/2.0
+        lamdiff = abs(spc%alami(spc%kStart+1:)-spc%alami(spc%kStart:spc%kEnd))
 
         intensity =   sclIntens/sqrt(spc%amu)  &
                     * sqrt(alamc)/lamdiff  &

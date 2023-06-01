@@ -79,7 +79,7 @@ module sifSpeciesHelper
         type(sifGrid_T), intent(inout) :: Grid
         character(len=strLen), intent(in) :: configfname
 
-        integer :: i
+        integer :: i, kPos
         character(len=strLen) :: gStr
         type(IOVAR_T), dimension(MAXIOVAR) :: IOVars ! Just grabbing lami and we're done
 
@@ -95,7 +95,7 @@ module sifSpeciesHelper
 
         
         ! TODO: Think through edge cases that will cause errors
-        
+        kPos = 1
         do i=1,Grid%nSpc 
             associate(spc=>Grid%spc(i))
 
@@ -132,7 +132,13 @@ module sifSpeciesHelper
             spc%amu = SpcAmu(spc)
             spc%isElectron = (spc%numNuc_p .eq. 0) ! Gonna assume this will always work
 
-            allocate(spc%alami(spc%N+1))
+
+            ! Calc start and end bounds, use it to set alami index range
+            spc%kStart = kPos
+            kPos = kPos + spc%N
+            spc%kEnd = kPos-1
+        
+            allocate(spc%alami(spc%kStart:spc%kEnd+1))
             call IOArray1DFill(IOVars,"alami",spc%alami)
 
             write(*,*)" Flav:    ", spc%flav
@@ -141,9 +147,11 @@ module sifSpeciesHelper
             write(*,*)" # nuc_n: ", spc%numNuc_n
             write(*,*)" q:       ", spc%q
             write(*,*)" Fudge:   ", spc%fudge
-            !write(*,*) spc%alami
-
-                
+            write(*,*)" kStart:  ", spc%kStart
+            write(*,*)" kEnd:    ", spc%kEnd
+            write(*,*)" kDiff=   ", spc%kEnd-spc%kStart
+            write(*,*)" alami:   ", spc%alami
+            
 
             end associate
         enddo
@@ -209,12 +217,13 @@ module sifSpeciesHelper
         kPos = 1
         do i=1,Grid%nSpc
             associate(spc=>Grid%spc(i))
-            spc%kStart = kPos
-            kPos = kPos + spc%N
-            spc%kEnd = kPos-1
+            !spc%kStart = kPos
+            !kPos = kPos + spc%N
+            !spc%kEnd = kPos-1
 
             ! N = # channels, and size(alami)=N+1
-            Grid%alamc(spc%kStart:spc%kEnd) = 0.5*(spc%alami(2:spc%N+1) + spc%alami(1:spc%N))
+            !Grid%alamc(spc%kStart:spc%kEnd) = 0.5*(spc%alami(2:spc%N+1) + spc%alami(1:spc%N))
+                Grid%alamc(spc%kStart:spc%kEnd) = 0.5*(spc%alami(spc%kStart+1:spc%kEnd+1) + spc%alami(spc%kStart:spc%kEnd))
             end associate
         enddo
 
