@@ -92,7 +92,6 @@ module sifSpeciesHelper
         
         ! If still here, start populating Grid%spc
         allocate(Grid%spc(Grid%nSpc))
-
         
         ! TODO: Think through edge cases that will cause errors
         kPos = 1
@@ -223,9 +222,19 @@ module sifSpeciesHelper
 
             ! N = # channels, and size(alami)=N+1
             !Grid%alamc(spc%kStart:spc%kEnd) = 0.5*(spc%alami(2:spc%N+1) + spc%alami(1:spc%N))
-                Grid%alamc(spc%kStart:spc%kEnd) = 0.5*(spc%alami(spc%kStart+1:spc%kEnd+1) + spc%alami(spc%kStart:spc%kEnd))
+            Grid%alamc(spc%kStart:spc%kEnd) = 0.5*(spc%alami(spc%kStart+1:spc%kEnd+1) + spc%alami(spc%kStart:spc%kEnd))
+
             end associate
         enddo
+
+        ! Fill in k to spc map
+        allocate(Grid%k2spc(Grid%Nk))
+        do i=1,Grid%nSpc
+            associate(spc=>Grid%spc(i))
+                Grid%k2spc(spc%kStart:spc%kEnd) = i
+            end associate
+        enddo
+
 
         ! TODO: Write unit test to ensure this is working as expected
 

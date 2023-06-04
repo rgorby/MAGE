@@ -74,6 +74,10 @@ module siftypes
         logical :: isRestart
         logical :: isLoud       ! For debug
         logical :: writeGhosts  ! For debug
+        logical :: doClockConsoleOut
+            !! If we are driving, output clock info
+        logical :: doFatOutput
+            !! Output extra 3D arrays
 
         ! Plasmasphere settings
         logical :: doPlasmasphere
@@ -110,6 +114,12 @@ module siftypes
         integer :: gType  ! Enum of grid type
 
         type(ShellGrid_T) :: shGrid
+        real(rp), dimension(:), allocatable :: delTh
+            !! (Ni+1) Delta theta between cell centers. For cell i, delTh(i) = lower theta del, delTh(i+1) = higher theta del
+        real(rp), dimension(:), allocatable :: delPh
+            !! (Nj+1) Delta phi between cell centers. For cell j, delPh(j) = lower phi del, delPh(j+1) = higher phi del
+        real(rp), dimension(:,:), allocatable :: Bmag
+            !! Magnitude of B field [nT] at ionosphere
 
         integer :: nB ! Number of buffer cells between open region and active domain
 
@@ -139,8 +149,8 @@ module siftypes
             !! Collection of SIFSpecies that contain all relevant species info, including alami
         real(rp), dimension(:), allocatable :: alamc
             !! Cell-centered lamba channel values
-        real(rp), dimension(:,:,:,:), allocatable :: kBnds
-            !! (Ni, Nj, Ns, 2) Lower/upper lambda boudnaries for each species when doDynamicLambdaRanges=True
+        integer, dimension(:), allocatable :: k2spc
+            !! Nk length mapping of k value to corresponding species index
 
     end type sifGrid_T
 
@@ -159,12 +169,14 @@ module siftypes
 
         real(rp), dimension(:,:,:), allocatable :: eta
             !! (Ni, Nj, Nk) etas
+        real(rp), dimension(:,:,:), allocatable :: pEff
+            !! (Ni, Nj, Nk) Effective potential [V] (ExB + corot + gradient-curvature)
         logical, dimension(:,:), allocatable :: activeShells
             !! (Ni, Nk) I shells that should be evolved for a given lambda
         real(rp), dimension(:,:,:,:), allocatable :: iVel
             !! (Ni+1, Nj+1, Nk, 2) Edge-centered normal velocities
         real(rp), dimension(:,:,:,:), allocatable :: cVel
-            !! (Ni, Nj, Nk, 2) Cell-centered velocities
+            !! (Ni, Nj, Nk, 2) Cell-centered velocities, [Rp/s] in ionosphere
 
 
         !> Variables coming from MHD flux tube tracing, size (Ni, Nj, Ns)
@@ -174,6 +186,8 @@ module siftypes
         real(rp), dimension(:,:,:), allocatable :: Bmin
         !> (Ni+1, Nk+1, NDIM) bMin xyz coordinates [Rx]
         real(rp), dimension(:,:,:), allocatable :: xyzMin
+        !> (Ni, Nk, NDIM) cell-centered bMin xyz coordinates [Rx]
+        real(rp), dimension(:,:,:), allocatable :: xyzMincc
         !> (Ni+1, Nk+1) corner values
         integer , dimension(:,:), allocatable :: topo    ! Topology (0=open, 1=closed)
         real(rp), dimension(:,:), allocatable :: thcon  ! Co-latitude  of conjugate points

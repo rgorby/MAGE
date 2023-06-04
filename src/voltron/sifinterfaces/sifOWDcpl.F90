@@ -29,6 +29,9 @@ module sifowdcpl
         type(rmState_T) :: rmState
         type(sifApp_T) , intent(in) :: sApp
 
+        integer :: i,j
+        real(rp), dimension(:,:), allocatable :: tmpPot
+
         ! Update coupling time
         fromV%tLastUpdate = sApp%State%t
 
@@ -36,7 +39,31 @@ module sifowdcpl
         call genImagTubes(fromV, vApp, sApp)
 
         ! Set potential
-        call mix_map_grids(m2sMap, rmState%nPot, fromV%pot)
+        !call mix_map_grids(m2sMap, rmState%nPot, fromV%pot)
+        !!!!!
+        !! Stupid bug working between sif's and rmState's indexing
+        !!!!!!
+        associate(sh=>sApp%Grid%shGrid)
+        call mix_map_grids(m2sMap, rmState%nPot, tmpPot)
+        fromV%pot(sh%is:sh%ie,sh%js:sh%je) = tmpPot
+
+        do i=sh%isg,sh%is-1
+            fromV%pot(i,:) = fromV%pot(sh%is,:)
+        enddo
+        do i=sh%ie+1,sh%ieg
+            fromV%pot(i,:) = fromV%pot(sh%ie,:)
+        enddo
+        do j=sh%jsg,sh%js-1
+            fromV%pot(:,j) = fromV%pot(:,sh%js)
+        enddo
+        do j=sh%je+1,sh%jeg
+            fromV%pot(:,j) = fromV%pot(:,sh%je)
+        enddo
+        
+        
+
+        end associate
+
 
     end subroutine packFromV
 

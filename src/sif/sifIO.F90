@@ -68,7 +68,7 @@ module sifIO
 
         ! Add spatial grid as 2D array
         allocate(lat2D(is:ie+1,js:je+1))  ! +1 because we're doing corners
-        allocate(lon2D(is:ie+1,je:je+1))
+        allocate(lon2D(is:ie+1,js:je+1))
 
         do i=js,je+1
             lat2D(:,i) = sh%th(is:ie)
@@ -85,6 +85,7 @@ module sifIO
         ! Grid data
         call AddOutVar(IOVars,"X",lat2D,uStr="radians")
         call AddOutVar(IOVars,"Y",lon2D,uStr="radians")
+        call AddOutVar(IOVars,"Bmag",Grid%Bmag(is:ie,js:je),uStr="nT")
         call AddOutVar(IOVars,"alamc",Grid%alamc,uStr="eV * (Rx/nT)^(2/3)")
         call WriteVars(IOVars,.true.,Model%SIFH5)
 
@@ -217,6 +218,13 @@ module sifIO
         call AddOutVar(IOVars,"Density",outDen(is:ie,js:je, :),uStr="#/cc")
         !call AddOutVar(IOVars,"Density",State%Den,uStr="#/cc")
         deallocate(outDen)
+
+        if (Model%doFatOutput) then
+            call AddOutVar(IOVars, "pEffective", State%pEff(is:ie,js:je,:)*1e-3, uStr="kV")
+            call AddOutVar(IOVars, "cVel_th", State%cVel(is:ie,js:je,:,1), uStr="rad/s?")
+            call AddOutVar(IOVars, "cVel_ph", State%cVel(is:ie,js:je,:,2), uStr="rad/s?")
+        endif
+
 
 
         call WriteVars(IOVars,.true.,Model%SIFH5, gStr)
