@@ -101,8 +101,8 @@ def cntSteps(fname,doTryRecover=True,s0=0):
 	try:
 		CheckOrDie(fname)
 		with h5py.File(fname,'r') as hf:
-			if('timeAttributeCache' in hf.keys() and 'step' in hf['timeAttributeCache'].keys()):
-				sIds = np.asarray(hf['timeAttributeCache']['step'])
+			if(kdefs.grpTimeCache in hf.keys() and 'step' in hf[kdefs.grpTimeCache].keys()):
+				sIds = np.asarray(hf[kdefs.grpTimeCache]['step'])
 				nSteps = sIds.size
 			else:
 				Steps = [grp for grp in alive_it(hf.keys(),title="#-Steps".ljust(kdefs.barLab),length=kdefs.barLen) if "Step#" in grp]
@@ -166,8 +166,8 @@ def getTs(fname,sIds=None,aID="time",aDef=0.0):
 	titStr = "Time series: %s"%(aID)
 
 	with h5py.File(fname,'r') as hf:
-		if('timeAttributeCache' in hf.keys()):
-			T = np.asarray(hf['timeAttributeCache'][aID])
+		if(kdefs.grpTimeCache in hf.keys()):
+			T = np.asarray(hf[kdefs.grpTimeCache][aID])
 		else:
 			with alive_bar(Nt,title=titStr.ljust(kdefs.barLab),length=kdefs.barLen) as bar:
 				for idx, n in enumerate(sIds):
