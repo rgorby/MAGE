@@ -19,7 +19,7 @@ rmStr = "mixtest"
 #Assuming LFM/EGG type grid
 class GamsphPipe(GameraPipe):
 	#Initialize object, rely on base class, take optional unit identifier
-	def __init__(self,fdir,ftag,doFast=False,uID="Earth"):
+	def __init__(self,fdir,ftag,doFast=False,uID="Earth",doParallel=False,nWorkers=4):
 
 		print("Initializing %s magnetosphere"%(uID))
 		#TODO: Add different unit/planet options here
@@ -43,7 +43,7 @@ class GamsphPipe(GameraPipe):
 		self.xxi = [] ; self.yyi = []
 		self.xxc = [] ; self.yyc = []
 
-		GameraPipe.__init__(self,fdir,ftag,doFast=doFast)
+		GameraPipe.__init__(self,fdir,ftag,doFast=doFast,doParallel=doParallel,nWorkers=nWorkers)
 
 		self.Rin = self.xxi[0,0]
 		

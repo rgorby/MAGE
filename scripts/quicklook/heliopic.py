@@ -114,7 +114,7 @@ def create_command_line_parser():
         help="Don't show MPI boundaries (default: %(default)s)."
     )
     parser.add_argument(
-        "-p", type=str, metavar="pictype", default=default_pictype,
+        "-pic", type=str, metavar="pictype", default=default_pictype,
         help="Code for plot type (default: %(default)s)"
     )
     parser.add_argument(
@@ -124,6 +124,14 @@ def create_command_line_parser():
     parser.add_argument(
         "-v", "--verbose", action="store_true", default=False,
         help="Print verbose output (default: %(default)s)."
+    )
+    parser.add_argument(
+        "-p", "--parallel", action="store_true", default=False,
+        help="Read from HDF5 in parallel (default: %(default)s)."
+    )
+    parser.add_argument(
+        "-nw", "--nworkers", type=int, metavar="nworkers", default=4,
+        help="Number of parallel workers (default: %(default)s)"
     )
     return parser
 
@@ -141,9 +149,11 @@ if __name__ == "__main__":
     ftag = args.id
     noMPI = args.nompi
     nStp = args.n
-    pic = args.p
+    pic = args.pic
     spacecraft = args.spacecraft
     verbose = args.verbose
+    doParallel = args.parallel
+    nWorkers = args.nworkers
     if debug:
         print("args = %s" % args)
 
@@ -197,7 +207,7 @@ if __name__ == "__main__":
         AxC1 = fig.add_subplot(gs[1, 0])
 
     # Open a pipe to the results data.
-    gsph = hsph.GamsphPipe(fdir, ftag, doFast=doFast)
+    gsph = hsph.GamsphPipe(fdir, ftag, doFast=doFast, doParallel=doParallel, nWorkers=nWorkers)
     if nStp < 0:
         nStp = gsph.sFin
         print("Using Step %d" % nStp)

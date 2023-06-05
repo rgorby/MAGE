@@ -15,14 +15,13 @@ import kaipy.kdefs as kdefs
 #V = gIn.GetVar("D",stepnum)
 #doFast=True skips various data scraping
 idStr = "_0000_0000_0000.gam.h5"
-Nw=8
 
 class GameraPipe(object):
 
 	#Initialize GP object
 	#fdir = directory to h5 files
 	#ftag = stub of h5 files
-	def __init__(self,fdir,ftag,doFast=False,doVerbose=True):
+	def __init__(self,fdir,ftag,doFast=False,doVerbose=True,doParallel=False,nWorkers=4):
 
 		self.fdir = fdir
 		self.ftag = ftag
@@ -49,8 +48,9 @@ class GameraPipe(object):
 
 		self.gridLoaded = False
 		self.doFast = doFast
+		self.doParallel = doParallel
 		self.UnitsID = "NONE"
-
+		self.nWorkers = nWorkers
 		#Example file data
 		self.f0 = []
 
@@ -214,7 +214,7 @@ class GameraPipe(object):
 
 		for data,vID in coords:
 			datasets = []
-			with alive_bar(NrX,title=f"{titStr}/{vID}".ljust(kdefs.barLab),length=kdefs.barLen) as bar, ProcessPoolExecutor(max_workers=Nw) as executor:
+			with alive_bar(NrX,title=f"{titStr}/{vID}".ljust(kdefs.barLab),length=kdefs.barLen) as bar, ProcessPoolExecutor(max_workers=self.nWorkers) as executor:
 				futures = [executor.submit(kh5.PullVarLoc, fIn, vID, loc=loc) for fIn, loc in files]
 				for future in as_completed(futures):
 					datasets.append(future.result())
@@ -238,12 +238,14 @@ class GameraPipe(object):
 					data[iS:iE+1,jS:jE+1,kS:kE+1] = dataset
 
 	def GetGrid(self,doVerbose):
-		'''
+		''' Load Grid from Gamera HDF5 file
 		
 		'''
 		import kaipy.kaiH5 as kh5
+		from alive_progress import alive_bar
+
 		if(not self.gridLoaded):
-			if (self.isMPI):
+			if (self.isMPI and self.doParallel):
 				self.GetGridParallel(doVerbose)
 			else:
 				if (self.is2D):
@@ -253,15 +255,33 @@ class GameraPipe(object):
 					self.X = np.zeros((self.Ni+1,self.Nj+1,self.Nk+1))
 					self.Y = np.zeros((self.Ni+1,self.Nj+1,self.Nk+1))
 					self.Z = np.zeros((self.Ni+1,self.Nj+1,self.Nk+1))
-				
-				fIn = self.fdir + "/" + self.ftag + ".h5"
-				if (self.is2D):
-					self.X = kh5.PullVar(fIn,"X")
-					self.Y = kh5.PullVar(fIn,"Y")
+				if (doVerbose):
+					#print("Del = (%d,%d,%d)"%(self.dNi,self.dNj,self.dNk))
+					titStr = "%s/Grid"%(self.ftag)
 				else:
-					self.X = kh5.PullVar(fIn,"X")
-					self.Y = kh5.PullVar(fIn,"Y")
-					self.Z = kh5.PullVar(fIn,"Z")
+					titStr = None
+				NrX = max(self.Nr,1)
+				with alive_bar(NrX,title=titStr,length=kdefs.barLen) as bar:
+					for (i,j,k) in itertools.product(range(self.Ri),range(self.Rj),range(self.Rk)):
+						iS = i *self.dNi
+						jS = j *self.dNj
+						kS = k *self.dNk
+						iE = iS+self.dNi
+						jE = jS+self.dNj
+						kE = kS+self.dNk
+						#print("Bounds = (%d,%d,%d,%d,%d,%d)"%(iS,iE,jS,jE,kS,kE))
+						if (self.isMPI):
+							fIn = self.fdir + "/" + kh5.genName(self.ftag,i,j,k,self.Ri,self.Rj,self.Rk)
+						else:
+							fIn = self.fdir + "/" + self.ftag + ".h5"
+						if (self.is2D):
+							self.X[iS:iE+1,jS:jE+1] = kh5.PullVar(fIn,"X")
+							self.Y[iS:iE+1,jS:jE+1] = kh5.PullVar(fIn,"Y")
+						else:
+							self.X[iS:iE+1,jS:jE+1,kS:kE+1] = kh5.PullVar(fIn,"X")
+							self.Y[iS:iE+1,jS:jE+1,kS:kE+1] = kh5.PullVar(fIn,"Y")
+							self.Z[iS:iE+1,jS:jE+1,kS:kE+1] = kh5.PullVar(fIn,"Z")
+						bar()
 		else:
 			print("Grid Previously Loaded")
 		self.gridLoaded = True
@@ -296,7 +316,7 @@ class GameraPipe(object):
 		NrX = max(self.Nr,1)
 
 		datasets = []
-		with alive_bar(NrX,title=titStr.ljust(kdefs.barLab),length=kdefs.barLen) as bar, ProcessPoolExecutor(max_workers=Nw) as executor:
+		with alive_bar(NrX,title=titStr.ljust(kdefs.barLab),length=kdefs.barLen) as bar, ProcessPoolExecutor(max_workers=self.nWorkers) as executor:
 			futures = [executor.submit(kh5.PullVarLoc, fIn, vID, sID, loc=loc) for fIn, loc in files]
 			for future in as_completed(futures):
 				datasets.append(future.result())
@@ -328,23 +348,46 @@ class GameraPipe(object):
 
 		'''
 		import kaipy.kaiH5 as kh5
+		from alive_progress import alive_bar
 
 		if (self.is2D):
 			V = np.zeros((self.Ni,self.Nj))
 		else:
 			V = np.zeros((self.Ni,self.Nj,self.Nk))
 
-		if (self.isMPI):
+		if (self.isMPI and self.doParallel):
 			V = self.GetVarParallel(vID,sID,vScl,doVerb)
 		else:
-			fIn = self.fdir + "/" + self.ftag + ".h5"
-
-			if (self.is2D):
-				V = kh5.PullVar(fIn,vID,sID)
+			if (doVerb):
+				if (sID is None):
+					titStr = "%s/%s"%(self.ftag,vID)
+					
+				else:
+					titStr = "%s/Step#%d/%s"%(self.ftag,sID,vID)
 			else:
-				V = kh5.PullVar(fIn,vID,sID)
-			if (vScl is not None):
-				V = vScl*V
+				titStr = ''
+			NrX = max(self.Nr,1)
+			with alive_bar(NrX,title=titStr.ljust(kdefs.barLab),length=kdefs.barLen) as bar:
+				for (i,j,k) in itertools.product(range(self.Ri),range(self.Rj),range(self.Rk)):
+
+					iS = i*self.dNi
+					jS = j*self.dNj
+					kS = k*self.dNk
+					iE = iS+self.dNi
+					jE = jS+self.dNj
+					kE = kS+self.dNk
+					#print("Bounds = (%d,%d,%d,%d,%d,%d)"%(iS,iE,jS,jE,kS,kE))
+					if (self.isMPI):
+						fIn = self.fdir + "/" + kh5.genName(self.ftag,i,j,k,self.Ri,self.Rj,self.Rk)
+					else:
+						fIn = self.fdir + "/" + self.ftag + ".h5"
+
+					if (self.is2D):
+						V[iS:iE,jS:jE] = kh5.PullVar(fIn,vID,sID)
+
+					else:
+						V[iS:iE,jS:jE,kS:kE] = kh5.PullVar(fIn,vID,sID)
+					bar()
 
 		return V
 
