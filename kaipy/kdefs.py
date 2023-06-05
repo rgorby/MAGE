@@ -59,3 +59,8 @@ JD2MJD = 2400000.5 #Conversion from JD to MJD: MJD = JD - 2400000.5
 #------
 barLen = 30
 barLab = 30 
+
+#------
+# I/O
+#------
+grpTimeCache = "timeAttributeCache"

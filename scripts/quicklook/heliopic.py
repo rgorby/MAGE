@@ -119,7 +119,7 @@ def create_command_line_parser():
         help="Don't show MPI boundaries (default: %(default)s)."
     )
     parser.add_argument(
-        "-p", type=str, metavar="pictype", default=default_pictype,
+        "-pic", type=str, metavar="pictype", default=default_pictype,
         help="Code for plot type (default: %(default)s)"
     )
     parser.add_argument(
@@ -133,6 +133,14 @@ def create_command_line_parser():
     parser.add_argument(
         "-o", "--outfile", type=str, metavar="outFile", default=fOut,
         help="Output file name (default: %(default)s)."
+    )
+    parser.add_argument(
+        "-p", "--parallel", action="store_true", default=False,
+        help="Read from HDF5 in parallel (default: %(default)s)."
+    )
+    parser.add_argument(
+        "-nw", "--nworkers", type=int, metavar="nworkers", default=4,
+        help="Number of parallel workers (default: %(default)s)"
     )
     return parser
 
@@ -173,10 +181,12 @@ if __name__ == "__main__":
     noMPI = args.nompi
     steps = args.nlist
     slices = args.nslice
-    pic = args.p
     spacecraft = args.spacecraft
     verbose = args.verbose
     fOut = args.outfile
+    pic = args.pic
+    doParallel = args.parallel
+    nWorkers = args.nworkers
     if debug:
         print("args = %s" % args)
     if slices:
@@ -198,8 +208,12 @@ if __name__ == "__main__":
 
     # Open a pipe to the results data.
     tic = time.perf_counter()
-    gsph = hsph.GamsphPipe(fdir, ftag, doFast=doFast)
+    gsph = hsph.GamsphPipe(fdir, ftag, doFast=doFast, doParallel=doParallel, nWorkers=nWorkers)
     toc = time.perf_counter()
+
+    if nStp < 0:
+        nStp = gsph.sFin
+        print("Using Step %d" % nStp)
 
     print(f"Open pipe took {toc-tic} s")
 

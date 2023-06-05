@@ -19,7 +19,7 @@ MK     = 1.e6 #MegaKelvin
 #Adapted to helio grid
 class GamsphPipe(GameraPipe):
 	#Initialize object, rely on base class, take optional unit identifier
-	def __init__(self,fdir,ftag,doFast=False,uID="Inner"):
+	def __init__(self,fdir,ftag,doFast=False,uID="Inner",doParallel=False,nWorkers=4):
 
 		print("Initializing %s heliosphere"%(uID))
 		
@@ -42,7 +42,7 @@ class GamsphPipe(GameraPipe):
 		self.xxc = [] ; self.yyc = [] #centers
 
 		#base class, will use OpenPipe below
-		GameraPipe.__init__(self,fdir,ftag,doFast=doFast)
+		GameraPipe.__init__(self,fdir,ftag,doFast=doFast,doParallel=doParallel,nWorkers=nWorkers)
 
 		#inner boundary distance
 		self.R0 = self.xxc[0,0]

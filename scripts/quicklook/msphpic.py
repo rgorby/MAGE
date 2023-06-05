@@ -136,6 +136,14 @@ def create_command_line_parser():
         "--spacecraft", type=str, metavar="spacecraft", default=None,
         help="Names of spacecraft to plot positions, separated by commas (default: %(default)s)"
     )
+    parser.add_argument(
+        "-p", "--parallel", action="store_true", default=False,
+        help="Read from HDF5 in parallel (default: %(default)s)."
+    )
+    parser.add_argument(
+        "-nw", "--nworkers", type=int, metavar="nworkers", default=4,
+        help="Number of parallel workers (default: %(default)s)"
+    )
     # Add an option for plot domain size.
     mviz.AddSizeArgs(parser)
     return parser
@@ -165,6 +173,8 @@ if __name__ == "__main__":
     noRCM = args.norcm
     doBigRCM = args.bigrcm
     spacecraft = args.spacecraft
+    doParallel = args.parallel
+    nWorkers = args.nworkers
     if debug:
         print("args = %s" % args)
 
@@ -179,7 +189,7 @@ if __name__ == "__main__":
     figSz = (12, 7.5)
 
     # Open the gamera results pipe.
-    gsph = msph.GamsphPipe(fdir, ftag, doFast=doFast)
+    gsph = msph.GamsphPipe(fdir, ftag, doFast=doFast, doParallel=doParallel, nWorkers=nWorkers)
 
     # If needed, fetch the number of the last step.
     if nStp < 0:
