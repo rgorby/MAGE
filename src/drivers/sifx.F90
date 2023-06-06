@@ -3,6 +3,7 @@ program sifx
     use kdefs
     use planethelper
     use xml_input
+    use clocks
 
     ! Sif stuff
     use sifdefs
@@ -45,6 +46,9 @@ program sifx
     logical :: doChmpOut,doFLOut
     logical :: isFirstCpl = .true.
 
+    call initClocks()
+    call Tic("Omega")
+
     associate(ebModel=>vApp%ebTrcApp%ebModel, ebState=>vApp%ebTrcApp%ebState)
             
         ! Init xml
@@ -54,6 +58,7 @@ program sifx
         inpXML = New_XML_Input(trim(XMLStr),"Kaiju/SIF",.true.)
         call inpXML%Set_Val(doChmpOut,'driver/doChmpOut',.false.)
         call inpXML%Set_Val(doFLOut,'driver/doFLOut',.false.)
+        call inpXML%Set_Val(sApp%Model%doClockConsoleOut,'driver/doClockOut',.false.)
 
         ! Init SIF
         call sifInit(sApp, inpXML)
@@ -65,6 +70,7 @@ program sifx
 
         ! Init Remix reader
         call initRM  (ebModel,ebState,rmState,inpXML)
+
         ! Set mix->SIF map
         call InitMixMap(sApp%Grid%shGrid, rmState)
         
@@ -80,6 +86,7 @@ program sifx
         ! Ready to loop
         do while ( sApp%State%t < (sApp%Model%tFin + 0.5) )
             
+            call Tic("Output")
         ! Output if ready
             if (sApp%State%IO%doOutput(sApp%State%t)) then
                 call sifOutput(sApp%Model,sApp%Grid,sApp%State)
@@ -96,18 +103,31 @@ program sifx
                         sApp%State%mjd,sApp%State%t, &
                         sApp%Grid%shGrid%Nt,sApp%Grid%shGrid%Np)
             endif
+            call Toc("Output")
 
         ! Update other models
+            call Tic("CHIMP update")
             call updateFields(ebModel, ebState, ebModel%t)
+            call Toc("CHIMP update")
+
+            call Tic("REMIX update")
             call updateRemix(ebModel,ebState,ebModel%t,rmState)
+            call Toc("REMIX update")
 
             ! Populate sif's fromV object with updated model info
+            call Tic("fromV packing")
             call packFromV(sifCplBase%fromV, vApp, rmState, sApp)
+            call Toc("fromV packing")
+
+            call Tic("fromV to State")
             ! Now put fomV info into sif's State
             call sifCpl_Volt2SIF(sifCplBase, vApp, sApp)
+            call Toc("fromV to State")
 
         ! Step SIF
-            call sifAdvance(sApp%Model,sApp%Grid,sApp%State, isFirstCpl)
+            call Tic("SIF Advance")
+            call sifAdvance(sApp%Model,sApp%Grid,sApp%State, sApp%Model%dt, isFirstCpl)
+            call Toc("SIF Advance")
             !isFirstCpl = .false.
 
 
@@ -117,22 +137,28 @@ program sifx
             ebModel%t  = ebModel%t  + inTscl*sApp%Model%dt
             ebModel%ts = ebModel%ts + 1
 
-
+            if (sApp%Model%doClockConsoleOut) then
+                call printClocks()
+                call cleanClocks()
+            endif
         enddo
 
     end associate
 
+    call Toc("Omega")
 
 
     contains
 
-    subroutine sifAdvance(Model, Grid, State, isFirstCplO)
+    subroutine sifAdvance(Model, Grid, State, dtCpl, isFirstCplO)
         type(sifModel_T), intent(in) :: Model
         type(sifGrid_T) , intent(in) :: Grid
         type(sifState_T), intent(inout) :: State
+        real(rp), intent(in) :: dtCpl
         logical, optional, intent(in) :: isFirstCplO
 
         logical :: isFirstCpl
+        integer :: k
 
         if (present(isFirstCplO)) then
             isFirstCpl = isFirstCplO
@@ -140,16 +166,35 @@ program sifx
             isFirstCpl = .false.
         endif
 
+        State%dt = dtCpl
+
         ! Moments to etas
+        call Tic("BCs")
         call applySifBCs(Model, Grid, State, isFirstCpl) ! If isFirstCpl, we want to apply mom2eta to whole domain
+        call Toc("BCs")
+
+        call Tic("Calc effective potential")
+        call calcEffectivePotential(Model%planet, Grid, State)
+        call Toc("Calc effective potential")
         ! Calc cell velocities
-        ! Determine active domain for each lambda
-        ! Calc sub-time step
+        call Tic("Calc cell-center velocities")
+        do k=1,Grid%Nk
+            State%cVel(:,:,k,:) = calcVelocityCC(Model, Grid, State, Grid%alamc(k))
+            ! Calc sub-time step
+            State%dtk(k) = activeDt(Grid%shGrid, Grid, State, k)
+        enddo
+        call Toc("Calc cell-center velocities")
+        
         ! Step
+        call Tic("AdvanceState")
+        call AdvanceState(Model, Grid, State)
+        call Toc("AdvanceState")
             ! Push
             ! Losses
         ! etas to moments
+        call Tic("Moments Eval")
         call EvalMoments(Grid, State)
+        call Toc("Moments Eval")
 
     end subroutine sifAdvance
 

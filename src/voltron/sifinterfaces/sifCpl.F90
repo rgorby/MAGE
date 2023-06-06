@@ -25,7 +25,7 @@ module sifCpl
             ! Allocations
             allocate(fromV%fLines (sh%isg:sh%ieg+1, sh%jsg:sh%jeg+1))
             allocate(fromV%ijTubes(sh%isg:sh%ieg+1, sh%jsg:sh%jeg+1))
-            allocate(fromV%pot    (sh%isg:sh%ieg, sh%jsg:sh%jeg))
+            allocate(fromV%pot    (sh%isg:sh%ieg  , sh%jsg:sh%jeg  ))
 
             ! Initial values
             fromV%tLastUpdate = -1.0*HUGE
@@ -215,6 +215,11 @@ module sifCpl
                         State%Bmin(i,j,ZDIR) = toCenter2D(ijTubes(i:i+1,j:j+1)%bmin) * 1.0e+9  ! Tesla -> nT
                         State%bvol(i,j)      = toCenter2D(ijTubes(i:i+1,j:j+1)%Vol) * 1.0e-9  ! Rp/T -> Rp/nT
                     endif
+
+                    ! Always do xyzmin
+                    State%xyzMincc(i,j,XDIR) = toCenter2D(State%xyzMin(i:i+1,j:j+1,XDIR))
+                    State%xyzMincc(i,j,YDIR) = toCenter2D(State%xyzMin(i:i+1,j:j+1,YDIR))
+                    State%xyzMincc(i,j,ZDIR) = toCenter2D(State%xyzMin(i:i+1,j:j+1,ZDIR))
                 enddo
             enddo
 

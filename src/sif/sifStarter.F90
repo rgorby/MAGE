@@ -108,6 +108,16 @@ module sifstarter
                 stop
         end select
 
+
+        ! Losses
+        call iXML%Set_Val(Model%doSS , "losses/doSS" ,.true. )
+        call iXML%Set_Val(Model%doCC , "losses/doCC" ,.false.)
+        call iXML%Set_Val(Model%doCX , "losses/doCX" ,.false.)
+        call iXML%Set_Val(Model%doFLC, "losses/doFLC",.false.)
+
+
+        call iXML%Set_Val(Model%doFatOutput, "output/doFat",.false.)
+
         ! Set planet params
         !! This should only be kept for as long as planet_T doesn't contain pointers
         !! In this current case, there should be a full copy to our own planet params
@@ -154,7 +164,7 @@ module sifstarter
         end select
 
         ! Finalize the spatial part of the grid
-        call finalizeLLGrid(Grid)
+        call finalizeLLGrid(Grid, Model%planet)
         
 
         ! Now handle lambda grid
@@ -175,12 +185,14 @@ module sifstarter
 
         associate(sh=>Grid%shGrid)
 
-        ! dt for every lambda channel
+            ! dt for every lambda channel
             allocate( State%dtk (Grid%Nk) )
             ! Where we keep all our stuff
             allocate( State%eta (sh%isg:sh%ieg, sh%jsg:sh%jeg, Grid%Nk) )
+            ! Effective potential
+            allocate( State%pEff(sh%isg:sh%ieg, sh%jsg:sh%jeg, Grid%Nk) )
             ! I shells shat should be evolved for each k
-            allocate( State%activeShells (sh%is:sh%ie, Grid%Nk) )
+            allocate( State%activeShells (sh%isg:sh%ieg, Grid%Nk) )
             ! Interface and cell velocities
             allocate( State%iVel(sh%isg:sh%ieg+1, sh%jsg:sh%jeg+1, Grid%Nk, 2) )
             allocate( State%cVel(sh%isg:sh%ieg  , sh%jsg:sh%jeg  , Grid%Nk, 2) )
@@ -188,10 +200,11 @@ module sifstarter
             allocate( State%Pavg(sh%isg:sh%ieg  , sh%jsg:sh%jeg, Grid%nSpc) )
             allocate( State%Davg(sh%isg:sh%ieg  , sh%jsg:sh%jeg, Grid%nSpc) )
             ! Bmin surface
-            allocate( State%Bmin  (sh%isg:sh%ieg  , sh%jsg:sh%jeg  , 3 ) )
-            allocate( State%xyzMin(sh%isg:sh%ieg+1, sh%jsg:sh%jeg+1, 3 ) )
-            allocate( State%thcon (sh%isg:sh%ieg+1, sh%jsg:sh%jeg+1    ) )
-            allocate( State%phcon (sh%isg:sh%ieg+1, sh%jsg:sh%jeg+1    ) )
+            allocate( State%Bmin    (sh%isg:sh%ieg  , sh%jsg:sh%jeg  , 3 ) )
+            allocate( State%xyzMin  (sh%isg:sh%ieg+1, sh%jsg:sh%jeg+1, 3 ) )
+            allocate( State%xyzMincc(sh%isg:sh%ieg  , sh%jsg:sh%jeg  , 3 ) )
+            allocate( State%thcon   (sh%isg:sh%ieg+1, sh%jsg:sh%jeg+1    ) )
+            allocate( State%phcon   (sh%isg:sh%ieg+1, sh%jsg:sh%jeg+1    ) )
             ! 2D corner quantities
             allocate( State%topo  (sh%isg:sh%ieg+1, sh%jsg:sh%jeg+1) )
             ! 2D cell-centered quantities
@@ -199,9 +212,10 @@ module sifstarter
             allocate( State%OCBDist(sh%isg:sh%ieg, sh%jsg:sh%jeg) )
             allocate( State%espot  (sh%isg:sh%ieg, sh%jsg:sh%jeg) )
             allocate( State%bvol   (sh%isg:sh%ieg, sh%jsg:sh%jeg) )
+
             ! Coupling output data
-            allocate( State%precipFlux(sh%isg:sh%ieg, sh%jsg:sh%jeg, Grid%Nk) )
-            allocate( State%precipAvgE(sh%isg:sh%ieg, sh%jsg:sh%jeg, Grid%Nk) )
+            allocate( State%precipNFlux(sh%isg:sh%ieg, sh%jsg:sh%jeg, Grid%Nk) )
+            allocate( State%precipEFlux(sh%isg:sh%ieg, sh%jsg:sh%jeg, Grid%Nk) )
             allocate( State%Den  (sh%isg:sh%ieg, sh%jsg:sh%jeg, Grid%nSpc+1) )
             allocate( State%Press(sh%isg:sh%ieg, sh%jsg:sh%jeg, Grid%nSpc+1) )
             allocate( State%vAvg (sh%isg:sh%ieg, sh%jsg:sh%jeg, Grid%nSpc+1) )

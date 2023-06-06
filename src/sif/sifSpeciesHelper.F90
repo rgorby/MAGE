@@ -68,6 +68,28 @@ module sifSpeciesHelper
 
     end function SpcAmu
 
+
+    function spcType(spc) result(sType)
+        !! Determine the species type (e-, H+, O+, etc.)
+        type(SIFSpecies_T), intent(in) :: spc
+
+        integer :: sType
+
+        select case(spc%numNuc_p)
+            case(0)
+                sType = SIFELE
+            case(1)
+                sType = SIFHPLUS
+            case(8)
+                sType = SIFOPLUS
+            case DEFAULT
+                write(*,*)"WARNING: SIF can't determine type for species with nProton=",spc%numNuc_p
+                sType = SIFNSPC
+        end select
+
+
+    end function spcType
+
     !------
     ! Do-stuff helpers
     !------
@@ -92,7 +114,6 @@ module sifSpeciesHelper
         
         ! If still here, start populating Grid%spc
         allocate(Grid%spc(Grid%nSpc))
-
         
         ! TODO: Think through edge cases that will cause errors
         kPos = 1
@@ -107,7 +128,6 @@ module sifSpeciesHelper
             endif
             
             ! If still here, continue with reading and assigning
-            
             write(*,*)"Found spc group ",trim(gStr)
                 
             ! Read
@@ -130,8 +150,7 @@ module sifSpeciesHelper
             spc%fudge    = IOVars(FindIO(IOVars, "fudge"   ))%data(1)
             
             spc%amu = SpcAmu(spc)
-            spc%isElectron = (spc%numNuc_p .eq. 0) ! Gonna assume this will always work
-
+            spc%spcType = spcType(spc)
 
             ! Calc start and end bounds, use it to set alami index range
             spc%kStart = kPos
@@ -146,11 +165,12 @@ module sifSpeciesHelper
             write(*,*)" # nuc_p: ", spc%numNuc_p
             write(*,*)" # nuc_n: ", spc%numNuc_n
             write(*,*)" q:       ", spc%q
+            write(*,*)" spcType: ", spc%spcType
             write(*,*)" Fudge:   ", spc%fudge
             write(*,*)" kStart:  ", spc%kStart
             write(*,*)" kEnd:    ", spc%kEnd
             write(*,*)" kDiff=   ", spc%kEnd-spc%kStart
-            write(*,*)" alami:   ", spc%alami
+            !write(*,*)" alami:   ", spc%alami
             
 
             end associate
@@ -201,7 +221,7 @@ module sifSpeciesHelper
         !!  as well as tells each species what its range is inside alamc
         type(sifGrid_T), intent(inout) :: Grid
 
-        integer :: i, kPos
+        integer :: i
 
         ! Calc Nk
         Grid%Nk = 0
@@ -211,19 +231,16 @@ module sifSpeciesHelper
 
         ! Allocate
         allocate(Grid%alamc(Grid%Nk))
+        allocate(Grid%k2spc(Grid%Nk))
         Grid%alamc = 0.0
+        Grid%k2spc = 0.0
 
-        ! Populate, tell each species its bounds
-        kPos = 1
+        ! Populate alamc, fill in k2spc map
         do i=1,Grid%nSpc
             associate(spc=>Grid%spc(i))
-            !spc%kStart = kPos
-            !kPos = kPos + spc%N
-            !spc%kEnd = kPos-1
-
             ! N = # channels, and size(alami)=N+1
-            !Grid%alamc(spc%kStart:spc%kEnd) = 0.5*(spc%alami(2:spc%N+1) + spc%alami(1:spc%N))
-                Grid%alamc(spc%kStart:spc%kEnd) = 0.5*(spc%alami(spc%kStart+1:spc%kEnd+1) + spc%alami(spc%kStart:spc%kEnd))
+            Grid%alamc(spc%kStart:spc%kEnd) = 0.5*(spc%alami(spc%kStart+1:spc%kEnd+1) + spc%alami(spc%kStart:spc%kEnd))
+            Grid%k2spc(spc%kStart:spc%kEnd) = i
             end associate
         enddo
 

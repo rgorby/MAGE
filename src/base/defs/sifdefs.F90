@@ -32,6 +32,12 @@ module sifdefs
             !! Helps determine how SIF is going to treat the grid point
     endenum
 
+    ! Species type
+    enum, bind(C)
+        enumerator :: SIFNSPC=0,SIFELE,SIFHPLUS,SIFOPLUS
+                    ! Null species, electron, h+, o+
+    endenum
+
     !------
     ! Defaults
     !------
@@ -41,7 +47,7 @@ module sifdefs
     real(rp) :: sclIntens = 1.e-4*sqrt(ev2J/(8.0*dalton))/PI ! code eta to intensity [1/(s*sr*keV*cm^2)]
 
     ! Settings
-    integer :: nSpacesDef = 2
+    integer :: nSpacesDef = 4
         !! Number of i spaces between last good value and active i for species
     real(rp) :: fracWorthyDef = 0.001
         !! Fraction that a lambda channel must contribute to total pressure or density in order to be worthy of being evolved

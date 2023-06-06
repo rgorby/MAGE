@@ -38,6 +38,7 @@ class SpeciesInfo:
     amu: float
     q: int
     alami: List[float]
+    alamc: List[float]
     name: str = None
 
 @dataclass_json
@@ -59,11 +60,14 @@ class SIFInfo(kh5.H5Info):
                     name = flavs_n[flav]
                 else:
                     name = None
+                alami = s5['alami'][:]
+                alamc = 0.5*(alami[1:]+alami[:-1])
                 spc = SpeciesInfo(att['N'], att['flav'],
                                   att['kStart'], att['kEnd']+1,
                                   att['numNuc_p'], att['numNuc_p'],
                                   att['amu'], att['q'],
-                                  s5['alami'][:], name)
+                                  alami, alamc, 
+                                  name)
                 specs.append(spc)
         # Now make our final object
         return SIFInfo(fi.fname, fi.Nt, fi.steps, fi.stepStrs, fi.times, fi.MJDs,

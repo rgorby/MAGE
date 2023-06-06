@@ -77,18 +77,45 @@ module sifgrids
         !!TODO
     end subroutine sifGenGridFromShGrid
 
-    subroutine finalizeLLGrid(Grid)
+    subroutine finalizeLLGrid(Grid, planet)
         !! Use a fully-created shell grid to allocate and populate the rest of the grid parameters
         type(sifGrid_T), intent(inout) :: Grid
+        type(planet_T), intent(in) :: planet
 
+        integer :: i,j
+        real(rp), dimension(Grid%shGrid%isg:Grid%shGrid%ieg) :: sinTh, BMagTh
 
         associate(shGr=>Grid%shGrid)
             ! First allocate remaining arrays
-            !allocate(Grid%llfc(shGr%isg:shGr%ieg, shGr%isg:shGr%ieg, 2, 2))  ! Face-centered
-            !allocate(Grid%llfc(shGr%isg:shGr%ieg, shGr%isg:shGr%ieg, 2   ))  ! Cell-centered
-            allocate(Grid%iBnd(shGr%is :shGr%ie ))  ! i/lat boundary for valid domain
 
-            Grid%iBnd = 0
+            allocate( Grid%delTh(shGr%isg:shGr%ieg+1) )
+            allocate( Grid%delPh(shGr%jsg:shGr%jeg+1) )
+            allocate( Grid%Bmag(shGr%isg:shGr%ieg,shGr%jsg:shGr%jeg) )
+
+            ! Calculate theta/phi delta between cells
+            ! First and last elements should be zero since there's no cells below/above isg/ieg
+            Grid%delTh(shGr%isg) = 0.0
+            Grid%delTh(shGr%ieg+1) = 0.0  
+            do i=shGr%isg+1,shGr%ieg
+                ! Define delta between th(i-1) and th(i)
+                Grid%delTh(i) = abs(shGr%thc(i) - shGr%thc(i-1))
+            enddo
+
+            Grid%delPh(shGr%jsg) = 0.0
+            Grid%delPh(shGr%jeg+1) = 0.0  
+            do j=shGr%jsg+1,shGr%jeg
+                ! Define delta between th(i-1) and th(i)
+                Grid%delPh(j) = abs(shGr%phc(j) - shGr%phc(j-1))
+            enddo
+
+            ! Calc Bmag on whole grid at the ionosphere
+            sinTh = sin(shGr%thc)
+            BMagTh = planet%magMoment*G2nT &
+                    /(planet%ri_m/planet%rp_m)**3 &
+                    * sqrt(1+3*sinTh**2)
+            do j=shGr%jsg,shGr%jeg
+                Grid%Bmag(:,j) = BMagTh
+            enddo
 
         end associate
 
