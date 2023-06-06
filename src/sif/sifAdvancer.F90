@@ -1,10 +1,11 @@
 module sifadvancer
-
+    use clocks
     use planethelper
 
     use sifdefs
     use siftypes
     use sifetautils
+    use siflosses
 
     implicit none
 
@@ -30,6 +31,7 @@ module sifadvancer
         integer :: i,j, iL, iU
         integer :: nSpaces
         real(rp) :: worthyFrac
+        logical, dimension(shGrid%isg:shGrid%ieg, shGrid%jsg:shGrid%jeg) :: as2D
         logical, dimension(shGrid%isg:shGrid%ieg) :: activeShells
 
         if(present(nSpacesO)) then
@@ -44,22 +46,32 @@ module sifadvancer
             worthyFrac = fracWorthyDef
         endif
 
+        as2D = .false.
         activeShells = .false.
 
         ! Determine shells with cells that have enough stuff to be evolved
-        !$OMP PARALLEL DO default(shared) collapse(1) &
+        !$OMP PARALLEL DO default(shared) collapse(2) &
         !$OMP schedule(dynamic) &
         !$OMP private(i,j,iL,iU)
-        do i=shGrid%isg,shGrid%ieg
-            do j=shGrid%jsg,shGrid%jeg
+        do j=shGrid%jsg,shGrid%jeg
+            do i=shGrid%isg,shGrid%ieg
                 if (isWorthy(spc, bVol(i,j), etas(i,j,:), k, worthyFrac)) then
-                    ! While we're here, turn on this and adjacent i shells
-                    iL = max(i-nSpaces, shGrid%isg)
-                    iU = min(i+nSpaces, shGrid%ieg)
-                    activeShells(iL:iU) = .true.
-                    !exit  ! No need to evaluate the rest of j
+                    as2D(i,j) = .true.
                 endif
             enddo
+        enddo
+
+        ! Now collapse j
+        !! Re-use as2D, first j element 
+        do i=shGrid%isg,shGrid%ieg
+            as2D(i,shGrid%jsg) = any(as2D(i,:))
+        enddo
+
+        ! Finally, assign to activeShells, including buffer spaces
+        do i=shGrid%isg,shGrid%ieg
+            iL = max(i-nSpaces, shGrid%isg)
+            iU = min(i+nSpaces, shGrid%ieg)
+            activeShells(i) = any(as2D(iL:iU, shGrid%jsg))
         enddo
 
     end function setLambdaActiveShells
@@ -399,6 +411,11 @@ module sifadvancer
         type(sifState_T), intent(inout) :: State
 
         integer :: k
+
+        ! Clear things that will be accumulated over the advance
+        State%precipNFlux = 0.0
+        State%precipEFlux = 0.0
+
         ! Send everyone off
         !$OMP PARALLEL DO default(shared) collapse(1) &
         !$OMP schedule(dynamic) &
@@ -415,7 +432,7 @@ module sifadvancer
         type(sifState_T), intent(inout) :: State
         integer, intent(in) :: k
 
-        integer :: n, s
+        integer :: n, s , Nmax
             !! n = step counter
             !! s = species index
         real(rp) :: t, dt, tEnd
@@ -429,19 +446,27 @@ module sifadvancer
         tEnd = State%t + State%dt
         !Nsteps = int(State%dt / State%dtk(k))+1
         !dt = State%dt / (1.0_rp*Nsteps)
-
+        Nmax = 200
         associate(sh=>Grid%shGrid, spc=>Grid%spc(s))
 
             ! Here we go!
             n = 1  ! counter
             do while ( tEnd-t > TINY)
-                ! write(*,*)k,n,t,dt
+                !write(*,*)k,n,t,dt
                 ! Calc new active shells
-                State%activeShells(:,k) = setLambdaActiveShells(sh, spc, State%bVol, &
-                                            State%eta(:,:,spc%kStart:spc%kEnd), k, worthyFracO = Model%worthyFrac)
-                ! Calc next time step
-                dt = activeDt(sh, Grid, State, k)
+                
+                !! Just mute for now, we're not actually using it
+                !State%activeShells(:,k) = setLambdaActiveShells(sh, spc, State%bVol, &
+                !                            State%eta(:,:,spc%kStart:spc%kEnd), k, worthyFracO = Model%worthyFrac)
+                
 
+                ! Calc next time step
+                !! Also muting
+                !dt = activeDt(sh, Grid, State, k)
+
+                !! BAD: Boost dt to be around 200 iters max
+                !dt = max(dt, (tEnd-t)/(Nmax-n))
+                dt = (tEnd-t)/(Nmax-n)
                 ! If needed, reduce dt to fit within remaining time
                 if (t + dt > tEnd) then
                     dt = tEnd - t
@@ -449,6 +474,7 @@ module sifadvancer
 
                 ! Advection
                 ! Losses
+                call calcStepLosses(Model, Grid, State, k, dt)
 
                 t = t + dt
                 n = n+1

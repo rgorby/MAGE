@@ -108,6 +108,14 @@ module sifstarter
                 stop
         end select
 
+
+        ! Losses
+        call iXML%Set_Val(Model%doSS , "losses/doSS" ,.true. )
+        call iXML%Set_Val(Model%doCC , "losses/doCC" ,.false.)
+        call iXML%Set_Val(Model%doCX , "losses/doCX" ,.false.)
+        call iXML%Set_Val(Model%doFLC, "losses/doFLC",.false.)
+
+
         call iXML%Set_Val(Model%doFatOutput, "output/doFat",.false.)
 
         ! Set planet params
@@ -206,8 +214,8 @@ module sifstarter
             allocate( State%bvol   (sh%isg:sh%ieg, sh%jsg:sh%jeg) )
 
             ! Coupling output data
-            allocate( State%precipFlux(sh%isg:sh%ieg, sh%jsg:sh%jeg, Grid%Nk) )
-            allocate( State%precipAvgE(sh%isg:sh%ieg, sh%jsg:sh%jeg, Grid%Nk) )
+            allocate( State%precipNFlux(sh%isg:sh%ieg, sh%jsg:sh%jeg, Grid%Nk) )
+            allocate( State%precipEFlux(sh%isg:sh%ieg, sh%jsg:sh%jeg, Grid%Nk) )
             allocate( State%Den  (sh%isg:sh%ieg, sh%jsg:sh%jeg, Grid%nSpc+1) )
             allocate( State%Press(sh%isg:sh%ieg, sh%jsg:sh%jeg, Grid%nSpc+1) )
             allocate( State%vAvg (sh%isg:sh%ieg, sh%jsg:sh%jeg, Grid%nSpc+1) )

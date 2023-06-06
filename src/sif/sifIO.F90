@@ -98,7 +98,8 @@ module sifIO
             call AddOutVar(IOVars,"fudge"    ,spc(i)%fudge   )
             call AddOutVar(IOVars,"numNuc_p" ,spc(i)%numNuc_p)
             call AddOutVar(IOVars,"numNuc_n" ,spc(i)%numNuc_n)
-            call AddOutVar(IOVars,"q       " ,spc(i)%q       )
+            call AddOutVar(IOVars,"spcType"  ,spc(i)%spcType )
+            call AddOutVar(IOVars,"q"        ,spc(i)%q       )
             call AddOutVar(IOVars,"amu"      ,spc(i)%amu     )
             call AddOutVar(IOVars,"kStart"   ,spc(i)%kStart-1)  ! Change to assume zero-based
             call AddOutVar(IOVars,"kEnd"     ,spc(i)%kEnd  -1)  ! Change to assume zero-based
@@ -124,9 +125,10 @@ module sifIO
         logical, optional, intent(in) :: doGhostsO
 
         integer :: i,j,s
-        integer :: is, ie, js, je
+        integer :: is, ie, js, je, ks, ke
         logical :: doGhosts
         real(rp), dimension(:,:,:), allocatable :: outDen, outIntensity
+        real(rp), dimension(:,:,:), allocatable :: outPrecipN, outPrecipE, outPrecipAvgE
 
         if (present(doGhostsO)) then
             doGhosts = doGhostsO
@@ -211,7 +213,7 @@ module sifIO
             write(*,*)"Davg_in ",s,maxval(State%Davg(is:ie,js:je,s))
             write(*,*)"Den out ",s,maxval(outDen(:,:,s+1))
             ! Don't include electrons to total number density
-            if(Grid%spc(s)%isElectron .eq. .false.) then
+            if(Grid%spc(s)%spcType .ne. SIFELE) then
                 outDen(:,:,1) = outDen(:,:,1) + outDen(:,:,s+1)
             endif
         enddo
@@ -219,10 +221,35 @@ module sifIO
         !call AddOutVar(IOVars,"Density",State%Den,uStr="#/cc")
         deallocate(outDen)
 
+    ! Precipitation
+
+        ! Calculate accumulated precipitation for each species
+        allocate(outPrecipN   (is:ie,js:je,Grid%nSpc))
+        allocate(outPrecipE   (is:ie,js:je,Grid%nSpc))
+        allocate(outPrecipAvgE(is:ie,js:je,Grid%nSpc))
+        do s=1,Grid%nSpc
+            ks = Grid%spc(s)%kStart
+            ke = Grid%spc(s)%kEnd
+            outPrecipN(:,:,s) = sum(State%precipNFlux(is:ie,js:je,kS:kE), dim=3)
+            outPrecipE(:,:,s) = sum(State%precipEFlux(is:ie,js:je,kS:kE), dim=3)
+
+            where (outPrecipN(:,:,s) > TINY)
+                outPrecipAvgE(:,:,s) = outPrecipE(:,:,s)/outPrecipN(:,:,s) * erg2kev  ! Avg E [keV]
+            elsewhere
+                outPrecipAvgE(:,:,s) = 0.0
+            end where
+        enddo
+        call AddOutVar(IOVars, "precipNFlux", outPrecipN   , uStr="#/cm^2/s")
+        call AddOutVar(IOVars, "precipEFlux", outPrecipE   , uStr="erg/cm^2/s")
+        call AddOutVar(IOVars, "precipAvgE" , outPrecipAvgE, uStr="keV")
+
+        
         if (Model%doFatOutput) then
             call AddOutVar(IOVars, "pEffective", State%pEff(is:ie,js:je,:)*1e-3, uStr="kV")
             call AddOutVar(IOVars, "cVel_th", State%cVel(is:ie,js:je,:,1), uStr="rad/s?")
             call AddOutVar(IOVars, "cVel_ph", State%cVel(is:ie,js:je,:,2), uStr="rad/s?")
+            call AddOutVar(IOVars, "precipNFlux_Nk", State%precipNFlux(is:ie,js:je,:), uStr="#/cm^2/s")
+            call AddOutVar(IOVars, "precipEFlux_Nk", State%precipEFlux(is:ie,js:je,:), uStr="erg/cm^2/s")
         endif
 
 

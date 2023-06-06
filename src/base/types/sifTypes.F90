@@ -44,9 +44,9 @@ module siftypes
             !! Start and end indices for this species in Nk-size arrays
         real(rp) :: amu
             !! Species mass in amu (even the electrons)
-        logical :: isElectron
-            !! Is this species actually an electron? Determine on initialization and store it here
-
+        integer :: spcType
+            !! Enum of species type
+        
     end type SIFSpecies_T
 
 
@@ -98,6 +98,10 @@ module siftypes
         ! Detailed information
         type(planet_T) :: planet  
             !! Planet info like radius, mag. moment, etc.
+
+        ! Loses
+        logical :: doSS, doCC, doCX, doFLC
+            !! (Ions) Do strong scattering / coulomb collisions / charge exchange / field-line curvature
         !type(precip_T) :: precip  ! Precipitation model info (Shanshan and Dong)
         !type(waveModel_T) :: wModel  ! Wave model info (Shanshan)
 
@@ -199,8 +203,8 @@ module siftypes
         real(rp), dimension(:,:), allocatable :: bvol  ! Flux-tube volume [Rx/nT]
 
         !> Varibles coming from SIF, size (Ni, Nj, Nk)
-        real(rp), dimension(:,:,:), allocatable :: precipFlux  ! Precipitation fluxes [!!units]
-        real(rp), dimension(:,:,:), allocatable :: precipAvgE  ! Precipitation avg energy [!!units]
+        real(rp), dimension(:,:,:), allocatable :: precipNFlux  ! Precipitation number fluxes [#/cm^2/s]
+        real(rp), dimension(:,:,:), allocatable :: precipEFlux  ! Precipitation energy fluxes [erg/cm^2/s]
         ! (Ni, Nj, Nspc+1) (First index is bulk)
         ! Last dimension will be D/P of different populations (not necessarily same as species)
         ! Example: Total, hot protons, cold protons, electrons, other species

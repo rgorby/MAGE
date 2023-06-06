@@ -111,7 +111,7 @@ module sifgrids
             ! Calc Bmag on whole grid at the ionosphere
             sinTh = sin(shGr%thc)
             BMagTh = planet%magMoment*G2nT &
-                    /(planet%ri_m/planet%rp_m)**2 &
+                    /(planet%ri_m/planet%rp_m)**3 &
                     * sqrt(1+3*sinTh**2)
             do j=shGr%jsg,shGr%jeg
                 Grid%Bmag(:,j) = BMagTh

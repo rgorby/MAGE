@@ -59,7 +59,7 @@ module sifetautils
             ! Then add each species moment to the bulk
             do s=1,Grid%nSpc
                 ! Don't include electrons to total number density
-                if(Grid%spc(s)%isElectron .eq. .false.) then
+                if(Grid%spc(s)%spcType .ne. SIFELE) then
                     State%Den  (:,:,1) = State%Den  (:,:,1) + State%Den  (:,:,s+1)
                 endif
                 State%Press(:,:,1) = State%Press(:,:,1) + State%Press(:,:,s+1)
