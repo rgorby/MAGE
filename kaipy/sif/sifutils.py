@@ -4,7 +4,7 @@ import matplotlib.pyplot as plt
 from dataclasses import dataclass
 from dataclasses_json import dataclass_json
 from typing import List
-from bidict import bidict
+#from bidict import bidict
 
 import kaipy.kaiTools as kt
 import kaipy.kaiH5 as kh5
@@ -21,8 +21,10 @@ domain = {"INACTIVE" : -1,
 flavs_s = {"PSPH" : 0,  # Flav dict, lookup by string name
            "HOTE" : 1,
            "HOTP" : 2}
-flavs_n = bidict(flavs_s).inv  # Flav dict, lookup by index
-
+#flavs_n = bidict(flavs_s).inv  # Flav dict, lookup by index
+flavs_n = {0 : "PSPH",
+           1 : "HOTE",
+           2 : "HOTP"}
 
 @dataclass_json
 @dataclass
