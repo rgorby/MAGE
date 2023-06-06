@@ -71,7 +71,7 @@ module sifCpl
                 cplBase%fromV%ijTubes, &
                 cplBase%fromV%mhd2spcMap)
         ! Potential
-        sApp%State%espot = cplBase%fromV%pot
+        sApp%State%espot(:,:) = cplBase%fromV%pot(:,:)
 
     end subroutine sifCpl_Volt2SIF
 

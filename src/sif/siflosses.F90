@@ -4,6 +4,7 @@ module siflosses
 
     use sifdefs
     use siftypes
+    use sifspecieshelper, only : spcIdx
 
     implicit none
 
@@ -37,12 +38,12 @@ module siflosses
         real(rp), intent(in) :: dt
             !! Time delta [s]
         
-        integer :: i,j
-        real(rp) :: deleta, pNFlux, pEFlux
+        integer :: i,j, psphIdx
+        real(rp) :: deleta, pNFlux, pEFlux, lossRate
         logical, dimension(Grid%shGrid%isg:Grid%shGrid%ieg, &
                     Grid%shGrid%jsg:Grid%shGrid%jeg) :: isG
         real(rp), dimension(Grid%shGrid%isg:Grid%shGrid%ieg, &
-                    Grid%shGrid%jsg:Grid%shGrid%jeg) :: tauSS, tauCC, tauCX, tauFLC
+                    Grid%shGrid%jsg:Grid%shGrid%jeg) :: rateSS, rateCC, rateCX, rateFLC
         
 
         associate(spc=>Grid%spc(Grid%k2spc(k)), Rp_m=>Model%planet%rp_m)
@@ -61,39 +62,60 @@ module siflosses
             end where
 
             
-            tauSS = HUGE
-            tauCC = HUGE
-            tauCX = HUGE
-            tauFLC = HUGE
+            rateSS  = HUGE
+            rateCC  = HUGE
+            rateCX  = HUGE
+            rateFLC = HUGE
 
             !$OMP PARALLEL DO default(shared) collapse(2) &
             !$OMP schedule(dynamic) &
-            !$OMP private(i,j,deleta, pNFlux, pEFlux)
+            !$OMP private(i,j,deleta, pNFlux, pEFlux, lossRate, psphIdx)
             do j=Grid%shGrid%jsg,Grid%shGrid%jeg
                 do i=Grid%shGrid%isg,Grid%shGrid%ieg
                     if (.not. isG(i,j)) then
                         cycle
-                    end if
+                    endif
+
+                    ! Precipitation first
+
+                    ! Always do SS for baseline
+                    rateSS(i,j) = IonSSRate(Rp_m, spc%amu, Grid%alamc(k), State%bVol(i,j), Grid%Bmag(i,j))
+
+                    if (Model%doCC .and. Model%doPlasmasphere) then
+                        ! Can only do coulomb collisions if we have a cold plasmasphere
+                        ! If we do, use the last evaluated Density-plasmasphere
+                        psphIdx = spcIdx(Grid, F_PSPH)  ! Add 1 cause we're grabbing from density, which has bulk as first element
+                        if (psphIdx == -1) then
+                            write(*,*) "ERROR: doPlasmasphere=t but can't find psph species"
+                            write(*,*)"  goodbye"
+                            stop
+                        endif
+                        rateCC(i,j) = CCRate(spc%spcType, Grid%alamc(k), &
+                                        State%bVol(i,j)**(-2./3.), State%Den(i,j,1+psphIdx))
+                    endif
+
+                    ! Calc our precip loss rate
+                    ! Nothing should be faster than strong scattering
+                    lossRate = min(rateCC(i,j), rateSS(i,j))
 
 
-                    if (Model%doSS) then
-                        tauSS(i,j) = IonSSTau(Rp_m, spc%amu, Grid%alamc(k), State%bVol(i,j), Grid%Bmag(i,j))
-                    end if
-
-                    deleta = State%eta(i,j,k)*(1.0-exp(-dt/tauSS(i,j)))
+                    deleta = State%eta(i,j,k)*(1.0-exp(-dt*lossRate))
 
                     ! Assuming everything in deleta precipitates, calc precip fluxes
                     pNFlux = deleta2NFlux(deleta, Rp_m, Grid%Bmag(i,j), dt)
                     pEFlux = nFlux2EFlux(pNFlux, Grid%alamc(k), State%bVol(i,j))
-                    State%precipNFlux(i,j,k) = State%precipNFlux(i,j,k) + pNFlux
-                    State%precipEFlux(i,j,k) = State%precipEFlux(i,j,k) + pEFlux
+                    !! NOTE: We are removing dt factor so that we can easily average over big dt after advancing is done
+                    State%precipNFlux(i,j,k) = State%precipNFlux(i,j,k) + pNFlux*dt
+                    State%precipEFlux(i,j,k) = State%precipEFlux(i,j,k) + pEFlux*dt
+
+                    ! TODO: CX loss rates
 
                     ! Finally, update eta
                     State%eta(i,j,k) = max(0.0, State%eta(i,j,k) - deleta)
 
-                    if(i==60 .and. j==60) then
-                        write(*,*) k,dt,tauSS(i,j),pNFlux,pEFlux
-                    endif
+                    !if(i==60 .and. j==60) then
+                    !    write(*,*) k,dt,tauSS(i,j),pNFlux,pEFlux
+                    !endif
                 enddo
             enddo
 
@@ -102,9 +124,13 @@ module siflosses
     end subroutine protonLosses
 
 
-    function IonSSTau(Rp_m, amu, alam, bVol, Bfp) result(tauSS)
+!------
+! Loss rates
+!------
+
+    function IonSSRate(Rp_m, amu, alam, bVol, Bfp) result(rateSS)
         !! Calculates strong scattering rate, according to Schulz 1998
-        !! tau ~ [2*FTV*Bfp/(1-eta)](gamma*m/p)
+        !! tau ~ [2*FTV*Bfp/(1-eta)](gamma*m0/p)
         !! FTV = flux tube volume, Bfp = B-field at foot point, eta - back-scattering rate
         !! Note: Assuming we don't have any relativistic protons, so implemented equation is:
         !! tau ~ [2*FTV*Bfp/(1-eta)]/V
@@ -124,8 +150,8 @@ module siflosses
             !! Back-scatter rate
         real(rp) :: vm, K, V
             !! vm = FTV^(-2/3) , K = KE [J] , V = velocity [Rp/s]
-        real(rp) :: tauSS
-            !! Loss timescale [s]
+        real(rp) :: tauSS, rateSS
+            !! Loss timescale [s], rate [1/s]
 
         
         vm = bVol**(-2./3.)  
@@ -133,8 +159,57 @@ module siflosses
         V = sqrt(2*K/(amu*dalton)) / Rp_m  ! m/s -> Rp/s
 
         tauSS = 2.0*bVol*Bfp/(1.0-eta) / V  ! [s]
-    end function IonSSTau
+        if(tauSS > TINY) then
+            rateSS = 1.0/tauSS
+        else
+            rateSS = 0.0
+        endif
 
+    end function IonSSRate
+
+
+    ! Simple Coulomb collision losses, using fit to Ebihara+ 98 Fig #5
+    function CCRate(spcType,alam,vm,Dpp) result(rateCC)
+        integer, intent(in) :: spcType
+        real(rp), intent(in) :: alam,vm,Dpp !Dpp is plasmasphere density in #/cc
+        real(rp) :: rateCC
+
+        real(rp), parameter :: a3 = -0.113288
+        real(rp), parameter :: a2 = +0.659057
+        real(rp), parameter :: a1 = +0.319542
+        real(rp), parameter :: a0 = +2.16253        
+        real(rp), parameter :: day2s = 24.0*60.0*60
+
+        real(rp) :: K,x,y,nTau,Tau
+
+        K = abs( alam*vm*(1.0e-3) )!Energy [keV]
+        x = log10(K)
+        
+        rateCC = 0.0
+        if (Dpp < TINY) return
+
+        if (spcType == SIFHPLUS) then
+            y = a3*(x**3.0) + a2*(x**2.0) + a1*x + a0
+            nTau = 10.0**y !Normalized lifetime, days/cm3
+            Tau = nTau*day2s/Dpp !Lifetime, [s]
+            
+            if (Tau>TINY) then
+                rateCC = 1.0/Tau !#/s
+            else
+                rateCC = 0.0
+            endif
+        else
+            rateCC = 0.0
+            return
+        endif
+
+    end function CCRate
+
+
+
+!------
+! Conversions
+!------
 
     function deleta2NFlux(eta, Rp_m, Bmag, dt)
         !! Convert precipitating eta to precipitating number flux

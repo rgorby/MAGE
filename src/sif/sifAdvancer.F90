@@ -416,6 +416,9 @@ module sifadvancer
         State%precipNFlux = 0.0
         State%precipEFlux = 0.0
 
+        ! Make sure moments are up to date, some things (like coulomb losses) need them
+        call EvalMoments(Grid, State)
+
         ! Send everyone off
         !$OMP PARALLEL DO default(shared) collapse(1) &
         !$OMP schedule(dynamic) &
@@ -444,6 +447,7 @@ module sifadvancer
         s = Grid%k2spc(k)
         t = State%t
         tEnd = State%t + State%dt
+
         !Nsteps = int(State%dt / State%dtk(k))+1
         !dt = State%dt / (1.0_rp*Nsteps)
         Nmax = 200
@@ -473,12 +477,17 @@ module sifadvancer
                 endif
 
                 ! Advection
+                
                 ! Losses
                 call calcStepLosses(Model, Grid, State, k, dt)
 
                 t = t + dt
                 n = n+1
             enddo
+
+            ! Divide precip fluxes by big dt to turn them into proper rates
+            State%precipNFlux(:,:,k) = State%precipNFlux(:,:,k)/State%dt
+            State%precipEFlux(:,:,k) = State%precipEFlux(:,:,k)/State%dt
 
         end associate
 

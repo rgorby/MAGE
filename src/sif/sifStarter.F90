@@ -111,7 +111,7 @@ module sifstarter
 
         ! Losses
         call iXML%Set_Val(Model%doSS , "losses/doSS" ,.true. )
-        call iXML%Set_Val(Model%doCC , "losses/doCC" ,.false.)
+        call iXML%Set_Val(Model%doCC , "losses/doCC" ,.true.)
         call iXML%Set_Val(Model%doCX , "losses/doCX" ,.false.)
         call iXML%Set_Val(Model%doFLC, "losses/doFLC",.false.)
 

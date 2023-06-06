@@ -146,7 +146,7 @@ program sifx
     end associate
 
     call Toc("Omega")
-
+    write(*,*)"Done :)"
 
     contains
 
