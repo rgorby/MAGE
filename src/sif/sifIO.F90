@@ -158,6 +158,7 @@ module sifIO
 
         ! Add attributes
         call AddOutVar(IOVars,"time",State%t)
+        call AddOutVar(IOVars,"MJD",State%mjd)
 
         ! Add State variables
         call AddOutVar(IOVars,"bminX",State%Bmin(is:ie,js:je,XDIR),uStr="nT")

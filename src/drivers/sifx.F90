@@ -46,6 +46,8 @@ program sifx
     logical :: doChmpOut,doFLOut
     logical :: isFirstCpl = .true.
 
+    real(rp) :: mjd0
+
     call initClocks()
     call Tic("Omega")
 
@@ -67,9 +69,16 @@ program sifx
         ! Init CHIMP
         inpXML = New_XML_Input(trim(XMLStr),"Kaiju/Chimp",.true.)
         call goApe(ebModel,ebState,iXML=inpXML)
+        ebModel%t = inTscl*sApp%Model%t0
+
+        ! Use ebTabs to get MJD
+        !> MJD at the start of the simulation (corresponds to sim t=0)
+        mjd0 = T2MJD(-1.0*ebState%ebTab%times(1)/inTscl, ebState%ebTab%MJDs(1))
+        sApp%State%mjd = mjd0
 
         ! Init Remix reader
         call initRM  (ebModel,ebState,rmState,inpXML)
+        rmState%time = inTscl*sApp%Model%t0
 
         ! Set mix->SIF map
         call InitMixMap(sApp%Grid%shGrid, rmState)
@@ -130,12 +139,22 @@ program sifx
             call Toc("SIF Advance")
             !isFirstCpl = .false.
 
+            write(*,*)sApp%State%t
+            write(*,*)ebModel%t/inTscl
+            write(*,*)rmState%time/inTscl
+            write(*,*)"MJDs: "
+            write(*,*)sApp%State%mjd
+            write(*,*)T2MJD((ebModel%t - ebState%ebTab%times(1))/inTscl, ebState%ebTab%MJDs(1))
 
             ! Advance model times
             sApp%State%t  = sApp%State%t  + sApp%Model%dt
             sApp%State%ts = sApp%State%ts + 1
-            ebModel%t  = ebModel%t  + inTscl*sApp%Model%dt
-            ebModel%ts = ebModel%ts + 1
+            sApp%State%mjd = T2MJD(sApp%State%t,mjd0)
+
+            ebModel%t     = ebModel%t  + inTscl*sApp%Model%dt
+            ebModel%ts    = ebModel%ts + 1
+
+            rmState%time  = rmState%time + inTScl*sApp%Model%dt
 
             if (sApp%Model%doClockConsoleOut) then
                 call printClocks()
