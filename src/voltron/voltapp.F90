@@ -151,8 +151,8 @@ module voltapp
 
         if(gApp%Model%isRestart) then
             call readVoltronRestart(vApp, xmlInp)
-            vApp%IO%tOut = floor(vApp%time/vApp%IO%dtOut)*vApp%IO%dtOut
-            vApp%IO%tRes = vApp%time + vApp%IO%dtRes
+            vApp%IO%tOut = floor(vApp%time/vApp%IO%dtOut)*vApp%IO%dtOut + vApp%IO%dtOut
+            vApp%IO%tRes = floor(vApp%time/vApp%IO%dtRes)*vApp%IO%dtRes + vApp%IO%dtRes
             vApp%IO%tsNext = vApp%ts
             if(vApp%isSeparate) then
                 gApp%Model%ts = vApp%ts
