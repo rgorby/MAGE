@@ -167,7 +167,10 @@ def getTs(fname,sIds=None,aID="time",aDef=0.0):
 
 	with h5py.File(fname,'r') as hf:
 		if(kdefs.grpTimeCache in hf.keys()):
-			T = np.asarray(hf[kdefs.grpTimeCache][aID])
+			if(aID in hf[kdefs.grpTimeCache]):
+				T = np.asarray(hf[kdefs.grpTimeCache][aID])
+			else:
+				T[:] = aDef
 		else:
 			with alive_bar(Nt,title=titStr.ljust(kdefs.barLab),length=kdefs.barLen) as bar:
 				for idx, n in enumerate(sIds):
