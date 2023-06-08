@@ -62,7 +62,6 @@ module sifgrids
         do i=1,Np
             Phi(i) = (i-1)*dPhi
         enddo
-
         !write(*,*)"Orig theta:",Theta
         !write(*,*)"Orig phi:",Phi
 

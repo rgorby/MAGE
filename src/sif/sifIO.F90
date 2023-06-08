@@ -127,6 +127,7 @@ module sifIO
         integer :: i,j,s
         integer :: is, ie, js, je, ks, ke
         logical :: doGhosts
+        real(rp), dimension(:,:), allocatable :: outActiveShell
         real(rp), dimension(:,:,:), allocatable :: outDen, outIntensity
         real(rp), dimension(:,:,:), allocatable :: outPrecipN, outPrecipE, outPrecipAvgE
 
@@ -201,10 +202,19 @@ module sifIO
         call AddOutVar(IOVars,"Pavg_in",State%Pavg   (is:ie,js:je, :),uStr="nPa")
         call AddOutVar(IOVars,"Davg_in",State%Davg   (is:ie,js:je, :),uStr="#/cc")
 
-        call AddOutVar(IOVars,"activeShells",State%activeShells(is:ie, :)*1.0_rp,uStr="[Ni, Nk]")
+        ! Idk about you but I did not expect true to equal -1
+        allocate(outActiveShell(is:ie, Grid%Nk))
+        where (State%activeShells)
+            outActiveShell = 1.0
+        elsewhere
+            outActiveShell = 0.0
+        end where
+        call AddOutVar(IOVars,"activeShells",outActiveShell,uStr="[Ni, Nk]")
 
     ! Moments
         call AddOutVar(IOVars,"Pressure",State%Press(is:ie,js:je, :),uStr="nPa")
+        ! Calculate flux tube entropy using bulk pressure
+        call AddOutVar(IOVars,"FTEntropy",State%Press(is:ie,js:je,1)*State%bVol(is:ie,js:je)**(5./3.),uStr="nPa*(Rp/nT)^(5/3)")
         ! Add density moment as #/cc instead of amu/cc
         allocate(outDen(is:ie,js:je,Grid%nSpc+1))
         ! Convert amu/cc to #/cc
@@ -220,7 +230,6 @@ module sifIO
         enddo
         call AddOutVar(IOVars,"Density",outDen(is:ie,js:je, :),uStr="#/cc")
         !call AddOutVar(IOVars,"Density",State%Den,uStr="#/cc")
-        deallocate(outDen)
 
     ! Precipitation
 
