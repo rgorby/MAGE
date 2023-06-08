@@ -200,7 +200,7 @@ if __name__ == "__main__":
     toc = time.perf_counter()
     print(xyBds)
     print(f"Get bounds took {toc-tic} s")
-    # Do work?ß
+    # Do work?
     doFast = False
 
     # Create figures in a memory buffer.
@@ -210,11 +210,7 @@ if __name__ == "__main__":
     tic = time.perf_counter()
     gsph = hsph.GamsphPipe(fdir, ftag, doFast=doFast, doParallel=doParallel, nWorkers=nWorkers)
     toc = time.perf_counter()
-
-    if nStp < 0:
-        nStp = gsph.sFin
-        print("Using Step %d" % nStp)
-
+    
     print(f"Open pipe took {toc-tic} s")
 
     if(slices and steps[0] == -1):
@@ -263,10 +259,10 @@ if __name__ == "__main__":
             hviz.PlotEqTemp(gsph, nStp, xyBds, AxL1, AxC1_1)
             hviz.PlotEqBr(gsph, nStp, xyBds, AxR1, AxC2_1)
         elif pic == "pic2":
-            hviz.PlotMerMagV(gsph ,nStp, xyBds, AxL0, AxC1_0,indx=(None,2.95))
-            hviz.PlotMerDNorm(gsph, nStp, xyBds, AxR0, AxC2_0,indx=(None,2.95))
-            hviz.PlotMerTemp(gsph, nStp, xyBds, AxL1, AxC1_1,indx=(None,2.95))
-            hviz.PlotMerBrNorm(gsph, nStp, xyBds, AxR1, AxC2_1,indx=(None,2.95))
+            hviz.PlotMerMagV(gsph ,nStp, xyBds, AxL0, AxC1_0,indx=(None,1.75))
+            hviz.PlotMerDNorm(gsph, nStp, xyBds, AxR0, AxC2_0,indx=(None,1.75))
+            hviz.PlotMerTemp(gsph, nStp, xyBds, AxL1, AxC1_1,indx=(None,1.75))
+            hviz.PlotMerBrNorm(gsph, nStp, xyBds, AxR1, AxC2_1,indx=(None,1.75))
         elif pic == "pic3":
             hviz.PlotiSlMagV(gsph, nStp, xyBds, AxL0, AxC1_0,idx=0)
             hviz.PlotiSlD(gsph, nStp, xyBds, AxR0, AxC2_0,idx=0)
