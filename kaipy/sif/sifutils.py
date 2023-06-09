@@ -139,11 +139,18 @@ def plotIono(Ax, lon, colat, var, norm=None, cmap='viridis', Riono=1):
     Ax.set_yticks(rTickLocs)
     Ax.set_yticklabels(rTickLabels)
 
-def plotXYMin(Ax, xmin, ymin, var, norm=None, cmap='viridis'):
+def plotXYMin(Ax, xmin, ymin, var, norm=None, cmap='viridis', shading='auto', lblsize=None):
     """ Simple plot function to show xy bmin projection
         If xBnds or yBnds is not none, it will use x or y bnds and rescale the other so that aspect ratio is 1
     """
+    if (type(xmin)==np.ma.core.MaskedArray):
+        Ax.pcolor(xmin, ymin, var, norm=norm, cmap=cmap, shading=shading, rasterized=True)
+    else:
+        Ax.pcolormesh(xmin, ymin, var, norm=norm, cmap=cmap, shading=shading, rasterized=True)
 
-    Ax.pcolormesh(xmin, ymin, var, norm=norm, cmap=cmap)
-    Ax.set_xlabel('X [R$_p$]')
-    Ax.set_ylabel('Y [R$_p$]')
+    if lblsize == None:
+        Ax.set_xlabel('X [R$_p$]')
+        Ax.set_ylabel('Y [R$_p$]')
+    else:
+        Ax.set_xlabel('X [R$_p$]', fontsize=lblsize)
+        Ax.set_ylabel('Y [R$_p$]', fontsize=lblsize)

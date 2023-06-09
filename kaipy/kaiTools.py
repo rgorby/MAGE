@@ -17,6 +17,21 @@ to_center2D = lambda A: 0.25*(A[:-1,:-1]+A[1:,:-1]+A[:-1,1:]+A[1:,1:])
 to_center3D = lambda A: 0.125*(A[:-1,:-1,:-1]+A[-1:,-1:,1:]+A[-1:,1:,-1:]+A[-1:,1:,1:]
 				+A[1:,:-1,:-1]+A[1:,-1:,1:]+A[1:,1:,-1:]+A[1:,1:,1:])
 
+def utIdx(utList,ut):
+	""" Returns index within 'utList' array with the UT closest to 'ut'
+	"""
+	return np.array([np.abs((utList[n]-ut).total_seconds()) for n in range(len(utList))]).argmin()
+
+def pntIdx(X2D, Y2D, pnt):
+	""" Finds i, j, index within 'X2D' and 'Y2D' closest to 'pnt'
+		X2D: 2D array of X values
+		Y2D: 2D array of Y values
+		pnt: [x, y] point
+	"""
+	distSq = (X2D-pnt[0])**2 + (Y2D-pnt[1])**2  # Each source point's euclidian distance from 'pnt'
+	aMinFlattened = distSq.argmin()  # Index of min distance, if it was a flattened array
+	i, j = np.unravel_index(aMinFlattened, X2D.shape)  # Convert back into i,j location
+	return i, j
 
 def L_to_bVol(L, bsurf_nT=kd.EarthM0g*kd.G2nT):  # L shell [Rp] to V [Rp/nT]
 	"""Calculates the flux tube volume [Rp/nT] from the given L shell [Rp]

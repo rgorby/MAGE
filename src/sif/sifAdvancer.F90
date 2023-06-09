@@ -155,7 +155,7 @@ module sifadvancer
         integer :: k
 
         do k=1,Grid%Nk
-            pGC(:,:,k) = Grid%alamc(k)*bVol(:,:)
+            pGC(:,:,k) = Grid%alamc(k)*bVol(:,:)**(-2./3.)
         enddo
 
     end function potGC
