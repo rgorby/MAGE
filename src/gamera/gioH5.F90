@@ -736,7 +736,7 @@ module gioH5
             Model%ts      = 0
             Model%t       = tReset      
         else
-            Model%IO%nOut = GetIOInt(IOVars,"nOut")
+            Model%IO%nOut = GetIOInt(IOVars,"nOut") + 1
             Model%IO%nRes = GetIOInt(IOVars,"nRes") + 1
             Model%ts      = GetIOInt(IOVars,"ts")
             Model%t       = GetIOReal(IOVars,"t")
@@ -788,8 +788,8 @@ module gioH5
         endif !Gas0
 
     !Do touchup to data structures
-        Model%IO%tOut = floor(Model%t/Model%IO%dtOut)*Model%IO%dtOut
-        Model%IO%tRes = Model%t + Model%IO%dtRes
+        Model%IO%tOut = floor(Model%t/Model%IO%dtOut)*Model%IO%dtOut + Model%IO%dtOut
+        Model%IO%tRes = floor(Model%t/Model%IO%dtRes)*Model%IO%dtRes + Model%IO%dtRes
 
     end subroutine readH5Restart
 

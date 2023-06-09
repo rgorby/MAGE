@@ -30,3 +30,11 @@ Suppression = {
     }
 }
 
+Suppression = {
+    Stacks = {
+        {
+            mod=voltron_mpi.x, func=__svml_*;
+        }
+    }
+}
+

@@ -82,3 +82,20 @@ Suppression = {
     }
 }
 
+Suppression = {
+    Stacks = {
+        {
+            mod=voltron_mpi.x, func=for__io_return;
+        }
+    }
+}
+
+Suppression = {
+    Type = { uninitialized_memory_access }
+    Stacks = {
+        {
+            mod=voltron_mpi.x, func=writehdfvar;
+        }
+    }
+}
+

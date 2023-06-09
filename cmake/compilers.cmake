@@ -83,9 +83,14 @@ if(CMAKE_Fortran_COMPILER_ID MATCHES Intel)
 	string(APPEND CMAKE_Fortran_FLAGS " -fPIC")
 	#Production
 	set(PROD "-align array64byte -align rec32byte -no-prec-div -fast-transcendentals")
+    #Production with Debug Info
+    set(PRODWITHDEBUGINFO "-traceback -debug all -align array64byte -align rec32byte -no-prec-div -fast-transcendentals")
 	#Debug
-	set(DEBUG "-traceback -check bounds -check uninit -debug all -gen-interfaces -warn interfaces -fp-stack-check")
-	set(PRODWITHDEBUGINFO "-traceback -debug all -align array64byte -align rec32byte -no-prec-div -fast-transcendentals")
+    if(NOT DISABLE_DEBUG_BOUNDS_CHECKS)
+        set(DEBUG "-traceback -check bounds -check uninit -debug all -gen-interfaces -warn interfaces -fp-stack-check")
+    else()
+        set(DEBUG "-traceback -debug all -gen-interfaces -warn interfaces")
+    endif()
 
 	#Now do OS-dep options
 	if (CMAKE_SYSTEM_NAME MATCHES Darwin)
@@ -132,7 +137,11 @@ elseif(CMAKE_Fortran_COMPILER_ID MATCHES GNU)
 	#Production
 	set(PROD "-ffast-math")
 	#Debug
-	set(DEBUG "-fbacktrace -g -Warray-temporaries -Wall -Wfatal-errors  -finit-local-zero")
+    if(NOT DISABLE_DEBUG_BOUNDS_CHECKS)
+    	set(DEBUG "-fbacktrace -g -Warray-temporaries -Wall -Wfatal-errors -finit-local-zero")
+    else()
+        set(DEBUG "-fbacktrace -g -Warray-temporaries -Wall -Wfatal-errors")
+    endif()
 	#Now do machine-dep options
 	if (CMAKE_SYSTEM_NAME MATCHES Darwin)
 		string(APPEND CMAKE_Fortran_FLAGS " -Wl,-stack_size,0x20000000,-stack_addr,0xf0000000")
