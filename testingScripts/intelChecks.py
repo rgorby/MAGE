@@ -89,7 +89,7 @@ os.chdir('intelChecks')
 #arguments = arguments + "cd" + home + ";"
 #arguments = arguments + "cd kaiju/unitTest1;"
 # Invoke cmake
-arguments = arguments + "cmake ../ -DALLOW_INVALID_COMPILERS=ON -DENABLE_MPI=ON -DENABLE_MKL=ON -DCMAKE_BUILD_TYPE=DEBUG;"
+arguments = arguments + "cmake ../ -DALLOW_INVALID_COMPILERS=ON -DDISABLE_DEBUG_BOUNDS_CHECKS=ON -DENABLE_MPI=ON -DENABLE_MKL=ON -DCMAKE_BUILD_TYPE=DEBUG;"
 # Make gamera, voltron and allTests
 arguments = arguments + "make gamera_mpi; make voltron_mpi;"
 print(arguments)
