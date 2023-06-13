@@ -142,6 +142,10 @@ def create_command_line_parser():
         "-nw", "--nworkers", type=int, metavar="nworkers", default=4,
         help="Number of parallel workers (default: %(default)s)"
     )
+    parser.add_argument(
+        "-lon", type=float, metavar="lon", default=0.0,
+        help="Longitude of meridian slice (pic2) (default: %(default)s)"
+    )
     return parser
 
 def initFig(pic):
@@ -187,6 +191,7 @@ if __name__ == "__main__":
     pic = args.pic
     doParallel = args.parallel
     nWorkers = args.nworkers
+    pic2lon = args.lon
     if debug:
         print("args = %s" % args)
     if slices:
@@ -259,10 +264,10 @@ if __name__ == "__main__":
             hviz.PlotEqTemp(gsph, nStp, xyBds, AxL1, AxC1_1)
             hviz.PlotEqBr(gsph, nStp, xyBds, AxR1, AxC2_1)
         elif pic == "pic2":
-            hviz.PlotMerMagV(gsph ,nStp, xyBds, AxL0, AxC1_0,indx=(None,1.75))
-            hviz.PlotMerDNorm(gsph, nStp, xyBds, AxR0, AxC2_0,indx=(None,1.75))
-            hviz.PlotMerTemp(gsph, nStp, xyBds, AxL1, AxC1_1,indx=(None,1.75))
-            hviz.PlotMerBrNorm(gsph, nStp, xyBds, AxR1, AxC2_1,indx=(None,1.75))
+            hviz.PlotMerMagV(gsph ,nStp, xyBds, AxL0, AxC1_0,indx=(None,pic2lon))
+            hviz.PlotMerDNorm(gsph, nStp, xyBds, AxR0, AxC2_0,indx=(None,pic2lon))
+            hviz.PlotMerTemp(gsph, nStp, xyBds, AxL1, AxC1_1,indx=(None,pic2lon))
+            hviz.PlotMerBrNorm(gsph, nStp, xyBds, AxR1, AxC2_1,indx=(None,pic2lon))
         elif pic == "pic3":
             hviz.PlotiSlMagV(gsph, nStp, xyBds, AxL0, AxC1_0,idx=0)
             hviz.PlotiSlD(gsph, nStp, xyBds, AxR0, AxC2_0,idx=0)
