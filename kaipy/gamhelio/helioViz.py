@@ -34,25 +34,28 @@ TMin = 0.2
 TMax = 2.
 TCM = "copper"
 
-#1AU
-#T0Min = 0.1
-#T0Max = 0.5
 #21.5 R_S
 T0Min = 0.2
 T0Max = 2.0
+#1AU
+#T0Min = 0.1
+#T0Max = 0.5
 
+#21.5 R_S
 BMax = 150.
 BMin = -150.
+#1AU
 #BMax = 5.
 #BMin = -5.
 BCM = "coolwarm"
 
-#1 AU
-#B0Min = -4.
-#B0Max = 4.
 #21.5 R_S
 B0Min = -150.
 B0Max = 150.
+#1 AU
+#B0Min = -4.
+#B0Max = 4.
+
 
 colorProf = "tab:orange"
 #Function to Add different size options to argument
