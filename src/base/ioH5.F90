@@ -62,7 +62,7 @@ module ioH5
     ! timeAttributeCache options
     integer(HSIZE_T), parameter, private ::  CACHE_CHUNK_SIZE = 256
     character(len=strLen), parameter :: attrGrpName = "timeAttributeCache"
-    integer, private :: cacheSize = 0
+    integer, private :: cacheSize = 0, stepOffset = 0
     logical, private :: createdThisFile = .false.
 
     !Overloader to add data (array or scalar/string) to output chain
@@ -660,13 +660,14 @@ contains
         integer :: nStep
 
         nStep = GetStepInt(stepStr)
-
         if(cacheExist .and. .not. cacheCreated) then
             !write(*,"(A,1x,I)") "timeAttributeCache exists, and not just created, set cacheSize to ", nstep + 1
-            cacheSize = nStep + 1
+            ! If restart ensure that the cache array begins at 0 by subtracting the offset of the first step
+            cacheSize = (nStep - stepOffset) + 1 
         else 
             !write(*,"(A,1x,I)") "timeAttributeCache exists, and just created, set cachesize to ", cacheSize + 1
-            cacheSize = cacheSize + 1
+            cacheSize = cacheSize + 1 ! Increase the cacheSize by one for next time step
+            stepOffset = nStep ! Set offset to first nStep 
         end if
         
     end subroutine
