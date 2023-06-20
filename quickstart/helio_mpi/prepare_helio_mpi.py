@@ -39,6 +39,12 @@ pbs_template = os.path.join(
     % default_runid
 )
 
+# Location of default .ini file for wsa2gamera.py.
+default_wsa2gamera_ini_path = os.path.join(
+    os.environ["KAIJUHOME"], "kaipy", "gamhelio", "ConfigScripts",
+    "startup.config"
+)
+
 
 def create_command_line_parser():
     """Create the command-line argument parser.
@@ -64,6 +70,10 @@ def create_command_line_parser():
         help="Directory to contain files generated for the run (default: %(default)s)"
     )
     parser.add_argument(
+        "--ini", type=str, metavar="ini_file", default=default_wsa2gamera_ini_path,
+        help="Path to .ini file for wsa2gamera.py (default: %(default)s)"
+    )
+    parser.add_argument(
         "--runid", type=str, metavar="runid", default=default_runid,
         help="ID string of the run (default: %(default)s)"
     )
@@ -74,7 +84,7 @@ def create_command_line_parser():
     return parser
 
 
-def run_preprocessing_steps(directory, runid):
+def run_preprocessing_steps(directory, runid, ini_path=default_wsa2gamera_ini_path):
     """Run any preprocessing steps needed for the run.
 
     Perform required preprocessing steps.
@@ -85,6 +95,8 @@ def run_preprocessing_steps(directory, runid):
         Path to directory to receive preprocessing results.
     runid : str
         ID string for the model to run.
+    ini_path : str, default default_wsa2gamera_ini_path
+        Path to .ini file to use for wsa2gamera.py.
 
     Returns
     -------
@@ -98,10 +110,6 @@ def run_preprocessing_steps(directory, runid):
 
     # Create the grid and inner boundary conditions files.
     cmd = "wsa2gamera.py"
-    ini_path = os.path.join(
-        os.environ["KAIJUHOME"], "kaipy", "gamhelio", "ConfigScripts",
-        "startup.config"
-    )
     args = [ini_path]
     subprocess.run([cmd] + args)
 
@@ -200,13 +208,14 @@ if __name__ == "__main__":
     args = parser.parse_args()
     debug = args.debug
     directory = args.directory
+    ini_path = args.ini
     runid = args.runid
     verbose = args.verbose
 
     # Run the preprocessing steps.
     if verbose:
         print("Running preprocessing steps.")
-    run_preprocessing_steps(directory, runid)
+    run_preprocessing_steps(directory, runid, ini_path)
 
     # Create the .ini file.
     if verbose:
