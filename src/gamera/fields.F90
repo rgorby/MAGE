@@ -314,10 +314,14 @@ module fields
 
         !Get stencils for this sweep
         !dT1 faces in dT2 direction
+
+        !Get stencils for this sweep
+        !dT1 faces in dT2 direction
         call recLoadBlockI(Model,Gr,AreaB       ,Gr%Face(:,:,:,dT1),iB,j,k,iMax,dT2)
-        call recLoadBlockI(Model,Gr, MagB(:,:,1),bFluxn (:,:,:,dT1),iB,j,k,iMax,dT2)
+        call recLoadBlockI(Model,Gr,MagB(:,:,1),bFluxHf (:,:,:,dT1),iB,j,k,iMax,dT2)
+        
         call limLoadBlockI(Model,Gr,nAreaB      ,Gr%Face(:,:,:,dT1),iB,j,k,iMax,dT2)
-        call limLoadBlockI(Model,Gr,nMagB(:,:,1),bFluxHf(:,:,:,dT1),iB,j,k,iMax,dT2)
+        call limLoadBlockI(Model,Gr,nMagB(:,:,1),bFluxn (:,:,:,dT1),iB,j,k,iMax,dT2)
 
         !Split into L/Rs
         if (doBdA) then
