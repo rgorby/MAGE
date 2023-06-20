@@ -26,7 +26,7 @@ def AddTPs(xyz,V=None,vIDs=None,fOut="tps.h5",nStp=0):
 		lID = "Line#%d"%(m)
 
 		#Add connectivity
-		ijL = np.zeros((Nt-1,2),dtype=np.int)
+		ijL = np.zeros((Nt-1,2),dtype=int)
 		ijL[:,0] = np.arange(Nt-1)
 		ijL[:,1] = np.arange(1,Nt)
 		#Save line data

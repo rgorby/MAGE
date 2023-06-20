@@ -20,7 +20,7 @@ def cntX(fname,gID=None,StrX="/Step#"):
 		Steps = [stp for stp in grpNames if StrX in stp]
 		nSteps = len(Steps)
 
-		sIds = np.array([str.split(s,"#")[-1] for s in Steps],dtype=np.int)
+		sIds = np.array([str.split(s,"#")[-1] for s in Steps],dtype=int)
 		return nSteps,sIds
 
 def getVars(fname,smin):
@@ -50,9 +50,9 @@ def getAtts(fIn,n,m):
 		aVs = []
 		Na = len(aIDs)
 		for n in range(Na):
-			aVs.append(np.float(hf[gId][lId].attrs[aIDs[n]]))
+			aVs.append(float(hf[gId][lId].attrs[aIDs[n]]))
 
-		aVs.append(np.float(m))
+		aVs.append(float(m))
 		aIDs.append("ID")
 		
 	return aIDs,aVs
@@ -172,7 +172,7 @@ if __name__ == "__main__":
 					#Function setup
 					vDI = et.SubElement(vAtt,"DataItem")
 					vDI.set("Dimensions",str(Np))
-					vDI.set("Function","%e*$0/$0"%(np.float(aVs[a])))
+					vDI.set("Function","%e*$0/$0"%(float(aVs[a])))
 					vDI.set("ItemType","Function")
 					#Argument
 					vNull = et.SubElement(vDI,"DataItem")
