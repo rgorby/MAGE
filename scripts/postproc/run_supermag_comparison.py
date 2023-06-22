@@ -138,7 +138,7 @@ def filename_to_runid(filename):
         The MAGE runid for the file.
     """
     parts = filename.split(".")
-    parts = parts[0].split("_")
+    # parts = parts[0].split("_")
     runid = parts[0]
     return runid
 
@@ -213,7 +213,7 @@ def compute_ground_delta_B(runid, mpixml=None):
     # Run the command to compute ground delta B values.
     cmd = "calcdb.x"
     args = [xml_file]
-    subprocess.run([cmd] + args)
+    # subprocess.run([cmd] + args)
 
     # Compute the name of the file containing the delta B values.
     delta_B_file = runid + ".deltab.h5"
