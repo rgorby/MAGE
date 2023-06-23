@@ -213,7 +213,7 @@ def compute_ground_delta_B(runid, mpixml=None):
     # Run the command to compute ground delta B values.
     cmd = "calcdb.x"
     args = [xml_file]
-    # subprocess.run([cmd] + args)
+    subprocess.run([cmd] + args)
 
     # Compute the name of the file containing the delta B values.
     delta_B_file = runid + ".deltab.h5"
@@ -255,7 +255,7 @@ if __name__ == "__main__":
     # Compute the ground delta B values for this run.
     if verbose:
         print("Computing ground delta B values.")
-    delta_B_file = compute_ground_delta_B(runid, mpixml)
+    delta_B_file = compute_ground_delta_B(runid, mpixml, mage_results_dir)
     if debug:
         print("delta_B_file = %s" % delta_B_file)
 
