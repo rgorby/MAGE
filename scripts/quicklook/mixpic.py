@@ -133,6 +133,10 @@ if __name__ == "__main__":
         print("nsteps = %s" % nsteps)
         print("sIds = %s" % sIds)
 
+    # Check that the requested step exists.
+    if nStp >= 0 and not nStp in sIds:  # ANY nStp<0 gets last step.
+        raise TypeError(f"Step #{nStp} not found in {remixFile}!")
+
     # Get the times from the result file.
     T = kaiH5.getTs(remixFile, sIds, aID='MJD')
     if debug:

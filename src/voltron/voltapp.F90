@@ -128,7 +128,7 @@ module voltapp
                 stop
         endif
 
-        call xmlInp%Set_Val(vApp%DeepDT, "coupling/dtCouple", -1.0_rp)
+        call xmlInp%Set_Val(vApp%DeepDT, "coupling/dtCouple", 5.0_rp)
         vApp%TargetDeepDT = vApp%DeepDT
         call xmlInp%Set_Val(vApp%rTrc,   "coupling/rTrc"  , 40.0)
 
@@ -151,8 +151,8 @@ module voltapp
 
         if(gApp%Model%isRestart) then
             call readVoltronRestart(vApp, xmlInp)
-            vApp%IO%tOut = floor(vApp%time/vApp%IO%dtOut)*vApp%IO%dtOut
-            vApp%IO%tRes = vApp%time + vApp%IO%dtRes
+            vApp%IO%tOut = floor(vApp%time/vApp%IO%dtOut)*vApp%IO%dtOut + vApp%IO%dtOut
+            vApp%IO%tRes = floor(vApp%time/vApp%IO%dtRes)*vApp%IO%dtRes + vApp%IO%dtRes
             vApp%IO%tsNext = vApp%ts
             if(vApp%isSeparate) then
                 gApp%Model%ts = vApp%ts
@@ -275,7 +275,7 @@ module voltapp
 
         if(.not. vApp%isSeparate) then
             !Do first couplings if the gamera data is local and therefore uptodate
-            if (vApp%doDeep .and. (vApp%time>=vApp%DeepT)) then
+            if (vApp%time>=vApp%DeepT) then
                 call Tic("DeepCoupling")
                 call DeepUpdate(vApp,gApp)
                 call Toc("DeepCoupling")
@@ -466,11 +466,6 @@ module voltapp
         type(gamApp_T) , intent(inout) :: gApp
         class(voltApp_T), intent(inout) :: vApp
 
-        if (.not. vApp%doDeep) then
-            !Why are you even here?
-            return
-        endif
-
         !Remix code moved from old shallow coupling
         ! convert gamera data to mixInput
         call Tic("G2R")
@@ -490,8 +485,8 @@ module voltapp
         !Update coupling time now so that voltron knows what to expect
         vApp%DeepT = vApp%DeepT + vApp%DeepDT
 
-        ! only do imag after spinup
-        if(vApp%time >= 0) then
+        ! only do imag after spinup with deep enabled
+        if(vApp%doDeep .and. vApp%time >= 0) then
             call PreDeep(vApp, gApp)
               call DoImag(vApp)
               call SquishStart(vApp)

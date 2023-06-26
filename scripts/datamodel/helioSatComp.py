@@ -5,6 +5,8 @@
 Compare heliospheric model results from gamhelio with data measured by
 spacecraft.
 
+Note that the terms "ephemeris" and "trajectory" are used interchangeably.
+
 Authors
 -------
 Eric Winter (eric.winter@jhuapl.edu)
@@ -44,7 +46,7 @@ default_cmd = os.path.join(
 default_deltaT = 3600.00  # 1 hour
 
 # Default run ID string.
-default_runid = "hsphere"
+default_runid = "wsa"
 
 # Defaut number of segments to process.
 default_numSeg = 1
@@ -52,8 +54,8 @@ default_numSeg = 1
 # Default path to model results directory.
 default_path = os.getcwd()
 
-# Path to file of heliospheric spacecraft data.
-spacecraft_data_file = os.path.join(
+# Path to file of heliospheric spacecraft metadata.
+helio_sc_metadata_path = os.path.join(
     os.environ["KAIJUHOME"], "kaipy", "satcomp", "sc_helio.json"
 )
 
@@ -121,184 +123,221 @@ if __name__ == "__main__":
 
     # Parse the command-line arguments.
     args = parser.parse_args()
-    cmd = args.cmd
+    cmd_sctrack = args.cmd
     debug = args.debug
-    deltaT = args.deltaT
-    run_id = args.id
+    cdaweb_data_interval = args.deltaT
+    gh_run_id = args.id
     keep = args.keep
-    numSegments = args.numSeg
-    fdir = args.path
-    scRequested = args.satId
+    num_segments = args.numSeg
+    gh_result_directory = args.path
+    sc_to_compare = args.satId
     verbose = args.verbose
     if debug:
         print("args = %s" % args)
 
     # Read the list of available spacecraft from the YAML configuration file.
-    scIds = scutils.getScIds(spacecraft_data_file, doPrint=verbose)
+    if verbose:
+        print("Reading heliosphere spacecraft metadata from %s." %
+              helio_sc_metadata_path)
+    sc_metadata = scutils.getScIds(helio_sc_metadata_path, doPrint=verbose)
     if debug:
-        print("scIds = %s" % scIds)
+        print("sc_metadata = %s" % sc_metadata)
 
-    # Compute the path to the gamhelio output file to examine.
-    (fname, isMPI, Ri, Rj, Rk) = kaiTools.getRunInfo(fdir, run_id)
+    # Compute the path to the gamhelio output files to examine.
+    if verbose:
+        print("Looking for gamhelio results for run %s in %s." %
+              (gh_run_id, gh_result_directory))
+    (gh_result_path, is_MPI, Ri, Rj, Rk) = kaiTools.getRunInfo(
+        gh_result_directory, gh_run_id
+    )
     if debug:
-        print("fname = %s" % fname)
-        print("isMPI = %s" % isMPI)
+        print("gh_result_path = %s" % gh_result_path)
+        print("is_MPI = %s" % is_MPI)
         print("(Ri, Rj, Rk) = (%s, %s, %s)" % (Ri, Rj, Rk))
 
-    # Determine the number of steps in the gamhelio output file, and get a
-    # list of the step indices.
-    (nsteps, sIds) = kaiH5.cntSteps(fname)
+    # Determine the number of timesteps in the gamhelio output files, and get
+    # a list of the timestep indices.
+    if verbose:
+        print("Counting timesteps in %s." % gh_result_path)
+    (gh_n_timesteps, gh_timestep_indices) = kaiH5.cntSteps(gh_result_path)
+    if verbose:
+        print("  Found %s timesteps." % gh_n_timesteps)
     if debug:
-        print("nsteps = %s" % nsteps)
-        print("sIds = %s" % sIds)
+        print("gh_n_timesteps = %s" % gh_n_timesteps)
+        print("gh_timestep_indices = %s" % gh_timestep_indices)
 
-	# Pull the timestep information (the "MJD" attribute) from the gamhelio
-    # output files. This fetches the "MJD" attribute from each of the top-
-    # level groups called "Step#[\d]+". These MJD values are floats.
-    gamMJD = kaiH5.getTs(fname, sIds, aID="MJD")
+	# Pull the timestep information from the gamhelio output files. This
+    # fetches the "MJD" attribute from each of the top-level groups called
+    # "Step#[\d]+". These MJD values are floats, and are assumed to be in
+    # increasing order.
+    if verbose:
+        print("Reading timestep times from %s." % gh_result_path)
+    gh_timestep_MJDs = kaiH5.getTs(
+        gh_result_path, gh_timestep_indices, aID="MJD"
+    )
     if debug:
-        print("gamMJD = %s" % gamMJD)
+        print("gh_timestep_MJDs = %s" % gh_timestep_MJDs)
 
-    # Get the MJDc value for use in computing the gamhelio frame.
-    mjdc = scutils.read_MJDc(fname)
+    # Get the MJDc value for use in computing the gamhelio frame. This value
+    # was specified in the WSA file of initial conditions.
+    if verbose:
+        print("Reading MJDc value to use for constructing gamhelio coordinate frame.")
+    gh_MJDc = scutils.read_MJDc(gh_result_path)
+    if verbose:
+        print("  Found MJDc = %s" % gh_MJDc)
     if debug:
-        print("mjdc = %s" % mjdc)
+        print("gh_MJDc = %s" % gh_MJDc)
 
     # Now get the "time" attribute from each step. For gamhelio, these elapsed
-    # times are in seconds since the start of the simulation.
-    gamT = kaiH5.getTs(fname, sIds, aID="time")
+    # times are in seconds since the start of the simulation, and are assumed
+    # to be in increasing order
+    if verbose:
+        print("Reading timestep elapsed seconds from %s." % gh_result_path)
+    gh_timestep_elapsed_seconds = kaiH5.getTs(
+        gh_result_path, gh_timestep_indices, aID="time"
+    )
     if debug:
-        print("gamT = %s" % gamT)
+        print("gh_timestep_elapsed_seconds = %s" %
+              gh_timestep_elapsed_seconds)
 
     # Convert the MJD values to Universal Time datetime objects.
-    gamUT = kaiTools.MJD2UT(gamMJD)
+    if verbose:
+        print("Converting timestep MJDs to UTC datetimes.")
+    gh_timestep_UT = kaiTools.MJD2UT(gh_timestep_MJDs)
     if debug:
-        print("gamUT = %s" % gamUT)
+        print("gh_timestep_UT = %s" % gh_timestep_UT)
 
-    # Use the first (positive) time as the inital MJD.
+    # Use the first (positive) elapsed time as the initial time.
     # N.B. THIS SKIPS THE FIRST SIMULATION STEP SINCE IT TYPICALLY HAS
-    # gamT[0] = 0.
+    # gh_timestep_elapsed_seconds[0] = 0.
     # Use the last time as the last MJD.
-    loc = np.argwhere(gamT > 0.0)[0][0]
-    # <HACK>
-    # loc = 0
-    # </HACK>
-    t0 = gamUT[loc]  # First positive time
-    t1 = gamUT[-1]
+    if verbose:
+        print("Identifying first timestep with elapsed seconds > 0.")
+    gh_first_step_used = np.argwhere(gh_timestep_elapsed_seconds > 0.0)[0][0]
+    if verbose:
+        print("  Found first non-zero elapsed seconds at timestep %s." %
+              gh_first_step_used)
+    gh_t0 = gh_timestep_UT[gh_first_step_used]
+    gh_t1 = gh_timestep_UT[-1]
+    if verbose:
+        print("Using %s as the starting datetime for data comparison." % gh_t0)
+        print("Using %s as the ending datetime for data comparison." % gh_t1)
     if debug:
-        print("t0 = %s" % t0)
-        print("t1 = %s" % t1)
+        print("gh_t0 = %s" % gh_t0)
+        print("gh_t1 = %s" % gh_t1)
+
+    # Construct the string versions of the first and last times.
+    datestr_start = gh_t0.strftime("%Y-%m-%dT%H:%M:%SZ")
+    datestr_end = gh_t1.strftime("%Y-%m-%dT%H:%M:%SZ")
+    if debug:
+        print("datestr_start = %s" % datestr_start)
+        print("datestr_end = %s" % datestr_end)
 
     # Save the (float) MJD of the first used step.
-    mjdFileStart = gamMJD[loc]
+    gh_first_MJD = gh_timestep_MJDs[gh_first_step_used]
+    if verbose:
+        print("Using %s as the starting MJD for data comparison." % gh_first_MJD)
     if debug:
-        print("mjdFileStart = %s" % mjdFileStart)
+        print("gh_first_MJD = %s" % gh_first_MJD)
 
     # Save the elapsed simulation time (seconds) of the first used step.
-    secFileStart = gamT[loc]
+    gh_first_elapsed_seconds = gh_timestep_elapsed_seconds[gh_first_step_used]
+    if verbose:
+        print("Using %s as the starting elapsed seconds for data comparison." %
+              gh_first_elapsed_seconds)
     if debug:
-        print("secFileStart = %s" % secFileStart)
+        print("gh_first_elapsed_seconds = %s" % gh_first_elapsed_seconds)
 
-    # Determine the list of IDs of spacecraft to fetch data from.
-    if scRequested:
-        scToDo = [scRequested]
+    # Determine the list of IDs of spacecraft to fetch data from. If no
+    # spacecraft were specified on the command line, use all spacecraft
+    # listed in the heliosphere spacecraft metadata file.
+    if sc_to_compare:
+        sc_to_compare = sc_to_compare.split(",")
     else:
-        scToDo = list(scIds.keys())
+        sc_to_compare = list(sc_metadata.keys())
+    if verbose:
+        print("Comparing gamhelio results to data measured by:")
+        for sc_id in sc_to_compare:
+            print("  %s" % sc_id)
     if debug:
-        print("scToDo = %s" % scToDo)
+        print("sc_to_compare = %s" % sc_to_compare)
 
     # Fetch the ephemeris and observed data for each spacecraft in the list.
-    for scId in scToDo:
+    for sc_id in sc_to_compare:
 
         # Fetch the ephemeris and observed data for the current spacecraft.
         if verbose:
-            print("Getting ephemeris and instrument data from CDAWeb for %s." % scId)
-        status, data = scutils.getSatData(
-            scIds[scId],  # ID string of spacecraft
-            t0.strftime("%Y-%m-%dT%H:%M:%SZ"),  # Start time for gamhelio results
-            t1.strftime("%Y-%m-%dT%H:%M:%SZ"),  # Stop time for gamhelio results
-            deltaT  # Time interval (seconds) for data returned from CDAWeb
+            print("Fetching ephemeris and instrument data for %s from CDAWeb." % sc_id)
+        sc_data = scutils.get_helio_cdaweb_data(
+            sc_id, sc_metadata[sc_id],
+            datestr_start, datestr_end, cdaweb_data_interval,
+            verbose=verbose, debug=debug
         )
         if debug:
-            print("status = %s" % status)
-            print("data = %s" % data)
+            print("sc_data = %s" % sc_data)
 
         # If no data was found for the spacecraft, go to the next.
-        if status["http"]["status_code"] != 200 or data is None:
-            print("No data available for %s." % scId)
+        if sc_data is None:
+            print("No data found for %s." % sc_id)
             continue
 
-        # Use the spacecraft trajectory to interpolate simulated
-        # observations from the gamhelio output.
+        # At this point, the data object contains only the raw spacecraft
+        # ephemeris, and the raw spacecraft-measured data, as returned from
+        # CDAWeb.
+
+        # Ingest the CDAWeb data. This means convert the data as originally
+        # retrieved from CDAWeb to the units and coordinate systems used by
+        # gamhelio so that comparisons may be made. This will create new
+        # variables in the data object, with names analogous to the
+        # corresponding gamhelio variables.
         if verbose:
-            print("Interpolating simulated observations along trajectory.")
-        scutils.extractGAMHELIO(
-            data, scIds[scId], scId, mjdFileStart, secFileStart, fdir, run_id,
-            cmd, numSegments, keep, mjdc
+            print("Converting CDAWeb data for %s into gamhelio format." % sc_id)
+        scutils.ingest_helio_cdaweb_data(
+            sc_id, sc_data, sc_metadata[sc_id], gh_MJDc,
+            verbose=verbose, debug=debug
         )
-        cdfname = os.path.join(fdir, scId + ".comp.cdf")
-        if os.path.exists(cdfname):
+
+        # Use the spacecraft trajectory to interpolate simulated observations
+        # from the gamhelio output.
+        if verbose:
+            print("Interpolating gamhelio results along %s trajectory." % sc_id)
+        scutils.interpolate_gamhelio_results_to_trajectory(
+            sc_data, sc_metadata[sc_id], sc_id,
+            gh_first_MJD, gh_first_elapsed_seconds,
+            gh_result_directory, gh_run_id,
+            cmd_sctrack, num_segments, keep, gh_MJDc
+        )
+
+        # Save the important measured and simulated data as a CDF file for
+        # comparison.
+        cdf_path = os.path.join(gh_result_directory, sc_id + ".comp.cdf")
+        if verbose:
+            print("Saving comparison data to %s." % cdf_path)
+        if os.path.exists(cdf_path):
             if verbose:
-                print("Deleting existing CDF comparison file %s" % cdfname)
-            os.system("rm %s" % cdfname)
+                print("Deleting existing CDF comparison file %s" % cdf_path)
+            os.system("rm %s" % cdf_path)
         if verbose:
-            print("Creating CDF file %s with %s and GAMERA data" % (cdfname, scId))
-        # <HACK>
-        # Massage PSP data to work with toCDF().
-        if scId == "Parker_Solar_Probe":
-            print("Massaging PSP data for output.")
-            data["radialDistance"] = dm.dmarray(
-                data["Ephemeris"].flatten()[0]["radialDistance"],
-                attrs = {
-                    "UNITS": "AU",
-                    "CATDESC": "Radial distance",
-                    "FIELDNAM": "Radial distance",
-                    "AXISLABEL": "radialDistance"
-                }
-            )
-            data["heliographicLatitude"] = dm.dmarray(
-                data["Ephemeris"].flatten()[0]["heliographicLatitude"],
-                attrs = {
-                    "UNITS": "degrees",
-                    "CATDESC": "Heliographic latitude",
-                    "FIELDNAM": "Heliographic latitude",
-                    "AXISLABEL": "Heliographic latitude"
-                }
-            )
-            data["heliographicLongitude"] = dm.dmarray(
-                data["Ephemeris"].flatten()[0]["heliographicLongitude"],
-                attrs = {
-                    "UNITS": "degrees",
-                    "CATDESC": "Heliographic longitude",
-                    "FIELDNAM": "Heliographic longitude",
-                    "AXISLABEL": "Heliographic longitude"
-                }
-            )
-            data["VR"] = dm.dmarray(
-                data["Velocity"].flatten()[0]["VR"],
-                attrs = {
-                    "UNITS": "km/s",
-                    "CATDESC": "Radial velocity",
-                    "FIELDNAM": "Radial velocity",
-                    "AXISLABEL": "Vr"
-                }
-            )
-            del data["Ephemeris"]
-            del data["MagneticField"]
-            del data["Velocity"]
-        # </HACK>
-        dm.toCDF(cdfname, data)
-        plotname = os.path.join(fdir, scId + ".png")
+            print("Creating CDF file %s with %s and GAMERA data" % (cdf_path, sc_id))
+        dm.toCDF(cdf_path, sc_data)
+
+        # Compute the errors in the simulated data relative to the measured
+        # data and save in a file.
+        error_file_path = os.path.join(gh_result_directory, sc_id + "-error.txt")
         if verbose:
-            print("Plotting results to %s." % plotname)
-        kv.helioCompPlot(plotname, scId, data)
+            print("Computing gamhelio-%s errors and saving to %s." %
+                  (sc_id, error_file_path))
+        scutils.write_helio_error_report(error_file_path, sc_id, sc_data)
+
+        # Make a comparison plot of the measured and simulated results.
+        plot_file_path = os.path.join(gh_result_directory, sc_id + ".png")
         if verbose:
-            print("Computing errors.")
-        errname = os.path.join(fdir, scId + "-error.txt")
-        if verbose:
-            print("Writing errors to %s." % errname)
-        scutils.helioErrorReport(errname, scId, data)
-        plotname = os.path.join(fdir, scId + "-traj.png")
-        if verbose:
-            print("Plotting trajectory to %s." % plotname)
-        kv.helioTrajPlot(plotname, scId, data)
+            print("Saving gamhelio-%s comparison plots in %s." %
+                  (sc_id, plot_file_path))
+        kv.helioCompPlot_new(plot_file_path, sc_id, sc_data)
+
+        # Plot the spacecraft trajectory.
+        # plot_file_path = os.path.join(gh_result_directory, sc_id + "-traj.png")
+        # if verbose:
+        #     print("Plotting %s trajectory in spacecraft frame to %s." % (sc_id, plot_file_path))
+        # kv.helioTrajPlot(plot_file_path, sc_id, sc_data)

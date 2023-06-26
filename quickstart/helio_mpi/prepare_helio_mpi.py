@@ -1,11 +1,11 @@
 #!/usr/bin/env python
 
 
-"""Prepare the PBS script for a helio_mpi job.
+"""Prepare for running MPI kaiju on the helio_mpi example.
 
-Perform the preprocessing required to run the mpi gamera code on
-the helio_mpi example. Create any required data files, and create
-the PBS script to run the code.
+Perform the preprocessing required to run the MPI kaiju code on the helio_mpi
+example. Create any required data files, and create the PBS script to run
+the code.
 """
 
 
@@ -25,31 +25,25 @@ import subprocess
 default_runid = "helio_mpi"
 
 # Program description.
-description = "Prepare to run mpi gamera on the %s test case." % default_runid
+description = "Prepare to run MPI kaiju on the %s model." % default_runid
 
 # Location of template .ini file.
 ini_template = os.path.join(
-    os.environ["KAIJUHOME"], "quickstart", default_runid, "%s.ini.template"
-    % default_runid
-)
-
-# Location of template XML file.
-xml_template = os.path.join(
-    os.environ["KAIJUHOME"], "quickstart", default_runid, "%s.xml.template"
+    os.environ["KAIJUHOME"], "quickstart", default_runid, "%s_template.ini"
     % default_runid
 )
 
 # Location of template PBS script.
 pbs_template = os.path.join(
-    os.environ["KAIJUHOME"], "quickstart", default_runid, "%s.pbs.template"
+    os.environ["KAIJUHOME"], "quickstart", default_runid, "%s_template.pbs"
     % default_runid
 )
 
 
 def create_command_line_parser():
     """Create the command-line argument parser.
-    
-    Ceate the parser for command-line arguments.
+
+    Create the parser for command-line arguments.
 
     Parameters
     ----------
@@ -58,7 +52,7 @@ def create_command_line_parser():
     Returns
     -------
     parser : argparse.ArgumentParser
-        Command-line argument parser for this script.
+        Parser for command-line arguments.
     """
     parser = argparse.ArgumentParser(description=description)
     parser.add_argument(
@@ -81,9 +75,9 @@ def create_command_line_parser():
 
 
 def run_preprocessing_steps(directory, runid):
-    """Run any preprocessing steps needed for the helio_mpi run.
+    """Run any preprocessing steps needed for the run.
 
-    Run any required preprocessing steps to prepare for the helio_mpi run.
+    Perform required preprocessing steps.
 
     Parameters
     ----------
@@ -118,9 +112,7 @@ def run_preprocessing_steps(directory, runid):
 def create_ini_file(directory, runid):
     """Create the .ini file from a template.
 
-    Create the .ini file describing the helio_mpi model run.
-
-    For now, we simply make a copy of the .ini template.
+    Create the .ini file from a template.
 
     Parameters
     ----------
@@ -132,12 +124,15 @@ def create_ini_file(directory, runid):
     Returns
     -------
     ini_file : str
-        Path to the .ini file for the helio_mpi model run.
+        Path to .ini file.
     """
-    # Just use the template for now.
+    # Read the file template.
     with open(ini_template) as t:
         lines = t.readlines()
+
     # Process the template here.
+
+    # Write the processed .ini file to the run directory.
     ini_file = os.path.join(directory, "%s.ini" % runid)
     with open(ini_file, "w") as f:
         f.writelines(lines)
@@ -146,31 +141,23 @@ def create_ini_file(directory, runid):
 
 def convert_ini_to_xml(ini_file, xml_file):
     """Convert the .ini file to XML.
-    
-    Convert the .ini file describing the helio_mpi run to the corresponding
-    XML file.
+
+    Convert the .ini file to a .xml file.
 
     Parameters
     ----------
     ini_file : str
-        Path to the .ini file to convert.
+        Path to .ini file to convert.
     xml_file : str
-        Path to the resulting XML file.
-    
+        Path to .xml file to create.
+
     Returns
     -------
     None
     """
-    # cmd = "XMLGenerator.py"
-    # args = [ini_file, xml_file]
-    # subprocess.run([cmd] + args)
-
-    # No conversion is performed yet. Just process the XML template.
-    with open(xml_template) as t:
-        lines = t.readlines()
-    # Process the template here.
-    with open(xml_file, "w") as f:
-        f.writelines(lines)
+    cmd = "XMLGenerator.py"
+    args = [ini_file, xml_file]
+    subprocess.run([cmd] + args)
 
 
 def create_pbs_job_script(directory, runid):
@@ -190,9 +177,13 @@ def create_pbs_job_script(directory, runid):
     pbs_file : str
         Path to PBS job script.
     """
+    # Read the template.
     with open(pbs_template) as t:
         lines = t.readlines()
+
     # Process the template here.
+
+    # Write out the processed file.
     pbs_file = os.path.join(directory, "%s.pbs" % runid)
     with open(pbs_file, "w") as f:
         f.writelines(lines)
@@ -234,5 +225,7 @@ if __name__ == "__main__":
     pbs_file = create_pbs_job_script(directory, runid)
     if verbose:
         print("The PBS job script %s is ready." % pbs_file)
+        print("Edit this file as needed for your system (see comments in %s"
+              " for more information)." % pbs_file)
         print("Submit the job to PBS with the command:")
         print("    qsub %s" % pbs_file)

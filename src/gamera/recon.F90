@@ -6,9 +6,12 @@ module recon
 
     !GetLR_T
     !Performs stencil->LR calculation
+    !Q = n+1/2 state to reconstruct on
+    !nQ = n state to limit on
     abstract interface
-        subroutine GetLR_T(dV,Q,Vi,Ql,Qr)
-            Import :: rp,vecLen,recLen
+        subroutine GetLR_T(dV,nQ,Q,Vi,Ql,Qr)
+            import :: rp,vecLen,recLen,limLen
+            real(rp), intent(in), dimension(vecLen,limLen) :: nQ
             real(rp), intent(in), dimension(vecLen,recLen) :: dV,Q
             real(rp), intent(in), dimension(vecLen)  :: Vi
             real(rp), intent(inout), dimension(vecLen) :: Ql,Qr
@@ -21,60 +24,78 @@ module recon
 
     !Set choice of LR method in init
     procedure(GetLR_T), pointer :: GetLRs
-    !logical, parameter :: Smooth7Up = .true. !Use smoothness detector in 7Up method
+    
     real(rp) :: pdmb !Set via initModel
     real(rp), dimension(8), parameter :: Cent8C = [-3,29,-139,533,533,-139,29,-3]/840.0_rp
-    real(rp), dimension(7), parameter :: Up7C = [-3,25,-101,319,214,-38,4]/420.0_rp
+    real(rp), dimension(7), parameter :: Up7C   = [-3,25,-101,319,214,-38,4]/420.0_rp
     real(rp), dimension(5), parameter :: High5C = [2,-13,47,27,-3]/60.0_rp
     real(rp), dimension(6), parameter :: Cent6C = [1,-8,37,37,-8,1]/60.0_rp
     
     contains
 
 
-    !Given brickette of volumes,conserved variables
+    !Given brickette of volumes,conserved variables (n+1/2) and limit conserved variables (n)
     !Return L/Rs of primitive variables
-    subroutine BlockStateLRs(Model,VolB,ConB,Wl,Wr)
+    subroutine BlockStateLRs(Model,VolB,nConB,ConB,Wl,Wr)
         type(Model_T), intent(in) :: Model
-        real(rp), intent(in), dimension(vecLen,recLen)      :: VolB
-        real(rp), intent(in), dimension(vecLen,recLen,NVAR) :: ConB
+        real(rp), intent(in ), dimension(vecLen,recLen)      :: VolB
+        real(rp), intent(in ), dimension(vecLen,limLen,NVAR) :: nConB
+        real(rp), intent(in ), dimension(vecLen,recLen,NVAR) :: ConB
         real(rp), intent(out), dimension(vecLen,NVAR) :: Wl,Wr
 
         !Hold primitives
         real(rp), dimension(vecLen,recLen,NVAR) :: PrimB
         !DIR$ attributes align : ALIGN :: PrimB
-        integer :: i,n
-        real(rp) :: D,Mx,My,Mz,E,KinE,P
+        real(rp), dimension(vecLen,limLen,NVAR) :: nPrimB
+        !DIR$ attributes align : ALIGN :: nPrimB
+
+        !DIR$ ASSUME_ALIGNED nConB: ALIGN
         !DIR$ ASSUME_ALIGNED ConB: ALIGN
         !DIR$ ASSUME_ALIGNED VolB: ALIGN
         !DIR$ ASSUME_ALIGNED Wl: ALIGN
         !DIR$ ASSUME_ALIGNED Wr: ALIGN
 
         !Convert to primitives
-        do n=1,recLen
-            do i=1,vecLen
-                D = max(ConB(i,n,DEN),dFloor)
-                Mx = ConB(i,n,MOMX)
-                My = ConB(i,n,MOMY)
-                Mz = ConB(i,n,MOMZ)
-                E  = ConB(i,n,ENERGY)
-                KinE = 0.5*(Mx**2.0 + My**2.0 + Mz**2.0)/D
+        call BlockCon2Prim(nConB,nPrimB,limLen)
+        call BlockCon2Prim( ConB, PrimB,recLen)
 
-                P = max((Model%gamma-1)*(E-KinE),pFloor)
-                
-                PrimB(i,n,DEN)  = D
-                PrimB(i,n,VELX) = Mx/D
-                PrimB(i,n,VELY) = My/D
-                PrimB(i,n,VELZ) = Mz/D
-                PrimB(i,n,PRESSURE) = P
-            enddo
-        enddo
-        call BlockLRs(VolB,PrimB,Wl,Wr,NVAR)
+        !Reconstruct and limit
+        call BlockLRs(VolB,nPrimB,PrimB,Wl,Wr,NVAR)
 
+        contains
+            subroutine BlockCon2Prim(inCon,oPrim,xLen)
+                integer , intent(in ) :: xLen
+                real(rp), intent(in ) :: inCon(vecLen,xLen,NVAR)
+                real(rp), intent(out) :: oPrim(vecLen,xLen,NVAR)
+                integer :: i,n
+                real(rp) :: D,Mx,My,Mz,E,KinE,P
+
+                do n=1,xLen
+                    do i=1,vecLen
+                        D = max(inCon(i,n,DEN),dFloor)
+                        Mx = inCon(i,n,MOMX)
+                        My = inCon(i,n,MOMY)
+                        Mz = inCon(i,n,MOMZ)
+                        E  = inCon(i,n,ENERGY)
+                        KinE = 0.5*(Mx**2.0 + My**2.0 + Mz**2.0)/D
+
+                        P = max((Model%gamma-1)*(E-KinE),pFloor)
+                        
+                        oPrim(i,n,DEN)  = D
+                        oPrim(i,n,VELX) = Mx/D
+                        oPrim(i,n,VELY) = My/D
+                        oPrim(i,n,VELZ) = Mz/D
+                        oPrim(i,n,PRESSURE) = P
+                    enddo
+                enddo
+
+            end subroutine BlockCon2Prim
     end subroutine BlockStateLRs
 
     !Computes LR's using volume-weighted interpolation and splitting
-    subroutine BlockLRs(VolB,Qb,Ql,Qr,NumV)
-        integer, intent(in) :: NumV
+    subroutine BlockLRs(VolB,nQb,Qb,Ql,Qr,NumV)
+        integer , intent(in) :: NumV
+        real(rp), intent(in), dimension(vecLen,limLen,NumV) :: nQb
         real(rp), intent(in), dimension(vecLen,recLen,NumV) :: Qb
         real(rp), intent(in), dimension(vecLen,recLen) :: VolB
         real(rp), intent(out),dimension(vecLen,NumV) :: Ql,Qr
@@ -95,13 +116,14 @@ module recon
         !Get LRs for each variable
         do nv=1,NumV
             !For each variable pass Qb,VolB,Vi
-            call GetLRs(VolB,Qb(:,:,nv),Vi,Ql(:,nv),Qr(:,nv))
+            call GetLRs(VolB,nQb(:,:,nv),Qb(:,:,nv),Vi,Ql(:,nv),Qr(:,nv))
         enddo
 
     end subroutine BlockLRs
 
     !Central 8/PDM LRs
-    subroutine Cen8LRs(dV,Q,Vi,Ql,Qr)
+    subroutine Cen8LRs(dV,nQ,Q,Vi,Ql,Qr)
+        real(rp), intent(in), dimension(vecLen,limLen) :: nQ
         real(rp), intent(in), dimension(vecLen,recLen) :: dV,Q
         real(rp), intent(in), dimension(vecLen)  :: Vi
         real(rp), intent(inout), dimension(vecLen) :: Ql,Qr
@@ -115,6 +137,7 @@ module recon
         !DIR$ ASSUME_ALIGNED Vi: ALIGN
         !DIR$ ASSUME_ALIGNED Ql: ALIGN
         !DIR$ ASSUME_ALIGNED Qr: ALIGN
+        !DIR$ ASSUME_ALIGNED nQ : ALIGN
 
         !Volume-weight
         do n=1,recLen
@@ -130,112 +153,20 @@ module recon
         enddo
 
         !Split into LRs
-        call pdmLR(Q,Qi,Ql,Qr)
+        call pdmLR(nQ,Qi,Ql,Qr)
 
     end subroutine Cen8LRs
 
-    !Central 6/PDM LRs
-    subroutine Cen6LRs(dV,Q,Vi,Ql,Qr)
-        real(rp), intent(in), dimension(vecLen,recLen) :: dV,Q
-        real(rp), intent(in), dimension(vecLen)  :: Vi
-        real(rp), intent(inout), dimension(vecLen) :: Ql,Qr
-
-        integer :: i,n
-        real(rp), dimension(vecLen,recLen) :: QdV !Volume-weighted quantity
-        real(rp), dimension(vecLen) :: Qi !Interpolated quantity
-
-        !DIR$ ASSUME_ALIGNED dV: ALIGN
-        !DIR$ ASSUME_ALIGNED Q : ALIGN
-        !DIR$ ASSUME_ALIGNED Vi: ALIGN
-        !DIR$ ASSUME_ALIGNED Ql: ALIGN
-        !DIR$ ASSUME_ALIGNED Qr: ALIGN
-
-        !Volume-weight
-        do n=1,recLen
-            do i=1,vecLen
-                QdV(i,n) = dV(i,n)*Q(i,n)
-            enddo
-        enddo
-
-        !Reconstruct and unweight
-        call Central6(QdV,Qi)
-        do i=1,vecLen
-            Qi(i) = Qi(i)/Vi(i)
-        enddo
-
-        !Split into LRs
-        call pdmLR(Q,Qi,Ql,Qr)
-
-    end subroutine Cen6LRs
-
-    !Central 8/PDM LRs
-    subroutine Cen8GLRs(dV,Q,Vi,Ql,Qr)
-        real(rp), intent(in), dimension(vecLen,recLen) :: dV,Q
-        real(rp), intent(in), dimension(vecLen)  :: Vi
-        real(rp), intent(inout), dimension(vecLen) :: Ql,Qr
-
-        integer :: i,n
-        logical, dimension(vecLen) :: isLR
-        real(rp), dimension(vecLen,recLen) :: QdV !Volume-weighted quantity
-        real(rp), dimension(vecLen) :: Qi !Interpolated quantity
-
-        !DIR$ ASSUME_ALIGNED dV: ALIGN
-        !DIR$ ASSUME_ALIGNED Q : ALIGN
-        !DIR$ ASSUME_ALIGNED Vi: ALIGN
-        !DIR$ ASSUME_ALIGNED Ql: ALIGN
-        !DIR$ ASSUME_ALIGNED Qr: ALIGN
-
-        !Check for geometric LRs
-        call isDeltaLR(dV,Vi,isLR)
-        
-        !Volume-weight
-        do n=1,recLen
-            do i=1,vecLen
-                QdV(i,n) = dV(i,n)*Q(i,n)
-            enddo
-        enddo
-
-        do i=1,vecLen
-            if (isLR(i)) then
-                !Geometry is too jagged here
-                !Get <Q>
-                Qi(i) = dot_product(Q(i,:),Cent8C)
-            else
-                !Everything is fine, go nuts
-                !Get <QdV>/<dV>
-                Qi(i) = dot_product(QdV(i,:),Cent8C)/Vi(i)
-            endif
-        enddo
-
-        !Split into LRs
-        call pdmLR(Q,Qi,Ql,Qr)
-
-    end subroutine Cen8GLRs
-
-    subroutine isDeltaLR(Qb,Qi,isLR)
-        real(rp), intent(in) :: Qb(vecLen,recLen), Qi(vecLen)
-        logical, intent(out) :: isLR(vecLen)
-
-        integer :: i
-        real(rp) :: Ql(vecLen),Qr(vecLen)
-
-        call pdmLR(Qb,Qi,Ql,Qr)
-
-        do i=1,vecLen
-            isLR(i) = abs( Ql(i) - Qr(i) ) .gt. 1.0e-8
-        enddo
-
-    end subroutine isDeltaLR
 
     !Upwind 7/PDM LRs
-    subroutine Up7LRs(dV,Q,Vi,Ql,Qr)
+    subroutine Up7LRs(dV,nQ,Q,Vi,Ql,Qr)
+        real(rp), intent(in), dimension(vecLen,limLen) :: nQ
         real(rp), intent(in), dimension(vecLen,recLen) :: dV,Q
         real(rp), intent(in), dimension(vecLen)  :: Vi
         real(rp), intent(inout), dimension(vecLen) :: Ql,Qr
 
         integer :: i,n
         real(rp), dimension(vecLen,recLen) :: QdV !Volume-weighted quantity
-        logical :: SmoothL,SmoothR
 
         !DIR$ attributes align : ALIGN :: QdV
         !DIR$ ASSUME_ALIGNED dV: ALIGN
@@ -243,6 +174,7 @@ module recon
         !DIR$ ASSUME_ALIGNED Vi: ALIGN
         !DIR$ ASSUME_ALIGNED Ql: ALIGN
         !DIR$ ASSUME_ALIGNED Qr: ALIGN
+        !DIR$ ASSUME_ALIGNED nQ : ALIGN
 
         !Volume-weight
         do n=1,recLen
@@ -251,67 +183,20 @@ module recon
             enddo
         enddo
 
-        !High-order LRs, unweight, test smoothness
+        !High-order LRs, unweight
         do i=1,vecLen
             !High-order interpolation, unweight
             !Do it ugly to avoid temporary array creation
             Ql(i) = Up7(QdV(i,1),QdV(i,2),QdV(i,3),QdV(i,4),QdV(i,5),QdV(i,6),QdV(i,7))/Vi(i)
             Qr(i) = Up7(QdV(i,8),QdV(i,7),QdV(i,6),QdV(i,5),QdV(i,4),QdV(i,3),QdV(i,2))/Vi(i)
 
-        !For smoothing
-            !SmoothL = isSmooth7(Q(i,1:7:+1))
-            !SmoothR = isSmooth7(Q(i,8:2:-1))
-
-            ! if (SmoothL .and. SmoothR) then
-            !     Ql(i) = dot_product(QdV(i,:),interpWgt)/Vi(i)
-            !     Qr(i) = dot_product(QdV(i,:),interpWgt)/Vi(i)
-            ! else
-            !     if (.not. SmoothL) Ql(i) = PDM(Q(i,3),Q(i,4),Q(i,5),Ql(i))
-            !     if (.not. SmoothR) Qr(i) = PDM(Q(i,6),Q(i,5),Q(i,4),Qr(i))
-            ! endif
-
-        !No smoothing
-            Ql(i) = PDM(Q(i,3),Q(i,4),Q(i,5),Ql(i))
-            Qr(i) = PDM(Q(i,6),Q(i,5),Q(i,4),Qr(i))
+            Ql(i) = PDM(nQ(i,1),nQ(i,2),nQ(i,3),Ql(i))
+            Qr(i) = PDM(nQ(i,4),nQ(i,3),nQ(i,2),Qr(i))
 
         enddo
 
     end subroutine Up7LRs
 
-    !Upwind 5/PDM LRs
-    !FIXME: Assuming reclen=8 for now, should be arbitrary
-    subroutine High5LRs(dV,Q,Vi,Ql,Qr)
-        real(rp), intent(in), dimension(vecLen,recLen) :: dV,Q
-        real(rp), intent(in), dimension(vecLen)  :: Vi
-        real(rp), intent(inout), dimension(vecLen) :: Ql,Qr
-
-        integer :: i,n
-        real(rp), dimension(vecLen,recLen) :: QdV !Volume-weighted quantity
-
-        !DIR$ ASSUME_ALIGNED dV: ALIGN
-        !DIR$ ASSUME_ALIGNED Q : ALIGN
-        !DIR$ ASSUME_ALIGNED Vi: ALIGN
-        !DIR$ ASSUME_ALIGNED Ql: ALIGN
-        !DIR$ ASSUME_ALIGNED Qr: ALIGN
-
-        !Volume-weight
-        do n=1,recLen
-            do i=1,vecLen
-                QdV(i,n) = dV(i,n)*Q(i,n)
-            enddo
-        enddo
-
-        !High-order LRs, unweight, test smoothness
-        do i=1,vecLen
-            !High-order interpolation, unweight
-            Ql(i) = dot_product(QdV(i,2:6: 1),High5C)/Vi(i)
-            Qr(i) = dot_product(QdV(i,7:3:-1),High5C)/Vi(i)
-
-            Ql(i) = PDM(Q(i,3),Q(i,4),Q(i,5),Ql(i))
-            Qr(i) = PDM(Q(i,6),Q(i,5),Q(i,4),Qr(i))
-        enddo
-
-    end subroutine High5LRs
 
     !8th order central interpolation
     subroutine Central8(Qb,Qi)
@@ -344,7 +229,7 @@ module recon
     end subroutine Central6
 
     subroutine pdmLR(Qb,Qi,Ql,Qr)
-        real(rp), intent(in) :: Qb(vecLen,recLen), Qi(vecLen)
+        real(rp), intent(in) :: Qb(vecLen,limLen), Qi(vecLen)
         real(rp), intent(out) :: Ql(vecLen),Qr(vecLen)
 
         real(rp) :: v0,v1,v2,v3, maxV,minV,vN
@@ -352,11 +237,11 @@ module recon
         integer :: i
 
         do i=1,vecLen
-            !Grab limiter stencil (assuming 3:6 for now)
-            v0 = Qb(i,3)
-            v1 = Qb(i,4)
-            v2 = Qb(i,5)
-            v3 = Qb(i,6)
+            !Grab limiter values
+            v0 = Qb(i,1)
+            v1 = Qb(i,2)
+            v2 = Qb(i,3)
+            v3 = Qb(i,4)
 
             !Max/Min of nearest neighbors
             maxV = max(v1,v2)

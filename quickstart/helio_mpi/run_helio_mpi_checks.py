@@ -1,17 +1,15 @@
 #!/usr/bin/env python
 
 
-"""Perform quality checks on the results of running the gamera helio_mpi case.
+"""Perform sample computations on the results of the helio_mpi example.
 
-Perform QA checks on the results of running the helio_mpi example
-through gamera.
+Perform sample computations on the results of the helio_mpi example.
 """
 
 
 # Import standard modules.
 import argparse
 import os
-import subprocess
 
 # Import 3rd-party modules.
 import numpy as np
@@ -27,14 +25,15 @@ default_runid = "helio_mpi"
 
 # Program description.
 description = (
-    "Perform consistency checks on the gamera %s test case." % default_runid
+    "Perform sample computations on the results of the %s example." %
+    default_runid
 )
 
     
 def create_command_line_parser():
     """Create the command-line argument parser.
-    
-    Ceate the parser for command-line arguments.
+
+    Create the command-line argument parser.
 
     Parameters
     ----------
@@ -83,7 +82,6 @@ def compute_volume_integrated_magnetic_pressure(directory, runid):
     Pb_integrated_first, Pb_integrated_last : float
         Volume-integrated magnetic pressure for first and last steps.
     """
-
     # Open a pipe to the data file.
     data_pipe = gampp.GameraPipe(directory, runid, doVerbose=False)
 

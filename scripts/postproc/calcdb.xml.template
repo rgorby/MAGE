@@ -3,6 +3,7 @@
     <Chimp>
         <sim runid="RUNID"/>
         <time T0="0.0" dt="60.0" tFin="3600.0"/>
-        <fields ebfile="EBFILE" grType="LFM" doJ="T"/>
+        <fields ebfile="EBFILE" grType="LFM" doJ="T" isMPI="ISMPI"/>
+        <parallel Ri="RI" Rj="RJ" Rk="RK"/>
     </Chimp>
 </Kaiju>
