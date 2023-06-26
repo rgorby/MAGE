@@ -366,15 +366,17 @@ def PlotEqBy(gsph,nStp,xyBds,Ax,AxCB=None,doClear=True,doDeco=True):
 
 #Plor Br in equatorial plane
 def PlotEqBz(gsph,nStp,xyBds,Ax,AxCB=None,doClear=True,doDeco=True):
-    vB = kv.genNorm(BMin, BMax, doLog=False, midP=None)
+    
+    Bz = gsph.eqBz(nStp)
+    maxBz = np.max(np.abs(Bz))
+    vB = kv.genNorm(-maxBz, maxBz, doLog=False, midP=None)
 
     if (AxCB is not None):
         AxCB.clear()
-        kv.genCB(AxCB,vB,r'MF B$_z$(r/r$_0)^2$ [nT]',cM=BCM,Ntk=7)
+        kv.genCB(AxCB,vB,r'MF B$_z$ [nT]',cM=BCM,Ntk=7)
     if (doClear):
         Ax.clear()
 
-    Bz = gsph.eqBz(nStp)
     Ax.pcolormesh(gsph.xxi,gsph.yyi,Bz,cmap=BCM,norm=vB)
 
     kv.SetAx(xyBds,Ax)

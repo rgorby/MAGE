@@ -448,7 +448,7 @@ class GamsphPipe(GameraPipe):
 	def eqBz (self,s0=0):
 		Bz = self.EqSlice("Bz",s0) #Unscaled
 
-		BzScl = (Bz*self.xxc + Bz*self.yyc)*np.sqrt(self.xxc**2.0 + self.yyc**2.0)/self.R0/self.R0
+		BzScl = Bz
 		
 		BzScl = self.bScl*BzScl
 		return BzScl
