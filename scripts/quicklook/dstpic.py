@@ -38,6 +38,7 @@ if __name__ == "__main__":
 	fdir = args.d
 	tpad = args.tpad
 	swfname = args.swfile
+	ftag = args.id
 
 	#UT formats for plotting
 	isotfmt = '%Y-%m-%dT%H:%M:%S.%f'
