@@ -69,7 +69,7 @@ module sifSpeciesHelper
     end function SpcAmu
 
 
-    function spcType(spc) result(sType)
+    function SpcType(spc) result(sType)
         !! Determine the species type (e-, H+, O+, etc.)
         type(SIFSpecies_T), intent(in) :: spc
 
@@ -88,7 +88,7 @@ module sifSpeciesHelper
         end select
 
 
-    end function spcType
+    end function SpcType
 
     !------
     ! Do-stuff helpers
@@ -150,7 +150,7 @@ module sifSpeciesHelper
             spc%fudge    = IOVars(FindIO(IOVars, "fudge"   ))%data(1)
             
             spc%amu = SpcAmu(spc)
-            spc%spcType = spcType(spc)
+            spc%spcType = SpcType(spc)
 
             ! Calc start and end bounds, use it to set alami index range
             spc%kStart = kPos

@@ -4,8 +4,11 @@ import matplotlib.pyplot as plt
 from dataclasses import dataclass
 from dataclasses_json import dataclass_json
 from typing import List
+import scipy.special as sp
+
 #from bidict import bidict
 
+import kaipy.kdefs as kd
 import kaipy.kaiTools as kt
 import kaipy.kaiH5 as kh5
 
@@ -26,11 +29,25 @@ flavs_n = {0 : "PSPH",
            1 : "HOTE",
            2 : "HOTP"}
 
+spcs_s = {"IDK": 0,
+          "ELE": 1,
+          "H+" : 2,
+          "O+" : 3}
+spcs_n = {0: "IDK",
+          1: "ELE",
+          2: "H+" ,
+          3: "O+" }
+
+#------
+# Containers
+#------
+
 @dataclass_json
 @dataclass
 class SpeciesInfo:
     N: int
     flav: int
+    spcType: int
     kStart: int
     kEnd: int
     numNuc_p: int
@@ -44,7 +61,9 @@ class SpeciesInfo:
 @dataclass_json
 @dataclass
 class SIFInfo(kh5.H5Info):
+    nSpc: int = None
     species: List[aP.SpecParams] = None
+    extra: dict = None # Extra info we can add later
 
     def getInfo(h5fname, noSubSec=True):
         # Base 
@@ -62,7 +81,7 @@ class SIFInfo(kh5.H5Info):
                     name = None
                 alami = s5['alami'][:]
                 alamc = 0.5*(alami[1:]+alami[:-1])
-                spc = SpeciesInfo(att['N'], att['flav'],
+                spc = SpeciesInfo(att['N'], att['flav'], att['spcType'],
                                   att['kStart'], att['kEnd']+1,
                                   att['numNuc_p'], att['numNuc_p'],
                                   att['amu'], att['q'],
@@ -70,9 +89,26 @@ class SIFInfo(kh5.H5Info):
                                   name)
                 specs.append(spc)
         # Now make our final object
-        return SIFInfo(fi.fname, fi.Nt, fi.steps, fi.stepStrs, fi.times, fi.MJDs,
-                        fi.UTs, specs)
-    
+        return SIFInfo(fi.fname, fi.Nt, fi.steps, fi.stepStrs, fi.times, fi.MJDs, fi.UTs,
+                       len(specs), specs, {})
+
+
+#------
+# Data handlers
+#------
+
+def getVar(grp, varName):
+    """ Get vars from h5 file this way so that we're sure everyone agrees on type and shape
+    """
+    try:
+        return grp[varName][:].T
+    except KeyError:
+        print("Error: {} not in keys".format(varName))
+
+#------
+# Species helpers
+#------
+
 def spcIdx(spcList: List[SpeciesInfo], flav: int) -> int:
     # Get index of a certain species based on its flavor
     # spcList: list of SpeciesInfo
@@ -92,6 +128,42 @@ def getMask(s5, dom="ACTIVE"):
     mask = s5['active'][:] != domain[dom]
         # Only include domain specified by caller
     return mask
+
+
+#------
+# Some analytic stuff
+#------
+
+def intensity_maxwell(n, mass, E, kT):
+    """ Intensity for energy E in an analytic Maxwellian profile
+        n: density in #/cc
+        mass: mass in kg
+        E: energy in keV
+        kT: temp in keV
+        j: Intensity [1/(s*sr*keV*cm^2)]
+    """
+    f = n * (mass/(2*np.pi*kT))**(3/2) * np.exp(-E/kT)
+    j = 2*E/mass**2 * f  * 1e2 * np.sqrt(kd.kev2J)
+    return j
+
+def intensity_kappa(n, mass, E, kT, kappa=6):
+    """ Intensity for energy E in an analytic Maxwellian profile
+        n: density in #/cc
+        mass: mass in kg
+        E: energy in keV
+        kT: temp in keV
+        j: Intensity [1/(s*sr*keV*cm^2)]
+    """
+    gamfac = sp.gamma(kappa+1)/sp.gamma(kappa-0.5)
+
+    #f = n * (mass/(2*np.pi*kappa*kT))**(3/2) * gamfac * (1+(E/kappa/kT))**(-kappa-1)  # From Baumjohann & Treumann
+    kap15 = kappa-1.5
+    E0 = kT*kap15/kappa
+    kArg = 1 + (E/E0)/kap15
+    f = n * (mass/(2*np.pi*E0*kap15))**(3/2) * gamfac * kArg**(-kappa-1)
+
+    j = 2*E/mass**2 * f  * 1e2 * np.sqrt(kd.kev2J)
+    return j
 
 
 # TODO:
