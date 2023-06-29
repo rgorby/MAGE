@@ -68,13 +68,12 @@ module sifBCs
         enddo  ! i
 
         ! Do first round of determining active shells for each k
+        ! We do this everywhere
         do s=1,Grid%nSpc
-            do k=Grid%spc(s)%kStart,Grid%spc(s)%kEnd
-                State%activeShells(:,k) = setLambdaActiveShells(Grid%shGrid, Grid%spc(s), State%bVol, &
-                        State%eta(:,:,Grid%spc(s)%kStart:Grid%spc(s)%kEnd), &
-                        k, &
-                        worthyFracO=Model%worthyFrac)
-            enddo  ! k
+            call setActiveShellsByContribution(Grid%shGrid, Grid%spc(s), State%bVol, &
+                State%eta(:,:,Grid%spc(s)%kStart:Grid%spc(s)%kEnd), &
+                State%activeShells(:,Grid%spc(s)%kStart:Grid%spc(s)%kEnd), &  ! This is what we're writing to
+                worthyFracO=Model%worthyFrac)
         enddo  ! s
 
     end subroutine applySifBCs

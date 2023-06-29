@@ -16,23 +16,23 @@ module sifadvancer
 ! Active I Shell calculations
 !------
 
-    function setLambdaActiveShells(shGrid, spc, bVol, etas, k, nSpacesO, worthyFracO) result(activeShells)
-        !! Determine which i shells should be evolved and which should not, for a given lambda channel
+    subroutine setActiveShellsByContribution(shGrid, spc, bVol, etas, activeShellsOut, nSpacesO, worthyFracO)
+        !! For each lambda channel, calculate active shells based on how much they contribute to the total pressure and/or density
         type(ShellGrid_T), intent(in) :: shGrid
         type(SIFSpecies_T), intent(in) :: spc
         real(rp), dimension(shGrid%isg:shGrid%ieg,shGrid%jsg:shGrid%jeg), intent(in) :: bVol
-        integer, intent(in) :: k
-            !! index for lambda dimension
         real(rp), dimension(shGrid%isg:shGrid%ieg,shGrid%jsg:shGrid%jeg,spc%kStart:spc%kEnd), intent(in) :: etas
+        logical, dimension(shGrid%isg:shGrid%ieg, spc%kStart:spc%kEnd), intent(out) :: activeShellsOut
         integer, optional, intent(in) :: nSpacesO
             !! Number of i spaces between last good value and active i for species
         real(rp), optional, intent(in) :: worthyFracO
 
-        integer :: i,j, iL, iU
+        integer :: i,j,k, iL, iU
         integer :: nSpaces
         real(rp) :: worthyFrac
+        real(rp) :: alamc, kDen, kPress
+        real(rp), dimension(shGrid%isg:shGrid%ieg, shGrid%jsg:shGrid%jeg) :: spcDen, spcPress
         logical, dimension(shGrid%isg:shGrid%ieg, shGrid%jsg:shGrid%jeg) :: as2D
-        logical, dimension(shGrid%isg:shGrid%ieg) :: activeShells
 
         if(present(nSpacesO)) then
             nSpaces = nSpacesO
@@ -45,79 +45,64 @@ module sifadvancer
         else
             worthyFrac = fracWorthyDef
         endif
-
+        
         as2D = .false.
-        activeShells = .false.
+        activeShellsOut = .false.
 
-        ! Determine shells with cells that have enough stuff to be evolved
+        ! Start by getting total density and pressure for each i,j point
         !$OMP PARALLEL DO default(shared) collapse(2) &
         !$OMP schedule(dynamic) &
-        !$OMP private(i,j,iL,iU)
+        !$OMP private(i,j)
         do j=shGrid%jsg,shGrid%jeg
             do i=shGrid%isg,shGrid%ieg
-                if (isWorthy(spc, bVol(i,j), etas(i,j,:), k, worthyFrac)) then
-                    as2D(i,j) = .true.
-                endif
+                spcDen  (i,j) = SpcEta2Den  (spc, etas(i,j,:), bVol(i,j))
+                spcPress(i,j) = spcEta2Press(spc, etas(i,j,:), bVol(i,j))
             enddo
         enddo
 
-        ! Now collapse j
-        !! Re-use as2D, first j element 
-        do i=shGrid%isg,shGrid%ieg
-            as2D(i,shGrid%jsg) = any(as2D(i,:))
+        ! Then calculate active shells for each k
+        do k=spc%kStart,spc%kEnd
+
+            ! Setup for this k
+            as2D = .false.
+            alamc = 0.5*abs(spc%alami(k) + spc%alami(k+1))
+
+            !$OMP PARALLEL DO default(shared) collapse(2) &
+            !$OMP schedule(dynamic) &
+            !$OMP private(i,j,kDen,kPress)
+            do j=shGrid%jsg,shGrid%jeg
+                do i=shGrid%isg,shGrid%ieg
+
+                    kDen   = etak2Den  (etas(i,j,k), bVol(i,j))
+                    kPress = etak2Press(etas(i,j,k), alamc, bVol(i,j))
+            
+                    if (kDen/spcDen(i,j) > worthyFrac .or. kPress/spcPress(i,j) > worthyFrac) then
+                        as2D(i,j) = .true.
+                    endif
+                enddo
+            enddo
+
+            ! Now collapse j
+            !! Re-use as2D, first j element 
+            do i=shGrid%isg,shGrid%ieg
+                as2D(i,shGrid%jsg) = any(as2D(i,:))
+            enddo
+
+            ! Finally, assign to activeShells, including buffer spaces
+            do i=shGrid%isg,shGrid%ieg
+                iL = max(i-nSpaces, shGrid%isg)
+                iU = min(i+nSpaces, shGrid%ieg)
+                activeShellsOut(i,k) = any(as2D(iL:iU, shGrid%jsg))
+            enddo
+            
         enddo
-
-        ! Finally, assign to activeShells, including buffer spaces
-        do i=shGrid%isg,shGrid%ieg
-            iL = max(i-nSpaces, shGrid%isg)
-            iU = min(i+nSpaces, shGrid%ieg)
-            activeShells(i) = any(as2D(iL:iU, shGrid%jsg))
-        enddo
-
-    end function setLambdaActiveShells
-
-
-    function isWorthy(spc, bVol, etas, k, fracO) result(isW)
-        !! Determine if lambda @ index k is contributing a certain percentage to the total pressure or density
-        !! Evaluated at a single spatial point
-        type(SIFSpecies_T), intent(in) :: spc
-        real(rp), intent(in) :: bVol
-        real(rp), dimension(spc%kStart:spc%kEnd), intent(in) :: etas
-        integer, intent(in) :: k
-        real(rp), optional, intent(in) :: fracO
-            ! Fraction of total den/press that channel must contribute in order to be 
-
-        real(rp) :: frac
-        real(rp) :: alamc
-        real(rp) :: kDen, kPress, spcDen, spcPress
-        logical :: isW
-
-        if(present(fracO)) then
-            frac = fracO
-        else
-            frac = fracWorthyDef
-        endif
-
-        kDen = etak2Den(etas(k), bVol)
-        spcDen = SpcEta2Den(spc, etas, bVol)
-
-        alamc = 0.5*abs(spc%alami(k) + spc%alami(k+1))
-
-        kPress = etak2Press(etas(k), alamc, bVol)
-        spcPress = spcEta2Press(spc, etas, bVol)
-
-        if (kDen/spcDen > frac .or. kPress/spcPress > frac) then
-            isW = .true.
-        else
-            isW = .false.
-        endif
-    end function isWorthy
+    end subroutine setActiveShellsByContribution
 
 
 !------
 ! Cell Potential and Velocity calculations
 !------
-
+    !!TODO: Is this better memory-wise if we hand an unallocated out arg to these as subroutines?
     function potExB(sh, State) result (pExB)
         ! Trivial, but putting it here in case we need extra options for it later
         type(ShellGrid_T), intent(in) :: sh
