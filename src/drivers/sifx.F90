@@ -198,7 +198,7 @@ program sifx
         ! Calc cell velocities
         call Tic("Calc cell-center velocities")
         do k=1,Grid%Nk
-            State%cVel(:,:,k,:) = calcVelocityCC(Model, Grid, State, Grid%alamc(k))
+            State%cVel(:,:,k,:) = calcVelocityCC(Model, Grid, State, k)
             ! Calc sub-time step
             State%dtk(k) = activeDt(Grid%shGrid, Grid, State, k)
         enddo

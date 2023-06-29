@@ -94,7 +94,7 @@ module sifadvancer
                 iU = min(i+nSpaces, shGrid%ieg)
                 activeShellsOut(i,k) = any(as2D(iL:iU, shGrid%jsg))
             enddo
-            
+
         enddo
     end subroutine setActiveShellsByContribution
 
@@ -114,6 +114,7 @@ module sifadvancer
 
     end function potExB
 
+
     function potCorot(planet, sh) result (pCorot)
         ! Simple corotation potential [V]
         type(planet_T), intent(in) :: planet
@@ -128,25 +129,24 @@ module sifadvancer
 
     end function potCorot
 
-    function potGC(Grid, bVol) result (pGC)
+
+    function potGC(shGrid, alamc, bVol) result (pGC)
         ! Simple gradient curvature potential [V]
-        type(sifGrid_T), intent(in) :: Grid
-        real(rp), dimension(Grid%shGrid%isg:Grid%shGrid%ieg,&
-                            Grid%shGrid%jsg:Grid%shGrid%jeg), intent(in) :: bVol
+        type(ShellGrid_T), intent(in) :: shGrid
+        real(rp), intent(in) :: alamc
+        real(rp), dimension(shGrid%isg:shGrid%ieg,&
+                            shGrid%jsg:shGrid%jeg), intent(in) :: bVol
 
-        real(rp), dimension(Grid%shGrid%isg:Grid%shGrid%ieg,&
-                            Grid%shGrid%jsg:Grid%shGrid%jeg,&
-                            Grid%Nk) :: pGC
-        integer :: k
+        real(rp), dimension(shGrid%isg:shGrid%ieg,&
+                            shGrid%jsg:shGrid%jeg) :: pGC
 
-        do k=1,Grid%Nk
-            pGC(:,:,k) = Grid%alamc(k)*bVol(:,:)**(-2./3.)
-        enddo
+        pGC = alamc*bVol**(-2./3.)
 
     end function potGC
 
+
     subroutine calcEffectivePotential(planet, Grid, State)
-        ! Calculates effective potential [V] as the sum of pExB, pCorot, and pGC
+        ! Calculates effective potential [V] for all lambda channels as the sum of pExB, pCorot, and pGC
         type(planet_T), intent(in) :: planet
         type(sifGrid_T) , intent(in) :: Grid
         type(sifState_T), intent(inout) :: State
@@ -160,14 +160,13 @@ module sifadvancer
         
         State%pEff = 0.0
 
-        ! Grab individual potentials
+        ! Grab 2D potentials
         pExB = potExB(Grid%shGrid, State)
         pCorot = potCorot(planet, Grid%shGrid)
-        pGC = potGC(Grid, State%bVol)
         
-
+        ! Build 3D effective potential
         do k=1,Grid%Nk
-            State%pEff(:,:,k) = pExB + pCorot + pGC(:,:,k)
+            State%pEff(:,:,k) = pExB + pCorot + potGC(Grid%shGrid, Grid%alamc(k), State%bVol)
         enddo
 
     end subroutine calcEffectivePotential
@@ -224,13 +223,12 @@ module sifadvancer
 
     end function calcVelocityCC_DIP
 
-    function calcVelocityCC(Model, Grid, State, alamc) result (Vtp)
+    function calcVelocityCC(Model, Grid, State, k) result (Vtp)
         !! Note: takes a 2D potential for an arbitrary lambda channel
         type(sifModel_T), intent(in) :: Model
         type(sifGrid_T ), intent(in) :: Grid
         type(sifState_T), intent(in) :: State
-        real(rp), intent(in) :: alamc
-            !! [ev*(Rp/nT)^(2/3)]
+        integer, intent(in) :: k
 
         integer :: i,j
         real(rp) :: RIon
@@ -263,7 +261,7 @@ module sifadvancer
         RIon = Model%planet%ri_m/Model%planet%Rp_m
         
         pE = potExB(Grid%shGrid, State) + potCorot(Model%planet, Grid%shGrid)  ! Electric fields
-        pGC = alamc*State%bVol(:,:)  ! Gradient-curvature for this lambda
+        pGC = potGC(Grid%shGrid, Grid%alamc(k), State%bVol(:,:))  ! Gradient-curvature for this lambda
 
         ! Do E-field grad first
         gradPot = calcGradIJ(RIon, Grid, isGood, pE)

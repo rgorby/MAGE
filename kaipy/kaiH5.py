@@ -77,7 +77,7 @@ class H5Info:
         print("  MJD  start/end: {:1.2f}/{:1.2f}".format(mjdStart, mjdEnd))
         utStart = self.UTs[0]
         utEnd = self.UTs[-1]
-        print("  UT   start/end: {:1.2f}/{:1.2f}".format(utStart, utEnd))
+        print("  UT   start/end: {}/{}".format(utStart, utEnd))
 
 #Generate MPI-style name
 def genName(bStr,i,j,k,Ri,Rj,Rk,nRes=None):
