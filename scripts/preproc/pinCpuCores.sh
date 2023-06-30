@@ -5,7 +5,8 @@
 # THIS IS ONLY MEANT TO WORK ON DERECHO
 # USE ON OTHER SYSTEMS AT YOUR OWN RISK
 
-let newNumThreads=$OMP_NUM_THREADS/$PMI_LOCAL_SIZE
+let numCores=`lscpu | sed --quiet "s/^CPU(s): \\+\\([0-9]\\+\\)$/\\1/p"`
+let newNumThreads=$numCores/$PMI_LOCAL_SIZE
 let minThread=$newNumThreads*$PMI_LOCAL_RANK
 let maxThread=$minThread+$newNumThreads-1
 export OMP_NUM_THREADS=$newNumThreads
