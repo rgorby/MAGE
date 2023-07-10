@@ -516,6 +516,12 @@ module voltapp_mpi
         call convertGameraToRemix(vApp%mhd2mix, vApp%gAppLocal, vApp%remixApp)
         call Toc("G2R")
 
+        if (vApp%doGCM .and. vApp%time >=0) then
+            call Tic("GCM2MIX")
+            call coupleGCM2MIX(vApp%gcm,vApp%remixApp%ion,vApp%MJD,vApp%time,vApp%gcmCplComm,vApp%myRank)
+            call Toc("GCM2MIX")
+        end if
+
         ! run remix
         call Tic("ReMIX")
         call runRemix(vApp)
@@ -1014,6 +1020,9 @@ module voltapp_mpi
         call setIdleStatus(vApp, 0)
 
     end subroutine
+
+    subroutine exportGCM2MIX(vApp)
+        type
 
 end module voltapp_mpi
 

@@ -15,6 +15,13 @@ module gcminterp
   character(len=strLen), dimension(nVars), private :: mixVarNames
   character(len=strLen), dimension(nVars), private :: mixUnitNames  
 
+  interface exportgcm
+    module procedure exportgcmfile, exportgcmmpi
+  end interface
+  interface importgcm
+    module procedure importgcmfile, importgcmmpi
+  end interface
+
   contains
 
     subroutine init_gcm(gcm,ion,isRestart)
@@ -220,11 +227,13 @@ module gcminterp
       enddo
     end subroutine init_gcm_mix
 
-    subroutine coupleGCM2MIX(gcm,ion,do2way,mjd,time)
+    subroutine coupleGCM2MIX(gcm,ion,do2way,mjd,time,gcmCplComm,myRank)
+      use mpi_f08
       type(mixIon_T),dimension(:),intent(inout) :: ion
       type(gcm_T), intent(inout) :: gcm
-      logical,optional,intent(in) :: do2way
-      real(rp), optional, intent(in) :: time, mjd
+      real(rp), intent(in) :: time, mjd
+      type(MPI_Comm), optional :: gcmCplComm
+      integer, optional, intent(in) :: myRank
 
       ! maybe create the SM and GEO list of points here
       ! since the destination grid does not need to be structured
@@ -235,12 +244,20 @@ module gcminterp
 
       !Must MIX export first.  TIEGCM will also import first.
       call Tic("Export")
-      call exportgcm(ion,gcm,mjd,time)
+      if (present(gcmCplComm)) then
+        call exportgcm(ion,gcm,mjd,time,gcmCplComm,myRank)
+      else
+        call exportgcm(ion,gcm,mjd,time)
+      endif
       call Toc("Export")
 
       !Import gcm data
       call Tic("Import")
-      call importgcm(gcm, ion)
+      if (present(gcmCplComm)) then
+        call importgcm(gcm, ion, gcmCplComm,myRank)
+      else
+        call importgcm(gcm, ion)
+      endif
       call Toc("Import")
 
       if (gcm%isRestart) gcm%isRestart=.false.
@@ -251,7 +268,7 @@ module gcminterp
         
     end subroutine coupleGCM2MIX
 
-    subroutine importgcm(gcm,ion)
+    subroutine importgcmfile(gcm,ion)
       type(gcm_T), intent(inout) :: gcm
       type(mixIon_T),dimension(:),intent(inout) :: ion
       integer :: h,ymod1
@@ -276,12 +293,12 @@ module gcminterp
       !Map the data to MIX grid
       call mapGCM2MIX(gcm,ion)
 
-    end subroutine
+    end subroutine importgcmfile
 
-    subroutine exportgcm(ion,gcm,mjd,time)
+    subroutine exportgcmfile(ion,gcm,mjd,time)
       type(gcm_T), intent(inout) :: gcm
       type(mixIon_T), dimension(:),intent(inout) :: ion
-      real(rp), optional, intent(in) :: time, mjd
+      real(rp), intent(in) :: time, mjd
       integer :: h,ymod2
 
       ! The weird ymod here is to undo the funky southern hemisphere colat issue.
@@ -303,7 +320,113 @@ module gcminterp
       ! write the coupling file
       call writeMIX2GCM(ion,gcm,mjd,time)
 
-    end subroutine
+    end subroutine exportgcmfile
+
+    subroutine importgcmmpi(gcm,ion, gcmCplComm,myRank)
+      use mpi_f08
+      type(gcm_T), intent(inout) :: gcm
+      type(mixIon_T),dimension(:),intent(inout) :: ion
+      type(MPI_Comm) :: gcmCplComm
+      integer, intent(in) :: myRank
+
+      real(rp), dimension(:,:,:), allocatable :: var2d
+
+      integer :: v,i,h,ymod1,ierr
+
+      if (.not. allocated(var2d)) allocate(var2d(gcm%nlat,gcm%nlon,gcm2mix_nvar))
+
+      call Tic("MpiExchange")
+
+      call mpi_send(testArray, 10*worldSize, MPI_DOUBLE_PRECISION, 1, 1001, interComm, ierror)
+      if(ierror /= MPI_Success) then
+          call MPI_Error_string( ierror, message, length, ierror)
+          print *,message(1:length)
+          call mpi_Abort(MPI_COMM_WORLD, 1, ierror)
+      end if
+
+      ! Split global GCM array into two hemispheres
+      ! then shift the array so that longitude starts at 0
+      do v=1,gcm2mix_nvar
+        do i=1,gcm%nhlat
+          gcm%gcmInput(GCMNORTH,v)%var(:gcm%nlon-1,i) = cshift(var2d(gcm%t2N(gcm%nhlat-i+1),:gcm%nlon-1,v),gcm%lonshift)
+          gcm%gcmInput(GCMSOUTH,v)%var(:gcm%nlon-1,i) = cshift(var2d(gcm%t2S(i),:gcm%nlon-1,v),gcm%lonshift)
+          gcm%gcmInput(GCMNORTH,v)%var(gcm%nlon,i) = gcm%gcmInput(GCMNORTH,v)%var(1,i)
+          gcm%gcmInput(GCMSOUTH,v)%var(gcm%nlon,i) = gcm%gcmInput(GCMSOUTH,v)%var(1,i)
+        enddo
+        !write(*,*) "SHAPES: ",shape(var2d),shape(gcm%gcmInput(GCMNORTH,v)%var)
+        !write(*,*) "var2d: ",maxval(var2d(:,:,v)),minval(var2d(:,:,v)),v
+        !write(*,*) "GCMINPUT NORTH: ",maxval(gcm%gcmInput(GCMNORTH,v)%var),minval(gcm%gcmInput(GCMNORTH,v)%var),v
+        !write(*,*) "GCMINPUT SOUTH: ",maxval(gcm%gcmInput(GCMSOUTH,v)%var),minval(gcm%gcmInput(GCMSOUTH,v)%var),v
+      end do
+      if (allocated(var2d)) deallocate(var2d)
+      call Toc("MpiExchange")      
+
+      ! The weird ymod here is to undo the funky southern hemisphere colat issue.
+      do h=1,size(ion)
+        if (h == GCMSOUTH) then
+          ymod1 = -1
+        else
+          ymod1 = 1
+        endif
+        !ymod1 = 1
+        !write(*,*) "SM -> GEO START:",h,ymod1
+        call transform_grid(ion(h)%G,ion(h)%Ggeo,iSMtoGEO,h,ym1=ymod1)
+        !write(*,*) "SM -> GEO END: ",h
+      end do
+      
+      !Map the data to MIX grid
+      call mapGCM2MIX(gcm,ion)
+
+    end subroutine importgcmmpi
+
+    subroutine exportgcmmpi(ion,gcm,mjd,time,gcmCplComm,myRank)
+      use mpi_f08
+      type(gcm_T), intent(inout) :: gcm
+      type(mixIon_T), dimension(:),intent(inout) :: ion
+      real(rp), intent(in) :: time, mjd
+      type(MPI_Comm) :: gcmCplComm
+      integer, intent(in) :: myRank
+      integer :: h,ymod2,v,ierr,length
+      character( len = MPI_MAX_ERROR_STRING) :: message
+
+      ! The weird ymod here is to undo the funky southern hemisphere colat issue.
+      do h=1,gcm%nhemi
+        if (h == GCMSOUTH) then
+          ymod2 = -1
+        else
+          ymod2 = 1
+        endif
+        !ymod2 = 1
+        !write(*,*) "GEO -> SM START:",h,ymod2
+        call transform_grid(gcm%GEO(h),gcm%SM(h),iGEOtoSM,h,ym2=ymod2)
+        !write(*,*) "GEO -> SM END: ",h
+      end do
+
+      ! Map from mix grid to gcm grid
+      call mapMIX2GCM(ion,gcm)
+
+      ! Prepare the export data
+      if (.not. allocated(var2d)) allocate(var2d(gcm%nlat,gcm%nlon,mix2gcm_nvar))
+      var2d = 0.
+      ! Before we start, we collapse to 1 globe instead of 2 hemispheres
+      do v=1,mix2gcm_nvar
+        var2d(gcm%t2N(gcm%nhlat:1:-1),:gcm%nlon-1,v) = transpose(cshift(gcm%gcmOutput(GCMNORTH,v)%var(:gcm%nlon-1,:),-1*gcm%lonshift))
+        var2d(gcm%t2S,:gcm%nlon-1,v) = transpose(cshift(gcm%gcmOutput(GCMSOUTH,v)%var(:gcm%nlon-1,:),-1*gcm%lonshift))
+        var2d(gcm%t2N,gcm%nlon,v) = var2d(gcm%t2N,1,v)
+        var2d(gcm%t2S,gcm%nlon,v) = var2d(gcm%t2S,1,v)
+      end do
+
+      ! Send the coupling data
+      do v=1,gcm2mix_nvar
+        call mpi_send(var2d(:,:,v), gcm%nlat*gcm%nlon, MPI_DOUBLE_PRECISION, 1, 1000+v, gcmCplComm, ierr)
+        if(ierr /= MPI_Success) then
+            call MPI_Error_string( ierr, message, length, ierr)
+            print *,message(1:length)
+            call mpi_Abort(MPI_COMM_WORLD, 1, ierr)
+        end if
+      enddo
+
+    end subroutine exportgcmmpi
 
     subroutine ReadH5gcm(gcm)
       type(gcm_T), intent(inout) :: gcm
