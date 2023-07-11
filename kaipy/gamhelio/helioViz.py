@@ -79,7 +79,7 @@ def GetSizeBds(pic):
         xyBds = [0.,360.,-90.,90.]
     elif (pic == "pic5"):
         xyBds = [20.,220.,1.,2000.]
-    elif (pic == "pic6"):
+    elif (pic == "pic6" or pic == "pic7"):
         xyBds = [-220.,220.,-220.,220.]
     else:        
         raise RuntimeError("No compatible pic type specified.")
@@ -99,6 +99,29 @@ def PlotEqMagV(gsph,nStp,xyBds,Ax,AxCB=None,doClear=True,doDeco=True):
         Ax.clear()
 
     MagV = gsph.eqMagV(nStp)
+    Ax.pcolormesh(gsph.xxi,gsph.yyi,MagV,cmap=MagVCM,norm=vMagV)
+
+    kv.SetAx(xyBds,Ax)
+
+    if (doDeco):
+        Ax.set_xlabel('X [R_S]')
+        Ax.set_ylabel('Y [R_S]')
+    return MagV
+
+#Plot speed in j plane
+def PlotjMagV(gsph,nStp,xyBds,Ax,AxCB=None,doClear=True,doDeco=True,jidx=-1):
+    vMagV = kv.genNorm(VMin, VMax, doLog=False, midP=None)
+    
+    if (AxCB is not None):
+        #Add the colorbar to AxCB
+        AxCB.clear()
+        kv.genCB(AxCB,vMagV,"Speed [km/s]",cM=MagVCM,Ntk=7)
+
+    #Now do main plotting
+    if (doClear):
+        Ax.clear()
+
+    MagV = gsph.jMagV(nStp,jidx=jidx)
     Ax.pcolormesh(gsph.xxi,gsph.yyi,MagV,cmap=MagVCM,norm=vMagV)
 
     kv.SetAx(xyBds,Ax)
@@ -278,6 +301,31 @@ def PlotEqD(gsph,nStp,xyBds,Ax,AxCB=None,doClear=True,doDeco=True):
         Ax.yaxis.set_label_position('right')
     return NormD
 
+#Plot normalized density in equatorial plane n(r/r0)^2
+def PlotjD(gsph,nStp,xyBds,Ax,AxCB=None,doClear=True,doDeco=True,jidx=-1):
+    vD = kv.genNorm(DMin, DMax, doLog=False, midP=None)
+    
+    if (AxCB is not None):
+        #Add the colorbar to AxCB
+        AxCB.clear()
+        kv.genCB(AxCB,vD,r"Density n(r/r$_0)^2$ [cm$^{-3}$]",cM=DCM,Ntk=7)
+
+    #Now do main plotting
+    if (doClear):
+        Ax.clear()
+
+    NormD = gsph.jNormD(nStp,jidx=jidx)
+    Ax.pcolormesh(gsph.xxi,gsph.yyi,NormD,cmap=DCM,norm=vD)
+
+    kv.SetAx(xyBds,Ax)
+
+    if (doDeco):
+        Ax.set_xlabel('R [R_S]')
+        Ax.set_ylabel('Y [R_S]')
+        Ax.yaxis.tick_right()
+        Ax.yaxis.set_label_position('right')
+    return NormD
+
 #Plot normalized Temperature in equatorial plane T(r/r0)
 def PlotEqTemp(gsph,nStp,xyBds,Ax,AxCB=None,doClear=True,doDeco=True):
     vT = kv.genNorm(TMin, TMax, doLog=False, midP=None)
@@ -298,6 +346,26 @@ def PlotEqTemp(gsph,nStp,xyBds,Ax,AxCB=None,doClear=True,doDeco=True):
         Ax.set_ylabel('Y [R_S]')
     return Temp
 
+#Plot normalized Temperature in equatorial plane T(r/r0)
+def PlotjTemp(gsph,nStp,xyBds,Ax,AxCB=None,doClear=True,doDeco=True,jidx=-1):
+    vT = kv.genNorm(TMin, TMax, doLog=False, midP=None)
+
+    if (AxCB is not None):
+        AxCB.clear()
+        kv.genCB(AxCB,vT,r"Temperature T(r/r$_0$) [MK]",cM=TCM,Ntk=7)
+    if (doClear):
+        Ax.clear()
+
+    Temp = gsph.jTemp(nStp,jidx=jidx)
+    Ax.pcolormesh(gsph.xxi,gsph.yyi,Temp,cmap=TCM,norm=vT)
+    
+    kv.SetAx(xyBds,Ax)
+
+    if (doDeco):
+        Ax.set_xlabel('X [R_S]')
+        Ax.set_ylabel('Y [R_S]')
+    return Temp
+
 #Plor Br in equatorial plane
 def PlotEqBr(gsph,nStp,xyBds,Ax,AxCB=None,doClear=True,doDeco=True):
     vB = kv.genNorm(BMin, BMax, doLog=False, midP=None)
@@ -309,6 +377,28 @@ def PlotEqBr(gsph,nStp,xyBds,Ax,AxCB=None,doClear=True,doDeco=True):
         Ax.clear()
 
     Br = gsph.eqNormBr(nStp)
+    Ax.pcolormesh(gsph.xxi,gsph.yyi,Br,cmap=BCM,norm=vB)
+
+    kv.SetAx(xyBds,Ax)
+
+    if (doDeco):
+        Ax.set_xlabel('X [R_S]')
+        Ax.set_ylabel('Y [R_S]')
+        Ax.yaxis.tick_right()
+        Ax.yaxis.set_label_position('right')
+    return Br
+
+#Plor Br in equatorial plane
+def PlotjBr(gsph,nStp,xyBds,Ax,AxCB=None,doClear=True,doDeco=True,jidx=-1):
+    vB = kv.genNorm(BMin, BMax, doLog=False, midP=None)
+
+    if (AxCB is not None):
+        AxCB.clear()
+        kv.genCB(AxCB,vB,r'Radial MF B$_r$(r/r$_0)^2$ [nT]',cM=BCM,Ntk=7)
+    if (doClear):
+        Ax.clear()
+
+    Br = gsph.jNormBr(nStp,jidx=jidx)
     Ax.pcolormesh(gsph.xxi,gsph.yyi,Br,cmap=BCM,norm=vB)
 
     kv.SetAx(xyBds,Ax)

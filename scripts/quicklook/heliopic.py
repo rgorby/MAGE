@@ -150,7 +150,7 @@ def create_command_line_parser():
 
 def initFig(pic):
     # Determine figure size (width, height) (inches) based on the picture type.
-    if pic == "pic1" or pic == "pic2":
+    if pic == "pic1" or pic == "pic2" or pic == "pic7":
         figSz = (10, 12.5)
     elif pic == "pic3":
         figSz = (10, 6.5)
@@ -229,7 +229,7 @@ if __name__ == "__main__":
         fig = initFig(pic)
 
         # Lay out the subplots.
-        if pic == "pic1" or pic == "pic2" or pic == "pic3" or pic == "pic6":
+        if pic == "pic1" or pic == "pic2" or pic == "pic3" or pic == "pic6" or pic == "pic7":
             gs = gridspec.GridSpec(4, 6, height_ratios=[20, 1, 20, 1])
             # Axes for plots.
             AxL0 = fig.add_subplot(gs[0, 0:3])
@@ -284,11 +284,16 @@ if __name__ == "__main__":
             hviz.PlotEqBx(gsph, nStp, xyBds, AxR0, AxC2_0)
             hviz.PlotEqBy(gsph, nStp, xyBds, AxL1, AxC1_1)
             hviz.PlotEqBz(gsph, nStp, xyBds, AxR1, AxC2_1)
+        elif pic == "pic7":
+            hviz.PlotjMagV(gsph, nStp, xyBds, AxL0, AxC1_0,jidx=448)
+            hviz.PlotjD(gsph, nStp, xyBds, AxR0, AxC2_0,jidx=448)
+            hviz.PlotjTemp(gsph, nStp, xyBds, AxL1, AxC1_1,jidx=448)
+            hviz.PlotjBr(gsph, nStp, xyBds, AxR1, AxC2_1,jidx=448)
         else:
             print ("Pic is empty. Choose pic1 or pic2 or pic3")
 
         # Add time in the upper left.
-        if pic == "pic1" or pic == "pic2" or pic == "pic6":
+        if pic == "pic1" or pic == "pic2" or pic == "pic6" or pic == "pic7":
             gsph.AddTime(nStp, AxL0, xy=[0.025, 0.875], fs="x-large")
         elif pic == "pic3":
             gsph.AddTime(nStp, AxL0, xy=[0.015, 0.82], fs="small")

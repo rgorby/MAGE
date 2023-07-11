@@ -110,6 +110,28 @@ class GamsphPipe(GameraPipe):
 		#taking average above/below eq plane
 		Qj[:,:] = 0.5*( Q[:,ja,:] + Q[:,jb,:] )
 		return Qj
+	
+	#Var theta slice
+	def jSlice(self,vID,sID=None,vScl=None,doEq=True,doVerb=True,jidx=-1):
+		#Get full 3D variable first
+		Q = self.GetVar(vID,sID,vScl,doVerb)
+
+		if(jidx == -1):
+			Nj2 = self.Nj//2 
+		else:
+			Nj2 = jidx
+		#above and below the j plane
+		ja = Nj2 - 1
+		jb = ja + 1
+
+		Nr = self.Ni
+		Np = self.Nk
+
+		#equatorial j-slice of var 
+		Qj = np.zeros((Nr,Np))
+		#taking average above/below eq plane
+		Qj[:,:] = 0.5*( Q[:,ja,:] + Q[:,jb,:] )
+		return Qj
 
 	#Radial profile thru cell centers
 	def RadialProfileGrid(self):
@@ -405,11 +427,28 @@ class GamsphPipe(GameraPipe):
 		Vz = self.EqSlice("Vz",s0) #Unscaled
 		Veq = self.vScl*np.sqrt(Vx**2.0+Vy**2.0+Vz**2.0)
 		return Veq
+	
+	#Equatorial speed (in km/s) in eq plane
+	def jMagV(self,s0=0,jidx=-1):
+		Vx = self.jSlice("Vx",s0,jidx=jidx) #Unscaled
+		Vy = self.jSlice("Vy",s0,jidx=jidx) #Unscaled
+		Vz = self.jSlice("Vz",s0,jidx=jidx) #Unscaled
+		Veq = self.vScl*np.sqrt(Vx**2.0+Vy**2.0+Vz**2.0)
+		return Veq
 
 	#Normalized density (D*r*r/21.5/21.5 in cm-3) in eq plane
 	def eqNormD (self,s0=0):
 
 		D = self.EqSlice("D",s0) #Unscaled
+
+		Norm = (self.xxc**2.0 + self.yyc**2.0)/self.R0/self.R0
+		NormDeq = self.dScl*D*Norm
+		return NormDeq
+	
+	#Normalized density (D*r*r/21.5/21.5 in cm-3) in eq plane
+	def jNormD (self,s0=0,jidx=-1):
+
+		D = self.jSlice("D",s0,jidx=jidx) #Unscaled
 
 		Norm = (self.xxc**2.0 + self.yyc**2.0)/self.R0/self.R0
 		NormDeq = self.dScl*D*Norm
@@ -420,6 +459,17 @@ class GamsphPipe(GameraPipe):
 		Bx = self.EqSlice("Bx",s0) #Unscaled
 		By = self.EqSlice("By",s0) #Unscaled
 		Bz = self.EqSlice("Bz",s0) #Unscaled
+
+		Br = (Bx*self.xxc + By*self.yyc)*np.sqrt(self.xxc**2.0 + self.yyc**2.0)/self.R0/self.R0
+		
+		NormBreq = self.bScl*Br
+		return NormBreq
+	
+	#Normalized Br (Br*r*r/21.5/21.5) in eq plane
+	def jNormBr (self,s0=0,jidx=-1):
+		Bx = self.jSlice("Bx",s0,jidx=jidx) #Unscaled
+		By = self.jSlice("By",s0,jidx=jidx) #Unscaled
+		Bz = self.jSlice("Bz",s0,jidx=jidx) #Unscaled
 
 		Br = (Bx*self.xxc + By*self.yyc)*np.sqrt(self.xxc**2.0 + self.yyc**2.0)/self.R0/self.R0
 		
@@ -458,6 +508,16 @@ class GamsphPipe(GameraPipe):
 	def eqTemp (self,s0=0):
 		Pres = self.EqSlice("P",s0)
 		D = self.EqSlice("D",s0)
+		
+		#T(r/r0)
+		Temp = Pres/D*self.TScl*np.sqrt(self.xxc**2.0 + self.yyc**2.0)/self.R0
+		
+		return Temp
+
+	#Temperature T(r/r0) in eq plane
+	def jTemp (self,s0=0,jidx=-1):
+		Pres = self.jSlice("P",s0,jidx=jidx)
+		D = self.jSlice("D",s0,jidx=jidx)
 		
 		#T(r/r0)
 		Temp = Pres/D*self.TScl*np.sqrt(self.xxc**2.0 + self.yyc**2.0)/self.R0
