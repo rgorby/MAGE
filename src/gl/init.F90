@@ -212,7 +212,7 @@ module glinit
             type(glState_T), intent(inout) :: State
             type(glSolution_T), intent(inout) :: Solution
             real(rp) :: ao 
-            ao = calcModelBmax(Model, State, Solution, 100)
+            ao = calcModelBmax(Model, State, Solution, 200)
             if (Model%isLoud) write(*,"(1X,A14,2X,1F13.4)") "ao rescaled: ", ao
             if (Model%isLoud) write(*,"(1X,A14,2X,1F13.4)") "ao pre-scaling: ", -Model%ao*Model%Muse
             Model%ao = -ao/Model%Muse

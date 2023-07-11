@@ -25,6 +25,10 @@ module cmetypes
     end type
 
     type, abstract :: baseCMEState_T
+
+        ! MHD rank
+        integer :: Ranki, Rankj, Rankk
+        
         real(rp) :: currentLatitude = 0.
         real(rp) :: currentLongitude = 0.
         contains

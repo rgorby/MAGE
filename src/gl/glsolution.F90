@@ -1148,15 +1148,15 @@ module glsolution
             real(rp) :: ao, bmagmax, zeta, time, val
             real(rp), allocatable, dimension(:,:) :: bmag, st, ct, sph, cph
             
-            bmagmax = 0.0
-            if(Model%isLoud) write(*,"(1X,A24,2X,1F13.4)") "velmult scaled:", Model%velmult
+            bmagmax = Model%bmax
+            if(Model%isLoud) write(*,"(1X,A,2X,1F14.6)") "velmult scaled:", Model%velmult
             State%r = Model%frontheight
             ! do while bmag is monotonically increasing, save max, exit if bmagmax decreases from previous
-            if(Model%isLoud) write(*,"(1X,A24)") "Find bmagmax:"
-            if(Model%isLoud) write(*,"(1X,A24)") "------------------------"
+            if(Model%isLoud) write(*,"(1X,A)") "Find bmagmax:"
+            if(Model%isLoud) write(*,"(1X,A)") "------------------------"
             do i=1, nt
                 zeta = Model%x0 - Model%r0 - Model%apar + (nt - i - 1.)*2.*Model%r0/nt
-                if(Model%isLoud) write(*,"(1X,A14,2X,1F13.4,1I8)") "zeta, nt:", zeta, i
+                if(Model%isLoud) write(*,"(1X,A,2X,1F14.6,1I8)") "zeta, nt:", zeta, i
                 if (zeta > 0.01) then
                     Model%time = (Model%frontheight/zeta - 1.)/Model%s_eta
                     call generateGLSolution(Solution, Model, State)
@@ -1168,16 +1168,23 @@ module glsolution
                                 (Solution%b(1,:,:,XDIR)*st*sph + Solution%b(1,:,:,YDIR)*ct*sph + Solution%b(1,:,:,ZDIR)*cph)**2. + &
                                 (Solution%b(1,:,:,XDIR)*ct - Solution%b(1,:,:,YDIR)*st)**2.)
                     val = maxval(bmag)
-                    if (bmagmax < val) then 
+                    if (val <= Model%bmax) then 
+                        continue
+                    else if (bmagmax < val) then
                         bmagmax = val
                     else 
-                        if(Model%isLoud) write(*,"(1X,A36,2X,2F13.4)") "bmagmax (1) < val (2), exit loop:", bmagmax, val
+                        if(Model%isLoud) write(*,"(1X,A,I,A,I,A,I,A,1X,A,2X,2F14.6,I)") "Rank: (", State%Ranki, ",", State%Rankj, ",", State%Rankk, ")", & 
+                                                "bmagmax (1) > val (2), at nt:", bmagmax, val, i
                         exit
                     end if
                 end if
             end do
-            if(Model%isLoud) write(*,"(1X,A24,2X,1F13.4,1I8,1F13.4)") "bmagmax, nt, time:", bmagmax, i, Model%time
-            if(Model%isLoud) write(*,"(1X,A24)") "------------------------"
+            if(Model%isLoud) write(*,"(1X,A,I,A,I,A,I,A,1X,A,2X,1F14.6,1I8,1F14.6)") "Rank: (", State%Ranki, ",", State%Rankj, ",", State%Rankk, ")", & 
+                                    "bmagmax, nt, time:", bmagmax, i, Model%time
+            if(Model%isLoud) write(*,"(1X,A)") "------------------------"
+            if (bmagmax <= Model%bmax) then
+                bmagmax = 1.0
+            end if
             ao = Model%bmax / bmagmax 
         end function calcModelBmax
 

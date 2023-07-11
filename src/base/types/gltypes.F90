@@ -101,6 +101,7 @@ module gltypes
 
     !> State information
     type, extends(baseCMEState_T) :: glState_T
+
         ! Used for standalone Gibson-Low Model run
         ! to define user specified 3D grid dimensions to supply r,theta,phi to 
         ! construct state and to define size of solution ranks

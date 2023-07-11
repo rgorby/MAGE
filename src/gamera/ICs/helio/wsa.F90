@@ -180,6 +180,9 @@ module usergamic
                                 type is(glState_T)
                                     select type (cccmeModel)
                                         type is(glModel_T)
+                                            cccmeState%Ranki = Grid%Ri
+                                            cccmeState%Rankj = Grid%Rj
+                                            cccmeState%Rankk = Grid%Rk
                                             call initGLInterface(Grid%xyzcc(Grid%isg:Grid%is-1, Grid%js:Grid%je, Grid%ks:Grid%ke, :),cccmeModel, cccmeState, ccCMESolution, inpXMLCME, bounds)
                                             emergence_times = calcEmergenceTimes(cccmeModel,cccmeState, Model%Units%gT0)
                                             emerge_lastP = maxval(emergence_times)
@@ -192,7 +195,10 @@ module usergamic
                                 type is(glState_T)
                                     select type (jfcmeModel)
                                         type is(glModel_T)
-                                        call initGLInterface(Grid%xfc(Grid%isg:Grid%is-1, Grid%js:Grid%je, Grid%ks:Grid%ke, :, JDIR), jfcmeModel, jfcmeState, jfCMESolution, inpXMLCME, bounds)
+                                            jfcmeState%Ranki = Grid%Ri
+                                            jfcmeState%Rankj = Grid%Rj
+                                            jfcmeState%Rankk = Grid%Rk
+                                            call initGLInterface(Grid%xfc(Grid%isg:Grid%is-1, Grid%js:Grid%je, Grid%ks:Grid%ke, :, JDIR), jfcmeModel, jfcmeState, jfCMESolution, inpXMLCME, bounds)                              
                                     end select
                             end select
                     end select
@@ -202,7 +208,10 @@ module usergamic
                                 type is(glState_T)
                                     select type (kfcmeModel)
                                         type is(glModel_T)
-                                        call initGLInterface(Grid%xfc(Grid%isg:Grid%is-1, Grid%js:Grid%je, Grid%ks:Grid%ke, :, KDIR), kfcmeModel, kfcmeState, kfCMESolution, inpXMLCME, bounds)
+                                            kfcmeState%Ranki = Grid%Ri
+                                            kfcmeState%Rankj = Grid%Rj
+                                            kfcmeState%Rankk = Grid%Rk
+                                            call initGLInterface(Grid%xfc(Grid%isg:Grid%is-1, Grid%js:Grid%je, Grid%ks:Grid%ke, :, KDIR), kfcmeModel, kfcmeState, kfCMESolution, inpXMLCME, bounds)                                     
                                     end select
                             end select
                     end select            
