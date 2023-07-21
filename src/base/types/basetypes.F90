@@ -54,16 +54,16 @@ module basetypes
 
     end type BaseApp_T
 
+    type, abstract :: BaseOptions_T
+        contains
+        ! this base class contains nothing, but will be extended and passed into Init by other classes
+    end type BaseOptions_T
+
     ! helper type that can contain a pointer to any type of BaseApp
     ! useful for storing arrays or other structures of BaseApps
     type AppHolder
         class(BaseApp_T), allocatable :: p
     end type AppHolder
-
-    type, abstract :: BaseOptions_T
-        contains
-        ! this base class contains nothing, but will be extended and passed into Init by other classes
-    end type BaseOptions_T
 
     abstract interface
         subroutine InitModel_interface(App, Xml)

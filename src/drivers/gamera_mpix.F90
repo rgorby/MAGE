@@ -1,15 +1,15 @@
 !Driver for Gamera with MPI decomposition
 
 program gamera_mpix
-    use clocks
     use gamapp_mpi
+    use drivertypes
     use usergamic
     use mpidefs
 
     implicit none
 
-    type(gamAppMpi_T) :: gameraAppMpi
-    procedure(StateIC_T), pointer :: userInitFunc => initUser
+    type(AppDriver_T) :: appDriver
+    type(GameraAppMpi_T), allocatable :: gAppMpi
 
     integer :: ierror, length
     integer :: required=MPI_THREAD_MULTIPLE
@@ -36,66 +36,22 @@ program gamera_mpix
         call mpi_Abort(MPI_COMM_WORLD, 1, ierror)
     end if
 
-    ! initialize mpi data type
-    call setMpiReal()
 
-    !call printConfigStamp()
-    call initClocks()
+    ! create instance of gamera app, and perform any needed configuration
+    allocate(gAppMpi)
+    gAppMpi%gOptions%userInitFunc => initUser
+    gAppMpi%gOptionsMpi%gamComm = MPI_COMM_WORLD
 
-    gameraAppMpi%Model%isLoud = .true.
-    
-    ! this is a gamera-only application so all MPI ranks are gamera-only processes
-    call initGamera_mpi(gameraAppMpi,userInitFunc,MPI_COMM_WORLD)
+    ! use the single-app helper function to move the gamera app into the driver structure
+    ! note that after this point, gamApp will no longer be allocated
+    allocate(appDriver%appPointers(1))
+    call move_alloc(gAppMpi, appDriver%appPointers(1)%p)
 
-    do while (gameraAppMpi%Model%t < gameraAppMpi%Model%tFin)
-        call Tic("Omega")
-        !Start root timer
-
-        call stepGamera_mpi(gameraAppMpi)
-
-        !Output if necessary
-        call Tic("IO")
-        
-        if (gameraAppMpi%Model%IO%doConsole(gameraAppMpi%Model%ts)) then
-            !Do main console output
-            call consoleOutput_mpi(gameraAppMpi)
-
-            !Do timing info if needed
-            if ( (gameraAppMpi%Model%IO%doTimerOut) .and. debugPrintingRank(gameraAppMpi)) then
-                write (*,'(a,I3,a,I3,a,I3,a)') "Rank (I,J,K) (", &
-                    gameraAppMpi%Grid%Ri,",", &
-                    gameraAppMpi%Grid%Rj,",", &
-                    gameraAppMpi%Grid%Rk,") is printing debug clock info"
-                call printClocks()
-            endif
-            call cleanClocks() !Always clean clocks
-        elseif (gameraAppMpi%Model%IO%doTimer(gameraAppMpi%Model%ts)) then
-            if ( (gameraAppMpi%Model%IO%doTimerOut) .and. debugPrintingRank(gameraAppMpi)) then
-                write (*, '(a,I3,a,I3,a,I3,a)') "Rank (I,J,K) (", &
-                    gameraAppMpi%Grid%Ri,",", &
-                    gameraAppMpi%Grid%Rj,",", &
-                    gameraAppMpi%Grid%Rk,") is printing debug clock info"
-                call printClocks()
-            endif            
-            call cleanClocks() !Always clean clocks
-        endif
-
-
-        if (gameraAppMpi%Model%IO%doOutput(gameraAppMpi%Model%t)) then
-            call fOutput(gameraAppMpi%Model,gameraAppMpi%Grid,gameraAppMpi%State)
-        endif
-
-        if (gameraAppMpi%Model%IO%doRestart(gameraAppMpi%Model%t)) then
-            call resOutput(gameraAppMpi%Model,gameraAppMpi%Grid,gameraAppMpi%oState,gameraAppMpi%State)
-        endif
-
-        call Toc("IO")
-
-        call Toc("Omega")
-    end do
+    ! run the gamera app
+    call appDriver%RunApps()
 
     call MPI_FINALIZE(ierror)
-    write(*,*) "Fin"
+    write(*,*) "Fin Mpi"
 
 end program gamera_mpix
 

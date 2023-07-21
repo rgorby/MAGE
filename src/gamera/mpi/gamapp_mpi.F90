@@ -12,7 +12,14 @@ module gamapp_mpi
 
     implicit none
 
-    type, extends(GamApp_T) :: gamAppMpi_T
+    type, extends(BaseOptions_T) :: GameraOptionsMpi_T
+        type(MPI_Comm) :: gamComm
+        logical :: doIO = .true.
+
+        contains
+    end type GameraOptionsMpi_T
+
+    type, extends(GameraApp_T) :: GameraAppMpi_T
         type(MPI_Comm) :: gamMpiComm
         integer, dimension(:), allocatable :: sendRanks, recvRanks
         logical :: blockHalo = .false.
@@ -36,58 +43,75 @@ module gamapp_mpi
         real(rp) :: faceError = 0.0_rp
         logical :: slowestRankPrints = .true.
 
-    end type gamAppMpi_T
+        ! MPI-specific options
+        type(GameraOptionsMpi_T) :: gOptionsMpi
+
+        contains
+
+        ! only over-riding specific functions
+        procedure :: InitModel => gamMpiInitModel
+        !procedure :: InitIO => gamInitIO
+        !procedure :: WriteRestart => gamWriteRestart
+        !procedure :: ReadRestart => gamReadRestart
+        procedure :: WriteConsoleOutput => gamMpiWriteConsoleOutput
+        !procedure :: WriteFileOutput => gamWriteFileOutput
+        !procedure :: WriteSlimFileOutput => gamWriteSlimFileOutput
+        procedure :: AdvanceModel => gamMpiAdvanceModel
+
+    end type GameraAppMpi_T
 
     contains
 
-    subroutine initGamera_mpi(gamAppMpi, userInitFunc, gamComm, optFilename, doIO)
-        type(gamAppMpi_T), intent(inout) :: gamAppMpi
-        procedure(StateIC_T), pointer, intent(in) :: userInitFunc
-        type(MPI_Comm), intent(in) :: gamComm
-        character(len=*), optional, intent(in) :: optFilename
-        logical, optional, intent(in) :: doIO
+    ! procedures for GameraAppMpi_T
+    subroutine gamMpiInitModel(App, Xml)
+        class(GameraAppMpi_T), intent(inout) :: App
+        type(XML_Input_T), intent(inout) :: Xml
 
-        character(len=strLen) :: inpXML, kaijuRoot
-        type(XML_Input_T) :: xmlInp
-        logical :: doIOX,doLoud
+        call initGamera_mpi(App, Xml)
+
+    end subroutine gamMpiInitModel
+
+    subroutine gamMpiWriteConsoleOutput(App)
+        class(GameraAppMpi_T), intent(inout) :: App
+
+        call consoleOutput_mpi(App)
+
+    end subroutine gamMpiWriteConsoleOutput
+
+     subroutine gamMpiAdvanceModel(App, dt)
+        class(GameraAppMpi_T), intent(inout) :: App
+        real(rp), intent(in) :: dt
+
+        call stepGamera_mpi(App)
+
+    end subroutine gamMpiAdvanceModel
+
+    ! actual procedures
+
+    subroutine initGamera_mpi(gamAppMpi, xmlInp)
+        class(GameraAppMpi_T), intent(inout) :: gamAppMpi
+        type(XML_Input_T), intent(inout) :: xmlInp
+
+        character(len=strLen) :: kaijuRoot
+        logical :: doLoud
         integer :: rank,ierr
+
+        gamAppMpi%Model%isLoud = .true.
 
         ! initialize F08 MPI objects
         gamAppMpi%gamMpiComm = MPI_COMM_NULL
 
-        if(present(optFilename)) then
-            ! read from the prescribed file
-            inpXML = optFilename
-        else
-            !Find input deck
-            call getIDeckStr(inpXML)
-        endif
-        call CheckFileOrDie(inpXML,"Error opening input deck, exiting ...")
-
-        if (present(doIO)) then
-            doIOX = doIO
-        else
-            doIOX = .true.
-        endif
-
-    !Create XML reader
         !Verbose for root Gamera rank only
         !NOTE: Doing this w/ direct MPI call b/c isTiled/etc doesn't get set until later
-        call mpi_comm_rank(gamComm, rank, ierr)
+        call mpi_comm_rank(gamAppMpi%gOptionsMpi%gamComm, rank, ierr)
         if (rank == 0) then
             doLoud = .true.
         else
             doLoud = .false.
         endif
 
-
-        if (doLoud) then
-            write(*,*) 'Reading input deck from ', trim(inpXML)
-            xmlInp = New_XML_Input(trim(inpXML),'Kaiju/Gamera',.true.)
-        else
-            xmlInp = New_XML_Input(trim(inpXML),'Kaiju/Gamera',.false.)
-            call xmlInp%BeQuiet()
-        endif
+        call xmlInp%SetVerbose(doLoud)
+        call xmlInp%SetRootStr('Kaiju/Gamera')
 
         ! try to verify that the XML file has "Kaiju" as a root element
         kaijuRoot = ""
@@ -116,10 +140,10 @@ module gamapp_mpi
 
         !Initialize Grid/State/Model (Hatch Gamera)
         !Will enforce 1st BCs, caculate 1st timestep, set oldState
-        call Hatch_mpi(gamAppMpi,xmlInp,userInitFunc,gamComm)
+        call Hatch_mpi(gamAppMpi,xmlInp,gamAppMpi%gOptions%userInitFunc,gamAppMpi%gOptionsMpi%gamComm)
         call cleanClocks()
 
-        if (doIOX) then
+        if (gamAppMpi%gOptionsMpi%doIO) then
             if (.not. gamAppMpi%Model%isRestart) call fOutput(gamAppMpi%Model,gamAppMpi%Grid,gamAppMpi%State)
             call consoleOutput(gamAppMpi%Model,gamAppMpi%Grid,gamAppMpi%State)
         endif
@@ -127,7 +151,7 @@ module gamapp_mpi
     end subroutine initGamera_mpi
 
     subroutine Hatch_mpi(gamAppMpi,xmlInp,userInitFunc,gamComm,endTime)
-        type(gamAppMpi_T), intent(inout) :: gamAppMpi
+        type(GameraAppMpi_T), intent(inout) :: gamAppMpi
         type(XML_Input_T), intent(inout) :: xmlInp
         procedure(StateIC_T), pointer, intent(in) :: userInitFunc
         type(MPI_Comm), intent(in) :: gamComm
@@ -539,7 +563,7 @@ module gamapp_mpi
     ! this function checks logic to determine which rank should print debug timing
     ! returns true for the rank that should, and false for all others
     function debugPrintingRank(gamAppMpi) result(amPrintingRank)
-        type(gamAppMpi_T), intent(in) :: gamAppMpi
+        type(GameraAppMpi_T), intent(in) :: gamAppMpi
         logical :: amPrintingRank
         real(rp) :: inData(2), outData(2)
         integer :: myRank, slowRank, ierr
@@ -568,7 +592,7 @@ module gamapp_mpi
     end function debugPrintingRank
 
     subroutine consoleOutput_mpi(gamAppMpi)
-        type(gamAppMpi_T), intent(inout) :: gamAppMpi
+        type(GameraAppMpi_T), intent(inout) :: gamAppMpi
         real(rp) :: totalFaceError = 0.0_rp
         integer :: ierr
 
@@ -589,7 +613,7 @@ module gamapp_mpi
     end subroutine consoleOutput_mpi
 
     subroutine updateMpiBCs(gamAppMpi, State)
-        type(gamAppMpi_T), intent(inout) :: gamAppMpi
+        type(GameraAppMpi_T), intent(inout) :: gamAppMpi
         type(State_T), intent(inout) :: State
 
         integer :: i,ierr
@@ -672,7 +696,7 @@ module gamapp_mpi
     end subroutine updateMpiBCs
 
     subroutine stepGamera_mpi(gamAppMpi)
-        type(gamAppMpi_T), intent(inout) :: gamAppMpi
+        type(GameraAppMpi_T), intent(inout) :: gamAppMpi
 
         integer :: ierr,i
         real(rp) :: tmp
@@ -709,7 +733,7 @@ module gamapp_mpi
     end subroutine stepGamera_mpi
 
     subroutine haloUpdate(gamAppMpi, State)
-        type(gamAppMpi_T), intent(inout) :: gamAppMpi
+        type(GameraAppMpi_T), intent(inout) :: gamAppMpi
         type(State_T), intent(inout) :: State
 
         integer :: ierr, length
@@ -800,7 +824,7 @@ module gamapp_mpi
     end subroutine haloUpdate
 
     subroutine createDatatypes(gamAppMpi, periodicI, periodicJ, periodicK)
-        type(gamAppMpi_T), intent(inout) :: gamAppMpi
+        type(GameraAppMpi_T), intent(inout) :: gamAppMpi
         logical, intent(in) :: periodicI, periodicJ, periodicK
 
         integer :: iData,jData,kData,rankIndex,offset,dataSize,ierr
@@ -952,7 +976,7 @@ module gamapp_mpi
     subroutine calcRecvDatatypeOffsetCC(gamAppMpi,recvFromRank,iData,jData,kData,&
                                   periodicI,periodicJ,periodicK,dType,offset,&
                                   doFace,doEdge,doCorner)
-        type(gamAppMpi_T), intent(in) :: gamAppMpi
+        type(GameraAppMpi_T), intent(in) :: gamAppMpi
         integer, intent(in) :: recvFromRank,iData,jData,kData
         logical, intent(in) :: periodicI, periodicJ, periodicK
         type(MPI_Datatype), intent(out) :: dType
@@ -1048,7 +1072,7 @@ module gamapp_mpi
     subroutine calcSendDatatypeOffsetCC(gamAppMpi,sendToRank,iData,jData,kData,&
                                   periodicI,periodicJ,periodicK,dType,offset,&
                                   doFace,doEdge,doCorner)
-        type(gamAppMpi_T), intent(in) :: gamAppMpi
+        type(GameraAppMpi_T), intent(in) :: gamAppMpi
         integer, intent(in) :: sendToRank,iData,jData,kData
         logical, intent(in) :: periodicI, periodicJ, periodicK
         type(MPI_Datatype), intent(out) :: dType
@@ -1184,7 +1208,7 @@ module gamapp_mpi
 
     subroutine calcDatatypeCC(gamAppMpi,iData,jData,kData,dType,&
                               doFace,doEdge,doCorner)
-        type(gamAppMpi_T), intent(in) :: gamAppMpi
+        type(GameraAppMpi_T), intent(in) :: gamAppMpi
         integer, intent(in) :: iData, jData, kData
         type(MPI_Datatype), intent(out) :: dType
         logical, intent(in) :: doFace, doEdge, doCorner
@@ -1252,7 +1276,7 @@ module gamapp_mpi
     subroutine calcRecvDatatypeOffsetFC(gamAppMpi,recvFromRank,iData,jData,kData,&
                                   periodicI,periodicJ,periodicK,dType,offset,&
                                   doFace,doEdge,doCorner)
-        type(gamAppMpi_T), intent(in) :: gamAppMpi
+        type(GameraAppMpi_T), intent(in) :: gamAppMpi
         integer, intent(in) :: recvFromRank,iData,jData,kData
         logical, intent(in) :: periodicI, periodicJ, periodicK
         type(MPI_Datatype), intent(out) :: dType
@@ -1349,7 +1373,7 @@ module gamapp_mpi
     subroutine calcSendDatatypeOffsetFC(gamAppMpi,sendToRank,iData,jData,kData,&
                                   periodicI,periodicJ,periodicK,dType,offset,&
                                   doFace,doEdge,doCorner)
-        type(gamAppMpi_T), intent(in) :: gamAppMpi
+        type(GameraAppMpi_T), intent(in) :: gamAppMpi
         integer, intent(in) :: sendToRank,iData,jData,kData
         logical, intent(in) :: periodicI, periodicJ, periodicK
         type(MPI_Datatype), intent(out) :: dType
@@ -1484,7 +1508,7 @@ module gamapp_mpi
     end subroutine calcSendDatatypeOffsetFC
 
     subroutine calcDatatypeFC(gamAppMpi,iData,jData,kData,dType,doFace,doEdge,doCorner)
-        type(gamAppMpi_T), intent(in) :: gamAppMpi
+        type(GameraAppMpi_T), intent(in) :: gamAppMpi
         integer, intent(in) :: iData, jData, kData
         type(MPI_Datatype), intent(out) :: dType
         logical, intent(in) :: doFace, doEdge, doCorner

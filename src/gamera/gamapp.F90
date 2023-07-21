@@ -20,7 +20,8 @@ module gamapp
         type(Grid_T)   :: Grid
         type(State_T)  :: State, oState
         type(Solver_T) :: Solver
-        type(GameraOptions_T) :: Options
+
+        type(GameraOptions_T) :: gOptions
 
         contains
 
@@ -126,6 +127,8 @@ module gamapp
 
         character(len=strLen) :: kaijuRoot
 
+        gameraApp%Model%isLoud = .true.
+
         call xmlInp%SetRootStr('Kaiju/Gamera')
         call xmlinp%SetVerbose(.true.)
 
@@ -152,7 +155,7 @@ module gamapp
 
         !Initialize Grid/State/Model (Hatch Gamera)
         !Will enforce 1st BCs, caculate 1st timestep, set oldState
-        call Hatch(gameraApp%Model,gameraApp%Grid,gameraApp%State,gameraApp%oState,gameraApp%Solver,xmlInp,gameraApp%Options%userInitFunc)
+        call Hatch(gameraApp%Model,gameraApp%Grid,gameraApp%State,gameraApp%oState,gameraApp%Solver,xmlInp,gameraApp%gOptions%userInitFunc)
         call cleanClocks()
 
         if (.not. gameraApp%Model%isSub) then

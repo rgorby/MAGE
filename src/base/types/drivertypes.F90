@@ -3,6 +3,7 @@
 module drivertypes
 
     use basetypes
+    use clocks
 
     implicit none
 
@@ -24,14 +25,15 @@ module drivertypes
 
     contains
 
-    subroutine RunApps(driver)
-        type(AppDriver_T), intent(inout) :: driver
+    subroutine RunApps(driver, optionalXml)
+        class(AppDriver_T), intent(inout) :: driver
+        character(len=*), optional, intent(in) :: optionalXml
 
         character(len=strLen) :: inpXML
         type(XML_Input_T) :: xmlInp
         integer :: numApps, app
 
-        if(.not. allocated(driver%appPointers) then
+        if(.not. allocated(driver%appPointers)) then
             write (*,*) "You must allocate at least one app within the driver type"
             return
         endif
@@ -41,8 +43,14 @@ module drivertypes
         !call printConfigStamp()
         call initClocks()
 
-        !Find input deck
-        call getIDeckStr(inpXML)
+        if(present(optionalXml)) then
+            ! read from the prescribed file
+            inpXML = optionalXml
+        else
+            !Find input deck
+            call getIDeckStr(inpXML)
+        endif
+        call CheckFileOrDie(inpXML,"Error opening input deck, exiting ...")
 
         !Create XML reader
         write(*,*) 'Reading input deck from ', trim(inpXML)
@@ -50,8 +58,8 @@ module drivertypes
         ! Each model is expected to change the root if they want to
 
         do app = 1,numApps
-            call driver%appPointers(app)%InitModel(xmlInp)
-            call driver%appPointers(app)%InitIO(xmlInp)
+            call driver%appPointers(app)%p%InitModel(xmlInp)
+            call driver%appPointers(app)%p%InitIO(xmlInp)
         enddo
 
         do while (driver%t < driver%tFin)
@@ -59,7 +67,7 @@ module drivertypes
 
             !Step model/s
             do app = 1,numApps
-                call driver%appPointers(app)%AdvanceModel(0.0_rp)
+                call driver%appPointers(app)%p%AdvanceModel(0.0_rp)
             enddo
 
             !Output if necessary
@@ -67,7 +75,7 @@ module drivertypes
 
             if (driver%IO%doConsole(driver%ts)) then
                 do app = 1,numApps
-                    call driver%appPointers(app)%WriteConsoleOutput()
+                    call driver%appPointers(app)%p%WriteConsoleOutput()
                 enddo
 
                 !Timing info
@@ -75,19 +83,19 @@ module drivertypes
                 call cleanClocks()
 
             elseif (driver%IO%doTimer(driver%ts)) then
-                if (driverIO%doTimerOut) call printClocks()
+                if (driver%IO%doTimerOut) call printClocks()
                 call cleanClocks()
             endif
 
-            if (driverIO%doOutput(driver%t)) then
+            if (driver%IO%doOutput(driver%t)) then
                 do app = 1,numApps
-                    call driver%appPointers(app)%WriteFileOutput(driver%runID, driver%ts)
+                    call driver%appPointers(app)%p%WriteFileOutput(driver%runID, driver%ts)
                 enddo
             endif
 
             if (driver%IO%doRestart(driver%t)) then
                 do app = 1,numApps
-                   call driver%appPointers(app)%WriteRestart(driver%ts)
+                   call driver%appPointers(app)%p%WriteRestart(driver%runID)
                 enddo
             endif
 
