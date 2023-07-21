@@ -107,7 +107,6 @@ if(CMAKE_Fortran_COMPILER_ID MATCHES Intel)
 		string(APPEND PRODWITHDEBUGINFO " -march=corei7 -axCORE-AVX2")
 	elseif (HOST MATCHES derecho)
 		message("You're on Derecho, good for you!")
-		set(ALLOW_INVALID_COMPILERS ON)
 		if (ENABLE_MKL)
 			string(APPEND CMAKE_Fortran_FLAGS " -qmkl")
 		endif()
@@ -116,8 +115,8 @@ if(CMAKE_Fortran_COMPILER_ID MATCHES Intel)
 	endif()
 
 	#Check Intel Fortran version
-	if(NOT ALLOW_INVALID_COMPILERS AND CMAKE_Fortran_COMPILER_VERSION VERSION_GREATER "23")
-		message(FATAL_ERROR "Intel Fortran compilers newer than 21 are not supported. Set the ALLOW_INVALID_COMPILERS variable to ON to force compilation at your own risk.")
+	if(NOT ALLOW_INVALID_COMPILERS AND CMAKE_Fortran_COMPILER_VERSION VERSION_GREATER "2021.9")
+		message(FATAL_ERROR "Intel Fortran compilers newer than 2023 (version 2021.8) are not supported. Set the ALLOW_INVALID_COMPILERS variable to ON to force compilation at your own risk.")
 	endif()
 
 elseif(CMAKE_Fortran_COMPILER_ID MATCHES GNU)
