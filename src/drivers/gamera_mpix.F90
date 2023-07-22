@@ -36,6 +36,8 @@ program gamera_mpix
         call mpi_Abort(MPI_COMM_WORLD, 1, ierror)
     end if
 
+    ! initialize mpi data type
+    call setMpiReal()
 
     ! create instance of gamera app, and perform any needed configuration
     allocate(gAppMpi)
