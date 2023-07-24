@@ -73,6 +73,8 @@ module usergamic
 
     contains
 
+    !> Initialize the run
+    !> Set initial conditions
     subroutine initUser(Model,Grid,State,inpXML)
         type(Model_T), intent(inout) :: Model
         type(Grid_T), intent(inout) :: Grid
@@ -93,7 +95,7 @@ module usergamic
         if (.not.allocated(inEijk)) allocate(inEijk(1,Grid%jsg:Grid%jeg+1,Grid%ksg:Grid%keg+1,1:NDIM))
         inEijk = 0.0
 
-        ! set units and other thins, like Tsolar
+        ! set units and other things, like Tsolar
         call setHeliosphere(Model,inpXML,Tsolar)
 
         ! grab inner 
@@ -153,6 +155,7 @@ module usergamic
         ! everybody reads WSA data
         call readIBC(wsaFile,Model)
 
+        !Set MJD0 which corresponds to sim time 0
         !MJD0 is MJD_center_of_WSA_map - Tsolar_synodic/2; Tsolar_synodic = 27.28
         Model%MJD0 = MJD_c - Tsolar_synodic/2.
 
@@ -197,10 +200,8 @@ module usergamic
            enddo
         enddo
 
-        !Local functions
-        !NOTE: Don't put BCs here as they won't be visible after the initialization call
-
         contains
+            !> Set initial conditions
             subroutine GasIC(x,y,z,D,Vx,Vy,Vz,P)
                 real (rp), intent(in) :: x,y,z
                 real (rp), intent(out) :: D,Vx,Vy,Vz,P
@@ -222,6 +223,8 @@ module usergamic
                 Vz = r_unit(ZDIR)*Vslow
             end subroutine GasIC
 
+            !> Rotates initial WSA map so that at simulation time 0
+            !> the start date of the map faces Earth (-X axis)
             subroutine mapKinit(k,ke,kb,a)
                 ! find the lower and upper k-index of the rotating cell on the static grid
                 integer, intent(in) :: k
@@ -245,7 +248,10 @@ module usergamic
 
     end subroutine initUser
 
-    !Inner-I BC for WSA-Gamera
+    !> Setting inner-I boundary conditions in four ghost i-layers of cells
+    !> Linear interpolation from rotating to inertial grid
+    !> Setting cell-centered variables and magnetic fluxes at cell faces
+    !> Calculate user defined Efield at the inner boundary
     subroutine wsaBC(bc,Model,Grid,State)
       class(SWInnerBC_T), intent(inout) :: bc
       type(Model_T), intent(in) :: Model
@@ -255,7 +261,7 @@ module usergamic
 
       ! local variables
       integer :: i,j,k, kb, ke
-      integer :: kg, jg, ig ! global indices (in preparation for MPI)
+      integer :: kg, jg, ig ! global indices
       integer :: var ! ibcVar variable number
       real(rp) :: a
       real(rp) :: ibcVarsStatic(NVARSIN)
@@ -292,7 +298,7 @@ module usergamic
                      ibcVarsStatic(var) = a*ibcVars(ig,jg,kb,var)+(1-a)*ibcVars(ig,jg,ke,var)
                   end do
                   ! use Br value from the left (kb) cell of the rotating grid  to calculate Ej
-                  ! Ensures constant Ej between Br updated  and linearly changing Br in time. 
+                  ! Ensures constant Ej between Br updates and linearly changing Br in time. 
                   Br_left = ibcVars(ig,jg,kb,BRIN)
                end if
 
@@ -307,7 +313,6 @@ module usergamic
                   phiHat = [-sin(phi),cos(phi),0._rp]
 
                   ! NOTE, WSA data were already scaled appropriately in the python code
-                  ! TODO: save them in the innerbc hdf file and set in helioutils appropriately
 
                   !Set primitives
                   pVar(VELX:VELZ) = rHat*ibcVarsStatic(VRIN)
@@ -319,22 +324,24 @@ module usergamic
                   call CellP2C(Model,pVar,conVar)
                   State%Gas(i,j,k,:,BLK) = conVar
 
-                  ! note, don't need cc Bxyz because we run flux2field through ghosts
+                  ! note, no need to set cc Bxyz because we run flux2field through ghosts
                end if
 
-               ! also need theta at k-face for k-flux
-               ! although we're assuming theta and R don't change from cell to k-face center,
+               ! also need to calculate theta at k-face for k-flux
+               ! although we're assuming theta and R don't change from cell center to k-face center,
                ! xyzcc used under if statement above is only defined for cell centers so need to define it here
                xyz0 = Grid%xfc(i,j,k,:,KDIR) !just reusing a temp var here.
                R_kf = norm2(xyz0)
                Theta_kf = acos(xyz0(ZDIR)/R_kf)
 
+               ! Set magnetic fluxes
                ! note scaling for Bi. See note above in InitUser
                Rfactor = Rbc/norm2(Grid%xfc(Grid%is,j,k,:,IDIR))
                State%magFlux(i,j,k,IDIR) = ibcVarsStatic(BRIN)*Rfactor**2*Grid%face(Grid%is,j,k,IDIR)
                State%magFlux(i,j,k,JDIR) = 0.0
                State%magFlux(i,j,k,KDIR) = -2*PI/Tsolar*R_kf*sin(Theta_kf)/ibcVarsStatic(VRKFIN)*ibcVarsStatic(BRKFIN)*Grid%face(i,j,k,KDIR)
 
+               ! Calculate user`s electric fields at the inner boundary
                if (ig == Model%Ng) then
                     ! calculate E_theta at edges using Br_left value defined above
                     inEijk(Grid%is,j,k,JDIR) = -2*PI/Tsolar*Rbc*sin(Theta_kf)*Br_left*Rfactor**2
@@ -347,8 +354,8 @@ module usergamic
      
       contains 
 
+      !> Find the lower and upper k-index for interpolation of  the rotating cell on the static grid
       subroutine mapK(k,ke,kb,a)
-        ! find the lower and upper k-index of the rotating cell on the static grid
         integer, intent(in) :: k
         integer, intent(out) :: ke,kb  ! upper (ke) and lower (kb) indices
         real(rp), intent(out):: a      ! interp coefficient
@@ -370,6 +377,7 @@ module usergamic
 
     end subroutine wsaBC
 
+    !> Set user defined tangential Efield to enforce rotating WSA map
     subroutine EFix(Model,Gr,State)
       type(Model_T), intent(in) :: Model
       type(Grid_T), intent(inout) :: Gr
@@ -382,6 +390,7 @@ module usergamic
 
     end subroutine EFix
 
+    !> Read in innerbc.h5 file with inner boundary conditions
     subroutine readIBC(ibcH5,Model)
       character(len=*), intent(in) :: ibcH5
       type(Model_T), intent(in) :: Model
@@ -455,13 +464,15 @@ module usergamic
    
     end subroutine readIBC
 
-      subroutine writeMJDcH5Root(Model,Grid,IOVars)
-            type(Model_T), intent(in)    :: Model
-            type(Grid_T) , intent(in)    :: Grid
-            type(IOVAR_T), dimension(:), intent(inout) :: IOVars
+    !> Writing Modified Julian Date at the center of WSA map to the root of h5 file
+    !> MJDc is required to set the GAMERA Helio coordinate system
+    subroutine writeMJDcH5Root(Model,Grid,IOVars)
+        type(Model_T), intent(in)    :: Model
+        type(Grid_T) , intent(in)    :: Grid
+        type(IOVAR_T), dimension(:), intent(inout) :: IOVars
 
-            call AddOutVar(IOVars,"MJDc", MJD_c)
+        call AddOutVar(IOVars,"MJDc", MJD_c)
 
-      end subroutine writeMJDcH5Root
+    end subroutine writeMJDcH5Root
 
 end module usergamic
