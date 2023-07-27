@@ -88,6 +88,7 @@ module raijustarter
         ! Certain physical constants that shouldn't be constants
         call iXML%Set_Val(Model%tiote, "prob/tiote",4.0)
         call iXML%Set_Val(Model%worthyFrac, "prob/worthyFrac",fracWorthyDef)
+        call iXML%Set_Val(Model%doLosses, "prob/doLosses",.true.)
 
         ! Lambda channel settings
         call iXML%Set_Val(Model%doDynamicLambdaRanges, "lambdas/dynamicRanges",.false.)

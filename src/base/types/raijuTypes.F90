@@ -72,6 +72,7 @@ module raijutypes
             !! Fixed or dynamic timestep
         logical :: isMPI
         logical :: isRestart
+        logical :: doLosses  ! Whether or not to calculate eta losses during advance
         logical :: isLoud       ! For debug
         logical :: writeGhosts  ! For debug
         logical :: doClockConsoleOut

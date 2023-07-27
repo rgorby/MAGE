@@ -1,7 +1,6 @@
 module raijuBCs
 
     use planethelper
-
     use raijudefs
     use raijutypes
     use raijuetautils

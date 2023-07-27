@@ -1,4 +1,5 @@
 program raijuOWDx
+    !! One way driving of RAIJU using GAMERA and REMIX output files
 
     use kdefs
     use planethelper
@@ -166,7 +167,7 @@ program raijuOWDx
     end associate
 
     call Toc("Omega")
-    write(*,*)"Done :)"
+    write(*,*)"Main Objective complete!"
 
     contains
 
