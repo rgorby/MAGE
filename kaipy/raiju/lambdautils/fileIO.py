@@ -6,15 +6,15 @@ import h5py as h5
 from dataclasses import asdict as dc_asdict
 
 import kaipy.kaijson as kj
-import kaipy.sif.lambdautils.AlamParams as aP
-import kaipy.sif.lambdautils.DistTypes as dT
+import kaipy.raiju.lambdautils.AlamParams as aP
+import kaipy.raiju.lambdautils.DistTypes as dT
 
 def saveAlamParams(f5name, alamData):
     with h5.File(f5name, 'a') as f5:
         f5.attrs['AlamParams'] = [kj.dumps(dc_asdict(p),noIndent=True) for p in alamData.params]
 
 def saveAlamData(f5name, alamData, doPrint=False):
-    """ Takes an AlamData object, formats it to sifconfig.h5 style, and saves it
+    """ Takes an AlamData object, formats it to raijuconfig.h5 style, and saves it
     """
 
     with h5.File(f5name, 'a') as f5:

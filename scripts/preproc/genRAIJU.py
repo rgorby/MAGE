@@ -1,5 +1,5 @@
 #!/usr/bin/env python	
-#Generates SIF config data
+# Generates RAIJU config data
 import numpy as np
 import h5py as h5
 import argparse
@@ -10,10 +10,10 @@ import kaipy.kaiTools as kT
 import kaipy.kaijson as kj
 import kaipy.kaiH5 as kh5
 
-import kaipy.sif.lambdautils.AlamData as aD
-import kaipy.sif.lambdautils.AlamParams as aP
-import kaipy.sif.lambdautils.DistTypes as dT
-import kaipy.sif.lambdautils.fileIO as fileIO
+import kaipy.raiju.lambdautils.AlamData as aD
+import kaipy.raiju.lambdautils.AlamParams as aP
+import kaipy.raiju.lambdautils.DistTypes as dT
+import kaipy.raiju.lambdautils.fileIO as fileIO
 
 from kaipy.rcm.wmutils.wmData import wmParams
 import kaipy.rcm.wmutils.genWM as genWM
@@ -30,7 +30,7 @@ PFUDGE = 0.0
 if __name__ == "__main__":
 
     #Arg parsing
-    fOut = "sifconfig.h5"
+    fOut = "raijuconfig.h5"
     num_e  = 39
     num_p  = 120
     eminp = 1  # [eV]
@@ -43,7 +43,7 @@ if __name__ == "__main__":
     plotChoices = ['none', 'spec', 'vs']
 
 
-    MainS = """Generates SIF configuration data
+    MainS = """Generates RAIJU configuration data
     """
     parser = argparse.ArgumentParser(description=MainS, formatter_class=RawTextHelpFormatter)
     parser.add_argument('-o',type=str,default=fOut,metavar="fOut",help="Output file name (default: %(default)s)")

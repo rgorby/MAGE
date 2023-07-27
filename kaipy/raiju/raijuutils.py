@@ -12,7 +12,7 @@ import kaipy.kdefs as kd
 import kaipy.kaiTools as kt
 import kaipy.kaiH5 as kh5
 
-import kaipy.sif.lambdautils.AlamParams as aP
+import kaipy.raiju.lambdautils.AlamParams as aP
 
 topo = {"OPEN" : 0,
         "CLOSED" : 1}
@@ -60,7 +60,7 @@ class SpeciesInfo:
 
 @dataclass_json
 @dataclass
-class SIFInfo(kh5.H5Info):
+class RAIJUInfo(kh5.H5Info):
     nSpc: int = None
     species: List[aP.SpecParams] = None
     extra: dict = None # Extra info we can add later
@@ -89,7 +89,7 @@ class SIFInfo(kh5.H5Info):
                                   name)
                 specs.append(spc)
         # Now make our final object
-        return SIFInfo(fi.fname, fi.Nt, fi.steps, fi.stepStrs, fi.times, fi.MJDs, fi.UTs,
+        return RAIJUInfo(fi.fname, fi.Nt, fi.steps, fi.stepStrs, fi.times, fi.MJDs, fi.UTs,
                        len(specs), specs, {})
 
 

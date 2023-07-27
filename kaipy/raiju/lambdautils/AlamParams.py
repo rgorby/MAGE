@@ -1,10 +1,10 @@
-# Structures to specify a species in SIF. Populate and give to genAlam.py to get what goes into sifconfig.h5
+# Structures to specify a species in raiju. Populate and give to genAlam.py to get what goes into raijuconfig.h5
 from dataclasses import dataclass
 from dataclasses import asdict as dc_asdict
 from typing import Optional, List
 
 # Import other things from this package space
-import kaipy.sif.lambdautils.DistTypes as dT
+import kaipy.raiju.lambdautils.DistTypes as dT
 
 
 # dataclasses_json isn't a default package. Since its only used for reading, don't want to make it a requirement for everyone
