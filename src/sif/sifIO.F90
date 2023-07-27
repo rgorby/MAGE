@@ -4,6 +4,7 @@ module sifIO
     
     use siftypes
     use sifetautils
+    use sifadvancer, only : calcEffectivePotential
 
     implicit none
 
@@ -130,6 +131,7 @@ module sifIO
         real(rp), dimension(:,:), allocatable :: outActiveShell
         real(rp), dimension(:,:,:), allocatable :: outDen, outIntensity
         real(rp), dimension(:,:,:), allocatable :: outPrecipN, outPrecipE, outPrecipAvgE
+        real(rp), dimension(:,:,:), allocatable :: outPEff  ! effective Potential
 
         if (present(doGhostsO)) then
             doGhosts = doGhostsO
@@ -185,7 +187,7 @@ module sifIO
             enddo
         enddo
         call AddOutVar(IOVars,"intensity",outIntensity(is:ie,js:je, :),uStr="1/(s*sr*keV*cm^2)")
-        deallocate(outIntensity)
+        !deallocate(outIntensity)
         
 
         ! Coupling things
@@ -255,7 +257,12 @@ module sifIO
 
         
         if (Model%doFatOutput) then
-            call AddOutVar(IOVars, "pEffective", State%pEff(is:ie,js:je,:)*1e-3, uStr="kV")
+            ! Calc pEffective based on current state
+            ! Make full ghost size since that's what the subroutine expects
+            allocate(outPEff   (Grid%shGrid%isg:Grid%shGrid%ieg,Grid%shGrid%jsg:Grid%shGrid%jeg,Grid%Nk))
+            call calcEffectivePotential(Model%planet, Grid, State, outPEff)
+            call AddOutVar(IOVars, "pEffective", outPEff(is:ie,js:je,:)*1e-3, uStr="kV")
+            
             call AddOutVar(IOVars, "cVel_th", State%cVel(is:ie,js:je,:,1), uStr="rad/s?")
             call AddOutVar(IOVars, "cVel_ph", State%cVel(is:ie,js:je,:,2), uStr="rad/s?")
             call AddOutVar(IOVars, "precipNFlux_Nk", State%precipNFlux(is:ie,js:je,:), uStr="#/cm^2/s")

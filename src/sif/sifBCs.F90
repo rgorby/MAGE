@@ -5,7 +5,6 @@ module sifBCs
     use sifdefs
     use siftypes
     use sifetautils
-    use sifadvancer
 
     implicit none
 
@@ -77,6 +76,92 @@ module sifBCs
         enddo  ! s
 
     end subroutine applySifBCs
+
+!------
+! Active I Shell calculations
+!------
+
+    subroutine setActiveShellsByContribution(shGrid, spc, bVol, etas, activeShellsOut, nSpacesO, worthyFracO)
+        !! For each lambda channel, calculate active shells based on how much they contribute to the total pressure and/or density
+        type(ShellGrid_T), intent(in) :: shGrid
+        type(SIFSpecies_T), intent(in) :: spc
+        real(rp), dimension(shGrid%isg:shGrid%ieg,shGrid%jsg:shGrid%jeg), intent(in) :: bVol
+        real(rp), dimension(shGrid%isg:shGrid%ieg,shGrid%jsg:shGrid%jeg,spc%kStart:spc%kEnd), intent(in) :: etas
+        logical, dimension(shGrid%isg:shGrid%ieg, spc%kStart:spc%kEnd), intent(inout) :: activeShellsOut
+        integer, optional, intent(in) :: nSpacesO
+            !! Number of i spaces between last good value and active i for species
+        real(rp), optional, intent(in) :: worthyFracO
+
+        integer :: i,j,k, iL, iU
+        integer :: nSpaces
+        real(rp) :: worthyFrac
+        real(rp) :: alamc, kDen, kPress
+        real(rp), dimension(shGrid%isg:shGrid%ieg, shGrid%jsg:shGrid%jeg) :: spcDen, spcPress
+        logical, dimension(shGrid%isg:shGrid%ieg, shGrid%jsg:shGrid%jeg) :: as2D
+
+        if(present(nSpacesO)) then
+            nSpaces = nSpacesO
+        else
+            nSpaces = nSpacesDef
+        endif
+
+        if(present(worthyFracO)) then
+            worthyFrac = worthyFracO
+        else
+            worthyFrac = fracWorthyDef
+        endif
+        
+        as2D = .false.
+        activeShellsOut = .false.
+
+        ! Start by getting total density and pressure for each i,j point
+        !$OMP PARALLEL DO default(shared) collapse(2) &
+        !$OMP schedule(dynamic) &
+        !$OMP private(i,j)
+        do j=shGrid%jsg,shGrid%jeg
+            do i=shGrid%isg,shGrid%ieg
+                spcDen  (i,j) = SpcEta2Den  (spc, etas(i,j,:), bVol(i,j))
+                spcPress(i,j) = spcEta2Press(spc, etas(i,j,:), bVol(i,j))
+            enddo
+        enddo
+
+        ! Then calculate active shells for each k
+        do k=spc%kStart,spc%kEnd
+
+            ! Setup for this k
+            as2D = .false.
+            alamc = 0.5*abs(spc%alami(k) + spc%alami(k+1))
+
+            !$OMP PARALLEL DO default(shared) collapse(2) &
+            !$OMP schedule(dynamic) &
+            !$OMP private(i,j,kDen,kPress)
+            do j=shGrid%jsg,shGrid%jeg
+                do i=shGrid%isg,shGrid%ieg
+
+                    kDen   = etak2Den  (etas(i,j,k), bVol(i,j))
+                    kPress = etak2Press(etas(i,j,k), alamc, bVol(i,j))
+            
+                    if (kDen/spcDen(i,j) > worthyFrac .or. kPress/spcPress(i,j) > worthyFrac) then
+                        as2D(i,j) = .true.
+                    endif
+                enddo
+            enddo
+
+            ! Now collapse j
+            !! Re-use as2D, first j element 
+            do i=shGrid%isg,shGrid%ieg
+                as2D(i,shGrid%jsg) = any(as2D(i,:))
+            enddo
+
+            ! Finally, assign to activeShells, including buffer spaces
+            do i=shGrid%isg,shGrid%ieg
+                iL = max(i-nSpaces, shGrid%isg)
+                iU = min(i+nSpaces, shGrid%ieg)
+                activeShellsOut(i,k) = any(as2D(iL:iU, shGrid%jsg))
+            enddo
+
+        enddo
+    end subroutine setActiveShellsByContribution
 
 
 end module sifBCs

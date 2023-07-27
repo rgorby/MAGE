@@ -1,4 +1,4 @@
-program sifx
+program sifOWDx
 
     use kdefs
     use planethelper
@@ -9,6 +9,7 @@ program sifx
     use sifdefs
     use sifstarter
     use sifBCs
+    use sifadvancer
 
     ! Chimp stuff
     use ebtypes
@@ -187,24 +188,8 @@ program sifx
 
         State%dt = dtCpl
 
-        ! Moments to etas
-        call Tic("BCs")
-        call applySifBCs(Model, Grid, State, isFirstCpl) ! If isFirstCpl, we want to apply mom2eta to whole domain
-        call Toc("BCs")
+        call raijuPreAdvance(Model, Grid, State, isfirstCpl)
 
-        call Tic("Calc effective potential")
-        call calcEffectivePotential(Model%planet, Grid, State)
-        call Toc("Calc effective potential")
-        ! Calc cell velocities
-        call Tic("Calc cell-center velocities")
-        call calcPotGrads(Model, Grid, State)
-        do k=1,Grid%Nk
-            State%cVel(:,:,k,:) = calcVelocityCC(Model, Grid, State, k)
-            ! Calc sub-time step
-            State%dtk(k) = activeDt(Grid%shGrid, Grid, State, k)
-        enddo
-        call Toc("Calc cell-center velocities")
-        
         ! Step
         call Tic("AdvanceState")
         call AdvanceState(Model, Grid, State)
@@ -215,6 +200,8 @@ program sifx
         call Tic("Moments Eval")
         call EvalMoments(Grid, State)
         call Toc("Moments Eval")
+
+        
 
     end subroutine sifAdvance
 
@@ -294,4 +281,4 @@ program sifx
 
     end subroutine OutLine
 
-end program sifx
+end program sifOWDx
