@@ -97,8 +97,8 @@ module sifadvancer
 
 
     subroutine calcEffectivePotential(planet, Grid, State, pEff)
-        ! Calculates effective potential [V] for all lambda channels as the sum of pExB, pCorot, and pGC
-        ! Note: This is not used to calculate velocities
+        !! Calculates effective potential [V] for all lambda channels as the sum of pExB, pCorot, and pGC
+        !! Note: This is not used to calculate velocities
         type(planet_T), intent(in) :: planet
         type(sifGrid_T) , intent(in) :: Grid
         type(sifState_T), intent(in) :: State
@@ -175,7 +175,7 @@ module sifadvancer
 ! Velocity calculations
 !------
     subroutine calcVelocityCC(Model, Grid, State, k, Vtp)
-        !! Note: takes a 2D potential for an arbitrary lambda channel
+        !! Uses gradPots stored in State to calculate cell-centered velocity [rad/s] for lambda channel k
         type(sifModel_T), intent(in) :: Model
         type(sifGrid_T ), intent(in) :: Grid
         type(sifState_T), intent(in) :: State
@@ -250,10 +250,10 @@ module sifadvancer
 
 
     subroutine calcGradIJ(RIon, Grid, isG, Q, gradQ)
-        ! Calc gradint in spherical coordinates across entire grid, including ghosts
-        ! Up to someone else to overwrite ghosts
+        !! Calc gradint in spherical coordinates across entire grid, including ghosts
+        !! Up to someone else to overwrite ghosts
         real(rp), intent(in) :: RIon
-            !! Iono radius in Rp
+            !! Ionosphere radius in Rp
         type(sifGrid_T), intent(in) :: Grid
         logical , dimension(Grid%shGrid%isg:Grid%shGrid%ieg,Grid%shGrid%jsg:Grid%shGrid%jeg), intent(in) :: isG
         real(rp), dimension(Grid%shGrid%isg:Grid%shGrid%ieg,Grid%shGrid%jsg:Grid%shGrid%jeg), intent(in) :: Q
@@ -373,7 +373,7 @@ module sifadvancer
         ! Make sure moments are up to date, some things (like coulomb losses) need them
         call EvalMoments(Grid, State)
 
-        ! Send everyone off
+        ! Send each channel off on their own
         !$OMP PARALLEL DO default(shared) collapse(1) &
         !$OMP schedule(dynamic) &
         !$OMP private(k)
@@ -384,6 +384,7 @@ module sifadvancer
 
 
     subroutine AdvanceLambda(Model, Grid, State, k)
+        !! Advances a single lambda channel from State time t to t+dt
         type(sifModel_T), intent(in) :: Model
         type(sifGrid_T), intent(in) :: Grid
         type(sifState_T), intent(inout) :: State

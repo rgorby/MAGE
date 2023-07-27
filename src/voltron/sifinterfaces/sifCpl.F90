@@ -104,7 +104,9 @@ module sifCpl
         closedCC = .true.
         do i=sh%isg, sh%ieg
             do j=sh%jsg, sh%jeg
-                if (any(ijTubes(i:i+1, j:j+1)%topo .eq. SIFOPEN)) then
+                !!! NOTE: At this point, we are still using ijTube's definition of topo,
+                !!!  where topo = 0 (solar wind), 1 (half-closed), 2 (both ends closed)
+                if (any(ijTubes(i:i+1, j:j+1)%topo < 2)) then
                     closedCC(i,j) = .false.
                 endif
             enddo
