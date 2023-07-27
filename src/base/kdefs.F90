@@ -84,6 +84,7 @@ module kdefs
 !Helio constants
     real(rp), parameter :: Rsolar = 6.956D5    ! [km] Solar radius
     real(rp), parameter :: Msolar = 1.98847D30 ! [kg] Solar mass
+    real(rp), parameter :: Tsolar_synodic = 27.28 ![days] synodic Tsolar
 
 !Numbered accessors
     !Directions
