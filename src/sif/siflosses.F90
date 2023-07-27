@@ -69,7 +69,8 @@ module siflosses
 
             !$OMP PARALLEL DO default(shared) collapse(2) &
             !$OMP schedule(dynamic) &
-            !$OMP private(i,j,deleta, pNFlux, pEFlux, lossRate, psphIdx)
+            !$OMP private(i,j,deleta, pNFlux, pEFlux, lossRate, psphIdx) &
+            !$OMP IF(.false.)
             do j=Grid%shGrid%jsg,Grid%shGrid%jeg
                 do i=Grid%shGrid%isg,Grid%shGrid%ieg
                     if (.not. isG(i,j)) then

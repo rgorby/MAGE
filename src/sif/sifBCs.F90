@@ -31,6 +31,7 @@ module sifBCs
         endif
 
         ! Determine where to do BCs
+        ! Will definitely be its own function later to do ellipse fitting, restriction of fast flows, etc
         if(doWholeDomain) then
             where (State%active .eq. SIFBUFFER .or. State%active .eq. SIFACTIVE)
                 doBC = .true.
@@ -48,7 +49,7 @@ module sifBCs
         
         !$OMP PARALLEL DO default(shared) collapse(2) &
         !$OMP schedule(dynamic) &
-        !$OMP private(i,j,vm,kT)
+        !$OMP private(i,j,s,vm,kT)
         do i=Grid%shGrid%isg,Grid%shGrid%ieg
             do j=Grid%shGrid%jsg,Grid%shGrid%jeg
                 ! Skip if we should leave point alone
@@ -62,7 +63,6 @@ module sifBCs
                     call DkT2SpcEta(Model,Grid%spc(s), &
                         State%eta(i,j,Grid%spc(s)%kStart:Grid%spc(s)%kEnd),&
                         State%Davg(i,j,s), kT, vm)
-                    !write(*,*)s,i,j,kT,maxval(State%eta(i,j,Grid%spc(s)%kStart:Grid%spc(s)%kEnd))
                 enddo  ! s
             enddo  ! j
         enddo  ! i

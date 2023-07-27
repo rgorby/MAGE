@@ -104,7 +104,7 @@ module sifCpl
         closedCC = .true.
         do i=sh%isg, sh%ieg
             do j=sh%jsg, sh%jeg
-                if (any(ijTubes(i:i+1, j:j+1)%topo < 2)) then
+                if (any(ijTubes(i:i+1, j:j+1)%topo .eq. SIFOPEN)) then
                     closedCC(i,j) = .false.
                 endif
             enddo
@@ -196,6 +196,13 @@ module sifCpl
                     State%phcon(i,j)      = ijTubes(i,j)%lonc
                 enddo
             enddo
+
+            ! Map ijTube's definition of topology to RAIJU's
+            where (ijTubes%topo == 2)
+                State%topo = SIFCLOSED
+            elsewhere
+                State%topo = SIFOPEN
+            end where
 
 
             ! Make sure we can safely cell-average (all 4 corners are closed field lines)

@@ -173,10 +173,13 @@ module siftypes
 
         real(rp), dimension(:,:,:), allocatable :: eta
             !! (Ni, Nj, Nk) etas
-        real(rp), dimension(:,:,:), allocatable :: pEff
-            !! (Ni, Nj, Nk) Effective potential [V] (ExB + corot + gradient-curvature)
         logical, dimension(:,:), allocatable :: activeShells
             !! (Ni, Nk) I shells that should be evolved for a given lambda
+        real(rp), dimension(:,:,:), allocatable :: pEff
+            !! (Ni, Nj, Nk) Effective potential [V] (ExB + corot + gradient-curvature)
+            !! Not actually used in calculations, but helpful for output
+        real(rp), dimension(:,:,:), allocatable :: gradPotE, gradPotCorot, gradVM
+            !! (Ni, Nj,2) Th/phi gradient of the ionospheric potential, corotation potential, and flux tube volume raised to -2/3
         real(rp), dimension(:,:,:,:), allocatable :: iVel
             !! (Ni+1, Nj+1, Nk, 2) Edge-centered normal velocities
         real(rp), dimension(:,:,:,:), allocatable :: cVel

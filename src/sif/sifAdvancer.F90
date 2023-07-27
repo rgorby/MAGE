@@ -22,7 +22,7 @@ module sifadvancer
         type(SIFSpecies_T), intent(in) :: spc
         real(rp), dimension(shGrid%isg:shGrid%ieg,shGrid%jsg:shGrid%jeg), intent(in) :: bVol
         real(rp), dimension(shGrid%isg:shGrid%ieg,shGrid%jsg:shGrid%jeg,spc%kStart:spc%kEnd), intent(in) :: etas
-        logical, dimension(shGrid%isg:shGrid%ieg, spc%kStart:spc%kEnd), intent(out) :: activeShellsOut
+        logical, dimension(shGrid%isg:shGrid%ieg, spc%kStart:spc%kEnd), intent(inout) :: activeShellsOut
         integer, optional, intent(in) :: nSpacesO
             !! Number of i spaces between last good value and active i for species
         real(rp), optional, intent(in) :: worthyFracO
@@ -102,35 +102,33 @@ module sifadvancer
 !------
 ! Cell Potential and Velocity calculations
 !------
-    !!TODO: Is this better memory-wise if we hand an unallocated out arg to these as subroutines?
-    function potExB(sh, State) result (pExB)
+    !! Potential variables come in pre-allocated, since they may be subests of larger arrays
+    subroutine potExB(sh, State, pExB)
         ! Trivial, but putting it here in case we need extra options for it later
         type(ShellGrid_T), intent(in) :: sh
         type(sifState_T), intent(in) :: State
-
-        real(rp), dimension(sh%isg:sh%ieg,sh%jsg:sh%jeg) :: pExB
+        real(rp), dimension(sh%isg:sh%ieg,sh%jsg:sh%jeg), intent(inout) :: pExB
         
         pExB = State%espot * 1.e3  ! [kV -> V]
 
-    end function potExB
+    end subroutine potExB
 
-
-    function potCorot(planet, sh) result (pCorot)
+    subroutine potCorot(planet, sh, pCorot)
         ! Simple corotation potential [V]
         type(planet_T), intent(in) :: planet
         type(ShellGrid_T), intent(in) :: sh
 
-        real(rp), dimension(sh%isg:sh%ieg,sh%jsg:sh%jeg) :: pCorot
+        real(rp), dimension(sh%isg:sh%ieg,sh%jsg:sh%jeg), intent(inout) :: pCorot
         integer :: j
 
         do j=sh%jsg,sh%jeg
             pCorot(:,j) = -planet%psiCorot*(planet%rp_m/planet%ri_m)*sin(sh%th)**2 * 1.e3  ! [kV -> V]
         enddo
 
-    end function potCorot
+    end subroutine potCorot
 
 
-    function potGC(shGrid, alamc, bVol) result (pGC)
+    subroutine potGC(shGrid, alamc, bVol, pGC)
         ! Simple gradient curvature potential [V]
         type(ShellGrid_T), intent(in) :: shGrid
         real(rp), intent(in) :: alamc
@@ -138,11 +136,11 @@ module sifadvancer
                             shGrid%jsg:shGrid%jeg), intent(in) :: bVol
 
         real(rp), dimension(shGrid%isg:shGrid%ieg,&
-                            shGrid%jsg:shGrid%jeg) :: pGC
+                            shGrid%jsg:shGrid%jeg), intent(inout) :: pGC
 
         pGC = alamc*bVol**(-2./3.)
 
-    end function potGC
+    end subroutine potGC
 
 
     subroutine calcEffectivePotential(planet, Grid, State)
@@ -154,22 +152,63 @@ module sifadvancer
         integer :: k
         real(rp), dimension(Grid%shGrid%isg:Grid%shGrid%ieg,&
                             Grid%shGrid%jsg:Grid%shGrid%jeg,&
-                            Grid%Nk) :: pEff, pGC
+                            Grid%Nk) :: pEff
         real(rp), dimension(Grid%shGrid%isg:Grid%shGrid%ieg,&
-                            Grid%shGrid%jsg:Grid%shGrid%jeg) :: pExB, pCorot
+                            Grid%shGrid%jsg:Grid%shGrid%jeg) :: pExB, pCorot, pGC
         
         State%pEff = 0.0
 
         ! Grab 2D potentials
-        pExB = potExB(Grid%shGrid, State)
-        pCorot = potCorot(planet, Grid%shGrid)
+        call potExB(Grid%shGrid, State, pExB)
+        call potCorot(planet, Grid%shGrid, pCorot)
         
         ! Build 3D effective potential
         do k=1,Grid%Nk
-            State%pEff(:,:,k) = pExB + pCorot + potGC(Grid%shGrid, Grid%alamc(k), State%bVol)
+            call potGC(Grid%shGrid, Grid%alamc(k), State%bVol, pGC)
+            State%pEff(:,:,k) = pExB + pCorot + pGC
         enddo
 
     end subroutine calcEffectivePotential
+
+    subroutine calcPotGrads(Model, Grid, State)
+        !! Calcs gradient of ionospheric potential, corotation potential, and flux tube volume raised to -2/3
+        !! Only needs to be called when any of the above quantities are updated (e.g. beginning of every coupling timestep)
+        !! Note: FTV is not a potential yet, alamc*bVol**(-2./3.) is
+        type(sifModel_T), intent(in) :: Model
+        type(sifGrid_T ), intent(in) :: Grid
+        type(sifState_T), intent(inout) :: State
+
+        real(rp) :: RIon
+        logical , dimension(Grid%shGrid%isg:Grid%shGrid%ieg,&
+                            Grid%shGrid%jsg:Grid%shGrid%jeg) :: isGood
+        real(rp), dimension(Grid%shGrid%isg:Grid%shGrid%ieg,&
+                            Grid%shGrid%jsg:Grid%shGrid%jeg) :: pExB, pCorot
+        real(rp), dimension(Grid%shGrid%isg:Grid%shGrid%ieg,&
+                            Grid%shGrid%jsg:Grid%shGrid%jeg, 2) :: gradV
+        ! What's good
+        where (State%active .ne. SIFINACTIVE)
+            isGood = .true.
+        elsewhere
+            isGood = .false.
+        end where
+        RIon = Model%planet%ri_m/Model%planet%Rp_m  ! Iono radius [Rp]
+
+        
+        ! Ionospheric and corotation potentials are just simple derivatives
+        call potExB(Grid%shGrid, State, pExB)
+        call potCorot(Model%planet, Grid%shGrid, pCorot)
+        call calcGradIJ(RIon, Grid, isGood, pExB  , State%gradPotE    )
+        call calcGradIJ(RIon, Grid, isGood, pCorot, State%gradPotCorot)
+
+        ! GC drifts depend on grad(lambda * V^(-2/3))
+        ! lambda is constant, so just need grad(V^(-2/3) )
+        ! grad(V^(-2/3)) = -2/3*V^(-5/3) * grad(V)
+        call calcGradFTV(RIon, Grid, isGood, State%bvol, gradV)
+        State%gradVM(:,:,1) = (-2./3.) * State%bvol**(-5./3.) * gradV(:,:,1)
+        State%gradVM(:,:,2) = (-2./3.) * State%bvol**(-5./3.) * gradV(:,:,2)
+
+
+    end subroutine calcPotGrads
 
 
 
@@ -233,8 +272,8 @@ module sifadvancer
         integer :: i,j
         real(rp) :: RIon
         logical , dimension(Grid%shGrid%isg:Grid%shGrid%ieg, Grid%shGrid%jsg:Grid%shGrid%jeg) :: isGood
-        real(rp), dimension(Grid%shGrid%isg:Grid%shGrid%ieg, Grid%shGrid%jsg:Grid%shGrid%jeg) :: pE, pGC
-        real(rp), dimension(Grid%shGrid%isg:Grid%shGrid%ieg, Grid%shGrid%jsg:Grid%shGrid%jeg, 2) :: gradPot, gradPotGC
+        real(rp), dimension(Grid%shGrid%isg:Grid%shGrid%ieg, Grid%shGrid%jsg:Grid%shGrid%jeg) :: pE, pExB, pCorot, pGC
+        real(rp), dimension(Grid%shGrid%isg:Grid%shGrid%ieg, Grid%shGrid%jsg:Grid%shGrid%jeg, 2) :: gradPotE, gradPotGC
         real(rp), dimension(Grid%shGrid%isg:Grid%shGrid%ieg, Grid%shGrid%jsg:Grid%shGrid%jeg, 2) :: Vtp
          ! For cell centers, just set velocities based on cells' active mode
         ! Later when we calc interfaces, consider inactive2buffer, buffer2active, etc
@@ -258,52 +297,107 @@ module sifadvancer
         elsewhere
             isGood = .false.
         end where
-        RIon = Model%planet%ri_m/Model%planet%Rp_m
+        RIon = Model%planet%ri_m/Model%planet%Rp_m  ! Iono radius [Rp]
         
-        pE = potExB(Grid%shGrid, State) + potCorot(Model%planet, Grid%shGrid)  ! Electric fields
-        pGC = potGC(Grid%shGrid, Grid%alamc(k), State%bVol(:,:))  ! Gradient-curvature for this lambda
+        call potExB(Grid%shGrid, State, pExB)
+        call potCorot(Model%planet, Grid%shGrid, pCorot)
+        pE = pExB + pCorot ! Iono + corotation fields
+        call potGC(Grid%shGrid, Grid%alamc(k), State%bVol, pGC) ! Gradient-curvature for this lambda
+        
 
         ! Do E-field grad first
-        gradPot = calcGradIJ(RIon, Grid, isGood, pE)
+        call calcGradIJ(RIon, Grid, isGood, pE, gradPotE)
         !!FIXME: Should implement grad specifically for GC, skipping for now
-        gradPot = gradPot + calcGradIJ(RIon, Grid, isGood, pGC)
+        call calcGradIJ(RIon, Grid, isGood, pGC, gradPotGC)
+        ! Just combine all into gradPotE
+        gradPotE = gradPotE + gradPotGC
 
         ! [gradPot] = [V/rad] = [T*m^2/s/rad]
         ! Multiply by (rad/m)^2 to get [T*rad/s], so we can just divide by B[T] and we done
-        gradPot = gradPot / Model%planet%ri_m**2  ! I think
+        gradPotE = gradPotE / Model%planet%ri_m**2  ! I think
 
         ! Calc velocity
-        Vtp(:,:,1) =      gradPot(:,:,2) / (Grid%Bmag * 1.0e-9)  ! [rad/s]
-        Vtp(:,:,2) = -1.0*gradPot(:,:,1) / (Grid%Bmag * 1.0e-9)  ! [rad/s]
+        Vtp(:,:,1) =      gradPotE(:,:,2) / (Grid%Bmag * 1.0e-9)  ! [rad/s]
+        Vtp(:,:,2) = -1.0*gradPotE(:,:,1) / (Grid%Bmag * 1.0e-9)  ! [rad/s]
 
 
     end function calcVelocityCC
 
-    function calcGradIJ(RIon, Grid, isG, Q) result(gradQ)
+
+    subroutine calcGradFTV(RIon, Grid, isG, V, gradV)
+        real(rp), intent(in) :: RIon
+            !! Iono radius in Rp
+        type(sifGrid_T), intent(in) :: Grid
+        logical , dimension(Grid%shGrid%isg:Grid%shGrid%ieg,Grid%shGrid%jsg:Grid%shGrid%jeg), intent(in) :: isG
+        real(rp), dimension(Grid%shGrid%isg:Grid%shGrid%ieg,Grid%shGrid%jsg:Grid%shGrid%jeg), intent(in) :: V
+        real(rp), dimension(Grid%shGrid%isg:Grid%shGrid%ieg,Grid%shGrid%jsg:Grid%shGrid%jeg, 2), intent(inout) :: gradV
+
+        integer :: i
+        real(rp) :: dcl_dth
+        real(rp), dimension(Grid%shGrid%isg:Grid%shGrid%ieg,&
+                            Grid%shGrid%jsg:Grid%shGrid%jeg) :: V0, dV, dV0_dth
+            !! V0 = dipole V, dV = V - V0
+
+        associate(sh=>Grid%shGrid)
+            
+            ! Calculate dipole FTV
+            do i=sh%isg, sh%ieg
+                V0(i,:) = DipFTV_colat(sh%thc(i))
+            enddo
+
+            ! Break up into background + perturbation
+            dV = 0.0
+            where (isG)
+                dV =  V - V0
+            end where
+
+            ! Take gradients of each
+            ! Analytic gradient of dipole FTV
+            dV0_dth = 0.0
+            do i=sh%isg+1, sh%ieg-1
+                dcl_dth = 0.5*(sh%thc(i-1) - sh%thc(i+1))
+                dV0_dth(i,:) = DerivDipFTV(sh%thc(i)) * dcl_dth
+            enddo
+
+            ! Gradient of perturbation
+            call calcGradIJ(RIon, Grid, isG, dV, gradV)
+
+            ! Add on grad from dipole
+            gradV(:,:,1) = gradV(:,:,1) + dV0_dth
+            ! No need to do phi direction cause dipole doesn't have gradient in phi
+
+        end associate
+
+    end subroutine calcGradFTV
+
+
+    subroutine calcGradIJ(RIon, Grid, isG, Q, gradQ)
         ! Calc gradint in spherical coordinates across entire grid, including ghosts
         ! Up to someone else to overwrite ghosts
         real(rp), intent(in) :: RIon
             !! Iono radius in Rp
         type(sifGrid_T), intent(in) :: Grid
-        logical, dimension(Grid%shGrid%isg:Grid%shGrid%ieg,Grid%shGrid%jsg:Grid%shGrid%jeg), intent(in) :: isG
+        logical , dimension(Grid%shGrid%isg:Grid%shGrid%ieg,Grid%shGrid%jsg:Grid%shGrid%jeg), intent(in) :: isG
         real(rp), dimension(Grid%shGrid%isg:Grid%shGrid%ieg,Grid%shGrid%jsg:Grid%shGrid%jeg), intent(in) :: Q
+        real(rp), dimension(Grid%shGrid%isg:Grid%shGrid%ieg,Grid%shGrid%jsg:Grid%shGrid%jeg, 2), intent(inout) :: gradQ
+            !! I think [unitsQ/rad]
 
         integer :: i,j
         real(rp), dimension(Grid%shGrid%isg:Grid%shGrid%ieg) :: sinTh
-        real(rp), dimension(Grid%shGrid%isg:Grid%shGrid%ieg,Grid%shGrid%jsg:Grid%shGrid%jeg, 2) :: gradQ
-            !! I think [unitsQ/rad]
+        
         gradQ = 0.0
         
         associate(sh=>Grid%shGrid)
-        ! Cal sin(theta) fro everyone to use
+        ! Cal sin(theta) for everyone to use
         sinTh = sin(sh%thc)
 
         ! Leave out the end rows and columns
         !$OMP PARALLEL DO default(shared) collapse(2) &
         !$OMP schedule(dynamic) &
-        !$OMP private(i,j)
-        do i=sh%isg+1,sh%ieg-1
-            do j=sh%jsg+1,sh%jeg-1
+        !$OMP private(i,j) &
+        !$OMP IF(.false.)
+        do j=sh%jsg+1,sh%jeg-1
+            do i=sh%isg+1,sh%ieg-1
                 if (.not. isG(i,j)) then
                     cycle
                 end if
@@ -329,7 +423,6 @@ module sifadvancer
         enddo
 
         ! Edge rows and columns
-        !! This should result in no velocity flow through last ghost cells
         !! TODO: Think more carefully about gradTh vs gradPhi here, and corner cells
         gradQ(sh%isg,:,:) = gradQ(sh%isg+1,:,:)
         gradQ(sh%ieg,:,:) = gradQ(sh%ieg-1,:,:)
@@ -337,7 +430,7 @@ module sifadvancer
         gradQ(:,sh%jeg,:) = gradQ(:,sh%jeg-1,:)
 
         end associate
-    end function calcGradIJ
+    end subroutine calcGradIJ
 
 
     function activeDt(sh, Grid, State, k) result(dt)

@@ -154,9 +154,9 @@ module chopio
                 enddo
             enddo
 
-            case default
-                write(*,*) 'Unknown chop type, exiting ...'
-                stop
+        case default
+            write(*,*) 'Unknown chop type, exiting ...'
+            stop
 
         end select
         !Calculate cell centers (just simple 8 point average)

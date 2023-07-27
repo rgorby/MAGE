@@ -197,6 +197,7 @@ program sifx
         call Toc("Calc effective potential")
         ! Calc cell velocities
         call Tic("Calc cell-center velocities")
+        call calcPotGrads(Model, Grid, State)
         do k=1,Grid%Nk
             State%cVel(:,:,k,:) = calcVelocityCC(Model, Grid, State, k)
             ! Calc sub-time step

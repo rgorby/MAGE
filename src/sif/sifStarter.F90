@@ -189,13 +189,20 @@ module sifstarter
             allocate( State%dtk (Grid%Nk) )
             ! Where we keep all our stuff
             allocate( State%eta (sh%isg:sh%ieg, sh%jsg:sh%jeg, Grid%Nk) )
-            ! Effective potential
-            allocate( State%pEff(sh%isg:sh%ieg, sh%jsg:sh%jeg, Grid%Nk) )
             ! I shells shat should be evolved for each k
             allocate( State%activeShells (sh%isg:sh%ieg, Grid%Nk) )
+            ! Effective potential (used for output only)
+            allocate( State%pEff(sh%isg:sh%ieg, sh%jsg:sh%jeg, Grid%Nk) )
+            ! Gradient of ionspheric potential
+            allocate( State%gradPotE     (sh%isg:sh%ieg, sh%jsg:sh%jeg, 2) )
+            ! Gradient of corotation potential
+            allocate( State%gradPotCorot (sh%isg:sh%ieg, sh%jsg:sh%jeg, 2) )
+            ! Gradient of (flux tube volume ^ -2/3)
+            allocate( State%gradVM      (sh%isg:sh%ieg, sh%jsg:sh%jeg, 2) )
             ! Interface and cell velocities
             allocate( State%iVel(sh%isg:sh%ieg+1, sh%jsg:sh%jeg+1, Grid%Nk, 2) )
             allocate( State%cVel(sh%isg:sh%ieg  , sh%jsg:sh%jeg  , Grid%Nk, 2) )
+            
             ! Coupling input moments
             allocate( State%Pavg(sh%isg:sh%ieg  , sh%jsg:sh%jeg, Grid%nSpc) )
             allocate( State%Davg(sh%isg:sh%ieg  , sh%jsg:sh%jeg, Grid%nSpc) )
