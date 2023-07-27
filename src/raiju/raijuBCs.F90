@@ -1,19 +1,19 @@
-module sifBCs
+module raijuBCs
 
     use planethelper
 
-    use sifdefs
-    use siftypes
-    use sifetautils
+    use raijudefs
+    use raijutypes
+    use raijuetautils
 
     implicit none
 
     contains
 
-    subroutine applySifBCs(Model, Grid, State, doWholeDomainO)
-        type(sifModel_T), intent(in) :: Model
-        type(sifGrid_T) , intent(in) :: Grid
-        type(sifState_T), intent(inout) :: State
+    subroutine applyRaijuBCs(Model, Grid, State, doWholeDomainO)
+        type(raijuModel_T), intent(in) :: Model
+        type(raijuGrid_T) , intent(in) :: Grid
+        type(raijuState_T), intent(inout) :: State
         logical, optional, intent(in) :: doWholeDomainO
 
         integer :: i,j,s,k
@@ -32,13 +32,13 @@ module sifBCs
         ! Determine where to do BCs
         ! Will definitely be its own function later to do ellipse fitting, restriction of fast flows, etc
         if(doWholeDomain) then
-            where (State%active .eq. SIFBUFFER .or. State%active .eq. SIFACTIVE)
+            where (State%active .eq. RAIJUBUFFER .or. State%active .eq. raijuACTIVE)
                 doBC = .true.
             elsewhere
                 doBC = .false.
             end where
         else
-            where (State%active .eq. SIFBUFFER)
+            where (State%active .eq. RAIJUBUFFER)
                 doBC = .true.
             elsewhere
                 doBC = .false.
@@ -75,7 +75,7 @@ module sifBCs
                 worthyFracO=Model%worthyFrac)
         enddo  ! s
 
-    end subroutine applySifBCs
+    end subroutine applyRaijuBCs
 
 !------
 ! Active I Shell calculations
@@ -84,7 +84,7 @@ module sifBCs
     subroutine setActiveShellsByContribution(shGrid, spc, bVol, etas, activeShellsOut, nSpacesO, worthyFracO)
         !! For each lambda channel, calculate active shells based on how much they contribute to the total pressure and/or density
         type(ShellGrid_T), intent(in) :: shGrid
-        type(SIFSpecies_T), intent(in) :: spc
+        type(raijuSpecies_T), intent(in) :: spc
         real(rp), dimension(shGrid%isg:shGrid%ieg,shGrid%jsg:shGrid%jeg), intent(in) :: bVol
         real(rp), dimension(shGrid%isg:shGrid%ieg,shGrid%jsg:shGrid%jeg,spc%kStart:spc%kEnd), intent(in) :: etas
         logical, dimension(shGrid%isg:shGrid%ieg, spc%kStart:spc%kEnd), intent(inout) :: activeShellsOut
@@ -164,4 +164,4 @@ module sifBCs
     end subroutine setActiveShellsByContribution
 
 
-end module sifBCs
+end module raijuBCs

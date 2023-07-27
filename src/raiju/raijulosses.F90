@@ -1,10 +1,10 @@
-module siflosses
+module raijulosses
     
     use kdefs
 
-    use sifdefs
-    use siftypes
-    use sifspecieshelper, only : spcIdx
+    use raijudefs
+    use raijutypes
+    use raijuspecieshelper, only : spcIdx
 
     implicit none
 
@@ -15,14 +15,14 @@ module siflosses
 !------
 
     subroutine calcStepLosses(Model, Grid, State, k, dt)
-        type(sifModel_T), intent(in) :: Model
-        type(sifGrid_T), intent(in) :: Grid
-        type(sifState_T), intent(inout) :: State
+        type(raijuModel_T), intent(in) :: Model
+        type(raijuGrid_T), intent(in) :: Grid
+        type(raijuState_T), intent(inout) :: State
         integer, intent(in) :: k
         real(rp), intent(in) :: dt
             !! Time delta [s]
         
-        if (Grid%spc(Grid%k2spc(k))%spcType .eq. SIFHPLUS) then
+        if (Grid%spc(Grid%k2spc(k))%spcType .eq. RAIJUHPLUS) then
             call protonLosses(Model, Grid, State, k, dt)
         endif
 
@@ -31,9 +31,9 @@ module siflosses
 
 
     subroutine protonLosses(Model, Grid, State, k, dt)
-        type(sifModel_T), intent(in) :: Model
-        type(sifGrid_T), intent(in) :: Grid
-        type(sifState_T), intent(inout) :: State
+        type(raijuModel_T), intent(in) :: Model
+        type(raijuGrid_T), intent(in) :: Grid
+        type(raijuState_T), intent(inout) :: State
         integer, intent(in) :: k
         real(rp), intent(in) :: dt
             !! Time delta [s]
@@ -55,7 +55,7 @@ module siflosses
             ! Otherwise we have some protons to lose
 
             ! Calc regions where we actually need to evaluate
-            where (State%active .eq. SIFACTIVE)
+            where (State%active .eq. RAIJUACTIVE)
                 isG = .true.
             elsewhere
                 isG = .false.
@@ -189,7 +189,7 @@ module siflosses
         rateCC = 0.0
         if (Dpp < TINY) return
 
-        if (spcType == SIFHPLUS) then
+        if (spcType == RAIJUHPLUS) then
             y = a3*(x**3.0) + a2*(x**2.0) + a1*x + a0
             nTau = 10.0**y !Normalized lifetime, days/cm3
             Tau = nTau*day2s/Dpp !Lifetime, [s]
@@ -237,4 +237,4 @@ module siflosses
 
     end function nFlux2EFlux
 
-end module siflosses
+end module raijulosses

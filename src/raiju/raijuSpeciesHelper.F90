@@ -1,11 +1,11 @@
 
-module sifSpeciesHelper
+module raijuSpeciesHelper
     use ioh5
     use xml_input
     use shellgrid
 
-    use sifdefs
-    use siftypes
+    use raijudefs
+    use raijutypes
 
     implicit none 
 
@@ -19,7 +19,7 @@ module sifSpeciesHelper
 
     function spcIdx(Grid, flav) result(idx)
         !! Get the index corresponding to a certain species
-        type(SIFGrid_T), intent(in) :: Grid
+        type(raijuGrid_T), intent(in) :: Grid
         integer, intent(in) :: flav
         
         integer :: i, idx
@@ -38,7 +38,7 @@ module sifSpeciesHelper
 
     function spcExists(Grid, flav) result(fExist)
         !! Determine if a certain species is in the species list, using flavor value
-        type(SIFGrid_T), intent(in) :: Grid
+        type(raijuGrid_T), intent(in) :: Grid
         integer, intent(in) :: flav
         
         integer :: i
@@ -52,7 +52,7 @@ module sifSpeciesHelper
 
     function SpcAmu(spc) result (amu)
         !! Calculates a species's mass in amu/daltons
-        type(SIFSpecies_T), intent(in) :: spc
+        type(raijuSpecies_T), intent(in) :: spc
 
         integer :: num_e
         real(rp) :: amu
@@ -71,20 +71,20 @@ module sifSpeciesHelper
 
     function SpcType(spc) result(sType)
         !! Determine the species type (e-, H+, O+, etc.)
-        type(SIFSpecies_T), intent(in) :: spc
+        type(raijuSpecies_T), intent(in) :: spc
 
         integer :: sType
 
         select case(spc%numNuc_p)
             case(0)
-                sType = SIFELE
+                sType = RAIJUELE
             case(1)
-                sType = SIFHPLUS
+                sType = RAIJUHPLUS
             case(8)
-                sType = SIFOPLUS
+                sType = RAIJUOPLUS
             case DEFAULT
-                write(*,*)"WARNING: SIF can't determine type for species with nProton=",spc%numNuc_p
-                sType = SIFNSPC
+                write(*,*)"WARNING: RAIJU can't determine type for species with nProton=",spc%numNuc_p
+                sType = RAIJUNSPC
         end select
 
 
@@ -97,8 +97,8 @@ module sifSpeciesHelper
     subroutine populateSpeciesFromConfig(Model, Grid, configfname)
         !! Reads species specification from config file
         !! Populates Grid%spc object
-        type(sifModel_T)  , intent(inout) :: Model
-        type(sifGrid_T), intent(inout) :: Grid
+        type(raijuModel_T)  , intent(inout) :: Model
+        type(raijuGrid_T), intent(inout) :: Grid
         character(len=strLen), intent(in) :: configfname
 
         integer :: i, kPos
@@ -108,7 +108,7 @@ module sifSpeciesHelper
 
         ! Make sure Species group exists with at least 1 entry
         if(.not. ioExist(configfname, "0", "Species")) then
-            write(*,*) "This config file not structured for SIF, use genSIF.py. Good day."
+            write(*,*) "This config file not structured for RAIJU, use genRAIJU.py. Good day."
             stop
         endif
         
@@ -122,7 +122,7 @@ module sifSpeciesHelper
 
             write(gStr, '(A,I0)') "Species/",i-1  ! Species indexing in config starts at 0
             if(.not. ioExist(configfname, gStr)) then
-                write(*,*) "ERROR in sifGrids.F90:populateSpeciesFromConfig"
+                write(*,*) "ERROR in raijuSpeciesHelper.F90:populateSpeciesFromConfig"
                 write(*,'(A,I0,A,I0)') "  Expected ",Grid%nSpc," species but only found ",i-1
                 stop
             endif
@@ -185,11 +185,11 @@ module sifSpeciesHelper
         write(gStr, '(A,I0)') "Species/",Grid%nSpc  ! Species indexing in config starts at 0
         if(ioExist(configfname, gStr)) then
             if (.not. Grid%ignoreConfigMismatch) then
-                write(*,*) "SIF ERROR: More species defined in ",trim(configfname)," than SIF expected."
+                write(*,*) "RAIJU ERROR: More species defined in ",trim(configfname)," than RAIJU expected."
                 write(*,*) " If you want to ignore this, set config/ignoreMismatch=T. But for now, we die."
                 stop
             else
-                write(*,*)"SIF WARNING: More species in config than we expect, but ignoring because config/ignoreMismatch=T"
+                write(*,*)"RAIJU WARNING: More species in config than we expect, but ignoring because config/ignoreMismatch=T"
             endif
         endif
 
@@ -208,7 +208,7 @@ module sifSpeciesHelper
 
             ! TODO: Make this say the name of the missing species, e.g. plasmasphere, hot protons/electrons
             if(.not. spcExists(Grid, flav)) then
-                write(*,'(A,I0,A,A)')" SIF ERROR: Expected a species with flav ",flav,", but ",trim(configfname)," did not contain one"
+                write(*,'(A,I0,A,A)')" RAIJU ERROR: Expected a species with flav ",flav,", but ",trim(configfname)," did not contain one"
                 stop
             endif
 
@@ -219,7 +219,7 @@ module sifSpeciesHelper
     subroutine initAlamc(Grid)
         !! Allocates and Populates Grid%alamc using species
         !!  as well as tells each species what its range is inside alamc
-        type(sifGrid_T), intent(inout) :: Grid
+        type(raijuGrid_T), intent(inout) :: Grid
 
         integer :: i
 
@@ -248,4 +248,4 @@ module sifSpeciesHelper
 
     end subroutine initAlamc
 
-end module sifSpeciesHelper
+end module raijuSpeciesHelper

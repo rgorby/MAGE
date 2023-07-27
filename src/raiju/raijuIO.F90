@@ -1,10 +1,10 @@
-module sifIO
+module raijuIO
     use ioh5
     use planethelper
     
-    use siftypes
-    use sifetautils
-    use sifadvancer, only : calcEffectivePotential
+    use raijutypes
+    use raijuetautils
+    use raijuadvancer, only : calcEffectivePotential
 
     implicit none
 
@@ -15,9 +15,9 @@ module sifIO
 
     contains
 
-    subroutine sifInitIO(Model, Grid, doGhostsO)
-        type(sifModel_T), intent(inout) :: Model
-        type(sifGrid_T), intent(in) :: Grid
+    subroutine raijuInitIO(Model, Grid, doGhostsO)
+        type(raijuModel_T), intent(inout) :: Model
+        type(raijuGrid_T), intent(in) :: Grid
         logical, optional, intent(in) :: doGhostsO
 
         integer :: is, ie, js, je
@@ -49,14 +49,14 @@ module sifIO
         endif
 
         associate(sh => Grid%shGrid, spc=>Grid%spc)
-        Model%SIFH5 = trim(Model%RunID) // ".sif.h5"
+        Model%raijuH5 = trim(Model%RunID) // ".raiju.h5"
 
-        fExist = CheckFile(Model%SIFH5)
-        write(*,*) "SIF outputting to ",trim(Model%SIFH5)
+        fExist = CheckFile(Model%raijuH5)
+        write(*,*) "RAIJU outputting to ",trim(Model%raijuH5)
 
         if(.not. Model%isRestart) then
             ! Remove all old files, start fresh
-            call CheckAndKill(Model%SIFH5)
+            call CheckAndKill(Model%raijuH5)
         endif
 
         if (Model%isRestart .and. fExist) then
@@ -88,7 +88,7 @@ module sifIO
         call AddOutVar(IOVars,"Y",lon2D,uStr="radians")
         call AddOutVar(IOVars,"Bmag",Grid%Bmag(is:ie,js:je),uStr="nT")
         call AddOutVar(IOVars,"alamc",Grid%alamc,uStr="eV * (Rx/nT)^(2/3)")
-        call WriteVars(IOVars,.true.,Model%SIFH5)
+        call WriteVars(IOVars,.true.,Model%raijuH5)
 
         ! Output detailed lambda grid info
         do i=1,Grid%nSpc
@@ -107,21 +107,21 @@ module sifIO
             ! Datasets
             call AddOutVar(IOVars,"alami",spc(i)%alami,uStr="eV * (Rx/nT)^(2/3)")
             write(gStr,'(I0)') spc(i)%flav  ! Idk if this is the easiest way to format ints as strings
-            call WriteVars(IOVars,.true.,Model%SIFH5,"Species",gStr)
+            call WriteVars(IOVars,.true.,Model%raijuH5,"Species",gStr)
         enddo
 
         ! Output planet info
-        call writePlanetParams(Model%planet, .true., Model%SIFH5)
+        call writePlanetParams(Model%planet, .true., Model%raijuH5)
 
         end associate
 
-    end subroutine sifInitIO
+    end subroutine raijuInitIO
 
 
-    subroutine WriteSIF(Model, Grid, State, gStr, doGhostsO)
-        type(sifModel_T), intent(inout) :: Model
-        type(sifGrid_T ), intent(in) :: Grid
-        type(sifState_T), intent(in) :: State
+    subroutine WriteRaiju(Model, Grid, State, gStr, doGhostsO)
+        type(raijuModel_T), intent(inout) :: Model
+        type(raijuGrid_T ), intent(in) :: Grid
+        type(raijuState_T), intent(in) :: State
         character(len=strLen), intent(in) :: gStr
         logical, optional, intent(in) :: doGhostsO
 
@@ -153,7 +153,7 @@ module sifIO
 
         ! First, make sure root variables are there
         if (doRoot) then
-            call sifInitIO(Model, Grid, doGhosts)
+            call raijuInitIO(Model, Grid, doGhosts)
             doRoot = .false.
         endif
         !Reset IO chain
@@ -226,7 +226,7 @@ module sifIO
             write(*,*)"Davg_in ",s,maxval(State%Davg(is:ie,js:je,s))
             write(*,*)"Den out ",s,maxval(outDen(:,:,s+1))
             ! Don't include electrons to total number density
-            if(Grid%spc(s)%spcType .ne. SIFELE) then
+            if(Grid%spc(s)%spcType .ne. RAIJUELE) then
                 outDen(:,:,1) = outDen(:,:,1) + outDen(:,:,s+1)
             endif
         enddo
@@ -271,8 +271,8 @@ module sifIO
 
 
 
-        call WriteVars(IOVars,.true.,Model%SIFH5, gStr)
+        call WriteVars(IOVars,.true.,Model%raijuH5, gStr)
 
-    end subroutine WriteSIF
+    end subroutine WriteRaiju
 
-end module sifIO
+end module raijuIO

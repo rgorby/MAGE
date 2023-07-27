@@ -1,13 +1,13 @@
 
 
-module sifgrids
+module raijugrids
     use ioh5
     use xml_input
     use shellgrid
 
-    use sifdefs
-    use siftypes
-    use sifSpeciesHelper
+    use raijudefs
+    use raijutypes
+    use raijuSpeciesHelper
 
     implicit none
 
@@ -18,8 +18,8 @@ module sifgrids
 !------
 
 
-    subroutine sifGenUniSphGrid(Grid, iXML)
-        type(sifGrid_T)  , intent(inout) :: Grid
+    subroutine raijuGenUniSphGrid(Grid, iXML)
+        type(raijuGrid_T)  , intent(inout) :: Grid
         type(XML_Input_T), intent(in)    :: iXML
 
         real(rp), dimension(:), allocatable :: Theta
@@ -67,18 +67,18 @@ module sifgrids
 
         call GenShellGrid(Grid%shGrid,Theta,Phi,Ngn,Ngs,Nge,Ngw)
 
-    end subroutine sifGenUniSphGrid
+    end subroutine raijuGenUniSphGrid
 
-    subroutine sifGenGridFromShGrid(Grid, shGrid)
-        type(sifGrid_T)  , intent(inout) :: Grid
+    subroutine raijuGenGridFromShGrid(Grid, shGrid)
+        type(raijuGrid_T)  , intent(inout) :: Grid
         type(ShellGrid_T), intent(in) :: shGrid
 
         !!TODO
-    end subroutine sifGenGridFromShGrid
+    end subroutine raijuGenGridFromShGrid
 
     subroutine finalizeLLGrid(Grid, planet)
         !! Use a fully-created shell grid to allocate and populate the rest of the grid parameters
-        type(sifGrid_T), intent(inout) :: Grid
+        type(raijuGrid_T), intent(inout) :: Grid
         type(planet_T), intent(in) :: planet
 
         integer :: i,j
@@ -125,11 +125,11 @@ module sifgrids
 ! Lambda grid stuff
 !------
 
-!! Maybe should leave just spatial grid stuff in sifGrids and move lambda stuff to a lambdaUtils
+!! Maybe should leave just spatial grid stuff in raijuGrids and move lambda stuff to a lambdaUtils
 
     subroutine initLambdaGrid(Model, Grid, configfname)
-        type(sifModel_T)  , intent(inout) :: Model
-        type(sifGrid_T), intent(inout) :: Grid
+        type(raijuModel_T)  , intent(inout) :: Model
+        type(raijuGrid_T), intent(inout) :: Grid
         character(len=strLen), intent(in) :: configfname
 
         ! First read in species information from config file
@@ -140,4 +140,4 @@ module sifgrids
         
     end subroutine initLambdaGrid
 
-end module sifgrids
+end module raijugrids

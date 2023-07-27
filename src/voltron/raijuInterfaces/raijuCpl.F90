@@ -1,22 +1,22 @@
-module sifCpl
-    !! Contains functions used to pass data between voltron and SIF
+module raijuCpl
+    !! Contains functions used to pass data between voltron and RAIJU
 
     use math
     use imagtubes
     use planethelper
 
-    use sifdefs
-    use sifTypes
-    use sifCplTypes
-    use sifSpeciesHelper
+    use raijudefs
+    use raijuTypes
+    use raijuCplTypes
+    use raijuSpeciesHelper
     implicit none
 
     contains
 
-    subroutine sifCpl_init(vApp, sApp, cplBase)
+    subroutine raijuCpl_init(vApp, sApp, cplBase)
         type(voltApp_T), intent(in) :: vApp
-        type(sifApp_T), intent(in) :: sApp
-        type(sif_cplBase_T), intent(inout) :: cplBase
+        type(raijuApp_T), intent(in) :: sApp
+        type(raiju_cplBase_T), intent(inout) :: cplBase
 
         associate(fromV=>cplBase%fromV, toV=>cplBase%toV, &
             sh=>sApp%Grid%shGrid)
@@ -39,48 +39,48 @@ module sifCpl
         end associate
 
         ! If using user IC, let user determine coupling
-        !  (this assumes icStr was already set by sifInitState)
+        !  (this assumes icStr was already set by raijuInitState)
         if (trim(sApp%Model%icStr) .eq. "USER") then
-            !call SIFinitCplUserIC(sApp%Model, sApp%Grid, sApp%State, cplBase)
+            !call RAIJUinitCplUserIC(sApp%Model, sApp%Grid, sApp%State, cplBase)
             !call userInitCplFunc(vApp, sApp, cplBase)
             write(*,*) "Can't do user initCpl yet"
             stop
         else
             ! Point to default coupling functions
-            cplBase%convertToSIF => sifCpl_Volt2SIF
-            cplBase%convertToVoltron => sifCpl_SIF2Volt
+            cplBase%convertToRAIJU => raijuCpl_Volt2RAIJU
+            cplBase%convertToVoltron => raijuCpl_RAIJU2Volt
             cplBase%fromV%mhd2spcMap => defaultMHD2SpcMap
         endif
 
-    end subroutine sifCpl_init
+    end subroutine raijuCpl_init
 
     
-    subroutine sifCpl_Volt2SIF(cplBase, vApp, sApp)
-        !! Take info from cplBase%fromV and put it into SIF state
-        class(sif_cplBase_T), intent(in) :: cplBase
+    subroutine raijuCpl_Volt2RAIJU(cplBase, vApp, sApp)
+        !! Take info from cplBase%fromV and put it into RAIJU state
+        class(raiju_cplBase_T), intent(in) :: cplBase
         type(voltApp_T), intent(in   ) :: vApp
-        type(sifApp_T ), intent(inout) :: sApp
+        type(raijuApp_T ), intent(inout) :: sApp
         
         
         ! Start with calculating the active domain so that ingestion can make decisions based on it
         call setActiveDomain(sApp%Grid%shGrid, sApp%Grid%nB, cplBase%fromV%ijTubes, sApp%State)
 
-        ! Populate sif state with coupling info
+        ! Populate raiju state with coupling info
         ! Tubes
-        call imagTubes2SIF(sApp%Model, sApp%Grid, sApp%State, &
+        call imagTubes2RAIJU(sApp%Model, sApp%Grid, sApp%State, &
                 cplBase%fromV%ijTubes, &
                 cplBase%fromV%mhd2spcMap)
         ! Potential
         sApp%State%espot(:,:) = cplBase%fromV%pot(:,:)
 
-    end subroutine sifCpl_Volt2SIF
+    end subroutine raijuCpl_Volt2RAIJU
 
 
-    subroutine sifCpl_SIF2Volt(cplBase, vApp, sApp)
-        type(sif_cplBase_T), intent(inout) :: cplBase
+    subroutine raijuCpl_RAIJU2Volt(cplBase, vApp, sApp)
+        type(raiju_cplBase_T), intent(inout) :: cplBase
         type(voltApp_T), intent(inout) :: vApp
-        type(sifApp_T) , intent(in   ) :: sApp
-    end subroutine sifCpl_SIF2Volt
+        type(raijuApp_T) , intent(in   ) :: sApp
+    end subroutine raijuCpl_RAIJU2Volt
 
 !------
 ! Helpers and defaults
@@ -91,14 +91,14 @@ module sifCpl
         integer, intent(in) :: nB
             !! Number of cells between open boundary and active domain
         type(IMAGTube_T), dimension(sh%isg:sh%ieg+1,sh%jsg:sh%jeg+1), intent(in) :: ijTubes
-        type(sifState_T), intent(inout) :: State
+        type(raijuState_T), intent(inout) :: State
 
         integer :: i,j
         logical, dimension(sh%isg:sh%ieg,sh%jsg:sh%jeg) :: closedCC
 
 
         ! We make sure the whole thing is initialized later, but just in case
-        State%active = SIFINACTIVE
+        State%active = RAIJUINACTIVE
 
         ! Mark any cell center with an open corner as open
         closedCC = .true.
@@ -116,11 +116,11 @@ module sifCpl
 
         ! Set zones
         where (State%OCBDist .eq. 0)
-            State%active = SIFINACTIVE
+            State%active = RAIJUINACTIVE
         else where (State%OCBDist .le. nB)
-            State%active = SIFBUFFER
+            State%active = RAIJUBUFFER
         elsewhere
-            State%active = SIFACTIVE
+            State%active = RAIJUACTIVE
         end where
 
 
@@ -128,7 +128,7 @@ module sifCpl
 
         function CalcOCBDist(sh, closedCC, nBnd) result(ocbDist)
             type(ShellGrid_T), intent(in) :: sh
-                !! SIF shell grid
+                !! RAIJU shell grid
             logical, dimension(sh%isg:sh%ieg,sh%jsg:sh%jeg), intent(in) :: closedCC
                 !! Whether cell centers are closed or open
             integer, intent(in) :: nBnd
@@ -167,14 +167,14 @@ module sifCpl
 
     end subroutine setActiveDomain
 
-    subroutine imagTubes2SIF(Model, Grid, State, ijTubes, f_MHD2SpcMap)
-        !! Map 2D array of IMAGTubes to SIF State
-        type(sifModel_T), intent(in) :: Model
-        type(sifGrid_T ), intent(in) :: Grid
-        type(sifState_T), intent(inout) :: State
+    subroutine imagTubes2RAIJU(Model, Grid, State, ijTubes, f_MHD2SpcMap)
+        !! Map 2D array of IMAGTubes to RAIJU State
+        type(raijuModel_T), intent(in) :: Model
+        type(raijuGrid_T ), intent(in) :: Grid
+        type(raijuState_T), intent(inout) :: State
         type(IMAGTube_T), dimension(Grid%shGrid%isg:Grid%shGrid%ieg+1,&
                                     Grid%shGrid%jsg:Grid%shGrid%jeg+1), intent(in) :: ijTubes
-        procedure(sifMHD2SpcMap_T), pointer, intent(in) :: f_MHD2SpcMap
+        procedure(raijuMHD2SpcMap_T), pointer, intent(in) :: f_MHD2SpcMap
         
 
         integer :: i,j
@@ -201,14 +201,14 @@ module sifCpl
 
             ! Map ijTube's definition of topology to RAIJU's
             where (ijTubes%topo == 2)
-                State%topo = SIFCLOSED
+                State%topo = RAIJUCLOSED
             elsewhere
-                State%topo = SIFOPEN
+                State%topo = RAIJUOPEN
             end where
 
 
             ! Make sure we can safely cell-average (all 4 corners are closed field lines)
-            where (State%active .eq. SIFBUFFER .or. State%active .eq. SIFACTIVE)
+            where (State%active .eq. RAIJUBUFFER .or. State%active .eq. RAIJUACTIVE)
                 isGood = .true.
             elsewhere
                 isGood = .false.
@@ -237,15 +237,15 @@ module sifCpl
 
         end associate
         
-    end subroutine imagTubes2SIF
+    end subroutine imagTubes2RAIJU
 
     subroutine defaultMHD2SpcMap(Model, Grid, State, ijTubes)
         !! Assumes:
         !!  MHD: single fluid
-        !!  SIF: zero-energy psphere, hot electrons, hot protons
-        type(sifModel_T), intent(in) :: Model
-        type(sifGrid_T) , intent(in) :: Grid
-        type(sifState_T), intent(inout) :: State
+        !!  RAIJU: zero-energy psphere, hot electrons, hot protons
+        type(raijuModel_T), intent(in) :: Model
+        type(raijuGrid_T) , intent(in) :: Grid
+        type(raijuState_T), intent(inout) :: State
         type(IMAGTube_T),  dimension(Grid%shGrid%isg:Grid%shGrid%ieg+1,&
                                      Grid%shGrid%jsg:Grid%shGrid%jeg+1), intent(in) :: ijTubes
 
@@ -258,7 +258,7 @@ module sifCpl
         State%Pavg = 0.0
         State%Davg = 0.0
 
-        where (State%active .eq. SIFBUFFER .or. State%active .eq. SIFACTIVE)
+        where (State%active .eq. RAIJUBUFFER .or. State%active .eq. RAIJUACTIVE)
             isGood = .true.
         elsewhere
             isGood = .false.
@@ -296,4 +296,4 @@ module sifCpl
     end subroutine defaultMHD2SpcMap
 
 
-end module sifCpl
+end module raijuCpl

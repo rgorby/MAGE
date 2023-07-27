@@ -1,4 +1,4 @@
-module siftypes
+module raijutypes
 
     use helpertypes
     use shellgrid
@@ -6,7 +6,7 @@ module siftypes
     use ioclock
 
 
-    use sifdefs
+    use raijudefs
 
     implicit none
 
@@ -20,10 +20,10 @@ module siftypes
     end type kmUnits_T
 
 
-    type SIFSpecies_T
+    type raijuSpecies_T
         !! Container for all info related to a specific species
         
-        !> These are all specified by sifconfig.h5
+        !> These are all specified by raijuconfig.h5
         character(len=strLen) :: name
         integer :: N
         integer :: flav
@@ -47,20 +47,20 @@ module siftypes
         integer :: spcType
             !! Enum of species type
         
-    end type SIFSpecies_T
+    end type raijuSpecies_T
 
 
-    type sifModel_T
+    type raijuModel_T
 
         ! Misc. bookkeeping stuff
         character(len=strLen) :: RunID = ""    
         character(len=strLen) :: configFName
             !! Filename of the .h5 config that holds lambda grid, wavemodel values, etc.
-        character(len=strLen) :: SIFH5
+        character(len=strLen) :: raijuH5
             !! Filename of the h5 file we output to
         
         integer :: nSpc, nSpcMHD, nG
-            !! Number of species in sif
+            !! Number of species in raiju
             !! Number of species/fluids in MHD
             !! # ghosts
         real(rp) :: t0, tFin, dt
@@ -106,15 +106,15 @@ module siftypes
         !type(waveModel_T) :: wModel  ! Wave model info (Shanshan)
 
         character(len=strLen) :: icStr
-        procedure(sifStateIC_T     ), pointer, nopass :: initState => NULL()
-        procedure(sifUpdateV_T     ), pointer, nopass :: updateV   => NULL()
+        procedure(raijuStateIC_T     ), pointer, nopass :: initState => NULL()
+        procedure(raijuUpdateV_T     ), pointer, nopass :: updateV   => NULL()
         !> TODO: Retire this and just have a single function with certain options like maxwellian or kappa
-        procedure(sifDP2EtaMap_T   ), pointer, nopass :: dp2etaMap => NULL()
+        procedure(raijuDP2EtaMap_T   ), pointer, nopass :: dp2etaMap => NULL()
 
-    end type sifModel_T
+    end type raijuModel_T
 
 
-    type sifGrid_T
+    type raijuGrid_T
         integer :: gType  ! Enum of grid type
 
         type(ShellGrid_T) :: shGrid
@@ -130,7 +130,7 @@ module siftypes
         ! Flags
         logical :: ignoreConfigMismatch
             !! In the case that the config file has more species than Model%nSpc,
-            !! SIF will complain and die if this is false, but will carry on if true
+            !! raiju will complain and die if this is false, but will carry on if true
 
         ! MPI things
         integer :: NumRk  ! Number of ranks in energy space
@@ -149,17 +149,17 @@ module siftypes
         ! Species / lambda stuff
         integer :: Nk  ! Total number of channels for all species
         integer :: nSpc  ! Model has the main copy of this, but helpful to keep here too
-        type(SIFSpecies_T), dimension(:), allocatable :: spc
-            !! Collection of SIFSpecies that contain all relevant species info, including alami
+        type(raijuSpecies_T), dimension(:), allocatable :: spc
+            !! Collection of raijuSpecies that contain all relevant species info, including alami
         real(rp), dimension(:), allocatable :: alamc
             !! Cell-centered lamba channel values
         integer, dimension(:), allocatable :: k2spc
             !! Nk length mapping of k value to corresponding species index
 
-    end type sifGrid_T
+    end type raijuGrid_T
 
 
-    type sifState_T
+    type raijuState_T
         real(rp) :: t, dt
             !! Current time and last coupling dt made
         real(rp), dimension(:), allocatable :: dtk
@@ -205,7 +205,7 @@ module siftypes
         real(rp), dimension(:,:), allocatable :: espot  ! electro-static potential from REMIX [kV]
         real(rp), dimension(:,:), allocatable :: bvol  ! Flux-tube volume [Rx/nT]
 
-        !> Varibles coming from SIF, size (Ni, Nj, Nk)
+        !> Varibles coming from RAIJU, size (Ni, Nj, Nk)
         real(rp), dimension(:,:,:), allocatable :: precipNFlux  ! Precipitation number fluxes [#/cm^2/s]
         real(rp), dimension(:,:,:), allocatable :: precipEFlux  ! Precipitation energy fluxes [erg/cm^2/s]
         ! (Ni, Nj, Nspc+1) (First index is bulk)
@@ -216,47 +216,47 @@ module siftypes
         real(rp), dimension(:,:,:), allocatable :: vAvg   ! Average cell velocity [km/s]
 
 
-    end type sifState_T
+    end type raijuState_T
 
 
 !------
 ! Higher-level types, using above types
 !------
 
-    type sifApp_T
-        type(sifModel_T) :: Model
-        type(sifGrid_T ) :: Grid
-        type(sifState_T) :: State
-    end type sifApp_T
+    type raijuApp_T
+        type(raijuModel_T) :: Model
+        type(raijuGrid_T ) :: Grid
+        type(raijuState_T) :: State
+    end type raijuApp_T
 
     abstract interface
-        subroutine sifStateIC_T(Model,Grid,State,inpXML)
-            Import :: sifModel_T, sifGrid_T, sifState_T, strLen, XML_Input_T
-            type(sifModel_T) , intent(in) :: Model
-            type(sifGrid_T)  , intent(in) :: Grid
-            type(sifState_T) , intent(inout) :: State
+        subroutine raijuStateIC_T(Model,Grid,State,inpXML)
+            Import :: raijuModel_T, raijuGrid_T, raijuState_T, strLen, XML_Input_T
+            type(raijuModel_T) , intent(in) :: Model
+            type(raijuGrid_T)  , intent(in) :: Grid
+            type(raijuState_T) , intent(inout) :: State
             type(XML_Input_T), intent(in) :: inpXML
-        end subroutine sifStateIC_T
+        end subroutine raijuStateIC_T
 
-        subroutine sifUpdateV_T(Model,Grid,State)
-            Import :: sifModel_T, sifGrid_T, sifState_T
-            type(sifModel_T) , intent(in) :: Model
-            type(sifGrid_T)  , intent(in) :: Grid
-            type(sifState_T) , intent(inout) :: State
-        end subroutine sifUpdateV_T
+        subroutine raijuUpdateV_T(Model,Grid,State)
+            Import :: raijuModel_T, raijuGrid_T, raijuState_T
+            type(raijuModel_T) , intent(in) :: Model
+            type(raijuGrid_T)  , intent(in) :: Grid
+            type(raijuState_T) , intent(inout) :: State
+        end subroutine raijuUpdateV_T
 
-        function sifDP2EtaMap_T(Model,D,kT,vm,amin,amax) result (etaK)
-            Import :: rp, sifModel_T
-            type(sifModel_T), intent(in) :: Model
+        function raijuDP2EtaMap_T(Model,D,kT,vm,amin,amax) result (etaK)
+            Import :: rp, raijuModel_T
+            type(raijuModel_T), intent(in) :: Model
             real(rp), intent(in) :: D,kT,vm,amin,amax
             real(rp) :: etaK
-        end function sifDP2EtaMap_T
+        end function raijuDP2EtaMap_T
     end interface
 
 
 
 
-end module siftypes
+end module raijutypes
 
 
 

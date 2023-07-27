@@ -63,8 +63,8 @@ set(GAMIC ${GAMICDEF} CACHE FILEPATH "Gamera IC file")
 file(GLOB VOLTICDEF src/voltron/ICs/earthcmi.F90)
 set(VOLTIC ${VOLTICDEF} CACHE FILEPATH "Voltron IC file")
 
-file(GLOB SIFICDEF src/voltron/ICs/sifOwdIC.F90)
-set(SIFIC ${SIFICDEF} CACHE FILEPATH "SIF IC file")
+file(GLOB RAIJUICDEF src/voltron/ICs/raijuOwdIC.F90)
+set(RAIJUIC ${RAIJUICDEF} CACHE FILEPATH "RAIJU IC file")
 
 file(GLOB TPICDEF src/chimp/tpICs/tpICstd.F90)
 set(TPIC ${TPICDEF} CACHE FILEPATH "CHIMP TP IC file")
@@ -208,17 +208,17 @@ target_link_libraries(rcm.x rcmlib baselib)
 add_dependencies(rcm rcm.x baselib)
 
 #-------------
-#Kaiju: SIF
-message("Adding SIF module ...")
-message("\tIC file is ${SIFIC}")
+#Kaiju: RAIJU
+message("Adding RAIJU module ...")
+message("\tIC file is ${RAIJUIC}")
 # Add source
-add_subdirectory(src/sif)
-add_custom_target(sif ALL)
+add_subdirectory(src/raiju)
+add_custom_target(raiju ALL)
 
-message("\tAdding executable sifOWD.x")
-add_executable(sifOWD.x src/drivers/sifOWDx.F90 ${SIFIC})
-target_link_libraries(sifOWD.x voltlib gamlib remixlib chimplib rcmlib siflib baselib)
-add_dependencies(sif sifOWD.x)
+message("\tAdding executable raijuOWD.x")
+add_executable(raijuOWD.x src/drivers/raijuOWDx.F90 ${RAIJUIC})
+target_link_libraries(raijuOWD.x voltlib gamlib remixlib chimplib rcmlib raijulib baselib)
+add_dependencies(raiju raijuOWD.x)
 
 
 #-------------
@@ -229,7 +229,7 @@ add_subdirectory(src/voltron)
 add_custom_target(voltron ALL)
 message("\tAdding executable voltron.x")
 add_executable(voltron.x src/drivers/voltronx.F90)
-target_link_libraries(voltron.x voltlib gamlib remixlib chimplib rcmlib siflib baselib)
+target_link_libraries(voltron.x voltlib gamlib remixlib chimplib rcmlib raijulib baselib)
 add_dependencies(voltron voltron.x)
 
 if(ENABLE_MPI)

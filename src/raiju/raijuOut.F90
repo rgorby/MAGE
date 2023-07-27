@@ -1,14 +1,14 @@
-module sifOut
-    use sifIO
+module raijuOut
+    use raijuIO
 
     implicit none
 
     contains
 
-    subroutine sifOutput(Model, Grid, State)
-        type(sifModel_T), intent(inout) :: Model
-        type(sifGrid_T), intent(in) :: Grid
-        type(sifState_T), intent(inout) :: State
+    subroutine raijuOutput(Model, Grid, State)
+        type(raijuModel_T), intent(inout) :: Model
+        type(raijuGrid_T), intent(in) :: Grid
+        type(raijuState_T), intent(inout) :: State
 
         character(len=strLen) :: gStr,tStr
 
@@ -20,14 +20,14 @@ module sifOut
             else
                 write(tStr,'(es9.2,a)') State%t, ' [code]'
             endif
-            write (*, '(a,a,a,a,a)') ANSIGREEN, '<Writing SIF HDF5 DATA @ t = ', trim(tStr), ' >', ANSIRESET
+            write (*, '(a,a,a,a,a)') ANSIGREEN, '<Writing RAIJU HDF5 DATA @ t = ', trim(tStr), ' >', ANSIRESET
         endif
 
-        call WriteSIF(Model, Grid, State, gStr)
+        call WriteRAIJU(Model, Grid, State, gStr)
 
         !Setup for next output
         State%IO%nOut = State%IO%nOut + 1
         State%IO%tOut = State%t + State%IO%dtOut
-    end subroutine sifOutput
+    end subroutine raijuOutput
 
-end module sifOut
+end module raijuOut

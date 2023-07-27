@@ -1,10 +1,10 @@
-module sifetautils
+module raijuetautils
 
     use planethelper
 
-    use sifdefs
-    use siftypes
-    use sifspecieshelper
+    use raijudefs
+    use raijutypes
+    use raijuspecieshelper
 
     implicit none
 
@@ -25,8 +25,8 @@ module sifetautils
 !------
     subroutine EvalMoments(Grid, State)
         !! Calculate D,P, and vAvg for all species across entire grid
-        type(sifGrid_T) , intent(in)    :: Grid
-        type(sifState_T), intent(inout) :: State
+        type(raijuGrid_T) , intent(in)    :: Grid
+        type(raijuState_T), intent(inout) :: State
 
         integer :: i,j,s  ! i,j,species iterators
 
@@ -59,7 +59,7 @@ module sifetautils
             ! Then add each species moment to the bulk
             do s=1,Grid%nSpc
                 ! Don't include electrons to total number density
-                if(Grid%spc(s)%spcType .ne. SIFELE) then
+                if(Grid%spc(s)%spcType .ne. RAIJUELE) then
                     State%Den  (:,:,1) = State%Den  (:,:,1) + State%Den  (:,:,s+1)
                 endif
                 State%Press(:,:,1) = State%Press(:,:,1) + State%Press(:,:,s+1)
@@ -104,7 +104,7 @@ module sifetautils
 
     function SpcEta2Den(spc, eta, bVol) result(D)
         !! Take a species' eta at a specific point, and sum moments to get its density and pressure
-        type(SIFSpecies_T), intent(in) :: spc
+        type(raijuSpecies_T), intent(in) :: spc
             !! Species info
         real(rp), dimension(spc%kStart:spc%kEnd), intent(in) :: eta
             !! Etas we are summing
@@ -128,7 +128,7 @@ module sifetautils
 
     function SpcEta2Press(spc, eta, bVol) result(P)
         !! Take a species' eta at a specific point, and sum moments to get its density and pressure
-        type(SIFSpecies_T), intent(in) :: spc
+        type(raijuSpecies_T), intent(in) :: spc
             !! Species info
         real(rp), dimension(spc%kStart:spc%kEnd), intent(in) :: eta
             !! Etas we are summing
@@ -156,9 +156,9 @@ module sifetautils
 
 
     subroutine DkT2SpcEta(Model, spc, eta, D, kT, vm)
-        !! Take a density and pressure, and map it to SIF eta channels for given flavor
-        type(sifModel_T), intent(in) :: Model
-        type(SIFSpecies_T), intent(in) :: spc
+        !! Take a density and pressure, and map it to RAIJU eta channels for given flavor
+        type(raijuModel_T), intent(in) :: Model
+        type(raijuSpecies_T), intent(in) :: spc
             !! Species info
         real(rp), dimension(spc%kStart:spc%kEnd), intent(inout) :: eta
             !! Len(spc%N) etas we need to populate
@@ -196,7 +196,7 @@ module sifetautils
     function Kappa2Eta(Model,D,kT,vm,amin,amax) result(etaK)
         !! Convert density and temperature to eta at specific lambda value
         !! Adapted from eqn 3.12 from 10.1007/s11214-013-9982-9 ?
-        type(sifModel_T), intent(in) :: Model
+        type(raijuModel_T), intent(in) :: Model
         real(rp), intent(in) :: D,kT,vm,amin,amax
             !! Density [#/cc], kT [keV], vm [(Rx/nT)^(-2/3)],
             !! min and max lambda vals [eV * (Rx/nT)^(2/3)]
@@ -239,7 +239,7 @@ module sifetautils
         !!   erf(x) ~ 1 - (a1.t + a2.t^2 + a3.t^3 + a4.t^5 + a5.t^5)*exp(-x^2) + eps(x)
         !!   t = 1/(1+px)
         !!   |eps(x)| <= 1.5e-7
-        type(sifModel_T), intent(in) :: Model
+        type(raijuModel_T), intent(in) :: Model
         real(rp), intent(in) :: D,kT,vm,amin,amax
             !! Density [#/cc], kT [keV], vm [(Rx/nT)^(-2/3)],
             !! min and max lambda vals [eV * (Rx/nT)^(2/3)]
@@ -272,7 +272,7 @@ module sifetautils
 
 ! General helpers
     function eta2intensity(spc, bVol, eta) result (intensity)
-        type(SIFSpecies_T), intent(in) :: spc
+        type(raijuSpecies_T), intent(in) :: spc
         real(rp), intent(in) :: bVol
             !! bVol = flux tube volume [Rx/nT]
         real(rp), dimension(spc%kStart:spc%kEnd), intent(in) :: eta
@@ -296,4 +296,4 @@ module sifetautils
 
     end function eta2intensity
 
-end module sifetautils
+end module raijuetautils

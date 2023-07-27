@@ -1,11 +1,11 @@
 !! Routines to handle packing coupling objects when one way driving with output files
 
-module sifowdcpl
+module raijuowdcpl
 
     use imagtubes
 
-    use siftypes
-    use sifcpltypes
+    use raijutypes
+    use raijucpltypes
 
     !!Temporary. Eventually we will just use shellGrid stuff
     use calcdbtypes
@@ -24,10 +24,10 @@ module sifowdcpl
     !> This function takes updated model states and does the operations
     !> necessary to update the cplBase%fromV object
     subroutine packFromV(fromV, vApp, rmState, sApp)
-        type(sif_fromV_T), intent(inout) :: fromV
+        type(raiju_fromV_T), intent(inout) :: fromV
         type(voltApp_T), intent(inout) :: vApp
         type(rmState_T) :: rmState
-        type(sifApp_T) , intent(in) :: sApp
+        type(raijuApp_T) , intent(in) :: sApp
 
         integer :: i,j
         real(rp), dimension(:,:), allocatable :: tmpPot
@@ -41,7 +41,7 @@ module sifowdcpl
         ! Set potential
         !call mix_map_grids(m2sMap, rmState%nPot, fromV%pot)
         !!!!!
-        !! Stupid bug working between sif's and rmState's indexing
+        !! Stupid bug working between RAIJU's and rmState's indexing
         !!!!!!
         associate(sh=>sApp%Grid%shGrid)
         call mix_map_grids(m2sMap, rmState%nPot, tmpPot)
@@ -69,15 +69,15 @@ module sifowdcpl
 
 
     subroutine genImagTubes(fromV, vApp, sApp)
-        type(sif_fromV_T), intent(inout) :: fromV
+        type(raiju_fromV_T), intent(inout) :: fromV
         type(voltApp_T), intent(in   ) :: vApp
-        type(sifApp_T ), intent(in) :: sApp
+        type(raijuApp_T ), intent(in) :: sApp
 
         integer :: i,j
         real(rp) :: seedR
         type(fLine_T) :: fLine
         ! Get field line info and potential from voltron
-        ! And put the data into sif's fromV coupling object
+        ! And put the data into RAIJU's fromV coupling object
 
         associate(sh=>sApp%Grid%shGrid , &
             planet=>sApp%Model%planet, &
@@ -137,4 +137,4 @@ module sifowdcpl
     end subroutine InitMixMap
 
 
-end module sifowdcpl
+end module raijuowdcpl

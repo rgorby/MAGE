@@ -1,12 +1,12 @@
-module sifadvancer
+module raijuadvancer
     use clocks
     use planethelper
 
-    use sifdefs
-    use siftypes
-    use sifetautils
-    use sifBCs
-    use siflosses
+    use raijudefs
+    use raijutypes
+    use raijuetautils
+    use raijuBCs
+    use raijulosses
 
     implicit none
 
@@ -18,9 +18,9 @@ module sifadvancer
 
     subroutine raijuPreAdvance(Model, Grid, State, fullEtaMapO)
         !! Takes a state and calculates what is needed in order to advance
-        type(sifModel_T), intent(in) :: Model
-        type(sifGrid_T ), intent(in) :: Grid
-        type(sifState_T), intent(inout) :: State
+        type(raijuModel_T), intent(in) :: Model
+        type(raijuGrid_T ), intent(in) :: Grid
+        type(raijuState_T), intent(inout) :: State
         logical, optional, intent(in) :: fullEtaMapO
 
         logical :: fullEtaMap
@@ -34,7 +34,7 @@ module sifadvancer
 
         ! Moments to etas
         call Tic("BCs")
-        call applySifBCs(Model, Grid, State, fullEtaMap) ! If fullEtaMap=True, mom2eta map is applied to the whole domain
+        call applyRaijuBCs(Model, Grid, State, fullEtaMap) ! If fullEtaMap=True, mom2eta map is applied to the whole domain
         call Toc("BCs")
 
         ! Calc cell velocities
@@ -59,7 +59,7 @@ module sifadvancer
     subroutine potExB(sh, State, pExB)
         ! Trivial, but putting it here in case we need extra options for it later
         type(ShellGrid_T), intent(in) :: sh
-        type(sifState_T), intent(in) :: State
+        type(raijuState_T), intent(in) :: State
         real(rp), dimension(sh%isg:sh%ieg,sh%jsg:sh%jeg), intent(inout) :: pExB
         
         pExB = State%espot * 1.e3  ! [kV -> V]
@@ -100,8 +100,8 @@ module sifadvancer
         !! Calculates effective potential [V] for all lambda channels as the sum of pExB, pCorot, and pGC
         !! Note: This is not used to calculate velocities
         type(planet_T), intent(in) :: planet
-        type(sifGrid_T) , intent(in) :: Grid
-        type(sifState_T), intent(in) :: State
+        type(raijuGrid_T) , intent(in) :: Grid
+        type(raijuState_T), intent(in) :: State
         real(rp), dimension(Grid%shGrid%isg:Grid%shGrid%ieg,&
                             Grid%shGrid%jsg:Grid%shGrid%jeg,&
                             Grid%Nk), intent(inout) :: pEff
@@ -133,9 +133,9 @@ module sifadvancer
         !! Note: FTV is not a potential, alamc*bVol**(-2./3.) is
         !! Units (gradE and gradCorot): V / rad
         !! Units (gradVM): V / rad / lambda
-        type(sifModel_T), intent(in) :: Model
-        type(sifGrid_T ), intent(in) :: Grid
-        type(sifState_T), intent(inout) :: State
+        type(raijuModel_T), intent(in) :: Model
+        type(raijuGrid_T ), intent(in) :: Grid
+        type(raijuState_T), intent(inout) :: State
 
         real(rp) :: RIon
         logical , dimension(Grid%shGrid%isg:Grid%shGrid%ieg,&
@@ -145,7 +145,7 @@ module sifadvancer
         real(rp), dimension(Grid%shGrid%isg:Grid%shGrid%ieg,&
                             Grid%shGrid%jsg:Grid%shGrid%jeg, 2) :: gradVM
         ! What's good
-        where (State%active .ne. SIFINACTIVE)
+        where (State%active .ne. RAIJUINACTIVE)
             isGood = .true.
         elsewhere
             isGood = .false.
@@ -176,9 +176,9 @@ module sifadvancer
 !------
     subroutine calcVelocityCC(Model, Grid, State, k, Vtp)
         !! Uses gradPots stored in State to calculate cell-centered velocity [rad/s] for lambda channel k
-        type(sifModel_T), intent(in) :: Model
-        type(sifGrid_T ), intent(in) :: Grid
-        type(sifState_T), intent(in) :: State
+        type(raijuModel_T), intent(in) :: Model
+        type(raijuGrid_T ), intent(in) :: Grid
+        type(raijuState_T), intent(in) :: State
         integer, intent(in) :: k
         real(rp), dimension(Grid%shGrid%isg:Grid%shGrid%ieg,&
                             Grid%shGrid%jsg:Grid%shGrid%jeg, 2), intent(inout) :: Vtp
@@ -205,7 +205,7 @@ module sifadvancer
     subroutine calcGradFTV(RIon, Grid, isG, V, gradV)
         real(rp), intent(in) :: RIon
             !! Iono radius in Rp
-        type(sifGrid_T), intent(in) :: Grid
+        type(raijuGrid_T), intent(in) :: Grid
         logical , dimension(Grid%shGrid%isg:Grid%shGrid%ieg,Grid%shGrid%jsg:Grid%shGrid%jeg), intent(in) :: isG
         real(rp), dimension(Grid%shGrid%isg:Grid%shGrid%ieg,Grid%shGrid%jsg:Grid%shGrid%jeg), intent(in) :: V
         real(rp), dimension(Grid%shGrid%isg:Grid%shGrid%ieg,Grid%shGrid%jsg:Grid%shGrid%jeg, 2), intent(inout) :: gradV
@@ -254,7 +254,7 @@ module sifadvancer
         !! Up to someone else to overwrite ghosts
         real(rp), intent(in) :: RIon
             !! Ionosphere radius in Rp
-        type(sifGrid_T), intent(in) :: Grid
+        type(raijuGrid_T), intent(in) :: Grid
         logical , dimension(Grid%shGrid%isg:Grid%shGrid%ieg,Grid%shGrid%jsg:Grid%shGrid%jeg), intent(in) :: isG
         real(rp), dimension(Grid%shGrid%isg:Grid%shGrid%ieg,Grid%shGrid%jsg:Grid%shGrid%jeg), intent(in) :: Q
         real(rp), dimension(Grid%shGrid%isg:Grid%shGrid%ieg,Grid%shGrid%jsg:Grid%shGrid%jeg, 2), intent(inout) :: gradQ
@@ -315,8 +315,8 @@ module sifadvancer
         !! TODO: eventually this should use iVel instead
         !! TODO: Consider dynamic CFL factor
         type(ShellGrid_T), intent(in) :: sh
-        type(sifGrid_T), intent(in) :: Grid
-        type(sifState_T), intent(in) :: State
+        type(raijuGrid_T), intent(in) :: Grid
+        type(raijuState_T), intent(in) :: State
         integer, intent(in) :: k
         
         integer :: i,j
@@ -330,8 +330,8 @@ module sifadvancer
         enddo
         
         !vMag = norm2(State%cVel(:,:,k,:), 3)
-        ! Only consider points that are in activeShell and not SIFINACTIVE
-        where (State%active .ne. SIFINACTIVE .and. asIJ)
+        ! Only consider points that are in activeShell and not RAIJUINACTIVE
+        where (State%active .ne. RAIJUINACTIVE .and. asIJ)
             isGood = .true.
         elsewhere
             isGood = .false.
@@ -360,9 +360,9 @@ module sifadvancer
 !------
 
     subroutine AdvanceState(Model, Grid, State)
-        type(sifModel_T), intent(in) :: Model
-        type(sifGrid_T), intent(in) :: Grid
-        type(sifState_T), intent(inout) :: State
+        type(raijuModel_T), intent(in) :: Model
+        type(raijuGrid_T), intent(in) :: Grid
+        type(raijuState_T), intent(inout) :: State
 
         integer :: k
 
@@ -385,9 +385,9 @@ module sifadvancer
 
     subroutine AdvanceLambda(Model, Grid, State, k)
         !! Advances a single lambda channel from State time t to t+dt
-        type(sifModel_T), intent(in) :: Model
-        type(sifGrid_T), intent(in) :: Grid
-        type(sifState_T), intent(inout) :: State
+        type(raijuModel_T), intent(in) :: Model
+        type(raijuGrid_T), intent(in) :: Grid
+        type(raijuState_T), intent(inout) :: State
         integer, intent(in) :: k
 
         integer :: n, s , Nmax
@@ -449,4 +449,4 @@ module sifadvancer
     end subroutine AdvanceLambda
 
 
-end module sifadvancer
+end module raijuadvancer

@@ -1,15 +1,15 @@
 ! Initialize kaimag
-module sifstarter
+module raijustarter
     use shellgrid
     use xml_input
     use planethelper
 
-    use sifdefs
-    use siftypes
-    use sifgrids
-    use sifetautils
-    use sifout
-    use sifICHelpers
+    use raijudefs
+    use raijutypes
+    use raijugrids
+    use raijuetautils
+    use raijuout
+    use raijuICHelpers
 
     implicit none
 
@@ -20,40 +20,39 @@ module sifstarter
 ! Main Initialization Routines
 !------
 
-    subroutine sifInit(app, iXML)
-        type(sifApp_T), intent(inout) :: app
+    subroutine raijuInit(app, iXML)
+        type(raijuApp_T), intent(inout) :: app
         type(XML_Input_T), intent(in) :: iXML
         ! Init model, grid, state
-        call sifInitModel(app%Model, iXML)
-        call sifInitGrid(app%Model, app%Grid, iXML)
+        call raijuInitModel(app%Model, iXML)
+        call raijuInitGrid(app%Model, app%Grid, iXML)
 
         ! TODO: Handle restart here. For now, assuming no restart
 
         ! Init output file
-        call sifInitIO(app%Model, app%Grid)
+        call raijuInitIO(app%Model, app%Grid)
 
-        call sifInitState(app%Model,app%Grid,app%State,iXML)
+        call raijuInitState(app%Model,app%Grid,app%State,iXML)
 
         ! Initialize IOCLOCK
         call app%State%IO%init(iXML,app%State%t,app%State%ts)
 
-    end subroutine sifInit
+    end subroutine raijuInit
 
     ! Sets up Model, but Grid and State must be set up separately
-    subroutine sifInitModel(Model, iXML)
-        type(sifModel_T) , intent(inout) :: Model
+    subroutine raijuInitModel(Model, iXML)
+        type(raijuModel_T) , intent(inout) :: Model
         type(XML_Input_T), intent(in)    :: iXML
          
         character(len=strLen) :: tmpStr
 
-        write(*,*) "sifInitModel is starting"
+        write(*,*) "raijuInitModel is starting"
 
         ! Assuming that if being controlled by e.g. Voltron, someone else will set RunID accordingly
         ! If getting here without RunID being set, assume we're running in stand-alone
         ! (Currently no decisions are made based on being SA, just means we set the RunID ourselves)
         if (trim(Model%RunID) .eq. "") then
-            write(*,*) "Setting default RunID to be sifSA"
-            call iXML%Set_Val(Model%RunID, "prob/RunID","sifSA")  ! sif stand-alone
+            call iXML%Set_Val(Model%RunID, "prob/RunID","raijuSA")  ! raiju stand-alone
         endif
 
         ! Timing info, if provided
@@ -62,12 +61,12 @@ module sifstarter
         call iXML%Set_Val(Model%dt  ,'time/dt',1.0)
 
         ! Config file
-        call iXML%Set_Val(Model%configFName, "config/fname","sifconfig.h5")
+        call iXML%Set_Val(Model%configFName, "config/fname","raijuconfig.h5")
         call CheckFileOrDie(Model%configFName,"Unable to open file")
 
         call iXML%Set_Val(Model%isMPI, "mpi/isMPI",.false.)
         if (Model%isMPI) then
-            write(*,*) "MPI not implemented for SIF yet, dying."
+            write(*,*) "MPI not implemented for RAIJU yet, dying."
             stop
         endif
 
@@ -103,7 +102,7 @@ module sifstarter
                 call iXML%Set_Val(Model%kappa, "moments/kappa",6.0)
             ! TODO: Add user option which will point to whatever is in the chosen IC file
             case DEFAULT
-                write(*,*) "SIF received unavailable DP2Eta mapping: ",tmpStr
+                write(*,*) "RAIJU received unavailable DP2Eta mapping: ",tmpStr
                 write(*,*) " Dying."
                 stop
         end select
@@ -126,12 +125,12 @@ module sifstarter
 
         !TODO: Add flags to output certain data, like coupling information
 
-    end subroutine sifInitModel
+    end subroutine raijuInitModel
 
 
-    subroutine sifInitGrid(Model, Grid, iXML, shGridO)
-        type(sifModel_T) , intent(inout) :: Model
-        type(sifGrid_T)  , intent(inout) :: Grid
+    subroutine raijuInitGrid(Model, Grid, iXML, shGridO)
+        type(raijuModel_T) , intent(inout) :: Model
+        type(raijuGrid_T)  , intent(inout) :: Grid
         type(XML_Input_T), intent(in)   :: iXML
         type(ShellGrid_T), optional, intent(in)    :: shGridO
 
@@ -147,18 +146,18 @@ module sifstarter
             case("UNISPH")
                 Grid%gType = G_UNISPH
                 ! Generate our own grid from scratch
-                call sifGenUniSphGrid(Grid, iXML)
+                call raijuGenUniSphGrid(Grid, iXML)
             case("SHGRID")
                 Grid%gType = G_SHGRID
                 ! Then we should be receiving a predefined ShellGrid that Voltron has set up
                 if(present(shGridO)) then
                     shGrid = shGridO
-                    call sifGenGridFromShGrid(Grid, shGrid)
+                    call raijuGenGridFromShGrid(Grid, shGrid)
                 else
-                    write(*,*) "SIF expecting a ShellGrid_T but didn't receive one. Dying."
+                    write(*,*) "RAIJU expecting a ShellGrid_T but didn't receive one. Dying."
                 endif
             case DEFAULT
-                write(*,*) "SIF Received invalid grid definition: ",Grid%gType
+                write(*,*) "RAIJU Received invalid grid definition: ",Grid%gType
                 write(*,*) " Dying."
                 stop
         end select
@@ -172,13 +171,13 @@ module sifstarter
         call iXML%Set_Val(Grid%ignoreConfigMismatch, "config/ignoreMismatch",.false.)
         call initLambdaGrid(Model, Grid, Model%configFName)
 
-    end subroutine sifInitGrid
+    end subroutine raijuInitGrid
 
 
-    subroutine sifInitState(Model, Grid, State, iXML)
-        type(sifModel_T), intent(inout) :: Model
-        type(sifGrid_T) , intent(in)    :: Grid
-        type(sifState_T), intent(inout) :: State
+    subroutine raijuInitState(Model, Grid, State, iXML)
+        type(raijuModel_T), intent(inout) :: Model
+        type(raijuGrid_T) , intent(in)    :: Grid
+        type(raijuState_T), intent(inout) :: State
         type(XML_Input_T), intent(in)   :: iXML
 
         ! Allocate arrays
@@ -238,21 +237,21 @@ module sifstarter
         select case(trim(Model%icStr))
             case("DIP")
                 !! Simple Maxwellian in a dipole field
-                Model%initState => initSifIC_DIP
+                Model%initState => initRaijuIC_DIP
             case("USER")
-                ! Call the IC in the module sifuseric
-                ! This module is set in cmake via the SIFIC variable
+                ! Call the IC in the module raijuuseric
+                ! This module is set in cmake via the RAIJUIC variable
                 !Model%initState => userInitStateFunc
                 write(*,*)"User initState not yet implemented"
                 stop
             case DEFAULT
-                write(*,*)"Invalid IC name to SIF, see sifStarter.F90:sifInitState. Bye."
+                write(*,*)"Invalid IC name to RAIJU, see raijuStarter.F90:raijuInitState. Bye."
                 stop
         end select
 
         call Model%initState(Model, Grid, State, iXML)
 
-    end subroutine sifInitState
+    end subroutine raijuInitState
 
 
-end module sifstarter
+end module raijustarter

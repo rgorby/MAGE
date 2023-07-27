@@ -1,6 +1,6 @@
 ! kaimag definitions/constants
 
-module sifdefs
+module raijudefs
     use kdefs
 
     implicit none
@@ -22,19 +22,19 @@ module sifdefs
 
     ! Topology
     enum, bind(C)
-        enumerator :: SIFOPEN=0, SIFCLOSED
+        enumerator :: RAIJUOPEN=0, RAIJUCLOSED
             !! Whether the field line corresponding to grid point is open or closed
     endenum
 
     ! Active/buffer/inactive cells
     enum, bind(C)
-        enumerator :: SIFINACTIVE=-1, SIFBUFFER, SIFACTIVE
-            !! Helps determine how SIF is going to treat the grid point
+        enumerator :: RAIJUINACTIVE=-1, RAIJUBUFFER, RAIJUACTIVE
+            !! Helps determine how RAIJU is going to treat the grid point
     endenum
 
     ! Species type
     enum, bind(C)
-        enumerator :: SIFNSPC=0,SIFELE,SIFHPLUS,SIFOPLUS
+        enumerator :: RAIJUNSPC=0,RAIJUELE,RAIJUHPLUS,RAIJUOPLUS
                     ! Null species, electron, h+, o+
     endenum
 
@@ -52,4 +52,4 @@ module sifdefs
     real(rp) :: fracWorthyDef = 0.001
         !! Fraction that a lambda channel must contribute to total pressure or density in order to be worthy of being evolved
 
-end module sifdefs
+end module raijudefs

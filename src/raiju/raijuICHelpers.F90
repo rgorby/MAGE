@@ -1,21 +1,21 @@
-module sifICHelpers
+module raijuICHelpers
     use kdefs
     use XML_Input
     use planethelper
 
-    use sifdefs
-    use siftypes
-    use sifgrids
-    use sifetautils
+    use raijudefs
+    use raijutypes
+    use raijugrids
+    use raijuetautils
 
     implicit none
 
     contains
 
-    subroutine initSifIC_DIP(Model, Grid, State, iXML)
-        type(sifModel_T) , intent(in)    :: Model
-        type(sifGrid_T)  , intent(in)    :: Grid
-        type(sifState_T) , intent(inout) :: State
+    subroutine initRaijuIC_DIP(Model, Grid, State, iXML)
+        type(raijuModel_T) , intent(in)    :: Model
+        type(raijuGrid_T)  , intent(in)    :: Grid
+        type(raijuState_T) , intent(inout) :: State
         type(XML_Input_T), intent(in)    :: iXML
 
         real(rp) :: D, kT_i, kT_e, L_peak, dL, tiote, cpcp
@@ -61,7 +61,7 @@ module sifICHelpers
 
          ! TODO: Implement psphere IC
         if (Model%doPlasmasphere .and. spcExists(Grid, F_PSPH)) then
-            write(*,*) "SIF Warning: plasmasphere on but no IC is implemented in initSIFIC_DIP."
+            write(*,*) "RAIJU Warning: plasmasphere on but no IC is implemented in initRaijuIC_DIP."
         endif
 
         ! Ni, Nj variables
@@ -104,6 +104,6 @@ module sifICHelpers
         ! Calc moments
         call EvalMoments(Grid, State)
 
-    end subroutine initSifIC_DIP
+    end subroutine initRaijuIC_DIP
 
-end module sifICHelpers
+end module raijuICHelpers
