@@ -17,6 +17,7 @@ module planethelper
         character(len=strLen) :: pID !Planet ID string
         logical :: doCorot
         real(rp) :: RIon
+        real(rp) :: period  ! Rotation period in seconds
 
         if (present(pStrO)) then
             pID = pStrO
@@ -33,7 +34,9 @@ module planethelper
             planet%ri_m = RionE*1.e6  ! Defined in kdefs in 10000km
             planet%grav = 9.807
             call xmlInp%Set_val(planet%magMoment, "/Kaiju/Gamera/prob/M0", EarthM0g)
-            planet%psiCorot = EarthPsi0
+            call xmlInp%Set_val(period, "/Kaiju/Gamera/prob/period", 86400.0)
+            planet%psiCorot = CorotPotential(planet%rp_m, period, planet%magMoment)
+            write(*,*)" Calculated corotation potential [kV]: ", planet%psiCorot
             planet%doGrav = .true.
         case("Saturn","saturn","SATURN")
             planet%rp_m = RSaturnXE*REarth
@@ -157,6 +160,17 @@ module planethelper
             call WriteVars(IOVars, doIOp, h5File, "Planet")
         endif
     end subroutine writePlanetParams
+
+
+    function CorotPotential(Rp_m, period, Bmag) result(cPot)
+        !! Calculates corotation potential, assuming dipole and rotational axes are aligned
+        real(rp), intent(in) :: Rp_m  ! Planetary radius in meters
+        real(rp), intent(in) :: period  ! Rotation period in seconds
+        real(rp), intent(in) :: Bmag  ! Magnetic moment in Gauss
+        real(rp) :: cPot  ! Corotation potential in kV
+
+        cPot = Rp_m**2.0 * (2.0*PI/period) * (Bmag*G2T) * 1.0e-3 ! [kV]
+    end function CorotPotential
 
 ! Helpful thermo conversion functions
 
