@@ -66,7 +66,10 @@ module kdefs
     real(rp), parameter :: REarth = Re_cgs*1.0e-2 !m
 
     real(rp), parameter :: RionE  = 6.5    ! Earth Ionosphere radius in 1000 km
-    real(rp), parameter :: EarthPsi0 = 92.4 ! Corotation potential [kV]
+    ! Earth corotation potential
+    !real(rp), parameter :: EarthPsi0 = 92.4 ! !!OUTDATED, based on LFM magntic field strength
+    real(rp), parameter :: EarthPsi0 = 87.62  ! Calculated using B = 0.2961737 Gauss
+        ! Everyone should get Psi0 from planet object, leaving here since RCM still uses it
     
     !Saturn
     real(rp), parameter :: SaturnM0g = 0.21 !Gauss
