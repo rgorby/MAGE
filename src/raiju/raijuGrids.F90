@@ -82,7 +82,7 @@ module raijugrids
         type(planet_T), intent(in) :: planet
 
         integer :: i,j
-        real(rp), dimension(Grid%shGrid%isg:Grid%shGrid%ieg) :: sinTh, BMagTh
+        real(rp), dimension(Grid%shGrid%isg:Grid%shGrid%ieg) :: cosTh, BMagTh
 
         associate(shGr=>Grid%shGrid)
             ! First allocate remaining arrays
@@ -103,15 +103,15 @@ module raijugrids
             Grid%delPh(shGr%jsg) = 0.0
             Grid%delPh(shGr%jeg+1) = 0.0  
             do j=shGr%jsg+1,shGr%jeg
-                ! Define delta between th(i-1) and th(i)
+                ! Define delta between ph(i-1) and ph(i)
                 Grid%delPh(j) = abs(shGr%phc(j) - shGr%phc(j-1))
             enddo
 
             ! Calc Bmag on whole grid at the ionosphere
-            sinTh = sin(shGr%thc)
+            cosTh = cos(shGr%thc)
             BMagTh = planet%magMoment*G2nT &
-                    /(planet%ri_m/planet%rp_m)**3 &
-                    * sqrt(1+3*sinTh**2)
+                    /(planet%ri_m/planet%rp_m)**3.0 &
+                    * sqrt(1.0+3.0*cosTh**2.0)  ! [nT]
             do j=shGr%jsg,shGr%jeg
                 Grid%Bmag(:,j) = BMagTh
             enddo

@@ -96,8 +96,8 @@ module raijuICHelpers
             ! Electrostatic potential [kV]
                 ! Taken from Toffoletto's rcm.x
                 State%espot(i,j) = -cpcp/2. * sin(Grid%shGrid%phc(j)) &
-                                    * Grid%shGrid%thc(1)/Grid%shGrid%thc(i) & 
-                                    + Model%planet%psiCorot/L*sin(Grid%shGrid%thc(i))**2
+                                    * Grid%shGrid%thc(1)/Grid%shGrid%thc(i) !& 
+                                    !+ Model%planet%psiCorot/L*sin(Grid%shGrid%thc(i))**2
             enddo  
         enddo
 

@@ -169,7 +169,6 @@ module raijuSpeciesHelper
             write(*,*)" Fudge:   ", spc%fudge
             write(*,*)" kStart:  ", spc%kStart
             write(*,*)" kEnd:    ", spc%kEnd
-            write(*,*)" kDiff=   ", spc%kEnd-spc%kStart
             !write(*,*)" alami:   ", spc%alami
             
 
