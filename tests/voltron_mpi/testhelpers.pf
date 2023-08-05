@@ -168,7 +168,7 @@ contains
 
               ! now calculate local-only squish
               voltAppMpi%ebTrcApp%ebSquish%myNumBlocks = -1 ! I do all blocks
-              voltAppMpi%ebTrcApp%ebSquish%myFirstBlock = 0 ! ensure I start with the first block
+              voltAppMpi%ebTrcApp%ebSquish%myFirstBlock = 1 ! ensure I start with the first block
               call DeepUpdate(voltAppMpi, voltAppMpi%gAppLocal)
 
               sqErr = 0
