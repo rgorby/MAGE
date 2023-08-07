@@ -48,6 +48,7 @@ module chmpdefs
 
         logical :: isRestart=.false.
         logical :: isMAGE = .false.
+        logical :: doDip = .false.
 
         !Output info
         type (IOClock_T) :: IO
