@@ -1,6 +1,7 @@
 module raijuIO
     use ioh5
     use planethelper
+    use kai2geo
     
     use raijutypes
     use raijuetautils
@@ -128,6 +129,7 @@ module raijuIO
         integer :: i,j,s
         integer :: is, ie, js, je, ks, ke
         logical :: doGhosts
+        real(rp) :: axT, axP
         real(rp), dimension(:,:), allocatable :: outActiveShell
         real(rp), dimension(:,:,:), allocatable :: outDen, outIntensity
         real(rp), dimension(:,:,:), allocatable :: outPrecipN, outPrecipE, outPrecipAvgE
@@ -162,6 +164,16 @@ module raijuIO
         ! Add attributes
         call AddOutVar(IOVars,"time",State%t)
         call AddOutVar(IOVars,"MJD",State%mjd)
+
+        ! Save axis of rotation as attributes
+        if (Model%doGeoCorot) then
+            call GeoAxisTP(axT, axP)
+        else
+            axT = 0.0
+            axP = 0.0
+        endif
+        call AddOutVar(IOVars,"rotAxisT",axT)  ! Radians
+        call AddOutVar(IOVars,"rotAxisP",axP)  ! Radians
 
         ! Add State variables
         call AddOutVar(IOVars,"bminX",State%Bmin(is:ie,js:je,XDIR),uStr="nT")
@@ -260,7 +272,7 @@ module raijuIO
             ! Calc pEffective based on current state
             ! Make full ghost size since that's what the subroutine expects
             allocate(outPEff   (Grid%shGrid%isg:Grid%shGrid%ieg,Grid%shGrid%jsg:Grid%shGrid%jeg,Grid%Nk))
-            call calcEffectivePotential(Model%planet, Grid, State, outPEff)
+            call calcEffectivePotential(Model, Grid, State, outPEff)
             call AddOutVar(IOVars, "pEffective", outPEff(is:ie,js:je,:)*1e-3, uStr="kV")
             call AddOutVar(IOVars, "gradPotE"    , State%gradPotE    (is:ie,js:je,:), uStr="V/m")
             call AddOutVar(IOVars, "gradPotCorot", State%gradPotCorot(is:ie,js:je,:), uStr="V/m")

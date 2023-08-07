@@ -79,6 +79,9 @@ module raijutypes
             !! If we are driving, output clock info
         logical :: doFatOutput
             !! Output extra 3D arrays
+        logical :: doGeoCorot
+            !! If true, calc corotation potential from Geopack
+            !! If false, calc corotation potential assuming dipole and rotational axes are aligned
 
         ! Plasmasphere settings
         logical :: doPlasmasphere

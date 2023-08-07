@@ -2,9 +2,9 @@ program raijuSAx
     !! Stand-alone RAIJU driver
 
     use kdefs
-    !use planethelper
     use xml_input
     use clocks
+    use geopack, only : mjdRECALC
 
     ! RAIJU stuff
     use raijudefs
@@ -44,6 +44,11 @@ program raijuSAx
     call inpXML%Set_Val(mjd0,'prob/MJD0',51544.0)  ! default to 2000-01-01T00:00:00
     raiApp%State%mjd = mjd0
 
+    ! If we need geopack, make sure we init
+    if (raiApp%Model%doGeoCorot) then
+        call mjdRECALC(raiApp%State%mjd)
+    endif
+
     ! Ready to loop
     do while ( raiApp%State%t < (raiApp%Model%tFin + 0.5) )
         
@@ -70,6 +75,11 @@ program raijuSAx
         raiApp%State%t  = raiApp%State%t  + raiApp%Model%dt
         raiApp%State%ts = raiApp%State%ts + 1
         raiApp%State%mjd = T2MJD(raiApp%State%t,mjd0)
+
+        ! Update geopack if we need to
+        if (raiApp%Model%doGeoCorot) then
+            call mjdRECALC(raiApp%State%mjd)
+        endif
 
         if (raiApp%Model%doClockConsoleOut) then
             call printClocks()

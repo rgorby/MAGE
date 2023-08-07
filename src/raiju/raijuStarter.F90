@@ -89,6 +89,7 @@ module raijustarter
         call iXML%Set_Val(Model%tiote, "prob/tiote",4.0)
         call iXML%Set_Val(Model%worthyFrac, "prob/worthyFrac",fracWorthyDef)
         call iXML%Set_Val(Model%doLosses, "prob/doLosses",.true.)
+        call iXML%Set_Val(Model%doGeoCorot, "prob/doGeoCorot",.false.)
 
         ! Lambda channel settings
         call iXML%Set_Val(Model%doDynamicLambdaRanges, "lambdas/dynamicRanges",.false.)

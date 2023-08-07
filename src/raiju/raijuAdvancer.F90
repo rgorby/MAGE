@@ -1,6 +1,7 @@
 module raijuadvancer
     use clocks
     use planethelper
+    use kai2geo
 
     use raijudefs
     use raijutypes
@@ -66,13 +67,30 @@ module raijuadvancer
 
     end subroutine potExB
 
-    subroutine potCorot(planet, sh, pCorot)
+    subroutine potCorot(planet, sh, pCorot, doGeoCorotO)
         ! Simple corotation potential [V]
         type(planet_T), intent(in) :: planet
         type(ShellGrid_T), intent(in) :: sh
+        logical, intent(in), optional :: doGeoCorotO
 
         real(rp), dimension(sh%isg:sh%ieg,sh%jsg:sh%jeg), intent(inout) :: pCorot
-        integer :: j
+        integer :: i,j
+
+        if (present(doGeoCorotO)) then
+            if (doGeoCorotO) then
+                pCorot = 0.0
+                do j=sh%jsg,sh%jeg
+                    do i=sh%isg,sh%ieg
+                        call geocorotation_from_SMTP(sh%thc(i), sh%phc(j), pCorot(i,j))
+                    enddo
+                enddo
+                ! geopack corotation returns in kV, we need V
+                pCorot = pCorot * 1.e3  ! [kV -> V]
+                return
+            endif
+        endif
+
+        ! IfdoGeoCorotO was not provided, or it was false, we default to corotation on aligned dipole and rotational axis
 
         do j=sh%jsg,sh%jeg
             pCorot(:,j) = -planet%psiCorot*(planet%rp_m/planet%ri_m)*sin(sh%thc)**2 * 1.e3  ! [kV -> V]
@@ -96,10 +114,10 @@ module raijuadvancer
     end subroutine potGC
 
 
-    subroutine calcEffectivePotential(planet, Grid, State, pEff)
+    subroutine calcEffectivePotential(Model, Grid, State, pEff)
         !! Calculates effective potential [V] for all lambda channels as the sum of pExB, pCorot, and pGC
         !! Note: This is not used to calculate velocities
-        type(planet_T), intent(in) :: planet
+        type(raijuModel_T) , intent(in) :: Model
         type(raijuGrid_T) , intent(in) :: Grid
         type(raijuState_T), intent(in) :: State
         real(rp), dimension(Grid%shGrid%isg:Grid%shGrid%ieg,&
@@ -114,7 +132,7 @@ module raijuadvancer
 
         ! Grab 2D potentials
         call potExB(Grid%shGrid, State, pExB)
-        call potCorot(planet, Grid%shGrid, pCorot)
+        call potCorot(Model%planet, Grid%shGrid, pCorot, Model%doGeoCorot)
         
         ! Build 3D effective potential
         !$OMP PARALLEL DO default(shared) collapse(1) &
@@ -152,7 +170,7 @@ module raijuadvancer
         
         ! Ionospheric and corotation potentials are just simple derivatives
         call potExB(Grid%shGrid, State, pExB)  ! [V]
-        call potCorot(Model%planet, Grid%shGrid, pCorot)  ! [V]
+        call potCorot(Model%planet, Grid%shGrid, pCorot, Model%doGeoCorot)  ! [V]
         call calcGradIJ(Model%planet%ri_m, Grid, isGood, pExB  , State%gradPotE    )  ! [V/m]
         call calcGradIJ(Model%planet%ri_m, Grid, isGood, pCorot, State%gradPotCorot)  ! [V/m]
 
