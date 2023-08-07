@@ -25,7 +25,6 @@ module ebsquish
     real(rp), parameter, private :: startEps  = 0.05
     real(rp), parameter, private :: rEps      = 0.125
     real(rp), parameter, private :: ShueScl   = 1.25 !Safety factor for Shue MP
-    logical , parameter, private :: doDipTest = .false.
     contains
 
     !Adjust the starting indices of the squish blocks according to the passed in array values
@@ -203,7 +202,7 @@ module ebsquish
         call GetSquishBds(vApp,ksB,keB)
         call Tic("SQ-Project")
 
-        if (doDipTest) write(*,*) "Using fake projection for testing!"
+        if (ebModel%doDip) write(*,*) "Using fake projection for testing!"
 
         !$OMP PARALLEL DO default(shared) collapse(2) &
         !$OMP schedule(dynamic) &
@@ -470,10 +469,10 @@ module ebsquish
         isGood = inShueMP_SM(xyz,ShueScl)
         if (.not. isGood) return
         
-        if (doDipTest) then
+        if (ebApp%ebModel%doDip) then
             xyz0 = DipoleShift(xyz,norm2(xyz)+startEps)
-            x1 = InvLatitude(xE)
-            x2 = atan2(xE(YDIR),xE(XDIR))
+            x1 = InvLatitude(xyz0)
+            x2 = atan2(xyz0(YDIR),xyz0(XDIR))
             if (x2 < 0) x2 = x2 + 2*PI
             return
         endif
