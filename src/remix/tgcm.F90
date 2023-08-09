@@ -13,7 +13,8 @@ module gcminterp
 
   type(mixGrid_T),allocatable,private :: gcmG
   character(len=strLen), dimension(nVars), private :: mixVarNames
-  character(len=strLen), dimension(nVars), private :: mixUnitNames  
+  character(len=strLen), dimension(nVars), private :: mixUnitNames 
+  real(rp), dimension(:,:,:), allocatable, private :: invar2d,outvar2d
 
   interface exportgcm
     module procedure exportgcmfile, exportgcmmpi
@@ -24,7 +25,7 @@ module gcminterp
 
   contains
 
-    subroutine init_gcm(gcm,ion,isRestart)
+    subroutine init_gcm_file(gcm,ion,isRestart)
       type(gcm_T),intent(inout) :: gcm
       type(mixIon_T),dimension(:),intent(inout) :: ion
       logical, intent(in) :: isRestart
@@ -39,10 +40,28 @@ module gcminterp
 
       gcm%isRestart = isRestart
 
-      call init_gcm_mix(gcm,ion)
+      call init_gcm_mix_file(gcm,ion)
       
+    end subroutine init_gcm_file
+
+    subroutine init_gcm_mpi(gcm,ion,isRestart)
+      type(gcm_T),intent(inout) :: gcm
+      type(mixIon_T),dimension(:),intent(inout) :: ion
+      logical, intent(in) :: isRestart
+
+      write(*,*) "start init_gcm"
+
+      if (.not. allocated(gcm%outlist)) allocate(gcm%outlist(mix2gcm_nvar))
+      gcm%outlist(1) = POT
+      gcm%outlist(2) = AVG_ENG
+      gcm%outlist(3) = NUM_FLUX
+      call initGCMNames()
+
+      gcm%isRestart = isRestart
+
+      call init_gcm_grid(gcm,ion)
       
-    end subroutine init_gcm
+    end subroutine init_gcm_mpi
 
   subroutine initGCMNames()
     ! NOTE: these have to be in the same order as the
@@ -100,7 +119,7 @@ module gcminterp
     mixUnitNames(IM_INFLX)     = "1/cm^2 s"
   end subroutine initGCMNames
 
-    subroutine init_gcm_mix(gcm,ion)!,remixApp
+    subroutine init_gcm_mix_file(gcm,ion)!,remixApp
       type(gcm_T), intent(inout) :: gcm
       type(mixIon_T),dimension(:),intent(inout) :: ion
       !type(mixApp_T), intent(in) :: remixApp
@@ -225,9 +244,9 @@ module gcminterp
           if (.not. allocated(gcm%gcmOutput(h,v)%var)) allocate(gcm%gcmOutput(h,v)%var(gcm%nlon,gcm%nhlat))
         end do
       enddo
-    end subroutine init_gcm_mix
+    end subroutine init_gcm_mix_file
 
-    subroutine coupleGCM2MIX(gcm,ion,do2way,mjd,time,gcmCplComm,myRank)
+    subroutine coupleGCM2MIX(gcm,ion,mjd,time,gcmCplComm,myRank)
       use mpi_f08
       type(mixIon_T),dimension(:),intent(inout) :: ion
       type(gcm_T), intent(inout) :: gcm
@@ -241,10 +260,18 @@ module gcminterp
       ! transform all remix points to GEO
       ! transform all gcm points to SM
 
-
+      !Skip MPI exchange on first restart
+      if (present(gcmCplComm) .and. gcm%isRestart) then
+        gcm%isRestart = .False.
+        return
+      endif
       !Must MIX export first.  TIEGCM will also import first.
       call Tic("Export")
       if (present(gcmCplComm)) then
+        if (gcm%isRestart) then
+          gcm%isRestart = .False.
+          return
+        endif
         call exportgcm(ion,gcm,mjd,time,gcmCplComm,myRank)
       else
         call exportgcm(ion,gcm,mjd,time)
@@ -322,43 +349,163 @@ module gcminterp
 
     end subroutine exportgcmfile
 
-    subroutine importgcmmpi(gcm,ion, gcmCplComm,myRank)
+!
+!--------------------- START MPI ROUTINES HERE ---------------------
+!
+
+    subroutine init_gcm_mix_mpi(gcm,gcmCplComm,gcmCplRank)!,remixApp
+      use mpi_f08
+      type(gcm_T), intent(inout) :: gcm
+      type(MPI_Comm) :: gcmCplComm
+      integer, intent(in) :: gcmCplRank
+
+      integer :: nlon,nlat,Nh,ierr
+
+      !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
+
+      !Find grid dimension
+ 
+      write(*,*) "MIXCPL Waiting for GCM Grid"
+
+      call mpi_recv(nlat, 1, MPI_INTEGER, gcmCplRank, (tgcmId+voltId)*100+1, gcmCplComm, MPI_STATUS_IGNORE,ierr)
+      write(*,*) "MIXCPL GOT NLAT: ",nlat
+      
+      call mpi_recv(nlon, 1, MPI_INTEGER, gcmCplRank, (tgcmId+voltId)*100+2, gcmCplComm, MPI_STATUS_IGNORE,ierr)
+      write(*,*) "MIXCPL GOT NLON: ",nlon
+
+      Nh = GCMhemispheres
+      
+      if (.not.allocated(gcm%lat)) allocate(gcm%lat(nlat))
+      if (.not.allocated(gcm%lon)) allocate(gcm%lon(nlon))
+
+
+      call mpi_recv(gcm%lat, nlat, MPI_DOUBLE_PRECISION, gcmCplRank, (tgcmId+voltId)*100+3, gcmCplComm, MPI_STATUS_IGNORE,ierr)
+      write(*,*) "MIXCPL GOT GLAT: ",gcm%lat
+      call mpi_recv(gcm%lon, nlon, MPI_DOUBLE_PRECISION, gcmCplRank, (tgcmId+voltId)*100+4, gcmCplComm, MPI_STATUS_IGNORE,ierr)
+      write(*,*) "MIXCPL GOT GLON: ",gcm%lon
+      
+      write(*,*) "MIXCPL GOT GRID INFO: ",nlat, nlon
+
+      !Save dimension information
+      gcm%nlon  = nlon
+      gcm%nlat  = nlat
+      gcm%nhemi = Nh
+
+    end subroutine init_gcm_mix_mpi
+
+    subroutine init_gcm_grid(gcm,ion)
+      type(gcm_T), intent(inout) :: gcm
+      type(mixIon_T),dimension(:),intent(in) :: ion
+      
+      integer :: Np, Nt, Nh, i,j,h,v
+      Np = gcm%nlon
+      Nt = gcm%nhlat
+      Nh = gcm%nhemi
+
+      ! Let's try something
+      ! Build a list of index that says these are N and these are S
+      ! Then use that to map to N/S in gcm
+      !indicesN = merge( 0, [ ( i, i = 1, size( gcm%lat ) ) ], gcm%lat < 0 )
+      !indicesS = merge( 0, [ ( i, i = 1, size( gcm%lat ) ) ], gcm%lat > 0 )
+      !nhlatN = count(indicesN)
+      !nhlatS = count(indicesS)
+      !if ( .not. allocated(gcm%t2N) ) allocate(gcm%t2N(nhlatN))
+      !if ( .not. allocated(gcm%t2S) ) allocate(gcm%t2S(nhlatS))
+      !gcm%t2N = pack( indicesN, indicesN /= 0 )
+      !gcm%t2S = pack( indicesS, indicesS /= 0 )
+      gcm%t2N = pack([(i,i=1,gcm%nlat)], gcm%lat > 10)
+      gcm%t2S = pack([(i,i=1,gcm%nlat)], gcm%lat < -10)
+      gcm%lonshift = findloc(gcm%lon(:gcm%nlon-1),0.,1)-1
+
+      ! Going to assume the hemispheres are symetrically sized for now
+      if ( size(gcm%t2N) /= size(gcm%t2S) ) write(*,*) 'WE GOT ASYMMETRY'
+      gcm%nhlat = size(gcm%t2N)
+
+      if (.not.allocated(gcm%gclat)) allocate(gcm%gclat(gcm%nlon,gcm%nhlat,Nh))
+      if (.not.allocated(gcm%glon)) allocate(gcm%glon(gcm%nlon,gcm%nhlat,Nh))
+
+      ! Convert things from latitude to colatitude (and funky colat for south)
+      do i=1,gcm%nlon
+        gcm%gclat(i,:,GCMNORTH) = 90.-gcm%lat(gcm%t2N)
+        gcm%gclat(i,:,GCMNORTH) = gcm%gclat(i,gcm%nhlat:1:-1,GCMNORTH) ! reverse order. Ascending.
+        gcm%gclat(i,:,GCMSOUTH) = 90.+gcm%lat(gcm%t2S) !For mapping to work, we're going to use remix's funky southern colat
+      enddo
+        
+      ! This complicated looking thing converts [-180,180] longitude into [0,360] and also shifts it so that longitude starts at 0
+      do j=1,gcm%nhlat
+        gcm%glon(:gcm%nlon-1,j,GCMNORTH) = modulo(cshift(gcm%lon(:gcm%nlon-1),gcm%lonshift)+360.,360.)!modulo((atan2(G2%y,G2%x)+2*pi),(2*pi))
+        gcm%glon(:gcm%nlon-1,j,GCMSOUTH) = modulo(cshift(gcm%lon(:gcm%nlon-1),gcm%lonshift)+360.,360.)
+        ! cover periodic longitude point
+        gcm%glon(gcm%nlon,j,GCMNORTH) = 360. ! no matter what, last point is periodic point
+        gcm%glon(gcm%nlon,j,GCMSOUTH) = 360. ! hard coding the value of last point for now
+      enddo
+
+      !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
+
+
+      !Now do remix mapping
+      if (.not.allocated(gcm%GEO)) allocate(gcm%GEO(Nh))
+      if (.not.allocated(gcm%SM)) allocate(gcm%SM(Nh))
+      if (.not.allocated(gcm%r2tMaps)) allocate(gcm%r2tMaps(Nh))
+      if (.not.allocated(gcm%t2rMaps)) allocate(gcm%t2rMaps(Nh))
+
+      call init_grid_fromTP(gcm%GEO(GCMNORTH),gcm%gclat(:,:,GCMNORTH)*deg2rad,gcm%glon(:,:,GCMNORTH)*deg2rad,isSolverGrid=.true.)
+      call init_grid_fromTP(gcm%GEO(GCMSOUTH),gcm%gclat(:,:,GCMSOUTH)*deg2rad,gcm%glon(:,:,GCMSOUTH)*deg2rad,isSolverGrid=.true.)
+
+      do h=1,Nh
+        do v=1,gcm2mix_nvar
+          if (.not.allocated(gcm%mixInput(h,v)%var)) allocate(gcm%mixInput(h,v)%var(ion(h)%G%Np,ion(h)%G%Nt))
+          if (.not.allocated(gcm%gcmInput(h,v)%var)) allocate(gcm%gcmInput(h,v)%var(gcm%nlon,gcm%nhlat))
+        end do
+        do v=1,mix2gcm_nvar
+          if (.not. allocated(gcm%gcmOutput(h,v)%var)) allocate(gcm%gcmOutput(h,v)%var(gcm%nlon,gcm%nhlat))
+        end do
+      enddo
+    end subroutine init_gcm_grid
+
+    subroutine importgcmmpi(gcm,ion, gcmCplComm,gcmCplRank)
       use mpi_f08
       type(gcm_T), intent(inout) :: gcm
       type(mixIon_T),dimension(:),intent(inout) :: ion
       type(MPI_Comm) :: gcmCplComm
-      integer, intent(in) :: myRank
+      integer, intent(in) :: gcmCplRank
 
-      real(rp), dimension(:,:,:), allocatable :: var2d
 
-      integer :: v,i,h,ymod1,ierr
-
-      if (.not. allocated(var2d)) allocate(var2d(gcm%nlat,gcm%nlon,gcm2mix_nvar))
+      integer :: v,i,h,ymod1,ierr,length
+      character( len = MPI_MAX_ERROR_STRING) :: message
 
       call Tic("MpiExchange")
+      write(*,*) "MIX: IMPORT GCM"
 
-      call mpi_send(testArray, 10*worldSize, MPI_DOUBLE_PRECISION, 1, 1001, interComm, ierror)
-      if(ierror /= MPI_Success) then
-          call MPI_Error_string( ierror, message, length, ierror)
-          print *,message(1:length)
-          call mpi_Abort(MPI_COMM_WORLD, 1, ierror)
-      end if
-
-      ! Split global GCM array into two hemispheres
-      ! then shift the array so that longitude starts at 0
-      do v=1,gcm2mix_nvar
-        do i=1,gcm%nhlat
-          gcm%gcmInput(GCMNORTH,v)%var(:gcm%nlon-1,i) = cshift(var2d(gcm%t2N(gcm%nhlat-i+1),:gcm%nlon-1,v),gcm%lonshift)
-          gcm%gcmInput(GCMSOUTH,v)%var(:gcm%nlon-1,i) = cshift(var2d(gcm%t2S(i),:gcm%nlon-1,v),gcm%lonshift)
-          gcm%gcmInput(GCMNORTH,v)%var(gcm%nlon,i) = gcm%gcmInput(GCMNORTH,v)%var(1,i)
-          gcm%gcmInput(GCMSOUTH,v)%var(gcm%nlon,i) = gcm%gcmInput(GCMSOUTH,v)%var(1,i)
+      if (gcmCplComm /= MPI_COMM_NULL) then
+        call Tic("Passing")
+        if (.not. allocated(invar2d)) allocate(invar2d(gcm%nlat,gcm%nlon,gcm2mix_nvar))
+        do v=1,gcm2mix_nvar
+          call mpi_recv(invar2d(:,:,v), gcm%nlat*gcm%nlon, MPI_DOUBLE_PRECISION, gcmCplRank, (tgcmId+voltId)*100+v, gcmCplComm, MPI_STATUS_IGNORE,ierr)
+          if(ierr /= MPI_Success) then
+              call MPI_Error_string( ierr, message, length, ierr)
+              print *,message(1:length)
+              call mpi_Abort(MPI_COMM_WORLD, 1, ierr)
+          end if
         enddo
-        !write(*,*) "SHAPES: ",shape(var2d),shape(gcm%gcmInput(GCMNORTH,v)%var)
-        !write(*,*) "var2d: ",maxval(var2d(:,:,v)),minval(var2d(:,:,v)),v
-        !write(*,*) "GCMINPUT NORTH: ",maxval(gcm%gcmInput(GCMNORTH,v)%var),minval(gcm%gcmInput(GCMNORTH,v)%var),v
-        !write(*,*) "GCMINPUT SOUTH: ",maxval(gcm%gcmInput(GCMSOUTH,v)%var),minval(gcm%gcmInput(GCMSOUTH,v)%var),v
-      end do
-      if (allocated(var2d)) deallocate(var2d)
+        call Toc("Passing")
+        call Tic("Shifting")
+        ! Split global GCM array into two hemispheres
+        ! then shift the array so that longitude starts at 0
+        do v=1,gcm2mix_nvar
+          do i=1,gcm%nhlat
+            gcm%gcmInput(GCMNORTH,v)%var(:gcm%nlon-1,i) = cshift(invar2d(gcm%t2N(gcm%nhlat-i+1),:gcm%nlon-1,v),gcm%lonshift)
+            gcm%gcmInput(GCMSOUTH,v)%var(:gcm%nlon-1,i) = cshift(invar2d(gcm%t2S(i),:gcm%nlon-1,v),gcm%lonshift)
+            gcm%gcmInput(GCMNORTH,v)%var(gcm%nlon,i) = gcm%gcmInput(GCMNORTH,v)%var(1,i)
+            gcm%gcmInput(GCMSOUTH,v)%var(gcm%nlon,i) = gcm%gcmInput(GCMSOUTH,v)%var(1,i)
+          enddo
+          !write(*,*) "SHAPES: ",shape(var2d),shape(gcm%gcmInput(GCMNORTH,v)%var)
+          !write(*,*) "var2d: ",maxval(var2d(:,:,v)),minval(var2d(:,:,v)),v
+          !write(*,*) "GCMINPUT NORTH: ",maxval(gcm%gcmInput(GCMNORTH,v)%var),minval(gcm%gcmInput(GCMNORTH,v)%var),v
+          !write(*,*) "GCMINPUT SOUTH: ",maxval(gcm%gcmInput(GCMSOUTH,v)%var),minval(gcm%gcmInput(GCMSOUTH,v)%var),v
+        end do
+        call Toc("Shifting")
+      endif
       call Toc("MpiExchange")      
 
       ! The weird ymod here is to undo the funky southern hemisphere colat issue.
@@ -379,15 +526,18 @@ module gcminterp
 
     end subroutine importgcmmpi
 
-    subroutine exportgcmmpi(ion,gcm,mjd,time,gcmCplComm,myRank)
+    subroutine exportgcmmpi(ion,gcm,mjd,time,gcmCplComm,gcmCplRank)
       use mpi_f08
       type(gcm_T), intent(inout) :: gcm
       type(mixIon_T), dimension(:),intent(inout) :: ion
       real(rp), intent(in) :: time, mjd
       type(MPI_Comm) :: gcmCplComm
-      integer, intent(in) :: myRank
+      integer, intent(in) :: gcmCplRank
+      
       integer :: h,ymod2,v,ierr,length
       character( len = MPI_MAX_ERROR_STRING) :: message
+
+      write(*,*) "MIX: EXPORT GCM"
 
       ! The weird ymod here is to undo the funky southern hemisphere colat issue.
       do h=1,gcm%nhemi
@@ -405,27 +555,37 @@ module gcminterp
       ! Map from mix grid to gcm grid
       call mapMIX2GCM(ion,gcm)
 
-      ! Prepare the export data
-      if (.not. allocated(var2d)) allocate(var2d(gcm%nlat,gcm%nlon,mix2gcm_nvar))
-      var2d = 0.
-      ! Before we start, we collapse to 1 globe instead of 2 hemispheres
-      do v=1,mix2gcm_nvar
-        var2d(gcm%t2N(gcm%nhlat:1:-1),:gcm%nlon-1,v) = transpose(cshift(gcm%gcmOutput(GCMNORTH,v)%var(:gcm%nlon-1,:),-1*gcm%lonshift))
-        var2d(gcm%t2S,:gcm%nlon-1,v) = transpose(cshift(gcm%gcmOutput(GCMSOUTH,v)%var(:gcm%nlon-1,:),-1*gcm%lonshift))
-        var2d(gcm%t2N,gcm%nlon,v) = var2d(gcm%t2N,1,v)
-        var2d(gcm%t2S,gcm%nlon,v) = var2d(gcm%t2S,1,v)
-      end do
+      if (gcmCplComm /= MPI_COMM_NULL) then
 
-      ! Send the coupling data
-      do v=1,gcm2mix_nvar
-        call mpi_send(var2d(:,:,v), gcm%nlat*gcm%nlon, MPI_DOUBLE_PRECISION, 1, 1000+v, gcmCplComm, ierr)
-        if(ierr /= MPI_Success) then
-            call MPI_Error_string( ierr, message, length, ierr)
-            print *,message(1:length)
-            call mpi_Abort(MPI_COMM_WORLD, 1, ierr)
-        end if
-      enddo
+        v = 22
+        write(*,*) "MIXCPL: SENDING SMALL NUMBER:",v
+        call mpi_send(v,1,MPI_INTEGER, gcmCplRank, (tgcmId+voltId)*100, gcmCplComm, ierr)
+        write(*,*) "MIXCPL: SENDING SMALL NUMBER: DONE ", ierr
+      
+        ! Prepare the export data
+        if (.not. allocated(outvar2d)) allocate(outvar2d(gcm%nlat,gcm%nlon,mix2gcm_nvar))
+        outvar2d = 0.
+        ! Before we start, we collapse to 1 globe instead of 2 hemispheres
+        do v=1,mix2gcm_nvar
+          outvar2d(gcm%t2N(gcm%nhlat:1:-1),:gcm%nlon-1,v) = transpose(cshift(gcm%gcmOutput(GCMNORTH,v)%var(:gcm%nlon-1,:),-1*gcm%lonshift))
+          outvar2d(gcm%t2S,:gcm%nlon-1,v) = transpose(cshift(gcm%gcmOutput(GCMSOUTH,v)%var(:gcm%nlon-1,:),-1*gcm%lonshift))
+          outvar2d(gcm%t2N,gcm%nlon,v) = outvar2d(gcm%t2N,1,v)
+          outvar2d(gcm%t2S,gcm%nlon,v) = outvar2d(gcm%t2S,1,v)
+        end do
 
+        ! Send the coupling data
+        do v=1,mix2gcm_nvar
+        write(*,*) " MIXCPL: ", gcmCplRank,(tgcmId+voltId)*100+v,gcmCplComm,gcm%nlat,gcm%nlon
+          call mpi_send(outvar2d(:,:,v), gcm%nlat*gcm%nlon, MPI_DOUBLE_PRECISION, gcmCplRank, (tgcmId+voltId)*100+v, gcmCplComm, ierr)
+          if(ierr /= MPI_Success) then
+              call MPI_Error_string( ierr, message, length, ierr)
+              print *,message(1:length)
+              call mpi_Abort(MPI_COMM_WORLD, 1, ierr)
+          end if
+        enddo
+
+      endif
+      
     end subroutine exportgcmmpi
 
     subroutine ReadH5gcm(gcm)

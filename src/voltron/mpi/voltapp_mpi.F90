@@ -63,7 +63,7 @@ module voltapp_mpi
         type(XML_Input_T) :: xmlInp
         integer :: commSize, ierr, numCells, length, ic, numInNeighbors, numOutNeighbors
         type(MPI_Comm) :: voltComm
-        integer :: nHelpers, gamNRES
+        integer :: nHelpers, gamNRES, commId
         character( len = MPI_MAX_ERROR_STRING) :: message
         logical :: reorder, wasWeighted
         integer, allocatable, dimension(:) :: neighborRanks, inData, outData
@@ -95,10 +95,11 @@ module voltapp_mpi
 
         ! split allComm into a communicator with only the non-helper voltron rank
         call MPI_Comm_rank(allComm, commSize, ierr)
+        commId = gamId+voltId
         if(vApp%amHelper) then
             call MPI_comm_split(allComm, MPI_UNDEFINED, commSize, voltComm, ierr)
         else
-            call MPI_comm_split(allComm, 0, commSize, voltComm, ierr)
+            call MPI_comm_split(allComm, commId, commSize, voltComm, ierr)
         endif
 
         ! helpers don't do full voltron initialization
@@ -319,6 +320,9 @@ module voltapp_mpi
             vApp%gAppLocal%oState,vAPp%gApplocal%State,xmlInp,userInitFunc)
 
         ! now initialize basic voltron structures from gamera data
+        if(vApp%gcmCplComm /= MPI_COMM_NULL) then
+          call init_gcm_mix_mpi(vApp%gcm,vApp%gcmCplComm,vApp%gcmCplRank)
+        endif
         if(present(optFilename)) then
             call initVoltron(vApp, vApp%gAppLocal, optFilename)
         else
@@ -518,7 +522,7 @@ module voltapp_mpi
 
         if (vApp%doGCM .and. vApp%time >=0) then
             call Tic("GCM2MIX")
-            call coupleGCM2MIX(vApp%gcm,vApp%remixApp%ion,vApp%MJD,vApp%time,vApp%gcmCplComm,vApp%myRank)
+            call coupleGCM2MIX(vApp%gcm,vApp%remixApp%ion,vApp%MJD,vApp%time,vApp%gcmCplComm,vApp%gcmCplRank)
             call Toc("GCM2MIX")
         end if
 
@@ -1020,9 +1024,6 @@ module voltapp_mpi
         call setIdleStatus(vApp, 0)
 
     end subroutine
-
-    subroutine exportGCM2MIX(vApp)
-        type
 
 end module voltapp_mpi
 

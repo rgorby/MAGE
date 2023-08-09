@@ -355,7 +355,8 @@ module voltapp
         vApp%remixApp%ion%rad_iono_m = vApp%planet%ri_m
         if (vApp%doGCM) then
             write(*,*) "Initializing GCM ..."
-            call init_gcm(vApp%gcm,vApp%remixApp%ion,gApp%Model%isRestart)
+            !call init_gcm_file(vApp%gcm,vApp%remixApp%ion,gApp%Model%isRestart)
+            call init_gcm_mpi(vApp%gcm,vApp%remixApp%ion,gApp%Model%isRestart)
         end if
         !Ensure remix and voltron restart numbers match
         if (isRestart .and. vApp%IO%nRes /= vApp%remixApp%ion(1)%P%nRes) then

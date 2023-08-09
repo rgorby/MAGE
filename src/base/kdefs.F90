@@ -85,6 +85,13 @@ module kdefs
     real(rp), parameter :: Rsolar = 6.956D5    ! [km] Solar radius
     real(rp), parameter :: Msolar = 1.98847D30 ! [kg] Solar mass
 
+!MPI Communicator Id
+    integer, parameter :: voltId  = 116
+    integer, parameter :: gamId   = 45
+    integer, parameter :: rcmId   = 34
+    integer, parameter :: tgcmId  = 57
+    integer, parameter :: hidraId = 40
+
 !Numbered accessors
     !Directions
     enum, bind(C) 

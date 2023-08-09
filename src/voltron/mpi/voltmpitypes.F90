@@ -27,6 +27,7 @@ module voltmpitypes
 
         ! coupling comms variables to be done on volt rank
         type(MPI_Comm) :: gcmCplComm
+        integer :: gcmCplRank
 
         ! array of all zeroes to simplify various send/receive calls
         integer, dimension(:), allocatable :: zeroArrayCounts

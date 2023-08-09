@@ -33,6 +33,7 @@ program voltron_mpix
     logical :: useHelpers, helperQuit
     integer(KIND=MPI_AN_MYADDR) :: tagMax
     logical :: tagSet
+    integer :: divideSize
 
     ! initialize MPI
     !Set up MPI with or without thread support
@@ -89,7 +90,7 @@ program voltron_mpix
     if(worldRank .ge. (worldSize-1-numHelpers)) then
         ! voltron rank
         isGamera = .false.
-        call MPI_Comm_Split(MPI_COMM_WORLD, 1, worldRank, voltComm, ierror)
+        call MPI_Comm_Split(MPI_COMM_WORLD, voltId, worldRank, voltComm, ierror)
         if(ierror /= MPI_Success) then
             call MPI_Error_string( ierror, message, length, ierror)
             print *,message(1:length)
@@ -98,7 +99,7 @@ program voltron_mpix
     else
         ! gamera rank
         isGamera = .true.
-        call MPI_Comm_Split(MPI_COMM_WORLD, 0, worldRank, gamComm, ierror)
+        call MPI_Comm_Split(MPI_COMM_WORLD, gamId, worldRank, gamComm, ierror)
         if(ierror /= MPI_Success) then
             call MPI_Error_string( ierror, message, length, ierror)
             print *,message(1:length)
@@ -106,10 +107,46 @@ program voltron_mpix
         end if
     endif
 
+    if (worldRank .eq. worldSize-1-numHelpers) then
+        call MPI_Comm_Split(MPI_COMM_WORLD, tgcmId+voltId, 0, vApp%gcmCplComm, ierror)
+        call MPI_Comm_Rank(vApp%gcmCplComm, vApp%gcmCplRank, ierror)
+        call MPI_Comm_Size(vApp%gcmCplComm, divideSize, ierror)
+      if(vApp%gcmCplComm /= MPI_COMM_NULL) then
+        print *,'VOLTRON has created an gcmCplComm with ', divideSize-1, ' other app(s)'
+        print *,'VOLTRON using gcmCplComm tag ', tgcmId+voltId
+        write(*,*) "VOLTRON CPLCOMM: ",vApp%gcmCplComm,vApp%gcmCplRank
+
+        ! This figures out what rank GCM should be on
+        if (vApp%gcmCplRank == 0) then
+          vApp%gcmCplRank = 1
+        else
+          vApp%gcmCplRank = 0
+        endif
+
+      endif
+      if(divideSize == 1) then
+        write(*,*) "MIX: We're not coupling"
+        call mpi_comm_free(vApp%gcmCplComm, ierror)
+        if(ierror /= MPI_Success) then
+          call MPI_Error_string( ierror, message, length, ierror)
+          print *,message(1:length)
+          call mpi_Abort(MPI_COMM_WORLD, 1, ierror)
+        end if
+        vApp%gcmCplComm = MPI_COMM_NULL
+      endif
+    else
+        call MPI_Comm_Split(MPI_COMM_WORLD, MPI_UNDEFINED, worldRank, vApp%gcmCplComm, ierror)
+    endif
+    if(ierror /= MPI_Success) then
+        call MPI_Error_string( ierror, message, length, ierror)
+        print *,message(1:length)
+        call mpi_Abort(MPI_COMM_WORLD, 1, ierror)
+    end if
+
     if(isGamera) then
         call Tic("Omega")
         call initGamera_mpi(gApp,userInitFunc,gamComm,doIO=.false.)
-        call initGam2Volt(g2vComm,gApp,MPI_COMM_WORLD)
+        call initGam2Volt(g2vComm,gApp,MPI_COMM_WORLD,gamId=(gamId+voltId))
         call Toc("Omega")
 
         do while (g2vComm%time < g2vComm%tFin)
