@@ -66,4 +66,4 @@ vc_cgs = 2.99792458e10 # [cm/s] speed of light
 barLen = 30
 barLab = 30 
 #barDef = 'fish'
-barDef = alive_progress.animations.bars.bar_factory(tip="><('>", background='∙')
+barDef = alive_progress.animations.bars.bar_factory(tip="><('>", chars='∙',background='')
