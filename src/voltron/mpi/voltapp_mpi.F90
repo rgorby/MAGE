@@ -95,7 +95,8 @@ module voltapp_mpi
 
         ! split allComm into a communicator with only the non-helper voltron rank
         call MPI_Comm_rank(allComm, commSize, ierr)
-        commId = gamId+voltId
+        !commId = gamId+voltId
+        commId = gamId
         if(vApp%amHelper) then
             call MPI_comm_split(allComm, MPI_UNDEFINED, commSize, voltComm, ierr)
         else
@@ -328,6 +329,12 @@ module voltapp_mpi
         else
             call initVoltron(vApp, vApp%gAppLocal)
         endif
+
+        if ( ( vApp%doGCM ) .and. (vApp%gcmCplComm /= MPI_COMM_NULL) ) then
+            write(*,*) "Initializing GCM ..."
+            !call init_gcm_file(vApp%gcm,vApp%remixApp%ion,gApp%Model%isRestart)
+            call init_gcm_mpi(vApp%gcm,vApp%remixApp%ion,vApp%gAppLocal%Model%isRestart)
+        end if
 
         ! Receive Gamera's restart number and ensure Voltron has the same restart number
         call mpi_recv(gamNRES, 1, MPI_INTEGER, MPI_ANY_SOURCE, 97520, vApp%voltMpiComm, MPI_STATUS_IGNORE, ierr)

@@ -146,7 +146,8 @@ program voltron_mpix
     if(isGamera) then
         call Tic("Omega")
         call initGamera_mpi(gApp,userInitFunc,gamComm,doIO=.false.)
-        call initGam2Volt(g2vComm,gApp,MPI_COMM_WORLD,gamId=(gamId+voltId))
+        !call initGam2Volt(g2vComm,gApp,MPI_COMM_WORLD,gamId=(gamId+voltId))
+        call initGam2Volt(g2vComm,gApp,MPI_COMM_WORLD,gamId=gamId)
         call Toc("Omega")
 
         do while (g2vComm%time < g2vComm%tFin)
