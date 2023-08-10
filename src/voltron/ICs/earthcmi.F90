@@ -459,9 +459,7 @@ module uservoltic
                         !dA = Grid%face(ig,j,k,d)/Grid%face(Grid%is,jp,kp,d)
                         dA = 1.0 !Using dA=1 for smoother magflux stencil
 
-                        if((d == IDIR .and. j .le. Grid%jsg .and. k .le. Grid%ksg) .or. &
-                           (d == JDIR .and. ig .le. Grid%isg .and. k .le. Grid%ksg) .or. &
-                           (d == KDIR .and. ig .le. Grid%isg .and. j .le. Grid%jsg)) then
+                        if (isGoodFaceIJK(Model,Grid,ig,j,k,d)) then
                             if ( isLowLat(Grid%xfc(ig,j,k,:,d),llBC) ) then
                                 !State%magFlux(ig,j,k,d) = 0.0
                                 State%magFlux(ig,j,k,d) = dApm(d)*dA*State%magFlux(Grid%is,jp,kp,d)
@@ -469,14 +467,40 @@ module uservoltic
                                 State%magFlux(ig,j,k,d) = dApm(d)*dA*State%magFlux(Grid%is,jp,kp,d)
                             endif
                         endif
-
-
                     enddo
                 enddo !n loop (ig)
             enddo !j loop
         enddo !k loop
 
         contains 
+
+            function isGoodFaceIJK(Model,Grid,i,j,k,d) result(isGood)
+                type(Model_T), intent(in) :: Model
+                type(Grid_T) , intent(in) :: Grid
+                integer      , intent(in) :: i,j,k,d
+
+                logical :: isGood
+
+                select case(d)
+                    case(IDIR)
+                        isGood =     (i >= Grid%isg) .and. (i <= Grid%ieg+1) &
+                               .and. (j >= Grid%jsg) .and. (j <= Grid%jeg  ) &
+                               .and. (k >= Grid%ksg) .and. (k <= Grid%keg  ) 
+
+                    case(JDIR)
+                        isGood =     (i >= Grid%isg) .and. (i <= Grid%ieg  ) &
+                               .and. (j >= Grid%jsg) .and. (j <= Grid%jeg+1) &
+                               .and. (k >= Grid%ksg) .and. (k <= Grid%keg  ) 
+
+                    case(KDIR)
+                        isGood =     (i >= Grid%isg) .and. (i <= Grid%ieg  ) &
+                               .and. (j >= Grid%jsg) .and. (j <= Grid%jeg  ) &
+                               .and. (k >= Grid%ksg) .and. (k <= Grid%keg+1) 
+
+                end select
+             
+            end function isGoodFaceIJK
+
             function isLowLat(xyz,llBC)
                 real(rp), dimension(NDIM), intent(in) :: xyz
                 real(rp), intent(in) :: llBC
