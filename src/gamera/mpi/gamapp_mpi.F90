@@ -34,6 +34,7 @@ module gamapp_mpi
         ! Debugging flags
         logical :: printMagFluxFaceError = .false.
         real(rp) :: faceError = 0.0_rp
+        logical :: slowestRankPrints = .true.
 
     end type gamAppMpi_T
 
@@ -110,6 +111,7 @@ module gamapp_mpi
         call xmlInp%Set_Val(writeGhosts,"debug/writeGhosts",.false.)
         call xmlInp%Set_Val(writeMagFlux,"debug/writeMagFlux",.false.)
         call xmlInp%Set_Val(gamAppMpi%printMagFluxFaceError,"debug/printMagFluxError",.false.)
+        call xmlInp%Set_Val(gamAppMpi%slowestRankPrints,"debug/slowestRankPrints",.true.)
 
         !Initialize Grid/State/Model (Hatch Gamera)
         !Will enforce 1st BCs, caculate 1st timestep, set oldState
@@ -138,7 +140,7 @@ module gamapp_mpi
         real(rp), dimension(:,:,:), allocatable :: tempX,tempY,tempZ
         real(rp) :: tmpDT
         character(len=strLen) :: inH5
-        logical :: doH5g
+        logical :: doH5g, allLoud
         integer, dimension(NDIM) :: dims
         integer, dimension(:), allocatable :: gamRestartNumbers
 
@@ -153,6 +155,9 @@ module gamapp_mpi
         call xmlInp%Set_Val(periodicK,'kPdir/bcPeriodic',.false.)
 
         call xmlInp%Set_Val(doH5g ,"sim/doH5g" ,.false.)
+
+        ! debugging flag to make all gamera ranks loud
+        call xmlInp%Set_Val(allLoud, "output/allLoud", .false.)
 
         if(Grid%NumRi*Grid%NumRj*Grid%NumRk > 1) then
             Grid%isTiled = .true.
@@ -315,7 +320,7 @@ module gamapp_mpi
             Grid%Ri = rank
 
             ! only rank 0 should be loud
-            if(Grid%Ri==0 .and. Grid%Rj==0 .and. Grid%Rk==0) then
+            if((Grid%Ri==0 .and. Grid%Rj==0 .and. Grid%Rk==0) .or. allLoud) then
                 Model%isLoud = .true.
             else
                 Model%isLoud = .false.
@@ -530,29 +535,57 @@ module gamapp_mpi
         end associate
     end subroutine Hatch_mpi
 
+    ! this function checks logic to determine which rank should print debug timing
+    ! returns true for the rank that should, and false for all others
+    function debugPrintingRank(gamAppMpi) result(amPrintingRank)
+        type(gamAppMpi_T), intent(in) :: gamAppMpi
+        logical :: amPrintingRank
+        real(rp) :: inData(2), outData(2)
+        integer :: myRank, slowRank, ierr
+
+        amPrintingRank = .false.
+
+        if(gamappMpi%slowestRankPrints) then
+            ! only the slowest rank prints
+
+            myRank = gamAppMpi%Grid%Ri*gamAppMpi%Grid%NumRj*gamAppMpi%Grid%NumRk + &
+                     gamAppMpi%Grid%Rj*gamAppMpi%Grid%NumRk + &
+                     gamAppMpi%Grid%Rk
+
+            inData(1) = gamAppMpi%Model%kzcsMHD
+            inData(2) = myRank
+            call MPI_ALLREDUCE(inData, outData, 1, MPI_2MYFLOAT, MPI_MINLOC, gamAppMpi%gamMpiComm, ierr)
+            slowRank = outData(2) ! convert rank back to an integer
+            if(myRank == slowRank) then
+                amPrintingRank = .true.
+            endif
+        else
+            ! only rank 0 prints
+            amPrintingRank = gamAppMpi%Grid%Ri==0 .and. gamAppMpi%Grid%Rj==0 .and. gamAppMpi%Grid%Rk==0
+        endif
+
+    end function debugPrintingRank
+
     subroutine consoleOutput_mpi(gamAppMpi)
         type(gamAppMpi_T), intent(inout) :: gamAppMpi
         real(rp) :: totalFaceError = 0.0_rp
         integer :: ierr
 
-        if(gamAppMpi%Grid%Ri==0 .and. gamAppMpi%Grid%Rj==0 .and. gamAppMpi%Grid%Rk==0) then
-            call consoleOutput(gamAppMpi%Model,gamAppMpi%Grid,gamAppMpi%State)
+        !Always call console output (for certain performance metrics) but only be loud if root
+        call consoleOutput(gamAppMpi%Model,gamAppMpi%Grid,gamAppMpi%State)
 
-            ! gamera mpi specific output
-            if(gamAppMpi%printMagFluxFaceError) then
+        ! gamera mpi specific output
+        if(gamAppMpi%printMagFluxFaceError) then
+            call MPI_AllReduce(gamAppMpi%faceError, totalFaceError, 1, MPI_MYFLOAT, MPI_SUM, gamAppMpi%gamMpiComm, ierr)
+            if (gamAppMpi%Model%isLoud) then
                 write(*,*) ANSICYAN
                 write(*,*) 'GAMERA MPI'
-                call MPI_AllReduce(gamAppMpi%faceError, totalFaceError, 1, MPI_MYFLOAT, MPI_SUM, gamAppMpi%gamMpiComm, ierr)
                 write(*,'(a,f8.3)') 'Total MF Face Error = ', totalFaceError
                 write(*,'(a)',advance="no") ANSIRESET!, ''
             endif
-        else
-            if(gamAppMpi%printMagFluxFaceError) then
-                call MPI_AllReduce(gamAppMpi%faceError, totalFaceError, 1, MPI_MYFLOAT, MPI_SUM, gamAppMpi%gamMpiComm, ierr)
-            endif
         endif
 
-    end subroutine
+    end subroutine consoleOutput_mpi
 
     subroutine updateMpiBCs(gamAppMpi, State)
         type(gamAppMpi_T), intent(inout) :: gamAppMpi

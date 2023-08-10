@@ -1,0 +1,12 @@
+00 19 * * 0-5 /bin/bash -l -c 'export KMP_INIT_AT_FORK=FALSE; source $HOME/workspace/kaiju_daily/scripts/setupEnvironment.sh; python3 "$KAIJUHOME"/testingScripts/master.py --account $UNIT_TEST_CODE' >> $HOME/daily-run.log 2>&1
+00 19 * * 6   /bin/bash -l -c 'export KMP_INIT_AT_FORK=FALSE; source $HOME/workspace/kaiju_daily/scripts/setupEnvironment.sh; python3 "$KAIJUHOME"/testingScripts/master.py -a -f -l --account $UNIT_TEST_CODE' >> $HOME/daily-run.log 2>&1
+30 18 * * 1-6 /bin/bash -l -c 'export KMP_INIT_AT_FORK=FALSE; source $HOME/workspace/kaiju_daily/scripts/setupEnvironment.sh; python3 "$KAIJUHOME"/testingScripts/intelChecksReport.py' >> $HOME/daily-IC_check.log 2>&1
+00 18 * * 1-6 /bin/bash -l -c 'export KMP_INIT_AT_FORK=FALSE; source $HOME/workspace/kaiju_daily/scripts/setupEnvironment.sh; python3 "$KAIJUHOME"/testingScripts/unitTestReport.py' >> $HOME/daily-testcheck.log 2>&1
+30 18 * * 0   /bin/bash -l -c 'export KMP_INIT_AT_FORK=FALSE; source $HOME/workspace/kaiju_daily/scripts/setupEnvironment.sh; python3 "$KAIJUHOME"/testingScripts/intelChecksReport.py -l' >> $HOME/daily-IC_check.log 2>&1
+00 18 * * 0   /bin/bash -l -c 'export KMP_INIT_AT_FORK=FALSE; source $HOME/workspace/kaiju_daily/scripts/setupEnvironment.sh; python3 "$KAIJUHOME"/testingScripts/unitTestReport.py -l' >> $HOME/daily-testcheck.log 2>&1
+00 17 * * *   /bin/bash -l -c 'export KMP_INIT_AT_FORK=FALSE; source $HOME/workspace/kaiju_daily/scripts/setupEnvironment.sh; python3 "$KAIJUHOME"/testingScripts/weeklyDashReport.py -l -w $HOME/workspace/kaijuWiki' >> $HOME/daily-dashcheck.log 2>&1
+00 07 * * *   /bin/bash -l -c 'export KMP_INIT_AT_FORK=FALSE; source $HOME/workspace/kaiju_daily_master/scripts/setupEnvironment.sh; python3 "$KAIJUHOME"/testingScripts/master.py -a -l --account $UNIT_TEST_CODE' >> $HOME/daily-run_master.log 2>&1
+30 06 * * *   /bin/bash -l -c 'export KMP_INIT_AT_FORK=FALSE; source $HOME/workspace/kaiju_daily_master/scripts/setupEnvironment.sh; python3 "$KAIJUHOME"/testingScripts/intelChecksReport.py -l' >> $HOME/daily-IC_check_master.log 2>&1
+00 06 * * *   /bin/bash -l -c 'export KMP_INIT_AT_FORK=FALSE; source $HOME/workspace/kaiju_daily_master/scripts/setupEnvironment.sh; python3 "$KAIJUHOME"/testingScripts/unitTestReport.py -l' >> $HOME/daily-testcheck_master.log 2>&1
+00 05 * * *   /bin/bash -l -c 'export KMP_INIT_AT_FORK=FALSE; source $HOME/workspace/kaiju_daily_master/scripts/setupEnvironment.sh; python3 "$KAIJUHOME"/testingScripts/weeklyDashReport.py -t -w $HOME/workspace/kaijuWiki' >> $HOME/daily-dashcheck-master.log 2>&1
+

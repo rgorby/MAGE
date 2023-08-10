@@ -9,6 +9,7 @@ module voltio
     use wind
     use dyncoupling
     use dstutils
+    use planethelper
     
     implicit none
 
@@ -212,9 +213,8 @@ module voltio
         call AddOutVar(IOVars,"time",vApp%time)
 
         !Coupling info
-        call AddOutVar(IOVars,"ShallowT",vApp%ShallowT)
-        call AddOutVar(IOVars,"DeepT"   ,vApp%DeepT)
-        call AddOutVar(IOVars,"gBAvg", vApp%mhd2Mix%gBAvg)
+        call AddOutVar(IOVars,"CoupleT", vApp%DeepT)
+        call AddOutVar(IOVars,"gBAvg",   vApp%mhd2Mix%gBAvg)
         
         call WriteVars(IOVars,.false.,ResF)
         !Create link to latest restart
@@ -259,20 +259,29 @@ module voltio
         call AddInVar(IOVars,"ts"      ,vTypeO=IOINT)
         call AddInVar(IOVars,"MJD"     ,vTypeO=IOREAL)
         call AddInVar(IOVars,"time"    ,vTypeO=IOREAL)
-        call AddInVar(IOVars,"ShallowT",vTypeO=IOREAL)
-        call AddInVar(IOVars,"DeepT"   ,vTypeO=IOREAL)
+        call AddInVar(IOVars,"CoupleT" ,vTypeO=IOREAL)
 
 
         !Get data
         call ReadVars(IOVars,.false.,ResF)
 
-        vApp%IO%nOut  = GetIOInt(IOVars,"nOut")
+        !Check to see if CoupleT is present
+        n0 = FindIO(IOVars,"CoupleT")
+        if (.not. IOVars(n0)%isDone) then
+            write(*,*) "CoupleT not found in Voltron restart."
+            write(*,*) "This restart must have been written with an older"
+            write(*,*) " version of the code that used ShallowT and DeepT."
+            write(*,*) "This code is not compatible with this restart file."
+            write(*,*) "Please regenerate the restart file."
+            stop
+        endif
+
+        vApp%IO%nOut  = GetIOInt(IOVars,"nOut") + 1
         vApp%IO%nRes  = GetIOInt(IOVars,"nRes") + 1
         vApp%ts       = GetIOInt(IOVars,"ts")
         vApp%MJD      = GetIOReal(IOVars,"MJD")
         vApp%time     = GetIOReal(IOVars,"time")
-        vApp%ShallowT = GetIOReal(IOVars,"ShallowT")
-        vApp%DeepT    = GetIOReal(IOVars,"DeepT")
+        vApp%DeepT    = GetIOReal(IOVars,"CoupleT")
 
         !Check to see if gB0 is present
         n0 = FindIO(IOVars,"gBAvg")

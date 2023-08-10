@@ -1,6 +1,7 @@
 import h5py
 import numpy as np
-import sys
+import os, sys, subprocess
+import kaipy.kdefs as kdefs
 
 #Generate MPI-style name
 def genName(bStr,i,j,k,Ri,Rj,Rk,nRes=None):
@@ -35,6 +36,29 @@ def CheckDirOrMake(fdir):
 	if (not isDir):
 		print("Creating %s"%(fdir))
 		os.makedirs(fdir)
+
+# Stamp file with git hash (using this script's location)
+def StampHash(fname):
+	with h5py.File(fname, 'a') as f5:
+		cwd = os.path.dirname(os.path.realpath(__file__))
+		try:
+			gh = subprocess.check_output(['git', '-C', cwd, 'rev-parse', 'HEAD']).decode('ascii').strip()
+		except:
+			print("ERROR: Couldn't grab git hash")
+			gh = "XXXXX"
+		f5.attrs['GITHASH'] = gh
+
+# Stamp file with git branch (using this script's location)
+def StampBranch(fname):
+	with h5py.File(fname, 'a') as f5:
+		cwd = os.path.dirname(os.path.realpath(__file__))
+		try:
+			gb = subprocess.check_output(['git', '-C', cwd, 'rev-parse', '--abbrev-ref', 'HEAD']).decode('ascii').strip()
+		except:
+			print("ERROR: Couldn't grab git branch")
+			gb = "XXXXX"
+		f5.attrs['GITBRANCH'] = gb
+
 #Get git hash from file if it exists
 def GetHash(fname):
 	CheckOrDie(fname)
@@ -70,13 +94,16 @@ def tStep(fname,nStp=0,aID="time",aDef=0.0):
 	return t
 	
 def cntSteps(fname,doTryRecover=True,s0=0):
+	from alive_progress import alive_it
 
 	try:
 		CheckOrDie(fname)
 		with h5py.File(fname,'r') as hf:
-			Steps = [grp for grp in hf.keys() if "Step#" in grp]
+			Steps = [grp for grp in alive_it(hf.keys(),title="#-Steps".ljust(kdefs.barLab),length=kdefs.barLen) if "Step#" in grp]
 		sIds = np.array([str.split(s,"#")[-1] for s in Steps],dtype=np.int)
+		sIds.sort()
 		nSteps = len(Steps)
+		
 		return nSteps,sIds
 	except (ValueError, IndexError) as e:
 		print("!!Warning: h5 file contains unreadable steps")
@@ -103,6 +130,7 @@ def cntSteps(fname,doTryRecover=True,s0=0):
 				s+=1
 			nSteps = len(sIds)
 			sIds = np.array(sIds)
+			sIds.sort()
 		return nSteps,sIds
 
 #More general version of cntSteps, useful for Step#X/Line#Y
@@ -118,20 +146,24 @@ def cntX(fname,gID=None,StrX="/Step#"):
 		nSteps = len(Steps)
 
 		sIds = np.array([str.split(s,"#")[-1] for s in Steps],dtype=np.int)
+		sIds.sort()
 		return nSteps,sIds
 
 def getTs(fname,sIds=None,aID="time",aDef=0.0):
+	from alive_progress import alive_bar
+	
 	if (sIds is None):
 		nSteps,sIds = cntSteps(fname)
 	Nt = len(sIds)
 	T = np.zeros(Nt)
-	i0 = sIds.min()
-	i1 = sIds.max()
 	CheckOrDie(fname)
-	with h5py.File(fname,'r') as hf:
-		for n in range(i0,i1+1):
+	titStr = "Time series: %s"%(aID)
+
+	with h5py.File(fname,'r') as hf, alive_bar(Nt,title=titStr.ljust(kdefs.barLab),length=kdefs.barLen) as bar:
+		for idx, n in enumerate(sIds):
 			gId = "/Step#%d"%(n)
-			T[n-i0] = hf[gId].attrs.get(aID,aDef)
+			T[idx] = hf[gId].attrs.get(aID,aDef)
+			bar()
 	return T
 
 #Get shape/dimension of grid

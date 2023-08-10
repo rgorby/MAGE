@@ -2,9 +2,9 @@
 <!-- Gamera Magnetosphere -->
 <Kaiju>
   <voltron>
-    <sim tFin="677.115987461"/>
+    <time tFin="677.115987461"/>
     <spinup doSpin="F"/>
-    <coupling dt="5.0"/>
+    <coupling dtCouple="5.0" doDeep="F"/>
   </voltron>
   <Gamera>
     <iPdir N="1"/>

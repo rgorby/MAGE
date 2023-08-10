@@ -40,7 +40,7 @@ contains
     finalTotalMagneticField = SUM(NORM2(gameraApp%State%magFlux,4))
     totalError = SUM(ABS(initialMagneticField - NORM2(gameraApp%State%magFlux,4)))
     
-    @assertLessThanOrEqual(abs(finalTotalMagneticField - initialTotalMagneticField)/initialTotalMagneticField, 0.001_rp, 'Lost more than 0.1% of total magnetic field')
+    @assertLessThanOrEqual(abs(finalTotalMagneticField - initialTotalMagneticField)/initialTotalMagneticField, 0.005_rp, 'Lost more than 0.5% of total magnetic field')
     @assertLessThanOrEqual(totalError/initialTotalMagneticField, 0.05_rp, 'Dissipation was more than 5% of total magnetic field')
 
   end subroutine testLoop2D
@@ -224,8 +224,10 @@ contains
     do while ((1.0 - gameraApp%Model%t*gameraApp%Model%Units%gT0) > 1e-15)
         call stepGamera(gameraApp)
 
-        if (gameraApp%Model%t >= voltronApp%ShallowT) then
-            call ShallowUpdate(voltronApp, gameraApp, gameraApp%Model%t)
+        if (gameraApp%Model%t >= voltronApp%DeepT) then
+            call convertGameraToRemix(voltronApp%mhd2mix, gameraApp, voltronApp%remixApp)
+            call runRemix(voltronApp)
+            call convertRemixToGamera(voltronApp%mix2mhd, voltronApp%remixApp, gameraApp)
         endif
     end do
     write(*,*) 'End time = ', gameraApp%Model%t

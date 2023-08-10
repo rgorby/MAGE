@@ -2,21 +2,13 @@ import matplotlib.pyplot as plt
 import matplotlib.gridspec as gridspec
 import numpy as np
 
-def L_to_bVol(L):  # L shell [Re] to V [Re/nT]
-    bsurf_nT = 3.11E4
-    colat = np.arcsin(np.sqrt(1.0/L))
-
-    cSum = 35*np.cos(colat) - 7*np.cos(3*colat) +(7./5.)*np.cos(5*colat) - (1./7.)*np.cos(7*colat)
-    cSum /= 64.
-    s8 = np.sin(colat)**8
-    V = 2*cSum/s8/bsurf_nT
-    return V
+import kaipy.kaiTools as kT
 
 
 def plotLambdas_Val_Spac(specDataList, yscale='log',L=None):
 	doEnergy = True if L is not None else False
 	if doEnergy: 
-		bVol = L_to_bVol(L)
+		bVol = kT.L_to_bVol(L)
 		vm = bVol**(-2/3)
 	if not isinstance(specDataList, list):
 		specDataList = [specDataList]
@@ -60,7 +52,7 @@ def plotLambdas_Val_Spac(specDataList, yscale='log',L=None):
 def plotLambdasBySpec(specDataList, yscale='log',L=None):
 	doEnergy = True if L is not None else False
 	if doEnergy:
-		bVol = L_to_bVol(L)
+		bVol = kT.L_to_bVol(L)
 		vm = bVol**(-2/3)
 	if not isinstance(specDataList, list):
 		specDataList = [specDataList]
@@ -98,5 +90,50 @@ def plotLambdasBySpec(specDataList, yscale='log',L=None):
 		Ax.set_xlabel('Channel Number')
 		Ax.title.set_text(specData.name)
 	if doEnergy:
-		plt.suptitle("L={} vm={:2.2f}".format(L, vm))
+		plt.suptitle("Energy grid values and spacing\n@ L={}, bVol={:2.2f}, vm={:2.2f}".format(L, bVol, vm))
 	plt.show()
+
+def plotEnergyRange(specDataList, rInner=1.5, rOuter=15, rRes=100):
+	"""Plot energy range of each species as a function of L shell
+	"""
+	rVals = np.linspace(rInner, rOuter, rRes)
+	bVols = np.array([kT.L_to_bVol(r) for r in rVals])
+	vms = bVols**(-2/3)
+
+	allMin = 1e8
+	allMax = -1
+	specPlotList = []
+	for i in range(len(specDataList)):
+		specData = specDataList[i]
+		if specData.name != "Plasmasphere":
+			specPlotList.append(specData)
+			allMin = np.min((allMin, np.abs(specData.alams[0])*vms[-1]*1E-3))
+			allMax = np.max((allMax, np.abs(specData.alams[-1])*vms[0]*1E-3))
+	nSpecs = len(specPlotList)
+
+	allMax
+
+
+	fig = plt.figure(figsize=(10,5))
+	gs = gridspec.GridSpec(1,nSpecs)
+
+	for i in range(nSpecs):	
+		specData = specPlotList[i]
+
+		lamMin = np.abs(specData.alams[0])
+		lamMax = np.abs(specData.alams[-1])
+		eMins  = lamMin*vms*1E-3  # [eV -> keV]
+		eMaxs  = lamMax*vms*1E-3  # [eV -> keV]
+
+		Ax = fig.add_subplot(gs[:,i])
+		Ax.fill_between(rVals, eMins, eMaxs)
+		Ax.set_yscale('log')
+		Ax.set_xlabel('L Shell [R$_p$]')
+		Ax.set_ylabel('Energy [keV]')
+		Ax.set_ylim([0.8*allMin, 1.2*allMax])
+		Ax.grid(True)
+		Ax.set_title(specData.name)
+	plt.suptitle("Covered enery range w.r.t. dipole L-shell")
+	plt.show()
+
+

@@ -19,19 +19,13 @@ parser = argparse.ArgumentParser()
 parser.add_argument('ConfigFileName',help='The name of the configuration file to use',default='startup.config')
 args = parser.parse_args()
 
-
 # Read params from config file
 prm   = params.params(args.ConfigFileName)
 Ng    = prm.Nghost
 gamma = prm.gamma
 
-# Normalization parameters
-# remember to use the same units in gamera
-B0 = prm.B0
-n0 = prm.n0
-V0 = B0/np.sqrt(4*np.pi*mp*n0)
-TCS = prm.TCS #Temperature in the current sheet for pressure balance calculation 
-nCS = prm.nCS #Density in the current sheet for pressure balance calculation 
+TCS = prm.TCS # Temperature in the current sheet for pressure balance calculation 
+nCS = prm.nCS # Density in the current sheet for pressure balance calculation 
 
 # Grid parameters
 tMin = prm.tMin
@@ -42,7 +36,13 @@ Ni   = prm.Ni
 Nj   = prm.Nj
 Nk   = prm.Nk 
 
-ffits = os.path.join(os.getenv('KAIJUHOME'),prm.wsaFile)
+#conversions from wsa to gamera units
+cms2kms = 1.e-5 # cm/s => km/s
+Gs2nT = 1.e5    # Gs => nT
+# Conversion for E field  1 statV/cm = 3.e7 mV/m
+eScl = 3.e7
+
+ffits = prm.wsaFile
 
 # Generate spherical helio grid
 print("Generating gamera-helio grid Ni = %d, Nj  = %d, Nk = %d " % (Ni, Nj, Nk))
@@ -53,15 +53,16 @@ gg.WriteGrid(X3,Y3,Z3,fOut=os.path.join(prm.GridDir,prm.gameraGridFile))
 if os.path.exists(prm.gameraGridFile):
     print("Grid file heliogrid.h5 is ready!")
 
-
-# Read and normalize WSA
+# Read WSA
 jd_c,phi_wsa_v,theta_wsa_v,phi_wsa_c,theta_wsa_c,bi_wsa,v_wsa,n_wsa,T_wsa = wsa.read(ffits,prm.densTempInfile,prm.normalized)
-bi_wsa /= B0
-n_wsa  /= (mp*n0)
-v_wsa /= V0
-#convert julian date in the center of the WSA map into modified julian date
-mjd_c = jd_c - 2400000.5
+# Units of WSA input
+# bi_wsa in [Gs] 
+# v_wsa in [cm/s]
+# n_wsa in [g cm-3]
+# T_wsa in [K]
 
+# convert julian date in the center of the WSA map into modified julian date
+mjd_c = jd_c - JD2MJD
 
 # Get GAMERA grid for further interpolation
 with h5py.File(os.path.join(prm.GridDir,prm.gameraGridFile),'r') as f:
@@ -79,12 +80,20 @@ zc = 0.125*(z[:-1,:-1,:-1]+z[:-1,1:,:-1]+z[:-1,:-1,1:]+z[:-1,1:,1:]
 # radius of the inner boundary
 R0 = np.sqrt(x[0,0,Ng]**2+y[0,0,Ng]**2+z[0,0,Ng]**2) 
 
+r = np.sqrt(x**2+y**2+z**2)
+
 # Calculate phi and theta in physical domain (excluding ghost cells)
-P = np.arctan2(y[Ng:-Ng-1,Ng:-Ng-1,:],x[Ng:-Ng-1,Ng:-Ng-1,:])
+P = np.arctan2(y[Ng:-Ng,Ng:-Ng,:],x[Ng:-Ng,Ng:-Ng,:])
 P[P<0]=P[P<0]+2*np.pi
-P = P % (2*np.pi)  # sometimes the very first point may be a very
+#P = P % (2*np.pi)  # sometimes the very first point may be a very
                    # small negative number, which the above call sets
                    # to 2*pi. This takes care of it.
+T = np.arccos(z[Ng:-Ng,Ng:-Ng,:]/r[Ng:-Ng,Ng:-Ng,:])
+
+#grid for inner i-ghost region; output to innerbc.h5
+P_out = P[:,:,0:Ng+1]
+T_out = T[:,:,0:Ng+1]
+R_out = r[Ng:-Ng,Ng:-Ng,0:Ng+1]
 
 # Calculate r, phi and theta coordinates of cell centers in physical domain (excluding ghost cells)
 Rc = np.sqrt(xc[Ng:-Ng,Ng:-Ng,:]**2+yc[Ng:-Ng,Ng:-Ng,:]**2+zc[Ng:-Ng,Ng:-Ng,:]**2)
@@ -115,8 +124,8 @@ rho = f(Pc[:,0,0],Tc[0,:,0])
 # Not interpolating temperature, but calculating from the total pressure balance
 # AFTER interpolating br and rho to the gamera grid
 # n_CS*k*T_CS = n*k*T + Br^2/8pi  
-temp = (nCS*kbltz*TCS - (br*B0)**2/8./np.pi)/(rho*n0)/kbltz
-# note, keep temperature in K (pressure is normalized in wsa.F90)
+temp = (nCS*kbltz*TCS - br**2/8./np.pi)*Mp_cgs/rho/kbltz
+#temperature in [K]
 
 #check
 #print ("Max and min of temperature in MK")
@@ -130,8 +139,12 @@ temp = (nCS*kbltz*TCS - (br*B0)**2/8./np.pi)/(rho*n0)/kbltz
 fbi = interpolate.RectBivariateSpline(Pc[:,0,0],Tc[0,:,0],br,kx=1,ky=1)
 fv  = interpolate.RectBivariateSpline(Pc[:,0,0],Tc[0,:,0],vr,kx=1,ky=1)
 
-br_kface = fbi(P[:,0,0],Tc[0,:,0])
-vr_kface  = fv (P[:,0,0],Tc[0,:,0])
+br_kface = fbi(P[:-1,0,0],Tc[0,:,0]) #(Nk,Nj)
+vr_kface  = fv (P[:-1,0,0],Tc[0,:,0]) #(Nk,Nj)
+
+# before applying scaling inside ghost region
+# get br values to the left of an edge for E_theta calculation
+br_kedge = np.roll(br,1, axis=1)
 
 # Scale inside ghost region
 (vr,vr_kface,rho,temp,br,br_kface) = [np.dstack(Ng*[var]) for var in (vr,vr_kface,rho,temp,br,br_kface)]
@@ -139,19 +152,33 @@ rho*=(R0/Rc[0,0,:Ng])**2
 br*=(R0/Rc[0,0,:Ng])**2
 br_kface*=(R0/Rc[0,0,:Ng])**2
 
-# Calculating electric field component on k_edges 
-# E_theta = B_phi*Vr = - Omega*R*sin(theta)/Vr*Br * Vr = - Omega*R*sin(theta)*Br 
-omega=2*np.pi/Tsolar
-et_kedge = - omega*R0*np.sin(Tc[:,:,Ng-1])*br_kface[:,:,-1]
+# Calculating E-field component on k_edges in [mV/m]
+# E_theta = B_phi*Vr/c = - Omega*R*sin(theta)/Vr*Br * Vr/c = - Omega*R*sin(theta)*Br/c
+omega = 2*np.pi/(Tsolar*Day2s) # [1/s]
+# Theta at centers of k-faces (== theta at kedges)
+Tcf = 0.25*(T[:,:-1,:-1] + T[:,1:,1:] + T[:,:-1,1:] + T[:,1:,:-1])
+et_kedge = - omega*R0*Rsolar*np.sin(Tcf[:-1,:,Ng-1])*br_kedge/vc_cgs #[statV/cm]
 
-# v, rho, br are normalized, temp is in [K]
+# Unit conversion agreement. Input to GAMERA innerbc.h5 has units V[km/s], Rho[cm-3], T[K], B[nT], E[mV/m]
+vr *= cms2kms
+vr_kface *= cms2kms
+rho /= Mp_cgs
+br *= Gs2nT
+br_kface *= Gs2nT
+et_kedge *= eScl
+
 with h5py.File(os.path.join(prm.IbcDir,prm.gameraIbcFile),'w') as hf:
-    hf.attrs["MJD"] = mjd_c
-    hf.create_dataset("vr",data=vr)
-    hf.create_dataset("vr_kface",data=vr_kface)
-    hf.create_dataset("rho",data=rho)
-    hf.create_dataset("temp",data=temp)
-    hf.create_dataset("br",data=br)
-    hf.create_dataset("br_kface",data=br_kface)
-    #hf.create_dataset("et_kedge",data=et_kedge)
+    hf.create_dataset("X", data=P_out)
+    hf.create_dataset("Y", data=T_out)
+    hf.create_dataset("Z", data=R_out)
+    grname = "Step#0"
+    grp = hf.create_group(grname)
+    grp.attrs.create("MJD", mjd_c)
+    grp.create_dataset("vr",data=vr)
+    grp.create_dataset("vr_kface",data=vr_kface) # size (Nk,Nj,Ng)
+    grp.create_dataset("rho",data=rho)
+    grp.create_dataset("temp",data=temp)
+    grp.create_dataset("br",data=br)
+    grp.create_dataset("br_kface",data=br_kface) # size (Nk,Nj,Ng)
+    grp.create_dataset("et_kedge",data=et_kedge)  # size (Nk, Nj)
 hf.close()

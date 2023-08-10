@@ -1,10 +1,10 @@
 #!/usr/bin/env python
 
 
-"""Prepare for running serial gamera on the loop2d example.
+"""Prepare for running serial kaiju on the loop2d example.
 
-Perform the preprocessing required to run the serial gamera code on
-the loop2d example. Create any required data files, and create the PBS
+Perform the preprocessing required to run the serial kaiju code on the
+loop2d example. Create any required data files, and create the PBS
 script to run the code.
 """
 
@@ -25,23 +25,17 @@ import subprocess
 default_runid = "loop2d"
 
 # Program description.
-description = "Prepare to run serial gamera on the %s model." % default_runid
+description = "Prepare to run serial kaiju on the %s quickstart case." % default_runid
 
-# Location of template .ini file and .ini file for run.
+# Location of template .ini file file for run.
 ini_template = os.path.join(
-    os.environ["KAIJUHOME"], "quickstart", default_runid, "%s.ini.template"
+    os.environ["KAIJUHOME"], "quickstart", default_runid, "%s_template.ini"
     % default_runid
 )
 
-# Location of template XML file and XML file for run.
-xml_template = os.path.join(
-    os.environ["KAIJUHOME"], "quickstart", default_runid, "%s.xml.template"
-    % default_runid
-)
-
-# Location of template PBS script and PBS script for run.
+# Location of template PBS script script for run.
 pbs_template = os.path.join(
-    os.environ["KAIJUHOME"], "quickstart", default_runid, "%s.pbs.template"
+    os.environ["KAIJUHOME"], "quickstart", default_runid, "%s_template.pbs"
     % default_runid
 )
 
@@ -49,7 +43,7 @@ pbs_template = os.path.join(
 def create_command_line_parser():
     """Create the command-line argument parser.
 
-    Prepare the command-line parser.
+    Create the parser for command-line arguments.
 
     Parameters
     ----------
@@ -115,11 +109,15 @@ def create_ini_file(directory, runid):
     -------
     ini_file : str
         Path to .ini file.
+
     """
-    # Just use the template for now.
+    # Read the file template.
     with open(ini_template) as t:
         lines = t.readlines()
+
     # Process the template here.
+
+    # Write the processed .ini file to the run directory.
     ini_file = os.path.join(directory, "%s.ini" % runid)
     with open(ini_file, "w") as f:
         f.writelines(lines)
@@ -130,8 +128,6 @@ def convert_ini_to_xml(ini_file, xml_file):
     """Convert the .ini file to XML.
 
     Convert the .ini file to a .xml file.
-
-    NOTE: This conversion does not work yet, so just copy the template.
 
     Parameters
     ----------
@@ -144,16 +140,9 @@ def convert_ini_to_xml(ini_file, xml_file):
     -------
     None
     """
-    # cmd = "XMLGenerator.py"
-    # args = [ini_file, xml_file]
-    # subprocess.run([cmd] + args)
-
-    # No conversion is performed yet. Just process the XML template.
-    with open(xml_template) as t:
-        lines = t.readlines()
-    # Process the template here.
-    with open(xml_file, "w") as f:
-        f.writelines(lines)
+    cmd = "XMLGenerator.py"
+    args = [ini_file, xml_file]
+    subprocess.run([cmd] + args)
 
 
 def create_pbs_job_script(directory, runid):
@@ -173,9 +162,13 @@ def create_pbs_job_script(directory, runid):
     pbs_file : str
         Path to PBS job script.
     """
+    # Read the template.
     with open(pbs_template) as t:
         lines = t.readlines()
+
     # Process the template here.
+
+    # Write out the processed file.
     pbs_file = os.path.join(directory, "%s.pbs" % runid)
     with open(pbs_file, "w") as f:
         f.writelines(lines)
@@ -217,6 +210,8 @@ if __name__ == "__main__":
     pbs_file = create_pbs_job_script(directory, runid)
     if verbose:
         print("The PBS job script %s is ready." % pbs_file)
+        print("Edit this file as needed for your system (see comments in %s"
+              " for more information)." % pbs_file)
         print("Submit the job to PBS with the command:")
         print("    qsub %s" % pbs_file)
   

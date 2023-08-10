@@ -41,8 +41,8 @@ class DSCOVR(OMNI):
         """
         Read the solar wind file & store results in self.data TimeSeries object.
         """
-        (startDate, dates, data) = self.__readData(filename,t0)
-        (dataArray, hasBeenInterpolated) = self._removeBadData(data)
+        (startDate, dates, data, datanames) = self.__readData(filename,t0)
+        (dataArray, hasBeenInterpolated) = self._removeBadData(data,datanames)
         if self.filter:
             (dataArray, hasBeenInterpolated) = self._coarseFilter(dataArray, hasBeenInterpolated)
         self._storeDataDict(dates, dataArray, hasBeenInterpolated)
@@ -103,7 +103,9 @@ class DSCOVR(OMNI):
             dates.append( currentTime )
             rows.append( data )
 
-        return (t0, dates, rows)
+        datanames = ['Time','Bx','By','Bz','Vx','Vy','Vz','n','Sound Speed','AE','AL','AU','Dst']
+
+        return (t0, dates, rows, datanames)
 
     def _storeDataDict(self, dates, dataArray, hasBeenInterpolated):
         """

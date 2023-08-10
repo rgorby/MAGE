@@ -60,6 +60,9 @@ contains
         wTime_tot = readClock(1)
 
         !Calculate zone-cycles per second
+        Model%kzcsMHD = 0.0
+        Model%kzcsTOT = 0.0
+
         if (Model%ts > 0) then
             ZCs_gam = Model%IO%tsOut*Grid%Nip*Grid%Njp*Grid%Nkp/wTime_gam
             ZCs_tot = Model%IO%tsOut*Grid%Nip*Grid%Njp*Grid%Nkp/wTime_tot
@@ -70,6 +73,9 @@ contains
             ZCs_tot = 0.0
             voltWait = 0
         endif
+        
+        Model%kzcsMHD = ZCs_gam*1.0e-3
+        Model%kzcsTOT = ZCs_tot*1.0e-3
 
         if (Model%isLoud) then
             nTh = NumOMP()
@@ -89,8 +95,7 @@ contains
                 write (*, '(a,1f7.1,a)' )    '    Spent ', voltWait*100.0, '% of time waiting for Voltron'
             endif
             if (ZCs_gam>TINY) then
-                !write (*, '(a,f9.2,a,I0,a)') '      kZCs = ', ZCs/1000.0, ' (',nTh,' threads)'
-                write (*, '(a,f9.2,a,f9.2,a,I0,a)') '      kZCs = ', ZCs_gam/1000.0, ' / ', ZCs_tot/1000.0, ' [MHD/TOT] (',nTh,' threads)'
+                write (*, '(a,f9.2,a,f9.2,a,I0,a)') '      kZCs = ', Model%kzcsMHD, ' / ', Model%kzcsTOT, ' [MHD/TOT] (',nTh,' threads)'
             endif
             write(*,'(a)',advance="no") ANSIRESET!, ''
         endif

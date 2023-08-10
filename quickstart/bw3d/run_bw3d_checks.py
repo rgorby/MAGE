@@ -1,17 +1,15 @@
 #!/usr/bin/env python
 
 
-"""Perform quality checks on the results of running the gamera bw3d case.
+"""Perform sample computations on the results of the bw3d example.
 
-Perform QA checks on the results of running the loop2d example through
-gamera.
+Perform sample computations on the results of the bw3d example.
 """
 
 
 # Import standard modules.
 import argparse
 import os
-import subprocess
 
 # Import 3rd-party modules.
 import numpy as np
@@ -27,14 +25,15 @@ default_runid = "bw3d"
 
 # Program description.
 description = (
-    "Perform consistency checks on the gamera %s test case." % default_runid
+    "Perform sample computations on the results of the %s example." %
+    default_runid
 )
 
-    
+
 def create_command_line_parser():
     """Create the command-line argument parser.
 
-    Prepare the command-line parser.
+    Create the command-line argument parser.
 
     Parameters
     ----------
@@ -42,7 +41,8 @@ def create_command_line_parser():
 
     Returns
     -------
-    None
+    parser : argparse.ArgumentParser
+        Command-line argument parser for this script.
     """
     parser = argparse.ArgumentParser(description=description)
     parser.add_argument(
@@ -84,7 +84,6 @@ def compute_asymmetry_metric(directory, runid):
     asymmetry_metric_first, asymmetry_metric_last : float
         Asymmetry metric (in code units) for first and last steps.
     """
-
     # Open a pipe to the data file.
     data_pipe = gampp.GameraPipe(directory, runid, doVerbose=False)
 
@@ -105,7 +104,6 @@ def compute_asymmetry_metric(directory, runid):
     By = data_pipe.GetVar("By", data_pipe.sFin, doVerb=False)[...]
     Bz = data_pipe.GetVar("Bz", data_pipe.sFin, doVerb=False)[...]
     Pb_last = (Bx**2 + By**2 + Bz**2)/2
-    Pb_integrated_last = np.sum(Pb_last*dV)
     asymmetry_metric_last = np.sum(abs(Pb_last - Pb_last.T)*dV)
 
     return asymmetry_metric_first, asymmetry_metric_last

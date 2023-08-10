@@ -1,17 +1,18 @@
 #!/usr/bin/env python
 
 
-"""Prepare the PBS script for a geo_serial job.
+"""Prepare for running serial kaiju on the geo_serial example.
 
-Perform the preprocessing required to run the serial voltron code on
-the geo_serial example. Create any required data files, and create the
-PBS script to run the code.
+Perform the preprocessing required to run the serial kaiju code on the
+geo_serial example. Create any required data files, and create the PBS
+script to run the code.
 """
 
 
 # Import standard modules.
 import argparse
 import os
+import shutil
 import subprocess
 
 # Import 3rd-party modules.
@@ -25,31 +26,28 @@ import subprocess
 default_runid = "geo_serial"
 
 # Program description.
-description = "Prepare to run serial voltron on the %s test case." % default_runid
+description = "Prepare to run serial kaiju on the %s quickstart case." % default_runid
 
-# Location of template .ini file.
+# Location of template .ini file for run.
 ini_template = os.path.join(
-    os.environ["KAIJUHOME"], "quickstart", default_runid, "%s.ini.template"
+    os.environ["KAIJUHOME"], "quickstart", default_runid, "%s_template.ini"
     % default_runid
 )
 
-# Location of template XML file.
-xml_template = os.path.join(
-    os.environ["KAIJUHOME"], "quickstart", default_runid, "%s.xml.template"
-    % default_runid
-)
-
-# Location of template PBS script.
+# Location of template PBS script for run.
 pbs_template = os.path.join(
-    os.environ["KAIJUHOME"], "quickstart", default_runid, "%s.pbs.template"
+    os.environ["KAIJUHOME"], "quickstart", default_runid, "%s_template.pbs"
     % default_runid
 )
+
+# Name of HDF5 file containing solar wind data for initial conditions.
+sw_file_name = "bcwind.h5"
 
 
 def create_command_line_parser():
     """Create the command-line argument parser.
-    
-    Ceate the parser for command-line arguments.
+
+    Create the parser for command-line arguments.
 
     Parameters
     ----------
@@ -58,7 +56,7 @@ def create_command_line_parser():
     Returns
     -------
     parser : argparse.ArgumentParser
-        Command-line argument parser for this script.
+        Parser for command-line arguments.
     """
     parser = argparse.ArgumentParser(description=description)
     parser.add_argument(
@@ -82,16 +80,22 @@ def create_command_line_parser():
         help="Specify the stop date in ISO 8601 format (default: %(default)s)."
     )
     parser.add_argument(
+        "--swfile", type=str,
+        help="Specify an existing file of solar wind data for initialization. "
+            "If used, --startdate and --stopdate must be set to the time "
+            "limits of this file."
+    )
+    parser.add_argument(
         "-v", "--verbose", action="store_true", default=False,
         help="Print verbose output (default: %(default)s)."
     )
     return parser
 
 
-def run_preprocessing_steps(directory, runid, startdate, stopdate):
-    """Run any preprocessing steps needed for the geo_serial run.
+def run_preprocessing_steps(directory, runid, startdate, stopdate, swfile=None):
+    """Run any preprocessing steps needed for this run.
 
-    Run any required preprocessing steps to prepare for the geo_serial run.
+    Perform required preprocessing steps.
 
     Parameters
     ----------
@@ -101,6 +105,10 @@ def run_preprocessing_steps(directory, runid, startdate, stopdate):
         ID string for the model to run.
     startdate, stopdate : str
         Start and stop date & time for run in ISO 8601 format.
+    swfile : str, default None
+        Path to optional file of solar wind data for initial conditions. If
+        provided, data will not be fetched from CDAWeb for the specified
+        time range.
 
     Returns
     -------
@@ -112,31 +120,34 @@ def run_preprocessing_steps(directory, runid, startdate, stopdate):
     # Move to the output directory.
     os.chdir(directory)
 
-    # Create the grid file.
+    # Create the grid file using "double" resolution.
     cmd = "genLFM.py"
     args = ["-gid", "D"]
     subprocess.run([cmd] + args)
 
-    # Create the solar wind file.
-    cmd = "cda2wind.py"
-    args = ["-t0", startdate, "-t1", stopdate, "-interp"]
-    subprocess.run([cmd] + args)
+    # Create or copy the solar wind file.
+    if swfile is not None:
+        # Use an existing solar wind data file.
+        shutil.copyfile(swfile, sw_file_name)
+    else:
+        # Fetch data from CDAWeb.
+        cmd = "cda2wind.py"
+        args = ["-t0", startdate, "-t1", stopdate, "-interp"]
+        subprocess.run([cmd] + args)
 
     # Create the RCM configuration file.
     cmd = "genRCM.py"
     args = []
     subprocess.run([cmd] + args)
 
-    # Move back to the originaldirectory.
+    # Move back to the original directory.
     os.chdir(original_directory)
 
 
 def create_ini_file(directory, runid):
     """Create the .ini file from a template.
 
-    Create the .ini file describing the geo_serial model run.
-
-    For now, we simply make a copy of the .ini template.
+    Create the .ini file from a template.
 
     Parameters
     ----------
@@ -148,12 +159,16 @@ def create_ini_file(directory, runid):
     Returns
     -------
     ini_file : str
-        Path to the .ini file for the geo_serial model run.
+        Path to .ini file.
+
     """
-    # Just use the template for now.
+    # Read the file template.
     with open(ini_template) as t:
         lines = t.readlines()
+
     # Process the template here.
+
+    # Write the processed .ini file to the run directory.
     ini_file = os.path.join(directory, "%s.ini" % runid)
     with open(ini_file, "w") as f:
         f.writelines(lines)
@@ -163,8 +178,7 @@ def create_ini_file(directory, runid):
 def convert_ini_to_xml(ini_file, xml_file):
     """Convert the .ini file to XML.
     
-    Convert the .ini file describing the geo_serial run to the corresponding
-    XML file.
+    Convert the .ini file to a .xml file.
 
     Parameters
     ----------
@@ -177,16 +191,9 @@ def convert_ini_to_xml(ini_file, xml_file):
     -------
     None
     """
-    # cmd = "XMLGenerator.py"
-    # args = [ini_file, xml_file]
-    # subprocess.run([cmd] + args)
-
-    # No conversion is performed yet. Just process the XML template.
-    with open(xml_template) as t:
-        lines = t.readlines()
-    # Process the template here.
-    with open(xml_file, "w") as f:
-        f.writelines(lines)
+    cmd = "XMLGenerator.py"
+    args = [ini_file, xml_file]
+    subprocess.run([cmd] + args)
 
 
 def create_pbs_job_script(directory, runid):
@@ -206,9 +213,13 @@ def create_pbs_job_script(directory, runid):
     pbs_file : str
         Path to PBS job script.
     """
+    # Read the template.
     with open(pbs_template) as t:
         lines = t.readlines()
+
     # Process the template here.
+
+    # Write out the processed file.
     pbs_file = os.path.join(directory, "%s.pbs" % runid)
     with open(pbs_file, "w") as f:
         f.writelines(lines)
@@ -228,12 +239,13 @@ if __name__ == "__main__":
     runid = args.runid
     startdate = args.startdate
     stopdate = args.stopdate
+    swfile = args.swfile
     verbose = args.verbose
 
     # Run the preprocessing steps.
     if verbose:
         print("Running preprocessing steps.")
-    run_preprocessing_steps(directory, runid, startdate, stopdate)
+    run_preprocessing_steps(directory, runid, startdate, stopdate, swfile)
 
     # Create the .ini file.
     if verbose:
@@ -252,5 +264,7 @@ if __name__ == "__main__":
     pbs_file = create_pbs_job_script(directory, runid)
     if verbose:
         print("The PBS job script %s is ready." % pbs_file)
+        print("Edit this file as needed for your system (see comments in %s"
+              " for more information)." % pbs_file)
         print("Submit the job to PBS with the command:")
         print("    qsub %s" % pbs_file)
