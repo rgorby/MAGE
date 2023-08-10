@@ -195,7 +195,7 @@ class GameraPipe(object):
 		else:
 			titStr = None
 		NrX = max(self.Nr,1)
-		with alive_bar(NrX,title=titStr,length=kdefs.barLen) as bar:
+		with alive_bar(NrX,title=titStr,length=kdefs.barLen,bar=kdefs.barDef) as bar:
 			for (i,j,k) in itertools.product(range(self.Ri),range(self.Rj),range(self.Rk)):
 				iS = i *self.dNi
 				jS = j *self.dNj
@@ -236,7 +236,7 @@ class GameraPipe(object):
 
 		NrX = max(self.Nr,1)
 		
-		with alive_bar(NrX,title=titStr.ljust(kdefs.barLab),length=kdefs.barLen) as bar:
+		with alive_bar(NrX,title=titStr.ljust(kdefs.barLab),length=kdefs.barLen,bar=kdefs.barDef) as bar:
 			for (i,j,k) in itertools.product(range(self.Ri),range(self.Rj),range(self.Rk)):
 
 				iS = i*self.dNi
