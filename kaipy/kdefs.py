@@ -1,5 +1,6 @@
 #Main constants
 import numpy as np
+import alive_progress.animations.bars
 
 #------
 #Helpful conversions
@@ -61,5 +62,8 @@ vc_cgs = 2.99792458e10 # [cm/s] speed of light
 #------
 #Output defaults
 #------
+
 barLen = 30
 barLab = 30 
+#barDef = 'fish'
+barDef = alive_progress.animations.bars.bar_factory(tip="><('>", chars='∙',background='')
