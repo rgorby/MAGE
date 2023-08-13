@@ -71,7 +71,7 @@ module mixconductance
 
       ! these arrays are global and should not be! reallocate them
       if(allocated(tmpD)) deallocate(tmpD)
-      if(allocated(tmpC)) deallocate(tmpC0
+      if(allocated(tmpC)) deallocate(tmpC)
       allocate(tmpD(G%Np,G%Nt))
       allocate(tmpC(G%Np,G%Nt))  
 
@@ -82,7 +82,7 @@ module mixconductance
       if(allocated(tmpF)) deallocate(tmpF)
       if(allocated(beta_RCM)) deallocate(beta_RCM)
       if(allocated(alpha_RCM)) deallocate(alpha_RCM)
-      if(allocated(gtype_TCM)) deallocate(gtype_RCM)
+      if(allocated(gtype_RCM)) deallocate(gtype_RCM)
       allocate(JF0 (G%Np,G%Nt))      
       allocate(RM  (G%Np,G%Nt))      
       allocate(RRdi(G%Np,G%Nt))      
