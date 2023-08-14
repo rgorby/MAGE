@@ -5,6 +5,7 @@ module testplanetunits
   use chmpunits
   use planethelper
   use uservoltic
+  use xml_input
   use ioH5
   use kdefs
   use msphutils, only : RadIonosphere
@@ -126,11 +127,21 @@ contains
     type(voltApp_T) :: vApp
     type(gamApp_T) :: gApp
     character(len=strLen) :: xmlName = 'cmriD_NewPlanet.xml'
+
+    type(XML_Input_T) :: inpXML
+    real(rp) :: corotXML
     call initGamera(gApp, initUser, xmlName)
     call initVoltron(vApp, gApp, xmlName)
 
+    ! For this test, we should get corot potential right from xml cause we don't have a real pre-set value for a fake planet.
+    ! This does check if Voltron and Gamera are getting the right potential from xml
+    ! Currently, we know RCM does not, and that kai2geo doesn't need to cause its only for Earth
+    !  so, RCM and kai2geo should only be used for Earth Earth
+    inpXML = New_XML_Input(trim(xmlName),"Kaiju/GAMERA",.true.)
+    call inpXML%Set_Val(corotXML , "prob/Psi0", EarthM0g)
+
     ! Run tests
-    call checkVoltron(vApp, 1.3*REarth, 1.01*1.3*REarth, 12.0_rp, 0.3*EarthM0g, 0.1*EarthPsi0, .true.)
+    call checkVoltron(vApp, 1.3*REarth, 1.01*1.3*REarth, 12.0_rp, 0.3*EarthM0g, corotXML, .true.)
     call checkGamera(vApp, gApp)
     call checkRCM(vApp)
     !Does REMIX need to be checked? Only relies on msphutil's RadIonosphere() (2021/10/12)
