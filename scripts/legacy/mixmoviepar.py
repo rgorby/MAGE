@@ -136,7 +136,7 @@ def PlotStuff(i,remixFile,T,sIds,foundT,Time,args):
 
 #ncpus = 30	
 ncpus = args.ncpus
-ag = ((i,remixFile,T,sIds,foundT,Time,args) for i in range(1,np.size(sorted(sIds))) )
+ag = ((i,remixFile,T,sIds,foundT,Time,args) for i in range(np.amin(sIds),np.amax(sIds)) )
 print('This system has ',cpu_count(logical= False),' cpus.')
 ncpus = min(int(ncpus),cpu_count(logical=False))
 print('We will use ',ncpus,' cpus for parallelization')
