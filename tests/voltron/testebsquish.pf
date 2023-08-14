@@ -28,7 +28,9 @@ contains
       !ensure the first block starts at 0, they are in order, and they are all in bounds
       @assertEqual(ebGr%ks,ebSquish%blockStartIndices(1),"First entry of squish start indices is not ebGr%ks")
       do i=1,ebSquish%numSquishBlocks-1
-          @assertTrue(ebSquish%blockStartIndices(i-1) <= ebSquish%blockStartIndices(i),"Block start indices are not monotonically increasing")
+          @assertTrue(ebSquish%blockStartIndices(i) <= ebSquish%blockStartIndices(i+1),"Block start indices are not monotonically increasing")
+      enddo
+      do i=1,ebSquish%numSquishBlocks
           @assertTrue(ebSquish%blockStartIndices(i) <= ebGr%ke+1,"Block start index not less than or equal to ebGr%ke+1")
       enddo
       @assertTrue(ebSquish%blockStartIndices(ebSquish%numSquishBlocks)<= ebGr%ke+1,"Block start index not less than or equal to ebGr%ke+1")
