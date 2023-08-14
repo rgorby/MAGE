@@ -13,10 +13,6 @@ module gcm_mpi
 
 contains
 
-!
-!--------------------- START MPI ROUTINES HERE ---------------------
-!
-
     subroutine init_gcm_mpi(gcm,ion,isRestart)
       type(gcm_T),intent(inout) :: gcm
       type(mixIon_T),dimension(:),intent(inout) :: ion
@@ -28,7 +24,6 @@ contains
       gcm%outlist(1) = POT
       gcm%outlist(2) = AVG_ENG
       gcm%outlist(3) = NUM_FLUX
-      call initGCMNames()
 
       gcm%isRestart = isRestart
 
@@ -102,7 +97,7 @@ contains
         endif
         call exportgcm(ion,gcm,mjd,time,gcmCplComm,myRank)
       else
-        call exportgcm(ion,gcm,mjd,time)
+        write(*,*) "Are we trying to Export to Couple GCM?"
       endif
       call Toc("Export")
 
@@ -111,7 +106,7 @@ contains
       if (present(gcmCplComm)) then
         call importgcm(gcm, ion, gcmCplComm,myRank)
       else
-        call importgcm(gcm, ion)
+        write(*,*) "Are we trying to Import to Couple GCM?"
       endif
       call process_gcmimport(gcm,ion)
       call Toc("Import")
@@ -184,11 +179,6 @@ contains
       call mapMIX2GCM(ion,gcm)
 
       if (gcmCplComm /= MPI_COMM_NULL) then
-
-        v = 22
-        write(*,*) "MIXCPL: SENDING SMALL NUMBER:",v
-        call mpi_send(v,1,MPI_INTEGER, gcmCplRank, (tgcmId+voltId)*100, gcmCplComm, ierr)
-        write(*,*) "MIXCPL: SENDING SMALL NUMBER: DONE ", ierr
       
         ! Prepare the export data
         if (.not. allocated(gcm%outvar2d)) allocate(gcm%outvar2d(gcm%nlat,gcm%nlon,mix2gcm_nvar))
