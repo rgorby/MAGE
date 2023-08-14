@@ -9,6 +9,7 @@ module voltapp_mpi
     use ebsquish, only : SquishBlocksRemain, DoSquishBlock
     use, intrinsic :: ieee_arithmetic, only: IEEE_VALUE, IEEE_SIGNALING_NAN, IEEE_QUIET_NAN
     use volthelpers_mpi
+    use gcm_mpi
     
     implicit none
 
@@ -527,7 +528,7 @@ module voltapp_mpi
         call convertGameraToRemix(vApp%mhd2mix, vApp%gAppLocal, vApp%remixApp)
         call Toc("G2R")
 
-        if (vApp%doGCM .and. vApp%time >=0) then
+        if (vApp%doGCM .and. vApp%time >=0 .and. vApp%gcmCplComm /= MPI_COMM_NULL) then
             call Tic("GCM2MIX")
             call coupleGCM2MIX(vApp%gcm,vApp%remixApp%ion,vApp%MJD,vApp%time,vApp%gcmCplComm,vApp%gcmCplRank)
             call Toc("GCM2MIX")
