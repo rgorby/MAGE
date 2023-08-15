@@ -54,8 +54,9 @@ if __name__ == "__main__":
 
     fvolt  = os.path.join(fdir,ftag+".volt.h5")
     BSDst  = kaiH5.getTs(fvolt,sIds=None,aID="BSDst")
-    DPSDst = kaiH5.getTs(fvolt,sIds=None,aID="DPSDst")
     MJD    = kaiH5.getTs(fvolt,sIds=None,aID="MJD")
+    if doDPS:
+        DPSDst = kaiH5.getTs(fvolt,sIds=None,aID="DPSDst")
     I = np.isinf(MJD)
     MJD0 = MJD[~I].min()-1
     MJD[I] = MJD0
