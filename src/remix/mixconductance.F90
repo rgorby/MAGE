@@ -69,17 +69,28 @@ module mixconductance
       if (.not. allocated(conductance%AuroraMask)) allocate(conductance%AuroraMask(G%Np,G%Nt))      
       if (.not. allocated(conductance%PrecipMask)) allocate(conductance%PrecipMask(G%Np,G%Nt))    
 
-      if (.not. allocated(tmpD)) allocate(tmpD(G%Np,G%Nt))
-      if (.not. allocated(tmpC)) allocate(tmpC(G%Np,G%Nt))  
+      ! these arrays are global and should not be! reallocate them
+      if(allocated(tmpD)) deallocate(tmpD)
+      if(allocated(tmpC)) deallocate(tmpC)
+      allocate(tmpD(G%Np,G%Nt))
+      allocate(tmpC(G%Np,G%Nt))  
 
-      if (.not. allocated(JF0))  allocate(JF0 (G%Np,G%Nt))      
-      if (.not. allocated(RM))   allocate(RM  (G%Np,G%Nt))      
-      if (.not. allocated(RRdi)) allocate(RRdi(G%Np,G%Nt))      
-      if (.not. allocated(tmpE)) allocate(tmpE(G%Np+4,G%Nt+4)) ! for boundary processing.
-      if (.not. allocated(tmpF)) allocate(tmpF(G%Np+4,G%Nt+4))
-      if (.not. allocated(beta_RCM)) allocate(beta_RCM(G%Np,G%Nt))
-      if (.not. allocated(alpha_RCM)) allocate(alpha_RCM(G%Np,G%Nt))
-      if (.not. allocated(gtype_RCM)) allocate(gtype_RCM(G%Np,G%Nt))
+      if(allocated(JF0)) deallocate(JF0)
+      if(allocated(RM)) deallocate(RM)
+      if(allocated(RRdi)) deallocate(RRdi)
+      if(allocated(tmpE)) deallocate(tmpE)
+      if(allocated(tmpF)) deallocate(tmpF)
+      if(allocated(beta_RCM)) deallocate(beta_RCM)
+      if(allocated(alpha_RCM)) deallocate(alpha_RCM)
+      if(allocated(gtype_RCM)) deallocate(gtype_RCM)
+      allocate(JF0 (G%Np,G%Nt))      
+      allocate(RM  (G%Np,G%Nt))      
+      allocate(RRdi(G%Np,G%Nt))      
+      allocate(tmpE(G%Np+4,G%Nt+4)) ! for boundary processing.
+      allocate(tmpF(G%Np+4,G%Nt+4))
+      allocate(beta_RCM(G%Np,G%Nt))
+      allocate(alpha_RCM(G%Np,G%Nt))
+      allocate(gtype_RCM(G%Np,G%Nt))
 
       call SetMIXgamma(Params%gamma)
       RinMHD = Params%RinMHD
