@@ -72,6 +72,8 @@ program voltron_mpix
     call ReadXmlImmediate(trim(inpXML),'/Kaiju/Voltron/Helpers/numHelpers',helpersBuf,'0',.false.)
     read(helpersBuf,*) numHelpers
     if(.not. useHelpers) numHelpers = 0
+    call ReadXmlImmediate(trim(inpXML),'/Kaiju/Voltron/coupling/doGCM',helpersBuf,'F',.false.)
+    read(helpersBuf,*) vApp%doGCM
 
     ! create a new MPI communicator for just Gamera
     !    for now this is always all ranks excep the last one (which is reserved for voltron)
@@ -124,8 +126,8 @@ program voltron_mpix
         endif
 
       endif
-      if(divideSize == 1) then
-        write(*,*) "MIX: We're not coupling"
+      if(divideSize == 1 .and. vApp%doGCM .eq. .false.) then
+        write(*,*) "VOLTRON: We're not coupling to a GCM"
         call mpi_comm_free(vApp%gcmCplComm, ierror)
         if(ierror /= MPI_Success) then
           call MPI_Error_string( ierror, message, length, ierror)
@@ -133,6 +135,10 @@ program voltron_mpix
           call mpi_Abort(MPI_COMM_WORLD, 1, ierror)
         end if
         vApp%gcmCplComm = MPI_COMM_NULL
+      endif
+      if (divideSize == 1 .and. vApp%doGCM .eq. .true.) then
+        write(*,*) "VOLTRON: Coupling to GCM Failed."
+        stop
       endif
     else
         call MPI_Comm_Split(MPI_COMM_WORLD, MPI_UNDEFINED, worldRank, vApp%gcmCplComm, ierror)
@@ -146,8 +152,7 @@ program voltron_mpix
     if(isGamera) then
         call Tic("Omega")
         call initGamera_mpi(gApp,userInitFunc,gamComm,doIO=.false.)
-        !call initGam2Volt(g2vComm,gApp,MPI_COMM_WORLD,gamId=(gamId+voltId))
-        call initGam2Volt(g2vComm,gApp,MPI_COMM_WORLD,gamId=gamId)
+        call initGam2Volt(g2vComm,gApp,MPI_COMM_WORLD)
         call Toc("Omega")
 
         do while (g2vComm%time < g2vComm%tFin)

@@ -90,13 +90,6 @@ module kdefs
     real(rp), parameter :: Msolar = 1.98847D30 ! [kg] Solar mass
     real(rp), parameter :: Tsolar_synodic = 27.28 ![days] synodic Tsolar
 
-!MPI Communicator Id
-    integer, parameter :: voltId  = 116
-    integer, parameter :: gamId   = 45
-    integer, parameter :: rcmId   = 34
-    integer, parameter :: tgcmId  = 57
-    integer, parameter :: hidraId = 40
-
 !Numbered accessors
     !Directions
     enum, bind(C) 

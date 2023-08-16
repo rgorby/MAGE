@@ -1,6 +1,7 @@
 module gcm_mpi
   use gcminterp
   use mpi_f08
+  use mpidefs
 
   implicit none
 

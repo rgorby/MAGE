@@ -48,21 +48,23 @@ module gam2VoltComm_mpi
     contains
 
     ! setup the MPI communicator to talk to voltron, and send grid data
-    subroutine initGam2Volt(g2vComm, gApp, allComm, optFilename, doIO,commId)
+    subroutine initGam2Volt(g2vComm, gApp, allComm, optFilename, doIO)
         type(gam2VoltCommMpi_T), intent(inout) :: g2vComm
         type(gamAppMpi_T), intent(inout) :: gApp
         type(MPI_Comm), intent(in) :: allComm
         character(len=*), optional, intent(in) :: optFilename
         logical, optional, intent(in) :: doIO
-        integer, intent(in) :: commId
 
         integer :: length, commSize, ierr, numCells, dataCount, numInNeighbors, numOutNeighbors
+        integer :: commId
         type(MPI_Comm) :: voltComm
         character( len = MPI_MAX_ERROR_STRING) :: message
         logical :: reorder, wasWeighted, doIOX
         character(len=strLen) :: inpXML
         type(XML_Input_T) :: xmlInp
         integer, dimension(1) :: rankArray, weightArray
+
+        commId = gamId + voltId
 
         ! initialize F08 MPI objects
         g2vComm%voltMpiComm = MPI_COMM_NULL

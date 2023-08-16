@@ -96,8 +96,7 @@ module voltapp_mpi
 
         ! split allComm into a communicator with only the non-helper voltron rank
         call MPI_Comm_rank(allComm, commSize, ierr)
-        !commId = gamId+voltId
-        commId = gamId
+        commId = gamId+voltId
         if(vApp%amHelper) then
             call MPI_comm_split(allComm, MPI_UNDEFINED, commSize, voltComm, ierr)
         else
