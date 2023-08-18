@@ -726,9 +726,10 @@ def genSatCompPbsScript(scId,fdir,cmd,account='P28100045'):
 """
     moduleString = """module purge
 module load git/2.22.0 intel/18.0.5 hdf5/1.10.5 impi/2018.4.274
-module load ncarenv/1.3 ncarcompilers/0.5.0 python/3.7.9 cmake/3.14.4
-module load ffmpeg/4.1.3 paraview/5.8.1 mkl/2018.0.5
-ncar_pylib /glade/p/hao/msphere/gamshare/casper_satcomp_pylib
+module load git/2.22.0 intel/19.1.1 netcdf/4.8.1 mpt/2.25
+module load ncarcompilers/0.5.0 ncarenv/1.3 cmake/3.22.0
+module load ffmpeg/4.1.3 geos/3.10.1 conda/latest
+conda activate /glade/p/hao/msphere/gamshare/kaiju-3.8
 module list
 """
     commandString = """cd %s
