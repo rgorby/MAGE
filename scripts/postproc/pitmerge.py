@@ -1,5 +1,6 @@
 #!/usr/bin/env python
-#Joins decomposed DB files into single
+# Joins decomposed eb files generated using "Parallel In Time" into a single file
+# Example: bit.ly/3OQg71F
 
 import argparse
 from argparse import RawTextHelpFormatter
@@ -12,7 +13,7 @@ import glob
 tEps = 1.0e-3 #Small time
 
 #Create new file w/ same root vars/attributes as old
-def createfile(fIn,fOut):
+def createfile(fIn,fOut,doLink=False):
 	print('Creating new output file:',fOut)
 	iH5 = h5py.File(fIn,'r')
 	oH5 = h5py.File(fOut,'w')
@@ -23,13 +24,16 @@ def createfile(fIn,fOut):
 		aStr = str(k)
 		oH5.attrs.create(k,iH5.attrs[aStr])
 		print("\t%s"%(aStr))
-    #Copy root groups
+	#Copy root groups
 	print("Copying root variables ...")
 	for Q in iH5.keys():
 		sQ = str(Q)
 		#Don't include stuff that starts with "Step"
 		if "Step" not in sQ:
-			oH5.create_dataset(sQ,data=iH5[sQ])
+			if doLink:
+				oH5[sQ] = h5py.ExternalLink(fIn, sQ)
+			else:
+				oH5.create_dataset(sQ,data=iH5[sQ])
 			print("\t%s"%(sQ))
 	iH5.close()
 
@@ -49,16 +53,22 @@ if __name__ == "__main__":
 	parser = argparse.ArgumentParser(description=MainS, formatter_class=RawTextHelpFormatter)
 	parser.add_argument('-runid',type=str,metavar="runid",default=runid,help="Input run ID (default: %(default)s)")
 	parser.add_argument('-typeid',type=str,metavar="typeid",default=typeid,help="Input type ID (default: %(default)s)")
+	parser.add_argument('--link',action='store_true',help="Create links to existing files rather than copy data (default: %(default)s)")
 
 	#Finalize parsing
 	args = parser.parse_args()
 	runid = args.runid
 	typeid = args.typeid
-	
-	dbIns = glob.glob('%s.????.%s.h5'%(runid,typeid))
+	doLink = args.link
+
+	globStr = '%s.????.%s.h5'%(runid,typeid)
+	dbIns = glob.glob(globStr)
 	dbIns.sort()
-	
-	fOut = "%s.%s.h5"%(runid,typeid)
+
+	if doLink:
+		fOut = "%s.%s.link.h5"%(runid,typeid)
+	else:
+		fOut = "%s.%s.h5"%(runid,typeid)
 
 	N = len(dbIns)
 	print("Found %d files, writing output to %s"%(N,fOut))
@@ -66,7 +76,7 @@ if __name__ == "__main__":
 		print("No files found, exiting")
 		exit()
 	#Create file w/ attributes and root variables as first file
-	oH5 = createfile(dbIns[0],fOut)
+	oH5 = createfile(dbIns[0],fOut, doLink)
 
 	s0 = 0 #Current step
 	nowTime = 0.0
@@ -100,20 +110,22 @@ if __name__ == "__main__":
 				#Good value, update old time
 				oldTime = nowTime
 
-			oH5.create_group(ogStr)
-			print("Copying %s to %s"%(igStr,ogStr))
+			if doLink:
+				oH5[ogStr] = h5py.ExternalLink(fIn, igStr)
+			else:
+				oH5.create_group(ogStr)
+				print("Copying %s to %s"%(igStr,ogStr))
 
-			#Group atts
-			for k in iH5[igStr].attrs.keys():
+				#Group atts
+				for k in iH5[igStr].attrs.keys():
 
-				aStr = str(k)
-				oH5[ogStr].attrs.create(k,iH5[igStr].attrs[aStr])
-				#print(aStr)
-			#Group vars
-			for Q in iH5[igStr].keys():
-				sQ = str(Q)
-				#print("\tCopying %s"%(sQ))
-				oH5[ogStr].create_dataset(sQ,data=iH5[igStr][sQ])
+					aStr = str(k)
+					oH5[ogStr].attrs.create(k,iH5[igStr].attrs[aStr])
+					#print(aStr)
+				#Group vars
+				for Q in iH5[igStr].keys():
+					sQ = str(Q)
+					oH5[ogStr].create_dataset(sQ,data=iH5[igStr][sQ])
 			#Update s0
 			s0 = s0 + 1
 
