@@ -78,7 +78,9 @@ module voltapp
 
     !Initialize planet information
         call getPlanetParams(vApp%planet, xmlInp)
-        call printPlanetParams(vApp%planet)
+        if (vApp%isLoud) then
+            call printPlanetParams(vApp%planet)
+        endif
 
     !Initialize state information
         !Check for Earth to decide what things need to happen
