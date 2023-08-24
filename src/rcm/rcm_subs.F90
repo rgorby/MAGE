@@ -2530,7 +2530,7 @@ SUBROUTINE Move_plasma_grid_MHD (dt,nstep)
           cycle
         else  ! We are hot channel or we are evolving plasmasphere channel
           ! Add current weighted eeta as first contribution
-          eeta_avg(:,:,kc) = eeta_avg(:,:,kc) + eeta(:,:,kc)/(nstep+1)
+          eeta_avg(:,:,kc) = eeta(:,:,kc)/(nstep+1)
         endif
         
         !Sub-step nstep times
