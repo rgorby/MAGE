@@ -36,14 +36,14 @@ module ioH5types
         integer :: Nr = 0 
         !> Total number of elements
         integer :: N  = 0 
-        !> 1D holder for data
+        !> 1D holder for float data
         real(rp), dimension(:), allocatable :: data 
+        !> 1D holder for integer data
+        integer, dimension(:), allocatable :: data_int 
         real(rp) :: scale=1.0, renorm=0.0
         logical :: toWrite=.false.,toRead=.false. !Read or write this variable
         logical :: isDone =.false. !Whether or not variable has been successfully read/written
         integer :: vType=IONULL
         character(len=strLen) :: dStr !Optional string data
     end type IOVAR_T
-
-
 end module ioH5types
