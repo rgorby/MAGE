@@ -170,11 +170,10 @@ if __name__ == '__main__':
 				pbsLogFiles = glob.glob(os.path.join(fdir,scId)+
 						'.o'+jobId[0].split('[')[0]+'.*')
 				for logFile in pbsLogFiles:
-				   with open(logFile) as f:
-				    for line in f:
-				        if 'job killed' in line:
-				            jobKilled = True
-				            failedJobs.append(logFile)
+					with open(logFile) as f:
+						for line in f:
+							if 'job killed' in line:
+								failedJobs.append(logFile)
 				print('Following jobs failed')
 				print(*failedJobs,sep='\n')
 

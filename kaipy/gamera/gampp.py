@@ -214,7 +214,8 @@ class GameraPipe(object):
 
 		for data,vID in coords:
 			datasets = []
-			with alive_bar(NrX,title=f"{titStr}/{vID}".ljust(kdefs.barLab),length=kdefs.barLen) as bar, ProcessPoolExecutor(max_workers=self.nWorkers) as executor:
+			with alive_bar(NrX,title=f"{titStr}/{vID}".ljust(kdefs.barLab),length=kdefs.barLen,bar=kdefs.barDef) as bar, \
+				ProcessPoolExecutor(max_workers=self.nWorkers) as executor:
 				futures = [executor.submit(kh5.PullVarLoc, fIn, vID, loc=loc) for fIn, loc in files]
 				for future in as_completed(futures):
 					datasets.append(future.result())
@@ -316,7 +317,8 @@ class GameraPipe(object):
 		NrX = max(self.Nr,1)
 
 		datasets = []
-		with alive_bar(NrX,title=titStr.ljust(kdefs.barLab),length=kdefs.barLen) as bar, ProcessPoolExecutor(max_workers=self.nWorkers) as executor:
+		with alive_bar(NrX,title=titStr.ljust(kdefs.barLab),length=kdefs.barLen,bar=kdefs.barDef) as bar, \
+				ProcessPoolExecutor(max_workers=self.nWorkers) as executor:
 			futures = [executor.submit(kh5.PullVarLoc, fIn, vID, sID, loc=loc) for fIn, loc in files]
 			for future in as_completed(futures):
 				datasets.append(future.result())

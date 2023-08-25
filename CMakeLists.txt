@@ -1,4 +1,4 @@
-cmake_minimum_required(VERSION 3.12)
+cmake_minimum_required(VERSION 3.20.2)
 project(Kaiju Fortran)
 
 # use the new version of CMP0074, this tells cmake to use <PACKAGE>_ROOT environment
