@@ -69,17 +69,28 @@ module mixconductance
       if (.not. allocated(conductance%AuroraMask)) allocate(conductance%AuroraMask(G%Np,G%Nt))      
       if (.not. allocated(conductance%PrecipMask)) allocate(conductance%PrecipMask(G%Np,G%Nt))    
 
-      if (.not. allocated(tmpD)) allocate(tmpD(G%Np,G%Nt))
-      if (.not. allocated(tmpC)) allocate(tmpC(G%Np,G%Nt))  
+      ! these arrays are global and should not be! reallocate them
+      if(allocated(tmpD)) deallocate(tmpD)
+      if(allocated(tmpC)) deallocate(tmpC)
+      allocate(tmpD(G%Np,G%Nt))
+      allocate(tmpC(G%Np,G%Nt))  
 
-      if (.not. allocated(JF0))  allocate(JF0 (G%Np,G%Nt))      
-      if (.not. allocated(RM))   allocate(RM  (G%Np,G%Nt))      
-      if (.not. allocated(RRdi)) allocate(RRdi(G%Np,G%Nt))      
-      if (.not. allocated(tmpE)) allocate(tmpE(G%Np+4,G%Nt+4)) ! for boundary processing.
-      if (.not. allocated(tmpF)) allocate(tmpF(G%Np+4,G%Nt+4))
-      if (.not. allocated(beta_RCM)) allocate(beta_RCM(G%Np,G%Nt))
-      if (.not. allocated(alpha_RCM)) allocate(alpha_RCM(G%Np,G%Nt))
-      if (.not. allocated(gtype_RCM)) allocate(gtype_RCM(G%Np,G%Nt))
+      if(allocated(JF0)) deallocate(JF0)
+      if(allocated(RM)) deallocate(RM)
+      if(allocated(RRdi)) deallocate(RRdi)
+      if(allocated(tmpE)) deallocate(tmpE)
+      if(allocated(tmpF)) deallocate(tmpF)
+      if(allocated(beta_RCM)) deallocate(beta_RCM)
+      if(allocated(alpha_RCM)) deallocate(alpha_RCM)
+      if(allocated(gtype_RCM)) deallocate(gtype_RCM)
+      allocate(JF0 (G%Np,G%Nt))      
+      allocate(RM  (G%Np,G%Nt))      
+      allocate(RRdi(G%Np,G%Nt))      
+      allocate(tmpE(G%Np+4,G%Nt+4)) ! for boundary processing.
+      allocate(tmpF(G%Np+4,G%Nt+4))
+      allocate(beta_RCM(G%Np,G%Nt))
+      allocate(alpha_RCM(G%Np,G%Nt))
+      allocate(gtype_RCM(G%Np,G%Nt))
 
       call SetMIXgamma(Params%gamma)
       RinMHD = Params%RinMHD
@@ -369,37 +380,35 @@ module mixconductance
       real(rp) :: mad,Ttmp
       real(rp) :: temp(G%Np,G%Nt)
 
-      MaxIter = 5
+      MaxIter = 15
       
       ! Iterative diffusion algorithm to smooth out IM_GTYPE: 0/1 are boundary cells. Evolve with nine-cell mean. 
       ! Otherwise it only has three values, 0, 0.5, and 1.0, 
       ! which causes discontinuities in the merged precipitation.
       gtype_RCM = St%Vars(:,:,IM_GTYPE) ! supposed to be between 0 and 1.
+
+      call FixPole(G,gtype_RCM)
+
       do it=1,MaxIter
          mad = 0.D0 ! max abs difference from last iteration.
          temp = gtype_RCM
+
+         !$OMP PARALLEL DO default(shared) &
+         !$OMP private(i,j,jm1,jp1,im1,ip1,Ttmp) &
+         !$OMP reduction(max:mad)
          do j=1,G%Nt ! use open BC for lat.
-            if(j==1) then
-               jm1 = 1
-            else
-               jm1 = j-1
-            endif
-            if(j==G%Nt) then
-               jp1 = G%Nt
-            else
-               jp1 = j+1
-            endif
             do i=1,G%Np ! use periodic BC for lon.
-               if(i==1) then
-                  im1 = G%Np
-               else
-                  im1 = i-1
-               endif
-               if(i==G%Np) then
-                  ip1 = 1
-               else
-                  ip1 = i+1
-               endif
+
+               jm1 = j-1
+               jp1 = j+1
+               if (j == 1)    jm1 = 1
+               if (j == G%Nt) jp1 = G%Nt
+
+               im1 = i-1
+               ip1 = i+1
+               if (i == 1)    im1 = G%Np
+               if (i == G%Np) ip1 = 1
+
                if(St%Vars(i,j,IM_GTYPE)>0.01 .and. St%Vars(i,j,IM_GTYPE)<0.99) then
                ! Use 0.01/0.99 as the boundary for this numerical diffusion because 
                ! the interpolation from RCM to REMIX would slightly modify the 0/1 boundary.
@@ -411,11 +420,25 @@ module mixconductance
                endif
             enddo
          enddo
-         if(mad<0.05) exit
+         call FixPole(G,gtype_RCM)
+         if(mad<0.025) exit
       enddo
-      gtype_RCM = min(gtype_RCM,1.0)
 
+      gtype_RCM = min(gtype_RCM,1.0)
+      gtype_RCM = max(gtype_RCM,0.0)
+      
     end subroutine conductance_IM_GTYPE
+
+    !Enforce pole condition that all values at the same point are equal
+    subroutine FixPole(Gr,Q)
+      type(mixGrid_T), intent(in)    :: Gr
+      real(rp)       , intent(inout) :: Q(Gr%Np,Gr%Nt)
+
+      real(rp) :: Qavg
+
+      Qavg = sum(Q(:,2))/Gr%Np
+      Q(:,1) = Qavg
+    end subroutine FixPole
 
     subroutine conductance_rcmhd(conductance,G,St)
       type(mixConductance_T), intent(inout) :: conductance

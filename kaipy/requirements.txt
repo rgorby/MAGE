@@ -6,6 +6,7 @@ cdflib
 configparser
 dataclasses_json
 h5py
+jinja2
 matplotlib
 netCDF4
 progressbar
@@ -15,3 +16,4 @@ scipy
 spacepy
 sunpy
 xarray
+

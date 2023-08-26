@@ -17,6 +17,7 @@ module planethelper
         character(len=strLen) :: pID !Planet ID string
         logical :: doCorot
         real(rp) :: RIon
+        real(rp) :: period  ! Rotation period in seconds
 
         if (present(pStrO)) then
             pID = pStrO
@@ -33,7 +34,9 @@ module planethelper
             planet%ri_m = RionE*1.e6  ! Defined in kdefs in 10000km
             planet%grav = 9.807
             call xmlInp%Set_val(planet%magMoment, "/Kaiju/Gamera/prob/M0", EarthM0g)
-            planet%psiCorot = EarthPsi0
+            call xmlInp%Set_val(period, "/Kaiju/Gamera/prob/period", 86400.0)
+            planet%psiCorot = CorotPotential(planet%rp_m, period, planet%magMoment)
+            write(*,*)" Calculated corotation potential [kV]: ", planet%psiCorot
             planet%doGrav = .true.
         case("Saturn","saturn","SATURN")
             planet%rp_m = RSaturnXE*REarth
@@ -127,6 +130,47 @@ module planethelper
         write(*,*) "-------------"
     end subroutine
 
+    subroutine writePlanetParams(planet, doIOp, h5File, gStrO)
+        !! Write planet parameters as attributes to a "Planet" group
+        !! Include a gStrO if you want it to be nested within some other group for some reason
+        type(planet_T), intent(in) :: planet
+        logical, intent(in) :: doIOp
+        character(len=strLen) :: h5File
+        character(len=strLen), optional :: gStrO
+
+        type(IOVAR_T), dimension(8) :: IOVars
+
+        call clearIO(IOVars)
+        ! All attributes
+        call AddOutVar(IOVars, "Name", planet%name)
+        call AddOutVar(IOVars, "Rad_surface"   , planet%rp_m, uStr="m")
+        call AddOutVar(IOVars, "Rad_ionosphere", planet%ri_m, uStr="m")
+        call AddOutVar(IOVars, "Gravity", planet%grav, uStr="m/s^2")
+        call AddOutVar(IOVars, "Mag Moment", planet%magMoment, uStr="Gauss")
+        call AddOutVar(IOVars, "Psi Corot", planet%psiCorot, uStr="kV")
+        if (planet%doGrav) then
+            call AddOutVar(IOVars, "doGrav", "True")
+        else
+            call AddOutVar(IOVars, "doGrav", "False")
+        endif
+
+        if(present(gStrO)) then
+            call WriteVars(IOVars, doIOp, h5File, gStrO, "Planet")
+        else
+            call WriteVars(IOVars, doIOp, h5File, "Planet")
+        endif
+    end subroutine writePlanetParams
+
+
+    function CorotPotential(Rp_m, period, Bmag) result(cPot)
+        !! Calculates corotation potential, assuming dipole and rotational axes are aligned
+        real(rp), intent(in) :: Rp_m  ! Planetary radius in meters
+        real(rp), intent(in) :: period  ! Rotation period in seconds
+        real(rp), intent(in) :: Bmag  ! Magnetic moment in Gauss
+        real(rp) :: cPot  ! Corotation potential in kV
+
+        cPot = Rp_m**2.0 * (2.0*PI/period) * (Bmag*G2T) * 1.0e-3 ! [kV]
+    end function CorotPotential
 
 ! Helpful thermo conversion functions
 
@@ -254,6 +298,12 @@ module planethelper
         Rm = norm2(MagsphereDipole(xyzIon,M0))/norm2(MagsphereDipole(xyzMir,M0))
 
     end function MirrorRatio
+
+    function DipColat2L(colat) result(L)
+        real(rp), intent(in) :: colat
+        real(rp) :: L
+        L = 1.0/sin(colat)**2
+    end function DipColat2L
 
     !Calculate FTV of dipole, Rx/nT
     !M0g is optional mag moment in Gauss, otherwise use Earth

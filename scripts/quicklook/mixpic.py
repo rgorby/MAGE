@@ -152,7 +152,10 @@ if __name__ == "__main__":
         nStp = sorted(sIds)[-1]
     if debug:
         print("nStp = %s" % nStp)
-    foundT = T[nStp]
+    idxStp = np.where(sIds==nStp)[0][0]
+    if debug:
+        print("idxStp = %s" % idxStp)
+    foundT = T[idxStp]
     if debug:
         print("foundT = %s" % foundT)
     print('Found time:', Time(foundT, format='mjd').iso)
