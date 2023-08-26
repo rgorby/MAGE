@@ -22,8 +22,8 @@ def cntSteps(fname):
         Steps = [stp for stp in grpNames if "/Step#" in stp]
         nSteps = len(Steps)
         """
-        #sIds = np.array([str.split(s,"#")[-1] for s in Steps],dtype=np.int)
-        sIds = np.array([str.split(s,"#")[-1] for s in hf.keys() if "Step#" in s],dtype=np.int)
+        #sIds = np.array([str.split(s,"#")[-1] for s in Steps],dtype=int)
+        sIds = np.array([str.split(s,"#")[-1] for s in hf.keys() if "Step#" in s],dtype=int)
         nSteps = len(sIds)
     return nSteps,sIds
 

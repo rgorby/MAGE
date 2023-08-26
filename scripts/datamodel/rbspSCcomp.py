@@ -245,7 +245,7 @@ if __name__ == "__main__":
 		else:
 			#TODO: Should be interpolating here
 			i0 = (Ri>=Req[n]).argmax() - 1
-			j0 = np.int(np.floor(Peq[n]//dphi))
+			j0 = int(np.floor(Peq[n]//dphi))
 			t0 = np.abs(psMJDs-scMJDs[n]).argmin()
 
 			for i in range(Nk):

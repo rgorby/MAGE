@@ -293,10 +293,8 @@ def labelStr(data, key, vecComp):
             data['GAMERA_' + key].attrs['UNITS'].decode() + ']'
         )
     else:
-        label = (
-            data['GAMERA_' + key].attrs['AXISLABEL'] +
-            ' [' + data['GAMERA_' + key].attrs['UNITS'] + ']'
-        )
+        key_name = "GAMERA_" + key
+        label = data[key_name].attrs['AXISLABEL'] + ' [' + data[key_name].attrs['UNITS'].decode() + ']'
     return label
 
 
