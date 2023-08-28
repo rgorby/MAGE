@@ -120,7 +120,8 @@ def create_command_line_parser():
     )
     parser.add_argument(
         "--spacecraft", type=str, metavar="spacecraft", default=None,
-        help="Names of spacecraft to plot positions, separated by commas (default: %(default)s)"
+        help="Names of spacecraft to plot positions, separated by commas"
+        " (default: %(default)s)"
     )
     parser.add_argument(
         "-v", "--verbose", action="store_true", default=False,
@@ -160,6 +161,12 @@ if __name__ == "__main__":
 
     # Create figures in a memory buffer.
     mpl.use("Agg")
+
+    # Read the CDAWeb spacecraft database.
+    sc_metadata_path = os.path.join(
+        os.environ["KAIJUHOME"], "kaipy", "satcomp", "sc_helio.json"
+    )
+    sc_metadata = scutils.getScIds(spacecraft_data_file=sc_metadata_path)
 
     # Determine figure size (width, height) (inches) based on the picture type.
     if pic == "pic1" or pic == "pic2":
@@ -217,7 +224,7 @@ if __name__ == "__main__":
         hviz.PlotEqTemp(gsph, nStp, xyBds, AxL1, AxC1_1)
         hviz.PlotEqBr(gsph, nStp, xyBds, AxR1, AxC2_1)
     elif pic == "pic2":
-        hviz.PlotMerMagV(gsph ,nStp, xyBds, AxL0, AxC1_0)
+        hviz.PlotMerMagV(gsph, nStp, xyBds, AxL0, AxC1_0)
         hviz.PlotMerDNorm(gsph, nStp, xyBds, AxR0, AxC2_0)
         hviz.PlotMerTemp(gsph, nStp, xyBds, AxL1, AxC1_1)
         hviz.PlotMerBrNorm(gsph, nStp, xyBds, AxR1, AxC2_1)
@@ -233,7 +240,7 @@ if __name__ == "__main__":
         hviz.PlotSpeedProf(gsph, nStp, xyBds, AxC)
         hviz.PlotFluxProf(gsph, nStp, xyBds, AxC1)
     else:
-        print ("Pic is empty. Choose pic1 or pic2 or pic3")
+        print("Pic is empty. Choose pic1 or pic2 or pic3")
 
     # Add time in the upper left.
     if pic == "pic1" or pic == "pic2":
@@ -243,7 +250,7 @@ if __name__ == "__main__":
     elif pic == "pic4" or pic == "pic5":
         gsph.AddTime(nStp, Ax, xy=[0.015, 0.92], fs="small")
     else:
-        print ("Pic is empty. Choose pic1 or pic2 or pic3")
+        print("Pic is empty. Choose pic1 or pic2 or pic3")
 
     # Overlay the spacecraft trajectory, if needed.
     if spacecraft:
@@ -294,8 +301,11 @@ if __name__ == "__main__":
 
             # Ingest the trajectory by converting it to the GH(MJDc) frame.
             if verbose:
-                print("Converting ephemeris for %s into gamhelio format." % sc_id)
-            x, y, z = cdaweb_utils.ingest_helio_spacecraft_trajectory(sc_id, sc_data, MJDc)
+                print("Converting ephemeris for %s into gamhelio format." %
+                      sc_id)
+            x, y, z = cdaweb_utils.ingest_helio_spacecraft_trajectory(
+                sc_id, sc_data, MJDc
+            )
             if debug:
                 print("x, y, z = %s, %s, %s" % (x, y, z))
 
@@ -324,32 +334,33 @@ if __name__ == "__main__":
             # Left plot
             SPACECRAFT_COLORS = list(mpl.colors.TABLEAU_COLORS.keys())
             color = SPACECRAFT_COLORS[i_sc % len(SPACECRAFT_COLORS)]
-            x_nudge = 5.0
-            y_nudge = 5.0
-            # <HACK>
-            # Convert underscore to hyphen for STEREO-A, -B.
-            sc_label = sc_id.replace("_", "-")
-            # </HACK>
+            x_nudge = 0.0
+            y_nudge = 8.0
+            sc_label = sc_metadata[sc_id]["label"]
             if pic == "pic1":
                 for ax in (AxL0, AxR0, AxL1, AxR1):
                     ax.plot(x_sc, y_sc, 'o', c=color)
                     ax.plot(x_sc, y_sc, 'o', c="black", fillstyle="none")
-                    ax.text(x_sc + x_nudge, y_sc + y_nudge, sc_label, c="black")
+                    ax.text(x_sc + x_nudge, y_sc + y_nudge, sc_label,
+                            c="black", horizontalalignment="center")
             elif pic == "pic2":
                 for ax in (AxL0, AxR0, AxL1, AxR1):
                     ax.plot(x_sc, z_sc, 'o', c=color)
                     ax.plot(x_sc, z_sc, 'o', c="black", fillstyle="none")
-                    ax.text(x_sc + x_nudge, z_sc + y_nudge, sc_label, c="black")
+                    ax.text(x_sc + x_nudge, z_sc + y_nudge, sc_label,
+                            c="black", horizontalalignment="center")
             elif pic == "pic3":
                 for ax in (AxL0, AxR0, AxL1, AxR1):
                     ax.plot(lon_sc, lat_sc, 'o', c=color)
                     ax.plot(lon_sc, lat_sc, 'o', c="black", fillstyle="none")
-                    ax.text(lon_sc + x_nudge, lat_sc + y_nudge, sc_label, c="black")
+                    ax.text(lon_sc + x_nudge, lat_sc + y_nudge, sc_label,
+                            c="black", horizontalalignment="center")
             elif pic == "pic4":
                 ax = Ax
                 ax.plot(lon_sc, lat_sc, 'o', c=color)
                 ax.plot(lon_sc, lat_sc, 'o', c="black", fillstyle="none")
-                ax.text(lon_sc + x_nudge, lat_sc + y_nudge, sc_label, c="black")
+                ax.text(lon_sc + x_nudge, lat_sc + y_nudge, sc_label,
+                        c="black", horizontalalignment="center")
             elif pic == "pic5":
                 pass
 
