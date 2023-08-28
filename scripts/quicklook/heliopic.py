@@ -295,9 +295,11 @@ if __name__ == "__main__":
 
             # If needed, compute heliocentric spherical coordinates.
             if pic == "pic3" or pic == "pic4":
-                r = np.sqrt(x**2 + y**2 + z**2)
-                lon = np.degrees(np.arccos(x/(x**2 + y**2)))
-                lat = np.degrees(-np.arccos(z/r) + np.pi/2)
+                rxy = np.sqrt(x**2 + y**2)
+                theta = np.arctan2(rxy, z)
+                phi = np.arctan2(y, x)
+                lat = np.degrees(np.pi/2 - theta)
+                lon = np.degrees(phi)
 
             # Plot a labelled trajectory of the spacecraft. Also plot a larger
             # dot at the last point in the trajectory.
