@@ -326,26 +326,30 @@ if __name__ == "__main__":
             color = SPACECRAFT_COLORS[i_sc % len(SPACECRAFT_COLORS)]
             x_nudge = 5.0
             y_nudge = 5.0
+            # <HACK>
+            # Convert underscore to hyphen for STEREO-A, -B.
+            sc_label = sc_id.replace("_", "-")
+            # </HACK>
             if pic == "pic1":
                 for ax in (AxL0, AxR0, AxL1, AxR1):
                     ax.plot(x_sc, y_sc, 'o', c=color)
                     ax.plot(x_sc, y_sc, 'o', c="black", fillstyle="none")
-                    ax.text(x_sc + x_nudge, y_sc + y_nudge, sc_id, c=color)
+                    ax.text(x_sc + x_nudge, y_sc + y_nudge, sc_label, c="black")
             elif pic == "pic2":
                 for ax in (AxL0, AxR0, AxL1, AxR1):
                     ax.plot(x_sc, z_sc, 'o', c=color)
                     ax.plot(x_sc, z_sc, 'o', c="black", fillstyle="none")
-                    ax.text(x_sc + x_nudge, z_sc + y_nudge, sc_id, c=color)
+                    ax.text(x_sc + x_nudge, z_sc + y_nudge, sc_label, c="black")
             elif pic == "pic3":
                 for ax in (AxL0, AxR0, AxL1, AxR1):
                     ax.plot(lon_sc, lat_sc, 'o', c=color)
                     ax.plot(lon_sc, lat_sc, 'o', c="black", fillstyle="none")
-                    ax.text(lon_sc + x_nudge, lat_sc + y_nudge, sc_id, c=color)
+                    ax.text(lon_sc + x_nudge, lat_sc + y_nudge, sc_label, c="black")
             elif pic == "pic4":
                 ax = Ax
                 ax.plot(lon_sc, lat_sc, 'o', c=color)
                 ax.plot(lon_sc, lat_sc, 'o', c="black", fillstyle="none")
-                ax.text(lon_sc + x_nudge, lat_sc + y_nudge, sc_id, c=color)
+                ax.text(lon_sc + x_nudge, lat_sc + y_nudge, sc_label, c="black")
             elif pic == "pic5":
                 pass
 
