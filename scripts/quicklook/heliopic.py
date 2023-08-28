@@ -34,6 +34,7 @@ import argparse
 import os
 
 # Import supplemental modules.
+import astropy.time
 import matplotlib as mpl
 from matplotlib import gridspec
 import matplotlib.pyplot as plt
@@ -202,6 +203,11 @@ if __name__ == "__main__":
         nStp = gsph.sFin
         print("Using Step %d" % nStp)
 
+    # Extract the date/time of the plot.
+    mjd = gsph.MJDs[nStp]
+    if debug:
+        print(f"mjd = {mjd}")
+
     # Now create the actual plots.
     if pic == "pic1":
         # These are all equatorial plots in the XY plane of the HGS frame
@@ -293,6 +299,16 @@ if __name__ == "__main__":
             if debug:
                 print("x, y, z = %s, %s, %s" % (x, y, z))
 
+            # Convert the datetime objects from the trajectory to MJD.
+            t_strings = np.array([str(t) for t in sc_data["Epoch"]])
+            t = astropy.time.Time(t_strings, scale='utc').mjd
+
+            # Interpolate the spacecraft position at the time for the plot.
+            t_sc = mjd
+            x_sc = np.interp(t_sc, t, x)
+            y_sc = np.interp(t_sc, t, y)
+            z_sc = np.interp(t_sc, t, z)
+
             # If needed, compute heliocentric spherical coordinates.
             if pic == "pic3" or pic == "pic4":
                 rxy = np.sqrt(x**2 + y**2)
@@ -300,6 +316,8 @@ if __name__ == "__main__":
                 phi = np.arctan2(y, x)
                 lat = np.degrees(np.pi/2 - theta)
                 lon = np.degrees(phi)
+                lat_sc = np.interp(t_sc, t, lat)
+                lon_sc = np.interp(t_sc, t, lon)
 
             # Plot a labelled trajectory of the spacecraft. Also plot a larger
             # dot at the last point in the trajectory.
@@ -310,32 +328,24 @@ if __name__ == "__main__":
             y_nudge = 5.0
             if pic == "pic1":
                 for ax in (AxL0, AxR0, AxL1, AxR1):
-                    ax.plot(x, y, marker=None, linewidth=1, c=color)
-                    ax.plot(x[-1], y[-1], 'o', c=color)
-                    # Add a black outline.
-                    ax.plot(x[-1], y[-1], 'o', c="black", fillstyle="none")
-                    ax.text(x[-1] + x_nudge, y[-1] + y_nudge, sc_id, c=color)
+                    ax.plot(x_sc, y_sc, 'o', c=color)
+                    ax.plot(x_sc, y_sc, 'o', c="black", fillstyle="none")
+                    ax.text(x_sc + x_nudge, y_sc + y_nudge, sc_id, c=color)
             elif pic == "pic2":
                 for ax in (AxL0, AxR0, AxL1, AxR1):
-                    ax.plot(x, z, marker=None, linewidth=1, c=color)
-                    ax.plot(x[-1], z[-1], 'o', c=color)
-                    # Add a black outline.
-                    ax.plot(x[-1], z[-1], 'o', c="black", fillstyle="none")
-                    ax.text(x[-1] + x_nudge, z[-1] + y_nudge, sc_id, c=color)
+                    ax.plot(x_sc, z_sc, 'o', c=color)
+                    ax.plot(x_sc, z_sc, 'o', c="black", fillstyle="none")
+                    ax.text(x_sc + x_nudge, z_sc + y_nudge, sc_id, c=color)
             elif pic == "pic3":
                 for ax in (AxL0, AxR0, AxL1, AxR1):
-                    ax.plot(lon, lat, marker=None, linewidth=1, c=color)
-                    ax.plot(lon[-1], lat[-1], 'o', c=color)
-                    # Add a black outline.
-                    ax.plot(lon[-1], lat[-1], 'o', c="black", fillstyle="none")
-                    ax.text(lon[-1] + x_nudge, lat[-1] + y_nudge, sc_id, c=color)
+                    ax.plot(lon_sc, lat_sc, 'o', c=color)
+                    ax.plot(lon_sc, lat_sc, 'o', c="black", fillstyle="none")
+                    ax.text(lon_sc + x_nudge, lat_sc + y_nudge, sc_id, c=color)
             elif pic == "pic4":
                 ax = Ax
-                ax.plot(lon, lat, marker=None, linewidth=1, c=color)
-                ax.plot(lon[-1], lat[-1], 'o', c=color)
-                    # Add a black outline.
-                ax.plot(lon[-1], lat[-1], 'o', c="black", fillstyle="none")
-                ax.text(lon[-1] + x_nudge, lat[-1] + y_nudge, sc_id, c=color)
+                ax.plot(lon_sc, lat_sc, 'o', c=color)
+                ax.plot(lon_sc, lat_sc, 'o', c="black", fillstyle="none")
+                ax.text(lon_sc + x_nudge, lat_sc + y_nudge, sc_id, c=color)
             elif pic == "pic5":
                 pass
 
