@@ -45,11 +45,14 @@ module voltapp
             call getIDeckStr(inpXML)
 
         endif
-        !Start by shutting up extra ranks
-        if (.not. vApp%isLoud) call xmlInp%BeQuiet()
+
+        if(vApp%isLoud) write(*,*) 'Voltron Reading input deck from ', trim(inpXML)
 
         !Create XML reader
         xmlInp = New_XML_Input(trim(inpXML),'Kaiju/Voltron',.true.)
+
+        !Start by shutting up extra ranks
+        if (.not. vApp%isLoud) call xmlInp%BeQuiet()
 
         ! try to verify that the XML file has "Kaiju" as a root element
         kaijuRoot = ""

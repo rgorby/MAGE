@@ -105,6 +105,7 @@ module voltapp_mpi
         if(vApp%amHelper) then
             vApp%isLoud = .false.
             vApp%writeFiles = .false.
+            vApp%gAppLocal%Model%isLoud = .false.
 
             ! read helper XML options
             if(present(optFilename)) then
@@ -114,6 +115,8 @@ module voltapp_mpi
             endif
             call CheckFileOrDie(inpXML,"Error opening input deck in initVoltron_mpi, exiting ...")
             xmlInp = New_XML_Input(trim(inpXML),'Kaiju/Gamera',.false.)
+
+            if (.not. vApp%isLoud) call xmlInp%BeQuiet()
 
             call xmlInp%Set_Val(vApp%useHelpers,"/Kaiju/Voltron/Helpers/useHelpers",.false.)
             call xmlInp%Set_Val(vApp%doSquishHelp,"/Kaiju/Voltron/Helpers/doSquishHelp",.true.)
@@ -310,6 +313,7 @@ module voltapp_mpi
             call mpi_Abort(MPI_COMM_WORLD, 1, ierr)
         endif
 
+        vApp%gAppLocal%Model%isLoud = .false.
         vApp%gAppLocal%Grid%ijkShift(1:3) = 0
         call ReadCorners(vApp%gAppLocal%Model,vApp%gAppLocal%Grid,xmlInp,childGameraOpt=.true.)
         call SetRings(vApp%gAppLocal%Model,vApp%gAppLocal%Grid,xmlInp)

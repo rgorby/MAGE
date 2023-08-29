@@ -43,8 +43,9 @@ module gamapp
         endif
 
         !Create XML reader
-        write(*,*) 'Reading input deck from ', trim(inpXML)
+        if (gameraApp%Model%isLoud) write(*,*) 'Gamera Reading input deck from ', trim(inpXML)
         xmlInp = New_XML_Input(trim(inpXML),'Kaiju/Gamera',.true.)
+        if (.not. gameraApp%Model%isLoud) call xmlInp%BeQuiet()
 
         ! try to verify that the XML file has "Kaiju" as a root element
         kaijuRoot = ""

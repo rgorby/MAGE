@@ -80,8 +80,10 @@ module gam2VoltComm_mpi
             call getIDeckStr(inpXML)
         endif
         call CheckFileOrDie(inpXML,"Error opening input deck, exiting ...")
-        write(*,*) 'Reading input deck from ', trim(inpXML)
+        !write(*,*) 'Reading input deck from ', trim(inpXML)
         xmlInp = New_XML_Input(trim(inpXML),'Kaiju/Voltron',.true.)
+        if (.not. gApp%Model%isLoud) call xmlInp%BeQuiet()
+
         call xmlInp%Set_Val(g2vComm%doSerialVoltron,"coupling/doSerial",.false.)
         call xmlInp%Set_Val(g2vComm%doAsyncCoupling,"coupling/doAsyncCoupling",.true.)
         if(g2vComm%doSerialVoltron) then
