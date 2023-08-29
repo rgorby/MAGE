@@ -75,12 +75,14 @@ module voltio
             dtWall = (curCount - oTime)/clockRate
             oTime = curCount
             if(dtWall < 0) dtWall = dtWall + countMax / clockRate
-            simRate = slowWeight*simRate + (1.0-slowRate)*dMJD*24.0*60.0*60.0/dtWall !Model seconds per wall second
+            simRate = slowWeight*simRate + (1.0-slowWeight)*dMJD*24.0*60.0*60.0/dtWall !Model seconds per wall second
             ! Use weight average to self-correct model timing
+            ! chimp timing is a little confusing, but it combines local time spent squishing (no helpers) with
+            !   actual helper delay, which is tricky to estimate
             gamWait   = fastWeight*gamWait   + (1.0-fastWeight)*readClock('GameraSync')/(readClock(1)+TINY)
-            chimpWait = fastWeight*chimpWait + (1.0-fastWeight)*(readClock('VoltHelpers')-readClock('VHReqSquishS'))/(readClock(1)+TINY)
+            chimpWait = fastWeight*chimpWait + (1.0-fastWeight)*(readClock('Squish')+readClock('VoltHelpers')-readClock('VHReqSquishS'))/(readClock(1)+TINY)
             imagWait  = fastWeight*imagWait  + (1.0-fastWeight)*readClock('InnerMag')/(readClock(1)+TINY)
-            mixWait   = fastWeight*mixWait   + (1.0-fastWeight)*readClock('ShallowUpdate')/(readClock(1)+TINY)
+            mixWait   = fastWeight*mixWait   + (1.0-fastWeight)*readClock('ReMIX')/(readClock(1)+TINY)
         else
             simRate = 0.0
             oMJD = cMJD
