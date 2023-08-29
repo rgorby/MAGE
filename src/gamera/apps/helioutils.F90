@@ -15,7 +15,7 @@ module helioutils
     implicit none
 
     ! normalization
-    real(rp), private :: gD0, gB0, gx0, gT0, gv0, gP0
+    real(rp), private :: gD0, gB0, gx0, gT0, gv0, gP0, gE0
 
     type, extends(innerJBC_T) :: helioInnerJBC_T
         contains
@@ -46,9 +46,9 @@ module helioutils
         logical :: doSpin
 
         ! normalization
-        gD0=200.         ! [/cc]
-        gB0=1.e-3        ! [Gs], 100 nT
-        gx0=Rsolar*1.e5  ! [cm], solar radius
+        gD0 = 200.         ! [/cc]
+        gB0 = 1.e-3        ! [Gs], 100 nT
+        gx0 = Rsolar*1.e5  ! [cm], solar radius
         ! for Ohelio case 
         !gD0=10.           ! [/cc] 
         !gB0=5.e-5         ! [Gs], 5 nT 
@@ -58,6 +58,9 @@ module helioutils
         gv0 = gB0/sqrt(4*pi*gD0*mp_cgs) ! [cm/s] ~ 154km/s for gD0=200. and gB0 = 1.e-3
         gT0 = gx0/gv0                   ! [s] ~ 1.25 hour for above values
         gP0 = gB0**2/(4*pi)             ! [erg/cm3]   
+
+        !normalization of E-field
+        gE0 = gB0*1.e-4*gv0*1.e-2 ! B0[T]*V0[m/s]
 
         ! Use gamma=1.5 for SW calculations (set in xml, but defaults to 1.5 here)
         call inpXML%Set_Val(Model%gamma,"physics/gamma",1.5_rp)
@@ -72,12 +75,10 @@ module helioutils
             if (doSpin) then
                 call inpXML%Set_Val(tSpin,"spinup/tSpin",200.0_rp) ! set in [hr] in xml
                 !Rewind Gamera helio time to negative tSpin
-                if (.not. Model%isRestart) then
-                    Model%t = -tSpin*3600./gT0
-                    call inpXML%Set_Val(tIO,"spinup/tIO",0.0_rp) !Time of first restart and output
-                    Model%IO%tRes = tIO
-                    Model%IO%tOut = tIO
-                endif
+                Model%t = -tSpin*3600./gT0
+                call inpXML%Set_Val(tIO,"spinup/tIO",0.0_rp) !Time of first restart and output
+                Model%IO%tRes = tIO
+                Model%IO%tOut = tIO
             endif
          endif
 

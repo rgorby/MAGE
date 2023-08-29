@@ -653,6 +653,7 @@ module voltapp
         Model%doMHD = .true.
         call inpXML%Set_Val(Model%epsds,'tracer/epsds',1.0e-2)    
         call setBackground(Model,inpXML)
+        call inpXML%Set_Val(Model%doDip,'tracer/doDip',.false.)
 
     !Initialize ebState
         !CHIMP grid is initialized from Gamera's active corners

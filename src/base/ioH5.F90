@@ -63,7 +63,7 @@ module ioH5
     integer(HSIZE_T), parameter, private ::  CACHE_CHUNK_SIZE = 256
     character(len=strLen), parameter :: attrGrpName = "timeAttributeCache"
     integer, private :: cacheSize = 0, stepOffset = 0
-    logical, private :: createdThisFile = .false.
+    logical, private :: createdThisFile = .false., isFirstStep = .true. 
 
     !Overloader to add data (array or scalar/string) to output chain
     interface AddOutVar
@@ -508,34 +508,41 @@ contains
         integer :: typeClass
         integer(SIZE_T) :: typeSize
         character(len=strLen) :: inStr
-        logical :: aExists
+        logical :: aExists, dExists
 
+        dExists = h5ltfind_dataset_f(gId, trim(IOVar%idStr))
+        if (.not. dExists) then
+            write(*,"(A,A,A)") "Info: Dataset with name '", trim(IOVar%idStr), "' does not exist, skipping read."
+            return
+        endif 
         !Start by getting rank, dimensions and total size
         call h5ltget_dataset_ndims_f(gId,trim(IOVar%idStr),Nr,herr)
         allocate(dims(Nr))
         call h5ltget_dataset_info_f(gId,trim(IOVar%idStr), dims, typeClass, typeSize, herr)
         N = product(dims)
 
-        ! TODO: Check if chunked/compressed, adjust chunk cach based on ranks (size of dataset for each rank)
-        !h5pset_chunk_cache_f()
-
         !Set relevant values in input chain and allocate memory
         IOVar%Nr = Nr
         IOVar%N  = N
         IOVar%dims(1:Nr) = dims
 
-        if (allocated(IOVar%data)) then
-            deallocate(IOVar%data)
-        endif
-        allocate(IOVar%data(N))
-
         !Read based on data type
         select case(IOVar%vType)
-        case(IONULL,IOREAL)
-            call h5ltread_dataset_f(gId,trim(IOVar%idStr),H5T_NATIVE_DOUBLE,IOVar%data,dims,herr)
-        case default
-            write(*,*) 'Unknown HDF data type, bailing ...'
-            stop
+            case(IONULL,IOREAL)
+                if (allocated(IOVar%data)) then
+                    deallocate(IOVar%data)
+                endif
+                allocate(IOVar%data(N))
+                call h5ltread_dataset_f(gId,trim(IOVar%idStr),H5T_NATIVE_DOUBLE,IOVar%data,dims,herr)
+            case(IOINT)
+                if (allocated(IOVar%data_int)) then
+                    deallocate(IOVar%data_int)
+                endif
+                allocate(IOVar%data_int(N))
+                call h5ltread_dataset_f(gId,trim(IOVar%idStr),H5T_NATIVE_INTEGER,IOVar%data_int,dims,herr)
+            case default
+                write(*,*) 'Unknown HDF data type, bailing ...'
+                stop
         end select
 
         !Check for attribute strings
@@ -653,22 +660,36 @@ contains
     !> Check for resizing of the timeAttributeCache 
     !> datasets' size
     !> 
-    subroutine CheckAttCacheSize(stepStr, cacheExist, cacheCreated)
+    subroutine CheckAttCacheSize(stepStr, cacheId, cacheExist, cacheCreated)
         character(len=*), intent(in) :: stepStr
+        integer, intent(in) :: cacheId
         logical, intent(in) :: cacheExist
         logical, intent(in) :: cacheCreated
         integer :: nStep
+        type(IOVAR_T) :: stepVar
 
         nStep = GetStepInt(stepStr)
-        if(cacheExist .and. .not. cacheCreated) then
-            !write(*,"(A,1x,I)") "timeAttributeCache exists, and not just created, set cacheSize to ", nstep + 1
-            ! If restart ensure that the cache array begins at 0 by subtracting the offset of the first step
+
+        if(isFirstStep .and. nStep > 0) then !  this handles restarts, both in a new directory and in place
+            stepVar%idStr = "step"
+            stepVar%vType = IOINT
+            call ReadHDFVar(stepVar, cacheId)
+            if(allocated(stepVar%data_int)) then ! step dataset was found in existing timeAttributeCache group, otherwise continue
+                stepOffset = stepVar%data_int(1) ! Set offset to first step
+                !write(*,"(A,1x,I,A,I)"), "Step offset is:", stepOffset, ' with step array size ', stepVar%N
+            endif
+            isFirstStep = .false.
+        endif
+
+        if(cacheExist .and. .not. cacheCreated) then !Restart of exisitng run in same directory
+            ! ensure that the cache array begins at current step - first step, by subtracting the offset of the first step
             cacheSize = (nStep - stepOffset) + 1 
-        else 
+            !write(*,"(A,1x,I,1x,A,1x,I)") "timeAttributeCache exists, and not just created, set cacheSize to", cacheSize, "with stepOffset", stepOffset
+        else ! New run, or restart in a new directory
             !write(*,"(A,1x,I)") "timeAttributeCache exists, and just created, set cachesize to ", cacheSize + 1
             cacheSize = cacheSize + 1 ! Increase the cacheSize by one for next time step
-            stepOffset = nStep ! Set offset to first nStep 
-        end if
+            stepOffset = nStep
+        endif
         
     end subroutine
 
@@ -1099,10 +1120,10 @@ contains
                 call h5lexists_f(h5fId,trim(attrGrpName),cacheExist,herr)
                 if (.not. cacheExist) then
                     if(.not. createdThisFile) then
-                        write(*,*) "Attempt to create the timeAttributeCache in an existing h5 file ", &
+                        write(*,*) "Attempt to create the timeAttributeCache in an existing h5 file", &
                                    " that does not have the cache group."
-                        write(*,*) "Perform restart in a different directory, or create the timeAttributeCache,", &
-                                   " and populate it, in the exisitng h5 file."
+                        write(*,*) "Perform restart in a different directory, or create the timeAttributeCache", &
+                                   " and populate it in the exisitng h5 file."
                         stop
                     endif
                     !Create cache group
@@ -1113,7 +1134,7 @@ contains
                 call h5gopen_f(h5fId,trim(attrGrpName),cacheId,herr)  
 
                 ! Check attribute cache size and resize
-                call CheckAttCacheSize(trim(gStrO), cacheExist, cacheCreate)
+                call CheckAttCacheSize(trim(gStrO), cacheId, cacheExist, cacheCreate)
                 ! Write Step# to cache
                 stepVar%Nr = 0
                 stepVar%idStr = "step"

@@ -105,7 +105,7 @@ def cntSteps(fname,doTryRecover=True,s0=0):
 				sIds = np.asarray(hf[kdefs.grpTimeCache]['step'])
 				nSteps = sIds.size
 			else:
-				Steps = [grp for grp in alive_it(hf.keys(),title="#-Steps".ljust(kdefs.barLab),length=kdefs.barLen) if "Step#" in grp]
+				Steps = [grp for grp in alive_it(hf.keys(),title="#-Steps".ljust(kdefs.barLab),length=kdefs.barLen,bar=kdefs.barDef) if "Step#" in grp]
 				sIds = np.array([str.split(s,"#")[-1] for s in Steps],dtype=int)
 				sIds.sort()
 				nSteps = len(Steps)
@@ -172,7 +172,7 @@ def getTs(fname,sIds=None,aID="time",aDef=0.0):
 			else:
 				T[:] = aDef
 		else:
-			with alive_bar(Nt,title=titStr.ljust(kdefs.barLab),length=kdefs.barLen) as bar:
+			with alive_bar(Nt,title=titStr.ljust(kdefs.barLab),length=kdefs.barLen,bar=kdefs.barDef) as bar:
 				for idx, n in enumerate(sIds):
 					gId = "/Step#%d"%(n)
 					T[idx] = hf[gId].attrs.get(aID,aDef)

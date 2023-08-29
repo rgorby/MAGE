@@ -124,10 +124,9 @@ if(CMAKE_Fortran_COMPILER_ID MATCHES Intel)
                 string(APPEND PROD " -march=core-avx2") #-axCORE-AVX512")
                 string(APPEND PRODWITHDEBUGINFO " -march=core-avx2")
 	endif()
-
 	#Check Intel Fortran version
-	if(NOT ALLOW_INVALID_COMPILERS AND CMAKE_Fortran_COMPILER_VERSION VERSION_GREATER "24")
-		message(FATAL_ERROR "Intel Fortran compilers newer than 23 are not supported. Set the ALLOW_INVALID_COMPILERS variable to ON to force compilation at your own risk.")
+	if(NOT ALLOW_INVALID_COMPILERS AND CMAKE_Fortran_COMPILER_VERSION VERSION_GREATER "2021.9")
+		message(FATAL_ERROR "Intel Fortran compilers newer than 2023 (version 2021.8) are not supported. Set the ALLOW_INVALID_COMPILERS variable to ON to force compilation at your own risk.")
 	endif()
 
 elseif(CMAKE_Fortran_COMPILER_ID MATCHES GNU)
