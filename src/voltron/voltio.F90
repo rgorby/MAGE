@@ -19,6 +19,10 @@ module voltio
     real(rp), private ::  oMJD = 0.0
     integer , private :: oTime = 0.0
     real(rp), private :: gamWait = 0.0
+    real(rp), private :: mixWait = 0.0
+    real(rp), private :: imagWait = 0.0
+    real(rp), private :: chimpWait = 0.0
+    real(rp), private :: simRate = 0.0
     character(len=strLen), private :: vh5File
 
     contains
@@ -40,9 +44,15 @@ module voltio
         class(gamApp_T) , intent(in) :: gApp
         real(rp), intent(in) :: MJD0
 
+        ! With a value of 0.8, the output will be 90% of the correct value after 10.3 output cycles
+        ! With a typical voltron output cadence of every coupling interval, this will take about a model minute
+        real(rp), parameter :: fastWeight = 0.8
+        ! With a value of 0.95, this will be 90% of the correct value after ~4 model minutes
+        real(rp), parameter :: slowWeight = 0.95
+
         real(rp) :: cpcp(2) = 0.0
 
-        real(rp) :: dpT,dtWall,cMJD,dMJD,simRate
+        real(rp) :: dpT,dtWall,cMJD,dMJD
 
         integer :: nTh,curCount,countMax
         real(rp) :: clockRate
@@ -60,11 +70,17 @@ module voltio
         if (isConInit) then
             !Console output has been initialized
             dMJD = cMJD - oMJD !Elapsed MJD since first recorded value
+            oMJD = cMJD ! clock every output separately
             call system_clock(curCount,clockRate,countMax)
             dtWall = (curCount - oTime)/clockRate
+            oTime = curCount
             if(dtWall < 0) dtWall = dtWall + countMax / clockRate
-            simRate = dMJD*24.0*60.0*60.0/dtWall !Model seconds per wall second
-            gamWait = 0.8*gamWait + 0.2*readClock('GameraSync')/(readClock(1)+TINY) ! Weighted average to self-correct
+            simRate = slowWeight*simRate + (1.0-slowRate)*dMJD*24.0*60.0*60.0/dtWall !Model seconds per wall second
+            ! Use weight average to self-correct model timing
+            gamWait   = fastWeight*gamWait   + (1.0-fastWeight)*readClock('GameraSync')/(readClock(1)+TINY)
+            chimpWait = fastWeight*chimpWait + (1.0-fastWeight)*(readClock('VoltHelpers')-readClock('VHReqSquishS'))/(readClock(1)+TINY)
+            imagWait  = fastWeight*imagWait  + (1.0-fastWeight)*readClock('InnerMag')/(readClock(1)+TINY)
+            mixWait   = fastWeight*mixWait   + (1.0-fastWeight)*readClock('ShallowUpdate')/(readClock(1)+TINY)
         else
             simRate = 0.0
             oMJD = cMJD
@@ -72,15 +88,11 @@ module voltio
             isConInit = .true.
             dtWall = 0.0
             gamWait = 0.0
+            mixWait = 0.0
+            imagWait = 0.0
+            chimpWait = 0.0
         endif
 
-        if ( (simRate<0) .or. (abs(dtWall/3600.0) >= dtWallMax) ) then
-            ! Partially reset counters so that the values don't become so large they don't change
-            oMJD = cMJD - 0.1*dMJD
-            oTime = curCount - 0.1*dtWall*clockRate
-            if(oTime < 0) oTime = oTime + countMax
-        endif
-        
         !Get MJD info
         call mjd2utstr(cMJD,utStr)
 
@@ -116,7 +128,10 @@ module voltio
                 
                 !write (*,'(a,1f8.3,I6,a)')           '      xTrc = ', vApp%rTrc,vApp%nTrc, ' [r/n]'
             endif
-            write (*, '(a,1f7.1,a)' ) '   Spent ', gamWait*100.0, '% of time waiting for Gamera'
+            write (*, '(a,1f7.1,a)' ) '   Spent ', gamWait*100.0,   '% of time waiting for Gamera'
+            write (*, '(a,1f7.1,a)' ) '         ', chimpWait*100.0, '% of time waiting for Chimp(Helpers)'
+            write (*, '(a,1f7.1,a)' ) '         ', imagWait*100.0,  '% of time waiting for IMAG'
+            write (*, '(a,1f7.1,a)' ) '         ', mixWait*100.0,   '% of time waiting for Remix'
             if (simRate>TINY) then
                 if (vApp%isSeparate) then
                     nTh = NumOMP()
