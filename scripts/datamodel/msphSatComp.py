@@ -98,7 +98,7 @@ if __name__ == '__main__':
 			print('No data available for', scId)
 		else:
 			print('Extracting GAMERA data')
-			scutils.extractGAMERA(data,scIds[scId],scId,
+			toRe = scutils.extractGAMERA(data,scIds[scId],scId,
 				mjdFileStart,secFileStart,fdir,
 				ftag,cmd,numSegments,keep)
 			scutils.matchUnits(data)
@@ -116,5 +116,5 @@ if __name__ == '__main__':
 			scutils.errorReport(errname,scId,data)
 			plotname = os.path.join(fdir,scId+'-traj.png')
 			print('Plotting trajectory to',plotname)
-			kv.trajPlot(plotname,scId,data)
+			kv.trajPlot(plotname,scId,data,toRe)
 			
