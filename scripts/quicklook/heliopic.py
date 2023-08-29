@@ -72,9 +72,6 @@ default_pictype = "pic1"
 # Name of plot output file.
 fOut = "qkpic.png"
 
-# Color to use for spacecraft position symbols.
-SPACECRAFT_COLOR = "red"
-
 
 def create_command_line_parser():
     """Create the command-line argument parser.
