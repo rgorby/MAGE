@@ -1164,6 +1164,12 @@ module glsolution
                     ct = cos(State%thpb)
                     sph = sin(State%phpb)
                     cph = cos(State%phpb)
+
+                    call zero2tiny2d(st) 
+                    call zero2tiny2d(ct) 
+                    call zero2tiny2d(sph)
+                    call zero2tiny2d(cph)
+
                     bmag = sqrt((Solution%b(1,:,:,XDIR)*st*cph + Solution%b(1,:,:,YDIR)*ct*cph - Solution%b(1,:,:,ZDIR)*sph)**2. + &
                                 (Solution%b(1,:,:,XDIR)*st*sph + Solution%b(1,:,:,YDIR)*ct*sph + Solution%b(1,:,:,ZDIR)*cph)**2. + &
                                 (Solution%b(1,:,:,XDIR)*ct - Solution%b(1,:,:,YDIR)*st)**2.)
@@ -1204,9 +1210,9 @@ module glsolution
             ! time assumed in seconds
             Model%phiss = sqrt(Model%eta)*Model%time + 1.0 
             if (Model%isLoud .and. (Model%isDebug)) then
-                write(*,"(1X,A14,2X,F13.4)") "eta: ", Model%eta 
-                write(*,"(1X,A14,2X,F13.4)") "time: ", Model%time 
-                write(*,"(1X,A14,2X,F13.4)") "phiss: ", Model%phiss 
+                write(*,"(1X,A14,2X,F14.6)") "eta: ", Model%eta 
+                write(*,"(1X,A14,2X,F14.6)") "time: ", Model%time 
+                write(*,"(1X,A14,2X,F14.6)") "phiss: ", Model%phiss 
             end if
             
             do i = State%is, State%ie
