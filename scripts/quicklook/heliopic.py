@@ -53,12 +53,7 @@ from kaipy.satcomp import scutils
 # Program constants and defaults
 
 # Program description.
-description = """Creates multi-panel figure for Gamera heliosphere run
-Upper left - Solar wind speed
-Upper right - Solar wind number density
-Lower left - Solar wind temperature
-Lower right - Solar wind radial magnetic field
-"""
+description = "Create quick-look plots for a Gamera heliosphere run"
 
 # Default identifier for results to read.
 default_runid = "wsa"
@@ -108,10 +103,6 @@ def create_command_line_parser():
         help="Time slice to plot (default: %(default)s)"
     )
     parser.add_argument(
-        "-nompi", action="store_true", default=False,
-        help="Don't show MPI boundaries (default: %(default)s)."
-    )
-    parser.add_argument(
         "-p", type=str, metavar="pictype", default=default_pictype,
         help="Code for plot type (default: %(default)s)"
     )
@@ -138,16 +129,12 @@ if __name__ == "__main__":
     debug = args.debug
     fdir = args.d
     ftag = args.id
-    noMPI = args.nompi
     nStp = args.n
     pic = args.p
     spacecraft = args.spacecraft
     verbose = args.verbose
     if debug:
         print("args = %s" % args)
-
-    # Invert the MPI flag for convenience.
-    doMPI = not noMPI
 
     # Fetch the plot domain based on the picture type.
     xyBds = hviz.GetSizeBds(pic)
