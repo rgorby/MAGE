@@ -62,18 +62,18 @@ import os
 import subprocess
 
 # Import supplemental modules.
-# import astropy.time
+import astropy.time
 import matplotlib as mpl
 from matplotlib import gridspec
 import matplotlib.pyplot as plt
-# import numpy as np
+import numpy as np
 
 # Import project-specific modules.
-# from kaipy import cdaweb_utils
+from kaipy import cdaweb_utils
 import kaipy.gamhelio.helioViz as hviz
 import kaipy.gamhelio.heliosphere as hsph
-# import kaipy.kaiH5 as kh5
-# import kaipy.kaiTools as ktools
+import kaipy.kaiH5 as kh5
+import kaipy.kaiTools as ktools
 import kaipy.kaiViz as kv
 from kaipy.satcomp import scutils
 
@@ -93,9 +93,6 @@ default_last_step = -1
 # Code for default picture type.
 default_pictype = "pic1"
 
-# # Name of plot output file.
-# fOut = "qkpic.png"
-
 # Valid plot type strings.
 # valid_pictypes = ("pic1", "pic2", "pic3", "pic4", "pic5")
 valid_pictypes = ("pic1",)
@@ -113,6 +110,9 @@ figure_sizes = {
     "pic4": (10, 6),
     "pic5": (12, 12),
 }
+
+# List of colors to use for spacecraft position dots.
+SPACECRAFT_COLORS = list(mpl.colors.TABLEAU_COLORS.keys())
 
 
 def create_command_line_parser():
@@ -209,12 +209,6 @@ def create_pic1_movie(args):
     # Create all plot images in a memory buffer.
     mpl.use("Agg")
 
-    # If spacecraft positions will be plotted, read the spacecraft metadata.
-    if spacecraft:
-        sc_metadata = scutils.getScIds(spacecraft_data_file=sc_metadata_path)
-        if debug:
-            print(f"scPmetadata = {sc_metadata}")
-
     # Fetch the figure size.
     figsize = figure_sizes[pictype]
     if debug:
@@ -265,11 +259,89 @@ def create_pic1_movie(args):
     ftag = args.runid
     gsph = hsph.GamsphPipe(fdir, ftag)
 
+    # If spacecraft positions will be plotted, read the spacecraft metadata.
+    if spacecraft:
+        sc_metadata = scutils.getScIds(spacecraft_data_file=sc_metadata_path)
+        if debug:
+            print(f"scPmetadata = {sc_metadata}")
+
+        # Split the list into individual spacecraft names.
+        spacecraft_names = spacecraft.split(',')
+        if debug:
+            print(f"spacecraft_names = {spacecraft_names}")
+
+        # Fetch the MJD start and end time of the model results.
+        fname = gsph.f0
+        if debug:
+            print(f"fname = {fname}")
+        MJD_start = kh5.tStep(fname, 0, aID="MJD")
+        if debug:
+            print(f"MJD_start = {MJD_start}")
+        MJD_end = kh5.tStep(fname, gsph.sFin, aID="MJD")
+        if debug:
+            print(f"MJD_end = {MJD_end}")
+
+        # Convert the start and stop MJD to a datetime object in UT.
+        ut_start = ktools.MJD2UT(MJD_start)
+        if debug:
+            print(f"ut_start = {ut_start}")
+        ut_end = ktools.MJD2UT(MJD_end)
+        if debug:
+            print(f"ut_end = {ut_end}")
+
+        # Get the MJDc value for use in computing the gamhelio frame.
+        MJDc = scutils.read_MJDc(fname)
+        if debug:
+            print(f"mjdc = {MJDc}")
+
+        # Fetch the trajectory of each spacecraft from CDAWeb.
+        sc_t = {}
+        sc_x = {}
+        sc_y = {}
+        sc_z = {}
+        for (i_sc, sc_id) in enumerate(spacecraft_names):
+            if verbose:
+                print(f"Fetching trajectory for {sc_id}.")
+
+            # Fetch the spacecraft trajectory in whatever frame is available
+            # from CDAWeb.
+            sc_data = cdaweb_utils.fetch_helio_spacecraft_trajectory(
+                sc_id, ut_start, ut_end
+            )
+            if sc_data is None:
+                print(f"No trajectory found for {sc_id}.")
+                continue
+
+            # Ingest the trajectory by converting it to the GH(MJDc) frame.
+            if verbose:
+                print(f"Converting ephemeris for {sc_id} into gamhelio format.")
+            x, y, z = cdaweb_utils.ingest_helio_spacecraft_trajectory(
+                sc_id, sc_data, MJDc
+            )
+            if debug:
+                print(f"x, y, z = {x}, {y}, {z}")
+
+            # Convert the datetime objects from the trajectory to MJD.
+            t_strings = np.array([str(t) for t in sc_data["Epoch"]])
+            if debug:
+                print(f"t_strings = {t_strings}")
+            t = astropy.time.Time(t_strings, scale='utc').mjd
+            if debug:
+                print(f"t = {t}")
+
+            # Save the trajectory for this spacecraft.
+            sc_t[sc_id] = t
+            sc_x[sc_id] = x
+            sc_y[sc_id] = y
+            sc_z[sc_id] = z
+
     # Create and save frame images for each step.
     first_step = args.first_step
     last_step = args.last_step
     if last_step == -1:
         last_step = gsph.Nt
+    else:
+        last_step += 1
     if debug:
         print(f"first_step, last_step = {first_step, last_step}")
     frame_files = []
@@ -290,6 +362,32 @@ def create_pic1_movie(args):
 
         # Add time in the upper left.
         gsph.AddTime(i_step, ax_v, xy=[0.025, 0.875], fs="x-large")
+
+        # Overlay spacecraft positions (optional).
+        if spacecraft_names:
+            for (i_sc, sc_id) in enumerate(spacecraft_names):
+
+                # Skip this spacecraft if no trajectory available.
+                if sc_id not in sc_t:
+                    continue
+
+                # Interpolate the spacecraft position at the time for the plot.
+                t_sc = mjd
+                x_sc = np.interp(t_sc, sc_t[sc_id], sc_x[sc_id])
+                y_sc = np.interp(t_sc, sc_t[sc_id], sc_y[sc_id])
+                z_sc = np.interp(t_sc, sc_t[sc_id], sc_z[sc_id])
+
+                # Plot the spacecraft position as a colored circle with black
+                # outline and a label.
+                x_nudge = 0.0
+                y_nudge = 8.0
+                sc_label = sc_metadata[sc_id]["label"]
+                color = SPACECRAFT_COLORS[i_sc % len(SPACECRAFT_COLORS)]
+                for ax in (ax_v, ax_n, ax_T, ax_Br):
+                    ax.plot(x_sc, y_sc, 'o', c=color)
+                    ax.plot(x_sc, y_sc, 'o', c="black", fillstyle="none")
+                    ax.text(x_sc + x_nudge, y_sc + y_nudge, sc_label,
+                            c="black", horizontalalignment="center")
 
         # Save the figure to a file.
         path = os.path.join(fdir, f"{pictype}-{i_step}.png")
