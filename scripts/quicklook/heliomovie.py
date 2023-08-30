@@ -94,8 +94,7 @@ default_last_step = -1
 default_pictype = "pic1"
 
 # Valid plot type strings.
-# valid_pictypes = ("pic1", "pic2", "pic3", "pic4", "pic5")
-valid_pictypes = ("pic1",)
+valid_pictypes = ("pic1", "pic2", "pic3", "pic4", "pic5")
 
 # Path to spacecraft metadata file.
 sc_metadata_path = os.path.join(
@@ -387,7 +386,7 @@ def create_pic1_movie(args):
                 t_sc = mjd
                 x_sc = np.interp(t_sc, sc_t[sc_id], sc_x[sc_id])
                 y_sc = np.interp(t_sc, sc_t[sc_id], sc_y[sc_id])
-                # z_sc = np.interp(t_sc, sc_t[sc_id], sc_z[sc_id])
+                z_sc = np.interp(t_sc, sc_t[sc_id], sc_z[sc_id])
 
                 # Plot the spacecraft position as a colored circle with black
                 # outline and a label.
@@ -546,10 +545,10 @@ def create_pic2_movie(args):
             print(f"mjd = {mjd}")
 
         # Create the individual plots for this frame.
-        hviz.PlotEqMagV(gsph, i_step, plot_limits, ax_v, ax_cb_v)
-        hviz.PlotEqD(gsph, i_step, plot_limits, ax_n, ax_cb_n)
-        hviz.PlotEqTemp(gsph, i_step, plot_limits, ax_T, ax_cb_T)
-        hviz.PlotEqBr(gsph, i_step, plot_limits, ax_Br, ax_cb_Br)
+        hviz.PlotMerMagV(gsph, i_step, plot_limits, ax_v, ax_cb_v)
+        hviz.PlotMerDNorm(gsph, i_step, plot_limits, ax_n, ax_cb_n)
+        hviz.PlotMerTemp(gsph, i_step, plot_limits, ax_T, ax_cb_T)
+        hviz.PlotMerBrNorm(gsph, i_step, plot_limits, ax_Br, ax_cb_Br)
 
         # Add time in the upper left.
         gsph.AddTime(i_step, ax_v, xy=[0.025, 0.875], fs="x-large")
@@ -566,7 +565,7 @@ def create_pic2_movie(args):
                 t_sc = mjd
                 x_sc = np.interp(t_sc, sc_t[sc_id], sc_x[sc_id])
                 y_sc = np.interp(t_sc, sc_t[sc_id], sc_y[sc_id])
-                # z_sc = np.interp(t_sc, sc_t[sc_id], sc_z[sc_id])
+                z_sc = np.interp(t_sc, sc_t[sc_id], sc_z[sc_id])
 
                 # Plot the spacecraft position as a colored circle with black
                 # outline and a label.
@@ -575,9 +574,9 @@ def create_pic2_movie(args):
                 sc_label = sc_metadata[sc_id]["label"]
                 color = SPACECRAFT_COLORS[i_sc % len(SPACECRAFT_COLORS)]
                 for ax in (ax_v, ax_n, ax_T, ax_Br):
-                    ax.plot(x_sc, y_sc, 'o', c=color)
-                    ax.plot(x_sc, y_sc, 'o', c="black", fillstyle="none")
-                    ax.text(x_sc + x_nudge, y_sc + y_nudge, sc_label,
+                    ax.plot(x_sc, z_sc, 'o', c=color)
+                    ax.plot(x_sc, z_sc, 'o', c="black", fillstyle="none")
+                    ax.text(x_sc + x_nudge, z_sc + y_nudge, sc_label,
                             c="black", horizontalalignment="center")
 
         # Save the figure to a file.
@@ -634,6 +633,8 @@ def create_gamhelio_movie(args):
     # Make the movie for the selected plot type.
     if pictype == "pic1":
         movie_file = create_pic1_movie(args)
+    elif pictype == "pic2":
+        movie_file = create_pic2_movie(args)
     else:
         raise TypeError(f"Invalid plot type ({pictype})!")
     if debug:
