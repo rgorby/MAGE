@@ -100,7 +100,7 @@ def cntSteps(fname,doTryRecover=True,s0=0):
 		CheckOrDie(fname)
 		with h5py.File(fname,'r') as hf:
 			Steps = [grp for grp in alive_it(hf.keys(),title="#-Steps".ljust(kdefs.barLab),length=kdefs.barLen,bar=kdefs.barDef) if "Step#" in grp]
-		sIds = np.array([str.split(s,"#")[-1] for s in Steps],dtype=np.int)
+		sIds = np.array([str.split(s,"#")[-1] for s in Steps],dtype=int)
 		sIds.sort()
 		nSteps = len(Steps)
 		
@@ -145,7 +145,7 @@ def cntX(fname,gID=None,StrX="/Step#"):
 		Steps = [stp for stp in grpNames if StrX in stp]
 		nSteps = len(Steps)
 
-		sIds = np.array([str.split(s,"#")[-1] for s in Steps],dtype=np.int)
+		sIds = np.array([str.split(s,"#")[-1] for s in Steps],dtype=int)
 		sIds.sort()
 		return nSteps,sIds
 
@@ -171,7 +171,7 @@ def getDims(fname,vID="X",doFlip=True):
 	CheckOrDie(fname)
 	with h5py.File(fname,'r') as hf:
 		Dims = hf["/"][vID].shape
-	Ds = np.array(Dims,dtype=np.int)
+	Ds = np.array(Dims,dtype=int)
 	if (doFlip):
 		Ds = np.flip(Ds,axis=0)
 	return Ds

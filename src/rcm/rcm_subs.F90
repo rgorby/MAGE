@@ -2509,7 +2509,6 @@ SUBROUTINE Move_plasma_grid_MHD (dt,nstep)
     !---
     !Main channel loop
     !NOTE: T1k/T2k need to be private b/c they're altered by claw2ez
-
     !$OMP PARALLEL DO if (L_doOMPClaw) &
     !$OMP schedule(dynamic) &
     !$OMP DEFAULT(SHARED) &
@@ -2523,7 +2522,17 @@ SUBROUTINE Move_plasma_grid_MHD (dt,nstep)
         ENDIF
 
         eeta_avg(:,:,kc) = 0.0
-        eeta_avg(:,:,kc) = eeta_avg(:,:,kc) + eeta(:,:,kc)/(nstep+1)
+
+        if ( (kc==1) .and. dp_on == .false.) then  ! We are plasmasphere and we don't want to evolve it
+          ! Just set eeta_avg to whatever eta is there, and leave
+          !! Note: Regions that have ever been outside of active domain will never have psph again, based on current implementation (2023-08-24)
+          eeta_avg(:,:,kc) = eeta(:,:,kc)
+          cycle
+        else  ! We are hot channel or we are evolving plasmasphere channel
+          ! Add current weighted eeta as first contribution
+          eeta_avg(:,:,kc) = eeta(:,:,kc)/(nstep+1)
+        endif
+        
         !Sub-step nstep times
         do n=1,nstep
             !---
