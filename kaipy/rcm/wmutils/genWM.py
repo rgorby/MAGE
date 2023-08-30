@@ -1,5 +1,6 @@
 import numpy as np
 import h5py as h5
+from scipy.interpolate import RectBivariateSpline
 from kaipy.rcm.wmutils.wmData import wmParams
 # 
 def genWM(params, useWM=True):
@@ -11,15 +12,10 @@ def genWM(params, useWM=True):
 
         fInChorus = os.path.join(__location__,fInChorus)
 
-        fInTDS = 'tauTDS.txt'
-        __location__ = os.path.realpath(os.path.join(os.getcwd(), os.path.dirname(__file__)))
-
-        fInTDS = os.path.join(__location__,fInTDS)
-
-        print("Reading %s and %s"%(fInChorus,fInTDS))
+        print("Reading %s"%fInChorus)
 	
         if useWM:
-                return readWM(params,fInChorus,fInTDS)
+                return readWM(params,fInChorus)
         else:
                 return toyWM(params)
       
@@ -38,55 +34,58 @@ def genh5(fIn, fOut, inputParams, useWM=True):
         else:
                oH5 = h5.File(fOut, 'r+')
         
-        if not ('Tau1i' in oH5.keys()):
-               kpi, mlti, li, eki, tau1i, tau2i, ekTDSi, tauTDSi = genWM(inputParams, useWM = useWM)
+        if not ('Taui' in oH5.keys()):
+               kpi, mlti, li, eki, taui = genWM(inputParams, useWM = useWM)   
                attrs = inputParams.getAttrs()
 
                oH5.create_dataset('Kpi', data=kpi)
                oH5.create_dataset('MLTi', data=mlti)
                oH5.create_dataset('Li', data=li)
                oH5.create_dataset('Eki', data=eki)
-               oH5.create_dataset('Tau1i', data=tau1i)
-               oH5.create_dataset('Tau2i', data=tau2i)
-               oH5.create_dataset('EkTDSi', data=ekTDSi)
-               oH5.create_dataset('TauTDSi', data=tauTDSi)
+               oH5.create_dataset('Taui', data=taui)
                for key in attrs.keys():
                        oH5.attrs[key] = attrs[key]
         oH5.close()
 
-def readWM(params,fInChorus,fInTDS):
+def ReSample(cL,cK,Qp,s):
+        Q = np.log10(Qp)
+        SmthQ = RectBivariateSpline(cL,cK,Q.T,s=s)
+        Qs = SmthQ(cL,cK).T
+        return 10.0**(Qs)
+
+def readWM(params,fInChorus):
         
         # add electron lifetime for the chorus wave loss
         f5 = h5.File(fInChorus, 'r')
         kpi=f5['Kp_1D'][:][0]
-        mlti=np.append(f5['MLT_1D'][:][0],24.)
+        mlti=np.append(f5['MLT_1D'][:][0],24.) # 0, 1,...,24
         li=f5['L_1D'][:][0]
         eki=10.**(f5['E_1D'][:][0]) # in MeV
-        print('shape of eki:',eki.shape)
-        tau1i=(10.**(f5['Tau1_4D'][:]))*24.*3600. # in second 
-        tau2i=(10.**(f5['Tau2_4D'][:]))*24.*3600.
+        taui=(10.**(f5['Tau2_4D'][:]))*24.*3600. # in second, use method 2 data
         #print ("kpi",kpi,"mlti",mlti,"li",li,"eki",eki)
-        nk,nm,nl,ne = tau1i.shape
-        #expand mlt from 0:23 to 0:24
-        tau1ai = np.array([np.append(tau1i[0,:,:,:],np.array([tau1i[0,0,:,:]]),0)])
-        tau2ai = np.array([np.append(tau2i[0,:,:,:],np.array([tau2i[0,0,:,:]]),0)])
-        for i in range(1,7):
-              tau1ai=np.append(tau1ai,np.array([np.append(tau1i[i,:,:,:],np.array([tau1i[i,0,:,:]]),0)]),0)
-              tau2ai=np.append(tau2ai,np.array([np.append(tau2i[i,:,:,:],np.array([tau2i[i,0,:,:]]),0)]),0)	
-        tau1ai = tau1ai.T
-        tau2ai = tau2ai.T
         f5.close()
+        nk,nm,nl,ne = taui.shape
+        #expand mlt from 0:23 to 0:24
+        tauEi = np.array([np.append(taui[0,:,:,:],np.array([taui[0,0,:,:]]),0)])
+        for i in range(1,nk):
+              tauEi=np.append(tauEi,np.array([np.append(taui[i,:,:,:],np.array([taui[i,0,:,:]]),0)]),0)	
+        tauEi = tauEi.T
+        #Smooth the expanded tau table  
+        ne1,nl1,nm1,nk1 = tauEi.shape
+        tauSi = np.zeros((ne1,nl1,nm1,nk1)) #create new smoothed tau
+        s0 = 250 #Magic smoothing number
+        for m in range(nm1):
+            for k in range(nk1):
+                MLT0 = mlti[m]
+                Kp0  = kpi[k]
+                #print("MLT,Kp = %f,%f"%(MLT0,Kp0))
+                m0 = np.abs(mlti-MLT0).argmin()
+                k0 = np.abs(kpi-Kp0).argmin()
+                tauMK = tauEi[:,:,m0,k0]
+                tauMKs = ReSample(li,eki*1e3,tauMK,s0)
+                tauSi[:,:,m,k] = tauMKs 
 
-        #add electron lifetime for the Time Domain Structure loss
-        tdmArrays=np.loadtxt(fInTDS)
-        #print(tdm_arrays)
-        ekTDSi = tdmArrays[:,0].T/1.e6 #in MeV
-        print ('shape of ekiTDS',ekTDSi.shape)
-        tauTDSi = tdmArrays[:,2].T*24.*3600. #in second, read in the electron lifetime against TDS with Ew= 4mV/m
-        print ('tauTDSi[0]',tauTDSi[0])           
-        return kpi,mlti,li,eki,tau1ai,tau2ai,ekTDSi,tauTDSi
-
-
+        return kpi,mlti,li,eki,tauSi
 
 def toyWM(params):
         nKpi = params.nKp
@@ -98,13 +97,9 @@ def toyWM(params):
         mlti = np.linspace(0,24,nMLTi) #Note the dimension of MLT is 25
         li = np.linspace(3.,7.,nLi)
         eki = np.exp(np.linspace(-3,0.1,nEki)) #in MeV
-        #print ("kpi",kpi,"mlti",mlti,"li",li,"eki",eki) 
-        tau1i = np.zeros((nKpi,nMLTi,nLi,nEki))
-        tau2i = np.zeros((nKpi,nMLTi,nLi,nEki)).T 
-        tau1i = kpi[:,None,None,None]*mlti[None,:,None,None]*li[None,None,:,None]*eki[None,None,None,:]
-        tau1i = tau1i.T
-   
-        return kpi,mlti,li,eki,tau1i,tau2i
-      
+        taui = kpi[:,None,None,None]*mlti[None,:,None,None]*li[None,None,:,None]*eki[None,None,None,:]
+        taui = taui.T
+ 
+        return kpi,mlti,li,eki,taui
 
  
