@@ -38,8 +38,8 @@ class OMNI(SolarWind):
         """
         Read the solar wind file & store results in self.data TimeSeries object.
         """
-        (startDate, dates, data) = self.__readData(filename)
-        (dataArray, hasBeenInterpolated) = self._removeBadData(data)
+        (startDate, dates, data, datanames) = self.__readData(filename)
+        (dataArray, hasBeenInterpolated) = self._removeBadData(data,datanames)
         if self.filter:
             (dataArray, hasBeenInterpolated) = self._coarseFilter(dataArray, hasBeenInterpolated)
         self._storeDataDict(dates, dataArray, hasBeenInterpolated)
@@ -82,7 +82,9 @@ class OMNI(SolarWind):
             dates.append( time[i] )
             rows.append( data )
 
-        return (startTime, dates, rows)
+        datanames = ['Time','Bx','By','Bz','Vx','Vy','Vz','n','Temperature','AE','AL','AU','SYMH','BowShockX','BowShockY','BowShockZ']
+
+        return (startTime, dates, rows, datanames)
 
     def __appendMetaData(self, date, filename):
         """
@@ -99,7 +101,7 @@ class OMNI(SolarWind):
                          units='n/a',
                          data=metadata)
 
-    def _removeBadData(self, data, hasBeenInterpolated = None):
+    def _removeBadData(self, data, datanames=['Time','Bx','By','Bz','Vx','Vy','Vz','n','Temp','AE','AL','AU','SYMH','BowShockX','BowShockY','BowShockZ'], hasBeenInterpolated = None):
         """
         Linearly interpolate over bad data (defined by self.bad_data
         list) for each variable in dataStrs.
@@ -130,7 +132,7 @@ class OMNI(SolarWind):
                     if (lastValidIndex == -1) & (curIndex == len(data)-1):
                         # Data does not have at least one valid element!
                         # Setting all values to 0 so that file can still be made
-                        print("No good elements, setting all values to 0 for variable ID: ", varIdx)
+                        print("No good elements, setting all values to 0 for variable: ", datanames[varIdx])
                         data[curIndex][varIdx] = 0.
                         #raise Exception("First & Last datapoint(s) in OMNI "+
                         #                  "solar wind file are invalid.  Not sure "+
@@ -162,7 +164,7 @@ class OMNI(SolarWind):
                         data[lastValidIndex+j][varIdx] = val
                 lastValidIndex = curIndex
 
-        return (numpy.array(data, numpy.float), hasBeenInterpolated)
+        return (numpy.array(data, float), hasBeenInterpolated)
 
     def _coarseFilter(self, dataArray, hasBeenInterpolated):
         """

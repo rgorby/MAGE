@@ -293,10 +293,8 @@ def labelStr(data, key, vecComp):
             data['GAMERA_' + key].attrs['UNITS'].decode() + ']'
         )
     else:
-        label = (
-            data['GAMERA_' + key].attrs['AXISLABEL'] +
-            ' [' + data['GAMERA_' + key].attrs['UNITS'] + ']'
-        )
+        key_name = "GAMERA_" + key
+        label = data[key_name].attrs['AXISLABEL'] + ' [' + data[key_name].attrs['UNITS'].decode() + ']'
     return label
 
 
@@ -420,7 +418,77 @@ def compPlot(plotname,scId,data):
 
     savePic(plotname, doClose=True)
 
+def compPlot(plotname,scId,data):
 
+	numPlots = 0
+	keysToPlot = []
+	keys = data.keys()
+	#print(keys)
+	if 'Density' in keys:
+		numPlots = numPlots + 1
+		keysToPlot.append('Density')
+	if 'Pressue' in keys:
+		numPlots = numPlots + 1
+		keysToPlot.append('Pressue')
+	if 'Temperature' in keys:
+		numPlots = numPlots + 1
+		keysToPlot.append('Temperature')
+	if 'MagneticField' in keys:
+		numPlots = numPlots + 3
+		keysToPlot.append('MagneticField')
+	if 'Velocity' in keys:
+		numPlots = numPlots + 3
+		keysToPlot.append('Velocity')
+
+	figsize = (10,10)
+	fig = plt.figure(figsize=figsize)
+	gs = fig.add_gridspec(numPlots,1)
+	plotNum = 0
+	for key in keysToPlot:
+		#print('Plotting',key)
+		if 'MagneticField' == key or 'Velocity' == key:
+			doVecPlot = True
+		else:
+			doVecPlot = False
+		if 0 == plotNum:
+			Ax1 = fig.add_subplot(gs[plotNum,0])
+			if doVecPlot:
+				#print('key',key,'plotNum',plotNum)
+				itemPlot(Ax1,data,key,plotNum,numPlots,vecComp=0)
+				plotNum = plotNum + 1
+				Ax = fig.add_subplot(gs[plotNum,0],sharex=Ax1)
+				itemPlot(Ax,data,key,plotNum,numPlots,vecComp=1)
+				plotNum = plotNum + 1
+				Ax = fig.add_subplot(gs[plotNum,0],sharex=Ax1)
+				itemPlot(Ax,data,key,plotNum,numPlots,vecComp=2)
+				plotNum = plotNum + 1
+			else:
+				#print('key',key,'plotNum',plotNum)
+				itemPlot(Ax1,data,key,plotNum,numPlots)
+				plotNum = plotNum + 1
+		else:
+			Ax = fig.add_subplot(gs[plotNum,0],sharex=Ax1)
+			if doVecPlot:
+				#print('key',key,'plotNum',plotNum)
+				itemPlot(Ax,data,key,plotNum,numPlots,vecComp=0)
+				plotNum = plotNum + 1
+				Ax = fig.add_subplot(gs[plotNum,0],sharex=Ax1)
+				itemPlot(Ax,data,key,plotNum,numPlots,vecComp=1)
+				plotNum = plotNum + 1
+				Ax = fig.add_subplot(gs[plotNum,0],sharex=Ax1)
+				itemPlot(Ax,data,key,plotNum,numPlots,vecComp=2)
+				plotNum = plotNum + 1
+			else:
+				#print('key',key,'plotNum',plotNum)
+				itemPlot(Ax,data,key,plotNum,numPlots)
+				plotNum = plotNum + 1
+
+	Ax1.legend([scId,'GAMERA'],loc='best')
+	Ax1.set_title(plotname)
+	plt.subplots_adjust(hspace=0)
+
+	savePic(plotname)
+    
 def trajPlot(plotname,scId,data):
     Re = 6380.0
     toRe = 1.0/Re

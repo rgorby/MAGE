@@ -463,10 +463,10 @@ class GamsphPipe(GameraPipe):
 		else:	
 			#Get time in seconds
 			t = self.T[n-self.s0] - T0
-			Nm = np.int( (t-T0)/60.0 ) #Minutes, integer
+			Nm = int( (t-T0)/60.0 ) #Minutes, integer
 			Hr = Nm/60
 			Min = np.mod(Nm,60)
-			Sec = np.mod(np.int(t),60)
+			Sec = np.mod(int(t),60)
 
 			tStr = "Elapsed Time\n  %02d:%02d:%02d"%(Hr,Min,Sec)
 		if (doBox):

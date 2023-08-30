@@ -151,8 +151,8 @@ module voltapp
 
         if(gApp%Model%isRestart) then
             call readVoltronRestart(vApp, xmlInp)
-            vApp%IO%tOut = floor(vApp%time/vApp%IO%dtOut)*vApp%IO%dtOut
-            vApp%IO%tRes = vApp%time + vApp%IO%dtRes
+            vApp%IO%tOut = floor(vApp%time/vApp%IO%dtOut)*vApp%IO%dtOut + vApp%IO%dtOut
+            vApp%IO%tRes = floor(vApp%time/vApp%IO%dtRes)*vApp%IO%dtRes + vApp%IO%dtRes
             vApp%IO%tsNext = vApp%ts
             if(vApp%isSeparate) then
                 gApp%Model%ts = vApp%ts
@@ -653,6 +653,7 @@ module voltapp
         Model%doMHD = .true.
         call inpXML%Set_Val(Model%epsds,'tracer/epsds',1.0e-2)    
         call setBackground(Model,inpXML)
+        call inpXML%Set_Val(Model%doDip,'tracer/doDip',.false.)
 
     !Initialize ebState
         !CHIMP grid is initialized from Gamera's active corners

@@ -58,7 +58,7 @@ print(gBranch)
 # Set up some MPI modules in order to ask for the correct set of executables
 testModules = "module purge; module load intel/18.0.5; module load impi/2018.4.274; module load ncarenv/1.3;"
 testModules = testModules + "module load ncarcompilers/0.5.0; module load python/2.7.16;" 
-testModules = testModules + "module load cmake/3.14.4; module load hdf5-mpi/1.10.5; module load git/2.22.0;"
+testModules = testModules + "module load cmake/3.22.0; module load hdf5-mpi/1.10.5; module load git/2.22.0;"
 testModules = testModules + "module load mkl/2018.0.5"
 
 os.system("cmake ..")

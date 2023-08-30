@@ -138,7 +138,7 @@ def filename_to_runid(filename):
         The MAGE runid for the file.
     """
     parts = filename.split(".")
-    parts = parts[0].split("_")
+    # parts = parts[0].split("_")
     runid = parts[0]
     return runid
 
@@ -255,7 +255,7 @@ if __name__ == "__main__":
     # Compute the ground delta B values for this run.
     if verbose:
         print("Computing ground delta B values.")
-    delta_B_file = compute_ground_delta_B(runid, mpixml)
+    delta_B_file = compute_ground_delta_B(runid, mpixml, mage_results_dir)
     if debug:
         print("delta_B_file = %s" % delta_B_file)
 
