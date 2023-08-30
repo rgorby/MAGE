@@ -288,6 +288,9 @@ def create_pic1_movie(args):
         hviz.PlotEqTemp(gsph, i_step, plot_limits, ax_T, ax_cb_T)
         hviz.PlotEqBr(gsph, i_step, plot_limits, ax_Br, ax_cb_Br)
 
+        # Add time in the upper left.
+        gsph.AddTime(i_step, ax_v, xy=[0.025, 0.875], fs="x-large")
+
         # Save the figure to a file.
         path = os.path.join(fdir, f"{pictype}-{i_step}.png")
         if debug:
