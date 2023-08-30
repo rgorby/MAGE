@@ -87,7 +87,7 @@ description = "Make a movie from a gamhelio run"
 default_runid = "wsa"
 
 # Plot all steps by default.
-default_first_step = 0
+default_first_step = 1
 default_last_step = -1
 
 # Code for default picture type.
@@ -299,7 +299,7 @@ def create_pic1_movie(args):
         print(f"frame_files = {frame_files}")
 
     # Assemble the frames into a movie.
-    cmd = ["convert",  "-delay", "2", "-loop", "0"]
+    cmd = ["convert",  "-delay", "10", "-loop", "0"]
     cmd += frame_files
     movie_file = os.path.join(fdir, f"{pictype}.gif")
     cmd.append(movie_file)
