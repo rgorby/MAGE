@@ -259,7 +259,8 @@ def create_pic1_movie(args):
 
     Returns
     -------
-    None
+    movie_file : str
+        Path to movie file.
 
     Raises
     ------
@@ -421,6 +422,9 @@ def create_pic1_movie(args):
         print(f"Assembling frames into {movie_file}.")
     subprocess.run(cmd, check=True)
 
+    # Return the path to the movie file.
+    return movie_file
+
 
 def create_gamhelio_movie(args):
     """Create a gamhelio movie.
@@ -441,6 +445,7 @@ def create_gamhelio_movie(args):
     TypeError : If an invalid type code is provided.
     """
     # Extract arguments.
+    debug = args.debug
     pictype = args.pictype
 
     # Check that a valid plot code was provided.
@@ -449,9 +454,11 @@ def create_gamhelio_movie(args):
 
     # Make the movie for the selected plot type.
     if pictype == "pic1":
-        create_pic1_movie(args)
+        movie_file = create_pic1_movie(args)
     else:
         raise TypeError(f"Invalid plot type ({pictype})!")
+    if debug:
+        print(f"movie_file = {movie_file}")
 
 #     # Fetch the plot domain based on the picture type.
 #     xyBds = hviz.GetSizeBds(pic)
