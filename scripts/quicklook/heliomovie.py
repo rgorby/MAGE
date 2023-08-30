@@ -177,6 +177,76 @@ def create_command_line_parser():
     return parser
 
 
+def fetch_spacecraft_trajectories(spacecraft_names, gsph):
+    """Fetch spacecraft trajectories from CDAWeb.
+
+    Fetch spacecraft trajectories from CDAWeb.
+
+    Parameters
+    ----------
+    spacecraft_names : list of str
+        List of spacecraft names.
+    gsph : GamsphPipe
+        Pipe object for reading simulation results.
+
+    Returns
+    -------
+    sc_t, sc_x, sc_y, sc_z : dict of np.ndarray
+        Dictionaries of (t, x, y, z), keyed by spacecraft names.
+
+    Raises
+    ------
+    None
+    """
+    # Initialize the coordinate dictionaries.
+    sc_t = {}
+    sc_x = {}
+    sc_y = {}
+    sc_z = {}
+
+    # Fetch the MJD start and end time of the model results.
+    fname = gsph.f0
+    MJD_start = kh5.tStep(fname, 0, aID="MJD")
+    MJD_end = kh5.tStep(fname, gsph.sFin, aID="MJD")
+
+    # Convert the start and stop MJD to a datetime object in UT.
+    ut_start = ktools.MJD2UT(MJD_start)
+    ut_end = ktools.MJD2UT(MJD_end)
+
+    # Get the MJDc value for use in computing the gamhelio frame.
+    MJDc = scutils.read_MJDc(fname)
+
+    # Fetch the trajectory of each spacecraft from CDAWeb.
+    for (i_sc, sc_id) in enumerate(spacecraft_names):
+
+        # Fetch the spacecraft trajectory in whatever frame is available
+        # from CDAWeb.
+        sc_data = cdaweb_utils.fetch_helio_spacecraft_trajectory(
+            sc_id, ut_start, ut_end
+        )
+        if sc_data is None:
+            print(f"No trajectory found for {sc_id}.")
+            continue
+
+        # Ingest the trajectory by converting it to the GH(MJDc) frame.
+        x, y, z = cdaweb_utils.ingest_helio_spacecraft_trajectory(
+            sc_id, sc_data, MJDc
+        )
+
+        # Convert the datetime objects from the trajectory to MJD.
+        t_strings = np.array([str(t) for t in sc_data["Epoch"]])
+        t = astropy.time.Time(t_strings, scale='utc').mjd
+
+        # Save the trajectory for this spacecraft.
+        sc_t[sc_id] = t
+        sc_x[sc_id] = x
+        sc_y[sc_id] = y
+        sc_z[sc_id] = z
+
+    # Return the trajectory dictionaries.
+    return sc_t, sc_x, sc_y, sc_z
+
+
 def create_pic1_movie(args):
     """Create a pic1-style gamhelio movie.
 
@@ -259,7 +329,8 @@ def create_pic1_movie(args):
     ftag = args.runid
     gsph = hsph.GamsphPipe(fdir, ftag)
 
-    # If spacecraft positions will be plotted, read the spacecraft metadata.
+    # If spacecraft positions will be plotted, read the spacecraft metadata
+    # and fetch trajectories.
     if spacecraft:
         sc_metadata = scutils.getScIds(spacecraft_data_file=sc_metadata_path)
         if debug:
@@ -270,70 +341,10 @@ def create_pic1_movie(args):
         if debug:
             print(f"spacecraft_names = {spacecraft_names}")
 
-        # Fetch the MJD start and end time of the model results.
-        fname = gsph.f0
-        if debug:
-            print(f"fname = {fname}")
-        MJD_start = kh5.tStep(fname, 0, aID="MJD")
-        if debug:
-            print(f"MJD_start = {MJD_start}")
-        MJD_end = kh5.tStep(fname, gsph.sFin, aID="MJD")
-        if debug:
-            print(f"MJD_end = {MJD_end}")
-
-        # Convert the start and stop MJD to a datetime object in UT.
-        ut_start = ktools.MJD2UT(MJD_start)
-        if debug:
-            print(f"ut_start = {ut_start}")
-        ut_end = ktools.MJD2UT(MJD_end)
-        if debug:
-            print(f"ut_end = {ut_end}")
-
-        # Get the MJDc value for use in computing the gamhelio frame.
-        MJDc = scutils.read_MJDc(fname)
-        if debug:
-            print(f"mjdc = {MJDc}")
-
-        # Fetch the trajectory of each spacecraft from CDAWeb.
-        sc_t = {}
-        sc_x = {}
-        sc_y = {}
-        sc_z = {}
-        for (i_sc, sc_id) in enumerate(spacecraft_names):
-            if verbose:
-                print(f"Fetching trajectory for {sc_id}.")
-
-            # Fetch the spacecraft trajectory in whatever frame is available
-            # from CDAWeb.
-            sc_data = cdaweb_utils.fetch_helio_spacecraft_trajectory(
-                sc_id, ut_start, ut_end
-            )
-            if sc_data is None:
-                print(f"No trajectory found for {sc_id}.")
-                continue
-
-            # Ingest the trajectory by converting it to the GH(MJDc) frame.
-            if verbose:
-                print(f"Converting ephemeris for {sc_id} into gamhelio format.")
-            x, y, z = cdaweb_utils.ingest_helio_spacecraft_trajectory(
-                sc_id, sc_data, MJDc
-            )
-            if debug:
-                print(f"x, y, z = {x}, {y}, {z}")
-
-            # Convert the datetime objects from the trajectory to MJD.
-            t_strings = np.array([str(t) for t in sc_data["Epoch"]])
-            if debug:
-                print(f"t_strings = {t_strings}")
-            t = astropy.time.Time(t_strings, scale='utc').mjd
-            if debug:
-                print(f"t = {t}")
-
-            # Save the trajectory for this spacecraft.
-            sc_t[sc_id] = t
-            sc_x[sc_id] = x
-            sc_y[sc_id] = y
-            sc_z[sc_id] = z
+        # Fetch the spacecraft trajectories.
+        sc_t, sc_x, sc_y, sc_z = fetch_spacecraft_trajectories(
+            spacecraft_names, gsph
+        )
 
     # Create and save frame images for each step.
     first_step = args.first_step
@@ -364,7 +375,7 @@ def create_pic1_movie(args):
         gsph.AddTime(i_step, ax_v, xy=[0.025, 0.875], fs="x-large")
 
         # Overlay spacecraft positions (optional).
-        if spacecraft_names:
+        if spacecraft:
             for (i_sc, sc_id) in enumerate(spacecraft_names):
 
                 # Skip this spacecraft if no trajectory available.
@@ -375,7 +386,7 @@ def create_pic1_movie(args):
                 t_sc = mjd
                 x_sc = np.interp(t_sc, sc_t[sc_id], sc_x[sc_id])
                 y_sc = np.interp(t_sc, sc_t[sc_id], sc_y[sc_id])
-                z_sc = np.interp(t_sc, sc_t[sc_id], sc_z[sc_id])
+                # z_sc = np.interp(t_sc, sc_t[sc_id], sc_z[sc_id])
 
                 # Plot the spacecraft position as a colored circle with black
                 # outline and a label.
