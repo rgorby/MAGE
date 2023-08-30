@@ -662,7 +662,7 @@ contains
     !> 
     subroutine CheckAttCacheSize(stepStr, cacheId, cacheExist, cacheCreated)
         character(len=*), intent(in) :: stepStr
-        integer, intent(in) :: cacheId
+        integer(HID_T), intent(in) :: cacheId
         logical, intent(in) :: cacheExist
         logical, intent(in) :: cacheCreated
         integer :: nStep
