@@ -18,8 +18,8 @@ module usergamic
 
     enum, bind(C)
        ! variables passed via innerbc file
-       ! Br, Vr, Rho, Temperature, Br @ kface, Vr @ kface, et @ kedge
-       enumerator :: BRIN=1,VRIN,RHOIN,TIN,BRKFIN,VRKFIN,ETKEDGE
+       ! Br, Vr, Rho, Temperature, Br @ kface, Vr @ kface
+       enumerator :: BRIN=1,VRIN,RHOIN,TIN,BRKFIN,VRKFIN
     endenum 
 
     enum, bind(C)
@@ -28,7 +28,7 @@ module usergamic
         enumerator :: CMEBR = 1, CMEBT, CMEBP, CMEVR, CMEMASK
     endenum 
 
-    integer, private, parameter :: NVARSIN=7 ! SHOULD be the same as the number of vars in the above enumerator
+    integer, private, parameter :: NVARSIN=6 ! SHOULD be the same as the number of vars in the above enumerator
     real(rp), dimension(:,:,:,:), allocatable :: ibcVars
     ! Br, Bt, Bp, Vr, Inside_Mask
     integer, private, parameter :: NCMEVARS=5
@@ -36,11 +36,6 @@ module usergamic
 
     !Various global would go here
     real (rp) :: Rho0, P0, Vslow,Vfast, wScl, Cs0, B0, MJD_c
- 
-    !Scaling from innerbc to CGS
-    !Elena: May be move these conversion factors to kdefs?
-    real (rp) :: km2cm = 1.e5
-    real (rp) :: nT2Gs = 1.e-5
 
     ! things we keep reusing
     real(rp), dimension(NDIM) :: xyz,xyz0,rHat,phiHat
@@ -95,6 +90,9 @@ module usergamic
 
     !> Initialize the run
     !> Set initial conditions
+    !>
+    !>
+    !>
     subroutine initUser(Model,Grid,State,inpXML)
         type(Model_T), intent(inout) :: Model
         type(Grid_T), intent(inout) :: Grid
@@ -109,8 +107,8 @@ module usergamic
         integer :: kg, ke, kb, jg
         integer, dimension(6) :: bounds
         real(rp) :: a
-        real(rp) :: Br_left
-        real(rp) :: ibcVarsStaticBRKFN !For brkfn
+        real(rp) :: Tsolar_synodic
+
         real(rp) :: ibcVarsStatic !For br only
         logical :: isSpSymSW
         ! if (.not.allocated(inEijk)) allocate(inEijk(1,Grid%jsg:Grid%jeg+1,Grid%ksg:Grid%keg+1,1:NDIM))
@@ -239,8 +237,8 @@ module usergamic
         !        tsHack => PerStep
         !        Model%HackStep => tsHack
    
-        ! Write MJD_center_of_WSA_map to the root of H5 output 
-        Model%HackIO_0 => writeMJDcH5Root
+         !Write MJD_center_of_WSA_map to the root of H5 output 
+         Model%HackIO_0 => writeMJDcH5Root
 
          if (isSpSymSW) then
             ! spherically symmetric solar wind
@@ -250,6 +248,8 @@ module usergamic
             call readIBC(wsaFile)
         end if
         !MJD0 is MJD_center_of_WSA_map - Tsolar_synodic/2; Tsolar_synodic = 27.28
+        ![EP] TO DO: add synodic Tsolar to constants
+        Tsolar_synodic = 27.28
         Model%MJD0 = MJD_c - Tsolar_synodic/2.
 
         !if not restart set State%time according the tSpin
@@ -266,13 +266,13 @@ module usergamic
 
         do k=Grid%ks,Grid%ke
            kg = k+Grid%ijkShift(KDIR)
-           !initial spin of a map by Tsolar/2
+           ! map rotating to static grid
            call mapKinit(kg,ke,kb,a)
 
            do j=Grid%js,Grid%je
               jg = j+Grid%ijkShift(JDIR)
-
               do i=Grid%isg,Grid%ieg+1
+
                  ibcVarsStatic = 1._rp
 
                  if ( (jg>=Grid%js).and.(jg<=size(ibcVars,2)) ) then
@@ -289,10 +289,13 @@ module usergamic
                  !
                  ! note also that ibcVars(Model%Ng,:,:,:) corresponds to the center of the first ghost cell (just below the boundary)
                  !State%magFlux(i,j,k,IDIR) = ibcVars(Model%Ng,j+Grid%ijkShift(JDIR),k+Grid%ijkShift(KDIR),BRIN)*Rfactor**2*Grid%face(Grid%is,j,k,IDIR)
-                 State%magFlux(i,j,k,IDIR) = ibcVarsStatic*Rfactor**2*Grid%face(Grid%is,j,k,IDIR)
+                  State%magFlux(i,j,k,IDIR) = ibcVarsStatic*Rfactor**2*Grid%face(Grid%is,j,k,IDIR)
               enddo
            enddo
         enddo
+
+        !Local functions
+        !NOTE: Don't put BCs here as they won't be visible after the initialization call
 
         contains
             !> Set initial conditions
@@ -342,16 +345,14 @@ module usergamic
 
     end subroutine initUser
 
-    !> Setting inner-I boundary conditions in four ghost i-layers of cells
-    !> Linear interpolation from rotating to inertial grid
-    !> Setting cell-centered variables and magnetic fluxes at cell faces
-    !> Calculate user defined Efield at the inner boundary
+    !> Inner-I BC for WSA-Gamera
+    !>
+    !>
     subroutine wsaBC(bc,Model,Grid,State)
       class(SWInnerBC_T), intent(inout) :: bc
       type(Model_T), intent(in) :: Model
       type(Grid_T), intent(in) :: Grid
       type(State_T), intent(inout) :: State
-      procedure(HackE_T), pointer :: eHack
 
       ! local variables
       integer :: i,j,k, kb, ke, knew
@@ -371,7 +372,6 @@ module usergamic
       real(rp) :: R, Theta, Phi
       real(rp) :: Theta_kf, R_kf ! kface
       real(rp), dimension(NVAR) :: conVar, pVar
-      real(rp) :: Br_left
 
       ! Set cme vars to zero initially
       ccCMEVars = 0.
@@ -571,14 +571,13 @@ module usergamic
                     !if(cccmeModel%isDebug) write(*,"(1X,A20,2X,3F,3I)") "Outside Mag Flux: ", State%magFlux(i,j,k,XDIR),State%magFlux(i,j,k,YDIR),State%magFlux(i,j,k,ZDIR), i, j, k
                end if
             end do
-               
          end do
       end do
-     
-      contains 
 
-      !> Find the lower and upper k-index for interpolation of  the rotating cell on the static grid
-      subroutine mapK(k,ke,kb,a)
+    contains
+        !> find the lower and upper k-index of the rotating cell on the static grid
+        subroutine mapK(k,ke,kb,a)
+        
         integer, intent(in) :: k
         integer, intent(out) :: ke,kb  ! upper (ke) and lower (kb) indices
         real(rp), intent(out):: a      ! interp coefficient
@@ -601,16 +600,15 @@ module usergamic
     end subroutine wsaBC
 
     !> Set user defined tangential Efield to enforce rotating WSA map
-    subroutine EFix(Model,Gr,State)
+    subroutine eFix(Model,Gr,State)
       type(Model_T), intent(in) :: Model
-      type(Grid_T), intent(inout) :: Gr
+      type(Grid_T), intent(in) :: Gr
       type(State_T), intent(inout) :: State
 
       ! see example of how to do this in voltron/ICs/earthcmi.F90
       ! Grid%externalBCs(1)%p
       ! State%Efld(Gr%is  ,:,:,JDIR:KDIR) = inEijk(1,:,:,JDIR:KDIR)*Gr%edge(Gr%is  ,:,:,JDIR:KDIR)
 
-    end subroutine EFix
 
     end subroutine eFix
 
