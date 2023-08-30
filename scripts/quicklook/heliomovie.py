@@ -913,9 +913,6 @@ def create_pic4_movie(args):
 
                 # Interpolate the spacecraft position at the time for the plot.
                 t_sc = mjd
-                # x_sc = np.interp(t_sc, sc_t[sc_id], sc_x[sc_id])
-                # y_sc = np.interp(t_sc, sc_t[sc_id], sc_y[sc_id])
-                # z_sc = np.interp(t_sc, sc_t[sc_id], sc_z[sc_id])
 
                 # Convert Cartesian location to heliocentric lon/lat.
                 rxy = np.sqrt(sc_x[sc_id]**2 + sc_y[sc_id]**2)
@@ -937,6 +934,126 @@ def create_pic4_movie(args):
                     ax.plot(lon_sc, lat_sc, 'o', c="black", fillstyle="none")
                     ax.text(lon_sc + x_nudge, lat_sc + y_nudge, sc_label,
                             c="black", horizontalalignment="center")
+
+        # Save the figure to a file.
+        path = os.path.join(fdir, f"{pictype}-{i_step}.png")
+        if debug:
+            print(f"path = {path}")
+        kv.savePic(path, bLenX=45)
+        frame_files.append(path)
+
+    if debug:
+        print(f"frame_files = {frame_files}")
+
+    # Assemble the frames into a movie.
+    cmd = ["convert",  "-delay", "10", "-loop", "0"]
+    cmd += frame_files
+    movie_file = os.path.join(fdir, f"{pictype}.gif")
+    cmd.append(movie_file)
+    if debug:
+        print(f"cmd = {cmd}")
+    if verbose:
+        print(f"Assembling frames into {movie_file}.")
+    subprocess.run(cmd, check=True)
+
+    # Return the path to the movie file.
+    return movie_file
+
+
+def create_pic5_movie(args):
+    """Create a pic5-style gamhelio movie.
+
+    Create a pic5-style gamhelio movie.
+
+    Parameters
+    ----------
+    args : dict
+        Dictionary of command-line options.
+
+    Returns
+    -------
+    movie_file : str
+        Path to movie file.
+
+    Raises
+    ------
+    None
+    """
+    # Extract arguments.
+    debug = args.debug
+    pictype = args.pictype
+    verbose = args.verbose
+
+    # Fetch the plot limits based on the picture type.
+    plot_limits = hviz.GetSizeBds(pictype)
+    if debug:
+        print(f"plot_limits = {plot_limits}")
+
+    # Create all plot images in a memory buffer.
+    mpl.use("Agg")
+
+    # Fetch the figure size.
+    figsize = figure_sizes[pictype]
+    if debug:
+        print(f"figsize = {figsize}")
+
+    # Create figures in a memory buffer.
+    mpl.use("Agg")
+
+    # Create the figure.
+    fig = plt.figure(figsize=figsize)
+    if debug:
+        print(f"fig = {fig}")
+
+    # Lay out the subplots for this figure. The grid contains separate axes
+    # to use for the color bar (the row with relative heights of 1).
+    nrows = 2
+    ncols = 2
+    gs = mpl.gridspec.GridSpec(nrows, ncols)
+    if debug:
+        print(f"gs = {gs}")
+
+    # Create the Axes objects for the individual subplots.
+    # Each subplot is 1 row x 3 columns in the grid.
+    ax_n = fig.add_subplot(gs[0, 0])
+    ax_v = fig.add_subplot(gs[0, 1])
+    ax_mf = fig.add_subplot(gs[1, 0])
+    if debug:
+        print(f"ax_n = {ax_n}")
+        print(f"ax_v = {ax_v}")
+        print(f"ax_mf = {ax_mf}")
+
+    # Open a "pipe" to the data for this run.
+    fdir = args.directory
+    ftag = args.runid
+    gsph = hsph.GamsphPipe(fdir, ftag)
+
+    # Create and save frame images for each step.
+    first_step = args.first_step
+    last_step = args.last_step
+    if last_step == -1:
+        last_step = gsph.Nt
+    else:
+        last_step += 1
+    if debug:
+        print(f"first_step, last_step = {first_step, last_step}")
+    frame_files = []
+    for i_step in range(first_step, last_step):
+        if verbose:
+            print(f"Creating {pictype} frame for step {i_step}.")
+
+        # Extract the MJD for the frame.
+        mjd = gsph.MJDs[i_step]
+        if debug:
+            print(f"mjd = {mjd}")
+
+        # Create the individual plots for this frame.
+        hviz.PlotDensityProf(gsph, i_step, plot_limits, ax_n)
+        hviz.PlotSpeedProf(gsph, i_step, plot_limits, ax_v)
+        hviz.PlotFluxProf(gsph, i_step, plot_limits, ax_mf)
+
+        # Add time in the upper left.
+        gsph.AddTime(i_step, ax_n, xy=[0.015, 0.92], fs="small")
 
         # Save the figure to a file.
         path = os.path.join(fdir, f"{pictype}-{i_step}.png")
@@ -998,6 +1115,8 @@ def create_gamhelio_movie(args):
         movie_file = create_pic3_movie(args)
     elif pictype == "pic4":
         movie_file = create_pic4_movie(args)
+    elif pictype == "pic5":
+        movie_file = create_pic5_movie(args)
     else:
         raise TypeError(f"Invalid plot type ({pictype})!")
     if debug:
