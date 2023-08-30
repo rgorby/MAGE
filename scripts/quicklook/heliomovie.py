@@ -604,6 +604,194 @@ def create_pic2_movie(args):
     return movie_file
 
 
+def create_pic3_movie(args):
+    """Create a pic3-style gamhelio movie.
+
+    Create a pic3-style gamhelio movie.
+
+    Parameters
+    ----------
+    args : dict
+        Dictionary of command-line options.
+
+    Returns
+    -------
+    movie_file : str
+        Path to movie file.
+
+    Raises
+    ------
+    None
+    """
+    # Extract arguments.
+    debug = args.debug
+    pictype = args.pictype
+    spacecraft = args.spacecraft
+    verbose = args.verbose
+
+    # Fetch the plot limits based on the picture type.
+    plot_limits = hviz.GetSizeBds(pictype)
+    if debug:
+        print(f"plot_limits = {plot_limits}")
+
+    # Create all plot images in a memory buffer.
+    mpl.use("Agg")
+
+    # Fetch the figure size.
+    figsize = figure_sizes[pictype]
+    if debug:
+        print(f"figsize = {figsize}")
+
+    # Create figures in a memory buffer.
+    mpl.use("Agg")
+
+    # Create the figure.
+    fig = plt.figure(figsize=figsize)
+    if debug:
+        print(f"fig = {fig}")
+
+    # Lay out the subplots for this figure. The grid contains separate axes
+    # to use for the color bars (the rows with relative heights of 1).
+    nrows = 4
+    ncols = 6
+    gs = mpl.gridspec.GridSpec(nrows, ncols, height_ratios=[20, 1, 20, 1])
+    if debug:
+        print(f"gs = {gs}")
+
+    # Create the Axes objects for the individual subplots.
+    # Each subplot is 1 row x 3 columns in the grid.
+    ax_v = fig.add_subplot(gs[0, :3])   # Upper left
+    ax_n = fig.add_subplot(gs[0, 3:])   # Upper right
+    ax_T = fig.add_subplot(gs[2, :3])   # Lower left
+    ax_Br = fig.add_subplot(gs[2, 3:])  # Lower right
+    if debug:
+        print(f"ax_v = {ax_v}")
+        print(f"ax_n = {ax_n}")
+        print(f"ax_T = {ax_T}")
+        print(f"ax_Br = {ax_Br}")
+
+    # Create the Axes objects for the individual color bars.
+    # Each color bar is 1 (thin) row x 3 columns in the grid.
+    ax_cb_v = fig.add_subplot(gs[1, :3])   # Upper left
+    ax_cb_n = fig.add_subplot(gs[1, 3:])   # Upper right
+    ax_cb_T = fig.add_subplot(gs[3, :3])   # Lower left
+    ax_cb_Br = fig.add_subplot(gs[3, 3:])  # Lower right
+    if debug:
+        print(f"ax_cb_v = {ax_cb_v}")
+        print(f"ax_cb_n = {ax_cb_n}")
+        print(f"ax_cb_T = {ax_cb_T}")
+        print(f"ax_cb_Br = {ax_cb_Br}")
+
+    # Open a "pipe" to the data for this run.
+    fdir = args.directory
+    ftag = args.runid
+    gsph = hsph.GamsphPipe(fdir, ftag)
+
+    # If spacecraft positions will be plotted, read the spacecraft metadata
+    # and fetch trajectories.
+    if spacecraft:
+        sc_metadata = scutils.getScIds(spacecraft_data_file=sc_metadata_path)
+        if debug:
+            print(f"sc_metadata = {sc_metadata}")
+
+        # Split the list into individual spacecraft names.
+        spacecraft_names = spacecraft.split(',')
+        if debug:
+            print(f"spacecraft_names = {spacecraft_names}")
+
+        # Fetch the spacecraft trajectories.
+        sc_t, sc_x, sc_y, sc_z = fetch_spacecraft_trajectories(
+            spacecraft_names, gsph
+        )
+
+    # Create and save frame images for each step.
+    first_step = args.first_step
+    last_step = args.last_step
+    if last_step == -1:
+        last_step = gsph.Nt
+    else:
+        last_step += 1
+    if debug:
+        print(f"first_step, last_step = {first_step, last_step}")
+    frame_files = []
+    for i_step in range(first_step, last_step):
+        if verbose:
+            print(f"Creating {pictype} frame for step {i_step}.")
+
+        # Extract the MJD for the frame.
+        mjd = gsph.MJDs[i_step]
+        if debug:
+            print(f"mjd = {mjd}")
+
+        # Create the individual plots for this frame.
+        hviz.PlotiSlMagV(gsph, i_step, plot_limits, ax_v, ax_cb_v)
+        hviz.PlotiSlD(gsph, i_step, plot_limits, ax_n, ax_cb_n)
+        hviz.PlotiSlTemp(gsph, i_step, plot_limits, ax_T, ax_cb_T)
+        hviz.PlotiSlBr(gsph, i_step, plot_limits, ax_Br, ax_cb_Br)
+
+        # Add time in the upper left.
+        gsph.AddTime(i_step, ax_v, xy=[0.025, 0.875], fs="x-large")
+
+        # Overlay spacecraft positions (optional).
+        if spacecraft:
+            for (i_sc, sc_id) in enumerate(spacecraft_names):
+
+                # Skip this spacecraft if no trajectory available.
+                if sc_id not in sc_t:
+                    continue
+
+                # Interpolate the spacecraft position at the time for the plot.
+                t_sc = mjd
+                # x_sc = np.interp(t_sc, sc_t[sc_id], sc_x[sc_id])
+                # y_sc = np.interp(t_sc, sc_t[sc_id], sc_y[sc_id])
+                # z_sc = np.interp(t_sc, sc_t[sc_id], sc_z[sc_id])
+
+                # Convert Cartesian location to heliocentric lon/lat.
+                rxy = np.sqrt(sc_x[sc_id]**2 + sc_y[sc_id]**2)
+                theta = np.arctan2(rxy, sc_z[sc_id])
+                phi = np.arctan2(sc_y[sc_id], sc_x[sc_id])
+                lat = np.degrees(np.pi/2 - theta)
+                lon = np.degrees(phi)
+                lat_sc = np.interp(t_sc, sc_t[sc_id], lat)
+                lon_sc = np.interp(t_sc, sc_t[sc_id], lon)
+
+                # Plot the spacecraft position as a colored circle with black
+                # outline and a label.
+                x_nudge = 0.0
+                y_nudge = 8.0
+                sc_label = sc_metadata[sc_id]["label"]
+                color = SPACECRAFT_COLORS[i_sc % len(SPACECRAFT_COLORS)]
+                for ax in (ax_v, ax_n, ax_T, ax_Br):
+                    ax.plot(lon_sc, lat_sc, 'o', c=color)
+                    ax.plot(lon_sc, lat_sc, 'o', c="black", fillstyle="none")
+                    ax.text(lon_sc + x_nudge, lat_sc + y_nudge, sc_label,
+                            c="black", horizontalalignment="center")
+
+        # Save the figure to a file.
+        path = os.path.join(fdir, f"{pictype}-{i_step}.png")
+        if debug:
+            print(f"path = {path}")
+        kv.savePic(path, bLenX=45)
+        frame_files.append(path)
+
+    if debug:
+        print(f"frame_files = {frame_files}")
+
+    # Assemble the frames into a movie.
+    cmd = ["convert",  "-delay", "10", "-loop", "0"]
+    cmd += frame_files
+    movie_file = os.path.join(fdir, f"{pictype}.gif")
+    cmd.append(movie_file)
+    if debug:
+        print(f"cmd = {cmd}")
+    if verbose:
+        print(f"Assembling frames into {movie_file}.")
+    subprocess.run(cmd, check=True)
+
+    # Return the path to the movie file.
+    return movie_file
+
+
 def create_gamhelio_movie(args):
     """Create a gamhelio movie.
 
@@ -635,6 +823,8 @@ def create_gamhelio_movie(args):
         movie_file = create_pic1_movie(args)
     elif pictype == "pic2":
         movie_file = create_pic2_movie(args)
+    elif pictype == "pic3":
+        movie_file = create_pic3_movie(args)
     else:
         raise TypeError(f"Invalid plot type ({pictype})!")
     if debug:
