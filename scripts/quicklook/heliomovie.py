@@ -95,6 +95,12 @@ default_pictype = "pic1"
 # Valid plot type strings.
 valid_pictypes = ("pic1", "pic2", "pic3", "pic4", "pic5")
 
+# Default movie format.
+default_movie_format = "mp4"
+
+# Valid movie format strings.
+valid_movie_formats = ("gif", "mp4")
+
 # Path to spacecraft metadata file.
 sc_metadata_path = os.path.join(
     os.environ["KAIJUHOME"], "kaipy", "satcomp", "sc_helio.json"
@@ -143,6 +149,11 @@ def create_command_line_parser():
         "-d", "--directory", type=str, metavar="directory",
         default=os.getcwd(),
         help="Directory containing data to read (default: %(default)s)"
+    )
+    parser.add_argument(
+        "-f", "--movie_format", type=str, metavar="movie_format",
+        default=default_movie_format,
+        help="Output movie format (default: %(default)s)"
     )
     parser.add_argument(
         "-id", "--runid", type=str, metavar="runid", default=default_runid,
@@ -266,6 +277,7 @@ def create_pic1_movie(args):
     """
     # Extract arguments.
     debug = args.debug
+    movie_format = args.movie_format
     pictype = args.pictype
     spacecraft = args.spacecraft
     verbose = args.verbose
@@ -359,45 +371,45 @@ def create_pic1_movie(args):
         if verbose:
             print(f"Creating {pictype} frame for step {i_step}.")
 
-        # Extract the MJD for the frame.
-        mjd = gsph.MJDs[i_step]
-        if debug:
-            print(f"mjd = {mjd}")
+        # # Extract the MJD for the frame.
+        # mjd = gsph.MJDs[i_step]
+        # if debug:
+        #     print(f"mjd = {mjd}")
 
-        # Create the individual plots for this frame.
-        hviz.PlotEqMagV(gsph, i_step, plot_limits, ax_v, ax_cb_v)
-        hviz.PlotEqD(gsph, i_step, plot_limits, ax_n, ax_cb_n)
-        hviz.PlotEqTemp(gsph, i_step, plot_limits, ax_T, ax_cb_T)
-        hviz.PlotEqBr(gsph, i_step, plot_limits, ax_Br, ax_cb_Br)
+        # # Create the individual plots for this frame.
+        # hviz.PlotEqMagV(gsph, i_step, plot_limits, ax_v, ax_cb_v)
+        # hviz.PlotEqD(gsph, i_step, plot_limits, ax_n, ax_cb_n)
+        # hviz.PlotEqTemp(gsph, i_step, plot_limits, ax_T, ax_cb_T)
+        # hviz.PlotEqBr(gsph, i_step, plot_limits, ax_Br, ax_cb_Br)
 
-        # Add time in the upper left.
-        gsph.AddTime(i_step, ax_v, xy=[0.025, 0.875], fs="x-large")
+        # # Add time in the upper left.
+        # gsph.AddTime(i_step, ax_v, xy=[0.025, 0.875], fs="x-large")
 
-        # Overlay spacecraft positions (optional).
-        if spacecraft:
-            for (i_sc, sc_id) in enumerate(spacecraft_names):
+        # # Overlay spacecraft positions (optional).
+        # if spacecraft:
+        #     for (i_sc, sc_id) in enumerate(spacecraft_names):
 
-                # Skip this spacecraft if no trajectory available.
-                if sc_id not in sc_t:
-                    continue
+        #         # Skip this spacecraft if no trajectory available.
+        #         if sc_id not in sc_t:
+        #             continue
 
-                # Interpolate the spacecraft position at the time for the plot.
-                t_sc = mjd
-                x_sc = np.interp(t_sc, sc_t[sc_id], sc_x[sc_id])
-                y_sc = np.interp(t_sc, sc_t[sc_id], sc_y[sc_id])
-                # z_sc = np.interp(t_sc, sc_t[sc_id], sc_z[sc_id])
+        #         # Interpolate the spacecraft position at the time for the plot.
+        #         t_sc = mjd
+        #         x_sc = np.interp(t_sc, sc_t[sc_id], sc_x[sc_id])
+        #         y_sc = np.interp(t_sc, sc_t[sc_id], sc_y[sc_id])
+        #         # z_sc = np.interp(t_sc, sc_t[sc_id], sc_z[sc_id])
 
-                # Plot the spacecraft position as a colored circle with black
-                # outline and a label.
-                x_nudge = 0.0
-                y_nudge = 8.0
-                sc_label = sc_metadata[sc_id]["label"]
-                color = SPACECRAFT_COLORS[i_sc % len(SPACECRAFT_COLORS)]
-                for ax in (ax_v, ax_n, ax_T, ax_Br):
-                    ax.plot(x_sc, y_sc, 'o', c=color)
-                    ax.plot(x_sc, y_sc, 'o', c="black", fillstyle="none")
-                    ax.text(x_sc + x_nudge, y_sc + y_nudge, sc_label,
-                            c="black", horizontalalignment="center")
+        #         # Plot the spacecraft position as a colored circle with black
+        #         # outline and a label.
+        #         x_nudge = 0.0
+        #         y_nudge = 8.0
+        #         sc_label = sc_metadata[sc_id]["label"]
+        #         color = SPACECRAFT_COLORS[i_sc % len(SPACECRAFT_COLORS)]
+        #         for ax in (ax_v, ax_n, ax_T, ax_Br):
+        #             ax.plot(x_sc, y_sc, 'o', c=color)
+        #             ax.plot(x_sc, y_sc, 'o', c="black", fillstyle="none")
+        #             ax.text(x_sc + x_nudge, y_sc + y_nudge, sc_label,
+        #                     c="black", horizontalalignment="center")
 
         # Save the figure to a file.
         frame_directory = os.path.join(fdir, f"frames-{pictype}")
@@ -409,17 +421,27 @@ def create_pic1_movie(args):
         path = os.path.join(frame_directory, f"{pictype}-{i_step}.png")
         if debug:
             print(f"path = {path}")
-        kv.savePic(path, bLenX=45)
+        # kv.savePic(path, bLenX=45)
         frame_files.append(path)
 
     if debug:
         print(f"frame_files = {frame_files}")
 
     # Assemble the frames into a movie.
-    cmd = ["convert",  "-delay", "10", "-loop", "0"]
-    cmd += frame_files
-    movie_file = os.path.join(fdir, f"{pictype}.gif")
-    cmd.append(movie_file)
+    if movie_format == "gif":
+        cmd = ["convert",  "-delay", "10", "-loop", "0"]
+        cmd += frame_files
+        movie_file = os.path.join(fdir, f"{pictype}.gif")
+        cmd.append(movie_file)
+    elif movie_format == "mp4":
+        frame_pattern = os.path.join(frame_directory, f"{pictype}-%02d.png")
+        movie_file = os.path.join(fdir, f"{pictype}.mp4")
+        cmd = [
+            "ffmpeg", "-r", "4", "-s", "1920x1080", "-i", frame_pattern,
+            "-vcodec", "libx264", "-crf", "25", "-pix_fmt", "yuv420p", movie_file
+        ]
+    else:
+        raise TypeError(f"Invalid movie format: {movie_format}!")
     if debug:
         print(f"cmd = {cmd}")
     if verbose:
