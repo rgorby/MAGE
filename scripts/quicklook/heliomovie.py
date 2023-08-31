@@ -64,7 +64,6 @@ import subprocess
 # Import supplemental modules.
 import astropy.time
 import matplotlib as mpl
-from matplotlib import gridspec
 import matplotlib.pyplot as plt
 import numpy as np
 
@@ -386,7 +385,7 @@ def create_pic1_movie(args):
                 t_sc = mjd
                 x_sc = np.interp(t_sc, sc_t[sc_id], sc_x[sc_id])
                 y_sc = np.interp(t_sc, sc_t[sc_id], sc_y[sc_id])
-                z_sc = np.interp(t_sc, sc_t[sc_id], sc_z[sc_id])
+                # z_sc = np.interp(t_sc, sc_t[sc_id], sc_z[sc_id])
 
                 # Plot the spacecraft position as a colored circle with black
                 # outline and a label.
@@ -570,7 +569,7 @@ def create_pic2_movie(args):
                 # Interpolate the spacecraft position at the time for the plot.
                 t_sc = mjd
                 x_sc = np.interp(t_sc, sc_t[sc_id], sc_x[sc_id])
-                y_sc = np.interp(t_sc, sc_t[sc_id], sc_y[sc_id])
+                # y_sc = np.interp(t_sc, sc_t[sc_id], sc_y[sc_id])
                 z_sc = np.interp(t_sc, sc_t[sc_id], sc_z[sc_id])
 
                 # Plot the spacecraft position as a colored circle with black
@@ -915,7 +914,7 @@ def create_pic4_movie(args):
             print(f"mjd = {mjd}")
 
         # Create the individual plots for this frame.
-        hviz.PlotiSlBrRotatingFrame(gsph, i_step, plot_limits, ax_Br, 
+        hviz.PlotiSlBrRotatingFrame(gsph, i_step, plot_limits, ax_Br,
                                     ax_cb_Br)
 
         # Add time in the upper left.
@@ -1174,6 +1173,7 @@ def main():
     movie_file = create_gamhelio_movie(args)
     if verbose:
         print(f"The movie is available in {movie_file}.")
+
 
 if __name__ == "__main__":
     """Begin main program."""
