@@ -60,7 +60,7 @@ program voltron_mpix
     call initClocks()
 
     call mpi_comm_get_attr(MPI_COMM_WORLD, MPI_TAG_UB, tagMax, tagSet, ierror)
-    print *, 'Tag Upper-Bound = ', tagMax
+    !print *, 'Tag Upper-Bound = ', tagMax
 
     gApp%Model%isLoud = .true.    
 

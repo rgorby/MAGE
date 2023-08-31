@@ -363,7 +363,7 @@ module init
                write(*,*) 'CFL/Critical/PDMB = ', Model%CFL,C0,pdmb
                write(*,*) '-------------------------------------'
            else
-               write(*,*) 'CFL # = ', Model%CFL
+                if (Model%isLoud) write(*,*) 'CFL # = ', Model%CFL
            endif
         endif
         call xmlInp%Set_Val(Model%Vd0,'sim/Vd0',0.5)
