@@ -299,7 +299,7 @@ def assemble_frames_into_mp4(frame_files, args):
 
     Parameters
     ----------
-    frame_files : list of str
+    frame_files : list of str (ignored)
         List of paths to frame images, in frame order.
     args : dict
         Dictionary of command-line options.
@@ -319,7 +319,7 @@ def assemble_frames_into_mp4(frame_files, args):
 
     # Create the movie.
     frame_directory = os.path.split(frame_files[0])[0]
-    frame_pattern = os.path.join(frame_directory, f"{pictype}-%02d.png")
+    frame_pattern = os.path.join(frame_directory, f"{pictype}-%06d.png")
     movie_file = os.path.join(movie_directory, f"{pictype}.mp4")
     cmd = [
         "ffmpeg", "-r", "4", "-s", "1920x1080",
@@ -531,7 +531,7 @@ def create_pic1_movie(args):
         except FileExistsError:
             # Clobber existing directory.
             pass
-        path = os.path.join(frame_directory, f"{pictype}-{i_step}.png")
+        path = os.path.join(frame_directory, f"{pictype}-{i_step:06d}.png")
         if debug:
             print(f"path = {path}")
         kv.savePic(path, bLenX=45)
