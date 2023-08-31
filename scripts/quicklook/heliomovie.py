@@ -142,6 +142,10 @@ def create_command_line_parser():
         formatter_class=argparse.RawTextHelpFormatter
     )
     parser.add_argument(
+        "--clobber", action="store_true", default=False,
+        help="Overwrite existing frame and movie files (default: %(default)s)."
+    )
+    parser.add_argument(
         "--debug", action="store_true", default=False,
         help="Print debugging output (default: %(default)s)."
     )
@@ -286,6 +290,7 @@ def assemble_frames_into_gif(frame_files, args):
     cmd += frame_files
     movie_file = os.path.join(movie_directory, f"{pictype}.gif")
     cmd.append(movie_file)
+    # NOTE: movie_file is overwritten by default.
     subprocess.run(cmd, check=True)
 
     # Return the path to the movie file.
@@ -327,6 +332,8 @@ def assemble_frames_into_mp4(frame_files, args):
         "-vcodec", "libx264", "-crf", "25", "-pix_fmt", "yuv420p",
         movie_file
     ]
+    if args.clobber:
+        cmd += ["-y"]
     subprocess.run(cmd, check=True)
 
     # Return the path to the movie file.
@@ -390,7 +397,6 @@ def create_pic1_movie(args):
     """
     # Extract arguments.
     debug = args.debug
-    movie_format = args.movie_format
     pictype = args.pictype
     spacecraft = args.spacecraft
     verbose = args.verbose
@@ -470,6 +476,16 @@ def create_pic1_movie(args):
             spacecraft_names, gsph
         )
 
+    # Compute the path to the frame directory.
+    frame_directory = os.path.join(fdir, f"frames-{pictype}")
+    try:
+        os.mkdir(frame_directory)
+    except FileExistsError as e:
+        if args.clobber:
+            pass
+        else:
+            raise e
+
     # Create and save frame images for each step.
     first_step = args.first_step
     last_step = args.last_step
@@ -525,12 +541,6 @@ def create_pic1_movie(args):
                             c="black", horizontalalignment="center")
 
         # Save the figure to a file.
-        frame_directory = os.path.join(fdir, f"frames-{pictype}")
-        try:
-            os.mkdir(frame_directory)
-        except FileExistsError:
-            # Clobber existing directory.
-            pass
         path = os.path.join(frame_directory, f"{pictype}-{i_step:06d}.png")
         if debug:
             print(f"path = {path}")
@@ -651,6 +661,16 @@ def create_pic2_movie(args):
             spacecraft_names, gsph
         )
 
+    # Compute the path to the frame directory.
+    frame_directory = os.path.join(fdir, f"frames-{pictype}")
+    try:
+        os.mkdir(frame_directory)
+    except FileExistsError as e:
+        if args.clobber:
+            pass
+        else:
+            raise e
+
     # Create and save frame images for each step.
     first_step = args.first_step
     last_step = args.last_step
@@ -706,13 +726,7 @@ def create_pic2_movie(args):
                             c="black", horizontalalignment="center")
 
         # Save the figure to a file.
-        frame_directory = os.path.join(fdir, f"frames-{pictype}")
-        try:
-            os.mkdir(frame_directory)
-        except FileExistsError:
-            # Clobber existing directory.
-            pass
-        path = os.path.join(frame_directory, f"{pictype}-{i_step}.png")
+        path = os.path.join(frame_directory, f"{pictype}-{i_step:06d}.png")
         if debug:
             print(f"path = {path}")
         kv.savePic(path, bLenX=45)
@@ -832,6 +846,16 @@ def create_pic3_movie(args):
             spacecraft_names, gsph
         )
 
+    # Compute the path to the frame directory.
+    frame_directory = os.path.join(fdir, f"frames-{pictype}")
+    try:
+        os.mkdir(frame_directory)
+    except FileExistsError as e:
+        if args.clobber:
+            pass
+        else:
+            raise e
+
     # Create and save frame images for each step.
     first_step = args.first_step
     last_step = args.last_step
@@ -893,13 +917,7 @@ def create_pic3_movie(args):
                             c="black", horizontalalignment="center")
 
         # Save the figure to a file.
-        frame_directory = os.path.join(fdir, f"frames-{pictype}")
-        try:
-            os.mkdir(frame_directory)
-        except FileExistsError:
-            # Clobber existing directory.
-            pass
-        path = os.path.join(frame_directory, f"{pictype}-{i_step}.png")
+        path = os.path.join(frame_directory, f"{pictype}-{i_step:06d}.png")
         if debug:
             print(f"path = {path}")
         kv.savePic(path, bLenX=45)
@@ -1007,6 +1025,16 @@ def create_pic4_movie(args):
             spacecraft_names, gsph
         )
 
+    # Compute the path to the frame directory.
+    frame_directory = os.path.join(fdir, f"frames-{pictype}")
+    try:
+        os.mkdir(frame_directory)
+    except FileExistsError as e:
+        if args.clobber:
+            pass
+        else:
+            raise e
+
     # Create and save frame images for each step.
     first_step = args.first_step
     last_step = args.last_step
@@ -1066,13 +1094,7 @@ def create_pic4_movie(args):
                             c="black", horizontalalignment="center")
 
         # Save the figure to a file.
-        frame_directory = os.path.join(fdir, f"frames-{pictype}")
-        try:
-            os.mkdir(frame_directory)
-        except FileExistsError:
-            # Clobber existing directory.
-            pass
-        path = os.path.join(frame_directory, f"{pictype}-{i_step}.png")
+        path = os.path.join(frame_directory, f"{pictype}-{i_step:06d}.png")
         if debug:
             print(f"path = {path}")
         kv.savePic(path, bLenX=45)
@@ -1082,15 +1104,11 @@ def create_pic4_movie(args):
         print(f"frame_files = {frame_files}")
 
     # Assemble the frames into a movie.
-    cmd = ["convert",  "-delay", "10", "-loop", "0"]
-    cmd += frame_files
-    movie_file = os.path.join(fdir, f"{pictype}.gif")
-    cmd.append(movie_file)
-    if debug:
-        print(f"cmd = {cmd}")
     if verbose:
-        print(f"Assembling frames into {movie_file}.")
-    subprocess.run(cmd, check=True)
+        print("Assembling frames into movie.")
+    movie_file = assemble_frames_into_movie(frame_files, args)
+    if verbose:
+        print(f"Movie file {movie_file} created.")
 
     # Return the path to the movie file.
     return movie_file
@@ -1164,6 +1182,16 @@ def create_pic5_movie(args):
     ftag = args.runid
     gsph = hsph.GamsphPipe(fdir, ftag)
 
+    # Compute the path to the frame directory.
+    frame_directory = os.path.join(fdir, f"frames-{pictype}")
+    try:
+        os.mkdir(frame_directory)
+    except FileExistsError as e:
+        if args.clobber:
+            pass
+        else:
+            raise e
+
     # Create and save frame images for each step.
     first_step = args.first_step
     last_step = args.last_step
@@ -1192,13 +1220,7 @@ def create_pic5_movie(args):
         gsph.AddTime(i_step, ax_n, xy=[0.015, 0.92], fs="small")
 
         # Save the figure to a file.
-        frame_directory = os.path.join(fdir, f"frames-{pictype}")
-        try:
-            os.mkdir(frame_directory)
-        except FileExistsError:
-            # Clobber existing directory.
-            pass
-        path = os.path.join(frame_directory, f"{pictype}-{i_step}.png")
+        path = os.path.join(frame_directory, f"{pictype}-{i_step:06d}.png")
         if debug:
             print(f"path = {path}")
         kv.savePic(path, bLenX=45)
@@ -1208,15 +1230,11 @@ def create_pic5_movie(args):
         print(f"frame_files = {frame_files}")
 
     # Assemble the frames into a movie.
-    cmd = ["convert",  "-delay", "10", "-loop", "0"]
-    cmd += frame_files
-    movie_file = os.path.join(fdir, f"{pictype}.gif")
-    cmd.append(movie_file)
-    if debug:
-        print(f"cmd = {cmd}")
     if verbose:
-        print(f"Assembling frames into {movie_file}.")
-    subprocess.run(cmd, check=True)
+        print("Assembling frames into movie.")
+    movie_file = assemble_frames_into_movie(frame_files, args)
+    if verbose:
+        print(f"Movie file {movie_file} created.")
 
     # Return the path to the movie file.
     return movie_file
