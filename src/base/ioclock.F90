@@ -2,6 +2,7 @@
 module ioclock
     use kdefs
     use xml_input
+    use clocks
     implicit none
 
     type IOClock_T
@@ -13,7 +14,6 @@ module ioclock
 
         logical :: doResOut,doConOut,doDataOut,doTimerOut !Logical flags to do various outputs
         logical :: doFat,doSlim !Not yet used generically
-        logical :: isTop = .true. !Not used yet
         
         contains
 
@@ -33,6 +33,8 @@ module ioclock
         type(XML_Input_T), intent(in)   :: iXML
         real(rp), intent(in) :: time
         integer, intent(in) :: ts
+        
+        logical :: slimTimers
 
         call iXML%Set_Val(this%tsOut,'output/tsOut' ,100)
         call iXML%Set_Val(this%dtOut,'output/dtOut' ,10.0)
@@ -42,6 +44,9 @@ module ioclock
         call iXML%Set_Val(this%doTimerOut,   'output/doTimer'   ,.false.)
         call iXML%Set_Val(this%doFat,        'output/doFat'     ,.false.)
         call iXML%Set_Val(this%doSlim,       'output/doSlim'    ,.false.)
+        call iXML%Set_Val(slimTimers,        'output/slimTimers',.true.)
+        if(this%doTimerOut) slimTimers = .false.
+        call setSlimTimers(slimTimers)
 
         if (this%tsOut<0) then
             this%doConOut = .false.

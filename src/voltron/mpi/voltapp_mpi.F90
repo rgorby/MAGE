@@ -437,12 +437,12 @@ module voltapp_mpi
         endif
 
         ! perform initial deep update if appropriate
-        call Tic("Coupling")
+        call Tic("Coupling", .true.)
         if (vApp%time >= vApp%DeepT) then
             ! do deep
             call DeepUpdate_mpi(vApp, vApp%time)
         endif
-        call Toc("Coupling")
+        call Toc("Coupling", .true.)
 
     end subroutine initVoltron_mpi
 
@@ -452,13 +452,13 @@ module voltapp_mpi
 
         integer :: ierr
 
-        call Tic("GameraSync")
+        call Tic("GameraSync", .true.)
         if(vApp%doSerialVoltron) then
             gameraStepReady = .true.
         else
             call MPI_TEST(vApp%timeReq,gameraStepReady,MPI_STATUS_IGNORE,ierr)
         endif
-        call Toc("GameraSync")
+        call Toc("GameraSync", .true.)
 
     end function gameraStepReady
 
@@ -467,11 +467,11 @@ module voltapp_mpi
         
         integer :: ierr
 
-        call Tic("GameraSync")
+        call Tic("GameraSync", .true.)
         if(.not. vApp%doSerialVoltron) then
             call MPI_WAIT(vApp%timeReq, MPI_STATUS_IGNORE, ierr)
         endif
-        call Toc("GameraSync")
+        call Toc("GameraSync", .true.)
 
     end subroutine waitForGameraStep
 
@@ -517,9 +517,9 @@ module voltapp_mpi
         call Toc("G2R")
 
         ! run remix
-        call Tic("ReMIX")
+        call Tic("ReMIX", .true.)
         call runRemix(vApp)
-        call Toc("ReMIX")
+        call Toc("ReMIX", .true.)
 
         ! convert mixOutput to gamera data
         call Tic("R2G")
@@ -531,22 +531,22 @@ module voltapp_mpi
 
         ! only do imag after spinup with deep enabled
         if(vApp%doDeep .and. vApp%time > 0) then
-            call Tic("DeepUpdate")
+            call Tic("DeepUpdate", .true.)
             call PreDeep(vApp, vApp%gAppLocal)
             call SquishStart(vApp)
 
             if(vApp%useHelpers .and. vApp%doSquishHelp) then
-                call Tic("VoltHelpers")
+                call Tic("VoltHelpers", .true.)
                 call vhReqStep(vApp)
                 call vhReqSquishStart(vApp)
-                call Toc("VoltHelpers")
+                call Toc("VoltHelpers", .true.)
             endif
 
             ! moving this to after voltron helpers are started
             call DoImag(vApp)
 
             vApp%deepProcessingInProgress = .true.
-            call Toc("DeepUpdate")
+            call Toc("DeepUpdate", .true.)
         else
             vApp%gAppLocal%Grid%Gas0 = 0
         endif
@@ -560,17 +560,17 @@ module voltapp_mpi
 
         ! only do imag after spinup with deep enabled
         if(vApp%doDeep .and. vApp%time >= 0) then
-            call Tic("DeepUpdate")
+            call Tic("DeepUpdate", .true.)
 
             if(vApp%useHelpers .and. vApp%doSquishHelp) then
-                call Tic("VoltHelpers")
+                call Tic("VoltHelpers", .true.)
                 call vhReqSquishEnd(vApp)
-                call Toc("VoltHelpers")
+                call Toc("VoltHelpers", .true.)
             endif
 
             call SquishEnd(vApp)
             call PostDeep(vApp, vApp%gAppLocal)
-            call Toc("DeepUpdate")
+            call Toc("DeepUpdate", .true.)
         endif
 
     end subroutine endDeep

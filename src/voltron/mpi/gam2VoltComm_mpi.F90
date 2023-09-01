@@ -370,13 +370,13 @@ module gam2VoltComm_mpi
 
         ! Receive updated data from Voltron
         ! Receive Deep Gas0 Data
-        call Tic("VoltSync")
+        call Tic("VoltSync", .true.)
         call mpi_neighbor_alltoallw(gApp%Grid%Gas0, g2vComm%zeroArrayCounts, &
                                     g2vComm%zeroArrayDispls, g2vComm%zeroArrayTypes, &
                                     gApp%Grid%Gas0, g2vComm%recvCountsGas0Deep, &
                                     g2vComm%recvDisplsGas0Deep, g2vComm%recvTypesGas0Deep, &
                                     g2vComm%voltMpiComm, ierr)
-        call Toc("VoltSync")
+        call Toc("VoltSync", .true.)
 
     end subroutine recvDeepData
 
@@ -399,13 +399,13 @@ module gam2VoltComm_mpi
                     iiBC%inExyz(:,:,:,:) = IEEE_VALUE(nanValue, IEEE_SIGNALING_NAN)
 
                     ! Recv Shallow inEijk Data
-                    call Tic("VoltSync")
+                    call Tic("VoltSync", .true.)
                     call mpi_neighbor_alltoallw(0, g2vComm%zeroArrayCounts, &
                                                 g2vComm%zeroArrayDispls, g2vComm%zeroArrayTypes, &
                                                 iiBC%inEijk, g2vComm%recvCountsIneijkShallow, &
                                                 g2vComm%recvDisplsIneijkShallow, g2vComm%recvTypesIneijkShallow, &
                                                 g2vComm%voltMpiComm, ierr)
-                    call Toc("VoltSync")
+                    call Toc("VoltSync", .true.)
 
                     ! Recv Shallow inExyz Data
                     call mpi_neighbor_alltoallw(0, g2vComm%zeroArrayCounts, &
@@ -420,13 +420,13 @@ module gam2VoltComm_mpi
         else
             ! not a rank with remix BC, but still need to call mpi_neighbor_alltoallw
             ! Recv nothing step 1
-            call Tic("VoltSync")
+            call Tic("VoltSync", .true.)
             call mpi_neighbor_alltoallw(0, g2vComm%zeroArrayCounts, &
                                         g2vComm%zeroArrayDispls, g2vComm%zeroArrayTypes, &
                                         0, g2vComm%zeroArrayCounts, &
                                         g2vComm%zeroArrayDispls, g2vComm%zeroArrayTypes, &
                                         g2vComm%voltMpiComm, ierr)
-            call Toc("VoltSync")
+            call Toc("VoltSync", .true.)
 
             ! Recv nothing step 2
             call mpi_neighbor_alltoallw(0, g2vComm%zeroArrayCounts, &

@@ -276,9 +276,9 @@ module voltapp
         if(.not. vApp%isSeparate) then
             !Do first couplings if the gamera data is local and therefore uptodate
             if (vApp%time>=vApp%DeepT) then
-                call Tic("DeepCoupling")
+                call Tic("DeepCoupling", .true.)
                 call DeepUpdate(vApp,gApp)
-                call Toc("DeepCoupling")
+                call Toc("DeepCoupling", .true.)
             endif
         endif
 
@@ -473,9 +473,9 @@ module voltapp
         call Toc("G2R")
 
         ! run remix
-        call Tic("ReMIX")
+        call Tic("ReMIX", .true.)
         call runRemix(vApp)
-        call Toc("ReMIX")
+        call Toc("ReMIX", .true.)
 
         ! convert mixOutput to gamera data
         call Tic("R2G")
@@ -517,9 +517,9 @@ module voltapp
         class(voltApp_T), intent(inout) :: vApp
 
         !Advance inner magnetosphere model to tAdv
-        call Tic("InnerMag")
+        call Tic("InnerMag", .true.)
         call vApp%imagApp%doAdvance(vApp,vApp%DeepT)
-        call Toc("InnerMag")
+        call Toc("InnerMag", .true.)
 
     end subroutine
 
