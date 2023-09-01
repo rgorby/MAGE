@@ -80,7 +80,7 @@ module voltio
             ! chimp timing is a little confusing, but it combines local time spent squishing (no helpers) with
             !   actual helper delay, which is tricky to estimate
             gamWait   = fastWeight*gamWait   + (1.0-fastWeight)*readClock('GameraSync')/(readClock(1)+TINY)
-            chimpWait = fastWeight*chimpWait + (1.0-fastWeight)*(readClock('Squish')+readClock('VoltHelpers')-readClock('VHReqSquishS'))/(readClock(1)+TINY)
+            chimpWait = fastWeight*chimpWait + (1.0-fastWeight)*(readClock('Squish')+readClock('VoltHelpers'))/(readClock(1)+TINY)
             imagWait  = fastWeight*imagWait  + (1.0-fastWeight)*readClock('InnerMag')/(readClock(1)+TINY)
             mixWait   = fastWeight*mixWait   + (1.0-fastWeight)*readClock('ReMIX')/(readClock(1)+TINY)
         else
@@ -131,9 +131,9 @@ module voltio
                 !write (*,'(a,1f8.3,I6,a)')           '      xTrc = ', vApp%rTrc,vApp%nTrc, ' [r/n]'
             endif
             write (*, '(a,1f7.1,a)' ) '   Spent ', gamWait*100.0,   '% of time waiting for Gamera'
-            write (*, '(a,1f7.1,a)' ) '         ', chimpWait*100.0, '% of time waiting for Chimp(Helpers)'
-            write (*, '(a,1f7.1,a)' ) '         ', imagWait*100.0,  '% of time waiting for IMAG'
-            write (*, '(a,1f7.1,a)' ) '         ', mixWait*100.0,   '% of time waiting for Remix'
+            write (*, '(a,1f7.1,a)' ) '         ', chimpWait*100.0, '% of time processing Chimp(Helpers)'
+            write (*, '(a,1f7.1,a)' ) '         ', imagWait*100.0,  '% of time processing IMAG'
+            write (*, '(a,1f7.1,a)' ) '         ', mixWait*100.0,   '% of time processing Remix'
             if (simRate>TINY) then
                 if (vApp%isSeparate) then
                     nTh = NumOMP()
