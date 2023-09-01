@@ -108,11 +108,11 @@ module ebsquish
     subroutine Squish(vApp)
         class(voltApp_T), intent(inout) :: vApp
 
-        call Tic("Squish")
+        call Tic("Squish",.true.)
         do while(SquishBlocksRemain(vApp))
             call DoSquishBlock(vApp)
         enddo
-        call Toc("Squish")
+        call Toc("Squish",.true.)
 
     end subroutine Squish
 
@@ -142,7 +142,7 @@ module ebsquish
         class(voltApp_T), intent(inout) :: vApp
 
         call UpdateTM03(vApp%time)
-        call Tic("Squish")
+        call Tic("Squish",.true.)
         associate(ebGr=>vApp%ebTrcApp%ebState%ebGr, &                  
                   xyzSquish=>vApp%chmp2mhd%xyzSquish,isGood=>vApp%chmp2mhd%isGood, &
                   ebSquish=>vApp%ebTrcApp%ebSquish)
@@ -158,7 +158,7 @@ module ebsquish
         ebSquish%curSquishBlock = ebSquish%myFirstBlock
 
         end associate
-        call Toc("Squish")
+        call Toc("Squish",.true.)
 
     end subroutine SquishStart
 
@@ -305,7 +305,7 @@ module ebsquish
 
         integer :: i,Nk
 
-        call Tic("Squish")
+        call Tic("Squish",.true.)
         associate(ebModel=>vApp%ebTrcApp%ebModel,ebGr=>vApp%ebTrcApp%ebState%ebGr, &
                   xyzSquish=>vApp%chmp2mhd%xyzSquish,isGood=>vApp%chmp2mhd%isGood, &
                   ebSquish=>vApp%ebTrcApp%ebSquish)
@@ -334,7 +334,7 @@ module ebsquish
         vApp%chmp2mhd%iMax = vApp%iDeep
         
         end associate
-        call Toc("Squish")
+        call Toc("Squish",.true.)
 
     end subroutine SquishEnd
 

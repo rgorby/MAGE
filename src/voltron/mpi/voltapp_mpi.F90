@@ -590,9 +590,9 @@ module voltapp_mpi
 
         if(SquishBlocksRemain(vApp)) then
             call Tic("DeepUpdate")
-            call Tic("Squish")
+            call Tic("Squish",.true.)
             call DoSquishBlock(vApp)
-            call Toc("Squish")
+            call Toc("Squish",.true.)
             call Toc("DeepUpdate")
         endif
 
