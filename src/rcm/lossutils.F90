@@ -175,20 +175,25 @@ MODULE lossutils
         REAL(rprec) :: dK,wK,dM,wM,dL,wL,dE,wE
         INTEGER :: iK,kL,kU,mL,mU,lL,lU,eL,eU
         LOGICAL :: Lflag = .false.
-
+        LOGICAL :: isMin(4) = [.false.,.false.,.false.,.false.] !index 1-4 correspond to Kp,mlt,L and E
+        LOGICAL :: isMax(4) = [.false.,.false.,.false.,.false.] 
 
         associate(Nm=>EWMTauInput%ChorusTauInput%Nm,Nl=>EWMTauInput%ChorusTauInput%Nl,Nk=>EWMTauInput%ChorusTauInput%Nk,Ne=>EWMTauInput%ChorusTauInput%Ne,&
                   Kpi=>EWMTauInput%ChorusTauInput%Kpi,MLTi=>EWMTauInput%ChorusTauInput%MLTi,Li=>EWMTauInput%ChorusTauInput%Li,Eki=>EWMTauInput%ChorusTauInput%Eki,&
                   taui=>EWMTauInput%ChorusTauInput%taui) 
+
+        taui = log10(taui) !Interpolation in log10 space
 
         ! look up in Kp
         !iK = minloc(abs(Kpi-Kpx),dim=1)
 
         ! Find the nearest neighbors in Kp
         if (Kpx >= maxval(Kpi)) then
+            isMax(1) = .true.
             kL = Nk
             kU = Nk
         else if (Kpx <= minval(Kpi)) then
+            isMin(1) = .true.
             kL = 1
             kU = 1
         else
@@ -198,8 +203,10 @@ MODULE lossutils
            
         ! Find the nearest neighbours in MLT
         if ((mltx >= maxval(MLTi)) .or. (mltx <= minval(MLTi)))  then ! maxval of MLT is 24, minval of MLT is 0 
-            mL = 1
-            mU = 1 
+            isMax(1) = .true.
+            isMin(2) = .true.
+            mL = 1  
+            mU = 1 ! equivalent to mL = Nm, mU = Nm
         else
             mL = maxloc(MLTi,dim=1,mask=(MLTi<mltx))
             mU = mL+1
@@ -207,42 +214,40 @@ MODULE lossutils
 
         ! Find the nearest neighbours in L
         if (Lx >= maxval(Li)) then
+            isMax(3) = .true.
             lL = Nl ! tau_c is 0, total tau = tau_s
             lU = Nl
-            Lflag = .true.
         else if (Lx <= minval(Li)) then
-            lL = 0 ! Lx < min(Li) is treated like min(Li)
-            lU = 0
+            isMin(3) = .true.
+            lL = 1 ! Lx < min(Li) is treated like min(Li)
+            lU = 1
         else
             lL = maxloc(Li,dim=1,mask=(Li<Lx))
             lU = lL+1
         endif
         
          ! Find the nearest neighbours in Ek
-        if (Ekx < minval(Eki)) then
-            eL = 0 ! default lifetime is 10^10s ~ 10^3 years.
-            eU = -1
-        else if (Ekx >= maxval(Eki)) then
+        if (Ekx >= maxval(Eki)) then
+            isMax(4) = .true.
             eL = Ne ! Ekx > max(Eki) is treated like max(Eki)
             eU = Ne
+        else if (Ekx < minval(Eki)) then
+            isMin(4) = .true.
+            !indices are not needed.
         else
             eL = maxloc(Eki,dim=1,mask=(Eki<Ekx))
             eU = eL + 1
         endif
 
-        !Corner cases
-        !if (lL == -1) then 
-        !    tau = 0.0 ! When Lx > max(Li), assign 0 for now and replace it by strong scattering later 
-        !    !write(*,*)"Corner case1,tau=tau_ss" 
-        !    return
-        if (eU == -1) then
+        !Corner case: if Ek < min(Eki), use a large lifetime 10^10s ~ 10^3 years
+        if (isMin(4)) then
             tau = 1.D10
-            !write(*,*)"Corner case2,tau=1e10"
             return
         end if
 
         !linear interpolation in Kp
-        if (kL == kU) then
+        if (isMax(1) .or. isMin(1)) then
+            ! In this case, kL = kU
             tauMLE(1,1,1) = taui(kL,mL,lL,eL)
             tauMLE(1,1,2) = taui(kL,mL,lL,eU)
             tauMLE(1,2,1) = taui(kL,mL,lU,eL)
@@ -281,7 +286,8 @@ MODULE lossutils
         end if
 
         ! linear interpolation in mlt
-        if (mL == mU) then 
+        if (isMax(2) .or. isMin(2)) then
+            ! In this case, degenerate in MLT dimension 
             tauLE(1,1) = tauMLE(2,1,1)
             tauLE(1,2) = tauMLE(2,1,2)
             tauLE(2,1) = tauMLE(2,2,1)
@@ -296,10 +302,11 @@ MODULE lossutils
         end if
         
         ! linear interpolation in L
-        if (lL == lU) then 
+        if (isMax(3) .or. isMin(3)) then 
+            ! In this case, degenerate in L dimension 
             tauE(1) = tauLE(2,1)
             tauE(2) = tauLE(2,2)
-            if (Lflag) then ! use gaussian decay for L > maxval(Li) (7Re)
+            if (isMax(3)) then ! use gaussian decay for L > maxval(Li) (7Re)
                tauE(1)=tauE(1)/exp(-(Lx-maxval(Li))**2)
                tauE(2)=tauE(2)/exp(-(Lx-maxval(Li))**2)
             endif  
@@ -311,7 +318,8 @@ MODULE lossutils
         end if 
         
         ! linear interpolation in Ek
-        if (eL == eU) then 
+        if (isMax(4)) then 
+            ! In this case, degenerate in Ek dimension 
             tau = tauE(1)
         else
             dE = Eki(eU)-Eki(eL)
@@ -319,6 +327,7 @@ MODULE lossutils
             tau = tauE(1) + wE*(tauE(2)-tauE(1))    
         end if 
         end associate
+            tau = 10.**tau ! in seconds
  
     END FUNCTION RatefnDW_tau_c
 
