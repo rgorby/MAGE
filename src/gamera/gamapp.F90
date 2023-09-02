@@ -100,10 +100,10 @@ module gamapp
     subroutine UpdateStateData(gameraApp)
         class(gamApp_T), intent(inout) :: gameraApp
 
-        call Tic("Gamera")
+        call Tic("Gamera",.true.)
         !Advance system
         call AdvanceMHD(gameraApp%Model,gameraApp%Grid,gameraApp%State,gameraApp%oState,gameraApp%Solver,gameraApp%Model%dt)
-        call Toc("Gamera")
+        call Toc("Gamera",.true.)
 
         !Call user-defined per-step function
         !NOTE: Do this before updating time
