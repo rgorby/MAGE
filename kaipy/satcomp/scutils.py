@@ -2114,18 +2114,27 @@ def interpolate_gamhelio_results_to_trajectory(
 
     # Perform the interpolation.
     if num_segments == 1:
-        # Perform a serial interpolation.
-        sctrack = subprocess.run(
-            [sctrack_cmd, sctrack_xml_path],
-            cwd=gamhelio_results_directory,
-            capture_output=True,
-            text=True
-        )
 
-        # Save the interpolator output in the results directory.
-        with open(os.path.join(gamhelio_results_directory,
-                               "%s_sctrack.out" % sc_id), "w") as f:
-            f.write(sctrack.stdout)
+        # Perform a serial interpolation.
+
+        with subprocess.Popen([sctrack_cmd, sctrack_xml_path], stdout=subprocess.PIPE, stderr=subprocess.STDOUT, bufsize=1) as p, \
+            open(os.path.join(gamhelio_results_directory, "%s_sctrack.out" % sc_id), "w") as f:
+            while p.poll() is None:
+                text = p.stdout.read1().decode("utf-8")
+                f.write(text)
+                f.flush()
+
+        # sctrack = subprocess.run(
+        #     [sctrack_cmd, sctrack_xml_path],
+        #     cwd=gamhelio_results_directory,
+        #     capture_output=True,
+        #     text=True
+        # )
+
+        # # Save the interpolator output in the results directory.
+        # with open(os.path.join(gamhelio_results_directory,
+        #                        "%s_sctrack.out" % sc_id), "w") as f:
+        #     f.write(sctrack.stdout)
 
     else:
         # Perform a parallel interpolation.

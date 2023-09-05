@@ -1,0 +1,11 @@
+<?xml version="1.0"?>
+<Kaiju>
+  <GL>
+    <sim runid="sphere256" doH5init="F" isLoud="T" isDebug="F" isPrecheck="F" isStandalone="T"/>
+    <idir min="1.0" max="3.0" N="256"/>
+    <jdir min="0.1" max="0.9" N="256"/>
+    <kdir min="0.0" max="1.0" N="64"/>
+    <output writeH5="T" doTimer="T" dtOut="1"/>
+    <prob StateCoord="Sphere" orientation="1.57079" cmer="-1.57079" alpha="0.0" tfin="7200" dt="3600" frontheight="1.35" legsang="25.0" />
+  </GL>
+</Kaiju>

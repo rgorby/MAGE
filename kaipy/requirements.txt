@@ -6,6 +6,7 @@ cdflib
 configparser
 dataclasses_json
 h5py
+hdf5plugin
 jinja2
 matplotlib
 netCDF4
@@ -16,4 +17,3 @@ scipy
 spacepy
 sunpy
 xarray
-

@@ -21,7 +21,7 @@ def cntSteps(fname):
         Steps = [stp for stp in grpNames if "/Step#" in stp]
         nSteps = len(Steps)
         """
-        #sIds = np.array([str.split(s,"#")[-1] for s in Steps],dtype=int)
+        #sIds = np.array([str.split(s,"#")[-1] for s in Steps],dtype=np.int)
         sIds = np.array([str.split(s,"#")[-1] for s in hf.keys() if "Step#" in s],dtype=int)
         nSteps = len(sIds)
     return nSteps,sIds
@@ -29,7 +29,7 @@ def cntSteps(fname):
 def createfile(iH5,fOut):
     print('Creating new output file:',fOut)
     oH5 = h5py.File(fOut,'w')
-#Start by scraping all variables from root
+    #Start by scraping all variables from root
     #Copy root attributes
     for k in iH5.attrs.keys():
         aStr = str(k)
@@ -38,7 +38,7 @@ def createfile(iH5,fOut):
     for Q in iH5.keys():
         sQ = str(Q)
         #Don't include stuff that starts with "Step"
-        if "Step" not in sQ:
+        if "Step" not in sQ and "timeAttributeCache" not in sQ:
             oH5.create_dataset(sQ,data=iH5[sQ])
     return oH5
 
@@ -131,7 +131,7 @@ if __name__ == "__main__":
                 sQ = str(Q)
                 #print("\tCopying %s"%(sQ))
                 oH5[gOut].create_dataset(sQ,data=iH5[gIn][sQ])
-        # make a new file every Nsf steps
+            # make a new file every Nsf steps
             if(n%Nsf==0 and n != 0):
                 oH5.close()
                 if not doMPI:

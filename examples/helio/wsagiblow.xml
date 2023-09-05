@@ -1,0 +1,21 @@
+<?xml version="1.0"?>
+<Kaiju>
+<Gamera>
+    <sim runid="wsaGiblow" doH5g="T" H5Grid="heliogrid.h5" icType="user" pdmb="1.0" rmeth="7UP"/>
+    <time tFin="24.0"/>
+    <spinup doSpin="T" tSpin="160.0" tIO="0.0"/>
+    <output dtOut="1.0" tsOut="100" timer="F"/>
+    <physics doMHD="T" gamma="1.5"/>
+    <prob doCME="T" rotateCME="F" isSpSymSW="F"/>
+    <helio Tsolar ="25.38" vrin="400.0" vrkin="400.0" tin="3.d5" rhoin="400.0" brin="0.0005" brkfin="0.0005" />
+    <restart resId = "wsa" nRes = "00008" dtRes="100." doRes="F"/>
+    <iPdir N="2" bcPeriodic="F"/>
+    <jPdir N="2" bcPeriodic="F"/>
+    <kPdir N="2" bcPeriodic="T"/>
+</Gamera>
+<CME>
+    <sim  isLoud="F" isDebug="F" isTopomorph="T" isStandalone="F" model="GL"/>
+    <time Tstart_transient="0.0" />
+    <prob Den_CME = "800.0" T_CME = "500000.0" lat="0.0" lon="0.0" alpha="0.0" frontheight="21.5" legsang="30.0" topmorph="2.5" vel_fh="800.0"/>
+</CME>
+</Kaiju>

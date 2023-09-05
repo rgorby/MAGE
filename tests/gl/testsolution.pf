@@ -1,0 +1,52 @@
+module testsolution
+    use testHelper
+    use giblowapp
+
+    implicit none
+  
+    type(glApp_T), allocatable :: glApp
+  
+  contains
+  
+    @before
+    subroutine setup()
+        allocate(glApp)
+  
+        call initGL(glApp,'3D64.xml')
+  
+        do while (gApp%Model%t < gApp%Model%tFin)
+          call step(glApp)
+  
+          if (gApp%Model%IO%doConsole(gApp%Model%ts)) then
+              call consoleOutput(glApp%Model,glApp%State,glApp%Solution)
+          endif
+  
+          if (gApp%Model%IO%doOutput(glApp%Model%t)) then
+              call fOutput(glApp%Model,glApp%State,glApp%Solution)
+          endif
+  
+        end do
+  
+    end subroutine setup
+  
+    @after
+    subroutine teardown()
+        deallocate(glApp)
+    end subroutine teardown
+
+    subroutine verifyvalues(glSolution)
+        type(glSolution_T), intent(in) :: glSolution
+
+    end subroutine verifyvalues
+
+    @test
+    subroutine testSolutionFields()
+
+    end subroutine testFields
+
+    @test
+    subroutine testSolutionScalars()
+
+    end subroutine testScalars
+
+end module testsolution
