@@ -143,6 +143,7 @@ def PlotMerMagV(gsph,nStp,xyBds,Ax,AxCB=None,doClear=True,doDeco=True,indx=(None
         if (doClear):
             Ax.clear()
        
+        phi = 0.0
         for idx in indx:
             if type(idx) is not None:
                 if type(idx) is int: 
@@ -178,6 +179,7 @@ def PlotMerDNorm(gsph,nStp,xyBds,Ax,AxCB=None,doClear=True,doDeco=True,indx=[Non
     if (doClear):
         Ax.clear()
 
+    phi = 0.0
     for idx in indx:
         if type(idx) is not None:
             if type(idx) is int: 
@@ -212,6 +214,7 @@ def PlotMerBrNorm(gsph,nStp,xyBds,Ax,AxCB=None,doClear=True,doDeco=True,indx=[No
     if (doClear):
         Ax.clear()
     
+    phi = 0.0
     for idx in indx:
         if type(idx) is not None:
             if type(idx) is int: 
@@ -255,6 +258,7 @@ def PlotMerTemp(gsph,nStp,xyBds,Ax,AxCB=None,doClear=True,doDeco=True,indx=[None
     if (doClear):
         Ax.clear()
 
+    phi = 0.0
     for idx in indx:
         if type(idx) is not None:
             if type(idx) is int: 
