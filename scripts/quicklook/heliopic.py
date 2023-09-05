@@ -1,26 +1,51 @@
 #!/usr/bin/env python
 
 
-"""Make a quick figure of a Gamera heliosphere run.
+"""Make a quick-look figure of a Gamera heliosphere run.
 
-Make a quick figure of a Gamera heliosphere run.
+Make a quick-look figure of a Gamera heliosphere run.
 
 Five different sets of plots are supported, and are distinguished by the
 value of the "pic" argument.
+pic1 (default): A 4-panel display showing pcolormesh plots in the z = 0
+(equatorial) plane of the gamhelio frame used in the simulation. The plots
+are:
 
-pic1 (default): A 4-panel display showing radial speed, number
-density*(r/r0)**2, temperature*(r/r0), and radial magnetic field*(r/r0)**2.
-These plots are done in the XY plane of the gamhelio frame (which is a
-Heliographic Stonyhurst (HGS) frame, modified with the +x reversed from
-the usual HGS definition)
+    Upper left: Solar wind speed (km/s)
+    Upper right: Solar wind number density scaled by (r/r0)**2 (cm**-3)
+    Lower left: Solar wind temperature scaled by r/r0 (MK)
+    Lower right: Solar wind radial magnetic field scaled by r/r0 (nT)
 
-pic2:
+pic2: A 4-panel display showing pcolormesh plots in the y = 0 (meridional,
+containing Earth) plane of the gamhelio frame used in the simulation. The
+plots are:
 
-pic3:
+    Upper left: Solar wind speed (km/s)
+    Upper right: Solar wind number density scaled by (r/r0)**2 (cm**-3)
+    Lower left: Solar wind temperature scaled by r/r0 (MK)
+    Lower right: Solar wind radial magnetic field scaled bryr/r0 (nT)
 
-pic4:
+pic3: A 4-panel display showing pcolormesh plots in the r = 1 AU slice of the
+gamhelio frame used in the simulation. The plots are:
 
-pic5:
+    Upper left: Solar wind speed (km/s)
+    Upper right: Solar wind number density (cm**-3)
+    Lower left: Solar wind temperature (MK)
+    Lower right: Solar wind radial magnetic field (nT)
+
+pic4: A pcolormesh plot in the innermost radial slice (r = 22 Rsun) of the
+gamhelio frame used in the simulation. The plot shows the radial magnetic
+field in nT, in a coordinate frame rotating with the Sun.
+
+pic5: A 3-panel display showing line as a function of radius,
+22 Rsun <= r <= 220 Rsun. The plots are:
+
+    Upper left: Solar wind number density (cm**-3)
+    Upper right: Solar wind speed (km/s)
+    Lower left: Solar wind radial momentum flux (km**2/s**2/cm**3)
+
+All plots can optionally display the contemporary location of relevant
+spacecraft.
 
 Author
 ------
@@ -35,6 +60,7 @@ import os
 import time
 
 # Import supplemental modules.
+import astropy.time
 import matplotlib as mpl
 from matplotlib import gridspec
 import matplotlib.pyplot as plt
@@ -54,12 +80,7 @@ from kaipy.satcomp import scutils
 # Program constants and defaults
 
 # Program description.
-description = """Creates multi-panel figure for Gamera heliosphere run
-Upper left - Solar wind speed
-Upper right - Solar wind number density
-Lower left - Solar wind temperature
-Lower right - Solar wind radial magnetic field
-"""
+description = "Create quick-look plots for a Gamera heliosphere run"
 
 # Default identifier for results to read.
 default_runid = "wsa"
@@ -73,8 +94,8 @@ default_slice = "1:2:1"
 # Code for default picture type.
 default_pictype = "pic1"
 
-# Color to use for spacecraft position symbols.
-SPACECRAFT_COLOR = "red"
+# Name of plot output file.
+fOut = "qkpic.png"
 
 def create_command_line_parser():
     """Create the command-line argument parser.
@@ -113,10 +134,6 @@ def create_command_line_parser():
     parser.add_argument(
         "--nslice", type=lambda n: [int(item) for item in n.split(':')], metavar="step slice", default=default_slice,
         help="Slice for range of time slice(s) to plot (default: %(default)s)"
-    )
-    parser.add_argument(
-        "-nompi", action="store_true", default=False,
-        help="Don't show MPI boundaries (default: %(default)s)."
     )
     parser.add_argument(
         "-pic", type=str, metavar="pictype", default=default_pictype,
@@ -182,7 +199,6 @@ if __name__ == "__main__":
     debug = args.debug
     fdir = args.d
     ftag = args.id
-    noMPI = args.nompi
     steps = args.nlist
     slices = args.nslice
     spacecraft = args.spacecraft
@@ -196,8 +212,6 @@ if __name__ == "__main__":
         print("args = %s" % args)
     if slices:
         print("Slice selected {}".format(slice(slices[0],slices[1],slices[2])))
-    # Invert the MPI flag for convenience.
-    doMPI = not noMPI
 
     tic = time.perf_counter()
     # Fetch the plot domain based on the picture type.
@@ -207,6 +221,12 @@ if __name__ == "__main__":
     print(f"Get bounds took {toc-tic} s")
     # Do work?
     doFast = False
+
+    # Read the CDAWeb spacecraft database.
+    sc_metadata_path = os.path.join(
+        os.environ["KAIJUHOME"], "kaipy", "satcomp", "sc_helio.json"
+    )
+    sc_metadata = scutils.getScIds(spacecraft_data_file=sc_metadata_path)
 
     # Create figures in a memory buffer.
     mpl.use("Agg")
@@ -254,6 +274,11 @@ if __name__ == "__main__":
         if nStp < 0:
             nStp = gsph.sFin
             print("Using Step %d" % nStp)
+
+        # Extract the date/time of the plot.
+        mjd = gsph.MJDs[nStp]
+        if debug:
+            print(f"mjd = {mjd}")
 
         # Now create the actual plots.
         if pic == "pic1":
@@ -356,39 +381,58 @@ if __name__ == "__main__":
                 if debug:
                     print("x, y, z = %s, %s, %s" % (x, y, z))
 
+                # Convert the datetime objects from the trajectory to MJD.
+                t_strings = np.array([str(t) for t in sc_data["Epoch"]])
+                t = astropy.time.Time(t_strings, scale='utc').mjd
+
+                # Interpolate the spacecraft position at the time for the plot.
+                t_sc = mjd
+                x_sc = np.interp(t_sc, t, x)
+                y_sc = np.interp(t_sc, t, y)
+                z_sc = np.interp(t_sc, t, z)
+
                 # If needed, compute heliocentric spherical coordinates.
                 if pic == "pic3" or pic == "pic4":
-                    r = np.sqrt(x**2 + y**2 + z**2)
-                    lon = np.degrees(np.arccos(x/(x**2 + y**2)))
-                    lat = np.degrees(-np.arccos(z/r) + np.pi/2)
+                    rxy = np.sqrt(x**2 + y**2)
+                    theta = np.arctan2(rxy, z)
+                    phi = np.arctan2(y, x)
+                    lat = np.degrees(np.pi/2 - theta)
+                    lon = np.degrees(phi)
+                    lat_sc = np.interp(t_sc, t, lat)
+                    lon_sc = np.interp(t_sc, t, lon)
 
                 # Plot a labelled trajectory of the spacecraft. Also plot a larger
                 # dot at the last point in the trajectory.
                 # Left plot
                 SPACECRAFT_COLORS = list(mpl.colors.TABLEAU_COLORS.keys())
                 color = SPACECRAFT_COLORS[i_sc % len(SPACECRAFT_COLORS)]
-                x_nudge = 5.0
-                y_nudge = 5.0
+                x_nudge = 0.0
+                y_nudge = 8.0
+                sc_label = sc_metadata[sc_id]["label"]
                 if pic == "pic1":
                     for ax in (AxL0, AxR0, AxL1, AxR1):
-                        ax.plot(x, y, marker=None, linewidth=1, c=color)
-                        ax.plot(x[-1], y[-1], 'o', c=color)
-                        ax.text(x[-1] + x_nudge, y[-1] + y_nudge, sc_id, c=color)
+                        ax.plot(x_sc, y_sc, 'o', c=color)
+                        ax.plot(x_sc, y_sc, 'o', c="black", fillstyle="none")
+                        ax.text(x_sc + x_nudge, y_sc + y_nudge, sc_label,
+                                c="black", horizontalalignment="center")
                 elif pic == "pic2":
                     for ax in (AxL0, AxR0, AxL1, AxR1):
-                        ax.plot(x, z, marker=None, linewidth=1, c=color)
-                        ax.plot(x[-1], z[-1], 'o', c=color)
-                        ax.text(x[-1] + x_nudge, z[-1] + y_nudge, sc_id, c=color)
+                        ax.plot(x_sc, z_sc, 'o', c=color)
+                        ax.plot(x_sc, z_sc, 'o', c="black", fillstyle="none")
+                        ax.text(x_sc + x_nudge, z_sc + y_nudge, sc_label,
+                                c="black", horizontalalignment="center")
                 elif pic == "pic3":
                     for ax in (AxL0, AxR0, AxL1, AxR1):
-                        ax.plot(lon, lat, marker=None, linewidth=1, c=color)
-                        ax.plot(lon[-1], lat[-1], 'o', c=color)
-                        ax.text(lon[-1] + x_nudge, lat[-1] + y_nudge, sc_id, c=color)
+                        ax.plot(lon_sc, lat_sc, 'o', c=color)
+                        ax.plot(lon_sc, lat_sc, 'o', c="black", fillstyle="none")
+                        ax.text(lon_sc + x_nudge, lat_sc + y_nudge, sc_label,
+                                c="black", horizontalalignment="center")
                 elif pic == "pic4":
                     ax = Ax
-                    ax.plot(lon, lat, marker=None, linewidth=1, c=color)
-                    ax.plot(lon[-1], lat[-1], 'o', c=color)
-                    ax.text(lon[-1] + x_nudge, lat[-1] + y_nudge, sc_id, c=color)
+                    ax.plot(lon_sc, lat_sc, 'o', c=color)
+                    ax.plot(lon_sc, lat_sc, 'o', c="black", fillstyle="none")
+                    ax.text(lon_sc + x_nudge, lat_sc + y_nudge, sc_label,
+                            c="black", horizontalalignment="center")
                 elif pic == "pic5":
                     pass
 
