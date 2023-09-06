@@ -376,25 +376,29 @@ if __name__ == "__main__":
                         ax.plot(x, y, marker=None, linewidth=1, c=color)
                         ax.plot(x[-1], y[-1], 'o', c=color)
                         ax.plot(x[-1], y[-1], 'o', c="black", fillstyle="none")
-                        ax.text(x[-1] + x_nudge, y[-1] + y_nudge, sc_id, c=color)
+                        ax.text(x[-1] + x_nudge, y[-1] + y_nudge, sc_id,
+                                c="black", horizontalalignment="center")
                 elif pic == "pic2":
                     for ax in (AxL0, AxR0, AxL1, AxR1):
                         ax.plot(x, z, marker=None, linewidth=1, c=color)
                         ax.plot(x[-1], z[-1], 'o', c=color)
                         ax.plot(x[-1], z[-1], 'o', c="black", fillstyle="none")
-                        ax.text(x[-1] + x_nudge, z[-1] + y_nudge, sc_id, c=color)
+                        ax.text(x[-1] + x_nudge, z[-1] + y_nudge, sc_id,
+                                c="black", horizontalalignment="center")
                 elif pic == "pic3":
                     for ax in (AxL0, AxR0, AxL1, AxR1):
                         ax.plot(lon, lat, marker=None, linewidth=1, c=color)
                         ax.plot(lon[-1], lat[-1], 'o', c=color)
                         ax.plot(lon[-1], lat[-1], 'o', c="black", fillstyle="none")
-                        ax.text(lon[-1] + x_nudge, lat[-1] + y_nudge, sc_id, c=color)
+                        ax.text(lon[-1] + x_nudge, lat[-1] + y_nudge, sc_id,
+                                c="black", horizontalalignment="center")
                 elif pic == "pic4":
                     ax = Ax
                     ax.plot(lon, lat, marker=None, linewidth=1, c=color)
                     ax.plot(lon[-1], lat[-1], 'o', c=color)
                     ax.plot(lon[-1], lat[-1], 'o', c="black", fillstyle="none")
-                    ax.text(lon[-1] + x_nudge, lat[-1] + y_nudge, sc_id, c=color)
+                    ax.text(lon[-1] + x_nudge, lat[-1] + y_nudge, sc_id,
+                            c="black", horizontalalignment="center")
                 elif pic == "pic5":
                     pass
 
