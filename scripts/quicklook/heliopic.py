@@ -363,9 +363,6 @@ if __name__ == "__main__":
                     phi = np.arctan2(y, x)
                     lat = np.degrees(np.pi/2 - theta)
                     lon = np.degrees(phi)
-                    # r = np.sqrt(x**2 + y**2 + z**2)
-                    # lon = np.degrees(np.arccos(x/(x**2 + y**2)))
-                    # lat = np.degrees(-np.arccos(z/r) + np.pi/2)
 
                 # Plot a labelled trajectory of the spacecraft. Also plot a larger
                 # dot at the last point in the trajectory.
@@ -378,21 +375,25 @@ if __name__ == "__main__":
                     for ax in (AxL0, AxR0, AxL1, AxR1):
                         ax.plot(x, y, marker=None, linewidth=1, c=color)
                         ax.plot(x[-1], y[-1], 'o', c=color)
+                        ax.plot(x[-1], y[-1], 'o', c="black", fillstyle="none")
                         ax.text(x[-1] + x_nudge, y[-1] + y_nudge, sc_id, c=color)
                 elif pic == "pic2":
                     for ax in (AxL0, AxR0, AxL1, AxR1):
                         ax.plot(x, z, marker=None, linewidth=1, c=color)
                         ax.plot(x[-1], z[-1], 'o', c=color)
+                        ax.plot(x[-1], z[-1], 'o', c="black", fillstyle="none")
                         ax.text(x[-1] + x_nudge, z[-1] + y_nudge, sc_id, c=color)
                 elif pic == "pic3":
                     for ax in (AxL0, AxR0, AxL1, AxR1):
                         ax.plot(lon, lat, marker=None, linewidth=1, c=color)
                         ax.plot(lon[-1], lat[-1], 'o', c=color)
+                        ax.plot(lon[-1], lat[-1], 'o', c="black", fillstyle="none")
                         ax.text(lon[-1] + x_nudge, lat[-1] + y_nudge, sc_id, c=color)
                 elif pic == "pic4":
                     ax = Ax
                     ax.plot(lon, lat, marker=None, linewidth=1, c=color)
                     ax.plot(lon[-1], lat[-1], 'o', c=color)
+                    ax.plot(lon[-1], lat[-1], 'o', c="black", fillstyle="none")
                     ax.text(lon[-1] + x_nudge, lat[-1] + y_nudge, sc_id, c=color)
                 elif pic == "pic5":
                     pass
