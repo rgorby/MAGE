@@ -48,9 +48,6 @@ endif()
 #Set base release options
 set(CMAKE_DEFOPT "-O3") #Default optimization
 
-#Enable arch
-set(ARCH AVX2 CACHE STRING "Enable Architecture Flags, default AVX2")
-
 #-------------
 #Set minimum compiler versions
 if(CMAKE_Fortran_COMPILER_ID MATCHES Intel)
@@ -74,8 +71,7 @@ endif()
 set(CMAKE_Fortran_FLAGS_DEBUG "-O0 -g")
 set(CMAKE_Fortran_FLAGS_RELEASE "${CMAKE_DEFOPT}")
 set(CMAKE_Fortran_FLAGS_RELWITHDEBINFO "${CMAKE_DEFOPT} -g")
-#message(CMAKE_Fortran_COMPILER_ID " is compiler")
-message(STATUS "Compiler ID: ${CMAKE_Fortran_COMPILER_ID}")
+
 #Do compiler specific options
 if(CMAKE_Fortran_COMPILER_ID MATCHES Intel)
 	set(dialect "-free -implicitnone")
@@ -94,7 +90,7 @@ if(CMAKE_Fortran_COMPILER_ID MATCHES Intel)
 
 	#Now do OS-dep options
 	if (CMAKE_SYSTEM_NAME MATCHES Darwin)
-		string(APPEND CMAKE_Fortran_FLAGS " -Wl,-stack_size,0x20000000,-stack_addr,0xf0000000 -xHost")
+		string(APPEND CMAKE_Fortran_FLAGS " -Wl,-stack_size,0x40000000,-stack_addr,0xf0000000 -xHost")
 	else()
 		#If we're not doing Mac, then add IPO
 		string(APPEND PROD " -ipo")
@@ -102,28 +98,21 @@ if(CMAKE_Fortran_COMPILER_ID MATCHES Intel)
 	endif()
 
 	#Handle individual hosts
-	message("Host: ${HOST}")
 	if (HOST MATCHES cheyenne)
 		string(APPEND PROD " -march=corei7 -axCORE-AVX2")
 		string(APPEND PRODWITHDEBUGINFO " -march=corei7 -axCORE-AVX2")
-	elseif(HOST MATCHES pfe)
-		if(ARCH MATCHES AVX2)
-			string(APPEND PROD " -march=corei7 -axCORE-AVX2")
-			string(APPEND PRODWITHDEBUGINFO " -march=corei7 -axCORE-AVX2")
-		elseif(ARCH MATCHES CASCADELAKE)
-			string(APPEND PROD " -march=cascadelake")
-			string(APPEND PRODWITHDEBUGINFO " -march=cascadelake")
+    elseif(HOST MATCHES pfe)
+		string(APPEND PROD " -march=corei7 -axCORE-AVX2")
+		string(APPEND PRODWITHDEBUGINFO " -march=corei7 -axCORE-AVX2")
+	elseif (HOST MATCHES derecho)
+		message("You're on Derecho, good for you!")
+		if (ENABLE_MKL)
+			string(APPEND CMAKE_Fortran_FLAGS " -qmkl")
 		endif()
-	elseif(HOST MATCHES gust)
 		string(APPEND PROD " -march=core-avx2")
 		string(APPEND PRODWITHDEBUGINFO " -march=core-avx2")
-	elseif(HOST MATCHES pfe)
-                string(APPEND PROD " -march=cascadelake") #-axCORE-AVX512")
-                string(APPEND PRODWITHDEBUGINFO " -march=corei7 -axCORE-AVX2")
-	elseif(HOST MATCHES r)
-                string(APPEND PROD " -march=core-avx2") #-axCORE-AVX512")
-                string(APPEND PRODWITHDEBUGINFO " -march=core-avx2")
 	endif()
+
 	#Check Intel Fortran version
 	if(NOT ALLOW_INVALID_COMPILERS AND CMAKE_Fortran_COMPILER_VERSION VERSION_GREATER "2021.9")
 		message(FATAL_ERROR "Intel Fortran compilers newer than 2023 (version 2021.8) are not supported. Set the ALLOW_INVALID_COMPILERS variable to ON to force compilation at your own risk.")
@@ -143,18 +132,8 @@ elseif(CMAKE_Fortran_COMPILER_ID MATCHES GNU)
     endif()
 	#Now do machine-dep options
 	if (CMAKE_SYSTEM_NAME MATCHES Darwin)
-		string(APPEND CMAKE_Fortran_FLAGS " -Wl,-stack_size,0x20000000,-stack_addr,0xf0000000")
+		string(APPEND CMAKE_Fortran_FLAGS " -Wl,-stack_size,0x40000000,-stack_addr,0xf0000000")
 	endif()
-elseif(CMAKE_Fortran_COMPILER_ID MATCHES Flang)
-	set(dialect "-ffree-form")
-	#Base
-	string(APPEND CMAKE_Fortran_FLAGS " -fPIC")
-	#Production
-	set(PROD "-ffast-math")
-	#Debug
-	set(DEBUG "-fbacktrace -g -Warray-temporaries -Wall -Wfatal-errors  -finit-local-zero")
-	#Now do machine-dep options
-
 endif()
 
 string(APPEND CMAKE_Fortran_FLAGS " ${dialect}")

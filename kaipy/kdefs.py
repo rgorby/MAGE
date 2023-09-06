@@ -67,8 +67,3 @@ barLen = 30
 barLab = 30 
 #barDef = 'fish'
 barDef = alive_progress.animations.bars.bar_factory(tip="><('>", chars='∙',background='')
-
-#------
-# I/O
-#------
-grpTimeCache = "timeAttributeCache"

@@ -6,6 +6,7 @@ from scipy import interpolate
 import time
 import h5py
 import matplotlib.pyplot as plt
+
 import kaipy.gamhelio.wsa2gamera.params as params
 import kaipy.gamhelio.lib.wsa as wsa
 from kaipy.kdefs import *
@@ -43,17 +44,16 @@ eScl = 3.e7
 
 ffits = prm.wsaFile
 
-if not os.path.exists(prm.gameraGridFile):
-    # Generate spherical helio grid
-    print("Generating gamera-helio grid Ni = %d, Nj  = %d, Nk = %d " % (Ni, Nj, Nk))
+# Generate spherical helio grid
+print("Generating gamera-helio grid Ni = %d, Nj  = %d, Nk = %d " % (Ni, Nj, Nk))
 
-    X3,Y3,Z3 = gg.GenKSph(Ni=Ni,Nj=Nj,Nk=Nk,Rin=Rin,Rout=Rout,tMin=tMin,tMax=tMax)
-    gg.WriteGrid(X3,Y3,Z3,fOut=os.path.join(prm.GridDir,prm.gameraGridFile))
+X3,Y3,Z3 = gg.GenKSph(Ni=Ni,Nj=Nj,Nk=Nk,Rin=Rin,Rout=Rout,tMin=tMin,tMax=tMax)
+gg.WriteGrid(X3,Y3,Z3,fOut=os.path.join(prm.GridDir,prm.gameraGridFile))
 
 if os.path.exists(prm.gameraGridFile):
     print("Grid file heliogrid.h5 is ready!")
 
-# Read and normalize WSA
+# Read WSA
 jd_c,phi_wsa_v,theta_wsa_v,phi_wsa_c,theta_wsa_c,bi_wsa,v_wsa,n_wsa,T_wsa = wsa.read(ffits,prm.densTempInfile,prm.normalized)
 # Units of WSA input
 # bi_wsa in [Gs] 
@@ -69,8 +69,6 @@ with h5py.File(os.path.join(prm.GridDir,prm.gameraGridFile),'r') as f:
     x=f['X'][:]
     y=f['Y'][:]
     z=f['Z'][:]
-
-
 # Cell centers, note order of indexes [k,j,i]
 xc = 0.125*(x[:-1,:-1,:-1]+x[:-1,1:,:-1]+x[:-1,:-1,1:]+x[:-1,1:,1:]
             +x[1:,:-1,:-1]+x[1:,1:,:-1]+x[1:,:-1,1:]+x[1:,1:,1:])
@@ -170,20 +168,6 @@ br_kface *= Gs2nT
 et_kedge *= eScl
 
 with h5py.File(os.path.join(prm.IbcDir,prm.gameraIbcFile),'w') as hf:
-<<<<<<< HEAD
-    hf.attrs["MJD"] = mjd_c
-    hf.create_dataset("vr",data=vr)
-    hf.create_dataset("vr_kface",data=vr_kface)
-    hf.create_dataset("rho",data=rho)
-    hf.create_dataset("temp",data=temp)
-    hf.create_dataset("br",data=br)
-    hf.create_dataset("br_kface",data=br_kface)
-    #hf.create_dataset("et_kedge",data=et_kedge)
-    print("IBC datasets created")
-
-if os.path.exists(os.path.join(prm.IbcDir,prm.gameraIbcFile)):
-    print("BC innerbc.h5 file is ready!")
-=======
     hf.create_dataset("X", data=P_out)
     hf.create_dataset("Y", data=T_out)
     hf.create_dataset("Z", data=R_out)
@@ -198,4 +182,3 @@ if os.path.exists(os.path.join(prm.IbcDir,prm.gameraIbcFile)):
     grp.create_dataset("br_kface",data=br_kface) # size (Nk,Nj,Ng)
     grp.create_dataset("et_kedge",data=et_kedge)  # size (Nk, Nj)
 hf.close()
->>>>>>> iowithcompression

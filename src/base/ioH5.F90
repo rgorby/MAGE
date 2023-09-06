@@ -1,8 +1,5 @@
-!> Various routines to read/write HDF5 files
-!> @notes     
-!>  Useful user routines
-!>  AddOutVar, AddInVar, WriteVars,ReadVars
-!>  FindIO: Example, call FindIO(IOVars,"Toy",n), IOVars(n) = Toy data/metadata
+!Various routines to read/write HDF5 files
+
 module ioH5
     use kdefs
     use ISO_C_BINDING
@@ -13,57 +10,11 @@ module ioH5
     use ioH5Overload
     use files
     use dates
-#ifdef __ENABLE_ZFP
-    use h5zzfp_props_f
-#endif
+    
+    !Useful user routines
+    !AddOutVar, AddInVar, WriteVars,ReadVars
+    !FindIO: Example, call FindIO(IOVars,"Toy",n), IOVars(n) = Toy data/metadata
     implicit none
-
-#ifdef __ENABLE_COMPRESS
-    !> Compression Mode variables
-    enum, bind(C)
-        enumerator :: ZFP,ZSTD,ZLIB,SZIP,BLOSC
-    end enum
-    logical, parameter, private :: ENABLE_COMPRESS = .TRUE.
-    integer, parameter, private :: COMPRESS_ZSTD = 32015
-    integer, parameter, private :: COMPRESS_ZFP = 32013
-    integer, parameter, private :: COMPRESS_BLOSC = 32026
-    integer, parameter, private :: H5Z_FLAG_MANDATORY = INT(Z'00000000')
-    ! Compression Algorithm Selection
-#ifdef __ENABLE_SZIP
-    integer, parameter, private :: Z_ALG = SZIP
-#endif
-#ifdef __ENABLE_ZLIB
-    integer, parameter, private :: Z_ALG = ZLIB
-#endif
-#ifdef __ENABLE_ZFP
-    integer, parameter, private :: Z_ALG = ZFP
-    ! ZFP compression parameters (defaults taken from ZFP header)
-    integer(C_INT) :: zfpmode = 5 !1=rate, 2=prec, 3=acc, 4=expert, 5=lossless
-    real(dp) :: rate = 4.0_dp
-    real(dp) :: acc = 0.00001_dp
-    integer(C_INT) :: prec = 11
-    integer(C_INT) :: dim = 0
-    ! Used for Expert Mode
-    integer(C_INT) :: minbits = 1
-    integer(C_INT) :: maxbits = 32768
-    integer(C_INT) :: maxprec = 64
-    integer(C_INT) :: minexp = -1074
-#endif
-#ifdef __ENABLE_ZSTD
-    integer, parameter, private :: Z_ALG = ZSTD
-#endif
-#ifdef __ENABLE_BLOCSC
-    integer, parameter, private :: Z_ALG = BLOCSC
-#endif
-
-#else
-    logical, parameter, private :: ENABLE_COMPRESS = .FALSE.
-#endif
-    ! timeAttributeCache options
-    integer(HSIZE_T), parameter, private ::  CACHE_CHUNK_SIZE = 256
-    character(len=strLen), parameter :: attrGrpName = "timeAttributeCache"
-    integer, private :: cacheSize = 0, stepOffset = 0
-    logical, private :: createdThisFile = .false., isFirstStep = .true. 
 
     !Overloader to add data (array or scalar/string) to output chain
     interface AddOutVar
@@ -78,16 +29,15 @@ module ioH5
     end interface IOArrayFill
 
 contains
-
-    !> Routine to stamp output file with various information
+!Routine to stamp output file with various information
     subroutine StampIO(fIn)
         character(len=*), intent(in) :: fIn
         character(len=strLen) :: gStr,dtStr,bStr
         type(IOVAR_T), dimension(10) :: IOVars
 
-        !> Check if this file has already been stamped (has githash)
-        !> @NOTE: This creates ambiguity when doing restarts using binaries w/ different hashes
-        !> But what're you gonna do?
+        !Check if this file has already been stamped (has githash)
+        !NOTE: This creates ambiguity when doing restarts using binaries w/ different hashes
+        !But what're you gonna do?
         if ( ioExist(fIn,"GITHASH") ) then
             !Already stamped, let's get outta here
             return
@@ -109,12 +59,10 @@ contains
 #endif   
         call AddOutVar(IOVars,"DATETIME",dtStr)
         call WriteVars(IOVars,.true.,fIn,doStampCheckO=.false.)
-    end subroutine StampIO
 
-    ! -------------------------------------------   
-    ! Various routines to quickly pull scalars from IOVar_T
-    !
-    !> Helper funciton to pull INT from an IOVar data
+    end subroutine StampIO
+!-------------------------------------------   
+!Various routines to quickly pull scalars from IOVar_T
     function GetIOInt(IOVars,vID) result(vOut)
         type(IOVAR_T), dimension(:), intent(in) :: IOVars
         character(len=*), intent(in) :: vID
@@ -124,7 +72,6 @@ contains
         vOut = IOVars(nvar)%data(1)
     end function GetIOInt
 
-    !> Helper funciton to pull REAL from an IOVar data
     function GetIOReal(IOVars,vID) result(vOut)
         type(IOVAR_T), dimension(:), intent(in) :: IOVars
         character(len=*), intent(in) :: vID
@@ -134,42 +81,10 @@ contains
         nvar = FindIO(IOVars,vID,.true.)
         vOut = IOVars(nvar)%data(1)
     end function GetIOReal
+!-------------------------------------------   
+!Various routines to get information about step structure of H5 file
 
-    !> Calculate cdims for a given dataset size
-    subroutine CalcChunkSize(elsize, dims, cdims)
-        !> Size of elements in bytes
-        integer, intent(in)                          :: elsize
-        !> Dimensions of dataset
-        integer(HSIZE_T), dimension(*), intent(in)   :: dims
-        !>  Maximum allowed chunk size/dims
-        integer(HSIZE_T), dimension(:), intent(out)  :: cdims
-           
-        real, parameter :: max_bytes = 1048576
-        !1048576 bytes {64,64,32} double
-        !2097152 bytes {64,64,64} double 
-        !1048576 bytes {64,64,64} float
-        !2097152 bytes {64,64,128} float
-    
-        integer :: d
-        real(dp) :: nbytes
-
-        d = size(cdims)
-        cdims(1:d) = dims(1:d)
-        nbytes = elsize*product(1.d0*cdims)
-        do while ((nbytes.gt.max_bytes).and.(d.gt.0))
-            cdims(d) = max(floor(cdims(d)*max_bytes/nbytes,Int32),1)
-            nbytes = elsize*product(1.d0*cdims)
-            d = d - 1
-        enddo
-    
-    end subroutine CalcChunkSize
-
-    !-------------------------------------------   
-    !Various routines to get information about step structure of H5 file
-
-    !> Determine grid size from HDF5 file
     function GridSizeH5(fIn) result(Nijk)
-        !> File Name
         character(len=*), intent(in) :: fIn
         integer, dimension(NDIM) :: Nijk
 
@@ -209,16 +124,10 @@ contains
         endif
     end function GridSizeH5
 
-    !> Get number of groups of form "Step#XXX" and start/end
+    !Get number of groups of form "Step#XXX" and start/end
     subroutine StepInfo(fStr,s0,sE,Nstp)
-        !> File Name
         character(len=*), intent(in) :: fStr
-        !> Step Number
-        integer, intent(out) :: s0
-        !> Step End
-        integer, intent(out) :: sE
-        !> Number of Steps
-        integer, intent(out) :: Nstp
+        integer, intent(out) :: s0,sE,Nstp
         integer :: herr,i
         logical :: gExist,fExist,isEnd,idFirst
         integer(HID_T) :: h5fId
@@ -271,7 +180,7 @@ contains
         
     end subroutine StepInfo
 
-    !> Find step times between s0,sE and store in pre-allocated array
+    !Find step times between s0,sE and store in pre-allocated array
     subroutine StepTimes(fStr,s0,sE,Ts)
         character(len=*), intent(in) :: fStr
         integer, intent(in) :: s0,sE
@@ -300,7 +209,7 @@ contains
 
     end subroutine StepTimes
 
-    !> Same as StepTimes but for MJDs
+    !Same as StepTimes but for MJDs
     subroutine StepMJDs(fStr,s0,sE,MJDs)
         character(len=*), intent(in) :: fStr
         integer, intent(in) :: s0,sE
@@ -340,7 +249,7 @@ contains
 
     end subroutine StepMJDs
 
-    !> Count number of groups of form "Step#XXX"
+    !Count number of groups of form "Step#XXX"
     function NumSteps(fStr) result(Nstp)
         character(len=*), intent(in) :: fStr
         integer :: Nstp
@@ -350,9 +259,9 @@ contains
         call StepInfo(fStr,s0,sE,Nstp)
     end function NumSteps
     
-    !> Checks if object exists in file fStr
-    !> fStr:/vStr (if no gStrO), otherwise
-    !> fStr:/gStrO/vStr
+    !Checks if object exists in file fStr
+    !fStr:/vStr (if no gStrO), otherwise
+    !fStr:/gStrO/vStr
     function ioExist(fStr,vStr,gStrO)
         character(len=*), intent(in) :: fStr,vStr
         character(len=*), intent(in), optional :: gStrO
@@ -402,7 +311,7 @@ contains
         ioExist = dsExist .or. atExist
     end function ioExist
        
-    !> Read into array of IOVar from file fOut/optional group ID gStr
+    !Read into array of IOVar from file fOut/optional group ID gStr
     subroutine ReadVars(IOVars,doIOp,baseStr,gStrO)
         type(IOVAR_T), dimension(:), intent(inout) :: IOVars
         logical, intent(in) :: doIOp
@@ -412,7 +321,7 @@ contains
         
         integer :: n, Nv
         ! integer(HID_T) :: Nr
-        logical :: fExist, gExist, dsExist = .false., aExist = .false.
+        logical :: fExist,gExist,dsExist,aExist
         integer :: herr, dsTest
         integer(HID_T) :: h5fId, gId, inId
         character(len=strLen) :: h5File
@@ -494,11 +403,148 @@ contains
         call h5close_f(herr) !Close intereface
 
     end subroutine ReadVars
-    !-------------------------------------------
-    !Routines to read/write individual variables or attributes
 
+    !Write array of IOVar to file fOut (from baseStr), under (optional) group gStrO
+    !If gStrO unspecified, written to root of HDF5
+    !doIOp is whether to use IOP (ie output slice) or rp (ie restart)
+    subroutine WriteVars(IOVars,doIOp,baseStr,gStrO,gStrOO,doStampCheckO)
+        type(IOVAR_T), dimension(:), intent(inout) :: IOVars
+        logical, intent(in) :: doIOp
+        character(len=*), intent(in) :: baseStr
+        character(len=*), intent(in), optional :: gStrO,gStrOO
+        logical         , intent(in), optional :: doStampCheckO
+
+        logical :: fExist,gExist,doStampCheck
+        integer :: herr
+        integer(HID_T) :: h5fId, gId, ggId,outId
+        character(len=strLen) :: h5File
+
+        !Set filename to baseStr
+        !FIXME: Correct to add .h5 to baseStr
+        h5File = baseStr
+
+        if (present(doStampCheckO)) then
+            doStampCheck = doStampCheckO
+        else
+            doStampCheck = .true.
+        endif
+
+        !If we're writing to root of this file, then stamp (will ignore if already stamped)
+        if (.not. present(gStrO) .and. doStampCheck) then
+            call StampIO(h5File)
+        endif      
+
+        call h5open_f(herr) !Setup Fortran interface
+
+        !Start by opening file, create if necessary
+        inquire(file=h5File,exist=fExist)
+        if (fExist) then
+            !Open file
+            call h5fopen_f(trim(h5File), H5F_ACC_RDWR_F, h5fId, herr)
+        else
+            !Create file
+            call h5fcreate_f(trim(h5File),H5F_ACC_TRUNC_F, h5fId, herr)            
+        endif
+
+        !Figure out output location (outId) and create groups as necessary
+        if (present(gStrO)) then
+            !Write to group
+            !Check if group already exists
+            call h5lexists_f(h5fId,trim(gStrO),gExist,herr)
+            if (gExist .and. .not. present(gStrOO)) then
+                !Group exists (and not writing to subgroup)
+                !Can either skip it, or kill and replace
+                if (doSkipG) then
+                    !Group exists, close up and skip it
+                    write(*,*) 'Skipping due to pre-existing group ', trim(gStrO)
+                    
+                    !Close up
+                    call h5fclose_f(h5fId, herr)
+                    call h5close_f(herr)
+                    return
+                else
+                    !Kill group
+                    write(*,*) 'Overwriting group ', trim(h5File), '/', trim(gStrO)
+                    call h5ldelete_f(h5fId,trim(gStrO),herr)
+                    !Reset gExist and let next block of code recreate it
+                    gExist = .false.
+                endif
+            endif
+            if (.not. gExist) then
+                !Create group
+                call h5gcreate_f(h5fId,trim(gStrO),gId,herr)
+            else
+                !Open group
+                call h5gopen_f(h5fId,trim(gStrO),gId,herr)
+            endif
+
+            if (present(gStrOO)) then
+                !Create subgroup
+                call h5gcreate_f(gId,trim(gStrOO),ggId,herr)
+                outId = ggId
+            else
+                outId = gId 
+            endif
+        else
+            !Write to root
+            outId = h5fId
+            
+        endif !gStrO
+
+        !Do writing
+        call WriteVars2ID(IOVars,outId,doIOp)
+
+        !Now done, close up shop
+        if (present(gStrOO)) call h5gclose_f(ggId,herr)
+        if (present(gStrO )) call h5gclose_f( gId,herr)
+
+        call h5fclose_f(h5fId,herr) !Close file
+        call h5close_f(herr) !Close intereface
+
+    end subroutine WriteVars
+
+    subroutine WriteVars2ID(IOVars,outId,doIOp)
+        type(IOVAR_T), dimension(:), intent(inout) :: IOVars
+        logical, intent(in) :: doIOp
+        integer(HID_T), intent(in) :: outId
+
+        integer :: n, Nv
+        integer(HID_T) :: Nr
+
+        Nv = size(IOVars)
+
+        do n=1,Nv
+            if (IOVars(n)%toWrite) then
+                !Variable is ready, write it
+
+                !Treat as scalar attribute if Nr = 0
+                Nr = IOVars(n)%Nr
+
+                if (Nr == 0) then
+                !Scalar attribute
+                    if(IOVars(n)%useHyperslab) then
+                        write(*,*) 'Unable to write attribute "',trim(IOVars(n)%idStr),'" as a hyperslab'
+                        stop
+                    else
+                        call WriteHDFAtt(IOVars(n),outId)
+                    endif
+                else
+                !N-rank array
+                    !Create data space, use rank/dim info from IOVar
+                    if(IOVars(n)%useHyperslab) then
+                        write(*,*) 'Writing dataset "',trim(IOVars(n)%idStr),'" as a hyperslab not yet supported'
+                        stop
+                    else
+                        call WriteHDFVar(IOVars(n),outId,doIOP)
+                    endif
+                endif !Nr=0
+            endif !isSet
+        enddo
+
+    end subroutine WriteVars2ID
+!-------------------------------------------
+!Routines to read/write individual variables or attributes
     !FIXME: Assuming double precision for input binary data
-    !> Read HDF dataset from group
     subroutine ReadHDFVar(IOVar,gId)
         type(IOVAR_T), intent(inout) :: IOVar
         integer(HID_T), intent(in) :: gId
@@ -508,13 +554,8 @@ contains
         integer :: typeClass
         integer(SIZE_T) :: typeSize
         character(len=strLen) :: inStr
-        logical :: aExists, dExists
+        logical :: aExists
 
-        dExists = h5ltfind_dataset_f(gId, trim(IOVar%idStr))
-        if (.not. dExists) then
-            write(*,"(A,A,A)") "Info: Dataset with name '", trim(IOVar%idStr), "' does not exist, skipping read."
-            return
-        endif 
         !Start by getting rank, dimensions and total size
         call h5ltget_dataset_ndims_f(gId,trim(IOVar%idStr),Nr,herr)
         allocate(dims(Nr))
@@ -526,26 +567,21 @@ contains
         IOVar%N  = N
         IOVar%dims(1:Nr) = dims
 
+        if (allocated(IOVar%data)) then
+            deallocate(IOVar%data)
+        endif
+        allocate(IOVar%data(N))
+
         !Read based on data type
         select case(IOVar%vType)
-            case(IONULL,IOREAL)
-                if (allocated(IOVar%data)) then
-                    deallocate(IOVar%data)
-                endif
-                allocate(IOVar%data(N))
-                call h5ltread_dataset_f(gId,trim(IOVar%idStr),H5T_NATIVE_DOUBLE,IOVar%data,dims,herr)
-            case(IOINT)
-                if (allocated(IOVar%data_int)) then
-                    deallocate(IOVar%data_int)
-                endif
-                allocate(IOVar%data_int(N))
-                call h5ltread_dataset_f(gId,trim(IOVar%idStr),H5T_NATIVE_INTEGER,IOVar%data_int,dims,herr)
-            case default
-                write(*,*) 'Unknown HDF data type, bailing ...'
-                stop
+        case(IONULL,IOREAL)
+            call h5ltread_dataset_f(gId,trim(IOVar%idStr),H5T_NATIVE_DOUBLE,IOVar%data,dims,herr)
+        case default
+            write(*,*) 'Unknown HDF data type, bailing ...'
+            stop
         end select
 
-        !Check for attribute strings
+    !Check for attribute strings
         !Unit
         call h5aexists_by_name_f(gID,trim(IOVar%idStr),"Units",aExists,herr)
         if (aExists) then
@@ -563,12 +599,11 @@ contains
             inStr = "NULL"
         endif
         IOVar%descStr = inStr
-        !write(*,"(A,A,A,I)") 'Read dataset ', trim(IOVar%idStr), ' from ', gId
 
         IOVar%isDone = .true.
     end subroutine ReadHDFVar
 
-    !> Read a dataset specified as a hyperslab. This assumes a stride of 1 in all dimensions
+    ! Read a dataset specified as a hyperslab. This assumes a stride of 1 in all dimensions
     subroutine ReadHDFVarHyper(IOVar,gId)
         type(IOVAR_T), intent(inout) :: IOVar
         integer(HID_T), intent(in) :: gId
@@ -613,7 +648,6 @@ contains
     end subroutine ReadHDFVarHyper
 
     !FIXME: Add scaling to attributes
-    !> Read an HDF attribute from a group
     subroutine ReadHDFAtt(IOVar,gId)
         type(IOVAR_T), intent(inout) :: IOVar
         integer(HID_T), intent(in) :: gId
@@ -640,152 +674,13 @@ contains
             write(*,*) 'Unknown HDF data type, bailing ...'
             stop
         end select
-        write(*,"(A,A,F,A,I)") 'Read attribute ', trim(IOVar%idStr), IOVar%data(1), " from ", gId
+        !write(*,*) 'Read attribute ', IOVar%data(1)
         IOVar%isDone = .true.
     end subroutine ReadHDFAtt
 
-    !> Helper function to get integer step from
-    !> string name of Step#XXX format
-    function GetStepInt(stepStr) result(nStep)
-        character(len=*), intent(in) :: stepStr
-        integer :: nStep, status
-        read(stepStr(6:),*,iostat=status) nStep
-        if(status /= 0) then
-            write(*,"(A,I,A,A)"), "Conversion of step ", stepStr, " failed.", & 
-            " Update to timeAttributeCache dataset size failed."
-            stop
-        endif
-    end function 
-
-    !> Check for resizing of the timeAttributeCache 
-    !> datasets' size
-    !> 
-    subroutine CheckAttCacheSize(stepStr, cacheId, cacheExist, cacheCreated)
-        character(len=*), intent(in) :: stepStr
-        integer, intent(in) :: cacheId
-        logical, intent(in) :: cacheExist
-        logical, intent(in) :: cacheCreated
-        integer :: nStep
-        type(IOVAR_T) :: stepVar
-
-        nStep = GetStepInt(stepStr)
-
-        if(isFirstStep .and. nStep > 0) then !  this handles restarts, both in a new directory and in place
-            stepVar%idStr = "step"
-            stepVar%vType = IOINT
-            call ReadHDFVar(stepVar, cacheId)
-            if(allocated(stepVar%data_int)) then ! step dataset was found in existing timeAttributeCache group, otherwise continue
-                stepOffset = stepVar%data_int(1) ! Set offset to first step
-                !write(*,"(A,1x,I,A,I)"), "Step offset is:", stepOffset, ' with step array size ', stepVar%N
-            endif
-            isFirstStep = .false.
-        endif
-
-        if(cacheExist .and. .not. cacheCreated) then !Restart of exisitng run in same directory
-            ! ensure that the cache array begins at current step - first step, by subtracting the offset of the first step
-            cacheSize = (nStep - stepOffset) + 1 
-            !write(*,"(A,1x,I,1x,A,1x,I)") "timeAttributeCache exists, and not just created, set cacheSize to", cacheSize, "with stepOffset", stepOffset
-        else ! New run, or restart in a new directory
-            !write(*,"(A,1x,I)") "timeAttributeCache exists, and just created, set cachesize to ", cacheSize + 1
-            cacheSize = cacheSize + 1 ! Increase the cacheSize by one for next time step
-            stepOffset = nStep
-        endif
-        
-    end subroutine
-
-    !> Writes an Attribute that is a float or integer to
-    !> timeAttributeCache group for each attribute written
-    !> to a Step# group
-    subroutine WriteCacheAtt(IOVar,gId)
-        !> IOVar to write
-        type(IOVAR_T), intent(inout) :: IOVar
-        !> Group ID of attribute cache
-        integer(HID_T), intent(in) :: gId
-
-        integer(HID_T) :: sId, dId, pId, memId
-        integer :: herr
-        integer :: Nr = 1, memRank = 1
-        logical :: dSetExists = .False.
-        real(rp) :: X
-        integer(HSIZE_T) :: dSize = 1, rank = 1
-        integer(HSIZE_T), dimension(1) :: cdims(1), maxdims(1), dataDim(1), memDim(1)
-        integer(HSIZE_T), dimension(1,1) :: coord
-        dataDim = (/1/)
-        memDim = (/1/)
-        maxdims(1) = H5S_UNLIMITED_F
-
-        call h5ltpath_valid_f(gId, trim(IOVar%idStr), .True., dSetExists, herr)
-        ! Create dataspace and dataset initially in group
-        if (.not. dSetExists) then
-            !write(*,"(A,1x,A)") "Create var ", trim(IOVar%idStr)
-            cdims(1) = 1
-            call h5screate_simple_f(Nr, cdims, sId, herr, maxdims=maxdims)
-            call h5pcreate_f(H5P_DATASET_CREATE_F, pId, herr)
-            cdims(1) = CACHE_CHUNK_SIZE
-            call h5pset_chunk_f(pId, Nr, cdims, herr)
-            select case(IOVar%vType)
-                case(IONULL,IOREAL)
-                    call h5dcreate_f(gId, trim(IOVar%idStr), H5T_NATIVE_DOUBLE, sId, &
-                                    dId, herr, dcpl_id=pId)
-                case(IOINT)
-                    call h5dcreate_f(gId, trim(IOVar%idStr), H5T_NATIVE_INTEGER, sId, &
-                                    dId, herr, dcpl_id=pId)
-            end select
-
-            coord(1,1) = 1
-            call h5sselect_elements_f(sId, H5S_SELECT_SET_F, Nr, 1, coord, herr)
-            call h5pclose_f(pId,herr)
-        else
-            !write(*,"(A,1x,A)") "Found var ", trim(IOVar%idStr)
-            ! Open dataset on subsequent time steps
-            call h5dopen_f(gId, trim(IOVar%idStr), dId, herr)
-            ! Get the proper dataspae to select the element position 
-            ! of the next attribute element to add and write to the dataset
-            call h5dget_space_f(dId, sId, herr)
-            ! Resize dataset
-            dSize = cacheSize
-            call h5dset_extent_f(dId, (/dSize/), herr)
-            ! Create memory space for (extended) dataset addition
-            cdims(1) = 1
-            call h5screate_simple_f(Nr, cdims, memId, herr)
-            ! Select the single element at coord = offset in the file space
-            coord(1,1) = cacheSize
-            call h5sselect_elements_f(sId, H5S_SELECT_SET_F, Nr, 1, coord, herr)
-        end if
-
-        select case(IOVar%vType)
-            case(IONULL,IOREAL)
-                X = IOVar%data(1)
-                if (dSetExists) then
-                    call h5dwrite_f(dId, H5T_NATIVE_DOUBLE, X, dataDim, herr, &
-                                    mem_space_id=memId, file_space_id=sId)
-                    call h5sclose_f(memId,herr)
-                else
-                    call h5dwrite_f(dId, H5T_NATIVE_DOUBLE, X, dataDim, herr)
-                end if
-            case(IOINT)
-                X = IOVar%data(1)
-                if (dSetExists) then
-                    call h5dwrite_f(dId, H5T_NATIVE_INTEGER, int(X), dataDim, herr, &
-                                    mem_space_id=memId, file_space_id=sId)
-                    call h5sclose_f(memId,herr)
-                else
-                    call h5dwrite_f(dId, H5T_NATIVE_INTEGER, int(X), dataDim, herr)
-                end if
-        end select
-        
-        ! Cleanup 
-        call h5dclose_f(dId,herr)
-        call h5sclose_f(sId,herr)
-    end subroutine WriteCacheAtt
-
     !FIXME: Add scaling to attributes
-    !> Write a variable as an attribue for the
-    !> specified HDF group
     subroutine WriteHDFAtt(IOVar,gId)
-        !> Variable to write to group
         type(IOVAR_T), intent(inout) :: IOVar
-        !> HDF ID for Group
         integer(HID_T), intent(in) :: gId
 
         integer :: herr
@@ -793,58 +688,36 @@ contains
 
         !Write based on data type
         select case(IOVar%vType)
-            case(IONULL,IOREAL)
-                X = IOVar%data(1)
-                call writeReal2HDF(gId,trim(IOVar%idStr),X)
-            case(IOINT)
-                X = IOVar%data(1)
-                call writeInt2HDF(gId,trim(IOVar%idStr),int(X))
-            case(IOSTR)
-                call writeString2HDF(gId,trim(IOVar%idStr),trim(IOVar%dStr))
-                !call h5ltmake_dataset_string_f(gID,trim(IOVar%idStr),trim(IOVar%dStr),herr)
-            case default
-                write(*,*) 'Unknown HDF data type, bailing ...'
-                stop
+        case(IONULL,IOREAL)
+            X = IOVar%data(1)
+            call writeReal2HDF(gId,trim(IOVar%idStr),X)
+        case(IOINT)
+            X = IOVar%data(1)
+            call writeInt2HDF(gId,trim(IOVar%idStr),int(X))
+        case(IOSTR)
+            call writeString2HDF(gId,trim(IOVar%idStr),trim(IOVar%dStr))
+            !call h5ltmake_dataset_string_f(gID,trim(IOVar%idStr),trim(IOVar%dStr),herr)
+        case default
+            write(*,*) 'Unknown HDF data type, bailing ...'
+            stop
         end select
         IOVar%isDone = .true.
     end subroutine WriteHDFAtt
 
     !FIXME: Assuming IOP is single and double otherwise
     !FIXME: Add variable attributes (units, scaling, etc)
-    !> Write a variable to an HDF dataset and add
-    !> attributes to the dataset
-    subroutine WriteHDFVar(IOVar,gId,doIOPO,doCompress)
-        !> IO Var to write
-        type(IOVAR_T), intent(inout)    :: IOVar
-        !> Group ID
-        integer(HID_T), intent(in)      :: gId
-        !> Flag to do IO Precision
-        logical, intent(in), optional   :: doIOPO
-        !> Flag to compress
-        logical, intent(in), optional   :: doCompress
+    subroutine WriteHDFVar(IOVar,gId,doIOPO)
+        type(IOVAR_T), intent(inout) :: IOVar
+        integer(HID_T), intent(in) :: gId
+        logical, intent(in), optional :: doIOPO
 
         logical :: doIOP !Do IO precision for reals
         integer :: Nr
         integer :: herr
         integer(HSIZE_T) :: h5dims(MAXIODIM)
-        integer(HID_T) :: dId, sId, pId
         real(rp) :: vScl
-        integer(HSIZE_T), dimension(:), allocatable :: cdims
-        !real(dp), dimension(:), allocatable, target:: data
-#ifdef __ENABLE_COMPRESS
-        logical :: avail
-        !type(C_PTR) :: f_ptr
-        integer :: status
-        ! Used for ZFP HDF5 plugin
-        integer(C_INT), dimension(:), allocatable :: cd_values
-        integer(C_SIZE_T) :: cd_nelmts = 1
-        integer :: szip_options_mask
-        integer :: szip_pixels_per_block
-#endif
+
         Nr = IOVar%Nr
-        allocate(cdims(Nr))
-        !allocate(data(size(IOVar%data)))
-        !data = 0.0_dp
         h5dims(1:Nr) = IOVar%dims(1:Nr)
         vScl = IOVar%scale
 
@@ -857,163 +730,14 @@ contains
         !Write based on data type
         select case(IOVar%vType)
         case(IONULL,IOREAL)
-            if(.not. doCompress) then  
-                !Assume real by default
-                if (doIOP) then
-                    call h5ltmake_dataset_float_f(gId,trim(IOVar%idStr), Nr, h5dims(1:Nr), & 
-                            real(vScl*IOVar%data,sp),herr)
-                else
-                    call h5ltmake_dataset_double_f(gId,trim(IOVar%idStr), Nr, h5dims(1:Nr), &
-                            real(vScl*IOVar%data,dp),herr)
-                endif
-#ifdef __ENABLE_COMPRESS
+            !Assume real by default
+            if (doIOP) then
+                call h5ltmake_dataset_float_f (gId,trim(IOVar%idStr),Nr,h5dims(1:Nr),real(vScl*IOVar%data,sp),herr)
             else
-                call h5screate_simple_f(Nr, h5dims(1:Nr), sid, herr)
-                call h5pcreate_f(H5P_DATASET_CREATE_F, pId, herr)
-                if (doIOP) then
-                    call CalcChunkSize(sp, h5dims(1:Nr), cdims)
-                else
-                    call CalcChunkSize(dp, h5dims(1:Nr), cdims)
-                endif
-                call h5pset_chunk_f(pId, Nr, cdims, herr)
-
-                if(Z_ALG == ZLIB) then
-                    call H5zfilter_avail_f(H5Z_FILTER_DEFLATE_F, avail, status)
-                    if(avail) then
-                        call h5pset_shuffle(pId, herr)
-                        call h5pset_deflate_f(pId, 6, herr)
-                    else
-                        write(*,*) 'ZLIB filter not available, please ensure HDF5 was built with ZLIB enabled \n'
-                        stop
-                    endif
-                elseif(Z_ALG == SZIP) then
-                    call H5zfilter_avail_f(H5Z_FILTER_SZIP_F, avail, status)
-                    if(avail) then
-                        szip_options_mask = H5_SZIP_NN_OM_F
-                        if (doIOP) then
-                            szip_pixels_per_block = 16
-                        else
-                            szip_pixels_per_block = 8
-                        endif
-                        call H5pset_szip_f(pId, szip_options_mask, szip_pixels_per_block, herr)
-                    else
-                        write(*,*) 'SZIP filter not available, please ensure HDF5 was built with SZIP enabled \n'
-                        stop
-                    endif
-                elseif(Z_ALG == ZSTD) then
-                    call H5zfilter_avail_f(COMPRESS_ZSTD, avail, status)
-                    if(avail) then
-                        allocate(cd_values(1))
-                        cd_nelmts = 1
-                        cd_values(1) = 20
-                        call h5pset_filter_f(pId, COMPRESS_ZSTD, H5Z_FLAG_MANDATORY, &
-                        cd_nelmts, cd_values, herr)
-                    else
-                        write(*,*) 'ZSTD filter not available, please ensure the ZSTD HDF5 plugin is loaded. \n'
-                        write(*,*) 'You may also use the default compression SZIP without needing plugins.'
-                        stop
-                    endif
-#ifdef __ENABLE_ZFP
-                elseif(Z_ALG == ZFP) then
-                    ! Only necessary for using H5Z_zfp properties calls
-                    ! status = H5Z_zfp_initialize()
-                    
-                    call H5zfilter_avail_f(COMPRESS_ZFP, avail, status)
-
-                    if (avail) then
-                        ! Setup ZFP
-                        !------------
-                        ! Use Plug-in
-                        !------------
-                        allocate(cd_values(1:H5Z_ZFP_CD_NELMTS_MEM))
-                        cd_values = 0
-                        cd_nelmts = H5Z_ZFP_CD_NELMTS_MEM
-                        
-                        if (zfpmode .EQ. H5Z_ZFP_MODE_RATE)  then
-                            call H5pset_zfp_rate_cdata(rate, cd_nelmts, cd_values)
-                            if(cd_values(1).NE.1 .OR. cd_nelmts.NE.4) then
-                                print*,'H5Pset_zfp_rate_cdata failed'
-                                stop 1
-                            endif
-                        else if (zfpmode .EQ. H5Z_ZFP_MODE_PRECISION)  then
-                            call H5pset_zfp_precision_cdata(prec, cd_nelmts, cd_values)
-                            if(cd_values(1).NE.2 .OR. cd_nelmts.NE.3) then
-                                print*,'H5Pset_zfp_precision_cdata failed'
-                                stop 1
-                            endif
-                        else if (zfpmode .EQ. H5Z_ZFP_MODE_ACCURACY) then
-                            call H5pset_zfp_accuracy_cdata(0._dp, cd_nelmts, cd_values)
-                            if(cd_values(1).NE.3 .OR. cd_nelmts.NE.4) then
-                                print*,'H5Pset_zfp_accuracy_cdata failed'
-                                stop 1
-                            endif
-                        else if (zfpmode .EQ. H5Z_ZFP_MODE_EXPERT)  then
-                            call H5pset_zfp_expert_cdata(minbits, maxbits, maxprec, minexp, cd_nelmts, cd_values)
-                            if(cd_values(1).NE.4 .OR. cd_nelmts.NE.6) then
-                                print*,'H5Pset_zfp_expert_cdata failed'
-                                stop 1
-                            endif
-                        else if (zfpmode .EQ. H5Z_ZFP_MODE_REVERSIBLE)  then
-                            call H5pset_zfp_reversible_cdata(cd_nelmts, cd_values)
-                            if(cd_values(1).NE.5 .OR. cd_nelmts.NE.1) then
-                                print*,'H5Pset_zfp_reversible_cdata failed'
-                                stop 1
-                            endif
-                        endif
-                
-                        call h5pset_filter_f(pId, COMPRESS_ZFP, H5Z_FLAG_MANDATORY, &
-                                cd_nelmts, cd_values, herr)
-
-                        !---------------
-                        ! Use Properties (this sets the filter)
-                        !---------------
-                        ! if (zfpmode == H5Z_ZFP_MODE_RATE)  then
-                        !     status = H5Pset_zfp_rate(pId, rate)
-                        !     !call check("H5Pset_zfp_rate", status, nerr)
-                        ! else if (zfpmode == H5Z_ZFP_MODE_PRECISION)  then
-                        !     status = H5Pset_zfp_precision(pId, prec)
-                        !     !call check("H5Pset_zfp_precision", status, nerr)
-                        ! else if (zfpmode == H5Z_ZFP_MODE_ACCURACY) then
-                        !     status = H5Pset_zfp_accuracy(pId, acc)
-                        !     !call check("H5Pset_zfp_accuracy", status, nerr)
-                        ! else if (zfpmode == H5Z_ZFP_MODE_EXPERT)  then
-                        !     status = H5Pset_zfp_expert(pId, minbits, maxbits, maxprec, minexp)
-                        !     !call check("H5Pset_zfp_expert", status, nerr)
-                        ! else if (zfpmode == H5Z_ZFP_MODE_REVERSIBLE)  then
-                        !     status = H5Pset_zfp_reversible(pId)
-                        !     !call check("H5Pset_zfp_reversible", status, nerr)
-                        ! endif
-                        ! status = H5Z_zfp_finalize()
-                    else
-                        write(*,*) 'ZFP filter not available, please ensure the ZFP HDF5 plugin is loaded.'
-                        write(*,*) 'You may also use the default compression SZIP without needing plugins.'
-                        stop
-                    endif
-#endif              
-                endif
-
-                if (doIOP) then
-                    call h5dcreate_f(gId, trim(IOVar%idStr), H5T_NATIVE_REAL, sId, &
-                    dId, herr, dcpl_id=pId)
-                    !data = vScl*IOVar%data
-                    !f_ptr = C_LOC(data(1))
-                    call h5dwrite_f(dId, H5T_NATIVE_REAL, real(vScl*IOVar%data,sp), h5dims(1:Nr), herr)
-                else
-                    call h5dcreate_f(gId, trim(IOVar%idStr), H5T_NATIVE_DOUBLE, sId, &
-                    dId, herr, dcpl_id=pId)
-                    !data = vScl*IOVar%data
-                    !f_ptr = C_LOC(data(1))
-                    call h5dwrite_f(dId, H5T_NATIVE_DOUBLE, real(vScl*IOVar%data,dp), h5dims(1:Nr), herr)
-                endif
-
-                call h5pclose_f(pId, herr)
-                call h5dclose_f(dId, herr)
-                call h5sclose_f(sId, herr)
-#endif           
+                call h5ltmake_dataset_double_f(gId,trim(IOVar%idStr),Nr,h5dims(1:Nr),real(vScl*IOVar%data,dp),herr)
             endif
         case(IOINT)
-            call h5ltmake_dataset_int_f(gId,trim(IOVar%idStr), Nr, h5dims(1:Nr), &
-                    int(vScl*IOVar%data),herr)
+            call h5ltmake_dataset_int_f(gId,trim(IOVar%idStr),Nr,h5dims(1:Nr),int(vScl*IOVar%data),herr)
         case default
             write(*,*) 'Unknown HDF data type, bailing ...'
             stop
@@ -1026,210 +750,8 @@ contains
         IOVar%isDone = .true.
     end subroutine WriteHDFVar
 
-    !> Write array of IOVar to file fOut (from baseStr), under (optional) group gStrO
-    !> @note If gStrO unspecified, written to root of HDF5
-    !> doIOp is whether to use IOP (ie output slice) or rp (ie restart)
-    subroutine WriteVars(IOVars,doIOp,baseStr,gStrO,gStrOO,doStampCheckO)
-        !> Array of IOVars
-        type(IOVAR_T), dimension(:), intent(inout) :: IOVars
-        !> Do IO Precision writes
-        logical, intent(in) :: doIOp
-        !> Base filename
-        character(len=*), intent(in) :: baseStr
-        !> Group Name
-        character(len=*), intent(in), optional :: gStrO
-        !> Subgroup Name
-        character(len=*), intent(in), optional :: gStrOO
-        !> Check if output file has been stamped
-        logical         , intent(in), optional :: doStampCheckO
-
-        logical :: fExist, gExist, doStampCheck
-        logical :: writeCache, cacheExist, cacheCreate
-        logical :: doCompress
-        integer :: herr
-        integer(HID_T) :: h5fId, gId, ggId, outId, cacheId
-        character(len=strLen) :: h5File
-        type(IOVAR_T) :: stepVar
-        !Set filename to baseStr
-        !FIXME: Correct to add .h5 to baseStr
-        h5File = baseStr
-        writeCache = .false.
-        cacheCreate = .false.
-        doCompress = .false.
-
-        if (present(doStampCheckO)) then
-            doStampCheck = doStampCheckO
-        else
-            doStampCheck = .true.
-        endif
-
-        !If we're writing to root of this file, then stamp (will ignore if already stamped)
-        if (.not. present(gStrO) .and. doStampCheck) then
-            call StampIO(h5File)
-        endif      
-
-        call h5open_f(herr) !Setup Fortran interface
-
-        !Start by opening file, create if necessary
-        inquire(file=h5File,exist=fExist)
-        if (fExist) then
-            !Open file
-            call h5fopen_f(trim(h5File), H5F_ACC_RDWR_F, h5fId, herr)
-        else
-            !Create file
-            createdThisFile = .true.
-            call h5fcreate_f(trim(h5File),H5F_ACC_TRUNC_F, h5fId, herr)         
-        endif
-
-        !Figure out output location (outId) and create groups as necessary
-        if (present(gStrO)) then
-            !Write to group
-            !Check if group already exists
-            call h5lexists_f(h5fId,trim(gStrO),gExist,herr)
-            if (gExist .and. .not. present(gStrOO)) then
-                !Group exists (and not writing to subgroup)
-                !Can either skip it, or kill and replace
-                if (doSkipG) then
-                    !Group exists, close up and skip it
-                    write(*,*) 'Skipping due to pre-existing group ', trim(gStrO)
-                    
-                    !Close up
-                    call h5fclose_f(h5fId, herr)
-                    call h5close_f(herr)
-                    return
-                else
-                    !Kill group
-                    write(*,*) 'Overwriting group ', trim(h5File), '/', trim(gStrO)
-                    call h5ldelete_f(h5fId,trim(gStrO),herr)
-                    !Reset gExist and let next block of code recreate it
-                    gExist = .false.
-                endif
-            endif
-
-            if (.not. gExist) then
-                !Create group
-                call h5gcreate_f(h5fId,trim(gStrO),gId,herr)
-            else
-                !Open group
-                call h5gopen_f(h5fId,trim(gStrO),gId,herr)
-            endif
-
-            if(trim(toUpper(gStrO(1:5))) == "STEP#") then
-                writeCache = .true.
-                !Check if cache group exists
-                call h5lexists_f(h5fId,trim(attrGrpName),cacheExist,herr)
-                if (.not. cacheExist) then
-                    if(.not. createdThisFile) then
-                        write(*,*) "Attempt to create the timeAttributeCache in an existing h5 file", &
-                                   " that does not have the cache group."
-                        write(*,*) "Perform restart in a different directory, or create the timeAttributeCache", &
-                                   " and populate it in the exisitng h5 file."
-                        stop
-                    endif
-                    !Create cache group
-                    call h5gcreate_f(h5fId,trim(attrGrpName),cacheId,herr)     
-                    cacheCreate = .true.    
-                endif 
-                ! Open attribute cache group
-                call h5gopen_f(h5fId,trim(attrGrpName),cacheId,herr)  
-
-                ! Check attribute cache size and resize
-                call CheckAttCacheSize(trim(gStrO), cacheId, cacheExist, cacheCreate)
-                ! Write Step# to cache
-                stepVar%Nr = 0
-                stepVar%idStr = "step"
-                stepVar%vType = IOINT
-                stepVar%data = [GetStepInt(trim(gStrO))]
-                call WriteCacheAtt(stepVar,cacheId)
-            endif 
-
-            if (present(gStrOO)) then
-                !Create subgroup
-                call h5gcreate_f(gId,trim(gStrOO),ggId,herr)
-                outId = ggId
-            else
-                outId = gId 
-            endif
-            doCompress = ENABLE_COMPRESS
-        else
-            !Write to root
-            outId = h5fId
-            doCompress = .False.
-        endif !gStrO
-
-        !Do writing
-        if(present(doStampCheckO)) then
-            call WriteVars2ID(IOVars,outId,doIOp, &
-                                doCompress=doCompress,isRoot=.true.)
-        else
-            ! Write step vars and attributes to group outId
-            if(writeCache) then  
-                call WriteVars2ID(IOVars,outId,doIOp, &
-                    cacheId=cacheId,doCompress=doCompress)
-            else
-                call WriteVars2ID(IOVars,outId,doIOp,doCompress=doCompress)
-            end if
-        end if
-
-        !Now done, close up shop
-        if (present(gStrOO)) call h5gclose_f(ggId,herr)
-        if (present(gStrO )) call h5gclose_f( gId,herr)
-        if (writeCache) call h5gclose_f(cacheId,herr) !Close cache group
-
-        call h5fclose_f(h5fId,herr) !Close file
-        call h5close_f(herr) !Close intereface
-
-    end subroutine WriteVars
-
-    !> Write out all IOVars to their respective IDs
-    subroutine WriteVars2ID(IOVars,outId,doIOp,cacheId,doCompress,isRoot)
-        type(IOVAR_T), dimension(:), intent(inout) :: IOVars
-        logical, intent(in) :: doIOp
-        integer(HID_T), intent(in) :: outId
-        integer(HID_T), intent(in), optional :: cacheId
-        logical, intent(in), optional :: doCompress
-        logical, intent(in), optional :: isRoot
-        integer :: n, Nv
-        integer(HID_T) :: Nr
-        Nv = size(IOVars)
-
-        do n=1,Nv
-            if (IOVars(n)%toWrite) then
-                !Variable is ready, write it
-
-                !Treat as scalar attribute if Nr = 0
-                Nr = IOVars(n)%Nr
-
-                if (Nr == 0) then
-                !Scalar attribute
-                    if(IOVars(n)%useHyperslab) then
-                        write(*,*) 'Unable to write attribute "',trim(IOVars(n)%idStr),'" as a hyperslab'
-                        stop
-                    else
-                        call WriteHDFAtt(IOVars(n),outId)
-                        if(present(cacheId)) then
-                            call WriteCacheAtt(IOVars(n),cacheId)
-                        endif
-                    endif
-                else
-                !N-rank array
-                    !Create data space, use rank/dim info from IOVar
-                    if(IOVars(n)%useHyperslab) then
-                        write(*,*) 'Writing dataset "',trim(IOVars(n)%idStr),'" as a hyperslab not yet supported'
-                        stop
-                    else
-                        call WriteHDFVar(IOVars(n),outId,doIOP,doCompress)
-                    endif
-                endif !Nr=0
-            endif !isSet
-        enddo
-
-    end subroutine WriteVars2ID
-
-    !-------------------------------------------
-    !These routines add data for input to IO chain
-
-    !> Add Input Variable to IOVars pool to read
+!-------------------------------------------
+!These routines add data for input to IO chain
     subroutine AddInVar(IOVars,idStr,vTypeO,vSclO)
         type(IOVAR_T), dimension(:), intent(inout) :: IOVars
         character(len=*), intent(in) :: idStr
@@ -1256,7 +778,7 @@ contains
 
     end subroutine AddInVar
 
-    !> Alternate subroutine to read in a hyperslab from a dataset
+    ! Alternate subroutine to read in a hyperslab from a dataset
     subroutine AddInVarHyper(IOVars,idStr,offsets,counts,vTypeO,vSclO)
         type(IOVAR_T), dimension(:), intent(inout) :: IOVars
         integer, dimension(:), intent(in) :: offsets
@@ -1293,7 +815,7 @@ contains
 
     end subroutine AddInVarHyper
 
-    !> Clears info/memory from an IO chain
+!Clears info/memory from an IO chain
     subroutine ClearIO(IOVars)
         type(IOVAR_T), dimension(:), intent(inout) :: IOVars
 
@@ -1324,9 +846,10 @@ contains
         enddo
     end subroutine ClearIO
 
-    !-----------------------------
-    !HDF 5 helper routines
-    !> Converts Fortran real kind to HDF5 precision
+
+!-----------------------------
+!HDF 5 helper routines
+    !Converts Fortran real kind to HDF5 precision
     function H5Precision(h5p) result(h5gReal)
         integer, intent(in) :: h5p
         integer(HID_T):: h5gReal
@@ -1340,10 +863,10 @@ contains
 
     end function H5Precision
 
-    !-----------------------------
-    !Write attributes
-    
-    !> Write integer scalar to attribute
+!-----------------------------
+!Write attributes
+ 
+    !Write integer scalar to attribute
     subroutine writeInt2HDF(gId,vId,datIn)
         integer(HID_T), intent(in) :: gId
         character(len=*),intent(in) :: vId
@@ -1368,8 +891,8 @@ contains
 
     end subroutine writeInt2HDF
 
-    !> Writes a single scalar as attribute to a group/root
-    !> Always uses RP precision
+    !Writes a single scalar as attribute to a group/root
+    !Always uses RP precision
     subroutine writeReal2HDF(gId,vId,datIn)
 
         integer(HID_T), intent(in) :: gId
@@ -1398,8 +921,6 @@ contains
 
     end subroutine writeReal2HDF
 
-    !> Write a string to HDF group 
-    !> as an attribute
     subroutine writeString2HDF(gId,vId,data)
         integer(HID_T), intent(in) :: gId
         character(len=*),intent(in) :: vId
@@ -1426,10 +947,10 @@ contains
 
     end subroutine writeString2HDF
 
-    !-----------------------------
-    !Read attributes
+!-----------------------------
+!Read attributes
 
-    !> Read integer from HDF5 attribute
+    !Read integer from HDF5 attribute
     function readIntHDF(gId,vId,vDefOpt) result(vOut)
         integer(HID_T), intent(in) :: gId
         character(len=*),intent(in) :: vId
@@ -1457,7 +978,7 @@ contains
         call h5aclose_f(attrId,herror)
     end function readIntHDF
     
-    !> Read real (rp) from HDF5 attribute
+    !Read real (rp) from HDF5 attribute
     function readRealHDF(gId,vId,vDefOpt) result(vOut)
         integer(HID_T), intent(in) :: gId
         character(len=*),intent(in) :: vId

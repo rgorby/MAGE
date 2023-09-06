@@ -1,702 +1,1241 @@
-#Various helper routines for heliosphere quick look plots
+"""Standard plots and tools for gamhelio results.
 
-import argparse
-from argparse import RawTextHelpFormatter
-import matplotlib as mpl
+This module provides standard plots and tools for gamhelio results.
+
+Author
+------
+Eric Winter (eric.winter62@gmail.com)
+"""
+
+
+# Import standard modules.
+
+# Import supplemental modules.
 import numpy as np
 
+# Import project modules.
 import kaipy.kaiViz as kv
-import kaipy.gamhelio.heliosphere as hsph
-from kaipy.kdefs import *
-import os
+from kaipy.kdefs import Tsolar
 
 
-VMax = 800.
-VMin = 300.
+# Solar wind speed limits and color map.
+VMax = 800.0   # km/s
+VMin = 300.0   # km/s
 MagVCM = "inferno"
-#MagVCM = "rainbow"
 
-#inner helio
-DMax = 150.
-DMin = 2000.
+# Normalized number density plot limits and color map.
+DMax = 150.0   # #/cm**3
+DMin = 2000.0  # #/cm**3
 DCM = "copper_r"
 
-#limits for iSlice
-#21.5 R_S
-D0Max = 2000.
-D0Min = 300.
-#1 au
-#D0Max = 1.
-#D0Min = 15.
-D0CM = "copper_r"
-
-TMin = 0.2
-TMax = 2.
+# Normalized temperature plot limits and color map.
+TMin = 0.2  # megakelvin (MK)
+TMax = 2.0  # megakelvin (MK)
 TCM = "copper"
 
-#21.5 R_S
-T0Min = 0.2
-T0Max = 2.0
-#1AU
-#T0Min = 0.1
-#T0Max = 0.5
-
-#21.5 R_S
-BMax = 150.
-BMin = -150.
-#1AU
-#BMax = 5.
-#BMin = -5.
+# Radial magnetic field plot limits and color map.
+BMax = 150.0   # nT
+BMin = -150.0  # nT
 BCM = "coolwarm"
 
-#21.5 R_S
-B0Min = -150.
-B0Max = 150.
-#1 AU
-#B0Min = -4.
-#B0Max = 4.
+# 1 AU number density plot limits and color map.
+D0Max = 1.0   # #/cm**3
+D0Min = 15.0  # #/cm**3
+D0CM = "copper_r"
 
+# 1 AU temperature plot limits.
+T0Min = 0.01  # MK
+T0Max = 0.25  # MK
 
+# 1 AU radial magnetic field plot limits.
+B0Min = -4.0
+B0Max = 4.0
+
+# Color to use for profile plots.
 colorProf = "tab:orange"
-#Function to Add different size options to argument
-#not used for helio right now
-def AddSizeArgs(parser):
-    parser.add_argument('-small' , action='store_true', default=False,help="Use smaller domain bounds (default: %(default)s)")
-    parser.add_argument('-big'   , action='store_true', default=False,help="Use larger domain bounds (default: %(default)s)")
-    parser.add_argument('-bigger', action='store_true', default=False,help="Use larger-er domain bounds (default: %(default)s)")
-    parser.add_argument('-huge'  , action='store_true', default=False,help="Use huge domain bounds (default: %(default)s)")
 
-#Return domain size from parsed arguments; see msphViz for options
+
 def GetSizeBds(pic):
-    if (pic == "pic1" or pic == "pic2"):
-                #for inner helio
-        xyBds = [-220.,220.,-220.,220.]
-                #for 1-10 au helio
-                #xyBds = [-10.,10.,-10.,10.]
-    elif (pic == "pic3"):
-        xyBds = [0.,360.,-75.,75.]
-    elif (pic == "pic4"):
-        xyBds = [0.,360.,-90.,90.]
-    elif (pic == "pic5"):
-        xyBds = [20.,220.,1.,2000.]
-    elif (pic == "pic6" or pic == "pic7"):
-        xyBds = [-220.,220.,-220.,220.]
-    else:        
-        raise RuntimeError("No compatible pic type specified.")
+    """Return plot domain based on plot type.
+
+    Return the limits of the plotting domain based on the plot type.
+
+    Parameters
+    ----------
+    pic : str
+        String identifying plot type.
+
+    Returns
+    -------
+    xyBds : list of 4 float
+        Plot boundaries in the form (xmin, xmax, ymin, ymax).
+
+    Raises
+    ------
+    TypeError
+        If an invalid plot type is specified.
+    """
+    if pic == "pic1" or pic == "pic2":
+        # Inner heliosphere - (xmin, xmax, ymin, ymax), in units of Rsun.
+        xyBds = [-220.0, 220.0, -220.0, 220.0]
+    elif pic == "pic3":
+        # Solar lon/lat plot - (lonmin, lonmax, latmin, latmax), in degrees.
+        xyBds = [0.0, 360.0, -75.0, 75.0]
+    elif pic == "pic4":
+        # Global solar lon/lat plot - (lonmin, lonmax, latmin, latmax),
+        # in degrees.
+        xyBds = [0.0, 360.0, -90.0, 90.0]
+    elif pic == "pic5":
+        xyBds = []
+    else:
+        raise TypeError("No pic type specified.")
     return xyBds
 
-#Plot speed in equatorial plane
-def PlotEqMagV(gsph,nStp,xyBds,Ax,AxCB=None,doClear=True,doDeco=True):
-    vMagV = kv.genNorm(VMin, VMax, doLog=False, midP=None)
-    
-    if (AxCB is not None):
-        #Add the colorbar to AxCB
-        AxCB.clear()
-        kv.genCB(AxCB,vMagV,"Speed [km/s]",cM=MagVCM,Ntk=7)
 
-    #Now do main plotting
-    if (doClear):
+def PlotEqMagV(
+        gsph, nStp, xyBds, Ax, AxCB=None, doClear=True, doDeco=True
+):
+    """Plot solar wind speed in the equatorial plane.
+
+    Plot solar wind speed in the equatorial plane.
+
+    Nr = # radius grid cells in gamera result file
+    Np = # phi grid cells in gamera result file
+
+    Parameters
+    ----------
+    gsph : GameraPipe
+        Pipe interface to simulation results.
+    nStp : int
+        Step number of simulation step to plot
+    xyBds : list of 4 float
+        List of plot limits [xmin, xmax, ymin, ymax]
+    Ax : Axes
+        Axes object to use for the plot
+    AxCB : Axes, default None
+        Axes object to use for Colorbar.
+    doClear : bool, default True
+        True to clear the existing plot before plotting,
+    doDeco : bool, default True
+        True to add axis labels.
+
+    Returns
+    -------
+    MagV : np.ndarray of float, shape (Nr, Np)
+        Equatorial solar wind speeds (km/s)
+
+    Raises
+    ------
+    None
+    """
+    # Create a Normalize object for matplotlib.
+    vMagV = kv.genNorm(VMin, VMax, doLog=False, midP=None)
+
+    # Add the colorbar (optional).
+    if AxCB:
+        AxCB.clear()
+        kv.genCB(AxCB, vMagV, "Speed [km/s]", cM=MagVCM, Ntk=7)
+
+    # Clear the plot (optional).
+    if doClear:
         Ax.clear()
 
+    # Compute the equatorial solar wind speed for the specified step.
     MagV = gsph.eqMagV(nStp)
-    Ax.pcolormesh(gsph.xxi,gsph.yyi,MagV,cmap=MagVCM,norm=vMagV)
 
-    kv.SetAx(xyBds,Ax)
+    # Plot as a pcolormesh.
+    Ax.pcolormesh(gsph.xxi, gsph.yyi, MagV, cmap=MagVCM, norm=vMagV)
 
-    if (doDeco):
-        Ax.set_xlabel('X [R_S]')
-        Ax.set_ylabel('Y [R_S]')
+    # Set the plot bounds.
+    kv.SetAx(xyBds, Ax)
+
+    # Add axis labels (optional).
+    if doDeco:
+        Ax.set_xlabel("X [R_S]")
+        Ax.set_ylabel("Y [R_S]")
+
+    # Return the equatorial solar wind speed.
     return MagV
 
-#Plot speed in j plane
-def PlotjMagV(gsph,nStp,xyBds,Ax,AxCB=None,doClear=True,doDeco=True,jidx=-1):
-    vMagV = kv.genNorm(VMin, VMax, doLog=False, midP=None)
-    
-    if (AxCB is not None):
-        #Add the colorbar to AxCB
-        AxCB.clear()
-        kv.genCB(AxCB,vMagV,"Speed [km/s]",cM=MagVCM,Ntk=7)
 
-    #Now do main plotting
-    if (doClear):
-        Ax.clear()
+def PlotEqD(
+        gsph, nStp, xyBds, Ax, AxCB=None, doClear=True, doDeco=True
+):
+    """Plot scaled number density in the equatorial plane.
 
-    MagV = gsph.jMagV(nStp,jidx=jidx)
-    Ax.pcolormesh(gsph.xxi,gsph.yyi,MagV,cmap=MagVCM,norm=vMagV)
+    Plot scaled number density in the equatorial plane.
+    The values are scaled as n*(r/r0)^2.
 
-    kv.SetAx(xyBds,Ax)
+    Nr = # radius grid cells in gamera result file
+    Np = # phi grid cells in gamera result file
 
-    if (doDeco):
-        Ax.set_xlabel('X [R_S]')
-        Ax.set_ylabel('Y [R_S]')
-    return MagV
+    Parameters
+    ----------
+    gsph : GameraPipe
+        Pipe interface to simulation results.
+    nStp : int
+        Step number of simulation step to plot
+    xyBds : list of 4 float
+        List of plot limits [xmin, xmax, ymin, ymax]
+    Ax : Axes
+        Axes object to use for the plot
+    AxCB : Axes, default None
+        Axes object to use for Colorbar.
+    doClear : bool, default True
+        True to clear the existing plot before plotting,
+    doDeco : bool, default True
+        True to add axis labels.
 
-#Plot speed in meridional plane Y=0
-def PlotMerMagV(gsph,nStp,xyBds,Ax,AxCB=None,doClear=True,doDeco=True,indx=(None,None)):
-        vMagV = kv.genNorm(VMin, VMax, doLog=False, midP=None)
+    Returns
+    -------
+    NormD : np.ndarray of float, shape (Nr, Np)
+        Scaled number density (#/cm**3)
 
-        if (AxCB is not None):
-            #Add the colorbar to AxCB
-            AxCB.clear()
-            kv.genCB(AxCB,vMagV,"Speed [km/s]",cM=MagVCM,Ntk=7)
-            
-        if (doClear):
-            Ax.clear()
-       
-        phi = 0.0
-        for idx in indx:
-            if type(idx) is not None:
-                if type(idx) is int: 
-                    phi = idx/gsph.Nk*2*np.pi
-                elif type(idx) is float:
-                    phi = idx
-            else: 
-                phi = ""
-            
-    #r is for +X plane and l is for -X plane
-        Vr, Vl = gsph.MerMagV(nStp,indx=indx)
-    #cell corners
-        xr, yr, zr, xl, yl, zl, r = gsph.MeridGridHalfs(*indx)
-        Ax.pcolormesh(np.sqrt(xr**2 + yr**2),zr,Vr,cmap=MagVCM,norm=vMagV)
-        Ax.pcolormesh(-np.sqrt(xl**2 + yl**2),zl,Vl,cmap=MagVCM,norm=vMagV)
-
-        kv.SetAx(xyBds,Ax)
-
-        if (doDeco):
-            Ax.set_xlabel(f"R_XY [R_S] Phi={phi:{2}.{2}} [rad]")
-            Ax.set_ylabel('Z [R_S]')
-        return Vr, Vl
-
-#Plot normalized density n(r/r0)^2 in meridional plane Y=0
-def PlotMerDNorm(gsph,nStp,xyBds,Ax,AxCB=None,doClear=True,doDeco=True,indx=[None,None]):
+    Raises
+    ------
+    None
+    """
+    # Create a Normalize object for matplotlib.
     vD = kv.genNorm(DMin, DMax, doLog=False, midP=None)
 
-    if (AxCB is not None):
-        #Add the colorbar to AxCB
+    # Add the colorbar (optional).
+    if AxCB:
         AxCB.clear()
-        kv.genCB(AxCB,vD,r"Density n$(r/r_0)^2$ [cm$^{-3}$]",cM=DCM,Ntk=7)
+        kv.genCB(AxCB, vD, r"Density n(r/r$_0)^2$ [cm$^{-3}$]", cM=DCM, Ntk=7)
 
-    if (doClear):
+    # Clear the plot (optional).
+    if doClear:
         Ax.clear()
 
-    phi = 0.0
-    for idx in indx:
-        if type(idx) is not None:
-            if type(idx) is int: 
-                phi = idx/gsph.Nk*2*np.pi
-            elif type(idx) is float:
-                phi = idx
-        else: 
-            phi = ""
+    # Compute the scaled equatorial solar wind number density
+    # for the specified step.
+    NormD = gsph.eqNormD(nStp)
 
-    Dr, Dl = gsph.MerDNrm(nStp,indx=indx)
-    xr, yr, zr, xl, yl, zl, r = gsph.MeridGridHalfs(*indx)
-    Ax.pcolormesh(np.sqrt(xr**2 + yr**2),zr,Dr,cmap=DCM,norm=vD, shading='auto')
-    Ax.pcolormesh(-np.sqrt(xl**2 + yl**2),zl,Dl,cmap=DCM,norm=vD, shading='auto')
+    # Plot as a pcolormesh.
+    Ax.pcolormesh(gsph.xxi, gsph.yyi, NormD, cmap=DCM, norm=vD)
 
-    kv.SetAx(xyBds,Ax)
+    # Set the plot bounds.
+    kv.SetAx(xyBds, Ax)
 
-    if (doDeco):
-        Ax.set_xlabel(f"R_XY [R_S] Phi={phi:{2}.{2}} [rad]")
+    # Add axis labels and tick marks (optional).
+    if doDeco:
+        Ax.set_xlabel('X [R_S]')
+        Ax.set_ylabel('Y [R_S]')
+        Ax.yaxis.tick_right()
+        Ax.yaxis.set_label_position('right')
+
+    # Return the scaled equatorial solar wind number density.
+    return NormD
+
+
+def PlotEqTemp(
+        gsph, nStp, xyBds, Ax, AxCB=None, doClear=True, doDeco=True
+):
+    """Plot scaled temperature in equatorial plane.
+
+    Plot scaled temperature in equatorial plane.
+    The values are scaled as T*(r/r0), in MK (megakelvin)
+
+    Nr = # radius grid cells in gamera result file
+    Np = # phi grid cells in gamera result file
+
+    Parameters
+    ----------
+    gsph : GameraPipe
+        Pipe interface to simulation results.
+    nStp : int
+        Step number of simulation step to plot
+    xyBds : list of 4 float
+        List of plot limits [xmin, xmax, ymin, ymax]
+    Ax : Axes
+        Axes object to use for the plot
+    AxCB : Axes, default None
+        Axes object to use for Colorbar.
+    doClear : bool, default True
+        True to clear the existing plot before plotting,
+    doDeco : bool, default True
+        True to add axis labels.
+
+    Returns
+    -------
+    Temp : np.ndarray of float, shape (Nr, Np)
+        Scaled temperature (MK)
+
+    Raises
+    ------
+    None
+    """
+    # Create a Normalize object for matplotlib.
+    vT = kv.genNorm(TMin, TMax, doLog=False, midP=None)
+
+    # Add the colorbar (optional).
+    if AxCB:
+        AxCB.clear()
+        kv.genCB(AxCB, vT, r"Temperature T(r/r$_0$) [MK]", cM=TCM, Ntk=7)
+
+    # Clear the plot (optional).
+    if doClear:
+        Ax.clear()
+
+    # Compute the scaled equatorial temperature for the specified step.
+    Temp = gsph.eqTemp(nStp)
+
+    # Plot as a pcolormesh.
+    Ax.pcolormesh(gsph.xxi, gsph.yyi, Temp, cmap=TCM, norm=vT)
+
+    # Set the plot bounds.
+    kv.SetAx(xyBds, Ax)
+
+    # Add axis labels (optional).
+    if doDeco:
+        Ax.set_xlabel('X [R_S]')
+        Ax.set_ylabel('Y [R_S]')
+
+    # Return the scaled equatorial solar wind temperature.
+    return Temp
+
+
+def PlotEqBr(
+        gsph, nStp, xyBds, Ax, AxCB=None, doClear=True, doDeco=True
+):
+    """Plot the scaled radial magnetic field in equatorial plane.
+
+    Plot the scaled radial magnetic field in equatorial plane.
+    The values are scaled as Br*(r/r0)**2 (nT).
+
+    Nr = # radius grid cells in gamera result file
+    Np = # phi grid cells in gamera result file
+
+    Parameters
+    ----------
+    gsph : GameraPipe
+        Pipe interface to simulation results.
+    nStp : int
+        Step number of simulation step to plot
+    xyBds : list of 4 float
+        List of plot limits [xmin, xmax, ymin, ymax]
+    Ax : Axes
+        Axes object to use for the plot
+    AxCB : Axes, default None
+        Axes object to use for Colorbar.
+    doClear : bool, default True
+        True to clear the existing plot before plotting,
+    doDeco : bool, default True
+        True to add axis labels.
+
+    Returns
+    -------
+    Br : np.ndarray of float, shape (Nr, Np)
+        Radial magnetic field (nT)
+
+    Raises
+    ------
+    None
+    """
+    # Create a Normalize object for matplotlib.
+    vB = kv.genNorm(BMin, BMax, doLog=False, midP=None)
+
+    # Add the colorbar (optional).
+    if AxCB:
+        AxCB.clear()
+        kv.genCB(AxCB, vB, r'Radial MF B$_r$(r/r$_0)^2$ [nT]', cM=BCM, Ntk=7)
+
+    # Clear the plot (optional).
+    if doClear:
+        Ax.clear()
+
+    # Compute the scaled equatorial radial magnetic field for the
+    # specified step.
+    Br = gsph.eqNormBr(nStp)
+
+    # Plot as a pcolormesh.
+    Ax.pcolormesh(gsph.xxi, gsph.yyi, Br, cmap=BCM, norm=vB)
+
+    # Set the plot bounds.
+    kv.SetAx(xyBds, Ax)
+
+    # Add axis labels and tick marks (optional).
+    if doDeco:
+        Ax.set_xlabel('X [R_S]')
+        Ax.set_ylabel('Y [R_S]')
+        Ax.yaxis.tick_right()
+        Ax.yaxis.set_label_position('right')
+
+    # Return the scaled equatorial radial magnetic field.
+    return Br
+
+
+def PlotMerMagV(
+        gsph, nStp, xyBds, Ax, AxCB=None, doClear=True, doDeco=True
+):
+    """Plot solar wind speed in the meridional plane.
+
+    Plot solar wind speed in the meridional plane (y = 0) containing Earth.
+
+    Nr = # radius grid cells in gamera result file
+    Np = # phi grid cells in gamera result file
+
+    Parameters
+    ----------
+    gsph : GameraPipe
+        Pipe interface to simulation results.
+    nStp : int
+        Step number of simulation step to plot
+    xyBds : list of 4 float
+        List of plot limits [xmin, xmax, ymin, ymax]
+    Ax : Axes
+        Axes object to use for the plot
+    AxCB : Axes, default None
+        Axes object to use for Colorbar.
+    doClear : bool, default True
+        True to clear the existing plot before plotting,
+    doDeco : bool, default True
+        True to add axis labels.
+
+    Returns
+    -------
+    Vr, Vl : np.ndarray of float, shape (???)
+        Meridional solar wind speeds (km/s)
+
+    Raises
+    ------
+    None
+    """
+    # Create a Normalize object for matplotlib.
+    vMagV = kv.genNorm(VMin, VMax, doLog=False, midP=None)
+
+    # Add the colorbar (optional).
+    if AxCB:
+        AxCB.clear()
+        kv.genCB(AxCB, vMagV, "Speed [km/s]", cM=MagVCM, Ntk=7)
+
+    # Clear the plot (optional).
+    if doClear:
+        Ax.clear()
+
+    # Compute the solar wind speed for the specified step.
+    Vr, Vl = gsph.MerMagV(nStp)
+
+    # Get the coordinates of the cell corners.
+    xr, zr, xl, zl, r = gsph.MeridGridHalfs()
+
+    # Plot the speeds on the right (r) and left (l) sides.
+    Ax.pcolormesh(xr, zr, Vr, cmap=MagVCM, norm=vMagV)
+    Ax.pcolormesh(xl, zl, Vl, cmap=MagVCM, norm=vMagV)
+
+    # Set the plot bounds.
+    kv.SetAx(xyBds, Ax)
+
+    # Add axis labels (optional).
+    if doDeco:
+        Ax.set_xlabel("X [R_S]")
+        Ax.set_ylabel("Z [R_S]")
+
+    # Return the meridional solar wind speed.
+    return Vr, Vl
+
+
+def PlotMerDNorm(
+        gsph, nStp, xyBds, Ax, AxCB=None, doClear=True, doDeco=True
+):
+    """Plot scaled number density in the meridional plane.
+
+    Plot scaled number density in the meridional (y = 0) plane containing
+    Earth.
+    The values are scaled as n*(r/r0)^2.
+
+    Nr = # radius grid cells in gamera result file
+    Np = # phi grid cells in gamera result file
+
+    Parameters
+    ----------
+    gsph : GameraPipe
+        Pipe interface to simulation results.
+    nStp : int
+        Step number of simulation step to plot
+    xyBds : list of 4 float
+        List of plot limits [xmin, xmax, ymin, ymax]
+    Ax : Axes
+        Axes object to use for the plot
+    AxCB : Axes, default None
+        Axes object to use for Colorbar.
+    doClear : bool, default True
+        True to clear the existing plot before plotting,
+    doDeco : bool, default True
+        True to add axis labels.
+
+    Returns
+    -------
+    Dr, Dl : np.ndarray of float, shape (???)
+        Scaled number density (#/cm**3)
+
+    Raises
+    ------
+    None
+    """
+    # Create a Normalize object for matplotlib.
+    vD = kv.genNorm(DMin, DMax, doLog=False, midP=None)
+
+    # Add the colorbar (optional).
+    if AxCB:
+        AxCB.clear()
+        kv.genCB(AxCB, vD, r"Density n$(r/r_0)^2$ [cm$^{-3}$]", cM=DCM, Ntk=7)
+
+    # Clear the plot (optional).
+    if doClear:
+        Ax.clear()
+
+    # Compute the scaled meridional solar wind number density
+    # for the specified step.
+    Dr, Dl = gsph.MerDNrm(nStp)
+
+    # Get the coordinates of the cell corners.
+    xr, zr, xl, zl, r = gsph.MeridGridHalfs()
+
+    # Plot the density on the right (r) and left (l) sides.
+    Ax.pcolormesh(xr, zr, Dr, cmap=DCM, norm=vD, shading='auto')
+    Ax.pcolormesh(xl, zl, Dl, cmap=DCM, norm=vD, shading='auto')
+
+    # Set the plot bounds.
+    kv.SetAx(xyBds, Ax)
+
+    # Add axis labels and tick marks (optional).
+    if doDeco:
+        Ax.set_xlabel('X [R_S]')
         Ax.set_ylabel('Z [R_S]')
         Ax.yaxis.tick_right()
         Ax.yaxis.set_label_position('right')
+
+    # Return the scaled meridional solar wind number density.
     return Dr, Dl
 
-#Plot normalized Br Br(r/r0)^2 in meridional plane Y=0
-def PlotMerBrNorm(gsph,nStp,xyBds,Ax,AxCB=None,doClear=True,doDeco=True,indx=[None,None]):
-    vB = kv.genNorm(BMin, BMax, doLog=False, midP=None)
 
-    if (AxCB is not None):
-        #Add the colorbar to AxCB
-        AxCB.clear()
-        kv.genCB(AxCB,vB,r'Radial MF B$_r$(r/r$_0)^2$ [nT]',cM=BCM,Ntk=7)
-    if (doClear):
-        Ax.clear()
-    
-    phi = 0.0
-    for idx in indx:
-        if type(idx) is not None:
-            if type(idx) is int: 
-                phi = idx/gsph.Nk*2*np.pi
-            elif type(idx) is float:
-                phi = idx
-        else: 
-            phi = ""
+def PlotMerTemp(
+        gsph, nStp, xyBds, Ax, AxCB=None, doClear=True, doDeco=True
+):
+    """Plot scaled temperature in meridional plane.
 
-    Br_r, Br_l = gsph.MerBrNrm(nStp,indx=indx)
-    xr, yr, zr, xl, yl, zl, r = gsph.MeridGridHalfs(*indx)
-    Ax.pcolormesh(np.sqrt(xr**2 + yr**2),zr,Br_r,cmap=BCM,norm=vB,shading='auto')
-    Ax.pcolormesh(-np.sqrt(xl**2 + yl**2),zl,Br_l,cmap=BCM,norm=vB,shading='auto')
-    #plot heliospheric current sheet
-    #cell-cent coords first
-    xr_c = 0.25*( xr[:-1,:-1]+xr[:-1,1:]+xr[1:,:-1]+xr[1:,1:] )
-    yr_c = 0.25*( yr[:-1,:-1]+yr[:-1,1:]+yr[1:,:-1]+yr[1:,1:] )
-    zr_c = 0.25*( zr[:-1,:-1]+zr[:-1,1:]+zr[1:,:-1]+zr[1:,1:] )
-    xl_c = 0.25*( xl[:-1,:-1]+xl[:-1,1:]+xl[1:,:-1]+xl[1:,1:] )
-    yl_c = 0.25*( yl[:-1,:-1]+yl[:-1,1:]+yl[1:,:-1]+yl[1:,1:] )
-    zl_c = 0.25*( zl[:-1,:-1]+zl[:-1,1:]+zl[1:,:-1]+zl[1:,1:] )
-    #plot Br=0
-    Ax.contour(np.sqrt(xr_c**2 + yr_c**2),zr_c,Br_r,[0.],colors='black')
-    Ax.contour(-np.sqrt(xl_c**2 + yl_c**2),zl_c,Br_l,[0.],colors='black')
-    kv.SetAx(xyBds,Ax)
+    Plot scaled temperature in meridional (y = 0) plane, containing Earth.
+    The values are scaled as T*(r/r0), in MK (megakelvin)
 
-    if (doDeco):
-        Ax.set_xlabel(f"R_XY [R_S] Phi={phi:{2}.{2}} [rad]")
-        Ax.set_ylabel('Z [R_S]')
-        Ax.yaxis.tick_right()
-        Ax.yaxis.set_label_position('right')
-    return Br_r, Br_l
+    Nr = # radius grid cells in gamera result file
+    Np = # phi grid cells in gamera result file
 
-#Plot normalized temperature T(r/r0) in meridional plane
-def PlotMerTemp(gsph,nStp,xyBds,Ax,AxCB=None,doClear=True,doDeco=True,indx=[None,None]):
+    Parameters
+    ----------
+    gsph : GameraPipe
+        Pipe interface to simulation results.
+    nStp : int
+        Step number of simulation step to plot
+    xyBds : list of 4 float
+        List of plot limits [xmin, xmax, ymin, ymax]
+    Ax : Axes
+        Axes object to use for the plot
+    AxCB : Axes, default None
+        Axes object to use for Colorbar.
+    doClear : bool, default True
+        True to clear the existing plot before plotting,
+    doDeco : bool, default True
+        True to add axis labels.
+
+    Returns
+    -------
+    Tempr, Templ : np.ndarray of float, shape (???)
+        Scaled temperature (MK)
+
+    Raises
+    ------
+    None
+    """
+    # Create a Normalize object for matplotlib.
     vT = kv.genNorm(TMin, TMax, doLog=False, midP=None)
 
-    if (AxCB is not None):
+    # Add the colorbar (optional).
+    if AxCB:
         AxCB.clear()
-        kv.genCB(AxCB,vT, r'Temperature T(r/r$_0$) [MK]',cM=TCM,Ntk=7)
-    if (doClear):
+        kv.genCB(AxCB, vT, r'Temperature T(r/r$_0$) [MK]', cM=TCM, Ntk=7)
+
+    # Clear the plot (optional).
+    if doClear:
         Ax.clear()
 
-    phi = 0.0
-    for idx in indx:
-        if type(idx) is not None:
-            if type(idx) is int: 
-                phi = idx/gsph.Nk*2*np.pi
-            elif type(idx) is float:
-                phi = idx
-        else: 
-            phi = ""
+    # Compute the scaled meridional temperature for the specified step.
+    Tempr, Templ = gsph.MerTemp(nStp)
 
-    Tempr, Templ = gsph.MerTemp(nStp,indx=indx)
-    xr, yr, zr, xl, yl, zl, r = gsph.MeridGridHalfs(*indx)
-    Ax.pcolormesh(np.sqrt(xr**2 + yr**2),zr,Tempr,cmap=TCM,norm=vT)
-    Ax.pcolormesh(-np.sqrt(xl**2 + yl**2),zl,Templ,cmap=TCM,norm=vT)
+    # Get the coordinates of the cell corners.
+    xr, zr, xl, zl, r = gsph.MeridGridHalfs()
 
-    kv.SetAx(xyBds,Ax)
+    # Plot the temperature on the right (r) and left (l) sides.
+    Ax.pcolormesh(xr, zr, Tempr, cmap=TCM, norm=vT)
+    Ax.pcolormesh(xl, zl, Templ, cmap=TCM, norm=vT)
 
-    if (doDeco):
-        Ax.set_xlabel(f"R_XY [R_S] Phi={phi:{2}.{2}} [rad]")
+    # Set the plot bounds.
+    kv.SetAx(xyBds, Ax)
+
+    # Add axis labels (optional).
+    if doDeco:
+        Ax.set_xlabel('X [R_S]')
         Ax.set_ylabel('Z [R_S]')
+
+    # Return the scaled meridional solar wind temperature.
     return Tempr, Templ
 
-#Plot normalized density in equatorial plane n(r/r0)^2
-def PlotEqD(gsph,nStp,xyBds,Ax,AxCB=None,doClear=True,doDeco=True):
-    vD = kv.genNorm(DMin, DMax, doLog=False, midP=None)
-    
-    if (AxCB is not None):
-        #Add the colorbar to AxCB
-        AxCB.clear()
-        kv.genCB(AxCB,vD,r"Density n(r/r$_0)^2$ [cm$^{-3}$]",cM=DCM,Ntk=7)
 
-    #Now do main plotting
-    if (doClear):
-        Ax.clear()
+# #Plot normalized Br Br(r/r0)^2 in meridional plane Y=0
+def PlotMerBrNorm(
+        gsph, nStp, xyBds, Ax, AxCB=None, doClear=True, doDeco=True
+):
+    """Plot the scaled radial magnetic field in meridional plane.
 
-    NormD = gsph.eqNormD(nStp)
-    Ax.pcolormesh(gsph.xxi,gsph.yyi,NormD,cmap=DCM,norm=vD)
+    Plot the scaled radial magnetic field in meridional plane.
+    The values are scaled as Br*(r/r0)**2 (nT).
 
-    kv.SetAx(xyBds,Ax)
+    Nr = # radius grid cells in gamera result file
+    Np = # phi grid cells in gamera result file
 
-    if (doDeco):
-        Ax.set_xlabel('R [R_S]')
-        Ax.set_ylabel('Y [R_S]')
-        Ax.yaxis.tick_right()
-        Ax.yaxis.set_label_position('right')
-    return NormD
+    Parameters
+    ----------
+    gsph : GameraPipe
+        Pipe interface to simulation results.
+    nStp : int
+        Step number of simulation step to plot
+    xyBds : list of 4 float
+        List of plot limits [xmin, xmax, ymin, ymax]
+    Ax : Axes
+        Axes object to use for the plot
+    AxCB : Axes, default None
+        Axes object to use for Colorbar.
+    doClear : bool, default True
+        True to clear the existing plot before plotting,
+    doDeco : bool, default True
+        True to add axis labels.
 
-#Plot normalized density in equatorial plane n(r/r0)^2
-def PlotjD(gsph,nStp,xyBds,Ax,AxCB=None,doClear=True,doDeco=True,jidx=-1):
-    vD = kv.genNorm(DMin, DMax, doLog=False, midP=None)
-    
-    if (AxCB is not None):
-        #Add the colorbar to AxCB
-        AxCB.clear()
-        kv.genCB(AxCB,vD,r"Density n(r/r$_0)^2$ [cm$^{-3}$]",cM=DCM,Ntk=7)
+    Returns
+    -------
+    Br_r, Br_l : np.ndarray of float, shape (???)
+        Radial magnetic field (nT)
 
-    #Now do main plotting
-    if (doClear):
-        Ax.clear()
-
-    NormD = gsph.jNormD(nStp,jidx=jidx)
-    Ax.pcolormesh(gsph.xxi,gsph.yyi,NormD,cmap=DCM,norm=vD)
-
-    kv.SetAx(xyBds,Ax)
-
-    if (doDeco):
-        Ax.set_xlabel('R [R_S]')
-        Ax.set_ylabel('Y [R_S]')
-        Ax.yaxis.tick_right()
-        Ax.yaxis.set_label_position('right')
-    return NormD
-
-#Plot normalized Temperature in equatorial plane T(r/r0)
-def PlotEqTemp(gsph,nStp,xyBds,Ax,AxCB=None,doClear=True,doDeco=True):
-    vT = kv.genNorm(TMin, TMax, doLog=False, midP=None)
-
-    if (AxCB is not None):
-        AxCB.clear()
-        kv.genCB(AxCB,vT,r"Temperature T(r/r$_0$) [MK]",cM=TCM,Ntk=7)
-    if (doClear):
-        Ax.clear()
-
-    Temp = gsph.eqTemp(nStp)
-    Ax.pcolormesh(gsph.xxi,gsph.yyi,Temp,cmap=TCM,norm=vT)
-    
-    kv.SetAx(xyBds,Ax)
-
-    if (doDeco):
-        Ax.set_xlabel('X [R_S]')
-        Ax.set_ylabel('Y [R_S]')
-    return Temp
-
-#Plot normalized Temperature in equatorial plane T(r/r0)
-def PlotjTemp(gsph,nStp,xyBds,Ax,AxCB=None,doClear=True,doDeco=True,jidx=-1):
-    vT = kv.genNorm(TMin, TMax, doLog=False, midP=None)
-
-    if (AxCB is not None):
-        AxCB.clear()
-        kv.genCB(AxCB,vT,r"Temperature T(r/r$_0$) [MK]",cM=TCM,Ntk=7)
-    if (doClear):
-        Ax.clear()
-
-    Temp = gsph.jTemp(nStp,jidx=jidx)
-    Ax.pcolormesh(gsph.xxi,gsph.yyi,Temp,cmap=TCM,norm=vT)
-    
-    kv.SetAx(xyBds,Ax)
-
-    if (doDeco):
-        Ax.set_xlabel('X [R_S]')
-        Ax.set_ylabel('Y [R_S]')
-    return Temp
-
-#Plor Br in equatorial plane
-def PlotEqBr(gsph,nStp,xyBds,Ax,AxCB=None,doClear=True,doDeco=True):
+    Raises
+    ------
+    None
+    """
+    # Create a Normalize object for matplotlib.
     vB = kv.genNorm(BMin, BMax, doLog=False, midP=None)
 
-    if (AxCB is not None):
+    # Add the colorbar (optional).
+    if AxCB:
         AxCB.clear()
-        kv.genCB(AxCB,vB,r'Radial MF B$_r$(r/r$_0)^2$ [nT]',cM=BCM,Ntk=7)
-    if (doClear):
+        kv.genCB(AxCB, vB, r'Radial MF B$_r$(r/r$_0)^2$ [nT]', cM=BCM, Ntk=7)
+
+    # Clear the plot (optional).
+    if doClear:
         Ax.clear()
 
-    Br = gsph.eqNormBr(nStp)
-    Ax.pcolormesh(gsph.xxi,gsph.yyi,Br,cmap=BCM,norm=vB)
+    # Compute the scaled meridional radial magnetic field for the
+    # specified step.
+    Br_r, Br_l = gsph.MerBrNrm(nStp)
 
-    kv.SetAx(xyBds,Ax)
+    # Get the coordinates of the cell corners.
+    xr, zr, xl, zl, r = gsph.MeridGridHalfs()
 
-    if (doDeco):
+    # Plot the radial magnetic field on the right (r) and left (l) sides.
+    Ax.pcolormesh(xr, zr, Br_r, cmap=BCM, norm=vB, shading='auto')
+    Ax.pcolormesh(xl, zl, Br_l, cmap=BCM, norm=vB, shading='auto')
+
+    # Cell-centered coordinates first.
+    xr_c = 0.25*(xr[:-1, :-1] + xr[:-1, 1:] + xr[1:, :-1] + xr[1:, 1:])
+    zr_c = 0.25*(zr[:-1, :-1] + zr[:-1, 1:] + zr[1:, :-1] + zr[1:, 1:])
+    xl_c = 0.25*(xl[:-1, :-1] + xl[:-1, 1:] + xl[1:, :-1] + xl[1:, 1:])
+    zl_c = 0.25*(zl[:-1, :-1] + zl[:-1, 1:] + zl[1:, :-1] + zl[1:, 1:])
+
+    # Plot as a contour map, with a black line at the 0 level (this is the
+    # location of the heliospheric current sheet).
+    Ax.contour(xr_c, zr_c, Br_r, [0.], colors='black')
+    Ax.contour(xl_c, zl_c, Br_l, [0.], colors='black')
+
+    # Set the plot bounds.
+    kv.SetAx(xyBds, Ax)
+
+    # Add axis labels and tick marks (optional).
+    if doDeco:
         Ax.set_xlabel('X [R_S]')
-        Ax.set_ylabel('Y [R_S]')
+        Ax.set_ylabel('Z [R_S]')
         Ax.yaxis.tick_right()
         Ax.yaxis.set_label_position('right')
-    return Br
 
-#Plor Br in equatorial plane
-def PlotjBr(gsph,nStp,xyBds,Ax,AxCB=None,doClear=True,doDeco=True,jidx=-1):
-    vB = kv.genNorm(BMin, BMax, doLog=False, midP=None)
-
-    if (AxCB is not None):
-        AxCB.clear()
-        kv.genCB(AxCB,vB,r'Radial MF B$_r$(r/r$_0)^2$ [nT]',cM=BCM,Ntk=7)
-    if (doClear):
-        Ax.clear()
-
-    Br = gsph.jNormBr(nStp,jidx=jidx)
-    Ax.pcolormesh(gsph.xxi,gsph.yyi,Br,cmap=BCM,norm=vB)
-
-    kv.SetAx(xyBds,Ax)
-
-    if (doDeco):
-        Ax.set_xlabel('X [R_S]')
-        Ax.set_ylabel('Y [R_S]')
-        Ax.yaxis.tick_right()
-        Ax.yaxis.set_label_position('right')
-    return Br
-
-#Plor Br in equatorial plane
-def PlotEqBx(gsph,nStp,xyBds,Ax,AxCB=None,doClear=True,doDeco=True):
-    vB = kv.genNorm(BMin, BMax, doLog=False, midP=None)
-
-    if (AxCB is not None):
-        AxCB.clear()
-        kv.genCB(AxCB,vB,r'MF B$_x$(r/r$_0)^2$ [nT]',cM=BCM,Ntk=7)
-    if (doClear):
-        Ax.clear()
-
-    Bx = gsph.eqBx(nStp)
-    Ax.pcolormesh(gsph.xxi,gsph.yyi,Bx,cmap=BCM,norm=vB)
-
-    kv.SetAx(xyBds,Ax)
-
-    if (doDeco):
-        Ax.set_xlabel('X [R_S]')
-        Ax.set_ylabel('Y [R_S]')
-        Ax.yaxis.tick_right()
-        Ax.yaxis.set_label_position('right')
-    return Bx
-
-#Plor Br in equatorial plane
-def PlotEqBy(gsph,nStp,xyBds,Ax,AxCB=None,doClear=True,doDeco=True):
-    vB = kv.genNorm(BMin, BMax, doLog=False, midP=None)
-
-    if (AxCB is not None):
-        AxCB.clear()
-        kv.genCB(AxCB,vB,r'MF B$_y$(r/r$_0)^2$ [nT]',cM=BCM,Ntk=7)
-    if (doClear):
-        Ax.clear()
-
-    By = gsph.eqBy(nStp)
-    Ax.pcolormesh(gsph.xxi,gsph.yyi,By,cmap=BCM,norm=vB)
-
-    kv.SetAx(xyBds,Ax)
-
-    if (doDeco):
-        Ax.set_xlabel('X [R_S]')
-        Ax.set_ylabel('Y [R_S]')
-        Ax.yaxis.tick_right()
-        Ax.yaxis.set_label_position('right')
-    return By
-
-#Plor Br in equatorial plane
-def PlotEqBz(gsph,nStp,xyBds,Ax,AxCB=None,doClear=True,doDeco=True):
-    
-    Bz = gsph.eqBz(nStp)
-    maxBz = np.max(np.abs(Bz))
-    vB = kv.genNorm(-maxBz, maxBz, doLog=False, midP=None)
-
-    if (AxCB is not None):
-        AxCB.clear()
-        kv.genCB(AxCB,vB,r'MF B$_z$ [nT]',cM=BCM,Ntk=7)
-    if (doClear):
-        Ax.clear()
-
-    Ax.pcolormesh(gsph.xxi,gsph.yyi,Bz,cmap=BCM,norm=vB)
-
-    kv.SetAx(xyBds,Ax)
-
-    if (doDeco):
-        Ax.set_xlabel('X [R_S]')
-        Ax.set_ylabel('Y [R_S]')
-        Ax.yaxis.tick_right()
-        Ax.yaxis.set_label_position('right')
-    return Bz
+    # Return the scaled meridional radial magnetic field.
+    return Br_r, Br_l
 
 
-#Plot Speed at 1 AU
-def PlotiSlMagV(gsph,nStp,xyBds,Ax,AxCB=None,doClear=True,doDeco=True,idx=-1):
+# #Plot Speed at 1 AU
+def PlotiSlMagV(
+        gsph, nStp, xyBds, Ax, AxCB=None, doClear=True, doDeco=True
+):
+    """Plot solar wind speed at 1 AU.
+
+    Plot solar wind speed at 1 AU.
+
+    Nr = # radius grid cells in gamera result file
+    Np = # phi grid cells in gamera result file
+
+    Parameters
+    ----------
+    gsph : GameraPipe
+        Pipe interface to simulation results.
+    nStp : int
+        Step number of simulation step to plot
+    xyBds : list of 4 float
+        List of plot limits [xmin, xmax, ymin, ymax]
+    Ax : Axes
+        Axes object to use for the plot
+    AxCB : Axes, default None
+        Axes object to use for Colorbar.
+    doClear : bool, default True
+        True to clear the existing plot before plotting,
+    doDeco : bool, default True
+        True to add axis labels.
+
+    Returns
+    -------
+    V : np.ndarray of float, shape (??)
+        Solar wind speeds (km/s)
+
+    Raises
+    ------
+    None
+    """
+    # Create a Normalize object for matplotlib.
     vMagV = kv.genNorm(VMin, VMax, doLog=False, midP=None)
 
-    if (AxCB is not None):
-                #Add the colorbar to AxCB
-                AxCB.clear()
-                kv.genCB(AxCB,vMagV,"Speed [km/s]",cM=MagVCM,Ntk=7)
+    # Add the colorbar (optional).
+    if AxCB:
+        AxCB.clear()
+        kv.genCB(AxCB, vMagV, "Speed [km/s]", cM=MagVCM, Ntk=7)
 
-    #Now do main plotting
-    if (doClear):
+    # Clear the plot (optional).
+    if doClear:
         Ax.clear()
 
-    V = gsph.iSliceMagV(nStp,idx=idx)
-    lat, lon = gsph.iSliceGrid(idx=idx)
-    Ax.pcolormesh(lon,lat,V,cmap=MagVCM,norm=vMagV)
+    # Extract the solar wind speeds at 1 AU.
+    V = gsph.iSliceMagV(nStp)
 
-    kv.SetAx(xyBds,Ax)
+    # Get a solar lat/lon grid.
+    lat, lon = gsph.iSliceGrid()
 
-    if (doDeco):
+    # Plot as a pcolormesh.
+    Ax.pcolormesh(lon, lat, V, cmap=MagVCM, norm=vMagV)
+
+    # Set the plot bounds.
+    kv.SetAx(xyBds, Ax)
+
+    # Add axis labels (optional).
+    if doDeco:
         Ax.set_xlabel('Longitude')
         Ax.set_ylabel('Latitude')
+
+    # Return the solar wind speed.
     return V
 
-#Plot Density at 1 AU
-def PlotiSlD(gsph,nStp,xyBds,Ax,AxCB=None,doClear=True,doDeco=True,idx=-1):
-    vD = kv.genNorm(D0Min, D0Max, doLog=False, midP=None)
-    if (AxCB is not None):
-        AxCB.clear()
-        kv.genCB(AxCB,vD,"Number density [cm-3]",cM=D0CM,Ntk=7)
 
-    if (doClear):
+def PlotiSlD(
+        gsph, nStp, xyBds, Ax, AxCB=None, doClear=True, doDeco=True
+):
+    """Plot number density at 1 AU.
+
+    Plot number density at 1 AU.
+
+    Nr = # radius grid cells in gamera result file
+    Np = # phi grid cells in gamera result file
+
+    Parameters
+    ----------
+    gsph : GameraPipe
+        Pipe interface to simulation results.
+    nStp : int
+        Step number of simulation step to plot
+    xyBds : list of 4 float
+        List of plot limits [xmin, xmax, ymin, ymax]
+    Ax : Axes
+        Axes object to use for the plot
+    AxCB : Axes, default None
+        Axes object to use for Colorbar.
+    doClear : bool, default True
+        True to clear the existing plot before plotting,
+    doDeco : bool, default True
+        True to add axis labels.
+
+    Returns
+    -------
+    D : np.ndarray of float, shape (???)
+        Number density (#/cm**3)
+
+    Raises
+    ------
+    None
+    """
+    # Create a Normalize object for matplotlib.
+    vD = kv.genNorm(D0Min, D0Max, doLog=False, midP=None)
+
+    # Add the colorbar (optional).
+    if AxCB:
+        AxCB.clear()
+        kv.genCB(AxCB, vD, "Number density [cm-3]", cM=D0CM, Ntk=7)
+
+    # Clear the plot (optional).
+    if doClear:
         Ax.clear()
 
-    D = gsph.iSliceD(nStp,idx=idx)
-    lat, lon = gsph.iSliceGrid(idx=idx)
-    Ax.pcolormesh(lon,lat,D,cmap=D0CM,norm=vD)
-    kv.SetAx(xyBds,Ax)
+    # Fetch the number density at 1 AU.
+    D = gsph.iSliceD(nStp)
 
-    if (doDeco):
+    # Get a solar lat/lon grid.
+    lat, lon = gsph.iSliceGrid()
+
+    # Plot as a pcolormesh.
+    Ax.pcolormesh(lon, lat, D, cmap=D0CM, norm=vD)
+
+    # Set the plot bounds.
+    kv.SetAx(xyBds, Ax)
+
+    # Add axis labels and tick marks (optional).
+    if doDeco:
         Ax.set_xlabel('Longitude')
         Ax.set_ylabel('Latitude')
         Ax.yaxis.tick_right()
         Ax.yaxis.set_label_position('right')
+
+    # Return the number density.
     return D
 
-#Plot Br and current sheet (Br=0) at 1 AU
-def PlotiSlBr(gsph,nStp,xyBds,Ax,AxCB=None,doClear=True,doDeco=True,idx=-1):
-    vB = kv.genNorm(B0Min, B0Max, doLog=False, midP=None)
-    if (AxCB is not None):
-        AxCB.clear()
-        kv.genCB(AxCB,vB,"Radial magnetic field [nT]",cM=BCM,Ntk=7)
-    if (doClear):
-        Ax.clear()
 
-    Br = gsph.iSliceBr(nStp,idx=idx)
-    lat, lon = gsph.iSliceGrid(idx=idx)
-    #for contour cell-centered lon lat coordinates
-    lon_c = 0.25*( lon[:-1,:-1]+lon[:-1,1:]+lon[1:,:-1]+lon[1:,1:] )
-    lat_c = 0.25*( lat[:-1,:-1]+lat[:-1,1:]+lat[1:,:-1]+lat[1:,1:] )
+def PlotiSlTemp(
+        gsph, nStp, xyBds, Ax, AxCB=None, doClear=True, doDeco=True
+):
+    """Plot temperature at 1 AU.
 
-    Ax.pcolormesh(lon,lat,Br,cmap=BCM,norm=vB)
-    Ax.contour(lon_c, lat_c,Br,[0.],colors='black')
-    kv.SetAx(xyBds,Ax)
+    Plot temperature at 1 AU.
 
-    if (doDeco):
-        Ax.set_xlabel('Longitude')
-        Ax.set_ylabel('Latitude')
-        Ax.yaxis.tick_right()
-        Ax.yaxis.set_label_position('right')
-        #for pic4
-        Ax.set_aspect('equal')
-    return Br
+    Nr = # radius grid cells in gamera result file
+    Np = # phi grid cells in gamera result file
 
-#Plot Br and current sheet (Br=0) at certain distance set in iSliceBr
-def PlotiSlBrRotatingFrame(gsph,nStp,xyBds,Ax,AxCB=None,doClear=True,doDeco=True,idx=-1):
-    BMin = -5.
-    BMax = 5.
-    vB = kv.genNorm(BMin, BMax, doLog=False, midP=None)
-    if (AxCB is not None):
-        AxCB.clear()
-        kv.genCB(AxCB,vB,"Radial magnetic field [nT]",cM=BCM,Ntk=7)
-    if (doClear):
-        Ax.clear()
+    Parameters
+    ----------
+    gsph : GameraPipe
+        Pipe interface to simulation results.
+    nStp : int
+        Step number of simulation step to plot
+    xyBds : list of 4 float
+        List of plot limits [xmin, xmax, ymin, ymax]
+    Ax : Axes
+        Axes object to use for the plot
+    AxCB : Axes, default None
+        Axes object to use for Colorbar.
+    doClear : bool, default True
+        True to clear the existing plot before plotting,
+    doDeco : bool, default True
+        True to add axis labels.
 
-    #Br from the i=0
-    Br = gsph.iSliceBrBound(nStp,idx=idx)
-    lat, lon = gsph.iSliceGrid(idx=idx)
-    
-    #transform into rotating frame
-    #Julian date of the initial map
-    jd0 = gsph.MJDs.min()
-    jd_c = gsph.MJDs[nStp]
-    print (jd0, jd_c)
-    #Julian date of the current solution
-    time_days = (jd_c - jd0)
-    print (time_days)
-    omega=2*180./Tsolar
+    Returns
+    -------
+    Temp : np.ndarray of float, shape (???)
+        Temperature (MK)
 
-    #for contour cell-centered lon lat coordinates
-    lon_c = 0.25*( lon[:-1,:-1]+lon[:-1,1:]+lon[1:,:-1]+lon[1:,1:] )
-    lat_c = 0.25*( lat[:-1,:-1]+lat[:-1,1:]+lat[1:,:-1]+lat[1:,1:] )
-
-    phi = lon_c[0,:] 
-    phi_prime = (phi-omega*time_days)%(2*180.)
-
-    if np.where(np.ediff1d(phi_prime)<0)[0].size!=0: #for the first map size =0, for other maps size=1
-        ind0=np.where(np.ediff1d(phi_prime)<0)[0][0]+1
-        #print 'ind = ', ind0
-    else:
-        ind0=0 # this is for the first map
-    print('ind0 = ', ind0)
-
-    Br = np.roll(Br, -ind0, axis = 1)
-
-    Ax.pcolormesh(lon,lat,Br,cmap=BCM,norm=vB)
-    Ax.contour(lon_c, lat_c,Br,[0.],colors='black')
-    kv.SetAx(xyBds,Ax)
-
-    if (doDeco):
-        Ax.set_xlabel('Longitude')
-        Ax.set_ylabel('Latitude')
-        Ax.yaxis.tick_right()
-        Ax.yaxis.set_label_position('right')
-        #for pic4
-        Ax.set_aspect('equal')
-    return Br
-
-
-#Plot Temperature at 1 AU
-def PlotiSlTemp(gsph,nStp,xyBds,Ax,AxCB=None,doClear=True,doDeco=True,idx=-1):
+    Raises
+    ------
+    None
+    """
+    # Create a Normalize object for matplotlib.
     vT = kv.genNorm(T0Min, T0Max, doLog=False, midP=None)
 
-    if (AxCB is not None):
+    # Add the colorbar (optional).
+    if AxCB:
         AxCB.clear()
-        kv.genCB(AxCB,vT,"Temperature [MK]",cM=TCM,Ntk=7)
-    if (doClear):
+        kv.genCB(AxCB, vT, "Temperature [MK]", cM=TCM, Ntk=7)
+
+    # Clear the plot (optional).
+    if doClear:
         Ax.clear()
 
-    Temp = gsph.iSliceT(nStp,idx=idx)    
-    lat, lon = gsph.iSliceGrid(idx=idx)
-    Ax.pcolormesh(lon,lat,Temp,cmap=TCM,norm=vT)
+    # Fetch the temperature at 1 AU.
+    Temp = gsph.iSliceT(nStp)
 
-    kv.SetAx(xyBds,Ax)
+    # Get a solar lat/lon grid.
+    lat, lon = gsph.iSliceGrid()
 
-    if (doDeco):
+    # Plot as a pcolormesh.
+    Ax.pcolormesh(lon, lat, Temp, cmap=TCM, norm=vT)
+
+    # Set the plot bounds.
+    kv.SetAx(xyBds, Ax)
+
+    # Add axis labels (optional).
+    if doDeco:
         Ax.set_xlabel('Longitude')
         Ax.set_ylabel('Latitude')
+
+    # Return the temperature.
     return Temp
 
-#Plot Density as a function of distance
-def PlotDensityProf(gsph,nStp,xyBds,Ax,AxCB=None,doClear=True,doDeco=True):
-    if (doClear):
+
+# #Plot Br and current sheet (Br=0) at 1 AU
+def PlotiSlBr(
+        gsph, nStp, xyBds, Ax, AxCB=None, doClear=True, doDeco=True
+):
+    """Plot radial magnetic field at 1 AU.
+
+    Plot radial magnetic field at 1 AU.
+
+    Nr = # radius grid cells in gamera result file
+    Np = # phi grid cells in gamera result file
+
+    Parameters
+    ----------
+    gsph : GameraPipe
+        Pipe interface to simulation results.
+    nStp : int
+        Step number of simulation step to plot
+    xyBds : list of 4 float
+        List of plot limits [xmin, xmax, ymin, ymax]
+    Ax : Axes
+        Axes object to use for the plot
+    AxCB : Axes, default None
+        Axes object to use for Colorbar.
+    doClear : bool, default True
+        True to clear the existing plot before plotting,
+    doDeco : bool, default True
+        True to add axis labels.
+
+    Returns
+    -------
+    Br : np.ndarray of float, shape (???)
+        Radial magnetic field (nT)
+
+    Raises
+    ------
+    None
+    """
+    # Create a Normalize object for matplotlib.
+    vB = kv.genNorm(B0Min, B0Max, doLog=False, midP=None)
+
+    # Add the colorbar (optional).
+    if AxCB:
+        AxCB.clear()
+        kv.genCB(AxCB, vB, "Radial magnetic field [nT]", cM=BCM, Ntk=7)
+
+    # Clear the plot (optional).
+    if doClear:
         Ax.clear()
 
+    # Fetch the radial magnetic field at 1 AU.
+    Br = gsph.iSliceBr(nStp)
+
+    # Get a solar lat/lon grid.
+    lat, lon = gsph.iSliceGrid()
+
+    # Compute cell-centered lon lat coordinates (for contour overlay).
+    lon_c = 0.25*(lon[:-1, :-1] + lon[:-1, 1:] + lon[1:, :-1] + lon[1:, 1:])
+    lat_c = 0.25*(lat[:-1, :-1] + lat[:-1, 1:] + lat[1:, :-1] + lat[1:, 1:])
+
+    # Plot as a pcolormesh, with a contour line at Br = 0 (current sheet).
+    Ax.pcolormesh(lon, lat, Br, cmap=BCM, norm=vB)
+    Ax.contour(lon_c, lat_c, Br, [0.], colors='black')
+
+    # Set the plot bounds.
+    kv.SetAx(xyBds, Ax)
+
+    # Add axis labels and tick marks (optional).
+    if doDeco:
+        Ax.set_xlabel('Longitude')
+        Ax.set_ylabel('Latitude')
+        Ax.yaxis.tick_right()
+        Ax.yaxis.set_label_position('right')
+        # for pic4
+        Ax.set_aspect('equal')
+
+    # Return the radial magnetic field
+    return Br
+
+
+def PlotiSlBrRotatingFrame(
+        gsph, nStp, xyBds, Ax, AxCB=None, doClear=True, doDeco=True
+):
+    """Plot the radial magnetic field at the inner grid boundary.
+
+    Plot the radial magnetic field at the inner grid boundary.
+    The values are scaled as Br*(r/r0)**2 (nT).
+
+    Nr = # radius grid cells in gamera result file
+    Np = # phi grid cells in gamera result file
+
+    Parameters
+    ----------
+    gsph : GameraPipe
+        Pipe interface to simulation results.
+    nStp : int
+        Step number of simulation step to plot
+    xyBds : list of 4 float
+        List of plot limits [xmin, xmax, ymin, ymax]
+    Ax : Axes
+        Axes object to use for the plot
+    AxCB : Axes, default None
+        Axes object to use for Colorbar.
+    doClear : bool, default True
+        True to clear the existing plot before plotting,
+    doDeco : bool, default True
+        True to add axis labels.
+
+    Returns
+    -------
+    Br : np.ndarray of float, shape (Nr, Np)
+        Radial magnetic field (nT)
+
+    Raises
+    ------
+    None
+    """
+    # Set magnetic field limits
+    BMin = -5.0  # nT
+    BMax = 5.0   # nT
+
+    # Create a Normalize object for matplotlib.
+    vB = kv.genNorm(BMin, BMax, doLog=False, midP=None)
+
+    # Add the colorbar (optional).
+    if AxCB:
+        AxCB.clear()
+        kv.genCB(AxCB, vB, "Radial magnetic field [nT]", cM=BCM, Ntk=7)
+
+    # Clear the plot (optional).
+    if doClear:
+        Ax.clear()
+
+    # Fetch the radial magnetic field at the inner grid boundary.
+    Br = gsph.iSliceBrBound(nStp)
+
+    # Get a solar lat/lon grid.
+    lat, lon = gsph.iSliceGrid()
+
+    # Transform the data into a rotating frame.
+    jd0 = gsph.MJDs.min()   # Julian date of the initial map
+    jd_c = gsph.MJDs[nStp]  # Julian date of the current step
+
+    # Compute the elapsed days.
+    time_days = jd_c - jd0
+
+    # Compute the angular speed.
+    omega = 2*180.0/Tsolar
+
+    # Compute cell-centered lon lat coordinates for contour.
+    lon_c = 0.25*(lon[:-1, :-1] + lon[:-1, 1:] + lon[1:, :-1] + lon[1:, 1:])
+    lat_c = 0.25*(lat[:-1, :-1] + lat[:-1, 1:] + lat[1:, :-1] + lat[1:, 1:])
+
+    # Compute the starting and current angles.
+    phi = lon_c[0, :]
+    phi_prime = (phi - omega*time_days) % (2*180.)
+
+    if np.where(np.ediff1d(phi_prime) < 0)[0].size != 0:
+        # For the first map size =0, for other maps size=1
+        ind0 = np.where(np.ediff1d(phi_prime) < 0)[0][0] + 1
+    else:
+        # First map
+        ind0 = 0
+
+    # Rotate the data by the computed angle.
+    Br = np.roll(Br, -ind0, axis=1)
+
+    # Plot as a pcolormesh, with a contour line for the current sheet.
+    Ax.pcolormesh(lon, lat, Br, cmap=BCM, norm=vB)
+    Ax.contour(lon_c, lat_c, Br, [0.], colors='black')
+
+    # Set the plot bounds.
+    kv.SetAx(xyBds, Ax)
+
+    # Add axis labels and tick marks (optional).
+    if doDeco:
+        Ax.set_xlabel('Longitude')
+        Ax.set_ylabel('Latitude')
+        Ax.yaxis.tick_right()
+        Ax.yaxis.set_label_position('right')
+        # For pic4
+        Ax.set_aspect('equal')
+
+    # Return the radial magnetic field.
+    return Br
+
+
+def PlotDensityProf(
+        gsph, nStp, xyBds, Ax, AxCB=None, doClear=True, doDeco=True
+):
+    """Plot a radial number density profile.
+
+    Plot a radial number density profile.
+
+    Nr = # radius grid cells in gamera result file
+    Np = # phi grid cells in gamera result file
+
+    Parameters
+    ----------
+    gsph : GameraPipe
+        Pipe interface to simulation results.
+    nStp : int
+        Step number of simulation step to plot
+    xyBds : list of 4 float
+        List of plot limits [xmin, xmax, ymin, ymax]
+    Ax : Axes
+        Axes object to use for the plot
+    AxCB : Axes, default None
+        Axes object to use for Colorbar.
+    doClear : bool, default True
+        True to clear the existing plot before plotting,
+    doDeco : bool, default True
+        True to add axis labels.
+
+    Returns
+    -------
+    D : np.ndarray of float, shape (???)
+        Number density (#/cm**3)
+
+    Raises
+    ------
+    None
+    """
+    # Clear the plot (optional).
+    if doClear:
+        Ax.clear()
+
+    # Fetch the radial density profile.
     D = gsph.RadProfDen(nStp)
-    rad  = gsph.RadialProfileGrid()
 
-    Ax.plot(rad,D,colorProf)
+    # Fetch the radial grid.
+    rad = gsph.RadialProfileGrid()
 
-    if (doDeco):
+    # Plot as a line plot.
+    Ax.plot(rad, D, colorProf)
+
+    # Add axis labels (optional).
+    if doDeco:
         Ax.set_xlabel('Radial distance [R_sun]')
         Ax.set_ylabel('Density [cm-3]')
-        Ax.set_ylim(250.,450.)
-        Ax.set_xlim(20.,220.)
-                #Ax.yaxis.tick_right()
-                #Ax.yaxis.set_label_position('right')
+        Ax.set_ylim(250.0, 450.0)
+        Ax.set_xlim(20.0, 220.0)
+
+    # Return the number density.
     return D
 
-#Plot speed as a function of distance
-def PlotSpeedProf(gsph,nStp,xyBds,Ax,AxCB=None,doClear=True,doDeco=True):
-    if (doClear):
-        Ax.clear()
-    V = gsph.RadProfSpeed(nStp)
-    rad  = gsph.RadialProfileGrid()
-    Ax.plot(rad,V,colorProf)
 
-    if (doDeco):
+def PlotSpeedProf(
+        gsph, nStp, xyBds, Ax, AxCB=None, doClear=True, doDeco=True
+):
+    """Plot a radial speed profile.
+
+    Plot a radial speed profile.
+
+    Parameters
+    ----------
+    gsph : GameraPipe
+        Pipe interface to simulation results.
+    nStp : int
+        Step number of simulation step to plot
+    xyBds : list of 4 float
+        List of plot limits [xmin, xmax, ymin, ymax]
+    Ax : Axes
+        Axes object to use for the plot
+    AxCB : Axes, default None
+        Axes object to use for Colorbar.
+    doClear : bool, default True
+        True to clear the existing plot before plotting,
+    doDeco : bool, default True
+        True to add axis labels.
+
+    Returns
+    -------
+    V : np.ndarray of float, shape (???)
+        Radial speed (km/s)
+
+    Raises
+    ------
+    None
+    """
+    # Clear the plot (optional).
+    if doClear:
+        Ax.clear()
+
+    # Fetch the radial speed profile.
+    V = gsph.RadProfSpeed(nStp)
+
+    # Fetch the radius grid.
+    rad = gsph.RadialProfileGrid()
+
+    # Plot as a line plot.
+    Ax.plot(rad, V, colorProf)
+
+    # Add axis labels (optional).
+    if doDeco:
         Ax.set_xlabel('Radial distance [R_sun]')
         Ax.set_ylabel('Speed [km/s]')
-        Ax.set_ylim(600.,750.)
-        Ax.set_xlim(20.,220.)
+        # Ax.set_ylim(600.0, 750.0)
+        Ax.set_xlim(20.0, 220.0)
+
+    # Return the speed profile.
     return V
 
-def PlotFluxProf(gsph,nStp,xyBds,Ax,AxCB=None,doClear=True,doDeco=True):
-    if (doClear):
+
+def PlotFluxProf(
+        gsph, nStp, xyBds, Ax, AxCB=None, doClear=True, doDeco=True
+):
+    """Plot a radial flux profile.
+
+    Plot a radial flux profile.
+
+    Parameters
+    ----------
+    gsph : GameraPipe
+        Pipe interface to simulation results.
+    nStp : int
+        Step number of simulation step to plot
+    xyBds : list of 4 float
+        List of plot limits [xmin, xmax, ymin, ymax]
+    Ax : Axes
+        Axes object to use for the plot
+    AxCB : Axes, default None
+        Axes object to use for Colorbar.
+    doClear : bool, default True
+        True to clear the existing plot before plotting,
+    doDeco : bool, default True
+        True to add axis labels.
+
+    Returns
+    -------
+    F : np.ndarray of float, shape (???)
+        Flux (???)
+
+    Raises
+    ------
+    None
+    """
+    # Clear the plot (optional).
+    if doClear:
         Ax.clear()
+
+    # Fetch the radial flux profile.
     F = gsph.RadProfFlux(nStp)
-    rad  = gsph.RadialProfileGrid()
-    Ax.plot(rad,F,colorProf)
-    
-    if (doDeco):
+
+    # Fetch the radial grid.
+    rad = gsph.RadialProfileGrid()
+
+    # Plot as a line plot.
+    Ax.plot(rad, F, colorProf)
+
+    # Add axis labels (optional).
+    if doDeco:
         Ax.set_xlabel('Radial distance [R_sun]')
         Ax.set_ylabel('RhoVr^2')
-        Ax.set_ylim(180000.,280000.)
-        Ax.set_xlim(20.,220.)
+        Ax.set_ylim(180000.0, 280000.0)
+        Ax.set_xlim(20.0, 220.0)
+
+    # Return the flux.
     return F
 
-#Adds MPI contours
-#this function is from magnetosphere Viz script. PlotMPI is not used for helio as of now 
-def PlotMPI(gsph,Ax,ashd=0.5):
-    gCol = mpiCol
-    for i in range(gsph.Ri):
-        i0 = i*gsph.dNi
-        Ax.plot(gsph.xxi[i0,:],gsph.yyi[i0,:],mpiCol,linewidth=cLW,alpha=ashd)
 
-    if (gsph.Rj>1):
-        for j in range(1,gsph.Rj):
-            j0 = j*gsph.dNj
-            Ax.plot(gsph.xxi[:,j0], gsph.yyi[:,j0],gCol,linewidth=cLW,alpha=ashd)
-            Ax.plot(gsph.xxi[:,j0],-gsph.yyi[:,j0],gCol,linewidth=cLW,alpha=ashd)
-        #X-axis (+)
-        Ax.plot(gsph.xxi[:,0], gsph.yyi[:,0],gCol,linewidth=cLW,alpha=ashd)
-        #X-axis (-)
-        j0 = (gsph.Rj)*gsph.dNj
-        Ax.plot(gsph.xxi[:,j0], gsph.yyi[:,j0],gCol,linewidth=cLW,alpha=ashd)
-            
+if __name__ == "__main__":
+    """Module self-test code"""
