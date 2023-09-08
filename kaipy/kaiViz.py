@@ -489,9 +489,7 @@ def compPlot(plotname,scId,data):
 
 	savePic(plotname)
     
-def trajPlot(plotname,scId,data):
-    Re = 6380.0
-    toRe = 1.0/Re
+def trajPlot(plotname,scId,data,toRe):
     figsize = (15,5)
     # Create the figure in-memory.
     mpl.use("AGG")
