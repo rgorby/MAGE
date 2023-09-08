@@ -24,9 +24,7 @@ import kaipy.gamera.gampp as gampp
 default_runid = "loop2d"
 
 # Program description.
-description = (
-    "Perform sample computations on the gamera %s test case." % default_runid
-)
+description = "Run sample computations on the gamera loop2d quickstart case."
 
 
 def create_command_line_parser():
