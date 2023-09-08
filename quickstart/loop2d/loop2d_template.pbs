@@ -38,7 +38,7 @@
 
 #-----------------------------------------------------------------------------
 
-# For the pleiades or electra HPC systems at NASA Ames HECC:
+# For the pleiades or electra systems at NASA Ames HECC:
 
 # Submit the job to the PBS queue called "normal". The queues on pleiades have
 # the following time limits: "low" (4 hours), "normal" (8 hours), "long" (120
@@ -60,20 +60,10 @@
 
 #-----------------------------------------------------------------------------
 
-# For the cheyenne HPC system at UCAR:
+# For the cheyenne system at UCAR:
 
-# Specify the user account under which the job should be run.
-##PBS -A UJHB0015
-
-# Submit the job to the PBS queue called "regular". The queues on cheyenne
-# have the following time limits: "premium" (12 hours), "regular" (12 hours),
-# "economy" (12 hours). For more information on cheyenne queues, see:
-# https://arc.ucar.edu/knowledge_base/72581495
+##PBS -A UJHB0015  # Account required for cheyenne.
 ##PBS -q regular
-
-# This is the line where you request specific resources from the PBS system.
-# See the comments in the pleiades example above for an explanation of the
-# components of this line.
 ##PBS -l select=1:ncpus=36:ompthreads=36
 
 #------------------------------------------------------------------------------
@@ -96,10 +86,16 @@ echo "Job $PBS_JOBID started at `date` on `hostname`."
 # directive near the top of this file.
 export RUNID=$PBS_JOBNAME
 
+#------------------------------------------------------------------------------
+# START OF MODULE DIRECTIVES
+#------------------------------------------------------------------------------
+
 # Load the required modules for serial kaiju.
+
 # NOTE: pleiades and electra do not have the "module restore" facility
 # found on cheyenne. The modules must be explicitly loaded each time
 # they are needed.
+
 # NOTE: This set of modules assumes your kaiju installation was built
 # using this same list of modules. If you used different modules at
 # build time (for example, if you used a GNU compiler), update this
@@ -109,8 +105,9 @@ export RUNID=$PBS_JOBNAME
 module purge
 
 # For pleiades/electra:
-module load pkgsrc/2021Q2
-module load comp-intel/2020.4.304
+module load nas
+module load pkgsrc/2022Q1-rome     # For git-lfs and cmake
+module load comp-intel/2020.4.304  # Latest version
 module load hdf5/1.8.18_serial
 
 # For cheyenne:
@@ -124,6 +121,10 @@ module load hdf5/1.8.18_serial
 
 echo "The following modules are loaded:"
 module list
+
+#------------------------------------------------------------------------------
+# END OF MODULE DIRECTIVES
+#------------------------------------------------------------------------------
 
 # Define the kaiju installation location.
 # NOTE: You MUST set this variable to the path to your kaiju directory, which
