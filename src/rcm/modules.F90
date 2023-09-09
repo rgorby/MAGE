@@ -27,7 +27,7 @@ MODULE rice_housekeeping_module
   use kronos
   use strings
   use earthhelper, ONLY : SetKp0
-  use rcmdefs, ONLY : DenPP0, ELOSS_FDG, ELOSS_SS, ELOSS_C05, ELOSS_C19, ELOSS_WM
+  use rcmdefs, ONLY : DenPP0, ELOSS_FDG, ELOSS_SS, ELOSS_WM
   
   IMPLICIT NONE
   
@@ -77,7 +77,7 @@ MODULE rice_housekeeping_module
   end type RCMEllipse_T
 
   type ChorusTauIn_T !electron lifetime for Chorus wave
-      integer(iprec) :: Nm=24, Nl=20, Nk=7 ,Ne=155
+      integer(iprec) :: Nm=97, Nl=161, Nk=7 ,Ne=155
       real(rprec), ALLOCATABLE :: MLTi(:), Li(:), Kpi(:), Eki(:)
       real(rprec), ALLOCATABLE :: taui(:,:,:,:)
   end type ChorusTauIn_T
@@ -147,14 +147,10 @@ MODULE rice_housekeeping_module
               ELOSSMETHOD = ELOSS_FDG
            case ("SS")
               ELOSSMETHOD = ELOSS_SS
-           case ("C05")
-              ELOSSMETHOD = ELOSS_C05
-           case ("C19")
-              ELOSSMETHOD = ELOSS_C19
            case ("WM")
               ELOSSMETHOD = ELOSS_WM
            case default
-              stop "The electron loss type entered is not supported (Available options: WM, FDG, SS, C05, C19)."
+              stop "The electron loss type entered is not supported (Available options: WM, FDG, SS)."
         end select
 
         call xmlInp%Set_Val(doNewCX  ,"loss/doNewCX"  ,doNewCX  )
