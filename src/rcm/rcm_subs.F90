@@ -1216,8 +1216,8 @@
         integer :: nvari, tauDim, Nk, Nm,Nl,Ne
         integer :: dims(4) ! update when add higher dimensions
 
-        write(*,*) "Read rcmconfig.h5....
-"
+        write(*,*) "Read rcmconfig.h5...."
+
         doSP = .false.
         call ClearIO(IOVars) !Reset IO chain
         call AddInVar(IOVars,"alamc") !1
