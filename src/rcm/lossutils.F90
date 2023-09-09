@@ -164,49 +164,38 @@ MODULE lossutils
 
     END FUNCTION RatefnC_tau_s
 
-
     FUNCTION RatefnDW_tau_c(Kpx,mltx,Lx,Ekx) result(tau)
     ! linearly interpolate tau from EWMTauInput to current MLT,L,Kp,Ek value
         USE rice_housekeeping_module, ONLY: EWMTauInput
         IMPLICIT NONE
         REAL (rprec), INTENT (IN) :: Kpx, mltx,Lx,Ekx
-        REAL(rprec) :: taui,tau
-        REAL(rprec) :: tauKMLE(2,2,2,2),tauMLE(2,2,2),tauLE(2,2),tauE(2)! tauKMLE(1,2,2,2) means tauKlMuLuEu, l:lower bound, u: upper bound in the NN methond  
+        REAL(rprec) :: tau
+        REAL(rprec) :: tauKMLE(2,2,2,2),tauMLE(2,2,2),tauLE(2,2),tauE(2)! tauKMLE(1,2,2,2) means tauKlMuLuEu, l:lower bound, u: upper bound in the NN methond
         REAL(rprec) :: dK,wK,dM,wM,dL,wL,dE,wE
         INTEGER :: iK,kL,kU,mL,mU,lL,lU,eL,eU
         LOGICAL :: Lflag = .false.
-        LOGICAL :: isMin(4) = [.false.,.false.,.false.,.false.] !index 1-4 correspond to Kp,mlt,L and E
-        LOGICAL :: isMax(4) = [.false.,.false.,.false.,.false.] 
+
 
         associate(Nm=>EWMTauInput%ChorusTauInput%Nm,Nl=>EWMTauInput%ChorusTauInput%Nl,Nk=>EWMTauInput%ChorusTauInput%Nk,Ne=>EWMTauInput%ChorusTauInput%Ne,&
                   Kpi=>EWMTauInput%ChorusTauInput%Kpi,MLTi=>EWMTauInput%ChorusTauInput%MLTi,Li=>EWMTauInput%ChorusTauInput%Li,Eki=>EWMTauInput%ChorusTauInput%Eki,&
-                  taui=>EWMTauInput%ChorusTauInput%taui) 
-
-        taui = log10(taui) !Interpolation in log10 space
-
-        ! look up in Kp
-        !iK = minloc(abs(Kpi-Kpx),dim=1)
+                  taui=>EWMTauInput%ChorusTauInput%taui)
 
         ! Find the nearest neighbors in Kp
         if (Kpx >= maxval(Kpi)) then
-            isMax(1) = .true.
-            kL = Nk
+            kL = Nk !use Kp maximum 
             kU = Nk
         else if (Kpx <= minval(Kpi)) then
-            isMin(1) = .true.
-            kL = 1
+            kL = 1  !use Kp minimum
             kU = 1
         else
             kL = maxloc(Kpi,dim=1,mask=(Kpi<Kpx))
             kU = kL+1
         endif
-           
+        
         ! Find the nearest neighbours in MLT
-        if ((mltx >= maxval(MLTi)) .or. (mltx <= minval(MLTi)))  then ! maxval of MLT is 24, minval of MLT is 0 
-            isMax(1) = .true.
-            isMin(2) = .true.
-            mL = 1  
-            mU = 1 ! equivalent to mL = Nm, mU = Nm
+        if ((mltx >= maxval(MLTi)) .or. (mltx <= minval(MLTi)))  then ! maxval of MLT is 24, minval of MLT is 0
+            mL = 1 !use MLT = 0
+            mU = 1
         else
             mL = maxloc(MLTi,dim=1,mask=(MLTi<mltx))
             mU = mL+1
@@ -214,80 +203,69 @@ MODULE lossutils
 
         ! Find the nearest neighbours in L
         if (Lx >= maxval(Li)) then
-            isMax(3) = .true.
-            lL = Nl ! tau_c is 0, total tau = tau_s
+            lL = Nl !use L maximum
             lU = Nl
+            Lflag = .true.
         else if (Lx <= minval(Li)) then
-            isMin(3) = .true.
-            lL = 1 ! Lx < min(Li) is treated like min(Li)
+            lL = 1 ! use L minimum
             lU = 1
         else
             lL = maxloc(Li,dim=1,mask=(Li<Lx))
             lU = lL+1
         endif
-        
+
          ! Find the nearest neighbours in Ek
-        if (Ekx >= maxval(Eki)) then
-            isMax(4) = .true.
-            eL = Ne ! Ekx > max(Eki) is treated like max(Eki)
+        if (Ekx < minval(Eki)) then
+            tau = 1.D10 ! For low energies, assign a huge lifetime is 10^10s ~ 10^3 years.
+        else if (Ekx >= maxval(Eki)) then
+            eL = Ne !use Ek maximum
             eU = Ne
-        else if (Ekx < minval(Eki)) then
-            isMin(4) = .true.
-            !indices are not needed.
         else
             eL = maxloc(Eki,dim=1,mask=(Eki<Ekx))
             eU = eL + 1
         endif
 
-        !Corner case: if Ek < min(Eki), use a large lifetime 10^10s ~ 10^3 years
-        if (isMin(4)) then
-            tau = 1.D10
-            return
-        end if
-
         !linear interpolation in Kp
-        if (isMax(1) .or. isMin(1)) then
-            ! In this case, kL = kU
-            tauMLE(1,1,1) = taui(kL,mL,lL,eL)
-            tauMLE(1,1,2) = taui(kL,mL,lL,eU)
-            tauMLE(1,2,1) = taui(kL,mL,lU,eL)
-            tauMLE(1,2,2) = taui(kL,mL,lU,eU)
-            tauMLE(2,1,1) = taui(kL,mU,lL,eL)
-            tauMLE(2,1,2) = taui(kL,mU,lL,eU)
-            tauMLE(2,2,1) = taui(kL,mU,lU,eL)
-            tauMLE(2,2,2) = taui(kL,mU,lU,eU)
+        if (kL == kU) then
+            tauMLE(1,1,1) = log10(taui(kL,mL,lL,eL))!Interpolation in log10(taui) space
+            tauMLE(1,1,2) = log10(taui(kL,mL,lL,eU))
+            tauMLE(1,2,1) = log10(taui(kL,mL,lU,eL))
+            tauMLE(1,2,2) = log10(taui(kL,mL,lU,eU))
+            tauMLE(2,1,1) = log10(taui(kL,mU,lL,eL))
+            tauMLE(2,1,2) = log10(taui(kL,mU,lL,eU))
+            tauMLE(2,2,1) = log10(taui(kL,mU,lU,eL))
+            tauMLE(2,2,2) = log10(taui(kL,mU,lU,eU))
         else
             dK = Kpi(kU)-Kpi(kL)
             wK = (Kpx-Kpi(kL))/dK
-            tauKMLE(1,1,1,1) = taui(kL,mL,lL,eL)
-            tauKMLE(2,1,1,1) = taui(kU,mL,lL,eL)            
+            tauKMLE(1,1,1,1) = log10(taui(kL,mL,lL,eL))
+            tauKMLE(2,1,1,1) = log10(taui(kU,mL,lL,eL))
             tauMLE(1,1,1) = tauKMLE(1,1,1,1) + wK*(tauKMLE(2,1,1,1)-tauKMLE(1,1,1,1))
-            tauKMLE(1,1,1,2) = taui(kL,mL,lL,eU)
-            tauKMLE(2,1,1,2) = taui(kU,mL,lL,eU)
+            tauKMLE(1,1,1,2) = log10(taui(kL,mL,lL,eU))
+            tauKMLE(2,1,1,2) = log10(taui(kU,mL,lL,eU))
             tauMLE(1,1,2) = tauKMLE(1,1,1,2) + wK*(tauKMLE(2,1,1,2)-tauKMLE(1,1,1,2))
-            tauKMLE(1,1,2,1) = taui(kL,mL,lU,eL)
-            tauKMLE(2,1,2,1) = taui(kU,mL,lU,eL)
+            tauKMLE(1,1,2,1) = log10(taui(kL,mL,lU,eL))
+            tauKMLE(2,1,2,1) = log10(taui(kU,mL,lU,eL))
             tauMLE(1,2,1) = tauKMLE(1,1,2,1) + wK*(tauKMLE(2,1,2,1)-tauKMLE(1,1,2,1))
-            tauKMLE(1,1,2,2) = taui(kL,mL,lU,eU)
-            tauKMLE(2,1,2,2) = taui(kU,mL,lU,eU)
+            tauKMLE(1,1,2,2) = log10(taui(kL,mL,lU,eU))
+            tauKMLE(2,1,2,2) = log10(taui(kU,mL,lU,eU))
             tauMLE(1,2,2) = tauKMLE(1,1,2,2) + wK*(tauKMLE(2,1,2,2)-tauKMLE(1,1,2,2))
-            tauKMLE(1,2,1,1) = taui(kL,mU,lL,eL)
-            tauKMLE(2,2,1,1) = taui(kU,mU,lL,eL)
+            tauKMLE(1,2,1,1) = log10(taui(kL,mU,lL,eL))
+            tauKMLE(2,2,1,1) = log10(taui(kU,mU,lL,eL))
             tauMLE(2,1,1) = tauKMLE(1,2,1,1) + wK*(tauKMLE(2,2,1,1)-tauKMLE(1,2,1,1))
-            tauKMLE(1,2,1,2) = taui(kL,mU,lL,eU)
-            tauKMLE(2,2,1,2) = taui(kU,mU,lL,eU)
+            tauKMLE(1,2,1,2) = log10(taui(kL,mU,lL,eU))
+            tauKMLE(2,2,1,2) = log10(taui(kU,mU,lL,eU))
             tauMLE(2,1,2) = tauKMLE(1,2,1,2) + wK*(tauKMLE(2,2,1,2)-tauKMLE(1,2,1,2))
-            tauKMLE(1,2,2,1) = taui(kL,mU,lU,eL)
-            tauKMLE(2,2,2,1) = taui(kU,mU,lU,eL)
+            tauKMLE(1,2,2,1) = log10(taui(kL,mU,lU,eL))
+            tauKMLE(2,2,2,1) = log10(taui(kU,mU,lU,eL))
             tauMLE(2,2,1) = tauKMLE(1,2,2,1) + wK*(tauKMLE(2,2,2,1)-tauKMLE(1,2,2,1))
-            tauKMLE(1,2,2,2) = taui(kL,mU,lU,eU)
-            tauKMLE(2,2,2,2) = taui(kU,mU,lU,eU)
+            tauKMLE(1,2,2,2) = log10(taui(kL,mU,lU,eU))
+            tauKMLE(2,2,2,2) = log10(taui(kU,mU,lU,eU))
             tauMLE(2,2,2) = tauKMLE(1,2,2,2) + wK*(tauKMLE(2,2,2,2)-tauKMLE(1,2,2,2))
         end if
 
         ! linear interpolation in mlt
-        if (isMax(2) .or. isMin(2)) then
-            ! In this case, degenerate in MLT dimension 
+        if (mL == mU) then
             tauLE(1,1) = tauMLE(2,1,1)
             tauLE(1,2) = tauMLE(2,1,2)
             tauLE(2,1) = tauMLE(2,2,1)
@@ -298,37 +276,37 @@ MODULE lossutils
             tauLE(1,1) = tauMLE(1,1,1) + wM*(tauMLE(2,1,1)-tauMLE(1,1,1))
             tauLE(1,2) = tauMLE(1,1,2) + wM*(tauMLE(2,1,2)-tauMLE(1,1,2))
             tauLE(2,1) = tauMLE(1,2,1) + wM*(tauMLE(2,2,1)-tauMLE(1,2,1))
-            tauLE(2,2) = tauMLE(1,2,2) + wM*(tauMLE(2,2,2)-tauMLE(1,2,2))            
+            tauLE(2,2) = tauMLE(1,2,2) + wM*(tauMLE(2,2,2)-tauMLE(1,2,2))
         end if
-        
+
         ! linear interpolation in L
-        if (isMax(3) .or. isMin(3)) then 
-            ! In this case, degenerate in L dimension 
+        if (lL == lU) then
             tauE(1) = tauLE(2,1)
             tauE(2) = tauLE(2,2)
-            if (isMax(3)) then ! use gaussian decay for L > maxval(Li) (7Re)
+            if (Lflag) then ! use gaussian decay for L > maxval(Li) (7Re)
                tauE(1)=tauE(1)/exp(-(Lx-maxval(Li))**2)
                tauE(2)=tauE(2)/exp(-(Lx-maxval(Li))**2)
-            endif  
+            endif
         else
             dL = Li(lU)-Li(lL)
             wL = (Lx-Li(lL))/dL
             tauE(1) = tauLE(1,1)+ wL*(tauLE(2,1)-tauLE(1,1))
             tauE(2) = tauLE(1,2)+ wL*(tauLE(2,2)-tauLE(1,2))
-        end if 
-        
+        end if
+
         ! linear interpolation in Ek
-        if (isMax(4)) then 
-            ! In this case, degenerate in Ek dimension 
+        if (eL == eU) then
             tau = tauE(1)
         else
             dE = Eki(eU)-Eki(eL)
-            wE = (Ekx-Eki(eL))/dE 
-            tau = tauE(1) + wE*(tauE(2)-tauE(1))    
-        end if 
+            wE = (Ekx-Eki(eL))/dE
+            tau = tauE(1) + wE*(tauE(2)-tauE(1))
+        end if
+
+        tau = 10.0**tau !convert back to tau in seconds
+
         end associate
-            tau = 10.**tau ! in seconds
- 
+
     END FUNCTION RatefnDW_tau_c
 
 
