@@ -25,8 +25,7 @@ default_runid = "bw3d"
 
 # Program description.
 description = (
-    "Perform sample computations on the results of the %s example." %
-    default_runid
+    "Perform sample computations on the results of the bw3d quickstart case."
 )
 
 
@@ -46,19 +45,20 @@ def create_command_line_parser():
     """
     parser = argparse.ArgumentParser(description=description)
     parser.add_argument(
-        "-d", "--debug", action="store_true", default=False,
+        "--debug", "-d", action="store_true", default=False,
         help="Print debugging output (default: %(default)s)."
     )
     parser.add_argument(
         "--directory", type=str, metavar="directory", default=os.getcwd(),
-        help="Directory to contain files generated for the run (default: %(default)s)"
+        help="Directory to contain files generated for the run "
+             "(default: %(default)s)"
     )
     parser.add_argument(
         "--runid", type=str, metavar="runid", default=default_runid,
         help="ID string of the run (default: %(default)s)"
     )
     parser.add_argument(
-        "-v", "--verbose", action="store_true", default=False,
+        "--verbose", "-v", action="store_true", default=False,
         help="Print verbose output (default: %(default)s)."
     )
     return parser
@@ -109,7 +109,7 @@ def compute_asymmetry_metric(directory, runid):
     return asymmetry_metric_first, asymmetry_metric_last
 
 
-if __name__ == "__main__":
+def main():
     """Begin main program."""
 
     # Set up the command-line parser.
@@ -129,5 +129,10 @@ if __name__ == "__main__":
         compute_asymmetry_metric(directory, runid)
     )
     print("Asymmetry metric (SUM(ABS(Pb - Pb.T)*dV), code units):")
-    print("At start: %s" % asymmetry_metric_first)
-    print("At end: %s" % asymmetry_metric_last)
+    print(f"At start: {asymmetry_metric_first}")
+    print(f"At end: {asymmetry_metric_last}")
+
+
+if __name__ == "__main__":
+    """Begin main program."""
+    main()

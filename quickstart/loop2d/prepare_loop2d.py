@@ -193,7 +193,7 @@ def create_pbs_job_script(directory, runid):
     return pbs_file
 
 
-if __name__ == "__main__":
+def main():
     """Begin main program."""
 
     # Set up the command-line parser.
@@ -235,3 +235,7 @@ if __name__ == "__main__":
         print("Submit the job to PBS with the command:")
         print(f"    qsub {pbs_file}")
   
+
+if __name__ == "__main__":
+    """Begin main program."""
+    main()

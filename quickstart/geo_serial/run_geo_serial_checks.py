@@ -26,7 +26,7 @@ default_runid = "geo_serial"
 
 # Program description.
 description = (
-    "Perform sample computations on the gamera %s test case." % default_runid
+    "Perform sample computations on the gamera geo_serial quickstart case."
 )
 
     
@@ -43,10 +43,14 @@ def create_command_line_parser():
     -------
     parser : argparse.ArgumentParser
         Command-line argument parser for this script.
+
+    Raises
+    ------
+    None
     """
     parser = argparse.ArgumentParser(description=description)
     parser.add_argument(
-        "-d", "--debug", action="store_true", default=False,
+        "--debug", "-d", action="store_true", default=False,
         help="Print debugging output (default: %(default)s)."
     )
     parser.add_argument(
@@ -58,7 +62,7 @@ def create_command_line_parser():
         help="ID string of the run (default: %(default)s)"
     )
     parser.add_argument(
-        "-v", "--verbose", action="store_true", default=False,
+        "--verbose", "-v", action="store_true", default=False,
         help="Print verbose output (default: %(default)s)."
     )
     return parser
@@ -81,6 +85,10 @@ def compute_volume_integrated_magnetic_pressure(directory, runid):
     -------
     Pb_integrated_first, Pb_integrated_last : float
         Volume-integrated magnetic pressure for first and last steps.
+
+    Raises
+    ------
+    None
     """
     # Open a pipe to the data file.
     data_pipe = gampp.GameraPipe(directory, runid, doVerbose=False)
@@ -107,7 +115,7 @@ def compute_volume_integrated_magnetic_pressure(directory, runid):
     return Pb_integrated_first, Pb_integrated_last
 
 
-if __name__ == "__main__":
+def main():
     """Begin main program."""
 
     # Set up the command-line parser.
@@ -119,12 +127,17 @@ if __name__ == "__main__":
     directory = args.directory
     runid = args.runid
     verbose = args.verbose
+    if debug:
+        print(f"args = {args}")
 
     # Compute the volume-integrated magnetic pressure.
     if verbose:
         print("Computing volume-integrated magnetic pressure.")
     PbV1, PbV2 = compute_volume_integrated_magnetic_pressure(directory, runid)
-    if verbose:
-        print("Volume-integrated magnetic pressure (SUM(Pb*dV), code units):")
-        print("At start: %s" % PbV1)
-        print("At end: %s" % PbV2)
+    print("Volume-integrated magnetic pressure (SUM(Pb*dV), code units):")
+    print(f"At start: {PbV1}")
+    print(f"At end: {PbV2}")
+
+
+if __name__ == "__main__":
+    """Begin main program."""

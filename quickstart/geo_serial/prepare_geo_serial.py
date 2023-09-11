@@ -26,18 +26,18 @@ import subprocess
 default_runid = "geo_serial"
 
 # Program description.
-description = "Prepare to run serial kaiju on the %s quickstart case." % default_runid
+description = "Prepare to run serial kaiju on the geo_serial quickstart case."
 
 # Location of template .ini file for run.
 ini_template = os.path.join(
-    os.environ["KAIJUHOME"], "quickstart", default_runid, "%s_template.ini"
-    % default_runid
+    os.environ["KAIJUHOME"], "quickstart", "geo_serial",
+    "geo_serial_template.ini"
 )
 
 # Location of template PBS script for run.
 pbs_template = os.path.join(
-    os.environ["KAIJUHOME"], "quickstart", default_runid, "%s_template.pbs"
-    % default_runid
+    os.environ["KAIJUHOME"], "quickstart", "geo_serial",
+    "geo_serial_template.pbs"
 )
 
 # Name of HDF5 file containing solar wind data for initial conditions.
@@ -57,15 +57,20 @@ def create_command_line_parser():
     -------
     parser : argparse.ArgumentParser
         Parser for command-line arguments.
+
+    Raises
+    ------
+    None
     """
     parser = argparse.ArgumentParser(description=description)
     parser.add_argument(
-        "-d", "--debug", action="store_true", default=False,
+        "--debug", "-d", action="store_true", default=False,
         help="Print debugging output (default: %(default)s)."
     )
     parser.add_argument(
         "--directory", type=str, metavar="directory", default=os.getcwd(),
-        help="Directory to contain files generated for the run (default: %(default)s)"
+        help="Directory to contain files generated for the run "
+             "(default: %(default)s)"
     )
     parser.add_argument(
         "--runid", type=str, metavar="runid", default=default_runid,
@@ -73,7 +78,8 @@ def create_command_line_parser():
     )
     parser.add_argument(
         "--startdate", type=str, default="2016-08-09T09:00:00",
-        help="Specify the start date in ISO 8601 format (default: %(default)s)."
+        help="Specify the start date in ISO 8601 format "
+             "(default: %(default)s)."
     )
     parser.add_argument(
         "--stopdate", type=str, default="2016-08-09T10:00:00",
@@ -86,7 +92,7 @@ def create_command_line_parser():
             "limits of this file."
     )
     parser.add_argument(
-        "-v", "--verbose", action="store_true", default=False,
+        "--verbose", "-v", action="store_true", default=False,
         help="Print verbose output (default: %(default)s)."
     )
     return parser
@@ -113,6 +119,10 @@ def run_preprocessing_steps(directory, runid, startdate, stopdate, swfile=None):
     Returns
     -------
     None
+
+    Raises
+    ------
+    None
     """
     # Save the current directory.
     original_directory = os.getcwd()
@@ -122,8 +132,8 @@ def run_preprocessing_steps(directory, runid, startdate, stopdate, swfile=None):
 
     # Create the grid file using "double" resolution.
     cmd = "genLFM.py"
-    args = ["-gid", "D"]
-    subprocess.run([cmd] + args)
+    args = [cmd, "-gid", "D"]
+    subprocess.run(args, check=True)
 
     # Create or copy the solar wind file.
     if swfile is not None:
@@ -132,13 +142,13 @@ def run_preprocessing_steps(directory, runid, startdate, stopdate, swfile=None):
     else:
         # Fetch data from CDAWeb.
         cmd = "cda2wind.py"
-        args = ["-t0", startdate, "-t1", stopdate, "-interp"]
-        subprocess.run([cmd] + args)
+        args = [cmd, "-t0", startdate, "-t1", stopdate, "-interp"]
+        subprocess.run(args, check=True)
 
     # Create the RCM configuration file.
     cmd = "genRCM.py"
-    args = []
-    subprocess.run([cmd] + args)
+    args = [cmd]
+    subprocess.run(args, check=True)
 
     # Move back to the original directory.
     os.chdir(original_directory)
@@ -161,6 +171,9 @@ def create_ini_file(directory, runid):
     ini_file : str
         Path to .ini file.
 
+    Raises
+    ------
+    None
     """
     # Read the file template.
     with open(ini_template) as t:
@@ -169,7 +182,7 @@ def create_ini_file(directory, runid):
     # Process the template here.
 
     # Write the processed .ini file to the run directory.
-    ini_file = os.path.join(directory, "%s.ini" % runid)
+    ini_file = os.path.join(directory, f"{runid}.ini")
     with open(ini_file, "w") as f:
         f.writelines(lines)
     return ini_file
@@ -192,8 +205,8 @@ def convert_ini_to_xml(ini_file, xml_file):
     None
     """
     cmd = "XMLGenerator.py"
-    args = [ini_file, xml_file]
-    subprocess.run([cmd] + args)
+    args = [cmd, ini_file, xml_file]
+    subprocess.run(args, check=True)
 
 
 def create_pbs_job_script(directory, runid):
@@ -220,13 +233,13 @@ def create_pbs_job_script(directory, runid):
     # Process the template here.
 
     # Write out the processed file.
-    pbs_file = os.path.join(directory, "%s.pbs" % runid)
+    pbs_file = os.path.join(directory, f"{runid}.pbs")
     with open(pbs_file, "w") as f:
         f.writelines(lines)
     return pbs_file
 
 
-if __name__ == "__main__":
+def main():
     """Begin main program."""
 
     # Set up the command-line parser.
@@ -241,6 +254,8 @@ if __name__ == "__main__":
     stopdate = args.stopdate
     swfile = args.swfile
     verbose = args.verbose
+    if debug:
+        print(f"args = {args}")
 
     # Run the preprocessing steps.
     if verbose:
@@ -255,7 +270,7 @@ if __name__ == "__main__":
     # Convert the .ini file to a .xml file.
     if verbose:
         print("Converting .ini file to .xml file for run.")
-    xml_file = os.path.join(directory, "%s.xml" % runid)
+    xml_file = os.path.join(directory, f"{runid}.xml")
     convert_ini_to_xml(ini_file, xml_file)
 
     # Create the PBS job script.
@@ -263,8 +278,13 @@ if __name__ == "__main__":
         print("Creating PBS job script for run.")
     pbs_file = create_pbs_job_script(directory, runid)
     if verbose:
-        print("The PBS job script %s is ready." % pbs_file)
-        print("Edit this file as needed for your system (see comments in %s"
-              " for more information)." % pbs_file)
+        print(f"The PBS job script {pbs_file} is ready.")
+        print("Edit this file as needed for your system "
+              "(see comments in the file for more information).")
         print("Submit the job to PBS with the command:")
-        print("    qsub %s" % pbs_file)
+        print(f"    qsub {pbs_file}")
+
+
+if __name__ == "__main__":
+    """Begin main program."""
+    main()

@@ -33,7 +33,7 @@ import kaipy.gamera.gampp as gampp
 default_runid = "bw3d"
 
 # Program description.
-description = "Create a quick-look plot for the %s example." % default_runid
+description = "Create a quick-look plot for the bw3d example."
 
 # Some RGB colors
 light_grey = (0.5, 0.5, 0.5)
@@ -56,7 +56,7 @@ def create_command_line_parser():
     """
     parser = argparse.ArgumentParser(description=description)
     parser.add_argument(
-        "-d", "--debug", action="store_true", default=False,
+        "--debug", "-d", action="store_true", default=False,
         help="Print debugging output (default: %(default)s)."
     )
     parser.add_argument(
@@ -68,11 +68,11 @@ def create_command_line_parser():
         help="Run ID of data (default: %(default)s)"
     )
     parser.add_argument(
-        "-s", "--step", type=int, metavar="step", default=7,
+        "--step", "-s", type=int, metavar="step", default=7,
         help="Step to use for second plot (default: %(default)s)"
     )
     parser.add_argument(
-        "-v", "--verbose", action="store_true", default=False,
+        "--verbose", "-v", action="store_true", default=False,
         help="Print verbose output (default: %(default)s)."
     )
     return parser
@@ -119,7 +119,7 @@ def determine_mpi_grid_shape(directory, runid):
     return (nx, ny, nz)
 
 
-def create_quicklook_plot(directory, runid):
+def create_quicklook_plot(directory, runid, step):
     """Create the quicklook plot for the run.
 
     Create the quicklook plot for the run.
@@ -224,24 +224,24 @@ def create_quicklook_plot(directory, runid):
         axes[1].axvline(x, linestyle="--", linewidth=0.5, color=light_grey)
     for y in mpi_tiles_y[1:-1]:
         axes[1].axhline(y, linestyle="--", linewidth=0.5, color=light_grey)
-    axes[1].text(0.5, 0.4, "Step %s" % step, color="white")
+    axes[1].text(0.5, 0.4, f"Step {step}", color="white")
 
     # Show the shared colorbar.
     fig.subplots_adjust(right=0.8)
     cbar_ax = fig.add_axes([0.85, 0.15, 0.05, 0.7])
-    fig.colorbar(values, cax=cbar_ax, label="%s [%s]" % ("Pressure", units))
+    fig.colorbar(values, cax=cbar_ax, label="Pressure [{units}]")
 
     # Set the plot title.
-    plt.suptitle("Pressure at start and step %s for %s" % (step, runid))
+    plt.suptitle(f"Pressure at start and step {step} for {runid}")
 
     # Save the quicklook plot.
-    figure_file_name = "%s_quicklook.png" % (runid)
+    figure_file_name = f"{runid}_quicklook.png"
     plt.savefig(figure_file_name)
 
     return figure_file_name
 
 
-if __name__ == "__main__":
+def main():
     """Begin main program."""
 
     # Set up the command-line parser.
@@ -257,6 +257,11 @@ if __name__ == "__main__":
 
     if verbose:
         print("Creating quicklook plot.")
-    quicklook_file = create_quicklook_plot(directory, runid)
+    quicklook_file = create_quicklook_plot(directory, runid, step)
     if verbose:
-        print("The quicklook plot is in %s." % quicklook_file)
+        print(f"The quicklook plot is in {quicklook_file}.")
+
+
+if __name__ == "__main__":
+    """Begin main program."""
+    main()

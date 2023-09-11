@@ -119,8 +119,9 @@ export RUNID=$PBS_JOBNAME
 module purge
 
 # For pleiades/electra:
-module load pkgsrc/2021Q2
-module load comp-intel/2020.4.304
+module load nas
+module load pkgsrc/2022Q1-rome  # For git-lfs and cmake
+module load comp-intel/2020.4.304  # Latest version
 module load mpi-hpe/mpt.2.23
 module load hdf5/1.8.18_mpt
 

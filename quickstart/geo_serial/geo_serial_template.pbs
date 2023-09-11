@@ -96,7 +96,12 @@ echo "Job $PBS_JOBID started at `date` on `hostname`."
 # directive near the top of this file.
 export RUNID=$PBS_JOBNAME
 
+#------------------------------------------------------------------------------
+# START OF MODULE DIRECTIVES
+#------------------------------------------------------------------------------
+
 # Load the required modules for serial kaiju.
+
 # NOTE: pleiades and electra do not have the "module restore" facility
 # found on cheyenne. The modules must be explicitly loaded each time
 # they are needed.
@@ -109,8 +114,9 @@ export RUNID=$PBS_JOBNAME
 module purge
 
 # For pleiades/electra:
-module load pkgsrc/2021Q2
-module load comp-intel/2020.4.304
+module load nas
+module load pkgsrc/2022Q1-rome     # For git-lfs and cmake
+module load comp-intel/2020.4.304  # Latest version
 module load hdf5/1.8.18_serial
 
 # For cheyenne:
@@ -124,6 +130,10 @@ module load hdf5/1.8.18_serial
 
 echo "The following modules are loaded:"
 module list
+
+#------------------------------------------------------------------------------
+# END OF MODULE DIRECTIVES
+#------------------------------------------------------------------------------
 
 # Define the kaiju installation location.
 # NOTE: You MUST set this variable to the path to your kaiju directory, which

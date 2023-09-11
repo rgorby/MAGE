@@ -151,7 +151,7 @@ def create_quicklook_plot(directory, runid):
     return figure_file_name
 
 
-if __name__ == "__main__":
+def main():
     """Begin main program."""
 
     # Set up the command-line parser.
@@ -171,3 +171,8 @@ if __name__ == "__main__":
     quicklook_file = create_quicklook_plot(directory, runid)
     if verbose:
         print(f"The quicklook plot is in {quicklook_file}")
+
+
+if __name__ == "__main__":
+    """Begin main program."""
+    main()
