@@ -174,13 +174,37 @@ export OMP_STACKSIZE=100M
 echo "The active environment variables are:"
 printenv
 
+# Copy the node list file.
+cp $PBS_NODEFILE ./nodes.dat
+
 # Run the model. Direct output from the program is saved in a text file.
 EXE=gamera_mpi.x
 echo "Running $EXE on model $RUNID."
-# The omplace tool is used to ensure efficient pinning of MPI ranks and OMP
-# threads to appropriate sockets and cores. If you omit omplace, your job
-# will still run, but it probably be an order of magnitude slower than it
+
+# NOTE: The omplace tool is part of the MPT implementation of MPI. It
+# is used to ensure efficient pinning of MPI ranks and OMP threads to
+# appropriate sockets and cores. If you omit omplace, your job will
+# still run, but it probably be an order of magnitude slower than it
 # would be when using omplace.
-mpiexec omplace $EXE $RUNID.xml >& ${EXE}.${RUNID}.out
+
+# HOWEVER, omplace only works correctly when all compute nodes take
+# the same number of MPI ranks and OMP threads. When the rank/thread
+# distribution is not even, the correctOMPenvironment.sh script
+# updates the behavior of omplace to produce the correct distribution
+# of ranks and threads.
+
+# On derecho, the MPT implementation of MPI is not used, and so the
+# omplace tool is not available. The pinCpuCores.sh script performs
+# the same function on derecho that correctOMPenvironment.sh and
+# omplace perform on pleiades and cheyenne.
+
+# pleiades
+mpiexec correctOMPenvironment.sh nodes.dat omplace $EXE $RUNID.xml >& ${EXE}.${RUNID}.out
+
+# cheyenne
+# mpiexec correctOMPenvironment.sh nodes.dat omplace $EXE $RUNID.xml >& ${EXE}.${RUNID}.out
+
+# derecho
+# mpiexec pinCpuCores.sh $EXE $RUNID.xml >& ${EXE}.${RUNID}.out
 
 echo "Job $PBS_JOBID ended at `date` on `hostname`."

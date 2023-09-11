@@ -1,11 +1,10 @@
 #!/usr/bin/env python
 
 
-"""Prepare for running MPI kaiju on the helio_mpi example.
+"""Prepare to run MPI kaiju on the helio_mpi quickstart case.
 
-Perform the preprocessing required to run the MPI kaiju code on the helio_mpi
-example. Create any required data files, and create the PBS script to run
-the code.
+Prepare to run MPI kaiju on the helio_mpi quickstart case. Perform any
+required preprocessing steps, and create the PBS script to run the code.
 """
 
 
@@ -21,28 +20,33 @@ import subprocess
 
 # Program constants and defaults
 
-# Default identifier for model to run.
+# Default identifier for run.
 default_runid = "helio_mpi"
 
 # Program description.
-description = "Prepare to run MPI kaiju on the %s model." % default_runid
+description = "Prepare to run MPI kaiju on the helio_mpi quickstart case."
 
 # Location of template .ini file.
 ini_template = os.path.join(
-    os.environ["KAIJUHOME"], "quickstart", default_runid, "%s_template.ini"
-    % default_runid
+    os.environ["KAIJUHOME"], "quickstart", "helio_mpi", "helio_mpi_template.ini"
 )
 
 # Location of template PBS script.
 pbs_template = os.path.join(
-    os.environ["KAIJUHOME"], "quickstart", default_runid, "%s_template.pbs"
-    % default_runid
+    os.environ["KAIJUHOME"], "quickstart", "helio_mpi",
+    "helio_mpi_template.pbs"
 )
 
 # Location of default .ini file for wsa2gamera.py.
 default_wsa2gamera_ini_path = os.path.join(
     os.environ["KAIJUHOME"], "kaipy", "gamhelio", "ConfigScripts",
     "startup.config"
+)
+
+# Location of default FITS file for wsa2gamera.py.
+wsa2gamera_fits_path = os.path.join(
+    os.environ["KAIJUHOME"], "quickstart", "helio_mpi",
+    "vel_201708132000R002_ahmi.fits"
 )
 
 
@@ -62,7 +66,7 @@ def create_command_line_parser():
     """
     parser = argparse.ArgumentParser(description=description)
     parser.add_argument(
-        "-d", "--debug", action="store_true", default=False,
+        "--debug", "-d", action="store_true", default=False,
         help="Print debugging output (default: %(default)s)."
     )
     parser.add_argument(
@@ -78,7 +82,7 @@ def create_command_line_parser():
         help="ID string of the run (default: %(default)s)"
     )
     parser.add_argument(
-        "-v", "--verbose", action="store_true", default=False,
+        "--verbose", "-v", action="store_true", default=False,
         help="Print verbose output (default: %(default)s)."
     )
     return parser
@@ -206,6 +210,8 @@ if __name__ == "__main__":
 
     # Parse the command-line arguments.
     args = parser.parse_args()
+    if debug:
+        print(f"args = {args}")
     debug = args.debug
     directory = args.directory
     ini_path = args.ini
