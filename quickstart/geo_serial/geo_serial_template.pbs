@@ -49,7 +49,7 @@
 # System-specific PBS directives
 
 # In the lines below, uncomment the set of PBS directives appropriate for your
-# system, and comment out others set. The default is pleades.
+# system, and comment out other sets. The default is pleiades.
 
 #-----------------------------------------------------------------------------
 
@@ -155,10 +155,11 @@ export KAIJU_INSTALL_DIR=$HOME/kaiju
 source $KAIJU_INSTALL_DIR/scripts/setupEnvironment.sh
 
 # Add the kaiju binary directory to the command path.
-# NOTE: You *must* set this variable to the path to the bin subdirectory of
-# your kaiju build directory. The setting below assumes that the serial version
-# of kaiju was built in the build_serial subdirectory of the kaiju home
-# directory (which is typically the same as KAIJU_INSTALL_DIR).
+# NOTE: You *must* set this variable to the path to the bin
+# subdirectory of your kaiju build directory. The setting below
+# assumes that the serial version of kaiju was built in the
+# build_serial subdirectory of the kaiju home directory (which is
+# typically the same as KAIJU_INSTALL_DIR).
 export PATH=$KAIJUHOME/build_serial/bin:$PATH
 
 # Set the OMP stack size to prevent a crash.

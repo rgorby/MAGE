@@ -153,7 +153,7 @@ def convert_ini_to_xml(ini_file):
     Returns
     -------
     xml_file : str
-        Path to .xml file to create.
+        Path to .xml just-created XML file.
 
     Raises
     ------

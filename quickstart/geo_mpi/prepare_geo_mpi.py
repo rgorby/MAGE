@@ -230,7 +230,7 @@ if __name__ == "__main__":
 
     # Parse the command-line arguments.
     args = parser.parse_args()
-    if debug:
+    if args.debug:
         print(f"args = {args}")
     debug = args.debug
     directory = args.directory

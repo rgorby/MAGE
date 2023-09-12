@@ -49,7 +49,7 @@
 # System-specific PBS directives
 
 # In the lines below, uncomment the set of PBS directives appropriate for your
-# system, and comment out others set. The default is pleades.
+# system, and comment out other sets. The default is pleiades.
 
 #-----------------------------------------------------------------------------
 
