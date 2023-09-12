@@ -20,7 +20,7 @@ import subprocess
 # Program constants and defaults
 
 # Default identifier for model to run,
-default_runid = "geo_serial"
+runid = "geo_serial"
 
 # Program description.
 description = "Create a quick-look plot for the geo_serial quickstart case."
@@ -50,31 +50,20 @@ def create_command_line_parser():
         help="Print debugging output (default: %(default)s)."
     )
     parser.add_argument(
-        "--directory", type=str, metavar="directory", default=os.getcwd(),
-        help="Directory containing data to read (default: %(default)s)"
-    )
-    parser.add_argument(
-        "--runid", type=str, metavar="runid", default=default_runid,
-        help="Run ID of data (default: %(default)s)"
-    )
-    parser.add_argument(
         "--verbose", "-v", action="store_true", default=False,
         help="Print verbose output (default: %(default)s)."
     )
     return parser
 
 
-def create_quicklook_plot(directory, runid):
+def create_quicklook_plot():
     """Create the quicklook plot for the run.
     
     Create the quicklook plot for the run.
     
     Parameters
     ----------
-    directory : str
-        Path to directory containing results.
-    runid : str
-        ID string for results to examine.
+    None
 
     Returns
     -------
@@ -85,21 +74,11 @@ def create_quicklook_plot(directory, runid):
     ------
     None
     """
-    # Save the starting directory.
-    initial_directory = os.getcwd()
-
-    # Move to the directory containing the results.
-    os.chdir(directory)
-
     # Run the quicklook plot generation script.
     cmd = "msphpic.py"
     args = [cmd, "-id", runid]
     subprocess.run(args, check=True)
-    figure_file_name = os.path.join(directory, "qkpic.png")
-
-    # Move back to the starting directory.
-    os.chdir(initial_directory)
-
+    figure_file_name = "qkpic.png"
     return figure_file_name
 
 
@@ -111,15 +90,13 @@ if __name__ == "__main__":
 
     # Parse the command-line arguments.
     args = parser.parse_args()
-    debug = args.debug
-    directory = args.directory
-    runid = args.runid
-    verbose = args.verbose
-    if debug:
+    if args.debug:
         print(f"args = {args}")
+    debug = args.debug
+    verbose = args.verbose
 
     if verbose:
         print("Creating quicklook plot.")
-    quicklook_file = create_quicklook_plot(directory, runid)
+    quicklook_file = create_quicklook_plot()
     if verbose:
         print(f"The quicklook plot is in {quicklook_file}.")

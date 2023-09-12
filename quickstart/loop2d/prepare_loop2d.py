@@ -28,12 +28,14 @@ description = "Prepare to run serial kaiju on the loop2d quickstart case."
 
 # Location of template .ini file.
 ini_template = os.path.join(
-    os.environ["KAIJUHOME"], "quickstart", "loop2d", "loop2d_template.ini"
+    os.environ["KAIJUHOME"], "quickstart", "loop2d",
+    "loop2d_template.ini"
 )
 
 # Location of template PBS script.
 pbs_template = os.path.join(
-    os.environ["KAIJUHOME"], "quickstart", "loop2d", "loop2d_template.pbs"
+    os.environ["KAIJUHOME"], "quickstart", "loop2d",
+    "loop2d_template.pbs"
 )
 
 

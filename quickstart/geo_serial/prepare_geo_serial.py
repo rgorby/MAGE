@@ -96,7 +96,7 @@ def run_preprocessing_steps():
     args = [cmd, "-gid", "D"]
     subprocess.run(args, check=True)
 
-    # Create the solar wind file.
+    # Create the solar wind file by fetching data from CDAWeb.
     cmd = "cda2wind.py"
     args = [cmd, "-t0", start_date, "-t1", stop_date, "-interp"]
     subprocess.run(args, check=True)
