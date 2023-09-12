@@ -1,9 +1,9 @@
 #!/usr/bin/env python
 
 
-"""Make a quick-look plot for the loop2d example run.
+"""Make a quicklook plot for the loop2d quickstart case.
 
-The quick-look plot displays the magnetic pressure:
+The quicklook plot displays the magnetic pressure:
 
 Pb = 0.5*(Bx**2 + By**2 + Bz**2)
 
@@ -25,11 +25,11 @@ import kaipy.gamera.gampp as gampp
 
 # Program constants and defaults
 
-# Default identifier for model to run,
-default_runid = "loop2d"
+# Default identifier for run.
+runid = "loop2d"
 
 # Program description.
-description = "Create a quick-look plot for the loop2d quickstart case."
+description = "Create a quicklook plot for the loop2d quickstart case."
 
 
 def create_command_line_parser():
@@ -56,31 +56,20 @@ def create_command_line_parser():
         help="Print debugging output (default: %(default)s)."
     )
     parser.add_argument(
-        "--directory", type=str, metavar="directory", default=os.getcwd(),
-        help="Directory containing data to read (default: %(default)s)"
-    )
-    parser.add_argument(
-        "--runid", type=str, metavar="runid", default=default_runid,
-        help="Run ID of data (default: %(default)s)"
-    )
-    parser.add_argument(
         "--verbose", "-v", action="store_true", default=False,
         help="Print verbose output (default: %(default)s)."
     )
     return parser
 
 
-def create_quicklook_plot(directory, runid):
-    """Create the quicklook plot for the loop2d run.
+def create_quicklook_plot():
+    """Create the quicklook plot for the loop2d quickstart case.
 
-    Create the quicklook plot for the loop2d run.
+    Create the quicklook plot for the loop2d quickstart case.
 
     Parameters
     ----------
-    directory : str
-        Path to directory containing results.
-    runid : str
-        ID string for results to examine.
+    None
 
     Returns
     -------
@@ -92,7 +81,7 @@ def create_quicklook_plot(directory, runid):
     None
     """
     # Open a pipe to the data file.
-    data_pipe = gampp.GameraPipe(directory, runid, doVerbose=False)
+    data_pipe = gampp.GameraPipe(".", runid, doVerbose=False)
 
     # Read the grid coordinates.
     X = data_pipe.X[...]
@@ -159,18 +148,16 @@ def main():
 
     # Parse the command-line arguments.
     args = parser.parse_args()
-    debug = args.debug
-    directory = args.directory
-    runid = args.runid
-    verbose = args.verbose
-    if debug:
+    if args.debug:
         print(f"args = {args}")
+    debug = args.debug
+    verbose = args.verbose
 
     if verbose:
         print("Creating quicklook plot.")
-    quicklook_file = create_quicklook_plot(directory, runid)
+    quicklook_file = create_quicklook_plot()
     if verbose:
-        print(f"The quicklook plot is in {quicklook_file}")
+        print(f"The quicklook plot is in {quicklook_file}.")
 
 
 if __name__ == "__main__":

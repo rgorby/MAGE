@@ -20,7 +20,7 @@ import subprocess
 
 # Program constants and defaults
 
-# Default identifier for run,
+# Default identifier for run.
 runid = "loop2d"
 
 # Program description.
@@ -57,11 +57,11 @@ def create_command_line_parser():
     """
     parser = argparse.ArgumentParser(description=description)
     parser.add_argument(
-        "--debug", "-d", action="store_true", default=False,
+        "--debug", "-d", action="store_true",
         help="Print debugging output (default: %(default)s)."
     )
     parser.add_argument(
-        "--verbose", "-v", action="store_true", default=False,
+        "--verbose", "-v", action="store_true",
         help="Print verbose output (default: %(default)s)."
     )
     return parser
