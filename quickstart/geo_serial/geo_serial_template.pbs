@@ -70,7 +70,7 @@
 
 #-----------------------------------------------------------------------------
 
-# For the cheyenne HPC system at UCAR:
+# For the cheyenne system at UCAR:
 
 # You *must* set the -A directive to your account number.
 ##PBS -A UJHB0015
@@ -167,7 +167,7 @@ export PATH=$KAIJUHOME/build_serial/bin:$PATH
 # OMP_STACKSIZE line and uncomment the KMP_STACKSIZE line. KMP_STACKSIZE is the
 # Intel-specific environment variable for setting the OMP stack size.
 # export OMP_STACKSIZE=128M
-export OMP_STACKSIZE=128M
+export KMP_STACKSIZE=128M
 
 echo "The active environment variables are:"
 printenv

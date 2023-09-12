@@ -41,7 +41,8 @@ pbs_template = os.path.join(
 
 # Location of .ini file for wsa2gamera.py.
 wsa2gamera_ini_path = os.path.join(
-    os.environ["KAIJUHOME"], "quickstart", "helio_serial", "startup.config"
+    os.environ["KAIJUHOME"], "quickstart", "helio_serial",
+    "startup.config"
 )
 
 # Location of FITS file for wsa2gamera.py.
