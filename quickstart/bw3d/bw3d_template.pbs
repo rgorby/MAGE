@@ -8,7 +8,7 @@
 
 # On pleiades, this job should run in roughly 9 minutes of wall-clock time.
 # On cheyenne, this job should run in roughly 5 minutes of wall-clock time.
-# On derecho, this job should run in roughly XX minutes of wall-clock time.
+# On derecho, this job should run in roughly 5 minutes of wall-clock time.
 
 # Example usage
 # qsub bw3d.pbs
@@ -27,6 +27,9 @@
 # 7. Uncomment the OMP_NUM_THREADS line for your system, comment out the others.
 # 8. Uncomment the placer_cmd definition and mpiexec lines for your system,
 #    comment out the others.
+# 9. (CRITICAL derecho-only hack) Add the following element to the end of the
+#    <GAMERA> element in bw3d.xml:
+#    <coupling blockHalo="T" />
 
 #------------------------------------------------------------------------------
 # START OF PBS DIRECTIVES
@@ -98,7 +101,7 @@
 
 # For the derecho system at UCAR:
 
-##PBS -A UJHB0015
+##PBS -A UJHB0019
 ##PBS -q main
 ##PBS -l select=4:ncpus=128:mpiprocs=2:ompthreads=64
 
