@@ -961,6 +961,8 @@ module mixconductance
             call conductance_rcmhd(conductance,G,St)
          case (RCMFED)
             call conductance_rcmfed(conductance,G,St)
+         case (LINMRG)
+            call conductance_linmrg(conductance,G,St)
          case default
             stop "The aurora precipitation model type entered is not supported."
       end select
