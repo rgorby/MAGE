@@ -23,7 +23,7 @@ module strings
             call get_command_argument(1,IDeckStr)
         endif
 
-        write(*,*) 'Reading input deck from ', trim(IDeckStr)
+        !write(*,*) 'Reading input deck from ', trim(IDeckStr)
         inquire(file=IDeckStr,exist=fExist)
         if (.not. fExist) then
             write(*,*) 'Error opening input deck, exiting ...'
