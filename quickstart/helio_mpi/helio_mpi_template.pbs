@@ -1,6 +1,6 @@
 #!/bin/bash
 
-# This PBS script illustrates how to run the "helio_mpi" quickstart case
+# This PBS script illustrates how to run the helio_mpi quickstart case
 # using the MPI version of the kaiju software.
 
 # The lines starting with "#PBS" are directives for the PBS job
@@ -11,9 +11,9 @@
 # On derecho, this job should run in roughly XX minutes of wall-clock time.
 
 # Example usage
-# qsub -v helio_mpi.pbs
+# qsub helio_mpi.pbs
 
-# IMPORTANT: You *must* make sure the KAIJU_INSTALL_DIR and PATH
+# IMPORTANT: You *must* make sure the kaiju_install_dir and PATH
 # variables are set properly for your build of the kaiju software. See
 # below for details.  On UCAR systems (cheyenne and derecho), you also
 # *must* set the -A directive (see below) to your own account ID.
@@ -54,13 +54,9 @@
 
 #-----------------------------------------------------------------------------
 
-# For the pleiades HPC system at NASA Ames HECC:
+# For the pleiades system at NASA Ames HECC:
 
-# Submit the job to the PBS queue called "normal". The queues on
-# pleiades have the following time limits: "low" (4 hours), "normal"
-# (8 hours), "long" (120 hours), "debug" (2 hours), "devel" (2
-# hours). For more information on pleiades queues, see:
-# https://www.nas.nasa.gov/hecc/support/kb/pbs-job-queue-structure_187.html
+# Submit the job to the PBS queue called "normal".
 #PBS -q normal
 
 # This is the line where you request specific resources from the PBS
@@ -87,7 +83,7 @@
 
 #-----------------------------------------------------------------------------
 
-# For the cheyenne HPC system at UCAR:
+# For the cheyenne system at UCAR:
 
 # Specify the user account under which the job should be run.
 # You *must* set the -A directive to your account number.
@@ -97,7 +93,7 @@
 
 #-----------------------------------------------------------------------------
 
-# For the derecho HPC system at UCAR:
+# For the derecho system at UCAR:
 
 # Specify the user account under which the job should be run.
 # You *must* set the -A directive to your account number.
@@ -114,7 +110,7 @@ echo "Job $PBS_JOBID started at `date` on `hostname`."
 # Specify the ID string for the run. This can be set to any desired string.
 # PBS_JOBNAME is used here as an example, as it is set by the #PBS -N
 # directive near the top of this file.
-export RUNID=$PBS_JOBNAME
+runid=$PBS_JOBNAME
 
 #------------------------------------------------------------------------------
 # START OF MODULE DIRECTIVES
@@ -169,17 +165,17 @@ module list
 # NOTE: You MUST set this variable to the path to your kaiju
 # directory, which is the top-level directory created when you cloned
 # the kaiju repository.
-export KAIJU_INSTALL_DIR=$HOME/kaiju
+kaiju_install_dir=$HOME/kaiju
 
 # This script sets KAIJUHOME and other environment variables.
-source $KAIJU_INSTALL_DIR/scripts/setupEnvironment.sh
+source $kaiju_install_dir/scripts/setupEnvironment.sh
 
 # Add the kaiju binary directory to the command path.
-# NOTE: You should set this variable to the path to the bin
+# NOTE: You *must* set this variable to the path to the bin
 # subdirectory of your kaiju build directory. The setting below
 # assumes that the MPI version of kaiju was built in the build_mpi
 # subdirectory of the kaiju home directory (which is typically the
-# same as KAIJU_INSTALL_DIR).
+# same as kaiju_install_dir).
 export PATH=$KAIJUHOME/build_mpi/bin:$PATH
 
 # Set the MPI_TYPE_DEPTH to 32.
@@ -194,21 +190,26 @@ export PATH=$KAIJUHOME/build_mpi/bin:$PATH
 export MPI_TYPE_DEPTH=32
 
 # Set the OMP stack size to prevent a crash.
-# If this setting is ignored, the model may cause the MPI kaiju code
-# to crash with a segmentation fault and core dump. The value of
-# "100M" was chosen ~arbitrarily; experimentation may allow a smaller
-# value to be used.
-export OMP_STACKSIZE=100M
+# If this setting is ignored, the model may cause the kaiju code to crash
+# with a segmentation fault and core dump. The value of "128M" was chosen
+# ~arbitrarily; experimentation may allow a smaller value to be used.
+# NOTE: OMP_STACKSIZE is the standard OpenMP environment variable for setting
+# the OMP stack size. If using the Intel compiler, comment out the
+# OMP_STACKSIZE line and uncomment the KMP_STACKSIZE line. KMP_STACKSIZE is the
+# Intel-specific environment variable for setting the OMP stack size.
+# export OMP_STACKSIZE=128M
+export KMP_STACKSIZE=128M
 
 echo "The active environment variables are:"
 printenv
 
-# Copy the node list file.
-cp $PBS_NODEFILE ./nodes.dat
+# Copy the node list file (needed by correctOMPenvironment.sh).
+nodefile=nodefile.$PBS_JOBID
+cp $PBS_NODEFILE $nodefile
 
 # Run the model. Direct output from the program is saved in a text file.
-EXE=gamhelio_mpi.x
-echo "Running $EXE on model $RUNID."
+exe=gamhelio_mpi.x
+echo "Running $exe on model $runid."
 
 # NOTE: The omplace tool is part of the MPT implementation of MPI. It
 # is used to ensure efficient pinning of MPI ranks and OMP threads to
@@ -231,15 +232,15 @@ echo "Running $EXE on model $RUNID."
 # on, and comment out the others.
 
 # pleiades
-placer_cmd="$KAIJUHOME/scripts/preproc/correctOMPenvironment.sh nodes.dat omplace"
-mpiexec $placer_cmd $EXE $RUNID.xml >& ${EXE}.${RUNID}.out
+placer_cmd="$KAIJUHOME/scripts/preproc/correctOMPenvironment.sh $nodefile omplace"
+mpiexec $placer_cmd $exe $runid.xml >& ${exe}.${runid}.out
 
 # cheyenne
-placer_cmd="$KAIJUHOME/scripts/preproc/correctOMPenvironment.sh nodes.dat omplace"
-# mpiexec $placer_cmd $EXE $RUNID.xml >& ${EXE}.${RUNID}.out
+# placer_cmd="$KAIJUHOME/scripts/preproc/correctOMPenvironment.sh $nodefile omplace"
+# mpiexec $placer_cmd $exe $runid.xml >& ${exe}.${runid}.out
 
 # derecho
-placer_cmd="$KAIJUHOME/scripts/preproc/pinCpuCores.sh"
-# mpiexec $placer_cmd $EXE $RUNID.xml >& ${EXE}.${RUNID}.out
+# placer_cmd="$KAIJUHOME/scripts/preproc/pinCpuCores.sh"
+# mpiexec $placer_cmd $exe $runid.xml >& ${exe}.${runid}.out
 
 echo "Job $PBS_JOBID ended at `date` on `hostname`."

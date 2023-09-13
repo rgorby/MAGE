@@ -28,12 +28,14 @@ description = "Prepare to run MPI kaiju on the bw3d quickstart case."
 
 # Location of template .ini file.
 ini_template = os.path.join(
-    os.environ["KAIJUHOME"], "quickstart", "bw3d", "bw3d_template.ini"
+    os.environ["KAIJUHOME"], "quickstart", "bw3d",
+    "bw3d_template.ini"
 )
 
 # Location of template PBS script.
 pbs_template = os.path.join(
-    os.environ["KAIJUHOME"], "quickstart", "bw3d", "bw3d_template.pbs"
+    os.environ["KAIJUHOME"], "quickstart", "bw3d",
+    "bw3d_template.pbs"
 )
 
 

@@ -1,7 +1,7 @@
 #!/usr/bin/env python
 
 
-"""Make a quick-look plot for the geo_mpi example run.
+"""Make a quick-look plot for the geo_mpi quickstart case.
 
 The quick-look plot is created by the msphpic.py script.
 """
@@ -20,10 +20,10 @@ import subprocess
 # Program constants and defaults
 
 # Default identifier for model to run,
-default_runid = "geo_mpi"
+runid = "geo_mpi"
 
 # Program description.
-description = "Create a quick-look plot for the %s example." % default_runid
+description = "Create a quick-look plot for the geo_mpi quicklook case."
 
 
 def create_command_line_parser():
@@ -39,63 +39,50 @@ def create_command_line_parser():
     -------
     parse : argparse.ArgumentParser
         Parser for command-line arguments.
+
+    Raises
+    ------
+    None
     """
     parser = argparse.ArgumentParser(description=description)
     parser.add_argument(
-        "-d", "--debug", action="store_true", default=False,
+        "--debug", "-d", action="store_true", default=False,
         help="Print debugging output (default: %(default)s)."
     )
     parser.add_argument(
-        "--directory", type=str, metavar="directory", default=os.getcwd(),
-        help="Directory containing data to read (default: %(default)s)"
-    )
-    parser.add_argument(
-        "--runid", type=str, metavar="runid", default=default_runid,
-        help="Run ID of data (default: %(default)s)"
-    )
-    parser.add_argument(
-        "-v", "--verbose", action="store_true", default=False,
+        "--verbose", "-v", action="store_true", default=False,
         help="Print verbose output (default: %(default)s)."
     )
     return parser
 
 
-def create_quicklook_plot(directory, runid):
+def create_quicklook_plot():
     """Create the quicklook plot for the run.
-
+    
     Create the quicklook plot for the run.
-
+    
     Parameters
     ----------
-    directory : str
-        Path to directory containing results.
-    runid : str
-        ID string for results to examine.
+    None
 
     Returns
     -------
     figure_file_name : str
         Path to quicklook plot file.
+
+    Raises
+    ------
+    None
     """
-    # Save the starting directory.
-    initial_directory = os.getcwd()
-
-    # Move to the directory containing the results.
-    os.chdir(directory)
-
     # Run the quicklook plot generation script.
     cmd = "msphpic.py"
-    args = ["-id", runid]
-    subprocess.run([cmd] + args)
-    figure_file_name = os.path.join(directory, "qkpic.png")
-
-    # Move back to the starting directory.
-    os.chdir(initial_directory)
-
+    args = [cmd, "-id", runid]
+    subprocess.run(args, check=True)
+    figure_file_name = "qkpic.png"
     return figure_file_name
 
 
-if __name__ == "__main__":
+def main():
     """Begin main program."""
 
     # Set up the command-line parser.
@@ -103,13 +90,18 @@ if __name__ == "__main__":
 
     # Parse the command-line arguments.
     args = parser.parse_args()
+    if args.debug:
+        print(f"args = {args}")
     debug = args.debug
-    directory = args.directory
-    runid = args.runid
     verbose = args.verbose
 
     if verbose:
         print("Creating quicklook plot.")
-    quicklook_file = create_quicklook_plot(directory, runid)
+    quicklook_file = create_quicklook_plot()
     if verbose:
-        print("The quicklook plot is in %s." % quicklook_file)
+        print(f"The quicklook plot is in {quicklook_file}.")
+
+
+if __name__ == "__main__":
+    """Begin main program."""
+    main()

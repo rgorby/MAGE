@@ -1,13 +1,13 @@
 #!/usr/bin/env python
 
 
-"""Make a quick-look plot for the bw3d example run.
+"""Make a quick-look plot for the bw3d quickstart case.
 
 The quick-look plot displays the magnetic pressure:
 
 Pb = 0.5*(Bx**2 + By**2 + Bz**2)
 
-from the first and nth steps in the HDF file, with an overlay of the
+from the first and 7th steps in the HDF file, with an overlay of the
 magnetic field lines.
 """
 
@@ -30,10 +30,10 @@ import kaipy.gamera.gampp as gampp
 # Program constants and defaults
 
 # Default identifier for model to run,
-default_runid = "bw3d"
+runid = "bw3d"
 
 # Program description.
-description = "Create a quick-look plot for the bw3d example."
+description = "Create a quick-look plot for the bw3d quickstart case."
 
 # Some RGB colors
 light_grey = (0.5, 0.5, 0.5)
@@ -53,23 +53,15 @@ def create_command_line_parser():
     -------
     parser : argparse.ArgumentParser
         Command-line argument parser for this script.
+
+    Raises
+    ------
+    None
     """
     parser = argparse.ArgumentParser(description=description)
     parser.add_argument(
         "--debug", "-d", action="store_true", default=False,
         help="Print debugging output (default: %(default)s)."
-    )
-    parser.add_argument(
-        "--directory", type=str, metavar="directory", default=os.getcwd(),
-        help="Directory containing data to read (default: %(default)s)"
-    )
-    parser.add_argument(
-        "--runid", type=str, metavar="runid", default=default_runid,
-        help="Run ID of data (default: %(default)s)"
-    )
-    parser.add_argument(
-        "--step", "-s", type=int, metavar="step", default=7,
-        help="Step to use for second plot (default: %(default)s)"
     )
     parser.add_argument(
         "--verbose", "-v", action="store_true", default=False,
@@ -78,26 +70,26 @@ def create_command_line_parser():
     return parser
 
 
-def determine_mpi_grid_shape(directory, runid):
+def determine_mpi_grid_shape():
     """Determine the shape of the MPI grid.
 
     Determine the numbers of planes, rows, and columns of the MPI grid.
 
     Parameters
     ----------
-    directory : str
-        Path to the directory containing the results.
-    runid : str
-        ID string for the run to examine.
+    None
 
     Returns
     -------
     nx, ny, nz : int
         Length of each dimension of the MPI grid.
-    """
 
+    Raises
+    ------
+    None
+    """
     # Get the path object for the data directory.
-    path = Path(directory)
+    path = Path(".")
 
     # Start with a null shape.
     nx = None
@@ -119,28 +111,29 @@ def determine_mpi_grid_shape(directory, runid):
     return (nx, ny, nz)
 
 
-def create_quicklook_plot(directory, runid, step):
+def create_quicklook_plot():
     """Create the quicklook plot for the run.
 
     Create the quicklook plot for the run.
 
     Parameters
     ----------
-    directory : str
-        Path to directory containing results.
-    runid : str
-        ID string for results to examine.
+    None
 
     Returns
     -------
     figure_file_name : str
         Path to quicklook plot file.
+
+    Raises
+    ------
+    None
     """
     # Determine the shape of the MPI grid.
-    (n_x, n_y, n_z) = determine_mpi_grid_shape(directory, runid)
+    (n_x, n_y, n_z) = determine_mpi_grid_shape()
 
     # Open a pipe to the data file.
-    data_pipe = gampp.GameraPipe(directory, runid, doVerbose=False)
+    data_pipe = gampp.GameraPipe(".", runid, doVerbose=False)
 
     # Find the layer closest to Z=0.
     Z = data_pipe.Z[...]
@@ -180,10 +173,11 @@ def create_quicklook_plot(directory, runid, step):
     mpi_tiles_x = np.linspace(X_min, X_max, n_x + 1)
     mpi_tiles_y = np.linspace(Y_min, Y_max, n_y + 1)
 
-    # Read the pressure and B-field components at the first and nth steps.
+    # Read the pressure and B-field components at the first and last steps.
     P_first = data_pipe.GetVar("P", data_pipe.s0, doVerb=False)[..., kz_0]
     Bx_first = data_pipe.GetVar("Bx", data_pipe.s0, doVerb=False)[..., kz_0]
     By_first = data_pipe.GetVar("By", data_pipe.s0, doVerb=False)[..., kz_0]
+    step = 7
     P_last = data_pipe.GetVar("P", step, doVerb=False)[..., kz_0]
     Bx_last = data_pipe.GetVar("Bx", step, doVerb=False)[..., kz_0]
     By_last = data_pipe.GetVar("By", step, doVerb=False)[..., kz_0]
@@ -211,7 +205,7 @@ def create_quicklook_plot(directory, runid, step):
         axes[0].axhline(y, linestyle="--", linewidth=0.5, color=light_grey)
     axes[0].text(0.5, 0.4, "Step 0", color="white")
 
-    # Plot the pressure and XY-plane B-field from the nth step,
+    # Plot the pressure and XY-plane B-field from the last step,
     # with MPI tiling.
     axes[1].set_aspect("equal")
     axes[1].set_xlabel("X")
@@ -249,15 +243,14 @@ def main():
 
     # Parse the command-line arguments.
     args = parser.parse_args()
+    if args.debug:
+        print(f"args = {args}")
     debug = args.debug
-    directory = args.directory
-    runid = args.runid
-    step = args.step
     verbose = args.verbose
 
     if verbose:
         print("Creating quicklook plot.")
-    quicklook_file = create_quicklook_plot(directory, runid, step)
+    quicklook_file = create_quicklook_plot()
     if verbose:
         print(f"The quicklook plot is in {quicklook_file}.")
 
