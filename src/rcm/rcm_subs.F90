@@ -2503,8 +2503,17 @@ SUBROUTINE Move_plasma_grid_MHD (dt,nstep)
         ENDIF
 
         eeta_avg(:,:,kc) = 0.0
-        eeta_avg(:,:,kc) = eeta_avg(:,:,kc) + eeta(:,:,kc)/(nstep+1)
-        !Sub-step nstep times
+        ! Just set eeta_avg to whatever eta is there, and leave
+        !! Note: Regions that have ever been outside of active domain will never have psph again, based on current implementation (2023-08-24)
+        if ( (kc==1) .and. dp_on == .false.) then  ! We are plasmasphere and we don't want to evolve it
+            eeta_avg(:,:,kc) = eeta(:,:,kc)
+            cycle
+        else  ! We are hot channel or we are evolving plasmasphere channel
+              ! Add current weighted eeta as first contribution
+            eeta_avg(:,:,kc) = eeta(:,:,kc)/(nstep+1)
+        endif
+        
+       !Sub-step nstep times
         do n=1,nstep
             !---
             !Tally precipitation losses
