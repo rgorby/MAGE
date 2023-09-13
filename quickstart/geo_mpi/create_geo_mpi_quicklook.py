@@ -58,9 +58,9 @@ def create_command_line_parser():
 
 def create_quicklook_plot():
     """Create the quicklook plot for the run.
-    
+
     Create the quicklook plot for the run.
-    
+
     Parameters
     ----------
     None

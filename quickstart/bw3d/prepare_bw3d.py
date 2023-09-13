@@ -3,8 +3,8 @@
 
 """Prepare to run MPI kaiju on the bw3d quickstart case.
 
-Prepare to run MPI kaiju on the bw3d quickstart case. Perform any
-required preprocessing steps, and create the PBS script to run the code.
+Prepare to run MPI kaiju on the bw3d quickstart case. Perform any required
+preprocessing steps, and create the PBS script to run the code.
 """
 
 

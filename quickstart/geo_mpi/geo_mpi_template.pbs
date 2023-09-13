@@ -1,22 +1,32 @@
 #!/bin/bash
 
-# This PBS script illustrates how to run the geo_mpi quickstart case
-# using the MPI version of the kaiju software.
+# This PBS script illustrates how to run the geo_mpi quickstart case using the
+# MPI version of the kaiju software.
 
-# The lines starting with "#PBS" are directives for the PBS job
-# control system, used on pleiades, cheyenne, and derecho.
+# The lines starting with "#PBS" are directives for the PBS job control system,
+# used on pleiades, cheyenne, and derecho.
 
 # On pleiades, this job should run in roughly 75 minutes of wall-clock time.
-# On cheyenne, this job should run in roughly XX minutes of wall-clock time.
+# On cheyenne, this job should run in roughly 42 minutes of wall-clock time.
 # On derecho, this job should run in roughly XX minutes of wall-clock time.
 
 # Example usage
 # qsub geo_mpi.pbs
 
-# IMPORTANT: You *must* make sure the kaiju_install_dir and PATH
-# variables are set properly for your build of the kaiju software. See
-# below for details.  On UCAR systems (cheyenne and derecho), you also
-# *must* set the -A directive (see below) to your own account ID.
+# IMPORTANT: You *must* do the following in the code below:
+# 1. Uncomment the #PBS lines for your system, comment out the #PBS lines
+#    specific to other systems. Keep the common #PBS lines.
+# 2. (cheyenne and derecho only) Set the #PBS -A directive to your own account.
+# 3. Uncomment the modules lines for your system, comment out the others.
+# 4. Set kaiju_install_dir to your local kaiju installation.
+# 5. Set PATH to include your bin subdirectory of the build subdirectory of
+#    your local kaiju installation.
+# 6. If using the Intel compiler, uncomment the setting for KMP_STACK_SIZE and
+#    comment out setting OMP_STACK_SIZE. If not using the Intel compiler, do
+#    the opposite - uncomment OMP_STACK_SIZE, comment out KMP_STACK_SIZE.
+# 7. Uncomment the OMP_NUM_THREADS line for your system, comment out the others.
+# 8. Uncomment the placer_cmd definition and mpiexec lines for your system,
+#    comment out the others.
 
 #------------------------------------------------------------------------------
 # START OF PBS DIRECTIVES
@@ -28,11 +38,10 @@
 # "qstat" output for this job.
 #PBS -N geo_mpi
 
-# Combine job script std(o)ut and std(e)rr into stdout. This combined
-# output will be saved in the file geo_mpi.oJOB_NUM, where JOB_NUM is
-# the PBS job number assigned when the job is submitted. Note that the
-# output from the kaiju software itself is captured in a separate file
-# (see below).
+# Combine job script std(o)ut and std(e)rr into stdout. This combined output
+# will be saved in the file bw3d.oJOB_NUM, where JOB_NUM is the PBS job number
+# assigned when the job is submitted. Note that the output from the kaiju
+# software itself is captured in a separate file (see below).
 #PBS -j oe
 
 # Request compute time on the allocated compute node(s). The format is
@@ -42,15 +51,14 @@
 # submitting to.
 #PBS -l walltime=02:00:00
 
-# Send an email to the user when the job is (a)borted, (b)egins,
-# and/or (e)nds.  An alternate email address may be specified with the
-# #PBS -M directive.
+# Send an email to the user when the job is (a)borted, (b)egins, and/or (e)nds.
+# An alternate email address may be specified with the #PBS -M directive.
 #PBS -m abe
 
 #-----------------------------------------------------------------------------
 
-# In the lines below, uncomment the set appropriate for your system,
-# and comment out the other set. The default is pleades.
+# In the lines below, uncomment the set appropriate for your system, and
+# comment out the other sets. The default is pleiades.
 
 #-----------------------------------------------------------------------------
 
@@ -59,46 +67,40 @@
 # Submit the job to the PBS queue called "normal".
 #PBS -q normal
 
-# This is the line where you request specific resources from the PBS
+# This is the line where you request specific resources from the PBS system.
 # system.
 # select=2 -> Request 2 compute nodes.
-# ncpus=28 -> Each compute node must have at least 28 cores. This
-# requirement implies the use of the 2-socket, 14 cores/socket
-# Broadwell nodes.
-# mpiprocs=2 -> Each node will run 2 MPI ranks of the kaiju
-# code. NOTE: This value should always be 2 for the kaiju software.
-# ompthreads=14 -> Each MPI rank will run 14 OMP threads. Note that
-# this will also cause the OMP_THREADS environment variable to be set
-# to 14. This value should always be 14 for MPI jobs on pleiades.
-# model=bro -> Each compute node must contain Broadwell
-# chips. Specifying "model" is a HECC-specific PBS requirement.
-# Everything after the "+" is an additional request for resources for
-# "helper" applications in the MPI kaiju code.
-# IMPORTANT NOTE: In the XML file for your run, the "decomposition" of
-# the problem into MPI ranks is specified by the XML elements <iPdir>,
-# <jPdir>, and <kPdir>. This breakdown is implemented on the resource
-# request line by using: select=N/2, where N=iPdir*jPdir*kPdir. This
-# tells PBS to give you N/2 nodes, each of which will run 2 MPI
-# ranks. More simply:
-# iPdir*jPdir*kPdir = select*mpiprocs
+# ncpus=28 -> Each compute node must have at least 28 cores. This requirement
+# implies the use of the 2-socket, 14 cores/socket Broadwell nodes.
+# mpiprocs=2 -> Each node will run 2 MPI ranks of the kaiju code. NOTE: This
+# value should always be 2 for the kaiju software.
+# ompthreads=14 -> Each MPI rank will run 14 OMP threads.
+# model=bro -> Each compute node must contain Broadwell chips. Specifying
+# "model" is a HECC-specific PBS requirement.
 #PBS -l select=2:ncpus=28:mpiprocs=2:ompthreads=14:model=bro+1:ncpus=28:mpiprocs=1:ompthreads=28:model=bro
+
+# NOTE: Everything after the "+" is an additional request for resources for
+# "helper" applications in the MPI kaiju code.
+
+# IMPORTANT NOTE: In the XML file for your run, the "decomposition" of the
+# problem into MPI ranks is specified by the XML elements <iPdir>, <jPdir>, and
+# <kPdir>. This breakdown is implemented on the resource request line by using
+# select=N/2, where N=iPdir*jPdir*kPdir. This tells PBS to give you N/2 nodes,
+# each of which will run 2 MPI ranks. More simply:
+# iPdir*jPdir*kPdir = select*mpiprocs
 
 #-----------------------------------------------------------------------------
 
-# For the cheyenne HPC system at UCAR:
+# For the cheyenne system at UCAR:
 
-# Specify the user account under which the job should be run.
-# You *must* set the -A directive to your account number.
 ##PBS -A UJHB0015
 ##PBS -q regular
 ##PBS -l select=2:ncpus=36:mpiprocs=2:ompthreads=18+1:ncpus=36:mpiprocs=1:ompthreads=36
 
 #-----------------------------------------------------------------------------
 
-# For the derecho HPC system at UCAR:
+# For the derecho system at UCAR:
 
-# Specify the user account under which the job should be run.
-# You *must* set the -A directive to your account number.
 ##PBS -A UJHB0015
 ##PBS -q main
 ##PBS -l select=2:ncpus=128:mpiprocs=2:ompthreads=64+1:ncpus=128:mpiprocs=1:ompthreads=128
@@ -120,10 +122,10 @@ runid=$PBS_JOBNAME
 
 # Load the required modules for MPI kaiju.
 
-# NOTE: This set of modules assumes your kaiju installation was built
-# using this same list of modules. If you used different modules at
-# build time (for example, if you used a GNU compiler), update this
-# list to use the modules from your build-time environment.
+# NOTE: This set of modules assumes your kaiju installation was built using
+# this same list of modules. If you used different modules at build time (for
+# example, if you used a GNU compiler), update this list to use the modules
+# from your build-time environment.
 
 # Comment out the module lines for all systems except the one you are using.
 module purge
@@ -164,31 +166,29 @@ module list
 #------------------------------------------------------------------------------
 
 # Define the kaiju installation location.
-# NOTE: You MUST set this variable to the path to your kaiju
-# directory, which is the top-level directory created when you cloned
-# the kaiju repository.
+# NOTE: You MUST set this variable to the path to your kaiju directory, which
+# is the top-level directory created when you cloned the kaiju repository.
 kaiju_install_dir=$HOME/kaiju
 
 # This script sets KAIJUHOME and other environment variables.
 source $kaiju_install_dir/scripts/setupEnvironment.sh
 
 # Add the kaiju binary directory to the command path.
-# NOTE: You *must* set this variable to the path to the bin
-# subdirectory of your kaiju build directory. The setting below
-# assumes that the MPI version of kaiju was built in the build_mpi
-# subdirectory of the kaiju home directory (which is typically the
-# same as kaiju_install_dir).
+# NOTE: You *must* set this variable to the path to the bin subdirectory of
+# your kaiju build directory. The setting below assumes that the MPI version of
+# kaiju was built in the build_mpi subdirectory of the kaiju home directory
+# (which is typically the same as kaiju_install_dir).
 export PATH=$KAIJUHOME/build_mpi/bin:$PATH
 
 # Set the MPI_TYPE_DEPTH to 32.
-# If this is not done, gamera_mpi.x will crash with a stack traceback
-# that includes an error messge like this:
+# If this is not done, gamera_mpi.x will crash with a stack traceback that
+# includes an error messge like this:
 # ...
 # MPT ERROR: The program attempted to construct a derived datatype with
 # depth 15, but the maximum allowed depth is 14. You can increase...
 # ...
-# If you see error messages like this at run time, try increasing the
-# value assigned to MPI_TYPE_DEPTH in the line below.
+# If you see error messages like this at run time, try increasing the value
+# assigned to MPI_TYPE_DEPTH in the line below.
 export MPI_TYPE_DEPTH=32
 
 # Set the OMP stack size to prevent a crash.
@@ -202,6 +202,14 @@ export MPI_TYPE_DEPTH=32
 # export OMP_STACKSIZE=128M
 export KMP_STACKSIZE=128M
 
+# Override the value of OMP_NUM_THREADS set by PBS from the ompthreads
+# directive. This is necessary to ensure proper operation of
+# correctOMPenvironment.sh. Uncomment the line for your system, comment out the
+# rest.
+export OMP_NUM_THREADS=28   # pleiades
+# export OMP_NUM_THREADS=36   # cheyenne
+# export OMP_NUM_THREADS=128  # derecho
+
 echo "The active environment variables are:"
 printenv
 
@@ -213,32 +221,31 @@ cp $PBS_NODEFILE $nodefile
 exe=voltron_mpi.x
 echo "Running $exe on model $runid."
 
-# NOTE: The omplace tool is part of the MPT implementation of MPI. It
-# is used to ensure efficient pinning of MPI ranks and OMP threads to
-# appropriate sockets and cores. If you omit omplace, your job will
-# still run, but it probably be an order of magnitude slower than it
-# would be when using omplace.
+# NOTE: The omplace tool is part of the MPT implementation of MPI. It is used
+# to ensure efficient pinning of MPI ranks and OMP threads to appropriate
+# sockets and cores. If you omit omplace, your job will still run, but it
+# probably be an order of magnitude slower than it would be when using omplace.
 
-# HOWEVER, omplace only works correctly when all compute nodes take
-# the same number of MPI ranks and OMP threads. When the rank/thread
-# distribution is not even, the correctOMPenvironment.sh script
-# updates the behavior of omplace to produce the correct distribution
-# of ranks and threads.
+# HOWEVER, omplace only works correctly when all compute nodes take the same
+# number of MPI ranks and OMP threads. When the rank/thread distribution is not
+# even (like for a run with voltron.x), the correctOMPenvironment.sh script
+# updates the behavior of omplace to produce the correct distribution of ranks
+# and threads.
 
-# On derecho, the MPT implementation of MPI is not used, and so the
-# omplace tool is not available. The pinCpuCores.sh script performs
-# the same function on derecho that correctOMPenvironment.sh and
-# omplace perform on pleiades and cheyenne.
+# On derecho, the MPT implementation of MPI is not used, and so the omplace
+# tool is not available. The pinCpuCores.sh script performs the same function
+# on derecho that correctOMPenvironment.sh and omplace perform on pleiades and
+# cheyenne.
 
-# Uncomment the lines below appropriate to the system you are running
-# on, and comment out the others.
+# Uncomment the lines below appropriate to the system you are running on, and
+# comment out the others.
 
 # pleiades
-placer_cmd="$KAIJUHOME/scripts/preproc/correctOMPenvironment.sh nodes.dat omplace"
+placer_cmd="$KAIJUHOME/scripts/preproc/correctOMPenvironment.sh $nodefile omplace"
 mpiexec $placer_cmd $exe $runid.xml >& ${exe}.${runid}.out
 
 # cheyenne
-# placer_cmd="$KAIJUHOME/scripts/preproc/correctOMPenvironment.sh nodes.dat omplace"
+# placer_cmd="$KAIJUHOME/scripts/preproc/correctOMPenvironment.sh $nodefile omplace"
 # mpiexec $placer_cmd $exe $runid.xml >& ${exe}.${runid}.out
 
 # derecho
