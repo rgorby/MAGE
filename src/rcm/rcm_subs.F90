@@ -1233,6 +1233,12 @@
         ! reset to make sure species if ikflav ==1 alamc is set to negative, for electrons
         where(ikflavc==1)alamc = -abs(alamc)
 
+        ! Check if rcmconfig.h5 is up-to-date 
+        if (ioExist(RCMGAMConfig,"Tau1i")) then
+            write(*,*) "An old rcmconfig.h5 is used. Please make a new one using genRCM.py."
+            stop
+        endif
+
         !Store data for wave models
         !Dimension check: only compatible with tau(MLT,L,Kp,Ek)
         if (ioExist(RCMGAMConfig,"Taui")) then
@@ -3212,7 +3218,7 @@ FUNCTION RatefnWM(xx,yy,alamx,vmx,nex,kpx,beqx,losscx)
 
             TauSS = RatefnC_tau_s(alamx,vmx,beqx,losscx)
             LossR8_PSHEET = 1.0/TauSS
-            LossR8_PSHEET = LossR8_PSHEET/3.0 !1/3 SS rate 
+            LossR8_PSHEET = LossR8_PSHEET !SS rate 
         END FUNCTION LossR8_PSHEET
 
         !Calculate speed (Re/s) from energy [keV] for ELECTRONS
