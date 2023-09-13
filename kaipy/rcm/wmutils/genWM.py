@@ -139,7 +139,7 @@ def genChorus(params,fInChorus):
         #Li
         startValue = 3.0 #in Re 
         endValue = 7.0
-        lenL = 161  
+        lenL = 41  
         Li = np.linspace(startValue, endValue, num=lenL) 
         #Tau from polynomial fit
         tauP = np.zeros((lenKp,lenMLT,lenL,lenEk))  
