@@ -29,6 +29,7 @@ contains
     real(rp) :: deltaSum,lambda,rval,xc,yc,zc
     real(rp) :: Psi0,RIn,errorThresh
     integer :: h,ip,it,k,j,jp,kp,n,np,i,ig
+    type(XML_Input_T) :: xmlInp
 
     !type(IOVAR_T), dimension(MAXMIXIOVAR) :: debugHDF
 
@@ -37,7 +38,9 @@ contains
     RIn  = 1.0
     Psi0 = 10.0
 
-    call initGamera(gameraApp, initUser, caseInput)
+    gameraApp%gOptions%userInitFunc => initUser
+    xmlInp = New_XML_Input(trim(caseInput),'Kaiju',.true.)
+    call gameraApp%InitModel(xmlInp)
 
     call initVoltron(voltronApp, gameraApp, caseInput)
 

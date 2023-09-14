@@ -2,38 +2,35 @@ module testFields
   use testHelper
   use gamapp
   use usergamic
-  use drivertypes
 
   implicit none
 
-  type(AppDriver_T), target :: appDriver ! make this a target so that the pointer can point inside it
-  type(GameraApp_T), pointer :: gApp
-  procedure(StateIC_T), pointer :: userInitFunc => initUser
+  type(gamApp_T), pointer :: gApp
 
 contains
 
   @before
   subroutine setup()
-    type(GameraApp_T), allocatable, target :: gAppLocal
+    type(XML_Input_T) :: xmlInp
 
     ! create instance of gamera app, and perform any needed configuration
-    allocate(gAppLocal)
-    gApp => gAppLocal
-    gAppLocal%gOptions%userInitFunc => initUser
-
-    ! use the single-app helper function to move the gamera app into the driver structure
-    ! note that after this point, gamApp will no longer be allocated
-    allocate(appDriver%appPointers(1))
-    call move_alloc(gAppLocal, appDriver%appPointers(1)%p)
+    allocate(gApp)
+    gApp%gOptions%userInitFunc => initUser
 
     ! run the gamera app
-    call appDriver%RunApps('lfmbw.xml')
+    xmlInp = New_XML_Input('lfmbw.xml','Kaiju',.true.)
+    call gApp%InitModel(xmlInp)
+    call gApp%InitIO(xmlInp)
+
+    do while (gApp%Model%t < gApp%Model%tFin)
+        call gApp%AdvanceModel(0.0_rp)
+    end do
 
   end subroutine setup
 
   @after
   subroutine teardown()
-      deallocate(appDriver%appPointers)
+      deallocate(gApp)
       gApp => null()
   end subroutine teardown
 

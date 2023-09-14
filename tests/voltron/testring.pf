@@ -27,8 +27,11 @@ contains
     real(rp) :: temp, totalDiv
     integer :: i,j,k,r
     character(len=strLen) :: checkMessage
+    type(XML_Input_T) :: xmlInp
 
-    call initGamera(gameraApp, initUser, caseInput)
+    gameraApp%gOptions%userInitFunc => initUser
+    xmlInp = New_XML_Input(trim(caseInput),'Kaiju',.true.)
+    call gameraApp%InitModel(xmlInp)
 
     call initVoltron(voltronApp, gameraApp, caseInput)
 

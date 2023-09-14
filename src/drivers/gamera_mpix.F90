@@ -2,19 +2,19 @@
 
 program gamera_mpix
     use gamapp_mpi
-    use drivertypes
     use usergamic
     use mpidefs
 
     implicit none
 
-    type(AppDriver_T) :: appDriver
-    type(GameraAppMpi_T), allocatable :: gAppMpi
+    type(gamAppMpi_T) :: gAppMpi
 
     integer :: ierror, length
     integer :: required=MPI_THREAD_MULTIPLE
     integer :: provided
     character( len = MPI_MAX_ERROR_STRING) :: message
+    character(len=strLen) :: inpXML
+    type(XML_Input_T) :: xmlInp
 
     ! initialize MPI
     !Set up MPI with or without thread support
@@ -39,18 +39,55 @@ program gamera_mpix
     ! initialize mpi data type
     call setMpiReal()
 
-    ! create instance of gamera app, and perform any needed configuration
-    allocate(gAppMpi)
+    ! set options for gamera
     gAppMpi%gOptions%userInitFunc => initUser
     gAppMpi%gOptionsMpi%gamComm = MPI_COMM_WORLD
 
-    ! use the single-app helper function to move the gamera app into the driver structure
-    ! note that after this point, gamApp will no longer be allocated
-    allocate(appDriver%appPointers(1))
-    call move_alloc(gAppMpi, appDriver%appPointers(1)%p)
+    !call printConfigStamp()
+    call initClocks()
 
-    ! run the gamera app
-    call appDriver%RunApps()
+    call getIDeckStr(inpXML)
+    call CheckFileOrDie(inpXML,"Error opening input deck, exiting ...")
+
+    !Create XML reader
+    write(*,*) 'Reading input deck from ', trim(inpXML)
+    xmlInp = New_XML_Input(trim(inpXML),'Kaiju',.true.)
+
+    call gAppMpi%InitModel(xmlInp)
+    call gAppMpi%InitIO(xmlInp)
+
+    do while (gAppMpi%Model%t < gAppMpi%Model%tFin)
+        call Tic("Omega") !Start root timer
+
+        !Step model
+        call gAppMpi%AdvanceModel(0.0_rp)
+
+        !Output if necessary
+        call Tic("IO")
+
+        if (gAppMpi%Model%IO%doConsole(gAppMpi%Model%ts)) then
+            call gAppMpi%WriteConsoleOutput()
+
+            !Timing info
+            if (gAppMpi%Model%IO%doTimerOut) call printClocks()
+            call cleanClocks()
+
+        elseif (gAppMpi%Model%IO%doTimer(gAppMpi%Model%ts)) then
+            if (gAppMpi%Model%IO%doTimerOut) call printClocks()
+            call cleanClocks()
+        endif
+
+        if (gAppMpi%Model%IO%doOutput(gAppMpi%Model%t)) then
+            call gAppMpi%WriteFileOutput()
+        endif
+
+        if (gAppMpi%Model%IO%doRestart(gAppMpi%Model%t)) then
+            call gAppMpi%WriteRestart()
+        endif
+
+        call Toc("IO")
+        call Toc("Omega")
+    end do
 
     call MPI_FINALIZE(ierror)
     write(*,*) "Fin Mpi"

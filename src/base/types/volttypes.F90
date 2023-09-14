@@ -9,6 +9,7 @@ module volttypes
     use ebtypes
     use gcmtypes
     use helpertypes
+    use basetypes
 
     implicit none
 
@@ -105,7 +106,12 @@ module volttypes
 
     end type innerMagBase_T
 
-    type voltApp_T
+    type, extends(BaseOptions_T) :: VoltOptions_T
+
+        contains
+    end type VoltOptions_T
+
+    type, extends(BaseApp_T) :: voltApp_T
 
         !Planet information
         type(planet_T) :: planet
@@ -155,7 +161,72 @@ module volttypes
 
         !Have special flag to indicate this is Earth, which is special
         logical :: isEarth = .false.
+
+        type(VoltOptions_T) :: vOptions
+
+        contains
+
+        procedure :: InitModel => voltInitModel
+        procedure :: InitIO => voltInitIO
+        procedure :: WriteRestart => voltWriteRestart
+        procedure :: ReadRestart => voltReadRestart
+        procedure :: WriteConsoleOutput => voltWriteConsoleOutput
+        procedure :: WriteFileOutput => voltWriteFileOutput
+        procedure :: WriteSlimFileOutput => voltWriteSlimFileOutput
+        procedure :: AdvanceModel => voltAdvanceModel
+
     end type voltApp_T
+
+    abstract interface
+        subroutine voltInitModel(App, Xml)
+            import voltApp_T ! This is still stupid
+            import XML_Input_T
+            class(voltApp_T), intent(inout) :: App
+            type(XML_Input_T), intent(inout) :: Xml
+        end subroutine
+
+        subroutine voltInitIO(App, Xml)
+            import voltApp_T
+            import XML_Input_T
+            class(voltApp_T), intent(inout) :: App
+            type(XML_Input_T), intent(inout) :: Xml
+        end subroutine
+
+        subroutine voltWriteRestart(App)
+            import voltApp_T
+            class(voltApp_T), intent(inout) :: App
+        end subroutine
+
+        subroutine voltReadRestart(App,resId,nRes)
+            import voltApp_T
+            class(voltApp_T), intent(inout) :: App
+            character(len=*), intent(in) :: resId
+            integer, intent(in) :: nRes
+        end subroutine
+
+        subroutine voltWriteConsoleOutput(App)
+            import voltApp_T
+            class(voltApp_T), intent(inout) :: App
+        end subroutine
+
+        subroutine voltWriteFileOutput(App)
+            import voltApp_T
+            class(voltApp_T), intent(inout) :: App
+        end subroutine
+
+        subroutine voltWriteSlimFileOutput(App)
+            import voltApp_T
+            class(voltApp_T), intent(inout) :: App
+        end subroutine
+
+       subroutine voltAdvanceModel(App, dt)
+            import voltApp_T
+            import rp
+            class(voltApp_T), intent(inout) :: App
+            real(rp), intent(in) :: dt
+        end subroutine
+
+    end interface
 
     contains
 

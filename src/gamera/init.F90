@@ -67,8 +67,8 @@ module init
         logical, optional, intent(in) ::childGameraOpt
 
         logical :: doH5g
-        character(len=strLen) :: inH5
-        integer :: dotLoc
+        character(len=strLen) :: inH5,resId
+        integer :: dotLoc,nRes
         logical :: childGamera
 
         if(present(childGameraOpt)) then
@@ -101,7 +101,9 @@ module init
         if (doH5g) call xmlInp%Set_Val(inH5,"sim/H5Grid","gMesh.h5")
         if (Model%isRestart .and. .not. childGamera) then
             !Get restart file information
-            call getRestart(Model,Grid,xmlInp,inH5)
+            call xmlInp%Set_Val(resID,"restart/resID","msphere")
+            call xmlInp%Set_Val(nRes,"restart/nRes" ,-1)
+            call getRestart(Model,Grid,resId,nRes,inH5)
 
         endif
 
@@ -117,34 +119,14 @@ module init
     end subroutine ReadCorners
 
     !Get name of restart file
-    subroutine getRestart(Model,Grid,xmlInp,inH5)
+    subroutine getRestart(Model,Grid,resId,nRes,inH5)
         type(Model_T)    , intent(inout)   :: Model
         type(Grid_T)     , intent(in)      :: Grid
-        type(XML_Input_T), intent(inout)   :: xmlInp
+        character(len=*) , intent(in)      :: resId
+        integer          , intent(in)      :: nRes
         character(len=strLen), intent(out) :: inH5
 
-        integer :: nRes
-        character(len=strLen) :: resID,bStr,nStr
-
-        if (xmlInp%Exists("restart/resFile")) then
-            if (Model%isLoud) then
-                write(*,*) ''
-                write(*,*) 'As of 23 April 2020 restarts are specified with ID/# instead of filename.'
-                write(*,*) 'Instead of restart/resFile, specify restart/resID and restart/nRes.'
-                write(*,*) 'The restart file msphere.Res.00005.h5 would be: '
-                write(*,*) '   <restart resId="msphere" nRes="5"/>'
-                write(*,*) 'Specifying nRes="-1" will read the XXXXX symbolic link.'
-                write(*,*) ''
-                write(*,*) "If you're seeing this and the info is not on the wiki"
-                write(*,*) "you should add it because obviously I didn't."
-                write(*,*) ''
-            endif
-            write(*,*) "Quitting ..."
-            stop
-        endif
-
-        call xmlInp%Set_Val(resID,"restart/resID","msphere")
-        call xmlInp%Set_Val(nRes,"restart/nRes" ,-1)
+        character(len=strLen) :: bStr,nStr
 
         !Get filename base
         if (Grid%isTiled) then
@@ -173,10 +155,10 @@ module init
         type(XML_Input_T), intent(inout) :: xmlInp
         procedure(StateIC_T), pointer, intent(in) :: userInitFunc
 
-        character(len=strLen) :: inH5, FileCode
+        character(len=strLen) :: inH5, FileCode,resId
         logical :: fExist, doReset
         real(rp) :: tReset
-        integer :: dotLoc
+        integer :: dotLoc,nRes
 
         !Set default domains (needs to be done after grid generation/reading)
         call SetDomain(Model,Grid)
@@ -199,7 +181,9 @@ module init
         if (Model%isRestart) then
             !If restart replace State variable w/ restart file
             !Make sure inH5 is set to restart
-            call getRestart(Model,Grid,xmlInp,inH5)
+            call xmlInp%Set_Val(resID,"restart/resID","msphere")
+            call xmlInp%Set_Val(nRes,"restart/nRes" ,-1)
+            call getRestart(Model,Grid,resId,nRes,inH5)
 
             !Test for resetting time
             call xmlInp%Set_Val(doReset ,"restart/doReset" ,.false.)

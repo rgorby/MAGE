@@ -2,36 +2,34 @@ module testMpiFields
   use testHelperMpi
   use gamapp_mpi
   use usergamic
-  use drivertypes
 
   implicit none
 
-  type(AppDriver_T), target :: appDriver ! make this a target so that the pointer can point inside it
-  type(GameraAppMpi_T), pointer :: gamAppMpi
+  type(gamAppMpi_T), pointer :: gamAppMpi
 
 contains
 
   @before
   subroutine setup(this)
       class (MpiTestMethod), intent(inout) :: this
-      type(GameraAppMpi_T), allocatable, target :: gamAppMpiLocal
+
+      type(XML_Input_T) :: xmlInp
 
       call setMpiReal()
 
-      ! create instance of gamera app, and perform any needed configuration
-      allocate(gamAppMpiLocal)
-      gamAppMpi => gamAppMpiLocal
-      gamAppMpiLocal%gOptions%userInitFunc => initUser
+      ! set options for gamera app
+      gamAppMpi%gOptions%userInitFunc => initUser
       gamAppMpi%gOptionsMpi%gamComm = getMpiF08Communicator(this)
       gamAppMpi%gOptionsMpi%doIO = .false.
 
-      ! use the single-app helper function to move the gamera app into the driver structure
-      ! note that after this point, gamApp will no longer be allocated
-      allocate(appDriver%appPointers(1))
-      call move_alloc(gamAppMpiLocal, appDriver%appPointers(1)%p)
-
       ! run the gamera app
-      call appDriver%RunApps('lfmbw_241.xml')
+      xmlInp = New_XML_Input('lfmbw_241.xml','Kaiju',.true.)
+      call gamAppMpi%InitModel(xmlInp)
+      call gamAppMpi%InitIO(xmlInp)
+
+      do while (gamAppMpi%Model%t < gamAppMpi%Model%tFin)
+          call gamAppMpi%AdvanceModel(0.0_rp)
+      end do
 
   end subroutine setup
 
@@ -39,7 +37,7 @@ contains
   subroutine teardown(this)
       class (MpiTestMethod), intent(inout) :: this
 
-      deallocate(appDriver%appPointers)
+      deallocate(gamAppMpi)
       gamAppMpi => null()
   end subroutine teardown
 

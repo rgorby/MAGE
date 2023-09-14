@@ -5,7 +5,7 @@ module testMpiMhd
 
   implicit none
 
-  type(GameraAppMpi_T), allocatable :: gamAppMpi
+  type(gamAppMpi_T), allocatable :: gamAppMpi
 
 contains
 

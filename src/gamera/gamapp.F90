@@ -9,19 +9,19 @@ module gamapp
 
     implicit none
 
-    type, extends(BaseOptions_T) :: GameraOptions_T
+    type, extends(BaseOptions_T) :: gamOptions_T
         procedure(StateIC_T), pointer, nopass :: userInitFunc
 
         contains
-    end type GameraOptions_T
+    end type gamOptions_T
 
-    type, extends(BaseApp_T) :: GameraApp_T
+    type, extends(BaseApp_T) :: gamApp_T
         type(Model_T)  :: Model
         type(Grid_T)   :: Grid
         type(State_T)  :: State, oState
         type(Solver_T) :: Solver
 
-        type(GameraOptions_T) :: gOptions
+        type(gamOptions_T) :: gOptions
 
         contains
 
@@ -34,14 +34,14 @@ module gamapp
         procedure :: WriteSlimFileOutput => gamWriteSlimFileOutput
         procedure :: AdvanceModel => gamAdvanceModel
 
-    end type GameraApp_T
+    end type gamApp_T
 
 
     contains
 
-    ! procedures for GameraApp_T
+    ! procedures for gamApp_T
     subroutine gamInitModel(App, Xml)
-        class(GameraApp_T), intent(inout) :: App
+        class(gamApp_T), intent(inout) :: App
         type(XML_Input_T), intent(inout) :: Xml
 
         call initGamera(App, Xml)
@@ -49,56 +49,55 @@ module gamapp
     end subroutine gamInitModel
 
     subroutine gamInitIO(App, Xml)
-        class(GameraApp_T), intent(inout) :: App
+        class(gamApp_T), intent(inout) :: App
         type(XML_Input_T), intent(inout) :: Xml
 
         call initGamIO(App%Model, Xml)
 
     end subroutine gamInitIO
 
-    subroutine gamWriteRestart(App, resFile)
-        class(GameraApp_T), intent(inout) :: App
-        character(len=*), intent(in) :: resFile
+    subroutine gamWriteRestart(App)
+        class(gamApp_T), intent(inout) :: App
 
         call resOutput(App%Model, App%Grid, App%oState, App%State)
 
     end subroutine gamWriteRestart
 
-    subroutine gamReadRestart(App, resFile)
-        class(GameraApp_T), intent(inout) :: App
-        character(len=*), intent(in) :: resFile
+    subroutine gamReadRestart(App, resId, nRes)
+        class(gamApp_T), intent(inout) :: App
+        character(len=*), intent(in) :: resId
+        integer, intent(in) :: nRes
 
-        call readH5Restart(App%Model, App%Grid, App%State, App%oState,resFile)
+        character(len=strLen) :: inH5
+
+        call getRestart(App%Model,App%Grid,resId,nRes,inH5)
+        call readH5Restart(App%Model, App%Grid, App%State, App%oState,inH5)
 
     end subroutine gamReadRestart
 
     subroutine gamWriteConsoleOutput(App)
-        class(GameraApp_T), intent(inout) :: App
+        class(gamApp_T), intent(inout) :: App
 
         call consoleOutput(App%Model, App%Grid, App%State)
 
     end subroutine gamWriteConsoleOutput
 
-    subroutine gamWriteFileOutput(App, outFile, nStep)
-        class(GameraApp_T), intent(inout) :: App
-        character(len=*), intent(in) :: outFile
-        integer, intent(in) :: nStep
+    subroutine gamWriteFileOutput(App)
+        class(gamApp_T), intent(inout) :: App
 
         call fOutput(App%Model, App%Grid, App%State)
 
     end subroutine gamWriteFileOutput
 
-    subroutine gamWriteSlimFileOutput(App, outFile, nStep)
-        class(GameraApp_T), intent(inout) :: App
-        character(len=*), intent(in) :: outFile
-        integer, intent(in) :: nStep
+    subroutine gamWriteSlimFileOutput(App)
+        class(gamApp_T), intent(inout) :: App
 
-        call App%WriteFileOutput(outFile, nStep)
+        call App%WriteFileOutput()
 
     end subroutine gamWriteSlimFileOutput
 
     subroutine gamAdvanceModel(App, dt)
-        class(GameraApp_T), intent(inout) :: App
+        class(gamApp_T), intent(inout) :: App
         real(rp), intent(in) :: dt
 
         call stepGamera(App)
@@ -122,7 +121,7 @@ module gamapp
     end subroutine
 
     subroutine initGamera(gameraApp, xmlInp)
-        class(GameraApp_T), intent(inout) :: gameraApp
+        class(gamApp_T), intent(inout) :: gameraApp
         type(XML_Input_T), intent(inout) :: xmlInp
 
         character(len=strLen) :: kaijuRoot
@@ -130,7 +129,7 @@ module gamapp
         gameraApp%Model%isLoud = .true.
 
         call xmlInp%SetRootStr('Kaiju/Gamera')
-        call xmlinp%SetVerbose(.true.)
+        call xmlInp%SetVerbose(.true.)
 
         ! try to verify that the XML file has "Kaiju" as a root element
         kaijuRoot = ""
@@ -166,7 +165,7 @@ module gamapp
     end subroutine initGamera
 
     subroutine stepGamera(gameraApp)
-        class(GameraApp_T), intent(inout) :: gameraApp
+        class(gamApp_T), intent(inout) :: gameraApp
 
         !update the state variables to the next timestep
         call UpdateStateData(gameraApp)
@@ -184,7 +183,7 @@ module gamapp
     end subroutine stepGamera
 
     subroutine UpdateStateData(gameraApp)
-        class(GameraApp_T), intent(inout) :: gameraApp
+        class(gamApp_T), intent(inout) :: gameraApp
 
         call Tic("Gamera",.true.)
         !Advance system

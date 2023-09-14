@@ -30,8 +30,8 @@ module voltapp
         class(voltApp_T), intent(inout) :: vApp
         character(len=*), optional, intent(in) :: optFilename
 
-        character(len=strLen) :: inpXML, kaijuRoot
         type(XML_Input_T) :: xmlInp
+        character(len=strLen) :: inpXML, kaijuRoot
         type(TimeSeries_T) :: tsMJD
         real(rp) :: gTScl,tSpin,tIO
         logical :: doSpin,isK
@@ -50,6 +50,13 @@ module voltapp
 
         !Create XML reader
         xmlInp = New_XML_Input(trim(inpXML),'Kaiju/Voltron',.true.)
+
+        !Start by shutting up extra ranks
+        if (.not. vApp%isLoud) call xmlInp%BeQuiet()
+
+        !Create XML reader
+        call xmlInp%SetRootStr('Kaiju/Voltron')
+        call xmlInp%SetVerbose(.true.)
 
         !Start by shutting up extra ranks
         if (.not. vApp%isLoud) call xmlInp%BeQuiet()

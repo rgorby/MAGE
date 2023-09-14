@@ -80,16 +80,16 @@ module basetypes
             type(XML_Input_T), intent(inout) :: Xml
         end subroutine InitIO_interface
 
-        subroutine WriteRestart_interface(App, resFile)
+        subroutine WriteRestart_interface(App)
             import BaseApp_T
             class(BaseApp_T), intent(inout) :: App
-            character(len=*), intent(in) :: resFile
         end subroutine WriteRestart_interface
 
-        subroutine ReadRestart_interface(App, resFile)
+        subroutine ReadRestart_interface(App,resId,nRes)
             import BaseApp_T
             class(BaseApp_T), intent(inout) :: App
-            character(len=*), intent(in) :: resFile
+            character(len=*), intent(in) :: resId
+            integer, intent(in) :: nRes
         end subroutine ReadRestart_interface
 
         subroutine WriteConsoleOutput_interface(App)
@@ -97,18 +97,14 @@ module basetypes
             class(BaseApp_T), intent(inout) :: App
         end subroutine WriteConsoleOutput_interface
 
-        subroutine WriteFileOutput_interface(App, outFile, nStep)
+        subroutine WriteFileOutput_interface(App)
             import BaseApp_T
             class(BaseApp_T), intent(inout) :: App
-            character(len=*), intent(in) :: outFile
-            integer, intent(in) :: nStep
         end subroutine WriteFileOutput_interface
 
-        subroutine WriteSlimFileOutput_interface(App, outFile, nStep)
+        subroutine WriteSlimFileOutput_interface(App)
             import BaseApp_T
             class(BaseApp_T), intent(inout) :: App
-            character(len=*), intent(in) :: outFile
-            integer, intent(in) :: nStep
         end subroutine WriteSlimFileOutput_interface
 
         subroutine AdvanceModel_interface(App, dt)

@@ -86,13 +86,25 @@ contains
     end associate
   end subroutine checkChimp
 
+  subroutine caseTestInit(gameraApp, caseFile)
+    type(gamApp_T), intent(inout) :: gameraApp
+    character(len=*), intent(in) :: caseFile
+
+    type(XML_Input_T) :: xmlInp
+
+    gameraApp%gOptions%userInitFunc => initUser
+    xmlInp = New_XML_Input(trim(caseFile),'Kaiju',.true.)
+    call gameraApp%InitModel(xmlInp)
+
+  end subroutine
+
   @test
   subroutine testEarth()
     type(voltApp_T) :: vApp
     type(gamApp_T) :: gApp
     character(len=strLen) :: xmlName = 'cmriD_Earth.xml'
 
-    call initGamera(gApp, initUser, xmlName)
+    call caseTestInit(gApp, xmlName)
     call initVoltron(vApp, gApp, xmlName)
 
     ! Run tests
@@ -110,7 +122,8 @@ contains
     type(gamApp_T) :: gApp
     character(len=strLen) :: xmlName = 'cmriD_Jupiter.xml'
     real(rp) :: jupCorot = -2.5*1702.9*92.0
-    call initGamera(gApp, initUser, xmlName)
+
+    call caseTestInit(gApp, xmlName)
     call initVoltron(vApp, gApp, xmlName)
 
     ! Run tests
@@ -128,9 +141,7 @@ contains
     type(gamApp_T) :: gApp
     character(len=strLen) :: xmlName = 'cmriD_NewPlanet.xml'
 
-    type(XML_Input_T) :: inpXML
-    real(rp) :: corotXML
-    call initGamera(gApp, initUser, xmlName)
+    call caseTestInit(gApp, xmlName)
     call initVoltron(vApp, gApp, xmlName)
 
     ! For this test, we should get corot potential right from xml cause we don't have a real pre-set value for a fake planet.

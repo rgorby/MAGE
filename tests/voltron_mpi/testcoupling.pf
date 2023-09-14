@@ -45,6 +45,7 @@ contains
 
       integer :: ierror
       type(MPI_Comm) :: gamComm, voltComm
+      type(XML_Input_T) :: xmlInp
 
       if(this%getProcessRank() < (this%getNumProcesses()-1)) then
           isGamera = .true.
@@ -54,7 +55,11 @@ contains
           ! make gamera-only mpi communicator
           call MPI_Comm_Split(getMpiF08Communicator(this), 0, this%getProcessRank(), gamComm, ierror)
 
-          call initGamera_mpi(gamAppMpi, initUser, gamComm, trim(caseFile), .false.)
+          gamAppMpi%gOptions%userInitFunc => initUser
+          gamAppMpi%gOptionsMpi%gamComm = gamComm
+          gamAppMpi%gOptionsMpi%doIO = .false.
+          xmlInp = New_XML_Input(trim(caseFile),'Kaiju',.true.)
+          call gamAppMpi%InitModel(xmlInp)
           call initGam2Volt(g2vCommMpi, gamAppMpi, getMpiF08Communicator(this), trim(caseFile))
       else
           isGamera = .false.
