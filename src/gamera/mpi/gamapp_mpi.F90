@@ -86,6 +86,7 @@ module gamapp_mpi
             xmlInp = New_XML_Input(trim(inpXML),'Kaiju/Gamera',.true.)
         else
             xmlInp = New_XML_Input(trim(inpXML),'Kaiju/Gamera',.false.)
+            call xmlInp%BeQuiet()
         endif
 
         ! try to verify that the XML file has "Kaiju" as a root element

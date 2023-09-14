@@ -61,7 +61,7 @@ program voltron_mpix
     call initClocks()
 
     call mpi_comm_get_attr(MPI_COMM_WORLD, MPI_TAG_UB, tagMax, tagSet, ierror)
-    print *, 'Tag Upper-Bound = ', tagMax
+    !print *, 'Tag Upper-Bound = ', tagMax
 
     gApp%Model%isLoud = .true.    
 
@@ -150,14 +150,14 @@ program voltron_mpix
     end if
 
     if(isGamera) then
-        call Tic("Omega")
+        call Tic("Omega", .true.)
         call initGamera_mpi(gApp,userInitFunc,gamComm,doIO=.false.)
         call initGam2Volt(g2vComm,gApp,MPI_COMM_WORLD)
-        call Toc("Omega")
+        call Toc("Omega", .true.)
 
         do while (g2vComm%time < g2vComm%tFin)
             !Start root timer
-            call Tic("Omega")
+            call Tic("Omega", .true.)
         
             !Advance Gamera MHD
             call stepGamera_mpi(gApp)
@@ -180,14 +180,14 @@ program voltron_mpix
         
                 !Coupling
                 if ( g2vComm%time >= g2vComm%DeepT ) then
-                    call Tic("Coupling")
+                    call Tic("Coupling", .true.)
                     call performDeepUpdate(g2vComm, gApp)
-                    call Toc("Coupling")
+                    call Toc("Coupling", .true.)
                 endif
             endif
 
             !IO checks
-            call Tic("IO")
+            call Tic("IO", .true.)
             !NOTE: Does this need to be duplicated from gamera_mpix or can both be done w/ a single subroutine?
             
             !Console output
@@ -222,9 +222,9 @@ program voltron_mpix
                 call fOutput(gApp%Model, gApp%Grid, gApp%State)
             endif
 
-            call Toc("IO")
+            call Toc("IO", .true.)
 
-            call Toc("Omega")
+            call Toc("Omega", .true.)
 
         end do
 
@@ -232,23 +232,23 @@ program voltron_mpix
 
     else 
         ! voltron
-        call Tic("Omega")
+        call Tic("Omega", .true.)
         call initVoltron_mpi(vApp, userInitFunc, voltComm, MPI_COMM_WORLD)
-        call Toc("Omega")
+        call Toc("Omega", .true.)
 
         if(vApp%amHelper) then
             ! do helper loop
             helperQuit = .false.
             do while(.not. helperQuit)
-                call Tic("Omega")
+                call Tic("Omega", .true.)
                 call helpVoltron(vApp, helperQuit)
-                call Toc("Omega")
+                call Toc("Omega", .true.)
             end do
         else
             ! voltron run loop
             do while (vApp%time < vApp%tFin)
                 !Start root timer
-                call Tic("Omega")
+                call Tic("Omega", .true.)
                 !If coupling from Gamera is ready
                 if(gameraStepReady(vApp)) then
                     !Do any updates to Voltron
@@ -257,14 +257,14 @@ program voltron_mpix
                     call Toc("StepVoltronAndWait")
 
                     !Coupling
-                    call Tic("Coupling")
+                    call Tic("Coupling", .true.)
                     if (vApp%time >= vApp%DeepT ) then
                         call DeepUpdate_mpi(vApp, vApp%time)
                     endif
-                    call Toc("Coupling")
+                    call Toc("Coupling", .true.)
 
                     !IO checks
-                    call Tic("IO")
+                    call Tic("IO", .true.)
                     !Console output
                     if (vApp%IO%doConsole(vApp%ts)) then
                         call consoleOutputVOnly(vApp,vApp%gAppLocal,vApp%gAppLocal%Model%MJD0)
@@ -288,18 +288,18 @@ program voltron_mpix
                         call fOutputVOnly(vApp,vApp%gAppLocal)
                     endif
 
-                    call Toc("IO")
+                    call Toc("IO", .true.)
 
                 elseif(deepInProgress(vApp)) then
                     ! If we did not couple, check for deep work to be done
-                    call Tic("Coupling")
+                    call Tic("Coupling", .true.)
                     call doDeepBlock(vApp)
-                    call Toc("Coupling")
+                    call Toc("Coupling", .true.)
                 else
                     ! Gamera wasn't ready and we don't have deep work to do, wait for gamera
                     call waitForGameraStep(vApp)
                 endif
-                call Toc("Omega")
+                call Toc("Omega", .true.)
             enddo
             ! if using helpers, tell them to quit
             if(vApp%useHelpers) call vhReqHelperQuit(vApp)
