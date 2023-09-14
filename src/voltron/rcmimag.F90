@@ -11,6 +11,7 @@ module rcmimag
     use earthhelper
     use imagtubes
     use imaghelper
+    use planethelper
     use rcm_mhd_interfaces
     use rcm_mix_interface
     use clocks
@@ -83,14 +84,16 @@ module rcmimag
 
         planetM0g = vApp%planet%magMoment
 
-        write(*,*) '---------------'
-        write(*,*) 'RCM planet params'
-        write(*,*) 'Rp        [m]  = ', Rp_m
-        write(*,*) 'RIon      [Rp] = ', RIonRCM
-        write(*,*) 'RIon      [m]  = ', RIonRCM*Rp_m
-        write(*,*) 'MagMoment [G]  = ', planetM0g
-        write(*,*) '---------------'
-        
+        if (vApp%isLoud) then
+            write(*,*) '---------------'
+            write(*,*) 'RCM planet params'
+            write(*,*) 'Rp        [m]  = ', Rp_m
+            write(*,*) 'RIon      [Rp] = ', RIonRCM
+            write(*,*) 'RIon      [m]  = ', RIonRCM*Rp_m
+            write(*,*) 'MagMoment [G]  = ', planetM0g
+            write(*,*) '---------------'
+        endif
+                
         call iXML%Set_Val(RunID,"/Kaiju/gamera/sim/runid","sim")
         RCMApp%rcm_runid = trim(RunID)
 

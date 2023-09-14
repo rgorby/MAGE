@@ -91,8 +91,7 @@ module files
         logical, intent(in), optional :: doVerbO
 
         logical :: fExist,doVerb
-        integer :: eStat,cStat
-        character(len=strLen) :: cmd,cMsg
+        integer :: eStat,fileUnit,fStat
 
         if (present(doVerbO)) then
             doVerb = doVerbO
@@ -105,7 +104,6 @@ module files
             if (doVerb) then
                 write(*,'(5a)') ANSIRED,'<',trim(fStr),' already exists, deleting ...>',ANSIRESET
             endif
-            write (cmd,'(A,A)') 'rm ',trim(fStr)
 #ifdef __INTEL_COMPILER
             eStat = unlink(fStr)
             if (eStat) then
@@ -113,14 +111,13 @@ module files
                 stop
             endif
 #else
-            !System call method
-            call EXECUTE_COMMAND_LINE(trim(cmd), wait=.true., exitstat=eStat, cmdstat=cStat, cmdmsg=cMsg)
-            if(cStat > 0) then
-                write (*,*) 'Command line "',trim(cmd),'" failed with error: ',trim(cMsg)
-                call printProcessInfo()
-                stop
-            elseif(cStat < 0) then
-                write (*,*) 'EXECUTE_COMMAND_LINE not supported'
+            !Fortran classic style
+            fileUnit=238456
+            open(unit=fileUnit, iostat=fStat, file=trim(fStr), status='old')
+            if(fStat .eq. 0) then
+                close(fileUnit, status='delete')
+            else
+                write(*,*) 'iostat error deleting "', trim(fStr), '": ', fStat
                 stop
             endif
 #endif

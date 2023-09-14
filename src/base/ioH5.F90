@@ -732,7 +732,7 @@ contains
         case(IONULL,IOREAL)
             !Assume real by default
             if (doIOP) then
-                call h5ltmake_dataset_float_f(gId,trim(IOVar%idStr),Nr,h5dims(1:Nr),real(vScl*IOVar%data,sp),herr)
+                call h5ltmake_dataset_float_f (gId,trim(IOVar%idStr),Nr,h5dims(1:Nr),real(vScl*IOVar%data,sp),herr)
             else
                 call h5ltmake_dataset_double_f(gId,trim(IOVar%idStr),Nr,h5dims(1:Nr),real(vScl*IOVar%data,dp),herr)
             endif

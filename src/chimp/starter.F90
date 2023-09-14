@@ -125,7 +125,8 @@ module starter
         call inpXML%Set_Val(Model%epsht,'pusher/epsht',5.0e-2)
         call inpXML%Set_Val(Model%epsgc,'pusher/epsgc',5.0e-2)
         call inpXML%Set_Val(Model%do2D ,'pusher/do2D',.false.)
-        
+        call inpXML%Set_Val(Model%MinK ,'pusher/MinK',Model%MinK)
+
         !Get integrator type
         call setIntegrator(Model,inpXML)
 
@@ -154,6 +155,12 @@ module starter
 
         Model%IO%dtOut = inTScl*Model%IO%dtOut
         Model%IO%dtRes = inTScl*Model%IO%dtRes
+
+        !require dtRes to be a multiple of dtOut for restarts
+        if (Model%isRestart .and. (modulo(Model%IO%dtRes,Model%IO%dtOut) > TINY)) then
+            write(*,*) 'Restarts of test particle runs requires dtRes to be a multiple of dtOut, please update your xml:: dtOut, dtRes: ',Model%IO%dtOut*oTscl,Model%IO%dtRes*oTscl
+            stop
+        endif
 
     !Run info
         call inpXML%Set_Val(Model%RunID,'sim/runid',"Sim")

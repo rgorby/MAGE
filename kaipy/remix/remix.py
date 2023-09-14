@@ -196,6 +196,8 @@ class remix:
 			tc = np.hstack([tc,2.*np.pi+tc[:,[0]]])
 			rc = np.hstack([rc,rc[:,[0]]])
 			tmp=self.variables['potential']['data']
+			lower = self.variables['potential']['min']
+			upper = self.variables['potential']['max']
 			tmp = np.hstack([tmp,tmp[:,[0]]])
 
 			# similar trick to make contours go through the pole
@@ -213,7 +215,8 @@ class remix:
 				LW = 0.5
 				alpha = 1
 				tOff = np.pi/2.
-			ax.contour(tc+tOff,rc,tmp,15,colors='black',linewidths=LW,alpha=alpha)
+			contours = np.linspace(lower,upper,ncontours)
+			ax.contour(tc+tOff,rc,tmp,contours,colors='black',linewidths=LW,alpha=alpha)
 
 			if (not doInset):
 				# also, print min/max values of the potential

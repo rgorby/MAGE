@@ -1,5 +1,6 @@
 #Main constants
 import numpy as np
+import alive_progress.animations.bars
 
 #------
 #Helpful conversions
@@ -48,7 +49,21 @@ RNeptuneXE = 3.860      # Rx = X*Re
 #------
 #Helio
 #------
-Rsolar = 6.956E5  #[km] Solar radius
-kbltz  = 1.38e-16 #Boltzmann constant [erg/K]
-mp     = 1.67e-24 #Proton mass in grams
-Tsolar = 25.38    #Siderial solar rotation period
+Rsolar = 6.957e10      # [cm] Solar radius
+kbltz  = 1.38e-16      # [erg/K] Boltzmann constant
+mp     = 1.67e-24      # [g] Proton mass
+Tsolar = 25.38         # [days] Siderial solar rotation period
+JD2MJD = 2400000.5     # Conversion from JD to MJD: MJD = JD - 2400000.5
+Day2s = 86400.         # [s] Conversion days => seconds
+vc_cgs = 2.99792458e10 # [cm/s] speed of light
+
+
+
+#------
+#Output defaults
+#------
+
+barLen = 30
+barLab = 30 
+#barDef = 'fish'
+barDef = alive_progress.animations.bars.bar_factory(tip="><('>", chars='∙',background='')

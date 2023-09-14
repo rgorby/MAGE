@@ -83,6 +83,8 @@ if __name__ == "__main__":
 		doGas0 = True
 		print("Writing Gas0")
 		oH5.create_dataset("Gas0",data=G0)
+	else:
+		doGas0 = False
 
 	oH5.create_dataset("magFlux",data=M)
 	oH5.create_dataset("oGas",data=oG)

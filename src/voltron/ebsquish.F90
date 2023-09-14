@@ -5,7 +5,7 @@ module ebsquish
     use ebtypes
     use volttypes
     use streamline
-    use earthhelper
+    use planethelper
     use imaghelper
     use clocks, only: Tic,Toc
     
@@ -25,7 +25,6 @@ module ebsquish
     real(rp), parameter, private :: startEps  = 0.05
     real(rp), parameter, private :: rEps      = 0.125
     real(rp), parameter, private :: ShueScl   = 1.25 !Safety factor for Shue MP
-    logical , parameter, private :: doDipTest = .false.
     contains
 
     !Adjust the starting indices of the squish blocks according to the passed in array values
@@ -40,6 +39,10 @@ module ebsquish
         associate(ebSquish=>vApp%ebTrcApp%ebSquish,ebGr=>vApp%ebTrcApp%ebState%ebGr)
 
         if(.not. allocated(assignedPercents)) allocate(assignedPercents(ebSquish%numSquishBlocks))
+        if(ebSquish%numSquishBlocks /= SIZE(assignedPercents)) then
+            deallocate(assignedPercents)
+            allocate(assignedPercents(ebSquish%numSquishBlocks))
+        endif
 
         if(.not. present(balanceVals)) then
             ! make all blocks equal
@@ -105,11 +108,11 @@ module ebsquish
     subroutine Squish(vApp)
         class(voltApp_T), intent(inout) :: vApp
 
-        call Tic("Squish")
+        call Tic("Squish",.true.)
         do while(SquishBlocksRemain(vApp))
             call DoSquishBlock(vApp)
         enddo
-        call Toc("Squish")
+        call Toc("Squish",.true.)
 
     end subroutine Squish
 
@@ -139,7 +142,7 @@ module ebsquish
         class(voltApp_T), intent(inout) :: vApp
 
         call UpdateTM03(vApp%time)
-        call Tic("Squish")
+        call Tic("Squish",.true.)
         associate(ebGr=>vApp%ebTrcApp%ebState%ebGr, &                  
                   xyzSquish=>vApp%chmp2mhd%xyzSquish,isGood=>vApp%chmp2mhd%isGood, &
                   ebSquish=>vApp%ebTrcApp%ebSquish)
@@ -155,7 +158,7 @@ module ebsquish
         ebSquish%curSquishBlock = ebSquish%myFirstBlock
 
         end associate
-        call Toc("Squish")
+        call Toc("Squish",.true.)
 
     end subroutine SquishStart
 
@@ -199,7 +202,7 @@ module ebsquish
         call GetSquishBds(vApp,ksB,keB)
         call Tic("SQ-Project")
 
-        if (doDipTest) write(*,*) "Using fake projection for testing!"
+        if (ebModel%doDip) write(*,*) "Using fake projection for testing!"
 
         !$OMP PARALLEL DO default(shared) collapse(2) &
         !$OMP schedule(dynamic) &
@@ -302,7 +305,7 @@ module ebsquish
 
         integer :: i,Nk
 
-        call Tic("Squish")
+        call Tic("Squish",.true.)
         associate(ebModel=>vApp%ebTrcApp%ebModel,ebGr=>vApp%ebTrcApp%ebState%ebGr, &
                   xyzSquish=>vApp%chmp2mhd%xyzSquish,isGood=>vApp%chmp2mhd%isGood, &
                   ebSquish=>vApp%ebTrcApp%ebSquish)
@@ -331,7 +334,7 @@ module ebsquish
         vApp%chmp2mhd%iMax = vApp%iDeep
         
         end associate
-        call Toc("Squish")
+        call Toc("Squish",.true.)
 
     end subroutine SquishEnd
 
@@ -466,10 +469,10 @@ module ebsquish
         isGood = inShueMP_SM(xyz,ShueScl)
         if (.not. isGood) return
         
-        if (doDipTest) then
+        if (ebApp%ebModel%doDip) then
             xyz0 = DipoleShift(xyz,norm2(xyz)+startEps)
-            x1 = InvLatitude(xE)
-            x2 = atan2(xE(YDIR),xE(XDIR))
+            x1 = InvLatitude(xyz0)
+            x2 = atan2(xyz0(YDIR),xyz0(XDIR))
             if (x2 < 0) x2 = x2 + 2*PI
             return
         endif

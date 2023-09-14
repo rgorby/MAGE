@@ -90,15 +90,17 @@ if __name__ == "__main__":
 				for k in range(Rk):
 					nMPI = j + i*Rj + k*Ri*Rj
 					h5F = kh5.genName(ftag,i,j,k,Ri,Rj,Rk)
-
+					h5F = os.path.join(fdir, h5F)
+					
 					#Get variable info
 					gDims = np.array([gamData.dNk+1,gamData.dNj+1,gamData.dNi+1])
 					vDims = np.array([gamData.dNk,gamData.dNj,gamData.dNi])
 					vDimStr = ' '.join([str(v) for v in vDims])
 					if nMPI == 0 and tOut == 0:  # Only do this the first time
-						vIds ,vLocs  = kxmf.getVars(h5F,n,gDims)
+						vIds ,vLocs  = kxmf.getVars(h5F,'Step#'+str(n),gDims)
 						rvIds,rvLocs = kxmf.getRootVars(h5F,gDims)
 						Nv = len(vIds)
+						Nrv = len(rvIds)
 
 					#Create new subgrid
 					gName = "gMesh%d"%(nMPI)
@@ -154,6 +156,8 @@ if __name__ == "__main__":
 					"""
 					for v in range(Nv):
 						kxmf.AddData(Grid,h5F,vIds[v],vLocs[v],vDimStr,n)
+					for rv in range(Nrv):
+						kxmf.AddData(Grid,h5F,rvIds[rv],rvLocs[rv],vDimStr)
 
 		#Write output
 		fOut = "%s/%s.%06d.xmf"%(fdir,outid,tOut)

@@ -8,6 +8,22 @@ from slack.errors import SlackApiError
 import logging
 logging.basicConfig(level=logging.DEBUG)
 import time
+import argparse
+
+# read arguments
+parser = argparse.ArgumentParser()
+parser.add_argument('-t',action='store_true',default=False, help='Enables testing mode')
+parser.add_argument('-l',action='store_true',default=False, help='Enables loud mode')
+parser.add_argument('-a',action='store_true',default=False, help='Run all tests')
+parser.add_argument('-f',action='store_true',default=False, help='Force the tests to run')
+parser.add_argument('--account',type=str, default='', help='qsub account number')
+
+args = parser.parse_args()
+isTest = args.t
+beLoud = args.l
+doAll = args.a
+forceRun = args.f
+account = args.account
 
 # Get Slack API token
 slack_token = os.environ["SLACK_BOT_TOKEN"]
@@ -20,21 +36,6 @@ os.chdir(calledFrom)
 orig = os.getcwd()
 os.chdir('..')
 home = os.getcwd()
-
-isTest = False
-beLoud = False
-
-# Check argument flags
-if (len(sys.argv) >= 2):
-    for i in range(1,len(sys.argv)):
-        if(str(sys.argv[i]) == '-t'):
-            print("Test Mode: On")
-            isTest = True
-        elif(str(sys.argv[i]) == '-l'):
-            print("Being Loud")
-            beLoud = True
-        else:
-            print("Unrecognized argument: ", sys.argv[i])
 
 os.chdir(home)
 
@@ -111,9 +112,10 @@ subprocess.call("genRCM.py -o NEWrcmconfig.h5", shell=True)
 subprocess.call("cp ../../dashRestarts/* .", shell=True)
 
 # Compare new supporting files to originals
-p = subprocess.Popen("h5diff lfmX.h5 NEWlfmX.h5", shell=True, stdout=subprocess.PIPE)
-gridDiff = p.stdout.read().decode('ascii').rstrip()
-if(gridDiff != ""):
+lfmp = subprocess.Popen("h5diff lfmX.h5 NEWlfmX.h5", shell=True, stdout=subprocess.PIPE)
+lfmp.wait()
+gridDiff = lfmp.stdout.read().decode('ascii').rstrip()
+if(gridDiff != "" or lfmp.returncode != 0):
     message = "Quad grid for weekly dash has changed on branch " + gBranch + ". Case cannot be run. Please re-generate restart data, and ensure the grid change was intentional."
     if(not isTest):
         try:
@@ -128,9 +130,10 @@ if(gridDiff != ""):
         print(message)
     exit()
 
-p = subprocess.Popen("h5diff bcwind.h5 NEWbcwind.h5", shell=True, stdout=subprocess.PIPE)
-windDiff = p.stdout.read().decode('ascii').rstrip()
-if(windDiff != ""):
+bcp = subprocess.Popen("h5diff bcwind.h5 NEWbcwind.h5", shell=True, stdout=subprocess.PIPE)
+bcp.wait()
+windDiff = bcp.stdout.read().decode('ascii').rstrip()
+if(windDiff != "" or bcp.returncode != 0):
     message = "solar wind file for weekly dash has changed on branch " + gBranch + ". Case cannot be run. Please re-generate restart data, and ensure the wind data change was intentional."
     if(not isTest):
         try:
@@ -145,9 +148,10 @@ if(windDiff != ""):
         print(message)
     exit()
 
-p = subprocess.Popen("h5diff rcmconfig.h5 NEWrcmconfig.h5", shell=True, stdout=subprocess.PIPE)
-rcmDiff = p.stdout.read().decode('ascii').rstrip()
-if(rcmDiff != ""):
+rcmp = subprocess.Popen("h5diff rcmconfig.h5 NEWrcmconfig.h5", shell=True, stdout=subprocess.PIPE)
+rcmp.wait()
+rcmDiff = rcmp.stdout.read().decode('ascii').rstrip()
+if(rcmDiff != "" or rcmp.returncode != 0):
     message = "rcmconfig for weekly dash has changed on branch " + gBranch + ". Case cannot be run. Please re-generate restart data, and ensure the rcmconfig change was intentional."
     if(not isTest):
         try:
@@ -170,7 +174,7 @@ for line in myModules:
     modset = modset + line + " "
 
 # submit weekly dash
-arguments = 'qsub -v MODULE_LIST="' + modset + '",KAIJUROOTDIR=' + home + ' weeklyDashGo.pbs'
+arguments = 'qsub -A ' + account + ' -v MODULE_LIST="' + modset + '",KAIJUROOTDIR=' + home + ' weeklyDashGo.pbs'
 print(arguments)
 submission = subprocess.Popen(arguments, shell=True, stdout=subprocess.PIPE)
 readString = submission.stdout.read()

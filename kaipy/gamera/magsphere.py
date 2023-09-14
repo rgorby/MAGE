@@ -137,8 +137,8 @@ class GamsphPipe(GameraPipe):
 			self.hasRemix = True
 			print("Found ReMIX data, reading ...")
 			self.mixPipe = GameraPipe(self.fdir,mixtag,doVerbose=False)
-			self.nCPCP = kh5.getTs(rmOStr,sIds=None,aID="nCPCP")
-			self.sCPCP = kh5.getTs(rmOStr,sIds=None,aID="sCPCP")
+			self.nCPCP = kh5.getTs(rmOStr,sIds=self.sids,aID="nCPCP")
+			self.sCPCP = kh5.getTs(rmOStr,sIds=self.sids,aID="sCPCP")
 	#Get magnetic moment from file
 	def GetM0(self):
 		import h5py
@@ -252,10 +252,10 @@ class GamsphPipe(GameraPipe):
 		else:	
 			#Get time in seconds
 			t = self.T[n-self.s0] - T0
-			Nm = np.int( (t-T0)/60.0 ) #Minutes, integer
+			Nm = int( (t-T0)/60.0 ) #Minutes, integer
 			Hr = Nm/60
 			Min = np.mod(Nm,60)
-			Sec = np.mod(np.int(t),60)
+			Sec = np.mod(int(t),60)
 
 			tStr = "Elapsed Time\n  %02d:%02d:%02d"%(Hr,Min,Sec)
 		if (doBox):
@@ -307,8 +307,8 @@ class GamsphPipe(GameraPipe):
 
 	def doStream(self,U,V,xyBds=[-35,25,-25,25],dx=0.05):
 		from scipy.interpolate import griddata
-		N1 = np.int( (xyBds[1]-xyBds[0])/dx )
-		N2 = np.int( (xyBds[3]-xyBds[2])/dx )
+		N1 = int( (xyBds[1]-xyBds[0])/dx )
+		N2 = int( (xyBds[3]-xyBds[2])/dx )
 
 		#Create matching Cartesian grid
 		x1 = np.linspace(xyBds[0],xyBds[1],N1)

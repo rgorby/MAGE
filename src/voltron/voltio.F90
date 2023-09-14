@@ -9,6 +9,7 @@ module voltio
     use wind
     use dyncoupling
     use dstutils
+    use planethelper
     
     implicit none
 
@@ -18,6 +19,10 @@ module voltio
     real(rp), private ::  oMJD = 0.0
     integer , private :: oTime = 0.0
     real(rp), private :: gamWait = 0.0
+    real(rp), private :: mixWait = 0.0
+    real(rp), private :: imagWait = 0.0
+    real(rp), private :: chimpWait = 0.0
+    real(rp), private :: simRate = 0.0
     character(len=strLen), private :: vh5File
 
     contains
@@ -39,9 +44,15 @@ module voltio
         class(gamApp_T) , intent(in) :: gApp
         real(rp), intent(in) :: MJD0
 
+        ! With a value of 0.8, the output will be 90% of the correct value after 10.3 output cycles
+        ! With a typical voltron output cadence of every coupling interval, this will take about a model minute
+        real(rp), parameter :: fastWeight = 0.8
+        ! With a value of 0.95, this will be 90% of the correct value after ~4 model minutes
+        real(rp), parameter :: slowWeight = 0.95
+
         real(rp) :: cpcp(2) = 0.0
 
-        real(rp) :: dpT,dtWall,cMJD,dMJD,simRate
+        real(rp) :: dpT,dtWall,cMJD,dMJD
 
         integer :: nTh,curCount,countMax
         real(rp) :: clockRate
@@ -59,11 +70,19 @@ module voltio
         if (isConInit) then
             !Console output has been initialized
             dMJD = cMJD - oMJD !Elapsed MJD since first recorded value
+            oMJD = cMJD ! clock every output separately
             call system_clock(curCount,clockRate,countMax)
             dtWall = (curCount - oTime)/clockRate
+            oTime = curCount
             if(dtWall < 0) dtWall = dtWall + countMax / clockRate
-            simRate = dMJD*24.0*60.0*60.0/dtWall !Model seconds per wall second
-            gamWait = 0.8*gamWait + 0.2*readClock('GameraSync')/(readClock(1)+TINY) ! Weighted average to self-correct
+            simRate = slowWeight*simRate + (1.0-slowWeight)*dMJD*24.0*60.0*60.0/dtWall !Model seconds per wall second
+            ! Use weight average to self-correct model timing
+            ! chimp timing is a little confusing, but it combines local time spent squishing (no helpers) with
+            !   actual helper delay, which is tricky to estimate
+            gamWait   = fastWeight*gamWait   + (1.0-fastWeight)*readClock('GameraSync')/(readClock(1)+TINY)
+            chimpWait = fastWeight*chimpWait + (1.0-fastWeight)*(readClock('Squish')+readClock('VoltHelpers'))/(readClock(1)+TINY)
+            imagWait  = fastWeight*imagWait  + (1.0-fastWeight)*readClock('InnerMag')/(readClock(1)+TINY)
+            mixWait   = fastWeight*mixWait   + (1.0-fastWeight)*readClock('ReMIX')/(readClock(1)+TINY)
         else
             simRate = 0.0
             oMJD = cMJD
@@ -71,15 +90,11 @@ module voltio
             isConInit = .true.
             dtWall = 0.0
             gamWait = 0.0
+            mixWait = 0.0
+            imagWait = 0.0
+            chimpWait = 0.0
         endif
 
-        if ( (simRate<0) .or. (abs(dtWall/3600.0) >= dtWallMax) ) then
-            ! Partially reset counters so that the values don't become so large they don't change
-            oMJD = cMJD - 0.1*dMJD
-            oTime = curCount - 0.1*dtWall*clockRate
-            if(oTime < 0) oTime = oTime + countMax
-        endif
-        
         !Get MJD info
         call mjd2utstr(cMJD,utStr)
 
@@ -115,7 +130,10 @@ module voltio
                 
                 !write (*,'(a,1f8.3,I6,a)')           '      xTrc = ', vApp%rTrc,vApp%nTrc, ' [r/n]'
             endif
-            write (*, '(a,1f7.1,a)' ) '   Spent ', gamWait*100.0, '% of time waiting for Gamera'
+            write (*, '(a,1f7.1,a)' ) '   Spent ', gamWait*100.0,   '% of time waiting for Gamera'
+            write (*, '(a,1f7.1,a)' ) '         ', chimpWait*100.0, '% of time processing Chimp(Helpers)'
+            write (*, '(a,1f7.1,a)' ) '         ', imagWait*100.0,  '% of time processing IMAG'
+            write (*, '(a,1f7.1,a)' ) '         ', mixWait*100.0,   '% of time processing Remix'
             if (simRate>TINY) then
                 if (vApp%isSeparate) then
                     nTh = NumOMP()
@@ -212,9 +230,8 @@ module voltio
         call AddOutVar(IOVars,"time",vApp%time)
 
         !Coupling info
-        call AddOutVar(IOVars,"ShallowT",vApp%ShallowT)
-        call AddOutVar(IOVars,"DeepT"   ,vApp%DeepT)
-        call AddOutVar(IOVars,"gBAvg", vApp%mhd2Mix%gBAvg)
+        call AddOutVar(IOVars,"CoupleT", vApp%DeepT)
+        call AddOutVar(IOVars,"gBAvg",   vApp%mhd2Mix%gBAvg)
         
         call WriteVars(IOVars,.false.,ResF)
         !Create link to latest restart
@@ -259,20 +276,29 @@ module voltio
         call AddInVar(IOVars,"ts"      ,vTypeO=IOINT)
         call AddInVar(IOVars,"MJD"     ,vTypeO=IOREAL)
         call AddInVar(IOVars,"time"    ,vTypeO=IOREAL)
-        call AddInVar(IOVars,"ShallowT",vTypeO=IOREAL)
-        call AddInVar(IOVars,"DeepT"   ,vTypeO=IOREAL)
+        call AddInVar(IOVars,"CoupleT" ,vTypeO=IOREAL)
 
 
         !Get data
         call ReadVars(IOVars,.false.,ResF)
 
-        vApp%IO%nOut  = GetIOInt(IOVars,"nOut")
+        !Check to see if CoupleT is present
+        n0 = FindIO(IOVars,"CoupleT")
+        if (.not. IOVars(n0)%isDone) then
+            write(*,*) "CoupleT not found in Voltron restart."
+            write(*,*) "This restart must have been written with an older"
+            write(*,*) " version of the code that used ShallowT and DeepT."
+            write(*,*) "This code is not compatible with this restart file."
+            write(*,*) "Please regenerate the restart file."
+            stop
+        endif
+
+        vApp%IO%nOut  = GetIOInt(IOVars,"nOut") + 1
         vApp%IO%nRes  = GetIOInt(IOVars,"nRes") + 1
         vApp%ts       = GetIOInt(IOVars,"ts")
         vApp%MJD      = GetIOReal(IOVars,"MJD")
         vApp%time     = GetIOReal(IOVars,"time")
-        vApp%ShallowT = GetIOReal(IOVars,"ShallowT")
-        vApp%DeepT    = GetIOReal(IOVars,"DeepT")
+        vApp%DeepT    = GetIOReal(IOVars,"CoupleT")
 
         !Check to see if gB0 is present
         n0 = FindIO(IOVars,"gBAvg")

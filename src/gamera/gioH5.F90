@@ -6,7 +6,7 @@ module gioH5
     use gridutils
     use ioH5
     use multifluid
-    use earthhelper
+    use planethelper
     use dates
     use files
     
@@ -230,6 +230,12 @@ module gioH5
         call AddOutVar(IOVars,"tScl"   ,Model%gamOut%tScl)
         call AddOutVar(IOVars,"timeID" ,Model%gamOut%tID)
         call AddOutVar(IOVars,"UnitsID",Model%gamOut%uID)
+
+        !Call user routine if defined
+        if (associated(Model%HackIO_0)) then
+            call Model%HackIO_0(Model,Gr,IOVars)
+        endif
+
         !Write out the chain
         call WriteVars(IOVars,.true.,GamH5File)
         
@@ -489,10 +495,15 @@ module gioH5
             call AddOutVar(IOVars,"MJD",MJD)
         endif
         call AddOutVar(IOVars,"nSpc",Model%nSpc)
+        call AddOutVar(IOVars,"kzcsMHD",Model%kzcsMHD,uStr="kZCs",dStr="MHD-only kZCs")
+        call AddOutVar(IOVars,"kzcsTOT",Model%kzcsTOT,uStr="kZCs",dStr="Total kZCs"   )
 
         !---------------------
-        !Call user routine
-        !FIXME: Add this
+
+        !Call user routine if defined
+        if (associated(Model%HackIO)) then
+            call Model%HackIO(Model,Gr,State,IOVars)
+        endif
 
         !------------------
         !Finalize
@@ -725,7 +736,7 @@ module gioH5
             Model%ts      = 0
             Model%t       = tReset      
         else
-            Model%IO%nOut = GetIOInt(IOVars,"nOut")
+            Model%IO%nOut = GetIOInt(IOVars,"nOut") + 1
             Model%IO%nRes = GetIOInt(IOVars,"nRes") + 1
             Model%ts      = GetIOInt(IOVars,"ts")
             Model%t       = GetIOReal(IOVars,"t")
@@ -777,8 +788,8 @@ module gioH5
         endif !Gas0
 
     !Do touchup to data structures
-        Model%IO%tOut = floor(Model%t/Model%IO%dtOut)*Model%IO%dtOut
-        Model%IO%tRes = Model%t + Model%IO%dtRes
+        Model%IO%tOut = floor(Model%t/Model%IO%dtOut)*Model%IO%dtOut + Model%IO%dtOut
+        Model%IO%tRes = floor(Model%t/Model%IO%dtRes)*Model%IO%dtRes + Model%IO%dtRes
 
     end subroutine readH5Restart
 

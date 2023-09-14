@@ -17,7 +17,7 @@ Suppression = {
 Suppression = {
     Stacks = {
         {
-            !!!;
+            ...;
             mod=libiomp5.so*;
         }
     }
@@ -74,31 +74,27 @@ Suppression = {
 }
 
 Suppression = {
+    Stacks = {
+        {
+            ...;
+            mod=libmkl_rt.so*;
+        }
+    }
+}
+
+Suppression = {
+    Stacks = {
+        {
+            mod=voltron_mpi.x, func=for__io_return;
+        }
+    }
+}
+
+Suppression = {
     Type = { uninitialized_memory_access }
     Stacks = {
         {
-            !!!;
-            mod=voltron_mpi.x;
-        }
-    }
-}
-
-Suppression = {
-    Type = { uninitialized_memory_access_partial }
-    Stacks = {
-        {
-            !!!;
-            mod=voltron_mpi.x;
-        }
-    }
-}
-
-Suppression = {
-    Type = { invalid_memory_access }
-    Stacks = {
-        {
-            !!!;
-            mod=voltron_mpi.x;
+            mod=voltron_mpi.x, func=writehdfvar;
         }
     }
 }

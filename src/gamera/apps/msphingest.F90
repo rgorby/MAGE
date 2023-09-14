@@ -6,6 +6,7 @@ module msphingest
     use gamtypes
     use imaghelper
     use earthhelper
+    use planethelper
     use volttypes
     use gamutils
     use geopack

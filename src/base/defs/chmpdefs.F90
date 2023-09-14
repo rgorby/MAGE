@@ -30,7 +30,7 @@ module chmpdefs
         real(rp) :: epsht !Small number for timestep calculation
         real(rp) :: epsgc !Max value for adiabaticity parameter
         real(rp) :: epsds !Small number for tracing
-        
+        real(rp) :: MinK = 1.0e-2 !Min K [keV] to kill GC particles
         logical :: doEBInit=.false. !Initialize particles to have specified energy in ExB frame (instead of lab)
         logical :: doEBFix=.true. !Enforce E.B=0
 
@@ -48,6 +48,7 @@ module chmpdefs
 
         logical :: isRestart=.false.
         logical :: isMAGE = .false.
+        logical :: doDip = .false.
 
         !Output info
         type (IOClock_T) :: IO

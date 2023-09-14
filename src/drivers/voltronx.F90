@@ -32,19 +32,12 @@ program voltronx
         
     !Coupling
         call Tic("DeepCoupling")
-        if ( (vApp%time >= vApp%DeepT) .and. vApp%doDeep ) then
+        if ( vApp%time >= vApp%DeepT ) then
             call DeepUpdate(vApp, gApp)
         endif
         call Toc("DeepCoupling")
 
-        call Tic("IonCoupling")
-        if (vApp%time >= vApp%ShallowT) then
-            call ShallowUpdate(vApp, gApp, vApp%time)
-        endif
-        call Toc("IonCoupling")
-
     !Update coupling DTs
-    vApp%ShallowDT = vApp%TargetShallowDT
     vApp%DeepDT = vApp%TargetDeepDT
        
     !IO checks
@@ -56,7 +49,11 @@ program voltronx
             !Timing info
             if (vApp%IO%doTimerOut) call printClocks()
             call cleanClocks()
+        elseif (vApp%IO%doTimer(vApp%ts)) then
+            if (vApp%IO%doTimerOut) call printClocks()
+            call cleanClocks()
         endif
+        
         !Restart output
         if (vApp%IO%doRestart(vApp%time)) then
             call resOutputV(vApp,gApp)

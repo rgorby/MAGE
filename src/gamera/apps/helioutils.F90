@@ -12,7 +12,7 @@ module helioutils
     implicit none
 
     ! normalization
-    real(rp), private :: gD0, gB0, gx0, gT0, gv0, gP0
+    real(rp), private :: gD0, gB0, gx0, gT0, gv0, gP0, gE0
 
     type, extends(innerJBC_T) :: helioInnerJBC_T
         contains
@@ -37,11 +37,13 @@ module helioutils
         real(rp),intent(out) :: Tsolar ! Solar rotation period
 
         type(IOClock_T) :: clockScl
+        real(rp) :: tSpin, tIO
+        logical :: doSpin
 
         ! normalization
-        gD0=200.         ! [/cc]
-        gB0=1.e-3        ! [Gs], 100 nT
-        gx0=Rsolar*1.e5  ! [cm], solar radius
+        gD0 = 200.         ! [/cc]
+        gB0 = 1.e-3        ! [Gs], 100 nT
+        gx0 = Rsolar*1.e5  ! [cm], solar radius
         ! for Ohelio case 
         !gD0=10.           ! [/cc] 
         !gB0=5.e-5         ! [Gs], 5 nT 
@@ -52,9 +54,25 @@ module helioutils
         gT0 = gx0/gv0                   ! [s] ~ 1.25 hour for above values
         gP0 = gB0**2/(4*pi)             ! [erg/cm3]   
 
+        !normalization of E-field
+        gE0 = gB0*1.e-4*gv0*1.e-2 ! B0[T]*V0[m/s]
+
         ! Use gamma=1.5 for SW calculations (set in xml, but defaults to 1.5 here)
         call inpXML%Set_Val(Model%gamma,"physics/gamma",1.5_rp)
-        call inpXML%Set_Val(Tsolar,"prob/Tsolar",25.38_rp)    ! in days
+        call inpXML%Set_Val(Tsolar,"prob/Tsolar",25.38_rp)    ! siderial solar rotation in days
+      
+        if (.not. Model%isRestart) then    
+            !Check for spinup info
+            call inpXML%Set_Val(doSpin,"spinup/doSpin",.true.)
+            if (doSpin) then
+                call inpXML%Set_Val(tSpin,"spinup/tSpin",200.0_rp) ! set in [hr] in xml
+                !Rewind Gamera helio time to negative tSpin
+                Model%t = -tSpin*3600./gT0
+                call inpXML%Set_Val(tIO,"spinup/tIO",0.0_rp) !Time of first restart and output
+                Model%IO%tRes = tIO
+                Model%IO%tOut = tIO
+            endif
+         endif
 
         ! convert Tsolar to code units
         Tsolar = Tsolar*24.*3600./gt0

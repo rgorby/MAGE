@@ -45,11 +45,14 @@ module voltapp
             call getIDeckStr(inpXML)
 
         endif
-        !Start by shutting up extra ranks
-        if (.not. vApp%isLoud) call xmlInp%BeQuiet()
+
+        if(vApp%isLoud) write(*,*) 'Voltron Reading input deck from ', trim(inpXML)
 
         !Create XML reader
         xmlInp = New_XML_Input(trim(inpXML),'Kaiju/Voltron',.true.)
+
+        !Start by shutting up extra ranks
+        if (.not. vApp%isLoud) call xmlInp%BeQuiet()
 
         ! try to verify that the XML file has "Kaiju" as a root element
         kaijuRoot = ""
@@ -78,16 +81,18 @@ module voltapp
 
     !Initialize planet information
         call getPlanetParams(vApp%planet, xmlInp)
-        call printPlanetParams(vApp%planet)
+        if (vApp%isLoud) then
+            call printPlanetParams(vApp%planet)
+        endif
 
     !Initialize state information
         !Check for Earth to decide what things need to happen
         if (trim(gApp%Model%gamOut%uID) == "EARTH") then
             vApp%isEarth = .true.
-            write(*,*) "Going into geospace mode ..."
+            if (vApp%isLoud) write(*,*) "Going into geospace mode ..."
         else
             vApp%isEarth = .false.
-            write(*,*) "Not using geospace mode ..."
+            if (vApp%isLoud) write(*,*) "Not using geospace mode ..."
         endif
 
         !Set file to read from and pass desired variable name to initTS
@@ -119,10 +124,22 @@ module voltapp
         
         !Force Gamera IO times to match Voltron IO
         call IOSync(vApp%IO,gApp%Model%IO,1.0/gTScl)
+      
+        !Deep coupling
+        if (xmlInp%Exists("coupling/dt") .or. xmlInp%Exists("coupling/dtDeep")) then
+                write(*,*) 'Please remove all instances of voltron/coupling/dt and voltron/coupling/dtDeep'
+                write(*,*) '   from the input XML. They have been replaced with a single unified input named'
+                write(*,*) '   voltron/coupling/dtCouple, which controls all coupling and is set to 5 seconds by default'
+                stop
+        endif
 
-    !Shallow coupling
-        call xmlInp%Set_Val(vApp%ShallowDT ,"coupling/dt" , 0.1_rp)
-        vApp%TargetShallowDT = vApp%ShallowDT
+        call xmlInp%Set_Val(vApp%DeepDT, "coupling/dtCouple", 5.0_rp)
+        vApp%TargetDeepDT = vApp%DeepDT
+        call xmlInp%Set_Val(vApp%rTrc,   "coupling/rTrc"  , 40.0)
+
+        !Coupling is unified, so adding a separate XML option to control "deep" parts
+        call xmlInp%Set_Val(vApp%doDeep, "coupling/doDeep", .true.)
+
         call xmlInp%Set_Val(vApp%doGCM, "coupling/doGCM",.false.)
         if (vApp%isEarth) then
             call xmlInp%Set_Val(vApp%mhd2mix%dtAvg ,"coupling/dtAvgB0",900.0)
@@ -132,30 +149,15 @@ module voltapp
         !Figure out weighting for exponential moving average (EMA)
         !Want weighting such that ~95% of the weight comes from the last dtAvg seconds
         if (vApp%mhd2mix%dtAvg > 0) then
-            vApp%mhd2mix%wAvg = 1.0 - exp(-3*vApp%ShallowDT/max(vApp%mhd2mix%dtAvg,vApp%ShallowDT))
+            vApp%mhd2mix%wAvg = 1.0 - exp(-3*vApp%DeepDT/max(vApp%mhd2mix%dtAvg,vApp%DeepDT))
         else
             vApp%mhd2mix%wAvg = 0.0 !Ignore any corrections after initial dipole value
         endif
 
-        if (vApp%doGCM) then
-            call init_gcm(vApp%gcm,gApp%Model%isRestart)
-        end if
-
-    !Deep coupling
-        call xmlInp%Set_Val(vApp%DeepDT, "coupling/dtDeep", -1.0_rp)
-        vApp%TargetDeepDT = vApp%DeepDT
-        call xmlInp%Set_Val(vApp%rTrc,   "coupling/rTrc"  , 40.0)
-
-        if (vApp%DeepDT>0) then
-            vApp%doDeep = .true.
-        else
-            vApp%doDeep = .false.
-        endif
-
         if(gApp%Model%isRestart) then
             call readVoltronRestart(vApp, xmlInp)
-            vApp%IO%tOut = floor(vApp%time/vApp%IO%dtOut)*vApp%IO%dtOut
-            vApp%IO%tRes = vApp%time + vApp%IO%dtRes
+            vApp%IO%tOut = floor(vApp%time/vApp%IO%dtOut)*vApp%IO%dtOut + vApp%IO%dtOut
+            vApp%IO%tRes = floor(vApp%time/vApp%IO%dtRes)*vApp%IO%dtRes + vApp%IO%dtRes
             vApp%IO%tsNext = vApp%ts
             if(vApp%isSeparate) then
                 gApp%Model%ts = vApp%ts
@@ -197,9 +199,8 @@ module voltapp
             vApp%time = gApp%Model%t*gTScl !Time in seconds
             vApp%ts   = gApp%Model%ts !Timestep
             vApp%MJD = T2MJD(vApp%time,gApp%Model%MJD0)
-            vApp%ShallowT = vApp%time ! shallow coupling immediately
-            !Set first deep coupling (defaulting to 0)
-            call xmlInp%Set_Val(vApp%DeepT, "coupling/tDeep", 0.0_rp)
+            !Set first deep coupling (defaulting to coupling right away since shallow is part of deep now)
+            call xmlInp%Set_Val(vApp%DeepT, "coupling/tCouple", vApp%time)
         endif
 
         if (vApp%doDeep) then
@@ -255,6 +256,18 @@ module voltapp
             call initializeFromGamera(vApp, gApp)
         endif
 
+        ! now that remix is initialized, check if precipitation model is OK with deep choice
+        if(.not. vApp%doDeep) then
+            ! if we aren't using "deep" parts such as RCM, we need to use a
+            !    precipitation model that doesn't rely on them
+            if(vApp%remixApp%ion(NORTH)%P%aurora_model_type /= FEDDER .and. vApp%remixApp%ion(NORTH)%P%aurora_model_type /= ZHANG) then
+                write(*,*) 'Either the "FEDDER" or "ZHANG" precipitation model MUST be used when deep coupling is disabled.'
+                write(*,*) 'Please either enable the "voltron/coupling/doDeep" option, or'
+                write(*,*) ' set "remix/precipitation/aurora_model_type" to "FEDDER" or "ZHANG"'
+                stop
+            endif
+        endif
+
         if (gApp%Grid%Nkp>=512) then
         !Hex or above, check for sabotage
             !For now disabling hex res for people too lazy to grep this error message
@@ -267,14 +280,10 @@ module voltapp
 
         if(.not. vApp%isSeparate) then
             !Do first couplings if the gamera data is local and therefore uptodate
-            call Tic("IonCoupling")
-            call ShallowUpdate(vApp,gApp,vApp%time)
-            call Toc("IonCoupling")
-        
-            if (vApp%doDeep .and. (vApp%time>=vApp%DeepT)) then
-                call Tic("DeepCoupling")
+            if (vApp%time>=vApp%DeepT) then
+                call Tic("DeepCoupling", .true.)
                 call DeepUpdate(vApp,gApp)
-                call Toc("DeepCoupling")
+                call Toc("DeepCoupling", .true.)
             endif
         endif
 
@@ -283,7 +292,7 @@ module voltapp
         if (gApp%Model%dt0<TINY) gApp%Model%dt0 = gApp%Model%dt
         
         !Bring overview info
-        call printConfigStamp()
+        if (vApp%isLoud) call printConfigStamp()
 
         !Finally do first output stuff
         !console output
@@ -349,6 +358,10 @@ module voltapp
         endif
         
         vApp%remixApp%ion%rad_iono_m = vApp%planet%ri_m
+        if (vApp%doGCM) then
+            write(*,*) "Initializing GCM ..."
+            call init_gcm(vApp%gcm,vApp%remixApp%ion,gApp%Model%isRestart)
+        end if
         !Ensure remix and voltron restart numbers match
         if (isRestart .and. vApp%IO%nRes /= vApp%remixApp%ion(1)%P%nRes) then
             write(*,*) "Voltron and Remix disagree on restart number, you should sort that out."
@@ -374,10 +387,10 @@ module voltapp
 
             call updateF107(vApp%remixApp%ion,maxF107)
     
-            write(*,*) 'Using F10.7 = ', maxF107        
+            if (vApp%isLoud) write(*,*) 'Using F10.7 = ', maxF107        
         endif                
 
-        write(*,*) 'Using MJD0  = ', gApp%Model%MJD0
+        if (vApp%isLoud) write(*,*) 'Using MJD0  = ', gApp%Model%MJD0
 
         call init_mhd2Mix(vApp%mhd2mix, gApp, vApp%remixApp)
         call init_mix2Mhd(vApp%mix2mhd, vApp%remixApp, gApp)
@@ -418,37 +431,12 @@ module voltapp
     end subroutine initializeFromGamera
 
 !----------
-!Shallow coupling stuff
-    subroutine ShallowUpdate(vApp, gApp, time)
-        type(gamApp_T), intent(inout) :: gApp
+    subroutine runRemix(vApp)
         class(voltApp_T), intent(inout) :: vApp
-        real(rp) :: time
-
-        ! convert gamera data to mixInput
-        call Tic("G2R")
-        call convertGameraToRemix(vApp%mhd2mix, gApp, vApp%remixApp)
-        call Toc("G2R")
-
-        ! run remix
-        call Tic("ReMIX")
-        call runRemix(vApp, time)
-        call Toc("ReMIX")
-
-        ! convert mixOutput to gamera data
-        call Tic("R2G")
-        call convertRemixToGamera(vApp%mix2mhd, vApp%remixApp, gApp)
-        call Toc("R2G")
-
-        vApp%ShallowT = vApp%ShallowT + vApp%ShallowDT
-
-    end subroutine ShallowUpdate
-
-    subroutine runRemix(vApp, time)
-        type(voltApp_T), intent(inout) :: vApp
-        real(rp), intent(in) :: time
         real(rp) :: curTilt
 
         ! convert gamera inputs to remix
+        call MJDRecalc(vApp%MJD)
         if (vApp%doDeep) then
             call mapIMagToRemix(vApp%imag2mix,vApp%remixApp)
         endif
@@ -457,17 +445,19 @@ module voltapp
         ! determining the current dipole tilt
         call vApp%tilt%getValue(vApp%time,curTilt)
 
-        if (vApp%doGCM .and. time >=0 .and. .not.(vApp%gcm%isRestart)) then
+        if (vApp%doGCM .and. vApp%time >=0) then
+            call Tic("GCM2MIX")
             call coupleGCM2MIX(vApp%gcm,vApp%remixApp%ion,vApp%doGCM,mjd=vApp%MJD,time=vApp%time)
+            call Toc("GCM2MIX")
         end if
 
         ! solve for remix output
-        if (time<=0) then
-            call run_mix(vApp%remixApp%ion,curTilt,doModelOpt=.false.)
+        if (vApp%time<=0) then
+            call run_mix(vApp%remixApp%ion,curTilt,doModelOpt=.false.,mjd=vApp%MJD)
         else if (vApp%doGCM) then
-            call run_mix(vApp%remixApp%ion,curTilt,gcm=vApp%gcm)
+            call run_mix(vApp%remixApp%ion,curTilt,gcm=vApp%gcm,mjd=vApp%MJD)
         else
-            call run_mix(vApp%remixApp%ion,curTilt,doModelOpt=.true.)
+            call run_mix(vApp%remixApp%ion,curTilt,doModelOpt=.true.,mjd=vApp%MJD)
         endif
 
         ! get stuff from mix to gamera
@@ -481,26 +471,42 @@ module voltapp
         type(gamApp_T) , intent(inout) :: gApp
         class(voltApp_T), intent(inout) :: vApp
 
-        if (.not. vApp%doDeep) then
-            !Why are you even here?
-            return
-        endif
+        !Remix code moved from old shallow coupling
+        ! convert gamera data to mixInput
+        call Tic("G2R")
+        call convertGameraToRemix(vApp%mhd2mix, gApp, vApp%remixApp)
+        call Toc("G2R")
 
-        call PreDeep(vApp, gApp)
-          call DoImag(vApp)
-          call SquishStart(vApp)
-            call Squish(vApp) ! do all squish blocks here
-          call SquishEnd(vApp)
-        call PostDeep(vApp, gApp)
+        ! run remix
+        call Tic("ReMIX", .true.)
+        call runRemix(vApp)
+        call Toc("ReMIX", .true.)
+
+        ! convert mixOutput to gamera data
+        call Tic("R2G")
+        call convertRemixToGamera(vApp%mix2mhd, vApp%remixApp, gApp)
+        call Toc("R2G")
+
+        !Update coupling time now so that voltron knows what to expect
+        vApp%DeepT = vApp%DeepT + vApp%DeepDT
+
+        ! only do imag after spinup with deep enabled
+        if(vApp%doDeep .and. vApp%time >= 0) then
+            call PreDeep(vApp, gApp)
+              call DoImag(vApp)
+              call SquishStart(vApp)
+                call Squish(vApp) ! do all squish blocks here
+              call SquishEnd(vApp)
+            call PostDeep(vApp, gApp)
+        else
+            gApp%Grid%Gas0 = 0
+        endif
 
     end subroutine DeepUpdate
 
     subroutine PreDeep(vApp, gApp)
         type(gamApp_T) , intent(inout) :: gApp
         class(voltApp_T), intent(inout) :: vApp
-
-        !Update coupling time now so that voltron knows what to expect
-        vApp%DeepT = vApp%DeepT + vApp%DeepDT
 
         !Update i-shell to trace within in case rTrc has changed
         vApp%iDeep = ShellBoundary(gApp%Model,gApp%Grid,vApp%rTrc)
@@ -516,9 +522,9 @@ module voltapp
         class(voltApp_T), intent(inout) :: vApp
 
         !Advance inner magnetosphere model to tAdv
-        call Tic("InnerMag")
+        call Tic("InnerMag", .true.)
         call vApp%imagApp%doAdvance(vApp,vApp%DeepT)
-        call Toc("InnerMag")
+        call Toc("InnerMag", .true.)
 
     end subroutine
 
@@ -652,6 +658,7 @@ module voltapp
         Model%doMHD = .true.
         call inpXML%Set_Val(Model%epsds,'tracer/epsds',1.0e-2)    
         call setBackground(Model,inpXML)
+        call inpXML%Set_Val(Model%doDip,'tracer/doDip',.false.)
 
     !Initialize ebState
         !CHIMP grid is initialized from Gamera's active corners

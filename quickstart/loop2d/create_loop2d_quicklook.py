@@ -29,13 +29,13 @@ import kaipy.gamera.gampp as gampp
 default_runid = "loop2d"
 
 # Program description.
-description = "Create a quick-look plot (Pb at start and end) for the %s test case." % default_runid
+description = "Create a quick-look plot for the %s example." % default_runid
 
 
 def create_command_line_parser():
     """Create the command-line argument parser.
-    
-    Ceate the parser for command-line arguments.
+
+    Create the command-line argument parser.
 
     Parameters
     ----------
@@ -68,9 +68,9 @@ def create_command_line_parser():
 
 def create_quicklook_plot(directory, runid):
     """Create the quicklook plot for the loop2d run.
-    
+
     Create the quicklook plot for the loop2d run.
-    
+
     Parameters
     ----------
     directory : str
@@ -106,7 +106,6 @@ def create_quicklook_plot(directory, runid):
     Pb_last = (Bx**2 + By**2 + Bz**2)/2
 
     # Plot parameters
-    name = "Magnetic pressure"
     units = "code units"
     vmin = 0
     vmax = 6e-7
@@ -144,7 +143,7 @@ def create_quicklook_plot(directory, runid):
 
 
 if __name__ == "__main__":
-    """Make a quick-look plot for the loop2d example run."""
+    """Begin main program."""
 
     # Set up the command-line parser.
     parser = create_command_line_parser()

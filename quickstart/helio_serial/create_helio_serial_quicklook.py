@@ -1,9 +1,9 @@
 #!/usr/bin/env python
 
 
-"""Make a quick-look plot for the helio_mpi example run.
+"""Make a quick-look plot for the helio_serial example run.
 
-The quick-look plot is created by the msphpic.py script.
+The quick-look plot is created by the heliopic.py script.
 """
 
 
@@ -13,26 +13,23 @@ import os
 import subprocess
 
 # Import 3rd-party modules.
-import matplotlib
-import matplotlib.pyplot as plt
 
 # Import project-specific modules.
-import kaipy.gamera.gampp as gampp
 
 
 # Program constants and defaults
 
 # Default identifier for model to run,
-default_runid = "helio_mpi"
+default_runid = "helio_serial"
 
 # Program description.
-description = "Create a quick-look plot (Pb at start and end) for the %s test case." % default_runid
+description = "Create a quick-look plot for the %s example." % default_runid
 
 
 def create_command_line_parser():
     """Create the command-line argument parser.
-    
-    Ceate the parser for command-line arguments.
+
+    Create the command-line argument parser.
 
     Parameters
     ----------
@@ -86,10 +83,11 @@ def create_quicklook_plot(directory, runid):
     # Move to the directory containing the results.
     os.chdir(directory)
 
+    # Run the quicklook generation script.
     cmd = "heliopic.py"
-    args = []
+    args = ["-id", runid]
     subprocess.run([cmd] + args)
-    figure_file_name = os.path.join(directory, "qkpichelio.png")
+    figure_file_name = os.path.join(directory, "qkpic.png")
 
     # Move back to the starting directory.
     os.chdir(initial_directory)
@@ -98,7 +96,7 @@ def create_quicklook_plot(directory, runid):
 
 
 if __name__ == "__main__":
-    """Make a quick-look plot for the helio_mpi example run."""
+    """Begin main program."""
 
     # Set up the command-line parser.
     parser = create_command_line_parser()

@@ -13,11 +13,8 @@ import os
 import subprocess
 
 # Import 3rd-party modules.
-import matplotlib
-import matplotlib.pyplot as plt
 
 # Import project-specific modules.
-import kaipy.gamera.gampp as gampp
 
 
 # Program constants and defaults
@@ -26,13 +23,13 @@ import kaipy.gamera.gampp as gampp
 default_runid = "geo_mpi"
 
 # Program description.
-description = "Create a quick-look plot (Pb at start and end) for the %s test case." % default_runid
+description = "Create a quick-look plot for the %s example." % default_runid
 
 
 def create_command_line_parser():
     """Create the command-line argument parser.
-    
-    Ceate the parser for command-line arguments.
+
+    Create the command-line argument parser.
 
     Parameters
     ----------
@@ -40,8 +37,8 @@ def create_command_line_parser():
 
     Returns
     -------
-    parser : argparse.ArgumentParser
-        Command-line argument parser for this script.
+    parse : argparse.ArgumentParser
+        Parser for command-line arguments.
     """
     parser = argparse.ArgumentParser(description=description)
     parser.add_argument(
@@ -65,9 +62,9 @@ def create_command_line_parser():
 
 def create_quicklook_plot(directory, runid):
     """Create the quicklook plot for the run.
-    
+
     Create the quicklook plot for the run.
-    
+
     Parameters
     ----------
     directory : str
@@ -86,8 +83,9 @@ def create_quicklook_plot(directory, runid):
     # Move to the directory containing the results.
     os.chdir(directory)
 
+    # Run the quicklook plot generation script.
     cmd = "msphpic.py"
-    args = []
+    args = ["-id", runid]
     subprocess.run([cmd] + args)
     figure_file_name = os.path.join(directory, "qkpic.png")
 
@@ -98,7 +96,7 @@ def create_quicklook_plot(directory, runid):
 
 
 if __name__ == "__main__":
-    """Make a quick-look plot for the geo_mpi example run."""
+    """Begin main program."""
 
     # Set up the command-line parser.
     parser = create_command_line_parser()

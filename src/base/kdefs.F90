@@ -66,7 +66,11 @@ module kdefs
     real(rp), parameter :: REarth = Re_cgs*1.0e-2 !m
 
     real(rp), parameter :: RionE  = 6.5    ! Earth Ionosphere radius in 1000 km
-    real(rp), parameter :: EarthPsi0 = 92.4 ! Corotation potential [kV]
+    ! Earth corotation potential
+    !real(rp), parameter :: EarthPsi0 = 92.4 ! !!OUTDATED, based on LFM magntic field strength
+    !real(rp), parameter :: EarthPsi0 = 87.62  ! Calculated using B = 0.2961737 Gauss
+    real(rp), parameter :: EarthPsi0 = REarth**2 * (2.0*PI/86400.0) * (EarthM0g*G2T) * 1.0e-3 ! [kV]
+        ! Everyone should ideally get Psi0 from planet object, but things specific to Earth should still be able to rely on EarthPsi0
     
     !Saturn
     real(rp), parameter :: SaturnM0g = 0.21 !Gauss
@@ -84,6 +88,7 @@ module kdefs
 !Helio constants
     real(rp), parameter :: Rsolar = 6.956D5    ! [km] Solar radius
     real(rp), parameter :: Msolar = 1.98847D30 ! [kg] Solar mass
+    real(rp), parameter :: Tsolar_synodic = 27.28 ![days] synodic Tsolar
 
 !Numbered accessors
     !Directions
@@ -102,7 +107,8 @@ module kdefs
     enum, bind(C)
         enumerator :: VELX=MOMX,VELY,VELZ,PRESSURE
     endenum
-    
+
+#ifdef USECOLORTEXT
 !Color options for funsies
 character, parameter :: ANSIESCAPE = char(27) !Escape character
 integer, parameter :: ANSILEN = 5
@@ -115,6 +121,19 @@ character(ANSILEN), parameter :: &
     ANSICYAN   = ANSIESCAPE // '[36m', &
     ANSIWHITE  = ANSIESCAPE // '[37m', &
     ANSIRESET  = ANSIESCAPE // '[0m'
+#else
+!Fake values to avoid text
+integer, parameter :: ANSILEN = 0
+character(ANSILEN), parameter :: &
+    ANSIRED    = "", &
+    ANSIGREEN  = "", &
+    ANSIYELLOW = "", &
+    ANSIBLUE   = "", &
+    ANSIPURPLE = "", &
+    ANSICYAN   = "", &
+    ANSIWHITE  = "", &
+    ANSIRESET  = ""
+#endif
 
     contains
 

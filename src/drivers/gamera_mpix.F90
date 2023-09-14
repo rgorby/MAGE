@@ -57,8 +57,29 @@ program gamera_mpix
         call Tic("IO")
         
         if (gameraAppMpi%Model%IO%doConsole(gameraAppMpi%Model%ts)) then
+            !Do main console output
             call consoleOutput_mpi(gameraAppMpi)
+
+            !Do timing info if needed
+            if ( (gameraAppMpi%Model%IO%doTimerOut) .and. debugPrintingRank(gameraAppMpi)) then
+                write (*,'(a,I3,a,I3,a,I3,a)') "Rank (I,J,K) (", &
+                    gameraAppMpi%Grid%Ri,",", &
+                    gameraAppMpi%Grid%Rj,",", &
+                    gameraAppMpi%Grid%Rk,") is printing debug clock info"
+                call printClocks()
+            endif
+            call cleanClocks() !Always clean clocks
+        elseif (gameraAppMpi%Model%IO%doTimer(gameraAppMpi%Model%ts)) then
+            if ( (gameraAppMpi%Model%IO%doTimerOut) .and. debugPrintingRank(gameraAppMpi)) then
+                write (*, '(a,I3,a,I3,a,I3,a)') "Rank (I,J,K) (", &
+                    gameraAppMpi%Grid%Ri,",", &
+                    gameraAppMpi%Grid%Rj,",", &
+                    gameraAppMpi%Grid%Rk,") is printing debug clock info"
+                call printClocks()
+            endif            
+            call cleanClocks() !Always clean clocks
         endif
+
 
         if (gameraAppMpi%Model%IO%doOutput(gameraAppMpi%Model%t)) then
             call fOutput(gameraAppMpi%Model,gameraAppMpi%Grid,gameraAppMpi%State)
@@ -69,15 +90,6 @@ program gamera_mpix
         endif
 
         call Toc("IO")
-
-    !Do timing info
-        if (gameraAppMpi%Model%IO%doTimer(gameraAppMpi%Model%ts)) then
-            if(gameraAppMpi%Model%IO%doTimerOut .and. &
-               gameraAppMpi%Grid%Ri==0 .and. gameraAppMpi%Grid%Rj==0 .and. gameraAppMpi%Grid%Rk==0) then
-                call printClocks()
-            endif
-            call cleanClocks()
-        endif
 
         call Toc("Omega")
     end do

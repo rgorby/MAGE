@@ -14,7 +14,7 @@ import json
 
 #### NEED TO POINT TO SUPERMAG API SCRIPT
 #### /glade/p/hao/msphere/gamshare/supermag/supermag_api.py 
-import supermag_api as smapi
+import kaipy.supermag_api as smapi
 ####
 
 # this warning is very annoying
@@ -283,7 +283,8 @@ def ReadSimData(filename, quiet = True):
     lon[lon>180] -= 360
 
 
-    data = f['Step#1']
+    first_step_name = "Step#%s" % sIds[0]
+    data = f[first_step_name]
     dBt, dBp = np.array(data['dBt'])[0], np.array(data['dBp'])[0]
     BH = np.sqrt(dBt**2 + dBp**2)
     maglat = np.array(data['smlat'])[0].flatten()
@@ -294,8 +295,7 @@ def ReadSimData(filename, quiet = True):
     mastersmlon, masterMLT = np.copy(masterdBn), np.copy(masterdBn)
 
     # make big array of all of the data
-    for i in range(nSteps):
-        #print(i)
+    for i in sIds:
         data = f['Step#%01d' % i]
         dBt = np.array(data['dBt'])[0].flatten()
         dBp = np.array(data['dBp'])[0].flatten()
@@ -698,7 +698,6 @@ def MakeIndicesPlot(SMI, SMinterp, fignumber = 1):
     plt.legend()
     plt.grid(True)
     plt.ylabel("SMR 6-hour bins", fontsize = 20)
-
     plt.show()
 
 #-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#
