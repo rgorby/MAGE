@@ -13,10 +13,17 @@
 # Example usage
 # qsub geo_serial.pbs
 
-# IMPORTANT: You *must* make sure the kaiju_install_dir and PATH variables are
-# set properly for your build of the kaiju software. See below for details.
-# On UCAR systems (cheyenne and derecho), you also *must* set the -A directive
-# (see below) to your own account ID.
+# IMPORTANT: You *must* do the following in the code below:
+# 1. Uncomment the #PBS lines for your system, comment out the #PBS lines
+#    specific to other systems. Keep the common #PBS lines.
+# 2. (cheyenne and derecho only) Set the #PBS -A directive to your own account.
+# 3. Uncomment the modules lines for your system, comment out the others.
+# 4. Set kaiju_install_dir to your local kaiju installation.
+# 5. Set PATH to include your bin subdirectory of the build subdirectory of
+#    your local kaiju installation.
+# 6. If using the Intel compiler, uncomment the setting for KMP_STACK_SIZE and
+#    comment out setting OMP_STACK_SIZE. If not using the Intel compiler, do
+#    the opposite - uncomment OMP_STACK_SIZE, comment out KMP_STACK_SIZE.
 
 #------------------------------------------------------------------------------
 # START OF PBS DIRECTIVES
