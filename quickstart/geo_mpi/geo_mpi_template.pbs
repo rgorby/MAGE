@@ -8,7 +8,7 @@
 
 # On pleiades, this job should run in roughly 75 minutes of wall-clock time.
 # On cheyenne, this job should run in roughly 42 minutes of wall-clock time.
-# On derecho, this job should run in roughly XX minutes of wall-clock time.
+# On derecho, this job should run in roughly 20 minutes of wall-clock time.
 
 # Example usage
 # qsub geo_mpi.pbs
@@ -27,6 +27,12 @@
 # 7. Uncomment the OMP_NUM_THREADS line for your system, comment out the others.
 # 8. Uncomment the placer_cmd definition and mpiexec lines for your system,
 #    comment out the others.
+# 9. (CRITICAL derecho-only hack) Add the following element to the end of the
+#    <GAMERA> element in geo_mpi.xml:
+#    <coupling blockHalo="T" />
+# 10. (CRITICAL derecho-only hack) Add the following element to the end of the
+#    <VOLTRON> element in geo_mpi.xml:
+#    <coupling doAsyncCoupling="F" />
 
 #------------------------------------------------------------------------------
 # START OF PBS DIRECTIVES
@@ -101,7 +107,7 @@
 
 # For the derecho system at UCAR:
 
-##PBS -A UJHB0015
+##PBS -A UJHB0019
 ##PBS -q main
 ##PBS -l select=2:ncpus=128:mpiprocs=2:ompthreads=64+1:ncpus=128:mpiprocs=1:ompthreads=128
 

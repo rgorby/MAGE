@@ -82,7 +82,7 @@
 # For the derecho system at UCAR:
 
 # You *must* set the -A directive to your account number.
-##PBS -A UJHB0015
+##PBS -A UJHB0019
 ##PBS -q main
 ##PBS -l select=1:ncpus=128:ompthreads=128
 
