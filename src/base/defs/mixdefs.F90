@@ -28,7 +28,7 @@ module mixdefs
   end enum
 
   enum, bind(C)
-     enumerator :: FEDDER=1,ZHANG,RCMHD,RCMONO,RCMFED,LINMRG
+     enumerator :: FEDDER=1,ZHANG,LINMRG
   end enum
 
   enum, bind(C)
