@@ -1,0 +1,46 @@
+#!/bin/bash
+
+# This script was generated to run on {{ hpc_system }}.
+
+#PBS -N {{ runid }}
+#PBS -A {{ pbs_account_name }}
+#PBS -q {{ pbs_queue }}
+#PBS -l walltime={{ pbs_walltime }}
+#PBS -l select={{ pbs_select }}:ncpus={{ pbs_ncpus }}:mpiprocs={{ pbs_mpiprocs }}:ompthreads={{ pbs_ompthreads }}+{{ pbs_num_helpers }}:ncpus={{ pbs_ncpus }}:mpiprocs=1:ompthreads={{ pbs_helper_ompthreads }}
+#PBS -m abe
+#PBS -j oe
+
+echo "Job $PBS_JOBID started at `date` on `hostname`."
+
+# Specify the ID string for the run.
+export RUNID=$PBS_JOBNAME
+
+# Load the required modules for kaiju.
+module purge
+{{ pbs_module_load}}
+module list
+
+# Define the kaiju installation location.
+export KAIJU_INSTALL_DIR={{ kaijuhome }}
+
+# Set kaiju-related environment variables.
+# This script sets KAIJUHOME and other environment variables.
+source $KAIJU_INSTALL_DIR/scripts/setupEnvironment.sh
+
+# Add the kaiju build bin directory to PATH.
+export PATH={{ kaiju_build_directory }}/bin:$PATH
+
+# Set other environment variables.
+{{ pbs_additional_environment_variables }}
+export MPI_TYPE_DEPTH=32
+export OMP_STACKSIZE=100M
+
+echo "The active environment variables are:"
+printenv
+
+# Run the model. Direct output from the program is saved in a text file.
+EXE=voltron_mpi.x
+echo "Running $EXE on model $RUNID."
+{{ pbs_mpiexec_command }} $EXE $RUNID.xml >& $RUNID.out
+
+echo "Job $PBS_JOBID ended at `date` on `hostname`."
