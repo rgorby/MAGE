@@ -1,30 +1,64 @@
 #!/usr/bin/env python
 
 
-"""Make a quick figure of a Gamera heliosphere run.
+"""Make a quick-look figure of a Gamera heliosphere run.
 
-Make a quick figure of a Gamera heliosphere run.
+Make a quick-look figure of a Gamera heliosphere run.
 
 Five different sets of plots are supported, and are distinguished by the
 value of the "pic" argument.
 
-pic1 (default): A 4-panel display showing radial speed, number
-density*(r/r0)**2, temperature*(r/r0), and radial magnetic field*(r/r0)**2.
-These plots are done in the XY plane of the gamhelio frame (which is a
-Heliographic Stonyhurst (HGS) frame, modified with the +x reversed from
-the usual HGS definition)
+pic1 (default): A 4-panel display showing pcolormesh plots in the z = 0
+(equatorial) plane of the gamhelio frame used in the simulation. The plots
+are:
 
-pic2:
+    Upper left: Solar wind speed (km/s)
+    Upper right: Solar wind number density scaled by (r/r0)**2 (cm**-3)
+    Lower left: Solar wind temperature scaled by r/r0 (MK)
+    Lower right: Solar wind radial magnetic field scaled by r/r0 (nT)
 
-pic3:
+pic2: A 4-panel display showing pcolormesh plots in the y = 0 (meridional,
+containing Earth) plane of the gamhelio frame used in the simulation. The
+plots are:
 
-pic4:
+    Upper left: Solar wind speed (km/s)
+    Upper right: Solar wind number density scaled by (r/r0)**2 (cm**-3)
+    Lower left: Solar wind temperature scaled by r/r0 (MK)
+    Lower right: Solar wind radial magnetic field scaled bryr/r0 (nT)
 
-pic5:
+pic3: A 4-panel display showing pcolormesh plots in the r = 1 AU slice of the
+gamhelio frame used in the simulation. The plots are:
 
-Author
-------
+    Upper left: Solar wind speed (km/s)
+    Upper right: Solar wind number density (cm**-3)
+    Lower left: Solar wind temperature (MK)
+    Lower right: Solar wind radial magnetic field (nT)
+
+pic4: A pcolormesh plot in the innermost radial slice (r = 22 Rsun) of the
+gamhelio frame used in the simulation. The plot shows the radial magnetic
+field in nT, in a coordinate frame rotating with the Sun.
+
+pic5: A 3-panel display showing line as a function of radius,
+22 Rsun <= r <= 220 Rsun. The plots are:
+
+    Upper left: Solar wind number density (cm**-3)
+    Upper right: Solar wind speed (km/s)
+    Lower left: Solar wind radial momentum flux (km**2/s**2/cm**3)
+
+pic6: A 4-panel display showing components of the solar wind magnetic field
+in the solar equatorial plane (z=0), for -200 Rsun <= X, Y <= +200 Rsun.
+
+    Upper left: Radial magnetic field (nT)
+    Upper right: x-component of magnetic field (nT)
+    Lower left: y-component of magnetic field (nT)
+    Lower right: z-component of magnetic field (nT)
+
+pic7: ???
+
+Authors
+-------
 Elena Provornikova (elena.provornikova@jhuapl.edu)
+Andrew McCubbin (andrew.mccubbin@jhuapl.edu)
 Eric Winter (eric.winter@jhuapl.edu)
 """
 
