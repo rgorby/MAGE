@@ -48,14 +48,13 @@ import kaipy.gamhelio.heliosphere as hsph
 import kaipy.kaiH5 as kh5
 import kaipy.kaiTools as ktools
 import kaipy.kaiViz as kv
-import kaipy.kdefs as kdefs
 from kaipy.satcomp import scutils
 
 
 # Program constants and defaults
 
 # Program description.
-description = """Creates multi-panel figure for Gamera heliosphere run
+DESCRIPTION = """Creates multi-panel figure for Gamera heliosphere run
 Upper left - Solar wind speed
 Upper right - Solar wind number density
 Lower left - Solar wind temperature
@@ -63,19 +62,20 @@ Lower right - Solar wind radial magnetic field
 """
 
 # Default identifier for results to read.
-default_runid = "wsa"
+DEFAULT_RUNID = "wsa"
 
 # List of steps
-default_steps = "-1"
+DEFAULT_STEPS = "-1"
 
 # Default slices
-default_slice = "1:2:1"
+DEFAULT_SLICE = "1:2:1"
 
 # Code for default picture type.
-default_pictype = "pic1"
+DEFAULT_PICTYPE = "pic1"
 
-# Color to use for spacecraft position symbols.
-SPACECRAFT_COLOR = "red"
+# Colors to use for spacecraft position symbols.
+SPACECRAFT_COLORS = list(mpl.colors.TABLEAU_COLORS.keys())
+
 
 def create_command_line_parser():
     """Create the command-line argument parser.
@@ -92,7 +92,7 @@ def create_command_line_parser():
         Command-line argument parser for this script.
     """
     parser = argparse.ArgumentParser(
-        description=description,
+        description=DESCRIPTION,
         formatter_class=argparse.RawTextHelpFormatter
     )
     parser.add_argument(
@@ -104,36 +104,31 @@ def create_command_line_parser():
         help="Directory containing data to read (default: %(default)s)"
     )
     parser.add_argument(
-        "-id", type=str, metavar="runid", default=default_runid,
+        "-id", type=str, metavar="runid", default=DEFAULT_RUNID,
         help="Run ID of data (default: %(default)s)"
     )
     parser.add_argument(
-        "--nlist", type=lambda n: [int(item) for item in n.split(',')], metavar="list of steps", default=default_steps,
+        "--nlist", type=lambda n: [int(item) for item in n.split(',')],
+        metavar="list of steps", default=DEFAULT_STEPS,
         help="List of time slice(s) to plot (default: %(default)s)"
     )
     parser.add_argument(
-        "--nslice", type=lambda n: [int(item) for item in n.split(':')], metavar="step slice", default=default_slice,
+        "--nslice", type=lambda n: [int(item) for item in n.split(':')],
+        metavar="step slice", default=DEFAULT_SLICE,
         help="Slice for range of time slice(s) to plot (default: %(default)s)"
     )
     parser.add_argument(
-        "-nompi", action="store_true", default=False,
-        help="Don't show MPI boundaries (default: %(default)s)."
-    )
-    parser.add_argument(
-        "-pic", type=str, metavar="pictype", default=default_pictype,
+        "-pic", type=str, metavar="pictype", default=DEFAULT_PICTYPE,
         help="Code for plot type (default: %(default)s)"
     )
     parser.add_argument(
         "--spacecraft", type=str, metavar="spacecraft", default=None,
-        help="Names of spacecraft to plot positions, separated by commas (default: %(default)s)"
+        help="Names of spacecraft to plot positions, separated by commas "
+             "(default: %(default)s)"
     )
     parser.add_argument(
         "-v", "--verbose", action="store_true", default=False,
         help="Print verbose output (default: %(default)s)."
-    )
-    parser.add_argument(
-        "-o", "--outfile", type=str, metavar="outFile", default=fOut,
-        help="Output file name (default: %(default)s)."
     )
     parser.add_argument(
         "-p", "--parallel", action="store_true", default=False,
@@ -149,8 +144,9 @@ def create_command_line_parser():
     )
     return parser
 
+
 def initFig(pic):
-    # Determine figure size (width, height) (inches) based on the picture type.
+    """Determine figure size (width, height) (inches) based on the pic type."""
     if pic == "pic1" or pic == "pic2" or pic == "pic7":
         figSz = (10, 12.5)
     elif pic == "pic3":
@@ -159,20 +155,20 @@ def initFig(pic):
         figSz = (10, 6)
     elif pic == "pic5":
         figSz = (12, 12)
-    elif  pic == "pic6":
+    elif pic == "pic6":
         figSz = (12.5, 12.5)
 
     # Create the figure.
     fig = plt.figure(figsize=figSz)
     return fig
 
-# Name of plot output file.
-def fOut(id, pic, nStp):
-    return "qkpic_{}_{}_n{}.png".format(id, pic, nStp)
 
-if __name__ == "__main__":
-    from alive_progress import alive_bar
+def fOut(runid, pic, nStp):
+    """Compute the name of the output file."""
+    return "qkpic_{}_{}_n{}.png".format(runid, pic, nStp)
 
+
+def main():
     """Make a quick figure of a Gamera heliosphere run."""
 
     # Set up the command-line parser.
@@ -180,25 +176,22 @@ if __name__ == "__main__":
 
     # Parse the command-line arguments.
     args = parser.parse_args()
+    if args.debug:
+        print(f"args = {args}")
     debug = args.debug
     fdir = args.d
     ftag = args.id
-    noMPI = args.nompi
     steps = args.nlist
     slices = args.nslice
     spacecraft = args.spacecraft
     verbose = args.verbose
-    fOut = args.outfile
     pic = args.pic
     doParallel = args.parallel
     nWorkers = args.nworkers
     pic2lon = args.lon
-    if debug:
-        print("args = %s" % args)
     if slices:
-        print("Slice selected {}".format(slice(slices[0],slices[1],slices[2])))
-    # Invert the MPI flag for convenience.
-    doMPI = not noMPI
+        print("Slice selected {}".format(slice(slices[0], slices[1],
+                                               slices[2])))
 
     tic = time.perf_counter()
     # Fetch the plot domain based on the picture type.
@@ -214,17 +207,16 @@ if __name__ == "__main__":
 
     # Open a pipe to the results data.
     tic = time.perf_counter()
-    gsph = hsph.GamsphPipe(fdir, ftag, doFast=doFast, doParallel=doParallel, nWorkers=nWorkers)
+    gsph = hsph.GamsphPipe(fdir, ftag, doFast=doFast, doParallel=doParallel,
+                           nWorkers=nWorkers)
     toc = time.perf_counter()
-    
+
     print(f"Open pipe took {toc-tic} s")
 
-    if(slices and steps[0] == -1):
-        steps = range(gsph.sFin)[slice(slices[0],slices[1],slices[2])]
+    if (slices and steps[0] == -1):
+        steps = range(gsph.sFin)[slice(slices[0], slices[1], slices[2])]
 
-    nsteps = len(steps)
-
-    for nStp in steps: 
+    for nStp in steps:
         tic = time.perf_counter()
         print(f"Generating {pic} for time step {nStp}")
         fig = initFig(pic)
@@ -235,7 +227,10 @@ if __name__ == "__main__":
             print(f"mjd = {mjd}")
 
         # Lay out the subplots.
-        if pic == "pic1" or pic == "pic2" or pic == "pic3" or pic == "pic6" or pic == "pic7":
+        if (
+            pic == "pic1" or pic == "pic2" or pic == "pic3" or pic == "pic6" or
+            pic == "pic7"
+        ):
             gs = gridspec.GridSpec(4, 6, height_ratios=[20, 1, 20, 1])
             # Axes for plots.
             AxL0 = fig.add_subplot(gs[0, 0:3])
@@ -259,7 +254,7 @@ if __name__ == "__main__":
 
         if nStp < 0:
             nStp = gsph.sFin
-            print("Using Step %d" % nStp)
+            print(f"Using Step {nStp}")
 
         # Now create the actual plots.
         if pic == "pic1":
@@ -270,15 +265,19 @@ if __name__ == "__main__":
             hviz.PlotEqTemp(gsph, nStp, xyBds, AxL1, AxC1_1)
             hviz.PlotEqBr(gsph, nStp, xyBds, AxR1, AxC2_1)
         elif pic == "pic2":
-            hviz.PlotMerMagV(gsph ,nStp, xyBds, AxL0, AxC1_0,indx=(None,pic2lon))
-            hviz.PlotMerDNorm(gsph, nStp, xyBds, AxR0, AxC2_0,indx=(None,pic2lon))
-            hviz.PlotMerTemp(gsph, nStp, xyBds, AxL1, AxC1_1,indx=(None,pic2lon))
-            hviz.PlotMerBrNorm(gsph, nStp, xyBds, AxR1, AxC2_1,indx=(None,pic2lon))
+            hviz.PlotMerMagV(gsph, nStp, xyBds, AxL0, AxC1_0,
+                             indx=(None, pic2lon))
+            hviz.PlotMerDNorm(gsph, nStp, xyBds, AxR0, AxC2_0,
+                              indx=(None, pic2lon))
+            hviz.PlotMerTemp(gsph, nStp, xyBds, AxL1, AxC1_1,
+                             indx=(None, pic2lon))
+            hviz.PlotMerBrNorm(gsph, nStp, xyBds, AxR1, AxC2_1,
+                               indx=(None, pic2lon))
         elif pic == "pic3":
-            hviz.PlotiSlMagV(gsph, nStp, xyBds, AxL0, AxC1_0,idx=0)
-            hviz.PlotiSlD(gsph, nStp, xyBds, AxR0, AxC2_0,idx=0)
-            hviz.PlotiSlTemp(gsph, nStp, xyBds, AxL1, AxC1_1,idx=0)
-            hviz.PlotiSlBr(gsph, nStp, xyBds, AxR1, AxC2_1,idx=0)
+            hviz.PlotiSlMagV(gsph, nStp, xyBds, AxL0, AxC1_0, idx=0)
+            hviz.PlotiSlD(gsph, nStp, xyBds, AxR0, AxC2_0, idx=0)
+            hviz.PlotiSlTemp(gsph, nStp, xyBds, AxL1, AxC1_1, idx=0)
+            hviz.PlotiSlBr(gsph, nStp, xyBds, AxR1, AxC2_1, idx=0)
         elif pic == "pic4":
             hviz.PlotiSlBrRotatingFrame(gsph, nStp, xyBds, Ax, AxC)
         elif pic == "pic5":
@@ -291,12 +290,12 @@ if __name__ == "__main__":
             hviz.PlotEqBy(gsph, nStp, xyBds, AxL1, AxC1_1)
             hviz.PlotEqBz(gsph, nStp, xyBds, AxR1, AxC2_1)
         elif pic == "pic7":
-            hviz.PlotjMagV(gsph, nStp, xyBds, AxL0, AxC1_0,jidx=448)
-            hviz.PlotjD(gsph, nStp, xyBds, AxR0, AxC2_0,jidx=448)
-            hviz.PlotjTemp(gsph, nStp, xyBds, AxL1, AxC1_1,jidx=448)
-            hviz.PlotjBr(gsph, nStp, xyBds, AxR1, AxC2_1,jidx=448)
+            hviz.PlotjMagV(gsph, nStp, xyBds, AxL0, AxC1_0, jidx=448)
+            hviz.PlotjD(gsph, nStp, xyBds, AxR0, AxC2_0, jidx=448)
+            hviz.PlotjTemp(gsph, nStp, xyBds, AxL1, AxC1_1, jidx=448)
+            hviz.PlotjBr(gsph, nStp, xyBds, AxR1, AxC2_1, jidx=448)
         else:
-            print ("Pic is empty. Choose pic1 or pic2 or pic3")
+            print("Pic is empty. Choose pic1 or pic2 or pic3")
 
         # Add time in the upper left.
         if pic == "pic1" or pic == "pic2" or pic == "pic6" or pic == "pic7":
@@ -306,63 +305,65 @@ if __name__ == "__main__":
         elif pic == "pic4" or pic == "pic5":
             gsph.AddTime(nStp, Ax, xy=[0.015, 0.92], fs="small")
         else:
-            print ("Pic is empty. Choose pic1 or pic2 or pic3")
+            print("Pic is empty. Choose pic1 or pic2 or pic3")
 
         # Overlay the spacecraft trajectory, if needed.
         if spacecraft:
-            print("Overplotting spacecraft trajectories of %s." % spacecraft)
+            print(f"Overplotting spacecraft trajectories of {spacecraft}.")
 
             # Split the list into individual spacecraft names.
             spacecraft = spacecraft.split(',')
             if debug:
-                print("spacecraft = %s" % spacecraft)
+                print(f"spacecraft = {spacecraft}")
 
             # Fetch the MJD start and end time of the model results.
             fname = gsph.f0
             if debug:
-                print("fname = %s" % fname)
+                print(f"fname = {fname}")
             MJD_start = kh5.tStep(fname, 0, aID="MJD")
             if debug:
-                print("MJD_start = %s" % MJD_start)
+                print(f"MJD_start = {MJD_start}")
             MJD_end = kh5.tStep(fname, gsph.sFin, aID="MJD")
             if debug:
-                print("MJD_end = %s" % MJD_end)
+                print(f"MJD_end = {MJD_end}")
 
             # Convert the start and stop MJD to a datetime object in UT.
             ut_start = ktools.MJD2UT(MJD_start)
             if debug:
-                print("ut_start = %s" % ut_start)
+                print(f"ut_start = {ut_start}")
             ut_end = ktools.MJD2UT(MJD_end)
             if debug:
-                print("ut_end = %s" % ut_end)
+                print(f"ut_end = {ut_end}")
 
             # Get the MJDc value for use in computing the gamhelio frame.
             MJDc = scutils.read_MJDc(fname)
             if debug:
-                print("mjdc = %s" % MJDc)
+                print(f"mjdc = {MJDc}")
 
             # Fetch and plot the trajectory of each spacecraft from CDAWeb.
             for (i_sc, sc_id) in enumerate(spacecraft):
                 if verbose:
-                    print("Fetching trajectory for %s." % sc_id)
+                    print(f"Fetching trajectory for {sc_id}.")
 
-                # Fetch the spacecraft trajectory in whatever frame is available
-                # from CDAWeb.
+                # Fetch the spacecraft trajectory in whatever frame is
+                # available from CDAWeb.
                 sc_data = cdaweb_utils.fetch_helio_spacecraft_trajectory(
                     sc_id, ut_start, ut_end
                 )
                 if sc_data is None:
-                    print("No trajectory found for %s." % sc_id)
+                    print(f"No trajectory found for {sc_id}.")
                     continue
 
                 # Ingest the trajectory by converting it to the GH(MJDc) frame.
                 if verbose:
-                    print("Converting ephemeris for %s into gamhelio format." % sc_id)
+                    print(f"Converting ephemeris for {sc_id} into gamhelio "
+                          "format.")
                 t_strings = np.array([str(t) for t in sc_data["Epoch"]])
                 t = astropy.time.Time(t_strings, scale='utc').mjd
-                x, y, z = cdaweb_utils.ingest_helio_spacecraft_trajectory(sc_id, sc_data, MJDc)
+                x, y, z = cdaweb_utils.ingest_helio_spacecraft_trajectory(
+                    sc_id, sc_data, MJDc)
                 if debug:
-                    print("t, x, y, z = %s, %s, %s, %s" % (t, x, y, z))
+                    print(f"t, x, y, z = {t}, {x}, {y}, {z}")
 
                 # Interpolate the spacecraft position at the time for the plot.
                 t_sc = mjd
@@ -382,7 +383,6 @@ if __name__ == "__main__":
 
                 # Plot a position of the spacecraft.
                 # Left plot
-                SPACECRAFT_COLORS = list(mpl.colors.TABLEAU_COLORS.keys())
                 color = SPACECRAFT_COLORS[i_sc % len(SPACECRAFT_COLORS)]
                 x_nudge = 0.0
                 y_nudge = 8.0
@@ -390,18 +390,19 @@ if __name__ == "__main__":
                     for ax in (AxL0, AxR0, AxL1, AxR1):
                         ax.plot(x_sc, y_sc, 'o', c=color)
                         ax.plot(x_sc, y_sc, 'o', c="black", fillstyle="none")
-                        ax.text(x_sc + x_nudge, y_sc+ y_nudge, sc_id,
+                        ax.text(x_sc + x_nudge, y_sc + y_nudge, sc_id,
                                 c="black", horizontalalignment="center")
                 elif pic == "pic2":
                     for ax in (AxL0, AxR0, AxL1, AxR1):
                         ax.plot(x_sc, y_sc, 'o', c=color)
                         ax.plot(x_sc, y_sc, 'o', c="black", fillstyle="none")
-                        ax.text(x_sc + x_nudge, y_sc+ y_nudge, sc_id,
+                        ax.text(x_sc + x_nudge, y_sc + y_nudge, sc_id,
                                 c="black", horizontalalignment="center")
                 elif pic == "pic3":
                     for ax in (AxL0, AxR0, AxL1, AxR1):
                         ax.plot(lon_sc, lat_sc, 'o', c=color)
-                        ax.plot(lon_sc, lat_sc, 'o', c="black", fillstyle="none")
+                        ax.plot(lon_sc, lat_sc, 'o', c="black",
+                                fillstyle="none")
                         ax.text(lon_sc + x_nudge, lat_sc + y_nudge, sc_id,
                                 c="black", horizontalalignment="center")
                 elif pic == "pic4":
@@ -419,3 +420,7 @@ if __name__ == "__main__":
         fig.clear()
         toc = time.perf_counter()
         print(f"Step {nStp} took {toc-tic} s")
+
+
+if __name__ == "__main__":
+    main()
