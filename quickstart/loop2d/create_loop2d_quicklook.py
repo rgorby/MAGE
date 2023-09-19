@@ -1,9 +1,9 @@
 #!/usr/bin/env python
 
 
-"""Make a quick-look plot for the loop2d example run.
+"""Make a quicklook plot for the loop2d quickstart case.
 
-The quick-look plot displays the magnetic pressure:
+The quicklook plot displays the magnetic pressure:
 
 Pb = 0.5*(Bx**2 + By**2 + Bz**2)
 
@@ -25,11 +25,11 @@ import kaipy.gamera.gampp as gampp
 
 # Program constants and defaults
 
-# Default identifier for model to run,
-default_runid = "loop2d"
+# Default identifier for run.
+runid = "loop2d"
 
 # Program description.
-description = "Create a quick-look plot for the %s example." % default_runid
+description = "Create a quicklook plot for the loop2d quickstart case."
 
 
 def create_command_line_parser():
@@ -45,47 +45,43 @@ def create_command_line_parser():
     -------
     parser : argparse.ArgumentParser
         Command-line argument parser for this script.
+
+    Raises
+    ------
+    None
     """
     parser = argparse.ArgumentParser(description=description)
     parser.add_argument(
-        "-d", "--debug", action="store_true", default=False,
+        "--debug", "-d", action="store_true", default=False,
         help="Print debugging output (default: %(default)s)."
     )
     parser.add_argument(
-        "--directory", type=str, metavar="directory", default=os.getcwd(),
-        help="Directory containing data to read (default: %(default)s)"
-    )
-    parser.add_argument(
-        "--runid", type=str, metavar="runid", default=default_runid,
-        help="Run ID of data (default: %(default)s)"
-    )
-    parser.add_argument(
-        "-v", "--verbose", action="store_true", default=False,
+        "--verbose", "-v", action="store_true", default=False,
         help="Print verbose output (default: %(default)s)."
     )
     return parser
 
 
-def create_quicklook_plot(directory, runid):
-    """Create the quicklook plot for the loop2d run.
+def create_quicklook_plot():
+    """Create the quicklook plot for the loop2d quickstart case.
 
-    Create the quicklook plot for the loop2d run.
+    Create the quicklook plot for the loop2d quickstart case.
 
     Parameters
     ----------
-    directory : str
-        Path to directory containing results.
-    runid : str
-        ID string for results to examine.
+    None
 
     Returns
     -------
     figure_file_name : str
         Path to quicklook plot file.
-    """
 
+    Raises
+    ------
+    None
+    """
     # Open a pipe to the data file.
-    data_pipe = gampp.GameraPipe(directory, runid, doVerbose=False)
+    data_pipe = gampp.GameraPipe(".", runid, doVerbose=False)
 
     # Read the grid coordinates.
     X = data_pipe.X[...]
@@ -117,32 +113,34 @@ def create_quicklook_plot(directory, runid):
     # Plot the magnetic pressure from the first step.
     axes[0].set_aspect("equal")
     axes[0].set_ylabel("Y")
-    values = axes[0].pcolormesh(X, Y, Pb_first, cmap="viridis", vmin=vmin, vmax=vmax)
+    values = axes[0].pcolormesh(X, Y, Pb_first, cmap="viridis",
+                                vmin=vmin, vmax=vmax)
     axes[0].text(0.5, 0.4, "Step 0", color="white")
 
     # Plot the magnetic pressure from the last step.
     axes[1].set_aspect("equal")
     axes[1].set_xlabel("X")
     axes[1].set_ylabel("Y")
-    values = axes[1].pcolormesh(X, Y, Pb_last, cmap="viridis", vmin=vmin, vmax=vmax)
-    axes[1].text(0.5, 0.4, "Step %s" % data_pipe.sFin, color="white")
+    values = axes[1].pcolormesh(X, Y, Pb_last, cmap="viridis",
+                                vmin=vmin, vmax=vmax)
+    axes[1].text(0.5, 0.4, f"Step {data_pipe.sFin}", color="white")
 
     # Show the shared colorbar.
     fig.subplots_adjust(right=0.8)
     cbar_ax = fig.add_axes([0.85, 0.15, 0.05, 0.7])
-    fig.colorbar(values, cax=cbar_ax, label="%s [%s]" % ("Magnetic pressure", units))
+    fig.colorbar(values, cax=cbar_ax, label=f"Magnetic pressure [{units}]")
 
     # Set the plot title.
-    plt.suptitle("Magnetic pressure at start and end for %s" % runid)
+    plt.suptitle(f"Magnetic pressure at start and end for {runid}")
 
     # Save the quicklook plot.
-    figure_file_name = "%s_quicklook.png" % runid
+    figure_file_name = f"{runid}_quicklook.png"
     fig.savefig(figure_file_name)
 
     return figure_file_name
 
 
-if __name__ == "__main__":
+def main():
     """Begin main program."""
 
     # Set up the command-line parser.
@@ -150,13 +148,18 @@ if __name__ == "__main__":
 
     # Parse the command-line arguments.
     args = parser.parse_args()
+    if args.debug:
+        print(f"args = {args}")
     debug = args.debug
-    directory = args.directory
-    runid = args.runid
     verbose = args.verbose
 
     if verbose:
         print("Creating quicklook plot.")
-    quicklook_file = create_quicklook_plot(directory, runid)
+    quicklook_file = create_quicklook_plot()
     if verbose:
-        print("The quicklook plot is in %s." % quicklook_file)
+        print(f"The quicklook plot is in {quicklook_file}.")
+
+
+if __name__ == "__main__":
+    """Begin main program."""
+    main()
