@@ -428,9 +428,9 @@ def main():
                                 c="black", horizontalalignment="center")
                 elif pic == "pic2":
                     for ax in (AxL0, AxR0, AxL1, AxR1):
-                        ax.plot(x_sc, y_sc, 'o', c=color)
-                        ax.plot(x_sc, y_sc, 'o', c="black", fillstyle="none")
-                        ax.text(x_sc + x_nudge, y_sc + y_nudge, sc_id,
+                        ax.plot(x_sc, z_sc, 'o', c=color)
+                        ax.plot(x_sc, z_sc, 'o', c="black", fillstyle="none")
+                        ax.text(x_sc + x_nudge, z_sc + y_nudge, sc_id,
                                 c="black", horizontalalignment="center")
                 elif pic == "pic3":
                     for ax in (AxL0, AxR0, AxL1, AxR1):
