@@ -447,6 +447,12 @@ def main():
                             c="black", horizontalalignment="center")
                 elif pic == "pic5":
                     pass
+                elif pic == "pic6":
+                    for ax in (AxL0, AxR0, AxL1, AxR1):
+                        ax.plot(x_sc, y_sc, 'o', c=color)
+                        ax.plot(x_sc, y_sc, 'o', c="black", fillstyle="none")
+                        ax.text(x_sc + x_nudge, y_sc + y_nudge, sc_id,
+                                c="black", horizontalalignment="center")
 
         # Save the figure to a file.
         path = os.path.join(fdir, fOut(ftag, pic, nStp))
