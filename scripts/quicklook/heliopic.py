@@ -48,7 +48,7 @@ pic5: A 3-panel display showing line as a function of radius,
 pic6: A 4-panel display showing components of the solar wind magnetic field
 in the solar equatorial plane (z=0), for -200 Rsun <= X, Y <= +200 Rsun.
 
-    Upper left: Radial magnetic field (nT)
+    Upper left: Radial component of magnetic field (nT)
     Upper right: x-component of magnetic field (nT)
     Lower left: y-component of magnetic field (nT)
     Lower right: z-component of magnetic field (nT)
