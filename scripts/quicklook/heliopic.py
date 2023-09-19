@@ -1,11 +1,11 @@
 #!/usr/bin/env python
 
 
-"""Make a quick-look figure of a Gamera heliosphere run.
+"""Make a quick-look plot for a gamhelio run.
 
-Make a quick-look figure of a Gamera heliosphere run.
+Make a quick-look plot for a gamhelio run.
 
-Five different sets of plots are supported, and are distinguished by the
+Several different sets of plots are supported, and are distinguished by the
 value of the "pic" argument.
 
 pic1 (default): A 4-panel display showing pcolormesh plots in the z = 0
@@ -24,26 +24,26 @@ plots are:
     Upper left: Solar wind speed (km/s)
     Upper right: Solar wind number density scaled by (r/r0)**2 (cm**-3)
     Lower left: Solar wind temperature scaled by r/r0 (MK)
-    Lower right: Solar wind radial magnetic field scaled bryr/r0 (nT)
+    Lower right: Solar wind radial magnetic field scaled by r/r0 (nT)
 
 pic3: A 4-panel display showing pcolormesh plots in the r = 1 AU slice of the
 gamhelio frame used in the simulation. The plots are:
 
     Upper left: Solar wind speed (km/s)
-    Upper right: Solar wind number density (cm**-3)
-    Lower left: Solar wind temperature (MK)
-    Lower right: Solar wind radial magnetic field (nT)
+    Upper right: Solar wind number density (cm**-3) - SCALED?
+    Lower left: Solar wind temperature (MK) - SCALED?
+    Lower right: Solar wind radial magnetic field (nT) - SCALED?
 
 pic4: A pcolormesh plot in the innermost radial slice (r = 22 Rsun) of the
 gamhelio frame used in the simulation. The plot shows the radial magnetic
-field in nT, in a coordinate frame rotating with the Sun.
+field in nT, in a coordinate frame rotating with the Sun. - SCALED?
 
-pic5: A 3-panel display showing line as a function of radius,
+pic5: A 3-panel display showing solar wind variables as a function of radius,
 22 Rsun <= r <= 220 Rsun. The plots are:
 
-    Upper left: Solar wind number density (cm**-3)
-    Upper right: Solar wind speed (km/s)
-    Lower left: Solar wind radial momentum flux (km**2/s**2/cm**3)
+    Upper left: Solar wind number density (cm**-3) - SCALED?
+    Upper right: Solar wind speed (km/s) - SCALED?
+    Lower left: Solar wind radial momentum flux (km**2/s**2/cm**3) - SCALED?
 
 pic6: A 4-panel display showing components of the solar wind magnetic field
 in the solar equatorial plane (z=0), for -200 Rsun <= X, Y <= +200 Rsun.
@@ -88,12 +88,7 @@ from kaipy.satcomp import scutils
 # Program constants and defaults
 
 # Program description.
-DESCRIPTION = """Creates multi-panel figure for Gamera heliosphere run
-Upper left - Solar wind speed
-Upper right - Solar wind number density
-Lower left - Solar wind temperature
-Lower right - Solar wind radial magnetic field
-"""
+DESCRIPTION = "Make a quicklook plot for a gamhelio run."
 
 # Default identifier for results to read.
 DEFAULT_RUNID = "wsa"
@@ -124,17 +119,19 @@ def create_command_line_parser():
     -------
     parser : argparse.ArgumentParser
         Command-line argument parser for this script.
+
+    Raises
+    ------
+    None
     """
-    parser = argparse.ArgumentParser(
-        description=DESCRIPTION,
-        formatter_class=argparse.RawTextHelpFormatter
-    )
+    parser = argparse.ArgumentParser(description=DESCRIPTION)
     parser.add_argument(
-        "--debug", action="store_true", default=False,
+        "--debug", action="store_true",
         help="Print debugging output (default: %(default)s)."
     )
     parser.add_argument(
-        "-d", type=str, metavar="directory", default=os.getcwd(),
+        "--directory", "-d", type=str, metavar="directory",
+        default=os.getcwd(),
         help="Directory containing data to read (default: %(default)s)"
     )
     parser.add_argument(
@@ -142,18 +139,32 @@ def create_command_line_parser():
         help="Run ID of data (default: %(default)s)"
     )
     parser.add_argument(
+        "-lon", type=float, metavar="lon", default=0.0,
+        help="Longitude of meridian slice (pic2) (default: %(default)s)"
+    )
+    parser.add_argument(
         "--nlist", type=lambda n: [int(item) for item in n.split(',')],
         metavar="list of steps", default=DEFAULT_STEPS,
-        help="List of time slice(s) to plot (default: %(default)s)"
+        help="List of time slice(s) n1,n2,... to plot (default: %(default)s)"
     )
     parser.add_argument(
         "--nslice", type=lambda n: [int(item) for item in n.split(':')],
         metavar="step slice", default=DEFAULT_SLICE,
-        help="Slice for range of time slice(s) to plot (default: %(default)s)"
+        help="Slice for range of time slice(s) n1:n2 to plot "
+             "(default: %(default)s)"
     )
     parser.add_argument(
-        "-pic", type=str, metavar="pictype", default=DEFAULT_PICTYPE,
-        help="Code for plot type (default: %(default)s)"
+        "--nworkers", "-nw", type=int, metavar="nworkers", default=4,
+        help="Number of parallel workers (default: %(default)s)"
+    )
+    parser.add_argument(
+        "--parallel", "-p", action="store_true",
+        help="Read from HDF5 in parallel (default: %(default)s)."
+    )
+    parser.add_argument(
+        "-pic", type=str, metavar="pictype",
+        default=DEFAULT_PICTYPE,
+        help="Code for plot type (pic1-pic7) (default: %(default)s)"
     )
     parser.add_argument(
         "--spacecraft", type=str, metavar="spacecraft", default=None,
@@ -161,26 +172,34 @@ def create_command_line_parser():
              "(default: %(default)s)"
     )
     parser.add_argument(
-        "-v", "--verbose", action="store_true", default=False,
+        "--verbose", "-v", action="store_true",
         help="Print verbose output (default: %(default)s)."
     )
-    parser.add_argument(
-        "-p", "--parallel", action="store_true", default=False,
-        help="Read from HDF5 in parallel (default: %(default)s)."
-    )
-    parser.add_argument(
-        "-nw", "--nworkers", type=int, metavar="nworkers", default=4,
-        help="Number of parallel workers (default: %(default)s)"
-    )
-    parser.add_argument(
-        "-lon", type=float, metavar="lon", default=0.0,
-        help="Longitude of meridian slice (pic2) (default: %(default)s)"
-    )
+
+    # Return the parser.
     return parser
 
 
 def initFig(pic):
-    """Determine figure size (width, height) (inches) based on the pic type."""
+    """Create the matplotlib figure for a plot.
+
+    Determine figure size (width, height) (inches) based on the pic type.
+
+    Parameters
+    ----------
+    pic : str
+        String representing picture type.
+
+    Returns
+    -------
+    fig : mpl.Figure
+        Matplotlib Figure to use for plots.
+
+    Raises
+    ------
+    None
+    """
+    # Figure dimensions are in inches.
     if pic == "pic1" or pic == "pic2" or pic == "pic7":
         figSz = (10, 12.5)
     elif pic == "pic3":
@@ -198,12 +217,33 @@ def initFig(pic):
 
 
 def fOut(runid, pic, nStp):
-    """Compute the name of the output file."""
-    return "qkpic_{}_{}_n{}.png".format(runid, pic, nStp)
+    """Compute the name of the output file.
+
+    Compute the name of the output file.
+
+    Parameters
+    ----------
+    runid : str
+        ID string for run
+    pic : str
+        String representing picture type.
+    nStp : int
+        Simulation step number used in plot.
+
+    Returns
+    -------
+     : str
+        Name of file to receive the plot.
+
+    Raises
+    ------
+    None
+    """
+    return f"qkpic_{runid}_{pic}_n{nStp}.png"
 
 
 def main():
-    """Make a quick figure of a Gamera heliosphere run."""
+    """Make a quick-look plot for a gamhelio run."""
 
     # Set up the command-line parser.
     parser = create_command_line_parser()
@@ -213,46 +253,52 @@ def main():
     if args.debug:
         print(f"args = {args}")
     debug = args.debug
-    fdir = args.d
+    fdir = args.directory
     ftag = args.id
+    pic2lon = args.lon
     steps = args.nlist
     slices = args.nslice
+    nWorkers = args.nworkers
+    doParallel = args.parallel
+    pic = args.pic
     spacecraft = args.spacecraft
     verbose = args.verbose
-    pic = args.pic
-    doParallel = args.parallel
-    nWorkers = args.nworkers
-    pic2lon = args.lon
-    if slices:
-        print("Slice selected {}".format(slice(slices[0], slices[1],
-                                               slices[2])))
 
-    tic = time.perf_counter()
+    if slices:
+        print(f"Slice selected {slice(slices[0], slices[1], slices[2])}")
+
     # Fetch the plot domain based on the picture type.
+    tic = time.perf_counter()
     xyBds = hviz.GetSizeBds(pic)
     toc = time.perf_counter()
     print(xyBds)
-    print(f"Get bounds took {toc-tic} s")
+    print(f"Get bounds took {toc - tic} s")
+
     # Do work?
     doFast = False
-
-    # Create figures in a memory buffer.
-    mpl.use("Agg")
 
     # Open a pipe to the results data.
     tic = time.perf_counter()
     gsph = hsph.GamsphPipe(fdir, ftag, doFast=doFast, doParallel=doParallel,
                            nWorkers=nWorkers)
     toc = time.perf_counter()
-
     print(f"Open pipe took {toc-tic} s")
 
+    # Compute the range of time steps to use.
     if (slices and steps[0] == -1):
         steps = range(gsph.sFin)[slice(slices[0], slices[1], slices[2])]
+    print(f"steps = {steps}")
 
+    # Create figures in a memory buffer.
+    mpl.use("Agg")
+
+    # Make a plot for each time step in the list of time steps.
     for nStp in steps:
+        if debug:
+            print(f"nStp = {nStp}")
+
         tic = time.perf_counter()
-        print(f"Generating {pic} for time step {nStp}")
+        print(f"Generating {pic} for time step {nStp}.")
         fig = initFig(pic)
 
         # Extract the MJD for the step.
@@ -261,10 +307,7 @@ def main():
             print(f"mjd = {mjd}")
 
         # Lay out the subplots.
-        if (
-            pic == "pic1" or pic == "pic2" or pic == "pic3" or pic == "pic6" or
-            pic == "pic7"
-        ):
+        if pic in ["pic1", "pic2", "pic3", "pic6", "pic7"]:
             gs = gridspec.GridSpec(4, 6, height_ratios=[20, 1, 20, 1])
             # Axes for plots.
             AxL0 = fig.add_subplot(gs[0, 0:3])
@@ -285,20 +328,25 @@ def main():
             Ax = fig.add_subplot(gs[0, 0])
             AxC = fig.add_subplot(gs[0, 1])
             AxC1 = fig.add_subplot(gs[1, 0])
+        else:
+            raise TypeError(f"Invalid figure type: {pic}!")
 
+        # If the step is -1, use the last step.
         if nStp < 0:
             nStp = gsph.sFin
             print(f"Using Step {nStp}")
 
         # Now create the actual plots.
         if pic == "pic1":
-            # These are all equatorial plots in the XY plane of the HGS frame
-            # used by gamhelio.
+            # These are all equatorial plots in the XY plane of the modified
+            # HGS frame used by gamhelio.
             hviz.PlotEqMagV(gsph, nStp, xyBds, AxL0, AxC1_0)
             hviz.PlotEqD(gsph, nStp, xyBds, AxR0, AxC2_0)
             hviz.PlotEqTemp(gsph, nStp, xyBds, AxL1, AxC1_1)
             hviz.PlotEqBr(gsph, nStp, xyBds, AxR1, AxC2_1)
         elif pic == "pic2":
+            # Meridional plots in the XZ plane of the  modified HGS frame used
+            # by gamhelio.
             hviz.PlotMerMagV(gsph, nStp, xyBds, AxL0, AxC1_0,
                              indx=(None, pic2lon))
             hviz.PlotMerDNorm(gsph, nStp, xyBds, AxR0, AxC2_0,
@@ -329,7 +377,7 @@ def main():
             hviz.PlotjTemp(gsph, nStp, xyBds, AxL1, AxC1_1, jidx=448)
             hviz.PlotjBr(gsph, nStp, xyBds, AxR1, AxC2_1, jidx=448)
         else:
-            print("Pic is empty. Choose pic1 or pic2 or pic3")
+            raise TypeError(f"Invalid figure type: {pic}!")
 
         # Add time in the upper left.
         if pic == "pic1" or pic == "pic2" or pic == "pic6" or pic == "pic7":
@@ -339,42 +387,29 @@ def main():
         elif pic == "pic4" or pic == "pic5":
             gsph.AddTime(nStp, Ax, xy=[0.015, 0.92], fs="small")
         else:
-            print("Pic is empty. Choose pic1 or pic2 or pic3")
+            raise TypeError(f"Invalid figure type: {pic}!")
 
-        # Overlay the spacecraft trajectory, if needed.
+        # Overlay the spacecraft positions.
         if spacecraft:
-            print(f"Overplotting spacecraft trajectories of {spacecraft}.")
 
             # Split the list into individual spacecraft names.
             spacecraft = spacecraft.split(',')
-            if debug:
-                print(f"spacecraft = {spacecraft}")
 
-            # Fetch the MJD start and end time of the model results.
+            # Fetch the MJD at start and end of the model results.
             fname = gsph.f0
-            if debug:
-                print(f"fname = {fname}")
             MJD_start = kh5.tStep(fname, 0, aID="MJD")
-            if debug:
-                print(f"MJD_start = {MJD_start}")
             MJD_end = kh5.tStep(fname, gsph.sFin, aID="MJD")
-            if debug:
-                print(f"MJD_end = {MJD_end}")
 
             # Convert the start and stop MJD to a datetime object in UT.
             ut_start = ktools.MJD2UT(MJD_start)
-            if debug:
-                print(f"ut_start = {ut_start}")
             ut_end = ktools.MJD2UT(MJD_end)
-            if debug:
-                print(f"ut_end = {ut_end}")
 
             # Get the MJDc value for use in computing the gamhelio frame.
             MJDc = scutils.read_MJDc(fname)
-            if debug:
-                print(f"mjdc = {MJDc}")
 
-            # Fetch and plot the trajectory of each spacecraft from CDAWeb.
+            # Fetch the trajectory of each spacecraft from CDAWeb. Then
+            # interpolate the position at the time of the plot, and plot the
+            # spacecraft at the interpolated position.
             for (i_sc, sc_id) in enumerate(spacecraft):
                 if verbose:
                     print(f"Fetching trajectory for {sc_id}.")
@@ -390,14 +425,12 @@ def main():
 
                 # Ingest the trajectory by converting it to the GH(MJDc) frame.
                 if verbose:
-                    print(f"Converting ephemeris for {sc_id} into gamhelio "
-                          "format.")
+                    print(f"Converting ephemeris for {sc_id} to the gamhelio "
+                          f"frame at MJD {MJDc}.")
                 t_strings = np.array([str(t) for t in sc_data["Epoch"]])
                 t = astropy.time.Time(t_strings, scale='utc').mjd
                 x, y, z = cdaweb_utils.ingest_helio_spacecraft_trajectory(
                     sc_id, sc_data, MJDc)
-                if debug:
-                    print(f"t, x, y, z = {t}, {x}, {y}, {z}")
 
                 # Interpolate the spacecraft position at the time for the plot.
                 t_sc = mjd
@@ -405,7 +438,8 @@ def main():
                 y_sc = np.interp(t_sc, t, y)
                 z_sc = np.interp(t_sc, t, z)
 
-                # If needed, compute heliocentric spherical coordinates.
+                # If needed, compute heliocentric spherical coordinates
+                # for the interpolated spacecraft position.
                 if pic == "pic3" or pic == "pic4":
                     rxy = np.sqrt(x_sc**2 + y_sc**2)
                     theta = np.arctan2(rxy, z_sc)
@@ -415,8 +449,8 @@ def main():
                     lat_sc = lat
                     lon_sc = lon
 
-                # Plot a position of the spacecraft.
-                # Left plot
+                # Plot the position of the spacecraft at the plot time. Each
+                # spacecraft is plotted as a colored dot with a black outline.
                 color = SPACECRAFT_COLORS[i_sc % len(SPACECRAFT_COLORS)]
                 x_nudge = 0.0
                 y_nudge = 8.0
@@ -453,6 +487,8 @@ def main():
                         ax.plot(x_sc, y_sc, 'o', c="black", fillstyle="none")
                         ax.text(x_sc + x_nudge, y_sc + y_nudge, sc_id,
                                 c="black", horizontalalignment="center")
+                else:
+                    raise TypeError(f"Invalid figure type: {pic}!")
 
         # Save the figure to a file.
         path = os.path.join(fdir, fOut(ftag, pic, nStp))
