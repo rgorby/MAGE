@@ -444,7 +444,8 @@ def main():
                              indx=(None, pic2lon),
                              MJDc=MJDc, MJD_plot=mjd, hgsplot=hgsplot)
             hviz.PlotMerBrNorm(gsph, nStp, xyBds, AxR1, AxC2_1,
-                               indx=(None, pic2lon))
+                               indx=(None, pic2lon),
+                               MJDc=MJDc, MJD_plot=mjd, hgsplot=hgsplot)
             if hgsplot:
                 fig.suptitle(f"HGS frame at MJD = {ktools.MJD2UT(mjd)}")
             else:
