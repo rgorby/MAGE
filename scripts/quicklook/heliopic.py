@@ -441,7 +441,8 @@ def main():
                               indx=(None, pic2lon),
                               MJDc=MJDc, MJD_plot=mjd, hgsplot=hgsplot)
             hviz.PlotMerTemp(gsph, nStp, xyBds, AxL1, AxC1_1,
-                             indx=(None, pic2lon))
+                             indx=(None, pic2lon),
+                             MJDc=MJDc, MJD_plot=mjd, hgsplot=hgsplot)
             hviz.PlotMerBrNorm(gsph, nStp, xyBds, AxR1, AxC2_1,
                                indx=(None, pic2lon))
             if hgsplot:
