@@ -9,6 +9,11 @@ import kaipy.kaiViz as kv
 import kaipy.gamhelio.heliosphere as hsph
 from kaipy.kdefs import *
 import os
+from astropy.coordinates import SkyCoord
+import astropy.units as u
+from sunpy.coordinates import frames
+import kaipy.kaiTools as ktools
+import spacepy.datamodel as dm
 
 
 VMax = 800.
@@ -86,27 +91,123 @@ def GetSizeBds(pic):
     return xyBds
 
 #Plot speed in equatorial plane
-def PlotEqMagV(gsph,nStp,xyBds,Ax,AxCB=None,doClear=True,doDeco=True):
-    vMagV = kv.genNorm(VMin, VMax, doLog=False, midP=None)
-    
-    if (AxCB is not None):
-        #Add the colorbar to AxCB
-        AxCB.clear()
-        kv.genCB(AxCB,vMagV,"Speed [km/s]",cM=MagVCM,Ntk=7)
+def PlotEqMagV(
+        gsph, nStp, xyBds, Ax, AxCB=None, doClear=True, doDeco=True,
+        MJDc=None, MJD_plot=None, hgsplot=False
+):
+    """Plot solar wind speed in the solar equatorial plane.
 
-    #Now do main plotting
-    if (doClear):
+    Plot solar wind speed in the solar equatorial plane. By default, the plot
+    is produced in the GH(MJDc) frame (the gamhelio frame used for the
+    simulation results). If MJD_plot is specified, MJDc must also be specified.
+    In that case, the coordinates are mapped from the GH(MJDc) frame to the
+    HGS(MJD_plot) frame.
+
+    The gamhelio frame GH is based on the Heliographic Stonyhurst frame (HGS)
+    frame. The difference is that:
+
+    x (GH) = -x (HGS)
+    y (GH) = -y (HGS)
+    z (GH) = z (HGS)
+
+    The GH frame is defined at MJDc, meaning it is fixed in spatial orientation
+    at that time. The HGS frame is defined at MJD_plot, also producing a
+    (different) fixed spatial orientation. The conversion maps points in the
+    GH(MJDc) frame to the HGS(MJD_plot) frame, which is almost a rotation about
+    the z-axis, but also accounting for the Earth's orbit and other
+    astronommical and geodetic parameters.
+
+    Parameters
+    ----------
+    gsph : kaipy.gamhelio.heliosphere.GamsphPipe
+        Pipe to simulation results
+    nStp : int
+        Index of simulation step to use in plot
+    xyBds : list of 4 float
+        Minimum and maximum values to plot for x- and y-axes
+    Ax : matplotlib.axes.Axes
+        Axes object to use for plot
+    AxCB : matplotlib.axes.Axes
+        Axes object to use for color bar
+    doClear : bool
+        If true, clear the plot Axes before further plotting.
+    doDeco : bool
+        If true, add axis labels to the plot.
+    MJDc : float
+        MJD used for the coordinate GH frame of the simulation.
+    MJD_plot : float
+        MJD to use for the HGS frame of the plot.
+    hgsplot : bool
+        If true, plot in HGS(MJD_plot) frame.
+
+    Returns
+    -------
+
+    Raises
+    ------
+    None
+    """
+    # Create a normalizer object for the colorbar.
+    vMagV = kv.genNorm(VMin, VMax, doLog=False, midP=None)
+
+    # Create the color bar.
+    if AxCB is not None:
+        AxCB.clear()
+        kv.genCB(AxCB, vMagV, "Speed [km/s]", cM=MagVCM, Ntk=7)
+
+    # Clear the plot Axes if needed.
+    if doClear:
         Ax.clear()
 
+    # Fetch the solar wind speed at the specified step.
     MagV = gsph.eqMagV(nStp)
-    Ax.pcolormesh(gsph.xxi,gsph.yyi,MagV,cmap=MagVCM,norm=vMagV)
 
-    kv.SetAx(xyBds,Ax)
+    # Plot the solar wind speed in the solar equatorial plane.
+    # If the HGS frame was requested, map the grid corner coordinates from the
+    # GH(MJDc) frame to the HGS(MJD_plot) frame.
+    if hgsplot:
 
-    if (doDeco):
+        # Load the equatorial grid cell vertex coordinates (originially in the
+        # GH(MJDc) frame) in the equivalent HGS(MJDc) frame. Set all z values
+        # to 0 since we are using the solar equatorial plane.
+        zzi = np.zeros_like(gsph.xxi)
+        c = SkyCoord(
+            -gsph.xxi*u.Rsun, -gsph.yyi*u.Rsun, zzi*u.Rsun,
+            frame=frames.HeliographicStonyhurst,
+            obstime=ktools.MJD2UT(MJDc),
+            representation_type="cartesian"
+        )
+
+        # Create a HGS frame for the plot time.
+        hgs_frame = frames.HeliographicStonyhurst(
+            obstime=ktools.MJD2UT(MJD_plot)
+        )
+
+        # Convert the coordinates from HGS(MJDc) to HGS(MJD_plot).
+        c = c.transform_to(hgs_frame)
+
+        # Extract the converted coordinates.
+        x = dm.dmarray(c.cartesian.x)
+        y = dm.dmarray(c.cartesian.y)
+        z = dm.dmarray(c.cartesian.z)
+
+        # Plot the data in the HGS(MJD_plot) frame.
+        Ax.pcolormesh(x, y, MagV, cmap=MagVCM, norm=vMagV)
+
+    else:
+        Ax.pcolormesh(gsph.xxi, gsph.yyi, MagV, cmap=MagVCM, norm=vMagV)
+
+    # Set the plot boundaries.
+    kv.SetAx(xyBds, Ax)
+
+    # If requested, label the axes.
+    if doDeco:
         Ax.set_xlabel('X [R_S]')
         Ax.set_ylabel('Y [R_S]')
+
+    # Return the solar wind speed data.
     return MagV
+
 
 #Plot speed in j plane
 def PlotjMagV(gsph,nStp,xyBds,Ax,AxCB=None,doClear=True,doDeco=True,jidx=-1):

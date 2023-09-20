@@ -135,6 +135,11 @@ def create_command_line_parser():
         help="Directory containing data to read (default: %(default)s)"
     )
     parser.add_argument(
+        "--hgsplot", action="store_true",
+        help="Plot in the Heliographic Stonyhurst frame corresponding to the "
+             "date of the plot (default: %(default)s)."
+    )
+    parser.add_argument(
         "-id", type=str, metavar="runid", default=DEFAULT_RUNID,
         help="Run ID of data (default: %(default)s)"
     )
@@ -216,7 +221,7 @@ def initFig(pic):
     return fig
 
 
-def fOut(runid, pic, nStp):
+def fOut(runid, pic, nStp, hgsplot):
     """Compute the name of the output file.
 
     Compute the name of the output file.
@@ -229,17 +234,23 @@ def fOut(runid, pic, nStp):
         String representing picture type.
     nStp : int
         Simulation step number used in plot.
+    hgsplot : bool
+        True if plot is in HGS frame at the date of the plot
 
     Returns
     -------
-     : str
+    s : str
         Name of file to receive the plot.
 
     Raises
     ------
     None
     """
-    return f"qkpic_{runid}_{pic}_n{nStp}.png"
+    if hgsplot:
+        s = f"qkpic_{runid}_{pic}_n{nStp}_HGS.png"
+    else:
+        s = f"qkpic_{runid}_{pic}_n{nStp}.png"
+    return s
 
 
 def main():
@@ -254,6 +265,7 @@ def main():
         print(f"args = {args}")
     debug = args.debug
     fdir = args.directory
+    hgsplot = args.hgsplot
     ftag = args.id
     pic2lon = args.lon
     steps = args.nlist
@@ -288,6 +300,10 @@ def main():
     if (slices and steps[0] == -1):
         steps = range(gsph.sFin)[slice(slices[0], slices[1], slices[2])]
     print(f"steps = {steps}")
+
+    # Get the MJDc value for use in computing the gamhelio frame.
+    fname = gsph.f0
+    MJDc = scutils.read_MJDc(fname)
 
     # Create figures in a memory buffer.
     mpl.use("Agg")
@@ -340,10 +356,17 @@ def main():
         if pic == "pic1":
             # These are all equatorial plots in the XY plane of the modified
             # HGS frame used by gamhelio.
-            hviz.PlotEqMagV(gsph, nStp, xyBds, AxL0, AxC1_0)
-            hviz.PlotEqD(gsph, nStp, xyBds, AxR0, AxC2_0)
-            hviz.PlotEqTemp(gsph, nStp, xyBds, AxL1, AxC1_1)
-            hviz.PlotEqBr(gsph, nStp, xyBds, AxR1, AxC2_1)
+            if hgsplot:
+                hviz.PlotEqMagV(gsph, nStp, xyBds, AxL0, AxC1_0,
+                                MJDc=MJDc, MJD_plot=mjd, hgsplot=hgsplot)
+                hviz.PlotEqD(gsph, nStp, xyBds, AxR0, AxC2_0)
+                hviz.PlotEqTemp(gsph, nStp, xyBds, AxL1, AxC1_1)
+                hviz.PlotEqBr(gsph, nStp, xyBds, AxR1, AxC2_1)
+            else:
+                hviz.PlotEqMagV(gsph, nStp, xyBds, AxL0, AxC1_0)
+                hviz.PlotEqD(gsph, nStp, xyBds, AxR0, AxC2_0)
+                hviz.PlotEqTemp(gsph, nStp, xyBds, AxL1, AxC1_1)
+                hviz.PlotEqBr(gsph, nStp, xyBds, AxR1, AxC2_1)
         elif pic == "pic2":
             # Meridional plots in the XZ plane of the  modified HGS frame used
             # by gamhelio.
@@ -396,16 +419,12 @@ def main():
             spacecraft = spacecraft.split(',')
 
             # Fetch the MJD at start and end of the model results.
-            fname = gsph.f0
             MJD_start = kh5.tStep(fname, 0, aID="MJD")
             MJD_end = kh5.tStep(fname, gsph.sFin, aID="MJD")
 
             # Convert the start and stop MJD to a datetime object in UT.
             ut_start = ktools.MJD2UT(MJD_start)
             ut_end = ktools.MJD2UT(MJD_end)
-
-            # Get the MJDc value for use in computing the gamhelio frame.
-            MJDc = scutils.read_MJDc(fname)
 
             # Fetch the trajectory of each spacecraft from CDAWeb. Then
             # interpolate the position at the time of the plot, and plot the
@@ -491,7 +510,7 @@ def main():
                     raise TypeError(f"Invalid figure type: {pic}!")
 
         # Save the figure to a file.
-        path = os.path.join(fdir, fOut(ftag, pic, nStp))
+        path = os.path.join(fdir, fOut(ftag, pic, nStp, hgsplot))
         kv.savePic(path, bLenX=40)
         fig.clear()
         toc = time.perf_counter()
