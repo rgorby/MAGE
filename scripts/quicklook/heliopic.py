@@ -419,33 +419,35 @@ def main():
         if pic == "pic1":
             # These are all equatorial plots in the XY plane of the modified
             # HGS frame used by gamhelio.
+            hviz.PlotEqMagV(gsph, nStp, xyBds, AxL0, AxC1_0,
+                            MJDc=MJDc, MJD_plot=mjd, hgsplot=hgsplot)
+            hviz.PlotEqD(gsph, nStp, xyBds, AxR0, AxC2_0,
+                         MJDc=MJDc, MJD_plot=mjd, hgsplot=hgsplot)
+            hviz.PlotEqTemp(gsph, nStp, xyBds, AxL1, AxC1_1,
+                            MJDc=MJDc, MJD_plot=mjd, hgsplot=hgsplot)
+            hviz.PlotEqBr(gsph, nStp, xyBds, AxR1, AxC2_1,
+                          MJDc=MJDc, MJD_plot=mjd, hgsplot=hgsplot)
             if hgsplot:
-                hviz.PlotEqMagV(gsph, nStp, xyBds, AxL0, AxC1_0,
-                                MJDc=MJDc, MJD_plot=mjd, hgsplot=hgsplot)
-                hviz.PlotEqD(gsph, nStp, xyBds, AxR0, AxC2_0,
-                             MJDc=MJDc, MJD_plot=mjd, hgsplot=hgsplot)
-                hviz.PlotEqTemp(gsph, nStp, xyBds, AxL1, AxC1_1,
-                                MJDc=MJDc, MJD_plot=mjd, hgsplot=hgsplot)
-                hviz.PlotEqBr(gsph, nStp, xyBds, AxR1, AxC2_1,
-                              MJDc=MJDc, MJD_plot=mjd, hgsplot=hgsplot)
                 fig.suptitle(f"HGS frame at MJD = {ktools.MJD2UT(mjd)}")
             else:
-                hviz.PlotEqMagV(gsph, nStp, xyBds, AxL0, AxC1_0)
-                hviz.PlotEqD(gsph, nStp, xyBds, AxR0, AxC2_0)
-                hviz.PlotEqTemp(gsph, nStp, xyBds, AxL1, AxC1_1)
-                hviz.PlotEqBr(gsph, nStp, xyBds, AxR1, AxC2_1)
                 fig.suptitle(f"GH frame at MJD = {ktools.MJD2UT(mjd)}")
         elif pic == "pic2":
             # Meridional plots in the XZ plane of the  modified HGS frame used
             # by gamhelio.
             hviz.PlotMerMagV(gsph, nStp, xyBds, AxL0, AxC1_0,
-                             indx=(None, pic2lon))
+                             indx=(None, pic2lon),
+                             MJDc=MJDc, MJD_plot=mjd, hgsplot=hgsplot
+            )
             hviz.PlotMerDNorm(gsph, nStp, xyBds, AxR0, AxC2_0,
                               indx=(None, pic2lon))
             hviz.PlotMerTemp(gsph, nStp, xyBds, AxL1, AxC1_1,
                              indx=(None, pic2lon))
             hviz.PlotMerBrNorm(gsph, nStp, xyBds, AxR1, AxC2_1,
                                indx=(None, pic2lon))
+            if hgsplot:
+                fig.suptitle(f"HGS frame at MJD = {ktools.MJD2UT(mjd)}")
+            else:
+                fig.suptitle(f"GH frame at MJD = {ktools.MJD2UT(mjd)}")
         elif pic == "pic3":
             hviz.PlotiSlMagV(gsph, nStp, xyBds, AxL0, AxC1_0, idx=0)
             hviz.PlotiSlD(gsph, nStp, xyBds, AxR0, AxC2_0, idx=0)
