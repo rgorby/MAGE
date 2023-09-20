@@ -154,7 +154,7 @@ def PlotEqMagV(
     vMagV = kv.genNorm(VMin, VMax, doLog=False, midP=None)
 
     # Create the color bar.
-    if AxCB is not None:
+    if AxCB:
         AxCB.clear()
         kv.genCB(AxCB, vMagV, "Speed [km/s]", cM=MagVCM, Ntk=7)
 
@@ -205,8 +205,8 @@ def PlotEqMagV(
 
     # If requested, label the axes.
     if doDeco:
-        Ax.set_xlabel("$X [R_S]$")
-        Ax.set_ylabel("$Y [R_S]$")
+        Ax.set_xlabel(r"$X [R_S]$")
+        Ax.set_ylabel(r"$Y [R_S]$")
 
     # Return the solar wind speed data.
     return MagV
@@ -450,7 +450,7 @@ def PlotEqD(
     vD = kv.genNorm(DMin, DMax, doLog=False, midP=None)
 
     # Create the color bar.
-    if AxCB is not None:
+    if AxCB:
         AxCB.clear()
         kv.genCB(AxCB, vD, r"Density $n(r/r_0)^2$ [cm$^{-3}$]", cM=DCM, Ntk=7)
 
@@ -501,8 +501,8 @@ def PlotEqD(
 
     # If requested, label the axes.
     if doDeco:
-        Ax.set_xlabel("$X [R_S]$")
-        Ax.set_ylabel("$Y [R_S]$")
+        Ax.set_xlabel(r"$X [R_S]$")
+        Ax.set_ylabel(r"$Y [R_S]$")
         Ax.yaxis.tick_right()
         Ax.yaxis.set_label_position("right")
 
@@ -599,7 +599,7 @@ def PlotEqTemp(
     vT = kv.genNorm(TMin, TMax, doLog=False, midP=None)
 
     # Create the color bar.
-    if AxCB is not None:
+    if AxCB:
         AxCB.clear()
         kv.genCB(AxCB, vT, r"Temperature $T(r/r_0)$ [MK]", cM=TCM, Ntk=7)
 
@@ -646,12 +646,12 @@ def PlotEqTemp(
         Ax.pcolormesh(gsph.xxi, gsph.yyi, Temp, cmap=TCM, norm=vT)
 
     # Set the plot boundaries.
-    kv.SetAx(xyBds,Ax)
+    kv.SetAx(xyBds, Ax)
 
     # If requested, label the axes.
     if doDeco:
-        Ax.set_xlabel("$X [R_S]$")
-        Ax.set_ylabel("$Y [R_S]$")
+        Ax.set_xlabel(r"$X [R_S]$")
+        Ax.set_ylabel(r"$Y [R_S]$")
 
     # Return the normalized temperature data.
     return Temp
@@ -677,27 +677,130 @@ def PlotjTemp(gsph,nStp,xyBds,Ax,AxCB=None,doClear=True,doDeco=True,jidx=-1):
         Ax.set_ylabel('Y [R_S]')
     return Temp
 
-#Plor Br in equatorial plane
-def PlotEqBr(gsph,nStp,xyBds,Ax,AxCB=None,doClear=True,doDeco=True):
+def PlotEqBr(
+        gsph, nStp, xyBds, Ax, AxCB=None, doClear=True, doDeco=True,
+        MJDc=None, MJD_plot=None, hgsplot=False
+):
+    """Plot normalized radial magnetic field in the solar equatorial plane.
+
+    Plot normalized radial magnetic field in the solar equatorial plane. By
+    default, the plot is produced in the GH(MJDc) frame (the gamhelio frame
+    used for the simulation results). If MJD_plot is specified, MJDc must also
+    be specified. In that case, the coordinates are mapped from the GH(MJDc)
+    frame to the HGS(MJD_plot) frame.
+
+    The radial magnetic field is normalized with the factor (r/r0)**2.
+
+    The gamhelio frame GH is based on the Heliographic Stonyhurst frame (HGS)
+    frame. The difference is that:
+
+    x (GH) = -x (HGS)
+    y (GH) = -y (HGS)
+    z (GH) = z (HGS)
+
+    The GH frame is defined at MJDc, meaning it is fixed in spatial orientation
+    at that time. The HGS frame is defined at MJD_plot, also producing a
+    (different) fixed spatial orientation. The conversion maps points in the
+    GH(MJDc) frame to the HGS(MJD_plot) frame, which is almost a rotation about
+    the z-axis, but also accounting for the Earth's orbit and other
+    astronommical and geodetic parameters.
+
+    Parameters
+    ----------
+    gsph : kaipy.gamhelio.heliosphere.GamsphPipe
+        Pipe to simulation results
+    nStp : int
+        Index of simulation step to use in plot
+    xyBds : list of 4 float
+        Minimum and maximum values to plot for x- and y-axes
+    Ax : matplotlib.axes.Axes
+        Axes object to use for plot
+    AxCB : matplotlib.axes.Axes
+        Axes object to use for color bar
+    doClear : bool
+        If true, clear the plot Axes before further plotting.
+    doDeco : bool
+        If true, add axis labels to the plot.
+    MJDc : float
+        MJD used for the coordinate GH frame of the simulation.
+    MJD_plot : float
+        MJD to use for the HGS frame of the plot.
+    hgsplot : bool
+        If true, plot in HGS(MJD_plot) frame.
+
+    Returns
+    -------
+    Br : np.array of float
+        Data for radial magnetic field in equatorial plane, same shape as the
+        equatorial grid in the gamhelio results.
+
+    Raises
+    ------
+    None
+    """
+    # Create a normalizer object for the colorbar.
     vB = kv.genNorm(BMin, BMax, doLog=False, midP=None)
 
-    if (AxCB is not None):
+    # Create the color bar.
+    if AxCB:
         AxCB.clear()
-        kv.genCB(AxCB,vB,r'Radial MF B$_r$(r/r$_0)^2$ [nT]',cM=BCM,Ntk=7)
-    if (doClear):
+        kv.genCB(AxCB, vB, r"Radial MF $B_r (r/r_0)^2$ [nT]", cM=BCM, Ntk=7)
+
+    # Clear the plot Axes if needed.
+    if doClear:
         Ax.clear()
 
+    # Fetch the normalized radial magnetic field at the specified step.
     Br = gsph.eqNormBr(nStp)
-    Ax.pcolormesh(gsph.xxi,gsph.yyi,Br,cmap=BCM,norm=vB)
 
-    kv.SetAx(xyBds,Ax)
+    # Plot the normalized radial magnetic field in the solar equatorial plane.
+    # If the HGS frame was requested, map the grid corner coordinates from the
+    # GH(MJDc) frame to the HGS(MJD_plot) frame.
+    if hgsplot:
 
-    if (doDeco):
-        Ax.set_xlabel('X [R_S]')
-        Ax.set_ylabel('Y [R_S]')
+        # Load the equatorial grid cell vertex coordinates (originially in the
+        # GH(MJDc) frame) in the equivalent HGS(MJDc) frame. Set all z values
+        # to 0 since we are using the solar equatorial plane.
+        zzi = np.zeros_like(gsph.xxi)
+        c = SkyCoord(
+            -gsph.xxi*u.Rsun, -gsph.yyi*u.Rsun, zzi*u.Rsun,
+            frame=frames.HeliographicStonyhurst,
+            obstime=ktools.MJD2UT(MJDc),
+            representation_type="cartesian"
+        )
+
+        # Create a HGS frame for the plot time.
+        hgs_frame = frames.HeliographicStonyhurst(
+            obstime=ktools.MJD2UT(MJD_plot)
+        )
+
+        # Convert the coordinates from HGS(MJDc) to HGS(MJD_plot).
+        c = c.transform_to(hgs_frame)
+
+        # Extract the converted coordinates.
+        x = dm.dmarray(c.cartesian.x)
+        y = dm.dmarray(c.cartesian.y)
+        z = dm.dmarray(c.cartesian.z)
+
+        # Plot the data in the HGS(MJD_plot) frame.
+        Ax.pcolormesh(x, y, Br, cmap=BCM, norm=vB)
+
+    else:
+        Ax.pcolormesh(gsph.xxi, gsph.yyi, Br, cmap=BCM, norm=vB)
+
+    # Set the plot boundaries.
+    kv.SetAx(xyBds, Ax)
+
+    # If requested, label the axes.
+    if doDeco:
+        Ax.set_xlabel(r"$X [R_S]$")
+        Ax.set_ylabel(r"$Y [R_S]$")
         Ax.yaxis.tick_right()
-        Ax.yaxis.set_label_position('right')
+        Ax.yaxis.set_label_position("right")
+
+    # Return the normalized radial magnetic field data.
     return Br
+
 
 #Plor Br in equatorial plane
 def PlotjBr(gsph,nStp,xyBds,Ax,AxCB=None,doClear=True,doDeco=True,jidx=-1):

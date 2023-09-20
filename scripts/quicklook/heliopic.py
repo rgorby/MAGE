@@ -426,7 +426,8 @@ def main():
                              MJDc=MJDc, MJD_plot=mjd, hgsplot=hgsplot)
                 hviz.PlotEqTemp(gsph, nStp, xyBds, AxL1, AxC1_1,
                                 MJDc=MJDc, MJD_plot=mjd, hgsplot=hgsplot)
-                hviz.PlotEqBr(gsph, nStp, xyBds, AxR1, AxC2_1)
+                hviz.PlotEqBr(gsph, nStp, xyBds, AxR1, AxC2_1,
+                              MJDc=MJDc, MJD_plot=mjd, hgsplot=hgsplot)
             else:
                 hviz.PlotEqMagV(gsph, nStp, xyBds, AxL0, AxC1_0)
                 hviz.PlotEqD(gsph, nStp, xyBds, AxR0, AxC2_0)
