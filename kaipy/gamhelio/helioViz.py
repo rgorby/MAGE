@@ -90,7 +90,7 @@ def GetSizeBds(pic):
         raise RuntimeError("No compatible pic type specified.")
     return xyBds
 
-#Plot speed in equatorial plane
+
 def PlotEqMagV(
         gsph, nStp, xyBds, Ax, AxCB=None, doClear=True, doDeco=True,
         MJDc=None, MJD_plot=None, hgsplot=False

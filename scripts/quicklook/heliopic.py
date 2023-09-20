@@ -70,10 +70,14 @@ import time
 
 # Import supplemental modules.
 import astropy
+from astropy.coordinates import SkyCoord
+import astropy.units as u
 import matplotlib as mpl
 from matplotlib import gridspec
 import matplotlib.pyplot as plt
 import numpy as np
+import spacepy.datamodel as dm
+from sunpy.coordinates import frames
 
 # Import project-specific modules.
 from kaipy import cdaweb_utils
@@ -251,6 +255,65 @@ def fOut(runid, pic, nStp, hgsplot):
     else:
         s = f"qkpic_{runid}_{pic}_n{nStp}.png"
     return s
+
+
+def GHtoHGS(mjd_gh, x_gh, y_gh, z_gh, mjd_hgs):
+    """Convert Cartesin GH coordinates to HGS.
+
+    Convert Cartesian coordinates in the gamhelio frame at time mjdc to
+    the Heliographic Sonyhurst frame at time mjd.
+
+    NOTE: The gamhelio frame at time t is related to the Heliographic
+    Stonyhurst frame at time t by the reflection of the x- and y-axes:
+
+    x_gh(t) = -x_hgs(t)
+    y_gh(t) = -y_hgs(t)
+    z_gh(t) = z_hgs(t)
+
+    Since HGS is a time-dependent frame, a time must be provided for each set
+    of coordinates.
+
+    Parameters
+    ----------
+    mjd_gh : float
+        MJD of source gamhelio frame
+    x_gh, y_gh, z_gh : np.array of float (any shape) or scalar float
+        Cartesian coordinates in GH(mjdc) frame. All three arrays x, y, z must
+        have identical shapes.
+    mjd_hgs : float
+        MJD of target HGS frame
+
+    Returns
+    -------
+    x_hgs, y_hgs, z_hgs : np.array of float (same shape as x_gh, y_gh, z_gh)
+        Cartesian coordinates converted to HGS(mjd) frame.
+
+    Raises
+    ------
+    None
+    """
+    # Load the source coordinates (originially in the GH(mjd_gh) frame) into
+    #  the equivalent HGS(mjd_gh) frame.
+    c_gh = SkyCoord(
+        -x_gh*u.Rsun, -y_gh*u.Rsun, z_gh*u.Rsun,
+        frame=frames.HeliographicStonyhurst,
+        obstime=ktools.MJD2UT(mjd_gh),
+        representation_type="cartesian"
+    )
+
+    # Create the target Heliographic Stonyhurst frame.
+    hgs_frame = frames.HeliographicStonyhurst(
+        obstime=ktools.MJD2UT(mjd_hgs)
+    )
+
+    # Convert the coordinates from GH(mjd_gh) to HGS(mjd_hgs).
+    c_hgs = c_gh.transform_to(hgs_frame)
+
+    # Extract and return the converted coordinates.
+    x_hgs = dm.dmarray(c_hgs.cartesian.x)
+    y_hgs = dm.dmarray(c_hgs.cartesian.y)
+    z_hgs = dm.dmarray(c_hgs.cartesian.z)
+    return x_hgs, y_hgs, z_hgs
 
 
 def main():
@@ -456,6 +519,10 @@ def main():
                 x_sc = np.interp(t_sc, t, x)
                 y_sc = np.interp(t_sc, t, y)
                 z_sc = np.interp(t_sc, t, z)
+
+                # If needed, convert the position to HGS(mjd).
+                if hgsplot:
+                    x_sc, y_sc, z_sc = GHtoHGS(MJDc, x_sc, y_sc, z_sc, mjd)
 
                 # If needed, compute heliocentric spherical coordinates
                 # for the interpolated spacecraft position.
