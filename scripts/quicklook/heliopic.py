@@ -436,10 +436,10 @@ def main():
             # by gamhelio.
             hviz.PlotMerMagV(gsph, nStp, xyBds, AxL0, AxC1_0,
                              indx=(None, pic2lon),
-                             MJDc=MJDc, MJD_plot=mjd, hgsplot=hgsplot
-            )
+                             MJDc=MJDc, MJD_plot=mjd, hgsplot=hgsplot)
             hviz.PlotMerDNorm(gsph, nStp, xyBds, AxR0, AxC2_0,
-                              indx=(None, pic2lon))
+                              indx=(None, pic2lon),
+                              MJDc=MJDc, MJD_plot=mjd, hgsplot=hgsplot)
             hviz.PlotMerTemp(gsph, nStp, xyBds, AxL1, AxC1_1,
                              indx=(None, pic2lon))
             hviz.PlotMerBrNorm(gsph, nStp, xyBds, AxR1, AxC2_1,
