@@ -78,7 +78,7 @@ if __name__ == "__main__":
 	plotType = args.plotType
 
 	if addWM:
-		tauParams = wmParams(dim = 4, nKp = 7, nMLT = 25, nL = 41, nEk = 155)
+		tauParams = wmParams(dim = 4, nKp = 7, nMLT = 97, nL = 41, nEk = 155)
 		genWM.genh5(fIn,fOut,tauParams,useWM = True)
 	else:
 		# Determine proton channel limits based on resolving a certain (proton) temperature at given L
@@ -106,7 +106,7 @@ if __name__ == "__main__":
 		fileIO.saveRCMConfig(alamData,params=alamParams,fname=fOut)
 		# Add data needed for wavemodel
 		if not noWaveModel:
-			tauParams = wmParams(dim = 4, nKp = 7, nMLT = 25, nL = 41, nEk = 155, dimTDS = 1, nEkTDS = 109)	
+			tauParams = wmParams(dim = 4, nKp = 7, nMLT = 97, nL = 41, nEk = 155)	
 			genWM.genh5(fOut,fOut,tauParams,useWM = True)
 
 		print("Wrote RCM configuration to %s"%(fOut))
