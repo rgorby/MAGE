@@ -93,7 +93,7 @@ default_last_step = -1
 default_pictype = "pic1"
 
 # Valid plot type strings.
-valid_pictypes = ("pic1", "pic2", "pic3", "pic4", "pic5")
+valid_pictypes = ("pic1", "pic2", "pic3", "pic4", "pic5", "pic6", "pic7")
 
 # Default movie format.
 default_movie_format = "mp4"
@@ -113,6 +113,8 @@ figure_sizes = {
     "pic3": (10, 6.5),
     "pic4": (10, 6),
     "pic5": (12, 12),
+    "pic6": (12.5, 12.5),
+    "pic7": (10, 12.5),
 }
 
 # List of colors to use for spacecraft position dots.
@@ -162,6 +164,10 @@ def create_command_line_parser():
     parser.add_argument(
         "-id", "--runid", type=str, metavar="runid", default=default_runid,
         help="Run ID of data (default: %(default)s)"
+    )
+    parser.add_argument(
+        "-jslice", type=int, metavar="jSlice", default=None,
+        help="Index of j-slice for pic7 (default: Nj/2-1)"
     )
     parser.add_argument(
         "-n0", "--first_step", type=int, metavar="n0",
@@ -230,7 +236,7 @@ def fetch_spacecraft_trajectories(spacecraft_names, gsph):
     MJDc = scutils.read_MJDc(fname)
 
     # Fetch the trajectory of each spacecraft from CDAWeb.
-    for (i_sc, sc_id) in enumerate(spacecraft_names):
+    for sc_id in spacecraft_names:
 
         # Fetch the spacecraft trajectory in whatever frame is available
         # from CDAWeb.
@@ -1240,6 +1246,54 @@ def create_pic5_movie(args):
     return movie_file
 
 
+def create_pic6_movie(args):
+    """Create a pic6-style gamhelio movie.
+
+    Create a pic6-style gamhelio movie.
+
+    Parameters
+    ----------
+    args : dict
+        Dictionary of command-line arguments.
+
+    Returns
+    -------
+    movie_file : str
+        Path to movie file.
+
+    Raises
+    ------
+    None
+    """
+    # Return the path to the movie file.
+    movie_file = None
+    return movie_file
+
+
+def create_pic7_movie(args):
+    """Create a pic7-style gamhelio movie.
+
+    Create a pic7-style gamhelio movie.
+
+    Parameters
+    ----------
+    args : dict
+        Dictionary of command-line arguments.
+
+    Returns
+    -------
+    movie_file : str
+        Path to movie file.
+
+    Raises
+    ------
+    None
+    """
+    # Return the path to the movie file.
+    movie_file = None
+    return movie_file
+
+
 def create_gamhelio_movie(args):
     """Create a gamhelio movie.
 
@@ -1248,7 +1302,7 @@ def create_gamhelio_movie(args):
     Parameters
     ----------
     args : dict
-        Dictionary of command-line options.
+        Dictionary of command-line arguments.
 
     Returns
     -------
@@ -1263,7 +1317,7 @@ def create_gamhelio_movie(args):
     debug = args.debug
     pictype = args.pictype
 
-    # Check that a valid plot code was provided.
+    # Check that a valid picture type code was provided.
     if pictype not in valid_pictypes:
         raise TypeError(f"Invalid plot type ({pictype})!")
 
@@ -1278,6 +1332,10 @@ def create_gamhelio_movie(args):
         movie_file = create_pic4_movie(args)
     elif pictype == "pic5":
         movie_file = create_pic5_movie(args)
+    elif pictype == "pic6":
+        movie_file = create_pic6_movie(args)
+    elif pictype == "pic7":
+        movie_file = create_pic7_movie(args)
     else:
         raise TypeError(f"Invalid plot type ({pictype})!")
     if debug:
@@ -1295,17 +1353,14 @@ def main():
 
     # Parse the command-line arguments.
     args = parser.parse_args()
-    debug = args.debug
-    verbose = args.verbose
-    if debug:
+    if args.debug:
         print(f"args = {args}")
 
     # Create the movie based on the selected picture type.
     movie_file = create_gamhelio_movie(args)
-    if verbose:
+    if args.verbose:
         print(f"The movie is available in {movie_file}.")
 
 
 if __name__ == "__main__":
-    """Begin main program."""
     main()
