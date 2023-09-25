@@ -3135,114 +3135,35 @@ FUNCTION Ratefn (xx,yy,alamx,vmx,beqx,losscx,nex,kpx,fudgxO,sinixO,birxO,xmfactO
 END FUNCTION Ratefn
 
 FUNCTION RatefnWM(xx,yy,alamx,vmx,nex,kpx,beqx,losscx)
-        use lossutils, ONLY: RatefnC_tau_s, RatefnDW_tau_c,RatefnC_tau_h16
+        use lossutils, ONLY : LossR8_PSHEET, LossR8_IMAG, Lo, Li, SSCATTER
         IMPLICIT NONE
-        !Wave type: Hiss: 1.0; Chorus: 2.0 (Inner Mag,L<7); strong scattering: 3.0 (Plasmasheet,L>8); Blending zone, 7<L<8
 
         REAL (rprec), INTENT (IN) :: xx,yy,alamx,vmx,nex,kpx,beqx,losscx
         REAL (rprec), dimension(2) :: RatefnWM,rIMAG
-        REAL (rprec) :: L,Li,Lo,rPS,wIMAG
-
-
-        Lo = 8.0 !Outer L
-        Li = 7.0 !Middle L
+        REAL (rprec) :: L,rPS,wIMAG
 
         L = sqrt(xx**2+yy**2)
 
+        !Wave type: Hiss: 1.0; Chorus: 2.0 (Inner Mag,L<7); strong scattering: 3.0 (Plasmasheet,L>8); Blending zone, 7<L<8
         if (L > Lo) then
             !Only plasma sheet
-            rPS = LossR8_PSHEET(xx,yy,alamx,vmx,nex,kpx,beqx,losscx)
+            rPS = LossR8_PSHEET(alamx,vmx,beqx,losscx)
             RatefnWM(1) = rPS
-            RatefnWM(2) = 3.0
+            RatefnWM(2) = SSCATTER !wave type number for strong scattering
         else if (L < Li) then
             !IMAG only
-            rIMAG = LossR8_IMAG(xx,yy,alamx,vmx,nex,kpx,beqx,losscx)
+            rIMAG = LossR8_IMAG(xx,yy,alamx,vmx,nex,kpx)
             RatefnWM(1) = rIMAG(1)
             RatefnWM(2) = rIMAG(2)
 
         else
             !Middle
-            rIMAG = LossR8_IMAG  (xx,yy,alamx,vmx,nex,kpx,beqx,losscx)
-            rPS   = LossR8_PSHEET(xx,yy,alamx,vmx,nex,kpx,beqx,losscx)
+            rIMAG = LossR8_IMAG  (xx,yy,alamx,vmx,nex,kpx)
+            rPS   = LossR8_PSHEET(alamx,vmx,beqx,losscx)
             wIMAG = RampDown(L,Li,Lo-Li) !Ramp from 1 to 0
             RatefnWM(1) = wIMAG*rIMAG(1) + (1-wIMAG)*rPS
-            RatefnWM(2) = 3.0-wIMAG
+            RatefnWM(2) = SSCATTER-wIMAG
         endif
-
-        contains
-
-        FUNCTION LossR8_IMAG(xx,yy,alamx,vmx,nex,kpx,beqx,losscx)
-            REAL (rprec), INTENT (IN) :: xx,yy,alamx,vmx,nex,kpx,beqx,losscx
-            REAL (rprec), dimension(2) :: LossR8_IMAG
-
-            REAL (rprec) :: nhigh,nlow,MLT,K,E,tau_c,tau_h
-            REAL (rprec) :: kev0,E0,tScl !Energy min
-
-            !NOTE: These values should be moved somewhere more appropriate
-            kev0 = 1.1 !Min value to allow [keV]
-            nhigh = 100.D0 ! [/cc] ne>nhigh indicates inside plasmasphere.
-            nlow  = 10.D0  ! [/cc] ne<nlow indicates outside plasmasphere.
-
-            K = abs(alamx*vmx*1.0e-3) !Energy [keV]
-            
-            !Calculate E [MeV] to evaluate wave model
-            if (K <= kev0) then
-                E = kev0*(1.0e-3) !Energy [MeV]
-                !Define a scaling factor to multiply tau (lifetime)
-                !Lower energy particles are slower which increases lifetime
-                tScl = kev2V(kev0)/kev2V(K)
-            else
-                E = K*(1.0e-3) !Energy [MeV]
-                tScl = 1.0 !No change needed
-            endif
-
-            MLT = atan2(yy,xx)/pi*12.D0+12.D0
-            if (nex<nlow) then 
-                ! Region outside the plasmasphere or the plume, wave candidates:
-                ! Chorus
-                tau_c = tScl*RatefnDW_tau_c(kpx,MLT,L,E)
-                LossR8_IMAG(1) = 1.0/tau_c
-                LossR8_IMAG(2) = 2.0 !wave type number for chorus
-            elseif (nex>nhigh) then 
-                ! Region inside the plasmasphere, wave candidates: Hiss
-                tau_h = tScl*RatefnC_tau_h16(MLT,E,L,kpx)
-                LossR8_IMAG(1) = 1.0/tau_h
-                LossR8_IMAG(2) = 1.0 !wave type number for hiss
-            else  
-                ! nlow <= nex <= nhigh, at the plume region, wave candidates:
-                ! Chorus and Hiss
-                tau_c = tScl*RatefnDW_tau_c(kpx,MLT,L,E)
-                tau_h = tScl*RatefnC_tau_h16(MLT,E,L,kpx)
-
-                LossR8_IMAG(1) = (dlog(nhigh/nex)/tau_c + dlog(nex/nlow)/tau_h)/dlog(nhigh/nlow) ! use density-weighted loss rate 
-                LossR8_IMAG(2) = (dlog(nhigh/nex)*2.0 + dlog(nex/nlow)*1.0)/dlog(nhigh/nlow)
-            endif
-
-        END FUNCTION LossR8_IMAG
-
-        FUNCTION LossR8_PSHEET(xx,yy,alamx,vmx,nex,kpx,beqx,losscx)
-            REAL (rprec), INTENT (IN) :: xx,yy,alamx,vmx,nex,kpx,beqx,losscx
-            REAL (rprec) :: LossR8_PSHEET
-            REAL (rprec) :: TauSS
-
-            TauSS = RatefnC_tau_s(alamx,vmx,beqx,losscx)
-            LossR8_PSHEET = 1.0/TauSS
-            LossR8_PSHEET = LossR8_PSHEET !SS rate 
-        END FUNCTION LossR8_PSHEET
-
-        !Calculate speed (Re/s) from energy [keV] for ELECTRONS
-        FUNCTION kev2V(keV) result(V)
-            REAL (rprec), INTENT (IN) :: keV
-            REAL (rprec) :: V
-
-            REAL (rprec) :: E,gammar
-
-            E = keV*1.0e-3 !Energy [MeV]
-            gammar = 1.0 + E/mec2
-
-            V = vc_cgs*sqrt(1.0-1.0/gammar**2)/Re_cgs ! Re/s
-
-        END FUNCTION kev2V
 
 END FUNCTION RatefnWM
 
