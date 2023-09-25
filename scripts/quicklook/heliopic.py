@@ -53,7 +53,15 @@ in the solar equatorial plane (z=0), for -200 Rsun <= X, Y <= +200 Rsun.
     Lower left: y-component of magnetic field (nT)
     Lower right: z-component of magnetic field (nT)
 
-pic7: ???
+pic7: A 4-panel display showing pcolormesh plots in a j-slice. A j-slice is
+a slice through the gamhelio data cube at a fixed colatitude. j = 0 corresponds
+to the YZ plane of the gamhelio frame used in the simulation. The j = Nj/2-1
+slice corresponds to the equatorial plane. The plots are:
+
+    Upper left: Solar wind speed (km/s)
+    Upper right: Solar wind number density scaled by (r/r0)**2 (cm**-3)
+    Lower left: Solar wind temperature scaled by r/r0 (MK)
+    Lower right: Solar wind radial magnetic field scaled by r/r0 (nT)
 
 Authors
 -------
