@@ -3,11 +3,12 @@
 module voltapp
     use mixtypes
     use mixdefs
+    use mixmain
     use ebtypes
     use chmpdefs
     use starter
     use mhd2mix_interface
-    use mix2mhd_interface
+    use gamCouple
     use mhd2chmp_interface
     use chmp2mhd_interface
     use ebsquish
@@ -25,16 +26,18 @@ module voltapp
     contains
 
     !Initialize Voltron (after Gamera has already been initialized)
-    subroutine initVoltron(vApp,gApp,optFilename)
-        type(gamApp_T) , intent(inout) :: gApp
+    subroutine initVoltron(vApp,optFilename)
         class(voltApp_T), intent(inout) :: vApp
         character(len=*), optional, intent(in) :: optFilename
 
+        character(len=strLen) :: inpXML, kaijuRoot, resID
         type(XML_Input_T) :: xmlInp
-        character(len=strLen) :: inpXML, kaijuRoot
         type(TimeSeries_T) :: tsMJD
         real(rp) :: gTScl,tSpin,tIO
         logical :: doSpin,isK
+        integer :: nRes
+
+        associate(gApp=>vApp%gApp)
 
         if(present(optFilename)) then
             ! read from the prescribed file
@@ -43,20 +46,12 @@ module voltapp
         else
             !Find input deck
             call getIDeckStr(inpXML)
-
         endif
 
         if(vApp%isLoud) write(*,*) 'Voltron Reading input deck from ', trim(inpXML)
 
         !Create XML reader
         xmlInp = New_XML_Input(trim(inpXML),'Kaiju/Voltron',.true.)
-
-        !Start by shutting up extra ranks
-        if (.not. vApp%isLoud) call xmlInp%BeQuiet()
-
-        !Create XML reader
-        call xmlInp%SetRootStr('Kaiju/Voltron')
-        call xmlInp%SetVerbose(.true.)
 
         !Start by shutting up extra ranks
         if (.not. vApp%isLoud) call xmlInp%BeQuiet()
@@ -77,6 +72,16 @@ module voltapp
             write(*,*) " the [Generating XML Files] wiki page for additional info."
             stop
         endif
+
+        ! First initialize coupled Gamera
+        allocate(gamCoupler_T :: vApp%gApp)
+        gApp%gOptions%userInitFunc => vApp%vOptions%gamUserInitFunc
+        call gApp%InitModel(xmlInp)
+        call gApp%InitIO(xmlInp)
+
+        ! adjust XMl reader root
+        call xmlInp%SetRootStr('Kaiju/Voltron')
+        call xmlInp%SetVerbose(.true.)
 
         !Setup OMP if on separate node (otherwise can rely on gamera)
         if (vApp%isSeparate) then
@@ -162,9 +167,11 @@ module voltapp
         endif
 
         if(gApp%Model%isRestart) then
-            call readVoltronRestart(vApp, xmlInp)
-            vApp%IO%tOut = floor(vApp%time/vApp%IO%dtOut)*vApp%IO%dtOut + vApp%IO%dtOut
-            vApp%IO%tRes = floor(vApp%time/vApp%IO%dtRes)*vApp%IO%dtRes + vApp%IO%dtRes
+            call xmlInp%Set_Val(resID,"/Kaiju/gamera/restart/resID","msphere")
+            call xmlInp%Set_Val(nRes,"/Kaiju/gamera/restart/nRes" ,-1)
+            call readVoltronRestart(vApp, resID, nRes)
+            vApp%IO%tOut = floor(vApp%time/vApp%IO%dtOut)*vApp%IO%dtOut
+            vApp%IO%tRes = vApp%time + vApp%IO%dtRes
             vApp%IO%tsNext = vApp%ts
             if(vApp%isSeparate) then
                 gApp%Model%ts = vApp%ts
@@ -316,23 +323,27 @@ module voltapp
                 call fOutputV(vApp, gApp)
             endif
         endif
+
+        end associate
+
     end subroutine initVoltron
 
     !Step Voltron if necessary (currently just updating state variables)
-    subroutine stepVoltron(vApp, gApp)
+    subroutine stepVoltron(vApp)
         class(voltApp_T), intent(inout) :: vApp
-        class(gamApp_T) , intent(in)    :: gApp
 
-        vApp%time = gApp%Model%t*gApp%Model%Units%gT0 !Time in seconds
-        vApp%MJD = T2MJD(vApp%time,gApp%Model%MJD0)
-        vApp%ts = gApp%Model%ts
+        call stepGamera(vApp%gApp)
+
+        vApp%time = vApp%gApp%Model%t * vApp%gApp%Model%Units%gT0 !Time in seconds
+        vApp%MJD = T2MJD(vApp%time,vApp%gApp%Model%MJD0)
+        vApp%ts = vApp%gApp%Model%ts
 
     end subroutine stepVoltron
     
     !Initialize Voltron app based on Gamera data
     subroutine initializeFromGamera(vApp, gApp, optFilename)
         type(voltApp_T), intent(inout) :: vApp
-        type(gamApp_T), intent(inout) :: gApp
+        class(gamApp_T), intent(inout) :: gApp
         character(len=*), optional, intent(in) :: optFilename
 
         character(len=strLen) :: RunID
@@ -399,8 +410,9 @@ module voltapp
 
         if (vApp%isLoud) write(*,*) 'Using MJD0  = ', gApp%Model%MJD0
 
+        call vApp%gApp%InitCoupler(vApp)
+
         call init_mhd2Mix(vApp%mhd2mix, gApp, vApp%remixApp)
-        call init_mix2Mhd(vApp%mix2mhd, vApp%remixApp, gApp)
         !vApp%mix2mhd%mixOutput = 0.0
         
     !CHIMP (TRC) from Gamera
@@ -467,15 +479,12 @@ module voltapp
             call run_mix(vApp%remixApp%ion,curTilt,doModelOpt=.true.,mjd=vApp%MJD)
         endif
 
-        ! get stuff from mix to gamera
-        call mapRemixToGamera(vApp%mix2mhd, vApp%remixApp)
-
     end subroutine runRemix
 
 !----------
 !Deep coupling stuff (time coming from vApp%time, so in seconds)
     subroutine DeepUpdate(vApp, gApp)
-        type(gamApp_T) , intent(inout) :: gApp
+        class(gamApp_T) , intent(inout) :: gApp
         class(voltApp_T), intent(inout) :: vApp
 
         !Remix code moved from old shallow coupling
@@ -491,7 +500,7 @@ module voltapp
 
         ! convert mixOutput to gamera data
         call Tic("R2G")
-        call convertRemixToGamera(vApp%mix2mhd, vApp%remixApp, gApp)
+        call vApp%gApp%CoupleRemix(vApp)
         call Toc("R2G")
 
         !Update coupling time now so that voltron knows what to expect
@@ -512,7 +521,7 @@ module voltapp
     end subroutine DeepUpdate
 
     subroutine PreDeep(vApp, gApp)
-        type(gamApp_T) , intent(inout) :: gApp
+        class(gamApp_T) , intent(inout) :: gApp
         class(voltApp_T), intent(inout) :: vApp
 
         !Update i-shell to trace within in case rTrc has changed
@@ -536,18 +545,18 @@ module voltapp
     end subroutine
 
     subroutine PostDeep(vApp, gApp)
-        type(gamApp_T) , intent(inout) :: gApp
+        class(gamApp_T) , intent(inout) :: gApp
         class(voltApp_T), intent(inout) :: vApp
 
         !Now use imag model and squished coordinates to fill Gamera source terms
         call Tic("IM2G")
-        call InnerMag2Gamera(vApp,gApp)
+        call vApp%gApp%CoupleImag(vApp)
         call Toc("IM2G")
 
     end subroutine
 
     subroutine CheckQuickSquishError(vApp, gApp, Nbase, Nx2, Nx4, x2Err, x4Err)
-        type(gamApp_T) , intent(inout) :: gApp
+        class(gamApp_T) , intent(inout) :: gApp
         class(voltApp_T), intent(inout) :: vApp
         integer, intent(out) :: Nbase, Nx2, Nx4
         real(rp), intent(out) :: x2Err, x4Err
@@ -638,7 +647,7 @@ module voltapp
     !Initialize CHIMP data structure
     subroutine init_volt2Chmp(vApp,gApp,optFilename)
         class(voltApp_T), intent(inout) :: vApp
-        type(gamApp_T), intent(in) :: gApp
+        class(gamApp_T), intent(in) :: gApp
         character(len=*), intent(in), optional     :: optFilename
 
         character(len=strLen) :: xmlStr

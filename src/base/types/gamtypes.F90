@@ -12,9 +12,9 @@ module gamtypes
 
     type :: baseBC_T
         contains
-        procedure baseInit, baseFailBC, baseFailBcDir
+        procedure baseInitBC, baseFailBC, baseFailBcDir
         ! functions which will be over-written by sub-classes
-        procedure :: doInit => baseInit
+        procedure :: doInit => baseInitBC
         procedure :: doBC => baseFailBC
         procedure :: bcDir => baseFailBcDir
     end type baseBC_T
@@ -269,6 +269,74 @@ module gamtypes
 
     end type Solver_T
 
+    type, extends(BaseOptions_T) :: gamOptions_T
+        procedure(StateIC_T), pointer, nopass :: userInitFunc
+
+        contains
+    end type gamOptions_T
+
+    type, extends(BaseApp_T) :: gamApp_T
+        type(Model_T)  :: Model
+        type(Grid_T)   :: Grid
+        type(State_T)  :: State, oState
+        type(Solver_T) :: Solver
+
+        type(gamOptions_T) :: gOptions
+
+        contains
+
+        procedure :: InitModel => gamInitModel
+        procedure :: InitIO => gamInitIO
+        procedure :: WriteRestart => gamWriteRestart
+        procedure :: ReadRestart => gamReadRestart
+        procedure :: WriteConsoleOutput => gamWriteConsoleOutput
+        procedure :: WriteFileOutput => gamWriteFileOutput
+        procedure :: WriteSlimFileOutput => gamWriteSlimFileOutput
+        procedure :: AdvanceModel => gamAdvanceModel
+
+    end type gamApp_T
+
+    !gamapp function placeholders, bodies are in src/gamera/gamtypessub.F90 to prevent circular dependency
+    interface
+        module subroutine gamInitModel(App, Xml)
+            class(gamApp_T), intent(inout) :: App
+            type(XML_Input_T), intent(inout) :: Xml
+        end subroutine gamInitModel
+
+        module subroutine gamInitIO(App, Xml)
+            class(gamApp_T), intent(inout) :: App
+            type(XML_Input_T), intent(inout) :: Xml
+        end subroutine gamInitIO
+
+        module subroutine gamWriteRestart(App)
+            class(gamApp_T), intent(inout) :: App
+        end subroutine gamWriteRestart
+
+        module subroutine gamReadRestart(App, resId, nRes)
+            class(gamApp_T), intent(inout) :: App
+            character(len=*), intent(in) :: resId
+            integer, intent(in) :: nRes
+        end subroutine gamReadRestart
+
+        module subroutine gamWriteConsoleOutput(App)
+            class(gamApp_T), intent(inout) :: App
+        end subroutine gamWriteConsoleOutput
+
+        module subroutine gamWriteFileOutput(App)
+            class(gamApp_T), intent(inout) :: App
+        end subroutine gamWriteFileOutput
+
+        module subroutine gamWriteSlimFileOutput(App)
+            class(gamApp_T), intent(inout) :: App
+        end subroutine gamWriteSlimFileOutput
+
+        module subroutine gamAdvanceModel(App, dt)
+            class(gamApp_T), intent(inout) :: App
+            real(rp), intent(in) :: dt
+        end subroutine gamAdvanceModel
+
+    end interface
+
     !StateIC_T
     !Generic initialization routine: ICs, Grid, Model
     abstract interface
@@ -390,13 +458,13 @@ module gamtypes
     contains
 
     !A null initialization function for BCs that don't require initialization
-    subroutine baseInit(bc,Model,Grid,State,xmlInp)
+    subroutine baseInitBC(bc,Model,Grid,State,xmlInp)
         class(baseBC_T), intent(inout) :: bc
         class(Model_T)  , intent(inout) :: Model
         class(Grid_T)      , intent(in) :: Grid
         class(State_T)     , intent(in) :: State
         type(XML_Input_T) , intent(in) :: xmlInp
-    end subroutine baseInit
+    end subroutine baseInitBC
 
     ! this should never be called
     subroutine baseFailBC(bc,Model,Grid,State)

@@ -22,7 +22,7 @@ module innermagsphere
     subroutine InitInnerMag(vApp,gApp,iXML)
         type(voltApp_T)  , intent(inout) :: vApp
         !logical, intent(in) :: isRestart
-        type(gamApp_T), intent(in) :: gApp
+        class(gamApp_T), intent(in) :: gApp
         type(XML_Input_T), intent(inout) :: iXML
         character(len=strLen) :: imStr
 

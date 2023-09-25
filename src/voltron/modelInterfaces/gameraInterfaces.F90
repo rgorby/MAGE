@@ -2,16 +2,23 @@
 
 module gamCouple
     use gamtypes
+    use volttypes
     use step
     use init
     use mhdgroup
     use output
+    use mixgeom
+    use cmiutils
+    use mixinterfaceutils
+    use msphutils, only : RadIonosphere
+    use uservoltic ! required to have IonInnerBC_T defined
 
     implicit none
 
     integer, parameter :: mix2mhd_varn = 1  ! for now just the potential is sent back
+    character(len=strLen), private :: vh5File
 
-    type, extends(gamApp_T) :: gamCoupler_T
+    type, extends(gamCplBase_T) :: gamCoupler_T
 
         ! data for coupling remix to gamera
         real(rp), dimension(:,:,:,:,:), allocatable :: mixOutput
@@ -28,23 +35,36 @@ module gamCouple
         ! only over-riding specific functions
         ! actually none for local non-mpi gamera?
         !procedure :: InitModel => gamCplInitModel
-        !procedure :: InitIO => gamInitIO
+        procedure :: InitIO => gamCplInitIO
         procedure :: WriteRestart => gamCplWriteRestart
         procedure :: ReadRestart => gamCplReadRestart
-        !procedure :: WriteConsoleOutput => gamWriteConsoleOutput
-        !procedure :: WriteFileOutput => gamWriteFileOutput
-        !procedure :: WriteSlimFileOutput => gamWriteSlimFileOutput
+        procedure :: WriteConsoleOutput => gamCplWriteConsoleOutput
+        procedure :: WriteFileOutput => gamCplWriteFileOutput
+        procedure :: WriteSlimFileOutput => gamCplWriteSlimFileOutput
         !procedure :: AdvanceModel => gamCplAdvanceModel
 
         ! add new coupling function which can be over-ridden by children
         procedure :: InitCoupler => gamInitCoupler
-        procedure :: CoupleModel => gamCoupleModel
+        procedure :: CoupleRemix => gamCoupleRemix
+        procedure :: CoupleImag  => gamCoupleImag
 
     end type gamCoupler_T
 
     contains
 
     ! procedures for gamCoupler_T
+
+    subroutine gamCplInitIO(App, Xml)
+        class(gamCoupler_T), intent(inout) :: App
+        type(XML_Input_T), intent(inout) :: Xml
+
+        ! initialize parent's IO
+        call gamInitIO(App, Xml)
+
+        ! then my own
+        vh5File = trim(App%Model%RunID) // ".gamCpl.h5"
+
+    end subroutine
 
     subroutine gamCplWriteRestart(App)
         class(gamCoupler_T), intent(inout) :: App
@@ -70,26 +90,126 @@ module gamCouple
 
     end subroutine
 
-    subroutine gamInitCoupler(App, voltApp)
+    subroutine getCPCP(mhdvarsin,cpcp)
+        real(rp), dimension(:,:,:,:,:),intent(in) :: mhdvarsin
+        real(rp), intent(out) :: cpcp(2)
+        cpcp(NORTH) = maxval(mhdvarsin(1,:,:,MHDPSI,NORTH))-minval(mhdvarsin(1,:,:,MHDPSI,NORTH))
+        cpcp(SOUTH) = maxval(mhdvarsin(1,:,:,MHDPSI,SOUTH))-minval(mhdvarsin(1,:,:,MHDPSI,SOUTH))
+
+    end subroutine getCPCP
+
+    subroutine gamCplWriteConsoleOutput(App)
         class(gamCoupler_T), intent(inout) :: App
-        class(voltApp_T), intent(in) :: voltApp
 
-        call init_mix2MhdCoupler(App, voltApp%remixApp)
+        real(rp) :: cpcp(2) = 0.0
 
-        allocate(SrcNC(App%Grid%is:voltApp%chmp2mhd%iMax+1,App%Grid%js:App%Grid%je+1,App%Grid%ks:App%Grid%ke+1,1:NVARIMAG))
+        ! write parent's console info
+        call gamWriteConsoleOutput(App)
+
+        ! then my own
+        if(App%Model%isLoud) then
+            call getCPCP(App%mixOutput,cpcp)
+             write (*, '(a,2f8.3,a)')             '      CPCP = ' , cpcp(NORTH), cpcp(SOUTH), ' [kV, N/S]'
+        endif
 
     end subroutine
 
-    subroutine gamCoupleModel(App, voltApp)
+    subroutine gamCplWriteFileOutput(App)
         class(gamCoupler_T), intent(inout) :: App
-        class(voltApp_T), intent(in) :: voltApp
+
+        integer :: i,j,k
+        real(rp) :: cpcp(2)
+        real(rp), dimension(:,:,:,:), allocatable, save :: inEijk,inExyz,Veb
+        real(rp), dimension(:,:,:), allocatable, save :: psi
+        real(rp), dimension(NDIM) :: Exyz,Bdip,xcc
+        character(len=strLen) :: gStr
+        type(IOVAR_T), dimension(50) :: IOVars
+
+        ! write parent's file
+        call gamWriteFileOutput(App)
+
+        ! then my own
+        associate(Gr => App%Grid)
+
+        if (.not. allocated(inEijk)) allocate(inEijk(PsiSh+1,Gr%jsg:Gr%jeg+1,Gr%ksg:Gr%keg+1,1:NDIM))
+        if (.not. allocated(inExyz)) allocate(inExyz(PsiSh  ,Gr%jsg:Gr%jeg  ,Gr%ksg:Gr%keg  ,1:NDIM))
+        if (.not. allocated(psi))    allocate(psi(PsiSh,Gr%js:Gr%je,Gr%ks:Gr%ke)) !Cell-centered potential
+        if (.not. allocated(Veb))    allocate(Veb(PsiSh,Gr%js:Gr%je,Gr%ks:Gr%ke,1:NDIM))
+
+        call getCPCP(App%mixOutput,cpcp)
+        call Ion2MHD(App%Model,App%Grid,App%gPsi,inEijk,inExyz,App%rm2g)
+
+        !Subtract dipole before calculating current
+        !$OMP PARALLEL DO default(shared) collapse(2) &
+        !$OMP private(i,j,k,xcc,Bdip,Exyz)
+        do k=Gr%ks,Gr%ke
+            do j=Gr%js,Gr%je
+                do i=1,PsiSh
+                    psi(i,j,k) = 0.125*( App%gPsi(i+1,j  ,k) + App%gPsi(i+1,j  ,k+1) &
+                                       + App%gPsi(i  ,j+1,k) + App%gPsi(i  ,j+1,k+1) &
+                                       + App%gPsi(i+1,j+1,k) + App%gPsi(i+1,j+1,k+1) &
+                                       + App%gPsi(i  ,j  ,k) + App%gPsi(i  ,j  ,k+1) )
+                    xcc = Gr%xyzcc(i,j,k,:)
+                    Bdip = MagsphereDipole(xcc,App%Model%MagM0)
+                    Exyz = inExyz(i,j,k,:)
+                    Veb(i,j,k,:) = cross(Exyz,Bdip)/dot_product(Bdip,Bdip)
+                enddo
+            enddo
+        enddo
+
+        call ClearIO(IOVars)
+        call AddOutVar(IOVars,"Ex",inExyz(:,Gr%js:Gr%je,Gr%ks:Gr%ke,XDIR))
+        call AddOutVar(IOVars,"Ey",inExyz(:,Gr%js:Gr%je,Gr%ks:Gr%ke,YDIR))
+        call AddOutVar(IOVars,"Ez",inExyz(:,Gr%js:Gr%je,Gr%ks:Gr%ke,ZDIR))
+
+        call AddOutVar(IOVars,"Vx",Veb(:,:,:,XDIR))
+        call AddOutVar(IOVars,"Vy",Veb(:,:,:,YDIR))
+        call AddOutVar(IOVars,"Vz",Veb(:,:,:,ZDIR))
+
+        call AddOutVar(IOVars,"psi",psi)
+
+        call AddOutVar(IOVars,"cpcpN",cpcp(1))
+        call AddOutVar(IOVars,"cpcpS",cpcp(2))
+
+        write(gStr,'(A,I0)') "Step#", App%Model%IO%nOut
+        call WriteVars(IOVars,.true.,vh5File,gStr)
+
+        end associate
+
+    end subroutine
+
+    subroutine gamCplWriteSlimFileOutput(App)
+        class(gamCoupler_T), intent(inout) :: App
+
+        call gamCplWriteFileOutput(App)
+
+    end subroutine
+
+    subroutine gamInitCoupler(App, voltApp)
+        class(gamCoupler_T), intent(inout) :: App
+        class(voltApp_T), intent(inout) :: voltApp
+
+        call init_mix2MhdCoupler(App, voltApp%remixApp)
+
+        allocate(App%SrcNC(App%Grid%is:voltApp%chmp2mhd%iMax+1,App%Grid%js:App%Grid%je+1,App%Grid%ks:App%Grid%ke+1,1:NVARIMAG))
+
+    end subroutine
+
+    subroutine gamCoupleRemix(App, voltApp)
+        class(gamCoupler_T), intent(inout) :: App
+        class(voltApp_T), intent(inout) :: voltApp
 
         call mapRemixToGamera(App, voltApp%remixApp)
         call convertRemixToGamera(App, voltApp%remixApp)
 
-        call InnerMag2Gamera(App, voltApp)
+    end subroutine
 
-    end subroutine gamCoupleModel
+    subroutine gamCoupleImag(App, voltApp)
+        class(gamCoupler_T), intent(inout) :: App
+        class(voltApp_T), intent(inout) :: voltApp
+
+        call convertImagToGamera(App, voltApp)
+    end subroutine
 
     ! actual procedures
 
@@ -101,7 +221,7 @@ module gamCouple
         type(IOVAR_T), dimension(MAXGCIOVAR) :: IOVars
 
         !Restart Filename
-        write (ResF, '(A,A,I0.5,A)') trim(App%Model%RunID), ".mix2gam.Res.", Model%IO%nRes, ".h5"
+        write (ResF, '(A,A,I0.5,A)') trim(App%Model%RunID), ".mix2gam.Res.", App%Model%IO%nRes, ".h5"
 
         !Reset IO chain
         call ClearIO(IOVars)
@@ -159,7 +279,7 @@ module gamCouple
 
      subroutine init_mix2MhdCoupler(gameraApp, remixApp)
         class(gamCoupler_T), intent(inout) :: gameraApp
-        class(mixApp_T), intent(in) :: remixApp
+        class(mixApp_T), intent(inout) :: remixApp
 
         integer :: i,j,k,iG,h,l
         real(rp) :: mhd_Rin
@@ -178,7 +298,7 @@ module gamCouple
         gameraApp%Rion = RadIonosphere()
 
         ! allocate remix arrays
-        allocate(gamerApp%gPsi(1:PsiSh+1,gameraApp%Grid%js:gameraApp%Grid%je+1,gameraApp%Grid%ks:gameraApp%Grid%ke+1))
+        allocate(gameraApp%gPsi(1:PsiSh+1,gameraApp%Grid%js:gameraApp%Grid%je+1,gameraApp%Grid%ks:gameraApp%Grid%ke+1))
         allocate(mhdPsiGrid(1:PsiSh+1, gameraApp%Grid%js:gameraApp%Grid%je+1, gameraApp%Grid%ks:gameraApp%Grid%ke/2+1, 1:3, 1:2))
         allocate(gameraApp%mixOutput(1:PsiSh+1, gameraApp%Grid%js:gameraApp%Grid%je+1, gameraApp%Grid%ks:gameraApp%Grid%ke/2+1, 1:mix2mhd_varn, 1:2))
         allocate(gameraApp%PsiMaps(PsiSh,size(remixApp%ion)))
@@ -221,12 +341,12 @@ module gamCouple
         if (isRestart) then
             !We have data from mix restart file
             write(*,*) "mapRemixToGamera"
-            call mapRemixToGamera(mix2mhd, remixApp)
+            call mapRemixToGamera(gameraApp, remixApp)
         end if
 
         deallocate(mhdPsiGrid, mhdt, mhdp, mhdtFpd, mhdpFpd)
 
-    end subroutine init_mix2Mhd
+    end subroutine
 
     subroutine mapRemixToGamera(gameraApp, remixApp)
         class(gamCoupler_T), intent(inout) :: gameraApp

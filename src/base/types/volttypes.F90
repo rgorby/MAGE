@@ -10,6 +10,7 @@ module volttypes
     use gcmtypes
     use helpertypes
     use basetypes
+    use gamtypes
 
     implicit none
 
@@ -28,15 +29,6 @@ module volttypes
         enumerator :: IMDEN=1,IMX1,IMX2,IMTSCL,IMPR
     endenum
     integer, parameter :: NVARIMAG = 5
-
-    ! data for remix -> gamera conversion
-    type mix2Mhd_T
-        real(rp), dimension(:,:,:,:,:), allocatable :: mixOutput
-        real(rp), dimension(:,:,:), allocatable :: gPsi
-        type(Map_T), allocatable, dimension(:,:) :: PsiMaps
-        integer :: PsiStart = PsiSt, PsiShells = PsiSh !Coming from cmidefs
-        real(rp) :: rm2g
-    end type mix2Mhd_T
 
     ! data for imag => remix for conductance
     type imag2Mix_T
@@ -90,14 +82,14 @@ module volttypes
     type innerMagBase_T
         contains
 
-        procedure baseInit
+        procedure baseInitImag
         procedure baseAdvance
         procedure baseEval
         procedure baseIO
         procedure baseRestart
 
         ! functions to be over-written by specific inner magnetosphere implementations
-        procedure :: doInit => baseinit
+        procedure :: doInit => baseInitImag
         procedure :: doAdvance => baseAdvance
         procedure :: doEval => baseEval
         procedure :: doIO => baseIO
@@ -106,12 +98,24 @@ module volttypes
 
     end type innerMagBase_T
 
+
+    type, extends(gamApp_T), abstract :: gamCplbase_T
+        contains
+
+        ! add new coupling function which can be over-ridden by children
+        procedure(InitCoupler_interface), deferred :: InitCoupler
+        procedure(CoupleRemix_interface), deferred :: CoupleRemix
+        procedure(CoupleImag_interface),  deferred :: CoupleImag
+
+    end type gamCplBase_T
+
     type, extends(BaseOptions_T) :: VoltOptions_T
+        procedure(StateIC_T), pointer, nopass :: gamUserInitFunc
 
         contains
     end type VoltOptions_T
 
-    type, extends(BaseApp_T) :: voltApp_T
+    type :: voltApp_T
 
         !Planet information
         type(planet_T) :: planet
@@ -131,7 +135,6 @@ module volttypes
         !Apps
         type(mixApp_T) :: remixApp
         type(mhd2Mix_T) :: mhd2mix
-        type(mix2Mhd_T) :: mix2mhd
 
         type(ebTrcApp_T)  :: ebTrcApp
         type(mhd2Chmp_T)  :: mhd2chmp
@@ -162,68 +165,35 @@ module volttypes
         !Have special flag to indicate this is Earth, which is special
         logical :: isEarth = .false.
 
+        !Local gamera object to couple to
+        class(gamCplBase_T), allocatable :: gApp
+
+        !voltron specific options
         type(VoltOptions_T) :: vOptions
-
-        contains
-
-        procedure :: InitModel => voltInitModel
-        procedure :: InitIO => voltInitIO
-        procedure :: WriteRestart => voltWriteRestart
-        procedure :: ReadRestart => voltReadRestart
-        procedure :: WriteConsoleOutput => voltWriteConsoleOutput
-        procedure :: WriteFileOutput => voltWriteFileOutput
-        procedure :: WriteSlimFileOutput => voltWriteSlimFileOutput
-        procedure :: AdvanceModel => voltAdvanceModel
 
     end type voltApp_T
 
+    ! interface for coupling functions
     abstract interface
-        subroutine voltInitModel(App, Xml)
-            import voltApp_T ! This is still stupid
-            import XML_Input_T
-            class(voltApp_T), intent(inout) :: App
-            type(XML_Input_T), intent(inout) :: Xml
+        subroutine InitCoupler_interface(App, voltApp)
+            import gamCplBase_T
+            import voltApp_T
+            class(gamCplBase_T), intent(inout) :: App
+            class(voltApp_T), intent(inout) :: voltApp
         end subroutine
 
-        subroutine voltInitIO(App, Xml)
+        subroutine CoupleRemix_interface(App, voltApp)
+            import gamCplBase_T
             import voltApp_T
-            import XML_Input_T
-            class(voltApp_T), intent(inout) :: App
-            type(XML_Input_T), intent(inout) :: Xml
+            class(gamCplBase_T), intent(inout) :: App
+            class(voltApp_T), intent(inout) :: voltApp
         end subroutine
-
-        subroutine voltWriteRestart(App)
+        
+        subroutine CoupleImag_interface(App, voltApp)
+            import gamCplBase_T
             import voltApp_T
-            class(voltApp_T), intent(inout) :: App
-        end subroutine
-
-        subroutine voltReadRestart(App,resId,nRes)
-            import voltApp_T
-            class(voltApp_T), intent(inout) :: App
-            character(len=*), intent(in) :: resId
-            integer, intent(in) :: nRes
-        end subroutine
-
-        subroutine voltWriteConsoleOutput(App)
-            import voltApp_T
-            class(voltApp_T), intent(inout) :: App
-        end subroutine
-
-        subroutine voltWriteFileOutput(App)
-            import voltApp_T
-            class(voltApp_T), intent(inout) :: App
-        end subroutine
-
-        subroutine voltWriteSlimFileOutput(App)
-            import voltApp_T
-            class(voltApp_T), intent(inout) :: App
-        end subroutine
-
-       subroutine voltAdvanceModel(App, dt)
-            import voltApp_T
-            import rp
-            class(voltApp_T), intent(inout) :: App
-            real(rp), intent(in) :: dt
+            class(gamCplBase_T), intent(inout) :: App
+            class(voltApp_T), intent(inout) :: voltApp
         end subroutine
 
     end interface
@@ -231,7 +201,7 @@ module volttypes
     contains
 
     ! null default subroutines for inner mag base type
-    subroutine baseInit(imag,iXML,isRestart,vApp)
+    subroutine baseInitImag(imag,iXML,isRestart,vApp)
         class(innerMagBase_T), intent(inout) :: imag
         type(XML_Input_T), intent(in) :: iXML
         logical, intent(in) :: isRestart
