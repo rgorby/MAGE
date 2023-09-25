@@ -451,21 +451,30 @@ def main():
             else:
                 fig.suptitle(f"GH frame at MJD = {ktools.MJD2UT(mjd)}")
         elif pic == "pic3":
-            hviz.PlotiSlMagV(gsph, nStp, xyBds, AxL0, AxC1_0, idx=0)
-            hviz.PlotiSlD(gsph, nStp, xyBds, AxR0, AxC2_0, idx=0)
-            hviz.PlotiSlTemp(gsph, nStp, xyBds, AxL1, AxC1_1, idx=0)
-            hviz.PlotiSlBr(gsph, nStp, xyBds, AxR1, AxC2_1, idx=0)
+            # Plot at 1 AU. iSl -> "i slice"
+            hviz.PlotiSlMagV(gsph, nStp, xyBds, AxL0, AxC1_0)
+            hviz.PlotiSlD(gsph, nStp, xyBds, AxR0, AxC2_0)
+            hviz.PlotiSlTemp(gsph, nStp, xyBds, AxL1, AxC1_1)
+            hviz.PlotiSlBr(gsph, nStp, xyBds, AxR1, AxC2_1)
         elif pic == "pic4":
+            # Plot at 1 AU in frame rotating with Sun.
             hviz.PlotiSlBrRotatingFrame(gsph, nStp, xyBds, Ax, AxC)
         elif pic == "pic5":
             hviz.PlotDensityProf(gsph, nStp, xyBds, Ax)
             hviz.PlotSpeedProf(gsph, nStp, xyBds, AxC)
             hviz.PlotFluxProf(gsph, nStp, xyBds, AxC1)
         elif pic == "pic6":
-            hviz.PlotEqBr(gsph, nStp, xyBds, AxL0, AxC1_0)
-            hviz.PlotEqBx(gsph, nStp, xyBds, AxR0, AxC2_0)
-            hviz.PlotEqBy(gsph, nStp, xyBds, AxL1, AxC1_1)
+            hviz.PlotEqBr(gsph, nStp, xyBds, AxL0, AxC1_0,
+                          MJDc=MJDc, MJD_plot=mjd, hgsplot=hgsplot)
+            hviz.PlotEqBx(gsph, nStp, xyBds, AxR0, AxC2_0,
+                          MJDc=MJDc, MJD_plot=mjd, hgsplot=hgsplot)
+            hviz.PlotEqBy(gsph, nStp, xyBds, AxL1, AxC1_1,
+                          MJDc=MJDc, MJD_plot=mjd, hgsplot=hgsplot)
             hviz.PlotEqBz(gsph, nStp, xyBds, AxR1, AxC2_1)
+            if hgsplot:
+                fig.suptitle(f"HGS frame at MJD = {ktools.MJD2UT(mjd)}")
+            else:
+                fig.suptitle(f"GH frame at MJD = {ktools.MJD2UT(mjd)}")
         elif pic == "pic7":
             hviz.PlotjMagV(gsph, nStp, xyBds, AxL0, AxC1_0, jidx=448)
             hviz.PlotjD(gsph, nStp, xyBds, AxR0, AxC2_0, jidx=448)
