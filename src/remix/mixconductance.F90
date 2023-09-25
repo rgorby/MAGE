@@ -19,6 +19,7 @@ module mixconductance
 
   !Replacing some hard-coded inline values (bad) w/ module private values (slightly less bad)
   real(rp), parameter, private :: maxDrop = 20.0 !Hard-coded max potential drop [kV]
+  real(rp), parameter, private :: eTINY = 1.D-8 ! Floor of average energy [keV]
   real(rp), private :: RinMHD = 0.0 !Rin of MHD grid (0 if not running w/ MHD)
   real(rp), private :: MIXgamma
   logical , private :: doDrift = .false. !Whether to add drift term from Zhang
@@ -129,7 +130,7 @@ module mixconductance
          case (LINMRG)
             call conductance_linmrg(conductance,G,St)
          case default
-            stop "The aurora precipitation model type entered is not supported."
+            stop "The auroral precipitation model type entered is not supported."
       end select
 
       ! Correct for multiple reflections if you're so inclined
@@ -286,7 +287,7 @@ module mixconductance
     end subroutine conductance_euv
 
     subroutine conductance_fedder95(conductance,G,St)
-      ! Derive electron precipitation energy flux and avg energy using Feder95 formula.
+      ! Derive electron precipitation energy flux and avg energy using Fedder95 formula.
       type(mixConductance_T), intent(inout) :: conductance
       type(mixGrid_T), intent(in) :: G
       type(mixState_T), intent(inout) :: St
@@ -300,11 +301,7 @@ module mixconductance
       tmpD = 0.D0
 
       if (St%hemisphere==NORTH) then
-         signOfY = -1  ! note, factor2 (dawn-dusk asymmetry is not
-                           ! implemented since factor2 in the old
-                           ! fedder95 code was removed, i.e., set to
-                           ! 1, anyway). I think Mike did this when he
-                           ! implemented his ramp function.
+         signOfY = -1
          signOfJ = -1  
       elseif (St%hemisphere==SOUTH) then
          signOfY = 1
@@ -382,11 +379,7 @@ module mixconductance
       JF0 = 0.D0
       
       if (St%hemisphere==NORTH) then
-         signOfY = -1  ! note, factor2 (dawn-dusk asymmetry is not
-                           ! implemented since factor2 in the old
-                           ! fedder95 code was removed, i.e., set to
-                           ! 1, anyway). I think Mike did this when he
-                           ! implemented his ramp function.
+         signOfY = -1
          signOfJ = -1  
       elseif (St%hemisphere==SOUTH) then
          signOfY = 1
@@ -442,7 +435,6 @@ module mixconductance
 
       ! floor on total energy
       ! Eavg=2*kB*Te + eV*(1-exp(-eV/(RM-1)/kB/Te))/(1-(1-1/RM)*exp(-eV/(RM-1)/kB/Te))
-      ceV = 0.D0
       ceV = exp(-conductance%deltaE/(0.5*conductance%E0*(RM-1)))
       St%Vars(:,:,Z_EAVG) = max(conductance%E0 + conductance%deltaE*(1-ceV)/(1-(1-1/RM)*ceV),1.D-8)
 
@@ -468,6 +460,7 @@ module mixconductance
       logical :: isRCM,isMHD,isMIX
       St%Vars(:,:,AUR_TYPE) = 0
 
+      ! Two thresholds of rcm grid type between which both MHD and RCM precipitation will be merged.
       wC1 = 0.15
       wC2 = 1.0-wC1
 
@@ -507,7 +500,7 @@ module mixconductance
                St%Vars(i,j,NUM_FLUX) = mhd_nflx
             else if (isRCM) then
                if (rcm_nflx <= TINY) then
-                  rcm_eavg = 1.0e-8
+                  rcm_eavg = eTINY
                endif
                St%Vars(i,j,AVG_ENG ) = rcm_eavg
                St%Vars(i,j,NUM_FLUX) = rcm_nflx
@@ -543,14 +536,10 @@ module mixconductance
       real(rp) :: signOfY, signOfJ
       integer :: i,j
       real(rp) :: D,Cs,Pe,Ne,J2eF0,eV2kT,dE,phi0,kT
-      real(rp) :: eTINY
+      real(rp) :: Ne_floor
 
       if (St%hemisphere==NORTH) then
-         signOfY = -1  ! note, factor2 (dawn-dusk asymmetry is not
-                           ! implemented since factor2 in the old
-                           ! fedder95 code was removed, i.e., set to
-                           ! 1, anyway). I think Mike did this when he
-                           ! implemented his ramp function.
+         signOfY = -1
          signOfJ = -1  
       elseif (St%hemisphere==SOUTH) then
          signOfY = 1
@@ -559,7 +548,7 @@ module mixconductance
          stop 'Wrong hemisphere label. Stopping...'
       endif
 
-      eTINY = 1.D-8
+      Ne_floor = 0.03e6 ! minimum Ne in [/m^3] when evaluating the linearized FL relation.
 
       !$OMP PARALLEL DO default(shared) &
       !$OMP private(i,j,D,Cs,Pe,Ne,J2eF0,eV2kT,dE,phi0,kT)
@@ -591,7 +580,7 @@ module mixconductance
             ! Linearize the Fridman-Lemaire relation: 
             ! eV = kB*Te*(RM-1)*ln((RM-1)/(RM-J/e/F0)) when 1<=J/e/F0<=RM.
             ! eV ~ kB*Te*(J/e/F0-1) when RM>>J/e/F0
-            if (J2eF0>1.0 .and. Ne>0.03e6) then
+            if (J2eF0>1.0 .and. Ne>Ne_floor) then
                dE = kT*(J2eF0-1.0)
                conductance%deltaE(i,j) = dE
                eV2kT = min(dE,maxDrop)/kT + 1.0
@@ -722,7 +711,6 @@ module mixconductance
 
     subroutine conductance_aurora(conductance,G,St)
       ! Use Robinson formula to get Pedersen and Hall conductance from electron precipitation.
-      ! Diffuse precipitation from RCM has been divided by 2 in rcm_subs.F90 for each hemisphere.
       type(mixConductance_T), intent(inout) :: conductance
       type(mixGrid_T), intent(in) :: G
       type(mixState_T), intent(inout) :: St
@@ -875,7 +863,7 @@ module mixconductance
     end subroutine FixPole
 
     subroutine conductance_margin(G,array,arraymar)
-      ! Conductance boundary proessing.
+      ! Conductance boundary processing.
       type(mixGrid_T), intent(in) :: G      
       real(rp),dimension(G%Np,G%Nt), intent(in) :: array
       real(rp),dimension(G%Np+4,G%Nt+4), intent(out) :: arraymar
