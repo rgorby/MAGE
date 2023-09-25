@@ -128,8 +128,10 @@ module mixconductance
             call conductance_zhang15(conductance,G,St)
          case (LINMRG)
             call conductance_linmrg(conductance,G,St)
+         case (RCMHD)
+            call conductance_rcmhd(conductance,G,St)
          case default
-            stop "The aurora precipitation model type entered is not supported."
+            stop "The auroral precipitation model type entered is not supported."
       end select
 
       ! Correct for multiple reflections if you're so inclined
@@ -609,6 +611,85 @@ module mixconductance
       enddo ! j
       
     end subroutine conductance_linmono
+
+    subroutine conductance_rcmhd(conductance,G,St)
+      type(mixConductance_T), intent(inout) :: conductance
+      type(mixGrid_T), intent(in) :: G
+      type(mixState_T), intent(inout) :: St
+
+      integer :: i,j
+      logical :: isMono
+      real(rp) :: mhd_eavg, mhd_nflx, mhd_eflx, rmd_nflx, rmd_eflx, rmd_eavg
+      real(rp) :: rmd_eavg_fin, rmd_nflx_fin, rmd_SigP, mhd_SigP
+
+      ! Make dorcm=.false. to use pure MHD fluxes. 
+      ! Tests show that RCM fluxes are so low that they easily trigger mono in the dawnside R2 FAC.
+      logical :: dorcm = .false. 
+
+      ! derive RCM grid weighting based on that passed from RCM and smooth it with five iterations of numerical diffusion.
+      call conductance_IM_GTYPE(G,St)
+
+      ! derive spatially varying beta using RCM precipitation and thermal fluxes. Need IM_GTYPE.
+      call conductance_alpha_beta(conductance,G,St)
+
+      ! derive MHD/mono precipitation with zhang15 but include RCM thermal flux to the source by using dorcm=.true.
+      call conductance_zhang15(conductance,G,St,dorcm)
+ 
+      !$OMP PARALLEL DO default(shared) &
+      !$OMP private(i,j,isMono) &
+      !$OMP private(mhd_eavg, mhd_nflx, mhd_eflx, rmd_nflx, rmd_eflx, rmd_eavg)&
+      !$OMP private(rmd_eavg_fin, rmd_nflx_fin, rmd_SigP, mhd_SigP)
+      do j=1,G%Nt
+        do i=1,G%Np
+          isMono = conductance%deltaE(i,j) > 0.05 .and. St%Vars(i,j,Z_NFLUX)>1e6    !Potential drop
+
+          mhd_eavg = St%Vars(i,j,Z_EAVG)
+          mhd_nflx = St%Vars(i,j,Z_NFLUX)
+          mhd_eflx = St%Vars(i,j,Z_EAVG)*St%Vars(i,j,Z_NFLUX)*kev2erg
+
+          rmd_nflx = St%Vars(i,j,IM_ENFLX)*gtype_RCM(i,j)+mhd_nflx*(1.0-gtype_RCM(i,j))
+          rmd_eflx = St%Vars(i,j,IM_EFLUX)*gtype_RCM(i,j)+mhd_eflx*(1.0-gtype_RCM(i,j))
+          if(rmd_nflx>TINY) then
+            rmd_eavg = max(rmd_eflx/(rmd_nflx*kev2erg),1.0e-8)
+          else
+            rmd_eavg = 0.0
+          endif
+
+          if (.not. isMono) then
+            !No potential drop, just use merged precipitation.
+            St%Vars(i,j,AVG_ENG ) = rmd_eavg
+            St%Vars(i,j,NUM_FLUX) = rmd_nflx
+            St%Vars(i,j,AUR_TYPE) = AT_RMnoE
+            cycle
+          endif
+
+          !If still here, we have a potential drop
+          !Decide between the two by taking one that gives highest Sig-P
+          if (conductance%doMR) then ! be careful here is using nflux.
+            call AugmentMR(rmd_eavg,rmd_nflx,rmd_eavg_fin,rmd_nflx_fin) !Correct for MR
+          else
+            !No corrections
+            rmd_eavg_fin = rmd_eavg
+            rmd_nflx_fin = rmd_nflx
+          endif
+
+          rmd_SigP = SigmaP_Robinson(rmd_eavg_fin,kev2erg*rmd_eavg_fin*rmd_nflx_fin)
+          mhd_SigP = SigmaP_Robinson(mhd_eavg    ,kev2erg*mhd_eavg    *mhd_nflx    )
+
+          if (mhd_SigP>=rmd_SigP) then
+            St%Vars(i,j,AVG_ENG ) = mhd_eavg
+            St%Vars(i,j,NUM_FLUX) = mhd_nflx
+            St%Vars(i,j,AUR_TYPE) = AT_RMono
+          else
+            !RMD diffuse is still better than MHD + puny potential drop
+            St%Vars(i,j,AVG_ENG ) = rmd_eavg !Use un-augmented value since MR gets called later
+            St%Vars(i,j,NUM_FLUX) = rmd_nflx
+            conductance%deltaE(i,j) = 0.0 !Wipe out potential drop since it don't matter (otherwise MR won't happen if desired)
+            St%Vars(i,j,AUR_TYPE) = AT_RMfnE
+          endif
+        enddo
+      enddo
+    end subroutine conductance_rcmhd
 
     subroutine conductance_mr(conductance,G,St)
       ! George Khazanov's multiple reflection(MR) corrections
