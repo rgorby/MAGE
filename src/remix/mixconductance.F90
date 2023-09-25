@@ -292,13 +292,12 @@ module mixconductance
       type(mixGrid_T), intent(in) :: G
       type(mixState_T), intent(inout) :: St
       
-      real(rp) :: Redge, Rmin, Rmin2, Rmax, rfac
       real(rp) :: signOfY, signOfJ
       real(rp) :: Rout = 6.D0, Rin = 1.2D0
       real(rp) :: rhoFactor = 3.3D-24*0.5D0
-
-      tmpC = 0.D0
-      tmpD = 0.D0
+      real(rp) :: rPolarBound = 20.0D0*pi/180.D0, rEquatBound = 30.0D0*pi/180.0D0, rLowLimit = 0.02D0
+      real(rp) :: D,Cs,Pe,Ne,dE,phi0,E0,aRes,dEc
+      integer :: i,j
 
       if (St%hemisphere==NORTH) then
          signOfY = -1
@@ -312,71 +311,68 @@ module mixconductance
 
       ! fills in rampFactor
       if (conductance%doRamp) then
-         call conductance_ramp(conductance,G,20.0D0*pi/180.D0,30.0D0*pi/180.0D0,0.02D0)
+         call conductance_ramp(conductance,G,rPolarBound,rEquatBound,rLowLimit)
       else 
          conductance%rampFactor = 1.0D0
-      end if
-
-      if (conductance%doChill) then
-         ! MHD density replaced with gallagher where it's lower      
-         ! and temperature changed correspondingly
-          tmpD = max(G%D0*Mp_cgs,St%Vars(:,:,DENSITY))
-          tmpC = St%Vars(:,:,SOUND_SPEED)*sqrt(St%Vars(:,:,DENSITY)/tmpD)
-       else
-          tmpD = St%Vars(:,:,DENSITY)
-          tmpC = St%Vars(:,:,SOUND_SPEED)
-      end if
+      endif
       
-      conductance%E0 = conductance%alpha*Mp_cgs*heFrac*erg2kev*tmpC**2*conductance%RampFactor
-      conductance%phi0 = sqrt(kev2erg)/(heFrac*Mp_cgs)**1.5D0*conductance%beta*tmpD*sqrt(conductance%E0)*conductance%RampFactor
-      ! resistence out of the ionosphere is 2*rout resistence into the
-      ! ionosphere is 2*rin outward current is positive
-      where ( signOfJ*St%Vars(:,:,FAC) >=0. ) 
-         conductance%aRes = 2.D0*Rout
-      elsewhere
-         conductance%aRes = 2.D0*Rin
-      end where
-   
-      ! Density floor to limit characteristic energy.  See Wiltberger et al. 2009 for details.
-      where (tmpD < rhoFactor*conductance%euvSigmaP) 
-         tmpD = rhoFactor*conductance%euvSigmaP
-      end where
-      conductance%deltaE = (heFrac*Mp_cgs)**1.5D0/eCharge*1.D-4*sqrt(erg2kev)*conductance%R*conductance%aRes*signOfJ*(St%Vars(:,:,FAC)*1.e-6)*sqrt(conductance%E0)/tmpD
+      !$OMP PARALLEL DO default(shared) &
+      !$OMP private(i,j,D,Cs,dE,phi0,E0,aRes,dEc)
+      do j=1,G%Nt
+         do i=1,G%Np
+            if (conductance%doChill) then
+               ! MHD density replaced with gallagher where it's lower      
+               ! and temperature changed correspondingly
+               D  = max(G%D0(i,j)*Mp_cgs, St%Vars(i,j,DENSITY)) ! [g/cm^3]
+               Cs = St%Vars(i,j,SOUND_SPEED)*sqrt(St%Vars(i,j,DENSITY)/D) ! [cm/s]
+            else
+               D  = St%Vars(i,j,DENSITY)
+               Cs = St%Vars(i,j,SOUND_SPEED)
+            endif
+            ! Mean energy from MHD electron fluxes in [keV]. E_avg = 2*kT for Maxwellian.
+            E0 = conductance%alpha*Mp_cgs*heFrac*erg2kev*Cs**2*conductance%rampFactor(i,j)
+            conductance%E0  (i,j) = E0
+            ! Thermal number flux from MHD electron fluxes in [#/cm^2/s].
+            phi0 = sqrt(kev2erg)/(heFrac*Mp_cgs)**1.5D0*conductance%beta*D*sqrt(E0)*conductance%rampFactor(i,j)
+            conductance%phi0(i,j) = phi0
+            
+            ! resistence out of the ionosphere is 2*rout resistence into the
+            ! ionosphere is 2*rin outward current is positive
+            if( signOfJ*St%Vars(i,j,FAC) >=0. ) then
+              aRes = 2.D0*Rout
+            else
+              aRes = 2.D0*Rin
+            endif
 
-      ! limit the max potential energy drop to 20 [keV]
-      conductance%deltaE = min(maxDrop,conductance%deltaE)
+            ! Density floor to limit characteristic energy.  See Wiltberger et al. 2009 for details.
+            D = min(D,rhoFactor*conductance%euvSigmaP(i,j))
+            ! Original form for ref: 
+            ! (heFrac*Mp_cgs)**1.5D0/eCharge*1.D-4*sqrt(erg2kev)*conductance%R*aRes*signOfJ*(St%Vars(:,:,FAC)*1.D-6)*sqrt(E0)/D
+            dE = (heFrac*Mp_cgs)**1.5D0/eCharge*1.D-4*sqrt(erg2kev)*conductance%R*aRes*signOfJ*(St%Vars(i,j,FAC)*1.D-6)*sqrt(E0)/D
+            conductance%deltaE(i,j) = dE
+            dEc = min(dE,maxDrop)
 
-      ! floor on total energy
-      St%Vars(:,:,AVG_ENG) = max(conductance%E0 + conductance%deltaE,1.D-8)
-
-      where  ( conductance%deltaE > 0. )
-         St%Vars(:,:,NUM_FLUX) = conductance%phi0*(8.D0-7.D0*exp(-conductance%deltaE/7.D0/conductance%E0))
-      elsewhere 
-         St%Vars(:,:,NUM_FLUX) = conductance%phi0*exp(conductance%deltaE/conductance%E0)
-      end where
+            St%Vars(i,j,AVG_ENG) = max( E0+dEc, eTINY)
+            if(dEc>0.) then
+              St%Vars(i,j,NUM_FLUX) = phi0*(8.D0-7.D0*exp(-dEc/7.D0/E0))
+            else
+              St%Vars(i,j,NUM_FLUX) = phi0*exp(dEc/E0)
+            endif
+            St%Vars(i,j,DELTAE) = conductance%deltaE(i,j) ! [kV]
+         enddo ! i
+      enddo ! j
 
     end subroutine conductance_fedder95
 
-    subroutine conductance_zhang15(conductance,G,St,dorcmO)
+    subroutine conductance_zhang15(conductance,G,St)
       ! Derive electron precipitation energy flux and avg energy using the nonlinear Fridman-Lemaire relation [Zhang et al., 2014JA020615].
       type(mixConductance_T), intent(inout) :: conductance
       type(mixGrid_T), intent(in) :: G
       type(mixState_T), intent(inout) :: St
-      logical, optional, intent(in) :: dorcmO
       
       real(rp) :: signOfY, signOfJ
-      logical :: dorcm
-      real(rp), dimension(G%Np,G%Nt) :: Pe_MHD, Ne_MHD, Pe_RMD, Ne_RMD, ceV
-      
-      if(present(dorcmO)) then
-         dorcm = dorcmO
-      else ! default is NOT use RCM thermal flux for mono derivation.
-         dorcm = .false. 
-      endif
-
-      tmpC = 0.D0
-      tmpD = 0.D0
-      JF0 = 0.D0
+      real(rp) :: D,Cs,Pe,Ne,J2eF0,eV2kT,dE,phi0,kT
+      integer :: i,j
       
       if (St%hemisphere==NORTH) then
          signOfY = -1
@@ -387,62 +383,70 @@ module mixconductance
       else
          stop 'Wrong hemisphere label. Stopping...'
       endif
-
-      if (conductance%doChill) then
-         ! MHD density replaced with gallagher where it's lower      
-         ! and temperature changed correspondingly
-          tmpD = max(G%D0*Mp_cgs,St%Vars(:,:,DENSITY)) ! [g/cm^3]
-          tmpC = St%Vars(:,:,SOUND_SPEED)*sqrt(St%Vars(:,:,DENSITY)/tmpD) ! [cm/s]
-       else
-          tmpD = St%Vars(:,:,DENSITY)
-          tmpC = St%Vars(:,:,SOUND_SPEED)
-      end if
-
-      call conductance_auroralmask(conductance,G,signOfY)
-
-      Pe_MHD = 0.1/MIXgamma*alpha_RCM*tmpD*tmpC**2 ! electron pressure from MHD side in [Pa]. 0.1 is to convert [g/cm^3]*[cm/s]^2=[g/cm/s^2] to [Pa].
-      Ne_MHD = tmpD/(Mp_cgs*heFrac)*1.0D6      ! electron number density from MHD side in [/m^3].
-      if(.not.dorcm) then ! default Zhang15 using MHD thermal flux only.
-         conductance%E0   = 2.0/kev2J*Pe_MHD/Ne_MHD     ! Mean energy from MHD electron fluxes in [keV]. E_avg = 2*kT for Maxwellian.
-         conductance%phi0 = beta_RCM*sqrt(Pe_MHD*Ne_MHD/(2.0D-3*pi*Me_cgs))*1.0D-4     ! Thermal number flux from MHD electron fluxes in [#/cm^2/s].
-      else ! Trigger this part by including dorcm=.true. when calling zhang15.
-         ! similarly, E0 is a ratio and should NOT be merged. 
-         ! Derive it from merged pressure and density instead.
-         ! See kaiju wiki for derivations of the coefficients.
-         ! https://bitbucket.org/aplkaiju/kaiju/wiki/userGuide/derivation_of_precipitation
-         Pe_RMD = gtype_RCM*St%Vars(:,:,IM_EPRE) + (1.0-gtype_RCM)*Pe_MHD ! Merged electron pressure in [Pa].
-         Ne_RMD = gtype_RCM*St%Vars(:,:,IM_EDEN) + (1.0-gtype_RCM)*Ne_MHD ! Merged electron number density in [/m^3].
-         conductance%E0   = 2.0/kev2J*Pe_RMD/Ne_RMD     ! Mean energy from merged electron fluxes in [keV].
-         conductance%phi0 = beta_RCM*sqrt(Pe_RMD*Ne_RMD/(2.0D-3*pi*Me_cgs))*1.0D-4     ! Thermal number flux from merged electron fluxes in [#/cm^2/s].
+      
+      if (doDrift) then
+        ! Use artificial drift to get dawn-preferred diffuse electron precipitation
+        ! when only using MHD information to derive it.
+        call conductance_auroralmask(conductance,G,signOfY)
+      else
+        ! conductance%drift should be turned off when using RCM for diffuse
+        conductance%drift = 1.0
       endif
       
-      JF0 = min( 1.D-4*signOfJ*(St%Vars(:,:,FAC)*1.e-6)/eCharge/(conductance%phi0), RM*0.99 )
+      !$OMP PARALLEL DO default(shared) &
+      !$OMP private(i,j,D,Cs,Pe,Ne,J2eF0,eV2kT,dE,phi0,kT)
+      do j=1,G%Nt
+         do i=1,G%Np
+            if (conductance%doChill) then
+               ! MHD density replaced with gallagher where it's lower      
+               ! and temperature changed correspondingly
+               D  = max(G%D0(i,j)*Mp_cgs, St%Vars(i,j,DENSITY)) ! [g/cm^3]
+               Cs = St%Vars(i,j,SOUND_SPEED)*sqrt(St%Vars(i,j,DENSITY)/D) ! [cm/s]
+            else
+               D  = St%Vars(i,j,DENSITY)
+               Cs = St%Vars(i,j,SOUND_SPEED)
+            endif
+            ! electron pressure from MHD side in [Pa]
+            ! 0.1 is to convert [g/cm^3]*[cm/s]^2=[g/cm/s^2] to [Pa].
+            Pe = 0.1/MIXgamma*alpha_RCM(i,j)*D*(Cs**2)
+            ! electron number density from MHD side in [/m^3].
+            Ne = D/(Mp_cgs*heFrac)*1.0D6
+            ! Mean energy from MHD electron fluxes in [keV]. E_avg = 2*kT for Maxwellian.
+            kT = Pe/Ne/kev2J
+            conductance%E0  (i,j) = 2.0*kT
+            ! Thermal number flux from MHD electron fluxes in [#/cm^2/s].
+            phi0 = beta_RCM(i,j)* sqrt(Pe*Ne/(2.0D-3*PI*Me_cgs))*1.0D-4
+            conductance%phi0(i,j) = phi0
 
-      !NOTE: conductance%drift should be turned off when using RCM for diffuse
-      if (.not. doDrift) then
-         conductance%drift = 1.0 !Remove dep.
-      endif
+            ! Note JF0 may go inf where phi0/Pe_MHD/Ne_MHD is zero.
+            J2eF0 = min( 1.D-4*signOfJ*(St%Vars(i,j,FAC)*1.D-6)/(eCharge*phi0), RM(i,j)*0.99 )
+            ! NonLinear Fridman-Lemaire relation: 
+            ! eV = 2*kB*Te + eV*(1-exp(-eV/(RM-1)/kB/Te))/(1-(1-1/RM)*exp(-eV/(RM-1)/kB/Te)), when
+            ! 1<=J/e/F0<=RM.
+            if (J2eF0>1.0) then
+               dE = kT*(RM(i,j)-1.D0)*dlog((RM(i,j)-1.D0)/(RM(i,j)-J2eF0))
+               conductance%deltaE(i,j) = dE
+               St%Vars(i,j,Z_NFLUX) = J2eF0*phi0
+            else
+               conductance%deltaE(i,j) = 0.0
+               St%Vars(i,j,Z_NFLUX) = phi0*conductance%drift(i,j)
+            endif
 
-      where ( JF0 > 1. )
-      ! limit the max potential energy drop to 20 [keV]
-      ! deltaE, or eV=kB*Te*(RM-1)*ln((RM-1)/(RM-J/e/F0)) when 1<=J/e/F0<=RM.
-         conductance%deltaE = min( 0.5*conductance%E0*(RM - 1.D0)*dlog((RM-1.D0)/(RM-JF0)),maxDrop)
-         St%Vars(:,:,Z_NFLUX) = JF0*conductance%phi0
-      elsewhere
-         conductance%deltaE = 0.
-         St%Vars(:,:,Z_NFLUX) = conductance%phi0*conductance%drift
-      end where
+            ! limit the max potential energy drop to maxDrop (20 [keV])
+            ! Use capped dE to calculate the mean energy.
+            ! eV2kT = exp(-eV/(RM-1)/kB/Te)
+            eV2kT = exp( -min(dE,maxDrop)/(kT*(RM(i,j)-1.D0)) )
+            ! Floor the mean energy.
+            ! Note in the original code of Zhang, EAVG is simply 2*kT+dE, a good enough approximation.
+            St%Vars(i,j,Z_EAVG) = max( 2.0*kT+min(dE,maxDrop)*(1.D0-eV2kT)/(1.D0-(1.D0-1.D0/RM(i,j))*eV2kT), eTINY)
 
-      ! floor on total energy
-      ! Eavg=2*kB*Te + eV*(1-exp(-eV/(RM-1)/kB/Te))/(1-(1-1/RM)*exp(-eV/(RM-1)/kB/Te))
-      ceV = exp(-conductance%deltaE/(0.5*conductance%E0*(RM-1)))
-      St%Vars(:,:,Z_EAVG) = max(conductance%E0 + conductance%deltaE*(1-ceV)/(1-(1-1/RM)*ceV),1.D-8)
+            ! Apply Zhang15 precipitation to main arrays
+            St%Vars(i,j,DELTAE)   = conductance%deltaE(i,j) ! [kV]
+            St%Vars(i,j,AVG_ENG)  = St%Vars(i,j,Z_EAVG)     ! [keV]
+            St%Vars(i,j,NUM_FLUX) = St%Vars(i,j,Z_NFLUX)    ! [#/cm^2/s]
+         enddo ! i
+      enddo ! j
 
-      ! Apply Zhang15 precipitation to main arrays
-      St%Vars(:,:,AVG_ENG)  = St%Vars(:,:,Z_EAVG) ! [keV]
-      St%Vars(:,:,NUM_FLUX) = St%Vars(:,:,Z_NFLUX)! [#/cm^2/s]
-      St%Vars(:,:,DELTAE)   = conductance%deltaE  ! [kV]
-      
     end subroutine conductance_zhang15
  
     subroutine conductance_linmrg(conductance,G,St)
