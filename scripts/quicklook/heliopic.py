@@ -148,6 +148,10 @@ def create_command_line_parser():
         help="Run ID of data (default: %(default)s)"
     )
     parser.add_argument(
+        "-jslice", type=int, metavar="jSlice", default=None,
+        help="Index of j-slice for pic7 (default: Nj/2-1)"
+    )
+    parser.add_argument(
         "-lon", type=float, metavar="lon", default=0.0,
         help="Longitude of meridian slice (pic2) (default: %(default)s)"
     )
@@ -330,6 +334,7 @@ def main():
     fdir = args.directory
     hgsplot = args.hgsplot
     ftag = args.id
+    jslice = args.jslice
     pic2lon = args.lon
     steps = args.nlist
     slices = args.nslice
@@ -476,10 +481,21 @@ def main():
             else:
                 fig.suptitle(f"GH frame at MJD = {ktools.MJD2UT(mjd)}")
         elif pic == "pic7":
-            hviz.PlotjMagV(gsph, nStp, xyBds, AxL0, AxC1_0, jidx=448)
-            hviz.PlotjD(gsph, nStp, xyBds, AxR0, AxC2_0, jidx=448)
-            hviz.PlotjTemp(gsph, nStp, xyBds, AxL1, AxC1_1, jidx=448)
-            hviz.PlotjBr(gsph, nStp, xyBds, AxR1, AxC2_1, jidx=448)
+            if jslice is None:
+                jidx = gsph.Nj//2 - 1
+            else:
+                jidx = jslice
+            hviz.PlotjMagV(gsph, nStp, xyBds, AxL0, AxC1_0, jidx=jidx,
+                           MJDc=MJDc, MJD_plot=mjd, hgsplot=hgsplot)
+            hviz.PlotjD(gsph, nStp, xyBds, AxR0, AxC2_0, jidx=jidx,
+                        MJDc=MJDc, MJD_plot=mjd, hgsplot=hgsplot)
+            hviz.PlotjTemp(gsph, nStp, xyBds, AxL1, AxC1_1, jidx=jidx,
+                           MJDc=MJDc, MJD_plot=mjd, hgsplot=hgsplot)
+            hviz.PlotjBr(gsph, nStp, xyBds, AxR1, AxC2_1, jidx=jidx)
+            if hgsplot:
+                fig.suptitle(f"HGS frame at MJD = {ktools.MJD2UT(mjd)}")
+            else:
+                fig.suptitle(f"GH frame at MJD = {ktools.MJD2UT(mjd)}")
         else:
             raise TypeError(f"Invalid figure type: {pic}!")
 
@@ -591,8 +607,10 @@ def main():
                         ax.plot(x_sc, y_sc, 'o', c="black", fillstyle="none")
                         ax.text(x_sc + x_nudge, y_sc + y_nudge, sc_id,
                                 c="black", horizontalalignment="center")
+                elif pic == "pic7":
+                    raise TypeError("Spacecraft not supported for pic7!")
                 else:
-                    raise TypeError(f"Invalid figure type: {pic}!")
+                    raise TypeError(f"Invalid plot code: {pic}!")
 
         # Save the figure to a file.
         path = os.path.join(fdir, fOut(ftag, pic, nStp, hgsplot))

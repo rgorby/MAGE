@@ -212,27 +212,99 @@ def PlotEqMagV(
     return MagV
 
 
-#Plot speed in j plane
-def PlotjMagV(gsph,nStp,xyBds,Ax,AxCB=None,doClear=True,doDeco=True,jidx=-1):
-    vMagV = kv.genNorm(VMin, VMax, doLog=False, midP=None)
-    
-    if (AxCB is not None):
-        #Add the colorbar to AxCB
-        AxCB.clear()
-        kv.genCB(AxCB,vMagV,"Speed [km/s]",cM=MagVCM,Ntk=7)
+def PlotjMagV(
+        gsph, nStp, xyBds, Ax, AxCB=None, doClear=True, doDeco=True, jidx=-1,
+        MJDc=None, MJD_plot=None, hgsplot=False
+):
+    """Plot solar wind speed in a specific j plane.
 
-    #Now do main plotting
-    if (doClear):
+    Plot solar wind speed in the a specific j plane. By default, the plot
+    is produced in the GH(MJDc) frame (the gamhelio frame used for the
+    simulation results). If MJD_plot is specified, MJDc must also be specified.
+    In that case, the coordinates are mapped from the GH(MJDc) frame to the
+    HGS(MJD_plot) frame.
+
+    The gamhelio frame GH is based on the Heliographic Stonyhurst frame (HGS)
+    frame. The difference is that:
+
+    x (GH) = -x (HGS)
+    y (GH) = -y (HGS)
+    z (GH) = z (HGS)
+
+    The GH frame is defined at MJDc, meaning it is fixed in spatial orientation
+    at that time. The HGS frame is defined at MJD_plot, also producing a
+    (different) fixed spatial orientation. The conversion maps points in the
+    GH(MJDc) frame to the HGS(MJD_plot) frame, which is almost a rotation about
+    the z-axis, but also accounting for the Earth's orbit and other
+    astronommical and geodetic parameters.
+
+    Parameters
+    ----------
+    gsph : kaipy.gamhelio.heliosphere.GamsphPipe
+        Pipe to simulation results
+    nStp : int
+        Index of simulation step to use in plot
+    xyBds : list of 4 float
+        Minimum and maximum values to plot for x- and y-axes
+    Ax : matplotlib.axes.Axes
+        Axes object to use for plot
+    AxCB : matplotlib.axes.Axes
+        Axes object to use for color bar
+    doClear : bool
+        If true, clear the plot Axes before further plotting.
+    doDeco : bool
+        If true, add axis labels to the plot.
+    jidx : int
+        Index of j-plane to plot.
+    MJDc : float
+        MJD used for the coordinate GH frame of the simulation.
+    MJD_plot : float
+        MJD to use for the HGS frame of the plot.
+    hgsplot : bool
+        If true, plot in HGS(MJD_plot) frame.
+
+    Returns
+    -------
+    MagV : np.array of float
+        Data for solar wind speed in selected j-plane, same shape as the
+        j-plane in the gamhelio results.
+
+    Raises
+    ------
+    None
+    """
+    # Create a normalizer object for the colorbar.
+    vMagV = kv.genNorm(VMin, VMax, doLog=False, midP=None)
+
+    # Create the color bar.
+    if AxCB:
+        AxCB.clear()
+        kv.genCB(AxCB, vMagV, "Speed [km/s]", cM=MagVCM, Ntk=7)
+
+    # Clear the plot Axes if needed.
+    if doClear:
         Ax.clear()
 
-    MagV = gsph.jMagV(nStp,jidx=jidx)
-    Ax.pcolormesh(gsph.xxi,gsph.yyi,MagV,cmap=MagVCM,norm=vMagV)
+    # Fetch the data at the specified step.
+    MagV = gsph.jMagV(nStp, jidx=jidx)
 
-    kv.SetAx(xyBds,Ax)
+    # Plot the data.
+    # If the HGS frame was requested, map the grid corner coordinates from the
+    # GH(MJDc) frame to the HGS(MJD_plot) frame.
+    if hgsplot:
+        raise TypeError("HGS frame not supported for pic7!")
+    else:
+        Ax.pcolormesh(gsph.xxi, gsph.yyi, MagV, cmap=MagVCM, norm=vMagV)
 
-    if (doDeco):
-        Ax.set_xlabel('X [R_S]')
-        Ax.set_ylabel('Y [R_S]')
+    # Set the plot boundaries.
+    kv.SetAx(xyBds, Ax)
+
+    # Decorate the plots.
+    if doDeco:
+        Ax.set_xlabel(r"$X [R_S]$")
+        Ax.set_ylabel(r"$Y [R_S]$")
+
+    # Return the data.
     return MagV
 
 
@@ -1024,29 +1096,102 @@ def PlotEqD(
     # Return the data.
     return NormD
 
-#Plot normalized density in equatorial plane n(r/r0)^2
-def PlotjD(gsph,nStp,xyBds,Ax,AxCB=None,doClear=True,doDeco=True,jidx=-1):
-    vD = kv.genNorm(DMin, DMax, doLog=False, midP=None)
-    
-    if (AxCB is not None):
-        #Add the colorbar to AxCB
-        AxCB.clear()
-        kv.genCB(AxCB,vD,r"Density n(r/r$_0)^2$ [cm$^{-3}$]",cM=DCM,Ntk=7)
 
-    #Now do main plotting
-    if (doClear):
+def PlotjD(
+        gsph, nStp, xyBds, Ax, AxCB=None, doClear=True, doDeco=True, jidx=-1,
+        MJDc=None, MJD_plot=None, hgsplot=False
+):
+    """Plot normalized density in a specific j plane.
+
+    Plot normalized density in the a specific j plane. By default, the plot
+    is produced in the GH(MJDc) frame (the gamhelio frame used for the
+    simulation results). If MJD_plot is specified, MJDc must also be specified.
+    In that case, the coordinates are mapped from the GH(MJDc) frame to the
+    HGS(MJD_plot) frame.
+
+    The gamhelio frame GH is based on the Heliographic Stonyhurst frame (HGS)
+    frame. The difference is that:
+
+    x (GH) = -x (HGS)
+    y (GH) = -y (HGS)
+    z (GH) = z (HGS)
+
+    The GH frame is defined at MJDc, meaning it is fixed in spatial orientation
+    at that time. The HGS frame is defined at MJD_plot, also producing a
+    (different) fixed spatial orientation. The conversion maps points in the
+    GH(MJDc) frame to the HGS(MJD_plot) frame, which is almost a rotation about
+    the z-axis, but also accounting for the Earth's orbit and other
+    astronommical and geodetic parameters.
+
+    Parameters
+    ----------
+    gsph : kaipy.gamhelio.heliosphere.GamsphPipe
+        Pipe to simulation results
+    nStp : int
+        Index of simulation step to use in plot
+    xyBds : list of 4 float
+        Minimum and maximum values to plot for x- and y-axes
+    Ax : matplotlib.axes.Axes
+        Axes object to use for plot
+    AxCB : matplotlib.axes.Axes
+        Axes object to use for color bar
+    doClear : bool
+        If true, clear the plot Axes before further plotting.
+    doDeco : bool
+        If true, add axis labels to the plot.
+    jidx : int
+        Index of j-plane to plot.
+    MJDc : float
+        MJD used for the coordinate GH frame of the simulation.
+    MJD_plot : float
+        MJD to use for the HGS frame of the plot.
+    hgsplot : bool
+        If true, plot in HGS(MJD_plot) frame.
+
+    Returns
+    -------
+    NormD : np.array of float
+        Normalized number density in selected j-plane, same shape as the
+        j-plane in the gamhelio results.
+
+    Raises
+    ------
+    None
+    """
+    # Create a normalizer object for the colorbar.
+    vD = kv.genNorm(DMin, DMax, doLog=False, midP=None)
+
+    # Create the color bar.
+    if AxCB:
+        AxCB.clear()
+        kv.genCB(AxCB, vD, r"Density $n(r/r_0)^2 [cm^{-3}]$", cM=DCM, Ntk=7)
+
+    # Clear the plot Axes if needed.
+    if doClear:
         Ax.clear()
 
-    NormD = gsph.jNormD(nStp,jidx=jidx)
-    Ax.pcolormesh(gsph.xxi,gsph.yyi,NormD,cmap=DCM,norm=vD)
+    # Fetch the data.
+    NormD = gsph.jNormD(nStp, jidx=jidx)
 
-    kv.SetAx(xyBds,Ax)
+    # Plot the data.
+    # If the HGS frame was requested, map the grid corner coordinates from the
+    # GH(MJDc) frame to the HGS(MJD_plot) frame.
+    if hgsplot:
+        raise TypeError("HGS frame not supported for pic7!")
+    else:
+        Ax.pcolormesh(gsph.xxi, gsph.yyi, NormD, cmap=DCM, norm=vD)
 
-    if (doDeco):
-        Ax.set_xlabel('R [R_S]')
-        Ax.set_ylabel('Y [R_S]')
+    # Set the plot boundaries.
+    kv.SetAx(xyBds, Ax)
+
+    # Decorate the plots.
+    if doDeco:
+        Ax.set_xlabel('$R [R_S]$')
+        Ax.set_ylabel('$Y [R_S]$')
         Ax.yaxis.tick_right()
         Ax.yaxis.set_label_position('right')
+
+    # Return the data.
     return NormD
 
 def PlotEqTemp(
@@ -1172,24 +1317,99 @@ def PlotEqTemp(
     return Temp
 
 
-#Plot normalized Temperature in equatorial plane T(r/r0)
-def PlotjTemp(gsph,nStp,xyBds,Ax,AxCB=None,doClear=True,doDeco=True,jidx=-1):
+def PlotjTemp(
+        gsph, nStp, xyBds, Ax, AxCB=None, doClear=True, doDeco=True, jidx=-1,
+        MJDc=None, MJD_plot=None, hgsplot=False
+):
+    """Plot normalized temperature in a specific j plane.
+
+    Plot normalized temperature in the a specific j plane. By default, the plot
+    is produced in the GH(MJDc) frame (the gamhelio frame used for the
+    simulation results). If MJD_plot is specified, MJDc must also be specified.
+    In that case, the coordinates are mapped from the GH(MJDc) frame to the
+    HGS(MJD_plot) frame.
+
+    The gamhelio frame GH is based on the Heliographic Stonyhurst frame (HGS)
+    frame. The difference is that:
+
+    x (GH) = -x (HGS)
+    y (GH) = -y (HGS)
+    z (GH) = z (HGS)
+
+    The GH frame is defined at MJDc, meaning it is fixed in spatial orientation
+    at that time. The HGS frame is defined at MJD_plot, also producing a
+    (different) fixed spatial orientation. The conversion maps points in the
+    GH(MJDc) frame to the HGS(MJD_plot) frame, which is almost a rotation about
+    the z-axis, but also accounting for the Earth's orbit and other
+    astronommical and geodetic parameters.
+
+    Parameters
+    ----------
+    gsph : kaipy.gamhelio.heliosphere.GamsphPipe
+        Pipe to simulation results
+    nStp : int
+        Index of simulation step to use in plot
+    xyBds : list of 4 float
+        Minimum and maximum values to plot for x- and y-axes
+    Ax : matplotlib.axes.Axes
+        Axes object to use for plot
+    AxCB : matplotlib.axes.Axes
+        Axes object to use for color bar
+    doClear : bool
+        If true, clear the plot Axes before further plotting.
+    doDeco : bool
+        If true, add axis labels to the plot.
+    jidx : int
+        Index of j-plane to plot.
+    MJDc : float
+        MJD used for the coordinate GH frame of the simulation.
+    MJD_plot : float
+        MJD to use for the HGS frame of the plot.
+    hgsplot : bool
+        If true, plot in HGS(MJD_plot) frame.
+
+    Returns
+    -------
+    Temp : np.array of float
+        Normalized temperature in selected j-plane, same shape as the
+        j-plane in the gamhelio results.
+
+    Raises
+    ------
+    None
+    """
+    # Create a normalizer object for the colorbar.
     vT = kv.genNorm(TMin, TMax, doLog=False, midP=None)
 
-    if (AxCB is not None):
+    # Create the color bar.
+    if AxCB:
         AxCB.clear()
-        kv.genCB(AxCB,vT,r"Temperature T(r/r$_0$) [MK]",cM=TCM,Ntk=7)
-    if (doClear):
+        kv.genCB(AxCB, vT, r"Temperature $T(r/r_0)$ [MK]", cM=TCM, Ntk=7)
+
+    # Clear the plot Axes if needed.
+    if doClear:
         Ax.clear()
 
-    Temp = gsph.jTemp(nStp,jidx=jidx)
-    Ax.pcolormesh(gsph.xxi,gsph.yyi,Temp,cmap=TCM,norm=vT)
-    
-    kv.SetAx(xyBds,Ax)
+    # Fetch the data.
+    Temp = gsph.jTemp(nStp, jidx=jidx)
+ 
+    # Plot the data.
+    # If the HGS frame was requested, map the grid corner coordinates from the
+    # GH(MJDc) frame to the HGS(MJD_plot) frame.
+    if hgsplot:
+        raise TypeError("HGS frame not supported for pic7!")
+    else:
+        Ax.pcolormesh(gsph.xxi, gsph.yyi, Temp, cmap=TCM, norm=vT)
 
-    if (doDeco):
-        Ax.set_xlabel('X [R_S]')
-        Ax.set_ylabel('Y [R_S]')
+    # Set the plot boundaries.
+    kv.SetAx(xyBds, Ax)
+
+    # Decorate the plots.
+    if doDeco:
+        Ax.set_xlabel('$X [R_S]$')
+        Ax.set_ylabel('$Y [R_S]$')
+
+    # Return the data.
     return Temp
 
 
@@ -1318,26 +1538,101 @@ def PlotEqBr(
     return Br
 
 
-#Plor Br in equatorial plane
-def PlotjBr(gsph,nStp,xyBds,Ax,AxCB=None,doClear=True,doDeco=True,jidx=-1):
+def PlotjBr(
+        gsph, nStp, xyBds, Ax, AxCB=None, doClear=True, doDeco=True, jidx=-1,
+        MJDc=None, MJD_plot=None, hgsplot=False
+):
+    """Plot normalized radial magnetic field in a specific j plane.
+
+    Plot normalized radial magnetic field in the a specific j plane. By default, the plot
+    is produced in the GH(MJDc) frame (the gamhelio frame used for the
+    simulation results). If MJD_plot is specified, MJDc must also be specified.
+    In that case, the coordinates are mapped from the GH(MJDc) frame to the
+    HGS(MJD_plot) frame.
+
+    The gamhelio frame GH is based on the Heliographic Stonyhurst frame (HGS)
+    frame. The difference is that:
+
+    x (GH) = -x (HGS)
+    y (GH) = -y (HGS)
+    z (GH) = z (HGS)
+
+    The GH frame is defined at MJDc, meaning it is fixed in spatial orientation
+    at that time. The HGS frame is defined at MJD_plot, also producing a
+    (different) fixed spatial orientation. The conversion maps points in the
+    GH(MJDc) frame to the HGS(MJD_plot) frame, which is almost a rotation about
+    the z-axis, but also accounting for the Earth's orbit and other
+    astronommical and geodetic parameters.
+
+    Parameters
+    ----------
+    gsph : kaipy.gamhelio.heliosphere.GamsphPipe
+        Pipe to simulation results
+    nStp : int
+        Index of simulation step to use in plot
+    xyBds : list of 4 float
+        Minimum and maximum values to plot for x- and y-axes
+    Ax : matplotlib.axes.Axes
+        Axes object to use for plot
+    AxCB : matplotlib.axes.Axes
+        Axes object to use for color bar
+    doClear : bool
+        If true, clear the plot Axes before further plotting.
+    doDeco : bool
+        If true, add axis labels to the plot.
+    jidx : int
+        Index of j-plane to plot.
+    MJDc : float
+        MJD used for the coordinate GH frame of the simulation.
+    MJD_plot : float
+        MJD to use for the HGS frame of the plot.
+    hgsplot : bool
+        If true, plot in HGS(MJD_plot) frame.
+
+    Returns
+    -------
+    Br : np.array of float
+        Normalized radial magnetic field in selected j-plane, same shape as the
+        j-plane in the gamhelio results.
+
+    Raises
+    ------
+    None
+    """
+    # Create a normalizer object for the colorbar.
     vB = kv.genNorm(BMin, BMax, doLog=False, midP=None)
 
-    if (AxCB is not None):
+    # Create the color bar.
+    if AxCB:
         AxCB.clear()
-        kv.genCB(AxCB,vB,r'Radial MF B$_r$(r/r$_0)^2$ [nT]',cM=BCM,Ntk=7)
-    if (doClear):
+        kv.genCB(AxCB, vB, r'Radial MF $B_r (r/r_0)^2$ [nT]', cM=BCM, Ntk=7)
+
+    # Clear the plot Axes if needed.
+    if doClear:
         Ax.clear()
 
-    Br = gsph.jNormBr(nStp,jidx=jidx)
-    Ax.pcolormesh(gsph.xxi,gsph.yyi,Br,cmap=BCM,norm=vB)
+    # Fetch the data.
+    Br = gsph.jNormBr(nStp, jidx=jidx)
 
-    kv.SetAx(xyBds,Ax)
+    # Plot the data.
+    # If the HGS frame was requested, map the grid corner coordinates from the
+    # GH(MJDc) frame to the HGS(MJD_plot) frame.
+    if hgsplot:
+        raise TypeError("HGS frame not supported for pic7!")
+    else:
+        Ax.pcolormesh(gsph.xxi, gsph.yyi, Br, cmap=BCM, norm=vB)
 
-    if (doDeco):
-        Ax.set_xlabel('X [R_S]')
-        Ax.set_ylabel('Y [R_S]')
+    # Set the plot boundaries.
+    kv.SetAx(xyBds, Ax)
+
+    # Decorate the plots.
+    if doDeco:
+        Ax.set_xlabel('$X [R_S]$')
+        Ax.set_ylabel('$Y [R_S]$')
         Ax.yaxis.tick_right()
         Ax.yaxis.set_label_position('right')
+
+    # Return the data.
     return Br
 
 
