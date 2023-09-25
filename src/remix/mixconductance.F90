@@ -471,6 +471,9 @@ module mixconductance
       !Get RCM grid weighting: 1=RCM and 0=MHD
       call conductance_IM_GTYPE(G,St)
 
+      ! derive spatially varying beta using RCM precipitation and thermal fluxes. Need IM_GTYPE.
+      call conductance_alpha_beta(conductance,G,St)
+
       ! Derive mono using the linearized FL relation.
       call conductance_linmono(conductance,G,St)
 
