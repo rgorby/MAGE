@@ -93,29 +93,30 @@ def GetSizeBds(pic):
 
 def PlotEqMagV(
         gsph, nStp, xyBds, Ax, AxCB=None, doClear=True, doDeco=True,
-        MJDc=None, MJD_plot=None, hgsplot=False
+        hgsplot=False, MJDc=None, MJD_plot=None
 ):
     """Plot solar wind speed in the solar equatorial plane.
 
     Plot solar wind speed in the solar equatorial plane. By default, the plot
     is produced in the GH(MJDc) frame (the gamhelio frame used for the
-    simulation results). If MJD_plot is specified, MJDc must also be specified.
-    In that case, the coordinates are mapped from the GH(MJDc) frame to the
-    HGS(MJD_plot) frame.
+    simulation results). If hgsplot is True, MJDc and MJD_plot must be
+    specified. In that case, the coordinates are mapped from the GH(MJDc) frame
+    to the HGS(MJD_plot) frame.
 
     The gamhelio frame GH is based on the Heliographic Stonyhurst frame (HGS)
-    frame. The difference is that:
+    frame. The difference is that, at any particular MJD:
 
     x (GH) = -x (HGS)
     y (GH) = -y (HGS)
     z (GH) = z (HGS)
 
-    The GH frame is defined at MJDc, meaning it is fixed in spatial orientation
-    at that time. The HGS frame is defined at MJD_plot, also producing a
-    (different) fixed spatial orientation. The conversion maps points in the
-    GH(MJDc) frame to the HGS(MJD_plot) frame, which is almost a rotation about
-    the z-axis, but also accounting for the Earth's orbit and other
-    astronommical and geodetic parameters.
+    The GH frame is defined at MJDc (the MJD of the central meridian in the WSA
+    file used for initial conditions), meaning it is fixed in spatial
+    orientation at that time. The HGS frame is defined at MJD_plot, also
+    producing a (different) fixed spatial orientation. The conversion maps
+    points in the GH(MJDc) frame to the HGS(MJD_plot) frame, which is almost a
+    rotation about the z-axis, but also accounting for the eccentricity of
+    Earth's orbit and other astronomical parameters.
 
     Parameters
     ----------
@@ -130,21 +131,20 @@ def PlotEqMagV(
     AxCB : matplotlib.axes.Axes
         Axes object to use for color bar
     doClear : bool
-        If true, clear the plot Axes before further plotting.
+        If True, clear the plot Axes before further plotting
     doDeco : bool
-        If true, add axis labels to the plot.
-    MJDc : float
-        MJD used for the coordinate GH frame of the simulation.
-    MJD_plot : float
-        MJD to use for the HGS frame of the plot.
+        If True, add axis labels and other decorations to the plot
     hgsplot : bool
-        If true, plot in HGS(MJD_plot) frame.
+        If True, plot in HGS(MJD_plot) frame
+    MJDc : float
+        MJD used for the GH frame of the simulation
+    MJD_plot : float
+        MJD to use for the HGS frame of the plot
 
     Returns
     -------
     MagV : np.array of float
-        Data for solar wind speed in equatorial plane, same shape as the
-        equatorial grid in the gamhelio results.
+        Data values used in plot
 
     Raises
     ------
@@ -158,21 +158,21 @@ def PlotEqMagV(
         AxCB.clear()
         kv.genCB(AxCB, vMagV, "Speed [km/s]", cM=MagVCM, Ntk=7)
 
-    # Clear the plot Axes if needed.
+    # Clear the plot Axes.
     if doClear:
         Ax.clear()
 
-    # Fetch the data at the specified step.
+    # Fetch the data.
     MagV = gsph.eqMagV(nStp)
 
-    # Plot the data in the solar equatorial plane.
+    # Plot the data.
     # If the HGS frame was requested, map the grid corner coordinates from the
     # GH(MJDc) frame to the HGS(MJD_plot) frame.
     if hgsplot:
 
-        # Load the equatorial grid cell vertex coordinates (originially in the
-        # GH(MJDc) frame) in the equivalent HGS(MJDc) frame. Set all z values
-        # to 0 since we are using the solar equatorial plane.
+        # Load the equatorial grid cell vertex coordinates (originally in the
+        # GH(MJDc) frame) in the equivalent HGS(MJDc) frame. All z values are
+        # set to 0 since we are plotting in the equatorial (XY) plane.
         zzi = np.zeros_like(gsph.xxi)
         c = SkyCoord(
             -gsph.xxi*u.Rsun, -gsph.yyi*u.Rsun, zzi*u.Rsun,
@@ -214,7 +214,7 @@ def PlotEqMagV(
 
 def PlotjMagV(
         gsph, nStp, xyBds, Ax, AxCB=None, doClear=True, doDeco=True, jidx=-1,
-        MJDc=None, MJD_plot=None, hgsplot=False
+        hgsplot=False, MJDc=None, MJD_plot=None
 ):
     """Plot solar wind speed in a specific j plane.
 
@@ -256,12 +256,12 @@ def PlotjMagV(
         If true, add axis labels to the plot.
     jidx : int
         Index of j-plane to plot.
+    hgsplot : bool
+        If true, plot in HGS(MJD_plot) frame.
     MJDc : float
         MJD used for the coordinate GH frame of the simulation.
     MJD_plot : float
         MJD to use for the HGS frame of the plot.
-    hgsplot : bool
-        If true, plot in HGS(MJD_plot) frame.
 
     Returns
     -------
@@ -281,11 +281,11 @@ def PlotjMagV(
         AxCB.clear()
         kv.genCB(AxCB, vMagV, "Speed [km/s]", cM=MagVCM, Ntk=7)
 
-    # Clear the plot Axes if needed.
+    # Clear the plot Axes.
     if doClear:
         Ax.clear()
 
-    # Fetch the data at the specified step.
+    # Fetch the data.
     MagV = gsph.jMagV(nStp, jidx=jidx)
 
     # Plot the data.
@@ -311,29 +311,30 @@ def PlotjMagV(
 def PlotMerMagV(
         gsph, nStp, xyBds, Ax, AxCB=None, doClear=True, doDeco=True,
         indx=(None, None),
-        MJDc=None, MJD_plot=None, hgsplot=False
+        hgsplot=False, MJDc=None, MJD_plot=None
 ):
     """Plot solar wind speed in a meridional plane.
 
     Plot solar wind speed in a meridional plane. By default, the plot
     is produced in the GH(MJDc) frame (the gamhelio frame used for the
-    simulation results). If MJD_plot is specified, MJDc must also be specified.
-    In that case, the coordinates are mapped from the GH(MJDc) frame to the
-    HGS(MJD_plot) frame.
+    simulation results). If hgsplot is True, MJDc and MJD_plot must be
+    specified. In that case, the coordinates are mapped from the GH(MJDc) frame
+    to the HGS(MJD_plot) frame.
 
     The gamhelio frame GH is based on the Heliographic Stonyhurst frame (HGS)
-    frame. The difference is that:
+    frame. The difference is that, at any particular MJD:
 
     x (GH) = -x (HGS)
     y (GH) = -y (HGS)
     z (GH) = z (HGS)
 
-    The GH frame is defined at MJDc, meaning it is fixed in spatial orientation
-    at that time. The HGS frame is defined at MJD_plot, also producing a
-    (different) fixed spatial orientation. The conversion maps points in the
-    GH(MJDc) frame to the HGS(MJD_plot) frame, which is almost a rotation about
-    the z-axis, but also accounting for the Earth's orbit and other
-    astronommical and geodetic parameters.
+    The GH frame is defined at MJDc (the MJD of the central meridian in the WSA
+    file used for initial conditions), meaning it is fixed in spatial
+    orientation at that time. The HGS frame is defined at MJD_plot, also
+    producing a (different) fixed spatial orientation. The conversion maps
+    points in the GH(MJDc) frame to the HGS(MJD_plot) frame, which is almost a
+    rotation about the z-axis, but also accounting for the eccentricity of
+    Earth's orbit and other astronomical parameters.
 
     Parameters
     ----------
@@ -348,23 +349,22 @@ def PlotMerMagV(
     AxCB : matplotlib.axes.Axes
         Axes object to use for color bar
     doClear : bool
-        If true, clear the plot Axes before further plotting.
+        If True, clear the plot Axes before further plotting
     doDeco : bool
-        If true, add axis labels to the plot.
+        If True, add axis labels and other decorations to the plot
     indx : tuple of 2 int or float
         Index or angle of meridional slice to plot
-    MJDc : float
-        MJD used for the coordinate GH frame of the simulation.
-    MJD_plot : float
-        MJD to use for the HGS frame of the plot.
     hgsplot : bool
-        If true, plot in HGS(MJD_plot) frame.
+        If True, plot in HGS(MJD_plot) frame
+    MJDc : float
+        MJD used for the GH frame of the simulation
+    MJD_plot : float
+        MJD to use for the HGS frame of the plot
 
     Returns
     -------
     Vr, Vl : np.array of float
-        Data for solar wind speed in meridional plane plane, for right and
-        left parts of plot.
+        Data values used in plot
 
     Raises
     ------
@@ -378,7 +378,7 @@ def PlotMerMagV(
         AxCB.clear()
         kv.genCB(AxCB, vMagV, "Speed [km/s]", cM=MagVCM, Ntk=7)
 
-    # Clear the plot Axes if needed.
+    # Clear the plot Axes.
     if doClear:
         Ax.clear()
 
@@ -393,23 +393,21 @@ def PlotMerMagV(
         else: 
             phi = ""
 
-    # Fetch the data at the specified step.
-    # r(ight) is for +X plane and l(eft) is for -X plane in the GH(mjd_gh)
-    # frame.
+    # Fetch the data.
+    # r(ight) and l(eft) data arrays
     Vr, Vl = gsph.MerMagV(nStp, indx=indx)
 
     # Fetch the coordinates of the grid cell corners in the specified
-    # meridional plane, in the GH(mjd_gh) frame.
+    # meridional plane, in the GH(MJDc) frame.
     xr, yr, zr, xl, yl, zl, r = gsph.MeridGridHalfs(*indx)
 
-    # Plot the data in the meridional plane.
+    # Plot the data.
     # If the HGS frame was requested, map the grid corner coordinates from the
     # GH(MJDc) frame to the HGS(MJD_plot) frame.
     if hgsplot:
 
         # Load the meridional grid cell vertex coordinates (originially in the
-        # GH(MJDc) frame) in the equivalent HGS(MJDc) frame. Set all z values
-        # to 0 since we are using the solar equatorial plane.
+        # GH(MJDc) frame) in the equivalent HGS(MJDc) frame.
         cr = SkyCoord(
             -xr*u.Rsun, -yr*u.Rsun, zr*u.Rsun,
             frame=frames.HeliographicStonyhurst,
@@ -463,31 +461,33 @@ def PlotMerMagV(
 def PlotMerDNorm(
         gsph, nStp, xyBds, Ax, AxCB=None, doClear=True, doDeco=True,
         indx=(None, None),
-        MJDc=None, MJD_plot=None, hgsplot=False
+        hgsplot=False, MJDc=None, MJD_plot=None
 ):
     """Plot normalized solar wind number density in a meridional plane.
 
     Plot normalized solar wind number density in a meridional plane. By
     default, the plot is produced in the GH(MJDc) frame (the gamhelio frame
-    used for the simulation results). If MJD_plot is specified, MJDc must also
-    be specified. In that case, the coordinates are mapped from the GH(MJDc)
-    frame to the HGS(MJD_plot) frame.
+    used for the simulation results). If hgsplot is True, MJDc and MJD_plot
+    must be specified. In that case, the coordinates are mapped from the
+    GH(MJDc) frame to the HGS(MJD_plot) frame.
 
-    The density is normalized with the factor (r/r0)**2.
+    The density is normalized with the factor (r/r0)**2, where r0 is 21.5 Rsun
+    (the inner edge of the gamhelio grid).
 
     The gamhelio frame GH is based on the Heliographic Stonyhurst frame (HGS)
-    frame. The difference is that:
+    frame. The difference is that, at any particular MJD:
 
     x (GH) = -x (HGS)
     y (GH) = -y (HGS)
     z (GH) = z (HGS)
 
-    The GH frame is defined at MJDc, meaning it is fixed in spatial orientation
-    at that time. The HGS frame is defined at MJD_plot, also producing a
-    (different) fixed spatial orientation. The conversion maps points in the
-    GH(MJDc) frame to the HGS(MJD_plot) frame, which is almost a rotation about
-    the z-axis, but also accounting for the Earth's orbit and other
-    astronommical and geodetic parameters.
+    The GH frame is defined at MJDc (the MJD of the central meridian in the WSA
+    file used for initial conditions), meaning it is fixed in spatial
+    orientation at that time. The HGS frame is defined at MJD_plot, also
+    producing a (different) fixed spatial orientation. The conversion maps
+    points in the GH(MJDc) frame to the HGS(MJD_plot) frame, which is almost a
+    rotation about the z-axis, but also accounting for the eccentricity of
+    Earth's orbit and other astronomical parameters.
 
     Parameters
     ----------
@@ -502,23 +502,22 @@ def PlotMerDNorm(
     AxCB : matplotlib.axes.Axes
         Axes object to use for color bar
     doClear : bool
-        If true, clear the plot Axes before further plotting.
+        If True, clear the plot Axes before further plotting.
     doDeco : bool
-        If true, add axis labels to the plot.
+        If True, add axis labels to the plot.
     indx : tuple of 2 int or float
         Index or angle of meridional slice to plot
+    hgsplot : bool
+        If True, plot in HGS(MJD_plot) frame.
     MJDc : float
         MJD used for the coordinate GH frame of the simulation.
     MJD_plot : float
         MJD to use for the HGS frame of the plot.
-    hgsplot : bool
-        If true, plot in HGS(MJD_plot) frame.
 
     Returns
     -------
     Dr, Dl : np.array of float
-        Data for solar wind normalized number density in meridional plane, for
-        right and left parts of plot.
+        Data values used in plot
 
     Raises
     ------
@@ -532,7 +531,7 @@ def PlotMerDNorm(
         AxCB.clear()
         kv.genCB(AxCB, vD, r"Density $n(r/r_0)^2$ [$cm^{-3}$]", cM=DCM, Ntk=7)
 
-    # Clear the plot Axes if needed.
+    # Clear the plot Axes.
     if doClear:
         Ax.clear()
 
@@ -547,23 +546,21 @@ def PlotMerDNorm(
         else:
             phi = ""
 
-    # Fetch the data at the specified step.
-    # r(ight) is for +X plane and l(eft) is for -X plane in the GH(mjd_gh)
-    # frame.
+    # Fetch the data.
+    # r(ight) and l(eft) data arrays
     Dr, Dl = gsph.MerDNrm(nStp, indx=indx)
 
     # Fetch the coordinates of the grid cell corners in the specified
-    # meridional plane, in the GH(mjd_gh) frame.
+    # meridional plane, in the GH(MJDc) frame.
     xr, yr, zr, xl, yl, zl, r = gsph.MeridGridHalfs(*indx)
 
-    # Plot the data in the meridional plane.
+    # Plot the data.
     # If the HGS frame was requested, map the grid corner coordinates from the
     # GH(MJDc) frame to the HGS(MJD_plot) frame.
     if hgsplot:
 
         # Load the equatorial grid cell vertex coordinates (originially in the
-        # GH(MJDc) frame) in the equivalent HGS(MJDc) frame. Set all z values
-        # to 0 since we are using the solar equatorial plane.
+        # GH(MJDc) frame) in the equivalent HGS(MJDc) frame.
         cr = SkyCoord(
             -xr*u.Rsun, -yr*u.Rsun, zr*u.Rsun,
             frame=frames.HeliographicStonyhurst,
@@ -625,29 +622,31 @@ def PlotMerBrNorm(
         indx=(None, None),
         MJDc=None, MJD_plot=None, hgsplot=False
 ):
-    """Plot normalized solar wind temperature in a meridional plane.
+    """Plot normalized solar wind radial magnetic field in a meridional plane.
 
-    Plot normalized solar wind temperature in a meridional plane. By
+    Plot normalized solar wind radial magnetic field in a meridional plane. By
     default, the plot is produced in the GH(MJDc) frame (the gamhelio frame
-    used for the simulation results). If MJD_plot is specified, MJDc must also
-    be specified. In that case, the coordinates are mapped from the GH(MJDc)
-    frame to the HGS(MJD_plot) frame.
+    used for the simulation results). If hgsplot is True, MJDc and MJD_plot
+    must be specified. In that case, the coordinates are mapped from the
+    GH(MJDc) frame to the HGS(MJD_plot) frame.
 
-    The temperature is normalized with the factor (r/r0)**2.
+    The temperature is normalized with the factor (r/r0)**2, where r0 is
+    21.5 Rsun (the inner edge of the gamhelio grid).
 
     The gamhelio frame GH is based on the Heliographic Stonyhurst frame (HGS)
-    frame. The difference is that:
+    frame. The difference is that, at any particular MJD:
 
     x (GH) = -x (HGS)
     y (GH) = -y (HGS)
     z (GH) = z (HGS)
 
-    The GH frame is defined at MJDc, meaning it is fixed in spatial orientation
-    at that time. The HGS frame is defined at MJD_plot, also producing a
-    (different) fixed spatial orientation. The conversion maps points in the
-    GH(MJDc) frame to the HGS(MJD_plot) frame, which is almost a rotation about
-    the z-axis, but also accounting for the Earth's orbit and other
-    astronommical and geodetic parameters.
+    The GH frame is defined at MJDc (the MJD of the central meridian in the WSA
+    file used for initial conditions), meaning it is fixed in spatial
+    orientation at that time. The HGS frame is defined at MJD_plot, also
+    producing a (different) fixed spatial orientation. The conversion maps
+    points in the GH(MJDc) frame to the HGS(MJD_plot) frame, which is almost a
+    rotation about the z-axis, but also accounting for the eccentricity of
+    Earth's orbit and other astronomical parameters.
 
     Parameters
     ----------
@@ -662,23 +661,22 @@ def PlotMerBrNorm(
     AxCB : matplotlib.axes.Axes
         Axes object to use for color bar
     doClear : bool
-        If true, clear the plot Axes before further plotting.
+        If True, clear the plot Axes before further plotting.
     doDeco : bool
-        If true, add axis labels to the plot.
+        If True, add axis labels to the plot.
     indx : tuple of 2 int or float
         Index or angle of meridional slice to plot
+    hgsplot : bool
+        If True, plot in HGS(MJD_plot) frame.
     MJDc : float
         MJD used for the coordinate GH frame of the simulation.
     MJD_plot : float
         MJD to use for the HGS frame of the plot.
-    hgsplot : bool
-        If true, plot in HGS(MJD_plot) frame.
 
     Returns
     -------
     Br_r, Br_l : np.array of float
-        Data for solar wind normalized radial magnetic field in meridional
-        plane, for right and left parts of plot.
+        Data values used in plot
 
     Raises
     ------
@@ -692,7 +690,7 @@ def PlotMerBrNorm(
         AxCB.clear()
         kv.genCB(AxCB, vB, r'Radial MF $B_r (r/r_0)^2$ [nT]', cM=BCM, Ntk=7)
 
-    # Clear the plot Axes if needed.
+    # Clear the plot Axes.
     if doClear:
         Ax.clear()
 
@@ -707,13 +705,12 @@ def PlotMerBrNorm(
         else:
             phi = ""
 
-    # Fetch the data at the specified step.
-    # r(ight) is for +X plane and l(eft) is for -X plane in the GH(mjd_gh)
-    # frame.
+    # Fetch the data.
+    # r(ight) and l(eft) data arrays
     Br_r, Br_l = gsph.MerBrNrm(nStp, indx=indx)
 
     # Fetch the coordinates of the grid cell corners in the specified
-    # meridional plane, in the GH(mjd_gh) frame.
+    # meridional plane, in the GH(MJDc) frame.
     xr, yr, zr, xl, yl, zl, r = gsph.MeridGridHalfs(*indx)
 
     # Compute the cell center coordinates (used to plot current sheet).
@@ -724,14 +721,15 @@ def PlotMerBrNorm(
     yl_c = 0.25*(yl[:-1, :-1] + yl[:-1, 1:] + yl[1:, :-1] + yl[1:, 1:])
     zl_c = 0.25*(zl[:-1, :-1] + zl[:-1, 1:] + zl[1:, :-1] + zl[1:, 1:])
 
-    # Plot the data in the meridional plane.
+    # Plot the data.
     # If the HGS frame was requested, map the grid corner coordinates from the
     # GH(MJDc) frame to the HGS(MJD_plot) frame.
     if hgsplot:
 
-        # Load the equatorial grid cell vertex coordinates (originially in the
-        # GH(MJDc) frame) in the equivalent HGS(MJDc) frame. Set all z values
-        # to 0 since we are using the solar equatorial plane.
+        # Load the equatorial grid cell vertex and center coordinates
+        # (originially in the GH(MJDc) frame) in the equivalent HGS(MJDc)
+        # frame. Set all z values to 0 since we are using the solar equatorial
+        # plane.
         cr = SkyCoord(
             -xr*u.Rsun, -yr*u.Rsun, zr*u.Rsun,
             frame=frames.HeliographicStonyhurst,
@@ -825,27 +823,29 @@ def PlotMerTemp(
 ):
     """Plot normalized solar wind temperature in a meridional plane.
 
-    Plot normalized solar wind temperature in a meridional plane. By
-    default, the plot is produced in the GH(MJDc) frame (the gamhelio frame
-    used for the simulation results). If MJD_plot is specified, MJDc must also
-    be specified. In that case, the coordinates are mapped from the GH(MJDc)
-    frame to the HGS(MJD_plot) frame.
+    Plot normalized solar wind temperature in a meridional plane. By default,
+    the plot is produced in the GH(MJDc) frame (the gamhelio frame used for the
+    simulation results). If hgsplot is True, MJDc and MJD_plot must be
+    specified. In that case, the coordinates are mapped from the GH(MJDc) frame
+    to the HGS(MJD_plot) frame.
 
-    The temperature is normalized with the factor (r/r0).
+    The temperature is normalized with the factor (r/r0), where r0 is 21.5 Rsun
+    (the inner edge of the gamhelio grid).
 
     The gamhelio frame GH is based on the Heliographic Stonyhurst frame (HGS)
-    frame. The difference is that:
+    frame. The difference is that, at any particular MJD:
 
     x (GH) = -x (HGS)
     y (GH) = -y (HGS)
     z (GH) = z (HGS)
 
-    The GH frame is defined at MJDc, meaning it is fixed in spatial orientation
-    at that time. The HGS frame is defined at MJD_plot, also producing a
-    (different) fixed spatial orientation. The conversion maps points in the
-    GH(MJDc) frame to the HGS(MJD_plot) frame, which is almost a rotation about
-    the z-axis, but also accounting for the Earth's orbit and other
-    astronommical and geodetic parameters.
+    The GH frame is defined at MJDc (the MJD of the central meridian in the WSA
+    file used for initial conditions), meaning it is fixed in spatial
+    orientation at that time. The HGS frame is defined at MJD_plot, also
+    producing a (different) fixed spatial orientation. The conversion maps
+    points in the GH(MJDc) frame to the HGS(MJD_plot) frame, which is almost a
+    rotation about the z-axis, but also accounting for the eccentricity of
+    Earth's orbit and other astronomical parameters.
 
     Parameters
     ----------
@@ -860,23 +860,22 @@ def PlotMerTemp(
     AxCB : matplotlib.axes.Axes
         Axes object to use for color bar
     doClear : bool
-        If true, clear the plot Axes before further plotting.
+        If True, clear the plot Axes before further plotting.
     doDeco : bool
-        If true, add axis labels to the plot.
+        If True, add axis labels to the plot.
     indx : tuple of 2 int or float
         Index or angle of meridional slice to plot
+    hgsplot : bool
+        If True, plot in HGS(MJD_plot) frame.
     MJDc : float
         MJD used for the coordinate GH frame of the simulation.
     MJD_plot : float
         MJD to use for the HGS frame of the plot.
-    hgsplot : bool
-        If true, plot in HGS(MJD_plot) frame.
 
     Returns
     -------
     Tempr, Templ : np.array of float
-        Data for solar wind normalized temperature in meridional plane, for
-        right and left parts of plot.
+        Data values used in plot
 
     Raises
     ------
@@ -890,7 +889,7 @@ def PlotMerTemp(
         AxCB.clear()
         kv.genCB(AxCB, vT, r'Temperature $T(r/r_0)$ [MK]', cM=TCM, Ntk=7)
 
-    # Clear the plot Axes if needed.
+    # Clear the plot Axes.
     if doClear:
         Ax.clear()
 
@@ -905,23 +904,21 @@ def PlotMerTemp(
         else:
             phi = ""
 
-    # Fetch the data at the specified step.
-    # r(ight) is for +X plane and l(eft) is for -X plane in the GH(mjd_gh)
-    # frame.
+    # Fetch the data.
+    # r(ight) and l(eft) data arrays
     Tempr, Templ = gsph.MerTemp(nStp, indx=indx)
 
     # Fetch the coordinates of the grid cell corners in the specified
-    # meridional plane, in the GH(mjd_gh) frame.
+    # meridional plane, in the GH(MJDc) frame.
     xr, yr, zr, xl, yl, zl, r = gsph.MeridGridHalfs(*indx)
 
-    # Plot the data in the meridional plane.
+    # Plot the data.
     # If the HGS frame was requested, map the grid corner coordinates from the
     # GH(MJDc) frame to the HGS(MJD_plot) frame.
     if hgsplot:
 
         # Load the equatorial grid cell vertex coordinates (originially in the
-        # GH(MJDc) frame) in the equivalent HGS(MJDc) frame. Set all z values
-        # to 0 since we are using the solar equatorial plane.
+        # GH(MJDc) frame) in the equivalent HGS(MJDc) frame.
         cr = SkyCoord(
             -xr*u.Rsun, -yr*u.Rsun, zr*u.Rsun,
             frame=frames.HeliographicStonyhurst,
@@ -974,31 +971,33 @@ def PlotMerTemp(
 
 def PlotEqD(
         gsph, nStp, xyBds, Ax, AxCB=None, doClear=True, doDeco=True,
-        MJDc=None, MJD_plot=None, hgsplot=False
+        hgsplot=False, MJDc=None, MJD_plot=None
 ):
-    """Plot normalized density in the solar equatorial plane.
+    """Plot normalized solar wind number density in the solar equatorial plane.
 
-    Plot normalized density in the solar equatorial plane. By default, the plot
-    is produced in the GH(MJDc) frame (the gamhelio frame used for the
-    simulation results). If MJD_plot is specified, MJDc must also be specified.
-    In that case, the coordinates are mapped from the GH(MJDc) frame to the
-    HGS(MJD_plot) frame.
+    Plot normalized solar wind number density in the solar equatorial plane. By
+    default, the plot is produced in the GH(MJDc) frame (the gamhelio frame
+    used for the simulation results). If hgsplot is True, MJDc and MJD_plot
+    must be specified. In that case, the coordinates are mapped from the
+    GH(MJDc) frame to the HGS(MJD_plot) frame.
 
-    The density is normalized with the factor (r/r0)**2.
+    The density is normalized with the factor (r/r0)**2, where r0 is 21.5 Rsun
+    (the inner edge of the gamhelio grid).
 
     The gamhelio frame GH is based on the Heliographic Stonyhurst frame (HGS)
-    frame. The difference is that:
+    frame. The difference is that, at any particular MJD:
 
     x (GH) = -x (HGS)
     y (GH) = -y (HGS)
     z (GH) = z (HGS)
 
-    The GH frame is defined at MJDc, meaning it is fixed in spatial orientation
-    at that time. The HGS frame is defined at MJD_plot, also producing a
-    (different) fixed spatial orientation. The conversion maps points in the
-    GH(MJDc) frame to the HGS(MJD_plot) frame, which is almost a rotation about
-    the z-axis, but also accounting for the Earth's orbit and other
-    astronommical and geodetic parameters.
+    The GH frame is defined at MJDc (the MJD of the central meridian in the WSA
+    file used for initial conditions), meaning it is fixed in spatial
+    orientation at that time. The HGS frame is defined at MJD_plot, also
+    producing a (different) fixed spatial orientation. The conversion maps
+    points in the GH(MJDc) frame to the HGS(MJD_plot) frame, which is almost a
+    rotation about the z-axis, but also accounting for the eccentricity of
+    Earth's orbit and other astronomical parameters.
 
     Parameters
     ----------
@@ -1013,21 +1012,20 @@ def PlotEqD(
     AxCB : matplotlib.axes.Axes
         Axes object to use for color bar
     doClear : bool
-        If true, clear the plot Axes before further plotting.
+        If True, clear the plot Axes before further plotting
     doDeco : bool
-        If true, add axis labels to the plot.
-    MJDc : float
-        MJD used for the coordinate GH frame of the simulation.
-    MJD_plot : float
-        MJD to use for the HGS frame of the plot.
+        If True, add axis labels and other decorations to the plot
     hgsplot : bool
-        If true, plot in HGS(MJD_plot) frame.
+        If True, plot in HGS(MJD_plot) frame
+    MJDc : float
+        MJD used for the GH frame of the simulation
+    MJD_plot : float
+        MJD to use for the HGS frame of the plot
 
     Returns
     -------
     MagV : np.array of float
-        Data for number density in equatorial plane, same shape as the
-        equatorial grid in the gamhelio results.
+        Data values used in plot
 
     Raises
     ------
@@ -1041,21 +1039,21 @@ def PlotEqD(
         AxCB.clear()
         kv.genCB(AxCB, vD, r"Density $n(r/r_0)^2$ [cm$^{-3}$]", cM=DCM, Ntk=7)
 
-    # Clear the plot Axes if needed.
+    # Clear the plot Axes.
     if doClear:
         Ax.clear()
 
-    # Fetch the data at the specified step.
+    # Fetch the data.
     NormD = gsph.eqNormD(nStp)
 
-    # Plot the data in the solar equatorial plane.
+    # Plot the data.
     # If the HGS frame was requested, map the grid corner coordinates from the
     # GH(MJDc) frame to the HGS(MJD_plot) frame.
     if hgsplot:
 
-        # Load the equatorial grid cell vertex coordinates (originially in the
-        # GH(MJDc) frame) in the equivalent HGS(MJDc) frame. Set all z values
-        # to 0 since we are using the solar equatorial plane.
+        # Load the equatorial grid cell vertex coordinates (originally in the
+        # GH(MJDc) frame) in the equivalent HGS(MJDc) frame. All z values are
+        # set to 0 since we are plotting in the equatorial (XY) plane.
         zzi = np.zeros_like(gsph.xxi)
         c = SkyCoord(
             -gsph.xxi*u.Rsun, -gsph.yyi*u.Rsun, zzi*u.Rsun,
@@ -1166,7 +1164,7 @@ def PlotjD(
         AxCB.clear()
         kv.genCB(AxCB, vD, r"Density $n(r/r_0)^2 [cm^{-3}]$", cM=DCM, Ntk=7)
 
-    # Clear the plot Axes if needed.
+    # Clear the plot Axes.
     if doClear:
         Ax.clear()
 
@@ -1198,29 +1196,31 @@ def PlotEqTemp(
         gsph, nStp, xyBds, Ax, AxCB=None, doClear=True, doDeco=True,
         MJDc=None, MJD_plot=None, hgsplot=False
 ):
-    """Plot normalized temperature in the solar equatorial plane.
+    """Plot normalized solar wind temperature in the solar equatorial plane.
 
-    Plot normalized temperature in the solar equatorial plane. By default, the
-    plot is produced in the GH(MJDc) frame (the gamhelio frame used for the
-    simulation results). If MJD_plot is specified, MJDc must also be specified.
-    In that case, the coordinates are mapped from the GH(MJDc) frame to the
-    HGS(MJD_plot) frame.
+    Plot normalized solar wind temperature in the solar equatorial plane. By
+    default, the plot is produced in the GH(MJDc) frame (the gamhelio frame
+    used for the simulation results). If hgsplot is True, MJDc and MJD_plot
+    must be specified. In that case, the coordinates are mapped from the
+    GH(MJDc) frame to the HGS(MJD_plot) frame.
 
-    The temperature is normalized with the factor (r/r0).
+    The temperature is normalized with the factor (r/r0), where r0 is 21.5 Rsun
+    (the inner edge of the gamhelio grid).
 
     The gamhelio frame GH is based on the Heliographic Stonyhurst frame (HGS)
-    frame. The difference is that:
+    frame. The difference is that, at any particular MJD:
 
     x (GH) = -x (HGS)
     y (GH) = -y (HGS)
     z (GH) = z (HGS)
 
-    The GH frame is defined at MJDc, meaning it is fixed in spatial orientation
-    at that time. The HGS frame is defined at MJD_plot, also producing a
-    (different) fixed spatial orientation. The conversion maps points in the
-    GH(MJDc) frame to the HGS(MJD_plot) frame, which is almost a rotation about
-    the z-axis, but also accounting for the Earth's orbit and other
-    astronommical and geodetic parameters.
+    The GH frame is defined at MJDc (the MJD of the central meridian in the WSA
+    file used for initial conditions), meaning it is fixed in spatial
+    orientation at that time. The HGS frame is defined at MJD_plot, also
+    producing a (different) fixed spatial orientation. The conversion maps
+    points in the GH(MJDc) frame to the HGS(MJD_plot) frame, which is almost a
+    rotation about the z-axis, but also accounting for the eccentricity of
+    Earth's orbit and other astronomical parameters.
 
     Parameters
     ----------
@@ -1235,21 +1235,20 @@ def PlotEqTemp(
     AxCB : matplotlib.axes.Axes
         Axes object to use for color bar
     doClear : bool
-        If true, clear the plot Axes before further plotting.
+        If True, clear the plot Axes before further plotting
     doDeco : bool
-        If true, add axis labels to the plot.
-    MJDc : float
-        MJD used for the coordinate GH frame of the simulation.
-    MJD_plot : float
-        MJD to use for the HGS frame of the plot.
+        If True, add axis labels and other decorations to the plot
     hgsplot : bool
-        If true, plot in HGS(MJD_plot) frame.
+        If True, plot in HGS(MJD_plot) frame
+    MJDc : float
+        MJD used for the GH frame of the simulation
+    MJD_plot : float
+        MJD to use for the HGS frame of the plot
 
     Returns
     -------
     Temp : np.array of float
-        Data for temperature in equatorial plane, same shape as the
-        equatorial grid in the gamhelio results.
+        Data values used in plot
 
     Raises
     ------
@@ -1263,14 +1262,14 @@ def PlotEqTemp(
         AxCB.clear()
         kv.genCB(AxCB, vT, r"Temperature $T(r/r_0)$ [MK]", cM=TCM, Ntk=7)
 
-    # Clear the plot Axes if needed.
+    # Clear the plot Axes.
     if doClear:
         Ax.clear()
 
-    # Fetch the data at the specified step.
+    # Fetch the data.
     Temp = gsph.eqTemp(nStp)
 
-    # Plot the data in the solar equatorial plane.
+    # Plot the data.
     # If the HGS frame was requested, map the grid corner coordinates from the
     # GH(MJDc) frame to the HGS(MJD_plot) frame.
     if hgsplot:
@@ -1386,7 +1385,7 @@ def PlotjTemp(
         AxCB.clear()
         kv.genCB(AxCB, vT, r"Temperature $T(r/r_0)$ [MK]", cM=TCM, Ntk=7)
 
-    # Clear the plot Axes if needed.
+    # Clear the plot Axes.
     if doClear:
         Ax.clear()
 
@@ -1417,29 +1416,31 @@ def PlotEqBr(
         gsph, nStp, xyBds, Ax, AxCB=None, doClear=True, doDeco=True,
         MJDc=None, MJD_plot=None, hgsplot=False
 ):
-    """Plot normalized radial magnetic field in the solar equatorial plane.
+    """Plot normalized solar wind radial magnetic field in the solar equatorial plane.
 
-    Plot normalized radial magnetic field in the solar equatorial plane. By
-    default, the plot is produced in the GH(MJDc) frame (the gamhelio frame
-    used for the simulation results). If MJD_plot is specified, MJDc must also
-    be specified. In that case, the coordinates are mapped from the GH(MJDc)
-    frame to the HGS(MJD_plot) frame.
+    Plot normalized solar wind radial magnetic field in the solar equatorial
+    plane. By default, the plot is produced in the GH(MJDc) frame (the gamhelio
+    frame used for the simulation results). If hgsplot is True, MJDc and
+    MJD_plot must be specified. In that case, the coordinates are mapped from
+    the GH(MJDc) frame to the HGS(MJD_plot) frame.
 
-    The radial magnetic field is normalized with the factor (r/r0)**2.
+    The radial magnetic field is normalized with the factor (r/r0)**2, where r0
+    is 21.5 Rsun (the inner edge of the gamhelio grid).
 
     The gamhelio frame GH is based on the Heliographic Stonyhurst frame (HGS)
-    frame. The difference is that:
+    frame. The difference is that, at any particular MJD:
 
     x (GH) = -x (HGS)
     y (GH) = -y (HGS)
     z (GH) = z (HGS)
 
-    The GH frame is defined at MJDc, meaning it is fixed in spatial orientation
-    at that time. The HGS frame is defined at MJD_plot, also producing a
-    (different) fixed spatial orientation. The conversion maps points in the
-    GH(MJDc) frame to the HGS(MJD_plot) frame, which is almost a rotation about
-    the z-axis, but also accounting for the Earth's orbit and other
-    astronommical and geodetic parameters.
+    The GH frame is defined at MJDc (the MJD of the central meridian in the WSA
+    file used for initial conditions), meaning it is fixed in spatial
+    orientation at that time. The HGS frame is defined at MJD_plot, also
+    producing a (different) fixed spatial orientation. The conversion maps
+    points in the GH(MJDc) frame to the HGS(MJD_plot) frame, which is almost a
+    rotation about the z-axis, but also accounting for the eccentricity of
+    Earth's orbit and other astronomical parameters.
 
     Parameters
     ----------
@@ -1454,21 +1455,19 @@ def PlotEqBr(
     AxCB : matplotlib.axes.Axes
         Axes object to use for color bar
     doClear : bool
-        If true, clear the plot Axes before further plotting.
+        If True, clear the plot Axes before further plotting
     doDeco : bool
-        If true, add axis labels to the plot.
-    MJDc : float
-        MJD used for the coordinate GH frame of the simulation.
-    MJD_plot : float
-        MJD to use for the HGS frame of the plot.
+        If True, add axis labels and other decorations to the plot
     hgsplot : bool
-        If true, plot in HGS(MJD_plot) frame.
-
+        If True, plot in HGS(MJD_plot) frame
+    MJDc : float
+        MJD used for the GH frame of the simulation
+    MJD_plot : float
+        MJD to use for the HGS frame of the plot
     Returns
     -------
     Br : np.array of float
-        Data for radial magnetic field in equatorial plane, same shape as the
-        equatorial grid in the gamhelio results.
+        Data values used in plot
 
     Raises
     ------
@@ -1482,14 +1481,14 @@ def PlotEqBr(
         AxCB.clear()
         kv.genCB(AxCB, vB, r"Radial MF $B_r (r/r_0)^2$ [nT]", cM=BCM, Ntk=7)
 
-    # Clear the plot Axes if needed.
+    # Clear the plot Axes.
     if doClear:
         Ax.clear()
 
-    # Fetch the data at the specified step.
+    # Fetch the data.
     Br = gsph.eqNormBr(nStp)
 
-    # Plot the data in the solar equatorial plane.
+    # Plot the data.
     # If the HGS frame was requested, map the grid corner coordinates from the
     # GH(MJDc) frame to the HGS(MJD_plot) frame.
     if hgsplot:
@@ -1607,7 +1606,7 @@ def PlotjBr(
         AxCB.clear()
         kv.genCB(AxCB, vB, r'Radial MF $B_r (r/r_0)^2$ [nT]', cM=BCM, Ntk=7)
 
-    # Clear the plot Axes if needed.
+    # Clear the plot Axes.
     if doClear:
         Ax.clear()
 
@@ -1703,11 +1702,11 @@ def PlotEqBx(
         AxCB.clear()
         kv.genCB(AxCB, vB, r'MF $B_x$(r/r_0)^2$ [nT]', cM=BCM, Ntk=7)
 
-    # Clear the plot Axes if needed.
+    # Clear the plot Axes.
     if doClear:
         Ax.clear()
 
-    # Fetch the data at the specified step.
+    # Fetch the data.
     Bx = gsph.eqBx(nStp)
 
     # Plot the data in the solar equatorial plane.
@@ -1826,11 +1825,11 @@ def PlotEqBy(
         AxCB.clear()
         kv.genCB(AxCB, vB, r'MF $B_y(r/r_0)^2$ [nT]', cM=BCM, Ntk=7)
 
-    # Clear the plot Axes if needed.
+    # Clear the plot Axes.
     if doClear:
         Ax.clear()
 
-    # Fetch the data at the specified step.
+    # Fetch the data.
     By = gsph.eqBy(nStp)
 
     # Plot the data in the solar equatorial plane.
@@ -1955,7 +1954,7 @@ def PlotEqBz(
         AxCB.clear()
         kv.genCB(AxCB, vB, r'MF $B_z$ [nT]', cM=BCM, Ntk=7)
 
-    # Clear the plot Axes if needed.
+    # Clear the plot Axes.
     if doClear:
         Ax.clear()
 
@@ -2013,8 +2012,7 @@ def PlotiSlMagV(
 ):
     """Plot solar wind speed at a specified radial slice.
 
-    Plot solar wind speed at a specified radial slice. The plot is created in
-    a GH frame rotating with the sidereal solar rotation period.
+    Plot solar wind speed at a specified radial slice.
 
     Parameters
     ----------
@@ -2029,16 +2027,16 @@ def PlotiSlMagV(
     AxCB : matplotlib.axes.Axes
         Axes object to use for color bar
     doClear : bool
-        If true, clear the plot Axes before further plotting.
+        If True, clear the plot Axes before further plotting.
     doDeco : bool
-        If true, add axis labels to the plot.
+        If True, add axis labels to the plot.
     idx : int
         Index of radial slice to plot.
 
     Returns
     -------
     V : np.array of float
-        Data for speed in radial slice.
+        Data values used in plot
 
     Raises
     ------
@@ -2052,14 +2050,14 @@ def PlotiSlMagV(
         AxCB.clear()
         kv.genCB(AxCB, vMagV, "Speed [km/s]", cM=MagVCM, Ntk=7)
 
-    # Clear the plot Axes if needed.
+    # Clear the plot Axes.
     if doClear:
         Ax.clear()
 
-    # Fetch the data at the specified step and radial slice.
+    # Fetch the data.
     V = gsph.iSliceMagV(nStp, idx=idx)
 
-    # Get the latitude and longitude of the grid cells in the radial slice.
+    # Fetch the latitude and longitude of the grid cells in the radial slice.
     # This is in the GH(MJDc) frame.
     lat, lon = gsph.iSliceGrid(idx=idx)
 
@@ -2069,6 +2067,7 @@ def PlotiSlMagV(
     # Set the plot boundaries.
     kv.SetAx(xyBds, Ax)
 
+    # Decorate the plots.
     if doDeco:
         Ax.set_xlabel('Longitude')
         Ax.set_ylabel('Latitude')
@@ -2077,54 +2076,153 @@ def PlotiSlMagV(
     return V
 
 
-#Plot Density at 1 AU
-def PlotiSlD(gsph,nStp,xyBds,Ax,AxCB=None,doClear=True,doDeco=True,idx=-1):
-    vD = kv.genNorm(D0Min, D0Max, doLog=False, midP=None)
-    if (AxCB is not None):
-        AxCB.clear()
-        kv.genCB(AxCB,vD,"Number density [cm-3]",cM=D0CM,Ntk=7)
+def PlotiSlD(
+        gsph, nStp, xyBds, Ax, AxCB=None, doClear=True, doDeco=True, idx=-1
+):
+    """Plot solar wind number density at a specified radial slice.
 
-    if (doClear):
+    Plot solar wind number density at a specified radial slice.
+
+    Parameters
+    ----------
+    gsph : kaipy.gamhelio.heliosphere.GamsphPipe
+        Pipe to simulation results
+    nStp : int
+        Index of simulation step to use in plot
+    xyBds : list of 4 float
+        Minimum and maximum values to plot for x- and y-axes
+    Ax : matplotlib.axes.Axes
+        Axes object to use for plot
+    AxCB : matplotlib.axes.Axes
+        Axes object to use for color bar
+    doClear : bool
+        If True, clear the plot Axes before further plotting.
+    doDeco : bool
+        If True, add axis labels to the plot.
+    idx : int
+        Index of radial slice to plot.
+
+    Returns
+    -------
+    D : np.array of float
+        Data values used in plot
+
+    Raises
+    ------
+    None
+    """
+    # Create a normalizer object for the colorbar.
+    vD = kv.genNorm(D0Min, D0Max, doLog=False, midP=None)
+
+    # Create the color bar.
+    if AxCB:
+        AxCB.clear()
+        kv.genCB(AxCB, vD, "Density [$cm^{-3}$]", cM=D0CM, Ntk=7)
+
+    # Clear the plot Axes.
+    if doClear:
         Ax.clear()
 
-    D = gsph.iSliceD(nStp,idx=idx)
-    lat, lon = gsph.iSliceGrid(idx=idx)
-    Ax.pcolormesh(lon,lat,D,cmap=D0CM,norm=vD)
-    kv.SetAx(xyBds,Ax)
+    # Fetch the data.
+    D = gsph.iSliceD(nStp, idx=idx)
 
-    if (doDeco):
+    # Fetch the latitude and longitude of the grid cells in the radial slice.
+    # This is in the GH(MJDc) frame.
+    lat, lon = gsph.iSliceGrid(idx=idx)
+
+    # Plot the data.
+    Ax.pcolormesh(lon, lat, D, cmap=D0CM, norm=vD)
+
+    # Set the plot boundaries.
+    kv.SetAx(xyBds, Ax)
+
+    # Decorate the plots.
+    if doDeco:
         Ax.set_xlabel('Longitude')
         Ax.set_ylabel('Latitude')
         Ax.yaxis.tick_right()
         Ax.yaxis.set_label_position('right')
+
+    # Return the data.
     return D
 
-#Plot Br and current sheet (Br=0) at 1 AU
-def PlotiSlBr(gsph,nStp,xyBds,Ax,AxCB=None,doClear=True,doDeco=True,idx=-1):
+
+def PlotiSlBr(
+        gsph, nStp, xyBds, Ax, AxCB=None, doClear=True, doDeco=True, idx=-1
+):
+    """Plot solar wind radial magnetic field and current sheet at a specified radial slice.
+
+    Plot solar wind radial magnetic field and current sheet at a specified
+    radial slice.
+
+    Parameters
+    ----------
+    gsph : kaipy.gamhelio.heliosphere.GamsphPipe
+        Pipe to simulation results
+    nStp : int
+        Index of simulation step to use in plot
+    xyBds : list of 4 float
+        Minimum and maximum values to plot for x- and y-axes
+    Ax : matplotlib.axes.Axes
+        Axes object to use for plot
+    AxCB : matplotlib.axes.Axes
+        Axes object to use for color bar
+    doClear : bool
+        If True, clear the plot Axes before further plotting.
+    doDeco : bool
+        If True, add axis labels to the plot.
+    idx : int
+        Index of radial slice to plot.
+
+    Returns
+    -------
+    Br : np.array of float
+        Data values used in plot
+
+    Raises
+    ------
+    None
+    """
+    # Create a normalizer object for the colorbar.
     vB = kv.genNorm(B0Min, B0Max, doLog=False, midP=None)
-    if (AxCB is not None):
+
+    # Create the color bar.
+    if AxCB:
         AxCB.clear()
-        kv.genCB(AxCB,vB,"Radial magnetic field [nT]",cM=BCM,Ntk=7)
-    if (doClear):
+        kv.genCB(AxCB, vB, "Radial magnetic field [nT]", cM=BCM, Ntk=7)
+
+    # Clear the plot Axes.
+    if doClear:
         Ax.clear()
 
-    Br = gsph.iSliceBr(nStp,idx=idx)
+    # Fetch the data.
+    Br = gsph.iSliceBr(nStp, idx=idx)
+
+    # Fetch the latitude and longitude of the grid cells in the radial slice.
+    # This is in the GH(MJDc) frame.
     lat, lon = gsph.iSliceGrid(idx=idx)
-    #for contour cell-centered lon lat coordinates
-    lon_c = 0.25*( lon[:-1,:-1]+lon[:-1,1:]+lon[1:,:-1]+lon[1:,1:] )
-    lat_c = 0.25*( lat[:-1,:-1]+lat[:-1,1:]+lat[1:,:-1]+lat[1:,1:] )
 
-    Ax.pcolormesh(lon,lat,Br,cmap=BCM,norm=vB)
-    Ax.contour(lon_c, lat_c,Br,[0.],colors='black')
-    kv.SetAx(xyBds,Ax)
+    # Compute cell-centered lon lat coordinates for contour plot.
+    lon_c = 0.25*(lon[:-1, :-1] + lon[:-1, 1:] + lon[1:, :-1] + lon[1:, 1:])
+    lat_c = 0.25*(lat[:-1, :-1] + lat[:-1, 1:] + lat[1:, :-1] + lat[1:, 1:])
 
-    if (doDeco):
+    # Plot the data.
+    Ax.pcolormesh(lon, lat, Br, cmap=BCM, norm=vB)
+
+    # Draw the Br=0 contour line representing the current sheet.
+    Ax.contour(lon_c, lat_c, Br, [0.], colors='black')
+
+    # Set the plot boundaries.
+    kv.SetAx(xyBds, Ax)
+
+    # Decorate the plots.
+    if doDeco:
         Ax.set_xlabel('Longitude')
         Ax.set_ylabel('Latitude')
         Ax.yaxis.tick_right()
         Ax.yaxis.set_label_position('right')
-        #for pic4
-        Ax.set_aspect('equal')
+
+    # Return the data.
     return Br
 
 #Plot Br and current sheet (Br=0) at certain distance set in iSliceBr
@@ -2182,25 +2280,72 @@ def PlotiSlBrRotatingFrame(gsph,nStp,xyBds,Ax,AxCB=None,doClear=True,doDeco=True
     return Br
 
 
-#Plot Temperature at 1 AU
-def PlotiSlTemp(gsph,nStp,xyBds,Ax,AxCB=None,doClear=True,doDeco=True,idx=-1):
+def PlotiSlTemp(
+        gsph, nStp, xyBds, Ax, AxCB=None, doClear=True, doDeco=True, idx=-1
+):
+    """Plot solar wind temperature at a specified radial slice.
+
+    Plot solar wind temperature at a specified radial slice.
+
+    Parameters
+    ----------
+    gsph : kaipy.gamhelio.heliosphere.GamsphPipe
+        Pipe to simulation results
+    nStp : int
+        Index of simulation step to use in plot
+    xyBds : list of 4 float
+        Minimum and maximum values to plot for x- and y-axes
+    Ax : matplotlib.axes.Axes
+        Axes object to use for plot
+    AxCB : matplotlib.axes.Axes
+        Axes object to use for color bar
+    doClear : bool
+        If True, clear the plot Axes before further plotting.
+    doDeco : bool
+        If True, add axis labels to the plot.
+    idx : int
+        Index of radial slice to plot.
+
+    Returns
+    -------
+    Temp : np.array of float
+        Data values used in plot
+
+    Raises
+    ------
+    None
+    """
+    # Create a normalizer object for the colorbar.
     vT = kv.genNorm(T0Min, T0Max, doLog=False, midP=None)
 
-    if (AxCB is not None):
+    # Create the color bar.
+    if AxCB:
         AxCB.clear()
-        kv.genCB(AxCB,vT,"Temperature [MK]",cM=TCM,Ntk=7)
-    if (doClear):
+        kv.genCB(AxCB, vT, "Temperature [MK]", cM=TCM, Ntk=7)
+
+    # Clear the plot Axes.
+    if doClear:
         Ax.clear()
 
-    Temp = gsph.iSliceT(nStp,idx=idx)    
+    # Fetch the data.
+    Temp = gsph.iSliceT(nStp, idx=idx)
+
+    # Fetch the latitude and longitude of the grid cells in the radial slice.
+    # This is in the GH(MJDc) frame.
     lat, lon = gsph.iSliceGrid(idx=idx)
-    Ax.pcolormesh(lon,lat,Temp,cmap=TCM,norm=vT)
 
-    kv.SetAx(xyBds,Ax)
+    # Plot the data.
+    Ax.pcolormesh(lon, lat, Temp, cmap=TCM, norm=vT)
 
-    if (doDeco):
+    # Set the plot boundaries.
+    kv.SetAx(xyBds, Ax)
+
+    # Decorate the plots.
+    if doDeco:
         Ax.set_xlabel('Longitude')
         Ax.set_ylabel('Latitude')
+
+    # Return the data.
     return Temp
 
 #Plot Density as a function of distance

@@ -430,45 +430,49 @@ def main():
 
         # Now create the actual plots.
         if pic == "pic1":
-            # These are all equatorial plots in the XY plane of the modified
-            # HGS frame used by gamhelio.
+            # Equatorial plots in the XY plane of the modified HGS frame used
+            # by gamhelio. If hgsplot is True, then the plot frame is the true
+            # HGS frame at the time of the plot.
             hviz.PlotEqMagV(gsph, nStp, xyBds, AxL0, AxC1_0,
-                            MJDc=MJDc, MJD_plot=mjd, hgsplot=hgsplot)
+                            hgsplot=hgsplot, MJDc=MJDc, MJD_plot=mjd)
             hviz.PlotEqD(gsph, nStp, xyBds, AxR0, AxC2_0,
-                         MJDc=MJDc, MJD_plot=mjd, hgsplot=hgsplot)
+                         hgsplot=hgsplot, MJDc=MJDc, MJD_plot=mjd)
             hviz.PlotEqTemp(gsph, nStp, xyBds, AxL1, AxC1_1,
-                            MJDc=MJDc, MJD_plot=mjd, hgsplot=hgsplot)
+                            hgsplot=hgsplot, MJDc=MJDc, MJD_plot=mjd)
             hviz.PlotEqBr(gsph, nStp, xyBds, AxR1, AxC2_1,
-                          MJDc=MJDc, MJD_plot=mjd, hgsplot=hgsplot)
+                          hgsplot=hgsplot, MJDc=MJDc, MJD_plot=mjd)
             if hgsplot:
                 fig.suptitle(f"HGS frame at MJD = {ktools.MJD2UT(mjd)}")
             else:
                 fig.suptitle(f"GH frame at MJD = {ktools.MJD2UT(mjd)}")
         elif pic == "pic2":
-            # Meridional plots in the XZ plane of the  modified HGS frame used
-            # by gamhelio.
+            # Meridional plots in the XZ plane of the modified HGS frame used
+            # by gamhelio. If hgsplot is True, then the plot frame is the true
+            # HGS frame at the time of the plot.
             hviz.PlotMerMagV(gsph, nStp, xyBds, AxL0, AxC1_0,
                              indx=(None, pic2lon),
-                             MJDc=MJDc, MJD_plot=mjd, hgsplot=hgsplot)
+                             hgsplot=hgsplot, MJDc=MJDc, MJD_plot=mjd)
             hviz.PlotMerDNorm(gsph, nStp, xyBds, AxR0, AxC2_0,
                               indx=(None, pic2lon),
-                              MJDc=MJDc, MJD_plot=mjd, hgsplot=hgsplot)
+                              hgsplot=hgsplot, MJDc=MJDc, MJD_plot=mjd)
             hviz.PlotMerTemp(gsph, nStp, xyBds, AxL1, AxC1_1,
                              indx=(None, pic2lon),
-                             MJDc=MJDc, MJD_plot=mjd, hgsplot=hgsplot)
+                             hgsplot=hgsplot, MJDc=MJDc, MJD_plot=mjd)
             hviz.PlotMerBrNorm(gsph, nStp, xyBds, AxR1, AxC2_1,
                                indx=(None, pic2lon),
-                               MJDc=MJDc, MJD_plot=mjd, hgsplot=hgsplot)
+                               hgsplot=hgsplot, MJDc=MJDc, MJD_plot=mjd)
             if hgsplot:
                 fig.suptitle(f"HGS frame at MJD = {ktools.MJD2UT(mjd)}")
             else:
                 fig.suptitle(f"GH frame at MJD = {ktools.MJD2UT(mjd)}")
         elif pic == "pic3":
-            # Plot at 1 AU. iSl -> "i slice"
+            # Lat/lon plot at 1 AU (the outer edge of the gamhelio grid), in
+            # the modified HGS frame rotating with the Sun.
             hviz.PlotiSlMagV(gsph, nStp, xyBds, AxL0, AxC1_0)
             hviz.PlotiSlD(gsph, nStp, xyBds, AxR0, AxC2_0)
             hviz.PlotiSlTemp(gsph, nStp, xyBds, AxL1, AxC1_1)
             hviz.PlotiSlBr(gsph, nStp, xyBds, AxR1, AxC2_1)
+            fig.suptitle(f"GH frame at MJD = {ktools.MJD2UT(mjd)}")
         elif pic == "pic4":
             # Plot at 1 AU in frame rotating with Sun.
             hviz.PlotiSlBrRotatingFrame(gsph, nStp, xyBds, Ax, AxC)
@@ -477,43 +481,29 @@ def main():
             hviz.PlotSpeedProf(gsph, nStp, xyBds, AxC)
             hviz.PlotFluxProf(gsph, nStp, xyBds, AxC1)
         elif pic == "pic6":
-            hviz.PlotEqBr(gsph, nStp, xyBds, AxL0, AxC1_0,
-                          MJDc=MJDc, MJD_plot=mjd, hgsplot=hgsplot)
-            hviz.PlotEqBx(gsph, nStp, xyBds, AxR0, AxC2_0,
-                          MJDc=MJDc, MJD_plot=mjd, hgsplot=hgsplot)
-            hviz.PlotEqBy(gsph, nStp, xyBds, AxL1, AxC1_1,
-                          MJDc=MJDc, MJD_plot=mjd, hgsplot=hgsplot)
+            hviz.PlotEqBr(gsph, nStp, xyBds, AxL0, AxC1_0)
+            hviz.PlotEqBx(gsph, nStp, xyBds, AxR0, AxC2_0)
+            hviz.PlotEqBy(gsph, nStp, xyBds, AxL1, AxC1_1)
             hviz.PlotEqBz(gsph, nStp, xyBds, AxR1, AxC2_1)
-            if hgsplot:
-                fig.suptitle(f"HGS frame at MJD = {ktools.MJD2UT(mjd)}")
-            else:
-                fig.suptitle(f"GH frame at MJD = {ktools.MJD2UT(mjd)}")
         elif pic == "pic7":
             if jslice is None:
                 jidx = gsph.Nj//2 - 1
             else:
                 jidx = jslice
-            hviz.PlotjMagV(gsph, nStp, xyBds, AxL0, AxC1_0, jidx=jidx,
-                           MJDc=MJDc, MJD_plot=mjd, hgsplot=hgsplot)
-            hviz.PlotjD(gsph, nStp, xyBds, AxR0, AxC2_0, jidx=jidx,
-                        MJDc=MJDc, MJD_plot=mjd, hgsplot=hgsplot)
-            hviz.PlotjTemp(gsph, nStp, xyBds, AxL1, AxC1_1, jidx=jidx,
-                           MJDc=MJDc, MJD_plot=mjd, hgsplot=hgsplot)
+            hviz.PlotjMagV(gsph, nStp, xyBds, AxL0, AxC1_0, jidx=jidx)
+            hviz.PlotjD(gsph, nStp, xyBds, AxR0, AxC2_0, jidx=jidx)
+            hviz.PlotjTemp(gsph, nStp, xyBds, AxL1, AxC1_1, jidx=jidx)
             hviz.PlotjBr(gsph, nStp, xyBds, AxR1, AxC2_1, jidx=jidx)
-            if hgsplot:
-                fig.suptitle(f"HGS frame at MJD = {ktools.MJD2UT(mjd)}")
-            else:
-                fig.suptitle(f"GH frame at MJD = {ktools.MJD2UT(mjd)}")
         else:
             raise TypeError(f"Invalid figure type: {pic}!")
 
-        # Add time in the upper left.
-        if pic == "pic1" or pic == "pic2" or pic == "pic6" or pic == "pic7":
-            gsph.AddTime(nStp, AxL0, xy=[0.025, 0.875], fs="x-large")
-        elif pic == "pic3":
-            gsph.AddTime(nStp, AxL0, xy=[0.015, 0.82], fs="small")
+        # Add time in the upper left (if not in figure title).
+        if pic == "pic1" or pic == "pic2" or pic == "pic3":
+            pass
         elif pic == "pic4" or pic == "pic5":
             gsph.AddTime(nStp, Ax, xy=[0.015, 0.92], fs="small")
+        elif pic == "pic6" or pic == "pic7":
+            gsph.AddTime(nStp, AxL0, xy=[0.025, 0.875], fs="x-large")
         else:
             raise TypeError(f"Invalid figure type: {pic}!")
 
@@ -574,6 +564,8 @@ def main():
                     phi = np.arctan2(y_sc, x_sc)
                     lat = np.degrees(np.pi/2 - theta)
                     lon = np.degrees(phi)
+                    if lon < 0:
+                        lon += 180.0
                     lat_sc = lat
                     lon_sc = lon
 
