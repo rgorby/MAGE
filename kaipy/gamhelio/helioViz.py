@@ -2008,11 +2008,18 @@ def PlotEqBz(
 
 
 def PlotiSlMagV(
-        gsph, nStp, xyBds, Ax, AxCB=None, doClear=True, doDeco=True, idx=-1
+        gsph, nStp, xyBds, Ax, AxCB=None, doClear=True, doDeco=True, idx=-1,
+        hgsplot=False, MJDc=None, MJD_plot=None
 ):
     """Plot solar wind speed at a specified radial slice.
 
-    Plot solar wind speed at a specified radial slice.
+    Plot solar wind speed at a specified radial slice. The plot uses a
+    latitude/longitude coordinate system in the GH(MJDc) frame. The resulting
+    plot is, in effect, a view *toward* the origin (the Sun) along the X-axis
+    in the GH(MJDc) frame. That is, the X-axis is positive *out* of the page,
+    and longitude increases to the right. Think of it as the +X axis out of the
+    figure at the middle of the left edge of the image, and the Sun is
+    "unrolled" to the right.
 
     Parameters
     ----------
@@ -2032,6 +2039,12 @@ def PlotiSlMagV(
         If True, add axis labels to the plot.
     idx : int
         Index of radial slice to plot.
+    hgsplot : bool
+        If True, plot in HGS(MJD_plot) frame
+    MJDc : float
+        MJD used for the GH frame of the simulation
+    MJD_plot : float
+        MJD to use for the HGS frame of the plot
 
     Returns
     -------
@@ -2062,7 +2075,67 @@ def PlotiSlMagV(
     lat, lon = gsph.iSliceGrid(idx=idx)
 
     # Plot the data.
-    Ax.pcolormesh(lon, lat, V, cmap=MagVCM, norm=vMagV)
+    # If the HGS frame was requested, map the grid corner coordinates from the
+    # GH(MJDc) frame to the HGS(MJD_plot) frame.
+    if hgsplot:
+
+        # Compute the radius of this i-slice from the coordinates of the first
+        # point in the slice.
+        rg = np.sqrt(gsph.X[idx, 0, 0]**2 + gsph.Y[idx, 0, 0]**2 +
+                     gsph.Z[idx, 0, 0]**2)
+
+        # Convert the lat/lon at the radial distance to Cartesian coordinates.
+        lat_rad = np.radians(lat)
+        lon_rad = np.radians(lon)
+        xg = rg*np.cos(lat_rad)*np.cos(lon_rad)
+        yg = rg*np.cos(lat_rad)*np.sin(lon_rad)
+        zg = rg*np.sin(lat_rad)
+
+        # Load the grid cell vertex coordinates (originally in the GH(MJDc)
+        # frame) in the equivalent HGS(MJDc) frame.
+        c = SkyCoord(
+            -xg*u.Rsun, -yg*u.Rsun, zg*u.Rsun,
+            frame=frames.HeliographicStonyhurst,
+            obstime=ktools.MJD2UT(MJDc),
+            representation_type="cartesian"
+        )
+
+        # Create a HGS frame for the plot time.
+        hgs_frame = frames.HeliographicStonyhurst(
+            obstime=ktools.MJD2UT(MJD_plot)
+        )
+
+        # Convert the coordinates from HGS(MJDc) to HGS(MJD_plot).
+        c = c.transform_to(hgs_frame)
+
+        # Extract the converted coordinates.
+        x = dm.dmarray(c.cartesian.x)
+        y = dm.dmarray(c.cartesian.y)
+        z = dm.dmarray(c.cartesian.z)
+
+        # Convert back to lat/lon coordinates.
+        rxy = np.sqrt(x**2 + y**2)
+        lat_rad = np.arctan2(z, rxy)
+        lon_rad = np.arctan2(y, x)
+        lat = np.degrees(lat_rad)
+        lon = np.degrees(lon_rad)
+        lon[lon < 0] += 360
+
+        # The arrays of lon and lat and data must now be rotated about axis 1
+        # so that lon values increase monotonically to the right. Find the
+        # index of the first *drop* in lon, and shift that index back to index
+        # 0 for all 3 arrays.
+        dlon = lon[0, 1:] - lon[0, :-1]
+        i_shift = np.where(dlon < 0)[0][0]
+        lon = np.roll(lon, -i_shift, axis=1)
+        lat = np.roll(lat, -i_shift, axis=1)
+        V = np.roll(V, -i_shift, axis=1)
+
+        # Plot the data in the HGS(MJD_plot) frame.
+        Ax.pcolormesh(lon, lat, V, cmap=MagVCM, norm=vMagV)
+
+    else:
+        Ax.pcolormesh(lon, lat, V, cmap=MagVCM, norm=vMagV)
 
     # Set the plot boundaries.
     kv.SetAx(xyBds, Ax)

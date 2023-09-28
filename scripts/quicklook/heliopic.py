@@ -468,7 +468,9 @@ def main():
         elif pic == "pic3":
             # Lat/lon plot at 1 AU (the outer edge of the gamhelio grid), in
             # the modified HGS frame rotating with the Sun.
-            hviz.PlotiSlMagV(gsph, nStp, xyBds, AxL0, AxC1_0)
+            hviz.PlotiSlMagV(gsph, nStp, xyBds, AxL0, AxC1_0,
+                             hgsplot=hgsplot, MJDc=MJDc, MJD_plot=mjd
+            )
             hviz.PlotiSlD(gsph, nStp, xyBds, AxR0, AxC2_0)
             hviz.PlotiSlTemp(gsph, nStp, xyBds, AxL1, AxC1_1)
             hviz.PlotiSlBr(gsph, nStp, xyBds, AxR1, AxC2_1)
@@ -565,7 +567,7 @@ def main():
                     lat = np.degrees(np.pi/2 - theta)
                     lon = np.degrees(phi)
                     if lon < 0:
-                        lon += 180.0
+                        lon += 360.0
                     lat_sc = lat
                     lon_sc = lon
 
