@@ -342,11 +342,12 @@ def assemble_frames_into_mp4(frame_files, args):
 
     # Create the movie.
     frame_directory = os.path.split(frame_files[0])[0]
-    frame_pattern = os.path.join(frame_directory, f"{pictype}-%06d.png")
     if args.hgsplot:
         movie_file = os.path.join(movie_directory, f"{pictype}-HGS.mp4")
+        frame_pattern = os.path.join(frame_directory, f"{pictype}-HGS-%06d.png")
     else:
         movie_file = os.path.join(movie_directory, f"{pictype}.mp4")
+        frame_pattern = os.path.join(frame_directory, f"{pictype}-%06d.png")
     cmd = [
         "ffmpeg", "-r", "4", "-s", "1920x1080",
         "-i", frame_pattern,
@@ -495,9 +496,6 @@ def create_pic1_movie(args):
     if debug:
         print(f"figsize = {figsize}")
 
-    # Create figures in a memory buffer.
-    mpl.use("Agg")
-
     # Create the figure.
     fig = plt.figure(figsize=figsize)
     if debug:
@@ -558,7 +556,10 @@ def create_pic1_movie(args):
         )
 
     # Compute the path to the frame directory.
-    frame_directory = os.path.join(fdir, f"frames-{pictype}")
+    if hgsplot:
+        frame_directory = os.path.join(fdir, f"frames-{pictype}-HGS")
+    else:
+        frame_directory = os.path.join(fdir, f"frames-{pictype}")
     try:
         os.mkdir(frame_directory)
     except FileExistsError as e:
@@ -593,9 +594,12 @@ def create_pic1_movie(args):
         # Create the individual plots for this frame.
         hviz.PlotEqMagV(gsph, i_step, plot_limits, ax_v, ax_cb_v,
                         hgsplot=hgsplot, MJDc=MJDc, MJD_plot=mjd)
-        hviz.PlotEqD(gsph, i_step, plot_limits, ax_n, ax_cb_n)
-        hviz.PlotEqTemp(gsph, i_step, plot_limits, ax_T, ax_cb_T)
-        hviz.PlotEqBr(gsph, i_step, plot_limits, ax_Br, ax_cb_Br)
+        hviz.PlotEqD(gsph, i_step, plot_limits, ax_n, ax_cb_n,
+                     hgsplot=hgsplot, MJDc=MJDc, MJD_plot=mjd)
+        hviz.PlotEqTemp(gsph, i_step, plot_limits, ax_T, ax_cb_T,
+                        hgsplot=hgsplot, MJDc=MJDc, MJD_plot=mjd)
+        hviz.PlotEqBr(gsph, i_step, plot_limits, ax_Br, ax_cb_Br,
+                      hgsplot=hgsplot, MJDc=MJDc, MJD_plot=mjd)
 
         # Add time in the upper left.
         gsph.AddTime(i_step, ax_v, xy=[0.025, 0.875], fs="x-large")
@@ -631,7 +635,10 @@ def create_pic1_movie(args):
                             c="black", horizontalalignment="center")
 
         # Save the figure to a file.
-        path = os.path.join(frame_directory, f"{pictype}-{i_step:06d}.png")
+        if hgsplot:
+            path = os.path.join(frame_directory, f"{pictype}-HGS-{i_step:06d}.png")
+        else:
+            path = os.path.join(frame_directory, f"{pictype}-{i_step:06d}.png")
         if debug:
             print(f"path = {path}")
         kv.savePic(path, bLenX=45)
@@ -672,6 +679,7 @@ def create_pic2_movie(args):
     """
     # Extract arguments.
     debug = args.debug
+    hgsplot=args.hgsplot
     pictype = args.pictype
     spacecraft = args.spacecraft
     verbose = args.verbose
@@ -680,9 +688,6 @@ def create_pic2_movie(args):
     plot_limits = hviz.GetSizeBds(pictype)
     if debug:
         print(f"plot_limits = {plot_limits}")
-
-    # Create all plot images in a memory buffer.
-    mpl.use("Agg")
 
     # Fetch the figure size.
     figsize = figure_sizes[pictype]
@@ -752,7 +757,10 @@ def create_pic2_movie(args):
         )
 
     # Compute the path to the frame directory.
-    frame_directory = os.path.join(fdir, f"frames-{pictype}")
+    if hgsplot:
+        frame_directory = os.path.join(fdir, f"frames-HGS-{pictype}-HGS")
+    else:
+        frame_directory = os.path.join(fdir, f"frames-{pictype}")
     try:
         os.mkdir(frame_directory)
     except FileExistsError as e:
@@ -760,6 +768,10 @@ def create_pic2_movie(args):
             pass
         else:
             raise e
+
+    # Get the MJDc value for use in computing the gamhelio frame.
+    fname = gsph.f0
+    MJDc = scutils.read_MJDc(fname)
 
     # Create and save frame images for each step.
     first_step = args.first_step
@@ -781,10 +793,14 @@ def create_pic2_movie(args):
             print(f"mjd = {mjd}")
 
         # Create the individual plots for this frame.
-        hviz.PlotMerMagV(gsph, i_step, plot_limits, ax_v, ax_cb_v)
-        hviz.PlotMerDNorm(gsph, i_step, plot_limits, ax_n, ax_cb_n)
-        hviz.PlotMerTemp(gsph, i_step, plot_limits, ax_T, ax_cb_T)
-        hviz.PlotMerBrNorm(gsph, i_step, plot_limits, ax_Br, ax_cb_Br)
+        hviz.PlotMerMagV(gsph, i_step, plot_limits, ax_v, ax_cb_v,
+                         hgsplot=hgsplot, MJDc=MJDc, MJD_plot=mjd)
+        hviz.PlotMerDNorm(gsph, i_step, plot_limits, ax_n, ax_cb_n,
+                          hgsplot=hgsplot, MJDc=MJDc, MJD_plot=mjd)
+        hviz.PlotMerTemp(gsph, i_step, plot_limits, ax_T, ax_cb_T,
+                         hgsplot=hgsplot, MJDc=MJDc, MJD_plot=mjd)
+        hviz.PlotMerBrNorm(gsph, i_step, plot_limits, ax_Br, ax_cb_Br,
+                           hgsplot=hgsplot, MJDc=MJDc, MJD_plot=mjd)
 
         # Add time in the upper left.
         gsph.AddTime(i_step, ax_v, xy=[0.025, 0.875], fs="x-large")
@@ -800,8 +816,12 @@ def create_pic2_movie(args):
                 # Interpolate the spacecraft position at the time for the plot.
                 t_sc = mjd
                 x_sc = np.interp(t_sc, sc_t[sc_id], sc_x[sc_id])
-                # y_sc = np.interp(t_sc, sc_t[sc_id], sc_y[sc_id])
+                y_sc = np.interp(t_sc, sc_t[sc_id], sc_y[sc_id])
                 z_sc = np.interp(t_sc, sc_t[sc_id], sc_z[sc_id])
+
+                # If needed, convert the position to HGS(mjd).
+                if hgsplot:
+                    x_sc, y_sc, z_sc = GHtoHGS(MJDc, x_sc, y_sc, z_sc, mjd)
 
                 # Plot the spacecraft position as a colored circle with black
                 # outline and a label.
@@ -816,7 +836,10 @@ def create_pic2_movie(args):
                             c="black", horizontalalignment="center")
 
         # Save the figure to a file.
-        path = os.path.join(frame_directory, f"{pictype}-{i_step:06d}.png")
+        if hgsplot:
+            path = os.path.join(frame_directory, f"{pictype}-HGS-{i_step:06d}.png")
+        else:
+            path = os.path.join(frame_directory, f"{pictype}-{i_step:06d}.png")
         if debug:
             print(f"path = {path}")
         kv.savePic(path, bLenX=45)
@@ -857,6 +880,7 @@ def create_pic3_movie(args):
     """
     # Extract arguments.
     debug = args.debug
+    hgsplot=args.hgsplot
     pictype = args.pictype
     spacecraft = args.spacecraft
     verbose = args.verbose
@@ -865,9 +889,6 @@ def create_pic3_movie(args):
     plot_limits = hviz.GetSizeBds(pictype)
     if debug:
         print(f"plot_limits = {plot_limits}")
-
-    # Create all plot images in a memory buffer.
-    mpl.use("Agg")
 
     # Fetch the figure size.
     figsize = figure_sizes[pictype]
@@ -937,7 +958,10 @@ def create_pic3_movie(args):
         )
 
     # Compute the path to the frame directory.
-    frame_directory = os.path.join(fdir, f"frames-{pictype}")
+    if hgsplot:
+        frame_directory = os.path.join(fdir, f"frames-HGS-{pictype}-HGS")
+    else:
+        frame_directory = os.path.join(fdir, f"frames-{pictype}")
     try:
         os.mkdir(frame_directory)
     except FileExistsError as e:
@@ -945,6 +969,10 @@ def create_pic3_movie(args):
             pass
         else:
             raise e
+
+    # Get the MJDc value for use in computing the gamhelio frame.
+    fname = gsph.f0
+    MJDc = scutils.read_MJDc(fname)
 
     # Create and save frame images for each step.
     first_step = args.first_step
@@ -966,10 +994,14 @@ def create_pic3_movie(args):
             print(f"mjd = {mjd}")
 
         # Create the individual plots for this frame.
-        hviz.PlotiSlMagV(gsph, i_step, plot_limits, ax_v, ax_cb_v)
-        hviz.PlotiSlD(gsph, i_step, plot_limits, ax_n, ax_cb_n)
-        hviz.PlotiSlTemp(gsph, i_step, plot_limits, ax_T, ax_cb_T)
-        hviz.PlotiSlBr(gsph, i_step, plot_limits, ax_Br, ax_cb_Br)
+        hviz.PlotiSlMagV(gsph, i_step, plot_limits, ax_v, ax_cb_v,
+                         hgsplot=hgsplot, MJDc=MJDc, MJD_plot=mjd)
+        hviz.PlotiSlD(gsph, i_step, plot_limits, ax_n, ax_cb_n,
+                      hgsplot=hgsplot, MJDc=MJDc, MJD_plot=mjd)
+        hviz.PlotiSlTemp(gsph, i_step, plot_limits, ax_T, ax_cb_T,
+                         hgsplot=hgsplot, MJDc=MJDc, MJD_plot=mjd)
+        hviz.PlotiSlBr(gsph, i_step, plot_limits, ax_Br, ax_cb_Br,
+                       hgsplot=hgsplot, MJDc=MJDc, MJD_plot=mjd)
 
         # Add time in the upper left.
         gsph.AddTime(i_step, ax_v, xy=[0.015, 0.82], fs="small")
@@ -984,6 +1016,13 @@ def create_pic3_movie(args):
 
                 # Interpolate the spacecraft position at the time for the plot.
                 t_sc = mjd
+
+                # If needed, convert the position to HGS(mjd).
+                if hgsplot:
+                    sc_x[sc_id], sc_y[sc_id], sc_z[sc_id] = (
+                        GHtoHGS(MJDc, sc_x[sc_id], sc_y[sc_id], sc_z[sc_id],
+                                mjd)
+                    )
 
                 # Convert Cartesian location to heliocentric lon/lat.
                 rxy = np.sqrt(sc_x[sc_id]**2 + sc_y[sc_id]**2)
@@ -1007,7 +1046,10 @@ def create_pic3_movie(args):
                             c="black", horizontalalignment="center")
 
         # Save the figure to a file.
-        path = os.path.join(frame_directory, f"{pictype}-{i_step:06d}.png")
+        if hgsplot:
+            path = os.path.join(frame_directory, f"{pictype}-HGS-{i_step:06d}.png")
+        else:
+            path = os.path.join(frame_directory, f"{pictype}-{i_step:06d}.png")
         if debug:
             print(f"path = {path}")
         kv.savePic(path, bLenX=45)
