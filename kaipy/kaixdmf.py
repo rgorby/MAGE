@@ -63,8 +63,6 @@ def getRootVars(fname,gDims):
 				doV = False
 			if ((vID == "X") or (vID=="Y") or (vID=="Z")):
 				doV = False
-			if ((vID == kdefs.grpTimeCache)):
-				doV = False
 			if (doV):
 				Nv = hf[k].shape
 				vLoc = getLoc(gDims,Nv)

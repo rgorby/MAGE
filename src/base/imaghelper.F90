@@ -36,7 +36,7 @@ module imaghelper
 
     	if (TM03%isInit) return !Already initialized
 
-    	write(*,*) "Initializing TM03 model ..."
+    	!write(*,*) "Initializing TM03 model ..."
 
     	!Get time series for TM03 object
     	call SetupTS("D" ,wID,TM03%tsD )

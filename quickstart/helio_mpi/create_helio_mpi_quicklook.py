@@ -85,9 +85,9 @@ def create_quicklook_plot(directory, runid):
 
     # Run the quicklook generation script.
     cmd = "heliopic.py"
-    args = []
+    args = ["-id", runid]
     subprocess.run([cmd] + args)
-    figure_file_name = os.path.join(directory, "qkpichelio.png")
+    figure_file_name = os.path.join(directory, "qkpic.png")
 
     # Move back to the starting directory.
     os.chdir(initial_directory)

@@ -12,8 +12,6 @@ external/PFUNIT-*/
 tests/*/*.F90
 !tests/helperCode/*.F90
 !tests/helperCode_mpi/*.F90
-# Fun Intel Bug with preprocesing in CWD
-*.i90
 
 # Compiled Object files
 *.slo

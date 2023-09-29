@@ -4,8 +4,7 @@ project(Kaiju Fortran)
 # use the new version of CMP0074, this tells cmake to use <PACKAGE>_ROOT environment
 #   variables when looking for packages
 cmake_policy(SET CMP0074 NEW)
-cmake_policy(SET CMP0028 NEW)
-cmake_policy(SET CMP0079 NEW)
+
 # add and search for pfunit (fingers crossed)
 list(APPEND CMAKE_PREFIX_PATH "./external")
 find_package(PFUNIT QUIET)
@@ -32,6 +31,7 @@ add_compile_definitions(GITBRANCH=${GIT_BRANCH})
 option(ENABLE_OMP "Enable OMP parallelization" ON )
 option(ENABLE_MPI "Enable MPI parallelization" OFF)
 option(ENABLE_MKL "Enable Intel MKL usage" OFF)
+option(ENABLE_COLORTEXT "Enable ascii color in text output" ON)
 option(ENABLE_CODECOV "Enable Code Coverage tracking" OFF)
 option(ALLOW_INVALID_COMPILERS "Allow Invalid Compiler Versions" OFF)
 option(ENABLE_COMPRESS "Enable Dataset Compression" OFF)
@@ -113,6 +113,9 @@ endif()
 if(ENABLE_MKL)
     add_compile_definitions(USEMKL)
 endif()
+if(ENABLE_COLORTEXT)
+    add_compile_definitions(USECOLORTEXT)
+endif()
 
 #Include compile flag generator
 include(cmake/compilers.cmake)
@@ -131,9 +134,6 @@ message("Processor: ${CMAKE_HOST_SYSTEM_PROCESSOR}")
 message("Compiler: ${CMAKE_Fortran_COMPILER_ID} / ${CMAKE_Fortran_COMPILER_VERSION}")
 message("          ${CMAKE_Fortran_COMPILER}")
 message("HDF5 Wrapper: ${HDF5_Fortran_COMPILER_EXECUTABLE}")
-if(ENABLE_COMPRESS)
-    message("HDF5 Compression: ${COMPRESS_METHOD}")
-endif()
 message("Version: ${GIT_COMMIT_HASH} / ${GIT_BRANCH}")
 message("Build Type: ${CMAKE_BUILD_TYPE}")
 message("Base Flags: ${CMAKE_Fortran_FLAGS}")
@@ -144,22 +144,12 @@ message("-------------------------\n")
 #-------------
 #Start doing real work
 
-#Start w/ base=
+#Start w/ base
 add_subdirectory(src/base)
 add_custom_target(base ALL)
 add_executable(kaitoy.x src/drivers/kaitoyx.F90)
 target_link_libraries(kaitoy.x baselib)
 add_dependencies(base kaitoy.x)
-
-# Add compression library to base
-if(ENABLE_COMPRESS)
-    #add_library(compresslib STATIC IMPORTED GLOBAL)
-    if(COMPRESS_METHOD MATCHES ZFP )
-        set(H5Z_ZFP_USE_STATIC_LIBS ON)
-        find_package(H5Z_ZFP 1.0.1 REQUIRED CONFIG)
-        target_link_libraries(baselib h5z_zfp::h5z_zfp)
-    endif()
-endif()
 
 #-------------
 #Kaiju: CHIMP
@@ -286,6 +276,7 @@ if(ENABLE_MPI)
     add_executable(gamhelio_mpi.x src/drivers/gamera_mpix.F90 ${GAMHELIC})
     target_link_libraries(gamhelio_mpi.x baselib gamlib basempilib gammpilib)
     add_dependencies(gamhelio_mpi gamhelio_mpi.x)
+
 
 endif()
 

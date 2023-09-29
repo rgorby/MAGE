@@ -188,7 +188,7 @@ class GameraPipe(object):
 		import kaipy.kaiH5 as kh5
 		from concurrent.futures import ProcessPoolExecutor, as_completed
 		from alive_progress import alive_bar
-	
+
 		if (self.is2D):
 			self.X = np.zeros((self.Ni+1,self.Nj+1))
 			self.Y = np.zeros((self.Ni+1,self.Nj+1))

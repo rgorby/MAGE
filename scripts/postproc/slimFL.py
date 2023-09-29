@@ -40,8 +40,8 @@ if __name__ == "__main__":
 
     fIn = args.inH5
     fOut = args.outH5
-    pSk = np.int(args.pskip)
-    lSk = np.int(args.flskip)
+    pSk = int(args.pskip)
+    lSk = int(args.flskip)
 
     kh5.CheckOrDie(fIn)
 

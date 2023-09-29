@@ -44,6 +44,7 @@ module clocks
     !Global clock array
     type(Clock_T), dimension(maxClocks) :: kClocks
     integer, private :: nclk=0 !Current number of clocks
+    logical, private :: slimTimers = .false.
 
     !interface for reading clock time
     interface readClock
@@ -66,12 +67,30 @@ module clocks
         call system_clock(itoc,clockRate,clockMax)
     end subroutine initClocks
 
+    subroutine setSlimTimers(isSlim)
+        logical, intent(in) :: isSlim
+
+        slimTimers = isSlim
+
+    end subroutine
+
     !Start clock given by cID, create it if necessary
-    subroutine Tic(cID)
+    subroutine Tic(cID,priority)
         character(len=*), intent(in) :: cID
+        logical, optional, intent(in) :: priority
 
         integer :: n,iblk
+        logical :: lPriority
         iblk = 0
+
+        if(present(priority)) then
+            lPriority = priority
+        else
+            lPriority = .false.
+        endif
+
+        ! only process priority times when doing slim timing
+        if(slimTimers .and. .not. lPriority) return
 
         !Find timer
         do n=1,nclk
@@ -116,13 +135,24 @@ module clocks
     end subroutine newClock
 
     !Stop clock, save time.  Error if clock doesn't exist
-    subroutine Toc(cID)
+    subroutine Toc(cID, priority)
         character(len=*), intent(in) :: cID
+        logical, optional, intent(in) :: priority
 
         integer :: n,iblk
         real :: wclk
-
+        logical :: lPriority
         iblk = 0
+
+        if(present(priority)) then
+            lPriority = priority
+        else
+            lPriority = .false.
+        endif
+
+        ! only process priority times when doing slim timing
+        if(slimTimers .and. .not. lPriority) return
+
         !Find timer
         do n=1,nclk
             if (toUpper(kClocks(n)%cID) == toUpper(cID)) then

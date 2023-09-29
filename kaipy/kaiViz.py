@@ -293,10 +293,8 @@ def labelStr(data, key, vecComp):
             data['GAMERA_' + key].attrs['UNITS'].decode() + ']'
         )
     else:
-        label = (
-            data['GAMERA_' + key].attrs['AXISLABEL'] +
-            ' [' + data['GAMERA_' + key].attrs['UNITS'] + ']'
-        )
+        key_name = "GAMERA_" + key
+        label = data[key_name].attrs['AXISLABEL'] + ' [' + data[key_name].attrs['UNITS'].decode() + ']'
     return label
 
 
@@ -491,9 +489,7 @@ def compPlot(plotname,scId,data):
 
 	savePic(plotname)
     
-def trajPlot(plotname,scId,data):
-    Re = 6380.0
-    toRe = 1.0/Re
+def trajPlot(plotname,scId,data,toRe):
     figsize = (15,5)
     # Create the figure in-memory.
     mpl.use("AGG")

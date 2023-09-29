@@ -13,10 +13,10 @@ module ioH5Overload
         module procedure LoadIO_5D,LoadIO_4D,LoadIO_3D,LoadIO_2D,LoadIO_1D,LoadIO_0D
     end interface
 
-    contains
+        contains
 
-    !-------------------------------------------
-    !Simple helper functions for navigating IOVars_T
+!-------------------------------------------
+!Simple helper functions for navigating IOVars_T
     !Finds element of IO chain matching input id-string
     function FindIO(IOVars,inStr,doFailO) result(nOut)
         type(IOVAR_T), dimension(:), intent(in) :: IOVars
@@ -74,8 +74,8 @@ module ioH5Overload
         endif
     end function NextIO
 
-    !-------------------------------------------
-    !These routines reshape data of various ranks/types into array
+!-------------------------------------------
+!These routines reshape data of various ranks/types into array
     !Fill 1D array
     subroutine IOArray1DFill(IOVars,vID,Q)
         type(IOVAR_T), dimension(:), intent(in) :: IOVars
@@ -194,10 +194,9 @@ module ioH5Overload
         stop
         
     end subroutine FailArrayFill
-
-    !-------------------------------------------
-    !These routines add data for output to IO chain
-    !All routines find first unused link and add there
+!-------------------------------------------
+!These routines add data for output to IO chain
+!All routines find first unused link and add there
     subroutine AddOut_5D(IOVars,idStr,Q,uStr,dStr)
         type(IOVAR_T), dimension(:), intent(inout) :: IOVars
         character(len=*), intent(in) :: idStr
@@ -372,16 +371,9 @@ module ioH5Overload
     end subroutine AddOut_Int
 
     subroutine AddOut_Str(IOVars,idStr,X,uStr,dStr)
-        !> Array of IO Variables
         type(IOVAR_T), dimension(:), intent(inout) :: IOVars
-        !> ID of Var
-        character(len=*), intent(in) :: idStr
-        !> Value of Var
-        character(len=*), intent(in) :: X
-        !> Var Units
-        character(len=*), intent(in), optional :: uStr
-        !> Var Description
-        character(len=*), intent(in), optional :: dStr
+        character(len=*), intent(in) :: idStr, X
+        character(len=*), intent(in), optional :: uStr,dStr
 
         integer :: n
         !Find first unused

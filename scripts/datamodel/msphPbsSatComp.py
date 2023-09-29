@@ -105,7 +105,7 @@ if __name__ == '__main__':
 		if status['http']['status_code'] != 200 or data is None:
 			print('No data available for', scId)
 		else:
-			(scTrackName,xmlFileName) = scutils.createInputFiles(data,
+			(scTrackName,xmlFileName,toRe) = scutils.createInputFiles(data,
 				scIds[scId],scId,mjdFileStart,secFileStart,
 				fdir,ftag,numSegments)
 			lockCmdName = os.path.join(fdir,'makeLock.sh')
@@ -123,7 +123,7 @@ if __name__ == '__main__':
 			lockId = results.stdout.decode('utf-8').split('.')
 			lockFileName = os.path.join(fdir,scId+'.lock')
 			sucess = False
-			for check in np.arange(65):
+			for check in np.arange(5):
 				if os.path.exists(lockFileName):
 					sucess = True 
 					break
@@ -147,7 +147,7 @@ if __name__ == '__main__':
 				scutils.errorReport(errname,scId,data)
 				plotname = os.path.join(fdir,scId+'-traj.png')
 				print('Plotting trajectory to',plotname)
-				kv.trajPlot(plotname,scId,data)
+				kv.trajPlot(plotname,scId,data,toRe)
 				if not keep:
 					h5parts = glob.glob(os.path.join(fdir,scId)+'.*.sc.h5')
 					for file in h5parts:

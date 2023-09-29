@@ -1,5 +1,6 @@
 {
     "ACE" : {
+        "label": "ACE",
         "Ephem" : {
             "Id" : "AC_OR_SSC",
             "Data" : "XYZ_GSE",
@@ -25,6 +26,7 @@
         }
     },
     "STEREO_A" : {
+        "label": "STEREO-A",
         "Ephem" : {
             "Id" : "STA_HELIO1DAY_POSITION",
             "Data" : ["RAD_AU", "HGI_LAT", "HGI_LON"],
@@ -50,6 +52,7 @@
         }
     },
     "STEREO_B" : {
+        "label": "STEREO-B",
         "Ephem" : {
             "Id" : "STB_HELIO1DAY_POSITION",
             "Data" : ["RAD_AU", "HGI_LAT", "HGI_LON"],
@@ -75,6 +78,7 @@
         }
     },
     "Parker_Solar_Probe" : {
+        "label": "Parker",
         "Ephem" : {
             "Id" : "PSP_COHO1HR_MERGED_MAG_PLASMA",
             "Data" : ["radialDistance", "heliographicLatitude", "heliographicLongitude"],
@@ -101,6 +105,7 @@
         }
     },
 	"Solar_Orbiter" : {
+        "label": "SO",
 		"Ephem" : {
 			"Id" : "SOLO_HELIO1DAY_POSITION",
 			"Data" : ["RAD_AU", "HGI_LAT", "HGI_LON"],
