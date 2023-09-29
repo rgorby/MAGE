@@ -63,9 +63,13 @@ import subprocess
 
 # Import supplemental modules.
 import astropy.time
+from astropy.coordinates import SkyCoord
+import astropy.units as u
 import matplotlib as mpl
 import matplotlib.pyplot as plt
 import numpy as np
+import spacepy.datamodel as dm
+from sunpy.coordinates import frames
 
 # Import project-specific modules.
 from kaipy import cdaweb_utils
@@ -144,45 +148,50 @@ def create_command_line_parser():
         formatter_class=argparse.RawTextHelpFormatter
     )
     parser.add_argument(
-        "--clobber", action="store_true", default=False,
+        "--clobber", action="store_true",
         help="Overwrite existing frame and movie files (default: %(default)s)."
     )
     parser.add_argument(
-        "--debug", action="store_true", default=False,
+        "--debug", action="store_true",
         help="Print debugging output (default: %(default)s)."
     )
     parser.add_argument(
-        "-d", "--directory", type=str, metavar="directory",
+        "--directory", "-d", type=str, metavar="directory",
         default=os.getcwd(),
         help="Directory containing data to read (default: %(default)s)"
     )
     parser.add_argument(
-        "-f", "--movie_format", type=str, metavar="movie_format",
-        default=default_movie_format,
-        help="Output movie format (default: %(default)s)"
-    )
-    parser.add_argument(
-        "-id", "--runid", type=str, metavar="runid", default=default_runid,
-        help="Run ID of data (default: %(default)s)"
-    )
-    parser.add_argument(
-        "-jslice", type=int, metavar="jSlice", default=None,
-        help="Index of j-slice for pic7 (default: Nj/2-1)"
-    )
-    parser.add_argument(
-        "-n0", "--first_step", type=int, metavar="n0",
+        "--first_step", "-n0", type=int, metavar="n0",
         default=default_first_step,
         help="First time step to plot (default: %(default)s)"
     )
     parser.add_argument(
-        "-n1", "--last_step", type=int, metavar="n1",
+        "--hgsplot", action="store_true",
+        help="Plot in the Heliographic Stonyhurst frame corresponding to the "
+             "date of the plot (default: %(default)s)."
+    )
+    parser.add_argument(
+        "--jslice", "-jslice", type=int, metavar="jSlice", default=None,
+        help="Index of j-slice for pic7 (default: Nj/2-1)"
+    )
+    parser.add_argument(
+        "--last_step", "-n1", type=int, metavar="n1",
         default=default_last_step,
         help="Last time step to plot (default: %(default)s)"
     )
     parser.add_argument(
-        "-p", "--pictype", type=str, metavar="pictype",
+        "--movie_format", type=str, metavar="movie_format",
+        default=default_movie_format,
+        help="Output movie format (default: %(default)s)"
+    )
+    parser.add_argument(
+        "--pictype", "-p", type=str, metavar="pictype",
         default=default_pictype,
         help="Code for plot type (default: %(default)s)"
+    )
+    parser.add_argument(
+        "--runid", "-id", type=str, metavar="runid", default=default_runid,
+        help="Run ID of data (default: %(default)s)"
     )
     parser.add_argument(
         "--spacecraft", type=str, metavar="spacecraft", default=None,
@@ -190,7 +199,7 @@ def create_command_line_parser():
         " (default: %(default)s)"
     )
     parser.add_argument(
-        "-v", "--verbose", action="store_true", default=False,
+        "--verbose", "-v", action="store_true", default=False,
         help="Print verbose output (default: %(default)s)."
     )
     return parser
@@ -294,7 +303,10 @@ def assemble_frames_into_gif(frame_files, args):
     # Create the movie.
     cmd = ["convert",  "-delay", "10", "-loop", "0"]
     cmd += frame_files
-    movie_file = os.path.join(movie_directory, f"{pictype}.gif")
+    if args.hgsplot:
+        movie_file = os.path.join(movie_directory, f"{pictype}-HGS.gif")
+    else:
+        movie_file = os.path.join(movie_directory, f"{pictype}.gif")
     cmd.append(movie_file)
     # NOTE: movie_file is overwritten by default.
     subprocess.run(cmd, check=True)
@@ -331,7 +343,10 @@ def assemble_frames_into_mp4(frame_files, args):
     # Create the movie.
     frame_directory = os.path.split(frame_files[0])[0]
     frame_pattern = os.path.join(frame_directory, f"{pictype}-%06d.png")
-    movie_file = os.path.join(movie_directory, f"{pictype}.mp4")
+    if args.hgsplot:
+        movie_file = os.path.join(movie_directory, f"{pictype}-HGS.mp4")
+    else:
+        movie_file = os.path.join(movie_directory, f"{pictype}.mp4")
     cmd = [
         "ffmpeg", "-r", "4", "-s", "1920x1080",
         "-i", frame_pattern,
@@ -382,6 +397,65 @@ def assemble_frames_into_movie(frame_files, args):
     return movie_file
 
 
+def GHtoHGS(mjd_gh, x_gh, y_gh, z_gh, mjd_hgs):
+    """Convert Cartesin GH coordinates to HGS.
+
+    Convert Cartesian coordinates in the gamhelio frame at time mjdc to
+    the Heliographic Sonyhurst frame at time mjd.
+
+    NOTE: The gamhelio frame at time t is related to the Heliographic
+    Stonyhurst frame at time t by the reflection of the x- and y-axes:
+
+    x_gh(t) = -x_hgs(t)
+    y_gh(t) = -y_hgs(t)
+    z_gh(t) = z_hgs(t)
+
+    Since HGS is a time-dependent frame, a time must be provided for each set
+    of coordinates.
+
+    Parameters
+    ----------
+    mjd_gh : float
+        MJD of source gamhelio frame
+    x_gh, y_gh, z_gh : np.array of float (any shape) or scalar float
+        Cartesian coordinates in GH(mjdc) frame. All three arrays x, y, z must
+        have identical shapes.
+    mjd_hgs : float
+        MJD of target HGS frame
+
+    Returns
+    -------
+    x_hgs, y_hgs, z_hgs : np.array of float (same shape as x_gh, y_gh, z_gh)
+        Cartesian coordinates converted to HGS(mjd) frame.
+
+    Raises
+    ------
+    None
+    """
+    # Load the source coordinates (originially in the GH(mjd_gh) frame) into
+    #  the equivalent HGS(mjd_gh) frame.
+    c_gh = SkyCoord(
+        -x_gh*u.Rsun, -y_gh*u.Rsun, z_gh*u.Rsun,
+        frame=frames.HeliographicStonyhurst,
+        obstime=ktools.MJD2UT(mjd_gh),
+        representation_type="cartesian"
+    )
+
+    # Create the target Heliographic Stonyhurst frame.
+    hgs_frame = frames.HeliographicStonyhurst(
+        obstime=ktools.MJD2UT(mjd_hgs)
+    )
+
+    # Convert the coordinates from GH(mjd_gh) to HGS(mjd_hgs).
+    c_hgs = c_gh.transform_to(hgs_frame)
+
+    # Extract and return the converted coordinates.
+    x_hgs = dm.dmarray(c_hgs.cartesian.x)
+    y_hgs = dm.dmarray(c_hgs.cartesian.y)
+    z_hgs = dm.dmarray(c_hgs.cartesian.z)
+    return x_hgs, y_hgs, z_hgs
+
+
 def create_pic1_movie(args):
     """Create a pic1-style gamhelio movie.
 
@@ -403,6 +477,7 @@ def create_pic1_movie(args):
     """
     # Extract arguments.
     debug = args.debug
+    hgsplot=args.hgsplot
     pictype = args.pictype
     spacecraft = args.spacecraft
     verbose = args.verbose
@@ -492,6 +567,10 @@ def create_pic1_movie(args):
         else:
             raise e
 
+    # Get the MJDc value for use in computing the gamhelio frame.
+    fname = gsph.f0
+    MJDc = scutils.read_MJDc(fname)
+
     # Create and save frame images for each step.
     first_step = args.first_step
     last_step = args.last_step
@@ -512,7 +591,8 @@ def create_pic1_movie(args):
             print(f"mjd = {mjd}")
 
         # Create the individual plots for this frame.
-        hviz.PlotEqMagV(gsph, i_step, plot_limits, ax_v, ax_cb_v)
+        hviz.PlotEqMagV(gsph, i_step, plot_limits, ax_v, ax_cb_v,
+                        hgsplot=hgsplot, MJDc=MJDc, MJD_plot=mjd)
         hviz.PlotEqD(gsph, i_step, plot_limits, ax_n, ax_cb_n)
         hviz.PlotEqTemp(gsph, i_step, plot_limits, ax_T, ax_cb_T)
         hviz.PlotEqBr(gsph, i_step, plot_limits, ax_Br, ax_cb_Br)
@@ -532,7 +612,11 @@ def create_pic1_movie(args):
                 t_sc = mjd
                 x_sc = np.interp(t_sc, sc_t[sc_id], sc_x[sc_id])
                 y_sc = np.interp(t_sc, sc_t[sc_id], sc_y[sc_id])
-                # z_sc = np.interp(t_sc, sc_t[sc_id], sc_z[sc_id])
+                z_sc = np.interp(t_sc, sc_t[sc_id], sc_z[sc_id])
+
+                # If needed, convert the position to HGS(mjd).
+                if hgsplot:
+                    x_sc, y_sc, z_sc = GHtoHGS(MJDc, x_sc, y_sc, z_sc, mjd)
 
                 # Plot the spacecraft position as a colored circle with black
                 # outline and a label.
