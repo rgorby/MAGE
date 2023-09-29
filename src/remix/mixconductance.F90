@@ -472,7 +472,7 @@ module mixconductance
       call conductance_IM_GTYPE(G,St)
 
       ! derive spatially varying beta using RCM precipitation and thermal fluxes. Need IM_GTYPE.
-      call conductance_alpha_beta(conductance,G,St)
+      call conductance_beta(conductance,G,St)
 
       ! Derive mono using the linearized FL relation.
       call conductance_linmono(conductance,G,St)
@@ -583,7 +583,7 @@ module mixconductance
             conductance%phi0(i,j) = phi0
 
             ! Note JF0 may go inf where phi0/Pe_MHD/Ne_MHD is zero.
-            J2eF0 = 1.D-4*signOfJ*(St%Vars(i,j,FAC)*1.D-6)/(eCharge*phi0)
+            J2eF0 = signOfJ*(St%Vars(i,j,FAC)*1.0D-6)/(eCharge*phi0*1.0D4)
             ! Linearize the Fridman-Lemaire relation: 
             ! eV = kB*Te*(RM-1)*ln((RM-1)/(RM-J/e/F0)) when 1<=J/e/F0<=RM.
             ! eV ~ kB*Te*(J/e/F0-1) when RM>>J/e/F0
@@ -594,11 +594,12 @@ module mixconductance
                St%Vars(i,j,Z_NFLUX) = phi0*eV2kT
                St%Vars(i,j,Z_EAVG) = kT*(eV2kT+1.0/eV2kT)
             else
+               ! When there is no acceleration, MHD flux represents the diffuse precipitation.
                conductance%deltaE(i,j) = 0.0
                St%Vars(i,j,Z_NFLUX) = phi0
                St%Vars(i,j,Z_EAVG) = kT 
             endif
-            St%Vars(i,j,DELTAE) = conductance%deltaE(i,j)
+            St%Vars(i,j,DELTAE)   = conductance%deltaE(i,j)
             St%Vars(i,j,AVG_ENG)  = max(St%Vars(i,j,Z_EAVG),eTINY)   ! [keV]
             St%Vars(i,j,NUM_FLUX) = St%Vars(i,j,Z_NFLUX)  ! [#/cm^2/s]
          enddo ! i
@@ -828,35 +829,36 @@ module mixconductance
       
     end subroutine conductance_IM_GTYPE
 
-    subroutine conductance_alpha_beta(conductance,G,St)
+    subroutine conductance_beta(conductance,G,St)
+      ! Use RCM precipitation and source population to derive the loss cone rate beta.
+      ! Assume beta is one in the polar cap and smooth across RCM boundary.
       type(mixConductance_T), intent(inout) :: conductance
       type(mixGrid_T), intent(in) :: G
       type(mixState_T), intent(inout) :: St
-      real(rp), dimension(G%Np,G%Nt) :: phi0_rcmz
+      real(rp) :: phi0_rcm
       integer :: i,j
 
-      ! In MHD, use the same alpha/beta with RCM.
-      ! Calculate beta from RCM fluxes.
-      ! Default values are from xml in conductance_init.
-      ! It's still necessary to initialize alpha/beta_RCM here because they may be using an old value at some points
-      ! if IM_EAVG or IM_EPRE or EM_EDEN no longer satisfies the if criteria. Better to use default background beta.
-      alpha_RCM = 1.0/(tiote_RCM+1.0)
-      beta_RCM = conductance%beta
-      phi0_rcmz = sqrt(St%Vars(:,:,IM_EPRE)*St%Vars(:,:,IM_EDEN)/(Me_cgs*1e-3*2*pi))*1.0e-4 ! sqrt([Pa]*[#/m^3]/[kg]) = sqrt([#/m^4/s^2]) = 1e-4*[#/cm^2/s]
+      St%Vars(:,:,IM_BETA) = 1.0
       !$OMP PARALLEL DO default(shared) &
-      !$OMP private(i,j)
+      !$OMP private(i,j,phi0_rcm)
       do j=1,G%Nt
          do i=1,G%Np
-            if(phi0_rcmz(i,j)>TINY) then
-               beta_RCM(i,j) = St%Vars(i,j,IM_ENFLX)/phi0_rcmz(i,j)
+            ! Total RCM thermal flux includes the trapped and precipitated.
+            ! 1.0e-4 is to convert to [#/cm^2/s]
+            ! sqrt([Pa]*[#/m^3]/[kg]) = sqrt([#/m^4/s^2]) = 1e-4*[#/cm^2/s]
+            phi0_rcm = sqrt(St%Vars(i,j,IM_EPRE)*St%Vars(i,j,IM_EDEN)/(Me_cgs*1e-3*2*pi))*1.0e-4 + St%Vars(i,j,IM_ENFLX)
+            if(phi0_rcm>TINY) then
+               St%Vars(i,j,IM_BETA) = St%Vars(i,j,IM_ENFLX)/phi0_rcm
             elseif(St%Vars(i,j,IM_GTYPE) > 0.5) then
-               beta_RCM(i,j) = 0.0
+               ! In the low lat, if there is no meaningful RCM precipitation,
+               ! set beta=0 to freeze other precipitation mechanism.
+               St%Vars(i,j,IM_BETA) = 0.0
             endif
          enddo
       enddo
-      St%Vars(:,:,IM_BETA) = min(beta_RCM,1.0)
-
-    end subroutine conductance_alpha_beta
+      ! IM_BETA is for output. beta_RCM is used in calculation.
+      beta_RCM = min(St%Vars(:,:,IM_BETA), 1.0)
+    end subroutine conductance_beta
 
     !Enforce pole condition that all values at the same point are equal
     subroutine FixPole(Gr,Q)
