@@ -6,7 +6,7 @@ cdflib
 configparser
 dataclasses_json
 h5py
-hdf5plugin
+hdf5plugin[hdf5plugin]
 jinja2
 matplotlib
 netCDF4

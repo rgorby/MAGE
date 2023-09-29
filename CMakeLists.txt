@@ -34,7 +34,7 @@ option(ENABLE_MPI "Enable MPI parallelization" OFF)
 option(ENABLE_MKL "Enable Intel MKL usage" OFF)
 option(ENABLE_CODECOV "Enable Code Coverage tracking" OFF)
 option(ALLOW_INVALID_COMPILERS "Allow Invalid Compiler Versions" OFF)
-option(ENABLE_COMPRESS "Enable Dataset Compression" ON)
+option(ENABLE_COMPRESS "Enable Dataset Compression" OFF)
 
 #Set Compression Type
 set(COMPRESS_METHOD "SZIP" CACHE STRING "Set Compression Method (default SZIP) 
