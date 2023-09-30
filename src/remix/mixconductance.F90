@@ -472,7 +472,7 @@ module mixconductance
       call conductance_IM_GTYPE(G,St)
 
       ! derive spatially varying beta using RCM precipitation and thermal fluxes. Need IM_GTYPE.
-      call conductance_beta(conductance,G,St)
+      call conductance_beta(G,St)
 
       ! Derive mono using the linearized FL relation.
       call conductance_linmono(conductance,G,St)
@@ -774,71 +774,42 @@ module mixconductance
     subroutine conductance_IM_GTYPE(G,St)
       type(mixGrid_T), intent(in) :: G
       type(mixState_T), intent(in) :: St
-      real(rp), dimension(3,3) :: A33
-      logical, dimension(3,3) :: isG33 !isG33 = (A3>0.0 .and. A3<1.0)
-      integer :: i,j,it,MaxIter,im1,ip1,jm1,jp1
-      real(rp) :: mad,Ttmp
-      real(rp) :: temp(G%Np,G%Nt)
+      logical :: isAnc(G%Np,G%Nt)
+      integer :: i,j
 
-      MaxIter = 15
-      
-      ! Iterative diffusion algorithm to smooth out IM_GTYPE: 0/1 are boundary cells. Evolve with nine-cell mean. 
-      ! Otherwise it only has three values, 0, 0.5, and 1.0, 
-      ! which causes discontinuities in the merged precipitation.
+      !$OMP PARALLEL DO default(shared) &
+      !$OMP private(i,j)
+      do j=1,G%Nt ! use open BC for lat.
+        do i=1,G%Np ! use periodic BC for lon.
+          if(St%Vars(i,j,IM_GTYPE)>0.01 .and. St%Vars(i,j,IM_GTYPE)<0.99) then
+            isAnc(i,j) = .false.
+          else
+            isAnc(i,j) = .true.
+          endif
+        enddo ! i
+      enddo ! j
       gtype_RCM = St%Vars(:,:,IM_GTYPE) ! supposed to be between 0 and 1.
-
-      call FixPole(G,gtype_RCM)
-
-      do it=1,MaxIter
-         mad = 0.D0 ! max abs difference from last iteration.
-         temp = gtype_RCM
-
-         !$OMP PARALLEL DO default(shared) &
-         !$OMP private(i,j,jm1,jp1,im1,ip1,Ttmp) &
-         !$OMP reduction(max:mad)
-         do j=1,G%Nt ! use open BC for lat.
-            do i=1,G%Np ! use periodic BC for lon.
-
-               jm1 = j-1
-               jp1 = j+1
-               if (j == 1)    jm1 = 1
-               if (j == G%Nt) jp1 = G%Nt
-
-               im1 = i-1
-               ip1 = i+1
-               if (i == 1)    im1 = G%Np
-               if (i == G%Np) ip1 = 1
-
-               if(St%Vars(i,j,IM_GTYPE)>0.01 .and. St%Vars(i,j,IM_GTYPE)<0.99) then
-               ! Use 0.01/0.99 as the boundary for this numerical diffusion because 
-               ! the interpolation from RCM to REMIX would slightly modify the 0/1 boundary.
-                  Ttmp =(temp(im1,jm1)+temp(im1,j)+temp(im1,jp1) &
-                       + temp(i  ,jm1)+temp(i  ,j)+temp(i  ,jp1) &
-                       + temp(ip1,jm1)+temp(ip1,j)+temp(ip1,jp1))/9.D0
-                  mad  = max(abs(gtype_RCM(i,j)-Ttmp),mad)
-                  gtype_RCM(i,j) = Ttmp
-               endif
-            enddo
-         enddo
-         call FixPole(G,gtype_RCM)
-         if(mad<0.025) exit
-      enddo
+      call conductance_smooth(G,gtype_RCM,isAnc)
 
       gtype_RCM = min(gtype_RCM,1.0)
       gtype_RCM = max(gtype_RCM,0.0)
-      
     end subroutine conductance_IM_GTYPE
 
-    subroutine conductance_beta(conductance,G,St)
+    subroutine conductance_beta(G,St)
       ! Use RCM precipitation and source population to derive the loss cone rate beta.
       ! Assume beta is one in the polar cap and smooth across RCM boundary.
-      type(mixConductance_T), intent(inout) :: conductance
       type(mixGrid_T), intent(in) :: G
       type(mixState_T), intent(inout) :: St
+      logical :: isAnc(G%Np,G%Nt)
+      real(rp) :: temp(G%Np,G%Nt)
       real(rp) :: phi0_rcm
       integer :: i,j
 
       St%Vars(:,:,IM_BETA) = 1.0
+      isAnc = .false.
+      ! set the first circle around pole as anchore.
+      isAnc(:,1) = .true.
+
       !$OMP PARALLEL DO default(shared) &
       !$OMP private(i,j,phi0_rcm)
       do j=1,G%Nt
@@ -849,16 +820,71 @@ module mixconductance
             phi0_rcm = sqrt(St%Vars(i,j,IM_EPRE)*St%Vars(i,j,IM_EDEN)/(Me_cgs*1e-3*2*pi))*1.0e-4 + St%Vars(i,j,IM_ENFLX)
             if(phi0_rcm>TINY) then
                St%Vars(i,j,IM_BETA) = St%Vars(i,j,IM_ENFLX)/phi0_rcm
+               isAnc(i,j) = .true. ! set points with valid rcm beta as anchore.
             elseif(St%Vars(i,j,IM_GTYPE) > 0.5) then
                ! In the low lat, if there is no meaningful RCM precipitation,
                ! set beta=0 to freeze other precipitation mechanism.
+               ! also make it anchor points to avoid smoothing.
                St%Vars(i,j,IM_BETA) = 0.0
+               isAnc(i,j) = .true.
             endif
          enddo
       enddo
+      temp = St%Vars(:,:,IM_BETA) ! supposed to be between 0 and 1.
+      call conductance_smooth(G,temp,isAnc)
+      St%Vars(:,:,IM_BETA) = temp
+
       ! IM_BETA is for output. beta_RCM is used in calculation.
       beta_RCM = min(St%Vars(:,:,IM_BETA), 1.0)
     end subroutine conductance_beta
+
+    subroutine conductance_smooth(Gr,Q,isAnchor)
+      ! Do smoothing window on ReMIX grid quantity
+      ! Skip certain points
+      type(mixGrid_T), intent(in) :: Gr
+      real(rp), intent(inout) :: Q(Gr%Np,Gr%Nt)
+      logical, intent(in) :: isAnchor(Gr%Np,Gr%Nt)
+      real(rp) :: temp(Gr%Np,Gr%Nt)
+      real(rp) :: thres,mad,Ttmp
+      integer :: i,j,it,im1,ip1,jm1,jp1,MaxIter
+
+      thres = 0.025
+      MaxIter = 15
+      call FixPole(Gr,Q)
+
+      do it=1,MaxIter
+        mad = 0.D0 ! max abs difference from last iteration.
+        temp = Q
+
+        !$OMP PARALLEL DO default(shared) &
+        !$OMP private(i,j,jm1,jp1,im1,ip1,Ttmp) &
+        !$OMP reduction(max:mad)
+        do j=1,Gr%Nt ! use open BC for lat.
+          do i=1,Gr%Np ! use periodic BC for lon.
+            ! Do not smooth anchor points.
+            if(.not. isAnchor(i,j)) then
+              jm1 = j-1
+              jp1 = j+1
+              if (j == 1)    jm1 = 1
+              if (j == Gr%Nt) jp1 = Gr%Nt
+
+              im1 = i-1
+              ip1 = i+1
+              if (i == 1)    im1 = Gr%Np
+              if (i == Gr%Np) ip1 = 1
+
+              Ttmp =(temp(im1,jm1)+temp(im1,j)+temp(im1,jp1) &
+                   + temp(i  ,jm1)+temp(i  ,j)+temp(i  ,jp1) &
+                   + temp(ip1,jm1)+temp(ip1,j)+temp(ip1,jp1))/9.D0
+              mad  = max(abs(Q(i,j)-Ttmp),mad)
+              Q(i,j) = Ttmp
+            endif
+          enddo
+        enddo
+        call FixPole(Gr,Q)
+        if(mad<thres) exit
+      enddo
+    end subroutine conductance_smooth
 
     !Enforce pole condition that all values at the same point are equal
     subroutine FixPole(Gr,Q)
