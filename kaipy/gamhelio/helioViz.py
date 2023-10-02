@@ -2007,9 +2007,50 @@ def PlotEqBz(
     return Bz
 
 
+def find_radial_slice(gsph, radius):
+    """Find the index of the radial slice containing a radius.
+
+    Find the index of the radial slice containing a radius. This is the index
+    of the radial grid cell edge just less than the given radius.
+
+    This routine should work for LFM grids of any resolution.
+
+    Parameters
+    ----------
+    gsph : kaipy.gamhelio.heliosphere.GamsphPipe
+        Pipe to simulation results
+    radius : float
+        Radius in Rsun
+
+    Returns
+    -------
+    idx : int
+        Index of radial slice containing radius.
+
+    Raises
+    ------
+    None
+    """
+    # Starting with the last radial layer, work inward until the first layer
+    # is found with grid radius less than the specified radius.
+    idx = -1
+    r = np.sqrt(gsph.X[idx][0][0]**2 + gsph.Y[idx][0][0]**2 +
+                gsph.Z[idx][0][0]**2)
+    while r > radius:
+        idx -= 1
+        r = np.sqrt(gsph.X[idx][0][0]**2 + gsph.Y[idx][0][0]**2 +
+                    gsph.Z[idx][0][0]**2)
+
+    # Convert the index-from-end to an index-from-start.
+    idx += gsph.Ni + 1
+
+    # Return the index of the slice containing the radius.
+    return idx
+
+
 def PlotiSlMagV(
         gsph, nStp, xyBds, Ax, AxCB=None, doClear=True, doDeco=True, idx=-1,
-        hgsplot=False, MJDc=None, MJD_plot=None
+        idx_is_radius=False, hgsplot=False, MJDc=None, MJD_plot=None
 ):
     """Plot solar wind speed at a specified radial slice.
 
@@ -2037,8 +2078,10 @@ def PlotiSlMagV(
         If True, clear the plot Axes before further plotting.
     doDeco : bool
         If True, add axis labels to the plot.
-    idx : int
-        Index of radial slice to plot.
+    idx : int OR float
+        Index of radial slice to plot, OR radius in Rsun.
+    idx_is_radius : bool
+        If True, interpret idx as a radius in Rsun.
     hgsplot : bool
         If True, plot in HGS(MJD_plot) frame
     MJDc : float
@@ -2068,21 +2111,55 @@ def PlotiSlMagV(
         Ax.clear()
 
     # Fetch the data.
-    V = gsph.iSliceMagV(nStp, idx=idx)
+    if idx_is_radius:
+        radius = idx
 
-    # Fetch the latitude and longitude of the grid cells in the radial slice.
-    # This is in the GH(MJDc) frame.
-    lat, lon = gsph.iSliceGrid(idx=idx)
+        # Determine the index of the radial slice which is just less than the
+        # specified radius, and compute the next higher, to bracket the
+        # radius.
+        i1 = find_radial_slice(gsph, radius)
+        i2 = i1 + 1
+
+        # Compute the bracketing radii.
+        r1 = np.sqrt(gsph.X[i1][0][0]**2 + gsph.Y[i1][0][0]**2 +
+                     gsph.Z[i1][0][0]**2)
+        r2 = np.sqrt(gsph.X[i2][0][0]**2 + gsph.Y[i2][0][0]**2 +
+                     gsph.Z[i2][0][0]**2)
+
+        # Compute the interpolation slope for each grid point in the layer.
+        m = (radius - r1)/(r2 - r1)
+
+        # Fetch the values from the bracketing slices, and interpolate to the
+        # specified radius.
+        V1 = gsph.iSliceMagV(nStp, idx=i1)
+        V2 = gsph.iSliceMagV(nStp, idx=i2)
+        V = (1 - m)*V1 + m*V2
+
+        # Fetch the latitude and longitude of the grid cells in the radial
+        # slice. This is in the GH(MJDc) frame.
+        lat, lon = gsph.iSliceGrid(idx=i1)
+
+    else:
+
+        # Fetch the values from the specified layer.
+        V = gsph.iSliceMagV(nStp, idx=idx)
+
+        # Fetch the latitude and longitude of the grid cells in the radial
+        # slice. This is in the GH(MJDc) frame.
+        lat, lon = gsph.iSliceGrid(idx=idx)
 
     # Plot the data.
     # If the HGS frame was requested, map the grid corner coordinates from the
     # GH(MJDc) frame to the HGS(MJD_plot) frame.
     if hgsplot:
 
-        # Compute the radius of this i-slice from the coordinates of the first
-        # point in the slice.
-        rg = np.sqrt(gsph.X[idx, 0, 0]**2 + gsph.Y[idx, 0, 0]**2 +
-                     gsph.Z[idx, 0, 0]**2)
+        # Use the specified radius, or compute the radius of this i-slice from
+        # the coordinates of the first point in the slice.
+        if idx_is_radius:
+            rg = idx
+        else:
+            rg = np.sqrt(gsph.X[idx, 0, 0]**2 + gsph.Y[idx, 0, 0]**2 +
+                         gsph.Z[idx, 0, 0]**2)
 
         # Convert the lat/lon at the radial distance to Cartesian coordinates.
         lat_rad = np.radians(lat)
@@ -2152,7 +2229,7 @@ def PlotiSlMagV(
 
 def PlotiSlD(
         gsph, nStp, xyBds, Ax, AxCB=None, doClear=True, doDeco=True, idx=-1,
-        hgsplot=False, MJDc=None, MJD_plot=None
+        idx_is_radius=False, hgsplot=False, MJDc=None, MJD_plot=None
 ):
     """Plot solar wind number density at a specified radial slice.
 
@@ -2180,8 +2257,10 @@ def PlotiSlD(
         If True, clear the plot Axes before further plotting.
     doDeco : bool
         If True, add axis labels to the plot.
-    idx : int
-        Index of radial slice to plot.
+    idx : int OR float
+        Index of radial slice to plot, OR radius in Rsun.
+    idx_is_radius : bool
+        If True, interpret idx as a radius in Rsun.
     hgsplot : bool
         If True, plot in HGS(MJD_plot) frame
     MJDc : float
@@ -2211,21 +2290,55 @@ def PlotiSlD(
         Ax.clear()
 
     # Fetch the data.
-    D = gsph.iSliceD(nStp, idx=idx)
+    if idx_is_radius:
+        radius = idx
 
-    # Fetch the latitude and longitude of the grid cells in the radial slice.
-    # This is in the GH(MJDc) frame.
-    lat, lon = gsph.iSliceGrid(idx=idx)
+        # Determine the index of the radial slice which is just less than the
+        # specified radius, and compute the next higher, to bracket the
+        # radius.
+        i1 = find_radial_slice(gsph, radius)
+        i2 = i1 + 1
+
+        # Compute the bracketing radii.
+        r1 = np.sqrt(gsph.X[i1][0][0]**2 + gsph.Y[i1][0][0]**2 +
+                     gsph.Z[i1][0][0]**2)
+        r2 = np.sqrt(gsph.X[i2][0][0]**2 + gsph.Y[i2][0][0]**2 +
+                     gsph.Z[i2][0][0]**2)
+
+        # Compute the interpolation slope for each grid point in the layer.
+        m = (radius - r1)/(r2 - r1)
+
+        # Fetch the values from the bracketing slices, and interpolate to the
+        # specified radius.
+        D1 = gsph.iSliceD(nStp, idx=i1)
+        D2 = gsph.iSliceD(nStp, idx=i2)
+        D = (1 - m)*D1 + m*D2
+
+        # Fetch the latitude and longitude of the grid cells in the radial
+        # slice. This is in the GH(MJDc) frame.
+        lat, lon = gsph.iSliceGrid(idx=i1)
+
+    else:
+
+        # Fetch the values from the specified layer.
+        D = gsph.iSliceD(nStp, idx=idx)
+
+        # Fetch the latitude and longitude of the grid cells in the radial
+        # slice. This is in the GH(MJDc) frame.
+        lat, lon = gsph.iSliceGrid(idx=idx)
 
     # Plot the data.
     # If the HGS frame was requested, map the grid corner coordinates from the
     # GH(MJDc) frame to the HGS(MJD_plot) frame.
     if hgsplot:
 
-        # Compute the radius of this i-slice from the coordinates of the first
-        # point in the slice.
-        rg = np.sqrt(gsph.X[idx, 0, 0]**2 + gsph.Y[idx, 0, 0]**2 +
-                     gsph.Z[idx, 0, 0]**2)
+        # Use the specified radius, or compute the radius of this i-slice from
+        # the coordinates of the first point in the slice.
+        if idx_is_radius:
+            rg = idx
+        else:
+            rg = np.sqrt(gsph.X[idx, 0, 0]**2 + gsph.Y[idx, 0, 0]**2 +
+                         gsph.Z[idx, 0, 0]**2)
 
         # Convert the lat/lon at the radial distance to Cartesian coordinates.
         lat_rad = np.radians(lat)
@@ -2297,7 +2410,7 @@ def PlotiSlD(
 
 def PlotiSlBr(
         gsph, nStp, xyBds, Ax, AxCB=None, doClear=True, doDeco=True, idx=-1,
-        hgsplot=False, MJDc=None, MJD_plot=None
+        idx_is_radius=False, hgsplot=False, MJDc=None, MJD_plot=None
 ):
     """Plot solar wind radial magnetic field and current sheet at a specified radial slice.
 
@@ -2320,8 +2433,10 @@ def PlotiSlBr(
         If True, clear the plot Axes before further plotting.
     doDeco : bool
         If True, add axis labels to the plot.
-    idx : int
-        Index of radial slice to plot.
+    idx : int OR float
+        Index of radial slice to plot, OR radius in Rsun.
+    idx_is_radius : bool
+        If True, interpret idx as a radius in Rsun.
     hgsplot : bool
         If True, plot in HGS(MJD_plot) frame
     MJDc : float
@@ -2351,11 +2466,42 @@ def PlotiSlBr(
         Ax.clear()
 
     # Fetch the data.
-    Br = gsph.iSliceBr(nStp, idx=idx)
+    if idx_is_radius:
+        radius = idx
 
-    # Fetch the latitude and longitude of the grid cells in the radial slice.
-    # This is in the GH(MJDc) frame.
-    lat, lon = gsph.iSliceGrid(idx=idx)
+        # Determine the index of the radial slice which is just less than the
+        # specified radius, and compute the next higher, to bracket the
+        # radius.
+        i1 = find_radial_slice(gsph, radius)
+        i2 = i1 + 1
+
+        # Compute the bracketing radii.
+        r1 = np.sqrt(gsph.X[i1][0][0]**2 + gsph.Y[i1][0][0]**2 +
+                     gsph.Z[i1][0][0]**2)
+        r2 = np.sqrt(gsph.X[i2][0][0]**2 + gsph.Y[i2][0][0]**2 +
+                     gsph.Z[i2][0][0]**2)
+
+        # Compute the interpolation slope for each grid point in the layer.
+        m = (radius - r1)/(r2 - r1)
+
+        # Fetch the values from the bracketing slices, and interpolate to the
+        # specified radius.
+        Br1 = gsph.iSliceBr(nStp, idx=i1)
+        Br2 = gsph.iSliceBr(nStp, idx=i2)
+        Br = (1 - m)*Br1 + m*Br2
+
+        # Fetch the latitude and longitude of the grid cells in the radial
+        # slice. This is in the GH(MJDc) frame.
+        lat, lon = gsph.iSliceGrid(idx=i1)
+
+    else:
+
+        # Fetch the values from the specified layer.
+        Br = gsph.iSliceBr(nStp, idx=idx)
+
+        # Fetch the latitude and longitude of the grid cells in the radial
+        # slice. This is in the GH(MJDc) frame.
+        lat, lon = gsph.iSliceGrid(idx=idx)
 
     # Compute cell-centered lon lat coordinates for contour plot.
     lonc = 0.25*(lon[:-1, :-1] + lon[:-1, 1:] + lon[1:, :-1] + lon[1:, 1:])
@@ -2366,10 +2512,13 @@ def PlotiSlBr(
     # GH(MJDc) frame to the HGS(MJD_plot) frame.
     if hgsplot:
 
-        # Compute the radius of this i-slice from the coordinates of the first
-        # point in the slice.
-        rg = np.sqrt(gsph.X[idx, 0, 0]**2 + gsph.Y[idx, 0, 0]**2 +
-                     gsph.Z[idx, 0, 0]**2)
+        # Use the specified radius, or compute the radius of this i-slice from
+        # the coordinates of the first point in the slice.
+        if idx_is_radius:
+            rg = idx
+        else:
+            rg = np.sqrt(gsph.X[idx, 0, 0]**2 + gsph.Y[idx, 0, 0]**2 +
+                         gsph.Z[idx, 0, 0]**2)
 
         # Convert the lat/lon at the radial distance to Cartesian coordinates.
         lat_rad = np.radians(lat)
@@ -2528,7 +2677,7 @@ def PlotiSlBrRotatingFrame(gsph,nStp,xyBds,Ax,AxCB=None,doClear=True,doDeco=True
 
 def PlotiSlTemp(
         gsph, nStp, xyBds, Ax, AxCB=None, doClear=True, doDeco=True, idx=-1,
-        hgsplot=False, MJDc=None, MJD_plot=None
+        idx_is_radius=False, hgsplot=False, MJDc=None, MJD_plot=None
 ):
     """Plot solar wind temperature at a specified radial slice.
 
@@ -2550,8 +2699,10 @@ def PlotiSlTemp(
         If True, clear the plot Axes before further plotting.
     doDeco : bool
         If True, add axis labels to the plot.
-    idx : int
-        Index of radial slice to plot.
+    idx : int OR float
+        Index of radial slice to plot, OR radius in Rsun.
+    idx_is_radius : bool
+        If True, interpret idx as a radius in Rsun.
     hgsplot : bool
         If True, plot in HGS(MJD_plot) frame
     MJDc : float
@@ -2581,22 +2732,55 @@ def PlotiSlTemp(
         Ax.clear()
 
     # Fetch the data.
-    Temp = gsph.iSliceT(nStp, idx=idx)
+    if idx_is_radius:
+        radius = idx
 
-    # Fetch the latitude and longitude of the grid cells in the radial slice.
-    # This is in the GH(MJDc) frame.
-    lat, lon = gsph.iSliceGrid(idx=idx)
+        # Determine the index of the radial slice which is just less than the
+        # specified radius, and compute the next higher, to bracket the
+        # radius.
+        i1 = find_radial_slice(gsph, radius)
+        i2 = i1 + 1
 
+        # Compute the bracketing radii.
+        r1 = np.sqrt(gsph.X[i1][0][0]**2 + gsph.Y[i1][0][0]**2 +
+                     gsph.Z[i1][0][0]**2)
+        r2 = np.sqrt(gsph.X[i2][0][0]**2 + gsph.Y[i2][0][0]**2 +
+                     gsph.Z[i2][0][0]**2)
+
+        # Compute the interpolation slope for each grid point in the layer.
+        m = (radius - r1)/(r2 - r1)
+
+        # Fetch the values from the bracketing slices, and interpolate to the
+        # specified radius.
+        Temp1 = gsph.iSliceT(nStp, idx=i1)
+        Temp2 = gsph.iSliceT(nStp, idx=i2)
+        Temp = (1 - m)*Temp1 + m*Temp2
+
+        # Fetch the latitude and longitude of the grid cells in the radial
+        # slice. This is in the GH(MJDc) frame.
+        lat, lon = gsph.iSliceGrid(idx=i1)
+
+    else:
+
+        # Fetch the values from the specified layer.
+        Temp = gsph.iSliceT(nStp, idx=idx)
+
+        # Fetch the latitude and longitude of the grid cells in the radial
+        # slice. This is in the GH(MJDc) frame.
+        lat, lon = gsph.iSliceGrid(idx=idx)
 
     # Plot the data.
     # If the HGS frame was requested, map the grid corner coordinates from the
     # GH(MJDc) frame to the HGS(MJD_plot) frame.
     if hgsplot:
 
-        # Compute the radius of this i-slice from the coordinates of the first
-        # point in the slice.
-        rg = np.sqrt(gsph.X[idx, 0, 0]**2 + gsph.Y[idx, 0, 0]**2 +
-                     gsph.Z[idx, 0, 0]**2)
+        # Use the specified radius, or compute the radius of this i-slice from
+        # the coordinates of the first point in the slice.
+        if idx_is_radius:
+            rg = idx
+        else:
+            rg = np.sqrt(gsph.X[idx, 0, 0]**2 + gsph.Y[idx, 0, 0]**2 +
+                         gsph.Z[idx, 0, 0]**2)
 
         # Convert the lat/lon at the radial distance to Cartesian coordinates.
         lat_rad = np.radians(lat)

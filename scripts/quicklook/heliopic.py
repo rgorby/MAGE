@@ -468,18 +468,23 @@ def main():
         elif pic == "pic3":
             # Lat/lon plot at 1 AU (the outer edge of the gamhelio grid), in
             # the modified HGS frame rotating with the Sun.
-            hviz.PlotiSlMagV(gsph, nStp, xyBds, AxL0, AxC1_0,
+            AU_RSUN = 215.0
+            radius = AU_RSUN
+            hviz.PlotiSlMagV(gsph, nStp, xyBds, AxL0, AxC1_0, idx=radius,
+                             idx_is_radius=True,
                              hgsplot=hgsplot, MJDc=MJDc, MJD_plot=mjd)
-            hviz.PlotiSlD(gsph, nStp, xyBds, AxR0, AxC2_0,
+            hviz.PlotiSlD(gsph, nStp, xyBds, AxR0, AxC2_0, idx=radius,
+                          idx_is_radius=True,
                           hgsplot=hgsplot, MJDc=MJDc, MJD_plot=mjd)
-            hviz.PlotiSlTemp(gsph, nStp, xyBds, AxL1, AxC1_1,
+            hviz.PlotiSlTemp(gsph, nStp, xyBds, AxL1, AxC1_1, idx=radius,
+                             idx_is_radius=True,
                              hgsplot=hgsplot, MJDc=MJDc, MJD_plot=mjd)
             hviz.PlotiSlBr(gsph, nStp, xyBds, AxR1, AxC2_1,
                            hgsplot=hgsplot, MJDc=MJDc, MJD_plot=mjd)
             if hgsplot:
-                fig.suptitle(f"HGS frame at MJD = {ktools.MJD2UT(mjd)}")
+                fig.suptitle(f"1 AU HGS frame at MJD = {ktools.MJD2UT(mjd)}")
             else:
-                fig.suptitle(f"GH frame at MJD = {ktools.MJD2UT(mjd)}")
+                fig.suptitle(f"1 AU GH frame at MJD = {ktools.MJD2UT(mjd)}")
         elif pic == "pic4":
             # Plot at 1 AU in frame rotating with Sun.
             hviz.PlotiSlBrRotatingFrame(gsph, nStp, xyBds, Ax, AxC)
