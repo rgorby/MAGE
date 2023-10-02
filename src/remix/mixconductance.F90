@@ -814,10 +814,10 @@ module mixconductance
       !$OMP private(i,j,phi0_rcm)
       do j=1,G%Nt
          do i=1,G%Np
-            ! Total RCM thermal flux includes the trapped and precipitated.
+            ! Total RCM thermal flux includes the trapped and precipitated in both NH and SH.
             ! 1.0e-4 is to convert to [#/cm^2/s]
             ! sqrt([Pa]*[#/m^3]/[kg]) = sqrt([#/m^4/s^2]) = 1e-4*[#/cm^2/s]
-            phi0_rcm = sqrt(St%Vars(i,j,IM_EPRE)*St%Vars(i,j,IM_EDEN)/(Me_cgs*1e-3*2*pi))*1.0e-4 + St%Vars(i,j,IM_ENFLX)
+            phi0_rcm = sqrt(St%Vars(i,j,IM_EPRE)*St%Vars(i,j,IM_EDEN)/(Me_cgs*1e-3*2*pi))*1.0e-4 + St%Vars(i,j,IM_ENFLX)*2.0
             if(phi0_rcm>TINY) then
                St%Vars(i,j,IM_BETA) = St%Vars(i,j,IM_ENFLX)/phi0_rcm
                isAnc(i,j) = .true. ! set points with valid rcm beta as anchore.
