@@ -9,6 +9,8 @@ module mixconductance
   use auroralhelper
   use kai2geo
   use rcmdefs, ONLY : tiote_RCM
+  use rice_housekeeping_module, ONLY : HighLatBD
+  use Rcm_mod_subs, ONLY: dtr ! pi/180.0_rprec
   
   implicit none
 
@@ -776,15 +778,25 @@ module mixconductance
       type(mixState_T), intent(in) :: St
       logical :: isAnc(G%Np,G%Nt)
       integer :: i,j
+      real(rp) :: crit
+
+      ! critical colat to setup precipitation merging zone.
+      crit = (90.D0-HighLatBD+5.D0)*dtr
 
       !$OMP PARALLEL DO default(shared) &
       !$OMP private(i,j)
-      do j=1,G%Nt ! use open BC for lat.
-        do i=1,G%Np ! use periodic BC for lon.
-          if(St%Vars(i,j,IM_GTYPE)>0.01 .and. St%Vars(i,j,IM_GTYPE)<0.99) then
-            isAnc(i,j) = .false.
-          else
+      do j=1,G%Nt
+        do i=1,G%Np
+          if(St%Vars(i,j,IM_GTYPE)<=0.01) then
+            ! Set grids outside RCM as anchors.
             isAnc(i,j) = .true.
+          elseif( St%Vars(i,j,IM_GTYPE)>=0.99 .and. G%t(i,j)>crit ) then
+            ! Set closed field lines that are >5 deg lower than rcm high lat boundary as anchors.
+            ! G%t is colat in radians.
+            isAnc(i,j) = .true.
+          else
+            ! In between is the buffer zone for precipitation merging.
+            isAnc(i,j) = .false.
           endif
         enddo ! i
       enddo ! j
@@ -840,7 +852,7 @@ module mixconductance
 
     subroutine conductance_smooth(Gr,Q,isAnchor)
       ! Do smoothing window on ReMIX grid quantity
-      ! Skip certain points
+      ! Skip anchor points
       type(mixGrid_T), intent(in) :: Gr
       real(rp), intent(inout) :: Q(Gr%Np,Gr%Nt)
       logical, intent(in) :: isAnchor(Gr%Np,Gr%Nt)
@@ -865,12 +877,12 @@ module mixconductance
             if(.not. isAnchor(i,j)) then
               jm1 = j-1
               jp1 = j+1
-              if (j == 1)    jm1 = 1
+              if (j == 1)     jm1 = 1
               if (j == Gr%Nt) jp1 = Gr%Nt
 
               im1 = i-1
               ip1 = i+1
-              if (i == 1)    im1 = Gr%Np
+              if (i == 1)     im1 = Gr%Np
               if (i == Gr%Np) ip1 = 1
 
               Ttmp =(temp(im1,jm1)+temp(im1,j)+temp(im1,jp1) &
