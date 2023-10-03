@@ -43,8 +43,8 @@ TCM = "copper"
 T0Min = 0.2
 T0Max = 2.0
 #1AU
-T0Min_outer = 0.05
-T0Max_outer = 1.0
+T0Min_outer = 0.0
+T0Max_outer = 0.3
 
 #21.5 R_S
 BMax = 150.
