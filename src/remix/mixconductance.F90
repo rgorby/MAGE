@@ -860,7 +860,7 @@ module mixconductance
       real(rp) :: thres,mad,Ttmp
       integer :: i,j,it,im1,ip1,jm1,jp1,MaxIter
 
-      thres = 0.025
+      thres = 0.01
       MaxIter = 15
       call FixPole(Gr,Q)
 
