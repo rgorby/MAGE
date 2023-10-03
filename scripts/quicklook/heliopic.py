@@ -30,9 +30,9 @@ pic3: A 4-panel display showing pcolormesh plots in the r = 1 AU slice of the
 gamhelio frame used in the simulation. The plots are:
 
     Upper left: Solar wind speed (km/s)
-    Upper right: Solar wind number density (cm**-3) - SCALED?
-    Lower left: Solar wind temperature (MK) - SCALED?
-    Lower right: Solar wind radial magnetic field (nT) - SCALED?
+    Upper right: Solar wind number density (cm**-3)
+    Lower left: Solar wind temperature (MK)
+    Lower right: Solar wind radial magnetic field (nT)
 
 pic4: A pcolormesh plot in the innermost radial slice (r = 22 Rsun) of the
 gamhelio frame used in the simulation. The plot shows the radial magnetic
@@ -442,10 +442,10 @@ def main():
             hviz.PlotEqBr(gsph, nStp, xyBds, AxR1, AxC2_1,
                           hgsplot=hgsplot, MJDc=MJDc, MJD_plot=mjd)
             if hgsplot:
-                fig.suptitle("Heliographic Stonyhurst frame at MJD = "
+                fig.suptitle("Heliographic Stonyhurst frame for MJD = "
                              f"{ktools.MJD2UT(mjd)}")
             else:
-                fig.suptitle(f"gamhelio frame at MJD = {ktools.MJD2UT(mjd)}")
+                fig.suptitle(f"gamhelio frame for MJD = {ktools.MJD2UT(mjd)}")
         elif pic == "pic2":
             # Meridional plots in the XZ plane of the modified HGS frame used
             # by gamhelio. If hgsplot is True, then the plot frame is the true
@@ -463,9 +463,10 @@ def main():
                                indx=(None, pic2lon),
                                hgsplot=hgsplot, MJDc=MJDc, MJD_plot=mjd)
             if hgsplot:
-                fig.suptitle(f"HGS frame at MJD = {ktools.MJD2UT(mjd)}")
+                fig.suptitle("Heliographic Stonyhurst frame for MJD = "
+                             f"{ktools.MJD2UT(mjd)}")
             else:
-                fig.suptitle(f"GH frame at MJD = {ktools.MJD2UT(mjd)}")
+                fig.suptitle(f"gamhelio frame for MJD = {ktools.MJD2UT(mjd)}")
         elif pic == "pic3":
             # Lat/lon plot at 1 AU (the outer edge of the gamhelio grid), in
             # the modified HGS frame rotating with the Sun.
@@ -483,9 +484,11 @@ def main():
             hviz.PlotiSlBr(gsph, nStp, xyBds, AxR1, AxC2_1,
                            hgsplot=hgsplot, MJDc=MJDc, MJD_plot=mjd)
             if hgsplot:
-                fig.suptitle(f"1 AU HGS frame at MJD = {ktools.MJD2UT(mjd)}")
+                fig.suptitle("Heliographic Stonyhurst frame at 1 AU for MJD = "
+                             f"{ktools.MJD2UT(mjd)}")
             else:
-                fig.suptitle(f"1 AU GH frame at MJD = {ktools.MJD2UT(mjd)}")
+                fig.suptitle("gamhelio frame at 1 AU for MJD = "
+                             f"{ktools.MJD2UT(mjd)}")
         elif pic == "pic4":
             # Plot at 1 AU in frame rotating with Sun.
             hviz.PlotiSlBrRotatingFrame(gsph, nStp, xyBds, Ax, AxC)

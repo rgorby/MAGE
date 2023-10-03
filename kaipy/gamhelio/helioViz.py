@@ -2116,7 +2116,7 @@ def PlotiSlMagV(
     # Create the color bar.
     if AxCB:
         AxCB.clear()
-        kv.genCB(AxCB, vMagV, "Speed [km/s]", cM=MagVCM, Ntk=7)
+        kv.genCB(AxCB, vMagV, cbT=None, cM=MagVCM, Ntk=7)
 
     # Clear the plot Axes.
     if doClear:
@@ -2232,8 +2232,9 @@ def PlotiSlMagV(
 
     # Decorate the plots.
     if doDeco:
-        Ax.set_xlabel('Longitude')
-        Ax.set_ylabel('Latitude')
+        Ax.set_title(r"Speed [$km/s$]")
+        Ax.set_xlabel(r"Longitude [$deg$]")
+        Ax.set_ylabel(r"Latitude [$deg$]")
 
     # Return the data.
     return V
@@ -2295,7 +2296,7 @@ def PlotiSlD(
     # Create the color bar.
     if AxCB:
         AxCB.clear()
-        kv.genCB(AxCB, vD, "Density [$cm^{-3}$]", cM=D0CM, Ntk=7)
+        kv.genCB(AxCB, vD, cbT=None, cM=D0CM, Ntk=7)
 
     # Clear the plot Axes.
     if doClear:
@@ -2411,8 +2412,9 @@ def PlotiSlD(
 
     # Decorate the plots.
     if doDeco:
-        Ax.set_xlabel('Longitude')
-        Ax.set_ylabel('Latitude')
+        Ax.set_title("Number density $n$ [$cm^{-3}$]")
+        Ax.set_xlabel(r"Longitude [$deg$]")
+        Ax.set_ylabel(r"Latitude [$deg$]")
         Ax.yaxis.tick_right()
         Ax.yaxis.set_label_position('right')
 
@@ -2471,7 +2473,7 @@ def PlotiSlBr(
     # Create the color bar.
     if AxCB:
         AxCB.clear()
-        kv.genCB(AxCB, vB, "Radial magnetic field [nT]", cM=BCM, Ntk=7)
+        kv.genCB(AxCB, vB, cbT=None, cM=BCM, Ntk=7)
 
     # Clear the plot Axes.
     if doClear:
@@ -2624,8 +2626,9 @@ def PlotiSlBr(
 
     # Decorate the plots.
     if doDeco:
-        Ax.set_xlabel('Longitude')
-        Ax.set_ylabel('Latitude')
+        Ax.set_title(r"Radial magnetic field $B_r$ [$nT$]")
+        Ax.set_xlabel(r"Longitude [$deg$]")
+        Ax.set_ylabel(r"Latitude [$deg$]")
         Ax.yaxis.tick_right()
         Ax.yaxis.set_label_position('right')
 
@@ -2737,7 +2740,7 @@ def PlotiSlTemp(
     # Create the color bar.
     if AxCB:
         AxCB.clear()
-        kv.genCB(AxCB, vT, "Temperature [MK]", cM=TCM, Ntk=7)
+        kv.genCB(AxCB, vT, cbT=None, cM=TCM, Ntk=7)
 
     # Clear the plot Axes.
     if doClear:
@@ -2853,8 +2856,9 @@ def PlotiSlTemp(
 
     # Decorate the plots.
     if doDeco:
-        Ax.set_xlabel('Longitude')
-        Ax.set_ylabel('Latitude')
+        Ax.set_title("Temperature $T$ [$MK$]")
+        Ax.set_xlabel(r"Longitude [$deg$]")
+        Ax.set_ylabel(r"Latitude [$deg$]")
 
     # Return the data.
     return Temp
