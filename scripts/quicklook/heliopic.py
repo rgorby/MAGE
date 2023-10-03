@@ -477,12 +477,15 @@ def main():
                              hgsplot=hgsplot, MJDc=MJDc, MJD_plot=mjd)
             hviz.PlotiSlD(gsph, nStp, xyBds, AxR0, AxC2_0, idx=radius,
                           idx_is_radius=True,
-                          hgsplot=hgsplot, MJDc=MJDc, MJD_plot=mjd)
+                          hgsplot=hgsplot, MJDc=MJDc, MJD_plot=mjd,
+                          use_outer_range=True)
             hviz.PlotiSlTemp(gsph, nStp, xyBds, AxL1, AxC1_1, idx=radius,
                              idx_is_radius=True,
-                             hgsplot=hgsplot, MJDc=MJDc, MJD_plot=mjd)
+                             hgsplot=hgsplot, MJDc=MJDc, MJD_plot=mjd,
+                             use_outer_range=True)
             hviz.PlotiSlBr(gsph, nStp, xyBds, AxR1, AxC2_1,
-                           hgsplot=hgsplot, MJDc=MJDc, MJD_plot=mjd)
+                           hgsplot=hgsplot, MJDc=MJDc, MJD_plot=mjd,
+                           use_outer_range=True)
             if hgsplot:
                 fig.suptitle("Heliographic Stonyhurst frame at 1 AU for "
                              f"{ktools.MJD2UT(mjd)}")

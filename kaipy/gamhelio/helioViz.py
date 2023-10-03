@@ -31,8 +31,8 @@ DCM = "copper_r"
 D0Max = 2000.
 D0Min = 300.
 #1 au
-#D0Max = 1.
-#D0Min = 15.
+D0Max_outer = 1.
+D0Min_outer = 20.
 D0CM = "copper_r"
 
 TMin = 0.2
@@ -43,23 +43,21 @@ TCM = "copper"
 T0Min = 0.2
 T0Max = 2.0
 #1AU
-#T0Min = 0.1
-#T0Max = 0.5
+T0Min_outer = 0.05
+T0Max_outer = 1.0
 
 #21.5 R_S
 BMax = 150.
 BMin = -150.
 #1AU
-#BMax = 5.
-#BMin = -5.
 BCM = "coolwarm"
 
 #21.5 R_S
 B0Min = -150.
 B0Max = 150.
 #1 AU
-#B0Min = -4.
-#B0Max = 4.
+B0Min_outer = -5.0
+B0Max_outer = 5.0
 
 
 colorProf = "tab:orange"
@@ -2242,7 +2240,8 @@ def PlotiSlMagV(
 
 def PlotiSlD(
         gsph, nStp, xyBds, Ax, AxCB=None, doClear=True, doDeco=True, idx=-1,
-        idx_is_radius=False, hgsplot=False, MJDc=None, MJD_plot=None
+        idx_is_radius=False, hgsplot=False, MJDc=None, MJD_plot=None,
+        use_outer_range=False
 ):
     """Plot solar wind number density at a specified radial slice.
 
@@ -2280,6 +2279,8 @@ def PlotiSlD(
         MJD used for the GH frame of the simulation
     MJD_plot : float
         MJD to use for the HGS frame of the plot
+    use_outer_range : bool
+        If True, use a colorbar range optimized for use at large radius.
 
     Returns
     -------
@@ -2290,8 +2291,12 @@ def PlotiSlD(
     ------
     None
     """
-    # Create a normalizer object for the colorbar.
-    vD = kv.genNorm(D0Min, D0Max, doLog=False, midP=None)
+    # Create a normalizer object for the colorbar. If the radial slice is in
+    # the outer regions of the grid, switch to a smaller data range.
+    if use_outer_range:
+        vD = kv.genNorm(D0Min_outer, D0Max_outer, doLog=False, midP=None)
+    else:
+        vD = kv.genNorm(D0Min, D0Max, doLog=False, midP=None)
 
     # Create the color bar.
     if AxCB:
@@ -2424,7 +2429,8 @@ def PlotiSlD(
 
 def PlotiSlBr(
         gsph, nStp, xyBds, Ax, AxCB=None, doClear=True, doDeco=True, idx=-1,
-        idx_is_radius=False, hgsplot=False, MJDc=None, MJD_plot=None
+        idx_is_radius=False, hgsplot=False, MJDc=None, MJD_plot=None,
+        use_outer_range=False
 ):
     """Plot solar wind radial magnetic field and current sheet at a specified radial slice.
 
@@ -2457,6 +2463,8 @@ def PlotiSlBr(
         MJD used for the GH frame of the simulation
     MJD_plot : float
         MJD to use for the HGS frame of the plot
+    use_outer_range : bool
+        If True, use a colorbar range optimized for use at large radius.
 
     Returns
     -------
@@ -2467,8 +2475,12 @@ def PlotiSlBr(
     ------
     None
     """
-    # Create a normalizer object for the colorbar.
-    vB = kv.genNorm(B0Min, B0Max, doLog=False, midP=None)
+    # Create a normalizer object for the colorbar. If the radial slice is in
+    # the outer regions of the grid, switch to a smaller data range.
+    if use_outer_range:
+        vB = kv.genNorm(B0Min_outer, B0Max_outer, doLog=False, midP=None)
+    else:
+        vB = kv.genNorm(B0Min, B0Max, doLog=False, midP=None)
 
     # Create the color bar.
     if AxCB:
@@ -2692,7 +2704,8 @@ def PlotiSlBrRotatingFrame(gsph,nStp,xyBds,Ax,AxCB=None,doClear=True,doDeco=True
 
 def PlotiSlTemp(
         gsph, nStp, xyBds, Ax, AxCB=None, doClear=True, doDeco=True, idx=-1,
-        idx_is_radius=False, hgsplot=False, MJDc=None, MJD_plot=None
+        idx_is_radius=False, hgsplot=False, MJDc=None, MJD_plot=None,
+        use_outer_range=False
 ):
     """Plot solar wind temperature at a specified radial slice.
 
@@ -2724,6 +2737,8 @@ def PlotiSlTemp(
         MJD used for the GH frame of the simulation
     MJD_plot : float
         MJD to use for the HGS frame of the plot
+    use_outer_range : bool
+        If True, use a colorbar range optimized for use at large radius.
 
     Returns
     -------
@@ -2734,8 +2749,12 @@ def PlotiSlTemp(
     ------
     None
     """
-    # Create a normalizer object for the colorbar.
-    vT = kv.genNorm(T0Min, T0Max, doLog=False, midP=None)
+    # Create a normalizer object for the colorbar. If the radial slice is in
+    # the outer regions of the grid, switch to a smaller data range.
+    if use_outer_range:
+        vT = kv.genNorm(T0Min_outer, T0Max_outer, doLog=False, midP=None)
+    else:
+        vT = kv.genNorm(T0Min, T0Max, doLog=False, midP=None)
 
     # Create the color bar.
     if AxCB:
