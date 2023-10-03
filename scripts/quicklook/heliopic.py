@@ -10,7 +10,7 @@ value of the "pic" argument.
 
 pic1 (default): A 4-panel display showing pcolormesh plots in the z = 0
 (equatorial) plane of the gamhelio frame used in the simulation. The plots
-are:
+are (r0 is the inner radius of the grid, which should be 21.5 Rsun):
 
     Upper left: Solar wind speed (km/s)
     Upper right: Solar wind number density scaled by (r/r0)**2 (cm**-3)
@@ -19,12 +19,12 @@ are:
 
 pic2: A 4-panel display showing pcolormesh plots in the y = 0 (meridional,
 containing Earth) plane of the gamhelio frame used in the simulation. The
-plots are:
+plots are (r0 is the inner radius of the grid, which should be 21.5 Rsun):
 
     Upper left: Solar wind speed (km/s)
     Upper right: Solar wind number density scaled by (r/r0)**2 (cm**-3)
     Lower left: Solar wind temperature scaled by r/r0 (MK)
-    Lower right: Solar wind radial magnetic field scaled by r/r0 (nT)
+    Lower right: Solar wind radial magnetic field scaled by (r/r0)**2 (nT)
 
 pic3: A 4-panel display showing pcolormesh plots in the r = 1 AU slice of the
 gamhelio frame used in the simulation. The plots are:
@@ -442,9 +442,10 @@ def main():
             hviz.PlotEqBr(gsph, nStp, xyBds, AxR1, AxC2_1,
                           hgsplot=hgsplot, MJDc=MJDc, MJD_plot=mjd)
             if hgsplot:
-                fig.suptitle(f"HGS frame at MJD = {ktools.MJD2UT(mjd)}")
+                fig.suptitle("Heliographic Stonyhurst frame at MJD = "
+                             f"{ktools.MJD2UT(mjd)}")
             else:
-                fig.suptitle(f"GH frame at MJD = {ktools.MJD2UT(mjd)}")
+                fig.suptitle(f"gamhelio frame at MJD = {ktools.MJD2UT(mjd)}")
         elif pic == "pic2":
             # Meridional plots in the XZ plane of the modified HGS frame used
             # by gamhelio. If hgsplot is True, then the plot frame is the true

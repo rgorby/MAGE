@@ -205,9 +205,9 @@ def PlotEqMagV(
 
     # Decorate the plots.
     if doDeco:
-        Ax.set_title(r"Speed [km/s]")
-        Ax.set_xlabel(r"$X [R_S]$")
-        Ax.set_ylabel(r"$Y [R_S]$")
+        Ax.set_title(r"Speed [$km/s$]")
+        Ax.set_xlabel(r"$X$ [$R_S$]")
+        Ax.set_ylabel(r"$Y$ [$R_S$]$")
 
     # Return the data.
     return MagV
@@ -377,7 +377,7 @@ def PlotMerMagV(
     # Create the color bar.
     if AxCB:
         AxCB.clear()
-        kv.genCB(AxCB, vMagV, "Speed [km/s]", cM=MagVCM, Ntk=7)
+        kv.genCB(AxCB, vMagV, cbT=None, cM=MagVCM, Ntk=7)
 
     # Clear the plot Axes.
     if doClear:
@@ -452,8 +452,10 @@ def PlotMerMagV(
 
     # Decorate the plots.
     if doDeco:
-        Ax.set_xlabel(r"$R_{XY} [R_S]$" + f" Phi={phi:{2}.{2}} [rad]")
-        Ax.set_ylabel("Z [$R_S$]")
+        Ax.set_title(r"Speed [$km/s$]")
+        Ax.set_xlabel(r"$R_{XY}$ [$R_S$] at $\phi=" +
+                      f"{phi:{2}.{2}}$ [$rad$]")
+        Ax.set_ylabel("$Z$ [$R_S$]")
 
     # Return the data.
     return Vr, Vl
@@ -530,7 +532,7 @@ def PlotMerDNorm(
     # Create the color bar.
     if AxCB:
         AxCB.clear()
-        kv.genCB(AxCB, vD, r"Density $n(r/r_0)^2$ [$cm^{-3}$]", cM=DCM, Ntk=7)
+        kv.genCB(AxCB, vD, cbT=None, cM=DCM, Ntk=7)
 
     # Clear the plot Axes.
     if doClear:
@@ -609,7 +611,9 @@ def PlotMerDNorm(
 
     # Decorate the plots.
     if doDeco:
-        Ax.set_xlabel(r"$R_{XY} [R_S]$" + f" Phi={phi:{2}.{2}} [rad]")
+        Ax.set_title(r"Number density $n$ [$(r/r_0)^2 cm^{-3}$]")
+        Ax.set_xlabel(r"$R_{XY}$ [$R_S$] at $\phi=" +
+                      f"{phi:{2}.{2}}$ [$rad$]")
         Ax.set_ylabel("Z [$R_S$]")
         Ax.yaxis.tick_right()
         Ax.yaxis.set_label_position('right')
@@ -689,7 +693,7 @@ def PlotMerBrNorm(
     # Create the color bar.
     if AxCB:
         AxCB.clear()
-        kv.genCB(AxCB, vB, r'Radial MF $B_r (r/r_0)^2$ [nT]', cM=BCM, Ntk=7)
+        kv.genCB(AxCB, vB, cbT=None, cM=BCM, Ntk=7)
 
     # Clear the plot Axes.
     if doClear:
@@ -808,7 +812,9 @@ def PlotMerBrNorm(
 
     # Decorate the plots.
     if doDeco:
-        Ax.set_xlabel(r"$R_XY [R_S]$" + f" Phi={phi:{2}.{2}} [rad]")
+        Ax.set_title(r'Radial magnetic field $B_r$ [$(r/r_0)^2 nT$]')
+        Ax.set_xlabel(r"$R_{XY}$ [$R_S$] at $\phi=" +
+                      f"{phi:{2}.{2}}$ [$rad$]")
         Ax.set_ylabel('Z [$R_S$]')
         Ax.yaxis.tick_right()
         Ax.yaxis.set_label_position('right')
@@ -888,7 +894,7 @@ def PlotMerTemp(
     # Create the color bar.
     if AxCB:
         AxCB.clear()
-        kv.genCB(AxCB, vT, r'Temperature $T(r/r_0)$ [MK]', cM=TCM, Ntk=7)
+        kv.genCB(AxCB, vT, cbT=None, cM=TCM, Ntk=7)
 
     # Clear the plot Axes.
     if doClear:
@@ -963,7 +969,9 @@ def PlotMerTemp(
 
     # Decorate the plots.
     if doDeco:
-        Ax.set_xlabel(r"$R_{XY} [R_S]$" + f" Phi={phi:{2}.{2}} [rad]")
+        Ax.set_title(r'Temperature $T$ [$(r/r_0) MK]$')
+        Ax.set_xlabel(r"$R_{XY}$ [$R_S$] at $\phi=" +
+                      f"{phi:{2}.{2}}$ [$rad$]")
         Ax.set_ylabel("Z [$R_S$]")
 
     # Return the data.
@@ -1088,8 +1096,8 @@ def PlotEqD(
     # Decorate the plots.
     if doDeco:
         Ax.set_title(r"Number density $n$ [$(r/r_0)^2 cm^{-3}$]")
-        Ax.set_xlabel(r"$X [R_S]$")
-        Ax.set_ylabel(r"$Y [R_S]$")
+        Ax.set_xlabel(r"$X$ [$R_S$]")
+        Ax.set_ylabel(r"$Y$ [$R_S$]$")
         Ax.yaxis.tick_right()
         Ax.yaxis.set_label_position("right")
 
@@ -1312,8 +1320,8 @@ def PlotEqTemp(
     # Decorate the plots.
     if doDeco:
         Ax.set_title(r"Temperature $T$ [$(r/r_0) MK$]")
-        Ax.set_xlabel(r"$X [R_S]$")
-        Ax.set_ylabel(r"$Y [R_S]$")
+        Ax.set_xlabel(r"$X$ [$R_S$]")
+        Ax.set_ylabel(r"$Y$ [$R_S$]$")
 
     # Return the data.
     return Temp
@@ -1532,8 +1540,8 @@ def PlotEqBr(
     # Decorate the plots.
     if doDeco:
         Ax.set_title(r"Radial magnetic field $B_r$ [$(r/r_0)^2 nT$]")
-        Ax.set_xlabel(r"$X [R_S]$")
-        Ax.set_ylabel(r"$Y [R_S]$")
+        Ax.set_xlabel(r"$X$ [$R_S$]")
+        Ax.set_ylabel(r"$Y$ [$R_S$]$")
         Ax.yaxis.tick_right()
         Ax.yaxis.set_label_position("right")
 
