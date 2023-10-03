@@ -45,7 +45,7 @@ class GamsphPipe(GameraPipe):
         GameraPipe.__init__(self,fdir,ftag,doFast=doFast,doParallel=doParallel,nWorkers=nWorkers)
 
         #inner boundary distance
-        self.R0 = self.xxc[0,0]
+        self.R0 = np.sqrt(self.X[0, 0, 0]**2 + self.Y[0, 0, 0]**2 + self.Z[0, 0, 0]**2)
 
         #j and k for radial profile
         self.jRad = self.Nj//2
@@ -436,15 +436,45 @@ class GamsphPipe(GameraPipe):
         Veq = self.vScl*np.sqrt(Vx**2.0+Vy**2.0+Vz**2.0)
         return Veq
 
-    #Normalized density (D*r*r/21.5/21.5 in cm-3) in eq plane
-    def eqNormD (self,s0=0):
+    def eqNormD (self, s0=0):
+        """Compute the normalized number density in the equatorial plane.
 
-        D = self.EqSlice("D",s0) #Unscaled
+        Compute the normalized number density in the equatorial plane.
+        
+        The number density is normalized by the factor (r/r0)**2, where r0 is
+        the radius of the inner edge of the grid (should be 21.5 Rsun).
 
+        Parameters
+        ----------
+        self : GamsphPipe
+            This object
+        s0 : int
+            Simulation step number to fetch
+
+        Returns
+        -------
+        NormDeq : np.ndarray, shape same as self.xxc
+            Normalized number density in equatorial plane
+
+        Raises
+        ------
+        None
+        """
+        # Fetch the unscaled data.
+        D = self.EqSlice("D", s0)
+
+        # Compute the normalization factor for each data point.
         Norm = (self.xxc**2.0 + self.yyc**2.0)/self.R0/self.R0
+
+        # Convert the number density from code units (dimensionless) to
+        # physical units (cm**-3), then normalize the data using the scale
+        # factor.
         NormDeq = self.dScl*D*Norm
+
+        # Return the data.
         return NormDeq
     
+
     #Normalized density (D*r*r/21.5/21.5 in cm-3) in eq plane
     def jNormD (self,s0=0,jidx=-1):
 
