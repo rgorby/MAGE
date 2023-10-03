@@ -442,10 +442,10 @@ def main():
             hviz.PlotEqBr(gsph, nStp, xyBds, AxR1, AxC2_1,
                           hgsplot=hgsplot, MJDc=MJDc, MJD_plot=mjd)
             if hgsplot:
-                fig.suptitle("Heliographic Stonyhurst frame for MJD = "
+                fig.suptitle("Heliographic Stonyhurst frame for "
                              f"{ktools.MJD2UT(mjd)}")
             else:
-                fig.suptitle(f"gamhelio frame for MJD = {ktools.MJD2UT(mjd)}")
+                fig.suptitle(f"GAMERA-Helio frame for {ktools.MJD2UT(mjd)}")
         elif pic == "pic2":
             # Meridional plots in the XZ plane of the modified HGS frame used
             # by gamhelio. If hgsplot is True, then the plot frame is the true
@@ -463,10 +463,10 @@ def main():
                                indx=(None, pic2lon),
                                hgsplot=hgsplot, MJDc=MJDc, MJD_plot=mjd)
             if hgsplot:
-                fig.suptitle("Heliographic Stonyhurst frame for MJD = "
+                fig.suptitle("Heliographic Stonyhurst frame for "
                              f"{ktools.MJD2UT(mjd)}")
             else:
-                fig.suptitle(f"gamhelio frame for MJD = {ktools.MJD2UT(mjd)}")
+                fig.suptitle(f"GAMERA-Helio frame for {ktools.MJD2UT(mjd)}")
         elif pic == "pic3":
             # Lat/lon plot at 1 AU (the outer edge of the gamhelio grid), in
             # the modified HGS frame rotating with the Sun.
@@ -484,10 +484,10 @@ def main():
             hviz.PlotiSlBr(gsph, nStp, xyBds, AxR1, AxC2_1,
                            hgsplot=hgsplot, MJDc=MJDc, MJD_plot=mjd)
             if hgsplot:
-                fig.suptitle("Heliographic Stonyhurst frame at 1 AU for MJD = "
+                fig.suptitle("Heliographic Stonyhurst frame at 1 AU for "
                              f"{ktools.MJD2UT(mjd)}")
             else:
-                fig.suptitle("gamhelio frame at 1 AU for MJD = "
+                fig.suptitle("GAMERA-Helio frame at 1 AU for "
                              f"{ktools.MJD2UT(mjd)}")
         elif pic == "pic4":
             # Plot at 1 AU in frame rotating with Sun.

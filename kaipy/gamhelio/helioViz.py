@@ -207,7 +207,7 @@ def PlotEqMagV(
     if doDeco:
         Ax.set_title(r"Speed [$km/s$]")
         Ax.set_xlabel(r"$X$ [$R_S$]")
-        Ax.set_ylabel(r"$Y$ [$R_S$]$")
+        Ax.set_ylabel(r"$Y$ [$R_S$]")
 
     # Return the data.
     return MagV
@@ -1097,7 +1097,7 @@ def PlotEqD(
     if doDeco:
         Ax.set_title(r"Number density $n$ [$(r/r_0)^2 cm^{-3}$]")
         Ax.set_xlabel(r"$X$ [$R_S$]")
-        Ax.set_ylabel(r"$Y$ [$R_S$]$")
+        Ax.set_ylabel(r"$Y$ [$R_S$]")
         Ax.yaxis.tick_right()
         Ax.yaxis.set_label_position("right")
 
@@ -1321,7 +1321,7 @@ def PlotEqTemp(
     if doDeco:
         Ax.set_title(r"Temperature $T$ [$(r/r_0) MK$]")
         Ax.set_xlabel(r"$X$ [$R_S$]")
-        Ax.set_ylabel(r"$Y$ [$R_S$]$")
+        Ax.set_ylabel(r"$Y$ [$R_S$]")
 
     # Return the data.
     return Temp
@@ -1541,7 +1541,7 @@ def PlotEqBr(
     if doDeco:
         Ax.set_title(r"Radial magnetic field $B_r$ [$(r/r_0)^2 nT$]")
         Ax.set_xlabel(r"$X$ [$R_S$]")
-        Ax.set_ylabel(r"$Y$ [$R_S$]$")
+        Ax.set_ylabel(r"$Y$ [$R_S$]")
         Ax.yaxis.tick_right()
         Ax.yaxis.set_label_position("right")
 
