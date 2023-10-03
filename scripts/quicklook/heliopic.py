@@ -15,7 +15,7 @@ are:
     Upper left: Solar wind speed (km/s)
     Upper right: Solar wind number density scaled by (r/r0)**2 (cm**-3)
     Lower left: Solar wind temperature scaled by r/r0 (MK)
-    Lower right: Solar wind radial magnetic field scaled by r/r0 (nT)
+    Lower right: Solar wind radial magnetic field scaled by (r/r0)**2 (nT)
 
 pic2: A 4-panel display showing pcolormesh plots in the y = 0 (meridional,
 containing Earth) plane of the gamhelio frame used in the simulation. The

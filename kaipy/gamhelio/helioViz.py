@@ -156,7 +156,7 @@ def PlotEqMagV(
     # Create the color bar.
     if AxCB:
         AxCB.clear()
-        kv.genCB(AxCB, vMagV, "Speed [km/s]", cM=MagVCM, Ntk=7)
+        kv.genCB(AxCB, vMagV, cbT=None, cM=MagVCM, Ntk=7)
 
     # Clear the plot Axes.
     if doClear:
@@ -205,6 +205,7 @@ def PlotEqMagV(
 
     # Decorate the plots.
     if doDeco:
+        Ax.set_title(r"Speed [km/s]")
         Ax.set_xlabel(r"$X [R_S]$")
         Ax.set_ylabel(r"$Y [R_S]$")
 
@@ -981,8 +982,8 @@ def PlotEqD(
     must be specified. In that case, the coordinates are mapped from the
     GH(MJDc) frame to the HGS(MJD_plot) frame.
 
-    The density is normalized with the factor (r/r0)**2, where r0 is 21.5 Rsun
-    (the inner edge of the gamhelio grid).
+    The density is normalized with the factor (r/r0)**2, where r0 is radius of
+    the inner edge of the gamhelio grid (should be 21.5 Rsun).
 
     The gamhelio frame GH is based on the Heliographic Stonyhurst frame (HGS)
     frame. The difference is that, at any particular MJD:
@@ -1037,7 +1038,7 @@ def PlotEqD(
     # Create the color bar.
     if AxCB:
         AxCB.clear()
-        kv.genCB(AxCB, vD, r"Density $n(r/r_0)^2$ [cm$^{-3}$]", cM=DCM, Ntk=7)
+        kv.genCB(AxCB, vD, cbT=None, cM=DCM, Ntk=7)
 
     # Clear the plot Axes.
     if doClear:
@@ -1086,6 +1087,7 @@ def PlotEqD(
 
     # Decorate the plots.
     if doDeco:
+        Ax.set_title(r"Number density $n$ [$(r/r_0)^2 cm^{-3}$]")
         Ax.set_xlabel(r"$X [R_S]$")
         Ax.set_ylabel(r"$Y [R_S]$")
         Ax.yaxis.tick_right()
@@ -1260,7 +1262,7 @@ def PlotEqTemp(
     # Create the color bar.
     if AxCB:
         AxCB.clear()
-        kv.genCB(AxCB, vT, r"Temperature $T(r/r_0)$ [MK]", cM=TCM, Ntk=7)
+        kv.genCB(AxCB, vT, cbT=None, cM=TCM, Ntk=7)
 
     # Clear the plot Axes.
     if doClear:
@@ -1309,6 +1311,7 @@ def PlotEqTemp(
 
     # Decorate the plots.
     if doDeco:
+        Ax.set_title(r"Temperature $T$ [$(r/r_0) MK$]")
         Ax.set_xlabel(r"$X [R_S]$")
         Ax.set_ylabel(r"$Y [R_S]$")
 
@@ -1479,7 +1482,7 @@ def PlotEqBr(
     # Create the color bar.
     if AxCB:
         AxCB.clear()
-        kv.genCB(AxCB, vB, r"Radial MF $B_r (r/r_0)^2$ [nT]", cM=BCM, Ntk=7)
+        kv.genCB(AxCB, vB, cbT=None, cM=BCM, Ntk=7)
 
     # Clear the plot Axes.
     if doClear:
@@ -1528,6 +1531,7 @@ def PlotEqBr(
 
     # Decorate the plots.
     if doDeco:
+        Ax.set_title(r"Radial magnetic field $B_r$ [$(r/r_0)^2 nT$]")
         Ax.set_xlabel(r"$X [R_S]$")
         Ax.set_ylabel(r"$Y [R_S]$")
         Ax.yaxis.tick_right()
