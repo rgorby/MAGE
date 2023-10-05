@@ -600,9 +600,11 @@ def create_pic1_movie(args):
                         hgsplot=hgsplot, MJDc=MJDc, MJD_plot=mjd)
         hviz.PlotEqBr(gsph, i_step, plot_limits, ax_Br, ax_cb_Br,
                       hgsplot=hgsplot, MJDc=MJDc, MJD_plot=mjd)
-
-        # Add time in the upper left.
-        gsph.AddTime(i_step, ax_v, xy=[0.025, 0.875], fs="x-large")
+        if hgsplot:
+            fig.suptitle("Heliographic Stonyhurst frame for "
+                            f"{ktools.MJD2UT(mjd)}")
+        else:
+            fig.suptitle(f"GAMERA-Helio frame for {ktools.MJD2UT(mjd)}")
 
         # Overlay spacecraft positions (optional).
         if spacecraft:
@@ -801,9 +803,11 @@ def create_pic2_movie(args):
                          hgsplot=hgsplot, MJDc=MJDc, MJD_plot=mjd)
         hviz.PlotMerBrNorm(gsph, i_step, plot_limits, ax_Br, ax_cb_Br,
                            hgsplot=hgsplot, MJDc=MJDc, MJD_plot=mjd)
-
-        # Add time in the upper left.
-        gsph.AddTime(i_step, ax_v, xy=[0.025, 0.875], fs="x-large")
+        if hgsplot:
+            fig.suptitle("Heliographic Stonyhurst frame for "
+                            f"{ktools.MJD2UT(mjd)}")
+        else:
+            fig.suptitle(f"GAMERA-Helio frame for {ktools.MJD2UT(mjd)}")
 
         # Overlay spacecraft positions (optional).
         if spacecraft:
@@ -994,17 +998,26 @@ def create_pic3_movie(args):
             print(f"mjd = {mjd}")
 
         # Create the individual plots for this frame.
-        hviz.PlotiSlMagV(gsph, i_step, plot_limits, ax_v, ax_cb_v,
+        AU_RSUN = 215.0
+        radius = AU_RSUN
+        hviz.PlotiSlMagV(gsph, i_step, plot_limits, ax_v, ax_cb_v, idx=radius,
+                         idx_is_radius=True,
                          hgsplot=hgsplot, MJDc=MJDc, MJD_plot=mjd)
-        hviz.PlotiSlD(gsph, i_step, plot_limits, ax_n, ax_cb_n,
+        hviz.PlotiSlD(gsph, i_step, plot_limits, ax_n, ax_cb_n, idx=radius,
+                      idx_is_radius=True,
                       hgsplot=hgsplot, MJDc=MJDc, MJD_plot=mjd)
-        hviz.PlotiSlTemp(gsph, i_step, plot_limits, ax_T, ax_cb_T,
+        hviz.PlotiSlTemp(gsph, i_step, plot_limits, ax_T, ax_cb_T, idx=radius,
+                         idx_is_radius=True,
                          hgsplot=hgsplot, MJDc=MJDc, MJD_plot=mjd)
-        hviz.PlotiSlBr(gsph, i_step, plot_limits, ax_Br, ax_cb_Br,
+        hviz.PlotiSlBr(gsph, i_step, plot_limits, ax_Br, ax_cb_Br, idx=radius,
+                       idx_is_radius=True,
                        hgsplot=hgsplot, MJDc=MJDc, MJD_plot=mjd)
-
-        # Add time in the upper left.
-        gsph.AddTime(i_step, ax_v, xy=[0.015, 0.82], fs="small")
+        if hgsplot:
+            fig.suptitle("Heliographic Stonyhurst frame at 1 AU for "
+                            f"{ktools.MJD2UT(mjd)}")
+        else:
+            fig.suptitle("GAMERA-Helio frame at 1 AU for "
+                            f"{ktools.MJD2UT(mjd)}")
 
         # Overlay spacecraft positions (optional).
         if spacecraft:
