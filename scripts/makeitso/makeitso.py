@@ -5,7 +5,10 @@
 
 This master script is used to perform all of the steps needed to prepare
 and run a kaiju job. This script is interactive - the user is prompted for
-each decision that must be made to prepare for the run.
+each decision that must be made to prepare for the run. All options provided
+by the user are saved in a JSON file when this script is complete. This JSON
+file can then be edited and submitted using the --options_path argument to
+avoid repeating a lengthy interactive session.
 """
 
 
