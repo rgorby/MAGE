@@ -192,7 +192,7 @@ add_executable(remix.x src/drivers/remix.F90)
 add_executable(remix2remix.x src/drivers/remix2remix.F90)
 add_executable(remix2rcm.x src/drivers/remix2rcm.F90)
 target_link_libraries(remix.x       remixlib baselib)
-target_link_libraries(remix2remix.x remixlib baselib rcmlib)
+target_link_libraries(remix2remix.x remixlib baselib)
 target_link_libraries(remix2rcm.x   remixlib baselib)
 add_dependencies(remix remix.x remix2remix.x remix2rcm.x baselib)
 

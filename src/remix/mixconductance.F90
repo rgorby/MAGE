@@ -9,8 +9,6 @@ module mixconductance
   use auroralhelper
   use kai2geo
   use rcmdefs, ONLY : tiote_RCM
-  use rice_housekeeping_module, ONLY : HighLatBD
-  use Rcm_mod_subs, ONLY: dtr ! pi/180.0_rprec
   
   implicit none
 
@@ -473,8 +471,9 @@ module mixconductance
       !Get RCM grid weighting: 1=RCM and 0=MHD
       call conductance_IM_GTYPE(G,St)
 
-      ! derive spatially varying beta using RCM precipitation and thermal fluxes. Need IM_GTYPE.
+      ! derive spatially varying beta using RCM precipitation and thermal fluxes. Need gtype_RCM.
       call conductance_beta(G,St)
+      St%Vars(:,:,IM_GTYPE) = gtype_RCM
 
       ! Derive mono using the linearized FL relation.
       call conductance_linmono(conductance,G,St)
@@ -517,16 +516,15 @@ module mixconductance
             else
                !Mixture
                wRCM = RampUp(gtype,wC1,wC2-wC1)
-               if ( (rcm_nflx > TINY) ) then
+               mix_nflx = wRCM*rcm_nflx + (1-wRCM)*mhd_nflx
+               if ( mix_nflx > TINY ) then
                   !Mix both
-                  mix_nflx = wRCM*rcm_nflx + (1-wRCM)*mhd_nflx
                   mix_eflx = wRCM*rcm_eflx + (1-wRCM)*mhd_eflx
+                  mix_eavg = mix_eflx/(mix_nflx*kev2erg)
                else
-                  !RCM data wasn't good so just use MHD
-                  mix_nflx = mhd_nflx
-                  mix_eflx = mhd_eflx
+                  ! Both RCM and MHD data weren't good so just use TINY
+                  mix_eavg = eTINY
                endif
-               mix_eavg = mix_eflx/(mix_nflx*kev2erg)
 
                St%Vars(i,j,AVG_ENG ) = mix_eavg
                St%Vars(i,j,NUM_FLUX) = mix_nflx
@@ -778,25 +776,16 @@ module mixconductance
       type(mixState_T), intent(in) :: St
       logical :: isAnc(G%Np,G%Nt)
       integer :: i,j
-      real(rp) :: crit
 
-      ! critical colat to setup precipitation merging zone.
-      crit = (90.D0-HighLatBD+5.D0)*dtr
-
+      isAnc = .false.
       !$OMP PARALLEL DO default(shared) &
       !$OMP private(i,j)
       do j=1,G%Nt
         do i=1,G%Np
           if(St%Vars(i,j,IM_GTYPE)<=0.01) then
             ! Set grids outside RCM as anchors.
+            ! IM_GTYPE on all RCM buffer and closed grids will be smoothed.
             isAnc(i,j) = .true.
-          elseif( St%Vars(i,j,IM_GTYPE)>=0.99 .and. G%t(i,j)>crit ) then
-            ! Set closed field lines that are >5 deg lower than rcm high lat boundary as anchors.
-            ! G%t is colat in radians.
-            isAnc(i,j) = .true.
-          else
-            ! In between is the buffer zone for precipitation merging.
-            isAnc(i,j) = .false.
           endif
         enddo ! i
       enddo ! j
@@ -831,13 +820,11 @@ module mixconductance
             ! sqrt([Pa]*[#/m^3]/[kg]) = sqrt([#/m^4/s^2]) = 1e-4*[#/cm^2/s]
             phi0_rcm = sqrt(St%Vars(i,j,IM_EPRE)*St%Vars(i,j,IM_EDEN)/(Me_cgs*1e-3*2*pi))*1.0e-4 + St%Vars(i,j,IM_ENFLX)*2.0
             if(phi0_rcm>TINY) then
+               ! This criterion includes all RCM grid. Note beta is 0 where IM_ENFLX is zero.
                St%Vars(i,j,IM_BETA) = St%Vars(i,j,IM_ENFLX)/phi0_rcm
-               isAnc(i,j) = .true. ! set points with valid rcm beta as anchore.
-            elseif(St%Vars(i,j,IM_GTYPE) > 0.5) then
-               ! In the low lat, if there is no meaningful RCM precipitation,
-               ! set beta=0 to freeze other precipitation mechanism.
-               ! also make it anchor points to avoid smoothing.
-               St%Vars(i,j,IM_BETA) = 0.0
+            endif
+            if(St%Vars(i,j,IM_ENFLX)>TINY) then
+               ! This criterion includes all meaningful RCM precipitation. Elsewhere will be smoothed.
                isAnc(i,j) = .true.
             endif
          enddo
@@ -860,7 +847,7 @@ module mixconductance
       real(rp) :: thres,mad,Ttmp
       integer :: i,j,it,im1,ip1,jm1,jp1,MaxIter
 
-      thres = 0.01
+      thres = 0.025
       MaxIter = 15
       call FixPole(Gr,Q)
 
