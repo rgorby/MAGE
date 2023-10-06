@@ -106,10 +106,10 @@ DESCRIPTION = "Make a quicklook plot for a gamhelio run."
 DEFAULT_RUNID = "wsa"
 
 # List of steps
-DEFAULT_STEPS = "-1"
+DEFAULT_STEPS = "1"
 
 # Default slices
-DEFAULT_SLICE = "1:2:1"
+DEFAULT_SLICE = None
 
 # Code for default picture type.
 DEFAULT_PICTYPE = "pic1"
@@ -373,13 +373,17 @@ def main():
     print(f"Open pipe took {toc-tic} s")
 
     # Compute the range of time steps to use.
-    if (slices and steps[0] == -1):
-        steps = range(gsph.sFin)[slice(slices[0], slices[1], slices[2])]
+    if slices and steps[0] == -1:
+        steps = range(gsph.sFin + 1)[slice(slices[0], slices[1], slices[2])]
     print(f"steps = {steps}")
 
     # Get the MJDc value for use in computing the gamhelio frame.
     fname = gsph.f0
     MJDc = scutils.read_MJDc(fname)
+
+    # Split the list into individual spacecraft names.
+    if spacecraft:
+        spacecraft = spacecraft.split(',')
 
     # Create figures in a memory buffer.
     mpl.use("Agg")
@@ -528,9 +532,6 @@ def main():
 
         # Overlay the spacecraft positions.
         if spacecraft:
-
-            # Split the list into individual spacecraft names.
-            spacecraft = spacecraft.split(',')
 
             # Fetch the MJD at start and end of the model results.
             MJD_start = kh5.tStep(fname, 0, aID="MJD")
