@@ -578,7 +578,8 @@ def main():
 
                 # If needed, compute heliocentric spherical coordinates
                 # for the interpolated spacecraft position. Longitude is in
-                # the -180 to +180 range.
+                # the -180 to +180 range. Convert to 0-360 if not using
+                # hgsplot.
                 if pic == "pic3" or pic == "pic4":
                     rxy = np.sqrt(x_sc**2 + y_sc**2)
                     theta = np.arctan2(rxy, z_sc)
@@ -587,6 +588,9 @@ def main():
                     lon = np.degrees(phi)
                     lat_sc = lat
                     lon_sc = lon
+                    if not hgsplot:
+                        if lon_sc < 0:
+                            lon_sc += 360
 
                 # Plot the position of the spacecraft at the plot time. Each
                 # spacecraft is plotted as a colored dot with a black outline.
