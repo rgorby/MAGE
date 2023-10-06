@@ -2201,12 +2201,12 @@ def PlotiSlMagV(
         z = dm.dmarray(c.cartesian.z)
 
         # Convert back to lat/lon coordinates.
+        # -180 <= lon <= +180 deg
         rxy = np.sqrt(x**2 + y**2)
         lat_rad = np.arctan2(z, rxy)
         lon_rad = np.arctan2(y, x)
         lat = np.degrees(lat_rad)
         lon = np.degrees(lon_rad)
-        lon[lon < 0] += 360
 
         # The arrays of lon and lat and data must now be rotated about axis 1
         # so that lon values increase monotonically to the right. Find the
@@ -2226,6 +2226,9 @@ def PlotiSlMagV(
         Ax.pcolormesh(lon, lat, V, cmap=MagVCM, norm=vMagV)
 
     # Set the plot boundaries.
+    if hgsplot:
+        xyBds[0] = -180.0
+        xyBds[1] = 180.0
     kv.SetAx(xyBds, Ax)
 
     # Decorate the plots.
@@ -2388,12 +2391,12 @@ def PlotiSlD(
         z = dm.dmarray(c.cartesian.z)
 
         # Convert back to lat/lon coordinates.
+        # -180 <= lon <= +180 deg
         rxy = np.sqrt(x**2 + y**2)
         lat_rad = np.arctan2(z, rxy)
         lon_rad = np.arctan2(y, x)
         lat = np.degrees(lat_rad)
         lon = np.degrees(lon_rad)
-        lon[lon < 0] += 360
 
         # The arrays of lon and lat and data must now be rotated about axis 1
         # so that lon values increase monotonically to the right. Find the
@@ -2413,6 +2416,9 @@ def PlotiSlD(
         Ax.pcolormesh(lon, lat, D, cmap=D0CM, norm=vD)
 
     # Set the plot boundaries.
+    if hgsplot:
+        xyBds[0] = -180.0
+        xyBds[1] = 180.0
     kv.SetAx(xyBds, Ax)
 
     # Decorate the plots.
@@ -2596,12 +2602,12 @@ def PlotiSlBr(
         zc = dm.dmarray(cc.cartesian.z)
 
         # Convert back to lat/lon coordinates.
+        # -180 <= lon <= +180 deg
         rxy = np.sqrt(x**2 + y**2)
         lat_rad = np.arctan2(z, rxy)
         lon_rad = np.arctan2(y, x)
         lat = np.degrees(lat_rad)
         lon = np.degrees(lon_rad)
-        lon[lon < 0] += 360
 
         # Do the same for cell centers.
         rxyc = np.sqrt(xc**2 + yc**2)
@@ -2609,7 +2615,6 @@ def PlotiSlBr(
         lonc_rad = np.arctan2(yc, xc)
         latc = np.degrees(latc_rad)
         lonc = np.degrees(lonc_rad)
-        lonc[lonc < 0] += 360
 
         # The arrays of lon and lat and data must now be rotated about axis 1
         # so that lon values increase monotonically to the right. Find the
@@ -2634,6 +2639,9 @@ def PlotiSlBr(
     Ax.contour(lonc, latc, Br, [0.], colors='black')
 
     # Set the plot boundaries.
+    if hgsplot:
+        xyBds[0] = -180.0
+        xyBds[1] = 180.0
     kv.SetAx(xyBds, Ax)
 
     # Decorate the plots.
@@ -2846,12 +2854,12 @@ def PlotiSlTemp(
         z = dm.dmarray(c.cartesian.z)
 
         # Convert back to lat/lon coordinates.
+        # -180 <= lon <= +180 deg
         rxy = np.sqrt(x**2 + y**2)
         lat_rad = np.arctan2(z, rxy)
         lon_rad = np.arctan2(y, x)
         lat = np.degrees(lat_rad)
         lon = np.degrees(lon_rad)
-        lon[lon < 0] += 360
 
         # The arrays of lon and lat and data must now be rotated about axis 1
         # so that lon values increase monotonically to the right. Find the
@@ -2871,6 +2879,9 @@ def PlotiSlTemp(
         Ax.pcolormesh(lon, lat, Temp, cmap=TCM, norm=vT)
 
     # Set the plot boundaries.
+    if hgsplot:
+        xyBds[0] = -180.0
+        xyBds[1] = 180.0
     kv.SetAx(xyBds, Ax)
 
     # Decorate the plots.
