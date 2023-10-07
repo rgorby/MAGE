@@ -12,9 +12,7 @@ module mixconductance
   
   implicit none
 
-  real(rp), dimension(:,:), allocatable, private :: tmpD,tmpC ! used for chilling in Fedder95. Declare it here so we can allocate in init.
   real(rp), dimension(:,:), allocatable, private :: JF0,RM,RRdi ! used for zhang15
-  real(rp), dimension(:,:), allocatable, private :: tmpE,tmpF ! used for smoothing precipitation avg_eng and num_flux
   real(rp), dimension(:,:), allocatable, private :: beta_RCM,alpha_RCM,gtype_RCM ! two-dimensional beta based on RCM fluxes.
 
   !Replacing some hard-coded inline values (bad) w/ module private values (slightly less bad)
@@ -74,24 +72,16 @@ module mixconductance
       if (.not. allocated(conductance%PrecipMask)) allocate(conductance%PrecipMask(G%Np,G%Nt))    
 
       ! these arrays are global and should not be! reallocate them
-      if(allocated(tmpD)) deallocate(tmpD)
-      if(allocated(tmpC)) deallocate(tmpC)
       if(allocated(JF0)) deallocate(JF0)
       if(allocated(RM)) deallocate(RM)
       if(allocated(RRdi)) deallocate(RRdi)
-      if(allocated(tmpE)) deallocate(tmpE)
-      if(allocated(tmpF)) deallocate(tmpF)
       if(allocated(beta_RCM)) deallocate(beta_RCM)
       if(allocated(alpha_RCM)) deallocate(alpha_RCM)
       if(allocated(gtype_RCM)) deallocate(gtype_RCM)
 
-      allocate(tmpD(G%Np,G%Nt))
-      allocate(tmpC(G%Np,G%Nt))  
       allocate(JF0(G%Np,G%Nt))      
       allocate(RM(G%Np,G%Nt))      
       allocate(RRdi(G%Np,G%Nt))      
-      allocate(tmpE(G%Np+4,G%Nt+4)) ! for boundary processing.
-      allocate(tmpF(G%Np+4,G%Nt+4))
       allocate(beta_RCM(G%Np,G%Nt))
       allocate(alpha_RCM(G%Np,G%Nt))
       allocate(gtype_RCM(G%Np,G%Nt))
@@ -660,6 +650,7 @@ module mixconductance
       integer :: i, j
       logical :: smthDEPonly = .true.
       integer :: smthE
+      real(rp) :: tmpC(G%Np,G%Nt),tmpD(G%Np,G%Nt),tmpE(G%Np+4,G%Nt+4),tmpF(G%Np+4,G%Nt+4)
       smthE = 1 ! 1. smooth EFLUX; 2. smooth EAVG
 
       tmpC = 0.D0
