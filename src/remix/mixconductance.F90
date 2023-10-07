@@ -20,6 +20,7 @@ module mixconductance
   !Replacing some hard-coded inline values (bad) w/ module private values (slightly less bad)
   real(rp), parameter, private :: maxDrop = 20.0 !Hard-coded max potential drop [kV]
   real(rp), parameter, private :: eTINY = 1.D-8 ! Floor of average energy [keV]
+  real(rp), parameter, private :: Ne_floor = 0.03e6 ! minimum Ne in [/m^3] when evaluating the linearized FL relation.
   real(rp), private :: RinMHD = 0.0 !Rin of MHD grid (0 if not running w/ MHD)
   real(rp), private :: MIXgamma
   logical , private :: doDrift = .false. !Whether to add drift term from Zhang
@@ -468,12 +469,9 @@ module mixconductance
       wC1 = 0.15
       wC2 = 1.0-wC1
 
-      !Get RCM grid weighting: 1=RCM and 0=MHD
-      call conductance_IM_GTYPE(G,St)
-
-      ! derive spatially varying beta using RCM precipitation and thermal fluxes. Need gtype_RCM.
-      call conductance_beta(G,St)
-      St%Vars(:,:,IM_GTYPE) = gtype_RCM
+      ! derive spatially varying beta and gtype 
+      ! using RCM precipitation and thermal fluxes.
+      call conductance_beta_gtype(G,St)
 
       ! Derive mono using the linearized FL relation.
       call conductance_linmono(conductance,G,St)
@@ -486,7 +484,6 @@ module mixconductance
       do j=1,G%Nt
          do i=1,G%Np
             !Start by figuring out where we are
-            !gtype = St%Vars(i,j,IM_GTYPE)
             gtype = gtype_RCM(i,j)         
             isRCM = gtype >= wC2
             isMHD = gtype <= wC1
@@ -543,7 +540,6 @@ module mixconductance
       real(rp) :: signOfY, signOfJ
       integer :: i,j
       real(rp) :: D,Cs,Pe,Ne,J2eF0,eV2kT,dE,phi0,kT
-      real(rp) :: Ne_floor
 
       if (St%hemisphere==NORTH) then
          signOfY = -1
@@ -554,8 +550,6 @@ module mixconductance
       else
          stop 'Wrong hemisphere label. Stopping...'
       endif
-
-      Ne_floor = 0.03e6 ! minimum Ne in [/m^3] when evaluating the linearized FL relation.
 
       !$OMP PARALLEL DO default(shared) &
       !$OMP private(i,j,D,Cs,Pe,Ne,J2eF0,eV2kT,dE,phi0,kT)
@@ -579,6 +573,9 @@ module mixconductance
             kT = Pe/Ne/kev2J
             conductance%E0  (i,j) = 2.0*kT
             ! Thermal number flux from MHD electron fluxes in [#/cm^2/s].
+            ! Treat MHD flux on closed field lines as trapped flux.
+            ! Beta now stands for the ratio between precipitation and trapped.
+            ! Note phi0 can be zero in the polar cap.
             phi0 = beta_RCM(i,j)* sqrt(Pe*Ne/(2.0D-3*PI*Me_cgs))*1.0D-4
             conductance%phi0(i,j) = phi0
 
@@ -604,7 +601,6 @@ module mixconductance
             St%Vars(i,j,NUM_FLUX) = St%Vars(i,j,Z_NFLUX)  ! [#/cm^2/s]
          enddo ! i
       enddo ! j
-      
     end subroutine conductance_linmono
 
     subroutine conductance_mr(conductance,G,St)
@@ -771,71 +767,62 @@ module mixconductance
       end where
     end subroutine conductance_auroralmask
 
-    subroutine conductance_IM_GTYPE(G,St)
-      type(mixGrid_T), intent(in) :: G
-      type(mixState_T), intent(in) :: St
-      logical :: isAnc(G%Np,G%Nt)
-      integer :: i,j
-
-      isAnc = .false.
-      !$OMP PARALLEL DO default(shared) &
-      !$OMP private(i,j)
-      do j=1,G%Nt
-        do i=1,G%Np
-          if(St%Vars(i,j,IM_GTYPE)<=0.01) then
-            ! Set grids outside RCM as anchors.
-            ! IM_GTYPE on all RCM buffer and closed grids will be smoothed.
-            isAnc(i,j) = .true.
-          endif
-        enddo ! i
-      enddo ! j
-      gtype_RCM = St%Vars(:,:,IM_GTYPE) ! supposed to be between 0 and 1.
-      call conductance_smooth(G,gtype_RCM,isAnc)
-
-      gtype_RCM = min(gtype_RCM,1.0)
-      gtype_RCM = max(gtype_RCM,0.0)
-    end subroutine conductance_IM_GTYPE
-
-    subroutine conductance_beta(G,St)
+    subroutine conductance_beta_gtype(G,St)
       ! Use RCM precipitation and source population to derive the loss cone rate beta.
       ! Assume beta is one in the polar cap and smooth across RCM boundary.
       type(mixGrid_T), intent(in) :: G
       type(mixState_T), intent(inout) :: St
-      logical :: isAnc(G%Np,G%Nt)
-      real(rp) :: temp(G%Np,G%Nt)
+      logical :: isAncB(G%Np,G%Nt),isAncG(G%Np,G%Nt)
       real(rp) :: phi0_rcm
       integer :: i,j
 
+      ! Initialize IM_BETA with 1, assuming all flux can be precipitated.
+      ! IM_GTYPE is interpolated from RCM: 1=RCM and 0=MHD.
       St%Vars(:,:,IM_BETA) = 1.0
-      isAnc = .false.
-      ! set the first circle around pole as anchore.
-      isAnc(:,1) = .true.
+      isAncB = .false. ! beta is smoothed everywhere.
+      isAncG = .false.
 
       !$OMP PARALLEL DO default(shared) &
       !$OMP private(i,j,phi0_rcm)
       do j=1,G%Nt
          do i=1,G%Np
-            ! Total RCM thermal flux includes the trapped and precipitated in both NH and SH.
-            ! 1.0e-4 is to convert to [#/cm^2/s]
+            ! Set grids outside RCM as anchors that won't be smoothed.
+            if(St%Vars(i,j,IM_GTYPE)<=0.01) then
+               isAncG(i,j) = .true.
+            endif
+
+            ! Derive beta as the ratio between RCM precipitation and trapped flux.
             ! sqrt([Pa]*[#/m^3]/[kg]) = sqrt([#/m^4/s^2]) = 1e-4*[#/cm^2/s]
-            phi0_rcm = sqrt(St%Vars(i,j,IM_EPRE)*St%Vars(i,j,IM_EDEN)/(Me_cgs*1e-3*2*pi))*1.0e-4 + St%Vars(i,j,IM_ENFLX)*2.0
+            phi0_rcm = sqrt(St%Vars(i,j,IM_EPRE)*St%Vars(i,j,IM_EDEN)/(Me_cgs*1e-3*2*pi))*1.0e-4
             if(phi0_rcm>TINY) then
                ! This criterion includes all RCM grid. Note beta is 0 where IM_ENFLX is zero.
                St%Vars(i,j,IM_BETA) = St%Vars(i,j,IM_ENFLX)/phi0_rcm
-            endif
-            if(St%Vars(i,j,IM_ENFLX)>TINY) then
-               ! This criterion includes all meaningful RCM precipitation. Elsewhere will be smoothed.
-               isAnc(i,j) = .true.
+               if(St%Vars(i,j,IM_BETA)>1.0) then
+                  ! Near RCM high lat boundary, trapped flux is not well constrained.
+                  ! The beta there can be easily >>1 and is thus not as reliable.
+                  ! Reset grid weight to MHD if RCM beta>1.
+                  St%Vars(i,j,IM_GTYPE) = 0.0 !1.0/St%Vars(i,j,IM_BETA)**2
+                  St%Vars(i,j,IM_BETA)  = 1.0
+                  isAncG(i,j) = .true.
+               endif
             endif
          enddo
       enddo
-      temp = St%Vars(:,:,IM_BETA) ! supposed to be between 0 and 1.
-      call conductance_smooth(G,temp,isAnc)
-      St%Vars(:,:,IM_BETA) = temp
 
-      ! IM_BETA is for output. beta_RCM is used in calculation.
-      beta_RCM = min(St%Vars(:,:,IM_BETA), 1.0)
-    end subroutine conductance_beta
+      ! Smooth IM_BETA and save in beta_RCM
+      beta_RCM = St%Vars(:,:,IM_BETA)
+      call conductance_smooth(G,beta_RCM,isAncB)
+      St%Vars(:,:,IM_BETA) = beta_RCM 
+      beta_RCM = min(beta_RCM,1.0)
+      beta_RCM = max(beta_RCM,0.0)
+
+      ! Smooth IM_GTYPE and save in gtype_RCM
+      gtype_RCM = St%Vars(:,:,IM_GTYPE)
+      call conductance_smooth(G,gtype_RCM,isAncG)
+      St%Vars(:,:,IM_GTYPE) = gtype_RCM 
+      gtype_RCM = min(gtype_RCM,1.0)
+      gtype_RCM = max(gtype_RCM,0.0)
+    end subroutine conductance_beta_gtype
 
     subroutine conductance_smooth(Gr,Q,isAnchor)
       ! Do smoothing window on ReMIX grid quantity
