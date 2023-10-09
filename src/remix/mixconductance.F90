@@ -283,7 +283,7 @@ module mixconductance
       type(mixGrid_T), intent(in) :: G
       type(mixState_T), intent(inout) :: St
       
-      real(rp) :: signOfY, signOfJ
+      real(rp) :: signOfJ
       real(rp) :: Rout = 6.D0, Rin = 1.2D0
       real(rp) :: rhoFactor = 3.3D-24*0.5D0
       real(rp) :: rPolarBound = 20.0D0*pi/180.D0, rEquatBound = 30.0D0*pi/180.0D0, rLowLimit = 0.02D0
@@ -291,10 +291,8 @@ module mixconductance
       integer :: i,j
 
       if (St%hemisphere==NORTH) then
-         signOfY = -1
          signOfJ = -1  
       elseif (St%hemisphere==SOUTH) then
-         signOfY = 1
          signOfJ = 1
       else
          stop 'Wrong hemisphere label. Stopping...'
@@ -453,6 +451,7 @@ module mixconductance
       real(rp) :: rcm_eavg,rcm_nflx,rcm_eflx
       real(rp) :: mix_eavg,mix_nflx,mix_eflx
       logical :: isRCM,isMHD,isMIX
+
       St%Vars(:,:,AUR_TYPE) = 0
 
       ! Two thresholds of rcm grid type between which both MHD and RCM precipitation will be merged.
@@ -527,15 +526,13 @@ module mixconductance
       type(mixGrid_T), intent(in) :: G
       type(mixState_T), intent(inout) :: St
       
-      real(rp) :: signOfY, signOfJ
+      real(rp) :: signOfJ
       integer :: i,j
       real(rp) :: D,Cs,Pe,Ne,J2eF0,eV2kT,dE,phi0,kT
 
       if (St%hemisphere==NORTH) then
-         signOfY = -1
          signOfJ = -1  
       elseif (St%hemisphere==SOUTH) then
-         signOfY = 1
          signOfJ = 1
       else
          stop 'Wrong hemisphere label. Stopping...'
