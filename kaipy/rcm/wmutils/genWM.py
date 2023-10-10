@@ -3,7 +3,7 @@ import h5py as h5
 from scipy.interpolate import RectBivariateSpline
 from kaipy.rcm.wmutils.wmData import wmParams
 
-def genWM(params, useWM=True):
+def genWM(params):
 
         import os
 
@@ -14,26 +14,24 @@ def genWM(params, useWM=True):
 
         print("Reading %s"%fInChorus)
 
-        if useWM:
-                return genChorus(params,fInChorus)
-        else:
-                return toyWM(params)
+        return genChorus(params,fInChorus)
 
 # Add wpi-induced electron lifetime model to input file and create an output file
 # Writes arrays to file in rcmconfig.h5 format
-def genh5(fIn, fOut, inputParams, useWM=True):
+def genh5(fIn, fOut, inputParams):
 
         if fIn != fOut:
-               oH5 = h5.File(fOut, 'a')
+               oH5 = h5.File(fOut, 'w')
                iH5 = h5.File(fIn, 'r')
                for Q in iH5.keys():
                      sQ = str(Q)
                      oH5.create_dataset(sQ, data=iH5[sQ])
+               oH5.attrs.update(iH5.attrs)
         else:
                oH5 = h5.File(fOut, 'r+')
 
         if not ('Taui' in oH5.keys()):
-               kpi, mlti, li, eki, taui = genWM(inputParams, useWM = useWM)
+               kpi, mlti, li, eki, taui = genWM(inputParams)
                attrs = inputParams.getAttrs()
 
                oH5.create_dataset('Kpi', data=kpi)
