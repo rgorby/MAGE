@@ -24,8 +24,8 @@ def genWM(params, useWM=True):
 def genh5(fIn, fOut, inputParams, useWM=True):
 
         if fIn != fOut:
-               oH5 = h5.File(fOut, 'w')
-               iH5 = h5.File(fIn,'r')
+               oH5 = h5.File(fOut, 'a')
+               iH5 = h5.File(fIn, 'r')
                for Q in iH5.keys():
                      sQ = str(Q)
                      oH5.create_dataset(sQ, data=iH5[sQ])
