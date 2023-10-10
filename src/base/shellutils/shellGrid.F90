@@ -21,7 +21,8 @@ module shellGrid
         ! Assuming lat \in -pi/2,pi/2 and lon \in [0,2pi]
         ! note, th/ph are colatitude/longitude; also, defining lat/latc for latitude
         real(rp), dimension(:), allocatable :: th, ph, thc, phc, lat, latc  ! Radians
-        logical :: doSP = .false., doNP = .false. ! Whether grid contains south/north pole
+        logical :: doSP = .false., doNP = .false. ! Whether active grid contains south/north pole, no ghosts in this case
+        logical :: ghostSP = .false., ghostNP = .false. ! Whether the last ghost corner is the south/north pole
 
         real(rp) :: minTheta, maxTheta, minPhi, maxPhi
         real(rp) :: minGTheta, maxGTheta, minGPhi, maxGPhi
@@ -195,6 +196,8 @@ module shellGrid
                 do i=1,shGr%Ngn
                     shGr%th(is-i) = shGr%th(is) - delta*i
                 end do
+
+                shGr%ghostNP = .true.
             end if
         end if
 
@@ -212,6 +215,8 @@ module shellGrid
                 do i=1,shGr%Ngs
                     shGr%th(ie+1+i) = shGr%th(ie+1) + delta*i
                 end do
+
+                shGr%ghostSP = .true.
             end if
         end if
 

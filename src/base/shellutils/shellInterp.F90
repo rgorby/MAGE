@@ -80,16 +80,27 @@ module shellInterp
         end if
 
         ! Trap for near-pole cases
+
+        if (shGr%doNP .and. (i0==1)) then
+            call interpPole(shGr,Qind,t,pin,Qinterp)
+
+            ! Handle north pole and return
+            write(*,*) "Not implemented!"
+            stop
+        endif
+
+        ! First, if active grid has poles 
         if (shGr%doSP .and. (i0==shGr%Nt)) then
             ! Handle south pole and return
             write(*,*) "Not implemented!"
             stop
         endif
 
-        if (shGr%doNP .and. (i0==1)) then
-            ! Handle north pole and return
-            write(*,*) "Not implemented!"
-            stop
+        ! Now, if ghost grid has poles
+        if (shGr%ghostSP .and. (i0==shGr%ieg)) then
+        endif
+
+        if (shGr%ghostNP .and. (i0==shGr%isg)) then
         endif
 
         ! Note: If still here we know i0 isn't on the boundary
@@ -237,5 +248,62 @@ module shellInterp
         ij0 = [iX,jX]
 
     end subroutine GetShellIJ
+
+    subroutine interpPole(shGr,Qind,t,pin,Qinterp)
+        type(ShellGrid_T), intent(in) :: shGr
+        integer, intent(in)  :: Qind
+        real(rp), intent(out) :: Qinterp
+        real(rp), intent(in)  :: t,pin
+        real(rp) :: f0,f1,f2,I1,I2
+        integer :: j,pole,iind ! the latter is the index of the pole cell (first/last for NORTH/SOUTH)
+        integer :: jpi2,jpi32,jpi  ! which cell do pi/2, 3pi/2 and pi points belong to
+
+        Qinterp = 0.0
+
+        ! first, find out which pole we're at
+        ! note, if we're inside this function, we already know we're at one of the poles
+        if ( (t.ge.0).and.(t.le.shGr%th(shGr%is+1)) ) then
+            pole = NORTH
+            iind = shGr%is
+        else if ( (t.le.PI).and.(t.ge.shGr%th(shGr%ie)) ) then
+            pole = SOUTH
+            iind = shGr%ie
+        else
+            write(*,*) "Inside interPole. Shouldn't be here. Quitting..."
+        end if
+
+        write(*,*) 'which pole ',pole,iind
+
+
+        ! represent the function near pole to first order in theta as
+        ! f(t,p) = f0 + f1*cos(p)*t + f2*sin(p)*t 
+        ! (Lewis&Bellan, J. Math. Phys. 31, 2592 (1990); 
+        ! https://doi.org/10.1063/1.529009
+        ! 
+        ! then, 2pi*f0 = \int_0^2pi f(t(i=1),p), where t(i=1) is the cell center of first cell in i-direction
+        ! to calculate f1, define
+        ! I1 = \int_(-pi/2)^(pi/2) f(t,p)dp = - \int_(pi/2)^(3pi/2) f(t,p)dp = 2*f1*t+f0*pi
+        ! compute I1 = 0.5*(\int_(-pi/2)^(pi/2) f(t,p)dp - \int_(pi/2)^(3pi/2))
+        ! to take all points around the ring into account
+        ! then f1 = (I1-f0*pi)/(2*t)
+        !
+        ! similarly,
+        ! f2 = (I2-f0*pi)/(2*t), where
+        ! I2 = 0.5*(\int_0^pi f(t,p)dp - \int_pi^(2pi) f(t,p)dp)
+
+        f0 = 0.
+        do j=1,shGr%Np
+            f0 = f0 + (shGr%ph(j+1)-shGr%ph(j))*shGr%shellVars(Qind)%cellData(iind,j)/(2.*PI)
+
+            ! find which cells do pi/2, 3pi/2 and pi points belong to
+            ! this can be done a priori but it doesn't add to the computation
+            if ( (shGr%ph(j).le.0.5*pi).and.(shGr%ph(j+1).gt.0.5*pi) ) jpi2  = j
+            if ( (shGr%ph(j).le.    pi).and.(shGr%ph(j+1).gt.    pi) ) jpi   = j
+            if ( (shGr%ph(j).le.1.5*pi).and.(shGr%ph(j+1).gt.1.5*pi) ) jpi32 = j
+        end do
+        
+        write(*,*) 'pi indices ',jpi2,jpi,jpi32
+
+    end subroutine interpPole
 
 end module shellInterp
