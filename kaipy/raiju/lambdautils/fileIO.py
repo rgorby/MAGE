@@ -8,12 +8,13 @@ from dataclasses import asdict as dc_asdict
 import kaipy.kaijson as kj
 import kaipy.raiju.lambdautils.AlamParams as aP
 import kaipy.raiju.lambdautils.DistTypes as dT
+import kaipy.raiju.lambdautils.AlamData as aD
 
-def saveAlamParams(f5name, alamData):
+def saveAlamParams(f5name: str, alamData: aD.AlamData):
     with h5.File(f5name, 'a') as f5:
         f5.attrs['AlamParams'] = [kj.dumps(dc_asdict(p),noIndent=True) for p in alamData.params]
 
-def saveAlamData(f5name, alamData, doPrint=False):
+def saveAlamData(f5name: str, alamData: aD.AlamData, doPrint=False):
     """ Takes an AlamData object, formats it to raijuconfig.h5 style, and saves it
     """
 

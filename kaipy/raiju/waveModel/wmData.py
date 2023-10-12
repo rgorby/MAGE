@@ -3,6 +3,7 @@ import numpy as np
 
 class wmParams:
 
+    #All energies in eV
     def __init__(self, dim = 4, nKp = 7, nMLT = 97, nL = 41, nEk = 155):
         self.dim        = dim
         self.nKp        = nKp

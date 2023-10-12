@@ -15,8 +15,8 @@ import kaipy.raiju.lambdautils.AlamParams as aP
 import kaipy.raiju.lambdautils.DistTypes as dT
 import kaipy.raiju.lambdautils.fileIO as fileIO
 
-from kaipy.rcm.wmutils.wmData import wmParams
-import kaipy.rcm.wmutils.genWM as genWM
+from kaipy.raiju.waveModel.wmData import wmParams
+import kaipy.raiju.waveModel.genWM as genWM
 
 #import kaipy.rcm.lambdautils.plotter as plotter
 
