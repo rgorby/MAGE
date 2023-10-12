@@ -2625,8 +2625,8 @@ def PlotiSlBr(
         i_shift += 1
         lon = np.roll(lon, -i_shift, axis=1)
         lat = np.roll(lat, -i_shift, axis=1)
-        lonc = np.roll(lonc, -i_shift, axis=1)
-        latc = np.roll(latc, -i_shift, axis=1)
+        lonc = np.roll(lonc, -i_shift + 1, axis=1)
+        latc = np.roll(latc, -i_shift + 1, axis=1)
         Br = np.roll(Br, -i_shift, axis=1)
 
         # Plot the data in the HGS(MJD_plot) frame.
