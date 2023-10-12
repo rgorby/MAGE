@@ -183,7 +183,6 @@ MODULE lossutils
         REAL(rprec) :: tauKMLE(2,2,2,2),tauMLE(2,2,2),tauLE(2,2),tauE(2)! tauKMLE(1,2,2,2) means tauKlMuLuEu, l:lower bound, u: upper bound in the NN method
         REAL(rprec) :: dK,wK,dM,wM,dL,wL,dE,wE
         INTEGER :: iK,kL,kU,mL,mU,lL,lU,eL,eU
-        LOGICAL :: Lflag = .false.
 
 
         associate(Nm=>EWMTauInput%ChorusTauInput%Nm,Nl=>EWMTauInput%ChorusTauInput%Nl,Nk=>EWMTauInput%ChorusTauInput%Nk,Ne=>EWMTauInput%ChorusTauInput%Ne,&
@@ -215,7 +214,6 @@ MODULE lossutils
         if (Lx >= maxval(Li)) then
             lL = Nl !use L maximum
             lU = Nl
-            Lflag = .true.
         else if (Lx <= minval(Li)) then
             lL = 1 ! use L minimum
             lU = 1
@@ -293,10 +291,6 @@ MODULE lossutils
         if (lL == lU) then
             tauE(1) = tauLE(2,1)
             tauE(2) = tauLE(2,2)
-            if (Lflag) then ! use gaussian decay for L > maxval(Li) (7Re)
-               tauE(1)=tauE(1)/exp(-(Lx-maxval(Li))**2)
-               tauE(2)=tauE(2)/exp(-(Lx-maxval(Li))**2)
-            endif
         else
             dL = Li(lU)-Li(lL)
             wL = (Lx-Li(lL))/dL

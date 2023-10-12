@@ -1220,16 +1220,16 @@
 
         doSP = .false.
         call ClearIO(IOVars) !Reset IO chain
-        call AddInVar(IOVars,"alamc") !1
-        call AddInVar(IOVars,"ikflavc") !2
-        call AddInVar(IOVars,"fudgec") !3
+        call AddInVar(IOVars,"alamc") 
+        call AddInVar(IOVars,"ikflavc") 
+        call AddInVar(IOVars,"fudgec")
         call ReadVars(IOVars,doSP,RCMGAMConfig)
 
         !Store data for energy channels
-        alamc(:)   = IOVars(1)%data
-        ikflavc(:) = IOVars(2)%data
-        fudgec(:)  = IOVars(3)%data
-        
+        alamc(:) = IOVars(FindIO(IOVars, "alamc"))%data
+        ikflavc(:) = IOVars(FindIO(IOVars, "ikflavc"))%data
+        fudgec(:) = IOVars(FindIO(IOVars, "fudgec"))%data
+
         ! reset to make sure species if ikflav ==1 alamc is set to negative, for electrons
         where(ikflavc==1)alamc = -abs(alamc)
 
@@ -1244,25 +1244,25 @@
         if (ioExist(RCMGAMConfig,"Taui")) then
             EWMTauInput%useWM = .true.
             !Chorus wave
-            call AddInVar(IOVars,"Kpi") !4 
-            call AddInVar(IOVars,"MLTi") !5
-            call AddInVar(IOVars,"Li") !6
-            call AddInVar(IOVars,"Eki") !7
-            call AddInVar(IOVars,"Taui") !8
+            call AddInVar(IOVars,"Kpi")  
+            call AddInVar(IOVars,"MLTi") 
+            call AddInVar(IOVars,"Li") 
+            call AddInVar(IOVars,"Eki") 
+            call AddInVar(IOVars,"Taui") 
             call ReadVars(IOVars,doSP,RCMGAMConfig)
-            tauDim = IOVars(8)%Nr
+            tauDim = IOVars(FindIO(IOVars, "Taui"))%Nr
             if (tauDim /= 4) then
                 write(*,*) "tauDim:",tauDim
                 write(*,*) 'Currently only support tau model files in the form tau(Kp,MLT,L,Ek)'
-                write(*,*)"tau:",IOVars(8)%dims
+                write(*,*)"tau:",IOVars(FindIO(IOVars, "Taui"))%dims
                 stop
             endif
 
-            dims = IOVars(8)%dims(1:tauDim)
-            Nk   = IOVars(4)%N
-            Nm   = IOVars(5)%N
-            Nl   = IOVars(6)%N
-            Ne  = IOVars(7)%N
+            dims = IOVars(FindIO(IOVars, "Taui"))%dims(1:tauDim)
+            Nk   = IOVars(FindIO(IOVars, "Kpi"))%N
+            Nm   = IOVars(FindIO(IOVars, "MLTi"))%N
+            Nl   = IOVars(FindIO(IOVars, "Li"))%N
+            Ne  = IOVars(FindIO(IOVars, "Eki"))%N
             if (Nk /=  dims(1) .or. Nm /= dims(2) .or. Nl /= dims(3) .or. Ne /= dims(4)) then
                 write(*,*) "dims:",dims,"Nk:",Nk,"Nm:",Nm,"Nl:",Nl,"Ne:",Ne
                 write(*,*) 'Dimensions of tau arrays are not compatible'
@@ -2503,16 +2503,16 @@ SUBROUTINE Move_plasma_grid_MHD (dt,nstep)
         ENDIF
 
         eeta_avg(:,:,kc) = 0.0
-        ! Just set eeta_avg to whatever eta is there, and leave
-        !! Note: Regions that have ever been outside of active domain will never have psph again, based on current implementation (2023-08-24)
         if ( (kc==1) .and. dp_on == .false.) then  ! We are plasmasphere and we don't want to evolve it
+            ! Just set eeta_avg to whatever eta is there, and leave
+            !! Note: Regions that have ever been outside of active domain will never have psph again, based on current implementation (2023-08-24)
             eeta_avg(:,:,kc) = eeta(:,:,kc)
             cycle
         else  ! We are hot channel or we are evolving plasmasphere channel
               ! Add current weighted eeta as first contribution
             eeta_avg(:,:,kc) = eeta(:,:,kc)/(nstep+1)
         endif
-        
+       
        !Sub-step nstep times
         do n=1,nstep
             !---
