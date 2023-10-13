@@ -3,7 +3,7 @@ from dataclasses import dataclass
 from dataclasses import asdict as dc_asdict
 from typing import Optional, List
 
-import kaipy.rcm.lambdautils.AlamParams as aP
+import kaipy.raiju.lambdautils.AlamParams as aP
 
 # dataclasses_json isn't a default package. Since its only used for reading, don't want to make it a requirement for everyone
 try:
