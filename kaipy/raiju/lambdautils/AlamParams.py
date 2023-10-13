@@ -48,6 +48,3 @@ class SpecParams:
 	def genAlami(self):  # This will call the given DistType's 'required' function to generate alams based on its rules
 		specData = self.distType.genAlami(self)
 		return specData
-
-
-# TODO: Ignoring AlamParams for now because its probably just too much, since we will be changing stuff around later

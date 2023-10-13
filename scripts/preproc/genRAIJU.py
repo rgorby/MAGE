@@ -1,11 +1,10 @@
 #!/usr/bin/env python	
 # Generates RAIJU config data
-import numpy as np
+import os
 import h5py as h5
 import argparse
 from argparse import RawTextHelpFormatter
 
-import kaipy.kdefs as kdefs
 import kaipy.kaiTools as kT
 import kaipy.kaijson as kj
 import kaipy.kaiH5 as kh5
@@ -59,9 +58,7 @@ if __name__ == "__main__":
     parser.add_argument('-plotType', choices=plotChoices,default=plotChoices[0], help="Plot mode (default: %(default)s)")
     parser.add_argument('--nop',action='store_true',default=False,help="Do not add zero energy first channel (default: %(default)s)")
     parser.add_argument('--noWaveModel',action='store_true',default=False, help="Don't use wave models in the electron/ion loss (default: %(default)s)")
-    parser.add_argument('--addWM', action='store_true',default=False, help="Add wave models to an existing rcmconfig file, input file needed to be presented (default: %(default)s)")
-    parser.add_argument('-i', type=str,default=fOut,metavar="fIn", help="Input file name when addWM is true (default: %(default)s)")
-
+    parser.add_argument('--append',action='store_true',default=False, help="Append existing file rather than make a new one (default: %(default)s)")
 
     # Finalize parsing
     args = parser.parse_args()
@@ -75,25 +72,46 @@ if __name__ == "__main__":
     L_kt = float(args.L)
     wolfP1 = args.p1
     wolfP2 = args.p2
-    noPsph = args.nop
-    addWM = args.addWM
-    noWaveModel = args.noWaveModel
-    fIn = args.i	
     plotType = args.plotType
+    noPsph = args.nop
+    noWaveModel = args.noWaveModel
+    doAppend = args.append
 
 
-    # Check if we are just here to add the wavemodel to an existing config file
-    if addWM:
-        tauParams = wmParams(dim = 4, nKp = 7, nMLT = 25, nL = 41, nEk = 155)
-        genWM.genh5(fIn,fOut,tauParams,useWMh5 = True)
-        quit()
+    if doAppend:
+        if not os.path.exists(fOut): 
+            # Will only append to a file that exists
+            # i.e. we will not make a new file if the --append arg was used
+            print("Couldn't find {} to append to, quitting.".format(fOut))
+            quit()
+        # If append == True and file is there, we'll just add any data the file doesn't already have
+    else:
+        # Othewise, we will make a new file
+        # Since all writing functions open in 'a' mode, we need to ensure we have a fresh file to work with
+        print("Making new {}, destroying pre-existing file if there".format(fOut))
+        with h5.File(fOut, 'w') as tmpF:
+            pass
 
-    # Otherwise, procede with generating a file from scratch
 
-    # Determine proton channel limits based on resolving a certain (proton) temperature at given L
+    # Tag the output file with latest info
+    with h5.File(fOut, 'a') as f5:
+        print("Stamping file with git hash and branch, and script args")
+        kh5.StampHash(fOut)
+        kh5.StampBranch(fOut)
+        f5.attrs['ScriptArgs'] = kj.dumps(vars(args),noIndent=True)
+
+
+    # Add wavemodel if desired
+    if not noWaveModel:
+        tauParams = wmParams(dim = 4, nKp = 7, nMLT = 97, nL = 41, nEk = 155)
+        genWM.genh5(fOut,tauParams)
+
+
+    # Now add species
+    # Determine lambda limits using desired energy limits at given L
     bVol = kT.L_to_bVol(L_kt)
-    vm = bVol**(-2/3)
-    alamMin_p = eminp/vm
+    vm = bVol**(-2/3)  # [(Rp/nT)^(-2/3)]
+    alamMin_p = eminp/vm  # [eV * (Rp/nT)^(2/3)]
     alamMax_p = emaxp/vm
     alamMin_e = -1*emine/vm
     alamMax_e = -1*emaxe/vm
@@ -117,18 +135,11 @@ if __name__ == "__main__":
 
     # Stuff into an AlamData object, which will automatically generate the fully realized species distribution for us
     # NOTE: ORDER MATTERS. They will show up in the 1D lamc in this order
-    alamData = aD.AlamData([sPe, sPp]) if noPsph else aD.AlamData([sPsphere, sPe, sPp])
+    if noPsph:
+        alamData = aD.AlamData([sPe, sPp])
+    else:
+        alamData = aD.AlamData([sPsphere, sPe, sPp])
 
-
-    # Tag a brand new output file
-    with h5.File(fOut, 'w') as f5:
-        kh5.StampHash(fOut)
-        kh5.StampBranch(fOut)
-        f5.attrs['ScriptArgs'] = kj.dumps(vars(args),noIndent=True)
     
-    # Save parameter info to file so we can recover later if needed
-    fileIO.saveAlamParams(fOut, alamData)
-    # Save main data to file
+    # Save lambda data to file (will also save params as a root attribute)
     fileIO.saveAlamData(fOut, alamData)
-
-    # TODO:!! Check that we have the right number of alamis, flavs and fudges

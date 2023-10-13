@@ -22,23 +22,29 @@ def genh5(fOut: str, inputParams: wmD.wmParams):
 
 	oH5 = h5.File(fOut, 'a')
 	
-	if not ('waveModel' in oH5.keys()):
-		kpi, mlti, li, eki, taui = genWM(inputParams)
-		attrs = inputParams.getAttrs()
+	if 'waveModel' in oH5.keys():
+		print("'waveModel' group already in {}, not writing new one".format(fOut))
+		return
 
-		wmGrp = oH5.create_group("waveModel")
+	print("Adding waveModel to",fOut)
+	kpi, mlti, li, eki, taui = genWM(inputParams)
 
-		wmGrp.create_dataset('Kpi', data=kpi)
-		wmGrp.create_dataset('MLTi', data=mlti)
-		wmGrp.create_dataset('Li', data=li)
-		wmGrp.create_dataset('Eki', data=eki)
-		wmGrp.create_dataset('Taui', data=taui)
+	wmGrp = oH5.create_group("waveModel")
 
-		wmGrp['Li'  ].attrs['units'] = 'Re'
-		wmGrp['Eki' ].attrs['units'] = 'MeV'
-		wmGrp['Taui'].attrs['units'] = 's'
-		for key in attrs.keys():
-			wmGrp.attrs[key] = attrs[key]
+	wmGrp.create_dataset('Kpi', data=kpi)
+	wmGrp.create_dataset('MLTi', data=mlti)
+	wmGrp.create_dataset('Li', data=li)
+	wmGrp.create_dataset('Eki', data=eki)
+	wmGrp.create_dataset('Taui', data=taui)
+
+	wmGrp['Li'  ].attrs['units'] = 'Re'
+	wmGrp['Eki' ].attrs['units'] = 'MeV'
+	wmGrp['Taui'].attrs['units'] = 's'
+
+	attrs = inputParams.getAttrs()
+	for key in attrs.keys():
+		wmGrp.attrs[key] = attrs[key]
+	
 	oH5.close()
 
 #read parameters of the polynomial fit, Wang+,2023

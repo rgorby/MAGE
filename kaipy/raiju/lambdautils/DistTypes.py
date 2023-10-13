@@ -3,7 +3,6 @@ from dataclasses import dataclass
 from dataclasses import asdict as dc_asdict
 from typing import Optional, List
 
-import numpy as np
 
 # dataclasses_json isn't a default package. Since its only used for reading, don't want to make it a requirement for everyone
 try:
@@ -40,7 +39,7 @@ class DistType:  # Empty class just so we can force the type in dataclasses belo
 class DT_Manual(DistType):
     """
         If you want to completely ignore all this generator stuff, you could use this
-        and to whatever you want. But if you were doing all that anyways, its probably
+        and do whatever you want. But if you were doing all that anyways, its probably
         just easier to manually edit the h5 dataset directly
     """
     def __post_init__(self):

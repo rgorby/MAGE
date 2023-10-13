@@ -43,7 +43,7 @@ class H5Info:
             s5 = f5[s]
             t = s5.attrs['time']
             MJD = s5.attrs.get('MJD',0)
-            if MJD is not 0:
+            if MJD != 0:
                 if noSubSec:
 		    		# Do our own UT calculation to remove subseconds if desired
                     UTStr = Time(MJD,format='mjd').isot
