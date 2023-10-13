@@ -2635,11 +2635,17 @@ def PlotiSlBr(
         # Plot the data in the HGS(MJD_plot) frame.
         Ax.pcolormesh(lon, lat, Br, cmap=BCM, norm=vB)
 
+        # Draw the Br=0 contour line representing the current sheet.
+        # <BUG>
+        # This call creates a spurious horizontal line.
+        Ax.contour(lonc, latc, np.roll(Br, 1, axis=1), [0.], colors='black')
+        # </BUG>
+
     else:
         Ax.pcolormesh(lon, lat, Br, cmap=BCM, norm=vB)
 
-    # Draw the Br=0 contour line representing the current sheet.
-    Ax.contour(lonc, latc, Br, [0.], colors='black')
+        # Draw the Br=0 contour line representing the current sheet.
+        Ax.contour(lonc, latc, np.roll(Br, [0.], colors='black'))
 
     # Set the plot boundaries.
     if hgsplot:
