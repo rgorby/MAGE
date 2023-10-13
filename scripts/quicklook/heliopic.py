@@ -519,18 +519,15 @@ def main():
             hviz.PlotjD(gsph, nStp, xyBds, AxR0, AxC2_0, jidx=jidx)
             hviz.PlotjTemp(gsph, nStp, xyBds, AxL1, AxC1_1, jidx=jidx)
             hviz.PlotjBr(gsph, nStp, xyBds, AxR1, AxC2_1, jidx=jidx)
+            fig.suptitle("GAMERA-Helio frame at 1 AU for "
+                         f"{ktools.MJD2UT(mjd)}")
         else:
             raise TypeError(f"Invalid figure type: {pic}!")
 
         # Add time in the upper left (if not in figure title).
-        if pic == "pic1" or pic == "pic2" or pic == "pic3" or pic == "pic6":
-            pass
-        elif pic == "pic4" or pic == "pic5":
+        # if pic == "pic1" or pic == "pic2" or pic == "pic3" or pic == "pic6":
+        if pic == "pic4" or pic == "pic5":
             gsph.AddTime(nStp, Ax, xy=[0.015, 0.92], fs="small")
-        elif pic == pic == "pic7":
-            gsph.AddTime(nStp, AxL0, xy=[0.025, 0.875], fs="x-large")
-        else:
-            raise TypeError(f"Invalid figure type: {pic}!")
 
         # Overlay the spacecraft positions.
         if spacecraft:

@@ -278,7 +278,7 @@ def PlotjMagV(
     # Create the color bar.
     if AxCB:
         AxCB.clear()
-        kv.genCB(AxCB, vMagV, "Speed [km/s]", cM=MagVCM, Ntk=7)
+        kv.genCB(AxCB, vMagV, cbT=None, cM=MagVCM, Ntk=7)
 
     # Clear the plot Axes.
     if doClear:
@@ -300,6 +300,7 @@ def PlotjMagV(
 
     # Decorate the plots.
     if doDeco:
+        Ax.set_title(r"Speed [$km/s$]")
         Ax.set_xlabel(r"$X [R_S]$")
         Ax.set_ylabel(r"$Y [R_S]$")
 
@@ -1170,7 +1171,7 @@ def PlotjD(
     # Create the color bar.
     if AxCB:
         AxCB.clear()
-        kv.genCB(AxCB, vD, r"Density $n(r/r_0)^2 [cm^{-3}]$", cM=DCM, Ntk=7)
+        kv.genCB(AxCB, vD, cbT=None, cM=DCM, Ntk=7)
 
     # Clear the plot Axes.
     if doClear:
@@ -1192,7 +1193,8 @@ def PlotjD(
 
     # Decorate the plots.
     if doDeco:
-        Ax.set_xlabel('$R [R_S]$')
+        Ax.set_title(r"Number density $n$ [$(r/r_0)^2 cm^{-3}$]")
+        Ax.set_xlabel('$X [R_S]$')
         Ax.set_ylabel('$Y [R_S]$')
         Ax.yaxis.tick_right()
         Ax.yaxis.set_label_position('right')
@@ -1392,7 +1394,7 @@ def PlotjTemp(
     # Create the color bar.
     if AxCB:
         AxCB.clear()
-        kv.genCB(AxCB, vT, r"Temperature $T(r/r_0)$ [MK]", cM=TCM, Ntk=7)
+        kv.genCB(AxCB, vT, cbT=None, cM=TCM, Ntk=7)
 
     # Clear the plot Axes.
     if doClear:
@@ -1414,6 +1416,7 @@ def PlotjTemp(
 
     # Decorate the plots.
     if doDeco:
+        Ax.set_title(r"Temperature $T$ [$(r/r_0) MK$]")
         Ax.set_xlabel('$X [R_S]$')
         Ax.set_ylabel('$Y [R_S]$')
 
@@ -1612,7 +1615,7 @@ def PlotjBr(
     # Create the color bar.
     if AxCB:
         AxCB.clear()
-        kv.genCB(AxCB, vB, cM=BCM, Ntk=7)
+        kv.genCB(AxCB, vB, cbT=None, cM=BCM, Ntk=7)
 
     # Clear the plot Axes.
     if doClear:
@@ -1634,6 +1637,7 @@ def PlotjBr(
 
     # Decorate the plots.
     if doDeco:
+        Ax.set_title(r"Radial magnetic field $B_r$ [$(r/r_0)^2 nT$]")
         Ax.set_xlabel('$X [R_S]$')
         Ax.set_ylabel('$Y [R_S]$')
         Ax.yaxis.tick_right()
