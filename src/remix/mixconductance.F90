@@ -12,7 +12,7 @@ module mixconductance
   
   implicit none
 
-  real(rp), dimension(:,:), allocatable, private :: JF0,RM,RRdi ! used for zhang15
+  real(rp), dimension(:,:), allocatable, private :: RM,RRdi ! used for zhang15
   real(rp), dimension(:,:), allocatable, private :: beta_RCM,alpha_RCM,gtype_RCM ! two-dimensional beta based on RCM fluxes.
 
   !Replacing some hard-coded inline values (bad) w/ module private values (slightly less bad)
@@ -73,14 +73,12 @@ module mixconductance
       if (.not. allocated(conductance%PrecipMask)) allocate(conductance%PrecipMask(G%Np,G%Nt))    
 
       ! these arrays are global and should not be! reallocate them
-      if(allocated(JF0)) deallocate(JF0)
       if(allocated(RM)) deallocate(RM)
       if(allocated(RRdi)) deallocate(RRdi)
       if(allocated(beta_RCM)) deallocate(beta_RCM)
       if(allocated(alpha_RCM)) deallocate(alpha_RCM)
       if(allocated(gtype_RCM)) deallocate(gtype_RCM)
 
-      allocate(JF0(G%Np,G%Nt))      
       allocate(RM(G%Np,G%Nt))      
       allocate(RRdi(G%Np,G%Nt))      
       allocate(beta_RCM(G%Np,G%Nt))
@@ -480,6 +478,7 @@ module mixconductance
             else
                rcm_eavg = eTINY
             endif
+
             if(isPSP) then
                ! Set auroral type to diffuse. Use RCM values for diffuse nflux and eavg in the plasmasphere.
                St%Vars(i,j,NUM_FLUX) = rcm_nflx
