@@ -1,5 +1,6 @@
 module raijuIO
     use ioh5
+    use files
     use planethelper
     use kai2geo
     
@@ -26,7 +27,7 @@ module raijuIO
         integer :: i
         logical :: fExist
         real(rp), dimension(:,:), allocatable :: lat2D, lon2D
-        type(IOVAR_T), dimension(MAXIOVAR) :: IOVars
+        !type(IOVAR_T), dimension(MAXIOVAR) :: IOVars
         character(len=strLen) :: gStr
 
         doRoot = .false. ! Don't call again

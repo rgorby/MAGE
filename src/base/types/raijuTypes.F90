@@ -5,10 +5,15 @@ module raijutypes
     use xml_input
     use ioclock
 
+    use raijudefs
 
     use raijudefs
 
     implicit none
+
+!------
+! Containers
+!------
 
     !  var*Var0 = CODE units --> In/Out units
     type kmUnits_T
@@ -49,7 +54,33 @@ module raijutypes
         
     end type raijuSpecies_T
 
+!------
+! Precipitation models
+!------
+    type eLossWM_T
+        !! Parameters used in electron wave model from Dedong Wang and Shanshan Bao
+        
+        real(rp) :: NpsphHigh = def_NpsphHigh
+        real(rp) :: NpsphLow = def_NpsphLow
+        real(rp) :: ChorusLMax = def_ChorusLmax
+        real(rp) :: PsheetLMin = def_PsheetLmin
+        real(rp) :: ChorusEMin = def_ChorusEMin
+        
+        ! Chorus info
+        integer :: Nkp, Nmlt, Nl, Ne
+            !! Number of bins for Kp, MLT, L shell, and Energy
 
+        real(rp), allocatable, dimension(:) :: Kp1D
+        real(rp), allocatable, dimension(:) :: MLT1D
+        real(rp), allocatable, dimension(:) :: L1D
+        real(rp), allocatable, dimension(:) :: Energy1D
+        real(rp), allocatable, dimension(:,:,:,:) :: Tau4D
+
+    end type eLossWM_T
+
+!------
+! Main Model, Grid, State
+!------
     type raijuModel_T
 
         ! Misc. bookkeeping stuff
@@ -108,6 +139,10 @@ module raijutypes
             !! (Ions) Do strong scattering / coulomb collisions / charge exchange / field-line curvature
         !type(precip_T) :: precip  ! Precipitation model info (Shanshan and Dong)
         !type(waveModel_T) :: wModel  ! Wave model info (Shanshan)
+        integer :: eLossModel
+            !! Enumerator indicating active loss model
+        type(eLossWM_T) :: eLossWM
+            !! Container for electron Wave Model data
 
         character(len=strLen) :: icStr
         procedure(raijuStateIC_T     ), pointer, nopass :: initState => NULL()
@@ -210,6 +245,7 @@ module raijutypes
         real(rp), dimension(:,:), allocatable :: bvol  ! Flux-tube volume [Rx/nT]
 
         !> Varibles coming from RAIJU, size (Ni, Nj, Nk)
+        real(rp), dimension(:,:), allocatable :: precipType_ele  ! Prepication type used for electrons
         real(rp), dimension(:,:,:), allocatable :: precipNFlux  ! Precipitation number fluxes [#/cm^2/s]
         real(rp), dimension(:,:,:), allocatable :: precipEFlux  ! Precipitation energy fluxes [erg/cm^2/s]
         ! (Ni, Nj, Nspc+1) (First index is bulk)
@@ -256,6 +292,8 @@ module raijutypes
             real(rp) :: etaK
         end function raijuDP2EtaMap_T
     end interface
+
+
 
 
 

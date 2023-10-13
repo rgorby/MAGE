@@ -38,18 +38,35 @@ module raijudefs
                     ! Null species, electron, h+, o+
     endenum
 
+    ! Electron loss models
+    enum, bind(C)
+        enumerator :: RaiELOSS_WM=1
+    endenum
+
+    ! Electron wave model loss types
+    enum, bind(C)
+        enumerator :: RaiEWM_HISS=1,RaiEWM_CHORUS,RaiEWM_PSHEET
+    endenum
+
     !------
     ! Defaults
     !------
 
     ! Units
-    real(rp) :: sclEta = 1.0e9  ! [1/nT -> 1/T on DkT2eta conversion]
-    real(rp) :: sclIntens = 1.e-4*sqrt(ev2J/(8.0*dalton))/PI ! code eta to intensity [1/(s*sr*keV*cm^2)]
+    real(rp), parameter :: sclEta = 1.0e9  ! [1/nT -> 1/T on DkT2eta conversion]
+    real(rp), parameter :: sclIntens = 1.e-4*sqrt(ev2J/(8.0*dalton))/PI ! code eta to intensity [1/(s*sr*keV*cm^2)]
 
     ! Settings
-    integer :: nSpacesDef = 4
+    integer, parameter :: nSpacesDef = 4
         !! Number of i spaces between last good value and active i for species
-    real(rp) :: fracWorthyDef = 0.001
+    real(rp), parameter :: fracWorthyDef = 0.001
         !! Fraction that a lambda channel must contribute to total pressure or density in order to be worthy of being evolved
+
+    ! Wave model stuff
+    real(rp), parameter :: def_NpsphHigh = 100.0  ! [#/cc]
+    real(rp), parameter :: def_NpsphLow  = 10.0   ! [#/cc]
+    real(rp), parameter :: def_ChorusLmax = 7.0  ! [Re]
+    real(rp), parameter :: def_PsheetLmin = 8.0  ! [Re]
+    real(rp), parameter :: def_ChorusEMin = 1.1  ! [keV]
 
 end module raijudefs

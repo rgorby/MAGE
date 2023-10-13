@@ -10,6 +10,7 @@ module raijustarter
     use raijuetautils
     use raijuout
     use raijuICHelpers
+    use raijuELossWM
 
     implicit none
 
@@ -62,7 +63,7 @@ module raijustarter
 
         ! Config file
         call iXML%Set_Val(Model%configFName, "config/fname","raijuconfig.h5")
-        call CheckFileOrDie(Model%configFName,"Unable to open file")
+        call CheckFileOrDie(Model%configFName,"RAIJU unable to open config file")
 
         call iXML%Set_Val(Model%isMPI, "mpi/isMPI",.false.)
         if (Model%isMPI) then
@@ -115,6 +116,19 @@ module raijustarter
         call iXML%Set_Val(Model%doCC , "losses/doCC" ,.true.)
         call iXML%Set_Val(Model%doCX , "losses/doCX" ,.false.)
         call iXML%Set_Val(Model%doFLC, "losses/doFLC",.false.)
+
+        ! Electron loss model
+        call iXML%Set_Val(tmpStr, "losses/eLossModel","WM")
+        select case (tmpStr)
+            case ("WM")
+                write(*,*) "RAIJU using Wang-Bao electron wave model"
+                Model%eLossModel = RaiELOSS_WM
+                call initEWM(Model%eLossWM, Model%configFName)
+            case default
+                write(*,*) "RAIJU did not get a valid electron loss model, goodbye"
+                stop
+        end select
+
 
 
         call iXML%Set_Val(Model%doFatOutput, "output/doFat",.false.)
