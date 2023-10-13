@@ -116,16 +116,17 @@ if __name__ == "__main__":
     alamMin_e = -1*emine/vm
     alamMax_e = -1*emaxe/vm
 
-    dtManual = dT.DT_Single()
+    dtSingle = dT.DT_Single()
     dtWolf   = dT.DT_Wolf(p1=wolfP1,p2=wolfP2)  # Lambda channels will have a (slightly modified) Wolf distribution type
 
     # For reference: SpecParams(n, amin, amax, distType, 
     #           flav, numNuc_p, numNuc_n, q,
     #           fudge, name)
 
-    if not noPsph: sPsphere = aP.SpecParams(1, 0, 0, dtManual, 
-                                            0, numNuc_p=1, numNuc_n=0, q=1,
-                                            fudge=0, name="0_Plasmasphere") # Zero-energy plasmasphere channel
+    if not noPsph: 
+        sPsphere = aP.SpecParams(1, 0, 0, dtSingle, 
+                                0, numNuc_p=1, numNuc_n=0, q=1,
+                                fudge=0, name="0_Plasmasphere") # Zero-energy plasmasphere channel
     sPe = aP.SpecParams(num_e, alamMin_e, alamMax_e, dtWolf, 
                         EFLAV, numNuc_p=0, numNuc_n=0, q=-1, 
                         fudge=EFUDGE, name='Hot Electrons')  # Parameters to create electron channels
