@@ -27,7 +27,7 @@ MODULE rice_housekeeping_module
   use kronos
   use strings
   use earthhelper, ONLY : SetKp0
-  use rcmdefs, ONLY : DenPP0, ELOSS_FDG, ELOSS_SS, ELOSS_C05, ELOSS_C19, ELOSS_WM
+  use rcmdefs, ONLY : DenPP0, ELOSS_FDG, ELOSS_SS, ELOSS_WM
   
   IMPLICIT NONE
   
@@ -40,7 +40,6 @@ MODULE rice_housekeeping_module
   INTEGER(iprec) :: rcm_record
   REAL(rprec) :: HighLatBD,LowLatBD
   LOGICAL :: doLatStretch = .false.
-  LOGICAL :: doTDSLoss = .true. !Use TDS losses
   LOGICAL :: doFLCLoss = .true. !Use FLC losses
   LOGICAL :: doNewCX = .true. !Use newer CX loss estimate
   LOGICAL :: doSmoothDDV = .true. !Whether to smooth ij deriv of residual FTV
@@ -78,21 +77,14 @@ MODULE rice_housekeeping_module
   end type RCMEllipse_T
 
   type ChorusTauIn_T !electron lifetime for Chorus wave
-      integer(iprec) :: Nm=24, Nl=20, Nk=7 ,Ne=100
+      integer(iprec) :: Nm=97, Nl=41, Nk=7 ,Ne=155
       real(rprec), ALLOCATABLE :: MLTi(:), Li(:), Kpi(:), Eki(:)
-      real(rprec), ALLOCATABLE :: tau1i(:,:,:,:), tau2i(:,:,:,:)
+      real(rprec), ALLOCATABLE :: taui(:,:,:,:)
   end type ChorusTauIn_T
-
-  type TDSTauIn_T !electron lifetime for time domain structures
-      integer(iprec) :: NeTDS = 109
-      real(rprec), ALLOCATABLE :: EkTDSi(:)
-      real(rprec), ALLOCATABLE :: tauTDSi(:)
-  end type TDSTauIn_T
 
   type EWMTauIn_T !electron lifetime wave model input
       logical :: useWM = .false.
       type(ChorusTauIn_T) :: ChorusTauInput
-      type(TDSTauIn_T):: TDSTauInput
   end type EWMTauIn_T 
 
   type(EWMTauIn_T) :: EWMTauInput
@@ -155,17 +147,12 @@ MODULE rice_housekeeping_module
               ELOSSMETHOD = ELOSS_FDG
            case ("SS")
               ELOSSMETHOD = ELOSS_SS
-           case ("C05")
-              ELOSSMETHOD = ELOSS_C05
-           case ("C19")
-              ELOSSMETHOD = ELOSS_C19
            case ("WM")
               ELOSSMETHOD = ELOSS_WM
            case default
-              stop "The electron loss type entered is not supported (Available options: WM, FDG, SS, C05, C19)."
+              stop "The electron loss type entered is not supported (Available options: WM, FDG, SS)."
         end select
 
-        call xmlInp%Set_Val(doTDSLoss,"loss/doTDSLoss",doTDSLoss)
         call xmlInp%Set_Val(doNewCX  ,"loss/doNewCX"  ,doNewCX  )
         call xmlInp%Set_Val(doRelax  ,"loss/doRelax"  ,doRelax  )
 
