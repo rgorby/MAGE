@@ -1540,8 +1540,6 @@ def PlotEqBr(
         Ax.set_title(r"Radial magnetic field $B_r$ [$(r/r_0)^2 nT$]")
         Ax.set_xlabel(r"$X$ [$R_S$]")
         Ax.set_ylabel(r"$Y$ [$R_S$]")
-        Ax.yaxis.tick_right()
-        Ax.yaxis.set_label_position("right")
 
     # Return the data.
     return Br
@@ -1614,7 +1612,7 @@ def PlotjBr(
     # Create the color bar.
     if AxCB:
         AxCB.clear()
-        kv.genCB(AxCB, vB, r'Radial MF $B_r (r/r_0)^2$ [nT]', cM=BCM, Ntk=7)
+        kv.genCB(AxCB, vB, cM=BCM, Ntk=7)
 
     # Clear the plot Axes.
     if doClear:
@@ -1710,7 +1708,7 @@ def PlotEqBx(
     # Create the color bar.
     if AxCB:
         AxCB.clear()
-        kv.genCB(AxCB, vB, r'MF $B_x$(r/r_0)^2$ [nT]', cM=BCM, Ntk=7)
+        kv.genCB(AxCB, vB, cbT=None, cM=BCM, Ntk=7)
 
     # Clear the plot Axes.
     if doClear:
@@ -1759,6 +1757,7 @@ def PlotEqBx(
 
     # Decorate the plots.
     if doDeco:
+        Ax.set_title(r"x-magnetic field $B_x$ [$(r/r_0)^2 nT$]")
         Ax.set_xlabel('$X [R_S]$')
         Ax.set_ylabel('$Y [R_S]$')
         Ax.yaxis.tick_right()
@@ -1833,7 +1832,7 @@ def PlotEqBy(
     # Create the color bar.
     if AxCB:
         AxCB.clear()
-        kv.genCB(AxCB, vB, r'MF $B_y(r/r_0)^2$ [nT]', cM=BCM, Ntk=7)
+        kv.genCB(AxCB, vB, cbT=None, cM=BCM, Ntk=7)
 
     # Clear the plot Axes.
     if doClear:
@@ -1882,10 +1881,9 @@ def PlotEqBy(
 
     # Decorate the plots.
     if doDeco:
+        Ax.set_title(r"y-magnetic field $B_y$ [$(r/r_0)^2 nT$]")
         Ax.set_xlabel('$X [R_S]$')
         Ax.set_ylabel('$Y [R_S]$')
-        Ax.yaxis.tick_right()
-        Ax.yaxis.set_label_position('right')
 
     # Return the data.
     return By
@@ -1962,7 +1960,7 @@ def PlotEqBz(
     # Create the color bar.
     if AxCB:
         AxCB.clear()
-        kv.genCB(AxCB, vB, r'MF $B_z$ [nT]', cM=BCM, Ntk=7)
+        kv.genCB(AxCB, vB, cbT=None, cM=BCM, Ntk=7)
 
     # Clear the plot Axes.
     if doClear:
@@ -2008,6 +2006,7 @@ def PlotEqBz(
 
     # Decorate the plots.
     if doDeco:
+        Ax.set_title(r"z-magnetic field $B_z$ [$(r/r_0)^2 nT$]")
         Ax.set_xlabel('$X [R_S]$')
         Ax.set_ylabel('$Y [R_S]$')
         Ax.yaxis.tick_right()
