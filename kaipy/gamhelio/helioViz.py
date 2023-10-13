@@ -23,466 +23,680 @@ DCM = "copper_r"
 
 #limits for iSlice
 #21.5 R_S
-#D0Max = 1000.
-#D0Min = 300.
+D0Max = 2000.
+D0Min = 300.
 #1 au
-D0Max = 1.
-D0Min = 15.
+#D0Max = 1.
+#D0Min = 15.
 D0CM = "copper_r"
 
 TMin = 0.2
 TMax = 2.
 TCM = "copper"
 
-T0Min = 0.01
-T0Max = 0.25
+#21.5 R_S
+T0Min = 0.2
+T0Max = 2.0
+#1AU
+#T0Min = 0.1
+#T0Max = 0.5
 
+#21.5 R_S
 BMax = 150.
 BMin = -150.
+#1AU
 #BMax = 5.
 #BMin = -5.
 BCM = "coolwarm"
 
-B0Min = -4.
-B0Max = 4.
+#21.5 R_S
+B0Min = -150.
+B0Max = 150.
+#1 AU
+#B0Min = -4.
+#B0Max = 4.
+
 
 colorProf = "tab:orange"
 #Function to Add different size options to argument
 #not used for helio right now
 def AddSizeArgs(parser):
-	parser.add_argument('-small' , action='store_true', default=False,help="Use smaller domain bounds (default: %(default)s)")
-	parser.add_argument('-big'   , action='store_true', default=False,help="Use larger domain bounds (default: %(default)s)")
-	parser.add_argument('-bigger', action='store_true', default=False,help="Use larger-er domain bounds (default: %(default)s)")
-	parser.add_argument('-huge'  , action='store_true', default=False,help="Use huge domain bounds (default: %(default)s)")
+    parser.add_argument('-small' , action='store_true', default=False,help="Use smaller domain bounds (default: %(default)s)")
+    parser.add_argument('-big'   , action='store_true', default=False,help="Use larger domain bounds (default: %(default)s)")
+    parser.add_argument('-bigger', action='store_true', default=False,help="Use larger-er domain bounds (default: %(default)s)")
+    parser.add_argument('-huge'  , action='store_true', default=False,help="Use huge domain bounds (default: %(default)s)")
 
 #Return domain size from parsed arguments; see msphViz for options
 def GetSizeBds(pic):
-	if (pic == "pic1" or pic == "pic2"):
+    if (pic == "pic1" or pic == "pic2"):
                 #for inner helio
-		xyBds = [-220.,220.,-220.,220.]
+        xyBds = [-220.,220.,-220.,220.]
                 #for 1-10 au helio
                 #xyBds = [-10.,10.,-10.,10.]
-	elif (pic == "pic3"):
-		xyBds = [0.,360.,-75.,75.]
-	elif (pic == "pic4"):
-                xyBds = [0.,360.,-90.,90.]
-	elif (pic == "pic5"):
-		xyBds = [20.,220.,1.,2000.]
-	else:		
-		print ("No pic type specified.")
-	return xyBds
+    elif (pic == "pic3"):
+        xyBds = [0.,360.,-75.,75.]
+    elif (pic == "pic4"):
+        xyBds = [0.,360.,-90.,90.]
+    elif (pic == "pic5"):
+        xyBds = [20.,220.,1.,2000.]
+    elif (pic == "pic6" or pic == "pic7"):
+        xyBds = [-220.,220.,-220.,220.]
+    else:        
+        raise RuntimeError("No compatible pic type specified.")
+    return xyBds
 
 #Plot speed in equatorial plane
 def PlotEqMagV(gsph,nStp,xyBds,Ax,AxCB=None,doClear=True,doDeco=True):
-	vMagV = kv.genNorm(VMin, VMax, doLog=False, midP=None)
-	
-	if (AxCB is not None):
-		#Add the colorbar to AxCB
-		AxCB.clear()
-		kv.genCB(AxCB,vMagV,"Speed [km/s]",cM=MagVCM,Ntk=7)
+    vMagV = kv.genNorm(VMin, VMax, doLog=False, midP=None)
+    
+    if (AxCB is not None):
+        #Add the colorbar to AxCB
+        AxCB.clear()
+        kv.genCB(AxCB,vMagV,"Speed [km/s]",cM=MagVCM,Ntk=7)
 
-	#Now do main plotting
-	if (doClear):
-		Ax.clear()
+    #Now do main plotting
+    if (doClear):
+        Ax.clear()
 
-	MagV = gsph.eqMagV(nStp)
-	Ax.pcolormesh(gsph.xxi,gsph.yyi,MagV,cmap=MagVCM,norm=vMagV)
+    MagV = gsph.eqMagV(nStp)
+    Ax.pcolormesh(gsph.xxi,gsph.yyi,MagV,cmap=MagVCM,norm=vMagV)
 
-	kv.SetAx(xyBds,Ax)
+    kv.SetAx(xyBds,Ax)
 
-	if (doDeco):
-		Ax.set_xlabel('X [R_S]')
-		Ax.set_ylabel('Y [R_S]')
-	return MagV
+    if (doDeco):
+        Ax.set_xlabel('X [R_S]')
+        Ax.set_ylabel('Y [R_S]')
+    return MagV
+
+#Plot speed in j plane
+def PlotjMagV(gsph,nStp,xyBds,Ax,AxCB=None,doClear=True,doDeco=True,jidx=-1):
+    vMagV = kv.genNorm(VMin, VMax, doLog=False, midP=None)
+    
+    if (AxCB is not None):
+        #Add the colorbar to AxCB
+        AxCB.clear()
+        kv.genCB(AxCB,vMagV,"Speed [km/s]",cM=MagVCM,Ntk=7)
+
+    #Now do main plotting
+    if (doClear):
+        Ax.clear()
+
+    MagV = gsph.jMagV(nStp,jidx=jidx)
+    Ax.pcolormesh(gsph.xxi,gsph.yyi,MagV,cmap=MagVCM,norm=vMagV)
+
+    kv.SetAx(xyBds,Ax)
+
+    if (doDeco):
+        Ax.set_xlabel('X [R_S]')
+        Ax.set_ylabel('Y [R_S]')
+    return MagV
 
 #Plot speed in meridional plane Y=0
-def PlotMerMagV(gsph,nStp,xyBds,Ax,AxCB=None,doClear=True,doDeco=True):
+def PlotMerMagV(gsph,nStp,xyBds,Ax,AxCB=None,doClear=True,doDeco=True,indx=(None,None)):
         vMagV = kv.genNorm(VMin, VMax, doLog=False, midP=None)
 
         if (AxCB is not None):
-                #Add the colorbar to AxCB
-                AxCB.clear()
-                kv.genCB(AxCB,vMagV,"Speed [km/s]",cM=MagVCM,Ntk=7)
-
+            #Add the colorbar to AxCB
+            AxCB.clear()
+            kv.genCB(AxCB,vMagV,"Speed [km/s]",cM=MagVCM,Ntk=7)
+            
         if (doClear):
-                Ax.clear()
-	#r is for +X plane and l is for -X plane
-        Vr, Vl = gsph.MerMagV(nStp)
-	#cell corners
-        xr, zr, xl, zl, r = gsph.MeridGridHalfs()
-        Ax.pcolormesh(xr,zr,Vr,cmap=MagVCM,norm=vMagV)
-        Ax.pcolormesh(xl,zl,Vl,cmap=MagVCM,norm=vMagV)
+            Ax.clear()
+       
+        phi = 0.0
+        for idx in indx:
+            if type(idx) is not None:
+                if type(idx) is int: 
+                    phi = idx/gsph.Nk*2*np.pi
+                elif type(idx) is float:
+                    phi = idx
+            else: 
+                phi = ""
+            
+    #r is for +X plane and l is for -X plane
+        Vr, Vl = gsph.MerMagV(nStp,indx=indx)
+    #cell corners
+        xr, yr, zr, xl, yl, zl, r = gsph.MeridGridHalfs(*indx)
+        Ax.pcolormesh(np.sqrt(xr**2 + yr**2),zr,Vr,cmap=MagVCM,norm=vMagV)
+        Ax.pcolormesh(-np.sqrt(xl**2 + yl**2),zl,Vl,cmap=MagVCM,norm=vMagV)
 
         kv.SetAx(xyBds,Ax)
 
         if (doDeco):
-                Ax.set_xlabel('X [R_S]')
-                Ax.set_ylabel('Z [R_S]')
+            Ax.set_xlabel(f"R_XY [R_S] Phi={phi:{2}.{2}} [rad]")
+            Ax.set_ylabel('Z [R_S]')
         return Vr, Vl
 
 #Plot normalized density n(r/r0)^2 in meridional plane Y=0
-def PlotMerDNorm(gsph,nStp,xyBds,Ax,AxCB=None,doClear=True,doDeco=True):
-	vD = kv.genNorm(DMin, DMax, doLog=False, midP=None)
+def PlotMerDNorm(gsph,nStp,xyBds,Ax,AxCB=None,doClear=True,doDeco=True,indx=[None,None]):
+    vD = kv.genNorm(DMin, DMax, doLog=False, midP=None)
 
-	if (AxCB is not None):
-		#Add the colorbar to AxCB
-		AxCB.clear()
-		kv.genCB(AxCB,vD,r"Density n$(r/r_0)^2$ [cm$^{-3}$]",cM=DCM,Ntk=7)
+    if (AxCB is not None):
+        #Add the colorbar to AxCB
+        AxCB.clear()
+        kv.genCB(AxCB,vD,r"Density n$(r/r_0)^2$ [cm$^{-3}$]",cM=DCM,Ntk=7)
 
-	if (doClear):
-		Ax.clear()
+    if (doClear):
+        Ax.clear()
 
-	Dr, Dl = gsph.MerDNrm(nStp)
-	xr, zr, xl, zl, r = gsph.MeridGridHalfs()
-	Ax.pcolormesh(xr,zr,Dr,cmap=DCM,norm=vD, shading='auto')
-	Ax.pcolormesh(xl,zl,Dl,cmap=DCM,norm=vD, shading='auto')
+    phi = 0.0
+    for idx in indx:
+        if type(idx) is not None:
+            if type(idx) is int: 
+                phi = idx/gsph.Nk*2*np.pi
+            elif type(idx) is float:
+                phi = idx
+        else: 
+            phi = ""
 
-	kv.SetAx(xyBds,Ax)
+    Dr, Dl = gsph.MerDNrm(nStp,indx=indx)
+    xr, yr, zr, xl, yl, zl, r = gsph.MeridGridHalfs(*indx)
+    Ax.pcolormesh(np.sqrt(xr**2 + yr**2),zr,Dr,cmap=DCM,norm=vD, shading='auto')
+    Ax.pcolormesh(-np.sqrt(xl**2 + yl**2),zl,Dl,cmap=DCM,norm=vD, shading='auto')
 
-	if (doDeco):
-		Ax.set_xlabel('X [R_S]')
-		Ax.set_ylabel('Z [R_S]')
-		Ax.yaxis.tick_right()
-		Ax.yaxis.set_label_position('right')
-	return Dr, Dl
+    kv.SetAx(xyBds,Ax)
+
+    if (doDeco):
+        Ax.set_xlabel(f"R_XY [R_S] Phi={phi:{2}.{2}} [rad]")
+        Ax.set_ylabel('Z [R_S]')
+        Ax.yaxis.tick_right()
+        Ax.yaxis.set_label_position('right')
+    return Dr, Dl
 
 #Plot normalized Br Br(r/r0)^2 in meridional plane Y=0
-def PlotMerBrNorm(gsph,nStp,xyBds,Ax,AxCB=None,doClear=True,doDeco=True):
-	vB = kv.genNorm(BMin, BMax, doLog=False, midP=None)
+def PlotMerBrNorm(gsph,nStp,xyBds,Ax,AxCB=None,doClear=True,doDeco=True,indx=[None,None]):
+    vB = kv.genNorm(BMin, BMax, doLog=False, midP=None)
 
-	if (AxCB is not None):
-		#Add the colorbar to AxCB
-		AxCB.clear()
-		kv.genCB(AxCB,vB,r'Radial MF B$_r$(r/r$_0)^2$ [nT]',cM=BCM,Ntk=7)
-	if (doClear):
-		Ax.clear()
+    if (AxCB is not None):
+        #Add the colorbar to AxCB
+        AxCB.clear()
+        kv.genCB(AxCB,vB,r'Radial MF B$_r$(r/r$_0)^2$ [nT]',cM=BCM,Ntk=7)
+    if (doClear):
+        Ax.clear()
+    
+    phi = 0.0
+    for idx in indx:
+        if type(idx) is not None:
+            if type(idx) is int: 
+                phi = idx/gsph.Nk*2*np.pi
+            elif type(idx) is float:
+                phi = idx
+        else: 
+            phi = ""
 
-	Br_r, Br_l = gsph.MerBrNrm(nStp)
-	xr, zr, xl, zl, r = gsph.MeridGridHalfs()
-	Ax.pcolormesh(xr,zr,Br_r,cmap=BCM,norm=vB,shading='auto')
-	Ax.pcolormesh(xl,zl,Br_l,cmap=BCM,norm=vB,shading='auto')
-	#plot heliospheric current sheet
-	#cell-cent coords first
-	xr_c = 0.25*( xr[:-1,:-1]+xr[:-1,1:]+xr[1:,:-1]+xr[1:,1:] )
-	zr_c = 0.25*( zr[:-1,:-1]+zr[:-1,1:]+zr[1:,:-1]+zr[1:,1:] )
-	xl_c = 0.25*( xl[:-1,:-1]+xl[:-1,1:]+xl[1:,:-1]+xl[1:,1:] )
-	zl_c = 0.25*( zl[:-1,:-1]+zl[:-1,1:]+zl[1:,:-1]+zl[1:,1:] )
-	#plot Br=0
-	Ax.contour(xr_c,zr_c,Br_r,[0.],colors='black')
-	Ax.contour(xl_c,zl_c,Br_l,[0.],colors='black')
-	kv.SetAx(xyBds,Ax)
+    Br_r, Br_l = gsph.MerBrNrm(nStp,indx=indx)
+    xr, yr, zr, xl, yl, zl, r = gsph.MeridGridHalfs(*indx)
+    Ax.pcolormesh(np.sqrt(xr**2 + yr**2),zr,Br_r,cmap=BCM,norm=vB,shading='auto')
+    Ax.pcolormesh(-np.sqrt(xl**2 + yl**2),zl,Br_l,cmap=BCM,norm=vB,shading='auto')
+    #plot heliospheric current sheet
+    #cell-cent coords first
+    xr_c = 0.25*( xr[:-1,:-1]+xr[:-1,1:]+xr[1:,:-1]+xr[1:,1:] )
+    yr_c = 0.25*( yr[:-1,:-1]+yr[:-1,1:]+yr[1:,:-1]+yr[1:,1:] )
+    zr_c = 0.25*( zr[:-1,:-1]+zr[:-1,1:]+zr[1:,:-1]+zr[1:,1:] )
+    xl_c = 0.25*( xl[:-1,:-1]+xl[:-1,1:]+xl[1:,:-1]+xl[1:,1:] )
+    yl_c = 0.25*( yl[:-1,:-1]+yl[:-1,1:]+yl[1:,:-1]+yl[1:,1:] )
+    zl_c = 0.25*( zl[:-1,:-1]+zl[:-1,1:]+zl[1:,:-1]+zl[1:,1:] )
+    #plot Br=0
+    Ax.contour(np.sqrt(xr_c**2 + yr_c**2),zr_c,Br_r,[0.],colors='black')
+    Ax.contour(-np.sqrt(xl_c**2 + yl_c**2),zl_c,Br_l,[0.],colors='black')
+    kv.SetAx(xyBds,Ax)
 
-	if (doDeco):
-		Ax.set_xlabel('X [R_S]')
-		Ax.set_ylabel('Z [R_S]')
-		Ax.yaxis.tick_right()
-		Ax.yaxis.set_label_position('right')
-	return Br_r, Br_l
+    if (doDeco):
+        Ax.set_xlabel(f"R_XY [R_S] Phi={phi:{2}.{2}} [rad]")
+        Ax.set_ylabel('Z [R_S]')
+        Ax.yaxis.tick_right()
+        Ax.yaxis.set_label_position('right')
+    return Br_r, Br_l
 
 #Plot normalized temperature T(r/r0) in meridional plane
-def PlotMerTemp(gsph,nStp,xyBds,Ax,AxCB=None,doClear=True,doDeco=True):
-	vT = kv.genNorm(TMin, TMax, doLog=False, midP=None)
+def PlotMerTemp(gsph,nStp,xyBds,Ax,AxCB=None,doClear=True,doDeco=True,indx=[None,None]):
+    vT = kv.genNorm(TMin, TMax, doLog=False, midP=None)
 
-	if (AxCB is not None):
-		AxCB.clear()
-		kv.genCB(AxCB,vT, r'Temperature T(r/r$_0$) [MK]',cM=TCM,Ntk=7)
-	if (doClear):
-		Ax.clear()
+    if (AxCB is not None):
+        AxCB.clear()
+        kv.genCB(AxCB,vT, r'Temperature T(r/r$_0$) [MK]',cM=TCM,Ntk=7)
+    if (doClear):
+        Ax.clear()
 
-	Tempr, Templ = gsph.MerTemp(nStp)
-	xr, zr, xl, zl, r = gsph.MeridGridHalfs()
-	Ax.pcolormesh(xr,zr,Tempr,cmap=TCM,norm=vT)
-	Ax.pcolormesh(xl,zl,Templ,cmap=TCM,norm=vT)
+    phi = 0.0
+    for idx in indx:
+        if type(idx) is not None:
+            if type(idx) is int: 
+                phi = idx/gsph.Nk*2*np.pi
+            elif type(idx) is float:
+                phi = idx
+        else: 
+            phi = ""
 
-	kv.SetAx(xyBds,Ax)
+    Tempr, Templ = gsph.MerTemp(nStp,indx=indx)
+    xr, yr, zr, xl, yl, zl, r = gsph.MeridGridHalfs(*indx)
+    Ax.pcolormesh(np.sqrt(xr**2 + yr**2),zr,Tempr,cmap=TCM,norm=vT)
+    Ax.pcolormesh(-np.sqrt(xl**2 + yl**2),zl,Templ,cmap=TCM,norm=vT)
 
-	if (doDeco):
-		Ax.set_xlabel('X [R_S]')
-		Ax.set_ylabel('Z [R_S]')
-	return Tempr, Templ
+    kv.SetAx(xyBds,Ax)
+
+    if (doDeco):
+        Ax.set_xlabel(f"R_XY [R_S] Phi={phi:{2}.{2}} [rad]")
+        Ax.set_ylabel('Z [R_S]')
+    return Tempr, Templ
 
 #Plot normalized density in equatorial plane n(r/r0)^2
 def PlotEqD(gsph,nStp,xyBds,Ax,AxCB=None,doClear=True,doDeco=True):
-	vD = kv.genNorm(DMin, DMax, doLog=False, midP=None)
-	
-	if (AxCB is not None):
-		#Add the colorbar to AxCB
-		AxCB.clear()
-		kv.genCB(AxCB,vD,r"Density n(r/r$_0)^2$ [cm$^{-3}$]",cM=DCM,Ntk=7)
+    vD = kv.genNorm(DMin, DMax, doLog=False, midP=None)
+    
+    if (AxCB is not None):
+        #Add the colorbar to AxCB
+        AxCB.clear()
+        kv.genCB(AxCB,vD,r"Density n(r/r$_0)^2$ [cm$^{-3}$]",cM=DCM,Ntk=7)
 
-	#Now do main plotting
-	if (doClear):
-		Ax.clear()
+    #Now do main plotting
+    if (doClear):
+        Ax.clear()
 
-	NormD = gsph.eqNormD(nStp)
-	Ax.pcolormesh(gsph.xxi,gsph.yyi,NormD,cmap=DCM,norm=vD)
+    NormD = gsph.eqNormD(nStp)
+    Ax.pcolormesh(gsph.xxi,gsph.yyi,NormD,cmap=DCM,norm=vD)
 
-	kv.SetAx(xyBds,Ax)
+    kv.SetAx(xyBds,Ax)
 
-	if (doDeco):
-		Ax.set_xlabel('X [R_S]')
-		Ax.set_ylabel('Y [R_S]')
-		Ax.yaxis.tick_right()
-		Ax.yaxis.set_label_position('right')
-	return NormD
+    if (doDeco):
+        Ax.set_xlabel('R [R_S]')
+        Ax.set_ylabel('Y [R_S]')
+        Ax.yaxis.tick_right()
+        Ax.yaxis.set_label_position('right')
+    return NormD
+
+#Plot normalized density in equatorial plane n(r/r0)^2
+def PlotjD(gsph,nStp,xyBds,Ax,AxCB=None,doClear=True,doDeco=True,jidx=-1):
+    vD = kv.genNorm(DMin, DMax, doLog=False, midP=None)
+    
+    if (AxCB is not None):
+        #Add the colorbar to AxCB
+        AxCB.clear()
+        kv.genCB(AxCB,vD,r"Density n(r/r$_0)^2$ [cm$^{-3}$]",cM=DCM,Ntk=7)
+
+    #Now do main plotting
+    if (doClear):
+        Ax.clear()
+
+    NormD = gsph.jNormD(nStp,jidx=jidx)
+    Ax.pcolormesh(gsph.xxi,gsph.yyi,NormD,cmap=DCM,norm=vD)
+
+    kv.SetAx(xyBds,Ax)
+
+    if (doDeco):
+        Ax.set_xlabel('R [R_S]')
+        Ax.set_ylabel('Y [R_S]')
+        Ax.yaxis.tick_right()
+        Ax.yaxis.set_label_position('right')
+    return NormD
 
 #Plot normalized Temperature in equatorial plane T(r/r0)
 def PlotEqTemp(gsph,nStp,xyBds,Ax,AxCB=None,doClear=True,doDeco=True):
-	vT = kv.genNorm(TMin, TMax, doLog=False, midP=None)
+    vT = kv.genNorm(TMin, TMax, doLog=False, midP=None)
 
-	if (AxCB is not None):
-		AxCB.clear()
-		kv.genCB(AxCB,vT,r"Temperature T(r/r$_0$) [MK]",cM=TCM,Ntk=7)
-	if (doClear):
-		Ax.clear()
+    if (AxCB is not None):
+        AxCB.clear()
+        kv.genCB(AxCB,vT,r"Temperature T(r/r$_0$) [MK]",cM=TCM,Ntk=7)
+    if (doClear):
+        Ax.clear()
 
-	Temp = gsph.eqTemp(nStp)
-	Ax.pcolormesh(gsph.xxi,gsph.yyi,Temp,cmap=TCM,norm=vT)
-	
-	kv.SetAx(xyBds,Ax)
+    Temp = gsph.eqTemp(nStp)
+    Ax.pcolormesh(gsph.xxi,gsph.yyi,Temp,cmap=TCM,norm=vT)
+    
+    kv.SetAx(xyBds,Ax)
 
-	if (doDeco):
-		Ax.set_xlabel('X [R_S]')
-		Ax.set_ylabel('Y [R_S]')
-	return Temp
+    if (doDeco):
+        Ax.set_xlabel('X [R_S]')
+        Ax.set_ylabel('Y [R_S]')
+    return Temp
+
+#Plot normalized Temperature in equatorial plane T(r/r0)
+def PlotjTemp(gsph,nStp,xyBds,Ax,AxCB=None,doClear=True,doDeco=True,jidx=-1):
+    vT = kv.genNorm(TMin, TMax, doLog=False, midP=None)
+
+    if (AxCB is not None):
+        AxCB.clear()
+        kv.genCB(AxCB,vT,r"Temperature T(r/r$_0$) [MK]",cM=TCM,Ntk=7)
+    if (doClear):
+        Ax.clear()
+
+    Temp = gsph.jTemp(nStp,jidx=jidx)
+    Ax.pcolormesh(gsph.xxi,gsph.yyi,Temp,cmap=TCM,norm=vT)
+    
+    kv.SetAx(xyBds,Ax)
+
+    if (doDeco):
+        Ax.set_xlabel('X [R_S]')
+        Ax.set_ylabel('Y [R_S]')
+    return Temp
 
 #Plor Br in equatorial plane
 def PlotEqBr(gsph,nStp,xyBds,Ax,AxCB=None,doClear=True,doDeco=True):
-	vB = kv.genNorm(BMin, BMax, doLog=False, midP=None)
+    vB = kv.genNorm(BMin, BMax, doLog=False, midP=None)
 
-	if (AxCB is not None):
-		AxCB.clear()
-		kv.genCB(AxCB,vB,r'Radial MF B$_r$(r/r$_0)^2$ [nT]',cM=BCM,Ntk=7)
-	if (doClear):
-		Ax.clear()
+    if (AxCB is not None):
+        AxCB.clear()
+        kv.genCB(AxCB,vB,r'Radial MF B$_r$(r/r$_0)^2$ [nT]',cM=BCM,Ntk=7)
+    if (doClear):
+        Ax.clear()
 
-	Br = gsph.eqNormBr(nStp)
-	Ax.pcolormesh(gsph.xxi,gsph.yyi,Br,cmap=BCM,norm=vB)
+    Br = gsph.eqNormBr(nStp)
+    Ax.pcolormesh(gsph.xxi,gsph.yyi,Br,cmap=BCM,norm=vB)
 
-	kv.SetAx(xyBds,Ax)
+    kv.SetAx(xyBds,Ax)
 
-	if (doDeco):
-		Ax.set_xlabel('X [R_S]')
-		Ax.set_ylabel('Y [R_S]')
-		Ax.yaxis.tick_right()
-		Ax.yaxis.set_label_position('right')
-	return Br
+    if (doDeco):
+        Ax.set_xlabel('X [R_S]')
+        Ax.set_ylabel('Y [R_S]')
+        Ax.yaxis.tick_right()
+        Ax.yaxis.set_label_position('right')
+    return Br
+
+#Plor Br in equatorial plane
+def PlotjBr(gsph,nStp,xyBds,Ax,AxCB=None,doClear=True,doDeco=True,jidx=-1):
+    vB = kv.genNorm(BMin, BMax, doLog=False, midP=None)
+
+    if (AxCB is not None):
+        AxCB.clear()
+        kv.genCB(AxCB,vB,r'Radial MF B$_r$(r/r$_0)^2$ [nT]',cM=BCM,Ntk=7)
+    if (doClear):
+        Ax.clear()
+
+    Br = gsph.jNormBr(nStp,jidx=jidx)
+    Ax.pcolormesh(gsph.xxi,gsph.yyi,Br,cmap=BCM,norm=vB)
+
+    kv.SetAx(xyBds,Ax)
+
+    if (doDeco):
+        Ax.set_xlabel('X [R_S]')
+        Ax.set_ylabel('Y [R_S]')
+        Ax.yaxis.tick_right()
+        Ax.yaxis.set_label_position('right')
+    return Br
+
+#Plor Br in equatorial plane
+def PlotEqBx(gsph,nStp,xyBds,Ax,AxCB=None,doClear=True,doDeco=True):
+    vB = kv.genNorm(BMin, BMax, doLog=False, midP=None)
+
+    if (AxCB is not None):
+        AxCB.clear()
+        kv.genCB(AxCB,vB,r'MF B$_x$(r/r$_0)^2$ [nT]',cM=BCM,Ntk=7)
+    if (doClear):
+        Ax.clear()
+
+    Bx = gsph.eqBx(nStp)
+    Ax.pcolormesh(gsph.xxi,gsph.yyi,Bx,cmap=BCM,norm=vB)
+
+    kv.SetAx(xyBds,Ax)
+
+    if (doDeco):
+        Ax.set_xlabel('X [R_S]')
+        Ax.set_ylabel('Y [R_S]')
+        Ax.yaxis.tick_right()
+        Ax.yaxis.set_label_position('right')
+    return Bx
+
+#Plor Br in equatorial plane
+def PlotEqBy(gsph,nStp,xyBds,Ax,AxCB=None,doClear=True,doDeco=True):
+    vB = kv.genNorm(BMin, BMax, doLog=False, midP=None)
+
+    if (AxCB is not None):
+        AxCB.clear()
+        kv.genCB(AxCB,vB,r'MF B$_y$(r/r$_0)^2$ [nT]',cM=BCM,Ntk=7)
+    if (doClear):
+        Ax.clear()
+
+    By = gsph.eqBy(nStp)
+    Ax.pcolormesh(gsph.xxi,gsph.yyi,By,cmap=BCM,norm=vB)
+
+    kv.SetAx(xyBds,Ax)
+
+    if (doDeco):
+        Ax.set_xlabel('X [R_S]')
+        Ax.set_ylabel('Y [R_S]')
+        Ax.yaxis.tick_right()
+        Ax.yaxis.set_label_position('right')
+    return By
+
+#Plor Br in equatorial plane
+def PlotEqBz(gsph,nStp,xyBds,Ax,AxCB=None,doClear=True,doDeco=True):
+    
+    Bz = gsph.eqBz(nStp)
+    maxBz = np.max(np.abs(Bz))
+    vB = kv.genNorm(-maxBz, maxBz, doLog=False, midP=None)
+
+    if (AxCB is not None):
+        AxCB.clear()
+        kv.genCB(AxCB,vB,r'MF B$_z$ [nT]',cM=BCM,Ntk=7)
+    if (doClear):
+        Ax.clear()
+
+    Ax.pcolormesh(gsph.xxi,gsph.yyi,Bz,cmap=BCM,norm=vB)
+
+    kv.SetAx(xyBds,Ax)
+
+    if (doDeco):
+        Ax.set_xlabel('X [R_S]')
+        Ax.set_ylabel('Y [R_S]')
+        Ax.yaxis.tick_right()
+        Ax.yaxis.set_label_position('right')
+    return Bz
 
 
 #Plot Speed at 1 AU
-def PlotiSlMagV(gsph,nStp,xyBds,Ax,AxCB=None,doClear=True,doDeco=True):
-	vMagV = kv.genNorm(VMin, VMax, doLog=False, midP=None)
+def PlotiSlMagV(gsph,nStp,xyBds,Ax,AxCB=None,doClear=True,doDeco=True,idx=-1):
+    vMagV = kv.genNorm(VMin, VMax, doLog=False, midP=None)
 
-	if (AxCB is not None):
+    if (AxCB is not None):
                 #Add the colorbar to AxCB
                 AxCB.clear()
                 kv.genCB(AxCB,vMagV,"Speed [km/s]",cM=MagVCM,Ntk=7)
 
-	#Now do main plotting
-	if (doClear):
-		Ax.clear()
+    #Now do main plotting
+    if (doClear):
+        Ax.clear()
 
-	V = gsph.iSliceMagV(nStp)
-	lat, lon = gsph.iSliceGrid()
-	Ax.pcolormesh(lon,lat,V,cmap=MagVCM,norm=vMagV)
+    V = gsph.iSliceMagV(nStp,idx=idx)
+    lat, lon = gsph.iSliceGrid(idx=idx)
+    Ax.pcolormesh(lon,lat,V,cmap=MagVCM,norm=vMagV)
 
-	kv.SetAx(xyBds,Ax)
+    kv.SetAx(xyBds,Ax)
 
-	if (doDeco):
-		Ax.set_xlabel('Longitude')
-		Ax.set_ylabel('Latitude')
-	return V
+    if (doDeco):
+        Ax.set_xlabel('Longitude')
+        Ax.set_ylabel('Latitude')
+    return V
 
 #Plot Density at 1 AU
-def PlotiSlD(gsph,nStp,xyBds,Ax,AxCB=None,doClear=True,doDeco=True):
-	vD = kv.genNorm(D0Min, D0Max, doLog=False, midP=None)
-	if (AxCB is not None):
-		AxCB.clear()
-		kv.genCB(AxCB,vD,"Number density [cm-3]",cM=D0CM,Ntk=7)
+def PlotiSlD(gsph,nStp,xyBds,Ax,AxCB=None,doClear=True,doDeco=True,idx=-1):
+    vD = kv.genNorm(D0Min, D0Max, doLog=False, midP=None)
+    if (AxCB is not None):
+        AxCB.clear()
+        kv.genCB(AxCB,vD,"Number density [cm-3]",cM=D0CM,Ntk=7)
 
-	if (doClear):
-		Ax.clear()
+    if (doClear):
+        Ax.clear()
 
-	D = gsph.iSliceD(nStp)
-	lat, lon = gsph.iSliceGrid()
-	Ax.pcolormesh(lon,lat,D,cmap=D0CM,norm=vD)
-	kv.SetAx(xyBds,Ax)
+    D = gsph.iSliceD(nStp,idx=idx)
+    lat, lon = gsph.iSliceGrid(idx=idx)
+    Ax.pcolormesh(lon,lat,D,cmap=D0CM,norm=vD)
+    kv.SetAx(xyBds,Ax)
 
-	if (doDeco):
-		Ax.set_xlabel('Longitude')
-		Ax.set_ylabel('Latitude')
-		Ax.yaxis.tick_right()
-		Ax.yaxis.set_label_position('right')
-	return D
+    if (doDeco):
+        Ax.set_xlabel('Longitude')
+        Ax.set_ylabel('Latitude')
+        Ax.yaxis.tick_right()
+        Ax.yaxis.set_label_position('right')
+    return D
 
 #Plot Br and current sheet (Br=0) at 1 AU
-def PlotiSlBr(gsph,nStp,xyBds,Ax,AxCB=None,doClear=True,doDeco=True):
-	vB = kv.genNorm(B0Min, B0Max, doLog=False, midP=None)
-	if (AxCB is not None):
-		AxCB.clear()
-		kv.genCB(AxCB,vB,"Radial magnetic field [nT]",cM=BCM,Ntk=7)
-	if (doClear):
-		Ax.clear()
+def PlotiSlBr(gsph,nStp,xyBds,Ax,AxCB=None,doClear=True,doDeco=True,idx=-1):
+    vB = kv.genNorm(B0Min, B0Max, doLog=False, midP=None)
+    if (AxCB is not None):
+        AxCB.clear()
+        kv.genCB(AxCB,vB,"Radial magnetic field [nT]",cM=BCM,Ntk=7)
+    if (doClear):
+        Ax.clear()
 
-	Br = gsph.iSliceBr(nStp)
-	lat, lon = gsph.iSliceGrid()
-	#for contour cell-centered lon lat coordinates
-	lon_c = 0.25*( lon[:-1,:-1]+lon[:-1,1:]+lon[1:,:-1]+lon[1:,1:] )
-	lat_c = 0.25*( lat[:-1,:-1]+lat[:-1,1:]+lat[1:,:-1]+lat[1:,1:] )
+    Br = gsph.iSliceBr(nStp,idx=idx)
+    lat, lon = gsph.iSliceGrid(idx=idx)
+    #for contour cell-centered lon lat coordinates
+    lon_c = 0.25*( lon[:-1,:-1]+lon[:-1,1:]+lon[1:,:-1]+lon[1:,1:] )
+    lat_c = 0.25*( lat[:-1,:-1]+lat[:-1,1:]+lat[1:,:-1]+lat[1:,1:] )
 
-	Ax.pcolormesh(lon,lat,Br,cmap=BCM,norm=vB)
-	Ax.contour(lon_c, lat_c,Br,[0.],colors='black')
-	kv.SetAx(xyBds,Ax)
+    Ax.pcolormesh(lon,lat,Br,cmap=BCM,norm=vB)
+    Ax.contour(lon_c, lat_c,Br,[0.],colors='black')
+    kv.SetAx(xyBds,Ax)
 
-	if (doDeco):
-		Ax.set_xlabel('Longitude')
-		Ax.set_ylabel('Latitude')
-		Ax.yaxis.tick_right()
-		Ax.yaxis.set_label_position('right')
-		#for pic4
-		Ax.set_aspect('equal')
-	return Br
+    if (doDeco):
+        Ax.set_xlabel('Longitude')
+        Ax.set_ylabel('Latitude')
+        Ax.yaxis.tick_right()
+        Ax.yaxis.set_label_position('right')
+        #for pic4
+        Ax.set_aspect('equal')
+    return Br
 
 #Plot Br and current sheet (Br=0) at certain distance set in iSliceBr
-def PlotiSlBrRotatingFrame(gsph,nStp,xyBds,Ax,AxCB=None,doClear=True,doDeco=True):
-	BMin = -5.
-	BMax = 5.
-	vB = kv.genNorm(BMin, BMax, doLog=False, midP=None)
-	if (AxCB is not None):
-		AxCB.clear()
-		kv.genCB(AxCB,vB,"Radial magnetic field [nT]",cM=BCM,Ntk=7)
-	if (doClear):
-		Ax.clear()
+def PlotiSlBrRotatingFrame(gsph,nStp,xyBds,Ax,AxCB=None,doClear=True,doDeco=True,idx=-1):
+    BMin = -5.
+    BMax = 5.
+    vB = kv.genNorm(BMin, BMax, doLog=False, midP=None)
+    if (AxCB is not None):
+        AxCB.clear()
+        kv.genCB(AxCB,vB,"Radial magnetic field [nT]",cM=BCM,Ntk=7)
+    if (doClear):
+        Ax.clear()
 
-	#Br from the i=0
-	Br = gsph.iSliceBrBound(nStp)
-	lat, lon = gsph.iSliceGrid()
-	
-	#transform into rotating frame
-	#Julian date of the initial map
-	jd0 = gsph.MJDs.min()
-	jd_c = gsph.MJDs[nStp]
-	print (jd0, jd_c)
-	#Julian date of the current solution
-	time_days = (jd_c - jd0)
-	print (time_days)
-	omega=2*180./Tsolar
+    #Br from the i=0
+    Br = gsph.iSliceBrBound(nStp,idx=idx)
+    lat, lon = gsph.iSliceGrid(idx=idx)
+    
+    #transform into rotating frame
+    #Julian date of the initial map
+    jd0 = gsph.MJDs.min()
+    jd_c = gsph.MJDs[nStp]
+    print (jd0, jd_c)
+    #Julian date of the current solution
+    time_days = (jd_c - jd0)
+    print (time_days)
+    omega=2*180./Tsolar
 
-	#for contour cell-centered lon lat coordinates
-	lon_c = 0.25*( lon[:-1,:-1]+lon[:-1,1:]+lon[1:,:-1]+lon[1:,1:] )
-	lat_c = 0.25*( lat[:-1,:-1]+lat[:-1,1:]+lat[1:,:-1]+lat[1:,1:] )
+    #for contour cell-centered lon lat coordinates
+    lon_c = 0.25*( lon[:-1,:-1]+lon[:-1,1:]+lon[1:,:-1]+lon[1:,1:] )
+    lat_c = 0.25*( lat[:-1,:-1]+lat[:-1,1:]+lat[1:,:-1]+lat[1:,1:] )
 
-	phi = lon_c[0,:] 
-	phi_prime = (phi-omega*time_days)%(2*180.)
+    phi = lon_c[0,:] 
+    phi_prime = (phi-omega*time_days)%(2*180.)
 
-	if np.where(np.ediff1d(phi_prime)<0)[0].size!=0: #for the first map size =0, for other maps size=1
-		ind0=np.where(np.ediff1d(phi_prime)<0)[0][0]+1
-		#print 'ind = ', ind0
-	else:
-		ind0=0 # this is for the first map
-	print('ind0 = ', ind0)
+    if np.where(np.ediff1d(phi_prime)<0)[0].size!=0: #for the first map size =0, for other maps size=1
+        ind0=np.where(np.ediff1d(phi_prime)<0)[0][0]+1
+        #print 'ind = ', ind0
+    else:
+        ind0=0 # this is for the first map
+    print('ind0 = ', ind0)
 
-	Br = np.roll(Br, -ind0, axis = 1)
+    Br = np.roll(Br, -ind0, axis = 1)
 
-	Ax.pcolormesh(lon,lat,Br,cmap=BCM,norm=vB)
-	Ax.contour(lon_c, lat_c,Br,[0.],colors='black')
-	kv.SetAx(xyBds,Ax)
+    Ax.pcolormesh(lon,lat,Br,cmap=BCM,norm=vB)
+    Ax.contour(lon_c, lat_c,Br,[0.],colors='black')
+    kv.SetAx(xyBds,Ax)
 
-	if (doDeco):
-		Ax.set_xlabel('Longitude')
-		Ax.set_ylabel('Latitude')
-		Ax.yaxis.tick_right()
-		Ax.yaxis.set_label_position('right')
-		#for pic4
-		Ax.set_aspect('equal')
-	return Br
+    if (doDeco):
+        Ax.set_xlabel('Longitude')
+        Ax.set_ylabel('Latitude')
+        Ax.yaxis.tick_right()
+        Ax.yaxis.set_label_position('right')
+        #for pic4
+        Ax.set_aspect('equal')
+    return Br
 
 
 #Plot Temperature at 1 AU
-def PlotiSlTemp(gsph,nStp,xyBds,Ax,AxCB=None,doClear=True,doDeco=True):
-	vT = kv.genNorm(T0Min, T0Max, doLog=False, midP=None)
+def PlotiSlTemp(gsph,nStp,xyBds,Ax,AxCB=None,doClear=True,doDeco=True,idx=-1):
+    vT = kv.genNorm(T0Min, T0Max, doLog=False, midP=None)
 
-	if (AxCB is not None):
-		AxCB.clear()
-		kv.genCB(AxCB,vT,"Temperature [MK]",cM=TCM,Ntk=7)
-	if (doClear):
-		Ax.clear()
+    if (AxCB is not None):
+        AxCB.clear()
+        kv.genCB(AxCB,vT,"Temperature [MK]",cM=TCM,Ntk=7)
+    if (doClear):
+        Ax.clear()
 
-	Temp = gsph.iSliceT(nStp)	
-	lat, lon = gsph.iSliceGrid()
-	Ax.pcolormesh(lon,lat,Temp,cmap=TCM,norm=vT)
+    Temp = gsph.iSliceT(nStp,idx=idx)    
+    lat, lon = gsph.iSliceGrid(idx=idx)
+    Ax.pcolormesh(lon,lat,Temp,cmap=TCM,norm=vT)
 
-	kv.SetAx(xyBds,Ax)
+    kv.SetAx(xyBds,Ax)
 
-	if (doDeco):
-		Ax.set_xlabel('Longitude')
-		Ax.set_ylabel('Latitude')
-	return Temp
+    if (doDeco):
+        Ax.set_xlabel('Longitude')
+        Ax.set_ylabel('Latitude')
+    return Temp
 
 #Plot Density as a function of distance
 def PlotDensityProf(gsph,nStp,xyBds,Ax,AxCB=None,doClear=True,doDeco=True):
-	if (doClear):
-		Ax.clear()
+    if (doClear):
+        Ax.clear()
 
-	D = gsph.RadProfDen(nStp)
-	rad  = gsph.RadialProfileGrid()
+    D = gsph.RadProfDen(nStp)
+    rad  = gsph.RadialProfileGrid()
 
-	Ax.plot(rad,D,colorProf)
+    Ax.plot(rad,D,colorProf)
 
-	if (doDeco):
-		Ax.set_xlabel('Radial distance [R_sun]')
-		Ax.set_ylabel('Density [cm-3]')
-		Ax.set_ylim(250.,450.)
-		Ax.set_xlim(20.,220.)
+    if (doDeco):
+        Ax.set_xlabel('Radial distance [R_sun]')
+        Ax.set_ylabel('Density [cm-3]')
+        Ax.set_ylim(250.,450.)
+        Ax.set_xlim(20.,220.)
                 #Ax.yaxis.tick_right()
                 #Ax.yaxis.set_label_position('right')
-	return D
+    return D
 
 #Plot speed as a function of distance
 def PlotSpeedProf(gsph,nStp,xyBds,Ax,AxCB=None,doClear=True,doDeco=True):
-	if (doClear):
-		Ax.clear()
-	V = gsph.RadProfSpeed(nStp)
-	rad  = gsph.RadialProfileGrid()
-	Ax.plot(rad,V,colorProf)
+    if (doClear):
+        Ax.clear()
+    V = gsph.RadProfSpeed(nStp)
+    rad  = gsph.RadialProfileGrid()
+    Ax.plot(rad,V,colorProf)
 
-	if (doDeco):
-		Ax.set_xlabel('Radial distance [R_sun]')
-		Ax.set_ylabel('Speed [km/s]')
-		Ax.set_ylim(600.,750.)
-		Ax.set_xlim(20.,220.)
-	return V
+    if (doDeco):
+        Ax.set_xlabel('Radial distance [R_sun]')
+        Ax.set_ylabel('Speed [km/s]')
+        Ax.set_ylim(600.,750.)
+        Ax.set_xlim(20.,220.)
+    return V
 
 def PlotFluxProf(gsph,nStp,xyBds,Ax,AxCB=None,doClear=True,doDeco=True):
-	if (doClear):
-		Ax.clear()
-	F = gsph.RadProfFlux(nStp)
-	rad  = gsph.RadialProfileGrid()
-	Ax.plot(rad,F,colorProf)
-	
-	if (doDeco):
-		Ax.set_xlabel('Radial distance [R_sun]')
-		Ax.set_ylabel('RhoVr^2')
-		Ax.set_ylim(180000.,280000.)
-		Ax.set_xlim(20.,220.)
-	return F
+    if (doClear):
+        Ax.clear()
+    F = gsph.RadProfFlux(nStp)
+    rad  = gsph.RadialProfileGrid()
+    Ax.plot(rad,F,colorProf)
+    
+    if (doDeco):
+        Ax.set_xlabel('Radial distance [R_sun]')
+        Ax.set_ylabel('RhoVr^2')
+        Ax.set_ylim(180000.,280000.)
+        Ax.set_xlim(20.,220.)
+    return F
 
 #Adds MPI contours
 #this function is from magnetosphere Viz script. PlotMPI is not used for helio as of now 
 def PlotMPI(gsph,Ax,ashd=0.5):
-	gCol = mpiCol
-	for i in range(gsph.Ri):
-		i0 = i*gsph.dNi
-		Ax.plot(gsph.xxi[i0,:],gsph.yyi[i0,:],mpiCol,linewidth=cLW,alpha=ashd)
+    gCol = mpiCol
+    for i in range(gsph.Ri):
+        i0 = i*gsph.dNi
+        Ax.plot(gsph.xxi[i0,:],gsph.yyi[i0,:],mpiCol,linewidth=cLW,alpha=ashd)
 
-	if (gsph.Rj>1):
-		for j in range(1,gsph.Rj):
-			j0 = j*gsph.dNj
-			Ax.plot(gsph.xxi[:,j0], gsph.yyi[:,j0],gCol,linewidth=cLW,alpha=ashd)
-			Ax.plot(gsph.xxi[:,j0],-gsph.yyi[:,j0],gCol,linewidth=cLW,alpha=ashd)
-		#X-axis (+)
-		Ax.plot(gsph.xxi[:,0], gsph.yyi[:,0],gCol,linewidth=cLW,alpha=ashd)
-		#X-axis (-)
-		j0 = (gsph.Rj)*gsph.dNj
-		Ax.plot(gsph.xxi[:,j0], gsph.yyi[:,j0],gCol,linewidth=cLW,alpha=ashd)
-			
+    if (gsph.Rj>1):
+        for j in range(1,gsph.Rj):
+            j0 = j*gsph.dNj
+            Ax.plot(gsph.xxi[:,j0], gsph.yyi[:,j0],gCol,linewidth=cLW,alpha=ashd)
+            Ax.plot(gsph.xxi[:,j0],-gsph.yyi[:,j0],gCol,linewidth=cLW,alpha=ashd)
+        #X-axis (+)
+        Ax.plot(gsph.xxi[:,0], gsph.yyi[:,0],gCol,linewidth=cLW,alpha=ashd)
+        #X-axis (-)
+        j0 = (gsph.Rj)*gsph.dNj
+        Ax.plot(gsph.xxi[:,j0], gsph.yyi[:,j0],gCol,linewidth=cLW,alpha=ashd)
+            
