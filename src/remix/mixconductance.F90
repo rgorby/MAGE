@@ -19,6 +19,7 @@ module mixconductance
   real(rp), parameter, private :: maxDrop = 20.0 !Hard-coded max potential drop [kV]
   real(rp), parameter, private :: eTINY = 1.D-8 ! Floor of average energy [keV]
   real(rp), parameter, private :: Ne_floor = 0.03e6 ! minimum Ne in [/m^3] when evaluating the linearized FL relation.
+  real(rp), parameter, private :: Ne_psp = 10.0e6 ! Ne threshold for the plasmasphere in [/m^3].
   real(rp), private :: RinMHD = 0.0 !Rin of MHD grid (0 if not running w/ MHD)
   real(rp), private :: MIXgamma
   logical , private :: doDrift = .false. !Whether to add drift term from Zhang
@@ -440,23 +441,17 @@ module mixconductance
  
     subroutine conductance_linmrg(conductance,G,St)
       ! Derive mono-diffuse electron precipitation where mono is based on linearized FL relation,
-      ! diffuse is derived from RCM. The merging code was duplicated from kmerge. 
+      ! and diffuse is a combination of MHD and RCM precipitation.
       type(mixConductance_T), intent(inout) :: conductance
       type(mixGrid_T), intent(in) :: G
       type(mixState_T), intent(inout) :: St
 
       integer :: i,j
-      real(rp) :: wC1,wC2,wRCM,gtype
-      real(rp) :: mhd_eavg,mhd_nflx,mhd_eflx,mhd_delE
-      real(rp) :: rcm_eavg,rcm_nflx,rcm_eflx
-      real(rp) :: mix_eavg,mix_nflx,mix_eflx
-      logical :: isRCM,isMHD,isMIX
+      real(rp) :: wRCM,wMHD
+      real(rp) :: mhd_nflx,rcm_nflx,mhd_eflx,rcm_eflx,rcm_eavg,mix_nflx,mhd_SigP,rcm_SigP
+      logical :: isMono,isPSP
 
       St%Vars(:,:,AUR_TYPE) = 0
-
-      ! Two thresholds of rcm grid type between which both MHD and RCM precipitation will be merged.
-      wC1 = 0.15
-      wC2 = 1.0-wC1
 
       ! derive spatially varying beta and gtype 
       ! using RCM precipitation and thermal fluxes.
@@ -466,54 +461,54 @@ module mixconductance
       call conductance_linmono(conductance,G,St)
 
       !$OMP PARALLEL DO default(shared) &
-      !$OMP private(i,j,isRCM,isMHD,isMIX,wRCM,gtype) &
-      !$OMP private(mhd_eavg,mhd_nflx,mhd_eflx,mhd_delE) &
-      !$OMP private(rcm_eavg,rcm_nflx,rcm_eflx         ) &
-      !$OMP private(mix_eavg,mix_nflx,mix_eflx         )
+      !$OMP private(i,j,isMono,isPSP,wRCM,wMHD) &
+      !$OMP private(mhd_nflx,mhd_eflx,mix_nflx) &
+      !$OMP private(rcm_nflx,rcm_eflx,rcm_eavg) &
+      !$OMP private(mhd_SigP,rcm_SigP)
       do j=1,G%Nt
          do i=1,G%Np
             !Start by figuring out where we are
-            gtype = gtype_RCM(i,j)         
-            isRCM = gtype >= wC2
-            isMHD = gtype <= wC1
-            if ( (.not. isRCM) .and. (.not. isMHD) ) then
-               isMIX = .true.
-            endif
-
+            isPSP = St%Vars(i,j,IM_EDEN)>=Ne_psp .or. beta_RCM(i,j)<=0.01
+            isMono = St%Vars(i,j,DELTAE)>eTINY
             !Grab values
-            mhd_eavg = St%Vars(i,j,AVG_ENG)
             mhd_nflx = St%Vars(i,j,NUM_FLUX)
-            mhd_delE = conductance%deltaE(i,j)
-            mhd_eflx = St%Vars(i,j,AVG_ENG)*St%Vars(i,j,NUM_FLUX)*kev2erg
             rcm_nflx = St%Vars(i,j,IM_ENFLX)
+            mhd_eflx = St%Vars(i,j,AVG_ENG)*St%Vars(i,j,NUM_FLUX)*kev2erg
             rcm_eflx = St%Vars(i,j,IM_EFLUX)
-            rcm_eavg = rcm_eflx/(rcm_nflx*kev2erg) !Back to keV
-
-            if (isMHD) then
-               St%Vars(i,j,AVG_ENG ) = mhd_eavg
-               St%Vars(i,j,NUM_FLUX) = mhd_nflx
-            else if (isRCM) then
-               if (rcm_nflx <= TINY) then
-                  rcm_eavg = eTINY
-               endif
-               St%Vars(i,j,AVG_ENG ) = rcm_eavg
-               St%Vars(i,j,NUM_FLUX) = rcm_nflx
-               conductance%deltaE(i,j) = 0.0
+            if(rcm_nflx>TINY) then
+               rcm_eavg = rcm_eflx/(rcm_nflx*kev2erg)
             else
-               !Mixture
-               wRCM = RampUp(gtype,wC1,wC2-wC1)
-               mix_nflx = wRCM*rcm_nflx + (1-wRCM)*mhd_nflx
-               if ( mix_nflx > TINY ) then
-                  !Mix both
-                  mix_eflx = wRCM*rcm_eflx + (1-wRCM)*mhd_eflx
-                  mix_eavg = mix_eflx/(mix_nflx*kev2erg)
+               rcm_eavg = eTINY
+            endif
+            if(isPSP) then
+               ! Set auroral type to diffuse. Use RCM values for diffuse nflux and eavg in the plasmasphere.
+               St%Vars(i,j,NUM_FLUX) = rcm_nflx
+               St%Vars(i,j,AVG_ENG)  = rcm_eavg
+               St%Vars(i,j,AUR_TYPE) = AT_RMnoE
+            elseif(isMono .and. .not.isPSP) then
+               ! Set auroral type to mono. Keep linmono values for mono nflux and eavg.
+               mhd_SigP = SigmaP_Robinson(St%Vars(i,j,AVG_ENG),mhd_eflx)
+               rcm_SigP = SigmaP_Robinson(rcm_eavg,rcm_eflx)
+               if(mhd_SigP>rcm_SigP) then
+                  St%Vars(i,j,AUR_TYPE) = AT_RMono
                else
-                  ! Both RCM and MHD data weren't good so just use TINY
-                  mix_eavg = eTINY
+                  St%Vars(i,j,NUM_FLUX) = rcm_nflx
+                  St%Vars(i,j,AVG_ENG)  = rcm_eavg
+                  St%Vars(i,j,AUR_TYPE) = AT_RMnoE
                endif
-
-               St%Vars(i,j,AVG_ENG ) = mix_eavg
+            else
+               ! Linearly merge MHD and RCM diffuse nflux and eflux.
+               ! Note where deltaE>eTINY but beta_RCM<=0.01, gtype will be near 1.
+               wRCM = gtype_RCM(i,j)
+               wMHD = 1.0-wRCM
+               mix_nflx = wMHD*mhd_nflx + wRCM*rcm_nflx
                St%Vars(i,j,NUM_FLUX) = mix_nflx
+               if(mix_nflx>TINY) then
+                  St%Vars(i,j,AVG_ENG) = (wMHD*mhd_eflx+wRCM*rcm_eflx)/(mix_nflx*kev2erg)
+               else
+                  St%Vars(i,j,AVG_ENG) = eTINY
+               endif
+               St%Vars(i,j,AUR_TYPE) = AT_RMnoE
             endif
          enddo
       enddo
@@ -529,6 +524,9 @@ module mixconductance
       real(rp) :: signOfJ
       integer :: i,j
       real(rp) :: D,Cs,Pe,Ne,J2eF0,eV2kT,dE,phi0,kT
+      real(rp) :: Pe_mhd,Ne_mhd,kT_mhd,phi0_mhd
+      real(rp) :: Pe_rcm,Ne_rcm,kT_rcm,phi0_rcm
+      real(rp) :: wMHD,wRCM
 
       if (St%hemisphere==NORTH) then
          signOfJ = -1  
@@ -539,7 +537,9 @@ module mixconductance
       endif
 
       !$OMP PARALLEL DO default(shared) &
-      !$OMP private(i,j,D,Cs,Pe,Ne,J2eF0,eV2kT,dE,phi0,kT)
+      !$OMP private(i,j,D,Cs,Pe,Ne,J2eF0,eV2kT,dE,phi0,kT) &
+      !$OMP private(Pe_mhd,Ne_mhd,kT_mhd,phi0_mhd) &
+      !$OMP private(Pe_rcm,Ne_rcm,kT_rcm,phi0_rcm)
       do j=1,G%Nt
          do i=1,G%Np
             if (conductance%doChill) then
@@ -553,19 +553,36 @@ module mixconductance
             endif
             ! electron pressure from MHD side in [Pa]
             ! 0.1 is to convert [g/cm^3]*[cm/s]^2=[g/cm/s^2] to [Pa].
-            Pe = 0.1/MIXgamma*alpha_RCM(i,j)*D*(Cs**2)
+            Pe_mhd = 0.1/MIXgamma*alpha_RCM(i,j)*D*(Cs**2)
             ! electron number density from MHD side in [/m^3].
-            Ne = D/(Mp_cgs*heFrac)*1.0D6
+            Ne_mhd = D/(Mp_cgs*heFrac)*1.0D6
             ! Mean energy from MHD electron fluxes in [keV]. E_avg = 2*kT for Maxwellian.
-            kT = Pe/Ne/kev2J
-            conductance%E0  (i,j) = 2.0*kT
+            kT_mhd = Pe_mhd/(Ne_mhd*kev2J)
             ! Thermal number flux from MHD electron fluxes in [#/cm^2/s].
             ! Treat MHD flux on closed field lines as trapped flux.
             ! Beta now stands for the ratio between precipitation and trapped.
             ! Note phi0 can be zero in the polar cap.
-            phi0 = beta_RCM(i,j)* sqrt(Pe*Ne/(2.0D-3*PI*Me_cgs))*1.0D-4
-            conductance%phi0(i,j) = phi0
+            phi0_mhd = beta_RCM(i,j)*sqrt(Pe_mhd*Ne_mhd/(2.0D-3*PI*Me_cgs))*1.0D-4
 
+            ! RCM flux
+            Pe_rcm = St%Vars(i,j,IM_EPRE)
+            Ne_rcm = St%Vars(i,j,IM_EDEN)
+            phi0_rcm = St%Vars(i,j,IM_ENFLX)
+
+            ! Merged flux
+            wMHD = 1.0-gtype_RCM(i,j)
+            wRCM = gtype_RCM(i,j)
+            phi0 = wMHD*phi0_mhd + wRCM*phi0_rcm
+            Ne   = wMHD*Ne_mhd + wRCM*Ne_rcm
+            Pe   = wMHD*Pe_mhd + wRCM*Pe_rcm
+            if(Ne>TINY) then
+               kT = Pe/(Ne*kev2J)
+            else
+               kT = 0.D0
+            endif
+
+            conductance%E0  (i,j) = 2.0*kT
+            conductance%phi0(i,j) = phi0
             ! Note JF0 may go inf where phi0/Pe_MHD/Ne_MHD is zero.
             J2eF0 = signOfJ*(St%Vars(i,j,FAC)*1.0D-6)/(eCharge*phi0*1.0D4)
             ! Linearize the Fridman-Lemaire relation: 
@@ -583,6 +600,7 @@ module mixconductance
                St%Vars(i,j,Z_NFLUX) = phi0
                St%Vars(i,j,Z_EAVG) = kT 
             endif
+
             St%Vars(i,j,DELTAE)   = conductance%deltaE(i,j)
             St%Vars(i,j,AVG_ENG)  = max(St%Vars(i,j,Z_EAVG),eTINY)   ! [keV]
             St%Vars(i,j,NUM_FLUX) = St%Vars(i,j,Z_NFLUX)  ! [#/cm^2/s]
