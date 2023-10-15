@@ -99,6 +99,10 @@ def create_command_line_parser():
     """
     parser = argparse.ArgumentParser(description=DESCRIPTION)
     parser.add_argument(
+        "--advanced", action="store_true",
+        help="Configure advanced parameters (default: %(default)s)."
+    )
+    parser.add_argument(
         "--clobber", action="store_true",
         help="Overwrite existing options file (default: %(default)s)."
     )
@@ -178,7 +182,7 @@ def get_run_option(name, description):
     return str(option_value)
 
 
-def prompt_user_for_run_options():
+def prompt_user_for_run_options(args):
     """Prompt the user for run options.
 
     Prompt the user for run options.
@@ -190,7 +194,8 @@ def prompt_user_for_run_options():
 
     Parameters
     ----------
-    None
+    args : dict
+        Dictionary of command-line options
 
     Returns
     -------
@@ -337,6 +342,10 @@ def prompt_user_for_run_options():
 #     for name in option_names:
 #         options[name] = get_run_option(name, option_descriptions[name])
 
+    # Configure advanced options.
+    if args.advanced:
+        pass
+
     #-------------------------------------------------------------------------
 
     # Options for voltron_mpi.x
@@ -355,6 +364,10 @@ def prompt_user_for_run_options():
 #     for name in option_names:
 #         options[name] = get_run_option(name, option_descriptions[name])
 
+    # Configure advanced options.
+    if args.advanced:
+        pass
+
     #-------------------------------------------------------------------------
 
     # Options for CHIMP
@@ -368,6 +381,10 @@ def prompt_user_for_run_options():
 #     for name in option_names:
 #         options[name] = get_run_option(name, option_descriptions[name])
 
+    # Configure advanced options.
+    if args.advanced:
+        pass
+
     #-------------------------------------------------------------------------
 
     # Options for REMIX
@@ -379,6 +396,10 @@ def prompt_user_for_run_options():
 #     ]
 #     for name in option_names:
 #         options[name] = get_run_option(name, option_descriptions[name])
+
+    # Configure advanced options.
+    if args.advanced:
+        pass
 
     #-------------------------------------------------------------------------
 
@@ -395,6 +416,10 @@ def prompt_user_for_run_options():
 #     ]
 #     for name in option_names:
 #         options[name] = get_run_option(name, option_descriptions[name])
+
+    # Configure advanced options.
+    if args.advanced:
+        pass
 
     #-------------------------------------------------------------------------
 
@@ -636,7 +661,7 @@ def main():
             options = json.load(f)
     else:
         # Prompt the user for the run options.
-        options = prompt_user_for_run_options()
+        options = prompt_user_for_run_options(args)
     if debug:
         print(f"options = {options}")
 
