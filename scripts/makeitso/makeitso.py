@@ -342,7 +342,9 @@ def prompt_user_for_run_options(args):
 #     for name in option_names:
 #         options[name] = get_run_option(name, option_descriptions[name])
 
-    # Configure advanced options.
+    # These options have defaults based on the LFM grid resolution.
+    
+    # Configure or copy advanced options.
     if args.advanced:
         pass
 
@@ -364,7 +366,7 @@ def prompt_user_for_run_options(args):
 #     for name in option_names:
 #         options[name] = get_run_option(name, option_descriptions[name])
 
-    # Configure advanced options.
+    # Configure or copy advanced options.
     if args.advanced:
         pass
 
@@ -381,7 +383,7 @@ def prompt_user_for_run_options(args):
 #     for name in option_names:
 #         options[name] = get_run_option(name, option_descriptions[name])
 
-    # Configure advanced options.
+    # Configure or copy advanced options.
     if args.advanced:
         pass
 
@@ -397,7 +399,7 @@ def prompt_user_for_run_options(args):
 #     for name in option_names:
 #         options[name] = get_run_option(name, option_descriptions[name])
 
-    # Configure advanced options.
+    # Configure or copy advanced options.
     if args.advanced:
         pass
 
@@ -417,7 +419,7 @@ def prompt_user_for_run_options(args):
 #     for name in option_names:
 #         options[name] = get_run_option(name, option_descriptions[name])
 
-    # Configure advanced options.
+    # Configure or copy advanced options.
     if args.advanced:
         pass
 
