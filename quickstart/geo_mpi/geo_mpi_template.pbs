@@ -14,8 +14,8 @@
 # qsub geo_mpi.pbs
 
 # IMPORTANT: You *must* do the following in the code below:
-# 1. Uncomment the #PBS lines for your system, comment out the #PBS lines
-#    specific to other systems. Keep the common #PBS lines.
+# 1. Uncomment the #PBS lines for your system and model resolution, comment out
+#    the #PBS lines specific to other cases. Keep the common #PBS lines.
 # 2. (cheyenne and derecho only) Set the #PBS -A directive to your own account.
 # 3. Uncomment the modules lines for your system, comment out the others.
 # 4. Set kaiju_install_dir to your local kaiju installation.
@@ -74,16 +74,20 @@
 #PBS -q normal
 
 # This is the line where you request specific resources from the PBS system.
-# system.
+# system. Uncomment the line for your model resolution.
 # select=2 -> Request 2 compute nodes.
 # ncpus=28 -> Each compute node must have at least 28 cores. This requirement
 # implies the use of the 2-socket, 14 cores/socket Broadwell nodes.
-# mpiprocs=2 -> Each node will run 2 MPI ranks of the kaiju code. NOTE: This
-# value should always be 2 for the kaiju software.
+# mpiprocs=2 -> Each node will run 2 MPI ranks of the kaiju code.
 # ompthreads=14 -> Each MPI rank will run 14 OMP threads.
 # model=bro -> Each compute node must contain Broadwell chips. Specifying
 # "model" is a HECC-specific PBS requirement.
+# For a "D"-resolution model run:
 #PBS -l select=2:ncpus=28:mpiprocs=2:ompthreads=14:model=bro+1:ncpus=28:mpiprocs=1:ompthreads=28:model=bro
+# For a "Q"-resolution model run:
+##PBS -l select=8:ncpus=28:mpiprocs=2:ompthreads=14:model=bro+9:ncpus=28:mpiprocs=1:ompthreads=28:model=bro
+# For a "O"-resolution model run:
+##PBS -l select=48:ncpus=28:mpiprocs=2:ompthreads=14:model=bro+9:ncpus=28:mpiprocs=1:ompthreads=28:model=bro
 
 # NOTE: Everything after the "+" is an additional request for resources for
 # "helper" applications in the MPI kaiju code.
@@ -91,9 +95,9 @@
 # IMPORTANT NOTE: In the XML file for your run, the "decomposition" of the
 # problem into MPI ranks is specified by the XML elements <iPdir>, <jPdir>, and
 # <kPdir>. This breakdown is implemented on the resource request line by using
-# select=N/2, where N=iPdir*jPdir*kPdir. This tells PBS to give you N/2 nodes,
-# each of which will run 2 MPI ranks. More simply:
-# iPdir*jPdir*kPdir = select*mpiprocs
+# select=N/mpiprocs, where N=iPdir*jPdir*kPdir. This tells PBS to give you
+# N/mpiprocs nodes, each of which will run mpiprocs MPI ranks. More simply:
+# iPdir*jPdir*kPdir = select*mpiprocs.
 
 #-----------------------------------------------------------------------------
 
