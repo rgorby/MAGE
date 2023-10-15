@@ -1,20 +1,83 @@
 {
     "version": "0.0.0",
-    "option_descriptions": {
+
+    "pbs": {
+        "account_name": {
+            "prompt": "PBS account name"
+        },
+        "cheyenne": {},
+        "derecho": {},
+        "pleiades": {
+            "queue": {
+                "prompt": "PBS queue name",
+                "default": "normal",
+                "valids": ["low", "normal", "long", "debug", "devel"]
+            },
+            "walltime": {
+                "prompt": "Requested wall time for PBS job (HH:MM:SS)",
+                "default": "01:00:00"
+            },
+            "select": {
+                "prompt": "Number of nodes to request",
+                "default": "2"
+            },
+            "ncpus": {
+                "prompt": "Number of cores per node",
+                "default": "28"
+            },
+            "mpiprocs": {
+                "prompt": "Number of MPI ranks per node",
+                "default": "2"
+            },
+            "ompthreads": {
+                "prompt": "Number of OMP threads per MPI rank",
+                "default": "14"
+            },
+            "helper_select": {
+                "prompt": "Number of voltron helper nodes",
+                "default": "1"
+            },
+            "helper_mpiprocs": {
+                "prompt": "Number of MPI ranks per helper node",
+                "default": "1"
+            },
+            "helper_ompthreads": {
+                "prompt": "Number of OMP threads per helper node",
+                "default": "28"
+            },
+            "modules": [
+                "nas",
+                "pkgsrc/2022Q1-rome",
+                "comp-intel/2020.4.304",
+                "mpi-hpe/mpt.2.23",
+                "hdf5/1.8.18_mpt"
+            ],
+            "num_jobs": {
+                "prompt": "Number of sequential PBS jobs to submit for the run",
+                "default": "1"
+            },
+            "mpiexec_command": {
+                "prompt": "MPI command to launch run",
+                "default": "mpiexec correctOMPenvironment.sh $nodefile omplace"
+            }
+        }
+    },
+
+    "basic": {
         "hpc_system": {
             "prompt": "Name of HPC system",
-            "default": "cheyenne",
+            "default": "pleiades",
             "valids": ["cheyenne", "derecho", "pleiades"]
-        },
-        "kaijuhome": {
-            "prompt": "Path to kaiju installation"
-        },
-        "kaiju_build_directory": {
-            "prompt": "Path to kaiju build directory"
         },
         "run_directory": {
             "prompt": "Run directory",
             "default": "."
+        },
+        "kaiju_install_directory": {
+            "prompt": "Path to kaiju installation"
+        },
+        "kaiju_build_directory": {
+            "prompt": "Path to kaiju build directory"
         },
         "runid": {
             "prompt": "ID string for run",
@@ -28,42 +91,10 @@
         "solar_wind_file": {
             "prompt": "Name of solar wind file",
             "default": "bcwind.h5"
-        },
-        "pbs_account_name": {
-            "prompt": "PBS account name"
-        },
-        "pbs_queue": {
-            "prompt": "PBS queue name",
-            "default": "regular"
-        },
-        "pbs_walltime": {
-            "prompt": "Requested time for PBS job (HH:MM:SS)",
-            "default": "01:00:00"
-        },
-        "pbs_select": {
-            "prompt": "Number of nodes",
-            "default": "2"
-        },
-        "pbs_ncpus": {
-            "prompt": "Number of cores per node",
-            "default": "36"
-        },
-        "pbs_mpiprocs": {
-            "prompt": "Number of MPI ranks per node",
-            "default": "2"
-        },
-        "pbs_ompthreads": {
-            "prompt": "Number of OMP threads per MPI rank",
-            "default": "18"
-        },
-        "pbs_num_helpers": {
-            "prompt": "Number of voltron helper processes",
-            "default": "1"
-        },
-        "pbs_numjobs": {
-            "prompt": "Number of sequential PBS jobs to submit",
-            "default": "1"
-        },
+        }
+    },
+
+    "advanced": {
         "gamera_sim_doH5g": {
             "prompt": "gamera_sim_doH5g",
             "default": "T"
