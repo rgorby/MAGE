@@ -27,11 +27,74 @@
             }
         },
         "cheyenne": {
-
+            "queue": {
+                "prompt": "PBS queue name",
+                "default": "regular",
+                "valids": ["economy", "premium", "regular", "share"]
+            },
+            "walltime": {
+                "prompt": "Requested wall time for PBS job (HH:MM:SS)",
+                "default": "01:00:00"
+            },
+            "select": {
+                "prompt": "Number of nodes to request",
+                "default": "2"
+            },
+            "ncpus": {
+                "prompt": "Number of cores per node",
+                "default": "36"
+            },
+            "mpiprocs": {
+                "prompt": "Number of MPI ranks per node",
+                "default": "2"
+            },
+            "ompthreads": {
+                "prompt": "Number of OMP threads per MPI rank",
+                "default": "18"
+            },
+            "helper_select": {
+                "prompt": "Number of voltron helper nodes",
+                "default": "1"
+            },
+            "helper_mpiprocs": {
+                "advanced": true,
+                "prompt": "Number of MPI ranks per helper node",
+                "default": "1"
+            },
+            "helper_ompthreads": {
+                "advanced": true,
+                "prompt": "Number of OMP threads per helper node",
+                "default": "36"
+            },
+            "other": {
+                "advanced": true,
+                "prompt": "Additional options for PBS -l",
+                "default": ""
+            },
+            "modules": {
+                "advanced": true,
+                "prompt": "Modules to load",
+                "default": [
+                    "cmake/3.22.0",
+                    "git/2.33.1",
+                    "ncarenv/1.3",
+                    "intel/2022.1",
+                    "geos/3.10.1",
+                    "ncarcompilers/0.5.0",
+                    "mpt/2.25",
+                    "hdf5-mpi/1.12.2"
+                ]
+            },
+            "mpiexec_command": {
+                "prompt": "MPI command to launch run",
+                "default": "mpiexec correctOMPenvironment.sh $nodefile omplace"
+            }
         },
+
         "derecho": {
 
         },
+
         "pleiades": {
             "queue": {
                 "prompt": "PBS queue name",
@@ -63,10 +126,12 @@
                 "default": "1"
             },
             "helper_mpiprocs": {
+                "advanced": true,
                 "prompt": "Number of MPI ranks per helper node",
                 "default": "1"
             },
             "helper_ompthreads": {
+                "advanced": true,
                 "prompt": "Number of OMP threads per helper node",
                 "default": "28"
             },
