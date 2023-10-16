@@ -123,6 +123,7 @@ module raijustarter
             case ("WM")
                 write(*,*) "RAIJU using Wang-Bao electron wave model"
                 Model%eLossModel = RaiELOSS_WM
+                Model%eLossRateFn => calcELossRate_WM
                 call initEWM(Model%eLossWM, Model%configFName)
             case default
                 write(*,*) "RAIJU did not get a valid electron loss model, goodbye"

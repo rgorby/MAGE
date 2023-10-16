@@ -14,10 +14,16 @@ module raijudefs
         enumerator :: G_UNISPH, G_SHGRID
     endenum
 
-    ! Species
+    ! Species Flavors
     enum, bind(c)
         enumerator :: F_PSPH=0,F_HOTE,F_HOTP
             !! These flavors have reserved numbers
+    endenum
+
+    ! Species type
+    enum, bind(C)
+        enumerator :: RAIJUNSPC=0,RAIJUELE,RAIJUHPLUS,RAIJUOPLUS
+                    ! Null species, electron, h+, o+
     endenum
 
     ! Topology
@@ -30,12 +36,6 @@ module raijudefs
     enum, bind(C)
         enumerator :: RAIJUINACTIVE=-1, RAIJUBUFFER, RAIJUACTIVE
             !! Helps determine how RAIJU is going to treat the grid point
-    endenum
-
-    ! Species type
-    enum, bind(C)
-        enumerator :: RAIJUNSPC=0,RAIJUELE,RAIJUHPLUS,RAIJUOPLUS
-                    ! Null species, electron, h+, o+
     endenum
 
     ! Electron loss models

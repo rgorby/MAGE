@@ -26,7 +26,10 @@ module raijulosses
             call protonLosses(Model, Grid, State, k, dt)
         endif
 
-        
+        if (Grid%spc(Grid%k2spc(k))%spcType .eq. RAIJUELE) then
+            call electronLosses(Model, Grid, State, k, dt)
+        endif
+
     end subroutine calcStepLosses
 
 
@@ -101,22 +104,16 @@ module raijulosses
 
 
                     deleta = State%eta(i,j,k)*(1.0-exp(-dt*lossRate))
+                        !! Total eta lost over dt
+                    State%eta(i,j,k) = max(0.0, State%eta(i,j,k) - deleta)
 
                     ! Assuming everything in deleta precipitates, calc precip fluxes
                     pNFlux = deleta2NFlux(deleta, Rp_m, Grid%Bmag(i,j), dt)
                     pEFlux = nFlux2EFlux(pNFlux, Grid%alamc(k), State%bVol(i,j))
-                    !! NOTE: We are removing dt factor so that we can easily average over big dt after advancing is done
-                    State%precipNFlux(i,j,k) = State%precipNFlux(i,j,k) + pNFlux*dt
-                    State%precipEFlux(i,j,k) = State%precipEFlux(i,j,k) + pEFlux*dt
+                    State%precipNFlux(i,j,k) = State%precipNFlux(i,j,k) + pNFlux
+                    State%precipEFlux(i,j,k) = State%precipEFlux(i,j,k) + pEFlux
 
                     ! TODO: CX loss rates
-
-                    ! Finally, update eta
-                    State%eta(i,j,k) = max(0.0, State%eta(i,j,k) - deleta)
-
-                    !if(i==60 .and. j==60) then
-                    !    write(*,*) k,dt,tauSS(i,j),pNFlux,pEFlux
-                    !endif
                 enddo
             enddo
 
@@ -124,6 +121,52 @@ module raijulosses
 
     end subroutine protonLosses
 
+
+    subroutine electronLosses(Model, Grid, State, k, dt)
+        type(raijuModel_T), intent(in) :: Model
+        type(raijuGrid_T), intent(in) :: Grid
+        type(raijuState_T), intent(inout) :: State
+        integer, intent(in) :: k
+        real(rp), intent(in) :: dt
+            !! Time delta [s]
+        
+        integer :: i,j, psphIdx
+        real(rp) :: deleta, pNFlux, pEFlux, lossRate
+        logical, dimension(Grid%shGrid%isg:Grid%shGrid%ieg, &
+                    Grid%shGrid%jsg:Grid%shGrid%jeg) :: isG
+        !real(rp), dimension(Grid%shGrid%isg:Grid%shGrid%ieg, &
+        !            Grid%shGrid%jsg:Grid%shGrid%jeg) :: rateLoss
+
+        ! Calc regions where we actually need to evaluate
+        where (State%active .eq. RAIJUACTIVE)
+            isG = .true.
+        elsewhere
+            isG = .false.
+        end where
+
+        do j=Grid%shGrid%jsg,Grid%shGrid%jeg
+            do i=Grid%shGrid%isg,Grid%shGrid%ieg
+                if (.not. isG(i,j)) then
+                    cycle
+                endif
+
+                ! Calc loss rate
+                lossRate = Model%calcELossRate_WM(Model, Grid, state, k)  ! [1/s]
+
+                deleta = State%eta(i,j,k)*(1.0-exp(-dt*lossRate))
+                    !! Total eta lost over dt
+                State%eta(i,j,k) = max(0.0, State%eta(i,j,k) - deleta)
+
+                ! Assuming everything in deleta precipitates, calc precip fluxes
+                pNFlux = deleta2NFlux(deleta, Model%planet%rp_m, Grid%Bmag(i,j), dt)
+                pEFlux = nFlux2EFlux(pNFlux, Grid%alamc(k), State%bVol(i,j))
+                State%precipNFlux(i,j,k) = State%precipNFlux(i,j,k) + pNFlux
+                State%precipEFlux(i,j,k) = State%precipEFlux(i,j,k) + pEFlux
+
+            enddo
+        enddo
+
+    end subroutine electronLosses
 
 !------
 ! Loss rates
@@ -195,7 +238,7 @@ module raijulosses
             Tau = nTau*day2s/Dpp !Lifetime, [s]
             
             if (Tau>TINY) then
-                rateCC = 1.0/Tau !#/s
+                rateCC = 1.0/Tau !1/s
             else
                 rateCC = 0.0
             endif
