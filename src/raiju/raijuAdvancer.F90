@@ -33,6 +33,11 @@ module raijuadvancer
             fullEtaMap = .false.
         endif
 
+        ! Clear things that will be accumulated over the advance
+        State%precipType_ele = 0.0
+        State%precipNFlux = 0.0
+        State%precipEFlux = 0.0
+
         ! Moments to etas
         call Tic("BCs")
         call applyRaijuBCs(Model, Grid, State, fullEtaMap) ! If fullEtaMap=True, mom2eta map is applied to the whole domain
@@ -50,6 +55,20 @@ module raijuadvancer
             State%dtk(k) = activeDt(Grid%shGrid, Grid, State, k)
         enddo
         call Toc("Calc cell-center velocities")
+
+        ! Loss rate calc depends on up-to-date densities, so we should run EvalMoments first
+        call Tic("Moments Eval")
+        call EvalMoments(Grid, State)
+        call Toc("Moments Eval")
+
+        call Tic("Calc loss rates")
+        !$OMP PARALLEL DO default(shared) collapse(1) &
+        !$OMP schedule(dynamic) &
+        !$OMP private(k)
+        do k=1,Grid%Nk
+            call calcChannelLossRates(Model, Grid, State, k)
+        enddo
+        call Toc("Calc loss rates")
 
     end subroutine raijuPreAdvance
 
@@ -383,10 +402,6 @@ module raijuadvancer
 
         integer :: k
 
-        ! Clear things that will be accumulated over the advance
-        State%precipNFlux = 0.0
-        State%precipEFlux = 0.0
-
         ! Make sure moments are up to date, some things (like coulomb losses) need them
         call EvalMoments(Grid, State)
 
@@ -452,7 +467,7 @@ module raijuadvancer
                 
                 ! Losses
                 if (Model%doLosses) then
-                    call calcStepLosses(Model, Grid, State, k, dt)
+                    call applyLosses(Model, Grid, State, k, dt)
                 endif
 
                 t = t + dt

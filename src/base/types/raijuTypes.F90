@@ -250,9 +250,16 @@ module raijutypes
         real(rp), dimension(:,:), allocatable :: bvol  ! Flux-tube volume [Rx/nT]
 
         !> Varibles coming from RAIJU, size (Ni, Nj, Nk)
-        real(rp), dimension(:,:), allocatable :: precipType_ele  ! Prepication type used for electrons
-        real(rp), dimension(:,:,:), allocatable :: precipNFlux  ! Precipitation number fluxes [#/cm^2/s]
-        real(rp), dimension(:,:,:), allocatable :: precipEFlux  ! Precipitation energy fluxes [erg/cm^2/s]
+        real(rp), dimension(:,:,:), allocatable :: lossRates
+            !! Loss rates [1/s] for each grid and lambda point. Generally stays the same over coupling time so we store them all here
+        real(rp), dimension(:,:,:), allocatable :: lossRatesPrecip
+            !! Loss rates [1/s] that result in precipitation. Should be <= lossRates
+        real(rp), dimension(:,:,:), allocatable :: precipType_ele
+            !! Prepication type used for electrons
+        real(rp), dimension(:,:,:), allocatable :: precipNFlux
+            !! Precipitation number fluxes [#/cm^2/s]
+        real(rp), dimension(:,:,:), allocatable :: precipEFlux
+            !! Precipitation energy fluxes [erg/cm^2/s]
         ! (Ni, Nj, Nspc+1) (First index is bulk)
         ! Last dimension will be D/P of different populations (not necessarily same as species)
         ! Example: Total, hot protons, cold protons, electrons, other species
@@ -297,13 +304,13 @@ module raijutypes
             real(rp) :: etaK
         end function raijuDP2EtaMap_T
 
-        function raijuELossRate_T(Model,Grid,State,k) result (tauK)
+        function raijuELossRate_T(Model,Grid,State,k) result (lossRate2)
             Import :: rp, raijuModel_T, raijuGrid_T, raijuState_T
             type(raijuModel_T) , intent(in) :: Model
             type(raijuGrid_T)  , intent(in) :: Grid
             type(raijuState_T) , intent(in) :: State
             integer, intent(in) :: k
-            real(rp) :: tauK
+            real(rp), dimension(2) :: lossRate2
         end function raijuELossRate_T
     end interface
 

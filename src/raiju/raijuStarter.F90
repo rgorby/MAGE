@@ -237,8 +237,11 @@ module raijustarter
             allocate( State%bvol   (sh%isg:sh%ieg, sh%jsg:sh%jeg) )
 
             ! Coupling output data
-            allocate( State%precipNFlux(sh%isg:sh%ieg, sh%jsg:sh%jeg, Grid%Nk) )
-            allocate( State%precipEFlux(sh%isg:sh%ieg, sh%jsg:sh%jeg, Grid%Nk) )
+            allocate( State%lossRates      (sh%isg:sh%ieg, sh%jsg:sh%jeg, Grid%Nk) )
+            allocate( State%precipType_ele (sh%isg:sh%ieg, sh%jsg:sh%jeg, Grid%Nk) )
+            allocate( State%lossRatesPrecip(sh%isg:sh%ieg, sh%jsg:sh%jeg, Grid%Nk) )
+            allocate( State%precipNFlux    (sh%isg:sh%ieg, sh%jsg:sh%jeg, Grid%Nk) )
+            allocate( State%precipEFlux    (sh%isg:sh%ieg, sh%jsg:sh%jeg, Grid%Nk) )
             allocate( State%Den  (sh%isg:sh%ieg, sh%jsg:sh%jeg, Grid%nSpc+1) )
             allocate( State%Press(sh%isg:sh%ieg, sh%jsg:sh%jeg, Grid%nSpc+1) )
             allocate( State%vAvg (sh%isg:sh%ieg, sh%jsg:sh%jeg, Grid%nSpc+1) )

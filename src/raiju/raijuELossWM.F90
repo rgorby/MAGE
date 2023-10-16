@@ -98,14 +98,15 @@ module raijuELossWM
     end subroutine initEWM
 
 
-    function calcELossRate_WM(Model, Grid, State, k) result(tauK)
+    function calcELossRate_WM(Model, Grid, State, k) result(lossRate2)
         type(raijuModel_T) , intent(in) :: Model
         type(raijuGrid_T)  , intent(in) :: Grid
         type(raijuState_T) , intent(in) :: State
         integer, intent(in) :: k
-        real(rp) :: tauK
+        real(rp), dimension(2) :: lossRate2
 
-        tauK = HUGE
+        lossRate2 = 0.0
+        
     end function calcELossRate_WM
 
 end module raijuELossWM

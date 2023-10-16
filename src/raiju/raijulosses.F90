@@ -11,38 +11,35 @@ module raijulosses
     contains
 
 !------
-! Loss entry-point for arbitrary, individual lambda channel
+! High-level calc
 !------
 
-    subroutine calcStepLosses(Model, Grid, State, k, dt)
+    subroutine calcChannelLossRates(Model, Grid, State, k)
+        !! Calculate 2D loss rates for channel k
+        !! Usually this will stay constant over a coupling period, so it can be called during pre-advance and not touched afterwards
         type(raijuModel_T), intent(in) :: Model
         type(raijuGrid_T), intent(in) :: Grid
         type(raijuState_T), intent(inout) :: State
         integer, intent(in) :: k
-        real(rp), intent(in) :: dt
-            !! Time delta [s]
         
         if (Grid%spc(Grid%k2spc(k))%spcType .eq. RAIJUHPLUS) then
-            call protonLosses(Model, Grid, State, k, dt)
+            call calcProtonLossRate(Model, Grid, State, k)
         endif
 
         if (Grid%spc(Grid%k2spc(k))%spcType .eq. RAIJUELE) then
-            call electronLosses(Model, Grid, State, k, dt)
+            call calcElectronLossRate(Model, Grid, State, k)
         endif
 
-    end subroutine calcStepLosses
+    end subroutine calcChannelLossRates
 
 
-    subroutine protonLosses(Model, Grid, State, k, dt)
+    subroutine calcProtonLossRate(Model, Grid, State, k)
         type(raijuModel_T), intent(in) :: Model
         type(raijuGrid_T), intent(in) :: Grid
         type(raijuState_T), intent(inout) :: State
         integer, intent(in) :: k
-        real(rp), intent(in) :: dt
-            !! Time delta [s]
         
         integer :: i,j, psphIdx
-        real(rp) :: deleta, pNFlux, pEFlux, lossRate
         logical, dimension(Grid%shGrid%isg:Grid%shGrid%ieg, &
                     Grid%shGrid%jsg:Grid%shGrid%jeg) :: isG
         real(rp), dimension(Grid%shGrid%isg:Grid%shGrid%ieg, &
@@ -64,23 +61,21 @@ module raijulosses
                 isG = .false.
             end where
 
-            
+            State%lossRates(:,:,k)       = 0.0  ! 1/s, so 0 means we lose nothing no matter the dt
+            State%lossRatesPrecip(:,:,k) = 0.0
+
+            psphIdx = spcIdx(Grid, F_PSPH)
+
             rateSS  = HUGE
             rateCC  = HUGE
             rateCX  = HUGE
             rateFLC = HUGE
 
-            !$OMP PARALLEL DO default(shared) collapse(2) &
-            !$OMP schedule(dynamic) &
-            !$OMP private(i,j,deleta, pNFlux, pEFlux, lossRate, psphIdx) &
-            !$OMP IF(.false.)
             do j=Grid%shGrid%jsg,Grid%shGrid%jeg
                 do i=Grid%shGrid%isg,Grid%shGrid%ieg
                     if (.not. isG(i,j)) then
                         cycle
                     endif
-
-                    ! Precipitation first
 
                     ! Always do SS for baseline
                     rateSS(i,j) = IonSSRate(Rp_m, spc%amu, Grid%alamc(k), State%bVol(i,j), Grid%Bmag(i,j))
@@ -88,54 +83,39 @@ module raijulosses
                     if (Model%doCC .and. Model%doPlasmasphere) then
                         ! Can only do coulomb collisions if we have a cold plasmasphere
                         ! If we do, use the last evaluated Density-plasmasphere
-                        psphIdx = spcIdx(Grid, F_PSPH)  ! Add 1 cause we're grabbing from density, which has bulk as first element
                         if (psphIdx == -1) then
                             write(*,*) "ERROR: doPlasmasphere=t but can't find psph species"
                             write(*,*)"  goodbye"
                             stop
                         endif
                         rateCC(i,j) = CCRate(spc%spcType, Grid%alamc(k), &
-                                        State%bVol(i,j)**(-2./3.), State%Den(i,j,1+psphIdx))
+                                        State%bVol(i,j)**(-2./3.), State%Den(i,j,1+psphIdx)) ! Add 1 cause we're grabbing from density, which has bulk as first element
                     endif
 
-                    ! Calc our precip loss rate
-                    ! Nothing should be faster than strong scattering
-                    lossRate = min(rateCC(i,j), rateSS(i,j))
-
-
-                    deleta = State%eta(i,j,k)*(1.0-exp(-dt*lossRate))
-                        !! Total eta lost over dt
-                    State%eta(i,j,k) = max(0.0, State%eta(i,j,k) - deleta)
-
-                    ! Assuming everything in deleta precipitates, calc precip fluxes
-                    pNFlux = deleta2NFlux(deleta, Rp_m, Grid%Bmag(i,j), dt)
-                    pEFlux = nFlux2EFlux(pNFlux, Grid%alamc(k), State%bVol(i,j))
-                    State%precipNFlux(i,j,k) = State%precipNFlux(i,j,k) + pNFlux
-                    State%precipEFlux(i,j,k) = State%precipEFlux(i,j,k) + pEFlux
-
                     ! TODO: CX loss rates
+
+                    ! Calc our total loss rate and how much goes into precipitation
+                    ! Nothing should be faster than strong scattering
+                    State%lossRates      (i,j,k) = min(rateCC(i,j), rateSS(i,j))
+                    State%lossRatesPrecip(i,j,k) = min(rateCC(i,j), rateSS(i,j))
                 enddo
             enddo
 
         end associate
 
-    end subroutine protonLosses
+    end subroutine calcProtonLossRate
 
 
-    subroutine electronLosses(Model, Grid, State, k, dt)
+    subroutine calcElectronLossRate(Model, Grid, State, k)
         type(raijuModel_T), intent(in) :: Model
         type(raijuGrid_T), intent(in) :: Grid
         type(raijuState_T), intent(inout) :: State
         integer, intent(in) :: k
-        real(rp), intent(in) :: dt
-            !! Time delta [s]
         
-        integer :: i,j, psphIdx
-        real(rp) :: deleta, pNFlux, pEFlux, lossRate
+        integer :: i,j
         logical, dimension(Grid%shGrid%isg:Grid%shGrid%ieg, &
                     Grid%shGrid%jsg:Grid%shGrid%jeg) :: isG
-        !real(rp), dimension(Grid%shGrid%isg:Grid%shGrid%ieg, &
-        !            Grid%shGrid%jsg:Grid%shGrid%jeg) :: rateLoss
+        real(rp), dimension(2) :: lossRate2
 
         ! Calc regions where we actually need to evaluate
         where (State%active .eq. RAIJUACTIVE)
@@ -144,6 +124,9 @@ module raijulosses
             isG = .false.
         end where
 
+        State%lossRates(:,:,k) = 0.0
+        State%lossRatesPrecip(:,:,k) = 0.0
+
         do j=Grid%shGrid%jsg,Grid%shGrid%jeg
             do i=Grid%shGrid%isg,Grid%shGrid%ieg
                 if (.not. isG(i,j)) then
@@ -151,25 +134,19 @@ module raijulosses
                 endif
 
                 ! Calc loss rate
-                lossRate = Model%eLossRateFn(Model, Grid, State, k)  ! [1/s]
-
-                deleta = State%eta(i,j,k)*(1.0-exp(-dt*lossRate))
-                    !! Total eta lost over dt
-                State%eta(i,j,k) = max(0.0, State%eta(i,j,k) - deleta)
-
-                ! Assuming everything in deleta precipitates, calc precip fluxes
-                pNFlux = deleta2NFlux(deleta, Model%planet%rp_m, Grid%Bmag(i,j), dt)
-                pEFlux = nFlux2EFlux(pNFlux, Grid%alamc(k), State%bVol(i,j))
-                State%precipNFlux(i,j,k) = State%precipNFlux(i,j,k) + pNFlux
-                State%precipEFlux(i,j,k) = State%precipEFlux(i,j,k) + pEFlux
-
+                lossRate2 = Model%eLossRateFn(Model, Grid, State, k)  ! [1/s]
+                    !! First is loss type, second is the actual rate
+                State%precipType_ele(i,j,k) = lossRate2(1)
+                State%lossRates(i,j,k)      = lossRate2(2)
+                ! All lost electrons assumed to precipitate
+                State%lossRatesPrecip(i,j,k) = State%lossRates(i,j,k)
             enddo
         enddo
 
-    end subroutine electronLosses
+    end subroutine calcElectronLossRate
 
 !------
-! Loss rates
+! Loss rate calculation
 !------
 
     function IonSSRate(Rp_m, amu, alam, bVol, Bfp) result(rateSS)
@@ -252,8 +229,38 @@ module raijulosses
 
 
 !------
-! Conversions
+! Apply losses and calc useful info
 !------
+
+    subroutine applyLosses(Model, Grid, State, k, dt)
+        type(raijuModel_T), intent(in) :: Model
+        type(raijuGrid_T ), intent(in) :: Grid
+        type(raijuState_T), intent(inout) :: State
+        integer, intent(in) :: k
+        real(rp), intent(in) :: dt
+            !! Time delta [s]
+
+        integer :: i,j
+        real(rp) :: deleta, pNFlux, pEFlux
+        
+        !$OMP PARALLEL DO default(shared) collapse(1) &
+        !$OMP schedule(dynamic) &
+        !$OMP private(j,i,deleta)
+        do j=Grid%shGrid%jsg,Grid%shGrid%jeg
+            do i=Grid%shGrid%isg,Grid%shGrid%ieg
+                ! First update eta using total lossRates over dt
+                deleta = State%eta(i,j,k)*(1.0-exp(-dt*State%lossRates(i,j,k)))
+                State%eta(i,j,k) = max(0.0, State%eta(i,j,k) - deleta)
+
+                ! Then calculate precipitation flux using lossRatesPrecip
+                deleta = State%eta(i,j,k)*(1.0-exp(-dt*State%lossRatesPrecip(i,j,k)))
+                State%precipNFlux(i,j,k) = State%precipNFlux(i,j,k) + deleta2NFlux(deleta, Model%planet%rp_m, Grid%Bmag(i,j), dt)
+                State%precipEFlux(i,j,k) = State%precipEFlux(i,j,k) + nFlux2EFlux(pNFlux, Grid%alamc(k), State%bVol(i,j))
+            enddo
+        enddo
+
+    end subroutine applyLosses
+
 
     function deleta2NFlux(eta, Rp_m, Bmag, dt)
         !! Convert precipitating eta to precipitating number flux
