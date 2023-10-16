@@ -569,15 +569,15 @@ module mixconductance
             phi0_rcm = St%Vars(i,j,IM_ENFLX)
 
             ! Merged flux
-            wMHD = 1.0-gtype_RCM(i,j)
             wRCM = gtype_RCM(i,j)
+            wMHD = 1.0-wRCM
             phi0 = wMHD*phi0_mhd + wRCM*phi0_rcm
             Ne   = wMHD*Ne_mhd + wRCM*Ne_rcm
             Pe   = wMHD*Pe_mhd + wRCM*Pe_rcm
             if(Ne>TINY) then
                kT = Pe/(Ne*kev2J)
             else
-               kT = 0.D0
+               kT = eTINY
             endif
 
             conductance%E0  (i,j) = 2.0*kT
