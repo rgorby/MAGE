@@ -86,13 +86,87 @@
                 ]
             },
             "mpiexec_command": {
+                "advanced": true,
                 "prompt": "MPI command to launch run",
                 "default": "mpiexec correctOMPenvironment.sh $nodefile omplace"
+            },
+            "num_jobs": {
+                "advanced": true,
+                "prompt": "Number of sequential PBS jobs to submit for the run",
+                "default": "1"
             }
         },
 
         "derecho": {
-
+            "queue": {
+                "prompt": "PBS queue name",
+                "default": "regular",
+                "valids": ["economy", "premium", "regular", "share"]
+            },
+            "walltime": {
+                "prompt": "Requested wall time for PBS job (HH:MM:SS)",
+                "default": "01:00:00"
+            },
+            "select": {
+                "prompt": "Number of nodes to request",
+                "default": "2"
+            },
+            "ncpus": {
+                "prompt": "Number of cores per node",
+                "default": "128"
+            },
+            "mpiprocs": {
+                "prompt": "Number of MPI ranks per node",
+                "default": "2"
+            },
+            "ompthreads": {
+                "prompt": "Number of OMP threads per MPI rank",
+                "default": "64"
+            },
+            "helper_select": {
+                "prompt": "Number of voltron helper nodes",
+                "default": "1"
+            },
+            "helper_mpiprocs": {
+                "advanced": true,
+                "prompt": "Number of MPI ranks per helper node",
+                "default": "1"
+            },
+            "helper_ompthreads": {
+                "advanced": true,
+                "prompt": "Number of OMP threads per helper node",
+                "default": "128"
+            },
+            "other": {
+                "advanced": true,
+                "prompt": "Additional options for PBS -l",
+                "default": ""
+            },
+            "modules": {
+                "advanced": true,
+                "prompt": "Modules to load",
+                "default": [
+                    "ncarenv/23.06",
+                    "cmake/3.26.3",
+                    "craype/2.7.20",
+                    "intel/2023.0.0",
+                    "geos/3.9.1",
+                    "ncarcompilers/1.0.0",
+                    "cray-mpich/8.1.25",
+                    "hdf5/1.12.2",
+                    "mkl/2023.0.0"
+                ]
+            },
+            "mpiexec_command": {
+                "advanced": true,
+                "prompt": "MPI command to launch run",
+                "default": "mpiexec pinCpuCores.sh"
+            },
+            "num_jobs": {
+                "advanced": true,
+                "prompt": "Number of sequential PBS jobs to submit for the run",
+                "default": "1"
+            }
         },
 
         "pleiades": {
@@ -155,6 +229,15 @@
                 "advanced": true,
                 "prompt": "Additional environment variable settings",
                 "default": null
+            },
+            "mpiexec_command": {
+                "advanced": true,
+                "prompt": "MPI command to launch run",
+                "default": "mpiexec correctOMPenvironment.sh $nodefile omplace"
+            },
+            "num_jobs": {
+                "prompt": "Number of sequential PBS jobs to submit for the run",
+                "default": "1"
             }
         }
     }

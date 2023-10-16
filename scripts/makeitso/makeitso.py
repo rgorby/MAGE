@@ -241,66 +241,9 @@ def prompt_user_for_run_options(args):
     for on in od:
         o[on] = get_run_option(on, od[on], args.advanced)
 
-    # Fetch high-level options about the run.
-    # NOTE: All files must be in the run directory.
-    # for name in ["runid", "LFM_grid_type", "solar_wind_file"]:
-    # for name in ["runid"]:
-    #     options_basic[name] = get_run_option(
-    #         name, option_descriptions_basic[name]
-    #     )
-
     #-------------------------------------------------------------------------
 
-    # PBS job options
-
-    # Compute PBS defaults.
-    # option_descriptions_pbs["account_name" ]["default"] = os.getlogin()
-
-    # Cross-platform PBS options
-    # for name in ["account_name"]:
-    #     options_pbs[name] = get_run_option(
-    #         name, option_descriptions_pbs[name]
-    #     )
-
-    # HPC system-specific PBS options
-    # option_descriptions_pbs_hpc = (
-    #     option_descriptions_pbs[options_basic["hpc_system"]]
-    # )
-
-    # Options for main computation nodes
-    # for name in ["queue", "walltime", "select", "ncpus", "mpiprocs",
-    #              "ompthreads"]:
-    #     options_pbs[name] = get_run_option(
-    #         name, option_descriptions_pbs_hpc[name]
-    #     )
-
-    # Options for helper nodes
-    # for name in ["helper_select", "helper_mpiprocs", "helper_ompthreads"]:
-    #     options_pbs[name] = get_run_option(
-    #         name, option_descriptions_pbs_hpc[name]
-    #     )
-
-    # Options for segmented jobs
-    # for name in ["num_jobs"]:
-    #     options_pbs[name] = get_run_option(
-    #         name, option_descriptions_pbs_hpc[name]
-    #     )
-
-    # Determine the module set to use.
-    # options_pbs["modules"] = option_descriptions_pbs_hpc["modules"]
-
-    # Specify the command to launch an MPI program.
-    # for name in ["mpiexec_command"]:
-    #     options_pbs[name] = get_run_option(
-    #         name, option_descriptions_pbs_hpc[name]
-    #     )
-
-    # Specify other environment variables to set (this is a placeholder).
-    # options["pbs"]["additional_environment_variables"] = None
-
-    #-------------------------------------------------------------------------
-
-    # Options for gamera
+    # gamera options
 
     # Configure basic options.
     # o = options["basic"]["gamera"] = {}
