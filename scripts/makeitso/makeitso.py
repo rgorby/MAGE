@@ -243,115 +243,238 @@ def prompt_user_for_run_options(args):
 
     #-------------------------------------------------------------------------
 
-    # gamera options
+    # GAMERA options
+    options["gamera"] = {}
 
-    # Configure basic options.
-    # o = options["basic"]["gamera"] = {}
-    # d = option_descriptions["basic"]["gamera"]["sim"]
-    # for name in [
-    #     "doH5g"
-    # ]:
-    #     o[name] = get_run_option(name, d[name])
+    # Common options
+    options["gamera"]["_common"] = {}
+    o = options["gamera"]["_common"]
+    od = option_descriptions["gamera"]["_common"]
+    for on in od:
+        o[on] = get_run_option(on, od[on], args.advanced)
 
-    # These options have defaults based on the LFM grid resolution.
+    # <sim> options
+    options["gamera"]["sim"] = {}
+    o = options["gamera"]["sim"]
+    od = option_descriptions["gamera"]["sim"]
+    for on in od:
+        o[on] = get_run_option(on, od[on], args.advanced)
 
-    # Configure or copy advanced options.
-    # for name in [
-    #     "gamera_sim_doH5g"
-        # "gamera_sim_doH5g", "gamera_sim_H5Grid", "gamera_sim_icType",
-        # "gamera_sim_pdmb", "gamera_sim_rmeth",
-        # "gamera_floors_dFloor", "gamera_floors_pFloor",
-        # "gamera_timestep_doCPR", "gamera_timestep_limCPR",
-        # "gamera_restart_doRes", "gamera_restart_resID", "gamera_restart_nRes",
-        # "gamera_physics_doMHD", "gamera_physics_doBoris", "gamera_physics_Ca",
-        # "gamera_ring_gid", "gamera_ring_doRing",
-        # "gamera_ringknobs_doVClean",
-        # "gamera_wind_tsfile",
-        # "gamera_source_doSource", "gamera_source_doWolfLim",
-        # "gamera_source_doBounceDT", "gamera_source_nBounce",
-        # "gamera_iPdir_N", "gamera_iPdir_bcPeriodic",
-        # "gamera_jPdir_N", "gamera_jPdir_bcPeriodic",
-        # "gamera_kPdir_N", "gamera_kPdir_bcPeriodic",
-    # ]:
-    #     if args.advanced:
-    #         options_basic[name] = get_run_option(name, option_descriptions_advanced[name])
-    #     else:
-    #         options_basic[name] = option_descriptions_advanced[name]["default"]
+    # <floors> options
+    options["gamera"]["floors"] = {}
+    o = options["gamera"]["floors"]
+    od = option_descriptions["gamera"]["floors"]
+    for on in od:
+        o[on] = get_run_option(on, od[on], args.advanced)
+
+    # <timestep> options
+    options["gamera"]["timestep"] = {}
+    o = options["gamera"]["timestep"]
+    od = option_descriptions["gamera"]["timestep"]
+    for on in od:
+        o[on] = get_run_option(on, od[on], args.advanced)
+
+    # <restart> options
+    options["gamera"]["restart"] = {}
+    o = options["gamera"]["restart"]
+    od = option_descriptions["gamera"]["restart"]
+    for on in od:
+        o[on] = get_run_option(on, od[on], args.advanced)
+
+    # <physics> options
+    options["gamera"]["physics"] = {}
+    o = options["gamera"]["physics"]
+    od = option_descriptions["gamera"]["physics"]
+    for on in od:
+        o[on] = get_run_option(on, od[on], args.advanced)
+
+    # <ring> options
+    options["gamera"]["ring"] = {}
+    o = options["gamera"]["ring"]
+    od = option_descriptions["gamera"]["ring"]
+    for on in od:
+        o[on] = get_run_option(on, od[on], args.advanced)
+
+    # <ringknobs> options
+    options["gamera"]["ringknobs"] = {}
+    o = options["gamera"]["ringknobs"]
+    od = option_descriptions["gamera"]["ringknobs"]
+    for on in od:
+        o[on] = get_run_option(on, od[on], args.advanced)
+
+    # <wind> options
+    options["gamera"]["wind"] = {}
+    o = options["gamera"]["wind"]
+    od = option_descriptions["gamera"]["wind"]
+    for on in od:
+        o[on] = get_run_option(on, od[on], args.advanced)
+
+    # <source> options
+    options["gamera"]["source"] = {}
+    o = options["gamera"]["source"]
+    od = option_descriptions["gamera"]["source"]
+    for on in od:
+        o[on] = get_run_option(on, od[on], args.advanced)
+
+    # <iPdir> options
+    options["gamera"]["iPdir"] = {}
+    o = options["gamera"]["iPdir"]
+    od = option_descriptions["gamera"]["iPdir"]
+    for on in od:
+        o[on] = get_run_option(on, od[on], args.advanced)
+
+    # <jPdir> options
+    options["gamera"]["jPdir"] = {}
+    o = options["gamera"]["jPdir"]
+    od = option_descriptions["gamera"]["jPdir"]
+    for on in od:
+        o[on] = get_run_option(on, od[on], args.advanced)
+
+    # <kPdir> options
+    options["gamera"]["kPdir"] = {}
+    o = options["gamera"]["kPdir"]
+    od = option_descriptions["gamera"]["kPdir"]
+    for on in od:
+        o[on] = get_run_option(on, od[on], args.advanced)
 
     #-------------------------------------------------------------------------
 
-    # Options for voltron_mpi.x
+    # VOLTRON options
+    options["voltron"] = {}
 
-#     option_names = [
-#         "voltron_time_tFin",
-#         "voltron_spinup_doSpin", "voltron_spinup_tSpin",
-#         "voltron_output_dtOut", "voltron_output_tsOut",
-#         "voltron_coupling_dtCouple", "voltron_coupling_rTrc",
-#         "voltron_coupling_imType", "voltron_coupling_doQkSquish",
-#         "voltron_coupling_qkSquishStride",
-#         "voltron_restart_dtRes",
-#         "voltron_imag_doInit",
-#         "voltron_ebsquish_epsSquish",
-#     ]
-#     for name in option_names:
-#         options[name] = get_run_option(name, option_descriptions[name])
+    # <time> options
+    options["voltron"]["time"] = {}
+    o = options["voltron"]["time"]
+    od = option_descriptions["voltron"]["time"]
+    for on in od:
+        o[on] = get_run_option(on, od[on], args.advanced)
 
-    # Configure or copy advanced options.
-    if args.advanced:
-        pass
+    # <spinup> options
+    options["voltron"]["spinup"] = {}
+    o = options["voltron"]["spinup"]
+    od = option_descriptions["voltron"]["spinup"]
+    for on in od:
+        o[on] = get_run_option(on, od[on], args.advanced)
+
+    # <output> options
+    options["voltron"]["output"] = {}
+    o = options["voltron"]["output"]
+    od = option_descriptions["voltron"]["output"]
+    for on in od:
+        o[on] = get_run_option(on, od[on], args.advanced)
+
+    # <coupling> options
+    options["voltron"]["coupling"] = {}
+    o = options["voltron"]["coupling"]
+    od = option_descriptions["voltron"]["coupling"]
+    for on in od:
+        o[on] = get_run_option(on, od[on], args.advanced)
+
+    # <restart> options
+    options["voltron"]["restart"] = {}
+    o = options["voltron"]["restart"]
+    od = option_descriptions["voltron"]["restart"]
+    for on in od:
+        o[on] = get_run_option(on, od[on], args.advanced)
+
+    # <imag> options
+    options["voltron"]["imag"] = {}
+    o = options["voltron"]["imag"]
+    od = option_descriptions["voltron"]["imag"]
+    for on in od:
+        o[on] = get_run_option(on, od[on], args.advanced)
+
+    # <ebsquish> options
+    options["voltron"]["ebsquish"] = {}
+    o = options["voltron"]["ebsquish"]
+    od = option_descriptions["voltron"]["ebsquish"]
+    for on in od:
+        o[on] = get_run_option(on, od[on], args.advanced)
 
     #-------------------------------------------------------------------------
 
-    # Options for CHIMP
+    # CHIMP options
+    options["chimp"] = {}
 
-#     option_names = [
-#         "chimp_units_uid",
-#         "chimp_fields_grType",
-#         "chimp_domain_dtype",
-#         "chimp_tracer_epsds",
-#     ]
-#     for name in option_names:
-#         options[name] = get_run_option(name, option_descriptions[name])
+    # <units> options
+    options["chimp"]["units"] = {}
+    o = options["chimp"]["units"]
+    od = option_descriptions["chimp"]["units"]
+    for on in od:
+        o[on] = get_run_option(on, od[on], args.advanced)
 
-    # Configure or copy advanced options.
-    if args.advanced:
-        pass
+    # <fields> options
+    options["chimp"]["fields"] = {}
+    o = options["chimp"]["fields"]
+    od = option_descriptions["chimp"]["fields"]
+    for on in od:
+        o[on] = get_run_option(on, od[on], args.advanced)
+
+    # <domain> options
+    options["chimp"]["domain"] = {}
+    o = options["chimp"]["domain"]
+    od = option_descriptions["chimp"]["domain"]
+    for on in od:
+        o[on] = get_run_option(on, od[on], args.advanced)
+
+    # <tracer> options
+    options["chimp"]["tracer"] = {}
+    o = options["chimp"]["tracer"]
+    od = option_descriptions["chimp"]["tracer"]
+    for on in od:
+        o[on] = get_run_option(on, od[on], args.advanced)
 
     #-------------------------------------------------------------------------
 
-    # Options for REMIX
+    # REMIX options
+    options["remix"] = {}
 
-#     option_names = [
-#         "remix_conductance_doStarlight", "remix_conductance_doRamp",
-#         "remix_precipitation_aurora_model_type", "remix_precipitation_alpha",
-#         "remix_precipitation_beta",
-#     ]
-#     for name in option_names:
-#         options[name] = get_run_option(name, option_descriptions[name])
+    # <conductance> options
+    options["remix"]["conductance"] = {}
+    o = options["remix"]["conductance"]
+    od = option_descriptions["remix"]["conductance"]
+    for on in od:
+        o[on] = get_run_option(on, od[on], args.advanced)
 
-    # Configure or copy advanced options.
-    if args.advanced:
-        pass
+    # <precipitation> options
+    options["remix"]["precipitation"] = {}
+    o = options["remix"]["precipitation"]
+    od = option_descriptions["remix"]["precipitation"]
+    for on in od:
+        o[on] = get_run_option(on, od[on], args.advanced)
 
     #-------------------------------------------------------------------------
 
-    # Options for RCM
+    # RCM options
+    options["rcm"] = {}
 
-#     option_names = [
-#         "rcm_rcmdomain_domType",
-#         "rcm_ellipse_xSun", "rcm_ellipse_yDD", "rcm_ellipse_xTail",
-#         "rcm_ellipse_isDynamic", "rcm_grid_LowLat", "rcm_grid_HiLat",
-#         "rcm_grid_doLatStretch",
-#         "rcm_plasmasphere_isDynamic", "rcm_plasmasphere_initKp",
-#         "rcm_plasmasphere_doRefill", "rcm_plasmasphere_DenPP0",
-#         "rcm_plasmasphere_tAvg",
-#     ]
-#     for name in option_names:
-#         options[name] = get_run_option(name, option_descriptions[name])
+    # <conductance> options
+    options["rcm"]["rcmdomain"] = {}
+    o = options["rcm"]["rcmdomain"]
+    od = option_descriptions["rcm"]["rcmdomain"]
+    for on in od:
+        o[on] = get_run_option(on, od[on], args.advanced)
 
-    # Configure or copy advanced options.
-    if args.advanced:
-        pass
+    # <ellipse> options
+    options["rcm"]["ellipse"] = {}
+    o = options["rcm"]["ellipse"]
+    od = option_descriptions["rcm"]["ellipse"]
+    for on in od:
+        o[on] = get_run_option(on, od[on], args.advanced)
+
+    # <grid> options
+    options["rcm"]["grid"] = {}
+    o = options["rcm"]["grid"]
+    od = option_descriptions["rcm"]["grid"]
+    for on in od:
+        o[on] = get_run_option(on, od[on], args.advanced)
+
+    # <plasmasphere> options
+    options["rcm"]["plasmasphere"] = {}
+    o = options["rcm"]["plasmasphere"]
+    od = option_descriptions["rcm"]["plasmasphere"]
+    for on in od:
+        o[on] = get_run_option(on, od[on], args.advanced)
 
     #-------------------------------------------------------------------------
 

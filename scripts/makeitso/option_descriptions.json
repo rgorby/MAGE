@@ -168,7 +168,6 @@
                 "default": "1"
             }
         },
-
         "pleiades": {
             "queue": {
                 "prompt": "PBS queue name",
@@ -240,5 +239,423 @@
                 "default": "1"
             }
         }
+    },
+
+    "gamera": {
+        "_common": {
+            "LFM_grid_type": {
+                "prompt": "Lyon-Fedder-Mobarry (LFM) grid type",
+                "default": "D",
+                "valids": ["D", "Q", "O", "H"]
+            }
+        },
+        "sim": {
+            "doH5g": {
+                "advanced": true,
+                "prompt": "gamera_sim_doH5g",
+                "default": "T",
+                "valids": ["T", "F"]
+            },
+            "H5Grid": {
+                "prompt": "Path to LFM grid file",
+                "default": "lfmD.h5"
+            },
+            "icType": {
+                "advanced": true,
+                "prompt": "Initial condition type",
+                "default": "user",
+                "valids": ["user"]
+            },
+            "pdmb": {
+                "advanced": true,
+                "prompt": "gamera_sim_pdmb",
+                "default": "1.0"
+            },
+            "rmeth": {
+                "advanced": true,
+                "prompt": "gamera_sim_rmeth",
+                "default": "7UP"
+            }    
+        },
+        "floors": {
+            "dFloor": {
+                "advanced": true,
+                "prompt": "gamera_floors_dFloor",
+                "default": "1.0e-4"
+            },
+            "pFloor": {
+                "advanced": true,
+                "prompt": "gamera_floors_pFloor",
+                "default": "1.0e-6"
+            }
+        },
+        "timestep": {
+            "doCPR": {
+                "advanced": true,
+                "prompt": "gamera_timestep_doCPR",
+                "default": "T",
+                "valids": ["T", "F"]
+            },
+            "limCPR": {
+                "advanced": true,
+                "prompt": "gamera_timestep_limCPR",
+                "default": "0.25"
+            }
+        },
+        "restart": {
+            "doRes": {
+                "advanced": true,
+                "prompt": "gamera_restart_doRes",
+                "default": "F",
+                "valids": ["T", "F"]
+            },
+            "resID": {
+                "advanced": true,
+                "prompt": "gamera_restart_resID",
+                "default": "msphere"
+            },
+            "nRes": {
+                "advanced": true,
+                "prompt": "gamera_restart_nRes",
+                "default": "-1"
+            }
+        },
+        "physics": {
+            "doMHD": {
+                "advanced": true,
+                "prompt": "gamera_physics_doMHD",
+                "default": "T",
+                "valids": ["T", "F"]
+            },
+            "doBoris": {
+                "advanced": true,
+                "prompt": "gamera_physics_doBoris",
+                "default": "T",
+                "valids": ["T", "F"]
+            },
+            "Ca": {
+                "advanced": true,
+                "prompt": "gamera_physics_Ca",
+                "default": "10.0"
+            }
+        },
+        "ring": {
+            "gid": {
+                "advanced": true,
+                "prompt": "gamera_ring_gid",
+                "default": "lfm"
+            },
+            "doRing": {
+                "advanced": true,
+                "prompt": "gamera_ring_doRing",
+                "default": "T",
+                "valids": ["T", "F"]
+            }
+        },
+        "ringknobs": {
+            "doVClean": {
+                "advanced": true,
+                "prompt": "gamera_ringknobs_doVClean",
+                "default": "T",
+                "valids": ["T", "F"]
+            }
+        },
+        "wind": {
+            "tsfile": {
+                "advanced": true,
+                "prompt": "gamera_wind_tsfile",
+                "default": "bcwind.h5"
+            }
+        },
+        "source": {
+            "doSource": {
+                "advanced": true,
+                "prompt": "gamera_source_doSource",
+                "default": "T",
+                "valids": ["T", "F"]
+            },
+            "doWolfLim": {
+                "advanced": true,
+                "prompt": "gamera_source_doWolfLim",
+                "default": "T",
+                "valids": ["T", "F"]
+            },
+            "doBounceDT": {
+                "advanced": true,
+                "prompt": "gamera_source_doBounceDT",
+                "default": "T",
+                "valids": ["T", "F"]
+            },
+            "nBounce": {
+                "advanced": true,
+                "prompt": "gamera_source_nBounce",
+                "default": "1.0"
+            }
+        },
+        "iPdir": {
+            "N": {
+                "prompt": "gamera_iPdir_N",
+                "default": "2"
+            },
+            "bcPeriodic": {
+                "advanced": true,
+                "prompt": "gamera_iPdir_bcPeriodic",
+                "default": "F",
+                "valids": ["T", "F"]
+            }
+        },
+        "jPdir": {
+            "N": {
+                "prompt": "gamera_jPdir_N",
+                "default": "2"
+            },
+            "bcPeriodic": {
+                "advanced": true,
+                "prompt": "gamera_jPdir_bcPeriodic",
+                "default": "F",
+                "valids": ["T", "F"]
+            }
+        },
+        "kPdir": {
+            "N": {
+                "prompt": "gamera_kPdir_N",
+                "default": "2"
+            },
+            "bcPeriodic": {
+                "advanced": true,
+                "prompt": "gamera_kPdir_bcPeriodic",
+                "default": "T",
+                "valids": ["T", "F"]
+            }
+        }
+    },
+
+    "voltron": {
+        "time": {
+            "tFin": {
+                "prompt": "voltron_time_tFin",
+                "default": "3600.0"
+            }
+        },
+        "spinup": {
+            "doSpin": {
+                "advanced": true,
+                "prompt": "voltron_spinup_doSpin",
+                "default": "T",
+                "valids": ["T", "F"]
+            },
+            "tSpin": {
+                "advanced": true,
+                "prompt": "voltron_spinup_tSpin",
+                "default": "3600.0"
+            }
+        },
+        "output": {
+            "dtOut": {
+                "prompt": "voltron_output_dtOut",
+                "default": "900.0"
+            },
+            "tsOut": {
+                "prompt": "voltron_output_tsOut",
+                "default": "100.0"
+            }
+        },
+        "coupling": {
+            "dtCouple": {
+                "advanced": true,
+                "prompt": "voltron_coupling_dtCouple",
+                "default": "5.0"
+            },
+            "rTrc": {
+                "advanced": true,
+                "prompt": "voltron_coupling_rTrc",
+                "default": "4.0"
+            },
+            "imType": {
+                "advanced": true,
+                "prompt": "voltron_coupling_imType",
+                "default": "RCM"
+            },
+            "doQkSquish": {
+                "advanced": true,
+                "prompt": "voltron_coupling_doQkSquish",
+                "default": "T",
+                "valids": ["T", "F"]
+            },
+            "qkSquishStride": {
+                "advanced": true,
+                "prompt": "voltron_coupling_qkSquishStride",
+                "default": "2"
+            }
+        },
+        "restart": {
+            "dtRes": {
+                "advanced": true,
+                "prompt": "voltron_restart_dtRes",
+                "default": "1800.0"
+            }
+        },
+        "imag": {
+            "doInit": {
+                "advanced": true,
+                "prompt": "voltron_imag_doInit",
+                "default": "T",
+                "valids": ["T", "F"]
+            }
+        },
+        "ebsquish": {
+            "epsSquish": {
+                "advanced": true,
+                "prompt": "voltron_ebsquish_epsSquish",
+                "default": "0.05"
+            }
+        }
+    },
+
+    "chimp": {
+        "units": {
+            "uid": {
+                "advanced": true,
+                "prompt": "chimp_units_uid",
+                "default": "EARTHCODE"
+            }
+        },
+        "fields": {
+            "grType": {
+                "advanced": true,
+                "prompt": "chimp_fields_grType",
+                "default": "lfm"
+            }
+        },
+        "domain": {
+            "dtype": {
+                "advanced": true,
+                "prompt": "chimp_domain_dtype",
+                "default": "MAGE"
+            }
+        },
+        "tracer": {
+            "epsds": {
+                "advanced": true,
+                "prompt": "chimp_tracer_epsds",
+                "default": "0.05"
+            }
+        }
+    },
+
+    "remix": {
+        "conductance": {
+            "doStarlight": {
+                "advanced": true,
+                "prompt": "remix_conductance_doStarlight",
+                "default": "T",
+                "valids": ["T", "F"]
+            },
+            "doRamp": {
+                "advanced": true,
+                "prompt": "remix_conductance_doRamp",
+                "default": "F",
+                "valids": ["T", "F"]
+            }
+        },
+        "precipitation": {
+            "aurora_model_type": {
+                "advanced": true,
+                "prompt": "remix_precipitation_aurora_model_type",
+                "default": "RCMONO"
+            },
+            "alpha": {
+                "advanced": true,
+                "prompt": "remix_precipitation_alpha",
+                "default": "0.2"
+            },
+            "beta": {
+                "advanced": true,
+                "prompt": "remix_precipitation_beta",
+                "default": "4"
+            }
+        }
+    },
+
+    "rcm": {
+        "rcmdomain": {
+            "domType": {
+                "advanced": true,
+                "prompt": "rcm_rcmdomain_domType",
+                "default": "ELLIPSE"
+            }
+        },
+        "ellipse": {
+            "xSun": {
+                "advanced": true,
+                "prompt": "rcm_ellipse_xSun",
+                "default": "12.5"
+            },
+            "yDD": {
+                "advanced": true,
+                "prompt": "rcm_ellipse_yDD",
+                "default": "15.0"
+            },
+            "xTail": {
+                "advanced": true,
+                "prompt": "rcm_ellipse_xTail",
+                "default": "15.0"
+            },
+            "isDynamic": {
+                "advanced": true,
+                "prompt": "rcm_ellipse_isDynamic",
+                "default": "T",
+                "valids": ["T", "F"]
+            }
+        },
+        "grid": {
+            "LowLat": {
+                "advanced": true,
+                "prompt": "rcm_grid_LowLat",
+                "default": "30.0"
+            },
+            "HiLat": {
+                "advanced": true,
+                "prompt": "rcm_grid_HiLat",
+                "default": "75.0"
+            },
+            "doLatStretch": {
+                "advanced": true,
+                "prompt": "rcm_grid_doLatStretch",
+                "default": "F",
+                "valids": ["T", "F"]
+            }
+        },
+        "plasmasphere": {
+            "isDynamic": {
+                "advanced": true,
+                "prompt": "rcm_plasmasphere_isDynamic",
+                "default": "F",
+                "valids": ["T", "F"]
+            },
+            "initKp": {
+                "advanced": true,
+                "prompt": "rcm_plasmasphere_initKp",
+                "default": "2"
+            },
+            "doRefill": {
+                "advanced": true,
+                "prompt": "rcm_plasmasphere_doRefill",
+                "default": "T",
+                "valids": ["T", "F"]
+            },
+            "DenPP0": {
+                "advanced": true,
+                "prompt": "rcm_plasmasphere_DenPP0",
+                "default": "1.0e-2"
+            },
+            "tAvg": {
+                "advanced": true,
+                "prompt": "rcm_plasmasphere_tAvg",
+                "default": "600.0"
+            }
+        }
+
     }
+
 }
