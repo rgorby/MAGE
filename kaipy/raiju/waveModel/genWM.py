@@ -31,15 +31,15 @@ def genh5(fOut: str, inputParams: wmD.wmParams):
 
 	wmGrp = oH5.create_group("waveModel")
 
-	wmGrp.create_dataset('Kpi', data=kpi)
-	wmGrp.create_dataset('MLTi', data=mlti)
-	wmGrp.create_dataset('Li', data=li)
-	wmGrp.create_dataset('Eki', data=eki)
-	wmGrp.create_dataset('Taui', data=taui)
+	wmGrp.create_dataset('Kp', data=kpi)
+	wmGrp.create_dataset('MLT', data=mlti)
+	wmGrp.create_dataset('L', data=li)
+	wmGrp.create_dataset('Ek', data=eki)
+	wmGrp.create_dataset('Tau', data=taui)
 
-	wmGrp['Li'  ].attrs['units'] = 'Re'
-	wmGrp['Eki' ].attrs['units'] = 'MeV'
-	wmGrp['Taui'].attrs['units'] = 's'
+	wmGrp['L'  ].attrs['units'] = 'Re'
+	wmGrp['Ek' ].attrs['units'] = 'MeV'
+	wmGrp['Tau'].attrs['units'] = 's'
 
 	attrs = inputParams.getAttrs()
 	for key in attrs.keys():

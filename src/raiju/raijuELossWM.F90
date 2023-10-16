@@ -20,25 +20,25 @@ module raijuELossWM
 
         call ClearIO(IOVars)
 
-        if(.not. ioExist(configfname, "Taui", "waveModel")) then
+        if(.not. ioExist(configfname, "Tau", "waveModel")) then
             write(*,*) "This config file not structured for RAIJU, use genRAIJU.py. Good day."
             stop
         endif
 
         !Chorus wave
-        call AddInVar(IOVars,"Kpi")  
-        call AddInVar(IOVars,"MLTi") 
-        call AddInVar(IOVars,"Li") 
-        call AddInVar(IOVars,"Eki") 
-        call AddInVar(IOVars,"Taui")
-        call ReadVars(IOVars,.false.,configFname)
+        call AddInVar(IOVars,"Kp")  
+        call AddInVar(IOVars,"MLT") 
+        call AddInVar(IOVars,"L") 
+        call AddInVar(IOVars,"Ek") 
+        call AddInVar(IOVars,"Tau")
+        call ReadVars(IOVars,.false.,configFname, "waveModel")
 
-        eWM%Nkp  = IOVars(FindIO(IOVars, "Kpi"))%N
-        eWM%Nmlt = IOVars(FindIO(IOVars, "MLTi"))%N
-        eWM%Nl   = IOVars(FindIO(IOVars, "Li"))%N
-        eWM%Ne   = IOVars(FindIO(IOVars, "Eki"))%N
+        eWM%Nkp  = IOVars(FindIO(IOVars, "Kp"))%N
+        eWM%Nmlt = IOVars(FindIO(IOVars, "MLT"))%N
+        eWM%Nl   = IOVars(FindIO(IOVars, "L"))%N
+        eWM%Ne   = IOVars(FindIO(IOVars, "Ek"))%N
 
-        tauVAR = IOVars(FindIO(IOVars, "Taui"))
+        tauVAR = IOVars(FindIO(IOVars, "Tau"))
 
         ! Do some dimension checks
         if (tauVAR%Nr /= 4) then
@@ -59,11 +59,13 @@ module raijuELossWM
         allocate(eWM%MLT1D   (eWM%Nmlt))
         allocate(eWM%L1D     (eWM%Nl  ))
         allocate(eWM%Energy1D(eWM%Ne  ))
+        allocate(eWM%Tau4D(eWM%Nkp,eWM%Nmlt,eWM%Nl,eWM%Ne))
 
-        call IOArray1DFill(IOVars, "Kpi" , eWM%Kp1D    )
-        call IOArray1DFill(IOVars, "MLTi", eWM%MLT1D   )
-        call IOArray1DFill(IOVars, "Li"  , eWM%L1D     )
-        call IOArray1DFill(IOVars, "Eki" , eWM%Energy1D)
+        call IOArray1DFill(IOVars,"Kp" , eWM%Kp1D    )
+        call IOArray1DFill(IOVars,"MLT", eWM%MLT1D   )
+        call IOArray1DFill(IOVars,"L"  , eWM%L1D     )
+        call IOArray1DFill(IOVars,"Ek" , eWM%Energy1D)
+        call IOArray4DFill(IOVars,"Tau", eWM%Tau4D   )
 
         call ClearIO(IOVars)
 

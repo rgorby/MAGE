@@ -71,10 +71,15 @@ module raijutypes
             !! Number of bins for Kp, MLT, L shell, and Energy
 
         real(rp), allocatable, dimension(:) :: Kp1D
+            !! 1D array of Kp dimension for Tau4D
         real(rp), allocatable, dimension(:) :: MLT1D
+            !! 1D array of MLT dimension for Tau4D
         real(rp), allocatable, dimension(:) :: L1D
+            !! 1D array of L shell dimension for Tau4D [Re]
         real(rp), allocatable, dimension(:) :: Energy1D
+            !! 1D array of energy dimension for Tau4D [MeV]
         real(rp), allocatable, dimension(:,:,:,:) :: Tau4D
+            !! Tau(Kp, MLT, L, E) table electron scattering table [seconds]
 
     end type eLossWM_T
 

@@ -15,6 +15,11 @@ program raijuSAx
 
     implicit none
 
+    enum, bind(C)
+        enumerator :: RaiTest_WM=1
+    end enum
+    integer :: testCode
+
     type(raijuApp_T   ) :: raiApp
 
     character(len=strLen) :: XMLStr, gStr
@@ -27,6 +32,7 @@ program raijuSAx
     real(rp) :: mjd0
 
 
+
     call initClocks()
     call Tic("Omega")
                     
@@ -35,6 +41,21 @@ program raijuSAx
 
     ! Personal xml flags
     inpXML = New_XML_Input(trim(XMLStr),"Kaiju/RAIJU",.true.)
+
+    !! Break-out testing of specific pieces
+    call inpXML%Set_Val(testCode,'testing/code',-1)
+    select case(testCode)
+        case (-1)  ! Nothing, just pass
+            write(*,*) "No test code, doing standard SA driving"
+        case(RaiTest_WM)
+            write(*,*) "Doing test of Wave Model"
+            call test_WM(inpXML)
+            stop
+        case default
+            write(*,*) "Idk what this test code is, try again"
+            stop
+    end select
+
     call inpXML%Set_Val(raiApp%Model%doClockConsoleOut,'driver/doClockOut',.false.)
 
     ! Init RAIJU
@@ -126,4 +147,26 @@ program raijuSAx
 
     end subroutine raijuAdvance
 
+
+    subroutine test_WM(iXML)
+        type(XML_Input_T), intent(in) :: iXML 
+        
+        character(len=strLen) :: confName
+        type(eLossWM_T) :: eWM
+        
+        call iXML%Set_Val(confName, "config/fname","raijuconfig.h5")
+        call initEWM(eWM, confName)
+
+        write(*,*) "Kp1D (",size(eWM%Kp1D),"):"
+        write(*,*) eWM%Kp1D
+        write(*,*) "MLT1D (",size(eWM%MLT1D),"):"
+        write(*,*) eWM%MLT1D
+        write(*,*) "L1D (",size(eWM%L1D),"):"
+        write(*,*) eWM%L1D
+        write(*,*) "Energy1D (",size(eWM%Energy1D),"):"
+        write(*,*) eWM%Energy1D
+        write(*,*) "dims(Tau4D):"
+        write(*,*) size(eWM%Tau4D)
+    end subroutine
+    
 end program raijuSAx
