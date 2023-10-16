@@ -29,10 +29,11 @@ DESCRIPTION = "Interactive script to prepare a MAGE magnetosphere model run."
 # Indent level for JSON output.
 JSON_INDENT = 4
 
+# Path to current kaiju installation
+KAIJUHOME = os.environ["KAIJUHOME"]
+
 # Path to directory containing support files for makeitso.
-SUPPORT_FILES_DIRECTORY = os.path.join(
-    os.environ["KAIJUHOME"], "scripts", "makeitso"
-)
+SUPPORT_FILES_DIRECTORY = os.path.join(KAIJUHOME, "scripts", "makeitso")
 
 # Path to option descriptions file.
 OPTION_DESCRIPTIONS_FILE = os.path.join(
@@ -45,7 +46,7 @@ INI_TEMPLATE = os.path.join(SUPPORT_FILES_DIRECTORY, "template.ini")
 # Path to template .pbs file.
 PBS_TEMPLATE = os.path.join(SUPPORT_FILES_DIRECTORY, "template.pbs")
 
-# # Program defaults
+# Program defaults
 
 # # Module sets by platform and run type.
 # modules = {
@@ -121,7 +122,7 @@ def create_command_line_parser():
     return parser
 
 
-def get_run_option(name, description):
+def get_run_option(name, description, advanced=False):
     """Prompt the user for a single run option.
 
     Prompt the user for a single run option. If no user input is provided,
@@ -135,6 +136,8 @@ def get_run_option(name, description):
         Name of option
     description : dict, default None
         Dictionary of metadata for the option.
+    advanced : bool
+        True if parameter is from advanced configuration
 
     Returns
     -------
@@ -149,6 +152,11 @@ def get_run_option(name, description):
     prompt = description.get("prompt", "")
     default = description.get("default", None)
     valids = description.get("valids", None)
+
+    # If not in advanced mode, and this is an advanced option, take the
+    # default.
+    if not advanced and "advanced" in description:
+        return default
 
     # If provided, add the valid values in val1|val2 format to the prompt.
     if valids is not None:
@@ -209,144 +217,123 @@ def prompt_user_for_run_options(args):
     # Read the dictionary of option descriptions.
     with open(OPTION_DESCRIPTIONS_FILE, "r", encoding="utf-8") as f:
         option_descriptions = json.load(f)
-    # Convenience variables to help avoid dict key errors.
-    option_descriptions_pbs = option_descriptions["pbs"]
-    option_descriptions_basic = option_descriptions["basic"]
-    option_descriptions_advanced = option_descriptions["advanced"]
 
     # Initialize the dictionary of program options.
-    options = {
-        "pbs": {},
-        "basic": {},
-        "advanced": {},
-    }
-    # Convenience variables to help avoid dict key errors.
-    options_pbs = options["pbs"]
-    options_basic = options["basic"]
-    options_advanced = options["advanced"]
+    options = {}
 
     #-------------------------------------------------------------------------
 
-    # Run definition options
+    # PBS options
+    options["pbs"] = {}
+    o = options["pbs"]
 
-    # HPC system run directory.
-    for name in ["hpc_system", "run_directory"]:
-        options_basic[name] = get_run_option(
-            name, option_descriptions_basic[name]
-        )
+    # Common (HPC platform-independent) options
+    od = option_descriptions["pbs"]["_common"]
+    od["account_name"]["default"] = os.getlogin()
+    od["kaiju_install_directory"]["default"] = KAIJUHOME
+    od["kaiju_build_directory"]["default"] = os.path.join(KAIJUHOME, "build_mpi")
+    for on in od:
+        o[on] = get_run_option(on, od[on], args.advanced)
 
-    # Compute the default for the location of the kaiju installation to use.
-    # The installation is assumed to be the installation which contains
-    # this running script. Note that this code requires that the KAIJUHOME
-    # environment variable is set. This environment variable is set
-    # automatically when the user runs the setupEnvironment.[c]sh script
-    # or its equivalent.
-    option_descriptions_basic["kaiju_install_directory"]["default"] = (
-        os.environ["KAIJUHOME"]
-    )
-
-    # kaiju installation directory
-    for name in ["kaiju_install_directory"]:
-        options_basic[name] = get_run_option(
-            name, option_descriptions_basic[name]
-        )
-
-    # Compute the default build directory based on KAIJUHOME and the run
-    # type. The build directory is the directory where cmake and make were
-    # run during the build process. Typically, this is done in the kaiju
-    # subdirectory "build_mpi" (for MPI builds).
-    option_descriptions_basic["kaiju_build_directory"]["default"] = (
-        os.path.join(options_basic['kaiju_install_directory'], "build_mpi")
-    )
-
-    # kaiju build directory
-    for name in ["kaiju_build_directory"]:
-        options_basic[name] = get_run_option(
-            name, option_descriptions_basic[name]
-        )
+    # Platform-specific options
+    hpc_platform = o["hpc_system"]
+    od = option_descriptions["pbs"][hpc_platform]
+    for on in od:
+        o[on] = get_run_option(on, od[on], args.advanced)
 
     # Fetch high-level options about the run.
     # NOTE: All files must be in the run directory.
     # for name in ["runid", "LFM_grid_type", "solar_wind_file"]:
-    for name in ["runid"]:
-        options_basic[name] = get_run_option(
-            name, option_descriptions_basic[name]
-        )
+    # for name in ["runid"]:
+    #     options_basic[name] = get_run_option(
+    #         name, option_descriptions_basic[name]
+    #     )
 
     #-------------------------------------------------------------------------
 
     # PBS job options
 
     # Compute PBS defaults.
-    option_descriptions_pbs["account_name" ]["default"] = os.getlogin()
+    # option_descriptions_pbs["account_name" ]["default"] = os.getlogin()
 
     # Cross-platform PBS options
-    for name in ["account_name"]:
-        options_pbs[name] = get_run_option(
-            name, option_descriptions_pbs[name]
-        )
+    # for name in ["account_name"]:
+    #     options_pbs[name] = get_run_option(
+    #         name, option_descriptions_pbs[name]
+    #     )
 
     # HPC system-specific PBS options
-    option_descriptions_pbs_hpc = (
-        option_descriptions_pbs[options_basic["hpc_system"]]
-    )
+    # option_descriptions_pbs_hpc = (
+    #     option_descriptions_pbs[options_basic["hpc_system"]]
+    # )
 
     # Options for main computation nodes
-    for name in ["queue", "walltime", "select", "ncpus", "mpiprocs",
-                 "ompthreads"]:
-        options_pbs[name] = get_run_option(
-            name, option_descriptions_pbs_hpc[name]
-        )
+    # for name in ["queue", "walltime", "select", "ncpus", "mpiprocs",
+    #              "ompthreads"]:
+    #     options_pbs[name] = get_run_option(
+    #         name, option_descriptions_pbs_hpc[name]
+    #     )
 
     # Options for helper nodes
-    for name in ["helper_select", "helper_mpiprocs", "helper_ompthreads"]:
-        options_pbs[name] = get_run_option(
-            name, option_descriptions_pbs_hpc[name]
-        )
+    # for name in ["helper_select", "helper_mpiprocs", "helper_ompthreads"]:
+    #     options_pbs[name] = get_run_option(
+    #         name, option_descriptions_pbs_hpc[name]
+    #     )
 
     # Options for segmented jobs
-    for name in ["num_jobs"]:
-        options_pbs[name] = get_run_option(
-            name, option_descriptions_pbs_hpc[name]
-        )
+    # for name in ["num_jobs"]:
+    #     options_pbs[name] = get_run_option(
+    #         name, option_descriptions_pbs_hpc[name]
+    #     )
 
     # Determine the module set to use.
-    options_pbs["modules"] = option_descriptions_pbs_hpc["modules"]
+    # options_pbs["modules"] = option_descriptions_pbs_hpc["modules"]
 
     # Specify the command to launch an MPI program.
-    options_pbs["mpiexec_command"] = option_descriptions_pbs_hpc["mpiexec_command"]
+    # for name in ["mpiexec_command"]:
+    #     options_pbs[name] = get_run_option(
+    #         name, option_descriptions_pbs_hpc[name]
+    #     )
 
     # Specify other environment variables to set (this is a placeholder).
-    options["pbs.additional_environment_variables"] = None
+    # options["pbs"]["additional_environment_variables"] = None
 
     #-------------------------------------------------------------------------
 
-    # Options for gamera_mpi.x
+    # Options for gamera
 
-#     option_names = [
-#         "gamera_sim_doH5g", "gamera_sim_H5Grid", "gamera_sim_icType",
-#         "gamera_sim_pdmb", "gamera_sim_rmeth",
-#         "gamera_floors_dFloor", "gamera_floors_pFloor",
-#         "gamera_timestep_doCPR", "gamera_timestep_limCPR",
-#         "gamera_restart_doRes", "gamera_restart_resID", "gamera_restart_nRes",
-#         "gamera_physics_doMHD", "gamera_physics_doBoris", "gamera_physics_Ca",
-#         "gamera_ring_gid", "gamera_ring_doRing",
-#         "gamera_ringknobs_doVClean",
-#         "gamera_wind_tsfile",
-#         "gamera_source_doSource", "gamera_source_doWolfLim",
-#         "gamera_source_doBounceDT", "gamera_source_nBounce",
-#         "gamera_iPdir_N", "gamera_iPdir_bcPeriodic",
-#         "gamera_jPdir_N", "gamera_jPdir_bcPeriodic",
-#         "gamera_kPdir_N", "gamera_kPdir_bcPeriodic",
-#     ]
-#     for name in option_names:
-#         options[name] = get_run_option(name, option_descriptions[name])
+    # Configure basic options.
+    # o = options["basic"]["gamera"] = {}
+    # d = option_descriptions["basic"]["gamera"]["sim"]
+    # for name in [
+    #     "doH5g"
+    # ]:
+    #     o[name] = get_run_option(name, d[name])
 
     # These options have defaults based on the LFM grid resolution.
-    
+
     # Configure or copy advanced options.
-    if args.advanced:
-        pass
+    # for name in [
+    #     "gamera_sim_doH5g"
+        # "gamera_sim_doH5g", "gamera_sim_H5Grid", "gamera_sim_icType",
+        # "gamera_sim_pdmb", "gamera_sim_rmeth",
+        # "gamera_floors_dFloor", "gamera_floors_pFloor",
+        # "gamera_timestep_doCPR", "gamera_timestep_limCPR",
+        # "gamera_restart_doRes", "gamera_restart_resID", "gamera_restart_nRes",
+        # "gamera_physics_doMHD", "gamera_physics_doBoris", "gamera_physics_Ca",
+        # "gamera_ring_gid", "gamera_ring_doRing",
+        # "gamera_ringknobs_doVClean",
+        # "gamera_wind_tsfile",
+        # "gamera_source_doSource", "gamera_source_doWolfLim",
+        # "gamera_source_doBounceDT", "gamera_source_nBounce",
+        # "gamera_iPdir_N", "gamera_iPdir_bcPeriodic",
+        # "gamera_jPdir_N", "gamera_jPdir_bcPeriodic",
+        # "gamera_kPdir_N", "gamera_kPdir_bcPeriodic",
+    # ]:
+    #     if args.advanced:
+    #         options_basic[name] = get_run_option(name, option_descriptions_advanced[name])
+    #     else:
+    #         options_basic[name] = option_descriptions_advanced[name]["default"]
 
     #-------------------------------------------------------------------------
 
@@ -491,15 +478,15 @@ def create_ini_files(options):
     # If a single segment was requested, create a single file.
     # If multiple segments were requested, create an .ini file for each
     # segment.
-    if int(options["pbs"]["num_jobs"]) == 1:
-        ini_content = template.render(options)
-        ini_file = os.path.join(
-            options["basic"]["run_directory"],
-            f"{options['basic']['runid']}.ini"
-        )
-        with open(ini_file, "w", encoding="utf-8") as f:
-            f.write(ini_content)
-        ini_files.append(ini_file)
+    # if int(options["pbs"]["num_jobs"]) == 1:
+    ini_content = template.render(options)
+    ini_file = os.path.join(
+        options["pbs"]["run_directory"],
+        f"{options['pbs']['runid']}.ini"
+    )
+    with open(ini_file, "w", encoding="utf-8") as f:
+        f.write(ini_content)
+    ini_files.append(ini_file)
     # else:
     #     for job in range(int(options["pbs"]["num_jobs"])):
     #         opt = options  # Need a copy of options
@@ -581,22 +568,20 @@ def create_pbs_scripts(options):
     template = Template(template_content)
 
     # Create a PBS script for each segment.
-    hpc_system = options["basic"]["hpc_system"]
     options_pbs = options["pbs"]
+    hpc_system = options_pbs["hpc_system"]
     pbs_scripts = []
-    # <HACK>
-    options_pbs["num_jobs"] = 1
-    # </HACK>
-    if int(options_pbs["num_jobs"]) == 1:
-        pbs_content = template.render(options)
-        pbs_script = os.path.join(
-            options["basic"]["run_directory"],
-            f"{options['basic']['runid']}.pbs"
-        )
-        with open(pbs_script, "w", encoding="utf-8") as f:
-            f.write(pbs_content)
-            pbs_scripts.append(pbs_script)
-#     else:
+    # if int(options_pbs["num_jobs"]) == 1:
+    pbs_content = template.render(options)
+    pbs_script = os.path.join(
+        options_pbs["run_directory"],
+        f"{options['pbs']['runid']}.pbs"
+    )
+    with open(pbs_script, "w", encoding="utf-8") as f:
+        f.write(pbs_content)
+        pbs_scripts.append(pbs_script)
+    # else:
+    #     raise TypeError("No segmented runs yet!")
 #         for segment in range(int(options["pbs_num_jobs"])):
 #             pbs_content = template.render(options)
 #             pbs_script = os.path.join(
@@ -622,9 +607,9 @@ def create_pbs_scripts(options):
 #             f.write(cmd)
 #             cmd = f"echo $job_id\n"
 #             f.write(cmd)
-    
-#     # Return the paths to the PBS scripts.
-#     return pbs_scripts
+
+    # Return the paths to the PBS scripts.
+    return pbs_scripts
 
 
 def main():
@@ -667,8 +652,11 @@ def main():
     if debug:
         print(f"options = {options}")
 
-    # Save the options dictionary as a JSON file in the run directory.
-    path = os.path.join(options["basic"]["run_directory"], "options.json")
+    # Move to the output directory.
+    os.chdir(options["pbs"]["run_directory"])
+
+    # Save the options dictionary as a JSON file in the current directory.
+    path = f"{options['pbs']['runid']}.json"
     if os.path.exists(path):
         if not clobber:
             raise FileExistsError(f"Options file {path} exists!")
@@ -676,10 +664,7 @@ def main():
         json.dump(options, f, indent=JSON_INDENT)
 
     # Save the current directory.
-    original_directory = os.getcwd()
-
-    # Move to the output directory.
-    os.chdir(options["basic"]["run_directory"])
+    # original_directory = os.getcwd()
 
 #     # Run the preprocessing steps.
 #     if verbose:
@@ -708,7 +693,7 @@ def main():
         print(f"The PBS job scripts {pbs_scripts} are ready.")
 
     # Move back to the original directory.
-    os.chdir(original_directory)
+    # os.chdir(original_directory)
 
 
 if __name__ == "__main__":
