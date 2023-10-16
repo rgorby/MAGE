@@ -102,10 +102,10 @@ module raijuELossWM
         type(raijuModel_T) , intent(in) :: Model
         type(raijuGrid_T)  , intent(in) :: Grid
         type(raijuState_T) , intent(in) :: State
-        real(rp), intent(in) :: k
+        integer, intent(in) :: k
         real(rp) :: tauK
 
-        tauK = 0.0
+        tauK = HUGE
     end function calcELossRate_WM
 
 end module raijuELossWM

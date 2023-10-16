@@ -151,7 +151,7 @@ module raijulosses
                 endif
 
                 ! Calc loss rate
-                lossRate = Model%calcELossRate_WM(Model, Grid, state, k)  ! [1/s]
+                lossRate = Model%eLossRateFn(Model, Grid, State, k)  ! [1/s]
 
                 deleta = State%eta(i,j,k)*(1.0-exp(-dt*lossRate))
                     !! Total eta lost over dt

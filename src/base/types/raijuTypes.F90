@@ -142,11 +142,9 @@ module raijutypes
         ! Losses
         logical :: doSS, doCC, doCX, doFLC
             !! (Ions) Do strong scattering / coulomb collisions / charge exchange / field-line curvature
-        !type(precip_T) :: precip  ! Precipitation model info (Shanshan and Dong)
-        !type(waveModel_T) :: wModel  ! Wave model info (Shanshan)
         integer :: eLossModel
-            !! Enumerator indicating active loss model
-        procedure(raijuELossRate_T     ), pointer, nopass :: eLossRateFn => NULL()
+            !! Enumerator indicating active electon loss model
+        procedure(raijuELossRate_T), pointer, nopass :: eLossRateFn => NULL()
             !! Pointer to electron loss function
         type(eLossWM_T) :: eLossWM
             !! Container for electron Wave Model data
@@ -304,7 +302,7 @@ module raijutypes
             type(raijuModel_T) , intent(in) :: Model
             type(raijuGrid_T)  , intent(in) :: Grid
             type(raijuState_T) , intent(in) :: State
-            real(rp), intent(in) :: k
+            integer, intent(in) :: k
             real(rp) :: tauK
         end function raijuELossRate_T
     end interface
