@@ -446,7 +446,9 @@ module mixconductance
 
       integer :: i,j
       real(rp) :: wRCM,wMHD
-      real(rp) :: mhd_nflx,rcm_nflx,mhd_eflx,rcm_eflx,rcm_eavg,mix_nflx,mhd_SigP,rcm_SigP
+      real(rp) :: mhd_nflx,mhd_eflx,mhd_eavg
+      real(rp) :: rcm_nflx,rcm_eflx,rcm_eavg
+      real(rp) :: mix_nflx,mhd_SigPH,rcm_SigPH
       logical :: isMono,isPSP
 
       St%Vars(:,:,AUR_TYPE) = 0
@@ -460,9 +462,9 @@ module mixconductance
 
       !$OMP PARALLEL DO default(shared) &
       !$OMP private(i,j,isMono,isPSP,wRCM,wMHD) &
-      !$OMP private(mhd_nflx,mhd_eflx,mix_nflx) &
+      !$OMP private(mhd_nflx,mhd_eflx,mhd_eavg) &
       !$OMP private(rcm_nflx,rcm_eflx,rcm_eavg) &
-      !$OMP private(mhd_SigP,rcm_SigP)
+      !$OMP private(mix_nflx,mhd_SigPH,rcm_SigPH)
       do j=1,G%Nt
          do i=1,G%Np
             !Start by figuring out where we are
@@ -473,6 +475,7 @@ module mixconductance
             rcm_nflx = St%Vars(i,j,IM_ENFLX)
             mhd_eflx = St%Vars(i,j,AVG_ENG)*St%Vars(i,j,NUM_FLUX)*kev2erg
             rcm_eflx = St%Vars(i,j,IM_EFLUX)
+            mhd_eavg = St%Vars(i,j,AVG_ENG)
             if(rcm_nflx>TINY) then
                rcm_eavg = rcm_eflx/(rcm_nflx*kev2erg)
             else
@@ -486,9 +489,9 @@ module mixconductance
                St%Vars(i,j,AUR_TYPE) = AT_RMnoE
             elseif(isMono .and. .not.isPSP) then
                ! Set auroral type to mono. Keep linmono values for mono nflux and eavg.
-               mhd_SigP = SigmaP_Robinson(St%Vars(i,j,AVG_ENG),mhd_eflx)
-               rcm_SigP = SigmaP_Robinson(rcm_eavg,rcm_eflx)
-               if(mhd_SigP>rcm_SigP) then
+               mhd_SigPH = SigmaP_Robinson(mhd_eavg,mhd_eflx)**2+SigmaH_Robinson(mhd_eavg,mhd_eflx)**2
+               rcm_SigPH = SigmaP_Robinson(rcm_eavg,rcm_eflx)**2+SigmaH_Robinson(rcm_eavg,rcm_eflx)**2
+               if(mhd_SigPH>rcm_SigPH) then
                   St%Vars(i,j,AUR_TYPE) = AT_RMono
                else
                   St%Vars(i,j,NUM_FLUX) = rcm_nflx
