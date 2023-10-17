@@ -304,12 +304,12 @@ module raijutypes
             real(rp) :: etaK
         end function raijuDP2EtaMap_T
 
-        function raijuELossRate_T(Model,Grid,State,k) result (lossRate2)
+        function raijuELossRate_T(Model,Grid,State,i,j,k) result (lossRate2)
             Import :: rp, raijuModel_T, raijuGrid_T, raijuState_T
             type(raijuModel_T) , intent(in) :: Model
             type(raijuGrid_T)  , intent(in) :: Grid
             type(raijuState_T) , intent(in) :: State
-            integer, intent(in) :: k
+            integer, intent(in) :: i,j,k
             real(rp), dimension(2) :: lossRate2
         end function raijuELossRate_T
     end interface

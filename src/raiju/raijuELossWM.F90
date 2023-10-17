@@ -98,15 +98,45 @@ module raijuELossWM
     end subroutine initEWM
 
 
-    function calcELossRate_WM(Model, Grid, State, k) result(lossRate2)
+    function calcELossRate_WM(Model, Grid, State, i, j, k) result(lossRate2)
         type(raijuModel_T) , intent(in) :: Model
         type(raijuGrid_T)  , intent(in) :: Grid
         type(raijuState_T) , intent(in) :: State
-        integer, intent(in) :: k
+        integer, intent(in) :: i, j, k
         real(rp), dimension(2) :: lossRate2
 
-        lossRate2 = 0.0
-        
+        real(rp) :: NpsphPnt
+            !! Density [#/cc] of plasmasphere at point i,j
+        real(rp) :: L
+            !! L shell of given point
+        real(rp) :: wLBlend, wNBlend
+            !! L-weighting of blending between IMAG and PS. 0=PS
+            !! Density-weighting between Chorus and Hiss
+        real(rp) :: wPS, wHISS, wCHORUS
+            !! Weights for plasma sheet, plasmasphere hiss, and chorus models
+
+        associate(eWM=>Model%eLossWM)
+
+            lossRate2 = 0.0
+                !! (1) = value, (2) = type
+
+            L = sqrt(State%xyzMin(i,j,1)**2 + State%xyzMin(i,j,2)**2)
+            
+            ! Calculate blending
+            wLBlend = RampDown(L, eWM%ChorusLMax, eWM%PsheetLMin - eWM%ChorusLMax)
+                !! 1 => IMAG, 0 => PS
+            wNBlend = dlog(eWM%NpsphHigh/NpsphPnt) / dlog(eWM%NpsphHigh/eWM%NpsphLow)
+                !! 1 => Chorus, 0 => Hiss
+            
+            ! Now calculate weights
+            wPS = 1 - wLBlend
+            wHISS = wLBlend*(1 - wNBlend)
+            wCHORUS = wLBlend*wNBlend
+
+
+        end associate
+
+
     end function calcELossRate_WM
 
 end module raijuELossWM

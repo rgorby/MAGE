@@ -134,10 +134,10 @@ module raijulosses
                 endif
 
                 ! Calc loss rate
-                lossRate2 = Model%eLossRateFn(Model, Grid, State, k)  ! [1/s]
-                    !! First is loss type, second is the actual rate
-                State%precipType_ele(i,j,k) = lossRate2(1)
-                State%lossRates(i,j,k)      = lossRate2(2)
+                lossRate2 = Model%eLossRateFn(Model, Grid, State, i, j, k)  ! [1/s]
+                    !! First is actual rate, second is the loss type
+                State%lossRates(i,j,k)      = lossRate2(1)
+                State%precipType_ele(i,j,k) = lossRate2(2)
                 ! All lost electrons assumed to precipitate
                 State%lossRatesPrecip(i,j,k) = State%lossRates(i,j,k)
             enddo

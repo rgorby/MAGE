@@ -402,9 +402,6 @@ module raijuadvancer
 
         integer :: k
 
-        ! Make sure moments are up to date, some things (like coulomb losses) need them
-        call EvalMoments(Grid, State)
-
         ! Send each channel off on their own
         !$OMP PARALLEL DO default(shared) collapse(1) &
         !$OMP schedule(dynamic) &
