@@ -28,7 +28,7 @@
             },
             "run_directory": {
                 "prompt": "Run directory",
-                "default": "/Users/winteel1/tmp"
+                "default": "."
             },
             "kaiju_install_directory": {
                 "prompt": "Path to kaiju installation"
@@ -38,7 +38,7 @@
             },
             "num_jobs": {
                 "prompt": "Number of sequential PBS jobs to submit for the run",
-                "default": "2"
+                "default": "1"
             }
         },
         "cheyenne": {

@@ -47,39 +47,6 @@ INI_TEMPLATE = os.path.join(SUPPORT_FILES_DIRECTORY, "template.ini")
 # Path to template .pbs file.
 PBS_TEMPLATE = os.path.join(SUPPORT_FILES_DIRECTORY, "template.pbs")
 
-# Program defaults
-
-# # Module sets by platform and run type.
-# modules = {
-#     "cheyenne": [
-#         "cmake/3.22.0",
-#         "git/2.33.1",
-#         "ncarenv/1.3",
-#         "intel/2022.1",
-#         "geos/3.10.1",
-#         "ncarcompilers/0.5.0",
-#         "mpt/2.25",
-#         "hdf5-mpi/1.12.2",
-#     ],
-#     "derecho": [
-#         "ncarenv/23.06",
-#         "cmake/3.26.3",
-#         "craype/2.7.20",
-#         "intel/2023.0.0",
-#         "geos/3.9.1",
-#         "ncarcompilers/1.0.0",
-#         "cray-mpich/8.1.25",
-#         "hdf5-mpi/1.12.2",
-#     ],
-#     "pleiades": [
-#         "nas"
-#         "pkgsrc/2022Q1-rome",
-#         "comp-intel/2020.4.304",
-#         "mpi-hpe/mpt.2.23",
-#         "hdf5/1.8.18_mpt",
-#     ],
-# }
-
 
 def create_command_line_parser():
     """Create the command-line argument parser.
