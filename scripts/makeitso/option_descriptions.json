@@ -1,6 +1,21 @@
 {
     "version": "0.0.0",
 
+    "simulation": {
+        "runid": {
+            "prompt": "ID string for run",
+            "default": "msphere"
+        },
+        "start_date": {
+            "prompt": "Start date for fetching solar wind boundary data (yyyy-mm-ddThh:mm:ss",
+            "default": "2016-08-09T09:00:00"
+        },
+        "stop_date": {
+            "prompt": "Stop date for fetching solar wind boundary data (yyyy-mm-ddThh:mm:ss",
+            "default": "2016-08-09T10:00:00"
+        }
+    },
+
     "pbs": {
         "_common": {
             "hpc_system": {
@@ -13,7 +28,7 @@
             },
             "run_directory": {
                 "prompt": "Run directory",
-                "default": "."
+                "default": "/Users/winteel1/tmp"
             },
             "kaiju_install_directory": {
                 "prompt": "Path to kaiju installation"
@@ -21,9 +36,9 @@
             "kaiju_build_directory": {
                 "prompt": "Path to kaiju build directory"
             },
-            "runid": {
-                "prompt": "ID string for run",
-                "default": "msphere"
+            "num_jobs": {
+                "prompt": "Number of sequential PBS jobs to submit for the run",
+                "default": "2"
             }
         },
         "cheyenne": {
@@ -54,7 +69,7 @@
             },
             "helper_select": {
                 "prompt": "Number of voltron helper nodes",
-                "default": "1"
+                "default": "0"
             },
             "helper_mpiprocs": {
                 "advanced": true,
@@ -89,11 +104,6 @@
                 "advanced": true,
                 "prompt": "MPI command to launch run",
                 "default": "mpiexec correctOMPenvironment.sh $nodefile omplace"
-            },
-            "num_jobs": {
-                "advanced": true,
-                "prompt": "Number of sequential PBS jobs to submit for the run",
-                "default": "1"
             }
         },
 
@@ -161,11 +171,6 @@
                 "advanced": true,
                 "prompt": "MPI command to launch run",
                 "default": "mpiexec pinCpuCores.sh"
-            },
-            "num_jobs": {
-                "advanced": true,
-                "prompt": "Number of sequential PBS jobs to submit for the run",
-                "default": "1"
             }
         },
         "pleiades": {
@@ -233,10 +238,6 @@
                 "advanced": true,
                 "prompt": "MPI command to launch run",
                 "default": "mpiexec correctOMPenvironment.sh $nodefile omplace"
-            },
-            "num_jobs": {
-                "prompt": "Number of sequential PBS jobs to submit for the run",
-                "default": "1"
             }
         }
     },
@@ -419,7 +420,7 @@
         "kPdir": {
             "N": {
                 "prompt": "gamera_kPdir_N",
-                "default": "2"
+                "default": "1"
             },
             "bcPeriodic": {
                 "advanced": true,

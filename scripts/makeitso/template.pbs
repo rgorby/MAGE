@@ -2,7 +2,7 @@
 
 # This script was generated to run on {{ pbs.hpc_system }}.
 
-#PBS -N {{ pbs.runid }}
+#PBS -N {{ simulation.runid }}
 #PBS -A {{ pbs.account_name }}
 #PBS -q {{ pbs.queue }}
 #PBS -l walltime={{ pbs.walltime }}

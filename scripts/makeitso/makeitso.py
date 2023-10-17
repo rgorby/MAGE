@@ -11,9 +11,10 @@ each decision that must be made to prepare for the run.
 
 # Import standard modules.
 import argparse
+import copy
 import json
 import os
-# import subprocess
+import subprocess
 
 # Import 3rd-party modules.
 from jinja2 import Template
@@ -220,6 +221,15 @@ def prompt_user_for_run_options(args):
 
     # Initialize the dictionary of program options.
     options = {}
+
+    #-------------------------------------------------------------------------
+
+    # General options for the simulation
+    options["simulation"] = {}
+    o = options["simulation"]
+    od = option_descriptions["simulation"]
+    for on in od:
+        o[on] = get_run_option(on, od[on], args.advanced)
 
     #-------------------------------------------------------------------------
 
@@ -482,35 +492,41 @@ def prompt_user_for_run_options(args):
     return options
 
 
-# def run_preprocessing_steps(options):
-#     """Execute any preprocessing steps required for the run.
+def run_preprocessing_steps(options):
+    """Execute any preprocessing steps required for the run.
 
-#     Execute any preprocessing steps required for the run.
+    Execute any preprocessing steps required for the run.
 
-#     Parameters
-#     ----------
-#     options : dict
-#         Dictionary of program options, each entry maps str to str.
+    Parameters
+    ----------
+    options : dict
+        Dictionary of program options, each entry maps str to str.
 
-#     Returns
-#     -------
-#     None
+    Returns
+    -------
+    None
 
-#     Raises
-#     ------
-#     None
-#     """
-#     # Create the LFM grid file.
-#     # NOTE: Assumes genLFM.py is in PATH.
-#     cmd = "genLFM.py"
-#     args = [cmd, "-gid", options["LFM_grid_type"]]
-#     subprocess.run(args, check=True)
+    Raises
+    ------
+    None
+    """
+    # Create the LFM grid file.
+    # NOTE: Assumes genLFM.py is in PATH.
+    cmd = "genLFM.py"
+    args = [cmd, "-gid", options["gamera"]["_common"]["LFM_grid_type"]]
+    subprocess.run(args, check=True)
 
-#     # Create the RCM configuration file.
-#     # NOTE: Assumes genRCM.py is in PATH.
-#     cmd = "genRCM.py"
-#     args = [cmd]
-#     subprocess.run(args, check=True)
+    # Create the solar wind file by fetching data from CDAWeb.
+    # NOTE: Assumes cda2wind.py is in PATH.
+    # cmd = "cda2wind.py"
+    # args = [cmd, "-t0", start_date, "-t1", stop_date, "-interp"]
+    # subprocess.run(args, check=True)
+
+    # Create the RCM configuration file.
+    # NOTE: Assumes genRCM.py is in PATH.
+    cmd = "genRCM.py"
+    args = [cmd]
+    subprocess.run(args, check=True)
 
 
 def create_ini_files(options):
@@ -544,69 +560,69 @@ def create_ini_files(options):
     # If a single segment was requested, create a single file.
     # If multiple segments were requested, create an .ini file for each
     # segment.
-    # if int(options["pbs"]["num_jobs"]) == 1:
-    ini_content = template.render(options)
-    ini_file = os.path.join(
-        options["pbs"]["run_directory"],
-        f"{options['pbs']['runid']}.ini"
-    )
-    with open(ini_file, "w", encoding="utf-8") as f:
-        f.write(ini_content)
-    ini_files.append(ini_file)
-    # else:
-    #     for job in range(int(options["pbs"]["num_jobs"])):
-    #         opt = options  # Need a copy of options
-    #         if job > 0:
-    #             opt["gamera_restart_doRes"] = "T"
-    #         ini_content = template.render(options)
-    #         ini_file = os.path.join(
-    #             options["run_directory"], f"{options['runid']}-{job:02d}.ini"
-    #         )
-    #         ini_files.append(ini_file)
-    #         with open(ini_file, "w", encoding="utf-8") as f:
-    #             f.write(ini_content)
+    if int(options["pbs"]["num_jobs"]) == 1:
+        ini_content = template.render(options)
+        ini_file = os.path.join(
+            options["pbs"]["run_directory"],
+            f"{options['simulation']['runid']}.ini"
+        )
+        with open(ini_file, "w", encoding="utf-8") as f:
+            f.write(ini_content)
+        ini_files.append(ini_file)
+    else:
+        for job in range(int(options["pbs"]["num_jobs"])):
+            opt = copy.deepcopy(options)  # Need a copy of options
+            if job > 0:
+                opt["gamera_restart_doRes"] = "T"
+            ini_content = template.render(options)
+            ini_file = os.path.join(
+                options["pbs"]["run_directory"], f"{options['simulation']['runid']}-{job:02d}.ini"
+            )
+            ini_files.append(ini_file)
+            with open(ini_file, "w", encoding="utf-8") as f:
+                f.write(ini_content)
 
     # Return the paths to the .ini files.
     return ini_files
 
 
-# def convert_ini_to_xml(ini_files):
-#     """Convert the .ini files to XML.
+def convert_ini_to_xml(ini_files):
+    """Convert the .ini files to XML.
 
-#     Convert the .ini files describing the run to XML files.
+    Convert the .ini files describing the run to XML files.
 
-#     Parameters
-#     ----------
-#     ini_files : list of str
-#         Paths to the .ini files to convert.
+    Parameters
+    ----------
+    ini_files : list of str
+        Paths to the .ini files to convert.
 
-#     Returns
-#     -------
-#     xml_files : str
-#         Paths to the XML files.
+    Returns
+    -------
+    xml_files : str
+        Paths to the XML files.
 
-#     Raises
-#     ------
-#     None
-#     """
-#     # Convert each .ini file to an .xml file.
-#     xml_files = []
-#     for ini_file in ini_files:
+    Raises
+    ------
+    None
+    """
+    # Convert each .ini file to an .xml file.
+    xml_files = []
+    for ini_file in ini_files:
 
-#         # Put the XML file in the same directory as the .ini file.
-#         xml_file = ini_file.replace(".ini", ".xml")
+        # Put the XML file in the same directory as the .ini file.
+        xml_file = ini_file.replace(".ini", ".xml")
 
-#         # Convert the .ini file to .xml.
-#         # NOTE: assumes XMLGenerator.py is in PATH.
-#         cmd = "XMLGenerator.py"
-#         args = [cmd, ini_file, xml_file]
-#         subprocess.run(args, check=True)
+        # Convert the .ini file to .xml.
+        # NOTE: assumes XMLGenerator.py is in PATH.
+        cmd = "XMLGenerator.py"
+        args = [cmd, ini_file, xml_file]
+        subprocess.run(args, check=True)
 
-#         # Add this file to the list of XML files.
-#         xml_files.append(xml_file)
+        # Add this file to the list of XML files.
+        xml_files.append(xml_file)
 
-#     # Return the paths to the XML files.
-#     return xml_files
+    # Return the paths to the XML files.
+    return xml_files
 
 
 def create_pbs_scripts(options):
@@ -634,45 +650,44 @@ def create_pbs_scripts(options):
     template = Template(template_content)
 
     # Create a PBS script for each segment.
-    options_pbs = options["pbs"]
-    hpc_system = options_pbs["hpc_system"]
+    # options_pbs = options["pbs"]
+    # hpc_system = options_pbs["hpc_system"]
     pbs_scripts = []
-    # if int(options_pbs["num_jobs"]) == 1:
-    pbs_content = template.render(options)
-    pbs_script = os.path.join(
-        options_pbs["run_directory"],
-        f"{options['pbs']['runid']}.pbs"
-    )
-    with open(pbs_script, "w", encoding="utf-8") as f:
-        f.write(pbs_content)
-        pbs_scripts.append(pbs_script)
-    # else:
-    #     raise TypeError("No segmented runs yet!")
-#         for segment in range(int(options["pbs_num_jobs"])):
-#             pbs_content = template.render(options)
-#             pbs_script = os.path.join(
-#                 options["run_directory"],
-#                 f"{options['runid']}-{segment:02d}.pbs"
-#             )
-#             pbs_scripts.append(pbs_script)
-#             with open(pbs_script, "w", encoding="utf-8") as f:
-#                 f.write(pbs_content)
+    if int(options["pbs"]["num_jobs"]) == 1:
+        pbs_content = template.render(options)
+        pbs_script = os.path.join(
+            options["pbs"]["run_directory"],
+            f"{options['simulation']['runid']}.pbs"
+        )
+        with open(pbs_script, "w", encoding="utf-8") as f:
+            f.write(pbs_content)
+            pbs_scripts.append(pbs_script)
+    else:
+        for segment in range(int(options["pbs"]["num_jobs"])):
+            pbs_content = template.render(options)
+            pbs_script = os.path.join(
+                options["pbs"]["run_directory"],
+                f"{options['simulation']['runid']}-{segment:02d}.pbs"
+            )
+            pbs_scripts.append(pbs_script)
+            with open(pbs_script, "w", encoding="utf-8") as f:
+                f.write(pbs_content)
 
-#     # Create a single script which will submit all of the PBS jobs in order.
-#     path = "submit_pbs.sh"
-#     with open(path, "w", encoding="utf-8") as f:
-#         s = pbs_scripts[0]
-#         cmd = f"job_id=`qsub {s}`\n"
-#         f.write(cmd)
-#         cmd = f"echo $job_id\n"
-#         f.write(cmd)
-#         for s in pbs_scripts[1:]:
-#             cmd = "old_job_id=$job_id\n"
-#             f.write(cmd)
-#             cmd = f"job_id=`qsub -W depend=afterok:$old_job_id {s}`\n"
-#             f.write(cmd)
-#             cmd = f"echo $job_id\n"
-#             f.write(cmd)
+    # Create a single script which will submit all of the PBS jobs in order.
+    path = f"{options['simulation']['runid']}_pbs.sh"
+    with open(path, "w", encoding="utf-8") as f:
+        s = pbs_scripts[0]
+        cmd = f"job_id=`qsub {s}`\n"
+        f.write(cmd)
+        cmd = f"echo $job_id\n"
+        f.write(cmd)
+        for s in pbs_scripts[1:]:
+            cmd = "old_job_id=$job_id\n"
+            f.write(cmd)
+            cmd = f"job_id=`qsub -W depend=afterok:$old_job_id {s}`\n"
+            f.write(cmd)
+            cmd = f"echo $job_id\n"
+            f.write(cmd)
 
     # Return the paths to the PBS scripts.
     return pbs_scripts
@@ -718,24 +733,21 @@ def main():
     if debug:
         print(f"options = {options}")
 
-    # Move to the output directory.
+    # Move to the run directory.
     os.chdir(options["pbs"]["run_directory"])
 
     # Save the options dictionary as a JSON file in the current directory.
-    path = f"{options['pbs']['runid']}.json"
+    path = f"{options['simulation']['runid']}.json"
     if os.path.exists(path):
         if not clobber:
             raise FileExistsError(f"Options file {path} exists!")
     with open(path, "w", encoding="utf-8") as f:
         json.dump(options, f, indent=JSON_INDENT)
 
-    # Save the current directory.
-    # original_directory = os.getcwd()
-
-#     # Run the preprocessing steps.
-#     if verbose:
-#         print("Running preprocessing steps.")
-#     run_preprocessing_steps(options)
+    # Run the preprocessing steps.
+    if verbose:
+        print("Running preprocessing steps.")
+    run_preprocessing_steps(options)
 
     # Create the .ini file(s).
     if verbose:
@@ -744,12 +756,12 @@ def main():
     if debug:
         print(f"ini_files = {ini_files}")
 
-#     # Convert the .ini file(s) to .xml files(s).
-#     if verbose:
-#         print("Converting .ini file(s) to .xml file(s).")
-#     xml_files = convert_ini_to_xml(ini_files)
-#     if debug:
-#         print(f"xml_files = {xml_files}")
+    # Convert the .ini file(s) to .xml files(s).
+    if verbose:
+        print("Converting .ini file(s) to .xml file(s).")
+    xml_files = convert_ini_to_xml(ini_files)
+    if debug:
+        print(f"xml_files = {xml_files}")
 
     # Create the PBS job script(s).
     if verbose:
@@ -757,9 +769,6 @@ def main():
     pbs_scripts = create_pbs_scripts(options)
     if verbose:
         print(f"The PBS job scripts {pbs_scripts} are ready.")
-
-    # Move back to the original directory.
-    # os.chdir(original_directory)
 
 
 if __name__ == "__main__":
