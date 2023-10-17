@@ -1980,7 +1980,7 @@
           call xmlInp%Set_Val(L_doOMPClaw,"clawpack/doOMPClaw",L_doOMPClaw)
 
           !Averaging timescale for plasmasphere
-          call xmlInp%Set_Val(dtAvg_v,"plasmasphere/tAvg",0.0)
+          call xmlInp%Set_Val(dtAvg_v,"plasmasphere/tAvg",60.0)
 
           call xmlInp%Set_Val(doNoBndFlow,"experimental/doNoBndFlow",.false.)
           call xmlInp%Set_Val(nNBFL,"experimental/NBFLayers",nNBFL)
