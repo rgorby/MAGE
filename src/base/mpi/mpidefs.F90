@@ -25,6 +25,14 @@ module mpidefs
   integer, parameter :: MPI_AN_MYADDR   = MPI_ADDRESS_KIND ! this is the default
 #endif
 
+  !MPI Communicator Id
+  integer, parameter :: voltId  = 116
+  integer, parameter :: gamId   = 45
+  integer, parameter :: traceId = 47
+  integer, parameter :: rcmId   = 34
+  integer, parameter :: tgcmId  = 57
+  integer, parameter :: hidraId = 40
+
 contains
 
   subroutine setMpiReal()

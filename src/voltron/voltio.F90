@@ -32,7 +32,7 @@ module voltio
         class(voltApp_T), intent(inout) :: vApp
 
         !Using console output from Gamera
-        call consoleOutput(gApp%Model,gApp%Grid,gApp%State)
+        call gApp%WriteConsoleOutput()
 
         !Using console output from Voltron
         call consoleOutputVOnly(vApp,gApp,gApp%Model%MJD0)
@@ -131,12 +131,8 @@ module voltio
             write (*, '(a,1f7.1,a)' ) '         ', imagWait*100.0,  '% of time processing IMAG'
             write (*, '(a,1f7.1,a)' ) '         ', mixWait*100.0,   '% of time processing Remix'
             if (simRate>TINY) then
-                if (vApp%isSeparate) then
-                    nTh = NumOMP()
-                    write (*, '(a,1f8.3,a,I0,a)')             '    Running @ ', simRate*100.0, '% of real-time (',nTh,' threads)'  
-                else
-                    write (*, '(a,1f8.3,a)'     )             '    Running @ ', simRate*100.0, '% of real-time'
-                endif
+                nTh = NumOMP()
+                write (*, '(a,1f8.3,a,I0,a)')             '    Running @ ', simRate*100.0, '% of real-time (',nTh,' threads)'  
             endif
             
             write(*,'(a)',advance="no") ANSIRESET!, ''
@@ -181,7 +177,7 @@ module voltio
         class(voltApp_T), intent(inout) :: vApp
 
         !Write Gamera restart
-        call resOutput(gApp%Model,gApp%Grid,gApp%oState,gApp%State)
+        call gApp%WriteRestart()
 
         !Write Voltron restart data
         call resOutputVOnly(vApp,gApp)
@@ -314,7 +310,7 @@ module voltio
         class(voltApp_T), intent(inout) :: vApp
 
         !Write gamera data
-        call fOutput(gApp%Model,gApp%Grid,gApp%State) !Gamera
+        call gApp%WriteFileOutput()
 
         !Write voltron data
         call fOutputVOnly(vApp,gApp)

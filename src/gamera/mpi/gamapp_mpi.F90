@@ -1,7 +1,7 @@
 ! Main data objects and functions to perform a gamera simulation
 
 module gamapp_mpi
-    use gamtypes
+    use gamtypes_mpi
     use step
     use init
     use mhdgroup
@@ -12,81 +12,7 @@ module gamapp_mpi
 
     implicit none
 
-    type, extends(BaseOptions_T) :: gamOptionsMpi_T
-        type(MPI_Comm) :: gamComm
-        logical :: doIO = .true.
-
-        contains
-    end type gamOptionsMpi_T
-
-    type, extends(gamApp_T) :: gamAppMpi_T
-        type(MPI_Comm) :: gamMpiComm
-        integer, dimension(:), allocatable :: sendRanks, recvRanks
-        logical :: blockHalo = .false.
-
-        ! Gas Data Transfer Variables
-        integer, dimension(:), allocatable :: sendCountsGas
-        type(MPI_Datatype), dimension(:), allocatable :: sendTypesGas
-        integer, dimension(:), allocatable :: recvCountsGas
-        type(MPI_Datatype), dimension(:), allocatable :: recvTypesGas
-        integer(kind=MPI_AN_MYADDR), dimension(:), allocatable :: sendDisplsGas, recvDisplsGas
-
-        ! Magnetic Flux Data Transfer Variables
-        integer, dimension(:), allocatable :: sendCountsMagFlux
-        type(MPI_Datatype), dimension(:), allocatable :: sendTypesMagFlux
-        integer, dimension(:), allocatable :: recvCountsMagFlux
-        type(MPI_Datatype), dimension(:), allocatable :: recvTypesMagFlux
-        integer(kind=MPI_AN_MYADDR), dimension(:), allocatable :: sendDisplsMagFlux, recvDisplsMagFlux
-
-        ! Debugging flags
-        logical :: printMagFluxFaceError = .false.
-        real(rp) :: faceError = 0.0_rp
-        logical :: slowestRankPrints = .true.
-
-        ! MPI-specific options
-        type(gamOptionsMpi_T) :: gOptionsMpi
-
-        contains
-
-        ! only over-riding specific functions
-        procedure :: InitModel => gamMpiInitModel
-        !procedure :: InitIO => gamInitIO
-        !procedure :: WriteRestart => gamWriteRestart
-        !procedure :: ReadRestart => gamReadRestart
-        procedure :: WriteConsoleOutput => gamMpiWriteConsoleOutput
-        !procedure :: WriteFileOutput => gamWriteFileOutput
-        !procedure :: WriteSlimFileOutput => gamWriteSlimFileOutput
-        procedure :: AdvanceModel => gamMpiAdvanceModel
-
-    end type gamAppMpi_T
-
     contains
-
-    ! procedures for gamAppMpi_T
-    subroutine gamMpiInitModel(App, Xml)
-        class(gamAppMpi_T), intent(inout) :: App
-        type(XML_Input_T), intent(inout) :: Xml
-
-        call initGamera_mpi(App, Xml)
-
-    end subroutine gamMpiInitModel
-
-    subroutine gamMpiWriteConsoleOutput(App)
-        class(gamAppMpi_T), intent(inout) :: App
-
-        call consoleOutput_mpi(App)
-
-    end subroutine gamMpiWriteConsoleOutput
-
-     subroutine gamMpiAdvanceModel(App, dt)
-        class(gamAppMpi_T), intent(inout) :: App
-        real(rp), intent(in) :: dt
-
-        call stepGamera_mpi(App)
-
-    end subroutine gamMpiAdvanceModel
-
-    ! actual procedures
 
     subroutine initGamera_mpi(gamAppMpi, xmlInp)
         class(gamAppMpi_T), intent(inout) :: gamAppMpi

@@ -53,7 +53,6 @@ module volttypes
         real(rp), dimension(:,:,:,:,:), allocatable :: mixInput
         real(rp), dimension(:,:,:,:), allocatable :: gJ,gBAvg
         type(Map_T), allocatable, dimension(:,:) :: Jmaps
-        integer :: JStart = JpSt, JShells = JpSh !Coming from cmidefs
         real(rp) :: dtAvg,wAvg
     end type mhd2mix_T
 
@@ -125,7 +124,6 @@ module volttypes
         real(rp) :: time, MJD,tFin
         real(rp) :: BSDst=0.0 !Most recent bsdst calculated
         integer :: ts
-        logical :: isSeparate = .false. ! whether Voltron is running in a separate application from gamera
 
         !Voltron output/restart info
         type (IOClock_T) :: IO

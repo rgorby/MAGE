@@ -1,6 +1,8 @@
 submodule (gamtypes) gamtypessub
     use gamapp
 
+    implicit none
+
     contains
 
     ! procedures for gamApp_T, expanded on from src/base/types/gamtypes.F90
@@ -68,5 +70,10 @@ submodule (gamtypes) gamtypessub
 
     end subroutine gamAdvanceModel
 
+    module subroutine gamCleanup(App)
+        class(gamApp_T), intent(inout) :: App
+        ! nothing to cleanup in non-mpi gamera
+    end subroutine gamCleanup
+    
 end submodule
 

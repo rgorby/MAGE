@@ -24,7 +24,7 @@ program voltronx
         
         !Advance Gamera MHD
         !Do any updates to Voltron
-        call stepVoltron(vApp)
+        call stepVoltron(vApp, 0.0_rp)
         
     !Coupling
         call Tic("DeepCoupling")

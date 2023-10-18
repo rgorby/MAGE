@@ -51,6 +51,7 @@ module basetypes
         procedure(WriteFileOutput_interface), deferred :: WriteFileOutput
         procedure(WriteSlimFileOutput_interface), deferred :: WriteSlimFileOutput
         procedure(AdvanceModel_interface), deferred :: AdvanceModel
+        procedure(Cleanup_interface), deferred :: Cleanup
 
     end type BaseApp_T
 
@@ -113,6 +114,11 @@ module basetypes
             class(BaseApp_T), intent(inout) :: App
             real(rp), intent(in) :: dt
         end subroutine AdvanceModel_interface
+
+        subroutine Cleanup_interface(App)
+            import BaseApp_T
+            class(BaseApp_T), intent(inout) :: App
+        end subroutine
     end interface
 
 end module

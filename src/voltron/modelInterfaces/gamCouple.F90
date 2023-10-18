@@ -33,7 +33,6 @@ module gamCouple
         contains
 
         ! only over-riding specific functions
-        ! actually none for local non-mpi gamera?
         !procedure :: InitModel => gamCplInitModel
         procedure :: InitIO => gamCplInitIO
         procedure :: WriteRestart => gamCplWriteRestart

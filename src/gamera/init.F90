@@ -815,10 +815,8 @@ module init
         Grid%face = 1.0
         Grid%xfc = 0.0
 
-        if(.not. Grid%lowMem) then
-            allocate(Grid%Tf(Grid%isg:Grid%ieg+1,Grid%jsg:Grid%jeg+1,Grid%ksg:Grid%keg+1,NDIM*NDIM,NDIM))
-            Grid%Tf = 0.0
-        endif
+        allocate(Grid%Tf(Grid%isg:Grid%ieg+1,Grid%jsg:Grid%jeg+1,Grid%ksg:Grid%keg+1,NDIM*NDIM,NDIM))
+        Grid%Tf = 0.0
 
         do d=1,NDIM
             DelI = ijkD(d,IDIR)
@@ -841,42 +839,40 @@ module init
                         Grid%xfc(i,j,k,:,d) = fInt/fA
                         Grid%face(i,j,k,d) = fA
 
-                        if(.not. Grid%lowMem) then
-                            !Get face coordinate system
-                            if (doQuadFT) then
-                                call GaussianFaceSystem(f0,f1,f2,f3,eN,eT1,eT2)
-                            else
-                                select case(d)
-                                case(IDIR)
-                                    !N,T1,T2 = i,j,k
-                                    dT1 = 0.5*( Grid%xyz(i  ,j+1,k+1,:) - Grid%xyz(i  ,j  ,k+1,:) ) + &
-                                          0.5*( Grid%xyz(i  ,j+1,k  ,:) - Grid%xyz(i  ,j  ,k  ,:) )
-                                    dT2 = 0.5*( Grid%xyz(i  ,j+1,k+1,:) - Grid%xyz(i  ,j+1,k  ,:) ) + &
-                                          0.5*( Grid%xyz(i  ,j  ,k+1,:) - Grid%xyz(i  ,j  ,k  ,:) )
-                                case(JDIR)
-                                    !N,T1,T2 = j,k,i
-                                    dT1 = 0.5*( Grid%xyz(i+1,j  ,k+1,:) - Grid%xyz(i+1,j  ,k  ,:) ) + &
-                                          0.5*( Grid%xyz(i  ,j  ,k+1,:) - Grid%xyz(i  ,j  ,k  ,:) )
-                                    dT2 = 0.5*( Grid%xyz(i+1,j  ,k+1,:) - Grid%xyz(i  ,j  ,k+1,:) ) + &
-                                          0.5*( Grid%xyz(i+1,j  ,k  ,:) - Grid%xyz(i  ,j  ,k  ,:) )
-                                case(KDIR)
-                                    !N,T1,T2 = k,i,j
-                                    dT1 = 0.5*( Grid%xyz(i+1,j+1,k  ,:) - Grid%xyz(i  ,j+1,k  ,:) ) + &
-                                          0.5*( Grid%xyz(i+1,j  ,k  ,:) - Grid%xyz(i  ,j  ,k  ,:) )
-                                    dT2 = 0.5*( Grid%xyz(i+1,j+1,k  ,:) - Grid%xyz(i+1,j  ,k  ,:) ) + &
-                                          0.5*( Grid%xyz(i  ,j+1,k  ,:) - Grid%xyz(i  ,j  ,k  ,:) )
-                                end select
-                                !Face normal
-                                eN = cross(dT1,dT2)/norm2(cross(dT1,dT2))
-                                eT2 = dT2/norm2(dT2)
-                                eT1 = cross(eT2,eN)/norm2(cross(eT2,eN))
+                        !Get face coordinate system
+                        if (doQuadFT) then
+                            call GaussianFaceSystem(f0,f1,f2,f3,eN,eT1,eT2)
+                        else
+                            select case(d)
+                            case(IDIR)
+                                !N,T1,T2 = i,j,k
+                                dT1 = 0.5*( Grid%xyz(i  ,j+1,k+1,:) - Grid%xyz(i  ,j  ,k+1,:) ) + &
+                                      0.5*( Grid%xyz(i  ,j+1,k  ,:) - Grid%xyz(i  ,j  ,k  ,:) )
+                                dT2 = 0.5*( Grid%xyz(i  ,j+1,k+1,:) - Grid%xyz(i  ,j+1,k  ,:) ) + &
+                                      0.5*( Grid%xyz(i  ,j  ,k+1,:) - Grid%xyz(i  ,j  ,k  ,:) )
+                            case(JDIR)
+                                !N,T1,T2 = j,k,i
+                                dT1 = 0.5*( Grid%xyz(i+1,j  ,k+1,:) - Grid%xyz(i+1,j  ,k  ,:) ) + &
+                                      0.5*( Grid%xyz(i  ,j  ,k+1,:) - Grid%xyz(i  ,j  ,k  ,:) )
+                                dT2 = 0.5*( Grid%xyz(i+1,j  ,k+1,:) - Grid%xyz(i  ,j  ,k+1,:) ) + &
+                                      0.5*( Grid%xyz(i+1,j  ,k  ,:) - Grid%xyz(i  ,j  ,k  ,:) )
+                            case(KDIR)
+                                !N,T1,T2 = k,i,j
+                                dT1 = 0.5*( Grid%xyz(i+1,j+1,k  ,:) - Grid%xyz(i  ,j+1,k  ,:) ) + &
+                                      0.5*( Grid%xyz(i+1,j  ,k  ,:) - Grid%xyz(i  ,j  ,k  ,:) )
+                                dT2 = 0.5*( Grid%xyz(i+1,j+1,k  ,:) - Grid%xyz(i+1,j  ,k  ,:) ) + &
+                                      0.5*( Grid%xyz(i  ,j+1,k  ,:) - Grid%xyz(i  ,j  ,k  ,:) )
+                            end select
+                            !Face normal
+                            eN = cross(dT1,dT2)/norm2(cross(dT1,dT2))
+                            eT2 = dT2/norm2(dT2)
+                            eT1 = cross(eT2,eN)/norm2(cross(eT2,eN))
 
-                            endif
-                            !Use whichever system you calculated
-                            Grid%Tf(i,j,k,NORMX:NORMZ,d) = eN
-                            Grid%Tf(i,j,k,TAN1X:TAN1Z,d) = eT1
-                            Grid%Tf(i,j,k,TAN2X:TAN2Z,d) = eT2
                         endif
+                        !Use whichever system you calculated
+                        Grid%Tf(i,j,k,NORMX:NORMZ,d) = eN
+                        Grid%Tf(i,j,k,TAN1X:TAN1Z,d) = eT1
+                        Grid%Tf(i,j,k,TAN2X:TAN2Z,d) = eT2
 
                     enddo
                 enddo
@@ -945,10 +941,8 @@ module init
         call allocGridVec(Model,Grid,Grid%edge,doP1=.true.)
         Grid%edge = 1.0
         
-        if(.not. Grid%lowMem) then
-            allocate(Grid%Te(Grid%isg:Grid%ieg+1,Grid%jsg:Grid%jeg+1,Grid%ksg:Grid%keg+1,NDIM*NDIM,NDIM))
-            Grid%Te = 0.0
-        endif
+        allocate(Grid%Te(Grid%isg:Grid%ieg+1,Grid%jsg:Grid%jeg+1,Grid%ksg:Grid%keg+1,NDIM*NDIM,NDIM))
+        Grid%Te = 0.0
 
         do d=1,NDIM
             !Use maximal bounds
@@ -1013,11 +1007,9 @@ module init
 
                         !Save edge lengths and transform
                         Grid%edge(i,j,k,d) = norm2(dEdge)
-                        if(.not. Grid%lowMem) then
-                            Grid%Te(i,j,k,NORMX:NORMZ,d) = eN
-                            Grid%Te(i,j,k,TAN1X:TAN1Z,d) = eT1
-                            Grid%Te(i,j,k,TAN2X:TAN2Z,d) = eT2
-                        endif
+                        Grid%Te(i,j,k,NORMX:NORMZ,d) = eN
+                        Grid%Te(i,j,k,TAN1X:TAN1Z,d) = eT1
+                        Grid%Te(i,j,k,TAN2X:TAN2Z,d) = eT2
 
                     enddo
                 enddo
@@ -1027,29 +1019,27 @@ module init
         
         !------------------------------------------------
         !Calculate coordinate systems at edges for magnetic field updates (magnetic field)
-        if(.not. Grid%lowMem) then
-            allocate(Grid%Teb(Grid%isg:Grid%ieg+1,Grid%jsg:Grid%jeg+1,Grid%ksg:Grid%keg+1,4,NDIM))
-            Grid%Teb = 0.0
-            !Loop over normal direction, and get edge system for plane w/ that normal
-            do dNorm=1,NDIM
-                !Get local triad
-                select case(dNorm)
-                    !TODO Replace this with Levi-Cevita?
-                    case(IDIR)
-                        T1 = JDIR; T2 = KDIR
-                    case(JDIR)
-                        T1 = KDIR; T2 = IDIR
-                    case(KDIR)
-                        T1 = IDIR; T2 = JDIR
-                end select  
-                !xnqi,ynqi <- (dNorm,dT1,dT2)
-                !xnqj,ynqj <- (dNorm,dT2,dT1)
+        allocate(Grid%Teb(Grid%isg:Grid%ieg+1,Grid%jsg:Grid%jeg+1,Grid%ksg:Grid%keg+1,4,NDIM))
+        Grid%Teb = 0.0
+        !Loop over normal direction, and get edge system for plane w/ that normal
+        do dNorm=1,NDIM
+            !Get local triad
+            select case(dNorm)
+                !TODO Replace this with Levi-Cevita?
+                case(IDIR)
+                    T1 = JDIR; T2 = KDIR
+                case(JDIR)
+                    T1 = KDIR; T2 = IDIR
+                case(KDIR)
+                    T1 = IDIR; T2 = JDIR
+            end select  
+            !xnqi,ynqi <- (dNorm,dT1,dT2)
+            !xnqj,ynqj <- (dNorm,dT2,dT1)
 
-                call ebGeom(Model,Grid,Grid%Teb(:,:,:,XNQI:YNQI,dNorm),dNorm,T1,T2)
-                call ebGeom(Model,Grid,Grid%Teb(:,:,:,XNQJ:YNQJ,dNorm),dNorm,T2,T1)
+            call ebGeom(Model,Grid,Grid%Teb(:,:,:,XNQI:YNQI,dNorm),dNorm,T1,T2)
+            call ebGeom(Model,Grid,Grid%Teb(:,:,:,XNQJ:YNQJ,dNorm),dNorm,T2,T1)
 
-            enddo    
-        endif
+        enddo    
 
         if (Model%doSource) then
             allocate(Grid%Gas0(Grid%isg:Grid%ieg,Grid%jsg:Grid%jeg,Grid%ksg:Grid%keg,1:NVAR,0:Model%nSpc))

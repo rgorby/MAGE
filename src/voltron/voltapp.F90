@@ -25,6 +25,14 @@ module voltapp
 
     contains
 
+    subroutine allocateCoupledApps(vApp)
+        class(voltApp_T), intent(inout) :: vApp
+
+         ! non-mpi voltron uses non-mpi local coupled gamera
+         allocate(gamCoupler_T :: vApp%gApp)
+
+    end subroutine allocateCoupledApps
+
     !Initialize Voltron (after Gamera has already been initialized)
     subroutine initVoltron(vApp,optFilename)
         class(voltApp_T), intent(inout) :: vApp
@@ -34,7 +42,7 @@ module voltapp
         type(XML_Input_T) :: xmlInp
         type(TimeSeries_T) :: tsMJD
         real(rp) :: gTScl,tSpin,tIO
-        logical :: doSpin,isK
+        logical :: doSpin,isK,doRestart
         integer :: nRes
 
         associate(gApp=>vApp%gApp)
@@ -73,31 +81,25 @@ module voltapp
             stop
         endif
 
-        ! First initialize coupled Gamera
-        allocate(gamCoupler_T :: vApp%gApp)
-        gApp%gOptions%userInitFunc => vApp%vOptions%gamUserInitFunc
-        call gApp%InitModel(xmlInp)
-        call gApp%InitIO(xmlInp)
-
         ! adjust XMl reader root
         call xmlInp%SetRootStr('Kaiju/Voltron')
         call xmlInp%SetVerbose(.true.)
 
-        !Setup OMP if on separate node (otherwise can rely on gamera)
-        if (vApp%isSeparate) then
-            call SetOMP(xmlInp)
-        endif
+        !Setup OMP
+        call SetOMP(xmlInp)
 
-        ! read number of squish blocks
-        call xmlInp%Set_Val(vApp%ebTrcApp%ebSquish%numSquishBlocks,"coupling/numSquishBlocks",4)
+        !initialize coupled Gamera
+        gApp%gOptions%userInitFunc => vApp%vOptions%gamUserInitFunc
+        call gApp%InitModel(xmlInp)
+        call gApp%InitIO(xmlInp)
 
-    !Initialize planet information
+        !Initialize planet information
         call getPlanetParams(vApp%planet, xmlInp)
         if (vApp%isLoud) then
             call printPlanetParams(vApp%planet)
         endif
 
-    !Initialize state information
+        !Initialize state information
         !Check for Earth to decide what things need to happen
         if (trim(gApp%Model%gamOut%uID) == "EARTH") then
             vApp%isEarth = .true.
@@ -124,7 +126,7 @@ module voltapp
         call tsMJD%initTS("MJD",doLoudO=.false.)
         gApp%Model%MJD0 = tsMJD%evalAt(0.0_rp) !Evaluate at T=0
         
-    !Time options
+        !Time options
         call xmlInp%Set_Val(vApp%tFin,'time/tFin',1.0_rp)
         !Sync Gamera to Voltron endtime
         gApp%Model%tFin = vApp%tFin/gTScl
@@ -166,28 +168,14 @@ module voltapp
             vApp%mhd2mix%wAvg = 0.0 !Ignore any corrections after initial dipole value
         endif
 
-        if(gApp%Model%isRestart) then
+        call xmlInp%Set_Val(doRestart,"/Kaiju/gamera/restart/doRes",.false.)
+        if(doRestart) then
             call xmlInp%Set_Val(resID,"/Kaiju/gamera/restart/resID","msphere")
             call xmlInp%Set_Val(nRes,"/Kaiju/gamera/restart/nRes" ,-1)
             call readVoltronRestart(vApp, resID, nRes)
             vApp%IO%tOut = floor(vApp%time/vApp%IO%dtOut)*vApp%IO%dtOut
             vApp%IO%tRes = vApp%time + vApp%IO%dtRes
             vApp%IO%tsNext = vApp%ts
-            if(vApp%isSeparate) then
-                gApp%Model%ts = vApp%ts
-                gApp%Model%t  = vApp%time/gTScl
-                gApp% State%time  = gApp%Model%t
-                gApp%oState%time  = gApp%Model%t-gApp%Model%dt
-            else
-                !Voltron/gamera on same node, check if they agree
-                if (vApp%IO%nRes /= gApp%Model%IO%nRes) then
-                    write(*,*) "Gamera and Voltron disagree on restart number, you should sort that out."
-                    write(*,*) "Error code: A house divided cannot stand"
-                    write(*,*) "   Voltron nRes = ", vApp%IO%nRes
-                    write(*,*) "   Gamera  nRes = ", gApp%Model%IO%nRes
-                    stop
-                endif
-            endif !isSep and restart
         else
             ! non-restart initialization
             !Check for spinup info
@@ -292,13 +280,11 @@ module voltapp
             endif
         endif
 
-        if(.not. vApp%isSeparate) then
-            !Do first couplings if the gamera data is local and therefore uptodate
-            if (vApp%time>=vApp%DeepT) then
-                call Tic("DeepCoupling", .true.)
-                call DeepUpdate(vApp,gApp)
-                call Toc("DeepCoupling", .true.)
-            endif
+        !Do first coupling
+        if (vApp%doDeep .and. (vApp%time>=vApp%DeepT)) then
+            call Tic("DeepCoupling", .true.)
+            call DeepUpdate(vApp,gApp)
+            call Toc("DeepCoupling", .true.)
         endif
 
         !Recalculate timestep
@@ -310,18 +296,10 @@ module voltapp
 
         !Finally do first output stuff
         !console output
-        if (vApp%isSeparate) then
-            call consoleOutputVOnly(vApp,gApp,gApp%Model%MJD0)
-        else
-            call consoleOutputV(vApp,gApp)
-        endif
+        call consoleOutputV(vApp,gApp)
         !file output
         if (.not. gApp%Model%isRestart) then
-            if(vApp%isSeparate) then
-                call fOutputVOnly(vApp,gApp)
-            else
-                call fOutputV(vApp, gApp)
-            endif
+            call fOutputV(vApp, gApp)
         endif
 
         end associate
@@ -329,14 +307,23 @@ module voltapp
     end subroutine initVoltron
 
     !Step Voltron if necessary (currently just updating state variables)
-    subroutine stepVoltron(vApp)
+    subroutine stepVoltron(vApp, dt)
         class(voltApp_T), intent(inout) :: vApp
+        real(rp), intent(in) :: dt
 
-        call stepGamera(vApp%gApp)
+         ! substep voltron according to coupling interval
 
-        vApp%time = vApp%gApp%Model%t * vApp%gApp%Model%Units%gT0 !Time in seconds
-        vApp%MJD = T2MJD(vApp%time,vApp%gApp%Model%MJD0)
-        vApp%ts = vApp%gApp%Model%ts
+        ! this will step coupled Gamera
+        call vApp%gApp%AdvanceModel(dt)
+
+        ! call base update function with local data
+        call Tic("DeepUpdate")
+        call DeepUpdate(vApp, vApp%gApp)
+        call Toc("DeepUpdate")
+
+        ! update data in coupled gamera
+        call vApp%gApp%CoupleRemix(vApp)
+        call vApp%gApp%CoupleImag(vApp)
 
     end subroutine stepVoltron
     

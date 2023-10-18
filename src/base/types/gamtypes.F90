@@ -159,9 +159,6 @@ module gamtypes
         integer :: isDT,jsDT,ksDT
         integer :: ieDT,jeDT,keDT
 
-        ! Whether this should allocate fewer arrays and use less memory
-        !   Note that this option will limit Gamera's capabilities
-        logical :: lowMem = .false.
         ! Information about decomposed/tiled cases
         logical :: isTiled = .false.
         ! Number of ranks in each dimension
@@ -293,6 +290,7 @@ module gamtypes
         procedure :: WriteFileOutput => gamWriteFileOutput
         procedure :: WriteSlimFileOutput => gamWriteSlimFileOutput
         procedure :: AdvanceModel => gamAdvanceModel
+        procedure :: Cleanup => gamCleanup
 
     end type gamApp_T
 
@@ -334,6 +332,10 @@ module gamtypes
             class(gamApp_T), intent(inout) :: App
             real(rp), intent(in) :: dt
         end subroutine gamAdvanceModel
+
+        module subroutine gamCleanup(App)
+            class(gamApp_T), intent(inout) :: App
+        end subroutine gamCleanup
 
     end interface
 
