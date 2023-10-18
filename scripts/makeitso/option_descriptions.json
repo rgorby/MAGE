@@ -13,16 +13,21 @@
         "stop_date": {
             "prompt": "Stop date for fetching solar wind boundary data (yyyy-mm-ddThh:mm:ss",
             "default": "2016-08-09T10:00:00"
+        },
+        "LFM_grid_type": {
+            "prompt": "Lyon-Fedder-Mobarry (LFM) grid type",
+            "default": "D",
+            "valids": ["D", "Q", "O", "H"]
+        },
+        "hpc_system": {
+            "prompt": "Name of HPC system",
+            "default": "pleiades",
+            "valids": ["cheyenne", "derecho", "pleiades"]
         }
     },
 
     "pbs": {
         "_common": {
-            "hpc_system": {
-                "prompt": "Name of HPC system",
-                "default": "pleiades",
-                "valids": ["cheyenne", "derecho", "pleiades"]
-            },
             "account_name": {
                 "prompt": "PBS account name"
             },
@@ -52,24 +57,39 @@
                 "default": "01:00:00"
             },
             "select": {
+                "advanced": true,
                 "prompt": "Number of nodes to request",
-                "default": "2"
+                "default": {
+                    "D": "2",
+                    "Q": "8",
+                    "O": "48",
+                    "H": "48"
+                }
             },
             "ncpus": {
+                "advanced": true,
                 "prompt": "Number of cores per node",
                 "default": "36"
             },
             "mpiprocs": {
+                "advanced": true,
                 "prompt": "Number of MPI ranks per node",
                 "default": "2"
             },
             "ompthreads": {
+                "advanced": true,
                 "prompt": "Number of OMP threads per MPI rank",
                 "default": "18"
             },
             "helper_select": {
+                "advanced": true,
                 "prompt": "Number of voltron helper nodes",
-                "default": "0"
+                "default": {
+                    "D": "0",
+                    "Q": "8",
+                    "O": "8",
+                    "H": "8"
+                }
             },
             "helper_mpiprocs": {
                 "advanced": true,
@@ -100,6 +120,11 @@
                     "hdf5-mpi/1.12.2"
                 ]
             },
+            "environment_variables": {
+                "advanced": true,
+                "prompt": "Additional environment variable settings",
+                "default": null
+            },
             "mpiexec_command": {
                 "advanced": true,
                 "prompt": "MPI command to launch run",
@@ -118,24 +143,39 @@
                 "default": "01:00:00"
             },
             "select": {
+                "advanced": true,
                 "prompt": "Number of nodes to request",
-                "default": "2"
+                "default": {
+                    "D": "2",
+                    "Q": "8",
+                    "O": "48",
+                    "H": "48"
+                }
             },
             "ncpus": {
+                "advanced": true,
                 "prompt": "Number of cores per node",
                 "default": "128"
             },
             "mpiprocs": {
+                "advanced": true,
                 "prompt": "Number of MPI ranks per node",
                 "default": "2"
             },
             "ompthreads": {
+                "advanced": true,
                 "prompt": "Number of OMP threads per MPI rank",
                 "default": "64"
             },
             "helper_select": {
+                "advanced": true,
                 "prompt": "Number of voltron helper nodes",
-                "default": "1"
+                "default": {
+                    "D": "0",
+                    "Q": "8",
+                    "O": "8",
+                    "H": "8"
+                }
             },
             "helper_mpiprocs": {
                 "advanced": true,
@@ -167,6 +207,11 @@
                     "mkl/2023.0.0"
                 ]
             },
+            "environment_variables": {
+                "advanced": true,
+                "prompt": "Additional environment variable settings",
+                "default": null
+            },
             "mpiexec_command": {
                 "advanced": true,
                 "prompt": "MPI command to launch run",
@@ -184,24 +229,39 @@
                 "default": "01:00:00"
             },
             "select": {
+                "advanced": true,
                 "prompt": "Number of nodes to request",
-                "default": "2"
+                "default": {
+                    "D": "2",
+                    "Q": "8",
+                    "O": "48",
+                    "H": "48"
+                }
             },
             "ncpus": {
+                "advanced": true,
                 "prompt": "Number of cores per node",
                 "default": "28"
             },
             "mpiprocs": {
+                "advanced": true,
                 "prompt": "Number of MPI ranks per node",
                 "default": "2"
             },
             "ompthreads": {
+                "advanced": true,
                 "prompt": "Number of OMP threads per MPI rank",
                 "default": "14"
             },
             "helper_select": {
+                "advanced": true,
                 "prompt": "Number of voltron helper nodes",
-                "default": "1"
+                "default": {
+                    "D": "0",
+                    "Q": "8",
+                    "O": "8",
+                    "H": "8"
+                }
             },
             "helper_mpiprocs": {
                 "advanced": true,
@@ -243,13 +303,6 @@
     },
 
     "gamera": {
-        "_common": {
-            "LFM_grid_type": {
-                "prompt": "Lyon-Fedder-Mobarry (LFM) grid type",
-                "default": "D",
-                "valids": ["D", "Q", "O", "H"]
-            }
-        },
         "sim": {
             "doH5g": {
                 "advanced": true,
@@ -258,8 +311,8 @@
                 "valids": ["T", "F"]
             },
             "H5Grid": {
-                "prompt": "Path to LFM grid file",
-                "default": "lfmD.h5"
+                "advanced": true,
+                "prompt": "Path to LFM grid file"
             },
             "icType": {
                 "advanced": true,
@@ -395,8 +448,14 @@
         },
         "iPdir": {
             "N": {
+                "advanced": true,
                 "prompt": "gamera_iPdir_N",
-                "default": "2"
+                "default": {
+                    "D": "2",
+                    "Q": "4",
+                    "O": "12",
+                    "H": "12"
+                }
             },
             "bcPeriodic": {
                 "advanced": true,
@@ -407,8 +466,14 @@
         },
         "jPdir": {
             "N": {
+                "advanced": true,
                 "prompt": "gamera_jPdir_N",
-                "default": "2"
+                "default": {
+                    "D": "2",
+                    "Q": "4",
+                    "O": "8",
+                    "H": "8"
+                }
             },
             "bcPeriodic": {
                 "advanced": true,
@@ -419,8 +484,14 @@
         },
         "kPdir": {
             "N": {
+                "advanced": true,
                 "prompt": "gamera_kPdir_N",
-                "default": "1"
+                "default": {
+                    "D": "1",
+                    "Q": "1",
+                    "O": "1",
+                    "H": "1"
+                }
             },
             "bcPeriodic": {
                 "advanced": true,
@@ -434,6 +505,7 @@
     "voltron": {
         "time": {
             "tFin": {
+                "advanced": true,
                 "prompt": "voltron_time_tFin",
                 "default": "3600.0"
             }
@@ -453,10 +525,12 @@
         },
         "output": {
             "dtOut": {
+                "advanced": true,
                 "prompt": "voltron_output_dtOut",
                 "default": "900.0"
             },
             "tsOut": {
+                "advanced": true,
                 "prompt": "voltron_output_tsOut",
                 "default": "100.0"
             }

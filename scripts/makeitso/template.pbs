@@ -1,6 +1,6 @@
 #!/bin/bash
 
-# This script was generated to run on {{ pbs.hpc_system }}.
+# This script was generated to run on {{ simulation.hpc_system }}.
 
 #PBS -N {{ simulation.runid }}
 #PBS -A {{ pbs.account_name }}
