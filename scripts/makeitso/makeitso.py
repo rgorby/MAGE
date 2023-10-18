@@ -217,9 +217,15 @@ def prompt_user_for_run_options(args):
     LFM_grid_type = options["simulation"]["LFM_grid_type"]
     od = option_descriptions["pbs"][hpc_platform]
     od["select"]["default"] = od["select"]["default"][LFM_grid_type]
-    od["helper_select"]["default"] = od["helper_select"]["default"][LFM_grid_type]
+    od["num_helpers"]["default"] = od["num_helpers"]["default"][LFM_grid_type]
     for on in od:
         o[on] = get_run_option(on, od[on], args.advanced)
+
+    # Compute the number of nodes in the second chunk.
+    # Should be 1 (for voltron) + num_helpers.
+    num_helpers = int(o["num_helpers"])
+    select2 = 1 + num_helpers
+    o["select2"] = str(select2)
 
     #-------------------------------------------------------------------------
 
@@ -365,6 +371,16 @@ def prompt_user_for_run_options(args):
     options["voltron"]["ebsquish"] = {}
     o = options["voltron"]["ebsquish"]
     od = option_descriptions["voltron"]["ebsquish"]
+    for on in od:
+        o[on] = get_run_option(on, od[on], args.advanced)
+
+    # <helpers> options
+    options["voltron"]["helpers"] = {}
+    o = options["voltron"]["helpers"]
+    od = option_descriptions["voltron"]["helpers"]
+    od["numHelpers"]["default"] = num_helpers
+    if num_helpers == 0:
+        od["useHelpers"]["default"] = "F"
     for on in od:
         o[on] = get_run_option(on, od[on], args.advanced)
 

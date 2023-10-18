@@ -6,7 +6,7 @@
 #PBS -A {{ pbs.account_name }}
 #PBS -q {{ pbs.queue }}
 #PBS -l walltime={{ pbs.walltime }}
-#PBS -l select={{ pbs.select }}:ncpus={{ pbs.ncpus }}:mpiprocs={{ pbs.mpiprocs }}:ompthreads={{ pbs.ompthreads }}{{ pbs.other }}+{{ pbs.helper_select }}:ncpus={{ pbs.ncpus }}:mpiprocs={{ pbs.helper_mpiprocs }}:ompthreads={{ pbs.helper_ompthreads }}
+#PBS -l select={{ pbs.select }}:ncpus={{ pbs.ncpus }}:mpiprocs={{ pbs.mpiprocs }}:ompthreads={{ pbs.ompthreads }}{{ pbs.other }}+{{ pbs.select2 }}:ncpus={{ pbs.ncpus }}:mpiprocs={{ pbs.helper_mpiprocs }}:ompthreads={{ pbs.helper_ompthreads }}{{ pbs.other }}
 #PBS -m abe
 #PBS -j oe
 

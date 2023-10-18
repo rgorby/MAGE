@@ -81,9 +81,9 @@
                 "prompt": "Number of OMP threads per MPI rank",
                 "default": "18"
             },
-            "helper_select": {
+            "num_helpers": {
                 "advanced": true,
-                "prompt": "Number of voltron helper nodes",
+                "prompt": "Number of helper nodes",
                 "default": {
                     "D": "0",
                     "Q": "8",
@@ -167,9 +167,9 @@
                 "prompt": "Number of OMP threads per MPI rank",
                 "default": "64"
             },
-            "helper_select": {
+            "num_helpers": {
                 "advanced": true,
-                "prompt": "Number of voltron helper nodes",
+                "prompt": "Number of helper nodes",
                 "default": {
                     "D": "0",
                     "Q": "8",
@@ -253,9 +253,9 @@
                 "prompt": "Number of OMP threads per MPI rank",
                 "default": "14"
             },
-            "helper_select": {
+            "num_helpers": {
                 "advanced": true,
-                "prompt": "Number of voltron helper nodes",
+                "prompt": "Number of helper nodes",
                 "default": {
                     "D": "0",
                     "Q": "8",
@@ -583,6 +583,25 @@
                 "advanced": true,
                 "prompt": "voltron_ebsquish_epsSquish",
                 "default": "0.05"
+            }
+        },
+        "helpers": {
+            "numHelpers": {
+                "advanced": true,
+                "prompt": "Number of helper nodes",
+                "default": "0"
+            },
+            "useHelpers": {
+                "advanced": true,
+                "prompt": "Set to T to use helper nodes for coupling with RCM",
+                "default": "T",
+                "valids": ["T", "F"]
+            },
+            "doSquishHelp": {
+                "advanced": true,
+                "prompt": "voltron_helpers_doSquishHelp",
+                "default": "T",
+                "valids": ["T", "F"]
             }
         }
     },
