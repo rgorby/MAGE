@@ -373,6 +373,7 @@ module rcmimag
     ! Pass RCM hot electron density and pressure to REMIX.
         vApp%imag2mix%eden  = RCMApp%Nrcm
         vApp%imag2mix%epre  = RCMApp%Percm
+        vApp%imag2mix%npsp  = RCMApp%Npsph
 
         vApp%imag2mix%isFresh = .true.
 

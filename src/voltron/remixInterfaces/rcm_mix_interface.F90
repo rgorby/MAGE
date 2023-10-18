@@ -80,8 +80,8 @@ contains
     type(mixApp_T), intent(inout) :: remixApp
     type(Map_T) :: rcmMap, rcmMapS
     real(rp),dimension(:,:),allocatable :: rcmGtype ! to convert integer imag2mix%gtype into real numbers for interpolation.
-    real(rp),dimension(:,:),allocatable :: rcmEflux_mix,rcmEavg_mix,rcmEden_mix,rcmEpre_mix,rcmEnflx_mix, rcmGtype_mix
-    real(rp), dimension(:,:), allocatable :: efluxS, eavgS, edenS, epreS, enflxS, gtypeS ! for SH mapping. will add ifluxS and iavgS later.
+    real(rp),dimension(:,:),allocatable :: rcmEflux_mix,rcmEavg_mix,rcmEden_mix,rcmEpre_mix,rcmEnflx_mix,rcmGtype_mix,rcmNpsp_mix 
+    real(rp), dimension(:,:), allocatable :: efluxS, eavgS, edenS, epreS, enflxS, gtypeS, npspS ! for SH mapping. will add ifluxS and iavgS later.
     integer :: SHmaptype 
     ! # of steps for mapping RCM SH precipitation (may make it an option in XML later): 
     ! 0. direct mirror mapping using NH results; 
@@ -103,6 +103,7 @@ contains
     call mix_map_grids(rcmMap,transpose(imag2mix%eflux(:,1:rcmNp)), rcmEflux_mix)
     call mix_map_grids(rcmMap,transpose(imag2mix%eden (:,1:rcmNp)), rcmEden_mix )
     call mix_map_grids(rcmMap,transpose(imag2mix%epre (:,1:rcmNp)), rcmEpre_mix )
+    call mix_map_grids(rcmMap,transpose(imag2mix%Npsp (:,1:rcmNp)), rcmNpsp_mix )
     call mix_map_grids(rcmMap,transpose(rcmGtype      (:,1:rcmNp)), rcmGtype_mix)
     end associate
 
@@ -112,6 +113,7 @@ contains
     remixApp%ion(NORTH)%St%Vars(:,:,IM_GTYPE) = rcmGtype_mix     ! normalize since gtype is from 0 to 2.
     remixApp%ion(NORTH)%St%Vars(:,:,IM_EDEN ) = rcmEden_mix      ! [#/m^3]
     remixApp%ion(NORTH)%St%Vars(:,:,IM_EPRE ) = rcmEpre_mix      ! [Pa]
+    remixApp%ion(NORTH)%St%Vars(:,:,IM_NPSP ) = rcmNpsp_mix      ! [#/m^3]
 
     ! Southern Hemisphere Mapping
     if(SHmaptype==1) then
@@ -122,6 +124,7 @@ contains
        rcmGtype_mix = transpose(gtypeS)
        rcmEden_mix  = transpose(edenS)
        rcmEpre_mix  = transpose(epreS)
+       rcmNpsp_mix  = transpose(npspS)
     elseif(SHmaptype==2) then
        call mapIMagSToIMag(imag2mix,efluxS,eavgS) ! need updates to deal with inIMagActive and inIMagBuffer. But SHmaptype=2 is never used.
        call mix_set_map(rcmGS,remixApp%ion(NORTH)%G,rcmMapS)
@@ -138,6 +141,7 @@ contains
     remixApp%ion(SOUTH)%St%Vars(:,:,IM_GTYPE) = rcmGtype_mix(Np:1:-1,:)
     remixApp%ion(SOUTH)%St%Vars(:,:,IM_EDEN ) = rcmEden_mix (Np:1:-1,:)
     remixApp%ion(SOUTH)%St%Vars(:,:,IM_EPRE ) = rcmEpre_mix (Np:1:-1,:)
+    remixApp%ion(SOUTH)%St%Vars(:,:,IM_NPSP ) = rcmNpsp_mix (Np:1:-1,:)
     end associate
 
 ! For proton precipitation (all zero for now)
