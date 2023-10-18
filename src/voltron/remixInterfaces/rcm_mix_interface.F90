@@ -34,6 +34,7 @@ contains
     allocate(imag2mix%inIMag(Nt,Np))
     allocate(imag2mix%eden  (Nt,Np))
     allocate(imag2mix%epre  (Nt,Np))
+    allocate(imag2mix%Npsp  (Nt,Np))
     allocate(imag2mix%enflx (Nt,Np))
     allocate(imag2mix%inflx (Nt,Np))
     allocate(imag2mix%gtype (Nt,Np))
@@ -103,7 +104,7 @@ contains
     call mix_map_grids(rcmMap,transpose(imag2mix%eflux(:,1:rcmNp)), rcmEflux_mix)
     call mix_map_grids(rcmMap,transpose(imag2mix%eden (:,1:rcmNp)), rcmEden_mix )
     call mix_map_grids(rcmMap,transpose(imag2mix%epre (:,1:rcmNp)), rcmEpre_mix )
-    call mix_map_grids(rcmMap,transpose(imag2mix%Npsp (:,1:rcmNp)), rcmNpsp_mix )
+    call mix_map_grids(rcmMap,transpose(imag2mix%npsp (:,1:rcmNp)), rcmNpsp_mix )
     call mix_map_grids(rcmMap,transpose(rcmGtype      (:,1:rcmNp)), rcmGtype_mix)
     end associate
 
@@ -117,7 +118,7 @@ contains
 
     ! Southern Hemisphere Mapping
     if(SHmaptype==1) then
-       call mapIMagSToRemix(imag2mix,remixApp,rcmGtype,efluxS,eavgS,gtypeS,edenS,epreS,enflxS)
+       call mapIMagSToRemix(imag2mix,remixApp,rcmGtype,efluxS,eavgS,gtypeS,edenS,epreS,enflxS,npspS)
        rcmEavg_mix  = transpose(eavgS)
        rcmEnflx_mix = transpose(enflxS)
        rcmEflux_mix = transpose(efluxS)
@@ -188,12 +189,12 @@ contains
     
   end subroutine mapIMagToRemix_gtype
 
-  subroutine mapIMagSToRemix(imag2mix,remixApp,rcmGtype,efluxS,eavgS,gtypeS,edenS,epreS,enflxS)
+  subroutine mapIMagSToRemix(imag2mix,remixApp,rcmGtype,efluxS,eavgS,gtypeS,edenS,epreS,enflxS,npspS)
   ! Directly map from irregular RCM SH grid to ReMIX.
     type(imag2Mix_T), intent(in) :: imag2mix
     type(mixApp_T), intent(in) :: remixApp
     real(rp), intent(in) :: rcmGtype(size(imag2mix%gtype,1),size(imag2mix%gtype,2))
-    real(rp), dimension(:,:), allocatable, intent(inout) :: efluxS, eavgS, gtypeS, edenS, epreS, enflxS
+    real(rp), dimension(:,:), allocatable, intent(inout) :: efluxS, eavgS, gtypeS, edenS, epreS, enflxS, npspS
     real(rp), dimension(:,:), allocatable :: colatc, glongc, mixt, mixp, Ainvdwgt2
     real(rp) :: dlat, delt, delp, invdwgt
     integer :: Np_rcm, Nt_rcm, Np_mix, Nt_mix, i, j, i0, j0, jl, ju, il, iu, jp, dj
@@ -226,6 +227,7 @@ contains
     if (.not.allocated(edenS))  allocate(edenS (Nt_mix,Np_mix))
     if (.not.allocated(epreS))  allocate(epreS (Nt_mix,Np_mix))
     if (.not.allocated(enflxS)) allocate(enflxS(Nt_mix,Np_mix))
+    if (.not.allocated(npspS))  allocate(npspS (Nt_mix,Np_mix))
     if (.not.allocated(Ainvdwgt2))  allocate(Ainvdwgt2(Nt_mix,Np_mix))
     efluxS = 0.0
     eavgS  = 0.0
@@ -233,10 +235,11 @@ contains
     edenS  = 0.0
     epreS  = 0.0
     enflxS = 0.0
+    npspS  = 0.0
     Ainvdwgt2 = 0.0
     !$OMP PARALLEL DO default(shared) collapse(2) &
     !$OMP private(i,j,i0,il,iu,j0,jl,ju,jp,delt,delp,invdwgt) &
-    !$OMP reduction(+:efluxS,eavgS,Ainvdwgt2,gtypeS,edenS,epreS,enflxS)
+    !$OMP reduction(+:efluxS,eavgS,Ainvdwgt2,gtypeS,edenS,epreS,enflxS,npspS)
     do j=1,Np_rcm
        do i=1,Nt_rcm
 !          if(imag2mix%eflux(i,j)>0.0) then
@@ -265,6 +268,7 @@ contains
                       edenS(i0,j0)  = edenS(i0,j0)  + imag2mix%eden(i,j) *invdwgt
                       epreS(i0,j0)  = epreS(i0,j0)  + imag2mix%epre(i,j) *invdwgt
                       enflxS(i0,j0) = enflxS(i0,j0) + imag2mix%enflx(i,j)*invdwgt
+                      npspS(i0,j0)  = npspS(i0,j0)  + imag2mix%npsp(i,j) *invdwgt
                       Ainvdwgt2(i0,j0) = Ainvdwgt2(i0,j0) + invdwgt
                    enddo
                 elseif(jp>Np_mix-dj) then
@@ -277,6 +281,7 @@ contains
                       gtypeS(i0,j0) = gtypeS(i0,j0) + rcmGtype(i,j)*invdwgt
                       edenS(i0,j0)  = edenS(i0,j0)  + imag2mix%eden(i,j) *invdwgt
                       epreS(i0,j0)  = epreS(i0,j0)  + imag2mix%epre(i,j) *invdwgt
+                      npspS(i0,j0)  = npspS(i0,j0)  + imag2mix%npsp(i,j) *invdwgt
                       enflxS(i0,j0) = enflxS(i0,j0) + imag2mix%enflx(i,j)*invdwgt
                       Ainvdwgt2(i0,j0) = Ainvdwgt2(i0,j0) + invdwgt
                    enddo
@@ -290,6 +295,7 @@ contains
                    gtypeS(i0,j0) = gtypeS(i0,j0) + rcmGtype(i,j)*invdwgt
                    edenS(i0,j0)  = edenS(i0,j0)  + imag2mix%eden(i,j) *invdwgt
                    epreS(i0,j0)  = epreS(i0,j0)  + imag2mix%epre(i,j) *invdwgt
+                   npspS(i0,j0)  = npspS(i0,j0)  + imag2mix%npsp(i,j) *invdwgt
                    enflxS(i0,j0) = enflxS(i0,j0) + imag2mix%enflx(i,j)*invdwgt
                    Ainvdwgt2(i0,j0) = Ainvdwgt2(i0,j0) + invdwgt
                 enddo
@@ -309,6 +315,7 @@ contains
              edenS(i0,j0)  = edenS(i0,j0) /Ainvdwgt2(i0,j0)
              epreS(i0,j0)  = epreS(i0,j0) /Ainvdwgt2(i0,j0)
              enflxS(i0,j0) = enflxS(i0,j0)/Ainvdwgt2(i0,j0)
+             npspS(i0,j0)  = npspS(i0,j0) /Ainvdwgt2(i0,j0)
           endif
        enddo
     enddo
