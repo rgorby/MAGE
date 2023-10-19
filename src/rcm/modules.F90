@@ -40,7 +40,7 @@ MODULE rice_housekeeping_module
   INTEGER(iprec) :: rcm_record
   REAL(rprec) :: HighLatBD,LowLatBD
   LOGICAL :: doLatStretch = .false.
-  LOGICAL :: doFLCLoss = .true. !Use FLC losses
+  LOGICAL :: doFLCLoss = .false. !Use FLC losses
   LOGICAL :: doNewCX = .true. !Use newer CX loss estimate
   LOGICAL :: doSmoothDDV = .true. !Whether to smooth ij deriv of residual FTV
   LOGICAL :: doSmoothBNDLOC = .true. !Whether to do bndloc smoothing
@@ -141,7 +141,7 @@ MODULE rice_housekeeping_module
 
         !Loss options
         call xmlInp%Set_Val(doFLCLoss,"loss/doFLCLoss",doFLCLoss) 
-        call xmlInp%Set_Val(tmpStr,"loss/eLossMethod","FDG")
+        call xmlInp%Set_Val(tmpStr,"loss/eLossMethod","WM")
         select case (tmpSTR)
            case ("FDG")
               ELOSSMETHOD = ELOSS_FDG
