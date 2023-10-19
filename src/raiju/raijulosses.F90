@@ -46,6 +46,9 @@ module raijulosses
                     Grid%shGrid%jsg:Grid%shGrid%jeg) :: rateSS, rateCC, rateCX, rateFLC
         
 
+        State%lossRates(:,:,k)       = 0.0  ! 1/s, so 0 means we lose nothing no matter the dt
+        State%lossRatesPrecip(:,:,k) = 0.0
+
         associate(spc=>Grid%spc(Grid%k2spc(k)), Rp_m=>Model%planet%rp_m)
             ! We have nothing to do for plasmasphere
             if (spc%flav .eq. F_PSPH) then
@@ -60,9 +63,6 @@ module raijulosses
             elsewhere
                 isG = .false.
             end where
-
-            State%lossRates(:,:,k)       = 0.0  ! 1/s, so 0 means we lose nothing no matter the dt
-            State%lossRatesPrecip(:,:,k) = 0.0
 
             psphIdx = spcIdx(Grid, F_PSPH)
 
@@ -117,15 +117,15 @@ module raijulosses
                     Grid%shGrid%jsg:Grid%shGrid%jeg) :: isG
         real(rp), dimension(2) :: lossRate2
 
+        State%lossRates(:,:,k) = 0.0
+        State%lossRatesPrecip(:,:,k) = 0.0
+
         ! Calc regions where we actually need to evaluate
         where (State%active .eq. RAIJUACTIVE)
             isG = .true.
         elsewhere
             isG = .false.
         end where
-
-        State%lossRates(:,:,k) = 0.0
-        State%lossRatesPrecip(:,:,k) = 0.0
 
         do j=Grid%shGrid%jsg,Grid%shGrid%jeg
             do i=Grid%shGrid%isg,Grid%shGrid%ieg

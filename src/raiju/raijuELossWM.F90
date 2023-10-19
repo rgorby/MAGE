@@ -123,20 +123,29 @@ module raijuELossWM
             L = sqrt(State%xyzMin(i,j,1)**2 + State%xyzMin(i,j,2)**2)
             
             ! Calculate blending
+            wNBlend = dlog(NpsphPnt/eWM%NpsphLow) / dlog(eWM%NpsphHigh/eWM%NpsphLow)
+                !! 1 => Psphere Hiss, 0 => Other
             wLBlend = RampDown(L, eWM%ChorusLMax, eWM%PsheetLMin - eWM%ChorusLMax)
-                !! 1 => IMAG, 0 => PS
-            wNBlend = dlog(eWM%NpsphHigh/NpsphPnt) / dlog(eWM%NpsphHigh/eWM%NpsphLow)
-                !! 1 => Chorus, 0 => Hiss
+                !! 1 => Chorus, 0 => PS
             
-            ! Now calculate weights
-            wPS = 1 - wLBlend
-            wHISS = wLBlend*(1 - wNBlend)
-            wCHORUS = wLBlend*wNBlend
+            ! If psphere density is high enough, we always apply Hiss regardless of L
+                ! This means Hiss model needs to appropriately handle any L value its given
+            ! If psphere density is low, we choose between Chorus and plasma sheet strong-scattering based on L
+            ! Also note: the weighting is not k-dependent, but if its not too costly to do for each k then ¯\_(ツ)_/¯
+            
+            ! Calculate weights
+            wHISS = wNBlend
+            wCHORUS = (1 - wNBlend)*wLBlend
+            wPS = (1 - wNBlend)*(1-wLBlend)
 
+            ! Calculate loss rates and accumulate
 
         end associate
 
-
     end function calcELossRate_WM
+
+    function calcHissRate(x, y, E, Kp)
+        real(rp), 
+    end function calcHissRate
 
 end module raijuELossWM
