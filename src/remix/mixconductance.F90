@@ -468,7 +468,7 @@ module mixconductance
       do j=1,G%Nt
          do i=1,G%Np
             !Start by figuring out where we are
-            isPSP = St%Vars(i,j,IM_EDEN)>=Ne_psp .or. beta_RCM(i,j)<=0.01
+            isPSP = St%Vars(i,j,IM_NPSP)>=Ne_psp .or. beta_RCM(i,j)<=0.01
             isMono = St%Vars(i,j,DELTAE)>eTINY
             !Grab values
             mhd_nflx = St%Vars(i,j,NUM_FLUX)
