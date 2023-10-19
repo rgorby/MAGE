@@ -3,146 +3,73 @@
 
     "simulation": {
         "runid": {
+            "LEVEL": "BASIC",
             "prompt": "ID string for run",
             "default": "msphere"
         },
         "start_date": {
+            "LEVEL": "BASIC",
             "prompt": "Start date for fetching solar wind boundary data (yyyy-mm-ddThh:mm:ss",
             "default": "2016-08-09T09:00:00"
         },
         "stop_date": {
+            "LEVEL": "BASIC",
             "prompt": "Stop date for fetching solar wind boundary data (yyyy-mm-ddThh:mm:ss",
             "default": "2016-08-09T10:00:00"
         },
         "LFM_grid_type": {
+            "LEVEL": "BASIC",
             "prompt": "Lyon-Fedder-Mobarry (LFM) grid type",
             "default": "D",
             "valids": ["D", "Q", "O", "H"]
         },
         "hpc_system": {
+            "LEVEL": "BASIC",
             "prompt": "Name of HPC system",
             "default": "pleiades",
-            "valids": ["cheyenne", "derecho", "pleiades"]
+            "valids": ["derecho", "pleiades"]
         }
     },
 
     "pbs": {
         "_common": {
             "account_name": {
+                "LEVEL": "BASIC",
                 "prompt": "PBS account name"
             },
             "run_directory": {
+                "LEVEL": "BASIC",
                 "prompt": "Run directory",
                 "default": "."
             },
             "kaiju_install_directory": {
+                "LEVEL": "BASIC",
                 "prompt": "Path to kaiju installation"
             },
             "kaiju_build_directory": {
+                "LEVEL": "BASIC",
                 "prompt": "Path to kaiju build directory"
             },
             "num_jobs": {
+                "LEVEL": "BASIC",
                 "prompt": "Number of sequential PBS jobs to submit for the run",
                 "default": "1"
             }
         },
-        "cheyenne": {
-            "queue": {
-                "prompt": "PBS queue name",
-                "default": "regular",
-                "valids": ["economy", "premium", "regular", "share"]
-            },
-            "walltime": {
-                "prompt": "Requested wall time for PBS job (HH:MM:SS)",
-                "default": "01:00:00"
-            },
-            "select": {
-                "advanced": true,
-                "prompt": "Number of nodes to request",
-                "default": {
-                    "D": "2",
-                    "Q": "8",
-                    "O": "48",
-                    "H": "48"
-                }
-            },
-            "ncpus": {
-                "advanced": true,
-                "prompt": "Number of cores per node",
-                "default": "36"
-            },
-            "mpiprocs": {
-                "advanced": true,
-                "prompt": "Number of MPI ranks per node",
-                "default": "2"
-            },
-            "ompthreads": {
-                "advanced": true,
-                "prompt": "Number of OMP threads per MPI rank",
-                "default": "18"
-            },
-            "num_helpers": {
-                "advanced": true,
-                "prompt": "Number of helper nodes",
-                "default": {
-                    "D": "0",
-                    "Q": "8",
-                    "O": "8",
-                    "H": "8"
-                }
-            },
-            "helper_mpiprocs": {
-                "advanced": true,
-                "prompt": "Number of MPI ranks per helper node",
-                "default": "1"
-            },
-            "helper_ompthreads": {
-                "advanced": true,
-                "prompt": "Number of OMP threads per helper node",
-                "default": "36"
-            },
-            "other": {
-                "advanced": true,
-                "prompt": "Additional options for PBS -l",
-                "default": ""
-            },
-            "modules": {
-                "advanced": true,
-                "prompt": "Modules to load",
-                "default": [
-                    "cmake/3.22.0",
-                    "git/2.33.1",
-                    "ncarenv/1.3",
-                    "intel/2022.1",
-                    "geos/3.10.1",
-                    "ncarcompilers/0.5.0",
-                    "mpt/2.25",
-                    "hdf5-mpi/1.12.2"
-                ]
-            },
-            "environment_variables": {
-                "advanced": true,
-                "prompt": "Additional environment variable settings",
-                "default": null
-            },
-            "mpiexec_command": {
-                "advanced": true,
-                "prompt": "MPI command to launch run",
-                "default": "mpiexec correctOMPenvironment.sh $nodefile omplace"
-            }
-        },
         "derecho": {
             "queue": {
+                "LEVEL": "BASIC",
                 "prompt": "PBS queue name",
                 "default": "regular",
                 "valids": ["economy", "premium", "regular", "share"]
             },
             "walltime": {
+                "LEVEL": "BASIC",
                 "prompt": "Requested wall time for PBS job (HH:MM:SS)",
                 "default": "01:00:00"
             },
             "select": {
-                "advanced": true,
+                "LEVEL": "EXPERT",
                 "prompt": "Number of nodes to request",
                 "default": {
                     "D": "2",
@@ -152,22 +79,22 @@
                 }
             },
             "ncpus": {
-                "advanced": true,
+                "LEVEL": "EXPERT",
                 "prompt": "Number of cores per node",
                 "default": "128"
             },
             "mpiprocs": {
-                "advanced": true,
+                "LEVEL": "EXPERT",
                 "prompt": "Number of MPI ranks per node",
                 "default": "2"
             },
             "ompthreads": {
-                "advanced": true,
+                "LEVEL": "EXPERT",
                 "prompt": "Number of OMP threads per MPI rank",
                 "default": "64"
             },
             "num_helpers": {
-                "advanced": true,
+                "LEVEL": "EXPERT",
                 "prompt": "Number of helper nodes",
                 "default": {
                     "D": "0",
@@ -177,22 +104,22 @@
                 }
             },
             "helper_mpiprocs": {
-                "advanced": true,
+                "LEVEL": "EXPERT",
                 "prompt": "Number of MPI ranks per helper node",
                 "default": "1"
             },
             "helper_ompthreads": {
-                "advanced": true,
+                "LEVEL": "EXPERT",
                 "prompt": "Number of OMP threads per helper node",
                 "default": "128"
             },
             "other": {
-                "advanced": true,
+                "LEVEL": "EXPERT",
                 "prompt": "Additional options for PBS -l",
                 "default": ""
             },
             "modules": {
-                "advanced": true,
+                "LEVEL": "EXPERT",
                 "prompt": "Modules to load",
                 "default": [
                     "ncarenv/23.06",
@@ -207,28 +134,30 @@
                 ]
             },
             "environment_variables": {
-                "advanced": true,
+                "LEVEL": "EXPERT",
                 "prompt": "Additional environment variable settings",
                 "default": null
             },
             "mpiexec_command": {
-                "advanced": true,
+                "LEVEL": "EXPERT",
                 "prompt": "MPI command to launch run",
                 "default": "mpiexec pinCpuCores.sh"
             }
         },
         "pleiades": {
             "queue": {
+                "LEVEL": "BASIC",
                 "prompt": "PBS queue name",
                 "default": "normal",
                 "valids": ["low", "normal", "long", "debug", "devel"]
             },
             "walltime": {
+                "LEVEL": "BASIC",
                 "prompt": "Requested wall time for PBS job (HH:MM:SS)",
                 "default": "01:00:00"
             },
             "select": {
-                "advanced": true,
+                "LEVEL": "EXPERT",
                 "prompt": "Number of nodes to request",
                 "default": {
                     "D": "2",
@@ -238,22 +167,22 @@
                 }
             },
             "ncpus": {
-                "advanced": true,
+                "LEVEL": "EXPERT",
                 "prompt": "Number of cores per node",
                 "default": "28"
             },
             "mpiprocs": {
-                "advanced": true,
+                "LEVEL": "EXPERT",
                 "prompt": "Number of MPI ranks per node",
                 "default": "2"
             },
             "ompthreads": {
-                "advanced": true,
+                "LEVEL": "EXPERT",
                 "prompt": "Number of OMP threads per MPI rank",
                 "default": "14"
             },
             "num_helpers": {
-                "advanced": true,
+                "LEVEL": "EXPERT",
                 "prompt": "Number of helper nodes",
                 "default": {
                     "D": "0",
@@ -263,22 +192,22 @@
                 }
             },
             "helper_mpiprocs": {
-                "advanced": true,
+                "LEVEL": "EXPERT",
                 "prompt": "Number of MPI ranks per helper node",
                 "default": "1"
             },
             "helper_ompthreads": {
-                "advanced": true,
+                "LEVEL": "EXPERT",
                 "prompt": "Number of OMP threads per helper node",
                 "default": "28"
             },
             "other": {
-                "advanced": true,
+                "LEVEL": "EXPERT",
                 "prompt": "Additional options for PBS -l",
                 "default": ":model=bro"
             },
             "modules": {
-                "advanced": true,
+                "LEVEL": "EXPERT",
                 "prompt": "Modules to load",
                 "default": [
                     "nas",
@@ -289,12 +218,12 @@
                 ]
             },
             "environment_variables": {
-                "advanced": true,
+                "LEVEL": "EXPERT",
                 "prompt": "Additional environment variable settings",
                 "default": null
             },
             "mpiexec_command": {
-                "advanced": true,
+                "LEVEL": "EXPERT",
                 "prompt": "MPI command to launch run",
                 "default": "mpiexec correctOMPenvironment.sh $nodefile omplace"
             }
@@ -304,81 +233,95 @@
     "gamera": {
         "sim": {
             "H5Grid": {
+                "LEVEL": "BASIC",
                 "prompt": "Path to LFM grid file"
             },
             "doH5g": {
-                "prompt": "gamera_sim_doH5g",
+                "LEVEL": "BASIC",
+                "prompt": "Use an existing LFM grid file",
                 "default": "T",
                 "valids": ["T", "F"]
             },
             "icType": {
+                "LEVEL": "BASIC",
                 "prompt": "Initial condition type",
                 "default": "user",
                 "valids": ["user"]
             },
             "runid": {
-                "prompt": "gamera_sim_runid",
+                "LEVEL": "BASIC",
+                "prompt": "Run ID for simulation",
                 "default": "geospace",
                 "source": "src/voltron/rcmimag.F90"
             },
             "pdmb": {
-                "advanced": true,
+                "LEVEL": "EXPERT",
                 "prompt": "gamera_sim_pdmb",
                 "default": "0.75"
             },
             "rmeth": {
-                "advanced": true,
+                "LEVEL": "EXPERT",
                 "prompt": "gamera_sim_rmeth",
                 "default": "8C"
             }
         },
         "floors": {
             "dFloor": {
+                "LEVEL": "EXPERT",
                 "prompt": "gamera_floors_dFloor",
                 "default": "1.0e-4"
             },
             "pFloor": {
+                "LEVEL": "EXPERT",
                 "prompt": "gamera_floors_pFloor",
                 "default": "1.0e-6"
             }
         },
         "timestep": {
             "doCPR": {
+                "LEVEL": "EXPERT",
                 "prompt": "gamera_timestep_doCPR",
                 "default": "F",
                 "valids": ["T", "F"]
             },
             "limCPR": {
+                "LEVEL": "EXPERT",
                 "prompt": "gamera_timestep_limCPR",
                 "default": "0.20"
             }
         },
         "restart": {
             "doRes": {
-                "prompt": "gamera_restart_doRes",
+                "LEVEL": "EXPERT",
+                "prompt": "Set to 'T' to do a restart from a saved state",
                 "default": "F",
                 "valids": ["T", "F"]
             },
             "nRes": {
-                "prompt": "gamera_restart_nRes",
+                "LEVEL": "EXPERT",
+                "prompt": "Step number for restart initiation",
                 "default": "-1"
             },
             "resID": {
-                "prompt": "gamera_restart_resID",
+                "LEVEL": "EXPERT",
+                "prompt": "Run ID for restart step",
                 "default": "geospace"
             }
         },
         "physics": {
             "Ca": {
+                "LEVEL": "EXPERT",
                 "prompt": "gamera_physics_Ca",
                 "default": "10.0"
             },
             "doBoris": {
+                "LEVEL": "EXPERT",
                 "prompt": "gamera_physics_doBoris",
                 "default": "T",
                 "valids": ["T", "F"]
             },
             "doMHD": {
+                "LEVEL": "EXPERT",
                 "prompt": "gamera_physics_doMHD",
                 "default": "T",
                 "valids": ["T", "F"]
@@ -386,43 +329,47 @@
         },
         "ring": {
             "doRing": {
+                "LEVEL": "EXPERT",
                 "prompt": "gamera_ring_doRing",
                 "default": "T",
                 "valids": ["T", "F"]
             },
             "gid": {
+                "LEVEL": "EXPERT",
                 "prompt": "gamera_ring_gid",
                 "default": "lfm"
             }
         },
         "wind": {
             "tsfile": {
-                "prompt": "gamera_wind_tsfile",
+                "LEVEL": "EXPERT",
+                "prompt": "Path to file containing solar wind boundary conditions",
                 "default": "bcwind.h5"
             }
         },
         "source": {
             "doBounceDT": {
+                "LEVEL": "EXPERT",
                 "prompt": "Use Alfven bounce in dt-ingest",
                 "default": "T",
                 "valids": ["T", "F"],
                 "source": "src/voltron/rcmimag.F90"
             },
             "doSource": {
-                "advanced": true,
+                "LEVEL": "EXPERT",
                 "prompt": "gamera_source_doSource",
                 "default": "T",
                 "valids": ["T", "F"]
             },
             "doWolfLim": {
-                "advanced": true,
+                "LEVEL": "EXPERT",
                 "prompt": "Do Wolf limiting",
                 "default": "T",
                 "valids": ["T", "F"],
                 "source": "src/voltron/rcmimag.F90"
             },
             "nBounce": {
-                "advanced": true,
+                "LEVEL": "EXPERT",
                 "prompt": "Scaling factor for Alfven transit",
                 "default": "1.0",
                 "source": "src/voltron/rcmimag.F90"
@@ -430,6 +377,7 @@
         },
         "iPdir": {
             "N": {
+                "LEVEL": "EXPERT",
                 "prompt": "gamera_iPdir_N",
                 "default": {
                     "D": "2",
@@ -439,6 +387,7 @@
                 }
             },
             "bcPeriodic": {
+                "LEVEL": "EXPERT",
                 "prompt": "gamera_iPdir_bcPeriodic",
                 "default": "F",
                 "valids": ["T", "F"]
@@ -446,6 +395,7 @@
         },
         "jPdir": {
             "N": {
+                "LEVEL": "EXPERT",
                 "prompt": "gamera_jPdir_N",
                 "default": {
                     "D": "2",
@@ -455,6 +405,7 @@
                 }
             },
             "bcPeriodic": {
+                "LEVEL": "EXPERT",
                 "prompt": "gamera_jPdir_bcPeriodic",
                 "default": "F",
                 "valids": ["T", "F"]
@@ -462,6 +413,7 @@
         },
         "kPdir": {
             "N": {
+                "LEVEL": "EXPERT",
                 "prompt": "gamera_kPdir_N",
                 "default": {
                     "D": "1",
@@ -471,6 +423,7 @@
                 }
             },
             "bcPeriodic": {
+                "LEVEL": "EXPERT",
                 "prompt": "gamera_kPdir_bcPeriodic",
                 "default": "T",
                 "valids": ["T", "F"]
@@ -481,58 +434,76 @@
     "voltron": {
         "time": {
             "tFin": {
-                "prompt": "voltron_time_tFin",
+                "LEVEL": "BASIC",
+                "prompt": "Final simulated time (seconds)",
                 "default": "64800.0"
             }
         },
         "spinup": {
             "doSpin": {
-                "prompt": "voltron_spinup_doSpin",
+                "LEVEL": "INTERMEDIATE",
+                "prompt": "Set to 'T' to perform a spinup period",
                 "default": "T",
                 "valids": ["T", "F"]
             },
             "tSpin": {
-                "prompt": "voltron_spinup_tSpin",
+                "LEVEL": "INTERMEDIATE",
+                "prompt": "Number of simulated seconds for hydrodynamic spinup",
                 "default": "3600.0"
             }
         },
         "output": {
             "dtOut": {
-                "prompt": "voltron_output_dtOut",
-                "default": "240.0"
+                "LEVEL": "BASIC",
+                "prompt": "File output cadence in simulated seconds",
+                "default": "60.0"
             },
             "tsOut": {
-                "prompt": "voltron_output_tsOut",
-                "default": "2000.0"
+                "LEVEL": "INTERMEDIATE",
+                "prompt": "Cadence for status updates in simulated seconds",
+                "default": "300.0"
             }
         },
         "coupling": {
             "doQkSquish": {
-                "prompt": "voltron_coupling_doQkSquish",
+                "LEVEL": "INTERMEDIATE",
+                "prompt": "Use stride for field line tracing for RCM ingestion into gamera",
                 "default": "T",
                 "valids": ["T", "F"]
             },
+            "qkSquishStride": {
+                "LEVEL": "INTERMEDIATE-COMPUTED",
+                "prompt": "Set stride for field line tracing for RCM ingestion into gamera (must be integer power of 2)",
+                "default": "2"
+            },
             "dtCouple": {
-                "prompt": "voltron_coupling_dtCouple",
+                "LEVEL": "INTERMEDIATE",
+                "prompt": "Interval in simulated seconds between component coupling",
                 "default": "5.0"
             },
-            "imType": {
-                "prompt": "voltron_coupling_imType",
-                "default": "RCM"
+            "doDeep": {
+                "LEVEL": "INTERMEDIATE",
+                "prompt": "Use an inner magnetosphere model?",
+                "default": "T",
+                "valids": ["T", "F"]
             },
-            "qkSquishStride": {
-                "prompt": "voltron_coupling_qkSquishStride",
-                "default": "2"
+            "imType": {
+                "LEVEL": "EXPERT",
+                "prompt": "voltron_coupling_imType",
+                "default": "RCM",
+                "valids": ["RCM", "SST", "TS07", "RCMX"]
             }
         },
         "restart": {
             "dtRes": {
+                "LEVEL": "EXPERT",
                 "prompt": "voltron_restart_dtRes",
                 "default": "1800.0"
             }
         },
         "imag": {
             "doInit": {
+                "LEVEL": "EXPERT",
                 "prompt": "voltron_imag_doInit",
                 "default": "T",
                 "valids": ["T", "F"],
@@ -541,16 +512,19 @@
         },
         "helpers": {
             "numHelpers": {
+                "LEVEL": "EXPERT",
                 "prompt": "Number of helper nodes",
                 "default": "24"
             },
             "useHelpers": {
+                "LEVEL": "EXPERT",
                 "prompt": "Set to T to use helper nodes for coupling with RCM",
                 "default": "T",
                 "valids": ["T", "F"],
                 "source": "src/drivers/voltron_mpix.F90"
             },
             "doSquishHelp": {
+                "LEVEL": "EXPERT",
                 "advanced": true,
                 "prompt": "voltron_helpers_doSquishHelp",
                 "default": "T",
@@ -562,24 +536,28 @@
     "chimp": {
         "units": {
             "uid": {
+                "LEVEL": "EXPERT",
                 "prompt": "chimp_units_uid",
                 "default": "EARTHCODE"
             }
         },
         "fields": {
-            "grType": {
+           "grType": {
+                "LEVEL": "EXPERT",
                 "prompt": "chimp_fields_grType",
                 "default": "lfm"
             }
         },
         "domain": {
             "dtype": {
+                "LEVEL": "EXPERT",
                 "prompt": "chimp_domain_dtype",
                 "default": "MAGE"
             }
         },
         "tracer": {
             "epsds": {
+                "LEVEL": "EXPERT",
                 "prompt": "chimp_tracer_epsds",
                 "default": "0.05"
             }
@@ -589,11 +567,13 @@
     "remix": {
         "conductance": {
             "doStarlight": {
+                "LEVEL": "EXPERT",
                 "prompt": "remix_conductance_doStarlight",
                 "default": "T",
                 "valids": ["T", "F"]
             },
             "apply_cap": {
+                "LEVEL": "EXPERT",
                 "prompt": "remix_conductance_apply_cap",
                 "default": "T",
                 "valids": ["T", "F"]
@@ -601,10 +581,12 @@
         },
         "precipitation": {
             "aurora_model_type": {
+                "LEVEL": "EXPERT",
                 "prompt": "remix_precipitation_aurora_model_type",
                 "default": "RCMHD"
             },
             "beta": {
+                "LEVEL": "EXPERT",
                 "prompt": "remix_precipitation_beta",
                 "default": "0.2"
             }
@@ -614,24 +596,29 @@
     "rcm": {
         "rcmdomain": {
             "domType": {
+                "LEVEL": "EXPERT",
                 "prompt": "rcm_rcmdomain_domType",
                 "default": "ELLIPSE"
             }
         },
         "ellipse": {
             "xSun": {
+                "LEVEL": "EXPERT",
                 "prompt": "rcm_ellipse_xSun",
                 "default": "12.5"
             },
             "yDD": {
+                "LEVEL": "EXPERT",
                 "prompt": "rcm_ellipse_yDD",
                 "default": "15.0"
             },
             "xTail": {
+                "LEVEL": "EXPERT",
                 "prompt": "rcm_ellipse_xTail",
                 "default": "-15.0"
             },
             "isDynamic": {
+                "LEVEL": "EXPERT",
                 "prompt": "rcm_ellipse_isDynamic",
                 "default": "T",
                 "valids": ["T", "F"]
@@ -639,11 +626,13 @@
         },
         "grid": {
             "LowLat": {
+                "LEVEL": "EXPERT",
                 "advanced": true,
                 "prompt": "rcm_grid_LowLat",
                 "default": "30.0"
             },
             "HiLat": {
+                "LEVEL": "EXPERT",
                 "advanced": true,
                 "prompt": "rcm_grid_HiLat",
                 "default": "75.0"
@@ -651,33 +640,36 @@
         },
         "plasmasphere": {
             "isDynamic": {
+                "LEVEL": "EXPERT",
                 "prompt": "rcm_plasmasphere_isDynamic",
                 "default": "T",
                 "valids": ["T", "F"]
             },
             "initKp": {
+                "LEVEL": "EXPERT",
                 "prompt": "rcm_plasmasphere_initKp",
                 "default": "5"
             },
             "doRefill": {
+                "LEVEL": "EXPERT",
                 "prompt": "rcm_plasmasphere_doRefill",
                 "default": "T",
                 "valids": ["T", "F"]
             },
             "tAvg": {
-                "advanced": true,
+                "LEVEL": "EXPERT",
                 "prompt": "rcm_plasmasphere_tAvg",
                 "default": "60.0"
             }
         },
         "loss": {
             "doFLCLoss": {
-                "advanced": true,
+                "LEVEL": "EXPERT",
                 "prompt": "rcm_loss_doFLCLoss",
                 "default": "F"
             },
             "eLossMethod": {
-                "advanced": true,
+                "LEVEL": "EXPERT",
                 "prompt": "rcm_loss_eLossMethod",
                 "default": "WM"
             }
