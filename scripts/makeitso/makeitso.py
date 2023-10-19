@@ -275,13 +275,6 @@ def prompt_user_for_run_options(args):
     for on in od:
         o[on] = get_run_option(on, od[on], args.advanced)
 
-    # <ringknobs> options
-    options["gamera"]["ringknobs"] = {}
-    o = options["gamera"]["ringknobs"]
-    od = option_descriptions["gamera"]["ringknobs"]
-    for on in od:
-        o[on] = get_run_option(on, od[on], args.advanced)
-
     # <wind> options
     options["gamera"]["wind"] = {}
     o = options["gamera"]["wind"]
@@ -364,13 +357,6 @@ def prompt_user_for_run_options(args):
     options["voltron"]["imag"] = {}
     o = options["voltron"]["imag"]
     od = option_descriptions["voltron"]["imag"]
-    for on in od:
-        o[on] = get_run_option(on, od[on], args.advanced)
-
-    # <ebsquish> options
-    options["voltron"]["ebsquish"] = {}
-    o = options["voltron"]["ebsquish"]
-    od = option_descriptions["voltron"]["ebsquish"]
     for on in od:
         o[on] = get_run_option(on, od[on], args.advanced)
 

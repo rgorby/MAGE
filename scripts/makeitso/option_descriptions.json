@@ -131,7 +131,6 @@
                 "default": "mpiexec correctOMPenvironment.sh $nodefile omplace"
             }
         },
-
         "derecho": {
             "queue": {
                 "prompt": "PBS queue name",
@@ -304,124 +303,111 @@
 
     "gamera": {
         "sim": {
+            "H5Grid": {
+                "prompt": "Path to LFM grid file"
+            },
             "doH5g": {
-                "advanced": true,
                 "prompt": "gamera_sim_doH5g",
                 "default": "T",
                 "valids": ["T", "F"]
             },
-            "H5Grid": {
-                "advanced": true,
-                "prompt": "Path to LFM grid file"
-            },
             "icType": {
-                "advanced": true,
                 "prompt": "Initial condition type",
                 "default": "user",
                 "valids": ["user"]
             },
+            "runid": {
+                "prompt": "gamera_sim_runid",
+                "default": "geospace",
+                "source": "src/voltron/rcmimag.F90"
+            },
             "pdmb": {
                 "advanced": true,
                 "prompt": "gamera_sim_pdmb",
-                "default": "1.0"
+                "default": "0.75"
             },
             "rmeth": {
                 "advanced": true,
                 "prompt": "gamera_sim_rmeth",
-                "default": "7UP"
-            }    
+                "default": "8C"
+            }
         },
         "floors": {
             "dFloor": {
-                "advanced": true,
                 "prompt": "gamera_floors_dFloor",
                 "default": "1.0e-4"
             },
             "pFloor": {
-                "advanced": true,
                 "prompt": "gamera_floors_pFloor",
                 "default": "1.0e-6"
             }
         },
         "timestep": {
             "doCPR": {
-                "advanced": true,
                 "prompt": "gamera_timestep_doCPR",
-                "default": "T",
+                "default": "F",
                 "valids": ["T", "F"]
             },
             "limCPR": {
-                "advanced": true,
                 "prompt": "gamera_timestep_limCPR",
-                "default": "0.25"
+                "default": "0.20"
             }
         },
         "restart": {
             "doRes": {
-                "advanced": true,
                 "prompt": "gamera_restart_doRes",
                 "default": "F",
                 "valids": ["T", "F"]
             },
-            "resID": {
-                "advanced": true,
-                "prompt": "gamera_restart_resID",
-                "default": "msphere"
-            },
             "nRes": {
-                "advanced": true,
                 "prompt": "gamera_restart_nRes",
                 "default": "-1"
+            },
+            "resID": {
+                "prompt": "gamera_restart_resID",
+                "default": "geospace"
             }
         },
         "physics": {
-            "doMHD": {
-                "advanced": true,
-                "prompt": "gamera_physics_doMHD",
-                "default": "T",
-                "valids": ["T", "F"]
+            "Ca": {
+                "prompt": "gamera_physics_Ca",
+                "default": "10.0"
             },
             "doBoris": {
-                "advanced": true,
                 "prompt": "gamera_physics_doBoris",
                 "default": "T",
                 "valids": ["T", "F"]
             },
-            "Ca": {
-                "advanced": true,
-                "prompt": "gamera_physics_Ca",
-                "default": "10.0"
+            "doMHD": {
+                "prompt": "gamera_physics_doMHD",
+                "default": "T",
+                "valids": ["T", "F"]
             }
         },
         "ring": {
-            "gid": {
-                "advanced": true,
-                "prompt": "gamera_ring_gid",
-                "default": "lfm"
-            },
             "doRing": {
-                "advanced": true,
                 "prompt": "gamera_ring_doRing",
                 "default": "T",
                 "valids": ["T", "F"]
-            }
-        },
-        "ringknobs": {
-            "doVClean": {
-                "advanced": true,
-                "prompt": "gamera_ringknobs_doVClean",
-                "default": "T",
-                "valids": ["T", "F"]
+            },
+            "gid": {
+                "prompt": "gamera_ring_gid",
+                "default": "lfm"
             }
         },
         "wind": {
             "tsfile": {
-                "advanced": true,
                 "prompt": "gamera_wind_tsfile",
                 "default": "bcwind.h5"
             }
         },
         "source": {
+            "doBounceDT": {
+                "prompt": "Use Alfven bounce in dt-ingest",
+                "default": "T",
+                "valids": ["T", "F"],
+                "source": "src/voltron/rcmimag.F90"
+            },
             "doSource": {
                 "advanced": true,
                 "prompt": "gamera_source_doSource",
@@ -430,35 +416,29 @@
             },
             "doWolfLim": {
                 "advanced": true,
-                "prompt": "gamera_source_doWolfLim",
+                "prompt": "Do Wolf limiting",
                 "default": "T",
-                "valids": ["T", "F"]
-            },
-            "doBounceDT": {
-                "advanced": true,
-                "prompt": "gamera_source_doBounceDT",
-                "default": "T",
-                "valids": ["T", "F"]
+                "valids": ["T", "F"],
+                "source": "src/voltron/rcmimag.F90"
             },
             "nBounce": {
                 "advanced": true,
-                "prompt": "gamera_source_nBounce",
-                "default": "1.0"
+                "prompt": "Scaling factor for Alfven transit",
+                "default": "1.0",
+                "source": "src/voltron/rcmimag.F90"
             }
         },
         "iPdir": {
             "N": {
-                "advanced": true,
                 "prompt": "gamera_iPdir_N",
                 "default": {
                     "D": "2",
                     "Q": "4",
-                    "O": "12",
-                    "H": "12"
+                    "O": "8",
+                    "H": "8"
                 }
             },
             "bcPeriodic": {
-                "advanced": true,
                 "prompt": "gamera_iPdir_bcPeriodic",
                 "default": "F",
                 "valids": ["T", "F"]
@@ -466,7 +446,6 @@
         },
         "jPdir": {
             "N": {
-                "advanced": true,
                 "prompt": "gamera_jPdir_N",
                 "default": {
                     "D": "2",
@@ -476,7 +455,6 @@
                 }
             },
             "bcPeriodic": {
-                "advanced": true,
                 "prompt": "gamera_jPdir_bcPeriodic",
                 "default": "F",
                 "valids": ["T", "F"]
@@ -484,7 +462,6 @@
         },
         "kPdir": {
             "N": {
-                "advanced": true,
                 "prompt": "gamera_kPdir_N",
                 "default": {
                     "D": "1",
@@ -494,7 +471,6 @@
                 }
             },
             "bcPeriodic": {
-                "advanced": true,
                 "prompt": "gamera_kPdir_bcPeriodic",
                 "default": "T",
                 "valids": ["T", "F"]
@@ -505,97 +481,74 @@
     "voltron": {
         "time": {
             "tFin": {
-                "advanced": true,
                 "prompt": "voltron_time_tFin",
-                "default": "3600.0"
+                "default": "64800.0"
             }
         },
         "spinup": {
             "doSpin": {
-                "advanced": true,
                 "prompt": "voltron_spinup_doSpin",
                 "default": "T",
                 "valids": ["T", "F"]
             },
             "tSpin": {
-                "advanced": true,
                 "prompt": "voltron_spinup_tSpin",
                 "default": "3600.0"
             }
         },
         "output": {
             "dtOut": {
-                "advanced": true,
                 "prompt": "voltron_output_dtOut",
-                "default": "900.0"
+                "default": "240.0"
             },
             "tsOut": {
-                "advanced": true,
                 "prompt": "voltron_output_tsOut",
-                "default": "100.0"
+                "default": "2000.0"
             }
         },
         "coupling": {
-            "dtCouple": {
-                "advanced": true,
-                "prompt": "voltron_coupling_dtCouple",
-                "default": "5.0"
-            },
-            "rTrc": {
-                "advanced": true,
-                "prompt": "voltron_coupling_rTrc",
-                "default": "4.0"
-            },
-            "imType": {
-                "advanced": true,
-                "prompt": "voltron_coupling_imType",
-                "default": "RCM"
-            },
             "doQkSquish": {
-                "advanced": true,
                 "prompt": "voltron_coupling_doQkSquish",
                 "default": "T",
                 "valids": ["T", "F"]
             },
+            "dtCouple": {
+                "prompt": "voltron_coupling_dtCouple",
+                "default": "5.0"
+            },
+            "imType": {
+                "prompt": "voltron_coupling_imType",
+                "default": "RCM"
+            },
             "qkSquishStride": {
-                "advanced": true,
                 "prompt": "voltron_coupling_qkSquishStride",
                 "default": "2"
             }
         },
         "restart": {
             "dtRes": {
-                "advanced": true,
                 "prompt": "voltron_restart_dtRes",
                 "default": "1800.0"
             }
         },
         "imag": {
             "doInit": {
-                "advanced": true,
                 "prompt": "voltron_imag_doInit",
                 "default": "T",
-                "valids": ["T", "F"]
-            }
-        },
-        "ebsquish": {
-            "epsSquish": {
-                "advanced": true,
-                "prompt": "voltron_ebsquish_epsSquish",
-                "default": "0.05"
+                "valids": ["T", "F"],
+                "source": "src/voltron/rcmimag.F90"
             }
         },
         "helpers": {
             "numHelpers": {
-                "advanced": true,
                 "prompt": "Number of helper nodes",
-                "default": "0"
+                "default": "24"
             },
             "useHelpers": {
-                "advanced": true,
                 "prompt": "Set to T to use helper nodes for coupling with RCM",
                 "default": "T",
-                "valids": ["T", "F"]
+                "valids": ["T", "F"],
+                "source": "src/drivers/voltron_mpix.F90"
             },
             "doSquishHelp": {
                 "advanced": true,
@@ -609,28 +562,24 @@
     "chimp": {
         "units": {
             "uid": {
-                "advanced": true,
                 "prompt": "chimp_units_uid",
                 "default": "EARTHCODE"
             }
         },
         "fields": {
             "grType": {
-                "advanced": true,
                 "prompt": "chimp_fields_grType",
                 "default": "lfm"
             }
         },
         "domain": {
             "dtype": {
-                "advanced": true,
                 "prompt": "chimp_domain_dtype",
                 "default": "MAGE"
             }
         },
         "tracer": {
             "epsds": {
-                "advanced": true,
                 "prompt": "chimp_tracer_epsds",
                 "default": "0.05"
             }
@@ -640,33 +589,24 @@
     "remix": {
         "conductance": {
             "doStarlight": {
-                "advanced": true,
                 "prompt": "remix_conductance_doStarlight",
                 "default": "T",
                 "valids": ["T", "F"]
             },
-            "doRamp": {
-                "advanced": true,
-                "prompt": "remix_conductance_doRamp",
-                "default": "F",
+            "apply_cap": {
+                "prompt": "remix_conductance_apply_cap",
+                "default": "T",
                 "valids": ["T", "F"]
             }
         },
         "precipitation": {
             "aurora_model_type": {
-                "advanced": true,
                 "prompt": "remix_precipitation_aurora_model_type",
-                "default": "RCMONO"
-            },
-            "alpha": {
-                "advanced": true,
-                "prompt": "remix_precipitation_alpha",
-                "default": "0.2"
+                "default": "RCMHD"
             },
             "beta": {
-                "advanced": true,
                 "prompt": "remix_precipitation_beta",
-                "default": "4"
+                "default": "0.2"
             }
         }
     },
@@ -674,29 +614,24 @@
     "rcm": {
         "rcmdomain": {
             "domType": {
-                "advanced": true,
                 "prompt": "rcm_rcmdomain_domType",
                 "default": "ELLIPSE"
             }
         },
         "ellipse": {
             "xSun": {
-                "advanced": true,
                 "prompt": "rcm_ellipse_xSun",
                 "default": "12.5"
             },
             "yDD": {
-                "advanced": true,
                 "prompt": "rcm_ellipse_yDD",
                 "default": "15.0"
             },
             "xTail": {
-                "advanced": true,
                 "prompt": "rcm_ellipse_xTail",
-                "default": "15.0"
+                "default": "-15.0"
             },
             "isDynamic": {
-                "advanced": true,
                 "prompt": "rcm_ellipse_isDynamic",
                 "default": "T",
                 "valids": ["T", "F"]
@@ -712,44 +647,41 @@
                 "advanced": true,
                 "prompt": "rcm_grid_HiLat",
                 "default": "75.0"
-            },
-            "doLatStretch": {
-                "advanced": true,
-                "prompt": "rcm_grid_doLatStretch",
-                "default": "F",
-                "valids": ["T", "F"]
             }
         },
         "plasmasphere": {
             "isDynamic": {
-                "advanced": true,
                 "prompt": "rcm_plasmasphere_isDynamic",
-                "default": "F",
+                "default": "T",
                 "valids": ["T", "F"]
             },
             "initKp": {
-                "advanced": true,
                 "prompt": "rcm_plasmasphere_initKp",
-                "default": "2"
+                "default": "5"
             },
             "doRefill": {
-                "advanced": true,
                 "prompt": "rcm_plasmasphere_doRefill",
                 "default": "T",
                 "valids": ["T", "F"]
             },
-            "DenPP0": {
-                "advanced": true,
-                "prompt": "rcm_plasmasphere_DenPP0",
-                "default": "1.0e-2"
-            },
             "tAvg": {
                 "advanced": true,
                 "prompt": "rcm_plasmasphere_tAvg",
-                "default": "600.0"
+                "default": "60.0"
+            }
+        },
+        "loss": {
+            "doFLCLoss": {
+                "advanced": true,
+                "prompt": "rcm_loss_doFLCLoss",
+                "default": "F"
+            },
+            "eLossMethod": {
+                "advanced": true,
+                "prompt": "rcm_loss_eLossMethod",
+                "default": "WM"
             }
         }
-
     }
 
 }
