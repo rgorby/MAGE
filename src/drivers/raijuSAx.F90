@@ -155,7 +155,7 @@ program raijuSAx
         type(eLossWM_T) :: eWM
         
         call iXML%Set_Val(confName, "config/fname","raijuconfig.h5")
-        call initEWM(eWM, confName)
+        call initEWM(eWM, confName, iXML)
 
         write(*,*) "Kp1D (",size(eWM%Kp1D),"):"
         write(*,*) eWM%Kp1D
@@ -168,5 +168,5 @@ program raijuSAx
         write(*,*) "dims(Tau4D):"
         write(*,*) size(eWM%Tau4D)
     end subroutine
-    
+
 end program raijuSAx

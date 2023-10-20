@@ -4,6 +4,7 @@ module raijutypes
     use shellgrid
     use xml_input
     use ioclock
+    use kronos
 
     use raijudefs
 
@@ -66,6 +67,10 @@ module raijutypes
         real(rp) :: PsheetLMin = def_PsheetLmin
         real(rp) :: ChorusEMin = def_ChorusEMin
         
+        
+        type(TimeSeries_T) :: KpTS
+            !! Kp data from wind file
+
         ! Chorus info
         integer :: Nkp, Nmlt, Nl, Ne
             !! Number of bins for Kp, MLT, L shell, and Energy

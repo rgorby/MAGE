@@ -42,8 +42,8 @@ module raijustarter
 
     ! Sets up Model, but Grid and State must be set up separately
     subroutine raijuInitModel(Model, iXML)
-        type(raijuModel_T) , intent(inout) :: Model
-        type(XML_Input_T), intent(in)    :: iXML
+        type(raijuModel_T), intent(inout) :: Model
+        type(XML_Input_T) , intent(in)    :: iXML
          
         character(len=strLen) :: tmpStr
 
@@ -124,7 +124,7 @@ module raijustarter
                 write(*,*) "RAIJU using Wang-Bao electron wave model"
                 Model%eLossModel = RaiELOSS_WM
                 Model%eLossRateFn => calcELossRate_WM
-                call initEWM(Model%eLossWM, Model%configFName)
+                call initEWM(Model%eLossWM, Model%configFName, iXML)
             case default
                 write(*,*) "RAIJU did not get a valid electron loss model, goodbye"
                 stop
