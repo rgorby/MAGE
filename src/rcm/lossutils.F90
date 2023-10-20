@@ -7,6 +7,15 @@ MODULE lossutils
     USE math, ONLY : SmoothOpTSC,SmoothOperator33,ClampValue,LinRampUp
     implicit none
 
+    !Parameters for electron wave models
+    real(rprec), parameter :: Lo = 8.0 !Outer L, L > 8Re, strong scattering in charge
+    real(rprec), parameter :: Li = 7.0 !Middle L, L < 7Re, wave models in charge
+    real(rprec), parameter, private :: kev0 = 1.1 !Min value to allow [keV]
+    real(rprec), parameter, private :: nhigh = 100.D0 ! [/cc] ne>nhigh indicates inside plasmasphere.
+    real(rprec), parameter, private :: nlow  = 10.D0  ! [/cc] ne<nlow indicates outside plasmasphere.
+    !Wave type: Hiss: 1.0; Chorus: 2.0 (Inner Mag,L<7); strong scattering: 3.0 
+    real(rprec), parameter :: HISS = 1.0, CHORUS = 2.0, SSCATTER = 3.0
+    
     contains
 
     !Loss functions
@@ -167,13 +176,13 @@ MODULE lossutils
     FUNCTION RatefnDW_tau_c(Kpx,mltx,Lx,Ekx) result(tau)
     ! linearly interpolate tau from EWMTauInput to current MLT,L,Kp,Ek value
         USE rice_housekeeping_module, ONLY: EWMTauInput
+        USE kdefs, ONLY: HUGE
         IMPLICIT NONE
         REAL (rprec), INTENT (IN) :: Kpx, mltx,Lx,Ekx
         REAL(rprec) :: tau
-        REAL(rprec) :: tauKMLE(2,2,2,2),tauMLE(2,2,2),tauLE(2,2),tauE(2)! tauKMLE(1,2,2,2) means tauKlMuLuEu, l:lower bound, u: upper bound in the NN methond
+        REAL(rprec) :: tauKMLE(2,2,2,2),tauMLE(2,2,2),tauLE(2,2),tauE(2)! tauKMLE(1,2,2,2) means tauKlMuLuEu, l:lower bound, u: upper bound in the NN method
         REAL(rprec) :: dK,wK,dM,wM,dL,wL,dE,wE
         INTEGER :: iK,kL,kU,mL,mU,lL,lU,eL,eU
-        LOGICAL :: Lflag = .false.
 
 
         associate(Nm=>EWMTauInput%ChorusTauInput%Nm,Nl=>EWMTauInput%ChorusTauInput%Nl,Nk=>EWMTauInput%ChorusTauInput%Nk,Ne=>EWMTauInput%ChorusTauInput%Ne,&
@@ -205,7 +214,6 @@ MODULE lossutils
         if (Lx >= maxval(Li)) then
             lL = Nl !use L maximum
             lU = Nl
-            Lflag = .true.
         else if (Lx <= minval(Li)) then
             lL = 1 ! use L minimum
             lU = 1
@@ -216,7 +224,7 @@ MODULE lossutils
 
          ! Find the nearest neighbours in Ek
         if (Ekx < minval(Eki)) then
-            tau = 1.D10 ! For low energies, assign a huge lifetime is 10^10s ~ 10^3 years.
+            tau = HUGE ! For low energies, assign a huge lifetime.
         else if (Ekx >= maxval(Eki)) then
             eL = Ne !use Ek maximum
             eU = Ne
@@ -283,10 +291,6 @@ MODULE lossutils
         if (lL == lU) then
             tauE(1) = tauLE(2,1)
             tauE(2) = tauLE(2,2)
-            if (Lflag) then ! use gaussian decay for L > maxval(Li) (7Re)
-               tauE(1)=tauE(1)/exp(-(Lx-maxval(Li))**2)
-               tauE(2)=tauE(2)/exp(-(Lx-maxval(Li))**2)
-            endif
         else
             dL = Li(lU)-Li(lL)
             wL = (Lx-Li(lL))/dL
@@ -380,4 +384,75 @@ MODULE lossutils
         tau = tau_av/g_MLT/h_KP
         lambda = 1.D0/tau ! 1/s
     END FUNCTION RatefnC_tau_h16
+
+    FUNCTION LossR8_IMAG(xx,yy,alamx,vmx,nex,kpx)
+            REAL (rprec), INTENT (IN) :: xx,yy,alamx,vmx,nex,kpx
+            REAL (rprec), dimension(2) :: LossR8_IMAG
+
+            REAL (rprec) :: MLT,K,L,E,tau_c,tau_h
+            REAL (rprec) :: E0,tScl !Energy min
+
+            K = abs(alamx*vmx*1.0e-3) !Energy [keV]
+            L = sqrt(xx**2+yy**2)
+
+            !Calculate E [MeV] to evaluate wave model
+            if (K <= kev0) then
+                E = kev0*(1.0e-3) !Energy [MeV]
+                !Define a scaling factor to multiply tau (lifetime)
+                !Lower energy particles are slower which increases lifetime
+                tScl = kev2V(kev0)/kev2V(K)
+            else
+                E = K*(1.0e-3) !Energy [MeV]
+                tScl = 1.0 !No change needed
+            endif
+
+            MLT = atan2(yy,xx)/pi*12.D0+12.D0
+            if (nex<nlow) then
+                ! Region outside the plasmasphere or the plume, wave candidates:
+                ! Chorus
+                tau_c = tScl*RatefnDW_tau_c(kpx,MLT,L,E)
+                LossR8_IMAG(1) = 1.0/tau_c
+                LossR8_IMAG(2) = CHORUS !wave type number for chorus
+            elseif (nex>nhigh) then
+                ! Region inside the plasmasphere, wave candidates: Hiss
+                tau_h = tScl*RatefnC_tau_h16(MLT,E,L,kpx)
+                LossR8_IMAG(1) = 1.0/tau_h
+                LossR8_IMAG(2) = HISS !wave type number for hiss
+            else
+                ! nlow <= nex <= nhigh, at the plume region, wave candidates:
+                ! Chorus and Hiss
+                tau_c = tScl*RatefnDW_tau_c(kpx,MLT,L,E)
+                tau_h = tScl*RatefnC_tau_h16(MLT,E,L,kpx)
+
+                LossR8_IMAG(1) = (dlog(nhigh/nex)/tau_c + dlog(nex/nlow)/tau_h)/dlog(nhigh/nlow) ! use density-weighted loss rate 
+                LossR8_IMAG(2) = (dlog(nhigh/nex)*CHORUS + dlog(nex/nlow)*HISS)/dlog(nhigh/nlow)
+            endif
+
+        END FUNCTION LossR8_IMAG
+
+        FUNCTION LossR8_PSHEET(alamx,vmx,beqx,losscx)
+            REAL (rprec), INTENT (IN) :: alamx,vmx,beqx,losscx
+            REAL (rprec) :: LossR8_PSHEET
+            REAL (rprec) :: TauSS
+
+            TauSS = RatefnC_tau_s(alamx,vmx,beqx,losscx)
+            LossR8_PSHEET = 1.0/TauSS
+            LossR8_PSHEET = LossR8_PSHEET !SS rate 
+        END FUNCTION LossR8_PSHEET
+
+        !Calculate speed (Re/s) from energy [keV] for ELECTRONS
+        FUNCTION kev2V(keV) result(V)
+            use kdefs, only : Re_cgs,mec2
+            REAL (rprec), INTENT (IN) :: keV
+            REAL (rprec) :: V
+
+            REAL (rprec) :: E,gammar
+
+            E = keV*1.0e-3 !Energy [MeV]
+            gammar = 1.0 + E/mec2
+
+            V = vc_cgs*sqrt(1.0-1.0/gammar**2)/Re_cgs ! Re/s
+
+        END FUNCTION kev2V
+
 END MODULE lossutils

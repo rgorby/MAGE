@@ -79,7 +79,7 @@ if __name__ == "__main__":
 
 	if addWM:
 		tauParams = wmParams(dim = 4, nKp = 7, nMLT = 97, nL = 41, nEk = 155)
-		genWM.genh5(fIn,fOut,tauParams,useWM = True)
+		genWM.genh5(fIn,fOut,tauParams)
 	else:
 		# Determine proton channel limits based on resolving a certain (proton) temperature at given L
 		bVol = kT.L_to_bVol(L_kt)
@@ -107,7 +107,7 @@ if __name__ == "__main__":
 		# Add data needed for wavemodel
 		if not noWaveModel:
 			tauParams = wmParams(dim = 4, nKp = 7, nMLT = 97, nL = 41, nEk = 155)	
-			genWM.genh5(fOut,fOut,tauParams,useWM = True)
+			genWM.genh5(fOut,fOut,tauParams)
 
 		print("Wrote RCM configuration to %s"%(fOut))
 

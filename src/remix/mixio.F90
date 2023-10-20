@@ -73,6 +73,8 @@ contains
     mixUnitNames(IM_INFLX)     = "1/cm^2 s"
     mixVarNames(DELTAE)        = "Mono potential drop"
     mixUnitNames(DELTAE)       = "kV"
+    mixVarNames(IM_NPSP)       = "RCM plasmasphere density"
+    mixUnitNames(IM_NPSP)      = "#/m^3"
   end subroutine initMIXNames
 
   subroutine initMIXIO(I,RunID,isRestart,nRes)
@@ -208,6 +210,8 @@ contains
           case (IM_INFLX)
              doDump = .true.
           case (DELTAE)
+             doDump = .true.
+          case (IM_NPSP)
              doDump = .true.
           case DEFAULT
              doDump = .false. ! only dump the variables explicitely set to be dumped above
@@ -578,6 +582,8 @@ contains
           case (IM_INFLX)
              doDump = .true.
           case (DELTAE)
+             doDump = .true.
+          case (IM_NPSP)
              doDump = .true.
           case (NEUTRAL_WIND) 
              doDump = .false.

@@ -3,7 +3,7 @@ import h5py as h5
 from scipy.interpolate import RectBivariateSpline
 from kaipy.rcm.wmutils.wmData import wmParams
 
-def genWM(params, useWM=True):
+def genWM(params):
 
         import os
 
@@ -14,26 +14,24 @@ def genWM(params, useWM=True):
 
         print("Reading %s"%fInChorus)
 
-        if useWM:
-                return genChorus(params,fInChorus)
-        else:
-                return toyWM(params)
+        return genChorus(params,fInChorus)
 
 # Add wpi-induced electron lifetime model to input file and create an output file
 # Writes arrays to file in rcmconfig.h5 format
-def genh5(fIn, fOut, inputParams, useWM=True):
+def genh5(fIn, fOut, inputParams):
 
         if fIn != fOut:
                oH5 = h5.File(fOut, 'w')
-               iH5 = h5.File(fIn,'r')
+               iH5 = h5.File(fIn, 'r')
                for Q in iH5.keys():
                      sQ = str(Q)
                      oH5.create_dataset(sQ, data=iH5[sQ])
+               oH5.attrs.update(iH5.attrs)
         else:
                oH5 = h5.File(fOut, 'r+')
 
         if not ('Taui' in oH5.keys()):
-               kpi, mlti, li, eki, taui = genWM(inputParams, useWM = useWM)
+               kpi, mlti, li, eki, taui = genWM(inputParams)
                attrs = inputParams.getAttrs()
 
                oH5.create_dataset('Kpi', data=kpi)
@@ -47,50 +45,57 @@ def genh5(fIn, fOut, inputParams, useWM=True):
 
 #read parameters of the polynomial fit, Wang+,2023
 def readPoly(fIn):
-    table = []
-    with open(fIn, 'r') as file:
-        # Skip the first row
-        next(file)
-        for line in file:
-            row = line.strip().split('\t')[2:-1]  # Discard the first two elements of each row
-            row = [float(x) for x in row]  # Convert the strings to float
-            rowLen = len(row)
-            table.append(np.array(row))
-    return (rowLen,np.array(table))
+        table = []
+        with open(fIn, 'r') as file:
+             # Skip the first row
+             next(file)
+             for line in file:
+                 row = line.strip().split('\t')[2:-1]  # Discard the first two elements of each row
+                 row = [float(x) for x in row]  # Convert the strings to float
+                 rowLen = len(row)
+                 table.append(np.array(row))
+        return (rowLen,np.array(table))
 
 #Chorus polynomial fit for the electron lifetime
-def ChorusPoly(Lpoly,Kpoly,polyTgt):
+def ChorusPoly(Li,Eki,polyArray):
+# The 3-rd Order Polynomial Fit Coefficients of Electron Lifetime Caused by Interaction with Chorus Waves
+#(https://doi.org/will be provided)                                                                      
+# Dedong Wang et al., in preparation 
+# For each Kp (0,1,2...,7) and each MLT (0,1,2,...,23), tau has a polynomial fit of Ek and L.
 
-        c0 = polyTgt[0]#Intercept
-        c1 = polyTgt[1] #L              
-        c2 = polyTgt[2]#log10(E)        
-        c3 = polyTgt[3]# L^2            
-        c4 = polyTgt[4]#log10(E)^2      
-        c5 = polyTgt[5]#L^3             
-        c6 = polyTgt[6]#log10(E)^3      
-        c7 = polyTgt[7]#log10(E)*L      
-        c8 = polyTgt[8]#log10(E)*L^2    
-        c9 = polyTgt[9]#log10(E)^2*L
+        lenKp,lenMLT,lenParam = polyArray.shape
+        #Extend polyArray
+        polyArrayX = polyArray[:,:,:,np.newaxis,np.newaxis] 
+        #Extend Li and Ki
+        lenL = len(Li)
+        lenEki = len(Eki)
+        Lx = np.tile(Li, (lenEki, 1)).T
+        Lx = Lx[np.newaxis,np.newaxis,:,:]
+        Ex = np.tile(Eki, (lenL, 1))
+        Ex = Ex[np.newaxis,np.newaxis,:,:]
 
-        lenL = len(Lpoly)
-        lenK = len(Kpoly)
-
-        tau = np.ones((lenL,lenK))
-        # Duplicating the array in columns
-        L = np.tile(Lpoly, (lenK, 1)).T
-
-        # Duplicating the array in rows
-        K = np.tile(Kpoly, (lenL, 1))
-
-        tau =   c0*tau+\
-        c1*L+c2*K+\
-        c3*np.power(L,2)+\
-        c4*np.power(K,2)+\
-        c5*np.power(L,3)+\
-        c6*np.power(K,3)+\
-        c7*L*K+\
-        c8*np.power(L,2)*K+\
-        c9*L*np.power(K,2) #in log10(days)
+        tau = np.ones((lenKp,lenMLT,lenL,lenEki))
+    
+        c0 = polyArrayX[:,:,0,:,:]#Intercept
+        c1 = polyArrayX[:,:,1,:,:] #L              
+        c2 = polyArrayX[:,:,2,:,:]#log10(E)        
+        c3 = polyArrayX[:,:,3,:,:]# L^2            
+        c4 = polyArrayX[:,:,4,:,:]#log10(E)^2      
+        c5 = polyArrayX[:,:,5,:,:]#L^3             
+        c6 = polyArrayX[:,:,6,:,:]#log10(E)^3      
+        c7 = polyArrayX[:,:,7,:,:]#log10(E)*L      
+        c8 = polyArrayX[:,:,8,:,:]#log10(E)*L^2    
+        c9 = polyArrayX[:,:,9,:,:]#log10(E)^2*L    
+    
+        tau = c0*tau+\
+        c1*Lx+c2*Ex+\
+        c3*np.power(Lx,2)+\
+        c4*np.power(Ex,2)+\
+        c5*np.power(Lx,3)+\
+        c6*np.power(Ex,3)+\
+        c7*Lx*Ex+\
+        c8*np.power(Lx,2)*Ex+\
+        c9*Lx*np.power(Ex,2) #in log10(days)
 
         tau = 10.0**tau*(60.*60.*24.) #in seconds
 
@@ -125,6 +130,7 @@ def ReSample(L,MLT,Qp,xMLT):
 def genChorus(params,fInChorus):
         rowLen,paramArray = readPoly(fInChorus)
         polyArray = paramArray.reshape(24,7,rowLen) #Dim MLT: 24, Dim Kp: 7
+        polyArray = polyArray.transpose(1, 0, 2) # shape (7,24,rowLen)
         lenMLT = 24
         #Kpi
         startValue = 1.0 #in Re 
@@ -142,18 +148,10 @@ def genChorus(params,fInChorus):
         lenL = 41  
         Li = np.linspace(startValue, endValue, num=lenL) 
         #Tau from polynomial fit
-        tauP = np.zeros((lenKp,lenMLT,lenL,lenEk))  
-        for k in range(0,lenKp): # Kp: 1,2,...,7
-            for m in range(0,lenMLT): # MLT: 0,1,...,23
-                #print("xMLT,xKp",xMLT,xKp)
-                polyKM = polyArray[m,k,:]
-                #print('polyTgt',polyTgt)
-                tauPolyKM = ChorusPoly(Li,Eki,polyKM)
-                tauP[k,m,:,:] = tauPolyKM[:,:]
+        tauP = ChorusPoly(Li,Eki,polyArray)
         #expand MLT from 0-23 to 0-24
-        tauE = np.array([np.append(tauP[0,:,:,:],np.array([tauP[0,0,:,:]]),0)])
-        for i in range(1,lenKp):
-              tauE=np.append(tauE,np.array([np.append(tauP[i,:,:,:],np.array([tauP[i,0,:,:]]),0)]),0)
+        extraMLT0 = tauP[:, 0, :, :][:,np.newaxis,:,:]
+        tauE = np.concatenate((tauP, extraMLT0), axis=1)
         tauE = tauE.T
         #Interpolation in the MLT dimesion
         xFac = 4
@@ -161,22 +159,12 @@ def genChorus(params,fInChorus):
         MLTi = np.linspace(0,24,lenMLT+1)
         xMLTi = np.linspace(0,24,lenMLTx) 
         tauX = np.zeros((lenEk,lenL,lenMLTx,lenKp))
-        for i in range(lenEk):
-            for j in range(lenKp):
-                Q = tauE[i,:,:,j]
-                tauX[i,:,:,j] = ReSample(Li,MLTi,Q,xMLTi)
+        # Smoothing in MLT
+        for i, j in np.ndindex(tauX.shape[0], tauX.shape[3]):
+            Q = tauE[i, :, :, j]
+            tauX[i, :, :, j] = ReSample(Li, MLTi, Q, xMLTi)
         Eki = 10.0**Eki #in MeV
+
         return Kpi,xMLTi,Li,Eki,tauX
-
-
-
-        
-
-
-
-
-
-
-
 
 

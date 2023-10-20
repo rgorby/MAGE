@@ -12,13 +12,14 @@ module mixconductance
   
   implicit none
 
-  real(rp), dimension(:,:), allocatable, private :: tmpD,tmpC ! used for chilling in Fedder95. Declare it here so we can allocate in init.
-  real(rp), dimension(:,:), allocatable, private :: JF0,RM,RRdi ! used for zhang15
-  real(rp), dimension(:,:), allocatable, private :: tmpE,tmpF ! used for smoothing precipitation avg_eng and num_flux
+  real(rp), dimension(:,:), allocatable, private :: RM,RRdi ! used for zhang15
   real(rp), dimension(:,:), allocatable, private :: beta_RCM,alpha_RCM,gtype_RCM ! two-dimensional beta based on RCM fluxes.
 
   !Replacing some hard-coded inline values (bad) w/ module private values (slightly less bad)
   real(rp), parameter, private :: maxDrop = 20.0 !Hard-coded max potential drop [kV]
+  real(rp), parameter, private :: eTINY = 1.D-8 ! Floor of average energy [keV]
+  real(rp), parameter, private :: Ne_floor = 0.03e6 ! minimum Ne in [/m^3] when evaluating the linearized FL relation.
+  real(rp), parameter, private :: Ne_psp = 10.0e6 ! Ne threshold for the plasmasphere in [/m^3].
   real(rp), private :: RinMHD = 0.0 !Rin of MHD grid (0 if not running w/ MHD)
   real(rp), private :: MIXgamma
   logical , private :: doDrift = .false. !Whether to add drift term from Zhang
@@ -72,24 +73,14 @@ module mixconductance
       if (.not. allocated(conductance%PrecipMask)) allocate(conductance%PrecipMask(G%Np,G%Nt))    
 
       ! these arrays are global and should not be! reallocate them
-      if(allocated(tmpD)) deallocate(tmpD)
-      if(allocated(tmpC)) deallocate(tmpC)
-      if(allocated(JF0)) deallocate(JF0)
       if(allocated(RM)) deallocate(RM)
       if(allocated(RRdi)) deallocate(RRdi)
-      if(allocated(tmpE)) deallocate(tmpE)
-      if(allocated(tmpF)) deallocate(tmpF)
       if(allocated(beta_RCM)) deallocate(beta_RCM)
       if(allocated(alpha_RCM)) deallocate(alpha_RCM)
       if(allocated(gtype_RCM)) deallocate(gtype_RCM)
 
-      allocate(tmpD(G%Np,G%Nt))
-      allocate(tmpC(G%Np,G%Nt))  
-      allocate(JF0(G%Np,G%Nt))      
       allocate(RM(G%Np,G%Nt))      
       allocate(RRdi(G%Np,G%Nt))      
-      allocate(tmpE(G%Np+4,G%Nt+4)) ! for boundary processing.
-      allocate(tmpF(G%Np+4,G%Nt+4))
       allocate(beta_RCM(G%Np,G%Nt))
       allocate(alpha_RCM(G%Np,G%Nt))
       allocate(gtype_RCM(G%Np,G%Nt))
@@ -288,28 +279,21 @@ module mixconductance
     end subroutine conductance_euv
 
     subroutine conductance_fedder95(conductance,G,St)
-      ! Derive electron precipitation energy flux and avg energy using Feder95 formula.
+      ! Derive electron precipitation energy flux and avg energy using Fedder95 formula.
       type(mixConductance_T), intent(inout) :: conductance
       type(mixGrid_T), intent(in) :: G
       type(mixState_T), intent(inout) :: St
       
-      real(rp) :: Redge, Rmin, Rmin2, Rmax, rfac
-      real(rp) :: signOfY, signOfJ
+      real(rp) :: signOfJ
       real(rp) :: Rout = 6.D0, Rin = 1.2D0
       real(rp) :: rhoFactor = 3.3D-24*0.5D0
-
-      tmpC = 0.D0
-      tmpD = 0.D0
+      real(rp) :: rPolarBound = 20.0D0*pi/180.D0, rEquatBound = 30.0D0*pi/180.0D0, rLowLimit = 0.02D0
+      real(rp) :: D,Cs,Pe,Ne,dE,phi0,E0,aRes,dEc
+      integer :: i,j
 
       if (St%hemisphere==NORTH) then
-         signOfY = -1  ! note, factor2 (dawn-dusk asymmetry is not
-                           ! implemented since factor2 in the old
-                           ! fedder95 code was removed, i.e., set to
-                           ! 1, anyway). I think Mike did this when he
-                           ! implemented his ramp function.
          signOfJ = -1  
       elseif (St%hemisphere==SOUTH) then
-         signOfY = 1
          signOfJ = 1
       else
          stop 'Wrong hemisphere label. Stopping...'
@@ -317,242 +301,71 @@ module mixconductance
 
       ! fills in rampFactor
       if (conductance%doRamp) then
-         call conductance_ramp(conductance,G,20.0D0*pi/180.D0,30.0D0*pi/180.0D0,0.02D0)
+         call conductance_ramp(conductance,G,rPolarBound,rEquatBound,rLowLimit)
       else 
          conductance%rampFactor = 1.0D0
-      end if
-
-      if (conductance%doChill) then
-         ! MHD density replaced with gallagher where it's lower      
-         ! and temperature changed correspondingly
-          tmpD = max(G%D0*Mp_cgs,St%Vars(:,:,DENSITY))
-          tmpC = St%Vars(:,:,SOUND_SPEED)*sqrt(St%Vars(:,:,DENSITY)/tmpD)
-       else
-          tmpD = St%Vars(:,:,DENSITY)
-          tmpC = St%Vars(:,:,SOUND_SPEED)
-      end if
+      endif
       
-      conductance%E0 = conductance%alpha*Mp_cgs*heFrac*erg2kev*tmpC**2*conductance%RampFactor
-      conductance%phi0 = sqrt(kev2erg)/(heFrac*Mp_cgs)**1.5D0*conductance%beta*tmpD*sqrt(conductance%E0)*conductance%RampFactor
-      ! resistence out of the ionosphere is 2*rout resistence into the
-      ! ionosphere is 2*rin outward current is positive
-      where ( signOfJ*St%Vars(:,:,FAC) >=0. ) 
-         conductance%aRes = 2.D0*Rout
-      elsewhere
-         conductance%aRes = 2.D0*Rin
-      end where
-   
-      ! Density floor to limit characteristic energy.  See Wiltberger et al. 2009 for details.
-      where (tmpD < rhoFactor*conductance%euvSigmaP) 
-         tmpD = rhoFactor*conductance%euvSigmaP
-      end where
-      conductance%deltaE = (heFrac*Mp_cgs)**1.5D0/eCharge*1.D-4*sqrt(erg2kev)*conductance%R*conductance%aRes*signOfJ*(St%Vars(:,:,FAC)*1.e-6)*sqrt(conductance%E0)/tmpD
+      !$OMP PARALLEL DO default(shared) &
+      !$OMP private(i,j,D,Cs,dE,phi0,E0,aRes,dEc)
+      do j=1,G%Nt
+         do i=1,G%Np
+            if (conductance%doChill) then
+               ! MHD density replaced with gallagher where it's lower      
+               ! and temperature changed correspondingly
+               D  = max(G%D0(i,j)*Mp_cgs, St%Vars(i,j,DENSITY)) ! [g/cm^3]
+               Cs = St%Vars(i,j,SOUND_SPEED)*sqrt(St%Vars(i,j,DENSITY)/D) ! [cm/s]
+            else
+               D  = St%Vars(i,j,DENSITY)
+               Cs = St%Vars(i,j,SOUND_SPEED)
+            endif
+            ! Mean energy from MHD electron fluxes in [keV]. E_avg = 2*kT for Maxwellian.
+            E0 = conductance%alpha*Mp_cgs*heFrac*erg2kev*Cs**2*conductance%rampFactor(i,j)
+            conductance%E0  (i,j) = E0
+            ! Thermal number flux from MHD electron fluxes in [#/cm^2/s].
+            phi0 = sqrt(kev2erg)/(heFrac*Mp_cgs)**1.5D0*conductance%beta*D*sqrt(E0)*conductance%rampFactor(i,j)
+            conductance%phi0(i,j) = phi0
+            
+            ! resistence out of the ionosphere is 2*rout resistence into the
+            ! ionosphere is 2*rin outward current is positive
+            if( signOfJ*St%Vars(i,j,FAC) >=0. ) then
+              aRes = 2.D0*Rout
+            else
+              aRes = 2.D0*Rin
+            endif
 
-      ! limit the max potential energy drop to 20 [keV]
-      conductance%deltaE = min(maxDrop,conductance%deltaE)
+            ! Density floor to limit characteristic energy.  See Wiltberger et al. 2009 for details.
+            D = min(D,rhoFactor*conductance%euvSigmaP(i,j))
+            ! Original form for ref: 
+            ! (heFrac*Mp_cgs)**1.5D0/eCharge*1.D-4*sqrt(erg2kev)*conductance%R*aRes*signOfJ*(St%Vars(:,:,FAC)*1.D-6)*sqrt(E0)/D
+            dE = (heFrac*Mp_cgs)**1.5D0/eCharge*1.D-4*sqrt(erg2kev)*conductance%R*aRes*signOfJ*(St%Vars(i,j,FAC)*1.D-6)*sqrt(E0)/D
+            conductance%deltaE(i,j) = dE
+            dEc = min(dE,maxDrop)
 
-      ! floor on total energy
-      St%Vars(:,:,AVG_ENG) = max(conductance%E0 + conductance%deltaE,1.D-8)
-
-      where  ( conductance%deltaE > 0. )
-         St%Vars(:,:,NUM_FLUX) = conductance%phi0*(8.D0-7.D0*exp(-conductance%deltaE/7.D0/conductance%E0))
-      elsewhere 
-         St%Vars(:,:,NUM_FLUX) = conductance%phi0*exp(conductance%deltaE/conductance%E0)
-      end where
+            St%Vars(i,j,AVG_ENG) = max( E0+dEc, eTINY)
+            if(dEc>0.) then
+              St%Vars(i,j,NUM_FLUX) = phi0*(8.D0-7.D0*exp(-dEc/7.D0/E0))
+            else
+              St%Vars(i,j,NUM_FLUX) = phi0*exp(dEc/E0)
+            endif
+            St%Vars(i,j,DELTAE) = conductance%deltaE(i,j) ! [kV]
+         enddo ! i
+      enddo ! j
 
     end subroutine conductance_fedder95
 
-    subroutine conductance_zhang15(conductance,G,St,dorcmO)
+    subroutine conductance_zhang15(conductance,G,St)
       ! Derive electron precipitation energy flux and avg energy using the nonlinear Fridman-Lemaire relation [Zhang et al., 2014JA020615].
       type(mixConductance_T), intent(inout) :: conductance
       type(mixGrid_T), intent(in) :: G
       type(mixState_T), intent(inout) :: St
-      logical, optional, intent(in) :: dorcmO
       
       real(rp) :: signOfY, signOfJ
-      logical :: dorcm
-      real(rp), dimension(G%Np,G%Nt) :: Pe_MHD, Ne_MHD, Pe_RMD, Ne_RMD, ceV
-      
-      if(present(dorcmO)) then
-         dorcm = dorcmO
-      else ! default is NOT use RCM thermal flux for mono derivation.
-         dorcm = .false. 
-      endif
-
-      tmpC = 0.D0
-      tmpD = 0.D0
-      JF0 = 0.D0
-      
-      if (St%hemisphere==NORTH) then
-         signOfY = -1  ! note, factor2 (dawn-dusk asymmetry is not
-                           ! implemented since factor2 in the old
-                           ! fedder95 code was removed, i.e., set to
-                           ! 1, anyway). I think Mike did this when he
-                           ! implemented his ramp function.
-         signOfJ = -1  
-      elseif (St%hemisphere==SOUTH) then
-         signOfY = 1
-         signOfJ = 1
-      else
-         stop 'Wrong hemisphere label. Stopping...'
-      endif
-
-      if (conductance%doChill) then
-         ! MHD density replaced with gallagher where it's lower      
-         ! and temperature changed correspondingly
-          tmpD = max(G%D0*Mp_cgs,St%Vars(:,:,DENSITY)) ! [g/cm^3]
-          tmpC = St%Vars(:,:,SOUND_SPEED)*sqrt(St%Vars(:,:,DENSITY)/tmpD) ! [cm/s]
-       else
-          tmpD = St%Vars(:,:,DENSITY)
-          tmpC = St%Vars(:,:,SOUND_SPEED)
-      end if
-
-      call conductance_auroralmask(conductance,G,signOfY)
-
-      Pe_MHD = 0.1/MIXgamma*alpha_RCM*tmpD*tmpC**2 ! electron pressure from MHD side in [Pa]. 0.1 is to convert [g/cm^3]*[cm/s]^2=[g/cm/s^2] to [Pa].
-      Ne_MHD = tmpD/(Mp_cgs*heFrac)*1.0D6      ! electron number density from MHD side in [/m^3].
-      if(.not.dorcm) then ! default Zhang15 using MHD thermal flux only.
-         conductance%E0   = 2.0/kev2J*Pe_MHD/Ne_MHD     ! Mean energy from MHD electron fluxes in [keV]. E_avg = 2*kT for Maxwellian.
-         conductance%phi0 = beta_RCM*sqrt(Pe_MHD*Ne_MHD/(2.0D-3*pi*Me_cgs))*1.0D-4     ! Thermal number flux from MHD electron fluxes in [#/cm^2/s].
-      else ! Trigger this part by including dorcm=.true. when calling zhang15.
-         ! similarly, E0 is a ratio and should NOT be merged. 
-         ! Derive it from merged pressure and density instead.
-         ! See kaiju wiki for derivations of the coefficients.
-         ! https://bitbucket.org/aplkaiju/kaiju/wiki/userGuide/derivation_of_precipitation
-         Pe_RMD = gtype_RCM*St%Vars(:,:,IM_EPRE) + (1.0-gtype_RCM)*Pe_MHD ! Merged electron pressure in [Pa].
-         Ne_RMD = gtype_RCM*St%Vars(:,:,IM_EDEN) + (1.0-gtype_RCM)*Ne_MHD ! Merged electron number density in [/m^3].
-         conductance%E0   = 2.0/kev2J*Pe_RMD/Ne_RMD     ! Mean energy from merged electron fluxes in [keV].
-         conductance%phi0 = beta_RCM*sqrt(Pe_RMD*Ne_RMD/(2.0D-3*pi*Me_cgs))*1.0D-4     ! Thermal number flux from merged electron fluxes in [#/cm^2/s].
-      endif
-      
-      JF0 = min( 1.D-4*signOfJ*(St%Vars(:,:,FAC)*1.e-6)/eCharge/(conductance%phi0), RM*0.99 )
-
-      !NOTE: conductance%drift should be turned off when using RCM for diffuse
-      if (.not. doDrift) then
-         conductance%drift = 1.0 !Remove dep.
-      endif
-
-      where ( JF0 > 1. )
-      ! limit the max potential energy drop to 20 [keV]
-      ! deltaE, or eV=kB*Te*(RM-1)*ln((RM-1)/(RM-J/e/F0)) when 1<=J/e/F0<=RM.
-         conductance%deltaE = min( 0.5*conductance%E0*(RM - 1.D0)*dlog((RM-1.D0)/(RM-JF0)),maxDrop)
-         St%Vars(:,:,Z_NFLUX) = JF0*conductance%phi0
-      elsewhere
-         conductance%deltaE = 0.
-         St%Vars(:,:,Z_NFLUX) = conductance%phi0*conductance%drift
-      end where
-
-      ! floor on total energy
-      ! Eavg=2*kB*Te + eV*(1-exp(-eV/(RM-1)/kB/Te))/(1-(1-1/RM)*exp(-eV/(RM-1)/kB/Te))
-      ceV = 0.D0
-      ceV = exp(-conductance%deltaE/(0.5*conductance%E0*(RM-1)))
-      St%Vars(:,:,Z_EAVG) = max(conductance%E0 + conductance%deltaE*(1-ceV)/(1-(1-1/RM)*ceV),1.D-8)
-
-      ! Apply Zhang15 precipitation to main arrays
-      St%Vars(:,:,AVG_ENG)  = St%Vars(:,:,Z_EAVG) ! [keV]
-      St%Vars(:,:,NUM_FLUX) = St%Vars(:,:,Z_NFLUX)! [#/cm^2/s]
-      St%Vars(:,:,DELTAE)   = conductance%deltaE  ! [kV]
-      
-    end subroutine conductance_zhang15
- 
-    subroutine conductance_linmrg(conductance,G,St)
-      ! Derive mono-diffuse electron precipitation where mono is based on linearized FL relation,
-      ! diffuse is derived from RCM. The merging code was duplicated from kmerge. 
-      type(mixConductance_T), intent(inout) :: conductance
-      type(mixGrid_T), intent(in) :: G
-      type(mixState_T), intent(inout) :: St
-
-      integer :: i,j
-      real(rp) :: wC1,wC2,wRCM,gtype
-      real(rp) :: mhd_eavg,mhd_nflx,mhd_eflx,mhd_delE
-      real(rp) :: rcm_eavg,rcm_nflx,rcm_eflx
-      real(rp) :: mix_eavg,mix_nflx,mix_eflx
-      logical :: isRCM,isMHD,isMIX
-      St%Vars(:,:,AUR_TYPE) = 0
-
-      wC1 = 0.15
-      wC2 = 1.0-wC1
-
-      !Get RCM grid weighting: 1=RCM and 0=MHD
-      call conductance_IM_GTYPE(G,St)
-
-      ! Derive mono using the linearized FL relation.
-      call conductance_linmono(conductance,G,St)
-
-      !$OMP PARALLEL DO default(shared) &
-      !$OMP private(i,j,isRCM,isMHD,isMIX,wRCM,gtype) &
-      !$OMP private(mhd_eavg,mhd_nflx,mhd_eflx,mhd_delE) &
-      !$OMP private(rcm_eavg,rcm_nflx,rcm_eflx         ) &
-      !$OMP private(mix_eavg,mix_nflx,mix_eflx         )
-      do j=1,G%Nt
-         do i=1,G%Np
-            !Start by figuring out where we are
-            !gtype = St%Vars(i,j,IM_GTYPE)
-            gtype = gtype_RCM(i,j)         
-            isRCM = gtype >= wC2
-            isMHD = gtype <= wC1
-            if ( (.not. isRCM) .and. (.not. isMHD) ) then
-               isMIX = .true.
-            endif
-
-            !Grab values
-            mhd_eavg = St%Vars(i,j,AVG_ENG)
-            mhd_nflx = St%Vars(i,j,NUM_FLUX)
-            mhd_delE = conductance%deltaE(i,j)
-            mhd_eflx = St%Vars(i,j,AVG_ENG)*St%Vars(i,j,NUM_FLUX)*kev2erg
-            rcm_nflx = St%Vars(i,j,IM_ENFLX)
-            rcm_eflx = St%Vars(i,j,IM_EFLUX)
-            rcm_eavg = rcm_eflx/(rcm_nflx*kev2erg) !Back to keV
-
-            if (isMHD) then
-               St%Vars(i,j,AVG_ENG ) = mhd_eavg
-               St%Vars(i,j,NUM_FLUX) = mhd_nflx
-            else if (isRCM) then
-               if (rcm_nflx <= TINY) then
-                  rcm_eavg = 1.0e-8
-               endif
-               St%Vars(i,j,AVG_ENG ) = rcm_eavg
-               St%Vars(i,j,NUM_FLUX) = rcm_nflx
-               conductance%deltaE(i,j) = 0.0
-            else
-               !Mixture
-               wRCM = RampUp(gtype,wC1,wC2-wC1)
-               if ( (rcm_nflx > TINY) ) then
-                  !Mix both
-                  mix_nflx = wRCM*rcm_nflx + (1-wRCM)*mhd_nflx
-                  mix_eflx = wRCM*rcm_eflx + (1-wRCM)*mhd_eflx
-               else
-                  !RCM data wasn't good so just use MHD
-                  mix_nflx = mhd_nflx
-                  mix_eflx = mhd_eflx
-               endif
-               mix_eavg = mix_eflx/(mix_nflx*kev2erg)
-
-               St%Vars(i,j,AVG_ENG ) = mix_eavg
-               St%Vars(i,j,NUM_FLUX) = mix_nflx
-            endif
-         enddo
-      enddo
-
-    end subroutine conductance_linmrg
-
-    subroutine conductance_linmono(conductance,G,St)
-      ! Linearized Fridman-Lemaire relation for mono.
-      type(mixConductance_T), intent(inout) :: conductance
-      type(mixGrid_T), intent(in) :: G
-      type(mixState_T), intent(inout) :: St
-      
-      real(rp) :: signOfY, signOfJ
-      integer :: i,j
       real(rp) :: D,Cs,Pe,Ne,J2eF0,eV2kT,dE,phi0,kT
-      real(rp) :: eTINY
-
+      integer :: i,j
+      
       if (St%hemisphere==NORTH) then
-         signOfY = -1  ! note, factor2 (dawn-dusk asymmetry is not
-                           ! implemented since factor2 in the old
-                           ! fedder95 code was removed, i.e., set to
-                           ! 1, anyway). I think Mike did this when he
-                           ! implemented his ramp function.
+         signOfY = -1
          signOfJ = -1  
       elseif (St%hemisphere==SOUTH) then
          signOfY = 1
@@ -560,9 +373,16 @@ module mixconductance
       else
          stop 'Wrong hemisphere label. Stopping...'
       endif
-
-      eTINY = 1.D-8
-
+      
+      if (doDrift) then
+        ! Use artificial drift to get dawn-preferred diffuse electron precipitation
+        ! when only using MHD information to derive it.
+        call conductance_auroralmask(conductance,G,signOfY)
+      else
+        ! conductance%drift should be turned off when using RCM for diffuse
+        conductance%drift = 1.0
+      endif
+      
       !$OMP PARALLEL DO default(shared) &
       !$OMP private(i,j,D,Cs,Pe,Ne,J2eF0,eV2kT,dE,phi0,kT)
       do j=1,G%Nt
@@ -589,27 +409,207 @@ module mixconductance
             conductance%phi0(i,j) = phi0
 
             ! Note JF0 may go inf where phi0/Pe_MHD/Ne_MHD is zero.
-            J2eF0 = 1.D-4*signOfJ*(St%Vars(i,j,FAC)*1.D-6)/(eCharge*phi0)
+            J2eF0 = min( 1.D-4*signOfJ*(St%Vars(i,j,FAC)*1.D-6)/(eCharge*phi0), RM(i,j)*0.99 )
+            ! NonLinear Fridman-Lemaire relation: 
+            ! eV = 2*kB*Te + eV*(1-exp(-eV/(RM-1)/kB/Te))/(1-(1-1/RM)*exp(-eV/(RM-1)/kB/Te)), when
+            ! 1<=J/e/F0<=RM.
+            if (J2eF0>1.0) then
+               dE = kT*(RM(i,j)-1.D0)*dlog((RM(i,j)-1.D0)/(RM(i,j)-J2eF0))
+               conductance%deltaE(i,j) = dE
+               St%Vars(i,j,Z_NFLUX) = J2eF0*phi0
+            else
+               conductance%deltaE(i,j) = 0.0
+               St%Vars(i,j,Z_NFLUX) = phi0*conductance%drift(i,j)
+            endif
+
+            ! limit the max potential energy drop to maxDrop (20 [keV])
+            ! Use capped dE to calculate the mean energy.
+            ! eV2kT = exp(-eV/(RM-1)/kB/Te)
+            eV2kT = exp( -min(dE,maxDrop)/(kT*(RM(i,j)-1.D0)) )
+            ! Floor the mean energy.
+            ! Note in the original code of Zhang, EAVG is simply 2*kT+dE, a good enough approximation.
+            St%Vars(i,j,Z_EAVG) = max( 2.0*kT+min(dE,maxDrop)*(1.D0-eV2kT)/(1.D0-(1.D0-1.D0/RM(i,j))*eV2kT), eTINY)
+
+            ! Apply Zhang15 precipitation to main arrays
+            St%Vars(i,j,DELTAE)   = conductance%deltaE(i,j) ! [kV]
+            St%Vars(i,j,AVG_ENG)  = St%Vars(i,j,Z_EAVG)     ! [keV]
+            St%Vars(i,j,NUM_FLUX) = St%Vars(i,j,Z_NFLUX)    ! [#/cm^2/s]
+         enddo ! i
+      enddo ! j
+
+    end subroutine conductance_zhang15
+ 
+    subroutine conductance_linmrg(conductance,G,St)
+      ! Derive mono-diffuse electron precipitation where mono is based on linearized FL relation,
+      ! and diffuse is a combination of MHD and RCM precipitation.
+      type(mixConductance_T), intent(inout) :: conductance
+      type(mixGrid_T), intent(in) :: G
+      type(mixState_T), intent(inout) :: St
+
+      integer :: i,j
+      real(rp) :: wRCM,wMHD
+      real(rp) :: mhd_nflx,mhd_eflx,mhd_eavg
+      real(rp) :: rcm_nflx,rcm_eflx,rcm_eavg
+      real(rp) :: mix_nflx,mhd_SigPH,rcm_SigPH
+      logical :: isMono,isPSP
+
+      St%Vars(:,:,AUR_TYPE) = 0
+
+      ! derive spatially varying beta and gtype 
+      ! using RCM precipitation and thermal fluxes.
+      call conductance_beta_gtype(G,St)
+
+      ! Derive mono using the linearized FL relation.
+      call conductance_linmono(conductance,G,St)
+
+      !$OMP PARALLEL DO default(shared) &
+      !$OMP private(i,j,isMono,isPSP,wRCM,wMHD) &
+      !$OMP private(mhd_nflx,mhd_eflx,mhd_eavg) &
+      !$OMP private(rcm_nflx,rcm_eflx,rcm_eavg) &
+      !$OMP private(mix_nflx,mhd_SigPH,rcm_SigPH)
+      do j=1,G%Nt
+         do i=1,G%Np
+            !Start by figuring out where we are
+            isPSP = St%Vars(i,j,IM_NPSP)>=Ne_psp .or. beta_RCM(i,j)<=0.01
+            isMono = St%Vars(i,j,DELTAE)>eTINY
+            !Grab values
+            mhd_nflx = St%Vars(i,j,NUM_FLUX)
+            rcm_nflx = St%Vars(i,j,IM_ENFLX)
+            mhd_eflx = St%Vars(i,j,AVG_ENG)*St%Vars(i,j,NUM_FLUX)*kev2erg
+            rcm_eflx = St%Vars(i,j,IM_EFLUX)
+            mhd_eavg = St%Vars(i,j,AVG_ENG)
+            if(rcm_nflx>TINY) then
+               rcm_eavg = rcm_eflx/(rcm_nflx*kev2erg)
+            else
+               rcm_eavg = eTINY
+            endif
+
+            if(isPSP) then
+               ! Set auroral type to diffuse. Use RCM values for diffuse nflux and eavg in the plasmasphere.
+               St%Vars(i,j,NUM_FLUX) = rcm_nflx
+               St%Vars(i,j,AVG_ENG)  = rcm_eavg
+               St%Vars(i,j,AUR_TYPE) = AT_RMnoE
+            elseif(isMono .and. .not.isPSP) then
+               ! Set auroral type to mono. Keep linmono values for mono nflux and eavg.
+               mhd_SigPH = SigmaP_Robinson(mhd_eavg,mhd_eflx)**2+SigmaH_Robinson(mhd_eavg,mhd_eflx)**2
+               rcm_SigPH = SigmaP_Robinson(rcm_eavg,rcm_eflx)**2+SigmaH_Robinson(rcm_eavg,rcm_eflx)**2
+               if(mhd_SigPH>rcm_SigPH) then
+                  St%Vars(i,j,AUR_TYPE) = AT_RMono
+               else
+                  St%Vars(i,j,NUM_FLUX) = rcm_nflx
+                  St%Vars(i,j,AVG_ENG)  = rcm_eavg
+                  St%Vars(i,j,AUR_TYPE) = AT_RMnoE
+               endif
+            else
+               ! Linearly merge MHD and RCM diffuse nflux and eflux.
+               ! Note where deltaE>eTINY but beta_RCM<=0.01, gtype will be near 1.
+               wRCM = gtype_RCM(i,j)
+               wMHD = 1.0-wRCM
+               mix_nflx = wMHD*mhd_nflx + wRCM*rcm_nflx
+               St%Vars(i,j,NUM_FLUX) = mix_nflx
+               if(mix_nflx>TINY) then
+                  St%Vars(i,j,AVG_ENG) = (wMHD*mhd_eflx+wRCM*rcm_eflx)/(mix_nflx*kev2erg)
+               else
+                  St%Vars(i,j,AVG_ENG) = eTINY
+               endif
+               St%Vars(i,j,AUR_TYPE) = AT_RMnoE
+            endif
+         enddo
+      enddo
+
+    end subroutine conductance_linmrg
+
+    subroutine conductance_linmono(conductance,G,St)
+      ! Linearized Fridman-Lemaire relation for mono.
+      type(mixConductance_T), intent(inout) :: conductance
+      type(mixGrid_T), intent(in) :: G
+      type(mixState_T), intent(inout) :: St
+      
+      real(rp) :: signOfJ
+      integer :: i,j
+      real(rp) :: D,Cs,Pe,Ne,J2eF0,eV2kT,dE,phi0,kT
+      real(rp) :: Pe_mhd,Ne_mhd,kT_mhd,phi0_mhd
+      real(rp) :: Pe_rcm,Ne_rcm,kT_rcm,phi0_rcm
+      real(rp) :: wMHD,wRCM
+
+      if (St%hemisphere==NORTH) then
+         signOfJ = -1  
+      elseif (St%hemisphere==SOUTH) then
+         signOfJ = 1
+      else
+         stop 'Wrong hemisphere label. Stopping...'
+      endif
+
+      !$OMP PARALLEL DO default(shared) &
+      !$OMP private(i,j,D,Cs,Pe,Ne,J2eF0,eV2kT,dE,phi0,kT) &
+      !$OMP private(Pe_mhd,Ne_mhd,kT_mhd,phi0_mhd) &
+      !$OMP private(Pe_rcm,Ne_rcm,kT_rcm,phi0_rcm)
+      do j=1,G%Nt
+         do i=1,G%Np
+            if (conductance%doChill) then
+               ! MHD density replaced with gallagher where it's lower      
+               ! and temperature changed correspondingly
+               D  = max(G%D0(i,j)*Mp_cgs, St%Vars(i,j,DENSITY)) ! [g/cm^3]
+               Cs = St%Vars(i,j,SOUND_SPEED)*sqrt(St%Vars(i,j,DENSITY)/D) ! [cm/s]
+            else
+               D  = St%Vars(i,j,DENSITY)
+               Cs = St%Vars(i,j,SOUND_SPEED)
+            endif
+            ! electron pressure from MHD side in [Pa]
+            ! 0.1 is to convert [g/cm^3]*[cm/s]^2=[g/cm/s^2] to [Pa].
+            Pe_mhd = 0.1/MIXgamma*alpha_RCM(i,j)*D*(Cs**2)
+            ! electron number density from MHD side in [/m^3].
+            Ne_mhd = D/(Mp_cgs*heFrac)*1.0D6
+            ! Mean energy from MHD electron fluxes in [keV]. E_avg = 2*kT for Maxwellian.
+            kT_mhd = Pe_mhd/(Ne_mhd*kev2J)
+            ! Thermal number flux from MHD electron fluxes in [#/cm^2/s].
+            ! Treat MHD flux on closed field lines as trapped flux.
+            ! Beta now stands for the ratio between precipitation and trapped.
+            ! Note phi0 can be zero in the polar cap.
+            phi0_mhd = beta_RCM(i,j)*sqrt(Pe_mhd*Ne_mhd/(2.0D-3*PI*Me_cgs))*1.0D-4
+
+            ! RCM flux
+            Pe_rcm = St%Vars(i,j,IM_EPRE)
+            Ne_rcm = St%Vars(i,j,IM_EDEN)
+            phi0_rcm = St%Vars(i,j,IM_ENFLX)
+
+            ! Merged flux
+            wRCM = gtype_RCM(i,j)
+            wMHD = 1.0-wRCM
+            phi0 = wMHD*phi0_mhd + wRCM*phi0_rcm
+            Ne   = wMHD*Ne_mhd + wRCM*Ne_rcm
+            Pe   = wMHD*Pe_mhd + wRCM*Pe_rcm
+            if(Ne>TINY) then
+               kT = Pe/(Ne*kev2J)
+            else
+               kT = eTINY
+            endif
+
+            conductance%E0  (i,j) = 2.0*kT
+            conductance%phi0(i,j) = phi0
+            ! Note JF0 may go inf where phi0/Pe_MHD/Ne_MHD is zero.
+            J2eF0 = signOfJ*(St%Vars(i,j,FAC)*1.0D-6)/(eCharge*phi0*1.0D4)
             ! Linearize the Fridman-Lemaire relation: 
             ! eV = kB*Te*(RM-1)*ln((RM-1)/(RM-J/e/F0)) when 1<=J/e/F0<=RM.
             ! eV ~ kB*Te*(J/e/F0-1) when RM>>J/e/F0
-            if (J2eF0>1.0 .and. Ne>0.03e6) then
+            if (J2eF0>1.0 .and. Ne>Ne_floor) then
                dE = kT*(J2eF0-1.0)
                conductance%deltaE(i,j) = dE
                eV2kT = min(dE,maxDrop)/kT + 1.0
                St%Vars(i,j,Z_NFLUX) = phi0*eV2kT
                St%Vars(i,j,Z_EAVG) = kT*(eV2kT+1.0/eV2kT)
             else
+               ! When there is no acceleration, MHD flux represents the diffuse precipitation.
                conductance%deltaE(i,j) = 0.0
                St%Vars(i,j,Z_NFLUX) = phi0
                St%Vars(i,j,Z_EAVG) = kT 
             endif
-            St%Vars(i,j,DELTAE) = conductance%deltaE(i,j)
+
+            St%Vars(i,j,DELTAE)   = conductance%deltaE(i,j)
             St%Vars(i,j,AVG_ENG)  = max(St%Vars(i,j,Z_EAVG),eTINY)   ! [keV]
             St%Vars(i,j,NUM_FLUX) = St%Vars(i,j,Z_NFLUX)  ! [#/cm^2/s]
          enddo ! i
       enddo ! j
-      
     end subroutine conductance_linmono
 
     subroutine conductance_rcmhd(conductance,G,St)
@@ -748,6 +748,7 @@ module mixconductance
       integer :: i, j
       logical :: smthDEPonly = .true.
       integer :: smthE
+      real(rp) :: tmpC(G%Np,G%Nt),tmpD(G%Np,G%Nt),tmpE(G%Np+4,G%Nt+4),tmpF(G%Np+4,G%Nt+4)
       smthE = 1 ! 1. smooth EFLUX; 2. smooth EAVG
 
       tmpC = 0.D0
@@ -803,7 +804,6 @@ module mixconductance
 
     subroutine conductance_aurora(conductance,G,St)
       ! Use Robinson formula to get Pedersen and Hall conductance from electron precipitation.
-      ! Diffuse precipitation from RCM has been divided by 2 in rcm_subs.F90 for each hemisphere.
       type(mixConductance_T), intent(inout) :: conductance
       type(mixGrid_T), intent(in) :: G
       type(mixState_T), intent(inout) :: St
@@ -856,93 +856,110 @@ module mixconductance
       end where
     end subroutine conductance_auroralmask
 
-    subroutine conductance_IM_GTYPE(G,St)
-      type(mixGrid_T), intent(in) :: G
-      type(mixState_T), intent(in) :: St
-      real(rp), dimension(3,3) :: A33
-      logical, dimension(3,3) :: isG33 !isG33 = (A3>0.0 .and. A3<1.0)
-      integer :: i,j,it,MaxIter,im1,ip1,jm1,jp1
-      real(rp) :: mad,Ttmp
-      real(rp) :: temp(G%Np,G%Nt)
-
-      MaxIter = 15
-      
-      ! Iterative diffusion algorithm to smooth out IM_GTYPE: 0/1 are boundary cells. Evolve with nine-cell mean. 
-      ! Otherwise it only has three values, 0, 0.5, and 1.0, 
-      ! which causes discontinuities in the merged precipitation.
-      gtype_RCM = St%Vars(:,:,IM_GTYPE) ! supposed to be between 0 and 1.
-
-      call FixPole(G,gtype_RCM)
-
-      do it=1,MaxIter
-         mad = 0.D0 ! max abs difference from last iteration.
-         temp = gtype_RCM
-
-         !$OMP PARALLEL DO default(shared) &
-         !$OMP private(i,j,jm1,jp1,im1,ip1,Ttmp) &
-         !$OMP reduction(max:mad)
-         do j=1,G%Nt ! use open BC for lat.
-            do i=1,G%Np ! use periodic BC for lon.
-
-               jm1 = j-1
-               jp1 = j+1
-               if (j == 1)    jm1 = 1
-               if (j == G%Nt) jp1 = G%Nt
-
-               im1 = i-1
-               ip1 = i+1
-               if (i == 1)    im1 = G%Np
-               if (i == G%Np) ip1 = 1
-
-               if(St%Vars(i,j,IM_GTYPE)>0.01 .and. St%Vars(i,j,IM_GTYPE)<0.99) then
-               ! Use 0.01/0.99 as the boundary for this numerical diffusion because 
-               ! the interpolation from RCM to REMIX would slightly modify the 0/1 boundary.
-                  Ttmp =(temp(im1,jm1)+temp(im1,j)+temp(im1,jp1) &
-                       + temp(i  ,jm1)+temp(i  ,j)+temp(i  ,jp1) &
-                       + temp(ip1,jm1)+temp(ip1,j)+temp(ip1,jp1))/9.D0
-                  mad  = max(abs(gtype_RCM(i,j)-Ttmp),mad)
-                  gtype_RCM(i,j) = Ttmp
-               endif
-            enddo
-         enddo
-         call FixPole(G,gtype_RCM)
-         if(mad<0.025) exit
-      enddo
-
-      gtype_RCM = min(gtype_RCM,1.0)
-      gtype_RCM = max(gtype_RCM,0.0)
-      
-    end subroutine conductance_IM_GTYPE
-
-    subroutine conductance_alpha_beta(conductance,G,St)
-      type(mixConductance_T), intent(inout) :: conductance
+    subroutine conductance_beta_gtype(G,St)
+      ! Use RCM precipitation and source population to derive the loss cone rate beta.
+      ! Assume beta is one in the polar cap and smooth across RCM boundary.
       type(mixGrid_T), intent(in) :: G
       type(mixState_T), intent(inout) :: St
-      real(rp), dimension(G%Np,G%Nt) :: phi0_rcmz
+      logical :: isAncB(G%Np,G%Nt),isAncG(G%Np,G%Nt)
+      real(rp) :: phi0_rcm
       integer :: i,j
 
-      ! In MHD, use the same alpha/beta with RCM.
-      ! Calculate beta from RCM fluxes.
-      ! Default values are from xml in conductance_init.
-      ! It's still necessary to initialize alpha/beta_RCM here because they may be using an old value at some points
-      ! if IM_EAVG or IM_EPRE or EM_EDEN no longer satisfies the if criteria. Better to use default background beta.
-      alpha_RCM = 1.0/(tiote_RCM+1.0)
-      beta_RCM = conductance%beta
-      phi0_rcmz = sqrt(St%Vars(:,:,IM_EPRE)*St%Vars(:,:,IM_EDEN)/(Me_cgs*1e-3*2*pi))*1.0e-4 ! sqrt([Pa]*[#/m^3]/[kg]) = sqrt([#/m^4/s^2]) = 1e-4*[#/cm^2/s]
+      ! Initialize IM_BETA with 1, assuming all flux can be precipitated.
+      ! IM_GTYPE is interpolated from RCM: 1=RCM and 0=MHD.
+      St%Vars(:,:,IM_BETA) = 1.0
+      isAncB = .false. ! beta is smoothed everywhere.
+      isAncG = .false.
+
       !$OMP PARALLEL DO default(shared) &
-      !$OMP private(i,j)
+      !$OMP private(i,j,phi0_rcm)
       do j=1,G%Nt
          do i=1,G%Np
-            if(phi0_rcmz(i,j)>TINY) then
-               beta_RCM(i,j) = St%Vars(i,j,IM_ENFLX)/phi0_rcmz(i,j)
-            elseif(St%Vars(i,j,IM_GTYPE) > 0.5) then
-               beta_RCM(i,j) = 0.0
+            ! Set grids outside RCM as anchors that won't be smoothed.
+            if(St%Vars(i,j,IM_GTYPE)<=0.01) then
+               isAncG(i,j) = .true.
+            endif
+
+            ! Derive beta as the ratio between RCM precipitation and trapped flux.
+            ! sqrt([Pa]*[#/m^3]/[kg]) = sqrt([#/m^4/s^2]) = 1e-4*[#/cm^2/s]
+            phi0_rcm = sqrt(St%Vars(i,j,IM_EPRE)*St%Vars(i,j,IM_EDEN)/(Me_cgs*1e-3*2*pi))*1.0e-4
+            if(phi0_rcm>TINY) then
+               ! This criterion includes all RCM grid. Note beta is 0 where IM_ENFLX is zero.
+               St%Vars(i,j,IM_BETA) = St%Vars(i,j,IM_ENFLX)/phi0_rcm
+               if(St%Vars(i,j,IM_BETA)>1.0) then
+                  ! Near RCM high lat boundary, trapped flux is not well constrained.
+                  ! The beta there can be easily >>1 and is thus not as reliable.
+                  ! Reset grid weight to MHD if RCM beta>1.
+                  St%Vars(i,j,IM_GTYPE) = 0.0 !1.0/St%Vars(i,j,IM_BETA)**2
+                  St%Vars(i,j,IM_BETA)  = 1.0
+                  isAncG(i,j) = .true.
+               endif
             endif
          enddo
       enddo
-      St%Vars(:,:,IM_BETA) = min(beta_RCM,1.0)
 
-    end subroutine conductance_alpha_beta
+      ! Smooth IM_BETA and save in beta_RCM
+      beta_RCM = St%Vars(:,:,IM_BETA)
+      call conductance_smooth(G,beta_RCM,isAncB)
+      St%Vars(:,:,IM_BETA) = beta_RCM 
+      beta_RCM = min(beta_RCM,1.0)
+      beta_RCM = max(beta_RCM,0.0)
+
+      ! Smooth IM_GTYPE and save in gtype_RCM
+      gtype_RCM = St%Vars(:,:,IM_GTYPE)
+      call conductance_smooth(G,gtype_RCM,isAncG)
+      St%Vars(:,:,IM_GTYPE) = gtype_RCM 
+      gtype_RCM = min(gtype_RCM,1.0)
+      gtype_RCM = max(gtype_RCM,0.0)
+    end subroutine conductance_beta_gtype
+
+    subroutine conductance_smooth(Gr,Q,isAnchor)
+      ! Do smoothing window on ReMIX grid quantity
+      ! Skip anchor points
+      type(mixGrid_T), intent(in) :: Gr
+      real(rp), intent(inout) :: Q(Gr%Np,Gr%Nt)
+      logical, intent(in) :: isAnchor(Gr%Np,Gr%Nt)
+      real(rp) :: temp(Gr%Np,Gr%Nt)
+      real(rp) :: thres,mad,Ttmp
+      integer :: i,j,it,im1,ip1,jm1,jp1,MaxIter
+
+      thres = 0.025
+      MaxIter = 15
+      call FixPole(Gr,Q)
+
+      do it=1,MaxIter
+        mad = 0.D0 ! max abs difference from last iteration.
+        temp = Q
+
+        !$OMP PARALLEL DO default(shared) &
+        !$OMP private(i,j,jm1,jp1,im1,ip1,Ttmp) &
+        !$OMP reduction(max:mad)
+        do j=1,Gr%Nt ! use open BC for lat.
+          do i=1,Gr%Np ! use periodic BC for lon.
+            ! Do not smooth anchor points.
+            if(.not. isAnchor(i,j)) then
+              jm1 = j-1
+              jp1 = j+1
+              if (j == 1)     jm1 = 1
+              if (j == Gr%Nt) jp1 = Gr%Nt
+
+              im1 = i-1
+              ip1 = i+1
+              if (i == 1)     im1 = Gr%Np
+              if (i == Gr%Np) ip1 = 1
+
+              Ttmp =(temp(im1,jm1)+temp(im1,j)+temp(im1,jp1) &
+                   + temp(i  ,jm1)+temp(i  ,j)+temp(i  ,jp1) &
+                   + temp(ip1,jm1)+temp(ip1,j)+temp(ip1,jp1))/9.D0
+              mad  = max(abs(Q(i,j)-Ttmp),mad)
+              Q(i,j) = Ttmp
+            endif
+          enddo
+        enddo
+        call FixPole(Gr,Q)
+        if(mad<thres) exit
+      enddo
+    end subroutine conductance_smooth
 
     !Enforce pole condition that all values at the same point are equal
     subroutine FixPole(Gr,Q)
@@ -956,7 +973,7 @@ module mixconductance
     end subroutine FixPole
 
     subroutine conductance_margin(G,array,arraymar)
-      ! Conductance boundary proessing.
+      ! Conductance boundary processing.
       type(mixGrid_T), intent(in) :: G      
       real(rp),dimension(G%Np,G%Nt), intent(in) :: array
       real(rp),dimension(G%Np+4,G%Nt+4), intent(out) :: arraymar
