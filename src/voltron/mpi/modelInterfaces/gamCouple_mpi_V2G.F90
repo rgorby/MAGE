@@ -14,7 +14,7 @@ module gamCouple_mpi_V2G
         type(MPI_Comm) :: couplingComm
         integer :: myRank
         logical :: doSerialVoltron = .false., doAsyncCoupling = .true.
-        logical :: firstRecv= .true., firstSend=.true., firstStepUpdate = .true.
+        logical :: firstRecv= .true., firstSend=.true.
         logical :: doDeep
 
         ! array of all zeroes to simplify various send/receive calls
@@ -24,11 +24,6 @@ module gamCouple_mpi_V2G
 
         ! list of gamera ranks to communicate with
         integer, dimension(:), allocatable :: sendRanks, recvRanks
-
-        ! STEP VOLTRON VARIABLES
-        type(MPI_Request) :: timeReq, timeStepReq
-        real(rp) :: timeBuffer
-        integer :: timeStepBuffer
 
         ! Remix COUPLING VARIABLES
         integer, dimension(:), allocatable :: sendGCountsIneijk
@@ -63,10 +58,11 @@ module gamCouple_mpi_V2G
         !procedure :: WriteConsoleOutput => gamCplWriteConsoleOutput
         !procedure :: WriteFileOutput => gamCplWriteFileOutput
         !procedure :: WriteSlimFileOutput => gamCplWriteSlimFileOutput
-        procedure :: AdvanceModel => gamCplMpiVAdvanceModel
+        !procedure :: AdvanceModel => gamCplMpiVAdvanceModel
         procedure :: Cleanup => gamCplMpiVCleanup
 
         !procedure :: InitCoupler => gamMpiInitCoupler
+        procedure :: UpdateCoupler => gamCplMpiVUpdateCoupler
         !procedure :: CoupleRemix => gamMpiCoupleRemix
         !procedure :: CoupleImag  => gamMpiCoupleImag
 
@@ -89,8 +85,6 @@ module gamCouple_mpi_V2G
         integer, allocatable, dimension(:) :: iRanks, jRanks, kRanks
 
         App%couplingComm = MPI_COMM_NULL
-        App%timeReq = MPI_REQUEST_NULL
-        App%timeStepReq = MPI_REQUEST_NULL
         App%ineijkGSendReq = MPI_REQUEST_NULL
         App%inexyzGSendReq = MPI_REQUEST_NULL
 
@@ -358,11 +352,9 @@ module gamCouple_mpi_V2G
 
     end subroutine
 
-    subroutine gamCplMpiVAdvanceModel(App, dt)
+    subroutine gamCplMpiVUpdateCoupler(App, voltApp)
         class(gamCouplerMpi_volt_T), intent(inout) :: App
-        real(rp), intent(in) :: dt
-
-        ! dt is coupling interval!
+        class(voltApp_T), intent(inout) :: voltApp
 
         if(App%firstRecv) then
             ! need data to process
@@ -373,18 +365,17 @@ module gamCouple_mpi_V2G
 
         if(App%doSerialVoltron) then
             ! doing serial
-            call sendGameraCplDataMpi(App)
+            call sendGameraCplDataMpi(App, voltApp%DeepT)
             call recvGameraCplDataMpi(App)
         else
             ! doing asynchronous
             if(App%firstSend) then
-                call sendGameraCplDataMpi(App)
+                call sendGameraCplDataMpi(App, voltApp%DeepT)
                 App%firstSend = .false.
             endif
 
             call recvGameraCplDataMpi(App)
-            call sendGameraCplDataMpi(App)
-
+            call sendGameraCplDataMpi(App, voltApp%DeepT)
         endif
 
     end subroutine
@@ -409,7 +400,17 @@ module gamCouple_mpi_V2G
 
     end subroutine
 
-    subroutine sendGameraCplDataMpi(gCplApp)
+    subroutine sendGameraCplDataMpi(gCplApp, CouplingTargetT)
+        class(gamCouplerMpi_volt_T), intent(inout) :: gCplApp
+        real(rp), intent(in) :: CouplingTargetT
+
+        call sendShallowCplDataMpi(gCplApp)
+        if(gCplApp%doDeep) call sendDeepCplDataMpi(gCplApp)
+        call sendCplTimeMpi(gCplApp, CouplingTargetT)
+
+    end subroutine
+
+    subroutine sendShallowCplDataMpi(gCplApp)
         class(gamCouplerMpi_volt_T), intent(inout) :: gCplApp
 
         integer :: ierr
@@ -452,6 +453,13 @@ module gamCouple_mpi_V2G
                 stop
         END SELECT
 
+    end subroutine
+
+    subroutine sendDeepCplDataMpi(gCplApp)
+        class(gamCouplerMpi_volt_T), intent(inout) :: gCplApp
+
+        integer :: ierr
+
         ! Send Deep Gas0 Data
         call mpi_neighbor_alltoallw(gCplApp%Grid%Gas0, gCplApp%sendGCountsGas0, &
                                     gCplApp%sendGDisplsGas0, gCplApp%sendGTypesGas0, &
@@ -461,23 +469,22 @@ module gamCouple_mpi_V2G
 
     end subroutine
 
+    subroutine sendCplTimeMpi(gCplApp, CouplingTargetT)
+        class(gamCouplerMpi_volt_T), intent(inout) :: gCplApp
+        real(rp), intent(in) :: CouplingTargetT
+
+        integer :: ierr
+
+        ! Send Target Time for next coupling
+        call mpi_bcast(CouplingTargetT,1,MPI_MYFLOAT, gCplApp%myRank, gCplApp%couplingComm, ierr)
+
+    end subroutine
+
     subroutine gamCplMpiVCleanup(App)
         class(gamCouplerMpi_volt_T), intent(inout) :: App
 
         logical :: reqStat
         integer :: ierr
-
-        call MPI_TEST(App%timeReq,reqStat,MPI_STATUS_IGNORE,ierr)
-        if(.not. reqStat) then
-            call MPI_CANCEL(App%timeReq, ierr)
-            call MPI_WAIT(App%timeReq, MPI_STATUS_IGNORE, ierr)
-        endif
-
-        call MPI_TEST(App%timeStepReq,reqStat,MPI_STATUS_IGNORE,ierr)
-        if(.not. reqStat) then
-            call MPI_CANCEL(App%timeStepReq, ierr)
-            call MPI_WAIT(App%timeStepReq, MPI_STATUS_IGNORE, ierr)
-        endif
 
         call MPI_TEST(App%ineijkGSendReq,reqStat,MPI_STATUS_IGNORE,ierr)
         if(.not. reqStat) then

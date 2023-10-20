@@ -21,7 +21,7 @@ module gamCouple_mpi_G2V
         logical :: doSerialVoltron = .false., doAsyncCoupling = .true.
         logical :: firstCoupling = .true.
 
-        real(rp) :: time, tFin, DeepT, MJD
+        real(rp) :: DeepT, MJD
         integer :: ts
         logical :: doDeep
 
@@ -162,20 +162,44 @@ module gamCouple_mpi_G2V
         class(gamCouplerMpi_gam_T), intent(inout) :: App
         real(rp), intent(in) :: dt
 
-        call sendVoltronCplDataMpi(App)
-        call recvVoltronCplDatampi(App)
+        real(rp) :: targetSimT 
 
-        ! advance parent model
-        call gamMpiAdvanceModel(App, dt)
+        targetSimT = App%Model%t+dt
+
+        ! ensure the model is advanced at least one step
+        if(App%Model%t >= targetSimT) call gamMpiAdvanceModel(App, 0.0_rp)
+
+        ! may need to step around coupling intervals
+        do while(App%Model%t < targetSimT)
+            if(App%DeepT > targetSimT) then
+                ! no additional coupling required here
+                call gamMpiAdvanceModel(App, targetSimT-App%Model%t)
+            else
+                ! we couple before finishing this dt
+                call gamMpiAdvanceModel(App, App%DeepT-App%Model%t)
+
+                call sendVoltronCplDataMpi(App)
+                call recvVoltronCplDatampi(App)
+            endif
+        end do
 
     end subroutine
 
     subroutine recvVoltronCplDataMpi(gCplApp)
-         class(gamCouplerMpi_gam_T), intent(inout) :: gCplApp
+        class(gamCouplerMpi_gam_T), intent(inout) :: gCplApp
+
+
+        call recvShallowCplDataMpi(gCplApp)
+        if(gCplApp%doDeep) call recvDeepCplDataMpi(gCplApp)
+        call recvCplTimeMpi(gCplApp)
+
+    end subroutine
+
+    subroutine recvShallowCplDataMpi(gCplApp)
+        class(gamCouplerMpi_gam_T), intent(inout) :: gCplApp
 
         integer :: ierr
 
-        ! Receive updated data from voltron
         ! The data goes into inEijk and inExyz in the IonInnerBC_T
         ! find the remix BC to write data to
         if(gCplApp%Grid%hasLowerBC(IDIR)) then
@@ -220,12 +244,32 @@ module gamCouple_mpi_G2V
                                         gCplApp%couplingComm, ierr)
         endif
 
+    end subroutine
+
+    subroutine recvDeepCplDataMpi(gCplApp)
+        class(gamCouplerMpi_gam_T), intent(inout) :: gCplApp
+
+        integer :: ierr
+
         ! Receive Gas0 Data
         call mpi_neighbor_alltoallw(gCplApp%Grid%Gas0, gCplApp%zeroArrayCounts, &
                                     gCplApp%zeroArrayDispls, gCplApp%zeroArrayTypes, &
                                     gCplApp%Grid%Gas0, gCplApp%recvVCountsGas0, &
                                     gCplApp%recvVDisplsGas0, gCplApp%recvVTypesGas0, &
                                     gCplApp%couplingComm, ierr)
+
+    end subroutine
+
+    subroutine recvCplTimeMpi(gCplApp)
+        class(gamCouplerMpi_gam_T), intent(inout) :: gCplApp
+
+        integer :: ierr
+
+        ! Receive next Coupling Target Time
+        call mpi_bcast(gCplApp%DeepT,1,MPI_MYFLOAT, gCplApp%voltRank, gCplApp%couplingComm, ierr)
+
+        ! Convert to Gamera time units
+        gCplApp%DeepT = gCplApp%DeepT / gCplApp%Model%Units%gT0
 
     end subroutine
 

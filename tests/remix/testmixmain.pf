@@ -21,7 +21,7 @@ contains
   end subroutine lastSerial
 
   subroutine caseTestInit(gameraApp, caseFile)
-    type(gamApp_T), intent(inout) :: gameraApp
+    class(gamApp_T), intent(inout) :: gameraApp
     character(len=*), intent(in) :: caseFile
 
     type(XML_Input_T) :: xmlInp
@@ -36,16 +36,15 @@ contains
   subroutine testZeroInput()
     ! testing that an input of all zeroes gets output of all zeroes
     type(voltApp_T) :: voltronApp
-    type(gamApp_T) :: gameraApp
     real(rp) :: curTilt
     character(len=strLen) :: caseInput = 'cmiD.xml'
 
     write(*,*) 'Doing testZeroInput ...'
-    call caseTestInit(gameraApp, caseInput)
+    call caseTestInit(voltronApp%gApp, caseInput)
 
-    call initVoltron(voltronApp, gameraApp, caseInput)
+    call initVoltron(voltronApp, caseInput)
 
-    call convertGameraToRemix(voltronApp%mhd2mix, gameraApp, voltronApp%remixApp)
+    call convertGameraToRemix(voltronApp%mhd2mix, voltronApp%gApp, voltronApp%remixApp)
 
     call mapGameraToRemix(voltronApp%mhd2mix, voltronApp%remixApp)
 
@@ -65,8 +64,7 @@ contains
     write(*,*) 'Min/Max of potential (NORTH) = ', minval(voltronApp%remixApp%ion(NORTH)%S%Solution), maxval(voltronApp%remixApp%ion(NORTH)%S%Solution)
     write(*,*) 'Min/Max of potential (SOUTH) = ', minval(voltronApp%remixApp%ion(SOUTH)%S%Solution), maxval(voltronApp%remixApp%ion(SOUTH)%S%Solution)
     
-    call mapRemixToGamera(voltronApp%mix2mhd, voltronApp%remixApp)
-
+    call voltronApp%gApp%CoupleRemix(voltronApp)
 
   end subroutine testZeroInput
 
@@ -74,18 +72,17 @@ contains
   subroutine testConstantSolution()
     ! testing that an input of all zeroes gets output of all zeroes
     type(voltApp_T) :: voltronApp
-    type(gamApp_T) :: gameraApp
     real(rp) :: curTilt
 
     real(rp) :: testValue = 240.19
     character(len=strLen) :: caseInput = 'cmiD.xml'
 
     write(*,*) 'Doing testConstantSolution ...'
-    call caseTestInit(gameraApp, caseInput)
+    call caseTestInit(voltronApp%gApp, caseInput)
 
-    call initVoltron(voltronApp, gameraApp, caseInput)
+    call initVoltron(voltronApp, caseInput)
 
-    call convertGameraToRemix(voltronApp%mhd2mix, gameraApp, voltronApp%remixApp)
+    call convertGameraToRemix(voltronApp%mhd2mix, voltronApp%gApp, voltronApp%remixApp)
 
     call mapGameraToRemix(voltronApp%mhd2mix, voltronApp%remixApp)
 
@@ -112,7 +109,6 @@ contains
   subroutine testAzimuthallyDependentFAC()
     ! testing that an input of all zeroes gets output of all zeroes
     type(voltApp_T) :: voltronApp
-    type(gamApp_T) :: gameraApp
     real(rp) :: curTilt
 
     character(len=strLen) :: caseInput = 'cmiD.xml'
@@ -120,11 +116,11 @@ contains
     real(rp) :: thetaMin, thetaDelta
 
     write(*,*) 'Doing testAzimuthallyDependentFAC ...'
-    call caseTestInit(gameraApp, caseInput)
+    call caseTestInit(voltronApp%gApp, caseInput)
 
-    call initVoltron(voltronApp, gameraApp, caseInput)
+    call initVoltron(voltronApp, caseInput)
 
-    call convertGameraToRemix(voltronApp%mhd2mix, gameraApp, voltronApp%remixApp)
+    call convertGameraToRemix(voltronApp%mhd2mix, voltronApp%gApp, voltronApp%remixApp)
 
     call mapGameraToRemix(voltronApp%mhd2mix, voltronApp%remixApp)
 
@@ -148,7 +144,7 @@ contains
     call run_mix(voltronApp%remixApp%ion, curTilt)
 
     ! potential in remixApp%ion(h)%St%Vars(:,:,POT)
-    call mapRemixToGamera(voltronApp%mix2mhd, voltronApp%remixApp)
+    call voltronApp%gApp%CoupleRemix(voltronApp)
 
   end subroutine testAzimuthallyDependentFAC
 

@@ -103,6 +103,7 @@ module volttypes
 
         ! add new coupling function which can be over-ridden by children
         procedure(InitCoupler_interface), deferred :: InitCoupler
+        procedure(UpdateCoupler_interface), deferred :: UpdateCoupler
         procedure(CoupleRemix_interface), deferred :: CoupleRemix
         procedure(CoupleImag_interface),  deferred :: CoupleImag
 
@@ -146,7 +147,7 @@ module volttypes
         !Deep coupling information
         real(rp) :: DeepT ! Time of next deep coupling
         real(rp) :: DeepDT ! Time between deep couplings
-        real(rp) :: TargetDeepDT ! Desired deep step from Voltron
+        !real(rp) :: TargetDeepDT ! Desired deep step from Voltron
         logical  :: doDeep = .false. !Whether to do deep coupling
         real(rp) :: rTrc  !Radius to do tracing (ebSquish) inside of
         integer  :: nTrc = MaxFL !Max number of tracer steps to take (ebSquish)
@@ -174,6 +175,13 @@ module volttypes
     ! interface for coupling functions
     abstract interface
         subroutine InitCoupler_interface(App, voltApp)
+            import gamCplBase_T
+            import voltApp_T
+            class(gamCplBase_T), intent(inout) :: App
+            class(voltApp_T), intent(inout) :: voltApp
+        end subroutine
+
+        subroutine UpdateCoupler_interface(App, voltApp)
             import gamCplBase_T
             import voltApp_T
             class(gamCplBase_T), intent(inout) :: App

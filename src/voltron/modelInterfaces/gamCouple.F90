@@ -44,6 +44,7 @@ module gamCouple
 
         ! add new coupling function which can be over-ridden by children
         procedure :: InitCoupler => gamInitCoupler
+        procedure :: UpdateCoupler => gamUpdateCoupler
         procedure :: CoupleRemix => gamCoupleRemix
         procedure :: CoupleImag  => gamCoupleImag
 
@@ -191,6 +192,19 @@ module gamCouple
         call init_mix2MhdCoupler(App, voltApp%remixApp)
 
         allocate(App%SrcNC(App%Grid%is:voltApp%chmp2mhd%iMax+1,App%Grid%js:App%Grid%je+1,App%Grid%ks:App%Grid%ke+1,1:NVARIMAG))
+
+    end subroutine
+
+    subroutine gamUpdateCoupler(App, voltApp)
+        class(gamCoupler_T), intent(inout) :: App
+        class(voltApp_T), intent(inout) :: voltApp
+
+        real(rp) :: stepDT
+
+        ! update to DeepT time
+        stepDT = voltApp%DeepT - voltApp%time
+
+        call App%AdvanceModel(stepDT)
 
     end subroutine
 

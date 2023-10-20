@@ -20,7 +20,6 @@ contains
   subroutine ringAvgConservationTest()
     ! testing that gas and mag quantities are conserved during ring averaging
     type(voltApp_T) :: voltronApp
-    type(gamApp_T) :: gameraApp
 
     character(len=strLen) :: caseInput = 'cmiD.xml'
     real(rp), dimension(:,:), allocatable :: denSum, momSumX, momSumY, momSumZ
@@ -29,11 +28,12 @@ contains
     character(len=strLen) :: checkMessage
     type(XML_Input_T) :: xmlInp
 
+    associate(gameraApp=>voltronApp%gApp)
+
     gameraApp%gOptions%userInitFunc => initUser
     xmlInp = New_XML_Input(trim(caseInput),'Kaiju',.true.)
-    call gameraApp%InitModel(xmlInp)
 
-    call initVoltron(voltronApp, gameraApp, caseInput)
+    call initVoltron(voltronApp, caseInput)
 
     ! set specific values to gas and magFlux
     do k=gameraApp%Grid%ks,gameraApp%Grid%ke
@@ -133,6 +133,8 @@ contains
     deallocate(momSumX)
     deallocate(momSumY)
     deallocate(momSumZ)
+
+    end associate
 
   end subroutine
 

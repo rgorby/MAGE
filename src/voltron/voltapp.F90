@@ -148,7 +148,6 @@ module voltapp
         endif
 
         call xmlInp%Set_Val(vApp%DeepDT, "coupling/dtCouple", 5.0_rp)
-        vApp%TargetDeepDT = vApp%DeepDT
         call xmlInp%Set_Val(vApp%rTrc,   "coupling/rTrc"  , 40.0)
 
         !Coupling is unified, so adding a separate XML option to control "deep" parts
@@ -306,15 +305,15 @@ module voltapp
 
     end subroutine initVoltron
 
-    !Step Voltron if necessary (currently just updating state variables)
-    subroutine stepVoltron(vApp, dt)
+    !Step Voltron one coupling interval
+    subroutine stepVoltron(vApp)
         class(voltApp_T), intent(inout) :: vApp
-        real(rp), intent(in) :: dt
 
-         ! substep voltron according to coupling interval
+        ! advance to the NEXT coupling interval
+        vApp%DeepT = vApp%DeepT + vApp%DeepDT
 
         ! this will step coupled Gamera
-        call vApp%gApp%AdvanceModel(dt)
+        call vApp%gApp%UpdateCoupler(vApp)
 
         ! call base update function with local data
         call Tic("DeepUpdate")
@@ -324,6 +323,9 @@ module voltapp
         ! update data in coupled gamera
         call vApp%gApp%CoupleRemix(vApp)
         call vApp%gApp%CoupleImag(vApp)
+
+        ! step complete
+        vApp%time = vApp%DeepT
 
     end subroutine stepVoltron
     

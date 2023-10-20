@@ -27,6 +27,7 @@ program voltron_mpix
     integer(KIND=MPI_AN_MYADDR) :: tagMax
     logical :: tagSet
     type(XML_Input_T) :: xmlInp
+    real(rp) :: nextDT
 
     ! initialize MPI
     !Set up MPI with or without thread support
@@ -112,17 +113,10 @@ program voltron_mpix
                 !Start root timer
                 call Tic("Omega", .true.)
 
-                !Do any updates to Voltron
-                call Tic("StepVoltronAndWait")
-                call stepVoltron_mpi(vApp, 0.0_rp)
-                call Toc("StepVoltronAndWait")
-
-                !Coupling
-                call Tic("Coupling", .true.)
-                if (vApp%time >= vApp%DeepT .and. vApp%doDeep ) then
-                    call DeepUpdate_mpi(vApp)
-                endif
-                call Toc("Coupling", .true.)
+                !Advance Voltron models one coupling step
+                call Tic("StepVoltron")
+                call stepVoltron_mpi(vApp)
+                call Toc("StepVoltron")
 
                 !IO checks
                 call Tic("IO", .true.)
@@ -178,7 +172,8 @@ program voltron_mpix
             call Tic("Omega") !Start root timer
 
             !Step model
-            call gApp%AdvanceModel(0.0_rp)
+            nextDT = min(gApp%Model%tFin-gApp%Model%t, gApp%Model%IO%nextIOTime(gApp%Model%ts, gApp%Model%dt))
+            call gApp%AdvanceModel(nextDT)
 
             !Output if necessary
             call Tic("IO")

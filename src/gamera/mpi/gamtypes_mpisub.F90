@@ -27,7 +27,17 @@ submodule (gamtypes_mpi) gamtypes_mpisub
         class(gamAppMpi_T), intent(inout) :: App
         real(rp), intent(in) :: dt
 
+        real(rp) :: targetSimT 
+
+        targetSimT = App%Model%t+dt
+
+        ! ensure gamera is stepped at least one time
+        ! fortran doesn't allow checking at the end of a while loop
         call stepGamera_mpi(App)
+
+        do while(App%Model%t < targetSimT)
+            call stepGamera_mpi(App)
+        enddo
 
     end subroutine gamMpiAdvanceModel
 

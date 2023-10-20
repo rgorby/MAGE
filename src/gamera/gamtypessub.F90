@@ -66,7 +66,17 @@ submodule (gamtypes) gamtypessub
         class(gamApp_T), intent(inout) :: App
         real(rp), intent(in) :: dt
 
+        real(rp) :: targetSimT 
+
+        targetSimT = App%model%t+dt
+
+        ! ensure gamera is stepped at least one time
+        ! fortran doesn't allow checking at the end of a while loop
         call stepGamera(App)
+
+        do while(App%model%t < targetSimT)
+            call stepGamera(App)
+        enddo
 
     end subroutine gamAdvanceModel
 

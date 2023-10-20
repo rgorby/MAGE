@@ -9,6 +9,7 @@ program gamerax
     type(gamApp_T) :: gApp
     character(len=strLen) :: inpXML
     type(XML_Input_T) :: xmlInp
+    real(rp) :: nextDT
 
     ! set options for gamera app
     gApp%gOptions%userInitFunc => initUser
@@ -30,7 +31,8 @@ program gamerax
         call Tic("Omega") !Start root timer
 
         !Step model
-        call gApp%AdvanceModel(0.0_rp)
+        nextDT = min(gApp%Model%tFin-gApp%Model%t, gApp%Model%IO%nextIOTime(gApp%Model%ts, gApp%Model%dt))
+        call gApp%AdvanceModel(nextDT)
 
         !Output if necessary
         call Tic("IO")

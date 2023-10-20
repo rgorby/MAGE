@@ -15,6 +15,7 @@ program gamera_mpix
     character( len = MPI_MAX_ERROR_STRING) :: message
     character(len=strLen) :: inpXML
     type(XML_Input_T) :: xmlInp
+    real(rp) :: nextDT
 
     ! initialize MPI
     !Set up MPI with or without thread support
@@ -60,7 +61,8 @@ program gamera_mpix
         call Tic("Omega") !Start root timer
 
         !Step model
-        call gAppMpi%AdvanceModel(0.0_rp)
+        nextDT = min(gAppMpi%Model%tFin-gAppMpi%Model%t, gAppMpi%Model%IO%nextIOTime(gAppMpi%Model%ts, gAppMpi%Model%dt))
+        call gAppMpi%AdvanceModel(nextDT)
 
         !Output if necessary
         call Tic("IO")

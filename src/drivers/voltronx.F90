@@ -22,21 +22,12 @@ program voltronx
         !Start root timer
         call Tic("Omega")
         
-        !Advance Gamera MHD
-        !Do any updates to Voltron
-        call stepVoltron(vApp, 0.0_rp)
+        !Advance voltron models one coupling step
+        call Tic("StepVoltron")
+        call stepVoltron(vApp)
+        call Toc("StepVoltron")
         
-    !Coupling
-        call Tic("DeepCoupling")
-        if ( (vApp%time >= vApp%DeepT) .and. vApp%doDeep ) then
-            call DeepUpdate(vApp, vApp%gApp)
-        endif
-        call Toc("DeepCoupling")
-
-    !Update coupling DTs
-    vApp%DeepDT = vApp%TargetDeepDT
-       
-    !IO checks
+        !IO checks
         call Tic("IO")
         !Console output
         if (vApp%IO%doConsole(vApp%ts)) then

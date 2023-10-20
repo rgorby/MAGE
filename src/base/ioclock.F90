@@ -22,6 +22,7 @@ module ioclock
             procedure :: doOutput  => doOutputIOClock
             procedure :: doRestart => doRestartIOClock
             procedure :: doTimer => doTimerIOClock
+            procedure :: nextIOTime => doNextIOTime
 
     end type IOClock_T
 
@@ -125,6 +126,21 @@ module ioclock
         endif
 
     end function doTimerIOClock
+
+    ! Returns the time sim time when sime kind of IO should occur
+    function doNextIOTime(this, curTs, curDt)
+        class(IOClock_T), intent(in) :: this
+        integer, intent(in) :: curTs
+        real(rp), intent(in) :: curDt
+        real(rp) :: doNextIOTime
+
+        doNextIOTime = HUGE
+        if(this%doConOut) doNextIOTime = min(doNextIOTime, curDt*(0.5+this%tsNext-curTs))
+        if(this%doResOut) doNextIOTime = min(doNextIOTime, this%tRes)
+        if(this%doDataOut) doNextIOTime = min(doNextIOTime, this%tOut)
+        ! don't check for clock cleaning timer, it's not important enough (?)
+
+    end function doNextIOTime
 
     !Copy ioA=>ioB using tScl scaling
     subroutine IOSync(ioA,ioB,tSclO)

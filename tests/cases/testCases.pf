@@ -18,7 +18,7 @@ contains
   end subroutine lastSerial
 
   subroutine caseTestInit(gameraApp, caseFile)
-    type(gamApp_T), intent(inout) :: gameraApp
+    class(gamApp_T), intent(inout) :: gameraApp
     character(len=*), intent(in) :: caseFile
 
     type(XML_Input_T) :: xmlInp
@@ -226,24 +226,16 @@ contains
   
   @test
   subroutine testRemix()
-    type(gamApp_T) :: gameraApp
     type(voltApp_T) :: voltronApp
     character(len=strLen) :: caseInput = 'cmiD.xml'
 
-    call caseTestInit(gameraApp, caseInput)
-    call initVoltron(voltronApp, gameraApp, caseInput)
+    call caseTestInit(voltronApp%gApp, caseInput)
+    call initVoltron(voltronApp, caseInput)
 
-    ! Manually running for just 1 second of simulation time
-    do while ((1.0 - gameraApp%Model%t*gameraApp%Model%Units%gT0) > 1e-15)
-        call stepGamera(gameraApp)
+    ! run for one coupling interval
+    call stepVoltron(voltronApp)
 
-        if (gameraApp%Model%t >= voltronApp%DeepT) then
-            call convertGameraToRemix(voltronApp%mhd2mix, gameraApp, voltronApp%remixApp)
-            call runRemix(voltronApp)
-            call convertRemixToGamera(voltronApp%mix2mhd, voltronApp%remixApp, gameraApp)
-        endif
-    end do
-    write(*,*) 'End time = ', gameraApp%Model%t
+    write(*,*) 'End time = ', voltronApp%gApp%Model%t
 
   end subroutine testRemix
 

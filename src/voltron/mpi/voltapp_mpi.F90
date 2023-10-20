@@ -30,6 +30,8 @@ module voltapp_mpi
         logical :: reqStat
         integer :: ierr
 
+        call vApp%gApp%Cleanup()
+
         if(vApp%vHelpWin /= MPI_WIN_NULL) then
             call MPI_WIN_FREE(vApp%vHelpWin, ierr)
         endif
@@ -262,14 +264,14 @@ module voltapp_mpi
     end subroutine initVoltron_mpi
 
      !Step Voltron if necessary (currently just updating state variables)
-    subroutine stepVoltron_mpi(vApp, dt)
+    subroutine stepVoltron_mpi(vApp)
         type(voltAppMpi_T), intent(inout) :: vApp
-        real(rp), intent(in) :: dt
 
-         ! substep voltron according to coupling interval
+        ! advance to the NEXT coupling interval
+        vApp%DeepT = vApp%DeepT + vApp%DeepDT
 
         ! this will step coupled Gamera
-        call vApp%gApp%AdvanceModel(dt)
+        call vApp%gApp%UpdateCoupler(vApp)
 
         ! call base update function with local data
         call Tic("DeepUpdate")
@@ -279,6 +281,9 @@ module voltapp_mpi
         ! update data in coupled gamera
         call vApp%gApp%CoupleRemix(vApp)
         call vApp%gApp%CoupleImag(vApp)
+
+        ! step complete
+        vApp%time = vApp%DeepT
 
     end subroutine stepVoltron_mpi
 
