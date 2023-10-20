@@ -78,7 +78,7 @@ module raijulosses
                     endif
 
                     ! Always do SS for baseline
-                    rateSS(i,j) = IonSSRate(Rp_m, spc%amu, Grid%alamc(k), State%bVol(i,j), Grid%Bmag(i,j))
+                    rateSS(i,j) = StrongScatterRate(Rp_m, spc%amu, Grid%alamc(k), State%bVol(i,j), Grid%Bmag(i,j))
 
                     if (Model%doCC .and. Model%doPlasmasphere) then
                         ! Can only do coulomb collisions if we have a cold plasmasphere
@@ -146,16 +146,18 @@ module raijulosses
     end subroutine calcElectronLossRate
 
 !------
-! Loss rate calculation
+! Loss rate calculations
 !------
 
-    function IonSSRate(Rp_m, amu, alam, bVol, Bfp) result(rateSS)
+    function StrongScatterRate(Rp_m, amu, alam, bVol, Bfp) result(rateSS)
         !! Calculates strong scattering rate, according to Schulz 1998
         !! tau ~ [2*FTV*Bfp/(1-eta)](gamma*m0/p)
         !! FTV = flux tube volume, Bfp = B-field at foot point, eta - back-scattering rate
-        !! Note: Assuming we don't have any relativistic protons, so implemented equation is:
-        !! tau ~ [2*FTV*Bfp/(1-eta)]/V
-        !! (This function should work for electrons too, if relativistic factor is included)
+        !! eta is backscatter rate at alitude h, here eta=2/3.
+        !! gamma = m/m0 is relativisitc factor, p is particle momentum.
+        !!       = mc2/m0c2 = (m0c2+K)/m0c2 = 1+K/mec2 ! mec2=0.511 is me*c^2 in MeV
+        !! m = m0/sqrt(1-v^2/c^2)
+        !! V = c*1/sqrt(1-1/gammar2)
         real(rp), intent(in) :: Rp_m
             !! Planet radius [m]
         real(rp), intent(in) :: amu
@@ -171,22 +173,27 @@ module raijulosses
             !! Back-scatter rate
         real(rp) :: vm, K, V
             !! vm = FTV^(-2/3) , K = KE [J] , V = velocity [Rp/s]
+        real(rp) :: gammar
+            !! Relativistic gamma
         real(rp) :: tauSS, rateSS
             !! Loss timescale [s], rate [1/s]
 
         
         vm = bVol**(-2./3.)  
-        K = abs(alam)*vm*1e-3*kev2J  ! [J]
-        V = sqrt(2*K/(amu*dalton)) / Rp_m  ! m/s -> Rp/s
-
-        tauSS = 2.0*bVol*Bfp/(1.0-eta) / V  ! [s]
+        K = abs(alam)*vm*1e-3  ! Energy [keV]
+        gammar = 1.0+(K*1e-3)/mec2  ! gamma with 1 + MeV/MeV
+        !V = sqrt(2*(K*keV2J)/(amu*dalton)) / Rp_m  ! m/s -> Rp/s
+        !tauSS = 2.0*bVol*Bfp/(1.0-eta) / V  ! [s]
+        V = (vc_cgs*1e-2)*sqrt(1.0-1.0/gammar**2)/Rp_m ! Rp/s
+        tauSS = 2.0*bVol*Bfp/(1.0-eta) / V * gammar ! [s]
+        
         if(tauSS > TINY) then
             rateSS = 1.0/tauSS
         else
             rateSS = 0.0
         endif
 
-    end function IonSSRate
+    end function StrongScatterRate
 
 
     ! Simple Coulomb collision losses, using fit to Ebihara+ 98 Fig #5
