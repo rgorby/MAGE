@@ -622,18 +622,12 @@ module mixconductance
       real(rp) :: mhd_eavg, mhd_nflx, mhd_eflx, rmd_nflx, rmd_eflx, rmd_eavg
       real(rp) :: rmd_eavg_fin, rmd_nflx_fin, rmd_SigP, mhd_SigP
 
-      ! Make dorcm=.false. to use pure MHD fluxes. 
-      ! Tests show that RCM fluxes are so low that they easily trigger mono in the dawnside R2 FAC.
-      logical :: dorcm = .false. 
+      ! derive spatially varying beta and gtype 
+      ! using RCM precipitation and thermal fluxes.
+      call conductance_beta_gtype(G,St)
 
-      ! derive RCM grid weighting based on that passed from RCM and smooth it with five iterations of numerical diffusion.
-      call conductance_IM_GTYPE(G,St)
-
-      ! derive spatially varying beta using RCM precipitation and thermal fluxes. Need IM_GTYPE.
-      call conductance_alpha_beta(conductance,G,St)
-
-      ! derive MHD/mono precipitation with zhang15 but include RCM thermal flux to the source by using dorcm=.true.
-      call conductance_zhang15(conductance,G,St,dorcm)
+      ! derive MHD/mono precipitation with zhang15.
+      call conductance_zhang15(conductance,G,St)
  
       !$OMP PARALLEL DO default(shared) &
       !$OMP private(i,j,isMono) &
