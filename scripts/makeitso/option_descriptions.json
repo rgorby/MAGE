@@ -234,16 +234,16 @@
         "sim": {
             "H5Grid": {
                 "LEVEL": "BASIC",
-                "prompt": "Path to LFM grid file"
+                "prompt": "Relative path to LFM grid file"
             },
             "doH5g": {
-                "LEVEL": "BASIC",
-                "prompt": "Use an existing LFM grid file",
+                "LEVEL": "INTERMEDIATE",
+                "prompt": "Use an existing HDF5 LFM grid file",
                 "default": "T",
                 "valids": ["T", "F"]
             },
             "icType": {
-                "LEVEL": "BASIC",
+                "LEVEL": "INTERMEDIATE",
                 "prompt": "Initial condition type",
                 "default": "user",
                 "valids": ["user"]
@@ -256,73 +256,74 @@
             },
             "pdmb": {
                 "LEVEL": "EXPERT",
-                "prompt": "gamera_sim_pdmb",
+                "prompt": "Partial donor method limit (0+-1)",
                 "default": "0.75"
             },
             "rmeth": {
                 "LEVEL": "EXPERT",
-                "prompt": "gamera_sim_rmeth",
-                "default": "8C"
+                "prompt": "Reconstruction methodology",
+                "default": "8C",
+                "valids": ["7UP", "8C", "8CENT"]
             }
         },
         "floors": {
             "dFloor": {
-                "LEVEL": "EXPERT",
-                "prompt": "gamera_floors_dFloor",
+                "LEVEL": "INTERMEDIATE",
+                "prompt": "Lowest allowable density in MHD domain (cm**-3)",
                 "default": "1.0e-4"
             },
             "pFloor": {
-                "LEVEL": "EXPERT",
-                "prompt": "gamera_floors_pFloor",
+                "LEVEL": "INTERMEDIATE",
+                "prompt": "Lowest allowable pressure in MHD domain (nPa)",
                 "default": "1.0e-6"
             }
         },
         "timestep": {
             "doCPR": {
                 "LEVEL": "EXPERT",
-                "prompt": "gamera_timestep_doCPR",
-                "default": "F",
+                "prompt": "Handle minor timestep issues",
+                "default": "T",
                 "valids": ["T", "F"]
             },
             "limCPR": {
                 "LEVEL": "EXPERT",
-                "prompt": "gamera_timestep_limCPR",
+                "prompt": "Threshhold under which CPR is performed",
                 "default": "0.20"
             }
         },
         "restart": {
             "doRes": {
-                "LEVEL": "EXPERT",
+                "LEVEL": "BASIC",
                 "prompt": "Set to 'T' to do a restart from a saved state",
                 "default": "F",
                 "valids": ["T", "F"]
             },
             "nRes": {
-                "LEVEL": "EXPERT",
-                "prompt": "Step number for restart initiation",
+                "LEVEL": "BASIC",
+                "prompt": "Step number for restart initiation (-1 for latest restart file)",
                 "default": "-1"
             },
             "resID": {
-                "LEVEL": "EXPERT",
+                "LEVEL": "BASIC",
                 "prompt": "Run ID for restart step",
                 "default": "geospace"
             }
         },
         "physics": {
-            "Ca": {
-                "LEVEL": "EXPERT",
-                "prompt": "gamera_physics_Ca",
-                "default": "10.0"
-            },
             "doBoris": {
                 "LEVEL": "EXPERT",
-                "prompt": "gamera_physics_doBoris",
+                "prompt": "Apply Boris correction",
                 "default": "T",
                 "valids": ["T", "F"]
             },
+            "Ca": {
+                "LEVEL": "INTERMEDIATE",
+                "prompt": "Maximum value of light speed (10**5 m/s)",
+                "default": "10.0"
+            },
             "doMHD": {
                 "LEVEL": "EXPERT",
-                "prompt": "gamera_physics_doMHD",
+                "prompt": "Pass entire MHD variable state to CHIMP, etc.",
                 "default": "T",
                 "valids": ["T", "F"]
             }
@@ -330,55 +331,55 @@
         "ring": {
             "doRing": {
                 "LEVEL": "EXPERT",
-                "prompt": "gamera_ring_doRing",
+                "prompt": "Apply ring averaging around axis",
                 "default": "T",
                 "valids": ["T", "F"]
             },
             "gid": {
                 "LEVEL": "EXPERT",
-                "prompt": "gamera_ring_gid",
+                "prompt": "Grid type for ring averaging",
                 "default": "lfm"
             }
         },
         "wind": {
             "tsfile": {
-                "LEVEL": "EXPERT",
-                "prompt": "Path to file containing solar wind boundary conditions",
+                "LEVEL": "BASIC",
+                "prompt": "Relative path to file containing solar wind boundary conditions",
                 "default": "bcwind.h5"
             }
         },
         "source": {
-            "doBounceDT": {
-                "LEVEL": "EXPERT",
-                "prompt": "Use Alfven bounce in dt-ingest",
-                "default": "T",
-                "valids": ["T", "F"],
-                "source": "src/voltron/rcmimag.F90"
-            },
             "doSource": {
-                "LEVEL": "EXPERT",
-                "prompt": "gamera_source_doSource",
+                "LEVEL": "INTERMEDIATE",
+                "prompt": "Ingest inner magnetosphere model moments into MHD model",
                 "default": "T",
                 "valids": ["T", "F"]
             },
-            "doWolfLim": {
+            "doBounceDT": {
                 "LEVEL": "EXPERT",
-                "prompt": "Do Wolf limiting",
+                "prompt": "Use Alfven bounce-time weighting for inner magnetosphere ingest",
                 "default": "T",
                 "valids": ["T", "F"],
                 "source": "src/voltron/rcmimag.F90"
             },
             "nBounce": {
                 "LEVEL": "EXPERT",
-                "prompt": "Scaling factor for Alfven transit",
+                "prompt": "Number of Alfven bounce timescales for weighting",
                 "default": "1.0",
+                "source": "src/voltron/rcmimag.F90"
+            },
+            "doWolfLim": {
+                "LEVEL": "INTERMEDIATE",
+                "prompt": "Use plasma beta to limit pressure ingested from RCM to MHD",
+                "default": "T",
+                "valids": ["T", "F"],
                 "source": "src/voltron/rcmimag.F90"
             }
         },
         "iPdir": {
             "N": {
-                "LEVEL": "EXPERT",
-                "prompt": "gamera_iPdir_N",
+                "LEVEL": "INTERMEDIATE",
+                "prompt": "Number of MPI blocks in i-direction",
                 "default": {
                     "D": "2",
                     "Q": "4",
@@ -388,15 +389,15 @@
             },
             "bcPeriodic": {
                 "LEVEL": "EXPERT",
-                "prompt": "gamera_iPdir_bcPeriodic",
+                "prompt": "True if boundary conditions are periodic",
                 "default": "F",
                 "valids": ["T", "F"]
             }
         },
         "jPdir": {
             "N": {
-                "LEVEL": "EXPERT",
-                "prompt": "gamera_jPdir_N",
+                "LEVEL": "INTERMEDIATE",
+                "prompt": "Number of MPI blocks in j-direction",
                 "default": {
                     "D": "2",
                     "Q": "4",
@@ -406,15 +407,15 @@
             },
             "bcPeriodic": {
                 "LEVEL": "EXPERT",
-                "prompt": "gamera_jPdir_bcPeriodic",
+                "prompt": "True if boundary conditions are periodic",
                 "default": "F",
                 "valids": ["T", "F"]
             }
         },
         "kPdir": {
             "N": {
-                "LEVEL": "EXPERT",
-                "prompt": "gamera_kPdir_N",
+                "LEVEL": "INTERMEDIATE",
+                "prompt": "Number of MPI blocks in k-direction",
                 "default": {
                     "D": "1",
                     "Q": "1",
@@ -424,7 +425,7 @@
             },
             "bcPeriodic": {
                 "LEVEL": "EXPERT",
-                "prompt": "gamera_kPdir_bcPeriodic",
+                "prompt": "True if boundary conditions are periodic",
                 "default": "T",
                 "valids": ["T", "F"]
             }
@@ -489,22 +490,22 @@
             },
             "imType": {
                 "LEVEL": "EXPERT",
-                "prompt": "voltron_coupling_imType",
+                "prompt": "Inner magnetosphere model to use",
                 "default": "RCM",
                 "valids": ["RCM", "SST", "TS07", "RCMX"]
             }
         },
         "restart": {
             "dtRes": {
-                "LEVEL": "EXPERT",
-                "prompt": "voltron_restart_dtRes",
+                "LEVEL": "INTERMEDIATE",
+                "prompt": "Cadence for restart file generation in simulated seconds",
                 "default": "1800.0"
             }
         },
         "imag": {
             "doInit": {
                 "LEVEL": "EXPERT",
-                "prompt": "voltron_imag_doInit",
+                "prompt": "Initialize inner magnetosphere model",
                 "default": "T",
                 "valids": ["T", "F"],
                 "source": "src/voltron/rcmimag.F90"
@@ -512,21 +513,22 @@
         },
         "helpers": {
             "numHelpers": {
-                "LEVEL": "EXPERT",
+                "LEVEL": "INTERMEDIATE",
                 "prompt": "Number of helper nodes",
-                "default": "24"
+                "default": "24",
+                "NOTE": "Will be computed"
             },
             "useHelpers": {
                 "LEVEL": "EXPERT",
                 "prompt": "Set to T to use helper nodes for coupling with RCM",
                 "default": "T",
                 "valids": ["T", "F"],
-                "source": "src/drivers/voltron_mpix.F90"
+                "SOURCE": "src/drivers/voltron_mpix.F90"
             },
             "doSquishHelp": {
                 "LEVEL": "EXPERT",
                 "advanced": true,
-                "prompt": "voltron_helpers_doSquishHelp",
+                "prompt": "Override default number of squish blocks",
                 "default": "T",
                 "valids": ["T", "F"]
             }
@@ -537,28 +539,31 @@
         "units": {
             "uid": {
                 "LEVEL": "EXPERT",
-                "prompt": "chimp_units_uid",
-                "default": "EARTHCODE"
+                "prompt": "Name of units system for GAMERA inputs to CHIMP",
+                "default": "EARTHCODE",
+                "valids": ["EARTH", "EARTHCODE", "JUPITER", "JUPITERCODE", "SATURN", "SATURNCODE", "HELIO", "LFM", "LFMJUPITER" ]
             }
         },
         "fields": {
            "grType": {
                 "LEVEL": "EXPERT",
-                "prompt": "chimp_fields_grType",
-                "default": "lfm"
+                "prompt": "Expected grid type for GAMERA output",
+                "default": "lfm",
+                "valids": ["lfm", "egg", "sph"]
             }
         },
         "domain": {
             "dtype": {
                 "LEVEL": "EXPERT",
-                "prompt": "chimp_domain_dtype",
-                "default": "MAGE"
+                "prompt": "Domain over which to perform CHIMP calculations",
+                "default": "MAGE",
+                "valids": ["SPH", "LFM", "LFMCYL", "MAGE", "EGG", "ELL"]
             }
         },
         "tracer": {
             "epsds": {
-                "LEVEL": "EXPERT",
-                "prompt": "chimp_tracer_epsds",
+                "LEVEL": "INTERMEDIATE",
+                "prompt": "Tolerance level for field-line tracer integration",
                 "default": "0.05"
             }
         }
@@ -567,27 +572,28 @@
     "remix": {
         "conductance": {
             "doStarlight": {
-                "LEVEL": "EXPERT",
-                "prompt": "remix_conductance_doStarlight",
+                "LEVEL": "INTERMEDIATE",
+                "prompt": "Compute starlight contribution to conductance",
                 "default": "T",
                 "valids": ["T", "F"]
             },
             "apply_cap": {
-                "LEVEL": "EXPERT",
-                "prompt": "remix_conductance_apply_cap",
+                "LEVEL": "INTERMEDIATE",
+                "prompt": "Apply cap to Hall conductance based on Pedersen conductance",
                 "default": "T",
                 "valids": ["T", "F"]
             }
         },
         "precipitation": {
             "aurora_model_type": {
-                "LEVEL": "EXPERT",
-                "prompt": "remix_precipitation_aurora_model_type",
-                "default": "RCMHD"
+                "LEVEL": "INTERMEDIATE",
+                "prompt": "Name of auroral precipitation model to use",
+                "default": "RCMHD",
+                "valids": ["FEDDER", "ZHANG", "RCMHD", "RCMONO", "RCMFED"]
             },
             "beta": {
-                "LEVEL": "EXPERT",
-                "prompt": "remix_precipitation_beta",
+                "LEVEL": "INTERMEDIATE",
+                "prompt": "Loss cone filling fraction",
                 "default": "0.2"
             }
         }
@@ -598,80 +604,84 @@
             "domType": {
                 "LEVEL": "EXPERT",
                 "prompt": "rcm_rcmdomain_domType",
-                "default": "ELLIPSE"
+                "default": "ELLIPSE",
+                "NOTE": "OBSOLETE?"
             }
         },
         "ellipse": {
             "xSun": {
-                "LEVEL": "EXPERT",
-                "prompt": "rcm_ellipse_xSun",
+                "LEVEL": "INTERMEDIATE",
+                "prompt": "Maximum extent in +x direction in Earth radii",
                 "default": "12.5"
             },
             "yDD": {
-                "LEVEL": "EXPERT",
-                "prompt": "rcm_ellipse_yDD",
+                "LEVEL": "INTERMEDIATE",
+                "prompt": "Maximum extent in +/- y dimension in Earth radii",
                 "default": "15.0"
             },
             "xTail": {
-                "LEVEL": "EXPERT",
-                "prompt": "rcm_ellipse_xTail",
+                "LEVEL": "INTERMEDIATE",
+                "prompt": "Maximum extent in -x direction in Earth radii",
                 "default": "-15.0"
             },
             "isDynamic": {
                 "LEVEL": "EXPERT",
-                "prompt": "rcm_ellipse_isDynamic",
+                "prompt": "Dynamically determine the RCM outer boundary",
                 "default": "T",
                 "valids": ["T", "F"]
             }
         },
         "grid": {
             "LowLat": {
-                "LEVEL": "EXPERT",
-                "advanced": true,
-                "prompt": "rcm_grid_LowLat",
-                "default": "30.0"
+                "LEVEL": "INTERMEDIATE",
+                "prompt": "Low-latitude boundary (degrees) for RCM grid",
+                "default": "30.0",
+                "NOTE": "Should map to 0.5 Re less than MHD inner boundary"
             },
             "HiLat": {
-                "LEVEL": "EXPERT",
-                "advanced": true,
-                "prompt": "rcm_grid_HiLat",
+                "LEVEL": "INTERMEDIATE",
+                "prompt": "High-latitude boundary (degrees) for RCM grid",
                 "default": "75.0"
             }
         },
         "plasmasphere": {
             "isDynamic": {
-                "LEVEL": "EXPERT",
-                "prompt": "rcm_plasmasphere_isDynamic",
+                "LEVEL": "INTERMEDIATE",
+                "prompt": "Enable evolution of plasmasphere using ExB",
                 "default": "T",
                 "valids": ["T", "F"]
             },
             "initKp": {
-                "LEVEL": "EXPERT",
-                "prompt": "rcm_plasmasphere_initKp",
-                "default": "5"
+                "LEVEL": "BASIC",
+                "prompt": "Value of Kp used to initialize plasmasphere density profile",
+                "default": "5",
+                "NOTE": "From Gallagher (2000?)"
             },
             "doRefill": {
-                "LEVEL": "EXPERT",
-                "prompt": "rcm_plasmasphere_doRefill",
+                "LEVEL": "INTERMEDIATE",
+                "prompt": "Allow plasmasphere refilling",
                 "default": "T",
-                "valids": ["T", "F"]
+                "valids": ["T", "F"],
+                "NOTE": "Empirical model from Denton (2012)"
             },
             "tAvg": {
-                "LEVEL": "EXPERT",
-                "prompt": "rcm_plasmasphere_tAvg",
+                "LEVEL": "INTERMEDIATE",
+                "prompt": "Weighting timescale (seconds) for exponential moving average of ionospheric potential",
                 "default": "60.0"
             }
         },
         "loss": {
             "doFLCLoss": {
                 "LEVEL": "EXPERT",
-                "prompt": "rcm_loss_doFLCLoss",
-                "default": "F"
+                "prompt": "rcm_loss_doFLCDo field line curvature loss",
+                "default": "F",
+                "valids": ["T", "F"]
             },
             "eLossMethod": {
                 "LEVEL": "EXPERT",
-                "prompt": "rcm_loss_eLossMethod",
-                "default": "WM"
+                "prompt": "Electron loss model",
+                "default": "WM",
+                "valids": ["WM", "FDG", "ELOSS_FDG", "ELOSS_C05", "ELOSS_C19", "ELOSS_WM"]
             }
         }
     }
