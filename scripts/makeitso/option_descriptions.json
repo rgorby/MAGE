@@ -450,7 +450,7 @@
             "tSpin": {
                 "LEVEL": "INTERMEDIATE",
                 "prompt": "Number of simulated seconds for hydrodynamic spinup",
-                "default": "3600.0"
+                "default": "7200.0"
             }
         },
         "output": {
