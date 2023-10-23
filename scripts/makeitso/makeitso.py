@@ -3,9 +3,21 @@
 
 """makeitso for the MAGE magnetosphere software.
 
-This master script is used to perform all of the steps needed to prepare
-and run a kaiju job. This script is interactive - the user is prompted for
-each decision that must be made to prepare for the run.
+This script is perforsm all of the steps needed to prepare to run a MAGE
+magnetosphere simulation run. By default, this script is interactive - the user
+is prompted for each decision  that must be made to prepare for the run, based
+on the current "--mode" setting.
+
+The modes are:
+
+"BASIC" (the default) - the user is prompted to set only a small subset of MAGE
+parameters. All "INTERMEDIATE"- and "EXPERT"-mode parameters are automatically
+set to default values.
+
+"INTERMEDIATE" - The user is prompted for "BASIC" and "INTERMEDIATE"
+parameters, with "EXPERT" parameters set to defaults.
+
+"EXPERT" - The user is prompted for *all* adjustable parameters.
 """
 
 
@@ -68,16 +80,16 @@ def create_command_line_parser():
     """
     parser = argparse.ArgumentParser(description=DESCRIPTION)
     parser.add_argument(
-        "--advanced", action="store_true",
-        help="Configure advanced parameters (default: %(default)s)."
-    )
-    parser.add_argument(
         "--clobber", action="store_true",
         help="Overwrite existing options file (default: %(default)s)."
     )
     parser.add_argument(
         "--debug", "-d", action="store_true",
         help="Print debugging output (default: %(default)s)."
+    )
+    parser.add_argument(
+        "--mode", default="BASIC",
+        help="User mode (BASIC|INTERMEDIATE|EXPERT) (default: %(default)s)."
     )
     parser.add_argument(
         "--options_path", "-o", default=None,
@@ -90,7 +102,7 @@ def create_command_line_parser():
     return parser
 
 
-def get_run_option(name, description, advanced=False):
+def get_run_option(name, description, mode="BASIC"):
     """Prompt the user for a single run option.
 
     Prompt the user for a single run option. If no user input is provided,
@@ -104,8 +116,8 @@ def get_run_option(name, description, advanced=False):
         Name of option
     description : dict, default None
         Dictionary of metadata for the option.
-    advanced : bool
-        True if parameter is from advanced configuration
+    mode : str
+        User experience mode: "BASIC", "INTERMEDIATE", or "ADVANCED".
 
     Returns
     -------
@@ -122,9 +134,11 @@ def get_run_option(name, description, advanced=False):
     default = description.get("default", None)
     valids = description.get("valids", None)
 
-    # If not in advanced mode, and this is an advanced option, take the
-    # default.
-    if level in {"INTERMEDIATE", "ADVANCED"}:
+    # Compare the current mode to the parameter level setting. If the variable
+    # level is higher than the user mode, just use the default.
+    if mode == "BASIC" and level in ["INTERMEDIATE", "EXPERT"]:
+        return default
+    if mode == "INTERMEDIATE" and level in ["EXPERT"]:
         return default
 
     # If provided, add the valid values in val1|val2 format to the prompt.
@@ -183,6 +197,9 @@ def prompt_user_for_run_options(args):
     ------
     None
     """
+    # Save the user mode.
+    mode = args.mode
+
     # Read the dictionary of option descriptions.
     with open(OPTION_DESCRIPTIONS_FILE, "r", encoding="utf-8") as f:
         option_descriptions = json.load(f)
@@ -197,7 +214,7 @@ def prompt_user_for_run_options(args):
     o = options["simulation"]
     od = option_descriptions["simulation"]
     for on in od:
-        o[on] = get_run_option(on, od[on], args.advanced)
+        o[on] = get_run_option(on, od[on], mode)
 
     #-------------------------------------------------------------------------
 
@@ -211,16 +228,17 @@ def prompt_user_for_run_options(args):
     od["kaiju_install_directory"]["default"] = KAIJUHOME
     od["kaiju_build_directory"]["default"] = os.path.join(KAIJUHOME, "build_mpi")
     for on in od:
-        o[on] = get_run_option(on, od[on], args.advanced)
+        o[on] = get_run_option(on, od[on], mode)
 
     # HPC platform-specific options
     hpc_platform = options["simulation"]["hpc_system"]
     LFM_grid_type = options["simulation"]["LFM_grid_type"]
     od = option_descriptions["pbs"][hpc_platform]
+    od["walltime"]["default"] = od["walltime"]["default"][LFM_grid_type]
     od["select"]["default"] = od["select"]["default"][LFM_grid_type]
     od["num_helpers"]["default"] = od["num_helpers"]["default"][LFM_grid_type]
     for on in od:
-        o[on] = get_run_option(on, od[on], args.advanced)
+        o[on] = get_run_option(on, od[on], mode)
 
     # Compute the number of nodes in the second chunk.
     # Should be 1 (for voltron) + num_helpers.
@@ -238,57 +256,61 @@ def prompt_user_for_run_options(args):
     o = options["gamera"]["sim"]
     od = option_descriptions["gamera"]["sim"]
     od["H5Grid"]["default"] = f"lfm{options['simulation']['LFM_grid_type']}.h5"
+    od["runid"]["default"] = options["simulation"]["runid"]
     for on in od:
-        o[on] = get_run_option(on, od[on], args.advanced)
+        o[on] = get_run_option(on, od[on], mode)
 
     # <floors> options
     options["gamera"]["floors"] = {}
     o = options["gamera"]["floors"]
     od = option_descriptions["gamera"]["floors"]
     for on in od:
-        o[on] = get_run_option(on, od[on], args.advanced)
+        o[on] = get_run_option(on, od[on], mode)
 
     # <timestep> options
     options["gamera"]["timestep"] = {}
     o = options["gamera"]["timestep"]
     od = option_descriptions["gamera"]["timestep"]
     for on in od:
-        o[on] = get_run_option(on, od[on], args.advanced)
+        o[on] = get_run_option(on, od[on], mode)
 
     # <restart> options
+    # NOTE: Update this later so that restart parameters are only
+    # prompted for when doRes is "T".
     options["gamera"]["restart"] = {}
     o = options["gamera"]["restart"]
     od = option_descriptions["gamera"]["restart"]
+    od["resID"]["default"] = options["simulation"]["runid"]
     for on in od:
-        o[on] = get_run_option(on, od[on], args.advanced)
+        o[on] = get_run_option(on, od[on], mode)
 
     # <physics> options
     options["gamera"]["physics"] = {}
     o = options["gamera"]["physics"]
     od = option_descriptions["gamera"]["physics"]
     for on in od:
-        o[on] = get_run_option(on, od[on], args.advanced)
+        o[on] = get_run_option(on, od[on], mode)
 
     # <ring> options
     options["gamera"]["ring"] = {}
     o = options["gamera"]["ring"]
     od = option_descriptions["gamera"]["ring"]
     for on in od:
-        o[on] = get_run_option(on, od[on], args.advanced)
+        o[on] = get_run_option(on, od[on], mode)
 
     # <wind> options
     options["gamera"]["wind"] = {}
     o = options["gamera"]["wind"]
     od = option_descriptions["gamera"]["wind"]
     for on in od:
-        o[on] = get_run_option(on, od[on], args.advanced)
+        o[on] = get_run_option(on, od[on], mode)
 
     # <source> options
     options["gamera"]["source"] = {}
     o = options["gamera"]["source"]
     od = option_descriptions["gamera"]["source"]
     for on in od:
-        o[on] = get_run_option(on, od[on], args.advanced)
+        o[on] = get_run_option(on, od[on], mode)
 
     # <iPdir> options
     options["gamera"]["iPdir"] = {}
@@ -296,7 +318,7 @@ def prompt_user_for_run_options(args):
     od = option_descriptions["gamera"]["iPdir"]
     od["N"]["default"] = od["N"]["default"][LFM_grid_type]
     for on in od:
-        o[on] = get_run_option(on, od[on], args.advanced)
+        o[on] = get_run_option(on, od[on], mode)
 
     # <jPdir> options
     options["gamera"]["jPdir"] = {}
@@ -304,7 +326,7 @@ def prompt_user_for_run_options(args):
     od = option_descriptions["gamera"]["jPdir"]
     od["N"]["default"] = od["N"]["default"][LFM_grid_type]
     for on in od:
-        o[on] = get_run_option(on, od[on], args.advanced)
+        o[on] = get_run_option(on, od[on], mode)
 
     # <kPdir> options
     options["gamera"]["kPdir"] = {}
@@ -312,7 +334,7 @@ def prompt_user_for_run_options(args):
     od = option_descriptions["gamera"]["kPdir"]
     od["N"]["default"] = od["N"]["default"][LFM_grid_type]
     for on in od:
-        o[on] = get_run_option(on, od[on], args.advanced)
+        o[on] = get_run_option(on, od[on], mode)
 
     #-------------------------------------------------------------------------
 
@@ -324,42 +346,42 @@ def prompt_user_for_run_options(args):
     o = options["voltron"]["time"]
     od = option_descriptions["voltron"]["time"]
     for on in od:
-        o[on] = get_run_option(on, od[on], args.advanced)
+        o[on] = get_run_option(on, od[on], mode)
 
     # <spinup> options
     options["voltron"]["spinup"] = {}
     o = options["voltron"]["spinup"]
     od = option_descriptions["voltron"]["spinup"]
     for on in od:
-        o[on] = get_run_option(on, od[on], args.advanced)
+        o[on] = get_run_option(on, od[on], mode)
 
     # <output> options
     options["voltron"]["output"] = {}
     o = options["voltron"]["output"]
     od = option_descriptions["voltron"]["output"]
     for on in od:
-        o[on] = get_run_option(on, od[on], args.advanced)
+        o[on] = get_run_option(on, od[on], mode)
 
     # <coupling> options
     options["voltron"]["coupling"] = {}
     o = options["voltron"]["coupling"]
     od = option_descriptions["voltron"]["coupling"]
     for on in od:
-        o[on] = get_run_option(on, od[on], args.advanced)
+        o[on] = get_run_option(on, od[on], mode)
 
     # <restart> options
     options["voltron"]["restart"] = {}
     o = options["voltron"]["restart"]
     od = option_descriptions["voltron"]["restart"]
     for on in od:
-        o[on] = get_run_option(on, od[on], args.advanced)
+        o[on] = get_run_option(on, od[on], mode)
 
     # <imag> options
     options["voltron"]["imag"] = {}
     o = options["voltron"]["imag"]
     od = option_descriptions["voltron"]["imag"]
     for on in od:
-        o[on] = get_run_option(on, od[on], args.advanced)
+        o[on] = get_run_option(on, od[on], mode)
 
     # <helpers> options
     options["voltron"]["helpers"] = {}
@@ -369,7 +391,7 @@ def prompt_user_for_run_options(args):
     if num_helpers == 0:
         od["useHelpers"]["default"] = "F"
     for on in od:
-        o[on] = get_run_option(on, od[on], args.advanced)
+        o[on] = get_run_option(on, od[on], mode)
 
     #-------------------------------------------------------------------------
 
@@ -381,28 +403,28 @@ def prompt_user_for_run_options(args):
     o = options["chimp"]["units"]
     od = option_descriptions["chimp"]["units"]
     for on in od:
-        o[on] = get_run_option(on, od[on], args.advanced)
+        o[on] = get_run_option(on, od[on], mode)
 
     # <fields> options
     options["chimp"]["fields"] = {}
     o = options["chimp"]["fields"]
     od = option_descriptions["chimp"]["fields"]
     for on in od:
-        o[on] = get_run_option(on, od[on], args.advanced)
+        o[on] = get_run_option(on, od[on], mode)
 
     # <domain> options
     options["chimp"]["domain"] = {}
     o = options["chimp"]["domain"]
     od = option_descriptions["chimp"]["domain"]
     for on in od:
-        o[on] = get_run_option(on, od[on], args.advanced)
+        o[on] = get_run_option(on, od[on], mode)
 
     # <tracer> options
     options["chimp"]["tracer"] = {}
     o = options["chimp"]["tracer"]
     od = option_descriptions["chimp"]["tracer"]
     for on in od:
-        o[on] = get_run_option(on, od[on], args.advanced)
+        o[on] = get_run_option(on, od[on], mode)
 
     #-------------------------------------------------------------------------
 
@@ -414,14 +436,14 @@ def prompt_user_for_run_options(args):
     o = options["remix"]["conductance"]
     od = option_descriptions["remix"]["conductance"]
     for on in od:
-        o[on] = get_run_option(on, od[on], args.advanced)
+        o[on] = get_run_option(on, od[on], mode)
 
     # <precipitation> options
     options["remix"]["precipitation"] = {}
     o = options["remix"]["precipitation"]
     od = option_descriptions["remix"]["precipitation"]
     for on in od:
-        o[on] = get_run_option(on, od[on], args.advanced)
+        o[on] = get_run_option(on, od[on], mode)
 
     #-------------------------------------------------------------------------
 
@@ -433,28 +455,29 @@ def prompt_user_for_run_options(args):
     o = options["rcm"]["rcmdomain"]
     od = option_descriptions["rcm"]["rcmdomain"]
     for on in od:
-        o[on] = get_run_option(on, od[on], args.advanced)
+        o[on] = get_run_option(on, od[on], mode)
 
     # <ellipse> options
+    # Only use if domType == "ELLIPSE"?
     options["rcm"]["ellipse"] = {}
     o = options["rcm"]["ellipse"]
     od = option_descriptions["rcm"]["ellipse"]
     for on in od:
-        o[on] = get_run_option(on, od[on], args.advanced)
+        o[on] = get_run_option(on, od[on], mode)
 
     # <grid> options
     options["rcm"]["grid"] = {}
     o = options["rcm"]["grid"]
     od = option_descriptions["rcm"]["grid"]
     for on in od:
-        o[on] = get_run_option(on, od[on], args.advanced)
+        o[on] = get_run_option(on, od[on], mode)
 
     # <plasmasphere> options
     options["rcm"]["plasmasphere"] = {}
     o = options["rcm"]["plasmasphere"]
     od = option_descriptions["rcm"]["plasmasphere"]
     for on in od:
-        o[on] = get_run_option(on, od[on], args.advanced)
+        o[on] = get_run_option(on, od[on], mode)
 
     #-------------------------------------------------------------------------
 

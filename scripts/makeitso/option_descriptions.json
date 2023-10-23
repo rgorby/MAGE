@@ -5,7 +5,7 @@
         "runid": {
             "LEVEL": "BASIC",
             "prompt": "ID string for run",
-            "default": "msphere"
+            "default": "geospace"
         },
         "start_date": {
             "LEVEL": "BASIC",
@@ -74,8 +74,8 @@
                 "default": {
                     "D": "2",
                     "Q": "8",
-                    "O": "48",
-                    "H": "48"
+                    "O": "32",
+                    "H": "128"
                 }
             },
             "ncpus": {
@@ -98,8 +98,8 @@
                 "prompt": "Number of helper nodes",
                 "default": {
                     "D": "0",
-                    "Q": "8",
-                    "O": "8",
+                    "Q": "2",
+                    "O": "4",
                     "H": "8"
                 }
             },
@@ -154,7 +154,12 @@
             "walltime": {
                 "LEVEL": "BASIC",
                 "prompt": "Requested wall time for PBS job (HH:MM:SS)",
-                "default": "01:00:00"
+                "default": {
+                    "D": "01:00:00",
+                    "Q": "02:00:00",
+                    "O": "04:00:00",
+                    "H": "08:00:00"
+                }
             },
             "select": {
                 "LEVEL": "EXPERT",
@@ -162,8 +167,8 @@
                 "default": {
                     "D": "2",
                     "Q": "8",
-                    "O": "48",
-                    "H": "48"
+                    "O": "32",
+                    "H": "128"
                 }
             },
             "ncpus": {
@@ -186,8 +191,8 @@
                 "prompt": "Number of helper nodes",
                 "default": {
                     "D": "0",
-                    "Q": "8",
-                    "O": "8",
+                    "Q": "2",
+                    "O": "4",
                     "H": "8"
                 }
             },
@@ -233,7 +238,7 @@
     "gamera": {
         "sim": {
             "H5Grid": {
-                "LEVEL": "BASIC",
+                "LEVEL": "INTERMEDIATE",
                 "prompt": "Relative path to LFM grid file"
             },
             "doH5g": {
@@ -287,14 +292,14 @@
             },
             "limCPR": {
                 "LEVEL": "EXPERT",
-                "prompt": "Threshhold under which CPR is performed",
+                "prompt": "Pass entire MHD variable state to CHIMP, etc.",
                 "default": "0.20"
             }
         },
         "restart": {
             "doRes": {
                 "LEVEL": "BASIC",
-                "prompt": "Set to 'T' to do a restart from a saved state",
+                "prompt": "Restart from a saved state",
                 "default": "F",
                 "valids": ["T", "F"]
             },
@@ -344,7 +349,7 @@
         "wind": {
             "tsfile": {
                 "LEVEL": "BASIC",
-                "prompt": "Relative path to file containing solar wind boundary conditions",
+                "prompt": "Relative path to HDF5 file containing solar wind boundary conditions",
                 "default": "bcwind.h5"
             }
         },
@@ -384,7 +389,7 @@
                     "D": "2",
                     "Q": "4",
                     "O": "8",
-                    "H": "8"
+                    "H": "16"
                 }
             },
             "bcPeriodic": {
@@ -402,7 +407,7 @@
                     "D": "2",
                     "Q": "4",
                     "O": "8",
-                    "H": "8"
+                    "H": "16"
                 }
             },
             "bcPeriodic": {
@@ -461,7 +466,7 @@
             },
             "tsOut": {
                 "LEVEL": "INTERMEDIATE",
-                "prompt": "Cadence for status updates in simulated seconds",
+                "prompt": "Cadence for status updates on screen in simulated seconds",
                 "default": "300.0"
             }
         },
@@ -473,9 +478,10 @@
                 "valids": ["T", "F"]
             },
             "qkSquishStride": {
-                "LEVEL": "INTERMEDIATE-COMPUTED",
+                "LEVEL": "INTERMEDIATE",
                 "prompt": "Set stride for field line tracing for RCM ingestion into gamera (must be integer power of 2)",
-                "default": "2"
+                "default": "2",
+                "NOTE": "Should be computed based on grid resolution."
             },
             "dtCouple": {
                 "LEVEL": "INTERMEDIATE",
@@ -515,7 +521,7 @@
             "numHelpers": {
                 "LEVEL": "INTERMEDIATE",
                 "prompt": "Number of helper nodes",
-                "default": "24",
+                "default": null,
                 "NOTE": "Will be computed"
             },
             "useHelpers": {
@@ -527,7 +533,6 @@
             },
             "doSquishHelp": {
                 "LEVEL": "EXPERT",
-                "advanced": true,
                 "prompt": "Override default number of squish blocks",
                 "default": "T",
                 "valids": ["T", "F"]
