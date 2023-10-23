@@ -117,13 +117,14 @@ def get_run_option(name, description, advanced=False):
     None
     """
     # Extract prompt, default, and valids.
+    level = description["LEVEL"]
     prompt = description.get("prompt", "")
     default = description.get("default", None)
     valids = description.get("valids", None)
 
     # If not in advanced mode, and this is an advanced option, take the
     # default.
-    if not advanced and "advanced" in description:
+    if level in {"INTERMEDIATE", "ADVANCED"}:
         return default
 
     # If provided, add the valid values in val1|val2 format to the prompt.
