@@ -42,7 +42,8 @@ printenv
 
 # Run the model. Direct output from the program is saved in a text file.
 EXE=voltron_mpi.x
+OUTPUT_FILE="$EXE-$PBS_JOBNAME.out"
 echo "Running $EXE on model $RUNID."
-{{ pbs.mpiexec_command }} $EXE $RUNID.xml >& $RUNID.out
+{{ pbs.mpiexec_command }} $EXE $RUNID.xml >& $OUTPUT_FILE
 
 echo "Job $PBS_JOBID ended at `date` on `hostname`."

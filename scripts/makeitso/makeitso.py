@@ -551,30 +551,21 @@ def create_ini_files(options):
     # Initialize the list of file paths.
     ini_files = []
 
-    # If a single segment was requested, create a single file.
-    # If multiple segments were requested, create an .ini file for each
-    # segment.
-    if int(options["pbs"]["num_jobs"]) == 1:
-        ini_content = template.render(options)
+    # Create an .ini file for each segment.
+    for job in range(int(options["pbs"]["num_jobs"])):
+        opt = copy.deepcopy(options)  # Need a copy of options
+        runid = opt["simulation"]["runid"]
+        runid = f"{runid}-{job:02d}"
+        opt["simulation"]["runid"] = runid
+        if job > 0:
+            opt["gamera"]["restart"]["doRes"] = "T"
+        ini_content = template.render(opt)
         ini_file = os.path.join(
-            options["pbs"]["run_directory"],
-            f"{options['simulation']['runid']}.ini"
+            opt["pbs"]["run_directory"], f"{opt['simulation']['runid']}.ini"
         )
+        ini_files.append(ini_file)
         with open(ini_file, "w", encoding="utf-8") as f:
             f.write(ini_content)
-        ini_files.append(ini_file)
-    else:
-        for job in range(int(options["pbs"]["num_jobs"])):
-            opt = copy.deepcopy(options)  # Need a copy of options
-            if job > 0:
-                options["gamera"]["restart"]["doRes"] = "T"
-            ini_content = template.render(options)
-            ini_file = os.path.join(
-                options["pbs"]["run_directory"], f"{options['simulation']['runid']}-{job:02d}.ini"
-            )
-            ini_files.append(ini_file)
-            with open(ini_file, "w", encoding="utf-8") as f:
-                f.write(ini_content)
 
     # Return the paths to the .ini files.
     return ini_files
@@ -644,28 +635,20 @@ def create_pbs_scripts(options):
     template = Template(template_content)
 
     # Create a PBS script for each segment.
-    # options_pbs = options["pbs"]
-    # hpc_system = options_pbs["hpc_system"]
     pbs_scripts = []
-    if int(options["pbs"]["num_jobs"]) == 1:
-        pbs_content = template.render(options)
+    for job in range(int(options["pbs"]["num_jobs"])):
+        opt = copy.deepcopy(options)  # Need a copy of options
+        runid = opt["simulation"]["runid"]
+        runid = f"{runid}-{job:02d}"
+        opt["simulation"]["runid"] = runid
+        pbs_content = template.render(opt)
         pbs_script = os.path.join(
-            options["pbs"]["run_directory"],
-            f"{options['simulation']['runid']}.pbs"
+            opt["pbs"]["run_directory"],
+            f"{opt['simulation']['runid']}.pbs"
         )
+        pbs_scripts.append(pbs_script)
         with open(pbs_script, "w", encoding="utf-8") as f:
             f.write(pbs_content)
-            pbs_scripts.append(pbs_script)
-    else:
-        for segment in range(int(options["pbs"]["num_jobs"])):
-            pbs_content = template.render(options)
-            pbs_script = os.path.join(
-                options["pbs"]["run_directory"],
-                f"{options['simulation']['runid']}-{segment:02d}.pbs"
-            )
-            pbs_scripts.append(pbs_script)
-            with open(pbs_script, "w", encoding="utf-8") as f:
-                f.write(pbs_content)
 
     # Create a single script which will submit all of the PBS jobs in order.
     path = f"{options['simulation']['runid']}_pbs.sh"
