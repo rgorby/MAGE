@@ -567,7 +567,7 @@ def create_ini_files(options):
         for job in range(int(options["pbs"]["num_jobs"])):
             opt = copy.deepcopy(options)  # Need a copy of options
             if job > 0:
-                opt["gamera_restart_doRes"] = "T"
+                options["gamera"]["restart"]["doRes"] = "T"
             ini_content = template.render(options)
             ini_file = os.path.join(
                 options["pbs"]["run_directory"], f"{options['simulation']['runid']}-{job:02d}.ini"
