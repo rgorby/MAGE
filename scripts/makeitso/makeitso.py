@@ -571,7 +571,7 @@ def create_ini_files(options):
             opt["gamera"]["restart"]["doRes"] = "T"
         tFin = float(opt["voltron"]["time"]["tFin"])
         dT = tFin/int(options["pbs"]["num_jobs"])
-        tFin_segment = (job + 1)*dT
+        tFin_segment = (job + 1)*dT + 1  # Add 1 to ensure last restart file is created
         opt["voltron"]["time"]["tFin"] = str(tFin_segment)
         ini_content = template.render(opt)
         ini_file = os.path.join(
