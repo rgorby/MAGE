@@ -29,6 +29,7 @@ module mixtypes
      logical  :: doAuroralSmooth
      logical  :: apply_cap
      logical  :: doSWF107
+     logical  :: doEMA
 
      ! solver
      integer :: maxitr
@@ -101,7 +102,7 @@ module mixtypes
   type mixConductance_T
     integer :: euv_model_type, et_model_type, aurora_model_type
     real(rp) :: alpha, beta, R, F107,pedmin,hallmin,sigma_ratio,ped0, alphaZ, betaZ
-    logical :: const_sigma, doRamp, doChill, doStarlight, apply_cap, doMR, doAuroralSmooth
+    logical :: const_sigma, doRamp, doChill, doStarlight, apply_cap, doMR, doAuroralSmooth, doEMA
 
     ! arrays on the grid
     real(rp), dimension(:,:), allocatable :: zenith, coszen
