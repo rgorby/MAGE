@@ -305,7 +305,7 @@
             },
             "nRes": {
                 "LEVEL": "BASIC",
-                "prompt": "Step number for restart initiation (-1 for latest restart file)",
+                "prompt": "Index of restart file to use (-1 for latest (XXXXX-symlink) restart file)",
                 "default": "-1"
             },
             "resID": {
