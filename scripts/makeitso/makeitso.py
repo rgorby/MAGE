@@ -24,6 +24,7 @@ parameters, with "EXPERT" parameters set to defaults.
 # Import standard modules.
 import argparse
 import copy
+import datetime
 import json
 import os
 import subprocess
@@ -216,6 +217,14 @@ def prompt_user_for_run_options(args):
     for on in od:
         o[on] = get_run_option(on, od[on], mode)
 
+    # Compute the total simulation time in seconds.
+    date_format = '%Y-%m-%dT%H:%M:%S'
+    start_date = o["start_date"]
+    stop_date = o["stop_date"]
+    t1 = datetime.datetime.strptime(start_date, date_format)
+    t2 = datetime.datetime.strptime(stop_date, date_format)
+    simulation_duration = (t2 - t1).seconds
+
     #-------------------------------------------------------------------------
 
     # PBS options
@@ -345,6 +354,7 @@ def prompt_user_for_run_options(args):
     options["voltron"]["time"] = {}
     o = options["voltron"]["time"]
     od = option_descriptions["voltron"]["time"]
+    od["tFin"]["default"] = simulation_duration
     for on in od:
         o[on] = get_run_option(on, od[on], mode)
 

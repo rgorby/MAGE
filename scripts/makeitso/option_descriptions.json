@@ -9,12 +9,12 @@
         },
         "start_date": {
             "LEVEL": "BASIC",
-            "prompt": "Start date for fetching solar wind boundary data (yyyy-mm-ddThh:mm:ss",
+            "prompt": "Start date for simulation (yyyy-mm-ddThh:mm:ss",
             "default": "2016-08-09T09:00:00"
         },
         "stop_date": {
             "LEVEL": "BASIC",
-            "prompt": "Stop date for fetching solar wind boundary data (yyyy-mm-ddThh:mm:ss",
+            "prompt": "Stop date for simulation (yyyy-mm-ddThh:mm:ss",
             "default": "2016-08-09T10:00:00"
         },
         "LFM_grid_type": {
