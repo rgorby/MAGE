@@ -2,7 +2,7 @@
 
 # This script was generated to run on {{ simulation.hpc_system }}.
 
-#PBS -N {{ simulation.runid }}
+#PBS -N {{ simulation.segment_id }}
 #PBS -A {{ pbs.account_name }}
 #PBS -q {{ pbs.queue }}
 #PBS -l walltime={{ pbs.walltime }}
@@ -36,14 +36,19 @@ export PATH={{ pbs.kaiju_build_directory }}/bin:$PATH
 {{ pbs.additional_environment_variables -}}
 export MPI_TYPE_DEPTH=32
 export OMP_STACKSIZE=100M
+export OMP_NUM_THREADS={{ pbs.helper_ompthreads }}
 
 echo "The active environment variables are:"
 printenv
 
+# Copy the node file for use by the placer command.
+nodefile=nodefile.$PBS_JOBID
+cp $PBS_NODEFILE $nodefile
+
 # Run the model. Direct output from the program is saved in a text file.
 EXE=voltron_mpi.x
-OUTPUT_FILE="$EXE-$PBS_JOBNAME.out"
+OUTPUT_FILE="$EXE-{{ simulation.segment_id }}.out"
 echo "Running $EXE on model $RUNID."
-{{ pbs.mpiexec_command }} $EXE $RUNID.xml >& $OUTPUT_FILE
+{{ pbs.mpiexec_command }} $EXE $RUNID.xml &>> $OUTPUT_FILE
 
 echo "Job $PBS_JOBID ended at `date` on `hostname`."

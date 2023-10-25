@@ -565,8 +565,8 @@ def create_ini_files(options):
     for job in range(int(options["pbs"]["num_jobs"])):
         opt = copy.deepcopy(options)  # Need a copy of options
         runid = opt["simulation"]["runid"]
-        runid = f"{runid}-{job:02d}"
-        opt["simulation"]["runid"] = runid
+        segment_id = f"{runid}-{job:02d}"
+        opt["simulation"]["segment_id"] = segment_id
         if job > 0:
             opt["gamera"]["restart"]["doRes"] = "T"
         tFin = float(opt["voltron"]["time"]["tFin"])
@@ -575,7 +575,7 @@ def create_ini_files(options):
         opt["voltron"]["time"]["tFin"] = str(tFin_segment)
         ini_content = template.render(opt)
         ini_file = os.path.join(
-            opt["pbs"]["run_directory"], f"{opt['simulation']['runid']}.ini"
+            opt["pbs"]["run_directory"], f"{opt['simulation']['segment_id']}.ini"
         )
         ini_files.append(ini_file)
         with open(ini_file, "w", encoding="utf-8") as f:
@@ -653,12 +653,12 @@ def create_pbs_scripts(options):
     for job in range(int(options["pbs"]["num_jobs"])):
         opt = copy.deepcopy(options)  # Need a copy of options
         runid = opt["simulation"]["runid"]
-        runid = f"{runid}-{job:02d}"
-        opt["simulation"]["runid"] = runid
+        segment_id = f"{runid}-{job:02d}"
+        opt["simulation"]["segment_id"] = segment_id
         pbs_content = template.render(opt)
         pbs_script = os.path.join(
             opt["pbs"]["run_directory"],
-            f"{opt['simulation']['runid']}.pbs"
+            f"{opt['simulation']['segment_id']}.pbs"
         )
         pbs_scripts.append(pbs_script)
         with open(pbs_script, "w", encoding="utf-8") as f:
