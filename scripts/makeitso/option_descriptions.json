@@ -253,7 +253,7 @@
                 "valids": ["user"]
             },
             "runid": {
-                "LEVEL": "BASIC",
+                "LEVEL": "EXPERT",
                 "prompt": "Run ID for simulation",
                 "default": "geospace",
                 "source": "src/voltron/rcmimag.F90"
