@@ -214,16 +214,32 @@ def prompt_user_for_run_options(args):
     options["simulation"] = {}
     o = options["simulation"]
     od = option_descriptions["simulation"]
-    for on in od:
+
+    # These parameters must be prompted individually since they are
+    # interdependent.
+    for on in ["job_name", "start_date", "stop_date"]:
         o[on] = get_run_option(on, od[on], mode)
 
-    # Compute the total simulation time in seconds.
+    # Compute the total simulation time in seconds, use as segment duration
+    # default.
     date_format = '%Y-%m-%dT%H:%M:%S'
     start_date = o["start_date"]
     stop_date = o["stop_date"]
     t1 = datetime.datetime.strptime(start_date, date_format)
     t2 = datetime.datetime.strptime(stop_date, date_format)
     simulation_duration = (t2 - t1).seconds
+    od["segment_duration"]["default"] = str(simulation_duration)
+
+    # Prompt for the remaining parameters.
+    for on in ["segment_duration", "gamera_grid_type", "hpc_system"]:
+        o[on] = get_run_option(on, od[on], mode)
+
+    # Compute the number of segments based on the simulation duration and
+    # segment duration. Add 1 if there is a remainder.
+    num_segments = simulation_duration/float(o["segment_duration"])
+    if num_segments > int(num_segments):
+        num_segments += 1
+    num_segments = int(num_segments)
 
     #-------------------------------------------------------------------------
 
@@ -236,6 +252,7 @@ def prompt_user_for_run_options(args):
     od["account_name"]["default"] = os.getlogin()
     od["kaiju_install_directory"]["default"] = KAIJUHOME
     od["kaiju_build_directory"]["default"] = os.path.join(KAIJUHOME, "build_mpi")
+    od["num_segments"]["default"] = str(num_segments)
     for on in od:
         o[on] = get_run_option(on, od[on], mode)
 
@@ -562,7 +579,7 @@ def create_ini_files(options):
     ini_files = []
 
     # Create an .ini file for each segment.
-    for job in range(int(options["pbs"]["num_jobs"])):
+    for job in range(int(options["pbs"]["num_segments"])):
         opt = copy.deepcopy(options)  # Need a copy of options
         runid = opt["simulation"]["job_name"]
         segment_id = f"{runid}-{job:02d}"
@@ -570,8 +587,10 @@ def create_ini_files(options):
         if job > 0:
             opt["gamera"]["restart"]["doRes"] = "T"
         tFin = float(opt["voltron"]["time"]["tFin"])
-        dT = tFin/int(options["pbs"]["num_jobs"])
+        dT = float(options["simulation"]["segment_duration"])
         tFin_segment = (job + 1)*dT + 1  # Add 1 to ensure last restart file is created
+        if tFin_segment > tFin:          # Last segment may be shorter than the others.
+            tFin_segment = tFin + 1
         opt["voltron"]["time"]["tFin"] = str(tFin_segment)
         ini_content = template.render(opt)
         ini_file = os.path.join(
@@ -654,7 +673,7 @@ def create_pbs_scripts(options):
 
     # Create a PBS script for each segment.
     pbs_scripts = []
-    for job in range(int(options["pbs"]["num_jobs"])):
+    for job in range(int(options["pbs"]["num_segments"])):
         opt = copy.deepcopy(options)  # Need a copy of options
         runid = opt["simulation"]["job_name"]
         segment_id = f"{runid}-{job:02d}"
