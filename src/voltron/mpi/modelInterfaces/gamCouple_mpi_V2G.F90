@@ -89,6 +89,7 @@ module gamCouple_mpi_V2G
         App%inexyzGSendReq = MPI_REQUEST_NULL
 
         ! only create gamera data structures so that it LOOKS like Gamera to other models
+        App%Model%isLoud = .false.
         App%Grid%ijkShift(1:3) = 0
         call ReadCorners(App%Model,App%Grid,Xml,childGameraOpt=.true.)
         call SetRings(App%Model,App%Grid,Xml)
@@ -204,13 +205,14 @@ module gamCouple_mpi_V2G
         allocate(vApp%sendGDisplsIneijk(1:SIZE(vApp%sendRanks)))
         allocate(vApp%sendGTypesIneijk(1:SIZE(vApp%sendRanks)))
 
+        allocate(vApp%recvGCountsGas(1:SIZE(vApp%recvRanks)))
+        allocate(vApp%recvGDisplsGas(1:SIZE(vApp%recvRanks)))
+        allocate(vApp%recvGTypesGas(1:SIZE(vApp%recvRanks)))
+        allocate(vApp%recvGCountsBxyz(1:SIZE(vApp%recvRanks)))
+        allocate(vApp%recvGDisplsBxyz(1:SIZE(vApp%recvRanks)))
+        allocate(vApp%recvGTypesBxyz(1:SIZE(vApp%recvRanks)))
+
         if(vApp%doDeep) then
-            allocate(vApp%recvGCountsGas(1:SIZE(vApp%recvRanks)))
-            allocate(vApp%recvGDisplsGas(1:SIZE(vApp%recvRanks)))
-            allocate(vApp%recvGTypesGas(1:SIZE(vApp%recvRanks)))
-            allocate(vApp%recvGCountsBxyz(1:SIZE(vApp%recvRanks)))
-            allocate(vApp%recvGDisplsBxyz(1:SIZE(vApp%recvRanks)))
-            allocate(vApp%recvGTypesBxyz(1:SIZE(vApp%recvRanks)))
             allocate(vApp%sendGCountsGas0(1:SIZE(vApp%sendRanks)))
             allocate(vApp%sendGDisplsGas0(1:SIZE(vApp%sendRanks)))
             allocate(vApp%sendGTypesGas0(1:SIZE(vApp%sendRanks)))
@@ -226,17 +228,16 @@ module gamCouple_mpi_V2G
         vApp%sendGTypesInexyz(:) = MPI_DATATYPE_NULL
         vApp%sendGTypesIneijk(:) = MPI_DATATYPE_NULL
 
+        vApp%recvGCountsGas(:) = 1
+        vApp%recvGCountsBxyz(:) = 1
+        vApp%recvGDisplsGas(:) = 0
+        vApp%recvGDisplsBxyz(:) = 0
+        vApp%recvGTypesGas(:) = MPI_DATATYPE_NULL
+        vApp%recvGTypesBxyz(:) = MPI_DATATYPE_NULL
+
         if(vApp%doDeep) then
-            vApp%recvGCountsGas(:) = 1
-            vApp%recvGCountsBxyz(:) = 1
             vApp%sendGCountsGas0(:) = 1
-
-            vApp%recvGDisplsGas(:) = 0
-            vApp%recvGDisplsBxyz(:) = 0
             vApp%sendGDisplsGas0(:) = 0
-
-            vApp%recvGTypesGas(:) = MPI_DATATYPE_NULL
-            vApp%recvGTypesBxyz(:) = MPI_DATATYPE_NULL
             vApp%sendGTypesGas0(:) = MPI_DATATYPE_NULL
         endif
 
@@ -286,17 +287,15 @@ module gamCouple_mpi_V2G
         do r=1,SIZE(vApp%recvRanks)
             rRank = vApp%recvRanks(r)+1
 
-            if(vApp%doDeep) then
-                ! gas
-                recvDataOffset = (Model%nG + kRanks(rRank)*NkpT)*Grid%Nj*Grid%Ni + &
-                                 (Model%nG + jRanks(rRank)*NjpT)*Grid%Ni + &
-                                 (Model%nG + iRanks(rRank)*NipT)
-                call mpi_type_hindexed(1, (/1/), recvDataOffset*dataSize, iPjPkP5Gas, &
-                                       vApp%recvGTypesGas(r), ierr)
-                ! Bxyz
-                call mpi_type_hindexed(1, (/1/), recvDataOffset*dataSize, iPjPkP4Bxyz, &
-                                       vApp%recvGTypesBxyz(r), ierr)
-            endif
+            ! gas
+            recvDataOffset = (Model%nG + kRanks(rRank)*NkpT)*Grid%Nj*Grid%Ni + &
+                             (Model%nG + jRanks(rRank)*NjpT)*Grid%Ni + &
+                             (Model%nG + iRanks(rRank)*NipT)
+            call mpi_type_hindexed(1, (/1/), recvDataOffset*dataSize, iPjPkP5Gas, &
+                                   vApp%recvGTypesGas(r), ierr)
+            ! Bxyz
+            call mpi_type_hindexed(1, (/1/), recvDataOffset*dataSize, iPjPkP4Bxyz, &
+                                   vApp%recvGTypesBxyz(r), ierr)
         enddo
 
         do r=1,SIZE(vApp%sendRanks)
@@ -341,9 +340,10 @@ module gamCouple_mpi_V2G
             call mpi_type_commit(vApp%sendGTypesInexyz(r), ierr)
             call mpi_type_commit(vApp%sendGTypesIneijk(r), ierr)
 
+            call mpi_type_commit(vApp%recvGTypesGas(r), ierr)
+            call mpi_type_commit(vApp%recvGTypesBxyz(r), ierr)
+
             if(vApp%doDeep) then
-                call mpi_type_commit(vApp%recvGTypesGas(r), ierr)
-                call mpi_type_commit(vApp%recvGTypesBxyz(r), ierr)
                 call mpi_type_commit(vApp%sendGTypesGas0(r), ierr)
             endif
         enddo
@@ -356,6 +356,7 @@ module gamCouple_mpi_V2G
         class(gamCouplerMpi_volt_T), intent(inout) :: App
         class(voltApp_T), intent(inout) :: voltApp
 
+        call Tic("Coupling", .true.)
         if(App%firstRecv) then
             ! need data to process
             App%firstRecv = .false.
@@ -377,6 +378,7 @@ module gamCouple_mpi_V2G
             call recvGameraCplDataMpi(App)
             call sendGameraCplDataMpi(App, voltApp%DeepT)
         endif
+        call Toc("Coupling", .true.)
 
     end subroutine
 
@@ -386,11 +388,13 @@ module gamCouple_mpi_V2G
         integer :: ierr
 
         ! Receive Deep Gas Data
+        call Tic("GameraSync", .true.)
         call mpi_neighbor_alltoallw(gCplApp%State%Gas, gCplApp%zeroArrayCounts, &
                                     gCplApp%zeroArrayDispls, gCplApp%zeroArrayTypes, &
                                     gCplApp%State%Gas, gCplApp%recvGCountsGas, &
                                     gCplApp%recvGDisplsGas, gCplApp%recvGTypesGas, &
                                     gCplApp%couplingComm, ierr)
+        call Toc("GameraSync", .true.)
         ! Receive Deep Bxyz Data
         call mpi_neighbor_alltoallw(gCplApp%State%Bxyz, gCplApp%zeroArrayCounts, &
                                     gCplApp%zeroArrayDispls, gCplApp%zeroArrayTypes, &

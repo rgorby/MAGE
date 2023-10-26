@@ -82,7 +82,7 @@ module voltapp_mpi
         if(vApp%amHelper) then
             vApp%isLoud = .false.
             vApp%writeFiles = .false.
-            vApp%gAppLocal%Model%isLoud = .false.
+            vApp%gApp%Model%isLoud = .false.
 
             ! read helper XML options
             if(present(optFilename)) then
@@ -253,22 +253,16 @@ module voltapp_mpi
             end if
         endif
 
-        ! perform initial deep update if appropriate
-        call Tic("Coupling", .true.)
-        if (vApp%time >= vApp%DeepT) then
-            ! do deep
-            call DeepUpdate_mpi(vApp)
-        endif
-        call Toc("Coupling", .true.)
-
     end subroutine initVoltron_mpi
 
      !Step Voltron if necessary (currently just updating state variables)
     subroutine stepVoltron_mpi(vApp)
         type(voltAppMpi_T), intent(inout) :: vApp
 
-        ! advance to the NEXT coupling interval
-        vApp%DeepT = vApp%DeepT + vApp%DeepDT
+        if(vApp%time >= vApp%DeepT) then
+            ! advance to the NEXT coupling interval
+            vApp%DeepT = vApp%DeepT + vApp%DeepDT
+        endif
 
         ! this will step coupled Gamera
         call vApp%gApp%UpdateCoupler(vApp)

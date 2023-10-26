@@ -174,8 +174,12 @@ module gamCouple_mpi_G2V
             if(App%DeepT > targetSimT) then
                 ! no additional coupling required here
                 call gamMpiAdvanceModel(App, targetSimT-App%Model%t)
+            elseif(App%DeepT <= App%Model%t) then
+                ! couple immediately
+                call sendVoltronCplDataMpi(App)
+                call recvVoltronCplDatampi(App)
             else
-                ! we couple before finishing this dt
+                ! math then couple
                 call gamMpiAdvanceModel(App, App%DeepT-App%Model%t)
 
                 call sendVoltronCplDataMpi(App)
@@ -207,13 +211,13 @@ module gamCouple_mpi_G2V
                 TYPE IS (IonInnerBC_T)
 
                     ! Recv inEijk Data
-                    call Tic("VoltSync")
+                    call Tic("VoltSync", .true.)
                     call mpi_neighbor_alltoallw(0, gCplApp%zeroArrayCounts, &
                                                 gCplApp%zeroArrayDispls, gCplApp%zeroArrayTypes, &
                                                 iiBC%inEijk, gCplApp%recvVCountsIneijk, &
                                                 gCplApp%recvVDisplsIneijk, gCplApp%recvVTypesIneijk, &
                                                 gCplApp%couplingComm, ierr)
-                    call Toc("VoltSync")
+                    call Toc("VoltSync", .true.)
 
                     ! Recv inExyz Data
                     call mpi_neighbor_alltoallw(0, gcplApp%zeroArrayCounts, &
@@ -228,13 +232,13 @@ module gamCouple_mpi_G2V
         else
             ! not a rank with remix BC, but still need to call mpi_neighbor_alltoallw
             ! Recv nothing step 1
-            call Tic("VoltSync")
+            call Tic("VoltSync", .true.)
             call mpi_neighbor_alltoallw(0, gCplApp%zeroArrayCounts, &
                                         gCplApp%zeroArrayDispls, gCplApp%zeroArrayTypes, &
                                         0, gCplApp%zeroArrayCounts, &
                                         gCplApp%zeroArrayDispls, gCplApp%zeroArrayTypes, &
                                         gCplApp%couplingComm, ierr)
-            call Toc("VoltSync")
+            call Toc("VoltSync", .true.)
 
             ! Recv nothing step 2
             call mpi_neighbor_alltoallw(0, gCplApp%zeroArrayCounts, &
@@ -316,15 +320,16 @@ module gamCouple_mpi_G2V
         gCplApp%recvVTypesInexyz = MPI_DATATYPE_NULL
         gCplApp%recvVTypesIneijk = MPI_DATATYPE_NULL
 
+        gCplApp%sendVCountsGas = 1
+        gCplApp%sendVCountsBxyz = 1
+        gCplApp%sendVDisplsGas = 0
+        gCplApp%sendVDisplsBxyz = 0
+        gCplApp%sendVTypesGas = MPI_DATATYPE_NULL
+        gCplApp%sendVTypesBxyz = MPI_DATATYPE_NULL
+
         if(gCplApp%doDeep) then
-            gCplApp%sendVCountsGas = 1
-            gCplApp%sendVCountsBxyz = 1
             gCplApp%recvVCountsGas0 = 1
-            gCplApp%sendVDisplsGas = 0
-            gCplApp%sendVDisplsBxyz = 0
             gCplApp%recvVDisplsGas0 = 0
-            gCplApp%sendVTypesGas = MPI_DATATYPE_NULL
-            gCplApp%sendVTypesBxyz = MPI_DATATYPE_NULL
             gCplApp%recvVTypesGas0 = MPI_DATATYPE_NULL
         endif
 
@@ -383,16 +388,16 @@ module gamCouple_mpi_G2V
                                    gCplApp%recvVTypesIneijk(1), ierr)
         endif
 
+        ! Gas
+        sendDataOffset = Model%nG*Grid%Nj*Grid%Ni + &
+                         Model%nG*Grid%Ni + &
+                         Model%nG
+        call mpi_type_hindexed(1,(/1/),sendDataOffset*dataSize,iPjPkP5Gas,gCplApp%sendVTypesGas(1),ierr)
+
+        ! Bxyz
+        call mpi_type_hindexed(1,(/1/),sendDataOffset*dataSize,iPjPkP4Bxyz,gCplApp%sendVTypesBxyz(1),ierr)
+
         if(gCplApp%doDeep) then
-            ! Gas
-            sendDataOffset = Model%nG*Grid%Nj*Grid%Ni + &
-                             Model%nG*Grid%Ni + &
-                             Model%nG
-            call mpi_type_hindexed(1,(/1/),sendDataOffset*dataSize,iPjPkP5Gas,gCplApp%sendVTypesGas(1),ierr)
-
-            ! Bxyz
-            call mpi_type_hindexed(1,(/1/),sendDataOffset*dataSize,iPjPkP4Bxyz,gCplApp%sendVTypesBxyz(1),ierr)
-
             ! Gas0
             recvDataOffset = 0
             call mpi_type_hindexed(1,(/1/),recvDataOffset*dataSize,iPG2jPG2kPG25Gas, &
@@ -402,9 +407,9 @@ module gamCouple_mpi_G2V
         ! commit new mpi datatypes
         call mpi_type_commit(gCplApp%recvVTypesIneijk(1), ierr)
         call mpi_type_commit(gCplApp%recvVTypesInexyz(1), ierr)
+        call mpi_type_commit(gCplApp%sendVTypesGas(1), ierr)
+        call mpi_type_commit(gCplApp%sendVTypesBxyz(1), ierr)
         if(gCplApp%doDeep) then
-            call mpi_type_commit(gCplApp%sendVTypesGas(1), ierr)
-            call mpi_type_commit(gCplApp%sendVTypesBxyz(1), ierr)
             call mpi_type_commit(gCplApp%recvVTypesGas0(1), ierr)
         endif
 
