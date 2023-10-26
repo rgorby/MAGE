@@ -297,18 +297,18 @@
         },
         "restart": {
             "doRes": {
-                "LEVEL": "BASIC",
+                "LEVEL": "INTERMEDIATE",
                 "prompt": "Restart from a saved state",
                 "default": "F",
                 "valids": ["T", "F"]
             },
             "nRes": {
-                "LEVEL": "BASIC",
+                "LEVEL": "INTERMEDIATE",
                 "prompt": "Index of restart file to use (-1 for latest (XXXXX-symlink) restart file)",
                 "default": "-1"
             },
             "resID": {
-                "LEVEL": "BASIC",
+                "LEVEL": "INTERMEDIATE",
                 "prompt": "Run ID for restart step",
                 "default": "geospace"
             }
