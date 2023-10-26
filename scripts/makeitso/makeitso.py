@@ -260,7 +260,6 @@ def prompt_user_for_run_options(args):
     hpc_platform = options["simulation"]["hpc_system"]
     gamera_grid_type = options["simulation"]["gamera_grid_type"]
     od = option_descriptions["pbs"][hpc_platform]
-    od["walltime"]["default"] = od["walltime"]["default"][gamera_grid_type]
     od["select"]["default"] = od["select"]["default"][gamera_grid_type]
     od["num_helpers"]["default"] = od["num_helpers"]["default"][gamera_grid_type]
     for on in od:
@@ -641,7 +640,7 @@ def convert_ini_to_xml(ini_files):
         xml_files.append(xml_file)
 
         # Remove the .ini file.
-        # os.remove(ini_file)
+        os.remove(ini_file)
 
     # Return the paths to the XML files.
     return xml_files

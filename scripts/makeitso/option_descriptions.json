@@ -69,7 +69,7 @@
             },
             "walltime": {
                 "LEVEL": "BASIC",
-                "prompt": "Requested wall time for PBS job (HH:MM:SS)",
+                "prompt": "WARNING: You are responsible for ensuring that the wall time is sufficient to run a segment of your simulation!\nRequested wall time for each PBS job segment (HH:MM:SS)",
                 "default": "01:00:00"
             },
             "select": {
@@ -157,13 +157,8 @@
             },
             "walltime": {
                 "LEVEL": "BASIC",
-                "prompt": "Requested wall time for PBS job (HH:MM:SS)",
-                "default": {
-                    "D": "01:00:00",
-                    "Q": "02:00:00",
-                    "O": "04:00:00",
-                    "H": "08:00:00"
-                }
+                "prompt": "WARNING: You are responsible for ensuring that the wall time is sufficient to run a segment of your simulation!\nRequested wall time for each PBS job segment (HH:MM:SS)",
+                "default": "01:00:00"
             },
             "select": {
                 "LEVEL": "EXPERT",
