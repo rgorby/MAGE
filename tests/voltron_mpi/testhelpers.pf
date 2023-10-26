@@ -190,7 +190,7 @@ contains
 
       call manualSetup(this, 'testHelpersSquish_4.xml')
 
-      if(isGamera) then
+      if(allocated(gamCplMpi)) then
           call runApplication()
       else
           voltAppMpi%ebTrcApp%ebModel%doDip = .true.
@@ -198,7 +198,7 @@ contains
       endif
 
       ! Now compare distributed squish results to local-only squish results
-      if(.not. isGamera) then
+      if(allocated(voltAppMpi)) then
           if(.not. voltAppMpi%amHelper) then
 
               ! call doImag once to update rTrc and nTrc before doing any squishing

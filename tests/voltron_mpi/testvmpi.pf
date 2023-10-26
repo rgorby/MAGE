@@ -395,10 +395,10 @@ contains
 
       real(rp) :: eijkSum, exyzSum
 
-      if(isGamera) then
+      if(allocated(gamCplMpi)) then
 
-          if(gamAppMpi%Grid%hasLowerBC(IDIR)) then
-              SELECT type(iiBC=>gamAppMpi%Grid%externalBCs(INI)%p)
+          if(gamCplMpi%Grid%hasLowerBC(IDIR)) then
+              SELECT type(iiBC=>gamCplMpi%Grid%externalBCs(INI)%p)
                   TYPE IS (IonInnerBC_T)
 
                       ! confirm cells are non-zero now
@@ -409,20 +409,12 @@ contains
               END SELECT
           endif
 
-          do while (g2vCommMpi%time < 30.0)
-              call stepGamera_mpi(gamAppMpi)
-              call localStepVoltronTime(g2vCommMpi, gamAppMpi)
-              if( (g2vCommMpi%time >= g2vCommMpi%DeepT) .or. &
-                (g2vCommMpi%time >= 30.0)) then
-                  call performStepVoltron(g2vCommMpi,gamAppMpi)
-                  if ( g2vCommMpi%time >= g2vCommMpi%DeepT) then
-                      call performDeepUpdate(g2vCommMpi, gamAppMpi)
-                  endif
-              endif
+          do while (gamCplMpi%Model%t < 30.0)
+              call gamCplMpi%AdvanceModel(30.0-gamCplMpi%Model%t)
           end do
 
-          if(gamAppMpi%Grid%hasLowerBC(IDIR)) then
-              SELECT type(iiBC=>gamAppMpi%Grid%externalBCs(INI)%p)
+          if(gamCplMpi%Grid%hasLowerBC(IDIR)) then
+              SELECT type(iiBC=>gamCplMpi%Grid%externalBCs(INI)%p)
                   TYPE IS (IonInnerBC_T)
 
                       ! confirm cells have changed
@@ -432,17 +424,7 @@ contains
           endif
       else
           do while (voltAppMpi%time < 30.0)
-              if(gameraStepReady(voltAppMpi)) then
-                  call stepVoltron_mpi(voltAppMpi)
-                  write (*,'(a,f8.3)') '    Time = ',voltAppMpi%time
-                  if (voltAppMpi%time >= voltAppMpi%DeepT) then
-                      call DeepUpdate_mpi(voltAppMpi, voltAppMpi%time)
-                  endif
-              elseif(deepInProgress(voltAppMpi)) then
-                  call doDeepBlock(voltAppMpi)
-              else
-                  call waitForGameraStep(voltAppMpi)
-              endif
+              call stepVoltron_mpi(voltAppMpi)
           end do
       endif
 

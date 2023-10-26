@@ -30,7 +30,7 @@ add_dependencies(voltTests ${voltTestLibs})
 
 file(GLOB rcmTestFiles "${CMAKE_CURRENT_SOURCE_DIR}/rcm/*.pf")
 set(rcmTestLibs baselib gamlib voltlib remixlib rcmlib tgiclib)
-add_pfunit_ctest(rcmTests TEST_SOURCES ${rcmTestFiles} OTHER_SOURCES ${helperFiles} LINK_LIBRARIES ${rcmTestLibs} MAX_PES 1)
+add_pfunit_ctest(rcmTests TEST_SOURCES ${rcmTestFiles} OTHER_SOURCES ${helperFiles} LINK_LIBRARIES ${rcmTestLibs})
 add_dependencies(rcmTests ${rcmTestLibs})
 
 # copy input xml files and grid h5 files to binary folder for running

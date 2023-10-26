@@ -137,6 +137,8 @@ contains
   subroutine testNewPlanet() ! Arbitrary, not real planet
     type(voltApp_T) :: vApp
     character(len=strLen) :: xmlName = 'cmriD_NewPlanet.xml'
+    type(XML_Input_T) :: inpXML
+    real(rp) :: corotXML
 
     call caseTestInit(vApp%gApp, xmlName)
     call initVoltron(vApp, xmlName)
