@@ -588,7 +588,8 @@ def create_ini_files(options):
 def convert_ini_to_xml(ini_files):
     """Convert the .ini files to XML.
 
-    Convert the .ini files describing the run to XML files.
+    Convert the .ini files describing the run to XML files. The intermediate
+    .ini files are then deleted.
 
     Parameters
     ----------
@@ -619,6 +620,9 @@ def convert_ini_to_xml(ini_files):
 
         # Add this file to the list of XML files.
         xml_files.append(xml_file)
+
+        # Remove the .ini file.
+        os.remove(ini_file)
 
     # Return the paths to the XML files.
     return xml_files
