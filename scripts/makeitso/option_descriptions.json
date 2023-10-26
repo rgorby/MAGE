@@ -439,7 +439,7 @@
     "voltron": {
         "time": {
             "tFin": {
-                "LEVEL": "BASIC",
+                "LEVEL": "EXPERT",
                 "prompt": "Final simulated time (seconds)",
                 "default": "64800.0"
             }
