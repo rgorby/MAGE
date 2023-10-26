@@ -17,10 +17,10 @@
             "prompt": "Stop date for simulation (yyyy-mm-ddThh:mm:ss",
             "default": "2016-08-09T10:00:00"
         },
-        "LFM_grid_type": {
+        "gamera_grid_type": {
             "LEVEL": "BASIC",
-            "prompt": "Lyon-Fedder-Mobarry (LFM) grid type",
-            "default": "D",
+            "prompt": "GAMERA grid type",
+            "default": "Q",
             "valids": ["D", "Q", "O", "H"]
         },
         "hpc_system": {

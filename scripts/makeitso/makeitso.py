@@ -241,11 +241,11 @@ def prompt_user_for_run_options(args):
 
     # HPC platform-specific options
     hpc_platform = options["simulation"]["hpc_system"]
-    LFM_grid_type = options["simulation"]["LFM_grid_type"]
+    gamera_grid_type = options["simulation"]["gamera_grid_type"]
     od = option_descriptions["pbs"][hpc_platform]
-    od["walltime"]["default"] = od["walltime"]["default"][LFM_grid_type]
-    od["select"]["default"] = od["select"]["default"][LFM_grid_type]
-    od["num_helpers"]["default"] = od["num_helpers"]["default"][LFM_grid_type]
+    od["walltime"]["default"] = od["walltime"]["default"][gamera_grid_type]
+    od["select"]["default"] = od["select"]["default"][gamera_grid_type]
+    od["num_helpers"]["default"] = od["num_helpers"]["default"][gamera_grid_type]
     for on in od:
         o[on] = get_run_option(on, od[on], mode)
 
@@ -264,7 +264,7 @@ def prompt_user_for_run_options(args):
     options["gamera"]["sim"] = {}
     o = options["gamera"]["sim"]
     od = option_descriptions["gamera"]["sim"]
-    od["H5Grid"]["default"] = f"lfm{options['simulation']['LFM_grid_type']}.h5"
+    od["H5Grid"]["default"] = f"lfm{options['simulation']['gamera_grid_type']}.h5"
     od["runid"]["default"] = options["simulation"]["runid"]
     for on in od:
         o[on] = get_run_option(on, od[on], mode)
@@ -325,7 +325,7 @@ def prompt_user_for_run_options(args):
     options["gamera"]["iPdir"] = {}
     o = options["gamera"]["iPdir"]
     od = option_descriptions["gamera"]["iPdir"]
-    od["N"]["default"] = od["N"]["default"][LFM_grid_type]
+    od["N"]["default"] = od["N"]["default"][gamera_grid_type]
     for on in od:
         o[on] = get_run_option(on, od[on], mode)
 
@@ -333,7 +333,7 @@ def prompt_user_for_run_options(args):
     options["gamera"]["jPdir"] = {}
     o = options["gamera"]["jPdir"]
     od = option_descriptions["gamera"]["jPdir"]
-    od["N"]["default"] = od["N"]["default"][LFM_grid_type]
+    od["N"]["default"] = od["N"]["default"][gamera_grid_type]
     for on in od:
         o[on] = get_run_option(on, od[on], mode)
 
@@ -341,7 +341,7 @@ def prompt_user_for_run_options(args):
     options["gamera"]["kPdir"] = {}
     o = options["gamera"]["kPdir"]
     od = option_descriptions["gamera"]["kPdir"]
-    od["N"]["default"] = od["N"]["default"][LFM_grid_type]
+    od["N"]["default"] = od["N"]["default"][gamera_grid_type]
     for on in od:
         o[on] = get_run_option(on, od[on], mode)
 
@@ -516,7 +516,7 @@ def run_preprocessing_steps(options):
     # Create the LFM grid file.
     # NOTE: Assumes genLFM.py is in PATH.
     cmd = "genLFM.py"
-    args = [cmd, "-gid", options["simulation"]["LFM_grid_type"]]
+    args = [cmd, "-gid", options["simulation"]["gamera_grid_type"]]
     subprocess.run(args, check=True)
 
     # Create the solar wind file by fetching data from CDAWeb.
