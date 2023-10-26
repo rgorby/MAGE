@@ -2,9 +2,9 @@
     "version": "0.0.0",
 
     "simulation": {
-        "runid": {
+        "job_name": {
             "LEVEL": "BASIC",
-            "prompt": "ID string for run",
+            "prompt": "Name to use for PBS job(s)",
             "default": "geospace"
         },
         "start_date": {

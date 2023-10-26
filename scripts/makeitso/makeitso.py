@@ -265,7 +265,7 @@ def prompt_user_for_run_options(args):
     o = options["gamera"]["sim"]
     od = option_descriptions["gamera"]["sim"]
     od["H5Grid"]["default"] = f"lfm{options['simulation']['gamera_grid_type']}.h5"
-    od["runid"]["default"] = options["simulation"]["runid"]
+    od["runid"]["default"] = options["simulation"]["job_name"]
     for on in od:
         o[on] = get_run_option(on, od[on], mode)
 
@@ -289,7 +289,7 @@ def prompt_user_for_run_options(args):
     options["gamera"]["restart"] = {}
     o = options["gamera"]["restart"]
     od = option_descriptions["gamera"]["restart"]
-    od["resID"]["default"] = options["simulation"]["runid"]
+    od["resID"]["default"] = options["simulation"]["job_name"]
     for on in od:
         o[on] = get_run_option(on, od[on], mode)
 
@@ -564,7 +564,7 @@ def create_ini_files(options):
     # Create an .ini file for each segment.
     for job in range(int(options["pbs"]["num_jobs"])):
         opt = copy.deepcopy(options)  # Need a copy of options
-        runid = opt["simulation"]["runid"]
+        runid = opt["simulation"]["job_name"]
         segment_id = f"{runid}-{job:02d}"
         opt["simulation"]["segment_id"] = segment_id
         if job > 0:
@@ -622,7 +622,7 @@ def convert_ini_to_xml(ini_files):
         xml_files.append(xml_file)
 
         # Remove the .ini file.
-        os.remove(ini_file)
+        # os.remove(ini_file)
 
     # Return the paths to the XML files.
     return xml_files
@@ -656,7 +656,7 @@ def create_pbs_scripts(options):
     pbs_scripts = []
     for job in range(int(options["pbs"]["num_jobs"])):
         opt = copy.deepcopy(options)  # Need a copy of options
-        runid = opt["simulation"]["runid"]
+        runid = opt["simulation"]["job_name"]
         segment_id = f"{runid}-{job:02d}"
         opt["simulation"]["segment_id"] = segment_id
         pbs_content = template.render(opt)
@@ -669,7 +669,7 @@ def create_pbs_scripts(options):
             f.write(pbs_content)
 
     # Create a single script which will submit all of the PBS jobs in order.
-    path = f"{options['simulation']['runid']}_pbs.sh"
+    path = f"{options['simulation']['job_name']}_pbs.sh"
     with open(path, "w", encoding="utf-8") as f:
         s = pbs_scripts[0]
         cmd = f"job_id=`qsub {s}`\n"
@@ -732,7 +732,7 @@ def main():
     os.chdir(options["pbs"]["run_directory"])
 
     # Save the options dictionary as a JSON file in the current directory.
-    path = f"{options['simulation']['runid']}.json"
+    path = f"{options['simulation']['job_name']}.json"
     if os.path.exists(path):
         if not clobber:
             raise FileExistsError(f"Options file {path} exists!")
