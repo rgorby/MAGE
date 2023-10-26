@@ -660,6 +660,8 @@ def create_pbs_scripts(options):
     -------
     pbs_scripts : list of str
         Paths to PBS job script.
+    submit_all_jobs_script : str
+        Path to script which submits all PBS jobs.
 
     Raises
     ------
@@ -687,8 +689,8 @@ def create_pbs_scripts(options):
             f.write(pbs_content)
 
     # Create a single script which will submit all of the PBS jobs in order.
-    path = f"{options['simulation']['job_name']}_pbs.sh"
-    with open(path, "w", encoding="utf-8") as f:
+    submit_all_jobs_script = f"{options['simulation']['job_name']}_pbs.sh"
+    with open(submit_all_jobs_script, "w", encoding="utf-8") as f:
         s = pbs_scripts[0]
         cmd = f"job_id=`qsub {s}`\n"
         f.write(cmd)
@@ -703,7 +705,7 @@ def create_pbs_scripts(options):
             f.write(cmd)
 
     # Return the paths to the PBS scripts.
-    return pbs_scripts
+    return pbs_scripts, submit_all_jobs_script
 
 
 def main():
@@ -779,10 +781,14 @@ def main():
     # Create the PBS job script(s).
     if verbose:
         print("Creating PBS job script(s) for run.")
-    pbs_scripts = create_pbs_scripts(options)
+    pbs_scripts, all_jobs_script = create_pbs_scripts(options)
     if verbose:
         print(f"The PBS job scripts {pbs_scripts} are ready.")
-
+    print(f"The PBS scripts {pbs_scripts} have been created, each with a "
+          "corresponding XML file. To submit the jobs with the proper "
+          "dependency (to ensure each segment runs in order), please run the "
+          f"script {all_jobs_script} like this:\n"
+          f"bash {all_jobs_script}")
 
 if __name__ == "__main__":
     """Begin main program."""
