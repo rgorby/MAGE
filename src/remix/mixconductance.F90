@@ -22,6 +22,7 @@ module mixconductance
   real(rp), parameter, private :: Ne_psp = 10.0e6 ! Ne threshold for the plasmasphere in [/m^3].
   real(rp), private :: RinMHD = 0.0 !Rin of MHD grid (0 if not running w/ MHD)
   real(rp), private :: MIXgamma
+  real(rp), private :: beta_inp
   logical , private :: doDrift = .false. !Whether to add drift term from Zhang
 
   contains
@@ -93,6 +94,7 @@ module mixconductance
       alpha_RCM = 1.0/(tiote_RCM+1.0)
       ! Loss cone rate
       beta_RCM  = conductance%beta
+      beta_inp  = conductance%beta
       ! RCM grid weight: 1. Totally on closed RCM; 0. Totally outside RCM.
       ! if conductance_IM_GTYPE is not called, gtype_RCM has all zero, MHD values have a weight of 1.
       gtype_RCM = 0.0
@@ -900,7 +902,7 @@ module mixconductance
 
       ! Initialize IM_BETA with 1, assuming all flux can be precipitated.
       ! IM_GTYPE is interpolated from RCM: 1=RCM and 0=MHD.
-      St%Vars(:,:,IM_BETA) = 1.0
+      St%Vars(:,:,IM_BETA) = beta_inp
       isAncB = .false. ! beta is smoothed everywhere.
       isAncG = .false.
 
@@ -924,8 +926,8 @@ module mixconductance
                   ! The beta there can be easily >>1 and is thus not as reliable.
                   ! Reset grid weight to MHD if RCM beta>1.
                   St%Vars(i,j,IM_GTYPE) = 0.0 !1.0/St%Vars(i,j,IM_BETA)**2
-                  St%Vars(i,j,IM_BETA)  = 1.0
-                  isAncG(i,j) = .true.
+                  St%Vars(i,j,IM_BETA)  = 0.5*(1.0+beta_inp)
+                  isAncG(i,j) = .false.
                endif
             endif
          enddo
