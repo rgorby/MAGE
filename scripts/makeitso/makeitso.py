@@ -30,6 +30,7 @@ import os
 import subprocess
 
 # Import 3rd-party modules.
+import h5py
 from jinja2 import Template
 
 # Import project modules.
@@ -174,6 +175,37 @@ def get_run_option(name, description, mode="BASIC"):
     return str(option_value)
 
 
+def fetch_bcwind_time_range(bcwind_path):
+    """Fetch the start and stop times for a bcwind file.
+
+    Fetch the start and stop times for a bcwind file.
+
+    Parameters
+    ----------
+    bcwind_path : str
+        Path to bcwind file
+
+    Returns
+    -------
+    start_date, stop_date : str
+        First and last entries in UT group, as strings, in
+        'YYYY-MM-DDTHH:MM:SS' format.
+
+    Raises
+    ------
+    None
+    """
+    with h5py.File(bcwind_path, "r") as f:
+        start_date = f["UT"][0].decode("utf-8")
+        stop_date = f["UT"][-1].decode("utf-8")
+        # <HACK> Convert from "YYYY-MM-DD HH:MM:SS" format to
+        # "YYYY-MM-DDTHH:MM:SS" format.
+        start_date = start_date.replace(" ", "T")
+        stop_date = stop_date.replace(" ", "T")
+        # </HACK>
+    return start_date, stop_date
+
+
 def prompt_user_for_run_options(args):
     """Prompt the user for run options.
 
@@ -211,14 +243,30 @@ def prompt_user_for_run_options(args):
     #-------------------------------------------------------------------------
 
     # General options for the simulation
-    options["simulation"] = {}
-    o = options["simulation"]
+    o = options["simulation"] = {}
     od = option_descriptions["simulation"]
 
-    # These parameters must be prompted individually since they are
-    # interdependent.
-    for on in ["job_name", "start_date", "stop_date"]:
+    # Prompt for the name of the job.
+    for on in ["job_name"]:
         o[on] = get_run_option(on, od[on], mode)
+
+    # Ask the user if a boundary condition file is available. If not, offer to
+    # generate one from the start and end date.
+    for on in ["bcwind_available"]:
+        o[on] = get_run_option(on, od[on], mode)
+    if o["bcwind_available"] == "Y":
+        for on in ["bcwind_file"]:
+            o[on] = get_run_option(on, od[on], mode)
+        # Fetch the start and stop date from the bcwind file.
+        start_date, stop_date = fetch_bcwind_time_range(o[on])
+        o["start_date"] = start_date
+        o["stop_date"] = stop_date
+    else:
+        # Prompt for the start and stop date of the run. This will also be
+        # used as the start and stop date of the data in the boundary condition
+        # file, which will be created using CDAWeb data.
+        for on in ["start_date", "stop_date"]:
+            o[on] = get_run_option(on, od[on], mode)
 
     # Compute the total simulation time in seconds, use as segment duration
     # default.
@@ -535,12 +583,13 @@ def run_preprocessing_steps(options):
     args = [cmd, "-gid", options["simulation"]["gamera_grid_type"]]
     subprocess.run(args, check=True)
 
-    # Create the solar wind file by fetching data from CDAWeb.
+    # If needed, create the solar wind file by fetching data from CDAWeb.
     # NOTE: Assumes cda2wind.py is in PATH.
-    cmd = "cda2wind.py"
-    args = [cmd, "-t0", options["simulation"]["start_date"], "-t1",
-            options["simulation"]["stop_date"], "-interp", "-bx"]
-    subprocess.run(args, check=True)
+    if options["simulation"]["bcwind_available"] == "N":
+        cmd = "cda2wind.py"
+        args = [cmd, "-t0", options["simulation"]["start_date"], "-t1",
+                options["simulation"]["stop_date"], "-interp", "-bx"]
+        subprocess.run(args, check=True)
 
     # Create the RCM configuration file.
     # NOTE: Assumes genRCM.py is in PATH.

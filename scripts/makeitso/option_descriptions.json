@@ -7,14 +7,25 @@
             "prompt": "Name to use for PBS job(s)",
             "default": "geospace"
         },
+        "bcwind_available": {
+            "LEVEL": "BASIC",
+            "prompt": "Do you have an existing boundary condition file to use?",
+            "default": "N",
+            "valids": ["Y", "N"]
+        },
+        "bcwind_file": {
+            "LEVEL": "BASIC",
+            "prompt": "Name of boundary condition file to use",
+            "default": "bcwind.h5"
+        },
         "start_date": {
             "LEVEL": "BASIC",
-            "prompt": "Start date for simulation (yyyy-mm-ddThh:mm:ss",
+            "prompt": "Start date for simulation (yyyy-mm-ddThh:mm:ss)",
             "default": "2016-08-09T09:00:00"
         },
         "stop_date": {
             "LEVEL": "BASIC",
-            "prompt": "Stop date for simulation (yyyy-mm-ddThh:mm:ss",
+            "prompt": "Stop date for simulation (yyyy-mm-ddThh:mm:ss)",
             "default": "2016-08-09T10:00:00"
         },
         "segment_duration": {
