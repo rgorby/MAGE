@@ -643,7 +643,7 @@ module mixconductance
                ! When there is no acceleration, MHD flux represents the diffuse precipitation.
                conductance%deltaE(i,j) = 0.0
                St%Vars(i,j,Z_NFLUX) = phi0
-               St%Vars(i,j,Z_EAVG) = kT 
+               St%Vars(i,j,Z_EAVG) = 2.0*kT 
             endif
 
             St%Vars(i,j,DELTAE)   = conductance%deltaE(i,j)
