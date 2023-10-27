@@ -278,9 +278,16 @@ def prompt_user_for_run_options(args):
     simulation_duration = (t2 - t1).seconds
     od["segment_duration"]["default"] = str(simulation_duration)
 
-    # Prompt for the remaining parameters.
-    for on in ["segment_duration", "gamera_grid_type", "hpc_system"]:
+    # Ask if the user wants to split the run into multiple segments.
+    # If so, prompt for the segment duration. If not, use the default
+    # for the segment duration (which is the simulation duration).
+    for on in ["use_segments"]:
         o[on] = get_run_option(on, od[on], mode)
+    if o["use_segments"] == "Y":
+        for on in ["segment_duration"]:
+            o[on] = get_run_option(on, od[on], mode)
+    else:
+        o["segment_duration"] = od["segment_duration"]["default"]
 
     # Compute the number of segments based on the simulation duration and
     # segment duration. Add 1 if there is a remainder.
@@ -288,6 +295,10 @@ def prompt_user_for_run_options(args):
     if num_segments > int(num_segments):
         num_segments += 1
     num_segments = int(num_segments)
+
+    # Prompt for the remaining parameters.
+    for on in ["gamera_grid_type", "hpc_system"]:
+        o[on] = get_run_option(on, od[on], mode)
 
     #-------------------------------------------------------------------------
 

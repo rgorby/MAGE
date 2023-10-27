@@ -28,6 +28,12 @@
             "prompt": "Stop date for simulation (yyyy-mm-ddThh:mm:ss)",
             "default": "2016-08-09T10:00:00"
         },
+        "use_segments": {
+            "LEVEL": "BASIC",
+            "prompt": "Do you want to split your job into multiple segments?",
+            "default": "N",
+            "valids": ["Y", "N"]
+        },
         "segment_duration": {
             "LEVEL": "BASIC",
             "prompt": "Segment length in simulated seconds"
