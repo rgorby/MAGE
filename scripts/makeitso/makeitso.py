@@ -539,7 +539,7 @@ def run_preprocessing_steps(options):
     # NOTE: Assumes cda2wind.py is in PATH.
     cmd = "cda2wind.py"
     args = [cmd, "-t0", options["simulation"]["start_date"], "-t1",
-            options["simulation"]["stop_date"], "-interp"]
+            options["simulation"]["stop_date"], "-interp", "-bx"]
     subprocess.run(args, check=True)
 
     # Create the RCM configuration file.
