@@ -41,6 +41,7 @@ if __name__ == "__main__":
     tpad = args.tpad
     swfname = args.swfile
     doDPS = args.dps
+    ftag = args.id
 
     #UT formats for plotting
     isotfmt = '%Y-%m-%dT%H:%M:%S.%f'
