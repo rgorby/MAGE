@@ -275,7 +275,7 @@ def prompt_user_for_run_options(args):
     stop_date = o["stop_date"]
     t1 = datetime.datetime.strptime(start_date, date_format)
     t2 = datetime.datetime.strptime(stop_date, date_format)
-    simulation_duration = (t2 - t1).seconds
+    simulation_duration = (t2 - t1).total_seconds()
     od["segment_duration"]["default"] = str(simulation_duration)
 
     # Ask if the user wants to split the run into multiple segments.
