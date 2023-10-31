@@ -81,8 +81,8 @@
             "queue": {
                 "LEVEL": "BASIC",
                 "prompt": "PBS queue name",
-                "default": "regular",
-                "valids": ["economy", "premium", "regular", "share"]
+                "default": "main",
+                "valids": ["develop", "main"]
             },
             "walltime": {
                 "LEVEL": "BASIC",
