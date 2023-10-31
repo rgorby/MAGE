@@ -450,6 +450,14 @@
                 "default": "T",
                 "valids": ["T", "F"]
             }
+        },
+        "coupling": {
+            "blockHalo": {
+                "LEVEL": "EXPERT",
+                "prompt": "Block halo MPI",
+                "default": "T",
+                "valids": ["T", "F"]
+            }
         }
     },
 
@@ -515,6 +523,12 @@
                 "prompt": "Inner magnetosphere model to use",
                 "default": "RCM",
                 "valids": ["RCM", "SST", "TS07", "RCMX"]
+            },
+            "doAsyncCoupling": {
+                "LEVEL": "EXPERT",
+                "prompt": "Perform asynchronous model coupling",
+                "default": "F",
+                "valids": ["T", "F"]
             }
         },
         "restart": {
