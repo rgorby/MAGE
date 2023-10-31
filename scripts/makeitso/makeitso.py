@@ -420,6 +420,14 @@ def prompt_user_for_run_options(args):
     for on in od:
         o[on] = get_run_option(on, od[on], mode)
 
+    # <coupling> options
+    options["gamera"]["coupling"] = {}
+    o = options["gamera"]["coupling"]
+    od = option_descriptions["gamera"]["coupling"]
+    od["blockHalo"]["default"] = od["blockHalo"]["default"][hpc_platform]
+    for on in od:
+        o[on] = get_run_option(on, od[on], mode)
+
     #-------------------------------------------------------------------------
 
     # VOLTRON options
@@ -451,6 +459,7 @@ def prompt_user_for_run_options(args):
     options["voltron"]["coupling"] = {}
     o = options["voltron"]["coupling"]
     od = option_descriptions["voltron"]["coupling"]
+    od["doAsyncCoupling"]["default"] = od["doAsyncCoupling"]["default"][hpc_platform]
     for on in od:
         o[on] = get_run_option(on, od[on], mode)
 

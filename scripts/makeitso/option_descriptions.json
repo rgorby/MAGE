@@ -455,7 +455,10 @@
             "blockHalo": {
                 "LEVEL": "EXPERT",
                 "prompt": "Block halo MPI",
-                "default": "T",
+                "default": {
+                    "derecho": "T",
+                    "pleiades": "F"
+                },
                 "valids": ["T", "F"]
             }
         }
@@ -527,7 +530,10 @@
             "doAsyncCoupling": {
                 "LEVEL": "EXPERT",
                 "prompt": "Perform asynchronous model coupling",
-                "default": "F",
+                "default": {
+                    "derecho": "F",
+                    "pleiades": "T"
+                },
                 "valids": ["T", "F"]
             }
         },
