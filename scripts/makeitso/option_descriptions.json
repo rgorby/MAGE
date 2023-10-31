@@ -629,13 +629,19 @@
             "aurora_model_type": {
                 "LEVEL": "INTERMEDIATE",
                 "prompt": "Name of auroral precipitation model to use",
-                "default": "RCMHD",
-                "valids": ["FEDDER", "ZHANG", "RCMHD", "RCMONO", "RCMFED"]
+                "default": "LINMRG",
+                "valids": ["FEDDER", "ZHANG", "RCMHD", "RCMONO", "RCMFED", "LINMRG"]
             },
             "beta": {
                 "LEVEL": "INTERMEDIATE",
                 "prompt": "Loss cone filling fraction",
                 "default": "0.2"
+            },
+            "doAuroralSmooth": {
+                "LEVEL": "INTERMEDIATE",
+                "prompt": "Enable Auroral Smoothing",
+                "default": "T",
+                "valids": ["T", "F"]
             }
         }
     },
