@@ -259,12 +259,12 @@ module gridutils
             enddo
         enddo
 
-        ! line integrals of bint to get J*dS on cell faces, the indices are from start to end+1
+        ! line integrals of bint to get J*dS on cell faces, the indices are from start+1 to end+1
         !$OMP PARALLEL DO default(shared) collapse(2) &
         !$OMP private(i,j,k)
-        do k=Grid%ksg, Grid%keg-1
-            do j=Grid%jsg, Grid%jeg-1
-                do i=Grid%isg, Grid%ieg-1
+        do k=Grid%ksg+1, Grid%keg-1
+            do j=Grid%jsg+1, Grid%jeg-1
+                do i=Grid%isg+1, Grid%ieg-1
                    JdS(i,j,k,IDIR) = bInt(i,j,k,JDIR) + bInt(i,j+1,k,KDIR) - bInt(i,j,k+1,JDIR) - bInt(i,j,k,KDIR)
                    JdS(i,j,k,JDIR) = bInt(i,j,k,KDIR) + bInt(i,j,k+1,IDIR) - bInt(i+1,j,k,KDIR) - bInt(i,j,k,IDIR)
                    JdS(i,j,k,KDIR) = bInt(i,j,k,IDIR) + bInt(i+1,j,k,JDIR) - bInt(i,j+1,k,IDIR) - bInt(i,j,k,JDIR)
