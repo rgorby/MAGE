@@ -640,7 +640,7 @@
             "doAuroralSmooth": {
                 "LEVEL": "INTERMEDIATE",
                 "prompt": "Enable Auroral Smoothing",
-                "default": "T",
+                "default": "F",
                 "valids": ["T", "F"]
             }
         }
