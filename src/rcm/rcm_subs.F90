@@ -550,6 +550,7 @@
         real(rprec), dimension(RCMNUMFLAV) :: nflx,eflx
         integer(iprec) :: klow,i,j,k,ie
         real(rprec) :: dn
+        real(rprec) :: kin
         !Try to do calculation everywhere possible including MHD buffer region
         isOpen = (vm < 0)
         !Set lowest RC channel
@@ -567,7 +568,9 @@
                 nflx = 0.0
                 eflx = 0.0
                 do k=klow,kcsize
-                    IF (alamc (k) < -TINY) THEN
+                    ! only accumulate diff for keV below 30 keV.
+                    kin = abs(alamc(k)*vm(i,j))*1.0e-3 !Energy [keV]
+                    IF (alamc (k) < -TINY .and. kin<=30.0) THEN
                         ie = RCMELECTRON
                     else if (alamc (k) > +TINY) then
                         ie = RCMPROTON
