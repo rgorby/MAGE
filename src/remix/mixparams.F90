@@ -115,6 +115,7 @@ module mixparams
            case ("LINMRG")
               Params%aurora_model_type = LINMRG
            case ("RCMHD")
+              write(*,*) "RCMHD historically only works with FDG as the RCM electron loss model."
               Params%aurora_model_type = RCMHD
            case default 
               stop "The auroral model type entered is not supported (Available options: FEDDER, ZHANG, LINMRG, RCMHD)."
