@@ -7,6 +7,7 @@ module raijuIO
     use raijutypes
     use raijuetautils
     use raijuadvancer, only : calcEffectivePotential
+    use raijuELossWM, only : eWMOutput
 
     implicit none
 
@@ -280,13 +281,17 @@ module raijuIO
             call AddOutVar(IOVars, "gradVM"      , State%gradVM      (is:ie,js:je,:), uStr="V/m/lambda")
             call AddOutVar(IOVars, "cVel_th", State%cVel(is:ie,js:je,:,1), uStr="m/s")
             call AddOutVar(IOVars, "cVel_ph", State%cVel(is:ie,js:je,:,2), uStr="m/s")
-            call AddOutVar(IOVars, "precipNFlux_Nk", State%precipNFlux(is:ie,js:je,:), uStr="#/cm^2/s")
-            call AddOutVar(IOVars, "precipEFlux_Nk", State%precipEFlux(is:ie,js:je,:), uStr="erg/cm^2/s")
+            call AddOutVar(IOVars, "preciplossRates_Nk", State%lossRates  (is:ie,js:je,:), uStr="1/s")
+            call AddOutVar(IOVars, "precipNFlux_Nk"    , State%precipNFlux(is:ie,js:je,:), uStr="#/cm^2/s")
+            call AddOutVar(IOVars, "precipEFlux_Nk"    , State%precipEFlux(is:ie,js:je,:), uStr="erg/cm^2/s")
         endif
 
-
-
         call WriteVars(IOVars,.true.,Model%raijuH5, gStr)
+
+        ! Let sub-models add stuff if they want
+        if (Model%eLossWM%doOutput) then
+            call eWMOutput(Model, Grid, State, gStr, doGhostsO)
+        endif
 
     end subroutine WriteRaiju
 

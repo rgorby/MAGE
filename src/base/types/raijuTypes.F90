@@ -44,6 +44,8 @@ module raijutypes
             !! Strong-scattering limit
         real(rp), dimension(:), allocatable :: alami
             !! Lambda channel cell interfaces/edges
+        logical :: mapExtraToPsph
+            !! Whether any eta under species' lowest bound gets added to plasmasphere
 
         !> These are calculated after read-in
         integer :: kStart, kEnd
@@ -61,16 +63,21 @@ module raijutypes
     type eLossWM_T
         !! Parameters used in electron wave model from Dedong Wang and Shanshan Bao
         
+        !! Model
         real(rp) :: NpsphHigh = def_NpsphHigh
         real(rp) :: NpsphLow = def_NpsphLow
         real(rp) :: ChorusLMax = def_ChorusLmax
         real(rp) :: PsheetLMin = def_PsheetLmin
         real(rp) :: ChorusEMin = def_ChorusEMin
+
+        logical :: doOutput = .false.
+            !! Whether or not we will be asked to provide detailed info in the output file
         
         
         type(TimeSeries_T) :: KpTS
             !! Kp data from wind file
 
+        !! Grid
         ! Chorus info
         integer :: Nkp, Nmlt, Nl, Ne
             !! Number of bins for Kp, MLT, L shell, and Energy
@@ -85,6 +92,11 @@ module raijutypes
             !! 1D array of energy dimension for Tau4D [MeV]
         real(rp), allocatable, dimension(:,:,:,:) :: Tau4D
             !! Tau(Kp, MLT, L, E) table electron scattering table [seconds]
+
+        !! State
+        real(rp), allocatable, dimension(:,:) :: wPS
+        real(rp), allocatable, dimension(:,:) :: wHISS
+        real(rp), allocatable, dimension(:,:) :: wCHORUS
 
     end type eLossWM_T
 
@@ -123,6 +135,8 @@ module raijutypes
         logical :: doGeoCorot
             !! If true, calc corotation potential from Geopack
             !! If false, calc corotation potential assuming dipole and rotational axes are aligned
+        logical :: doExcesstoPsph
+            !! Allow mapping of excess H+ to plasmasphere channel
 
         ! Plasmasphere settings
         logical :: doPlasmasphere
@@ -133,6 +147,7 @@ module raijutypes
         ! Some constants
         real(rp) :: tiote  ! Ion temp over electron temp. In the future, should be fancier
         real(rp) :: worthyFrac  ! Fracton that a channel must contribute to pressure or density for its i shell to be evolved
+        real(rp) :: pressFracThresh  ! Threshold for fraction of pressure below the lowest lambda channel when mapping to moments. If fraction is higher than this threshold, we complain
 
         ! Lambda controls
         real(rp) :: kappa
@@ -311,7 +326,7 @@ module raijutypes
 
         function raijuELossRate_T(Model,Grid,State,i,j,k) result (lossRate2)
             Import :: rp, raijuModel_T, raijuGrid_T, raijuState_T
-            type(raijuModel_T) , intent(in) :: Model
+            type(raijuModel_T) , intent(inout) :: Model
             type(raijuGrid_T)  , intent(in) :: Grid
             type(raijuState_T) , intent(in) :: State
             integer, intent(in) :: i,j,k

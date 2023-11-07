@@ -115,7 +115,7 @@ program raijuSAx
     contains
 
     subroutine raijuAdvance(Model, Grid, State, dtCpl, isFirstCplO)
-        type(raijuModel_T), intent(in) :: Model
+        type(raijuModel_T), intent(inout) :: Model
         type(raijuGrid_T) , intent(in) :: Grid
         type(raijuState_T), intent(inout) :: State
         real(rp), intent(in) :: dtCpl
@@ -155,7 +155,7 @@ program raijuSAx
         type(eLossWM_T) :: eWM
         
         call iXML%Set_Val(confName, "config/fname","raijuconfig.h5")
-        call initEWM(eWM, confName, iXML)
+        call initEWM(eWM, confName, iXML, raiApp%Grid%shGrid)
 
         write(*,*) "Kp1D (",size(eWM%Kp1D),"):"
         write(*,*) eWM%Kp1D

@@ -13,9 +13,9 @@ module raijuSpeciesHelper
 
     contains
     
-    !------
-    ! Helper helpers
-    !------
+!------
+! Helper helpers
+!------
 
     function spcIdx(Grid, flav) result(idx)
         !! Get the index corresponding to a certain species
@@ -152,6 +152,13 @@ module raijuSpeciesHelper
             spc%amu = SpcAmu(spc)
             spc%spcType = SpcType(spc)
 
+            ! If species is H+ but not plasmasphere, we can map etas below its lambda bounds to plasmasphere
+            if (spc%spcType .eq. RAIJUHPLUS .and. spc%flav .ne. F_PSPH) then
+                spc%mapExtraToPsph = .true.
+            else
+                spc%mapExtraToPsph = .false.
+            endif
+
             ! Calc start and end bounds, use it to set alami index range
             spc%kStart = kPos
             kPos = kPos + spc%N
@@ -160,15 +167,16 @@ module raijuSpeciesHelper
             allocate(spc%alami(spc%kStart:spc%kEnd+1))
             call IOArray1DFill(IOVars,"alami",spc%alami)
 
-            write(*,*)" Flav:    ", spc%flav
-            write(*,*)" N:       ", spc%N
-            write(*,*)" # nuc_p: ", spc%numNuc_p
-            write(*,*)" # nuc_n: ", spc%numNuc_n
-            write(*,*)" q:       ", spc%q
-            write(*,*)" spcType: ", spc%spcType
-            write(*,*)" Fudge:   ", spc%fudge
-            write(*,*)" kStart:  ", spc%kStart
-            write(*,*)" kEnd:    ", spc%kEnd
+            write(*,*)" Flav:         ", spc%flav
+            write(*,*)" N:            ", spc%N
+            write(*,*)" # nuc_p:      ", spc%numNuc_p
+            write(*,*)" # nuc_n:      ", spc%numNuc_n
+            write(*,*)" q:            ", spc%q
+            write(*,*)" spcType:      ", spc%spcType
+            write(*,*)" Fudge:        ", spc%fudge
+            write(*,*)" kStart:       ", spc%kStart
+            write(*,*)" kEnd:         ", spc%kEnd
+            write(*,*)" ExcesstoPsph: ", spc%mapExtraToPsph
             !write(*,*)" alami:   ", spc%alami
             
 

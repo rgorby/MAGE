@@ -38,6 +38,11 @@ module raijustarter
         ! Initialize IOCLOCK
         call app%State%IO%init(iXML,app%State%t,app%State%ts)
 
+        ! Some sub-models need RAIJU to make up its mind before they can do their full init
+        if (app%Model%eLossModel .eq. RaiELOSS_WM) then
+            call initEWM(app%Model%eLossWM, app%Model%configFName, iXML, app%Grid%shGrid)
+        endif
+
     end subroutine raijuInit
 
     ! Sets up Model, but Grid and State must be set up separately
@@ -84,11 +89,16 @@ module raijustarter
         else
             Model%nSpc = 2
         endif
+        call iXML%Set_Val(Model%doExcesstoPsph, "prob/doExcessMap",.true.)
+            !! Allow mapping of excess H+ to plasmasphere channel
+        
         call iXML%Set_Val(Model%nSpc, "prob/nSpc",Model%nSpc)
 
         ! Certain physical constants that shouldn't be constants
         call iXML%Set_Val(Model%tiote, "prob/tiote",4.0)
+
         call iXML%Set_Val(Model%worthyFrac, "prob/worthyFrac",fracWorthyDef)
+        call iXML%Set_Val(Model%pressFracThresh, "prob/pressFracthresh",pressFracThreshDef)
         call iXML%Set_Val(Model%doLosses, "prob/doLosses",.true.)
         call iXML%Set_Val(Model%doGeoCorot, "prob/doGeoCorot",.false.)
 
@@ -124,7 +134,7 @@ module raijustarter
                 write(*,*) "RAIJU using Wang-Bao electron wave model"
                 Model%eLossModel = RaiELOSS_WM
                 Model%eLossRateFn => calcELossRate_WM
-                call initEWM(Model%eLossWM, Model%configFName, iXML)
+                ! We init later now, up in raijuInit, since initEWM needs Grid info for diagnostic output
             case default
                 write(*,*) "RAIJU did not get a valid electron loss model, goodbye"
                 stop

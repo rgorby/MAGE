@@ -17,7 +17,7 @@ module raijulosses
     subroutine calcChannelLossRates(Model, Grid, State, k)
         !! Calculate 2D loss rates for channel k
         !! Usually this will stay constant over a coupling period, so it can be called during pre-advance and not touched afterwards
-        type(raijuModel_T), intent(in) :: Model
+        type(raijuModel_T), intent(inout) :: Model
         type(raijuGrid_T), intent(in) :: Grid
         type(raijuState_T), intent(inout) :: State
         integer, intent(in) :: k
@@ -107,7 +107,7 @@ module raijulosses
 
 
     subroutine calcElectronLossRate(Model, Grid, State, k)
-        type(raijuModel_T), intent(in) :: Model
+        type(raijuModel_T), intent(inout) :: Model
         type(raijuGrid_T), intent(in) :: Grid
         type(raijuState_T), intent(inout) :: State
         integer, intent(in) :: k

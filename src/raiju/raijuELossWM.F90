@@ -12,13 +12,17 @@ module raijuELossWM
 
     contains
 
-    subroutine initEWM(eWM, configFname, xmlInp)
+    subroutine initEWM(eWM, configFname, xmlInp, shGrid)
         type(eLossWM_T), intent(inout) :: eWM
         character(len=strLen) :: configFname
         type(XML_Input_T), intent(in) :: xmlInp
+        type(ShellGrid_T), intent(in) :: shGrid
 
         type(IOVAR_T), dimension(MAXIOVAR) :: IOVars
         type(IOVar_T) :: tauVAR
+
+        ! Determine if we are expected to provide info to output file
+        call xmlInp%Set_Val(eWM%doOutput,"/Kaiju/RAIJU/losses/doOutput",eWM%doOutput)
 
         ! We need Kp from wind file, try to get that first
         call xmlInp%Set_Val(eWM%KpTS%wID,"/Kaiju/Gamera/wind/tsfile","NONE")
@@ -81,37 +85,44 @@ module raijuELossWM
             write(*,*) "Kp: ",eWM%Kp1D
             write(*,*) "reorder wave model so Kp is in ascending order"
             stop
-         end if
+        end if
 
-         if(eWM%MLT1D(1) > eWM%MLT1D(eWM%Nmlt)) then
+        if(eWM%MLT1D(1) > eWM%MLT1D(eWM%Nmlt)) then
             write(*,*) "MLT: ",eWM%MLT1D
             write(*,*) "reorder wave model so MLT is in ascending order"
             stop
-         end if
+        end if
 
-         if(eWM%L1D(1) > eWM%L1D(eWM%Nl)) then
+        if(eWM%L1D(1) > eWM%L1D(eWM%Nl)) then
             write(*,*) "L: ",eWM%L1D
             write(*,*) "reorder wave model so L shell is in ascending order"
             stop
-         end if
+        end if
 
-         if(eWM%Energy1D(1) > eWM%Energy1D(eWM%Ne)) then
+        if(eWM%Energy1D(1) > eWM%Energy1D(eWM%Ne)) then
             write(*,*) "Ek: ",eWM%Energy1D
             write(*,*) "reorder wave model so Ek is in ascending order"
             stop
-         end if 
+        end if
+
+        if (eWM%doOutput) then
+            allocate(eWM%wPS    (shGrid%isg:shGrid%ieg, shGrid%jsg:shGrid%jeg))
+            allocate(eWM%wHISS  (shGrid%isg:shGrid%ieg, shGrid%jsg:shGrid%jeg))
+            allocate(eWM%wCHORUS(shGrid%isg:shGrid%ieg, shGrid%jsg:shGrid%jeg))
+        endif
+         
 
     end subroutine initEWM
 
 
     function calcELossRate_WM(Model, Grid, State, i, j, k) result(lossRate2)
-        type(raijuModel_T) , intent(in) :: Model
+        type(raijuModel_T) , intent(inout) :: Model
         type(raijuGrid_T)  , intent(in) :: Grid
         type(raijuState_T) , intent(in) :: State
         integer, intent(in) :: i, j, k
         real(rp), dimension(2) :: lossRate2
 
-        integer :: psphIdx
+        integer :: psphIdx, eleIdx
         real(rp) :: NpsphPnt
             !! Density [#/cc] of plasmasphere at point i,j
         real(rp) :: L, MLT, E, Kp
@@ -129,7 +140,7 @@ module raijuELossWM
 
             L = sqrt(State%xyzMin(i,j,1)**2 + State%xyzMin(i,j,2)**2)  ! [Re]
             MLT = atan2(State%xyzMin(i,j,2),State%xyzMin(i,j,1))/pi*12.D0+12.D0
-            E = Grid%alamc(k) * State%bvol(i,j)**(-2./3.) * 1.0E-6  ! [MeV]
+            E = abs(Grid%alamc(k) * State%bvol(i,j)**(-2./3.)) * 1.0E-6  ! [MeV]
             Kp = eWM%KpTS%evalAt(State%t)
 
             psphIdx = spcIdx(Grid, F_PSPH)
@@ -137,6 +148,7 @@ module raijuELossWM
             
             ! Calculate blending
             wNBlend = dlog(NpsphPnt/eWM%NpsphLow) / dlog(eWM%NpsphHigh/eWM%NpsphLow)
+            call ClampValue(wNBlend, 0.0_rp, 1.0_rp)
                 !! 1 => Psphere Hiss, 0 => Other
             wLBlend = RampDown(L, eWM%ChorusLMax, eWM%PsheetLMin - eWM%ChorusLMax)
                 !! 1 => Chorus, 0 => PS
@@ -157,7 +169,18 @@ module raijuELossWM
             lossRate2(2) = lossRate2(2) + int(wPS*1000)
 
             ! Calculate loss rates and accumulate
-            lossRate2(1) = lossRate2(1) + wHISS*calcHissRate(MLT, L, E, Kp)
+            if (wHiss > TINY) then
+                lossRate2(1) = lossRate2(1) + wHISS*calcHissRate(MLT, L, E, Kp)
+            endif
+
+            ! Save output info if expected
+            ! All electron k's will use this function, only first k should write something
+            eleIdx = Grid%k2spc(k)
+            if (eWM%doOutput .and. k .eq. Grid%spc(eleIdx)%kStart) then
+                eWM%wPS(i,j)     = wPS
+                eWM%wHISS(i,j)   = wHISS
+                eWM%wCHORUS(i,j) = wCHORUS
+            endif
 
         end associate
 
@@ -236,6 +259,51 @@ module raijuELossWM
         tau = tau_av/g_MLT/h_Kp
         rateK = 1.0/tau
 
+        !write(*,*) Ein, L, fL, E, tau, rateK, '--'
+        !stop
+
     end function calcHissRate
+
+    subroutine eWMOutput(Model, Grid, State, gStr, doGhostsO)
+        type(raijuModel_T), intent(inout) :: Model
+        type(raijuGrid_T ), intent(in) :: Grid
+        type(raijuState_T), intent(in) :: State
+        character(len=strLen), intent(in) :: gStr
+        logical, optional, intent(in) :: doGhostsO
+
+        character(len=strLen) :: gStrWM
+        integer :: is, ie, js, je, ks, ke
+        logical :: doGhosts
+        type(IOVAR_T), dimension(MAXIOVAR) :: IOVars
+
+        if (present(doGhostsO)) then
+            doGhosts = doGhostsO
+        else
+            doGhosts = .false.
+        endif
+
+        if (doGhosts) then
+            is = Grid%shGrid%isg
+            ie = Grid%shGrid%ieg
+            js = Grid%shGrid%jsg
+            je = Grid%shGrid%jeg
+        else
+            is = Grid%shGrid%is
+            ie = Grid%shGrid%ie
+            js = Grid%shGrid%js
+            je = Grid%shGrid%je
+        endif
+
+        write(gStrWM, "(A, A)") trim(gStr), "/eWM"
+        !Reset IO chain
+        call ClearIO(IOVars)
+
+        ! Fat output for precip info
+        call AddOutVar(IOVars, "wPS"    , Model%eLossWM%wPS    (is:ie,js:je), dStr="0-1 weighting for plasma sheet strong scattering losses")
+        call AddOutVar(IOVars, "wHISS"  , Model%eLossWM%wHISS  (is:ie,js:je), dStr="0-1 weighting for plasmasphere hiss losses")
+        call AddOutVar(IOVars, "wCHORUS", Model%eLossWM%wCHORUS(is:ie,js:je), dStr="0-1 weighting for inner mag chorus wave losses")
+        call WriteVars(IOVars,.true.,Model%raijuH5, gStrWM)
+
+    end subroutine eWMOutput
 
 end module raijuELossWM

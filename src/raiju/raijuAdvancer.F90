@@ -19,7 +19,7 @@ module raijuadvancer
 
     subroutine raijuPreAdvance(Model, Grid, State, fullEtaMapO)
         !! Takes a state and calculates what is needed in order to advance
-        type(raijuModel_T), intent(in) :: Model
+        type(raijuModel_T), intent(inout) :: Model
         type(raijuGrid_T ), intent(in) :: Grid
         type(raijuState_T), intent(inout) :: State
         logical, optional, intent(in) :: fullEtaMapO

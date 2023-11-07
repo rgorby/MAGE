@@ -21,6 +21,14 @@ module raijuBCs
             !! Whether we should apply certain BCs (moments2eta mapping) to entire active domain or not
         logical, dimension(Grid%shGrid%isg:Grid%shGrid%ieg,&
                            Grid%shGrid%jsg:Grid%shGrid%jeg) :: doBC
+            !! Whether we do moments to eta mapping at given grid cell
+
+        integer :: psphIdx
+            !! Index of plasmasphere
+        real(rp) :: etaBelow
+            !! Amount of eta below lowest lambda bound (every i,j gets a copy)
+        real(rp) :: pressBelow
+            !! Pressure of eta below lowest lambda bound (every i,j gets a copy)
 
         if (present(doWholeDomainO)) then
             doWholeDomain = doWholeDomainO
@@ -44,10 +52,11 @@ module raijuBCs
             end where
         endif
 
+        psphIdx = spcIdx(Grid, F_PSPH)
         
-        !$OMP PARALLEL DO default(shared) collapse(2) &
+        !$OMP PARALLEL DO default(shared) collapse(1) &
         !$OMP schedule(dynamic) &
-        !$OMP private(i,j,s,vm,kT)
+        !$OMP private(i,j,s,vm,kT, etaBelow, pressBelow)
         do i=Grid%shGrid%isg,Grid%shGrid%ieg
             do j=Grid%shGrid%jsg,Grid%shGrid%jeg
                 ! Skip if we should leave point alone
@@ -60,7 +69,15 @@ module raijuBCs
                     kT = DP2kT(State%Davg(i,j,s), State%Pavg(i,j,s))  ! [keV]
                     call DkT2SpcEta(Model,Grid%spc(s), &
                         State%eta(i,j,Grid%spc(s)%kStart:Grid%spc(s)%kEnd),&
-                        State%Davg(i,j,s), kT, vm)
+                        State%Davg(i,j,s), kT, vm, etaBelow)
+                    
+                    ! etaBelow has the amount of eta that is below the lowest lambda channel bound
+                    !! TODO: Check to see if we are missing too much pressure
+                    ! Maybe we want to put it in plasmasphere channel cause its cold H+
+                    if (Model%doExcesstoPsph .and. Grid%spc(s)%mapExtraToPsph) then
+                        State%eta(i,j,Grid%spc(psphIdx)%kStart) = State%eta(i,j,Grid%spc(psphIdx)%kStart) + etaBelow
+                    endif
+
                 enddo  ! s
             enddo  ! j
         enddo  ! i

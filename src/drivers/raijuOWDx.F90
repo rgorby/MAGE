@@ -172,7 +172,7 @@ program raijuOWDx
     contains
 
     subroutine raijuAdvance(Model, Grid, State, dtCpl, isFirstCplO)
-        type(raijuModel_T), intent(in) :: Model
+        type(raijuModel_T), intent(inout) :: Model
         type(raijuGrid_T) , intent(in) :: Grid
         type(raijuState_T), intent(inout) :: State
         real(rp), intent(in) :: dtCpl
