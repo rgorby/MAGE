@@ -66,10 +66,10 @@ module raijulosses
 
             psphIdx = spcIdx(Grid, F_PSPH)
 
-            rateSS  = HUGE
-            rateCC  = HUGE
-            rateCX  = HUGE
-            rateFLC = HUGE
+            rateSS  = 0.0
+            rateCC  = 0.0
+            rateCX  = 0.0
+            rateFLC = 0.0
 
             do j=Grid%shGrid%jsg,Grid%shGrid%jeg
                 do i=Grid%shGrid%isg,Grid%shGrid%ieg
