@@ -112,7 +112,12 @@ def create_command_line_parser():
         '--vid', action='store_true', default=False,
         help="Make a video and store in mixVid directory (default: %(default)s)"
     )
+    parser.add_argument(
+        '--noOverwrite', action='store_true', default=False,
+        help="Don't overwrite existing vid files (default: %(default)s)"
+    )
     return parser
+
 
 def makePlot_single(remixFile, nStp, h):
 
@@ -208,7 +213,7 @@ def makePlot_single(remixFile, nStp, h):
                 ax.text(fp_theta + theta_nudge, fp_r + r_nudge, sc)
 
 
-def makeAndSaveFig(remixFile, nStp, h, dir, outFname):
+def makeAndSaveFig(remixFile, nStp, h, outPath):
     # Make sure figure is clean
     plt.clf()
 
@@ -216,7 +221,6 @@ def makeAndSaveFig(remixFile, nStp, h, dir, outFname):
     makePlot_single(remixFile, nStp, h)
 
     # Save to file
-    outPath = os.path.join(dir, outFname)
     kv.savePic(outPath, dpiQ=300)
 
 
@@ -238,6 +242,8 @@ if __name__ == "__main__":
     do_GTYPE = args.GTYPE
     do_PP = args.PP
     do_vid = args.vid
+    do_overwrite = not args.noOverwrite
+
     if debug:
         print("args = %s" % args)
 
@@ -290,8 +296,8 @@ if __name__ == "__main__":
             nStp = sorted(sIds)[-1]
         if debug:
             print("nStp = %s" % nStp)
-        makeAndSaveFig(remixFile, nStp, 'NORTH', '.', 'remix_n.png')
-        makeAndSaveFig(remixFile, nStp, 'SOUTH', '.', 'remix_s.png')
+        makeAndSaveFig(remixFile, nStp, 'NORTH', 'remix_n.png')
+        makeAndSaveFig(remixFile, nStp, 'SOUTH', 'remix_s.png')
     
     else:  # Then we make a video, i.e. series of images saved to mixVid
         outDir = 'mixVid'
@@ -304,9 +310,17 @@ if __name__ == "__main__":
         for i, nStp in enumerate(alive_it(sIds,title="North".ljust(kd.barLab),length=kd.barLen,bar=kd.barDef)):
             
             filename = "{}.{:0>{n}d}.png".format("remix_n", i, n=n_pad)
-            makeAndSaveFig(remixFile, nStp, 'NORTH', outDir, filename)
+            outPath = os.path.join(outDir, filename)
+            # Skip this file if it already exists and we're not supposed to overwrite
+            if not do_overwrite and os.path.exists(outPath):
+                continue
+            makeAndSaveFig(remixFile, nStp, 'NORTH', outPath)
 
         # Do SOUTH second
         for i, nStp in enumerate(alive_it(sIds,title="South".ljust(kd.barLab),length=kd.barLen,bar=kd.barDef)):
             filename = "{}.{:0>{n}d}.png".format("remix_s", i, n=n_pad)
+            outPath = os.path.join(outDir, filename)
+            # Skip this file if it already exists and we're not supposed to overwrite
+            if not do_overwrite and os.path.exists(outPath):
+                continue
             makeAndSaveFig(remixFile, nStp, 'SOUTH', outDir, filename)
