@@ -23,6 +23,7 @@ import matplotlib as mpl
 import matplotlib.gridspec as gridspec
 import matplotlib.pyplot as plt
 import numpy as np
+import h5py as h5
 
 # Import project-specific modules.
 import kaipy.cdaweb_utils as cdaweb_utils
@@ -103,6 +104,10 @@ def create_command_line_parser():
         '-PP', action='store_true', default=False,
         help="Show plasmapause (10/cc) in the eflx/nflx plot (default: %(default)s)"
     )
+    parser.add_argument(
+        '--vid', action='store_true', default=False,
+        help="Make a video and store in mixVid directory (default: %(default)s)"
+    )
     return parser
 
 
@@ -123,6 +128,7 @@ if __name__ == "__main__":
     verbose = args.verbose
     do_GTYPE = args.GTYPE
     do_PP = args.PP
+    do_vid = args.vid
     if debug:
         print("args = %s" % args)
 
@@ -139,6 +145,7 @@ if __name__ == "__main__":
 
     # Enumerate the steps in the results file.
     nsteps, sIds = kaiH5.cntSteps(remixFile)
+    sIds = sorted(sIds)
     if debug:
         print("nsteps = %s" % nsteps)
         print("sIds = %s" % sIds)
@@ -148,10 +155,10 @@ if __name__ == "__main__":
         raise TypeError(f"Step #{nStp} not found in {remixFile}!")
 
     # Get the times from the result file.
-    T = kaiH5.getTs(remixFile, sIds, aID='MJD')
-    if debug:
-        print("T = %s" % T)
     if do_print:
+        T = kaiH5.getTs(remixFile, sIds, aID='MJD')
+        if debug:
+            print("T = %s" % T)
         for i, tt in enumerate(T):
             print('Step#%06d: ' % sorted(sIds)[i], Time(tt, format='mjd').iso)
         sys.exit(0)
@@ -165,7 +172,9 @@ if __name__ == "__main__":
     idxStp = np.where(sIds==nStp)[0][0]
     if debug:
         print("idxStp = %s" % idxStp)
-    foundT = T[idxStp]
+    with h5.File(remixFile, 'r') as f5:
+        foundT = f5['Step#'+str(nStp)].attrs['MJD']
+    #foundT = T[idxStp]
     if debug:
         print("foundT = %s" % foundT)
     print('Found time:', Time(foundT, format='mjd').iso)
