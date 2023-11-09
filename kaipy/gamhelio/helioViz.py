@@ -2648,7 +2648,7 @@ def PlotiSlBr(
         Ax.pcolormesh(lon, lat, Br, cmap=BCM, norm=vB)
 
         # Draw the Br=0 contour line representing the current sheet.
-        Ax.contour(lonc, latc, np.roll(Br, [0.], colors='black'))
+        Ax.contour(lonc, latc, np.roll(Br, [0.]), colors='black')
 
     # Set the plot boundaries.
     if hgsplot:
