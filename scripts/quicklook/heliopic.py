@@ -405,8 +405,10 @@ def main():
         # Extract the MJD for the step.
         if gsph.MJDs:
             mjd = gsph.MJDs[nStp]
+            time_stamp = ktools.MJD2UT(mjd)
         else:
-            mjd = gsph.T[nStp]
+            mjd = gsph.T[nStp]/(3600./gsph.tScl)
+            time_stamp = f"{mjd:0.2f} [hrs]"
         if debug:
             print(f"mjd = {mjd}")
 
@@ -455,9 +457,9 @@ def main():
                           hgsplot=hgsplot, MJDc=MJDc, MJD_plot=mjd)
             if hgsplot:
                 fig.suptitle("Heliographic Stonyhurst frame for "
-                             f"{ktools.MJD2UT(mjd)}")
+                             f"{time_stamp}")
             else:
-                fig.suptitle(f"GAMERA-Helio frame for {ktools.MJD2UT(mjd)}")
+                fig.suptitle(f"GAMERA-Helio frame for {time_stamp}")
         elif pic == "pic2":
             # Meridional plots in the XZ plane of the modified HGS frame used
             # by gamhelio. If hgsplot is True, then the plot frame is the true
@@ -476,9 +478,9 @@ def main():
                                hgsplot=hgsplot, MJDc=MJDc, MJD_plot=mjd)
             if hgsplot:
                 fig.suptitle("Heliographic Stonyhurst frame for "
-                             f"{ktools.MJD2UT(mjd)}")
+                             f"{time_stamp}")
             else:
-                fig.suptitle(f"GAMERA-Helio frame for {ktools.MJD2UT(mjd)}")
+                fig.suptitle(f"GAMERA-Helio frame for {time_stamp}")
         elif pic == "pic3":
             # Lat/lon plot at 1 AU (the outer edge of the gamhelio grid), in
             # the modified HGS frame rotating with the Sun.
@@ -502,9 +504,9 @@ def main():
                            hgsplot=hgsplot, MJDc=MJDc, MJD_plot=mjd,
                            use_outer_range=(not inner))
             if hgsplot:
-                fig.suptitle(f"Heliographic Stonyhurst frame at {radius} [RE] for {ktools.MJD2UT(mjd)}")
+                fig.suptitle(f"Heliographic Stonyhurst frame at {radius} [RE] for {time_stamp}")
             else:
-                fig.suptitle(f"GAMERA-Helio frame at {radius} [RE] for {ktools.MJD2UT(mjd)}")
+                fig.suptitle(f"GAMERA-Helio frame at {radius} [RE] for {time_stamp}")
         elif pic == "pic4":
             # Plot at 1 AU in frame rotating with Sun.
             hviz.PlotiSlBrRotatingFrame(gsph, nStp, xyBds, Ax, AxC)
@@ -518,7 +520,7 @@ def main():
             hviz.PlotEqBy(gsph, nStp, xyBds, AxL1, AxC1_1)
             hviz.PlotEqBz(gsph, nStp, xyBds, AxR1, AxC2_1)
             fig.suptitle("GAMERA-Helio frame at 1 AU for "
-                         f"{ktools.MJD2UT(mjd)}")
+                         f"{time_stamp}")
         elif pic == "pic7":
             if jslice is None:
                 jidx = gsph.Nj//2 - 1
@@ -529,7 +531,7 @@ def main():
             hviz.PlotjTemp(gsph, nStp, xyBds, AxL1, AxC1_1, jidx=jidx)
             hviz.PlotjBr(gsph, nStp, xyBds, AxR1, AxC2_1, jidx=jidx)
             fig.suptitle("GAMERA-Helio frame at 1 AU for "
-                         f"{ktools.MJD2UT(mjd)}")
+                         f"{time_stamp}")
         else:
             raise TypeError(f"Invalid figure type: {pic}!")
 
