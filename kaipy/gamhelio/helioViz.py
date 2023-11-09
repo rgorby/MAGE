@@ -47,14 +47,14 @@ T0Min_outer = 0.0
 T0Max_outer = 0.3
 
 #21.5 R_S
-BMax = 150.
-BMin = -150.
+BMax = 500.
+BMin = -500.
 #1AU
 BCM = "coolwarm"
 
 #21.5 R_S
-B0Min = -150.
-B0Max = 150.
+B0Min = -500.
+B0Max = 500.
 #1 AU
 B0Min_outer = -5.0
 B0Max_outer = 5.0
@@ -2044,18 +2044,21 @@ def find_radial_slice(gsph, radius):
     ------
     None
     """
-    # Starting with the last radial layer, work inward until the first layer
-    # is found with grid radius less than the specified radius.
-    idx = -1
-    r = np.sqrt(gsph.X[idx][0][0]**2 + gsph.Y[idx][0][0]**2 +
-                gsph.Z[idx][0][0]**2)
-    while r > radius:
-        idx -= 1
+    if( radius == 21.5):
+        idx = 0
+    else: 
+        # Starting with the last radial layer, work inward until the first layer
+        # is found with grid radius less than the specified radius.
+        idx = -1
         r = np.sqrt(gsph.X[idx][0][0]**2 + gsph.Y[idx][0][0]**2 +
                     gsph.Z[idx][0][0]**2)
+        while r > radius:
+            idx -= 1
+            r = np.sqrt(gsph.X[idx][0][0]**2 + gsph.Y[idx][0][0]**2 +
+                        gsph.Z[idx][0][0]**2)
 
-    # Convert the index-from-end to an index-from-start.
-    idx += gsph.Ni + 1
+        # Convert the index-from-end to an index-from-start.
+        idx += gsph.Ni + 1
 
     # Return the index of the slice containing the radius.
     return idx

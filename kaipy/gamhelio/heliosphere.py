@@ -222,7 +222,7 @@ class GamsphPipe(GameraPipe):
         phi = np.arctan2(self.Y,self.X)
 
         #theta [theta < 0] += np.pi/2.
-        theta = np.pi/2 - theta
+        theta = theta - np.pi/2
         theta = theta*180./np.pi
         phi [phi < 0] += 2*np.pi
         phi = phi*180./np.pi

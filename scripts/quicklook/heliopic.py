@@ -196,6 +196,10 @@ def create_command_line_parser():
         "--verbose", "-v", action="store_true",
         help="Print verbose output (default: %(default)s)."
     )
+    parser.add_argument(
+        "--inner", action="store_true",
+        help="Plot inner i-slice for pic3 (default: %(default)s)."
+    )
 
     # Return the parser.
     return parser
@@ -233,7 +237,7 @@ def initFig(pic):
         figSz = (12.5, 12.5)
 
     # Create the figure.
-    fig = plt.figure(figsize=figSz)
+    fig = plt.figure(figsize=figSz, layout="constrained")
     return fig
 
 
@@ -351,6 +355,7 @@ def main():
     pic = args.pic
     spacecraft = args.spacecraft
     verbose = args.verbose
+    inner = args.inner
 
     if slices:
         print(f"Slice selected {slice(slices[0], slices[1], slices[2])}")
@@ -373,7 +378,7 @@ def main():
     print(f"Open pipe took {toc-tic} s")
 
     # Compute the range of time steps to use.
-    if slices and steps[0] == -1:
+    if slices and steps[0] == 1:
         steps = range(gsph.sFin + 1)[slice(slices[0], slices[1], slices[2])]
     print(f"steps = {steps}")
 
@@ -398,7 +403,10 @@ def main():
         fig = initFig(pic)
 
         # Extract the MJD for the step.
-        mjd = gsph.MJDs[nStp]
+        if gsph.MJDs:
+            mjd = gsph.MJDs[nStp]
+        else:
+            mjd = gsph.T[nStp]
         if debug:
             print(f"mjd = {mjd}")
 
@@ -476,26 +484,27 @@ def main():
             # the modified HGS frame rotating with the Sun.
             AU_RSUN = 215.0
             radius = AU_RSUN
+            I_RSUN = 21.5
+            if inner : radius = I_RSUN
             hviz.PlotiSlMagV(gsph, nStp, xyBds, AxL0, AxC1_0, idx=radius,
                              idx_is_radius=True,
                              hgsplot=hgsplot, MJDc=MJDc, MJD_plot=mjd)
             hviz.PlotiSlD(gsph, nStp, xyBds, AxR0, AxC2_0, idx=radius,
                           idx_is_radius=True,
                           hgsplot=hgsplot, MJDc=MJDc, MJD_plot=mjd,
-                          use_outer_range=True)
+                          use_outer_range=(not inner) )
             hviz.PlotiSlTemp(gsph, nStp, xyBds, AxL1, AxC1_1, idx=radius,
                              idx_is_radius=True,
                              hgsplot=hgsplot, MJDc=MJDc, MJD_plot=mjd,
-                             use_outer_range=True)
-            hviz.PlotiSlBr(gsph, nStp, xyBds, AxR1, AxC2_1,
+                             use_outer_range=(not inner))
+            hviz.PlotiSlBr(gsph, nStp, xyBds, AxR1, AxC2_1, idx=radius,
+                           idx_is_radius=True,
                            hgsplot=hgsplot, MJDc=MJDc, MJD_plot=mjd,
-                           use_outer_range=True)
+                           use_outer_range=(not inner))
             if hgsplot:
-                fig.suptitle("Heliographic Stonyhurst frame at 1 AU for "
-                             f"{ktools.MJD2UT(mjd)}")
+                fig.suptitle(f"Heliographic Stonyhurst frame at {radius} [RE] for {ktools.MJD2UT(mjd)}")
             else:
-                fig.suptitle("GAMERA-Helio frame at 1 AU for "
-                             f"{ktools.MJD2UT(mjd)}")
+                fig.suptitle(f"GAMERA-Helio frame at {radius} [RE] for {ktools.MJD2UT(mjd)}")
         elif pic == "pic4":
             # Plot at 1 AU in frame rotating with Sun.
             hviz.PlotiSlBrRotatingFrame(gsph, nStp, xyBds, Ax, AxC)
