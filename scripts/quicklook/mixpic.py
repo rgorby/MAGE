@@ -323,4 +323,4 @@ if __name__ == "__main__":
             # Skip this file if it already exists and we're not supposed to overwrite
             if not do_overwrite and os.path.exists(outPath):
                 continue
-            makeAndSaveFig(remixFile, nStp, 'SOUTH', outDir, filename)
+            makeAndSaveFig(remixFile, nStp, 'SOUTH', outPath)
