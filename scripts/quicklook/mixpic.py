@@ -26,6 +26,8 @@ import matplotlib.pyplot as plt
 import numpy as np
 import h5py as h5
 from alive_progress import alive_it
+from multiprocessing import Pool
+from psutil import cpu_count
 
 # Import project-specific modules.
 import kaipy.cdaweb_utils as cdaweb_utils
@@ -116,10 +118,14 @@ def create_command_line_parser():
         '--noOverwrite', action='store_true', default=False,
         help="Don't overwrite existing vid files (default: %(default)s)"
     )
+    parser.add_argument(
+        '-ncpus', type=int, metavar="ncpus", default=1,
+        help="Number of threads to use with --vid (default: %(default)s)"
+    )
     return parser
 
 
-def makePlot_single(remixFile, nStp, h):
+def makePlot(i, remixFile, nStp):
 
     with h5.File(remixFile, 'r') as f5:
         foundT = f5['Step#'+str(nStp)].attrs['MJD']
@@ -131,98 +137,118 @@ def makePlot_single(remixFile, nStp, h):
     if debug:
         print("utS = %s" % utS)
 
+    # If both N and S files exist, skip it
+    if do_vid:
+        filenameN = "{}.{:0>{n}d}.png".format("remix_n", i, n=n_pad)
+        outPathN = os.path.join(outDir, filenameN)
+        filenameS = "{}.{:0>{n}d}.png".format("remix_s", i, n=n_pad)
+        outPathS = os.path.join(outDir, filenameN)
+        if not do_overwrite and os.path.exists(outPathN) and os.path.exists(outPathS):
+            return
+
 
     # Read the data into the remix object.
     ion = remix.remix(remixFile, nStp)
     if debug:
         print("ion = %s" % ion)
 
-    # Add a label.
-    plt.figtext(
-        0.5, 0.94, 'MIX (' + h + ')\n' + Time(foundT, format='mjd').iso,
-        fontsize=12, multialignment='center', horizontalalignment='center'
-    )
+    for h in ['NORTH','SOUTH']:
+        if h == 'NORTH':
+            hemi = 'n'
+        if h == 'SOUTH':
+            hemi = 's'
 
-    # Initialize the remix object based on the current hemisphere.
-    ion.init_vars(h)
+        if do_vid:
+            filename = "{}.{:0>{n}d}.png".format("remix_"+hemi, i, n=n_pad)
+            outPath = os.path.join(outDir, filename)
+        else:
+            outPath = "remix_"+hemi+".png"
 
-    # Create the plot layout for the current hemisphere.
-    gs = gridspec.GridSpec(
-        2, 3, figure=fig, left=0.03, right=0.97, top=0.9, bottom=0.03
-    )
+        # Skip this file if it already exists and we're not supposed to overwrite
+        if not do_overwrite and os.path.exists(outPath) and do_vid:
+            continue
 
-    # Create the individual plots for the current hemisphere.
-    axs = [None]*6
-    axs[0] = ion.plot('current', gs=gs[0, 0])
-    axs[1] = ion.plot('sigmap', gs=gs[0, 1])
-    axs[2] = ion.plot('sigmah', gs=gs[0, 2])
-    axs[3] = ion.plot('joule', gs=gs[1, 0])
-    axs[4] = ion.plot('energy', gs=gs[1, 1])
-    if do_nflux:
-        axs[5] = ion.plot('flux', gs=gs[1, 2],doGTYPE=do_GTYPE,doPP=do_PP)
-    else:
-        axs[5] = ion.plot('eflux', gs=gs[1, 2],doGTYPE=do_GTYPE,doPP=do_PP)
+        plt.clf()
 
-    # If requested, plot the magnetic footprints for the specified
-    # spacecraft.
-    if spacecraft:
-        for sc in spacecraft:
-            if verbose:
-                print("Overplotting %s magnetic footprint for %s." % (h, sc))
+        # Add a label.
+        plt.figtext(
+            0.5, 0.94, 'MIX (' + h + ')\n' + Time(foundT, format='mjd').iso,
+            fontsize=12, multialignment='center', horizontalalignment='center'
+        )
 
-            # Fetch the footprint position for this hemisphere.
-            if h.lower() == 'north':
-                fp_lat, fp_lon = cdaweb_utils.fetch_satellite_magnetic_northern_footprint_position(
-                    sc, utS
-                )
-            else:
-                fp_lat, fp_lon = cdaweb_utils.fetch_satellite_magnetic_southern_footprint_position(
-                    sc, utS
-                )
-            if debug:
-                print("fp_lat, fp_lon = %s, %s" % (fp_lat, fp_lon))
+        # Initialize the remix object based on the current hemisphere.
+        ion.init_vars(h)
 
-            # Skip if no footprint found.
-            if fp_lat is None:
-                print("No %s footprint found for spacecraft %s." % (h, sc))
-                continue
+        # Create the plot layout for the current hemisphere.
+        gs = gridspec.GridSpec(
+            2, 3, figure=fig, left=0.03, right=0.97, top=0.9, bottom=0.03
+        )
 
-            # The footprint locations are in geographic (GEO) coordinates.
-            # They must be converted to Solar Magnetic (SM) coordinates
-            # for plotting.
+        # Create the individual plots for the current hemisphere.
+        axs = [None]*6
+        axs[0] = ion.plot('current', gs=gs[0, 0])
+        axs[1] = ion.plot('sigmap', gs=gs[0, 1])
+        axs[2] = ion.plot('sigmah', gs=gs[0, 2])
+        axs[3] = ion.plot('joule', gs=gs[1, 0])
+        axs[4] = ion.plot('energy', gs=gs[1, 1])
+        if do_nflux:
+            axs[5] = ion.plot('flux', gs=gs[1, 2],doGTYPE=do_GTYPE,doPP=do_PP)
+        else:
+            axs[5] = ion.plot('eflux', gs=gs[1, 2],doGTYPE=do_GTYPE,doPP=do_PP)
 
-            # Convert the footprint position to the coordinate system used
-            # by these plots, which show contours at the surface of the
-            # ionosphere, about 122 km above the surface ofn the Earth.
-            # Note that this adjustment assumes the field lines impinging
-            # on the magnetic footprint descend vertically at the
-            # footprint point, which is not technically accurate.
-            fp_lat_rad = np.radians(fp_lat)
-            fp_lon_rad = np.radians(fp_lon)
-            fp_x = np.cos(fp_lat_rad)*np.cos(fp_lon_rad)
-            fp_y = np.cos(fp_lat_rad)*np.sin(fp_lon_rad)
-            fp_theta = np.arctan2(fp_y, fp_x)  # [-pi, pi]
-            fp_r = np.sqrt(fp_x**2 + fp_y**2)
+        # If requested, plot the magnetic footprints for the specified
+        # spacecraft.
+        if spacecraft:
+            for sc in spacecraft:
+                if verbose:
+                    print("Overplotting %s magnetic footprint for %s." % (h, sc))
 
-            # Plot a labelled dot at the location of each footprint.
-            # Skip if no footprint position found.
-            for ax in axs:
-                ax.plot(fp_theta, fp_r, 'o', c=FOOTPRINT_COLOR)
-                theta_nudge = 0.0
-                r_nudge = 0.0
-                ax.text(fp_theta + theta_nudge, fp_r + r_nudge, sc)
+                # Fetch the footprint position for this hemisphere.
+                if h.lower() == 'north':
+                    fp_lat, fp_lon = cdaweb_utils.fetch_satellite_magnetic_northern_footprint_position(
+                        sc, utS
+                    )
+                else:
+                    fp_lat, fp_lon = cdaweb_utils.fetch_satellite_magnetic_southern_footprint_position(
+                        sc, utS
+                    )
+                if debug:
+                    print("fp_lat, fp_lon = %s, %s" % (fp_lat, fp_lon))
 
+                # Skip if no footprint found.
+                if fp_lat is None:
+                    print("No %s footprint found for spacecraft %s." % (h, sc))
+                    continue
 
-def makeAndSaveFig(remixFile, nStp, h, outPath):
-    # Make sure figure is clean
-    plt.clf()
+                # The footprint locations are in geographic (GEO) coordinates.
+                # They must be converted to Solar Magnetic (SM) coordinates
+                # for plotting.
 
-    # Draw to figure
-    makePlot_single(remixFile, nStp, h)
+                # Convert the footprint position to the coordinate system used
+                # by these plots, which show contours at the surface of the
+                # ionosphere, about 122 km above the surface ofn the Earth.
+                # Note that this adjustment assumes the field lines impinging
+                # on the magnetic footprint descend vertically at the
+                # footprint point, which is not technically accurate.
+                fp_lat_rad = np.radians(fp_lat)
+                fp_lon_rad = np.radians(fp_lon)
+                fp_x = np.cos(fp_lat_rad)*np.cos(fp_lon_rad)
+                fp_y = np.cos(fp_lat_rad)*np.sin(fp_lon_rad)
+                fp_theta = np.arctan2(fp_y, fp_x)  # [-pi, pi]
+                fp_r = np.sqrt(fp_x**2 + fp_y**2)
 
-    # Save to file
-    kv.savePic(outPath, dpiQ=300)
+                # Plot a labelled dot at the location of each footprint.
+                # Skip if no footprint position found.
+                for ax in axs:
+                    ax.plot(fp_theta, fp_r, 'o', c=FOOTPRINT_COLOR)
+                    theta_nudge = 0.0
+                    r_nudge = 0.0
+                    ax.text(fp_theta + theta_nudge, fp_r + r_nudge, sc)
 
+        # Save to file
+        kv.savePic(outPath, dpiQ=300)
+
+        #plt.close(fig)
 
 if __name__ == "__main__":
     """Plot the ground magnetic field perturbations."""
@@ -243,6 +269,7 @@ if __name__ == "__main__":
     do_PP = args.PP
     do_vid = args.vid
     do_overwrite = not args.noOverwrite
+    ncpus = args.ncpus
 
     if debug:
         print("args = %s" % args)
@@ -296,8 +323,7 @@ if __name__ == "__main__":
             nStp = sorted(sIds)[-1]
         if debug:
             print("nStp = %s" % nStp)
-        makeAndSaveFig(remixFile, nStp, 'NORTH', 'remix_n.png')
-        makeAndSaveFig(remixFile, nStp, 'SOUTH', 'remix_s.png')
+        makePlot(nStp, remixFile, nStp)
     
     else:  # Then we make a video, i.e. series of images saved to mixVid
         outDir = 'mixVid'
@@ -306,21 +332,16 @@ if __name__ == "__main__":
         # How many 0's do we need for filenames?
         n_pad = int(np.log10((len(sIds)))) + 1
 
-        # Do NORTH first
-        for i, nStp in enumerate(alive_it(sIds,title="North".ljust(kd.barLab),length=kd.barLen,bar=kd.barDef)):
-            
-            filename = "{}.{:0>{n}d}.png".format("remix_n", i, n=n_pad)
-            outPath = os.path.join(outDir, filename)
-            # Skip this file if it already exists and we're not supposed to overwrite
-            if not do_overwrite and os.path.exists(outPath):
-                continue
-            makeAndSaveFig(remixFile, nStp, 'NORTH', outPath)
-
-        # Do SOUTH second
-        for i, nStp in enumerate(alive_it(sIds,title="South".ljust(kd.barLab),length=kd.barLen,bar=kd.barDef)):
-            filename = "{}.{:0>{n}d}.png".format("remix_s", i, n=n_pad)
-            outPath = os.path.join(outDir, filename)
-            # Skip this file if it already exists and we're not supposed to overwrite
-            if not do_overwrite and os.path.exists(outPath):
-                continue
-            makeAndSaveFig(remixFile, nStp, 'SOUTH', outPath)
+        if ncpus == 1:
+            for i, nStp in enumerate(alive_it(sIds,length=kd.barLen,bar=kd.barDef)):
+                makePlot(i,remixFile, nStp)
+        else:
+            # Make list of parallel arguments
+            ag = ((i,remixFile,nStp) for i, nStp in enumerate(sIds) )
+            # Check we're not exceeding cpu_count on computer
+            ncpus = min(int(ncpus),cpu_count(logical=False))
+            print('Doing multithreading on ',ncpus,' threads')
+            # Do parallel job
+            with Pool(processes=ncpus) as pl:
+                pl.starmap(makePlot,ag)
+            print("Done making all the images. Go to mixVid folder")
