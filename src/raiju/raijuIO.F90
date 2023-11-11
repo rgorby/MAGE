@@ -6,7 +6,7 @@ module raijuIO
     
     use raijutypes
     use raijuetautils
-    use raijuadvancer, only : calcEffectivePotential
+    use raijuPreAdvancer, only : calcEffectivePotential
     use raijuELossWM, only : eWMOutput
 
     implicit none
@@ -90,6 +90,9 @@ module raijuIO
         call AddOutVar(IOVars,"X",lat2D,uStr="radians")
         call AddOutVar(IOVars,"Y",lon2D,uStr="radians")
         call AddOutVar(IOVars,"Bmag",Grid%Bmag(is:ie,js:je),uStr="nT")
+        call AddOutVar(IOVars,"areaCC",Grid%areaCC  (is:ie,js:je),uStr="Rp^2")
+        call AddOutVar(IOVars,"areaFace_th",Grid%areaFace(is:ie,js:je,1),uStr="Rp^2")
+        call AddOutVar(IOVars,"areaFace_ph",Grid%areaFace(is:ie,js:je,2),uStr="Rp^2")
         call AddOutVar(IOVars,"alamc",Grid%alamc,uStr="eV * (Rx/nT)^(2/3)")
         call WriteVars(IOVars,.true.,Model%raijuH5)
 

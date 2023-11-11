@@ -186,8 +186,14 @@ module raijutypes
             !! (Ni+1) Delta theta between cell centers. For cell i, delTh(i) = lower theta del, delTh(i+1) = higher theta del
         real(rp), dimension(:), allocatable :: delPh
             !! (Nj+1) Delta phi between cell centers. For cell j, delPh(j) = lower phi del, delPh(j+1) = higher phi del
+        real(rp), dimension(:,:), allocatable :: areaCC
+            !! (Ni, Nj) Area of each cell
+        real(rp), dimension(:,:,:), allocatable :: areaFace
+            !! (Ni+1, Nj+1, 2) Estimated area at each interface. (i,j,1) = theta dir, (i,j,2) = phi dir
         real(rp), dimension(:,:), allocatable :: Bmag
             !! Magnitude of B field [nT] at ionosphere
+        real(rp), dimension(:,:), allocatable :: cosdip
+            !! Cosine of the dip angle at ionosphere. Used for velocity calculation
 
         integer :: nB ! Number of buffer cells between open region and active domain
 
@@ -260,7 +266,7 @@ module raijutypes
         !> (Ni, Nk, NDIM) cell-centered bMin xyz coordinates [Rx]
         real(rp), dimension(:,:,:), allocatable :: xyzMincc
         !> (Ni+1, Nk+1) corner values
-        integer , dimension(:,:), allocatable :: topo    ! Topology (0=open, 1=closed)
+        integer , dimension(:,:), allocatable :: topo   ! Topology (0=open, 1=closed)
         real(rp), dimension(:,:), allocatable :: thcon  ! Co-latitude  of conjugate points
         real(rp), dimension(:,:), allocatable :: phcon  ! Longitude of conjugate points
         !> (Ni, Nj)

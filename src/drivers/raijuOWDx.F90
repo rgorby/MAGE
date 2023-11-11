@@ -10,7 +10,8 @@ program raijuOWDx
     use raijudefs
     use raijustarter
     use raijuBCs
-    use raijuadvancer
+    use raijuPreAdvancer
+    use raijuAdvancer
 
     ! Chimp stuff
     use ebtypes

@@ -7,6 +7,7 @@ module raijugrids
 
     use raijudefs
     use raijutypes
+    use raijuRecon
     use raijuSpeciesHelper
 
     implicit none
@@ -89,7 +90,10 @@ module raijugrids
 
             allocate( Grid%delTh(shGr%isg:shGr%ieg+1) )
             allocate( Grid%delPh(shGr%jsg:shGr%jeg+1) )
-            allocate( Grid%Bmag(shGr%isg:shGr%ieg,shGr%jsg:shGr%jeg) )
+            allocate( Grid%Bmag  (shGr%isg:shGr%ieg,shGr%jsg:shGr%jeg) )
+            allocate( Grid%cosdip(shGr%isg:shGr%ieg,shGr%jsg:shGr%jeg) )
+            allocate( Grid%areaCC  (shGr%isg:shGr%ieg,shGr%jsg:shGr%jeg) )
+            allocate( Grid%areaFace(shGr%isg:shGr%ieg+1,shGr%jsg:shGr%jeg+1, 2) )
 
             ! Calculate theta/phi delta between cells
             ! First and last elements should be zero since there's no cells below/above isg/ieg
@@ -107,13 +111,39 @@ module raijugrids
                 Grid%delPh(j) = abs(shGr%phc(j) - shGr%phc(j-1))
             enddo
 
-            ! Calc Bmag on whole grid at the ionosphere
+            ! Calc Bmag and cos of dip angle on whole grid at the ionosphere
             cosTh = cos(shGr%thc)
             BMagTh = planet%magMoment*G2nT &
                     /(planet%ri_m/planet%rp_m)**3.0 &
                     * sqrt(1.0+3.0*cosTh**2.0)  ! [nT]
+            
             do j=shGr%jsg,shGr%jeg
                 Grid%Bmag(:,j) = BMagTh
+                Grid%cosdip(:,j) = 2.0*cosTh/sqrt(1.0 + 3.0*cosTh**2.0) 
+            enddo
+
+            ! Calc areas at cell centers
+            do i=shGr%isg,shGr%ieg
+                do j=shGr%jsg,shGr%jeg
+                    ! r^2 * sin(th) * dTh * dPh
+                    Grid%areaCC(i,j) = (planet%ri_m/planet%rp_m)**2 &
+                                        * sin(shGr%thc(i)) &
+                                        * (shGr%th(i+1) - shGr%th(i)) &
+                                        * (shGr%ph(j+1) - shGr%ph(j))
+                enddo
+            enddo
+
+            ! Area at faces
+            ! Kinda overkill, but just in case: use 8-centered reconstruction for each face
+            ! Only do for faces of active cells, because we don't need them in ghosts
+            Grid%areaFace = 0.0
+            do i=shGr%is,shGr%ie+1
+                do j=shGr%js,shGr%je+1
+                    ! Theta dir
+                    Grid%areaFace(i,j,1) = Central8(Grid%areaCC(i-4:i+3, j))
+                    ! Phi dir
+                    Grid%areaFace(i,j,2) = Central8(Grid%areaCC(i, j-4:j+3))
+                enddo
             enddo
 
         end associate

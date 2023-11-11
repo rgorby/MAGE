@@ -57,6 +57,8 @@ module raijudefs
     real(rp), parameter :: sclIntens = 1.e-4*sqrt(ev2J/(8.0*dalton))/PI ! code eta to intensity [1/(s*sr*keV*cm^2)]
 
     ! Settings
+    integer, parameter :: recLen = 8
+        !! Reconstruction stencil length
     integer, parameter :: nSpacesDef = 4
         !! Number of i spaces between last good value and active i for species
     real(rp), parameter :: fracWorthyDef = 0.001

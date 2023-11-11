@@ -146,6 +146,7 @@ module raijuCpl
 
             ! Grow out from open/closed boundary, set proper distance for closed points
             do iLayer=1,nBnd
+                !! Note: We can safely parallelize within eah iLayer loop if needed. But this isn't a bottleneck right now
                 do i=sh%isg, sh%ieg
                     do j=sh%jsg, sh%jeg
                         iL = max(i-1, sh%isg)
