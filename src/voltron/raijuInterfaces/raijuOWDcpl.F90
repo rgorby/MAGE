@@ -6,6 +6,7 @@ module raijuowdcpl
 
     use raijutypes
     use raijucpltypes
+    use raijuGrids
 
     !!Temporary. Eventually we will just use shellGrid stuff
     use calcdbtypes
@@ -45,20 +46,27 @@ module raijuowdcpl
         !!!!!!
         associate(sh=>sApp%Grid%shGrid)
         call mix_map_grids(m2sMap, rmState%nPot, tmpPot)
-        fromV%pot(sh%is:sh%ie,sh%js:sh%je) = tmpPot
+        !fromV%pot(sh%is:sh%ie,sh%js:sh%je) = tmpPot
 
-        do i=sh%isg,sh%is-1
-            fromV%pot(i,:) = fromV%pot(sh%is,:)
-        enddo
+        ! Dimensions from grabbed potential are isg:ie, js:je
+        fromV%pot(sh%isg:sh%ie,sh%js:sh%je) = tmpPot
+
+        !do i=sh%isg,sh%is-1
+        !    fromV%pot(i,:) = fromV%pot(sh%is,:)
+        !enddo
         do i=sh%ie+1,sh%ieg
             fromV%pot(i,:) = fromV%pot(sh%ie,:)
         enddo
-        do j=sh%jsg,sh%js-1
-            fromV%pot(:,j) = fromV%pot(:,sh%js)
-        enddo
-        do j=sh%je+1,sh%jeg
-            fromV%pot(:,j) = fromV%pot(:,sh%je)
-        enddo
+
+        ! Handle j ghosts
+        call wrapJcc(sh, fromV%pot)
+
+        !do j=sh%jsg,sh%js-1
+        !    fromV%pot(:,j) = fromV%pot(:,sh%js)
+        !enddo
+        !do j=sh%je+1,sh%jeg
+        !    fromV%pot(:,j) = fromV%pot(:,sh%je)
+        !enddo
         
         
 
@@ -114,19 +122,21 @@ module raijuowdcpl
         type(ShellGrid_T), intent(in) :: shGrid
         type(rmState_T), intent(in) :: mixState
 
-        integer :: i
+        integer :: i,j
         type(mixGrid_T) :: mixGrid, mixedGrid  ! Mix grid from file, shGrid converted to mixGrid
         real(rp), dimension(:,:), allocatable :: colat2D,lon2D
 
-        allocate(colat2D(shGrid%Nt,shGrid%Np))
-        allocate(lon2D  (shGrid%Nt,shGrid%Np))
+        allocate(colat2D(shGrid%Nt+shGrid%Ngn+1,shGrid%Np+1))  ! We include poleward ghost cells since remix has useful data there
+        allocate(lon2D  (shGrid%Nt+shGrid%Ngn+1,shGrid%Np+1))
 
-        do i=1,shGrid%Np
-            colat2D(:,i) = shGrid%thc(shGrid%is:shGrid%ie)
+        do j=1,shGrid%Np+1
+            !colat2D(:,i) = shGrid%thc(shGrid%is:shGrid%ie)
+            colat2D(:,j) = shGrid%th(shGrid%isg:shGrid%ie+1)
         enddo
 
-        do i=1,shGrid%Nt
-            lon2D(i,:) = shGrid%phc(shGrid%js:shGrid%je)
+        do i=1,shGrid%Nt+shGrid%Ngn+1
+            !lon2D(i,:) = shGrid%phc(shGrid%js:shGrid%je)
+            lon2D(i,:) = shGrid%ph(shGrid%js:shGrid%je+1)
         enddo
 
         call init_grid_fromXY(mixGrid, mixState%XY(:,:,XDIR),mixState%XY(:,:,YDIR),.false.,.true.)

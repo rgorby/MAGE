@@ -15,9 +15,8 @@ module raijugrids
     contains
 
 !------
-! Spatial grid stuff
+! Spatial grid setup stuff
 !------
-
 
     subroutine raijuGenUniSphGrid(Grid, iXML)
         type(raijuGrid_T)  , intent(inout) :: Grid
@@ -150,6 +149,23 @@ module raijugrids
 
     end subroutine finalizeLLGrid
 
+
+!------
+! Spatial grid operations
+!------
+    subroutine wrapJcc(sh, Q)
+        !! Populates overlapping j ghosts with active cell-centered data
+        !! Assumes that all values within (:, js:je) are valid to wrap
+        !! And assumes that j ghosts overlap with last active cells on the other side
+        type(ShellGrid_T), intent(in) :: sh
+        real(rp), dimension(sh%isg:sh%ieg, sh%jsg:sh%jeg), intent(inout) :: Q
+
+        ! Starting ghost cells
+        Q(:, sh%jsg:sh%js-1) = Q(:, sh%je-sh%Ngw+1:sh%je)
+        ! Ending ghosts cells
+        Q(:, sh%je+1:sh%jeg) = Q(:, sh%js:sh%js+sh%Nge-1)
+
+    end subroutine wrapJcc
 
 !------
 ! Lambda grid stuff

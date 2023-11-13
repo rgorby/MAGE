@@ -23,7 +23,7 @@ module raijuOut
             write (*, '(a,a,a,a,a)') ANSIGREEN, '<Writing RAIJU HDF5 DATA @ t = ', trim(tStr), ' >', ANSIRESET
         endif
 
-        call WriteRAIJU(Model, Grid, State, gStr)
+        call WriteRAIJU(Model, Grid, State, gStr, Model%writeGhosts)
 
         !Setup for next output
         State%IO%nOut = State%IO%nOut + 1
