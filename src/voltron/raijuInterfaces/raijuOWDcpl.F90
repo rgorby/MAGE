@@ -118,7 +118,7 @@ module raijuowdcpl
         type(mixGrid_T) :: mixGrid, mixedGrid  ! Mix grid from file, shGrid converted to mixGrid
         real(rp), dimension(:,:), allocatable :: colat2D,lon2D
 
-        allocate(colat2D(shGrid%Nt,shGrid%Np))  ! +1 because we're doing corners
+        allocate(colat2D(shGrid%Nt,shGrid%Np))
         allocate(lon2D  (shGrid%Nt,shGrid%Np))
 
         do i=1,shGrid%Np

@@ -184,7 +184,6 @@ module raijuCpl
 
         associate(sh=>Grid%shGrid)
             !! TODO: Actual checks and cleaning of data
-            !!       e.g. choosing what happens when not all 4 corners are good
             !! TODO: Handle multispecies
 
             ! Corner quantities
@@ -215,6 +214,8 @@ module raijuCpl
                 isGood = .false.
             end where
 
+            State%Bmin = 0.0
+            State%bvol = 0.0
             ! Cell-centered quantities
             !$OMP PARALLEL DO default(shared) collapse(2) &
             !$OMP schedule(dynamic) &
@@ -227,9 +228,9 @@ module raijuCpl
                     endif
 
                     ! Always do xyzmin
-                    State%xyzMincc(i,j,XDIR) = toCenter2D(State%xyzMin(i:i+1,j:j+1,XDIR))
-                    State%xyzMincc(i,j,YDIR) = toCenter2D(State%xyzMin(i:i+1,j:j+1,YDIR))
-                    State%xyzMincc(i,j,ZDIR) = toCenter2D(State%xyzMin(i:i+1,j:j+1,ZDIR))
+                    State%xyzMincc(i,j,XDIR) = toCenter2D(State%xyzMin(i:i+1,j:j+1,XDIR))  ! [Rp]
+                    State%xyzMincc(i,j,YDIR) = toCenter2D(State%xyzMin(i:i+1,j:j+1,YDIR))  ! [Rp]
+                    State%xyzMincc(i,j,ZDIR) = toCenter2D(State%xyzMin(i:i+1,j:j+1,ZDIR))  ! [Rp]
                 enddo
             enddo
 
