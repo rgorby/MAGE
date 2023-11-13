@@ -199,9 +199,9 @@ program raijuOWDx
             ! Push
             ! Losses
         ! etas to moments
-        call Tic("Moments Eval")
+        call Tic("Moments Eval PostAdvance")
         call EvalMoments(Grid, State)
-        call Toc("Moments Eval")
+        call Toc("Moments Eval PostAdvance")
 
         
 

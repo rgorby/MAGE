@@ -289,6 +289,12 @@ module raijuIO
             call AddOutVar(IOVars, "precipEFlux_Nk"    , State%precipEFlux(is:ie,js:je,:), uStr="erg/cm^2/s")
         endif
 
+        if (Model%doDebugOutput) then
+            ! Lots of weird stuff
+            call AddOutVar(IOVars, "iVel_th", State%cVel(:,:,:,1), uStr="m/s")
+            call AddOutVar(IOVars, "iVel_ph", State%iVel(:,:,:,2), uStr="m/s")
+        endif
+
         call WriteVars(IOVars,.true.,Model%raijuH5, gStr)
 
         ! Let sub-models add stuff if they want

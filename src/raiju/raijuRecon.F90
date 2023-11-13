@@ -55,7 +55,11 @@ module raijuRecon
 
 
     !> Reconstruct cell-centered variable at all faces bordering active cells
-    subroutine ReconFaces(Grid, isG, Qcc, Qfaces)
+    subroutine ReconFaces(Grid, isG, Qcc, Qfaces, Qcc_phO)
+        !! If just Qcc is provided, we interpolate Qcc to faces in both theta and phi directions
+        !! If Qcc_phO is provided, we assume we interpolate Qcc to JUST theta-direction faces and Qcc_phO to JUST phi-direction faces
+        !!   This is helpful when doing velocities because we don't care about the theta direction at phi faces and visa versa
+        !! Note, we are still returning just one (Nig, Njg, 2) array
         type(raijuGrid_T), intent(in) :: Grid
         logical, dimension(Grid%shGrid%isg:Grid%shGrid%ieg, &
                            Grid%shGrid%jsg:Grid%shGrid%jeg), intent(in) :: isG
@@ -66,6 +70,9 @@ module raijuRecon
         real(rp), dimension(Grid%shGrid%isg:Grid%shGrid%ieg+1, &
                            Grid%shGrid%jsg:Grid%shGrid%jeg+1, 2), intent(out) :: Qfaces
                            !! Face-interpolated variable
+        real(rp), dimension(Grid%shGrid%isg:Grid%shGrid%ieg, &
+                           Grid%shGrid%jsg:Grid%shGrid%jeg), intent(in), optional :: Qcc_phO
+                           !! Can optionally use a variable other than Qcc for phi direction
 
         integer :: i,j
 
@@ -80,10 +87,15 @@ module raijuRecon
                 ! Theta dir
                 Qfaces(i,j,1) = reconOrder( isG(i-4:i+3, j), Qcc(i-4:i+3, j) )
                 ! Phi dir
-                Qfaces(i,j,2) = reconOrder( isG(i, j-4:j+3), Qcc(i, j-4:j+3) )
+                if( present(Qcc_phO) ) then
+                    Qfaces(i,j,2) = reconOrder( isG(i, j-4:j+3), Qcc_phO(i, j-4:j+3) )
+                else
+                    Qfaces(i,j,2) = reconOrder( isG(i, j-4:j+3),     Qcc(i, j-4:j+3) )
+                endif
             enddo
         enddo
 
+        
         contains
 
         function reconOrder(isG, Qcc) result(Qface)
@@ -117,6 +129,5 @@ module raijuRecon
         end function reconOrder
 
     end subroutine ReconFaces
-
 
 end module raijuRecon

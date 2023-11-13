@@ -8,6 +8,7 @@ module raijuPreAdvancer
     use raijuetautils
     use raijuBCs
     use raijulosses
+    use raijuRecon
     use raijuAdvancer, only : activeDt
 
     implicit none
@@ -27,12 +28,22 @@ module raijuPreAdvancer
 
         logical :: fullEtaMap
         integer :: k
+        logical, dimension(Grid%shGrid%isg:Grid%shGrid%ieg, &
+                           Grid%shGrid%jsg:Grid%shGrid%jeg) :: isG_vFaces
+            !! We calculate which cells are good for the purpose of reconstructing velocity at all faces
 
         if (present(fullEtaMapO)) then
             fullEtaMap = fullEtaMapO
         else
             fullEtaMap = .false.
         endif
+
+        ! Calc isG for velocity reconstruction
+        where (State%active .ne. RAIJUINACTIVE)
+            isG_vFaces = .true.
+        elsewhere
+            isG_vFaces = .false.
+        end where
 
         ! Clear things that will be accumulated over the advance
         State%precipType_ele = 0.0
@@ -54,13 +65,15 @@ module raijuPreAdvancer
             call calcVelocityCC(Model, Grid, State, k, State%cVel(:,:,k,:))
             ! Calc sub-time step
             State%dtk(k) = activeDt(Grid%shGrid, Grid, State, k)
+            ! We can also calculate velocity at faces here because it won't change during sub-stepping
+            call ReconFaces(Grid, isG_vFaces, State%cVel(:,:,k,1), State%iVel(:,:,k,:), Qcc_phO=State%cVel(:,:,k,2))
         enddo
         call Toc("Calc cell-center velocities")
 
         ! Loss rate calc depends on up-to-date densities, so we should run EvalMoments first
-        call Tic("Moments Eval")
+        call Tic("Moments Eval PreAdvance")
         call EvalMoments(Grid, State)
-        call Toc("Moments Eval")
+        call Toc("Moments Eval PreAdvance")
 
         call Tic("Calc loss rates")
         !$OMP PARALLEL DO default(shared) collapse(1) &
@@ -170,7 +183,7 @@ module raijuPreAdvancer
         !! Only needs to be called when any of the above quantities are updated (e.g. beginning of every coupling timestep)
         !! Note: FTV is not a potential, alamc*bVol**(-2./3.) is
         !! Units (gradE and gradCorot): V / m
-        !! Units (gradVM): V / m / lambda
+        !! Units (gradVM): Vol / m / lambda
         type(raijuModel_T), intent(in)    :: Model
         type(raijuGrid_T ), intent(in)    :: Grid
         type(raijuState_T), intent(inout) :: State
@@ -197,10 +210,9 @@ module raijuPreAdvancer
         ! GC drifts depend on grad(lambda * V^(-2/3))
         ! lambda is constant, so just need grad(V^(-2/3) )
         ! grad(V^(-2/3)) = -2/3*V^(-5/3) * grad(V)
-        call calcGradFTV(Model%planet%ri_m, Grid, isGood, State%bvol, gradVM)
-        State%gradVM(:,:,1) = (-2./3.) * State%bvol**(-5./3.) * gradVM(:,:,1)  ! [V/m/lambda]
-        State%gradVM(:,:,2) = (-2./3.) * State%bvol**(-5./3.) * gradVM(:,:,2)  ! [V/m/lambda]
-
+        call calcGradFTV(Model%planet%ri_m, Model%planet%magMoment, Grid, isGood, State%bvol, gradVM)
+        State%gradVM(:,:,1) = (-2./3.) * State%bvol**(-5./3.) * gradVM(:,:,1)  ! [Vol/m/lambda]
+        State%gradVM(:,:,2) = (-2./3.) * State%bvol**(-5./3.) * gradVM(:,:,2)  ! [Vol/m/lambda]
 
     end subroutine calcPotGrads
 
@@ -268,16 +280,19 @@ module raijuPreAdvancer
     end subroutine calcGradIJ
 
 
-    subroutine calcGradFTV(RIon, Grid, isG, V, gradV)
+    subroutine calcGradFTV(RIon, B0, Grid, isG, V, gradV)
+        !! Calculates derivative of flux tube volume (bvol) in units [bVol / m]
         real(rp), intent(in) :: RIon
-            !! Iono radius in Rp
+            !! Iono radius in meters
+        real(rp), intent(in) :: B0
+            !! Planet's surface field strength
         type(raijuGrid_T), intent(in) :: Grid
         logical , dimension(Grid%shGrid%isg:Grid%shGrid%ieg,Grid%shGrid%jsg:Grid%shGrid%jeg), intent(in) :: isG
         real(rp), dimension(Grid%shGrid%isg:Grid%shGrid%ieg,Grid%shGrid%jsg:Grid%shGrid%jeg), intent(in) :: V
         real(rp), dimension(Grid%shGrid%isg:Grid%shGrid%ieg,Grid%shGrid%jsg:Grid%shGrid%jeg, 2), intent(inout) :: gradV
 
         integer :: i
-        real(rp) :: dcl_dth
+        real(rp) :: dcl_dm
         real(rp), dimension(Grid%shGrid%isg:Grid%shGrid%ieg,&
                             Grid%shGrid%jsg:Grid%shGrid%jeg) :: V0, dV, dV0_dth
             !! V0 = dipole V, dV = V - V0
@@ -286,7 +301,7 @@ module raijuPreAdvancer
             
             ! Calculate dipole FTV
             do i=sh%isg, sh%ieg
-                V0(i,:) = DipFTV_colat(sh%thc(i))
+                V0(i,:) = DipFTV_colat(sh%thc(i), B0)
             enddo
 
             ! Break up into background + perturbation
@@ -299,8 +314,8 @@ module raijuPreAdvancer
             ! Analytic gradient of dipole FTV
             dV0_dth = 0.0
             do i=sh%isg+1, sh%ieg-1
-                dcl_dth = 0.5*(sh%thc(i-1) - sh%thc(i+1))
-                dV0_dth(i,:) = DerivDipFTV(sh%thc(i)) * dcl_dth
+                dcl_dm = 0.5*(sh%thc(i-1) - sh%thc(i+1))/RIon
+                dV0_dth(i,:) = DerivDipFTV(sh%thc(i), B0) * dcl_dm
             enddo
 
             ! Gradient of perturbation

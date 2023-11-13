@@ -80,6 +80,7 @@ module raijustarter
             ! TODO: Is this the right place to look for restart? Could be given as an extra arg
         call iXML%Set_Val(Model%isLoud, "debug/isLoud",.false.)
         call iXML%Set_Val(Model%writeGhosts, "debug/writeGhosts",.false.)
+        call iXML%Set_Val(Model%doDebugOutput, "debug/debugOutput",.false.)
 
         ! Plasmasphere settings
         call iXML%Set_Val(Model%doPlasmasphere, "plasmasphere/doPsphere",.false.)
