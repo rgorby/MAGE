@@ -45,12 +45,14 @@ module raijustarter
 
     end subroutine raijuInit
 
-    ! Sets up Model, but Grid and State must be set up separately
+
+    ! Sets up Model; Grid and State must be set up separately
     subroutine raijuInitModel(Model, iXML)
         type(raijuModel_T), intent(inout) :: Model
         type(XML_Input_T) , intent(in)    :: iXML
          
         character(len=strLen) :: tmpStr
+        real(rp) :: cfl0
 
         write(*,*) "raijuInitModel is starting"
 
@@ -94,6 +96,21 @@ module raijustarter
             !! Allow mapping of excess H+ to plasmasphere channel
         
         call iXML%Set_Val(Model%nSpc, "prob/nSpc",Model%nSpc)
+
+        ! Solver params
+        call iXML%Set_Val(Model%PDMB,'prob/pdmb',def_pdmb)
+        cfl0 = min(0.5/(Model%PDMB+0.5), cflMax) !Set CFL based on PDM
+
+        !Set CFL from XML
+        call iXML%Set_Val(Model%CFL ,'sim/cfl'  ,cfl0)
+        if (Model%CFL > cfl0) then
+            write(*,*) '-------------------------------------'
+            write(*,*) 'WARNING, CFL is above critical value!'
+            write(*,*) 'CFL/Critical/PDMB = ', Model%CFL,cfl0,Model%PDMB
+            write(*,*) '-------------------------------------'
+        else
+            write(*,*) 'CFL # = ', Model%CFL
+        endif
 
         ! Certain physical constants that shouldn't be constants
         call iXML%Set_Val(Model%tiote, "prob/tiote",4.0)
@@ -215,7 +232,11 @@ module raijustarter
             ! dt for every lambda channel
             allocate( State%dtk (Grid%Nk) )
             ! Where we keep all our stuff
-            allocate( State%eta (sh%isg:sh%ieg, sh%jsg:sh%jeg, Grid%Nk) )
+            allocate( State%eta      (sh%isg:sh%ieg, sh%jsg:sh%jeg, Grid%Nk) )
+            ! Where we keep all our stuff but a half-step ahead of now
+            allocate( State%eta_half (sh%isg:sh%ieg, sh%jsg:sh%jeg, Grid%Nk) )
+            ! Where we kept all our stuff one step ago
+            allocate( State%eta_last (sh%isg:sh%ieg, sh%jsg:sh%jeg, Grid%Nk) )
             ! I shells shat should be evolved for each k
             allocate( State%activeShells (sh%isg:sh%ieg, Grid%Nk) )
             ! Effective potential (used for output only)
@@ -242,7 +263,8 @@ module raijustarter
             ! 2D corner quantities
             allocate( State%topo  (sh%isg:sh%ieg+1, sh%jsg:sh%jeg+1) )
             ! 2D cell-centered quantities
-            allocate( State%active (sh%isg:sh%ieg, sh%jsg:sh%jeg) )
+            allocate( State%active      (sh%isg:sh%ieg, sh%jsg:sh%jeg) )
+            allocate( State%active_last (sh%isg:sh%ieg, sh%jsg:sh%jeg) )
             allocate( State%OCBDist(sh%isg:sh%ieg, sh%jsg:sh%jeg) )
             allocate( State%espot  (sh%isg:sh%ieg, sh%jsg:sh%jeg) )
             allocate( State%bvol   (sh%isg:sh%ieg, sh%jsg:sh%jeg) )

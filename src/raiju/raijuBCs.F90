@@ -39,7 +39,7 @@ module raijuBCs
         ! Determine where to do BCs
         ! Will definitely be its own function later to do ellipse fitting, restriction of fast flows, etc
         if(doWholeDomain) then
-            where (State%active .eq. RAIJUBUFFER .or. State%active .eq. raijuACTIVE)
+            where (State%active .eq. RAIJUBUFFER .or. State%active .eq. RAIJUACTIVE)
                 doBC = .true.
             elsewhere
                 doBC = .false.

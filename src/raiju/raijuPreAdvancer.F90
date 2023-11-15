@@ -19,23 +19,23 @@ module raijuPreAdvancer
 ! Main high-level functions
 !------
 
-    subroutine raijuPreAdvance(Model, Grid, State, fullEtaMapO)
+    subroutine raijuPreAdvance(Model, Grid, State, isFirstCplO)
         !! Takes a state and calculates what is needed in order to advance
         type(raijuModel_T), intent(inout) :: Model
         type(raijuGrid_T ), intent(in) :: Grid
         type(raijuState_T), intent(inout) :: State
-        logical, optional, intent(in) :: fullEtaMapO
+        logical, optional, intent(in) :: isFirstCplO
 
-        logical :: fullEtaMap
+        logical :: isFirstCpl
         integer :: k
         logical, dimension(Grid%shGrid%isg:Grid%shGrid%ieg, &
                            Grid%shGrid%jsg:Grid%shGrid%jeg) :: isG_vFaces
             !! We calculate which cells are good for the purpose of reconstructing velocity at all faces
 
-        if (present(fullEtaMapO)) then
-            fullEtaMap = fullEtaMapO
+        if (present(isFirstCplO)) then
+            isFirstCpl = isFirstCplO
         else
-            fullEtaMap = .false.
+            isFirstCpl = .false.
         endif
 
         ! Calc isG for velocity reconstruction
@@ -50,10 +50,13 @@ module raijuPreAdvancer
         State%precipNFlux = 0.0
         State%precipEFlux = 0.0
 
-        ! Moments to etas
+        ! Moments to etas, initial active shell calculation
         call Tic("BCs")
-        call applyRaijuBCs(Model, Grid, State, fullEtaMap) ! If fullEtaMap=True, mom2eta map is applied to the whole domain
+        call applyRaijuBCs(Model, Grid, State, doWholeDomainO=isFirstCpl) ! If fullEtaMap=True, mom2eta map is applied to the whole domain
         call Toc("BCs")
+
+        ! Handle edge cases that may effect the validity of information carried over from last coupling period
+        call prepEtaLast(Grid%shGrid, State, isFirstCpl)
 
         ! Calc cell velocities
         call Tic("Calc cell-center velocities")
@@ -85,6 +88,44 @@ module raijuPreAdvancer
         call Toc("Calc loss rates")
 
     end subroutine raijuPreAdvance
+
+!------
+! Transitions between coupling chunks
+!------
+
+    subroutine prepEtaLast(sh, State, isFirstCpl)
+        ! To be called before main advance loop
+        ! Edits the initial eta_last state to account for edge cases
+        type(ShellGrid_T), intent(in) :: sh
+        type(raijuState_T), intent(inout) :: State
+        logical, intent(in) :: isFirstCpl
+
+        integer :: i,j
+
+        ! If its the first coupling instance, we have no good previous information
+        ! Set previous cpl info to current state
+        if (isFirstCpl) then
+            State%active_last = State%active
+            State%eta_last    = State%eta
+            return
+        endif
+
+        ! For a given cell, if it is currently active, but wasn't active last step, 
+        !   we need to set its eta_last to something usable in the first eta_half calculation
+        ! We do this in the buffer region as well, because this was freshly populated with MHD moments and any existing eta_last is stale
+        ! After the first dt, eta_last will be set with valid information and no further adjustments are necessay
+        do j=sh%jsg,sh%jeg
+            do i=sh%isg,sh%ieg
+                if ( (State%active(i,j) .eq. RAIJUACTIVE .and. State%active_last(i,j) .eq. RAIJUINACTIVE) &
+                .or. (State%active(i,j) .eq. RAIJUBUFFER) ) then
+                    State%eta_last(i,j,:) = State%eta(i,j,:)
+                endif
+            enddo
+        enddo
+
+        ! NOTE: Any case not addressed here should mean that eta_last and active_last are valid in those cases
+
+    end subroutine prepEtaLast
 
 !------
 ! Cell Potentials and their gradients

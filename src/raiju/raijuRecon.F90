@@ -76,7 +76,7 @@ module raijuRecon
 
         integer :: i,j
 
-        !! Note: We only populate from is:ie+1, js:je+1 because that's the only place we'll ues face values
+        !! Note: We only populate from is:ie+1, js:je+1 because that's the only place we'll use face values
         !!  But full size includes ghost faces for output purposes
 
         !! Note: Loop is determining face i-1/2 and j-1/2 for given i,j
@@ -95,7 +95,7 @@ module raijuRecon
             enddo
         enddo
 
-        
+
         contains
 
         function reconOrder(isG, Qcc) result(Qface)
@@ -129,5 +129,42 @@ module raijuRecon
         end function reconOrder
 
     end subroutine ReconFaces
+
+
+    subroutine calcFluxes(Grid, State, Qcc, Qflux)
+        !! Takes cell-centered quantity (Qcc) and uses state information to calculate flux of Q through cell faces (Qflux)
+        type(raijuGrid_T ), intent(in) :: Grid
+        type(raijuState_T), intent(in) :: State
+        real(rp), dimension(Grid%shGrid%isg:Grid%shGrid%ieg, &
+                            Grid%shGrid%jsg:Grid%shGrid%jeg), intent(in) :: Qcc
+            !! Cell-centered quantity (e.x.: eta)
+        real(rp), dimension(Grid%shGrid%isg:Grid%shGrid%ieg+1, &
+                            Grid%shGrid%jsg:Grid%shGrid%jeg+1, 2), intent(out) :: Qflux
+            !! Flux of Q through faces
+
+        ! Make some needed arrays here, figure out how to optimize later
+        logical, dimension(Grid%shGrid%isg:Grid%shGrid%ieg, &
+                            Grid%shGrid%jsg:Grid%shGrid%jeg) :: isG
+        real(rp), dimension(Grid%shGrid%isg:Grid%shGrid%ieg, &
+                            Grid%shGrid%jsg:Grid%shGrid%jeg) :: QA
+        real(rp), dimension(Grid%shGrid%isg:Grid%shGrid%ieg+1, &
+                            Grid%shGrid%jsg:Grid%shGrid%jeg+1, 2) :: QAface, Qface
+
+        Qflux = 0.0
+
+        where (State%active .ne. RAIJUINACTIVE)
+            isG = .true.
+        elsewhere
+            isG = .false.
+        end where
+
+        QA = Qcc * Grid%areaCC  ! Get total quantity within cell
+        call ReconFaces(Grid, isG, QA, QAface)  ! Interpolate to face positions
+        Qface = QAface / Grid%areaFace  ! Return to area density at face position
+
+        
+
+        
+    end subroutine calcFluxes
 
 end module raijuRecon

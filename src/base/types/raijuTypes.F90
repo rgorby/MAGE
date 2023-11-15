@@ -119,6 +119,11 @@ module raijutypes
         real(rp) :: t0, tFin, dt
             !! Start and end time, delta coupling time (may be replaced/ignored later by voltron setting a dynamic coupling time)
         
+        ! Solver params
+        real(rp) :: CFL
+            !! CFL condition used in deciding time step
+        real(rp) :: PDMB
+            !! 0 < PDMB < 1 used in PDM limiter. 1 = very diffusive
 
         ! https://media0.giphy.com/media/XfDPdSRhYFUhIU7EPw/giphy.gif
         logical  :: fixedTimestep
@@ -245,6 +250,10 @@ module raijutypes
 
         real(rp), dimension(:,:,:), allocatable :: eta
             !! (Ni, Nj, Nk) etas
+        real(rp), dimension(:,:,:), allocatable :: eta_half
+            !! (Ni, Nj, Nk) etas  0.5*dt forward from t
+        real(rp), dimension(:,:,:), allocatable :: eta_last
+            !! (Ni, Nj, Nk) etas from previous time step, used for halt-time calculation
         logical, dimension(:,:), allocatable :: activeShells
             !! (Ni, Nk) I shells that should be evolved for a given lambda
         real(rp), dimension(:,:,:), allocatable :: pEff
@@ -273,6 +282,7 @@ module raijutypes
         real(rp), dimension(:,:), allocatable :: phcon  ! Longitude of conjugate points
         !> (Ni, Nj)
         integer , dimension(:,:), allocatable :: active  ! (-1=inactive, 0=buffer, 1=active)
+        integer , dimension(:,:), allocatable :: active_last  ! Active domain from the previous coupling time step, used for half-step eta calculation
         integer , dimension(:,:), allocatable :: OCBDist  ! Cell distance from open-closed boundary
         real(rp), dimension(:,:), allocatable :: espot  ! electro-static potential from REMIX [kV]
         real(rp), dimension(:,:), allocatable :: bvol  ! Flux-tube volume [Rx/nT]

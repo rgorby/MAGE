@@ -56,6 +56,11 @@ module raijudefs
     real(rp), parameter :: sclEta = 1.0e9  ! [1/nT -> 1/T on DkT2eta conversion]
     real(rp), parameter :: sclIntens = 1.e-4*sqrt(ev2J/(8.0*dalton))/PI ! code eta to intensity [1/(s*sr*keV*cm^2)]
 
+    ! Solver param defaults and limits
+    real(rp), parameter :: def_pdmb = 0.75
+    real(rp), parameter :: def_cfl  = 0.3
+    real(rp), parameter :: cflMax = 0.3
+
     ! Settings
     integer, parameter :: recLen = 8
         !! Reconstruction stencil length

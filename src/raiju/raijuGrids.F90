@@ -167,6 +167,22 @@ module raijugrids
 
     end subroutine wrapJcc
 
+
+    subroutine wrapJcorners(sh, Q)
+        !! Populates overlapping j ghosts with active corner data
+        !! Assumes that all values within (:, js:je) are valid to wrap
+        !! And assumes that j ghosts overlap with last active cells on the other side
+        type(ShellGrid_T), intent(in) :: sh
+        real(rp), dimension(sh%isg:sh%ieg+1, sh%jsg:sh%jeg+1), intent(inout) :: Q
+
+        ! Starting ghost cells
+        Q(:, sh%jsg:sh%js) = Q(:, sh%je-sh%Ngw+1:sh%je+1)
+        ! Ending ghosts cells
+        Q(:, sh%je+1:sh%jeg+1) = Q(:, sh%js:sh%js+sh%Nge)
+
+    end subroutine wrapJcorners
+
+
 !------
 ! Lambda grid stuff
 !------

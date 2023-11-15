@@ -75,6 +75,9 @@ module raijuAdvancer
         do k=1,Grid%Nk
             call AdvanceLambda(Model, Grid, State, k)
         enddo
+
+        ! Wrap up, save new time and cpl step number
+        ! Save current active domain to active_last
     end subroutine AdvanceState
 
 
@@ -97,6 +100,7 @@ module raijuAdvancer
         s = Grid%k2spc(k)
         t = State%t
         tEnd = State%t + State%dt
+
 
         !Nsteps = int(State%dt / State%dtk(k))+1
         !dt = State%dt / (1.0_rp*Nsteps)
@@ -123,7 +127,7 @@ module raijuAdvancer
                 dt = (tEnd-t)/(Nmax-n)
                 ! If needed, reduce dt to fit within remaining time
                 if (t + dt > tEnd) then
-                    dt = tEnd - t
+                    dt = max(tEnd - t, TINY)  ! Make sure we never go back in time and advance at least a little bit so we will eventually end
                 endif
 
                 ! Advection
@@ -143,9 +147,37 @@ module raijuAdvancer
                 State%precipEFlux(:,:,k) = State%precipEFlux(:,:,k)/State%dt
             endif
 
+
         end associate
 
     end subroutine AdvanceLambda
+
+
+    subroutine stepLambda(Model, Grid, State, k, dt)
+        !! Advances a single lambda channel a single time step
+        type(raijuModel_T), intent(in) :: Model
+        type(raijuGrid_T), intent(in) :: Grid
+        type(raijuState_T), intent(inout) :: State
+        integer, intent(in) :: k
+        real(rp), intent(in) :: dt
+
+        ! Calculate eta at half-step
+        ! For now, just implement simple AB sub-stepping
+        State%eta_half(:,:,k) = 1.5_rp*State%eta(:,:,k) - 0.5_rp*State%eta_last(:,:,k)
+
+        ! Calculate eta face fluxes
+
+        ! eta fluxes
+        !  eta t-half face interpolation
+        !  flux calculation
+        !  pdm
+
+        ! Save eta to eta_last
+        ! Calc new eta
+
+
+
+    end subroutine stepLambda
 
 
 end module raijuAdvancer

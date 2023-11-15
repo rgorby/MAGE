@@ -48,7 +48,7 @@ module raijuowdcpl
         call mix_map_grids(m2sMap, rmState%nPot, tmpPot)
         !fromV%pot(sh%is:sh%ie,sh%js:sh%je) = tmpPot
 
-        ! Dimensions from grabbed potential are isg:ie, js:je
+        ! Dimensions from grabbed potential are isg:ie, js:je because poleward ghosts have useful information for us
         fromV%pot(sh%isg:sh%ie,sh%js:sh%je) = tmpPot
 
         !do i=sh%isg,sh%is-1
