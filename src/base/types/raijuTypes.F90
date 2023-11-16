@@ -197,6 +197,8 @@ module raijutypes
             !! (Ni, Nj) Area of each cell
         real(rp), dimension(:,:,:), allocatable :: areaFace
             !! (Ni+1, Nj+1, 2) Estimated area at each interface. (i,j,1) = theta dir, (i,j,2) = phi dir
+        real(rp), dimension(:,:,:), allocatable :: lenFace
+            !! (Ni+1, Nj+1, 2) arc length of each face
         real(rp), dimension(:,:), allocatable :: Bmag
             !! Magnitude of B field [nT] at ionosphere
         real(rp), dimension(:,:), allocatable :: cosdip

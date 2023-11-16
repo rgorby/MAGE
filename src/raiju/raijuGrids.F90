@@ -69,12 +69,16 @@ module raijugrids
 
     end subroutine raijuGenUniSphGrid
 
+
     subroutine raijuGenGridFromShGrid(Grid, shGrid)
         type(raijuGrid_T)  , intent(inout) :: Grid
         type(ShellGrid_T), intent(in) :: shGrid
 
         !!TODO
+        write(*,*) "You never should have come here"
+        stop
     end subroutine raijuGenGridFromShGrid
+
 
     subroutine finalizeLLGrid(Grid, planet)
         !! Use a fully-created shell grid to allocate and populate the rest of the grid parameters
@@ -93,6 +97,7 @@ module raijugrids
             allocate( Grid%cosdip(shGr%isg:shGr%ieg,shGr%jsg:shGr%jeg) )
             allocate( Grid%areaCC  (shGr%isg:shGr%ieg,shGr%jsg:shGr%jeg) )
             allocate( Grid%areaFace(shGr%isg:shGr%ieg+1,shGr%jsg:shGr%jeg+1, 2) )
+            allocate( Grid%lenFace(shGr%isg:shGr%ieg+1,shGr%jsg:shGr%jeg+1, 2) )
 
             ! Calculate theta/phi delta between cells
             ! First and last elements should be zero since there's no cells below/above isg/ieg
@@ -142,6 +147,19 @@ module raijugrids
                     Grid%areaFace(i,j,1) = Central8(Grid%areaCC(i-4:i+3, j))
                     ! Phi dir
                     Grid%areaFace(i,j,2) = Central8(Grid%areaCC(i, j-4:j+3))
+                enddo
+            enddo
+
+            ! Arc length of faces
+            do i=shGr%isg,shGr%ieg
+                do j=shGr%jsg,shGr%jeg
+                    ! Theta dir
+                    Grid%lenFace(i,j,1) = (planet%ri_m/planet%rp_m) &
+                                        * (shGr%th(i+1) - shGr%th(i))
+                    ! Phi dir
+                    Grid%lenFace(i,j,2) = (planet%ri_m/planet%rp_m) &
+                                        * sin(shGr%thc(i)) &
+                                        * (shGr%ph(j+1) - shGr%ph(j))
                 enddo
             enddo
 

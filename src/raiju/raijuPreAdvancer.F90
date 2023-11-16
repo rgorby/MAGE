@@ -67,7 +67,7 @@ module raijuPreAdvancer
         do k=1,Grid%Nk
             call calcVelocityCC(Model, Grid, State, k, State%cVel(:,:,k,:))
             ! Calc sub-time step
-            State%dtk(k) = activeDt(Grid%shGrid, Grid, State, k)
+            State%dtk(k) = activeDt(Model, Grid, State, k)
             ! We can also calculate velocity at faces here because it won't change during sub-stepping
             call ReconFaces(Grid, isG_vFaces, State%cVel(:,:,k,1), State%iVel(:,:,k,:), Qcc_phO=State%cVel(:,:,k,2))
         enddo

@@ -8,30 +8,30 @@ module raijuAdvancer
     use raijuetautils
     use raijuBCs
     use raijulosses
+    use raijuRecon
 
     implicit none
 
     contains
 
-    function activeDt(sh, Grid, State, k) result(dt)
-        !! TODO: eventually this should use iVel instead
+    function activeDt(Model, Grid, State, k) result(dt)
         !! TODO: Consider dynamic CFL factor
-        type(ShellGrid_T), intent(in) :: sh
-        type(raijuGrid_T), intent(in) :: Grid
+        type(raijuModel_T), intent(in) :: Model
+        type(raijuGrid_T ), intent(in) :: Grid
         type(raijuState_T), intent(in) :: State
         integer, intent(in) :: k
         
         integer :: i,j
-        real(rp), dimension(sh%isg:sh%ieg,sh%jsg:sh%jeg,2) :: vel, dtArr
-        logical, dimension(sh%isg:sh%ieg,sh%jsg:sh%jeg) :: asIJ, isGood
+        real(rp), dimension(Grid%shGrid%isg:Grid%shGrid%ieg,Grid%shGrid%jsg:Grid%shGrid%jeg,2) :: vel, dtArr
+        logical , dimension(Grid%shGrid%isg:Grid%shGrid%ieg,Grid%shGrid%jsg:Grid%shGrid%jeg) :: asIJ, isGood
         real(rp) :: dt
 
+        associate (sh => Grid%shGrid)
         ! make activeShell 2D
         do i=sh%isg,sh%ieg
             asIJ(i,:) = State%activeShells(i,k)
         enddo
         
-        !vMag = norm2(State%cVel(:,:,k,:), 3)
         ! Only consider points that are in activeShell and not RAIJUINACTIVE
         where (State%active .ne. RAIJUINACTIVE .and. asIJ)
             isGood = .true.
@@ -44,14 +44,18 @@ module raijuAdvancer
 
         ! Min dt in theta direction
         do j=sh%jsg,sh%jeg
-            dtArr(:,j,1) = 0.5*(Grid%delTh(:sh%ieg)+Grid%delTh(sh%isg+1:)) / vel(:,j,1)
+            !dtArr(:,j,1) = 0.5*(Grid%delTh(:sh%ieg)+Grid%delTh(sh%isg+1:)) / (vel(:,j,1) / Model%planet%ri_m)
+            dtArr(:,j,1) = Grid%lenFace(:, j, 2) / (vel(:,j,1) / Model%planet%ri_m)
         enddo
         ! In Phi direction
         do i=sh%isg,sh%ieg
-            dtArr(i,:,2) = 0.5*(Grid%delPh(:sh%jeg)+Grid%delPh(sh%jsg+1:)) / vel(i,:,2)
+            !dtArr(i,:,2) = 0.5*(Grid%delPh(:sh%jeg)+Grid%delPh(sh%jsg+1:)) / (vel(i,:,2) / Model%planet%ri_m)
+            dtArr(i,:,2) = Grid%lenFace(i, :, 1) / (vel(i,:,2) / Model%planet%ri_m)
         enddo
 
         dt = minval(dtArr)
+
+        end associate
 
             
     end function activeDt
@@ -95,7 +99,6 @@ module raijuAdvancer
             !! t, dt = Current time and delta-t for this channel
             !! tEnd = Time we stop at
 
-        
         ! Initial settings
         s = Grid%k2spc(k)
         t = State%t
@@ -120,17 +123,17 @@ module raijuAdvancer
 
                 ! Calc next time step
                 !! Also muting
-                !dt = activeDt(sh, Grid, State, k)
+                dt = activeDt(Model, Grid, State, k)
 
                 !! BAD: Boost dt to be around 200 iters max
-                !dt = max(dt, (tEnd-t)/(Nmax-n))
-                dt = (tEnd-t)/(Nmax-n)
+                !dt = (tEnd-t)/(Nmax-n)
                 ! If needed, reduce dt to fit within remaining time
                 if (t + dt > tEnd) then
                     dt = max(tEnd - t, TINY)  ! Make sure we never go back in time and advance at least a little bit so we will eventually end
                 endif
 
                 ! Advection
+                call stepLambda(Model, Grid, State, k, dt)
                 
                 ! Losses
                 if (Model%doLosses) then
@@ -139,6 +142,7 @@ module raijuAdvancer
 
                 t = t + dt
                 n = n+1
+                exit
             enddo
 
             if (Model%doLosses) then
@@ -161,21 +165,31 @@ module raijuAdvancer
         integer, intent(in) :: k
         real(rp), intent(in) :: dt
 
+        real(rp), dimension(Grid%shGrid%isg:Grid%shGrid%ieg+1, &
+                            Grid%shGrid%jsg:Grid%shGrid%jeg+1, 2) :: Qflux
+            !! TODO: May not want to keep this at this scope
+
+        integer :: i,j
+
         ! Calculate eta at half-step
         ! For now, just implement simple AB sub-stepping
         State%eta_half(:,:,k) = 1.5_rp*State%eta(:,:,k) - 0.5_rp*State%eta_last(:,:,k)
 
         ! Calculate eta face fluxes
-
-        ! eta fluxes
-        !  eta t-half face interpolation
-        !  flux calculation
-        !  pdm
+        call calcFluxes(Model, Grid, State, k, State%eta_half(:,:,k), Qflux)
 
         ! Save eta to eta_last
+        State%eta_last(:,:,k) = State%eta(:,:,k)
+        
         ! Calc new eta
+        do j=Grid%shGrid%js,Grid%shGrid%je
+            do i=Grid%shGrid%is,Grid%shGrid%ie
+                State%eta(i,j,k) = State%eta(i,j,k) + dt/(Grid%areaCC(i,j)*Model%planet%ri_m**2) &
+                                                      * ( Qflux(i,j,1) - Qflux(i+1,j,1) + Qflux(i,j,2) - Qflux(i,j+1,2) )
+            enddo
+        enddo
 
-
+        write(*,*) k, dt
 
     end subroutine stepLambda
 
