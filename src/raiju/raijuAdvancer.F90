@@ -45,15 +45,31 @@ module raijuAdvancer
         ! Min dt in theta direction
         do j=sh%jsg,sh%jeg
             !dtArr(:,j,1) = 0.5*(Grid%delTh(:sh%ieg)+Grid%delTh(sh%isg+1:)) / (vel(:,j,1) / Model%planet%ri_m)
-            dtArr(:,j,1) = Grid%lenFace(:, j, 2) / (vel(:,j,1) / Model%planet%ri_m)
+            dtArr(:,j,1) = 0.5*(Grid%lenFace(:sh%ieg, j, 1)+Grid%lenFace(sh%isg+1:, j, 1)) / (vel(:,j,1) / Model%planet%ri_m)
+            !if (k == 20 .and. any(vel(:,j,1) > 400)) then
+            !    write(*,*)"dt_theta------"
+            !    write(*,*) 0.5*(Grid%lenFace(:sh%ieg, j, 1)+Grid%lenFace(sh%isg+1:, j, 1))
+            !    write(*,*)"------"
+            !endif
         enddo
         ! In Phi direction
         do i=sh%isg,sh%ieg
             !dtArr(i,:,2) = 0.5*(Grid%delPh(:sh%jeg)+Grid%delPh(sh%jsg+1:)) / (vel(i,:,2) / Model%planet%ri_m)
-            dtArr(i,:,2) = Grid%lenFace(i, :, 1) / (vel(i,:,2) / Model%planet%ri_m)
+            dtArr(i,:,2) = 0.5*(Grid%lenFace(i, :sh%jeg, 1)+Grid%lenFace(i, sh%jsg+1:, 1)) / (vel(i,:,2) / Model%planet%ri_m)
+            !if (k == 20 .and. any(vel(i,:,2) > 400)) then
+            !    write(*,*)"dt_phi------"
+            !    write(*,*) 0.5*(Grid%lenFace(i, :sh%jeg, 1)+Grid%lenFace(i, sh%jsg+1:, 1))
+            !    write(*,*)"------"
+            !endif
         enddo
 
-        dt = minval(dtArr)
+        dt = Model%CFL*minval(dtArr)
+
+        if (k == 20) then
+            write(*,*)"------"
+            write(*,*) minval(Model%CFL*dtArr), maxval(Model%CFL*dtArr)
+            write(*,*)"------"
+        endif
 
         end associate
 
@@ -189,7 +205,9 @@ module raijuAdvancer
             enddo
         enddo
 
-        write(*,*) k, dt
+        if (k < Grid%spc(spcIdx(Grid, RAIJUELE))%kEnd) then
+            write(*,*) k, dt
+        endif
 
     end subroutine stepLambda
 

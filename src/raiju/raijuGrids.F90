@@ -153,15 +153,23 @@ module raijugrids
             ! Arc length of faces
             do i=shGr%isg,shGr%ieg
                 do j=shGr%jsg,shGr%jeg
+                    ! Faces in theta dir are i +/- 1/2 faces, which are in the phi direction
+                    
                     ! Theta dir
                     Grid%lenFace(i,j,1) = (planet%ri_m/planet%rp_m) &
-                                        * (shGr%th(i+1) - shGr%th(i))
+                                        * sin(shGr%thc(i)) &
+                                        * (shGr%ph(j+1) - shGr%ph(j))  ! Line segment in phi direction
                     ! Phi dir
                     Grid%lenFace(i,j,2) = (planet%ri_m/planet%rp_m) &
-                                        * sin(shGr%thc(i)) &
-                                        * (shGr%ph(j+1) - shGr%ph(j))
+                                        * (shGr%th(i+1) - shGr%th(i))  ! Line segment in theta direction
                 enddo
             enddo
+            ! Do last cell's edges manually
+            Grid%lenFace(shGr%ieg, shGr%jeg, 1) = (planet%ri_m/planet%rp_m) &
+                                                * sin(shGr%thc(shGr%ieg)) &
+                                                * (shGr%ph(shGr%jeg+1) - shGr%ph(shGr%jeg))
+            Grid%lenFace(shGr%ieg, shGr%jeg, 2) = (planet%ri_m/planet%rp_m) &
+                                                * (shGr%th(shGr%ieg+1) - shGr%th(shGr%ieg))
 
         end associate
 
