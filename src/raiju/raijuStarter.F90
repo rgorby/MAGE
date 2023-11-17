@@ -282,9 +282,10 @@ module raijustarter
 
             ! Only bother allocating persistent versions of debug stuff if we ned them
             if (Model%doDebugOutput) then
-                allocate( State%etaFace   (sh%isg:sh%ieg+1, sh%jsg:sh%jeg+1, Grid%Nk, 2) )
-                allocate( State%etaFacePDM(sh%isg:sh%ieg+1, sh%jsg:sh%jeg+1, Grid%Nk, 2) )
-                allocate( State%etaFlux   (sh%isg:sh%ieg+1, sh%jsg:sh%jeg+1, Grid%Nk, 2) )
+                allocate( State%etaFace    (sh%isg:sh%ieg+1, sh%jsg:sh%jeg+1, Grid%Nk, 2) )
+                allocate( State%etaFacePDML(sh%isg:sh%ieg+1, sh%jsg:sh%jeg+1, Grid%Nk, 2) )
+                allocate( State%etaFacePDMR(sh%isg:sh%ieg+1, sh%jsg:sh%jeg+1, Grid%Nk, 2) )
+                allocate( State%etaFlux    (sh%isg:sh%ieg+1, sh%jsg:sh%jeg+1, Grid%Nk, 2) )
             endif
         
         end associate

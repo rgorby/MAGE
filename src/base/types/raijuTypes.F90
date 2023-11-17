@@ -311,7 +311,8 @@ module raijutypes
 
         !> Only used when debugging
         real(rp), dimension(:,:,:,:), allocatable :: etaFace   
-        real(rp), dimension(:,:,:,:), allocatable :: etaFacePDM
+        real(rp), dimension(:,:,:,:), allocatable :: etaFacePDML
+        real(rp), dimension(:,:,:,:), allocatable :: etaFacePDMR
         real(rp), dimension(:,:,:,:), allocatable :: etaFlux   
 
     end type raijuState_T

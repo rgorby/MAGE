@@ -203,15 +203,10 @@ module raijuAdvancer
         ! Calc new eta
         do j=Grid%shGrid%js,Grid%shGrid%je
             do i=Grid%shGrid%is,Grid%shGrid%ie
-                !State%eta(i,j,k) = State%eta(i,j,k) + dt/(Grid%areaCC(i,j)* Model%planet%ri_m**2) &
                 State%eta(i,j,k) = State%eta(i,j,k) + dt/Grid%areaCC(i,j) &
                                                       * ( Qflux(i,j,1) - Qflux(i+1,j,1) + Qflux(i,j,2) - Qflux(i,j+1,2) )
             enddo
         enddo
-
-        !if (k < Grid%spc(spcIdx(Grid, RAIJUELE))%kEnd) then
-        !    write(*,*) k, dt
-        !endif
 
     end subroutine stepLambda
 

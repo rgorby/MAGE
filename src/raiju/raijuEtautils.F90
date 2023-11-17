@@ -172,6 +172,11 @@ module raijuetautils
 
         eta = 0.0
 
+        ! Trap for zero density
+        if (D < TINY) then
+            return
+        endif
+        
         if (size(eta) .eq. 1) then
             ! Just throw all the density into the one channel
             eta(spc%kStart) = D/(vm**1.5)*sclEta ! #/cc * Rx/nT * 1/nT -> 1/T

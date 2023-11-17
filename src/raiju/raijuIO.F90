@@ -304,10 +304,11 @@ module raijuIO
 
         if (Model%doDebugOutput) then
             ! Lots of weird stuff
-            call AddOutVar(IOVars, "iVel"      , State%cVel      (is:ie+1,js:je+1,:,:), uStr="m/s")
-            call AddOutVar(IOVars, "etaFace"   , State%etaFace   (is:ie+1,js:je+1,:,:), uStr="#/cm^3 * Rx/T")
-            call AddOutVar(IOVars, "etaFacePDM", State%etaFacePDM(is:ie+1,js:je+1,:,:), uStr="#/cm^3 * Rx/T")
-            call AddOutVar(IOVars, "etaFlux"   , State%etaFlux   (is:ie+1,js:je+1,:,:), uStr="(#/cm^3 * Rx/T) * m^2 / s")
+            call AddOutVar(IOVars, "iVel"       , State%cVel       (is:ie+1,js:je+1,:,:), uStr="m/s")
+            call AddOutVar(IOVars, "etaFace"    , State%etaFace    (is:ie+1,js:je+1,:,:), uStr="#/cm^3 * Rx/T")
+            call AddOutVar(IOVars, "etaFacePDML", State%etaFacePDML(is:ie+1,js:je+1,:,:), uStr="#/cm^3 * Rx/T")
+            call AddOutVar(IOVars, "etaFacePDMR", State%etaFacePDMR(is:ie+1,js:je+1,:,:), uStr="#/cm^3 * Rx/T")
+            call AddOutVar(IOVars, "etaFlux"    , State%etaFlux    (is:ie+1,js:je+1,:,:), uStr="(#/cm^3 * Rx/T) * m^2 / s")
         endif
 
         call WriteVars(IOVars,.true.,Model%raijuH5, gStr)

@@ -129,7 +129,7 @@ module raijuRecon
     end subroutine ReconFaces
 
 
-    subroutine raijuPDM(Qcc, Qi, pdmb, Qpdm)
+    subroutine raijuPDM(Qcc, Qi, pdmb, QpdmL, QpdmR)
         !! Calculate PDM-limited value of Q at interface
         !! Using notation where interface is i+1/2
         !! Qcc is 4 elements long, i-1, i, i+1, i+2
@@ -141,12 +141,12 @@ module raijuRecon
             !! High-order reconstruction of quantity at interface
         real(rp), intent(in) :: pdmb
             !! PDM limiter value
-        real(rp), intent(out) :: Qpdm
+        real(rp), intent(out) :: QpdmL, QpdmR
             !! PDM-limited quantity to return
 
         real(rp) :: minQ, maxQ, Qn
         real(rp) :: dQL, dQi, dQR, sL, si, sR, qL, qR
-        real(rp) :: dQnL, dQnR, QLrecon, QRrecon
+        real(rp) :: dQnL, dQnR
 
         ! Determine which is the intermediate value between Qi, Qi+1/2, Qi+1
         minQ = min(Qcc(2), Qcc(3))
@@ -173,16 +173,13 @@ module raijuRecon
         dQnR = Qcc(3) - Qn
 
         ! Finally, calculate L/R reconstructed values
-        QLrecon = Qn - si*max(0.0, abs(dQnL) - qL*abs(dQL))
-        QRrecon = Qn + si*max(0.0, abs(dQnR) - qR*abs(dQR))
-
-        ! Final PDM-value is the one that's non-negative, so we can add them both to get our value
-        Qpdm = QLrecon + QRrecon
+        QpdmL = Qn - si*max(0.0, abs(dQnL) - qL*abs(dQL))
+        QpdmR = Qn + si*max(0.0, abs(dQnR) - qR*abs(dQR))
 
     end subroutine raijuPDM
 
 
-    subroutine PDMFaces(sh, isG, Qcc, Qfaces, Qpdms, pdmb)
+    subroutine PDMFaces(sh, isG, Qcc, Qfaces, QpdmL, QpdmR, pdmb)
         !! Calculates PDM-limited value for all faces for providd quantity
         type(ShellGrid_T), intent(in) :: sh
         logical , dimension(sh%isg:sh%ieg, &
@@ -192,12 +189,13 @@ module raijuRecon
         real(rp), dimension(sh%isg:sh%ieg+1, &
                             sh%jsg:sh%jeg+1, 2), intent(in) :: Qfaces
         real(rp), dimension(sh%isg:sh%ieg+1, &
-                            sh%jsg:sh%jeg+1, 2), intent(out) :: Qpdms
+                            sh%jsg:sh%jeg+1, 2), intent(out) :: QpdmL, QpdmR
         real(rp), intent(in) :: pdmb
 
         integer :: i,j
 
-        Qpdms = 0.0
+        QpdmL = 0.0
+        QpdmR = 0.0
 
         ! Only calculate for faces touching non-ghost cells
         do j=sh%js,sh%je+1
@@ -207,18 +205,20 @@ module raijuRecon
                 if (any(isG(i-2:i+1, j)) .eq. .false.) then
                     ! If full stencil isn't valid, we didn't use a high-order method to calculate the interface value anyways
                     !  so we can just use the value that's there
-                    Qpdms(i,j,1) = Qfaces(i,j,1)
+                    QpdmL(i,j,1) = Qfaces(i,j,1)
+                    QpdmR(i,j,1) = Qfaces(i,j,1)
                 else
-                    call raijuPDM(Qcc(i-2:i+1, j), Qfaces(i, j, 1), pdmb, Qpdms(i,j,1))
+                    call raijuPDM(Qcc(i-2:i+1, j), Qfaces(i, j, 1), pdmb, QpdmL(i,j,1), QpdmR(i,j,1))
                 endif
 
                 ! Phi dir
                 if (any(isG(i, j-2:j+1)) .eq. .false.) then
                     ! If full stencil isn't valid, we didn't use a high-order method to calculate the interface value anyways
                     !  so we can just use the value that's there
-                    Qpdms(i,j,2) = Qfaces(i,j,2)
+                    QpdmL(i,j,2) = Qfaces(i,j,2)
+                    QpdmR(i,j,2) = Qfaces(i,j,2)
                 else
-                    call raijuPDM(Qcc(i, j-2:j+1), Qfaces(i, j, 2), pdmb, Qpdms(i,j,2))
+                    call raijuPDM(Qcc(i, j-2:j+1), Qfaces(i, j, 2), pdmb, QpdmL(i,j,2), QpdmR(i,j,2))
                 endif
 
             enddo
@@ -291,10 +291,11 @@ module raijuRecon
         real(rp), dimension(Grid%shGrid%isg:Grid%shGrid%ieg, &
                             Grid%shGrid%jsg:Grid%shGrid%jeg) :: QA
         real(rp), dimension(Grid%shGrid%isg:Grid%shGrid%ieg+1, &
-                            Grid%shGrid%jsg:Grid%shGrid%jeg+1, 2) :: QAface, Qface, Qpdm
+                            Grid%shGrid%jsg:Grid%shGrid%jeg+1, 2) :: QAface, Qface, QpdmL, QpdmR, QfluxL, QfluxR
         QAface = 0.0
         Qface = 0.0
-        Qpdm = 0.0
+        QpdmL = 0.0
+        QpdmR = 0.0
         Qflux = 0.0
 
         where (State%active .ne. RAIJUINACTIVE)
@@ -308,11 +309,16 @@ module raijuRecon
         Qface = QAface / Grid%areaFace  ! Return to area density at face position
 
         ! PDM to get our final interface values
-        !call PDMFaces(Grid%shGrid, isG, Qcc, Qface, Qpdm, Model%pdmb)
+        call PDMFaces(Grid%shGrid, isG, Qcc, Qface, QpdmL, QpdmR, Model%pdmb)
 
         ! Calculate face fluxes
         !Qflux = Qface*State%iVel(:,:,k,:)*Grid%lenFace * Model%planet%ri_m  ! [Q * Rp^2 / s]
-        Qflux = Qface*State%iVel(:,:,k,:)*Grid%lenFace / Model%planet%ri_m  ! [Q * Rp^2 / s]
+        !Qflux = Qface*State%iVel(:,:,k,:)*Grid%lenFace / Model%planet%ri_m  ! [Q * Rp^2 / s]
+
+        QfluxL = merge(QpdmL*State%iVel(:,:,k,:), 0.0, QpdmL*State%iVel(:,:,k,:) > 0.0)  ! [Q * m/s] Effectively array-wide max between flux and 0.0
+        QfluxR = merge(QpdmR*State%iVel(:,:,k,:), 0.0, QpdmR*State%iVel(:,:,k,:) < 0.0)  ! [Q * m/s] Effectively array-wide min between flux and 0.0
+
+        Qflux = (QfluxL + QfluxR) * Grid%lenFace / Model%planet%ri_m  ! [Q * Rp^2 / s]
 
         ! Thus far we have ignored fluxes of faces at invalid/buffer boundary
         !  (ReconFaces set them to zero)
@@ -320,10 +326,11 @@ module raijuRecon
         !call calcBoundaryFluxes(Grid%shGrid, State%active, Qflux)
 
         if (Model%doDebugOutput) then
-            write(*,*)"dbg output for k=",k,Qface(30,30,1)
-            State%etaFace   (:,:,k,:) = Qface
-            State%etaFacePDM(:,:,k,:) = Qpdm
-            State%etaFlux   (:,:,k,:) = Qflux
+            !write(*,*)"dbg output for k=",k,Qface(30,30,1)
+            State%etaFace    (:,:,k,:) = Qface
+            State%etaFacePDML(:,:,k,:) = QpdmL
+            State%etaFacePDMR(:,:,k,:) = QpdmR
+            State%etaFlux    (:,:,k,:) = Qflux
         endif
         
     end subroutine calcFluxes
