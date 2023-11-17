@@ -239,31 +239,31 @@ module raijuRecon
 
         do j=sh%js,sh%je+1
             do i=sh%is,sh%ie+1
+                
                 ! Theta dir
-                if (  (active(i-1,j) .eq. RAIJUINACTIVE) &
-                .and. (active(i  ,j) .eq. RAIJUBUFFER  ) &
+                if (  (active(i-1,j  ) .eq. RAIJUINACTIVE) &
+                .and. (active(i  ,j  ) .eq. RAIJUBUFFER  ) &
                 .and. (Qflux (i+1,j,1) < 0.0 ) ) then
                 ! If current cell is good, lower i is bad, only copy i+1 flux if we have outflow
                     Qflux(i,j,1) = Qflux(i+1,j,1)
-                else if (  (active(i-1,j) .eq. RAIJUBUFFER   ) &
-                     .and. (active(i  ,j) .eq. RAIJUINACTIVE ) &
+                else if (  (active(i-1,j  ) .eq. RAIJUBUFFER  ) &
+                     .and. (active(i  ,j  ) .eq. RAIJUINACTIVE) &
                      .and. (Qflux (i-1,j,1) > 0.0 ) ) then
                 ! If current cell is bad, lower i is good, only copy i-1 flux if we have outflow
                     Qflux(i,j,1) = Qflux(i-1,j,1)
                 endif
 
-
                 ! Psi dir
-                if (  (active(i,j-1) .eq. RAIJUINACTIVE) &
-                .and. (active(i,j  ) .eq. RAIJUBUFFER  ) &
+                if (  (active(i,j-1  ) .eq. RAIJUINACTIVE) &
+                .and. (active(i,j    ) .eq. RAIJUBUFFER  ) &
                 .and. (Qflux (i,j+1,2) < 0.0 ) ) then
                 ! If current cell is good, lower i is bad, only copy j+1 flux if we have outflow
                     Qflux(i,j,2) = Qflux(i,j+1,2)
-                else if (  (active(i,j-1) .eq. RAIJUBUFFER   ) &
-                     .and. (active(i,j  ) .eq. RAIJUINACTIVE ) &
+                else if (  (active(i,j-1  ) .eq. RAIJUBUFFER  ) &
+                     .and. (active(i,j    ) .eq. RAIJUINACTIVE) &
                      .and. (Qflux (i,j-1,2) > 0.0 ) ) then
                ! If current cell is bad, lower i is good, only copy i-1 flux if we have outflow
-                   Qflux(i,j,2) = Qflux(i,j-1,2)
+                    Qflux(i,j,2) = Qflux(i,j-1,2)
                endif
 
             enddo

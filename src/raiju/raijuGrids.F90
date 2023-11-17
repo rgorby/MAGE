@@ -157,7 +157,7 @@ module raijugrids
                     
                     ! Theta dir
                     Grid%lenFace(i,j,1) = (planet%ri_m/planet%rp_m) &
-                                        * sin(shGr%thc(i)) &
+                                        * sin(shGr%th(i)) &
                                         * (shGr%ph(j+1) - shGr%ph(j))  ! Line segment in phi direction
                     ! Phi dir
                     Grid%lenFace(i,j,2) = (planet%ri_m/planet%rp_m) &
@@ -165,10 +165,10 @@ module raijugrids
                 enddo
             enddo
             ! Do last cell's edges manually
-            Grid%lenFace(shGr%ieg, shGr%jeg, 1) = (planet%ri_m/planet%rp_m) &
-                                                * sin(shGr%thc(shGr%ieg)) &
+            Grid%lenFace(shGr%ieg+1, shGr%jeg+1, 1) = (planet%ri_m/planet%rp_m) &
+                                                * sin(shGr%th(shGr%ie+1)) &
                                                 * (shGr%ph(shGr%jeg+1) - shGr%ph(shGr%jeg))
-            Grid%lenFace(shGr%ieg, shGr%jeg, 2) = (planet%ri_m/planet%rp_m) &
+            Grid%lenFace(shGr%ieg+1, shGr%jeg+1, 2) = (planet%ri_m/planet%rp_m) &
                                                 * (shGr%th(shGr%ieg+1) - shGr%th(shGr%ieg))
 
         end associate

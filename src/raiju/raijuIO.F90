@@ -103,8 +103,8 @@ module raijuIO
         call AddOutVar(IOVars,"alamc",Grid%alamc,uStr="eV * (Rx/nT)^(2/3)")
 
         if (Model%doDebugOutput) then
-            call AddOutVar(IOVars,"areaFace",Grid%areaFace(is:ie,js:je,:),uStr="Ri^2")
-            call AddOutVar(IOVars,"lenFace" ,Grid%lenFace (is:ie,js:je,:),uStr="Ri")
+            call AddOutVar(IOVars,"areaFace",Grid%areaFace(is:ie+1,js:je+1,:),uStr="Ri^2")
+            call AddOutVar(IOVars,"lenFace" ,Grid%lenFace (is:ie+1,js:je+1,:),uStr="Ri")
         endif
 
         call WriteVars(IOVars,.true.,Model%raijuH5)
@@ -221,6 +221,7 @@ module raijuIO
         
 
         ! Coupling things
+        call AddOutVar(IOVars,"dtCpl"  ,State%dt)  ! Attr
         call AddOutVar(IOVars,"xmin"   ,State%xyzMin (is:ie+1,js:je+1,XDIR),uStr="Rx")
         call AddOutVar(IOVars,"ymin"   ,State%xyzMin (is:ie+1,js:je+1,YDIR),uStr="Rx")
         call AddOutVar(IOVars,"zmin"   ,State%xyzMin (is:ie+1,js:je+1,ZDIR),uStr="Rx")
@@ -304,6 +305,7 @@ module raijuIO
 
         if (Model%doDebugOutput) then
             ! Lots of weird stuff
+            call AddOutVar(IOVars, "dtk", State%dtk, uStr="s")
             call AddOutVar(IOVars, "iVel"       , State%cVel       (is:ie+1,js:je+1,:,:), uStr="m/s")
             call AddOutVar(IOVars, "etaFace"    , State%etaFace    (is:ie+1,js:je+1,:,:), uStr="#/cm^3 * Rx/T")
             call AddOutVar(IOVars, "etaFacePDML", State%etaFacePDML(is:ie+1,js:je+1,:,:), uStr="#/cm^3 * Rx/T")
