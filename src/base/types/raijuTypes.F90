@@ -120,6 +120,7 @@ module raijutypes
             !! Start and end time, delta coupling time (may be replaced/ignored later by voltron setting a dynamic coupling time)
         
         ! Solver params
+        integer :: maxItersPerSec
         real(rp) :: CFL
             !! CFL condition used in deciding time step
         real(rp) :: PDMB
@@ -307,6 +308,11 @@ module raijutypes
         real(rp), dimension(:,:,:), allocatable :: Press  ! Pressure [nPa]
         real(rp), dimension(:,:,:), allocatable :: vAvg   ! Average cell velocity [km/s]
 
+
+        !> Only used when debugging
+        real(rp), dimension(:,:,:,:), allocatable :: etaFace   
+        real(rp), dimension(:,:,:,:), allocatable :: etaFacePDM
+        real(rp), dimension(:,:,:,:), allocatable :: etaFlux   
 
     end type raijuState_T
 

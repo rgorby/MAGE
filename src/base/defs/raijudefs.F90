@@ -57,6 +57,7 @@ module raijudefs
     real(rp), parameter :: sclIntens = 1.e-4*sqrt(ev2J/(8.0*dalton))/PI ! code eta to intensity [1/(s*sr*keV*cm^2)]
 
     ! Solver param defaults and limits
+    integer, parameter :: def_maxItersPerSec = 1E3
     real(rp), parameter :: def_pdmb = 0.75
     real(rp), parameter :: def_cfl  = 0.3
     real(rp), parameter :: cflMax = 0.3

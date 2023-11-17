@@ -31,7 +31,7 @@ module raijustarter
         ! TODO: Handle restart here. For now, assuming no restart
 
         ! Init output file
-        call raijuInitIO(app%Model, app%Grid)
+        call raijuInitIO(app%Model, app%Grid, app%Model%writeGhosts)
 
         call raijuInitState(app%Model,app%Grid,app%State,iXML)
 
@@ -98,7 +98,8 @@ module raijustarter
         call iXML%Set_Val(Model%nSpc, "prob/nSpc",Model%nSpc)
 
         ! Solver params
-        call iXML%Set_Val(Model%PDMB,'prob/pdmb',def_pdmb)
+        call iXML%Set_Val(Model%maxItersPerSec,'sim/maxIter',def_maxItersPerSec)
+        call iXML%Set_Val(Model%PDMB,'sim/pdmb',def_pdmb)
         cfl0 = min(0.5/(Model%PDMB+0.5), cflMax) !Set CFL based on PDM
 
         !Set CFL from XML
@@ -278,6 +279,13 @@ module raijustarter
             allocate( State%Den  (sh%isg:sh%ieg, sh%jsg:sh%jeg, Grid%nSpc+1) )
             allocate( State%Press(sh%isg:sh%ieg, sh%jsg:sh%jeg, Grid%nSpc+1) )
             allocate( State%vAvg (sh%isg:sh%ieg, sh%jsg:sh%jeg, Grid%nSpc+1) )
+
+            ! Only bother allocating persistent versions of debug stuff if we ned them
+            if (Model%doDebugOutput) then
+                allocate( State%etaFace   (sh%isg:sh%ieg+1, sh%jsg:sh%jeg+1, Grid%Nk, 2) )
+                allocate( State%etaFacePDM(sh%isg:sh%ieg+1, sh%jsg:sh%jeg+1, Grid%Nk, 2) )
+                allocate( State%etaFlux   (sh%isg:sh%ieg+1, sh%jsg:sh%jeg+1, Grid%Nk, 2) )
+            endif
         
         end associate
         !! TODO: Handle restart somewhere around here

@@ -83,17 +83,30 @@ module raijuIO
         enddo
 
         ! Ready for output
-        !! TODO: Stamp with git hash and branch
+
+        ! Some model setting info
         call ClearIO(IOVars)
+        call AddOutVar(IOVars,"doFatOutput"   ,Model%doFatOutput   )  ! Attr
+        call AddOutVar(IOVars,"doDebugOutput" ,Model%doDebugOutput )  ! Attr
+        call AddOutVar(IOVars,"doWriteGhosts" ,Model%writeGhosts   )  ! Attr
+        call AddOutVar(IOVars,"doGeoCorot"    ,Model%doGeoCorot    )  ! Attr
+        call AddOutVar(IOVars,"doExcesstoPsph",Model%doExcesstoPsph)  ! Attr
+        call AddOutVar(IOVars,"doPlasmasphere",Model%doPlasmasphere)  ! Attr
+        call WriteVars(IOVars,.true.,Model%raijuH5)
 
         ! Grid data
+        call ClearIO(IOVars)
         call AddOutVar(IOVars,"X",lat2D,uStr="radians")
         call AddOutVar(IOVars,"Y",lon2D,uStr="radians")
         call AddOutVar(IOVars,"Bmag",Grid%Bmag(is:ie,js:je),uStr="nT")
-        call AddOutVar(IOVars,"areaCC",Grid%areaCC  (is:ie,js:je),uStr="Rp^2")
-        call AddOutVar(IOVars,"areaFace_th",Grid%areaFace(is:ie,js:je,1),uStr="Rp^2")
-        call AddOutVar(IOVars,"areaFace_ph",Grid%areaFace(is:ie,js:je,2),uStr="Rp^2")
+        call AddOutVar(IOVars,"areaCC",Grid%areaCC  (is:ie,js:je),uStr="Ri^2")
         call AddOutVar(IOVars,"alamc",Grid%alamc,uStr="eV * (Rx/nT)^(2/3)")
+
+        if (Model%doDebugOutput) then
+            call AddOutVar(IOVars,"areaFace",Grid%areaFace(is:ie,js:je,:),uStr="Ri^2")
+            call AddOutVar(IOVars,"lenFace" ,Grid%lenFace (is:ie,js:je,:),uStr="Ri")
+        endif
+
         call WriteVars(IOVars,.true.,Model%raijuH5)
 
         ! Output detailed lambda grid info
@@ -291,8 +304,10 @@ module raijuIO
 
         if (Model%doDebugOutput) then
             ! Lots of weird stuff
-            call AddOutVar(IOVars, "iVel_th", State%cVel(:,:,:,1), uStr="m/s")
-            call AddOutVar(IOVars, "iVel_ph", State%iVel(:,:,:,2), uStr="m/s")
+            call AddOutVar(IOVars, "iVel"      , State%cVel      (is:ie+1,js:je+1,:,:), uStr="m/s")
+            call AddOutVar(IOVars, "etaFace"   , State%etaFace   (is:ie+1,js:je+1,:,:), uStr="#/cm^3 * Rx/T")
+            call AddOutVar(IOVars, "etaFacePDM", State%etaFacePDM(is:ie+1,js:je+1,:,:), uStr="#/cm^3 * Rx/T")
+            call AddOutVar(IOVars, "etaFlux"   , State%etaFlux   (is:ie+1,js:je+1,:,:), uStr="(#/cm^3 * Rx/T) * m^2 / s")
         endif
 
         call WriteVars(IOVars,.true.,Model%raijuH5, gStr)

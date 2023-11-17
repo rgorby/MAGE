@@ -125,7 +125,7 @@ def getSpcFromNkArr():
 def getMask(s5, dom="ACTIVE"):
     # s5 = step#X group object
 
-    mask = s5['active'][:] != domain[dom]
+    mask = getVar(s5, 'active') != domain[dom]
         # Only include domain specified by caller
     return mask
 

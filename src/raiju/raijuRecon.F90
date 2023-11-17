@@ -276,7 +276,7 @@ module raijuRecon
         !! Takes cell-centered quantity (Qcc) and uses state information to calculate flux of Q through cell faces (Qflux)
         type(raijuModel_T), intent(in) :: Model
         type(raijuGrid_T ), intent(in) :: Grid
-        type(raijuState_T), intent(in) :: State
+        type(raijuState_T), intent(inout) :: State
         integer, intent(in) :: k
         real(rp), dimension(Grid%shGrid%isg:Grid%shGrid%ieg, &
                             Grid%shGrid%jsg:Grid%shGrid%jeg),      intent(in) :: Qcc
@@ -286,13 +286,15 @@ module raijuRecon
             !! Flux of Q through faces
 
         ! Make some needed arrays here, figure out how to optimize later
-        logical, dimension(Grid%shGrid%isg:Grid%shGrid%ieg, &
+        logical , dimension(Grid%shGrid%isg:Grid%shGrid%ieg, &
                             Grid%shGrid%jsg:Grid%shGrid%jeg) :: isG
         real(rp), dimension(Grid%shGrid%isg:Grid%shGrid%ieg, &
                             Grid%shGrid%jsg:Grid%shGrid%jeg) :: QA
         real(rp), dimension(Grid%shGrid%isg:Grid%shGrid%ieg+1, &
                             Grid%shGrid%jsg:Grid%shGrid%jeg+1, 2) :: QAface, Qface, Qpdm
-
+        QAface = 0.0
+        Qface = 0.0
+        Qpdm = 0.0
         Qflux = 0.0
 
         where (State%active .ne. RAIJUINACTIVE)
@@ -309,14 +311,20 @@ module raijuRecon
         !call PDMFaces(Grid%shGrid, isG, Qcc, Qface, Qpdm, Model%pdmb)
 
         ! Calculate face fluxes
-        !Qflux = Qpdm*State%iVel(:,:,k,:)*Grid%lenFace &
-        Qflux = Qface*State%iVel(:,:,k,:)*Grid%lenFace &
-                * Model%planet%ri_m  ! [Q * m^2 / s]
+        !Qflux = Qface*State%iVel(:,:,k,:)*Grid%lenFace * Model%planet%ri_m  ! [Q * Rp^2 / s]
+        Qflux = Qface*State%iVel(:,:,k,:)*Grid%lenFace / Model%planet%ri_m  ! [Q * Rp^2 / s]
 
         ! Thus far we have ignored fluxes of faces at invalid/buffer boundary
         !  (ReconFaces set them to zero)
         ! Now that valid faces are decided, we can apply our invalid/buffer boundary conditions
         !call calcBoundaryFluxes(Grid%shGrid, State%active, Qflux)
+
+        if (Model%doDebugOutput) then
+            write(*,*)"dbg output for k=",k,Qface(30,30,1)
+            State%etaFace   (:,:,k,:) = Qface
+            State%etaFacePDM(:,:,k,:) = Qpdm
+            State%etaFlux   (:,:,k,:) = Qflux
+        endif
         
     end subroutine calcFluxes
 

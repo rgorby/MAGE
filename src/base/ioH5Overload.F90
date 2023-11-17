@@ -387,6 +387,31 @@ module ioH5Overload
         if (present(dStr)) IOVars(n)%descStr = trim(dStr)
 
     end subroutine AddOut_Str
+
+    subroutine AddOut_Bool(IOVars, idStr, X, uStr, dStr)
+        ! Writes boolean as an integer
+        ! False = 0, True = 1
+        type(IOVAR_T), dimension(:), intent(inout) :: IOVars
+        character(len=*), intent(in) :: idStr
+        logical, intent(in) :: X
+        character(len=*), intent(in), optional :: uStr,dStr
+
+        integer :: n
+        !Find first unused
+        n = NextIO(IOVars)
+
+        IOVars(n)%toWrite = .true.
+        IOVars(n)%idStr = trim(idStr)
+        IOVars(n)%vType = IOINT
+        if (present(uStr)) IOVars(n)%unitStr = trim(uStr)
+        if (present(dStr)) IOVars(n)%descStr = trim(dStr)
+
+        if (X .eq. .false.) then
+            call LoadIO(IOVars(n),real(0,rp))
+        else
+            call LoadIO(IOVars(n),real(1,rp))
+        endif
+    end subroutine AddOut_Bool
 !---------------------------
 !Loads structured data into buffers
 

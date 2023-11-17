@@ -18,7 +18,7 @@ module ioH5
 
     !Overloader to add data (array or scalar/string) to output chain
     interface AddOutVar
-        module procedure AddOut_5D,AddOut_4D,AddOut_3D,AddOut_2D,AddOut_1D,AddOut_Int,AddOut_DP,AddOut_SP,AddOut_Str
+        module procedure AddOut_5D,AddOut_4D,AddOut_3D,AddOut_2D,AddOut_1D,AddOut_Int,AddOut_DP,AddOut_SP,AddOut_Str,AddOut_Bool
     end interface
 
     !Overloader to fill array from already read IO chain

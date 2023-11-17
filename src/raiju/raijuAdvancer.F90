@@ -55,7 +55,7 @@ module raijuAdvancer
         ! In Phi direction
         do i=sh%isg,sh%ieg
             !dtArr(i,:,2) = 0.5*(Grid%delPh(:sh%jeg)+Grid%delPh(sh%jsg+1:)) / (vel(i,:,2) / Model%planet%ri_m)
-            dtArr(i,:,2) = 0.5*(Grid%lenFace(i, :sh%jeg, 1)+Grid%lenFace(i, sh%jsg+1:, 1)) / (vel(i,:,2) / Model%planet%ri_m)
+            dtArr(i,:,2) = 0.5*(Grid%lenFace(i, :sh%jeg, 2)+Grid%lenFace(i, sh%jsg+1:, 2)) / (vel(i,:,2) / Model%planet%ri_m)
             !if (k == 20 .and. any(vel(i,:,2) > 400)) then
             !    write(*,*)"dt_phi------"
             !    write(*,*) 0.5*(Grid%lenFace(i, :sh%jeg, 1)+Grid%lenFace(i, sh%jsg+1:, 1))
@@ -65,11 +65,11 @@ module raijuAdvancer
 
         dt = Model%CFL*minval(dtArr)
 
-        if (k == 20) then
-            write(*,*)"------"
-            write(*,*) minval(Model%CFL*dtArr), maxval(Model%CFL*dtArr)
-            write(*,*)"------"
-        endif
+        !if (k == 20) then
+        !    write(*,*)"------"
+        !    write(*,*) minval(Model%CFL*dtArr), maxval(Model%CFL*dtArr)
+        !    write(*,*)"------"
+        !endif
 
         end associate
 
@@ -123,7 +123,6 @@ module raijuAdvancer
 
         !Nsteps = int(State%dt / State%dtk(k))+1
         !dt = State%dt / (1.0_rp*Nsteps)
-        Nmax = 200
         associate(sh=>Grid%shGrid, spc=>Grid%spc(s))
 
             ! Here we go!
@@ -158,7 +157,12 @@ module raijuAdvancer
 
                 t = t + dt
                 n = n+1
-                exit
+
+                if (n/State%dt > Model%maxItersPerSec) then
+                    write(*,*)"ERROR: Too many advance steps. Dying"
+                    write(*,*)" k, dt, nSteps= ", k, dt, n
+                    stop
+                endif
             enddo
 
             if (Model%doLosses) then
@@ -166,7 +170,6 @@ module raijuAdvancer
                 State%precipNFlux(:,:,k) = State%precipNFlux(:,:,k)/State%dt
                 State%precipEFlux(:,:,k) = State%precipEFlux(:,:,k)/State%dt
             endif
-
 
         end associate
 
@@ -192,7 +195,7 @@ module raijuAdvancer
         State%eta_half(:,:,k) = 1.5_rp*State%eta(:,:,k) - 0.5_rp*State%eta_last(:,:,k)
 
         ! Calculate eta face fluxes
-        call calcFluxes(Model, Grid, State, k, State%eta_half(:,:,k), Qflux)
+        call calcFluxes(Model, Grid, State, k, State%eta_half(:,:,k), Qflux)  ! [eta * Rp^2/s]
 
         ! Save eta to eta_last
         State%eta_last(:,:,k) = State%eta(:,:,k)
@@ -200,14 +203,15 @@ module raijuAdvancer
         ! Calc new eta
         do j=Grid%shGrid%js,Grid%shGrid%je
             do i=Grid%shGrid%is,Grid%shGrid%ie
-                State%eta(i,j,k) = State%eta(i,j,k) + dt/(Grid%areaCC(i,j)*Model%planet%ri_m**2) &
+                !State%eta(i,j,k) = State%eta(i,j,k) + dt/(Grid%areaCC(i,j)* Model%planet%ri_m**2) &
+                State%eta(i,j,k) = State%eta(i,j,k) + dt/Grid%areaCC(i,j) &
                                                       * ( Qflux(i,j,1) - Qflux(i+1,j,1) + Qflux(i,j,2) - Qflux(i,j+1,2) )
             enddo
         enddo
 
-        if (k < Grid%spc(spcIdx(Grid, RAIJUELE))%kEnd) then
-            write(*,*) k, dt
-        endif
+        !if (k < Grid%spc(spcIdx(Grid, RAIJUELE))%kEnd) then
+        !    write(*,*) k, dt
+        !endif
 
     end subroutine stepLambda
 
