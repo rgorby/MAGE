@@ -20,6 +20,7 @@ module mixconductance
   real(rp), parameter, private :: eTINY = 1.D-8 ! Floor of average energy [keV]
   real(rp), parameter, private :: Ne_floor = 0.03e6 ! minimum Ne in [/m^3] when evaluating the linearized FL relation.
   real(rp), parameter, private :: Ne_psp = 10.0e6 ! Ne threshold for the plasmasphere in [/m^3].
+  real(rp), parameter, private :: GuABNF = 1.e7 ! Gussenhoven+[1983] Auroral Boundary Number Flux in [#/cm^s/s].
   real(rp), private :: RinMHD = 0.0 !Rin of MHD grid (0 if not running w/ MHD)
   real(rp), private :: MIXgamma
   real(rp), private :: beta_inp
@@ -519,17 +520,22 @@ module mixconductance
             mhd_eflx = St%Vars(i,j,AVG_ENG)*St%Vars(i,j,NUM_FLUX)*kev2erg
             rcm_eflx = St%Vars(i,j,IM_EFLUX)
             mhd_eavg = St%Vars(i,j,AVG_ENG)
-            if(rcm_nflx>TINY) then
+            if(rcm_nflx>GuABNF) then
                rcm_eavg = rcm_eflx/(rcm_nflx*kev2erg)
             else
                rcm_eavg = eTINY
             endif
 
             if(isPSP) then
-               ! Set auroral type to diffuse. Use RCM values for diffuse nflux and eavg in the plasmasphere.
+               ! Set auroral type to diffuse or no precipitation. 
+               ! Use RCM values for diffuse nflux and eavg in the plasmasphere.
                St%Vars(i,j,NUM_FLUX) = rcm_nflx
                St%Vars(i,j,AVG_ENG)  = rcm_eavg
-               St%Vars(i,j,AUR_TYPE) = AT_RMnoE
+               if(rcm_nflx>GuABNF) then
+                  St%Vars(i,j,AUR_TYPE) = AT_RMnoE
+               else
+                  St%Vars(i,j,AUR_TYPE) = AT_NoPre
+               endif
             elseif(isMono .and. .not.isPSP) then
                ! Set auroral type to mono. Keep linmono values for mono nflux and eavg.
                mhd_SigPH = SigmaP_Robinson(mhd_eavg,mhd_eflx)**2+SigmaH_Robinson(mhd_eavg,mhd_eflx)**2
@@ -539,7 +545,7 @@ module mixconductance
                else
                   St%Vars(i,j,NUM_FLUX) = rcm_nflx
                   St%Vars(i,j,AVG_ENG)  = rcm_eavg
-                  St%Vars(i,j,AUR_TYPE) = AT_RMnoE
+                  St%Vars(i,j,AUR_TYPE) = AT_RMfnE
                endif
             else
                ! Linearly merge MHD and RCM diffuse nflux and eflux.
@@ -548,12 +554,13 @@ module mixconductance
                wMHD = 1.0-wRCM
                mix_nflx = wMHD*mhd_nflx + wRCM*rcm_nflx
                St%Vars(i,j,NUM_FLUX) = mix_nflx
-               if(mix_nflx>TINY) then
+               if(mix_nflx>GuABNF) then
                   St%Vars(i,j,AVG_ENG) = (wMHD*mhd_eflx+wRCM*rcm_eflx)/(mix_nflx*kev2erg)
+                  St%Vars(i,j,AUR_TYPE)= AT_RMnoE
                else
                   St%Vars(i,j,AVG_ENG) = eTINY
+                  St%Vars(i,j,AUR_TYPE)= AT_NoPre
                endif
-               St%Vars(i,j,AUR_TYPE) = AT_RMnoE
             endif
          enddo
       enddo

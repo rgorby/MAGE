@@ -587,8 +587,9 @@
                 nflux(i,j,:) = nflx         ! Num flux in #/cm^2/s
                
                 DO ie = 1, RCMNUMFLAV
-                      ! Zero out negligible precipitation below typical auroral boundary thresholds, e.g., Gussenhoven+1983.
-                      IF (nflx(ie) > 1.0e7) THEN
+                      IF (nflx(ie) > TINY) THEN 
+                          ! The ratio of eavg is only meaningful when nflx is meaningful.
+                          ! Note in REMIX, a higher floor will be applied toward the final precipitation.
                           eavg (i,j,ie) = eflx(ie)/nflx(ie) ! Average energy in eV
                       ELSE
 !                         we want eflux=0 and eavg=0 for no precipitation.
