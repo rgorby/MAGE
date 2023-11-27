@@ -516,15 +516,20 @@ module mixconductance
             isMono = St%Vars(i,j,DELTAE)>eTINY
             !Grab values
             mhd_nflx = St%Vars(i,j,NUM_FLUX)
+            if(mhd_nflx>GuABNF) then
+               mhd_eavg = St%Vars(i,j,AVG_ENG)
+            else
+               mhd_eavg = eTINY
+            endif
+            mhd_eflx = mhd_eavg*mhd_nflx*kev2erg
+
             rcm_nflx = St%Vars(i,j,IM_ENFLX)
-            mhd_eflx = St%Vars(i,j,AVG_ENG)*St%Vars(i,j,NUM_FLUX)*kev2erg
-            rcm_eflx = St%Vars(i,j,IM_EFLUX)
-            mhd_eavg = St%Vars(i,j,AVG_ENG)
             if(rcm_nflx>GuABNF) then
-               rcm_eavg = rcm_eflx/(rcm_nflx*kev2erg)
+               rcm_eavg = St%Vars(i,j,IM_EFLUX)/(rcm_nflx*kev2erg)
             else
                rcm_eavg = eTINY
             endif
+            rcm_eflx = rcm_eavg*rcm_nflx*kev2erg
 
             if(isPSP) then
                ! Set auroral type to diffuse or no precipitation. 
@@ -537,15 +542,20 @@ module mixconductance
                   St%Vars(i,j,AUR_TYPE) = AT_NoPre
                endif
             elseif(isMono .and. .not.isPSP) then
-               ! Set auroral type to mono. Keep linmono values for mono nflux and eavg.
+               ! Set auroral type to mono if mono is above Gussenhove threshold and gives higher Robinson L2.
+               ! Else set diffuse or no precipitation depending on rcm values relative to the threshold.
                mhd_SigPH = SigmaP_Robinson(mhd_eavg,mhd_eflx)**2+SigmaH_Robinson(mhd_eavg,mhd_eflx)**2
                rcm_SigPH = SigmaP_Robinson(rcm_eavg,rcm_eflx)**2+SigmaH_Robinson(rcm_eavg,rcm_eflx)**2
-               if(mhd_SigPH>rcm_SigPH) then
+               if(mhd_nflx>GuABNF .and. mhd_SigPH>rcm_SigPH) then
                   St%Vars(i,j,AUR_TYPE) = AT_RMono
                else
                   St%Vars(i,j,NUM_FLUX) = rcm_nflx
                   St%Vars(i,j,AVG_ENG)  = rcm_eavg
-                  St%Vars(i,j,AUR_TYPE) = AT_RMfnE
+                  if(rcm_nflx>GuABNF) then
+                     St%Vars(i,j,AUR_TYPE) = AT_RMfnE
+                  else
+                     St%Vars(i,j,AUR_TYPE) = AT_NoPre
+                  endif
                endif
             else
                ! Linearly merge MHD and RCM diffuse nflux and eflux.
