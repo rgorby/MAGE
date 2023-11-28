@@ -57,7 +57,8 @@ MODULE rice_housekeeping_module
   LOGICAL :: doQ0 = .true. !Whether to include implicit cold ions in tomhd moments
 
   INTEGER(iprec) :: ELOSSMETHOD        
-  INTEGER(iprec) :: InitKp = 1, NowKp
+  INTEGER(iprec) :: InitKp = 1, NowKpInt
+  REAL(rprec) :: NowKpReal
   LOGICAL :: doFLOut = .false. !Whether to output field lines (slow)
   INTEGER(iprec) :: nSkipFL = 8 !Stride for outputting field lines
 
@@ -137,8 +138,8 @@ MODULE rice_housekeeping_module
         call xmlInp%Set_Val(doPPSmooth ,'plasmasphere/doPPSmooth',doPPSmooth)
 
         call SetKp0(InitKp)
-        NowKp = InitKp
-
+        NowKpInt = InitKp
+        
         !Loss options
         call xmlInp%Set_Val(doFLCLoss,"loss/doFLCLoss",doFLCLoss) 
         call xmlInp%Set_Val(tmpStr,"loss/eLossMethod","WM")
@@ -191,7 +192,8 @@ MODULE rice_housekeeping_module
         INTEGER(iprec) :: n
         REAL(rprec)    :: t0,t,KpMax
 
-        NowKp = InitKp
+        NowKpInt = InitKp
+        NowKpReal = dble(InitKp)
         if (time<=0) return
 
         t0 = time
@@ -201,8 +203,9 @@ MODULE rice_housekeeping_module
           t = t0 + 15.0*60.0*n
           KpMax = max(KpMax,KpTS%evalAt(t))
         enddo
-        NowKp = nint(KpMax) !Cast to integer
-      
+        NowKpInt = nint(KpMax) !Cast to integer
+        NowKpReal = KpMax
+ 
       end subroutine UpdateRCMIndices
 
 END MODULE rice_housekeeping_module

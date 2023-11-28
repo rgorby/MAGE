@@ -2222,7 +2222,7 @@
 !Advance eeta by dt nstep times, dtcpl=dt x nstep
 
 SUBROUTINE Move_plasma_grid_MHD (dt,nstep)
-    use rice_housekeeping_module, ONLY : LowLatMHD,doNewCX,ELOSSMETHOD,doFLCLoss,dp_on,doPPRefill,doSmoothDDV,staticR,NowKp
+    use rice_housekeeping_module, ONLY : LowLatMHD,doNewCX,ELOSSMETHOD,doFLCLoss,dp_on,doPPRefill,doSmoothDDV,staticR,NowKpReal
     use math, ONLY : SmoothOpTSC,SmoothOperator33
     use lossutils, ONLY : CXKaiju,FLCRat
     use planethelper, ONLY : DipFTV_colat,DerivDipFTV
@@ -2461,7 +2461,7 @@ SUBROUTINE Move_plasma_grid_MHD (dt,nstep)
                 !Calculate losses and keep track of total losses/precip losses
                 if ( (ie == RCMELECTRON) .and. (kc /= 1) ) then
                     !Do electron losses
-                    lossFT = Ratefn(xmin(i,j),ymin(i,j),alamc(kc),vm(i,j),bmin(i,j),losscone(i,j),Dpp(i,j),dble(NowKp),fudgec(kc),sini(i,j),bir(i,j),mass_factor,ELOSSMETHOD)
+                    lossFT = Ratefn(xmin(i,j),ymin(i,j),alamc(kc),vm(i,j),bmin(i,j),losscone(i,j),Dpp(i,j),NowKpReal,fudgec(kc),sini(i,j),bir(i,j),mass_factor,ELOSSMETHOD)
                     lossratep(i,j,kc) = lossratep(i,j,kc) + lossFT(1)
                     lossmodel(i,j,kc) = lossFT(2)
                     rate(i,j) = rate(i,j) + lossFT(1)
@@ -2985,7 +2985,7 @@ end function Deriv_IJ
 !Adapted by K: from S. Bao's adaptation of Colby Lemon's code, 09/20
 
 SUBROUTINE Kaiju_Plasmasphere_Refill(eeta0,xmin,ymin,aloct,vm,imin_j,idt)
-  use rice_housekeeping_module, ONLY : NowKp
+  use rice_housekeeping_module, ONLY : NowKpInt
   use earthhelper, ONLY : GallagherXY
   use rcmdefs, ONLY : DenPP0
 
@@ -3013,9 +3013,9 @@ SUBROUTINE Kaiju_Plasmasphere_Refill(eeta0,xmin,ymin,aloct,vm,imin_j,idt)
       rad = sqrt( xmin(i,j)**2.0 + ymin(i,j)**2.0 )
 
       !Closed field line, calculate Berbue+ 2005 density (#/cc)
-      !Or use Gallagher on nightside w/ NowKp (current Kp)
+      !Or use Gallagher on nightside w/ NowKpInt (current Kp, integer)
       !dppT = 10.0**(-0.66*rad + 4.89) !Target refilled density [#/cc]
-      dppT = GallagherXY(xmin(i,j),ymin(i,j),NowKp)
+      dppT = GallagherXY(xmin(i,j),ymin(i,j),NowKpInt)
       
       eta2cc = (1.0e-6)*dfactor*vm(i,j)**1.5 !Convert eta to #/cc
       dpsph = eta2cc*eeta0(i,j) !Current plasmasphere density [#/cc]
@@ -3127,6 +3127,10 @@ FUNCTION Ratefn (xx,yy,alamx,vmx,beqx,losscx,nex,kpx,fudgxO,sinixO,birxO,xmfactO
             Ratefn(2) = -1.0
          case (ELOSS_WM)
             if (EWMTauInput%useWM) then
+                if (kpx > 10.0) then
+                    write(*,*) "Kp = ", kpx, ", invalid Kp input for the wave models. Please use 'FDG' or 'SS' in the electron loss model instead."
+                    stop
+                endif
                 Ratefn = RatefnWM(xx,yy,alamx,vmx,nex,kpx,beqx,losscx)
             else
                 write(*,*) "Wave models are missing in rcmconfig.h5"
