@@ -97,9 +97,9 @@ module earthhelper
         D = 0.0
 
         if (present(kpO)) then
-            kp = int(kpO) ! Gallagher model takes integer Kp
+            kp = nint(kpO) ! Gallagher model takes integer Kp
         else
-            kp = int(kpDefault)
+            kp = nint(kpDefault)
         endif
 
         select case(kp)
