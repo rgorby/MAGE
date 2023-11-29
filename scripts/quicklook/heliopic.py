@@ -515,10 +515,10 @@ def main():
             hviz.PlotSpeedProf(gsph, nStp, xyBds, AxC)
             hviz.PlotFluxProf(gsph, nStp, xyBds, AxC1)
         elif pic == "pic6":
-            hviz.PlotEqBr(gsph, nStp, xyBds, AxL0, AxC1_0)
-            hviz.PlotEqBx(gsph, nStp, xyBds, AxR0, AxC2_0)
-            hviz.PlotEqBy(gsph, nStp, xyBds, AxL1, AxC1_1)
-            hviz.PlotEqBz(gsph, nStp, xyBds, AxR1, AxC2_1)
+            hviz.PlotEqBr(gsph, nStp, xyBds, AxL0, AxC1_0, hgsplot=hgsplot, MJDc=MJDc, MJD_plot=mjd)
+            hviz.PlotEqBx(gsph, nStp, xyBds, AxR0, AxC2_0, hgsplot=hgsplot, MJDc=MJDc, MJD_plot=mjd)
+            hviz.PlotEqBy(gsph, nStp, xyBds, AxL1, AxC1_1, hgsplot=hgsplot, MJDc=MJDc, MJD_plot=mjd)
+            hviz.PlotEqBz(gsph, nStp, xyBds, AxR1, AxC2_1, hgsplot=hgsplot, MJDc=MJDc, MJD_plot=mjd)
             fig.suptitle("GAMERA-Helio frame for "
                          f"{time_stamp}")
         elif pic == "pic7":
@@ -526,10 +526,10 @@ def main():
                 jidx = gsph.Nj//2 - 1
             else:
                 jidx = jslice
-            hviz.PlotjMagV(gsph, nStp, xyBds, AxL0, AxC1_0, jidx=jidx)
-            hviz.PlotjD(gsph, nStp, xyBds, AxR0, AxC2_0, jidx=jidx)
-            hviz.PlotjTemp(gsph, nStp, xyBds, AxL1, AxC1_1, jidx=jidx)
-            hviz.PlotjBr(gsph, nStp, xyBds, AxR1, AxC2_1, jidx=jidx)
+            hviz.PlotjMagV(gsph, nStp, xyBds, AxL0, AxC1_0, jidx=jidx, hgsplot=hgsplot, MJDc=MJDc, MJD_plot=mjd)
+            hviz.PlotjD(gsph, nStp, xyBds, AxR0, AxC2_0, jidx=jidx, hgsplot=hgsplot, MJDc=MJDc, MJD_plot=mjd)
+            hviz.PlotjTemp(gsph, nStp, xyBds, AxL1, AxC1_1, jidx=jidx, hgsplot=hgsplot, MJDc=MJDc, MJD_plot=mjd)
+            hviz.PlotjBr(gsph, nStp, xyBds, AxR1, AxC2_1, jidx=jidx, hgsplot=hgsplot, MJDc=MJDc, MJD_plot=mjd)
             fig.suptitle("GAMERA-Helio frame for "
                          f"{time_stamp}")
         else:
