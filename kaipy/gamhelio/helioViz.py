@@ -56,8 +56,11 @@ BCM = "coolwarm"
 B0Min = -500.
 B0Max = 500.
 #1 AU
-B0Min_outer = -5.0
-B0Max_outer = 5.0
+B0Min_outer = -30.0
+B0Max_outer = 30.0
+
+BZMin = -50
+BZMax = 50
 
 
 colorProf = "tab:orange"
@@ -206,7 +209,8 @@ def PlotEqMagV(
         Ax.set_title(r"Speed [$km/s$]")
         Ax.set_xlabel(r"$X$ [$R_S$]")
         Ax.set_ylabel(r"$Y$ [$R_S$]")
-
+        Ax.yaxis.tick_left()
+        Ax.yaxis.set_label_position('left')
     # Return the data.
     return MagV
 
@@ -1322,7 +1326,8 @@ def PlotEqTemp(
         Ax.set_title(r"Temperature $T$ [$(r/r_0) MK$]")
         Ax.set_xlabel(r"$X$ [$R_S$]")
         Ax.set_ylabel(r"$Y$ [$R_S$]")
-
+        Ax.yaxis.tick_left()
+        Ax.yaxis.set_label_position('left')
     # Return the data.
     return Temp
 
@@ -1543,7 +1548,8 @@ def PlotEqBr(
         Ax.set_title(r"Radial magnetic field $B_r$ [$(r/r_0)^2 nT$]")
         Ax.set_xlabel(r"$X$ [$R_S$]")
         Ax.set_ylabel(r"$Y$ [$R_S$]")
-
+        Ax.yaxis.tick_right()
+        Ax.yaxis.set_label_position('right')
     # Return the data.
     return Br
 
@@ -1959,7 +1965,7 @@ def PlotEqBz(
     maxBz = np.max(np.abs(Bz))
     print(f"maxBz = {maxBz}")
     # vB = kv.genNorm(-maxBz, maxBz, doLog=False, midP=None)
-    vB = kv.genNorm(BMin, BMax, doLog=False, midP=None)
+    vB = kv.genNorm(BZMin, BZMax, doLog=False, midP=None)
 
     # Create the color bar.
     if AxCB:
@@ -2641,14 +2647,14 @@ def PlotiSlBr(
         # Draw the Br=0 contour line representing the current sheet.
         # <BUG>
         # This call creates a spurious horizontal line.
-        Ax.contour(lonc, latc, np.roll(Br, 1, axis=1), [0.], colors='black')
+        #Ax.contour(lonc, latc, np.roll(Br, 1, axis=1), [0.], colors='black')
         # </BUG>
 
     else:
         Ax.pcolormesh(lon, lat, Br, cmap=BCM, norm=vB)
 
         # Draw the Br=0 contour line representing the current sheet.
-        Ax.contour(lonc, latc, np.roll(Br, [0.]), colors='black')
+        Ax.contour(lonc, latc, np.roll(Br, 1), [0.], colors='black')
 
     # Set the plot boundaries.
     if hgsplot:
