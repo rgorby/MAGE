@@ -234,7 +234,7 @@ def initFig(pic):
     elif pic == "pic5":
         figSz = (12, 12)
     elif pic == "pic6":
-        figSz = (12.5, 12.5)
+        figSz = (10, 12.5)
 
     # Create the figure.
     fig = plt.figure(figsize=figSz, layout="constrained")
@@ -267,7 +267,7 @@ def fOut(runid, pic, nStp, hgsplot):
     None
     """
     if hgsplot:
-        s = f"qkpic_{runid}_{pic}_n{nStp}_HGS.png"
+        s = f"qkpic_{runid}_{pic}_HGS_n{nStp}.png"
     else:
         s = f"qkpic_{runid}_{pic}_n{nStp}.png"
     return s
@@ -379,7 +379,7 @@ def main():
 
     # Compute the range of time steps to use.
     if slices and steps[0] == 1:
-        steps = range(gsph.sFin + 1)[slice(slices[0], slices[1], slices[2])]
+        steps = range(gsph.s0,gsph.sFin + 1)[slice(slices[0], slices[1], slices[2])]
     print(f"steps = {steps}")
 
     # Get the MJDc value for use in computing the gamhelio frame.
@@ -403,18 +403,18 @@ def main():
         fig = initFig(pic)
 
         # Extract the MJD for the step.
-        if gsph.MJDs:
-            mjd = gsph.MJDs[nStp]
+        if any(gsph.MJDs):
+            mjd = gsph.MJDs[nStp-gsph.s0]
             time_stamp = ktools.MJD2UT(mjd)
         else:
-            mjd = gsph.T[nStp]/(3600./gsph.tScl)
-            time_stamp = f"{mjd:0.2f} [hrs]"
+            mjd = gsph.T[nStp-gsph.s0]/(3600./gsph.tScl)
+            time_stamp = f"{mjd:0.2f} [hr]"
         if debug:
             print(f"mjd = {mjd}")
 
         # Lay out the subplots.
         if pic in ["pic1", "pic2", "pic3", "pic6", "pic7"]:
-            gs = gridspec.GridSpec(4, 6, height_ratios=[20, 1, 20, 1])
+            gs = gridspec.GridSpec(4, 6, height_ratios=[20, 1, 20, 1], figure=fig)
             # Axes for plots.
             AxL0 = fig.add_subplot(gs[0, 0:3])
             AxR0 = fig.add_subplot(gs[0, 3:])
@@ -426,11 +426,11 @@ def main():
             AxC1_1 = fig.add_subplot(gs[3, 0:3])
             AxC2_1 = fig.add_subplot(gs[3, 3:])
         elif pic == "pic4":
-            gs = gridspec.GridSpec(2, 1, height_ratios=[20, 1])
+            gs = gridspec.GridSpec(2, 1, height_ratios=[20, 1], figure=fig)
             Ax = fig.add_subplot(gs[0, 0])
             AxC = fig.add_subplot(gs[1, 0])
         elif pic == "pic5":
-            gs = gridspec.GridSpec(2, 2)
+            gs = gridspec.GridSpec(2, 2, figure=fig)
             Ax = fig.add_subplot(gs[0, 0])
             AxC = fig.add_subplot(gs[0, 1])
             AxC1 = fig.add_subplot(gs[1, 0])
@@ -519,7 +519,7 @@ def main():
             hviz.PlotEqBx(gsph, nStp, xyBds, AxR0, AxC2_0)
             hviz.PlotEqBy(gsph, nStp, xyBds, AxL1, AxC1_1)
             hviz.PlotEqBz(gsph, nStp, xyBds, AxR1, AxC2_1)
-            fig.suptitle("GAMERA-Helio frame at 1 AU for "
+            fig.suptitle("GAMERA-Helio frame for "
                          f"{time_stamp}")
         elif pic == "pic7":
             if jslice is None:
@@ -530,7 +530,7 @@ def main():
             hviz.PlotjD(gsph, nStp, xyBds, AxR0, AxC2_0, jidx=jidx)
             hviz.PlotjTemp(gsph, nStp, xyBds, AxL1, AxC1_1, jidx=jidx)
             hviz.PlotjBr(gsph, nStp, xyBds, AxR1, AxC2_1, jidx=jidx)
-            fig.suptitle("GAMERA-Helio frame at 1 AU for "
+            fig.suptitle("GAMERA-Helio frame for "
                          f"{time_stamp}")
         else:
             raise TypeError(f"Invalid figure type: {pic}!")
@@ -544,7 +544,7 @@ def main():
         if spacecraft:
 
             # Fetch the MJD at start and end of the model results.
-            MJD_start = kh5.tStep(fname, 0, aID="MJD")
+            MJD_start = kh5.tStep(fname, gsph.s0, aID="MJD")
             MJD_end = kh5.tStep(fname, gsph.sFin, aID="MJD")
 
             # Convert the start and stop MJD to a datetime object in UT.
@@ -648,7 +648,7 @@ def main():
         # Save the figure to a file.
         path = os.path.join(fdir, fOut(ftag, pic, nStp, hgsplot))
         kv.savePic(path, bLenX=40)
-        fig.clear()
+        plt.close()
         toc = time.perf_counter()
         print(f"Step {nStp} took {toc-tic} s")
 
