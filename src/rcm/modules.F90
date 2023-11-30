@@ -77,7 +77,7 @@ MODULE rice_housekeeping_module
   end type RCMEllipse_T
 
   type ChorusTauIn_T !electron lifetime for Chorus wave
-      integer(iprec) :: Nm=97, Nl=41, Nk=7 ,Ne=155
+      integer(iprec) :: Nm=97, Nl=41, Nk=6 ,Ne=155
       real(rprec), ALLOCATABLE :: MLTi(:), Li(:), Kpi(:), Eki(:)
       real(rprec), ALLOCATABLE :: taui(:,:,:,:)
   end type ChorusTauIn_T

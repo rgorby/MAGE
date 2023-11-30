@@ -61,7 +61,7 @@ def ChorusPoly(Li,Eki,polyArray):
 # The 3-rd Order Polynomial Fit Coefficients of Electron Lifetime Caused by Interaction with Chorus Waves
 #(https://doi.org/will be provided)                                                                      
 # Dedong Wang et al., in preparation 
-# For each Kp (0,1,2...,7) and each MLT (0,1,2,...,23), tau has a polynomial fit of Ek and L.
+# For each Kp (0,1,2...,maxKp) and each MLT (0,1,2,...,23), tau has a polynomial fit of Ek and L.
 
         lenKp,lenMLT,lenParam = polyArray.shape
         #Extend polyArray
@@ -128,14 +128,17 @@ def ReSample(L,MLT,Qp,xMLT):
         return xQp
 
 def genChorus(params,fInChorus):
+        print("Dimension of parameters in Chorus wave model, Kp:",params.nKp,"MLT:",params.nMLT,"L:",params.nL,"Ek:",params.nEk)
+        dimKp = params.nKp #maximum Kp allowed
         rowLen,paramArray = readPoly(fInChorus)
-        polyArray = paramArray.reshape(24,7,rowLen) #Dim MLT: 24, Dim Kp: 7
-        polyArray = polyArray.transpose(1, 0, 2) # shape (7,24,rowLen)
+        polyArray = paramArray.reshape(24,7,rowLen) #dim MLT: 24, Dim Kp: 7
+        polyArray = polyArray[:,:dimKp,:] #use Kp = 1,2,...,maxKp
+        polyArray = polyArray.transpose(1, 0, 2) #shape (,24,rowLen)
         lenMLT = 24
         #Kpi
-        startValue = 1.0 #in Re 
-        endValue = 7.0
-        lenKp = 7
+        startValue = 1.0 #Kp index in real number
+        endValue = float(dimKp)
+        lenKp = dimKp
         Kpi = np.linspace(startValue, endValue, num=lenKp) 
         #Eki
         startValue = 1.0e-3 #in MeV
