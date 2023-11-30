@@ -58,7 +58,7 @@ if __name__ == "__main__":
 	parser.add_argument('--nop',action='store_true',default=False,help="Do not add zero loss first channel (default: %(default)s)")
 	parser.add_argument('--noWaveModel',action='store_true',default=False, help="Don't use wave models in the electron/ion loss (default: %(default)s)")
 	parser.add_argument('--addWM', action='store_true',default=False, help="Add wave models to an existing rcmconfig file, input file needed to be presented (default: %(default)s)")
-	parser.add_argument('-maxKp', type=float,default=maxKp, help="Max. Kp index allowed in the electron wave model (default: %(default)s)")	
+	parser.add_argument('-maxKp', type=int,default=maxKp, help="Max. Kp index allowed in the electron wave model, integer only (default: %(default)s)")	
 	parser.add_argument('-i', type=str,default=fOut,metavar="fIn", help="Input file name when addWM is true (default: %(default)s)")
 
 
@@ -80,6 +80,10 @@ if __name__ == "__main__":
 	fIn = args.i	
 	plotType = args.plotType
 
+	if maxKp >= 7:
+		print ("Maximum Kp allowed is 6. Please re-enter a valid number.")
+		exit()
+           
 	if addWM:
 		tauParams = wmParams(dim = 4, nKp = maxKp, nMLT = 97, nL = 41, nEk = 155)
 		genWM.genh5(fIn,fOut,tauParams)
