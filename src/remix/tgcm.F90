@@ -91,6 +91,8 @@ module gcminterp
     mixUnitNames(IM_ENFLX)     = "1/cm^2 s"
     mixVarNames(IM_INFLX)      = "IM Number flux proton"
     mixUnitNames(IM_INFLX)     = "1/cm^2 s"
+    mixVarNames(DELTAE)        = "Mono potential drop"
+    mixUnitNames(DELTAE)       = "kV"
   end subroutine initGCMNames
 
     subroutine init_gcm_mix(gcm,ion)!,remixApp

@@ -95,6 +95,14 @@ def create_command_line_parser():
         "-v", "--verbose", action="store_true", default=False,
         help="Print verbose output (default: %(default)s)."
     )
+    parser.add_argument(
+        '-GTYPE', action='store_true', default=False,
+        help="Show RCM grid type in the eflx plot (default: %(default)s)"
+    )
+    parser.add_argument(
+        '-PP', action='store_true', default=False,
+        help="Show plasmapause (10/cc) in the eflx/nflx plot (default: %(default)s)"
+    )
     return parser
 
 
@@ -113,6 +121,8 @@ if __name__ == "__main__":
     do_print = args.print
     spacecraft = args.spacecraft
     verbose = args.verbose
+    do_GTYPE = args.GTYPE
+    do_PP = args.PP
     if debug:
         print("args = %s" % args)
 
@@ -203,9 +213,9 @@ if __name__ == "__main__":
         axs[3] = ion.plot('joule', gs=gs[1, 0])
         axs[4] = ion.plot('energy', gs=gs[1, 1])
         if do_nflux:
-            axs[5] = ion.plot('flux', gs=gs[1, 2])
+            axs[5] = ion.plot('flux', gs=gs[1, 2],doGTYPE=do_GTYPE,doPP=do_PP)
         else:
-            axs[5] = ion.plot('eflux', gs=gs[1, 2])
+            axs[5] = ion.plot('eflux', gs=gs[1, 2],doGTYPE=do_GTYPE,doPP=do_PP)
 
         # If requested, plot the magnetic footprints for the specified
         # spacecraft.
