@@ -14,15 +14,6 @@ module voltapp_mpi
 
     contains
 
-      subroutine allocateCoupledApps_mpi(vApp)
-        class(voltApp_T), intent(inout) :: vApp
-
-         ! mpi voltron uses mpi remotely coupled gamera
-         allocate(gamCouplerMpi_volt_T :: vApp%gApp)
-
-    end subroutine allocateCoupledApps_mpi
-
-
     !end lingering MPI waits, if there are any
     subroutine endVoltronWaits(vApp)
         type(voltAppMpi_T), intent(inout) :: vApp
@@ -39,22 +30,36 @@ module voltapp_mpi
     end subroutine endVoltronWaits
 
     !Initialize Voltron (after Gamera has already been initialized)
-    subroutine initVoltron_mpi(vApp, userInitFunc, helperComm, allComm, optFilename)
+    subroutine initVoltron_mpi(vApp, userInitFunc, helperComm, optFilename)
         type(voltAppMpi_T), intent(inout) :: vApp
         procedure(StateIC_T), pointer, intent(in) :: userInitFunc
         type(MPI_Comm), intent(in) :: helperComm
-        type(MPI_Comm), intent(in) :: allComm
         character(len=*), optional, intent(in) :: optFilename
 
+        type(MPI_Comm) :: dummyComm
         character(len=strLen) :: inpXML
         type(XML_Input_T) :: xmlInp
         integer :: commSize, ierr, numCells, length, ic
         integer, allocatable, dimension(:) :: neighborRanks, inData, outData
-        type(MPI_Comm) :: voltComm
         integer :: nHelpers, gamNRES
         character( len = MPI_MAX_ERROR_STRING) :: message
         logical :: reorder, wasWeighted
         integer(KIND=MPI_BASE_MYADDR) :: winsize
+
+        if(.not. allocated(vApp%gApp)) then
+            ! mpi voltron uses mpi remotely coupled gamera
+            allocate(gamCouplerMpi_volt_T :: vApp%gApp)
+        endif
+
+
+        ! read helper XML options
+        if(present(optFilename)) then
+            inpXML = optFilename
+        else
+            call getIDeckStr(inpXML)
+        endif
+        call CheckFileOrDie(inpXML,"Error opening input deck in initVoltron_mpi, exiting ...")
+        xmlInp = New_XML_Input(trim(inpXML),'Kaiju/Gamera',.true.)
 
         ! initialize F08 MPI objects
         vApp%vHelpComm = MPI_COMM_NULL
@@ -70,30 +75,21 @@ module voltapp_mpi
         end if
         if(vApp%vHelpRank > 0) vApp%amHelper = .true.
 
-        ! split allComm into a communicator with only the non-helper voltron rank
-        call MPI_Comm_rank(allComm, commSize, ierr)
-        if(vApp%amHelper) then
-            call MPI_comm_split(allComm, MPI_UNDEFINED, commSize, voltComm, ierr)
-        else
-            call MPI_comm_split(allComm, 0, commSize, voltComm, ierr)
-        endif
-
         ! helpers don't do full voltron initialization
         if(vApp%amHelper) then
+
+            ! helpers don't get coupled gameras
+            deallocate(vApp%gApp)
+            allocate(gamCoupler_T :: vApp%gApp)
+
             vApp%isLoud = .false.
             vApp%writeFiles = .false.
             vApp%gApp%Model%isLoud = .false.
 
-            ! read helper XML options
-            if(present(optFilename)) then
-                inpXML = optFilename
-            else
-                call getIDeckStr(inpXML)
-            endif
-            call CheckFileOrDie(inpXML,"Error opening input deck in initVoltron_mpi, exiting ...")
-            xmlInp = New_XML_Input(trim(inpXML),'Kaiju/Gamera',.false.)
-
             if (.not. vApp%isLoud) call xmlInp%BeQuiet()
+
+            ! allow voltron master to split with gamera ranks
+            call MPI_comm_split(MPI_COMM_WORLD, MPI_UNDEFINED, 0, dummyComm, ierr)
 
             call xmlInp%Set_Val(vApp%useHelpers,"/Kaiju/Voltron/Helpers/useHelpers",.false.)
             call xmlInp%Set_Val(vApp%doSquishHelp,"/Kaiju/Voltron/Helpers/doSquishHelp",.true.)
@@ -139,11 +135,11 @@ module voltapp_mpi
                 vApp%gApp%oState,vAPp%gApp%State,xmlInp,userInitFunc)
 
             ! now initialize basic voltron structures from gamera data
-            if(present(optFilename)) then
-                call initVoltron(vApp, optFilename)
-            else
-                call initVoltron(vApp)
-            endif
+            !if(present(optFilename)) then
+            !    call initVoltron(vApp, optFilename)
+            !else
+            !    call initVoltron(vApp)
+            !endif
 
             ! get starting time values from master voltron rank
             call mpi_bcast(vApp%tFin, 1, MPI_MYFLOAT, 0, vApp%vHelpComm, ierr)
@@ -187,6 +183,13 @@ module voltapp_mpi
         if(nHelpers .ne. commSize-1) then
             print *,"The number of voltron helpers is not correct."
             call mpi_Abort(MPI_COMM_WORLD, 1, ierr)
+        endif
+
+        ! now initialize basic voltron structures from gamera data
+        if(present(optFilename)) then
+            call initVoltron(vApp, optFilename)
+        else
+            call initVoltron(vApp)
         endif
 
         if(vApp%useHelpers) then

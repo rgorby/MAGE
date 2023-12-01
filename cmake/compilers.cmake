@@ -84,7 +84,7 @@ if(CMAKE_Fortran_COMPILER_ID MATCHES Intel)
 	#Debug
         set(DEBUG "-traceback -debug all -gen-interfaces")
         if(NOT DISABLE_DEBUG_BOUNDS_CHECKS)
-                string(APPEND DEBUG " -check bounds -check uninit -fp-stack-check")
+                string(APPEND DEBUG " -check bounds -check uninit -fp-stack-check -fstack-security-check")
         endif()
         if(NOT PFUNIT_FOUND)
                 # Known bug with warning interfaces and PFUNIT

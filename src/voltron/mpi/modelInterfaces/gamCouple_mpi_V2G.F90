@@ -61,7 +61,7 @@ module gamCouple_mpi_V2G
         !procedure :: AdvanceModel => gamCplMpiVAdvanceModel
         procedure :: Cleanup => gamCplMpiVCleanup
 
-        !procedure :: InitCoupler => gamMpiInitCoupler
+        procedure :: InitCoupler => gamCplMpiVInitCoupler
         procedure :: UpdateCoupler => gamCplMpiVUpdateCoupler
         !procedure :: CoupleRemix => gamMpiCoupleRemix
         !procedure :: CoupleImag  => gamMpiCoupleImag
@@ -98,7 +98,11 @@ module gamCouple_mpi_V2G
         call PrepState(App%Model,App%Grid,&
             App%oState,App%State,Xml,App%gOptions%userInitFunc)
 
-         ! create a new communicator using MPI Topology
+        ! split allComm into a communicator with only the non-helper voltron rank and Gamera ranks
+        call MPI_Comm_rank(MPI_COMM_WORLD, commSize, ierr)
+        call MPI_comm_split(MPI_COMM_WORLD, 0, commSize, voltComm, ierr)
+
+        ! create a new communicator using MPI Topology
         call MPI_Comm_Size(voltComm, commSize, ierr)
         if(ierr /= MPI_Success) then
             call MPI_Error_string( ierr, message, length, ierr)
@@ -349,6 +353,23 @@ module gamCouple_mpi_V2G
         enddo
 
         end associate
+
+    end subroutine
+
+    subroutine gamCplMpiVInitCoupler(App, voltApp)
+        class(gamCouplerMpi_volt_T), intent(inout) :: App
+        class(voltApp_T), intent(inout) :: voltApp
+
+        integer :: ierr
+
+        ! call parent init function
+        call gamInitCoupler(App, voltApp)
+
+        ! over-ride some of the initial voltron parameters on the gamera ranks
+        ! local gamera has correct values from the above parent init function
+        call mpi_bcast(App%Model%t, 1, MPI_MYFLOAT, App%myRank, App%couplingComm, ierr)
+        call mpi_bcast(App%Model%tFin, 1, MPI_MYFLOAT, App%myRank, App%couplingComm, ierr)
+        call mpi_bcast(App%Model%MJD0, 1, MPI_MYFLOAT, App%myRank, App%couplingComm, ierr)
 
     end subroutine
 

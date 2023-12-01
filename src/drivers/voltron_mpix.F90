@@ -97,7 +97,8 @@ program voltron_mpix
         end if
 
         ! voltron
-        call initVoltron_mpi(vApp, userInitFunc, voltComm, MPI_COMM_WORLD)
+        vApp%vOptions%gamUserInitFunc => initUser
+        call initVoltron_mpi(vApp, userInitFunc, voltComm)
 
         if(vApp%amHelper) then
             ! do helper loop

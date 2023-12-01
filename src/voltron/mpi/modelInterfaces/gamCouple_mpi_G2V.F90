@@ -80,6 +80,9 @@ module gamCouple_mpi_G2V
         logical :: reorder, wasWeighted
         integer, dimension(1) :: rankArray, weightArray
 
+        ! first initialize base gamera mpi
+        call gamMpiInitModel(App, Xml)
+
         ! initialize F08 MPI objects
         App%couplingComm = MPI_COMM_NULL
         App%zeroArraytypes = (/ MPI_DATATYPE_NULL /)
@@ -155,6 +158,11 @@ module gamCouple_mpi_G2V
 
         ! create the MPI datatypes for communicating state data with voltron
         call createG2VDataTypes(App)
+
+        ! over-ride some of the initial voltron parameters on the gamera ranks
+        call mpi_bcast(App%Model%t, 1, MPI_MYFLOAT, App%voltRank, App%couplingComm, ierr)
+        call mpi_bcast(App%Model%tFin, 1, MPI_MYFLOAT, App%voltRank, App%couplingComm, ierr)
+        call mpi_bcast(App%Model%MJD0, 1, MPI_MYFLOAT, App%voltRank, App%couplingComm, ierr)
 
     end subroutine
 

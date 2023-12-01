@@ -189,9 +189,19 @@ module gamCouple
         class(gamCoupler_T), intent(inout) :: App
         class(voltApp_T), intent(inout) :: voltApp
 
+        type(TimeSeries_T) :: tsMJD
+
         call init_mix2MhdCoupler(App, voltApp%remixApp)
 
         allocate(App%SrcNC(App%Grid%is:voltApp%chmp2mhd%iMax+1,App%Grid%js:App%Grid%je+1,App%Grid%ks:App%Grid%ke+1,1:NVARIMAG))
+
+        ! over-ride some Gamera parameters with Voltron values
+        App%Model%t = voltApp%time / App%Model%Units%gT0
+        App%Model%tFin = voltApp%tFin / App%Model%Units%gT0
+
+        tsMJD%wID = voltApp%tilt%wID
+        call tsMJD%initTS("MJD",doLoudO=.false.)
+        App%Model%MJD0 = tsMJD%evalAt(0.0_rp) !Evaluate at T=0
 
     end subroutine
 

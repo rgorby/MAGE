@@ -25,14 +25,6 @@ module voltapp
 
     contains
 
-    subroutine allocateCoupledApps(vApp)
-        class(voltApp_T), intent(inout) :: vApp
-
-         ! non-mpi voltron uses non-mpi local coupled gamera
-         allocate(gamCoupler_T :: vApp%gApp)
-
-    end subroutine allocateCoupledApps
-
     !Initialize Voltron (after Gamera has already been initialized)
     subroutine initVoltron(vApp,optFilename)
         class(voltApp_T), intent(inout) :: vApp
@@ -41,11 +33,17 @@ module voltapp
         character(len=strLen) :: inpXML, kaijuRoot, resID
         type(XML_Input_T) :: xmlInp
         type(TimeSeries_T) :: tsMJD
-        real(rp) :: gTScl,tSpin,tIO
+        real(rp) :: tSpin,tIO
         logical :: doSpin,isK,doRestart
         integer :: nRes
 
         associate(gApp=>vApp%gApp)
+
+        if(.not. allocated(vApp%gApp)) then
+            ! non-mpi voltron uses non-mpi local coupled gamera
+            ! but don't over-ride if someone else allocated first
+            allocate(gamCoupler_T :: vApp%gApp)
+        endif
 
         if(present(optFilename)) then
             ! read from the prescribed file
@@ -81,17 +79,19 @@ module voltapp
             stop
         endif
 
-        ! adjust XMl reader root
-        call xmlInp%SetRootStr('Kaiju/Voltron')
         call xmlInp%SetVerbose(.true.)
 
         !Setup OMP
         call SetOMP(xmlInp)
 
         !initialize coupled Gamera
+         call xmlInp%SetRootStr('Kaiju/Gamera')
         gApp%gOptions%userInitFunc => vApp%vOptions%gamUserInitFunc
         call gApp%InitModel(xmlInp)
         call gApp%InitIO(xmlInp)
+
+        ! adjust XMl reader root
+        call xmlInp%SetRootStr('Kaiju/Voltron')
 
         !Initialize planet information
         call getPlanetParams(vApp%planet, xmlInp)
@@ -119,26 +119,11 @@ module voltapp
             call InitTM03(vApp%tilt%wID,0.0_rp)
         endif
 
-        gTScl = gApp%Model%Units%gT0
-
-        !Use MJD from time series
-        tsMJD%wID = vApp%tilt%wID
-        call tsMJD%initTS("MJD",doLoudO=.false.)
-        gApp%Model%MJD0 = tsMJD%evalAt(0.0_rp) !Evaluate at T=0
-        
         !Time options
         call xmlInp%Set_Val(vApp%tFin,'time/tFin',1.0_rp)
-        !Sync Gamera to Voltron endtime
-        gApp%Model%tFin = vApp%tFin/gTScl
         
         call vApp%IO%init(xmlInp,vApp%time,vApp%ts)
         
-        !Pull numbering from Gamera
-        vApp%IO%tsNext = gApp%Model%IO%tsNext
-        
-        !Force Gamera IO times to match Voltron IO
-        call IOSync(vApp%IO,gApp%Model%IO,1.0/gTScl)
-      
         !Deep coupling
         if (xmlInp%Exists("coupling/dt") .or. xmlInp%Exists("coupling/dtDeep")) then
                 write(*,*) 'Please remove all instances of voltron/coupling/dt and voltron/coupling/dtDeep'
@@ -186,20 +171,16 @@ module voltapp
             endif
             if (doSpin) then
                 call xmlInp%Set_Val(tSpin,"spinup/tSpin",tSpinDef)
-                !Rewind Gamera time to negative tSpin (seconds)
-                gApp%Model%t = -tSpin/gTScl
-                !Reset State/oState
-                gApp% State%time  = gApp%Model%t
-                gApp%oState%time  = gApp%Model%t-gApp%Model%dt
+                !Rewind time to negative tSpin (seconds)
+                vApp%time =-tSpin
                 call xmlInp%Set_Val(tIO,"spinup/tIO",0.0) !Time of first restart and output
-                gApp%Model%IO%tRes = tIO/gTScl
-                gApp%Model%IO%tOut = tIO/gTScl
                 vApp%IO%tRes = tIO
                 vApp%IO%tOut = tIO
             endif
-            vApp%time = gApp%Model%t*gTScl !Time in seconds
-            vApp%ts   = gApp%Model%ts !Timestep
-            vApp%MJD = T2MJD(vApp%time,gApp%Model%MJD0)
+            !Use MJD from time series
+            tsMJD%wID = vApp%tilt%wID
+            call tsMJD%initTS("MJD",doLoudO=.false.)
+            vApp%MJD = T2MJD(vApp%time,tsMJD%evalAt(0.0_rp))
             !Set first deep coupling (defaulting to coupling right away since shallow is part of deep now)
             call xmlInp%Set_Val(vApp%DeepT, "coupling/tCouple", vApp%time)
         endif
