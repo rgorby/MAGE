@@ -114,7 +114,6 @@ module mixparams
               Params%aurora_model_type = ZHANG
            case ("LINMRG")
               Params%aurora_model_type = LINMRG
-              Params%aurora_model_type = RCMHD
            case default 
               stop "The auroral model type entered is not supported (Available options: FEDDER, ZHANG, LINMRG)."
         end select
