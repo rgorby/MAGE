@@ -114,6 +114,10 @@
 ##PBS -A UJHB0019
 ##PBS -q main
 ##PBS -l select=2:ncpus=128:mpiprocs=2:ompthreads=64+1:ncpus=128:mpiprocs=1:ompthreads=128
+# Use 8 ranks/node for gamera on derecho
+# Use 2 ranks for helpers
+# 1 node separate for voltron
+# Additional PBS chunk
 
 #------------------------------------------------------------------------------
 # END OF PBS DIRECTIVES
