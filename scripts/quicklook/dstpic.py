@@ -87,9 +87,9 @@ if __name__ == "__main__":
     gs = gridspec.GridSpec(1,1,hspace=0.05,wspace=0.05)
     ax=fig.add_subplot(gs[0,0])
     ax.plot(ut_symh,dstD,label="SYM-H",linewidth=2*LW)
-    ax.plot(ut,BSDst,label="BSDst",linewidth=LW)
+    ax.plot(ut,BSDst,label="Biot-Savart Dst",linewidth=LW)
     if doDPS: 
-        ax.plot(ut,DPSDst,label="DPSDst",linewidth=LW)
+        ax.plot(ut,DPSDst,label="Dessler-Parker-Sckopke Dst",linewidth=LW)
     ax.legend(loc='upper right',fontsize="small",ncol=2)
     ax.axhline(color='magenta',linewidth=0.5*LW)
     ax.xaxis_date()
