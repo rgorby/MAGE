@@ -459,7 +459,7 @@ module uservoltic
                         !dA = Grid%face(ig,j,k,d)/Grid%face(Grid%is,jp,kp,d)
                         dA = 1.0 !Using dA=1 for smoother magflux stencil
 
-                        if (isGoodFaceIJK(Grid,ig,j,k,d)) then
+                        if (isGoodFaceIJK(Model,Grid,ig,j,k,d)) then
                             if ( isLowLat(Grid%xfc(ig,j,k,:,d),llBC) ) then
                                 !State%magFlux(ig,j,k,d) = 0.0
                                 State%magFlux(ig,j,k,d) = dApm(d)*dA*State%magFlux(Grid%is,jp,kp,d)

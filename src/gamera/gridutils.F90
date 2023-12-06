@@ -243,21 +243,21 @@ module gridutils
                 do i=Grid%isg+1, Grid%ieg
                     ! lower bounds are easy, upper bounds are hard
                     ! since we are calculating up to one cell from the boundary, check if one edge away is valid
-                    if(isGoodEdgeIJK(Grid,i+1,j,k,IDIR)) then
+                    if(isGoodEdgeIJK(Model,Grid,i+1,j,k,IDIR)) then
                         ! integrating in the i-direction along i-edges, the effective index range is isg+1:ieg-1, jsg+1:jeg, ksg+1:keg
                         bAvg = 0.25*( Bxyz(i,j,k,:) + Bxyz(i,j-1,k,:) + Bxyz(i,j,k-1,:) + Bxyz(i,j-1,k-1,:) )
                         dxyz = Grid%xyz(i+1,j,k,:) - Grid%xyz(i,j,k,:)
                         bInt(i,j,k,IDIR) = dot_product(bAvg,dxyz)
                     endif
 
-                    if(isGoodEdgeIJK(Grid,i,j+1,k,JDIR)) then
+                    if(isGoodEdgeIJK(Model,Grid,i,j+1,k,JDIR)) then
                         ! integrating in the j-direction along j-edges, the effective index range is isg+1:ieg, jsg+1:jeg-1, ksg+1:keg
                         bAvg = 0.25*( Bxyz(i,j,k,:) + Bxyz(i,j,k-1,:) + Bxyz(i-1,j,k,:) + Bxyz(i-1,j,k-1,:) )
                         dxyz = Grid%xyz(i,j+1,k,:) - Grid%xyz(i,j,k,:)
                         bInt(i,j,k,JDIR) = dot_product(bAvg,dxyz)
                     endif
 
-                    if(isGoodEdgeIJK(Grid,i,j,k+1,KDIR)) then
+                    if(isGoodEdgeIJK(Model,Grid,i,j,k+1,KDIR)) then
                         ! integrating in the k-direction along k-edges, the effective index range is isg+1:ieg, jsg+1:jeg, ksg+1:keg-1
                         bAvg = 0.25*(Bxyz(i,j,k,:) + Bxyz(i-1,j,k,:) + Bxyz(i,j-1,k,:) + Bxyz(i-1,j-1,k,:) )
                         dxyz = Grid%xyz(i,j,k+1,:) - Grid%xyz(i,j,k,:)
@@ -277,9 +277,9 @@ module gridutils
                 do i=Grid%isg+1, Grid%ieg
                     ! lower bounds are easy, upper bounds are hard
                     ! since we are calculating up to one cell from the boundary, check if one face away is valid
-                    if(isGoodFaceIJK(Grid,i,j+1,k+1,IDIR)) JdS(i,j,k,IDIR) = bInt(i,j,k,JDIR) + bInt(i,j+1,k,KDIR) - bInt(i,j,k+1,JDIR) - bInt(i,j,k,KDIR)
-                    if(isGoodFaceIJK(Grid,i+1,j,k+1,JDIR)) JdS(i,j,k,JDIR) = bInt(i,j,k,KDIR) + bInt(i,j,k+1,IDIR) - bInt(i+1,j,k,KDIR) - bInt(i,j,k,IDIR)
-                    if(isGoodFaceIJK(Grid,i+1,j+1,k,KDIR)) JdS(i,j,k,KDIR) = bInt(i,j,k,IDIR) + bInt(i+1,j,k,JDIR) - bInt(i,j+1,k,IDIR) - bInt(i,j,k,JDIR)
+                    if(isGoodFaceIJK(Model,Grid,i,j+1,k+1,IDIR)) JdS(i,j,k,IDIR) = bInt(i,j,k,JDIR) + bInt(i,j+1,k,KDIR) - bInt(i,j,k+1,JDIR) - bInt(i,j,k,KDIR)
+                    if(isGoodFaceIJK(Model,Grid,i+1,j,k+1,JDIR)) JdS(i,j,k,JDIR) = bInt(i,j,k,KDIR) + bInt(i,j,k+1,IDIR) - bInt(i+1,j,k,KDIR) - bInt(i,j,k,IDIR)
+                    if(isGoodFaceIJK(Model,Grid,i+1,j+1,k,KDIR)) JdS(i,j,k,KDIR) = bInt(i,j,k,IDIR) + bInt(i+1,j,k,JDIR) - bInt(i,j+1,k,IDIR) - bInt(i,j,k,JDIR)
                 enddo
             enddo
         enddo
@@ -778,7 +778,8 @@ module gridutils
         endif
     end subroutine getJxyz
 
-    function isGoodFaceIJK(Grid,i,j,k,d) result(isGood)
+    function isGoodFaceIJK(Model,Grid,i,j,k,d) result(isGood)
+        type(Model_T), intent(in) :: Model
         type(Grid_T) , intent(in) :: Grid
         integer      , intent(in) :: i,j,k,d
 
@@ -803,7 +804,8 @@ module gridutils
 
     end function isGoodFaceIJK
 
-    function isGoodEdgeIJK(Grid,i,j,k,d) result(isGood)
+    function isGoodEdgeIJK(Model,Grid,i,j,k,d) result(isGood)
+        type(Model_T), intent(in) :: Model
         type(Grid_T) , intent(in) :: Grid
         integer      , intent(in) :: i,j,k,d
 
