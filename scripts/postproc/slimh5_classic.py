@@ -136,7 +136,10 @@ if __name__ == "__main__":
                 sQ = str(Q)
                 #print("\tCopying %s"%(sQ))
                 oH5[gOut].create_dataset(sQ,data=iH5[gIn][sQ])
-
+                for k in iH5[gIn][sQ].attrs.keys():
+                    aStr = str(k)
+                    #print("\t\tCopying %s"%(aStr))
+                    oH5[gOut][sQ].attrs.create(k,iH5[gIn][sQ].attrs[aStr])
         #Close up
         iH5.close()
         oH5.close()
