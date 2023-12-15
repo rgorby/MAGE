@@ -30,10 +30,8 @@ module voltapp_mpi
     end subroutine endVoltronWaits
 
     !Initialize Voltron (after Gamera has already been initialized)
-    subroutine initVoltron_mpi(vApp, userInitFunc, helperComm, optFilename)
+    subroutine initVoltron_mpi(vApp, optFilename)
         type(voltAppMpi_T), intent(inout) :: vApp
-        procedure(StateIC_T), pointer, intent(in) :: userInitFunc
-        type(MPI_Comm), intent(in) :: helperComm
         character(len=*), optional, intent(in) :: optFilename
 
         type(MPI_Comm) :: dummyComm
@@ -49,6 +47,14 @@ module voltapp_mpi
         if(.not. allocated(vApp%gApp)) then
             ! mpi voltron uses mpi remotely coupled gamera
             allocate(gamCouplerMpi_volt_T :: vApp%gApp)
+            ! set varible for polymorphic type
+            SELECT type(cplApp=>vApp%gApp)
+                TYPE IS (gamCouplerMpi_volt_T)
+                    cplApp%gOptionsCplMpiV%allComm = vApp%vOptionsMpi%allComm
+                CLASS DEFAULT
+                    write(*,*) 'Gamera MPI coupler is wrong type'
+                    stop
+            END SELECT
         endif
 
 
@@ -66,8 +72,7 @@ module voltapp_mpi
         vApp%vHelpWin = MPI_WIN_NULL
 
         ! get info about voltron-only mpi communicator
-        vApp%vHelpComm = helperComm
-        call MPI_Comm_rank(vApp%vHelpComm, vApp%vHelpRank, ierr)
+        call MPI_Comm_rank(vApp%vOptionsMpi%allVoltComm, vApp%vHelpRank, ierr)
         if(ierr /= MPI_Success) then
             call MPI_Error_string( ierr, message, length, ierr)
             print *,message(1:length)
@@ -89,14 +94,14 @@ module voltapp_mpi
             if (.not. vApp%isLoud) call xmlInp%BeQuiet()
 
             ! allow voltron master to split with gamera ranks
-            call MPI_comm_split(MPI_COMM_WORLD, MPI_UNDEFINED, 0, dummyComm, ierr)
+            call MPI_comm_split(vApp%vOptionsMpi%allComm, MPI_UNDEFINED, 0, dummyComm, ierr)
 
             call xmlInp%Set_Val(vApp%useHelpers,"/Kaiju/Voltron/Helpers/useHelpers",.false.)
             call xmlInp%Set_Val(vApp%doSquishHelp,"/Kaiju/Voltron/Helpers/doSquishHelp",.true.)
             call xmlInp%Set_Val(vApp%masterSquish,"/Kaiju/Voltron/Helpers/masterSquish",.false.)
             call xmlInp%Set_Val(vApp%squishLoadBalance,"/Kaiju/Voltron/Helpers/squishLoadBalance",.true.)
             call xmlInp%Set_Val(nHelpers,"/Kaiju/Voltron/Helpers/numHelpers",0)
-            call MPI_Comm_Size(vApp%vHelpComm, commSize, ierr)
+            call MPI_Comm_Size(vApp%vOptionsMpi%allVoltComm, commSize, ierr)
             if(ierr /= MPI_Success) then
                 call MPI_Error_string( ierr, message, length, ierr)
                 print *,message(1:length)
@@ -115,7 +120,7 @@ module voltapp_mpi
 
             ! add topology to the helper communicator to permit neighborhood operations
             reorder = .false. ! don't allow MPI to reorder the ranks, master must remain master
-            call mpi_dist_graph_create_adjacent(helperComm, &
+            call mpi_dist_graph_create_adjacent(vApp%vOptionsMpi%allVoltComm, &
                 1,(/0/),(/1/), &
                 1,(/0/),(/1/), &
                 MPI_INFO_NULL, reorder, vApp%vHelpComm, ierr)
@@ -132,7 +137,7 @@ module voltapp_mpi
             call Corners2Grid(vApp%gApp%Model,vApp%gApp%Grid)
             call DefaultBCs(vApp%gApp%Model,vApp%gApp%Grid)
             call PrepState(vApp%gApp%Model,vApp%gApp%Grid,&
-                vApp%gApp%oState,vAPp%gApp%State,xmlInp,userInitFunc)
+                vApp%gApp%oState,vApp%gApp%State,xmlInp,vApp%vOptions%gamUserInitFunc)
 
             ! now initialize basic voltron structures from gamera data
             !if(present(optFilename)) then
@@ -172,7 +177,7 @@ module voltapp_mpi
             call mpi_Abort(MPI_COMM_WORLD, 1, ierr)
         endif
 
-        call MPI_Comm_Size(vApp%vHelpComm, commSize, ierr)
+        call MPI_Comm_Size(vApp%vOptionsMpi%allVoltComm, commSize, ierr)
         if(ierr /= MPI_Success) then
             call MPI_Error_string( ierr, message, length, ierr)
             print *,message(1:length)
@@ -210,7 +215,7 @@ module voltapp_mpi
 
             endif
 
-            call MPI_Comm_Size(vApp%vHelpComm, commSize, ierr)
+            call MPI_Comm_Size(vApp%vOptionsMpi%allVoltComm, commSize, ierr)
             if(ierr /= MPI_Success) then
                 call MPI_Error_string( ierr, message, length, ierr)
                 print *,message(1:length)
@@ -228,7 +233,7 @@ module voltapp_mpi
             ! currently all helpers only send and receive data from rank 0
             inData(:) = 1
             outData(:) = 1
-            call mpi_dist_graph_create_adjacent(helperComm, &
+            call mpi_dist_graph_create_adjacent(vApp%vOptionsMpi%allVoltComm, &
                 commSize-1,neighborRanks,inData, &
                 commSize-1,neighborRanks,outData, &
                 MPI_INFO_NULL, reorder, vApp%vHelpComm, ierr)

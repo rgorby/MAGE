@@ -5,7 +5,15 @@ module volttypes_mpi
 
     implicit none
 
-     type, extends(voltApp_T) :: voltAppMpi_T
+    ! mpi voltron specific options
+    type, extends(BaseOptions_T) :: VoltOptionsMpi_T
+        type(MPI_Comm) :: allComm
+        type(MPI_Comm) :: allVoltComm
+
+        contains
+    end type voltOptionsMpi_T
+
+    type, extends(voltApp_T) :: voltAppMpi_T
         ! voltron to helpers comms variables
         type(MPI_Comm) :: vHelpComm
         integer :: vHelpRank
@@ -15,6 +23,9 @@ module volttypes_mpi
         logical :: amHelper = .false., useHelpers = .false.
         logical :: doSquishHelp = .false., masterSquish = .false.
         logical :: squishLoadBalance = .true., deepProcessingInProgress=.false.
+
+        ! mpi voltron specific options
+        type(VoltOptionsMpi_T) :: vOptionsMpi
 
     end type voltAppMpi_T
 

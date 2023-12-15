@@ -31,6 +31,7 @@ contains
           ! make gamera-only mpi communicator
           call MPI_Comm_Split(getMpiF08Communicator(this), gamId, this%getProcessRank(), gamCplMpi%gOptionsMpi%gamComm, ierror)
 
+          gamCplMpi%gOptionsCplMpiG%allComm = getMpiF08Communicator(this)
           gamCplMpi%gOptions%userInitFunc => initUser
           gamCplMpi%gOptionsMpi%doIO = .false.
           xmlInp = New_XML_Input(trim(caseFile),'Kaiju',.true.)
@@ -41,7 +42,10 @@ contains
           ! make gamera-only mpi communicator
           call MPI_Comm_Split(getMpiF08Communicator(this), voltId, this%getProcessRank(), voltComm, ierror)
 
-          call initVoltron_mpi(voltAppMpi, initUser, voltComm, getMpiF08Communicator(this), trim(caseFile))
+          voltAppMpi%vOptions%gamUserInitFunc => initUser
+          voltAppMpi%vOptionsMpi%allComm = getMpiF08Communicator(this)
+          voltAppMpi%vOptionsMpi%allVoltComm = voltComm
+          call initVoltron_mpi(voltAppMpi, trim(caseFile))
       endif
 
   end subroutine setup

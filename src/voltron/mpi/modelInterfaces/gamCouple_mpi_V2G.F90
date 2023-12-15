@@ -7,6 +7,14 @@ module gamCouple_mpi_V2G
 
     implicit none
 
+    ! options for MPI voltron coupler
+    type, extends(BaseOptions_T) :: gamOptionsCplMpiV_T
+        type(MPI_Comm) :: allComm
+
+        contains
+    end type
+
+
     ! type used on the voltron side
     type, extends(gamCoupler_T) :: gamCouplerMpi_volt_T
 
@@ -47,6 +55,8 @@ module gamCouple_mpi_V2G
         integer(kind=MPI_AN_MYADDR), dimension(:), allocatable :: sendGDisplsGas0
         logical :: imagProcessingInProgress = .false.
 
+        ! coupler-specific options
+        type(gamOptionsCplMpiV_T) :: gOptionsCplMpiV
 
         contains
 
@@ -99,8 +109,16 @@ module gamCouple_mpi_V2G
             App%oState,App%State,Xml,App%gOptions%userInitFunc)
 
         ! split allComm into a communicator with only the non-helper voltron rank and Gamera ranks
-        call MPI_Comm_rank(MPI_COMM_WORLD, commSize, ierr)
-        call MPI_comm_split(MPI_COMM_WORLD, 0, commSize, voltComm, ierr)
+        call MPI_Comm_rank(App%gOptionsCplMpiV%allComm, commSize, ierr)
+        call MPI_comm_split(App%gOptionsCplMpiV%allComm, 0, commSize, voltComm, ierr)
+
+        call Xml%Set_Val(App%doSerialVoltron,"coupling/doSerial",.false.)
+        call Xml%Set_Val(App%doAsyncCoupling,"coupling/doAsyncCoupling",.true.)
+        call Xml%Set_Val(App%doDeep, "coupling/doDeep", .true.)
+        if(App%doSerialVoltron) then
+            ! don't do asynchronous coupling if comms are serial
+            App%doAsyncCoupling = .false.
+        endif
 
         ! create a new communicator using MPI Topology
         call MPI_Comm_Size(voltComm, commSize, ierr)
@@ -370,6 +388,9 @@ module gamCouple_mpi_V2G
         call mpi_bcast(App%Model%t, 1, MPI_MYFLOAT, App%myRank, App%couplingComm, ierr)
         call mpi_bcast(App%Model%tFin, 1, MPI_MYFLOAT, App%myRank, App%couplingComm, ierr)
         call mpi_bcast(App%Model%MJD0, 1, MPI_MYFLOAT, App%myRank, App%couplingComm, ierr)
+
+        ! send initial coupling time to Gamera
+        call sendCplTimeMpi(gCplApp, voltApp%DeepT)
 
     end subroutine
 

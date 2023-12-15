@@ -52,7 +52,7 @@ module voltio
 
         real(rp) :: cpcp(2) = 0.0
 
-        real(rp) :: dpT,dtWall,cMJD,dMJD,simRate
+        real(rp) :: dpT,dtWall,cMJD,dMJD
 
         integer :: nTh,curCount,countMax
         real(rp) :: clockRate

@@ -21,8 +21,7 @@ module gamCouple_mpi_G2V
         logical :: doSerialVoltron = .false., doAsyncCoupling = .true.
         logical :: firstCoupling = .true.
 
-        real(rp) :: DeepT, MJD
-        integer :: ts
+        real(rp) :: DeepT
         logical :: doDeep
 
         ! array of all zeroes to simplify various send/receive calls
@@ -94,6 +93,7 @@ module gamCouple_mpi_G2V
 
         call Xml%Set_Val(App%doSerialVoltron,"coupling/doSerial",.false.)
         call Xml%Set_Val(App%doAsyncCoupling,"coupling/doAsyncCoupling",.true.)
+        call Xml%Set_Val(App%doDeep, "coupling/doDeep", .true.)
         if(App%doSerialVoltron) then
             ! don't do asynchronous coupling if comms are serial
             App%doAsyncCoupling = .false.
@@ -163,6 +163,9 @@ module gamCouple_mpi_G2V
         call mpi_bcast(App%Model%t, 1, MPI_MYFLOAT, App%voltRank, App%couplingComm, ierr)
         call mpi_bcast(App%Model%tFin, 1, MPI_MYFLOAT, App%voltRank, App%couplingComm, ierr)
         call mpi_bcast(App%Model%MJD0, 1, MPI_MYFLOAT, App%voltRank, App%couplingComm, ierr)
+
+        ! receive the initial coupling time
+        call recvCplTimeMpi(App)
 
     end subroutine
 
