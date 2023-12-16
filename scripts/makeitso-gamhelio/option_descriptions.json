@@ -306,14 +306,170 @@
         },
         "Normalization": {
             "B0": {
-                "LEVEL": "BASIC",
+                "LEVEL": "EXPERT",
                 "prompt": "Solar wind magnetic field (Gauss, not used?)",
                 "default": "1.0e-3"
             },
             "n0": {
-                "LEVEL": "BASIC",
+                "LEVEL": "EXPERT",
                 "prompt": "Solar wind number density (cm^-3, not used?)",
                 "default": "200.0"
+            }
+        }
+    },
+
+    "gamera": {
+        "sim": {
+            "runid": {
+                "LEVEL": "EXPERT",
+                "prompt": "Run ID",
+                "default": "helio"
+            },
+            "doH5g": {
+                "LEVEL": "EXPERT",
+                "prompt": "Use an existing HDF5 LFM grid file",
+                "default": "T",
+                "valids": ["T", "F"]
+            },
+            "H5Grid": {
+                "LEVEL": "EXPERT",
+                "prompt": "H5Grid",
+                "default": "heliogrid.h5"
+            },
+            "icType": {
+                "LEVEL": "EXPERT",
+                "prompt": "icType",
+                "default": "user"
+            },
+            "pdmb": {
+                "LEVEL": "EXPERT",
+                "prompt": "pdmb",
+                "default": "1.0"
+            },
+            "rmeth": {
+                "LEVEL": "EXPERT",
+                "prompt": "rmeth",
+                "default": "7UP"
+            }
+        },
+        "time": {
+            "tFin": {
+                "LEVEL": "EXPERT",
+                "prompt": "Time duration to simulate (hours)",
+                "default": "200.0"
+            }
+        },
+        "spinup": {
+            "doSpin": {
+                "LEVEL": "EXPERT",
+                "prompt": "Use a spinup period",
+                "default": "T",
+                "valids": ["T", "t", "F", "f"]
+            },
+            "tSpin": {
+                "LEVEL": "EXPERT",
+                "prompt": "Spinup time duration (simulated hours)",
+                "default": "200.0"
+            },
+            "tIO": {
+                "LEVEL": "EXPERT",
+                "prompt": "Simulated time (hours) to start screen output (negtive for output during spinup)",
+                "default": "0.0"
+            }
+        },
+        "output": {
+            "dtOut": {
+                "LEVEL": "EXPERT",
+                "prompt": "Screen output interval (timesteps)",
+                "default": "10.0"
+            },
+            "tsOut": {
+                "LEVEL": "EXPERT",
+                "prompt": "Timestep slice output interval (simulated hours)",
+                "default": "50.0"
+            },
+            "timer": {
+                "LEVEL": "EXPERT",
+                "prompt": "timer",
+                "default": "F",
+                "valids": ["T", "t", "F", "f"]
+            }
+        },
+        "physics": {
+            "doMHD": {
+                "LEVEL": "EXPERT",
+                "prompt": "doMHD",
+                "default": "T",
+                "valids": ["T", "t", "F", "f"]
+            },
+            "gamma": {
+                "LEVEL": "EXPERT",
+                "prompt": "gamma",
+                "default": "1.5"
+            }
+        },
+        "prob": {
+            "Tsolar": {
+                "LEVEL": "EXPERT",
+                "prompt": "T_solar",
+                "default": "25.38"
+            }
+        },
+        "iPdir": {
+            "N": {
+                "LEVEL": "EXPERT",
+                "prompt": "Number of MPI chunks in r-dimension",
+                "default": "2"
+            },
+            "bcPeriodic": {
+                "LEVEL": "EXPERT",
+                "prompt": "bcPeriodic",
+                "default": "F",
+                "valids": ["T", "t", "F", "f"]
+            }
+        },
+        "jPdir": {
+            "N": {
+                "LEVEL": "EXPERT",
+                "prompt": "Number of MPI chunks in latitude dimension",
+                "default": "2"
+            },
+            "bcPeriodic": {
+                "LEVEL": "EXPERT",
+                "prompt": "bcPeriodic",
+                "default": "F",
+                "valids": ["T", "t", "F", "f"]
+            }
+        },
+        "kPdir": {
+            "N": {
+                "LEVEL": "EXPERT",
+                "prompt": "Number of MPI chunks in longitude dimension",
+                "default": "2"
+            },
+            "bcPeriodic": {
+                "LEVEL": "EXPERT",
+                "prompt": "bcPeriodic",
+                "default": "T",
+                "valids": ["T", "t", "F", "f"]
+            }
+        },
+        "restart": {
+            "doRes": {
+                "LEVEL": "INTERMEDIATE",
+                "prompt": "Restart from a saved state",
+                "default": "F",
+                "valids": ["T", "F"]
+            },
+            "nRes": {
+                "LEVEL": "INTERMEDIATE",
+                "prompt": "Index of restart file to use (-1 for latest (XXXXX-symlink) restart file)",
+                "default": "-1"
+            },
+            "resID": {
+                "LEVEL": "INTERMEDIATE",
+                "prompt": "Run ID for restart step",
+                "default": "helio"
             }
         }
     }

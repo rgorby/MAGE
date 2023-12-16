@@ -23,6 +23,7 @@ parameters, with "EXPERT" parameters set to defaults.
 
 # Import standard modules.
 import argparse
+import copy
 import datetime
 import json
 import os
@@ -38,120 +39,33 @@ from kaipy.kdefs import JD2MJD
 
 # Program constants
 
-# Program description.
+# Program description
 DESCRIPTION = "Interactive script to prepare and run a MAGE heliosphere job."
 
-# Indent level for JSON output.
+# Indent level for JSON output
 JSON_INDENT = 4
 
 # Path to current kaiju installation
 KAIJUHOME = os.environ["KAIJUHOME"]
 
-# Path to directory containing support files for makeitso.
+# Path to directory containing support files for makeitso
 SUPPORT_FILES_DIRECTORY = os.path.join(KAIJUHOME, "scripts",
                                        "makeitso-gamhelio")
 
-# Path to option descriptions file.
+# Path to option descriptions file
 OPTION_DESCRIPTIONS_FILE = os.path.join(
     SUPPORT_FILES_DIRECTORY, "option_descriptions.json"
 )
 
-# Location of template wsa2gamera.py .ini file.
+# Location of template wsa2gamera.py .ini file
 WSA2GAMERA_INI_TEMPLATE = os.path.join(SUPPORT_FILES_DIRECTORY,
                                        "wsa2gamera_template.ini")
 
-# # Global defaults across all HPC systems and run types.
-# defaults_global = {
-#     "run_directory": ".",
-#     "wsafile": DEFAULT_WSAFILE,
-#     "kaiju_home": DEFAULT_KAIJU_HOME,
-#     "sim_runid": "gamhelio",
-#     "time_tFin": "200.0",
-#     "spinup_tSpin": "200.0",
-#     "output_dtOut": "10.0",
-#     "output_tsOut": "50",
-#     "iPdir_N": "2",
-#     "jPdir_N": "2",
-#     "kPdir_N": "2",
-#     "wsa2gamera_Grid_Ni": "128",
-#     "wsa2gamera_Grid_Nj": "64",
-#     "wsa2gamera_Grid_Nk": "128",
-# }
+# Path to template .ini file
+INI_TEMPLATE = os.path.join(SUPPORT_FILES_DIRECTORY, "template.ini")
 
-# # Defaults for MPI runs on cheyenne.
-# defaults_cheyenne_mpi = {
-#     "pbs_account": "",
-#     "pbs_queue": "regular",
-#     "pbs_walltime": "00:30:00",
-#     "pbs_select": "4",
-#     "pbs_ncpus": "36",
-#     "pbs_mpiprocs": "2",
-#     "pbs_ompthreads": "18",
-# }
-
-# # Defaults for serial runs on cheyenne.
-# defaults_cheyenne_serial = {
-#     "pbs_account": "",
-#     "pbs_queue": "regular",
-#     "pbs_walltime": "02:00:00",
-#     "pbs_select": "1",
-#     "pbs_ncpus": "36",
-#     "pbs_ompthreads": "36",
-# }
-
-# # Defaults for MPI runs on pleiades.
-# defaults_pleiades_mpi = {
-#     "pbs_queue": "normal",
-#     "pbs_walltime": "00:30:00",
-#     "pbs_select": "4",
-#     "pbs_ncpus": "28",
-#     "pbs_mpiprocs": "2",
-#     "pbs_ompthreads": "14",
-# }
-
-# # Defaults for serial runs on pleiades.
-# defaults_pleiades_serial = {
-#     "pbs_queue": "normal",
-#     "pbs_walltime": "02:00:00",
-#     "pbs_select": "1",
-#     "pbs_ncpus": "28",
-#     "pbs_ompthreads": "28",
-# }
-
-# # Gather all defaults in one dictionary.
-# all_defaults = {
-#     "cheyenne": {
-#         "mpi": defaults_cheyenne_mpi,
-#         "serial": defaults_cheyenne_serial,
-#     },
-#     "pleiades": {
-#         "mpi": defaults_pleiades_mpi,
-#         "serial": defaults_pleiades_serial,
-#     },
-# }
-
-# # Location of templates of .ini and .pbs files for gamhelio.x.
-# template_root = os.path.join(os.environ["KAIJUHOME"], "scripts", "makeitso")
-# GAMHELIO_INI_TEMPLATES = {
-#     "cheyenne": {
-#         "mpi": os.path.join(template_root, "cheyenne_mpi_gamhelio_template.ini"),
-#         "serial": os.path.join(template_root, "cheyenne_serial_gamhelio_template.ini"),
-#     },
-#     "pleiades": {
-#         "mpi": os.path.join(template_root, "pleiades_mpi_gamhelio_template.ini"),
-#         "serial": os.path.join(template_root, "pleiades_serial_gamhelio_template.ini"),
-#     },
-# }
-# GAMHELIO_PBS_TEMPLATES = {
-#     "cheyenne": {
-#         "mpi": os.path.join(template_root, "cheyenne_mpi_gamhelio_template.pbs"),
-#         "serial": os.path.join(template_root, "cheyenne_serial_gamhelio_template.pbs"),
-#     },
-#     "pleiades": {
-#         "mpi": os.path.join(template_root, "pleiades_mpi_gamhelio_template.pbs"),
-#         "serial": os.path.join(template_root, "pleiades_serial_gamhelio_template.pbs"),
-#     },
-# }
+# Path to template .pbs file.
+PBS_TEMPLATE = os.path.join(SUPPORT_FILES_DIRECTORY, "template.pbs")
 
 
 def create_command_line_parser():
@@ -397,7 +311,8 @@ def prompt_user_for_run_options(args):
     od = option_descriptions["pbs"]["_common"]
     od["account_name"]["default"] = os.getlogin()
     od["kaiju_install_directory"]["default"] = KAIJUHOME
-    od["kaiju_build_directory"]["default"] = os.path.join(KAIJUHOME, "build_mpi")
+    od["kaiju_build_directory"]["default"] = os.path.join(KAIJUHOME,
+                                                          "build_mpi")
     od["num_segments"]["default"] = str(num_segments)
     for on in od:
         o[on] = get_run_option(on, od[on], mode)
@@ -447,252 +362,76 @@ def prompt_user_for_run_options(args):
 
     # -------------------------------------------------------------------------
 
-    print(options)
+    # NOTE: The options for gamhelio are listed under the gamera section of the
+    # .ini file.
+
+    # gamhelio options
+    options["gamera"] = {}
+
+    # [sim] options
+    o = options["gamera"]["sim"] = {}
+    od = option_descriptions["gamera"]["sim"]
+    for on in od:
+        o[on] = get_run_option(on, od[on], mode)
+
+    # [time] options
+    o = options["gamera"]["time"] = {}
+    od = option_descriptions["gamera"]["time"]
+    for on in od:
+        o[on] = get_run_option(on, od[on], mode)
+
+    # [spinup] options
+    o = options["gamera"]["spinup"] = {}
+    od = option_descriptions["gamera"]["spinup"]
+    for on in od:
+        o[on] = get_run_option(on, od[on], mode)
+
+    # [output] options
+    o = options["gamera"]["output"] = {}
+    od = option_descriptions["gamera"]["output"]
+    for on in od:
+        o[on] = get_run_option(on, od[on], mode)
+
+    # [physics] options
+    o = options["gamera"]["physics"] = {}
+    od = option_descriptions["gamera"]["physics"]
+    for on in od:
+        o[on] = get_run_option(on, od[on], mode)
+
+    # [prob] options
+    o = options["gamera"]["prob"] = {}
+    od = option_descriptions["gamera"]["prob"]
+    for on in od:
+        o[on] = get_run_option(on, od[on], mode)
+
+    # [iPdir] options
+    o = options["gamera"]["iPdir"] = {}
+    od = option_descriptions["gamera"]["iPdir"]
+    for on in od:
+        o[on] = get_run_option(on, od[on], mode)
+
+    # [jPdir] options
+    o = options["gamera"]["jPdir"] = {}
+    od = option_descriptions["gamera"]["jPdir"]
+    for on in od:
+        o[on] = get_run_option(on, od[on], mode)
+
+    # [kPdir] options
+    o = options["gamera"]["kPdir"] = {}
+    od = option_descriptions["gamera"]["kPdir"]
+    for on in od:
+        o[on] = get_run_option(on, od[on], mode)
+
+    # [restart] options
+    o = options["gamera"]["restart"] = {}
+    od = option_descriptions["gamera"]["restart"]
+    for on in od:
+        o[on] = get_run_option(on, od[on], mode)
+
+    # -------------------------------------------------------------------------
 
     # Return the options dictionary.
     return options
-
-
-# def get_run_options():
-#     """Prompt the user for run options.
-
-#     Prompt the user for run options.
-
-#     Parameters
-#     ----------
-#     None
-
-#     Returns
-#     -------
-#     options : dict
-#         Dictionary of program options, each entry maps str to str.
-#     """
-
-#     # Initialize the dictionary of program options.
-#     options = {}
-
-#     # Fetch the options that determine the sets of defaults and templates to
-#     # use.
-
-#     # Specify the HPC system.
-#     options["hpc_system"] = get_run_option(
-#         name="hpc_system",
-#         prompt="Name of HPC system",
-#         valids=VALIDS_HPC_SYSTEM,
-#         default=DEFAULT_HPC_SYSTEM
-#     )
-
-#     # Specify the run type.
-#     options["run_type"] = get_run_option(
-#         name="run_type",
-#         prompt="Run type",
-#         valids=VALIDS_RUN_TYPE,
-#         default=DEFAULT_RUN_TYPE
-#     )
-
-#     # Start with the global defaults.
-#     defaults = defaults_global
-
-#     # Select the remaining defaults based on HPC system and run type.
-#     defaults.update(all_defaults[options["hpc_system"]][options["run_type"]])
-
-#     # -------------------------------------------------------------------------
-
-#     # The following parameters are run-specific.
-
-#     # Working directory for the run
-#     options["run_directory"] = get_run_option(
-#         name="run_directory",
-#         prompt="Run directory",
-#         default=defaults["run_directory"]
-#     )
-
-#     # Path to the WSA FITS file to use for initial conditions
-#     options["wsafile"] = get_run_option(
-#         name="wsafile",
-#         prompt="Path to WSA FITS file for initial conditions",
-#         default=defaults["wsafile"]
-#     )
-
-#     # Number of grid points in i-dimension
-#     options["wsa2gamera_Grid_Ni"] = get_run_option(
-#         name="wsa2gamera_Grid_Ni",
-#         prompt="Number of grid points in i-dimension",
-#         default=defaults["wsa2gamera_Grid_Ni"]
-#     )
-
-#     # Number of grid points in j-dimension
-#     options["wsa2gamera_Grid_Nj"] = get_run_option(
-#         name="wsa2gamera_Grid_Nj",
-#         prompt="Number of grid points in j-dimension",
-#         default=defaults["wsa2gamera_Grid_Nj"]
-#     )
-
-#     # Number of grid points in k-dimension
-#     options["wsa2gamera_Grid_Nk"] = get_run_option(
-#         name="wsa2gamera_Grid_Nk",
-#         prompt="Number of grid points in k-dimension",
-#         default=defaults["wsa2gamera_Grid_Nk"]
-#     )
-
-#     # Path to kaiju installation to use
-#     options["kaiju_home"] = get_run_option(
-#         name="kaiju_home",
-#         prompt="Path to kaiju installation",
-#         default=defaults["kaiju_home"],
-#     )
-
-#     # Path to kaiju binaries
-#     if options["run_type"] == "mpi":
-#         defaults["kaiju_build_bin"] = os.path.join(options["kaiju_home"], "build_mpi", "bin")
-#     elif options["run_type"] == "serial":
-#         defaults["kaiju_build_bin"] = os.path.join(options["kaiju_home"], "build_serial", "bin")
-#     else:
-#         raise TypeError(f"Invalid run type: {options['run_type']}!")
-#     options["kaiju_build_bin"] = get_run_option(
-#         name="kaiju_build_bin",
-#         prompt="Path to kaiju build bin/ directory",
-#         default=defaults["kaiju_build_bin"]
-#     )
-
-#     # -------------------------------------------------------------------------
-
-#     # Strings [A]B are the names of sections (A) and parameters (B) in the
-#     # .ini file that will be created from the template for this HPC system and
-#     # run type.
-
-#     # [sim] runid: Run ID string
-#     options["sim_runid"] = get_run_option(
-#         name="sim_runid",
-#         prompt="Run ID",
-#         default=defaults["sim_runid"]
-#     )
-
-#     # [time] tFin: Number of hours to simulate after spinup
-#     options["time_tFin"] = get_run_option(
-#         name="time_tFin",
-#         prompt="Time duration to simulate (hours)",
-#         default=defaults["time_tFin"]
-#     )
-
-#     # [spinup] tSpin: Number of simulated hours for spinup time
-#     options["spinup_tSpin"] = get_run_option(
-#         name="spinup_tSpin",
-#         prompt="Spinup time duration (simulated hours)",
-#         default=defaults["spinup_tSpin"]
-#     )
-
-#     # [spinup] tIO: Simulated time (hours) to start screen output.
-#     options["spinup_tIO"] = f"-{options['spinup_tSpin']}"
-
-#     # [output] dtOut: Screen output interval (timesteps)
-#     options["output_dtOut"] = get_run_option(
-#         name="output_dtOut",
-#         prompt="Screen output interval (timesteps)",
-#         default=defaults["output_dtOut"]
-#     )
-
-#     # [output] tsOut: Time step output interval to HDF5 (simulated hours)
-#     options["output_tsOut"] = get_run_option(
-#         name="output_tsOut",
-#         prompt="Timestep slice output interval (simulated hours)",
-#         default=defaults["output_tsOut"]
-#     )
-
-#     # -------------------------------------------------------------------------
-
-#     # Parameters specific to MPI runs.
-
-#     if options["run_type"] == "mpi":
-#         # [iPdir] N: Number of MPI chunks in i-dimension
-#         options["iPdir_N"] = get_run_option(
-#             name="iPdir_N",
-#             prompt="Number of MPI chunks in i-dimension",
-#             default=defaults["iPdir_N"]
-#         )
-#         # [jPdir] N: Number of MPI chunks in j-dimension
-#         options["jPdir_N"] = get_run_option(
-#             name="jPdir_N",
-#             prompt="Number of MPI chunks in j-dimension",
-#             default=defaults["jPdir_N"]
-#         )
-#         # [kPdir] N: Number of MPI chunks in k-dimension
-#         options["kPdir_N"] = get_run_option(
-#             name="kPdir_N",
-#             prompt="Number of MPI chunks in k-dimension",
-#             default=defaults["kPdir_N"]
-#         )
-
-#     # -------------------------------------------------------------------------
-
-#     # PBS job parameters
-
-#     # PBS account name
-#     if "pbs_account" in defaults:
-#         options["pbs_account"] = get_run_option(
-#             name="pbs_account",
-#             prompt="PBS account name",
-#             default=defaults["pbs_account"]
-#         )
-
-#     # PBS queue name
-#     options["pbs_queue"] = get_run_option(
-#         name="pbs_queue",
-#         prompt="PBS queue name",
-#         default=defaults["pbs_queue"]
-#     )
-
-#     # Requested wall time as hh:mm:ss
-#     options["pbs_walltime"] = get_run_option(
-#         name="pbs_walltime",
-#         prompt="PBS walltime request (hh:mm:ss)",
-#         default=defaults["pbs_walltime"]
-#     )
-
-#     # Number of compute nodes to use
-#     options["pbs_select"] = get_run_option(
-#         name="pbs_select",
-#         prompt="Number of compute nodes to use",
-#         default=defaults["pbs_select"]
-#     )
-
-#     # Number of cores per compute node
-#     options["pbs_ncpus"] = get_run_option(
-#         name="pbs_ncpus",
-#         prompt="Number of cores per compute node",
-#         default=defaults["pbs_ncpus"]
-#     )
-
-#     # Number of MPI ranks to run on each compute node
-#     # Should be the same as the number of CPU sockets in the node.
-#     if options["run_type"] == "mpi":
-#         options["pbs_mpiprocs"] = get_run_option(
-#             name="pbs_mpiprocs",
-#             prompt="Number of MPI ranks per compute node",
-#             default=defaults["pbs_mpiprocs"]
-#         )
-
-#     # Number of OMP threads per MPI rank
-#     if options["run_type"] == "mpi":
-#         options["pbs_ompthreads"] = get_run_option(
-#             name="pbs_ompthreads",
-#             prompt="Number of OMP threads per MPI rank",
-#             default=defaults["pbs_ompthreads"]
-#         )
-#     elif options["run_type"] == "serial":
-#         options["pbs_ompthreads"] = get_run_option(
-#             name="pbs_ompthreads",
-#             prompt="Number of OMP threads per node",
-#             default=defaults["pbs_ompthreads"]
-#         )
-#         pass
-#     else:
-#         raise TypeError(f"Invalid run type: {options['run_type']}!")
-
-#     # -------------------------------------------------------------------------
-
-#     # Return the options dictionary.
-#     return options
 
 
 def run_preprocessing_steps(options):
@@ -711,7 +450,7 @@ def run_preprocessing_steps(options):
     """
     # Read and create the template for the ini file for wsa2gamera.py, then
     # render and write it.
-    with open(WSA2GAMERA_INI_TEMPLATE) as f:
+    with open(WSA2GAMERA_INI_TEMPLATE, encoding="utf-8") as f:
         template_content = f.read()
     template = Template(template_content)
     ini_content = template.render(options)
@@ -730,9 +469,9 @@ def run_preprocessing_steps(options):
 
 
 def create_ini_files(options):
-    """Create the MAGE .ini files from a template.
+    """Create the gamhelio .ini files from a template.
 
-    Create the MAGE .ini files from a template.
+    Create the gamhelio .ini files from a template.
 
     Parameters
     ----------
@@ -748,24 +487,41 @@ def create_ini_files(options):
     ------
     None
     """
-#     # Read and create the template, then render and write it.
-#     template_file = GAMHELIO_INI_TEMPLATES[options["hpc_system"]][options["run_type"]]
-#     with open(template_file) as f:
-#         template_content = f.read()
-#     template = Template(template_content)
-#     ini_content = template.render(options)
-#     ini_file = os.path.join(
-#         options["run_directory"], f"{options['sim_runid']}.ini"
-#     )
-#     with open(ini_file, "w") as f:
-#         f.write(ini_content)
+    # Read and create the template.
+    template_file = INI_TEMPLATE
+    with open(template_file, "r", encoding="utf-8") as f:
+        template_content = f.read()
+    template = Template(template_content)
 
-#     # Save the options dictionary as a JSON file.
-#     with open("options.json", "w") as f:
-#         json.dump(options, f)
+    # Initialize the list of file paths.
+    ini_files = []
 
-#     # Return the path to the .ini file.
-#     return ini_file
+    # Create an .ini file for each segment.
+    for job in range(int(options["pbs"]["num_segments"])):
+        opt = copy.deepcopy(options)  # Need a copy of options
+        runid = opt["simulation"]["job_name"]
+        segment_id = f"{runid}-{job:02d}"
+        opt["simulation"]["segment_id"] = segment_id
+        if job > 0:
+            opt["gamera"]["restart"]["doRes"] = "T"
+        tFin = float(opt["gamera"]["time"]["tFin"])
+        dT = float(options["simulation"]["segment_duration"])
+        tFin_segment = (job + 1)*dT + 1  # Add 1 to ensure last restart file
+                                         # is created
+        if tFin_segment > tFin:  # Last segment may be shorter than the others.
+            tFin_segment = tFin + 1
+        opt["gamera"]["time"]["tFin"] = str(tFin_segment)
+        ini_content = template.render(opt)
+        ini_file = os.path.join(
+            opt["pbs"]["run_directory"],
+            f"{opt['simulation']['segment_id']}.ini"
+        )
+        ini_files.append(ini_file)
+        with open(ini_file, "w", encoding="utf-8") as f:
+            f.write(ini_content)
+
+    # Return the paths to the .ini files.
+    return ini_files
 
 
 def convert_ini_to_xml(ini_files):
@@ -833,71 +589,56 @@ def create_pbs_scripts(options):
     TypeError:
         For a non-integral of nodes requested
     """
-    # # Compute the number of nodes to request based on the MPI decomposition
-    # # and the MPI ranks per node.
-    # ni = int(options["gamera"]["iPdir"]["N"])
-    # nj = int(options["gamera"]["jPdir"]["N"])
-    # nk = int(options["gamera"]["kPdir"]["N"])
-    # ranks_per_node = int(options["pbs"]["mpiprocs"])
-    # select_nodes = ni*nj*nk/ranks_per_node
-    # if int(select_nodes) != select_nodes:
-    #     raise TypeError(f"Requested non-integral node count ({select_nodes})!")
-    # options["pbs"]["select"] = str(int(select_nodes))
+    # Compute the number of nodes to request based on the MPI decomposition
+    # and the MPI ranks per node.
+    ni = int(options["gamera"]["iPdir"]["N"])
+    nj = int(options["gamera"]["jPdir"]["N"])
+    nk = int(options["gamera"]["kPdir"]["N"])
+    ranks_per_node = int(options["pbs"]["mpiprocs"])
+    select_nodes = ni*nj*nk/ranks_per_node
+    if int(select_nodes) != select_nodes:
+        raise TypeError(f"Requested non-integral node count ({select_nodes})!")
+    options["pbs"]["select"] = str(int(select_nodes))
 
-    # # Read the template.
-    # with open(PBS_TEMPLATE, "r", encoding="utf-8") as f:
-    #     template_content = f.read()
-    # template = Template(template_content)
+    # Read the template.
+    with open(PBS_TEMPLATE, "r", encoding="utf-8") as f:
+        template_content = f.read()
+    template = Template(template_content)
 
-    # # Create a PBS script for each segment.
-    # pbs_scripts = []
-    # for job in range(int(options["pbs"]["num_segments"])):
-    #     opt = copy.deepcopy(options)  # Need a copy of options
-    #     runid = opt["simulation"]["job_name"]
-    #     segment_id = f"{runid}-{job:02d}"
-    #     opt["simulation"]["segment_id"] = segment_id
-    #     pbs_content = template.render(opt)
-    #     pbs_script = os.path.join(
-    #         opt["pbs"]["run_directory"],
-    #         f"{opt['simulation']['segment_id']}.pbs"
-    #     )
-    #     pbs_scripts.append(pbs_script)
-    #     with open(pbs_script, "w", encoding="utf-8") as f:
-    #         f.write(pbs_content)
+    # Create a PBS script for each segment.
+    pbs_scripts = []
+    for job in range(int(options["pbs"]["num_segments"])):
+        opt = copy.deepcopy(options)  # Need a copy of options
+        runid = opt["simulation"]["job_name"]
+        segment_id = f"{runid}-{job:02d}"
+        opt["simulation"]["segment_id"] = segment_id
+        pbs_content = template.render(opt)
+        pbs_script = os.path.join(
+            opt["pbs"]["run_directory"],
+            f"{opt['simulation']['segment_id']}.pbs"
+        )
+        pbs_scripts.append(pbs_script)
+        with open(pbs_script, "w", encoding="utf-8") as f:
+            f.write(pbs_content)
 
-    # # Create a single script which will submit all of the PBS jobs in order.
-    # submit_all_jobs_script = f"{options['simulation']['job_name']}_pbs.sh"
-    # with open(submit_all_jobs_script, "w", encoding="utf-8") as f:
-    #     s = pbs_scripts[0]
-    #     cmd = f"job_id=`qsub {s}`\n"
-    #     f.write(cmd)
-    #     cmd = f"echo $job_id\n"
-    #     f.write(cmd)
-    #     for s in pbs_scripts[1:]:
-    #         cmd = "old_job_id=$job_id\n"
-    #         f.write(cmd)
-    #         cmd = f"job_id=`qsub -W depend=afterok:$old_job_id {s}`\n"
-    #         f.write(cmd)
-    #         cmd = f"echo $job_id\n"
-    #         f.write(cmd)
+    # Create a single script which will submit all of the PBS jobs in order.
+    submit_all_jobs_script = f"{options['simulation']['job_name']}_pbs.sh"
+    with open(submit_all_jobs_script, "w", encoding="utf-8") as f:
+        s = pbs_scripts[0]
+        cmd = f"job_id=`qsub {s}`\n"
+        f.write(cmd)
+        cmd = f"echo $job_id\n"
+        f.write(cmd)
+        for s in pbs_scripts[1:]:
+            cmd = "old_job_id=$job_id\n"
+            f.write(cmd)
+            cmd = f"job_id=`qsub -W depend=afterok:$old_job_id {s}`\n"
+            f.write(cmd)
+            cmd = f"echo $job_id\n"
+            f.write(cmd)
 
-    # # Return the paths to the PBS scripts.
-    # return pbs_scripts, submit_all_jobs_script
-
-#     # Read and create the template, then render and write it.
-#     template_file = GAMHELIO_PBS_TEMPLATES[options["hpc_system"]][options["run_type"]]
-#     with open(template_file) as f:
-#         template_content = f.read()
-#     template = Template(template_content)
-#     ini_content = template.render(options)
-#     pbs_script = os.path.join(
-#         options["run_directory"], f"{options['sim_runid']}.pbs"
-#     )
-#     with open(pbs_script, "w") as f:
-#         f.write(ini_content)
-
-#     # Return the path to the PBS script.
-#     return pbs_script
+    # Return the paths to the PBS scripts.
+    return pbs_scripts, submit_all_jobs_script
 
 
 def main():
@@ -956,34 +697,33 @@ def main():
         print("Running preprocessing steps.")
     run_preprocessing_steps(options)
 
-    # # Create the .ini file(s).
-    # if verbose:
-    #     print("Creating .ini file(s) for run.")
-    # ini_files = create_ini_files(options)
-    # if debug:
-    #     print(f"ini_files = {ini_files}")
+    # Create the .ini file(s).
+    if verbose:
+        print("Creating .ini file(s) for run.")
+    ini_files = create_ini_files(options)
+    if debug:
+        print(f"ini_files = {ini_files}")
 
-    # # Convert the .ini file(s) to .xml files(s).
-    # if verbose:
-    #     print("Converting .ini file(s) to .xml file(s).")
-    # xml_files = convert_ini_to_xml(ini_files)
-    # if debug:
-    #     print(f"xml_files = {xml_files}")
+    # Convert the .ini file(s) to .xml files(s).
+    if verbose:
+        print("Converting .ini file(s) to .xml file(s).")
+    xml_files = convert_ini_to_xml(ini_files)
+    if debug:
+        print(f"xml_files = {xml_files}")
 
-    # # Create the PBS job script(s).
-    # if verbose:
-    #     print("Creating PBS job script(s) for run.")
-    # pbs_scripts, all_jobs_script = create_pbs_scripts(options)
-    # if verbose:
-    #     print(f"The PBS job scripts {pbs_scripts} are ready.")
-    # print(f"The PBS scripts {pbs_scripts} have been created, each with a "
-    #       "corresponding XML file. To submit the jobs with the proper "
-    #       "dependency (to ensure each segment runs in order), please run the "
-    #       f"script {all_jobs_script} like this:\n"
-    #       f"bash {all_jobs_script}")
+    # Create the PBS job script(s).
+    if verbose:
+        print("Creating PBS job script(s) for run.")
+    pbs_scripts, all_jobs_script = create_pbs_scripts(options)
+    if verbose:
+        print(f"The PBS job scripts {pbs_scripts} are ready.")
+    print(f"The PBS scripts {pbs_scripts} have been created, each with a "
+          "corresponding XML file. To submit the jobs with the proper "
+          "dependency (to ensure each segment runs in order), please run the "
+          f"script {all_jobs_script} like this:\n"
+          f"bash {all_jobs_script}")
 
 
 if __name__ == "__main__":
     """Begin main program."""
     main()
-
