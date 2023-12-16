@@ -1,72 +1,58 @@
 #!/bin/bash
 
+# This script was generated to run on {{ simulation.hpc_system }}.
+
 #PBS -N {{ simulation.job_name }}
-#PBS -q {{ pbs_queue }}
-#PBS -l walltime={{ pbs_walltime }}
-#PBS -l select={{ pbs_select }}:ncpus={{ pbs_ncpus }}:mpiprocs={{ pbs_mpiprocs }}:ompthreads={{ pbs_ompthreads }}:model=bro
+#PBS -A {{ pbs.account_name }}
+#PBS -q {{ pbs.queue }}
+#PBS -l walltime={{ pbs.walltime }}
+#PBS -l select={{ pbs.select }}:ncpus={{ pbs.ncpus }}:mpiprocs={{ pbs.mpiprocs }}:ompthreads={{ pbs.ompthreads }}{{ pbs.other }}
 #PBS -m abe
 #PBS -j oe
 
 echo "Job $PBS_JOBID started at `date` on `hostname`."
 
-# Specify the ID string for the run. This can be set to any desired string.
-# PBS_JOBNAME is used here as an example, as it is set by the #PBS -N
-# directive near the top of this file.
+# Specify the ID string for the run.
 export RUNID=$PBS_JOBNAME
 
 # Load the required modules for MPI kaiju.
 module purge
-module load pkgsrc/2021Q2
-module load comp-intel/2020.4.304
-module load mpi-hpe/mpt.2.23
-module load hdf5/1.8.18_mpt
-
-echo "The following modules are loaded:"
+{%- for module in pbs.modules %}
+module load {{ module }}
+{%- endfor %}
+echo "The loaded modules are:"
 module list
 
 # Define the kaiju installation location.
-# NOTE: You MUST set this variable to the path to your kaiju directory, which
-# is the top-level directory created when you cloned the kaiju repository.
-export KAIJU_INSTALL_DIR={{ kaiju_home }}
+export KAIJU_INSTALL_DIR={{ pbs.kaiju_install_directory }}
 
 # Set kaiju-related environment variables.
 # This script sets KAIJUHOME and other environment variables.
 source $KAIJU_INSTALL_DIR/scripts/setupEnvironment.sh
 
-# Add the kaiju binary directory to the command path.
-# NOTE: You should set this variable to the path to the bin subdirectory of
-# your kaiju build directory. The setting below assumes that the MPI version
-# of kaiju was built in the build_mpi subdirectory of the kaiju home directory
-# (which is typically the same as KAIJU_INSTALL_DIR).
-export PATH={{ kaiju_build_bin }}:$PATH
+# Add the kaiju build bin directory to PATH.
+export PATH={{ pbs.kaiju_build_directory }}/bin:$PATH
 
-# Set the MPI_TYPE_DEPTH to 32.
-# If this is not done, gamera_mpi.x will crash with a stack traceback that
-# includes an error messge like this:
-# ...
-# MPT ERROR: The program attempted to construct a derived datatype with
-# depth 15, but the maximum allowed depth is 14. You can increase...
-# ...
-# If you see error messages like this at run time, try increasing the value
-# assigned to MPI_TYPE_DEPTH in the line below.
+# Set other environment variables.
+{{ pbs.additional_environment_variables -}}
 export MPI_TYPE_DEPTH=32
-
-# Set the OMP stack size to prevent a crash.
-# If this setting is ignored, the model may cause the MPI kaiju code to crash
-# with a segmentation fault and core dump. The value of "100M" was chosen
-# ~arbitrarily; experimentation may allow a smaller value to be used.
 export OMP_STACKSIZE=100M
+export OMP_NUM_THREADS={{ pbs.ompthreads }}
 
 echo "The active environment variables are:"
 printenv
 
+# Copy the node file for use by the placer command.
+nodefile=nodefile.$PBS_JOBID
+cp $PBS_NODEFILE $nodefile
+
+# Copy the main executable.
+cp {{ pbs.kaiju_build_directory }}/bin/gamhelio_mpi.x ./gamhelio_mpi.x
+
 # Run the model. Direct output from the program is saved in a text file.
-EXE=gamhelio_mpi.x
+EXE=./gamhelio_mpi.x
+OUTPUT_FILE="$EXE-{{ simulation.segment_id }}.out"
 echo "Running $EXE on model $RUNID."
-# The omplace tool is used to ensure efficient pinning of MPI ranks and OMP
-# threads to appropriate sockets and cores. If you omit omplace, your job
-# will still run, but it probably be an order of magnitude slower than it
-# would be when using omplace.
-mpiexec omplace $EXE $RUNID.xml >& ${EXE}.${RUNID}.out
+{{ pbs.mpiexec_command }} $EXE $RUNID.xml &>> $OUTPUT_FILE
 
 echo "Job $PBS_JOBID ended at `date` on `hostname`."

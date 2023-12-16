@@ -161,15 +161,10 @@
                 "prompt": "Number of OMP threads per MPI rank",
                 "default": "14"
             },
-            "num_helpers": {
+            "other": {
                 "LEVEL": "EXPERT",
-                "prompt": "Number of helper nodes",
-                "default": {
-                    "D": "0",
-                    "Q": "2",
-                    "O": "4",
-                    "H": "8"
-                }
+                "prompt": "Additional options for PBS -l",
+                "default": ":model=bro"
             },
             "modules": {
                 "LEVEL": "EXPERT",
