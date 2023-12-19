@@ -33,7 +33,7 @@ module raijugrids
             !! Lower colat boundary [deg], ~15 Re in dipole
         call iXML%Set_Val(thetaU , "grid/ThetaU", 45.0)
             !! Upper colat boundary [deg], 2 Re in dipole
-        call iXML%Set_Val(Nt, "grid/Nt", 61 )  ! 1 deg resolution
+        call iXML%Set_Val(Nt, "grid/Nt", 31 )  ! 1 deg resolution
         call iXML%Set_Val(Np, "grid/Np", 361)  ! 1 deg resolution
         call iXML%Set_Val(Ng, "grid/Ng", 4  )  ! Number of ghosts, in every direction for now
 
@@ -144,9 +144,9 @@ module raijugrids
             do i=shGr%is,shGr%ie+1
                 do j=shGr%js,shGr%je+1
                     ! Theta dir
-                    Grid%areaFace(i,j,1) = Central8(Grid%areaCC(i-4:i+3, j))
+                    Grid%areaFace(i,j,RAI_TH) = Central8(Grid%areaCC(i-4:i+3, j))
                     ! Phi dir
-                    Grid%areaFace(i,j,2) = Central8(Grid%areaCC(i, j-4:j+3))
+                    Grid%areaFace(i,j,RAI_PH) = Central8(Grid%areaCC(i, j-4:j+3))
                 enddo
             enddo
 
@@ -156,19 +156,19 @@ module raijugrids
                     ! Faces in theta dir are i +/- 1/2 faces, which are in the phi direction
                     
                     ! Theta dir
-                    Grid%lenFace(i,j,1) = (planet%ri_m/planet%rp_m) &
+                    Grid%lenFace(i,j,RAI_TH) = (planet%ri_m/planet%rp_m) &
                                         * sin(shGr%th(i)) &
                                         * (shGr%ph(j+1) - shGr%ph(j))  ! Line segment in phi direction
                     ! Phi dir
-                    Grid%lenFace(i,j,2) = (planet%ri_m/planet%rp_m) &
+                    Grid%lenFace(i,j,RAI_PH) = (planet%ri_m/planet%rp_m) &
                                         * (shGr%th(i+1) - shGr%th(i))  ! Line segment in theta direction
                 enddo
             enddo
             ! Do last cell's edges manually
-            Grid%lenFace(shGr%ieg+1, shGr%jeg+1, 1) = (planet%ri_m/planet%rp_m) &
+            Grid%lenFace(shGr%ieg+1, shGr%jeg+1, RAI_TH) = (planet%ri_m/planet%rp_m) &
                                                 * sin(shGr%th(shGr%ie+1)) &
                                                 * (shGr%ph(shGr%jeg+1) - shGr%ph(shGr%jeg))
-            Grid%lenFace(shGr%ieg+1, shGr%jeg+1, 2) = (planet%ri_m/planet%rp_m) &
+            Grid%lenFace(shGr%ieg+1, shGr%jeg+1, RAI_PH) = (planet%ri_m/planet%rp_m) &
                                                 * (shGr%th(shGr%ieg+1) - shGr%th(shGr%ieg))
 
         end associate

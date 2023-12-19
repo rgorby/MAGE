@@ -56,12 +56,13 @@ module raijuPreAdvancer
         call Toc("BCs")
 
         ! Handle edge cases that may effect the validity of information carried over from last coupling period
+        ! TODO: do this in predictor function
         call prepEtaLast(Grid%shGrid, State, isFirstCpl)
 
         ! Calc cell velocities
         call Tic("Calc cell-center velocities")
         call calcPotGrads(Model, Grid, State)
-        !$OMP PARALLEL DO default(shared) collapse(1) &
+        !$OMP PARALLEL DO default(shared) &
         !$OMP schedule(dynamic) &
         !$OMP private(k)
         do k=1,Grid%Nk
@@ -219,6 +220,7 @@ module raijuPreAdvancer
 
     end subroutine calcEffectivePotential
 
+
     subroutine calcPotGrads(Model, Grid, State)
         !! Calcs gradient of ionospheric potential, corotation potential, and (flux tube volume ^ -2/3)
         !! Only needs to be called when any of the above quantities are updated (e.g. beginning of every coupling timestep)
@@ -252,8 +254,8 @@ module raijuPreAdvancer
         ! lambda is constant, so just need grad(V^(-2/3) )
         ! grad(V^(-2/3)) = -2/3*V^(-5/3) * grad(V)
         call calcGradFTV(Model%planet%ri_m, Model%planet%magMoment, Grid, isGood, State%bvol, gradVM)
-        State%gradVM(:,:,1) = (-2./3.) * State%bvol**(-5./3.) * gradVM(:,:,1)  ! [Vol/m/lambda]
-        State%gradVM(:,:,2) = (-2./3.) * State%bvol**(-5./3.) * gradVM(:,:,2)  ! [Vol/m/lambda]
+        State%gradVM(:,:,RAI_TH) = (-2./3.) * State%bvol**(-5./3.) * gradVM(:,:,RAI_TH)  ! [Vol/m/lambda]
+        State%gradVM(:,:,RAI_PH) = (-2./3.) * State%bvol**(-5./3.) * gradVM(:,:,RAI_PH)  ! [Vol/m/lambda]
 
     end subroutine calcPotGrads
 
@@ -291,20 +293,20 @@ module raijuPreAdvancer
 
                 ! Theta dir
                 if(isG(i-1,j) .and. isG(i+1,j)) then
-                    gradQ(i,j,1) = (Q(i+1,j) - Q(i-1,j))/RIon/(Grid%delTh(i)+Grid%delTh(i+1))
+                    gradQ(i,j,RAI_TH) = (Q(i+1,j) - Q(i-1,j))/RIon/(Grid%delTh(i)+Grid%delTh(i+1))
                 else if (isG(i-1,j)) then
-                    gradQ(i,j,1) = (Q(i,j)-Q(i-1,j))/RIon/Grid%delTh(i)
+                    gradQ(i,j,RAI_TH) = (Q(i,j)-Q(i-1,j))/RIon/Grid%delTh(i)
                 else if (isG(i+1,j)) then
-                    gradQ(i,j,1) = (Q(i+1,j)-Q(i,j))/RIon/Grid%delTh(i+1)
+                    gradQ(i,j,RAI_TH) = (Q(i+1,j)-Q(i,j))/RIon/Grid%delTh(i+1)
                 end if
 
                 ! Phi dir
                 if(isG(i,j-1) .and. isG(i,j+1)) then
-                    gradQ(i,j,2) = (Q(i,j+1) - Q(i,j-1))/RIon/sinTh(i)/(Grid%delPh(j)+Grid%delPh(j+1))
+                    gradQ(i,j,RAI_PH) = (Q(i,j+1) - Q(i,j-1))/RIon/sinTh(i)/(Grid%delPh(j)+Grid%delPh(j+1))
                 else if (isG(i,j-1)) then
-                    gradQ(i,j,2) = (Q(i,j)-Q(i,j-1))/RIon/sinTh(i)/Grid%delPh(j)
+                    gradQ(i,j,RAI_PH) = (Q(i,j)-Q(i,j-1))/RIon/sinTh(i)/Grid%delPh(j)
                 else if (isG(i,j-1)) then
-                    gradQ(i,j,2) = (Q(i,j+1)-Q(i,j))/RIon/sinTh(i)/Grid%delPh(j+1)
+                    gradQ(i,j,RAI_PH) = (Q(i,j+1)-Q(i,j))/RIon/sinTh(i)/Grid%delPh(j+1)
                 end if
             enddo
         enddo
@@ -363,7 +365,7 @@ module raijuPreAdvancer
             call calcGradIJ(RIon, Grid, isG, dV, gradV)
 
             ! Add on grad from dipole
-            gradV(:,:,1) = gradV(:,:,1) + dV0_dth
+            gradV(:,:,RAI_TH) = gradV(:,:,RAI_TH) + dV0_dth
             ! No need to do phi direction cause dipole doesn't have gradient in phi
 
         end associate
@@ -388,6 +390,8 @@ module raijuPreAdvancer
         real(rp), dimension(Grid%shGrid%isg:Grid%shGrid%ieg, Grid%shGrid%jsg:Grid%shGrid%jeg) :: cosdip
         real(rp), dimension(Grid%shGrid%isg:Grid%shGrid%ieg, Grid%shGrid%jsg:Grid%shGrid%jeg, 2) :: gradPot
 
+
+        
         gradPot = State%gradPotE + State%gradPotCorot + Grid%alamc(k)*State%gradVM  ! [V/m]        
 
         ! Vel = ( Bvec x grad(pot) ) / B^2  = ( bhat x grad(pot) ) / B
@@ -400,8 +404,8 @@ module raijuPreAdvancer
         !enddo
         !end associate
 
-        Vtp(:,:,1) =      gradPot(:,:,2) / Grid%cosdip / (Grid%Bmag*1.0e-9)  ! [m/s]
-        Vtp(:,:,2) = -1.0*gradPot(:,:,1) / Grid%cosdip / (Grid%Bmag*1.0e-9)  ! [m/s]
+        Vtp(:,:,RAI_TH) =      gradPot(:,:,RAI_PH) / Grid%cosdip / (Grid%Bmag*1.0e-9)  ! [m/s]
+        Vtp(:,:,RAI_PH) = -1.0*gradPot(:,:,RAI_TH) / Grid%cosdip / (Grid%Bmag*1.0e-9)  ! [m/s]
 
     end subroutine calcVelocityCC
 

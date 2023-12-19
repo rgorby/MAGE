@@ -168,6 +168,7 @@ module raijuCpl
 
     end subroutine setActiveDomain
 
+    
     subroutine imagTubes2RAIJU(Model, Grid, State, ijTubes, f_MHD2SpcMap)
         !! Map 2D array of IMAGTubes to RAIJU State
         type(raijuModel_T), intent(in) :: Model

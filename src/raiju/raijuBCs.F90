@@ -27,9 +27,7 @@ module raijuBCs
             !! Index of plasmasphere
         real(rp) :: etaBelow
             !! Amount of eta below lowest lambda bound (every i,j gets a copy)
-        real(rp) :: pressBelow
-            !! Pressure of eta below lowest lambda bound (every i,j gets a copy)
-
+        
         if (present(doWholeDomainO)) then
             doWholeDomain = doWholeDomainO
         else
@@ -51,12 +49,12 @@ module raijuBCs
                 doBC = .false.
             end where
         endif
+ 
 
         psphIdx = spcIdx(Grid, F_PSPH)
-        
         !$OMP PARALLEL DO default(shared) collapse(1) &
         !$OMP schedule(dynamic) &
-        !$OMP private(i,j,s,vm,kT, etaBelow, pressBelow)
+        !$OMP private(i,j,s,vm,kT, etaBelow)
         do i=Grid%shGrid%isg,Grid%shGrid%ieg
             do j=Grid%shGrid%jsg,Grid%shGrid%jeg
                 ! Skip if we should leave point alone
@@ -82,16 +80,21 @@ module raijuBCs
             enddo  ! j
         enddo  ! i
 
-        ! Do first round of determining active shells for each k
-        ! We do this everywhere
-        do s=1,Grid%nSpc
-            call setActiveShellsByContribution(Grid%shGrid, Grid%spc(s), State%bVol, &
-                State%eta(:,:,Grid%spc(s)%kStart:Grid%spc(s)%kEnd), &
-                State%activeShells(:,Grid%spc(s)%kStart:Grid%spc(s)%kEnd), &  ! This is what we're writing to
-                worthyFracO=Model%worthyFrac)
-        enddo  ! s
 
+        if (Model%doActiveShell ) then
+
+            ! Do first round of determining active shells for each k
+            ! We do this everywhere
+            do s=1,Grid%nSpc
+                call setActiveShellsByContribution(Grid%shGrid, Grid%spc(s), State%bVol, &
+                    State%eta(:,:,Grid%spc(s)%kStart:Grid%spc(s)%kEnd), &
+                    State%activeShells(:,Grid%spc(s)%kStart:Grid%spc(s)%kEnd), &  ! This is what we're writing to
+                    worthyFracO=Model%worthyFrac)
+            enddo  ! s
+        endif
+        
     end subroutine applyRaijuBCs
+
 
 !------
 ! Active I Shell calculations

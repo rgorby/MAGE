@@ -9,6 +9,11 @@ module raijudefs
     ! Enumerators
     !------
 
+    ! Index things
+    enum, bind(C)
+        enumerator :: RAI_TH=1, RAI_PH  ! Theta and phi directions
+    endenum
+
     ! Grid settings
     enum, bind(C)
         enumerator :: G_UNISPH, G_SHGRID

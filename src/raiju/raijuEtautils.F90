@@ -156,7 +156,7 @@ module raijuetautils
 
 
     subroutine DkT2SpcEta(Model, spc, eta, D, kT, vm, etaBelowO)
-        !! Take a density and pressure, and map it to RAIJU eta channels for given flavor
+        !! Take a density and pressure, and map it to RAIJU eta channels for given species
         type(raijuModel_T), intent(in) :: Model
         type(raijuSpecies_T), intent(in) :: spc
             !! Species info

@@ -56,10 +56,12 @@ module raijustarter
 
         write(*,*) "raijuInitModel is starting"
 
+        ! Assume we are running with others, but allow for solo run
+        call iXML%Set_Val(Model%isSA, "driver/isSA", .false.)
+
         ! Assuming that if being controlled by e.g. Voltron, someone else will set RunID accordingly
-        ! If getting here without RunID being set, assume we're running in stand-alone
-        ! (Currently no decisions are made based on being SA, just means we set the RunID ourselves)
-        if (trim(Model%RunID) .eq. "") then
+        ! If we are in SA mode, need to set it ourselves
+        if (Model%isSA) then
             call iXML%Set_Val(Model%RunID, "prob/RunID","raijuSA")  ! raiju stand-alone
         endif
 
@@ -83,7 +85,7 @@ module raijustarter
         call iXML%Set_Val(Model%isLoud, "debug/isLoud",.false.)
         call iXML%Set_Val(Model%writeGhosts, "debug/writeGhosts",.false.)
         call iXML%Set_Val(Model%doDebugOutput, "debug/debugOutput",.false.)
-
+        
         ! Plasmasphere settings
         call iXML%Set_Val(Model%doPlasmasphere, "plasmasphere/doPsphere",.false.)
         ! Determine number of species. First set default, then read from xml to overwrite if present
@@ -116,9 +118,10 @@ module raijustarter
         ! Certain physical constants that shouldn't be constants
         call iXML%Set_Val(Model%tiote, "prob/tiote",4.0)
 
+        ! Active shell settings
+        call iXML%Set_Val(Model%doActiveShell, "activeShell/doAS",.true.)
         call iXML%Set_Val(Model%worthyFrac, "prob/worthyFrac",fracWorthyDef)
-        call iXML%Set_Val(Model%pressFracThresh, "prob/pressFracthresh",pressFracThreshDef)
-        call iXML%Set_Val(Model%doLosses, "prob/doLosses",.true.)
+
         call iXML%Set_Val(Model%doGeoCorot, "prob/doGeoCorot",.false.)
 
         ! Lambda channel settings
@@ -141,10 +144,11 @@ module raijustarter
 
 
         ! Losses
-        call iXML%Set_Val(Model%doSS , "losses/doSS" ,.true. )
-        call iXML%Set_Val(Model%doCC , "losses/doCC" ,.true.)
-        call iXML%Set_Val(Model%doCX , "losses/doCX" ,.false.)
-        call iXML%Set_Val(Model%doFLC, "losses/doFLC",.false.)
+        call iXML%Set_Val(Model%doLosses, "losses/doLosses",.true.)
+        call iXML%Set_Val(Model%doSS    , "losses/doSS" ,.true. )
+        call iXML%Set_Val(Model%doCC    , "losses/doCC" ,.true. )
+        call iXML%Set_Val(Model%doCX    , "losses/doCX" ,.false.)
+        call iXML%Set_Val(Model%doFLC   , "losses/doFLC",.false.)
 
         ! Electron loss model
         call iXML%Set_Val(tmpStr, "losses/eLossModel","WM")
@@ -184,7 +188,7 @@ module raijustarter
         type(ShellGrid_T) :: shGrid
 
         ! Set grid params
-        call iXML%Set_Val(Grid%nB, "grid/Nbnd", 4  )  ! Number of cells between open boundary and active domain
+        call iXML%Set_Val(Grid%nB, "grid/Nbnd", 4      )  ! Number of cells between open boundary and active domain
         call iXML%Set_Val(tmpStr, "grid/gType","UNISPH")
 
         ! Fill out Grid object depending on chosen method

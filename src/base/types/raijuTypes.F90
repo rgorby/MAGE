@@ -127,7 +127,9 @@ module raijutypes
             !! 0 < PDMB < 1 used in PDM limiter. 1 = very diffusive
 
         ! https://media0.giphy.com/media/XfDPdSRhYFUhIU7EPw/giphy.gif
-        logical  :: fixedTimestep
+        logical :: isSA
+            !! Is RAIJU running in statnd-alone mode. If so, we shouldn't expect any coupling information to exist
+        logical :: fixedTimestep
             !! Fixed or dynamic timestep
         logical :: isMPI
         logical :: isRestart
@@ -154,8 +156,12 @@ module raijutypes
 
         ! Some constants
         real(rp) :: tiote  ! Ion temp over electron temp. In the future, should be fancier
-        real(rp) :: worthyFrac  ! Fracton that a channel must contribute to pressure or density for its i shell to be evolved
-        real(rp) :: pressFracThresh  ! Threshold for fraction of pressure below the lowest lambda channel when mapping to moments. If fraction is higher than this threshold, we complain
+
+        ! Active shell settings
+        logical :: doActiveShell
+            !! Use activeShell logic to try to boost dt
+        real(rp) :: worthyFrac  
+            !! Fracton that a channel must contribute to pressure or density for its i shell to be evolved
 
         ! Lambda controls
         real(rp) :: kappa

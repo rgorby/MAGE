@@ -75,6 +75,7 @@ module raijuICHelpers
         ! Calc moments
         call EvalMoments(Grid, State)
 
+
     end subroutine initRaijuIC_DIP
 
 
@@ -159,6 +160,12 @@ module raijuICHelpers
                         call applyDkT2Eta(Model, Grid, State, D, kT_i, kT_e, vm)
                     enddo
                 enddo
+            
+            case("LINE")  ! Line of constant eta for all channels
+
+                call iXML%Set_Val(D0,"prob/constEta" , 1.0)
+                j = Grid%shGrid%Np/2
+                State%eta(:,j,:) = D0
 
             case default
                 write(*,*) "ERROR: Pick a valid eta preset in raijuICHelpers.F90:initEtaPresets"

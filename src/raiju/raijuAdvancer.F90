@@ -129,11 +129,12 @@ module raijuAdvancer
             n = 1  ! counter
             do while ( tEnd-t > TINY)
                 !write(*,*)k,n,t,dt
-                ! Calc new active shells
                 
-                !! Just mute for now, we're not actually using it
-                !State%activeShells(:,k) = setLambdaActiveShells(sh, spc, State%bVol, &
-                !                            State%eta(:,:,spc%kStart:spc%kEnd), k, worthyFracO = Model%worthyFrac)
+                ! Calc new active shells
+                if (Model%doActiveShell) then
+                    State%activeShells(:,k) = setLambdaActiveShells(sh, spc, State%bVol, &
+                                                State%eta(:,:,spc%kStart:spc%kEnd), k, worthyFracO = Model%worthyFrac)
+                endif
                 
 
                 ! Calc next time step
@@ -204,7 +205,7 @@ module raijuAdvancer
         do j=Grid%shGrid%js,Grid%shGrid%je
             do i=Grid%shGrid%is,Grid%shGrid%ie
                 State%eta(i,j,k) = State%eta(i,j,k) + dt/Grid%areaCC(i,j) &
-                                                      * ( Qflux(i,j,1) - Qflux(i+1,j,1) + Qflux(i,j,2) - Qflux(i,j+1,2) )
+                                                      * ( Qflux(i,j,RAI_TH) - Qflux(i+1,j,RAI_TH) + Qflux(i,j,RAI_PH) - Qflux(i,j+1,RAI_PH) )
             enddo
         enddo
 
