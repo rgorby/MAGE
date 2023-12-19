@@ -2,7 +2,7 @@
 
 # This script was generated to run on {{ simulation.hpc_system }}.
 
-#PBS -N {{ simulation.job_name }}
+#PBS -N {{ simulation.segment_id }}
 #PBS -A {{ pbs.account_name }}
 #PBS -q {{ pbs.queue }}
 #PBS -l walltime={{ pbs.walltime }}
@@ -14,6 +14,12 @@ echo "Job $PBS_JOBID started at `date` on `hostname`."
 
 # Specify the ID string for the run.
 export RUNID=$PBS_JOBNAME
+
+# Some HPC systems do not start the job in the correct directory.
+# Move to the intended directory. This will move the job to the correct
+# directory on problem systems, such as pleiades (for some users), and have no
+# effect on other systems.
+cd $PBS_O_WORKDIR
 
 # Load the required modules for MPI kaiju.
 module purge

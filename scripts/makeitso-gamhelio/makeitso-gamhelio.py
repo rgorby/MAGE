@@ -18,6 +18,9 @@ set to default values.
 parameters, with "EXPERT" parameters set to defaults.
 
 "EXPERT" - The user is prompted for *all* adjustable parameters.
+
+"COMPUTED" - The value of the option is computed internally. It is not
+available to the user as an adjustable parameter.
 """
 
 
@@ -66,6 +69,12 @@ INI_TEMPLATE = os.path.join(SUPPORT_FILES_DIRECTORY, "template.ini")
 
 # Path to template .pbs file.
 PBS_TEMPLATE = os.path.join(SUPPORT_FILES_DIRECTORY, "template.pbs")
+
+# Number of seconds in an hour.
+SECONDS_PER_HOUR = 3600.0
+
+# Hours to add to tFin for a segment to ensure last restart file is created.
+TFIN_NUDGE_HOURS = 0.1
 
 
 def create_command_line_parser():
@@ -270,13 +279,13 @@ def prompt_user_for_run_options(args):
         o[on] = get_run_option(on, od[on], mode)
 
     # Compute the total simulation time in seconds, use as segment duration
-    # default.
+    # default in hours.
     date_format = '%Y-%m-%dT%H:%M:%S'
     start_date = o["start_date"]
     stop_date = o["stop_date"]
     t1 = datetime.datetime.strptime(start_date, date_format)
     t2 = datetime.datetime.strptime(stop_date, date_format)
-    simulation_duration = (t2 - t1).total_seconds()
+    simulation_duration = (t2 - t1).total_seconds()/SECONDS_PER_HOUR
     od["segment_duration"]["default"] = str(simulation_duration)
 
     # Ask if the user wants to split the run into multiple segments.
@@ -296,7 +305,7 @@ def prompt_user_for_run_options(args):
     num_segments = simulation_duration/float(o["segment_duration"])
     if num_segments > int(num_segments):
         num_segments += 1
-    num_segments = int(num_segments) + 1
+    num_segments = int(num_segments) + 1   # For spinup segment.
 
     # Prompt for the remaining parameters.
     for on in ["hpc_system"]:
@@ -313,8 +322,11 @@ def prompt_user_for_run_options(args):
     od["kaiju_install_directory"]["default"] = KAIJUHOME
     od["kaiju_build_directory"]["default"] = os.path.join(KAIJUHOME,
                                                           "build_mpi")
-    od["num_segments"]["default"] = str(num_segments)
+    # Number of segments is computed.
+    o["num_segments"] = str(num_segments)
     for on in od:
+        if od[on]["LEVEL"] == "COMPUTED":
+            continue
         o[on] = get_run_option(on, od[on], mode)
 
     # HPC platform-specific options
@@ -377,6 +389,7 @@ def prompt_user_for_run_options(args):
     # [time] options
     o = options["gamera"]["time"] = {}
     od = option_descriptions["gamera"]["time"]
+    od["tFin"]["default"] = str(simulation_duration)
     for on in od:
         o[on] = get_run_option(on, od[on], mode)
 
@@ -455,7 +468,7 @@ def run_preprocessing_steps(options):
     template = Template(template_content)
     ini_content = template.render(options)
     ini_file = os.path.join(options["pbs"]["run_directory"], "wsa2gamera.ini")
-    with open(ini_file, "w") as f:
+    with open(ini_file, "w", encoding="utf-8") as f:
         f.write(ini_content)
 
     # Create the grid and inner boundary conditions files.
@@ -505,14 +518,18 @@ def create_ini_files(options):
         job = 0
         segment_id = f"{runid}-{job:02d}"
         opt["simulation"]["segment_id"] = segment_id
-        tFin = float(opt["gamera"]["time"]["tFin"])
-        dT = float(options["simulation"]["segment_duration"])
-        tFin_segment = 1.0  # Just perform spinup in first segment
+        # NOTE: Convert hours to seconds
+        tFin = float(opt["gamera"]["time"]["tFin"])*SECONDS_PER_HOUR
+        dT = float(options["simulation"]["segment_duration"])*SECONDS_PER_HOUR
+        tFin_segment = TFIN_NUDGE_HOURS  # Just perform spinup in first segment
         opt["gamera"]["time"]["tFin"] = str(tFin_segment)
         ini_content = template.render(opt)
         ini_file = os.path.join(
-            opt["pbs"]["run_directory"], f"{opt['simulation']['segment_id']}.ini"
+            opt["pbs"]["run_directory"],
+            f"{opt['simulation']['segment_id']}.ini"
         )
+        with open(ini_file, "w", encoding="utf-8") as f:
+            f.write(ini_content)
         ini_files.append(ini_file)
 
         # Create an .ini file for each simulation segment.
@@ -524,17 +541,19 @@ def create_ini_files(options):
             opt["gamera"]["restart"]["doRes"] = "T"
             tFin = float(opt["gamera"]["time"]["tFin"])
             dT = float(options["simulation"]["segment_duration"])
-            tFin_segment = job*dT + 1  # Add 1 to ensure last restart file is created
-            if tFin_segment > tFin:    # Last segment may be shorter than the others.
-                tFin_segment = tFin + 1
-                opt["gamera"]["time"]["tFin"] = str(tFin_segment)
-                ini_content = template.render(opt)
-                ini_file = os.path.join(
-                    opt["pbs"]["run_directory"], f"{opt['simulation']['segment_id']}.ini"
-                )
-                ini_files.append(ini_file)
-                with open(ini_file, "w", encoding="utf-8") as f:
-                    f.write(ini_content)
+            # Nudge the end time so the last restart file is created.
+            tFin_segment = job*dT + TFIN_NUDGE_HOURS
+            if tFin_segment > tFin:    # Last segment may be shorter.
+                tFin_segment = tFin + TFIN_NUDGE_HOURS
+            opt["gamera"]["time"]["tFin"] = str(tFin_segment)
+            ini_content = template.render(opt)
+            ini_file = os.path.join(
+                opt["pbs"]["run_directory"],
+                f"{opt['simulation']['segment_id']}.ini"
+            )
+            with open(ini_file, "w", encoding="utf-8") as f:
+                f.write(ini_content)
+            ini_files.append(ini_file)
     else:
         # Using a single segment for spinup and simulation.
         opt = copy.deepcopy(options)  # Need a copy of options
@@ -544,8 +563,11 @@ def create_ini_files(options):
         opt["simulation"]["segment_id"] = segment_id
         ini_content = template.render(opt)
         ini_file = os.path.join(
-            opt["pbs"]["run_directory"], f"{opt['simulation']['segment_id']}.ini"
+            opt["pbs"]["run_directory"],
+            f"{opt['simulation']['segment_id']}.ini"
         )
+        with open(ini_file, "w", encoding="utf-8") as f:
+            f.write(ini_content)
         ini_files.append(ini_file)
 
     # Return the paths to the .ini files.
@@ -635,7 +657,23 @@ def create_pbs_scripts(options):
 
     # Create a PBS script for each segment.
     pbs_scripts = []
-    for job in range(int(options["pbs"]["num_segments"])):
+    if options["simulation"]["use_segments"].upper() == "Y":
+        for job in range(int(options["pbs"]["num_segments"])):
+            opt = copy.deepcopy(options)  # Need a copy of options
+            runid = opt["simulation"]["job_name"]
+            segment_id = f"{runid}-{job:02d}"
+            opt["simulation"]["segment_id"] = segment_id
+            pbs_content = template.render(opt)
+            pbs_script = os.path.join(
+                opt["pbs"]["run_directory"],
+                f"{opt['simulation']['segment_id']}.pbs"
+            )
+            with open(pbs_script, "w", encoding="utf-8") as f:
+                f.write(pbs_content)
+            pbs_scripts.append(pbs_script)
+    else:
+        # Use a single job for spinup and simulation.
+        job = 0
         opt = copy.deepcopy(options)  # Need a copy of options
         runid = opt["simulation"]["job_name"]
         segment_id = f"{runid}-{job:02d}"
@@ -655,14 +693,14 @@ def create_pbs_scripts(options):
         s = pbs_scripts[0]
         cmd = f"job_id=`qsub {s}`\n"
         f.write(cmd)
-        cmd = f"echo $job_id\n"
+        cmd = "echo $job_id\n"
         f.write(cmd)
         for s in pbs_scripts[1:]:
             cmd = "old_job_id=$job_id\n"
             f.write(cmd)
             cmd = f"job_id=`qsub -W depend=afterok:$old_job_id {s}`\n"
             f.write(cmd)
-            cmd = f"echo $job_id\n"
+            cmd = "echo $job_id\n"
             f.write(cmd)
 
     # Return the paths to the PBS scripts.

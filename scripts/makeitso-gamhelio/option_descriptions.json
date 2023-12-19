@@ -30,7 +30,7 @@
         },
         "segment_duration": {
             "LEVEL": "BASIC",
-            "prompt": "Segment length in simulated seconds"
+            "prompt": "Segment length in simulated hours"
         },
         "hpc_system": {
             "LEVEL": "BASIC",
@@ -61,8 +61,8 @@
                 "prompt": "Path to kaiju build directory"
             },
             "num_segments": {
-                "LEVEL": "EXPERT",
-                "prompt": "Number of sequential PBS jobs to submit for the run",
+                "LEVEL": "COMPUTED",
+                "NOTE": "Number of sequential PBS jobs to submit for the run",
                 "default": "1"
             }
         },
