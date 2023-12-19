@@ -80,12 +80,14 @@ module raijuPreAdvancer
         call Toc("Moments Eval PreAdvance")
 
         call Tic("Calc loss rates")
-        !$OMP PARALLEL DO default(shared) collapse(1) &
-        !$OMP schedule(dynamic) &
-        !$OMP private(k)
-        do k=1,Grid%Nk
-            call calcChannelLossRates(Model, Grid, State, k)
-        enddo
+        if (Model%doLosses) then
+            !$OMP PARALLEL DO default(shared) &
+            !$OMP schedule(dynamic) &
+            !$OMP private(k)
+            do k=1,Grid%Nk
+                call calcChannelLossRates(Model, Grid, State, k)
+            enddo
+        endif
         call Toc("Calc loss rates")
 
     end subroutine raijuPreAdvance
@@ -210,7 +212,7 @@ module raijuPreAdvancer
         call potCorot(Model%planet, Grid%shGrid, pCorot, Model%doGeoCorot)
         
         ! Build 3D effective potential
-        !$OMP PARALLEL DO default(shared) collapse(1) &
+        !$OMP PARALLEL DO default(shared) &
         !$OMP schedule(dynamic) &
         !$OMP private(k, pGC)
         do k=1,Grid%Nk

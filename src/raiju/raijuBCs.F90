@@ -52,7 +52,7 @@ module raijuBCs
  
 
         psphIdx = spcIdx(Grid, F_PSPH)
-        !$OMP PARALLEL DO default(shared) collapse(1) &
+        !$OMP PARALLEL DO default(shared) &
         !$OMP schedule(dynamic) &
         !$OMP private(i,j,s,vm,kT, etaBelow)
         do i=Grid%shGrid%isg,Grid%shGrid%ieg
@@ -92,7 +92,7 @@ module raijuBCs
                     worthyFracO=Model%worthyFrac)
             enddo  ! s
         endif
-        
+
     end subroutine applyRaijuBCs
 
 

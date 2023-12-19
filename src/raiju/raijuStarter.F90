@@ -39,7 +39,7 @@ module raijustarter
         call app%State%IO%init(iXML,app%State%t,app%State%ts)
 
         ! Some sub-models need RAIJU to make up its mind before they can do their full init
-        if (app%Model%eLossModel .eq. RaiELOSS_WM) then
+        if (app%Model%doLosses .and. app%Model%eLossModel .eq. RaiELOSS_WM) then
             call initEWM(app%Model%eLossWM, app%Model%configFName, iXML, app%Grid%shGrid)
         endif
 

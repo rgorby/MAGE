@@ -165,7 +165,7 @@ module raijuICHelpers
 
                 call iXML%Set_Val(D0,"prob/constEta" , 1.0)
                 j = Grid%shGrid%Np/2
-                State%eta(:,j,:) = D0
+                State%eta(:,j-2:j+2,:) = D0
 
             case default
                 write(*,*) "ERROR: Pick a valid eta preset in raijuICHelpers.F90:initEtaPresets"

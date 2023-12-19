@@ -316,7 +316,7 @@ module raijuIO
         call WriteVars(IOVars,.true.,Model%raijuH5, gStr)
 
         ! Let sub-models add stuff if they want
-        if (Model%eLossWM%doOutput) then
+        if (Model%doLosses .and. Model%eLossWM%doOutput) then
             call eWMOutput(Model, Grid, State, gStr, doGhostsO)
         endif
 

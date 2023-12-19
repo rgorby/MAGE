@@ -89,7 +89,7 @@ module raijuAdvancer
         integer :: k
 
         ! Send each channel off on their own
-        !$OMP PARALLEL DO default(shared) collapse(1) &
+        !$OMP PARALLEL DO default(shared) &
         !$OMP schedule(dynamic) &
         !$OMP private(k)
         do k=1,Grid%Nk
@@ -131,10 +131,10 @@ module raijuAdvancer
                 !write(*,*)k,n,t,dt
                 
                 ! Calc new active shells
-                if (Model%doActiveShell) then
-                    State%activeShells(:,k) = setLambdaActiveShells(sh, spc, State%bVol, &
-                                                State%eta(:,:,spc%kStart:spc%kEnd), k, worthyFracO = Model%worthyFrac)
-                endif
+                !if (Model%doActiveShell) then
+                !    State%activeShells(:,k) = setLambdaActiveShells(sh, spc, State%bVol, &
+                !                                State%eta(:,:,spc%kStart:spc%kEnd), k, worthyFracO = Model%worthyFrac)
+                !endif
                 
 
                 ! Calc next time step
