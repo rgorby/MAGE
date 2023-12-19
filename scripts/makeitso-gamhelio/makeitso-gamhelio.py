@@ -40,7 +40,7 @@ from kaipy.kdefs import JD2MJD
 # Program constants
 
 # Program description
-DESCRIPTION = "Interactive script to prepare and run a MAGE heliosphere job."
+DESCRIPTION = "Interactive script to prepare a MAGE heliosphere run"
 
 # Indent level for JSON output
 JSON_INDENT = 4
@@ -496,29 +496,57 @@ def create_ini_files(options):
     # Initialize the list of file paths.
     ini_files = []
 
-    # Create an .ini file for each segment.
-    for job in range(int(options["pbs"]["num_segments"])):
+    # Create .ini files.
+    if options["simulation"]["use_segments"].upper() == "Y":
+
+        # Create an .ini file for the spinup segment.
         opt = copy.deepcopy(options)  # Need a copy of options
         runid = opt["simulation"]["job_name"]
+        job = 0
         segment_id = f"{runid}-{job:02d}"
         opt["simulation"]["segment_id"] = segment_id
-        if job > 0:
-            opt["gamera"]["restart"]["doRes"] = "T"
         tFin = float(opt["gamera"]["time"]["tFin"])
         dT = float(options["simulation"]["segment_duration"])
-        tFin_segment = (job + 1)*dT + 1  # Add 1 to ensure last restart file
-                                         # is created
-        if tFin_segment > tFin:  # Last segment may be shorter than the others.
-            tFin_segment = tFin + 1
+        tFin_segment = 1.0  # Just perform spinup in first segment
         opt["gamera"]["time"]["tFin"] = str(tFin_segment)
         ini_content = template.render(opt)
         ini_file = os.path.join(
-            opt["pbs"]["run_directory"],
-            f"{opt['simulation']['segment_id']}.ini"
+            opt["pbs"]["run_directory"], f"{opt['simulation']['segment_id']}.ini"
         )
         ini_files.append(ini_file)
-        with open(ini_file, "w", encoding="utf-8") as f:
-            f.write(ini_content)
+
+        # Create an .ini file for each simulation segment.
+        for job in range(1, int(options["pbs"]["num_segments"])):
+            opt = copy.deepcopy(options)  # Need a copy of options
+            runid = opt["simulation"]["job_name"]
+            segment_id = f"{runid}-{job:02d}"
+            opt["simulation"]["segment_id"] = segment_id
+            opt["gamera"]["restart"]["doRes"] = "T"
+            tFin = float(opt["gamera"]["time"]["tFin"])
+            dT = float(options["simulation"]["segment_duration"])
+            tFin_segment = job*dT + 1  # Add 1 to ensure last restart file is created
+            if tFin_segment > tFin:    # Last segment may be shorter than the others.
+                tFin_segment = tFin + 1
+                opt["gamera"]["time"]["tFin"] = str(tFin_segment)
+                ini_content = template.render(opt)
+                ini_file = os.path.join(
+                    opt["pbs"]["run_directory"], f"{opt['simulation']['segment_id']}.ini"
+                )
+                ini_files.append(ini_file)
+                with open(ini_file, "w", encoding="utf-8") as f:
+                    f.write(ini_content)
+    else:
+        # Using a single segment for spinup and simulation.
+        opt = copy.deepcopy(options)  # Need a copy of options
+        runid = opt["simulation"]["job_name"]
+        job = 0
+        segment_id = f"{runid}-{job:02d}"
+        opt["simulation"]["segment_id"] = segment_id
+        ini_content = template.render(opt)
+        ini_file = os.path.join(
+            opt["pbs"]["run_directory"], f"{opt['simulation']['segment_id']}.ini"
+        )
+        ini_files.append(ini_file)
 
     # Return the paths to the .ini files.
     return ini_files
