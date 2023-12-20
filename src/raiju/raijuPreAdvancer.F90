@@ -228,7 +228,7 @@ module raijuPreAdvancer
         !! Only needs to be called when any of the above quantities are updated (e.g. beginning of every coupling timestep)
         !! Note: FTV is not a potential, alamc*bVol**(-2./3.) is
         !! Units (gradE and gradCorot): V / m
-        !! Units (gradVM): Vol / m / lambda
+        !! Units (gradVM): Vol^(-2/3) / m / lambda
         type(raijuModel_T), intent(in)    :: Model
         type(raijuGrid_T ), intent(in)    :: Grid
         type(raijuState_T), intent(inout) :: State
@@ -256,8 +256,8 @@ module raijuPreAdvancer
         ! lambda is constant, so just need grad(V^(-2/3) )
         ! grad(V^(-2/3)) = -2/3*V^(-5/3) * grad(V)
         call calcGradFTV(Model%planet%ri_m, Model%planet%magMoment, Grid, isGood, State%bvol, gradVM)
-        State%gradVM(:,:,RAI_TH) = (-2./3.) * State%bvol**(-5./3.) * gradVM(:,:,RAI_TH)  ! [Vol/m/lambda]
-        State%gradVM(:,:,RAI_PH) = (-2./3.) * State%bvol**(-5./3.) * gradVM(:,:,RAI_PH)  ! [Vol/m/lambda]
+        State%gradVM(:,:,RAI_TH) = (-2./3.) * State%bvol**(-5./3.) * gradVM(:,:,RAI_TH)  ! [Vol^(-2/3)/m/lambda]
+        State%gradVM(:,:,RAI_PH) = (-2./3.) * State%bvol**(-5./3.) * gradVM(:,:,RAI_PH)  ! [Vol^(-2/3)/m/lambda]
 
     end subroutine calcPotGrads
 
@@ -330,7 +330,7 @@ module raijuPreAdvancer
         real(rp), intent(in) :: RIon
             !! Iono radius in meters
         real(rp), intent(in) :: B0
-            !! Planet's surface field strength
+            !! Planet's surface field strength in Gauss
         type(raijuGrid_T), intent(in) :: Grid
         logical , dimension(Grid%shGrid%isg:Grid%shGrid%ieg,Grid%shGrid%jsg:Grid%shGrid%jeg), intent(in) :: isG
         real(rp), dimension(Grid%shGrid%isg:Grid%shGrid%ieg,Grid%shGrid%jsg:Grid%shGrid%jeg), intent(in) :: V
@@ -349,17 +349,25 @@ module raijuPreAdvancer
                 V0(i,:) = DipFTV_colat(sh%thc(i), B0)
             enddo
 
+
             ! Break up into background + perturbation
             dV = 0.0
             where (isG)
                 dV =  V - V0
+            end where
+            
+            where (dV < TINY)
+                dV = 0.0
             end where
 
             ! Take gradients of each
             ! Analytic gradient of dipole FTV
             dV0_dth = 0.0
             do i=sh%isg+1, sh%ieg-1
-                dcl_dm = 0.5*(sh%thc(i-1) - sh%thc(i+1))/RIon
+                !! DerivDipFTV takes gradient w.r.t. theta
+                !! We need to convert to be w.r.t. arc len in meters
+                !dcl_dm = 0.5*(sh%thc(i+1) - sh%thc(i-1))/RIon
+                dcl_dm = 1.0/RIon
                 dV0_dth(i,:) = DerivDipFTV(sh%thc(i), B0) * dcl_dm
             enddo
 
