@@ -375,17 +375,6 @@ module gamtypes
             real(rp), intent(out) :: D,Vx,Vy,Vz,P
         end subroutine GasIC_T
 
-    !BC_T
-    !Boundary condition type
-    !Contained by Grid structure, takes Model/Grid/State
-        subroutine BC_T(Model,Grid,State)
-            Import :: Model_T, Grid_T, State_T
-            class(Model_T), intent(in) :: Model
-            class(Grid_T) , intent(in) :: Grid
-            class(State_T), intent(inout) :: State
-
-        end subroutine BC_T
-
     !HackFlux_T
     !User hack function for fluxes
     !Gives user opportunity to change gas/mag fluxes before application

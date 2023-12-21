@@ -390,7 +390,7 @@ module gamCouple_mpi_V2G
         call mpi_bcast(App%Model%MJD0, 1, MPI_MYFLOAT, App%myRank, App%couplingComm, ierr)
 
         ! send initial coupling time to Gamera
-        call sendCplTimeMpi(gCplApp, voltApp%DeepT)
+        call sendCplTimeMpi(App, voltApp%DeepT)
 
     end subroutine
 

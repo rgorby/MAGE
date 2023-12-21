@@ -250,9 +250,9 @@ module usergamic
 
     !Fixes cell-centered fields in the predictor
     subroutine PredFix(Model,Gr,State)
-        type(Model_T), intent(in) :: Model
-        type(Grid_T), intent(inout) :: Gr
-        type(State_T), intent(inout) :: State
+        class(Model_T), intent(in) :: Model
+        class(Grid_T), intent(inout) :: Gr
+        class(State_T), intent(inout) :: State
 
         integer :: n,ip,ig,ix,jp,kp,j,k
 
