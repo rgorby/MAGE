@@ -70,7 +70,7 @@ module raijuPreAdvancer
             ! Calc sub-time step
             State%dtk(k) = activeDt(Model, Grid, State, k)
             ! We can also calculate velocity at faces here because it won't change during sub-stepping
-            call ReconFaces(Grid, isG_vFaces, State%cVel(:,:,k,1), State%iVel(:,:,k,:), Qcc_phO=State%cVel(:,:,k,2))
+            call ReconFaces(Grid, isG_vFaces, State%cVel(:,:,k,RAI_TH), State%iVel(:,:,k,:), Qcc_phO=State%cVel(:,:,k,RAI_PH))
         enddo
         call Toc("Calc cell-center velocities")
 
@@ -193,7 +193,7 @@ module raijuPreAdvancer
 
     subroutine calcEffectivePotential(Model, Grid, State, pEff)
         !! Calculates effective potential [V] for all lambda channels as the sum of pExB, pCorot, and pGC
-        !! Note: This is not used to calculate velocities
+        !! Note: This is not used to calculate velocities in the solver itself
         type(raijuModel_T) , intent(in) :: Model
         type(raijuGrid_T) , intent(in) :: Grid
         type(raijuState_T), intent(in) :: State

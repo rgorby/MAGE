@@ -63,7 +63,9 @@ class SpeciesInfo:
 class RAIJUInfo(kh5.H5Info):
     nSpc: int = None
     species: List[aP.SpecParams] = None
+    Nk: int = 0
     extra: dict = None # Extra info we can add later
+    
 
     def getInfo(h5fname, noSubSec=True):
         # Base 
@@ -88,9 +90,11 @@ class RAIJUInfo(kh5.H5Info):
                                   alami, alamc, 
                                   name)
                 specs.append(spc)
+        Nk = 0
+        for s in specs: Nk += s.N
         # Now make our final object
         return RAIJUInfo(fi.fname, fi.Nt, fi.steps, fi.stepStrs, fi.times, fi.MJDs, fi.UTs,
-                       len(specs), specs, {})
+                       len(specs), specs, Nk, {})
 
 
 #------
@@ -104,6 +108,7 @@ def getVar(grp, varName):
         return grp[varName][:].T
     except KeyError:
         print("Error: {} not in keys".format(varName))
+        return None
 
 #------
 # Species helpers

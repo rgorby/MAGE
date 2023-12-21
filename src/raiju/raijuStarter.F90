@@ -298,6 +298,9 @@ module raijustarter
         State%t = Model%t0
         State%ts = 0
 
+        ! Set all activeShells to true. There should be doActiveShell checks anywhere it is used, but just in case, make sure default has all shells on
+        State%activeShells = .true.
+
     ! Init state
         call iXML%Set_Val(Model%icStr, "prob/IC","DIP")
         select case(trim(Model%icStr))

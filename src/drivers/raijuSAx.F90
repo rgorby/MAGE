@@ -89,9 +89,9 @@ program raijuSAx
         call raijuAdvance(raiApp%Model,raiApp%Grid,raiApp%State, raiApp%Model%dt)
         call Toc("RAIJU Advance")
 
-        write(*,*)raiApp%State%t
-        write(*,*)"MJDs: "
-        write(*,*)raiApp%State%mjd
+        !write(*,*)raiApp%State%t
+        !write(*,*)"MJDs: "
+        !write(*,*)raiApp%State%mjd
 
         ! Advance model times
         raiApp%State%t  = raiApp%State%t  + raiApp%Model%dt

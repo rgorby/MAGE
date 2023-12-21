@@ -83,12 +83,12 @@ module raijuRecon
         do i=Grid%shGrid%is,Grid%shGrid%ie+1
             do j=Grid%shGrid%js,Grid%shGrid%je+1
                 ! Theta dir
-                Qfaces(i,j,1) = reconOrder( isG(i-4:i+3, j), Qcc(i-4:i+3, j) )
+                Qfaces(i,j,RAI_TH) = reconOrder( isG(i-4:i+3, j), Qcc(i-4:i+3, j) )
                 ! Phi dir
                 if( present(Qcc_phO) ) then
-                    Qfaces(i,j,2) = reconOrder( isG(i, j-4:j+3), Qcc_phO(i, j-4:j+3) )
+                    Qfaces(i,j,RAI_PH) = reconOrder( isG(i, j-4:j+3), Qcc_phO(i, j-4:j+3) )
                 else
-                    Qfaces(i,j,2) = reconOrder( isG(i, j-4:j+3),     Qcc(i, j-4:j+3) )
+                    Qfaces(i,j,RAI_PH) = reconOrder( isG(i, j-4:j+3),     Qcc(i, j-4:j+3) )
                 endif
             enddo
         enddo
@@ -208,7 +208,7 @@ module raijuRecon
                     QpdmL(i,j,1) = Qfaces(i,j,1)
                     QpdmR(i,j,1) = Qfaces(i,j,1)
                 else
-                    call raijuPDM(Qcc(i-2:i+1, j), Qfaces(i, j, 1), pdmb, QpdmL(i,j,1), QpdmR(i,j,1))
+                    call raijuPDM(Qcc(i-2:i+1, j), Qfaces(i, j, RAI_TH), pdmb, QpdmL(i,j,1), QpdmR(i,j,RAI_TH))
                 endif
 
                 ! Phi dir
@@ -218,7 +218,7 @@ module raijuRecon
                     QpdmL(i,j,2) = Qfaces(i,j,2)
                     QpdmR(i,j,2) = Qfaces(i,j,2)
                 else
-                    call raijuPDM(Qcc(i, j-2:j+1), Qfaces(i, j, 2), pdmb, QpdmL(i,j,2), QpdmR(i,j,2))
+                    call raijuPDM(Qcc(i, j-2:j+1), Qfaces(i, j, RAI_PH), pdmb, QpdmL(i,j,2), QpdmR(i,j,RAI_PH))
                 endif
 
             enddo
@@ -241,29 +241,29 @@ module raijuRecon
             do i=sh%is,sh%ie+1
                 
                 ! Theta dir
-                if (  (active(i-1,j  ) .eq. RAIJUINACTIVE) &
-                .and. (active(i  ,j  ) .eq. RAIJUBUFFER  ) &
-                .and. (Qflux (i+1,j,1) < 0.0 ) ) then
+                if (  (active(i-1,j       ) .eq. RAIJUINACTIVE) &
+                .and. (active(i  ,j       ) .eq. RAIJUBUFFER  ) &
+                .and. (Qflux (i+1,j,RAI_TH) < 0.0 ) ) then
                 ! If current cell is good, lower i is bad, only copy i+1 flux if we have outflow
-                    Qflux(i,j,1) = Qflux(i+1,j,1)
-                else if (  (active(i-1,j  ) .eq. RAIJUBUFFER  ) &
-                     .and. (active(i  ,j  ) .eq. RAIJUINACTIVE) &
-                     .and. (Qflux (i-1,j,1) > 0.0 ) ) then
+                    Qflux(i,j,RAI_TH) = Qflux(i+1,j,RAI_TH)
+                else if (  (active(i-1,j       ) .eq. RAIJUBUFFER  ) &
+                     .and. (active(i  ,j       ) .eq. RAIJUINACTIVE) &
+                     .and. (Qflux (i-1,j,RAI_TH) > 0.0 ) ) then
                 ! If current cell is bad, lower i is good, only copy i-1 flux if we have outflow
-                    Qflux(i,j,1) = Qflux(i-1,j,1)
+                    Qflux(i,j,RAI_TH) = Qflux(i-1,j,RAI_TH)
                 endif
 
                 ! Psi dir
-                if (  (active(i,j-1  ) .eq. RAIJUINACTIVE) &
-                .and. (active(i,j    ) .eq. RAIJUBUFFER  ) &
-                .and. (Qflux (i,j+1,2) < 0.0 ) ) then
-                ! If current cell is good, lower i is bad, only copy j+1 flux if we have outflow
-                    Qflux(i,j,2) = Qflux(i,j+1,2)
-                else if (  (active(i,j-1  ) .eq. RAIJUBUFFER  ) &
-                     .and. (active(i,j    ) .eq. RAIJUINACTIVE) &
-                     .and. (Qflux (i,j-1,2) > 0.0 ) ) then
-               ! If current cell is bad, lower i is good, only copy i-1 flux if we have outflow
-                    Qflux(i,j,2) = Qflux(i,j-1,2)
+                if (  (active(i,j-1       ) .eq. RAIJUINACTIVE) &
+                .and. (active(i,j         ) .eq. RAIJUBUFFER  ) &
+                .and. (Qflux (i,j+1,RAI_PH) < 0.0 ) ) then
+                ! If current cell is good, lower j is bad, only copy j+1 flux if we have outflow
+                    Qflux(i,j,RAI_PH) = Qflux(i,j+1,RAI_PH)
+                else if (  (active(i,j-1       ) .eq. RAIJUBUFFER  ) &
+                     .and. (active(i,j         ) .eq. RAIJUINACTIVE) &
+                     .and. (Qflux (i,j-1,RAI_PH) > 0.0 ) ) then
+               ! If current cell is bad, lower j is good, only copy j-1 flux if we have outflow
+                    Qflux(i,j,RAI_PH) = Qflux(i,j-1,RAI_PH)
                endif
 
             enddo

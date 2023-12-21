@@ -5,6 +5,7 @@ module raijuAdvancer
 
     use raijudefs
     use raijutypes
+    use raijugrids
     use raijuetautils
     use raijuBCs
     use raijulosses
@@ -39,13 +40,13 @@ module raijuAdvancer
             isGood = .false.
         end where
 
-        vel(:,:,1) = merge(abs(State%cVel(:,:,k,1)), TINY, isGood)
-        vel(:,:,2) = merge(abs(State%cVel(:,:,k,2)), TINY, isGood)
+        vel(:,:,RAI_TH) = merge(abs(State%cVel(:,:,k,RAI_TH)), TINY, isGood)
+        vel(:,:,RAI_PH) = merge(abs(State%cVel(:,:,k,RAI_PH)), TINY, isGood)
 
         ! Min dt in theta direction
         do j=sh%jsg,sh%jeg
-            !dtArr(:,j,1) = 0.5*(Grid%delTh(:sh%ieg)+Grid%delTh(sh%isg+1:)) / (vel(:,j,1) / Model%planet%ri_m)
-            dtArr(:,j,1) = 0.5*(Grid%lenFace(:sh%ieg, j, 1)+Grid%lenFace(sh%isg+1:, j, 1)) / (vel(:,j,1) / Model%planet%ri_m)
+            dtArr(:,j,RAI_TH) = 0.5*(Grid%delTh(:sh%ieg)+Grid%delTh(sh%isg+1:)) / (vel(:,j,RAI_TH) / Model%planet%ri_m)
+            !dtArr(:,j,RAI_TH) = 0.5*(Grid%lenFace(:sh%ieg, j, RAI_TH)+Grid%lenFace(sh%isg+1:, j, RAI_TH)) / (vel(:,j,RAI_TH) / Model%planet%ri_m)
             !if (k == 20 .and. any(vel(:,j,1) > 400)) then
             !    write(*,*)"dt_theta------"
             !    write(*,*) 0.5*(Grid%lenFace(:sh%ieg, j, 1)+Grid%lenFace(sh%isg+1:, j, 1))
@@ -54,8 +55,8 @@ module raijuAdvancer
         enddo
         ! In Phi direction
         do i=sh%isg,sh%ieg
-            !dtArr(i,:,2) = 0.5*(Grid%delPh(:sh%jeg)+Grid%delPh(sh%jsg+1:)) / (vel(i,:,2) / Model%planet%ri_m)
-            dtArr(i,:,2) = 0.5*(Grid%lenFace(i, :sh%jeg, 2)+Grid%lenFace(i, sh%jsg+1:, 2)) / (vel(i,:,2) / Model%planet%ri_m)
+            dtArr(i,:,RAI_PH) = 0.5*(Grid%delPh(:sh%jeg)+Grid%delPh(sh%jsg+1:)) / (vel(i,:,RAI_PH) / Model%planet%ri_m)
+            !dtArr(i,:,RAI_PH) = 0.5*(Grid%lenFace(i, :sh%jeg, RAI_PH)+Grid%lenFace(i, sh%jsg+1:, RAI_PH)) / (vel(i,:,2) / Model%planet%ri_m)
             !if (k == 20 .and. any(vel(i,:,2) > 400)) then
             !    write(*,*)"dt_phi------"
             !    write(*,*) 0.5*(Grid%lenFace(i, :sh%jeg, 1)+Grid%lenFace(i, sh%jsg+1:, 1))
@@ -208,6 +209,8 @@ module raijuAdvancer
                                                       * ( Qflux(i,j,RAI_TH) - Qflux(i+1,j,RAI_TH) + Qflux(i,j,RAI_PH) - Qflux(i,j+1,RAI_PH) )
             enddo
         enddo
+
+        call wrapJcc(Grid%shGrid, State%eta(:,:,k))
 
     end subroutine stepLambda
 

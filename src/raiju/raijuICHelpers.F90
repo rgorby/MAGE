@@ -127,6 +127,7 @@ module raijuICHelpers
                         call applyDkT2Eta(Model, Grid, State, D, kT_i, kT_e, vm)
                     enddo
                 enddo
+                State%eta_last = State%eta
             
             case("BELL")  ! Bell-like density pulse at L0 along midnight
 
@@ -160,12 +161,14 @@ module raijuICHelpers
                         call applyDkT2Eta(Model, Grid, State, D, kT_i, kT_e, vm)
                     enddo
                 enddo
+                State%eta_last = State%eta
             
             case("LINE")  ! Line of constant eta for all channels
 
                 call iXML%Set_Val(D0,"prob/constEta" , 1.0)
                 j = Grid%shGrid%Np/2
-                State%eta(:,j-2:j+2,:) = D0
+                State%eta(Grid%shGrid%is:Grid%shGrid%ie,j-6:j+6,:) = D0
+                State%eta_last = State%eta
 
             case default
                 write(*,*) "ERROR: Pick a valid eta preset in raijuICHelpers.F90:initEtaPresets"
