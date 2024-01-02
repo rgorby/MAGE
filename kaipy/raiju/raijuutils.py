@@ -225,9 +225,6 @@ def plotXYMin(Ax, xmin, ymin, var, norm=None, cmap='viridis', shading='auto', lb
     else:
         Ax.pcolormesh(xmin, ymin, var, norm=norm, cmap=cmap, shading=shading, rasterized=True)
 
-    if lblsize == None:
-        Ax.set_xlabel('X [R$_p$]')
-        Ax.set_ylabel('Y [R$_p$]')
-    else:
+    if lblsize is not None:
         Ax.set_xlabel('X [R$_p$]', fontsize=lblsize)
         Ax.set_ylabel('Y [R$_p$]', fontsize=lblsize)

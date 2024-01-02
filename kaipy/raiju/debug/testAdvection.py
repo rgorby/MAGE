@@ -291,6 +291,104 @@ def plotStep(raijuInfo, n, k):
     plt.show()
 
 
+def makeVid(raijuInfo, outdir):
+    
+    fontsize_title=6
+    
+    fig = plt.figure()
+
+    gs = gridspec.GridSpec(3, 4, width_ratios = [1, 1, 1, 0.2], height_ratios=[1, 1.0, 1.0], hspace=0.2)
+
+    Ax_eta_psph = fig.add_subplot(gs[0, 0])
+    
+    Ax_eta_pLow  = fig.add_subplot(gs[0, 1])
+    Ax_eta_pMid  = fig.add_subplot(gs[1, 1])
+    Ax_eta_pHigh = fig.add_subplot(gs[2, 1])
+
+    Ax_eta_eLow  = fig.add_subplot(gs[0, 2])
+    Ax_eta_eMid  = fig.add_subplot(gs[1, 2])
+    Ax_eta_eHigh = fig.add_subplot(gs[2, 2])
+
+    # Create the Colorbar Axes.
+    AxC1 = fig.add_subplot(gs[0, 3])
+    
+    # Create the Colorbars``.
+    norm_eta = kv.genNorm(0,1, doLog=False)
+    cm_eta = 'viridis'
+    kv.genCB(AxC1, norm_eta, "eta [eV * (Rp/nT)^(2/3)]", cM=cm_eta, doVert=True)
+
+
+    # Open file, get some values
+    f5 = h5.File(raijuInfo.fname, 'r')
+    alamc = f5['alamc'][:]
+    spc_psph = raijuInfo.species[ru.flavs_s['PSPH']]
+    k_psph = spc_psph.kStart
+    spc_hotp = raijuInfo.species[ru.flavs_s['HOTP']]
+    k_pLow  = spc_hotp.kStart
+    k_pMid  = spc_hotp.kStart + int(spc_hotp.N//2)
+    k_pHigh = spc_hotp.kEnd - 1
+    spc_hote = raijuInfo.species[ru.flavs_s['HOTE']]
+    k_eLow  = spc_hote.kStart
+    k_eMid  = spc_hote.kStart + int(spc_hote.N//2)
+    k_eHigh = spc_hote.kEnd - 1
+
+    n_pad = int(np.log10(raijuInfo.Nt)) + 1
+    nplt = 0
+    for n in range(raijuInfo.Nt):
+        if (np.mod(nplt,5) == 0):
+            print("\tvid %d"%(n))
+        filename = "vid.{:0>{npad}d}.png".format(nplt, npad=n_pad)
+        filename = os.path.join(outdir, 'vid', filename)
+        nplt += 1
+
+        s5 = f5[raijuInfo.stepStrs[n]]
+        time = s5.attrs['time']
+        xmin = ru.getVar(s5, 'xmin')
+        ymin = ru.getVar(s5, 'ymin')
+        eta  = ru.getVar(s5, 'eta' )
+        bVol = ru.getVar(s5, 'bVol')
+
+        energies = alamc[np.newaxis,np.newaxis,:] * bVol[:,:,np.newaxis]**(2/3) * 1e-3  # [keV]
+        energies = np.abs(energies)
+
+        # Psph
+        ru.plotXYMin(Ax_eta_psph , xmin, ymin, eta[:,:,k_psph ], norm=norm_eta, cmap=cm_eta, shading='auto', lblsize=None)
+        Ax_eta_psph.set_title('Psph', fontsize=fontsize_title)
+
+        ru.plotXYMin(Ax_eta_pLow , xmin, ymin, eta[:,:,k_pLow ], norm=norm_eta, cmap=cm_eta, shading='auto', lblsize=None)
+        ru.plotXYMin(Ax_eta_pMid , xmin, ymin, eta[:,:,k_pMid ], norm=norm_eta, cmap=cm_eta, shading='auto', lblsize=None)
+        ru.plotXYMin(Ax_eta_pHigh, xmin, ymin, eta[:,:,k_pHigh], norm=norm_eta, cmap=cm_eta, shading='auto', lblsize=None)
+        Ax_eta_pLow.xaxis.set_major_formatter(plt.NullFormatter())
+        Ax_eta_pLow.yaxis.set_major_formatter(plt.NullFormatter())
+        Ax_eta_pMid.xaxis.set_major_formatter(plt.NullFormatter())
+        Ax_eta_pLow .set_title('H+ eta={}, E={:0.2f}-{:0.2f} keV'.format(k_pLow , np.min(energies[:,:,k_pLow ]), np.max(energies[:,:,k_pLow ])), fontsize=fontsize_title)
+        Ax_eta_pMid .set_title('H+ eta={}, E={:0.2f}-{:0.2f} keV'.format(k_pMid , np.min(energies[:,:,k_pMid ]), np.max(energies[:,:,k_pMid ])), fontsize=fontsize_title)
+        Ax_eta_pHigh.set_title('H+ eta={}, E={:0.2f}-{:0.2f} keV'.format(k_pHigh, np.min(energies[:,:,k_pHigh]), np.max(energies[:,:,k_pHigh])), fontsize=fontsize_title)
+
+        ru.plotXYMin(Ax_eta_eLow , xmin, ymin, eta[:,:,k_eLow ], norm=norm_eta, cmap=cm_eta, shading='auto', lblsize=None)
+        ru.plotXYMin(Ax_eta_eMid , xmin, ymin, eta[:,:,k_eMid ], norm=norm_eta, cmap=cm_eta, shading='auto', lblsize=None)
+        ru.plotXYMin(Ax_eta_eHigh, xmin, ymin, eta[:,:,k_eHigh], norm=norm_eta, cmap=cm_eta, shading='auto', lblsize=None)
+        Ax_eta_eLow .xaxis.set_major_formatter(plt.NullFormatter())
+        Ax_eta_eLow .yaxis.set_major_formatter(plt.NullFormatter())
+        Ax_eta_eMid .xaxis.set_major_formatter(plt.NullFormatter())
+        Ax_eta_eMid .yaxis.set_major_formatter(plt.NullFormatter())
+        Ax_eta_eHigh.yaxis.set_major_formatter(plt.NullFormatter())
+        Ax_eta_eLow .set_title('e- eta={}, E={:0.2f}-{:0.2f} keV'.format(k_eLow , np.min(energies[:,:,k_eLow ]), np.max(energies[:,:,k_eLow ])), fontsize=fontsize_title)
+        Ax_eta_eMid .set_title('e- eta={}, E={:0.2f}-{:0.2f} keV'.format(k_eMid , np.min(energies[:,:,k_eMid ]), np.max(energies[:,:,k_eMid ])), fontsize=fontsize_title)
+        Ax_eta_eHigh.set_title('e- eta={}, E={:0.2f}-{:0.2f} keV'.format(k_eHigh, np.min(energies[:,:,k_eHigh]), np.max(energies[:,:,k_eHigh])), fontsize=fontsize_title)
+
+        fig.suptitle("{:0.2f} s".format(time))
+        kv.savePic(filename)
+
+        Ax_eta_psph.clear()
+        Ax_eta_pLow .clear()
+        Ax_eta_pMid .clear()
+        Ax_eta_pHigh.clear()
+        Ax_eta_eLow .clear()
+        Ax_eta_eMid .clear()
+        Ax_eta_eHigh.clear()
+
+
 if __name__=="__main__":
     # Open file
     f5name = os.path.join(dir, raih5fname)
@@ -340,4 +438,6 @@ if __name__=="__main__":
     #checkBVol(raijuInfo)
     #plt.show()
 
-    plotStep(raijuInfo, 20, 150)
+    #plotStep(raijuInfo, 0, 150)
+
+    makeVid(raijuInfo, dir)
