@@ -122,8 +122,6 @@ module raijuAdvancer
         tEnd = State%t + State%dt
 
 
-        !Nsteps = int(State%dt / State%dtk(k))+1
-        !dt = State%dt / (1.0_rp*Nsteps)
         associate(sh=>Grid%shGrid, spc=>Grid%spc(s))
 
             ! Here we go!
@@ -142,8 +140,6 @@ module raijuAdvancer
                 !! Also muting
                 dt = activeDt(Model, Grid, State, k)
 
-                !! BAD: Boost dt to be around 200 iters max
-                !dt = (tEnd-t)/(Nmax-n)
                 ! If needed, reduce dt to fit within remaining time
                 if (t + dt > tEnd) then
                     dt = max(tEnd - t, TINY)  ! Make sure we never go back in time and advance at least a little bit so we will eventually end
