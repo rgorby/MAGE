@@ -62,7 +62,7 @@ class SpeciesInfo:
 @dataclass
 class RAIJUInfo(kh5.H5Info):
     nSpc: int = None
-    species: List[aP.SpecParams] = None
+    species: List[SpeciesInfo] = None
     Nk: int = 0
     extra: dict = None # Extra info we can add later
     
@@ -101,7 +101,7 @@ class RAIJUInfo(kh5.H5Info):
 # Data handlers
 #------
 
-def getVar(grp, varName):
+def getVar(grp: h5.Group, varName: str) -> np.ndarray:
     """ Get vars from h5 file this way so that we're sure everyone agrees on type and shape
     """
     try:

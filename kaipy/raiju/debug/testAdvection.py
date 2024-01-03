@@ -4,6 +4,7 @@ import numpy as np
 import matplotlib.pyplot as plt
 import matplotlib.gridspec as gridspec
 
+import kaipy.kaiH5 as kh5
 import kaipy.kdefs as kd
 import kaipy.kaiTools as kt
 import kaipy.kaiViz as kv
@@ -291,9 +292,11 @@ def plotStep(raijuInfo, n, k):
     plt.show()
 
 
-def makeVid(raijuInfo, outdir):
-    
+def makeVid(raijuInfo, outdir, stride=1):
+
     fontsize_title=6
+
+    kh5.CheckDirOrMake(os.path.join(outdir, 'vid'))
     
     fig = plt.figure()
 
@@ -334,7 +337,7 @@ def makeVid(raijuInfo, outdir):
 
     n_pad = int(np.log10(raijuInfo.Nt)) + 1
     nplt = 0
-    for n in range(raijuInfo.Nt):
+    for n in raijuInfo.steps[::stride]:
         if (np.mod(nplt,5) == 0):
             print("\tvid %d"%(n))
         filename = "vid.{:0>{npad}d}.png".format(nplt, npad=n_pad)
@@ -348,7 +351,7 @@ def makeVid(raijuInfo, outdir):
         eta  = ru.getVar(s5, 'eta' )
         bVol = ru.getVar(s5, 'bVol')
 
-        energies = alamc[np.newaxis,np.newaxis,:] * bVol[:,:,np.newaxis]**(2/3) * 1e-3  # [keV]
+        energies = alamc[np.newaxis,np.newaxis,:] * bVol[:,:,np.newaxis]**(-2/3) * 1e-3  # [keV]
         energies = np.abs(energies)
 
         # Psph
@@ -377,7 +380,7 @@ def makeVid(raijuInfo, outdir):
         Ax_eta_eMid .set_title('e- eta={}, E={:0.2f}-{:0.2f} keV'.format(k_eMid , np.min(energies[:,:,k_eMid ]), np.max(energies[:,:,k_eMid ])), fontsize=fontsize_title)
         Ax_eta_eHigh.set_title('e- eta={}, E={:0.2f}-{:0.2f} keV'.format(k_eHigh, np.min(energies[:,:,k_eHigh]), np.max(energies[:,:,k_eHigh])), fontsize=fontsize_title)
 
-        fig.suptitle("{:0.2f} s".format(time))
+        fig.suptitle("step# {}; t = {:0.2f} s".format(n, time))
         kv.savePic(filename)
 
         Ax_eta_psph.clear()

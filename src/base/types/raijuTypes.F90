@@ -250,6 +250,8 @@ module raijutypes
             !! Current time and last coupling dt made
         real(rp), dimension(:), allocatable :: dtk
             !! Time step for every lambda channel
+        integer, dimension(:), allocatable :: nStepk
+            !! Number of steps each channel has been evolved
         real(rp) :: mjd
             !! Current mjd
         integer :: ts, tss

@@ -28,8 +28,8 @@ class H5Info:
     UTs     : List[float]
 
     def getInfo(h5fname, noSubSec=True):
-        fname = h5fname.split('/')[-1]
-
+        # fname = h5fname.split('/')[-1]
+        fname = h5fname
         f5 = h5py.File(h5fname)
 
         steps = sorted([int(s.split('#')[1]) for s in f5.keys() if 'Step' in s])

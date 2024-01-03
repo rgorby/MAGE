@@ -306,6 +306,8 @@ module raijuIO
         if (Model%doDebugOutput) then
             ! Lots of weird stuff
             call AddOutVar(IOVars, "dtk", State%dtk, uStr="s")
+            call AddOutVar(IOVars, "nStepk", State%nStepk*1.0_rp, uStr="#", dStr="Number of steps each channel has taken")
+            ! call AddOutVar(IOVars, "nStepk", State%nStepk*1.0_rp, uStr="#") 
             call AddOutVar(IOVars, "iVel"       , State%cVel       (is:ie+1,js:je+1,:,:), uStr="m/s")
             call AddOutVar(IOVars, "etaFace"    , State%etaFace    (is:ie+1,js:je+1,:,:), uStr="#/cm^3 * Rx/T")
             call AddOutVar(IOVars, "etaFacePDML", State%etaFacePDML(is:ie+1,js:je+1,:,:), uStr="#/cm^3 * Rx/T")

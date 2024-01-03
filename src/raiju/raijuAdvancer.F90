@@ -127,7 +127,7 @@ module raijuAdvancer
         associate(sh=>Grid%shGrid, spc=>Grid%spc(s))
 
             ! Here we go!
-            n = 1  ! counter
+            n = 0  ! counter
             do while ( tEnd-t > TINY)
                 !write(*,*)k,n,t,dt
                 
@@ -172,6 +172,8 @@ module raijuAdvancer
                 State%precipNFlux(:,:,k) = State%precipNFlux(:,:,k)/State%dt
                 State%precipEFlux(:,:,k) = State%precipEFlux(:,:,k)/State%dt
             endif
+
+            State%nStepk(k) = State%nStepk(k) + n
 
         end associate
 

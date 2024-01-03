@@ -236,6 +236,8 @@ module raijustarter
 
             ! dt for every lambda channel
             allocate( State%dtk (Grid%Nk) )
+            ! nSteps for each channel
+            allocate( State%nStepk(Grid%Nk) )
             ! Where we keep all our stuff
             allocate( State%eta      (sh%isg:sh%ieg, sh%jsg:sh%jeg, Grid%Nk) )
             ! Where we keep all our stuff but a half-step ahead of now
@@ -297,6 +299,7 @@ module raijustarter
         ! For now, just set t to tStart and ts to 0
         State%t = Model%t0
         State%ts = 0
+        State%nStepk = 0
 
         ! Set all activeShells to true. There should be doActiveShell checks anywhere it is used, but just in case, make sure default has all shells on
         State%activeShells = .true.
