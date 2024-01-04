@@ -251,7 +251,7 @@ def makePlot(i, remixFile, nStp):
         #plt.close(fig)
 
 if __name__ == "__main__":
-    """Plot the ground magnetic field perturbations."""
+    """Plot remix data, either a single time step or as a movie"""
 
     # Set up the command-line parser.
     parser = create_command_line_parser()
