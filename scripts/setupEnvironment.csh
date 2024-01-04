@@ -26,5 +26,5 @@ else
 endif
  
  
-setenv PATH ${PATH}:${KAIJUHOME}/scripts:${KAIJUHOME}/scripts/datamodel:${KAIJUHOME}/scripts/helio:${KAIJUHOME}/scripts/legacy:${KAIJUHOME}/scripts/preproc:${KAIJUHOME}/scripts/postproc:${KAIJUHOME}/scripts/quicklook
+setenv PATH ${PATH}:${KAIJUHOME}/scripts:${KAIJUHOME}/scripts/datamodel:${KAIJUHOME}/scripts/helio:${KAIJUHOME}/scripts/legacy:${KAIJUHOME}/scripts/preproc:${KAIJUHOME}/scripts/postproc:${KAIJUHOME}/scripts/quicklook:$KAIJUHOME/scripts/makeitso:$KAIJUHOME/scripts/makeitso-gamhelio
  

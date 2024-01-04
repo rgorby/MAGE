@@ -57,7 +57,7 @@ MODULE rice_housekeeping_module
   LOGICAL :: doQ0 = .true. !Whether to include implicit cold ions in tomhd moments
 
   INTEGER(iprec) :: ELOSSMETHOD        
-  INTEGER(iprec) :: InitKp = 1, NowKp
+  REAL(rprec) :: InitKp = 1.0, NowKp
   LOGICAL :: doFLOut = .false. !Whether to output field lines (slow)
   INTEGER(iprec) :: nSkipFL = 8 !Stride for outputting field lines
 
@@ -77,7 +77,7 @@ MODULE rice_housekeeping_module
   end type RCMEllipse_T
 
   type ChorusTauIn_T !electron lifetime for Chorus wave
-      integer(iprec) :: Nm=97, Nl=41, Nk=7 ,Ne=155
+      integer(iprec) :: Nm=97, Nl=41, Nk=6 ,Ne=155
       real(rprec), ALLOCATABLE :: MLTi(:), Li(:), Kpi(:), Eki(:)
       real(rprec), ALLOCATABLE :: taui(:,:,:,:)
   end type ChorusTauIn_T
@@ -138,7 +138,7 @@ MODULE rice_housekeeping_module
 
         call SetKp0(InitKp)
         NowKp = InitKp
-
+        
         !Loss options
         call xmlInp%Set_Val(doFLCLoss,"loss/doFLCLoss",doFLCLoss) 
         call xmlInp%Set_Val(tmpStr,"loss/eLossMethod","WM")
@@ -201,8 +201,8 @@ MODULE rice_housekeeping_module
           t = t0 + 15.0*60.0*n
           KpMax = max(KpMax,KpTS%evalAt(t))
         enddo
-        NowKp = nint(KpMax) !Cast to integer
-      
+        NowKp = KpMax
+ 
       end subroutine UpdateRCMIndices
 
 END MODULE rice_housekeeping_module

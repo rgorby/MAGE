@@ -115,7 +115,7 @@ MODULE lossutils
         integer(iprec), intent(in) :: ie
         real(rprec), intent(in) :: alam,vm,beq,rcurv,lossc
         real(rprec) :: lossFLC
-        real(rprec) :: Np,bfp,ftv,K,V,TauSS,Rgyro,eps,xSS,earg
+        real(rprec) :: Np,bfp,ftv,K,V,TauSS,Rgyro,eps,earg
 
         bfp = beq/(sin(lossc)**2.0) !Foot point field strength, nT
         ftv = (1.0/vm)**(3.0/2.0) !flux-tube volume Re/nT
@@ -182,7 +182,7 @@ MODULE lossutils
         REAL(rprec) :: tau
         REAL(rprec) :: tauKMLE(2,2,2,2),tauMLE(2,2,2),tauLE(2,2),tauE(2)! tauKMLE(1,2,2,2) means tauKlMuLuEu, l:lower bound, u: upper bound in the NN method
         REAL(rprec) :: dK,wK,dM,wM,dL,wL,dE,wE
-        INTEGER :: iK,kL,kU,mL,mU,lL,lU,eL,eU
+        INTEGER :: kL,kU,mL,mU,lL,lU,eL,eU
 
 
         associate(Nm=>EWMTauInput%ChorusTauInput%Nm,Nl=>EWMTauInput%ChorusTauInput%Nl,Nk=>EWMTauInput%ChorusTauInput%Nk,Ne=>EWMTauInput%ChorusTauInput%Ne,&

@@ -587,7 +587,9 @@
                 nflux(i,j,:) = nflx         ! Num flux in #/cm^2/s
                
                 DO ie = 1, RCMNUMFLAV
-                      IF (nflx (ie) > 10.*machine_tiny) THEN 
+                      IF (nflx(ie) > TINY) THEN 
+                          ! The ratio of eavg is only meaningful when nflx is meaningful.
+                          ! Note in REMIX, a higher floor will be applied toward the final precipitation.
                           eavg (i,j,ie) = eflx(ie)/nflx(ie) ! Average energy in eV
                       ELSE
 !                         we want eflux=0 and eavg=0 for no precipitation.
@@ -2459,7 +2461,7 @@ SUBROUTINE Move_plasma_grid_MHD (dt,nstep)
                 !Calculate losses and keep track of total losses/precip losses
                 if ( (ie == RCMELECTRON) .and. (kc /= 1) ) then
                     !Do electron losses
-                    lossFT = Ratefn(xmin(i,j),ymin(i,j),alamc(kc),vm(i,j),bmin(i,j),losscone(i,j),Dpp(i,j),dble(NowKp),fudgec(kc),sini(i,j),bir(i,j),mass_factor,ELOSSMETHOD)
+                    lossFT = Ratefn(xmin(i,j),ymin(i,j),alamc(kc),vm(i,j),bmin(i,j),losscone(i,j),Dpp(i,j),NowKp,fudgec(kc),sini(i,j),bir(i,j),mass_factor,ELOSSMETHOD)
                     lossratep(i,j,kc) = lossratep(i,j,kc) + lossFT(1)
                     lossmodel(i,j,kc) = lossFT(2)
                     rate(i,j) = rate(i,j) + lossFT(1)
@@ -3125,6 +3127,10 @@ FUNCTION Ratefn (xx,yy,alamx,vmx,beqx,losscx,nex,kpx,fudgxO,sinixO,birxO,xmfactO
             Ratefn(2) = -1.0
          case (ELOSS_WM)
             if (EWMTauInput%useWM) then
+                if (kpx > 10.0) then
+                    write(*,*) "Kp = ", kpx, ", invalid Kp input for the wave models. Please use 'FDG' or 'SS' in the electron loss model instead."
+                    stop
+                endif
                 Ratefn = RatefnWM(xx,yy,alamx,vmx,nex,kpx,beqx,losscx)
             else
                 write(*,*) "Wave models are missing in rcmconfig.h5"

@@ -28,7 +28,7 @@ module mixdefs
   end enum
 
   enum, bind(C)
-     enumerator :: FEDDER=1,ZHANG,LINMRG,RCMHD
+     enumerator :: FEDDER=1,ZHANG,LINMRG
   end enum
 
   enum, bind(C)
@@ -36,7 +36,7 @@ module mixdefs
   end enum
 
   enum, bind(C)
-     enumerator :: AT_MHD=1,AT_RCM,AT_RMnoE,AT_RMfnE,AT_RMono
+     enumerator :: AT_NoPre=0,AT_MHD,AT_RCM,AT_RMnoE,AT_RMfnE,AT_RMono
   end enum
 
   ! enumerator for transform variables

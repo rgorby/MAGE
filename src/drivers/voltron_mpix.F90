@@ -170,13 +170,13 @@ program voltron_mpix
                 call cleanClocks()
             endif
 
-            !Restart output
-            if (gApp%Model%IO%doRestart(gApp%Model%t)) then
-                call resOutput(gApp%Model, gApp%Grid, gApp%oState, gApp%State)
-            endif
             !Data output
             if (gApp%Model%IO%doOutput(gApp%Model%t)) then
                 call fOutput(gApp%Model, gApp%Grid, gApp%State)
+            endif
+            !Restart output
+            if (gApp%Model%IO%doRestart(gApp%Model%t)) then
+                call resOutput(gApp%Model, gApp%Grid, gApp%oState, gApp%State)
             endif
 
             call Toc("IO", .true.)
@@ -235,14 +235,14 @@ program voltron_mpix
                         endif
                         call cleanClocks()
                     endif
-                    
-                    !Restart output
-                    if (vApp%IO%doRestart(vApp%time)) then
-                        call resOutputVOnly(vApp,vApp%gAppLocal)
-                    endif
+
                     !Data output
                     if (vApp%IO%doOutput(vApp%time)) then
                         call fOutputVOnly(vApp,vApp%gAppLocal)
+                    endif
+                    !Restart output
+                    if (vApp%IO%doRestart(vApp%time)) then
+                        call resOutputVOnly(vApp,vApp%gAppLocal)
                     endif
 
                     call Toc("IO", .true.)
