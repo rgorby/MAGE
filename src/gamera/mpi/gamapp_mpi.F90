@@ -984,6 +984,20 @@ module gamapp_mpi
                 else
                     call mpi_type_commit(gamAppMpi%recvTypesMagFlux(rankIndex), ierr)
                 endif
+                if(gamAppMpi%sendTypesBxyz(rankIndex) == MPI_DATATYPE_NULL) then
+                    gamAppMpi%sendCountsBxyz(rankIndex) = 0
+                    gamAppMpi%sendDisplsBxyz(rankIndex) = 0
+                    gamAppMpi%sendTypesBxyz(rankIndex) = MPI_INTEGER
+                else
+                    call mpi_type_commit(gamAppMpi%sendTypesBxyz(rankIndex), ierr)
+                endif
+                if(gamAppMpi%recvTypesBxyz(rankIndex) == MPI_DATATYPE_NULL) then
+                    gamAppMpi%recvCountsBxyz(rankIndex) = 0
+                    gamAppMpi%recvDisplsBxyz(rankIndex) = 0
+                    gamAppMpi%recvTypesBxyz(rankIndex) = MPI_INTEGER
+                else
+                    call mpi_type_commit(gamAppMpi%recvTypesBxyz(rankIndex), ierr)
+                endif
             endif
         enddo
 
