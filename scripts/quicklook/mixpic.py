@@ -9,6 +9,25 @@ Author
 ------
 Kareem Sorathia (kareem.sorathia@jhuapl.edu)
 Eric Winter (eric.winter@jhuapl.edu)
+
+
+
+Example PBS script to use multiprocessing to make a video on Lou Data Analysis Nodes:
+
+#!/bin/bash
+#PBS -N MixVid
+#PBS -j oe
+#PBS -lselect=1:ncpus=36:mem=750GB
+#PBS -lwalltime=2:00:00
+#PBS -q ldan
+#PBS -W group_list=s2521
+export RUNID=“geospace”
+# load modules and set python environment
+source ~/.bashrc
+setPy
+cd $PBS_O_WORKDIR
+mixpic.py -id $RUNID --vid -ncpus 36
+
 """
 
 
