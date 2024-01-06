@@ -134,8 +134,8 @@ def create_command_line_parser():
         help="Make a video and store in mixVid directory (default: %(default)s)"
     )
     parser.add_argument(
-        '--noOverwrite', action='store_true', default=False,
-        help="Don't overwrite existing vid files (default: %(default)s)"
+        '--Overwrite', action='store_true', default=False,
+        help="Overwrite existing vid files (default: %(default)s)"
     )
     parser.add_argument(
         '-ncpus', type=int, metavar="ncpus", default=1,
@@ -287,7 +287,7 @@ if __name__ == "__main__":
     do_GTYPE = args.GTYPE
     do_PP = args.PP
     do_vid = args.vid
-    do_overwrite = not args.noOverwrite
+    do_overwrite = args.Overwrite
     ncpus = args.ncpus
 
     if debug:
