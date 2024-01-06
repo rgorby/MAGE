@@ -21,7 +21,7 @@ import matplotlib as mpl
 import matplotlib.gridspec as gridspec
 import matplotlib.pyplot as plt
 import numpy as np
-import warning
+import warnings
 from mpl_toolkits.axes_grid1.inset_locator import inset_axes
 from alive_progress import alive_it
 from multiprocessing import Pool
