@@ -23,7 +23,6 @@ import matplotlib.pyplot as plt
 import numpy as np
 import warnings
 from mpl_toolkits.axes_grid1.inset_locator import inset_axes
-from alive_progress import alive_it
 from multiprocessing import Pool
 from psutil import cpu_count
 
@@ -139,19 +138,19 @@ def create_command_line_parser():
         help="Names of spacecraft to plot positions, separated by commas (default: %(default)s)"
     )
     parser.add_argument(
-        '--vid', action='store_true', default=False,
+        '-vid', action='store_true', default=False,
         help="Make a video and store in mixVid directory (default: %(default)s)"
     )
     parser.add_argument(
-        '--Overwrite', action='store_true', default=False,
+        '-overwrite', action='store_true', default=False,
         help="Overwrite existing vid files (default: %(default)s)"
     )
     parser.add_argument(
-        '-ncpus', type=int, metavar="ncpus", default=1,
+        '--ncpus', type=int, metavar="ncpus", default=1,
         help="Number of threads to use with --vid (default: %(default)s)"
     )
     parser.add_argument(
-        '--noHash', action='store_true', default=False,
+        '-nohash', action='store_true', default=False,
         help="Don't display branch/hash info (default: %(default)s)"
     )
     # Add an option for plot domain size.
@@ -172,6 +171,10 @@ def makePlot(i,spacecraft,nStp):
         # Name of plot output file.
         fOut = "qkmsphpic.png"
         outPath = fOut
+
+    # Skip this file if it already exists and we're not supposed to overwrite
+    if not do_overwrite and os.path.exists(outPath) and do_vid:
+        return
 
     # Open remix data if available.
     if doMIX:
@@ -348,8 +351,8 @@ if __name__ == "__main__":
     noRCM = args.norcm
     doBigRCM = args.bigrcm
     do_vid = args.vid
-    do_overwrite = args.Overwrite
-    do_hash = not args.noHash
+    do_overwrite = args.overwrite
+    do_hash = not args.nohash
     ncpus = args.ncpus
     spacecraft = args.spacecraft
     if debug:
@@ -386,6 +389,8 @@ if __name__ == "__main__":
     if doMIX:
         branch = kh5.GetBranch(rmxChk)
         githash = kh5.GetHash(rmxChk)
+        if debug:
+            print(f'branch/commit: {branch}/{githash}')
 
     # Open RCM data if available, and initialize visualization.
     if doRCM:
@@ -429,7 +434,7 @@ if __name__ == "__main__":
         n_pad = int(np.log10(nsteps)) + 1
 
         if ncpus == 1:
-            for i, nStp in enumerate(alive_it(sIds,length=kdefs.barLen,bar=kdefs.barDef)):
+            for i, nStp in enumerate(sIds):
                 makePlot(i, spacecraft, nStp)
         else:
             # Make list of parallel arguments
