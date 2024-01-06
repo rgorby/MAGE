@@ -270,7 +270,7 @@ def makePlot(i, remixFile, nStp):
 
         # Add Branch and Hash info
         if do_hash:
-            fig.text(0.1,0.85,f"branch/commit: {branch}/{githash}", fontsize=4)
+            fig.text(0.1,0.95,f"branch/commit: {branch}/{githash}", fontsize=6)
 
         # Save to file
         kv.savePic(outPath, dpiQ=300)
