@@ -309,8 +309,8 @@ if __name__ == "__main__":
 
     # Get branch/hash info
     if do_hash:
-        branch = kh5.GetBranch(remixFile)
-        githash = kh5.GetHash(remixFile)
+        branch = kaiH5.GetBranch(remixFile)
+        githash = kaiH5.GetHash(remixFile)
         if debug:
             print(f'branch/commit: {branch}/{githash}')
 
