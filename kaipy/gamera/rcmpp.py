@@ -115,7 +115,7 @@ def RCMInset(AxRCM,rcmdata,nStp,vP,pCol="k",doPP=True):
 		Npp  = GetVarMask(rcmdata,nStp,"Npsph"    ,I)
 		
 	#Start plotting
-	AxRCM.pcolor(bmX,bmY,Prcm,norm=vP,cmap=pCMap)
+	AxRCM.pcolor(bmX,bmY,Prcm,norm=vP,cmap=pCMap,shading='auto')
 	AxRCM.plot(bmX,bmY,color=eCol,linewidth=eLW)
 	AxRCM.plot(bmX.T,bmY.T,color=eCol,linewidth=eLW)
 	if (pCol is not None):

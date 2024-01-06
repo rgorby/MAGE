@@ -36,6 +36,7 @@ import kaipy.kaiH5 as kh5
 import kaipy.kaiTools as ktools
 import kaipy.kaiViz as kv
 import kaipy.kdefs as kdefs
+import kaipy.kdefs as kd
 
 
 # Program constants and defaults
@@ -131,8 +132,8 @@ def create_command_line_parser():
         help="Show wRCM instead of FTE (default: %(default)s)"
     )
     parser.add_argument(
-    '--vid', action='store_true', default=False,
-    help="Make a video and store in mixVid directory (default: %(default)s)"
+        '--vid', action='store_true', default=False,
+        help="Make a video and store in mixVid directory (default: %(default)s)"
     )
     parser.add_argument(
         '--noOverwrite', action='store_true', default=False,
@@ -153,7 +154,7 @@ def makePlot(i,rcmdata,nStp):
     if not debug:
         # Suppress the warning
         warnings.filterwarnings("ignore", category=UserWarning, module="matplotlib")
-        #warnings.filterwarnings("ignore", message="The input coordinates to pcolor are interpreted as cell centers.*")
+        warnings.filterwarnings("ignore", message="The input coordinates to pcolor are interpreted as cell centers.*")
         warnings.filterwarnings("ignore", message="Log scale: values of z <= 0 have been masked.*")
         warnings.filterwarnings("ignore", message="No contour levels were found within the data range.*")
 
