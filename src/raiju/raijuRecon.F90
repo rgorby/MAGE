@@ -305,6 +305,7 @@ module raijuRecon
         end where
 
         QA = Qcc * Grid%areaCC  ! Get total quantity within cell
+            !! TODO: This is probably where we should include the B_face factor
         call ReconFaces(Grid, isG, QA, QAface)  ! Interpolate to face positions
         Qface = QAface / Grid%areaFace  ! Return to area density at face position
 
