@@ -81,24 +81,16 @@ module strings
     subroutine GitHash(gStr)
 
         character(len=*), intent(inout) :: gStr
-#ifdef __INTEL_COMPILER_OLD
-        gStr = "XXXXXXX" !Avoid unavailable compiler_options
-#else
         gStr = gitH        
-#endif
+
     end subroutine GitHash
 
     !Create string with git hash if possible
     subroutine GitBranch(gStr)
 
         character(len=*), intent(inout) :: gStr
-
-#ifdef __INTEL_COMPILER_OLD
-        
-        gStr = "XXXXXXX" !Avoid unavailable compiler_options
-#else
         gStr = gitB
-#endif
+
     end subroutine GitBranch
 
 
