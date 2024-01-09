@@ -84,7 +84,7 @@ module strings
 #ifdef __INTEL_COMPILER_OLD
         gStr = "XXXXXXX" !Avoid unavailable compiler_options
 #else
-        gStr = gitB        
+        gStr = gitH        
 #endif
     end subroutine GitHash
 
@@ -97,7 +97,7 @@ module strings
         
         gStr = "XXXXXXX" !Avoid unavailable compiler_options
 #else
-        gStr = gitH
+        gStr = gitB
 #endif
     end subroutine GitBranch
 
