@@ -2,6 +2,7 @@ module strings
     use kdefs
     use, intrinsic :: iso_fortran_env
     use dates, ONLY : DateTimeStr
+    use git_info, only: gitB, gitH
     implicit none
 
     contains
@@ -80,17 +81,10 @@ module strings
     subroutine GitHash(gStr)
 
         character(len=*), intent(inout) :: gStr
-        character(len=strLen) :: cOpts
-        integer :: n,nOff,nH
-
-        nOff = 16
-        nH = 7
 #ifdef __INTEL_COMPILER_OLD
         gStr = "XXXXXXX" !Avoid unavailable compiler_options
 #else
-        cOpts = compiler_options()
-        n = index(cOpts,"-DGITCOMMITHASH=")
-        gStr = cOpts(n+nOff:n+nOff+nH)        
+        gStr = gitB        
 #endif
     end subroutine GitHash
 
@@ -98,20 +92,12 @@ module strings
     subroutine GitBranch(gStr)
 
         character(len=*), intent(inout) :: gStr
-        character(len=strLen) :: cOpts
-        integer :: n,nOff
 
-        nOff = 12
 #ifdef __INTEL_COMPILER_OLD
         
         gStr = "XXXXXXX" !Avoid unavailable compiler_options
 #else
-        cOpts = compiler_options()
-        n = index(cOpts,"-DGITBRANCH=")
-        !Don't know length of branch name, so need to find next space
-        gStr = cOpts(n+nOff:)
-        n = index(gStr," ")
-        gStr = gStr(1:n-1)
+        gStr = gitH
 #endif
     end subroutine GitBranch
 
