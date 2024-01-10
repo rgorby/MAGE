@@ -164,7 +164,7 @@ for module_list_file in module_list_files:
         print(f"module_cmd = {module_cmd}")
 
     # Run cmake to build the Makefile.
-    cmake_cmd = module_cmd + '; FC=`which ifort1` FFLAGS="-qmkl" cmake -DENABLE_MPI=ON -DENABLE_MKL=ON ..'
+    cmake_cmd = module_cmd + '; FC=`which ifort` FFLAGS="-qmkl" cmake -DENABLE_MPI=ON -DENABLE_MKL=ON ..'
     if debug:
         print(f"cmake_cmd = {cmake_cmd}")
     cmake_process = subprocess.Popen(cmake_cmd, shell=True)

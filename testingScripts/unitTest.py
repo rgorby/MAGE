@@ -1,9 +1,9 @@
-# import os
+import os
 import sys
 # import subprocess
 # from os.path import expanduser
 # sys.path.insert(1, "./python-slackclient")
-# from slack import WebClient
+from slack_sdk import WebClient
 # from slack.errors import SlackApiError
 # import logging
 # logging.basicConfig(level=logging.DEBUG)
@@ -13,37 +13,50 @@ print(f"Starting {sys.argv[0]}")
 
 # read arguments
 parser = argparse.ArgumentParser()
+parser.add_argument('-d',action='store_true',default=False, help='Enables debugging output')
 parser.add_argument('-t',action='store_true',default=False, help='Enables testing mode')
 parser.add_argument('-l',action='store_true',default=False, help='Enables loud mode')
 parser.add_argument('-a',action='store_true',default=False, help='Run all tests')
 parser.add_argument('-f',action='store_true',default=False, help='Force the tests to run')
 parser.add_argument('--account',type=str, default='', help='qsub account number')
 
-# args = parser.parse_args()
-# isTest = args.t
-# beLoud = args.l
-# doAll = args.a
-# forceRun = args.f
-# account = args.account
+args = parser.parse_args()
+debug = args.d
+isTest = args.t
+beLoud = args.l
+doAll = args.a
+forceRun = args.f
+account = args.account
+if debug:
+    print(f"args = {args}")
 
-# # Get Slack API token
-# slack_token = os.environ["SLACK_BOT_TOKEN"]
-# print(slack_token)
-# client = WebClient(token=slack_token)
+# Get Slack API token
+slack_token = os.environ["SLACK_BOT_TOKEN"]
+if debug:
+    print(f"slack_token = {slack_token}")
+client = WebClient(token=slack_token)
+if debug:
+    print(f"client = {client}")
 
-# # Get CWD and set main kaiju folder to "home"
-# calledFrom = os.path.dirname(os.path.abspath(__file__))
-# os.chdir(calledFrom)
-# orig = os.getcwd()
-# os.chdir('..')
-# home = os.getcwd()
+# Get CWD and move to the main Kaiju folder
+calledFrom = os.path.dirname(os.path.abspath(__file__))
+if debug:
+    print(f"calledFrom = {calledFrom}")
+origCWD = os.getcwd()
+if debug:
+    print(f"origCWD = {origCWD}")
+os.chdir(calledFrom)
+os.chdir('..')
+home = os.getcwd()
+if debug:
+    print(f"home = {home}")
 
-# # Delete everything in the unitTest folder
-# os.chdir(home)
-# os.system('rm -r unitTest1')
-# os.system('rm -r unitTest2')
-# os.system('mkdir unitTest1')
-# os.system('mkdir unitTest2')
+# Delete everything in the unitTest folder
+os.chdir(home)
+os.system('rm -rf unitTest1')
+os.system('rm -rf unitTest2')
+os.system('mkdir unitTest1')
+os.system('mkdir unitTest2')
 
 # # Copy pFUnit stuff into Kaiju External
 # os.chdir(home)
