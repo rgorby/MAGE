@@ -48,8 +48,10 @@ if debug:
 os.chdir(calledFrom)
 os.chdir('..')
 home = os.getcwd()
-print("I am the master script. This is my current working directory: ", flush=True)
-print(home, flush=True)
+if debug:
+    print(f"home = {home}", flush=True)
+# print("I am the master script. This is my current working directory: ", flush=True)
+# print(home, flush=True)
 
 # Delete all build folders
 os.system("rm -rf build*/")
@@ -57,19 +59,19 @@ os.system('ls')
 
 # Git Status and then attempt to pull
 os.system('git status')
-print('Attempting git pull via subprocess...', flush=True)
+#print('Attempting git pull via subprocess...', flush=True)
 p = subprocess.Popen("git pull", shell=True, stdout=subprocess.PIPE)
 text = p.stdout.read()
 text = text.decode('ascii')
 text = text.rstrip()
-print(text, flush=True)
+#print(text, flush=True)
 
 # get my current branch
 p = subprocess.Popen("git symbolic-ref --short HEAD", shell=True, stdout=subprocess.PIPE)
 gBranch = p.stdout.read()
 gBranch = gBranch.decode('ascii')
 gBranch = gBranch.rstrip()
-print(gBranch, flush=True)
+#print(gBranch, flush=True)
 
 if(forceRun == False):
     # If not forced, check for update
@@ -83,6 +85,8 @@ print("I made it this far!", flush=True)
 print(os.path.dirname(os.path.abspath(__file__)))
 
 subArgString = ""
+if debug:
+    subArgString += ' -d'
 if isTest:
     subArgString = subArgString + " -t"
 if beLoud:
@@ -91,35 +95,35 @@ subArgString = subArgString + " --account " + account
 if debug:
     print(f"subArgString = {subArgString}", flush=True)
 if (doAll == True):
-    buildTest = subprocess.Popen("python3 buildTest.py"+subArgString, shell = True)
+    buildTest = subprocess.Popen("python3 buildTest.py -d -l"+subArgString, shell = True)
     buildTest.wait()
-    unitTest = subprocess.Popen("python3 unitTest.py"+subArgString, shell = True)
-    unitTest.wait()
-    intelTest = subprocess.Popen("python3 intelChecks.py"+subArgString, shell=True)
-    intelTest.wait()
-    ICTest = subprocess.Popen("python3 ICtest.py"+subArgString, shell=True)
-    ICTest.wait()
-    ICReport = subprocess.Popen("python3 ICtestReport.py"+subArgString, shell=True)
-    ICReport.wait()
-    pyunitTest = subprocess.Popen("python3 pyunitTest.py"+subArgString, shell=True)
-    pyunitTest.wait()
-    weeklyDash = subprocess.Popen("python3 weeklyDash.py"+subArgString, shell=True)
-    weeklyDash.wait()
+    # unitTest = subprocess.Popen("python3 unitTest.py"+subArgString, shell = True)
+    # unitTest.wait()
+    # intelTest = subprocess.Popen("python3 intelChecks.py"+subArgString, shell=True)
+    # intelTest.wait()
+    # ICTest = subprocess.Popen("python3 ICtest.py"+subArgString, shell=True)
+    # ICTest.wait()
+    # ICReport = subprocess.Popen("python3 ICtestReport.py"+subArgString, shell=True)
+    # ICReport.wait()
+    # pyunitTest = subprocess.Popen("python3 pyunitTest.py"+subArgString, shell=True)
+    # pyunitTest.wait()
+    # weeklyDash = subprocess.Popen("python3 weeklyDash.py"+subArgString, shell=True)
+    # weeklyDash.wait()
 
-else:
-    buildTest = subprocess.Popen("python3 buildTest.py"+subArgString, shell = True)
-    buildTest.wait()
-    unitTest = subprocess.Popen("python3 unitTest.py"+subArgString, shell = True)
-    unitTest.wait()
-    #intelTest = subprocess.Popen("python3 intelChecks.py"+subArgString, shell=True)
-    #intelTest.wait()
-    ICTest = subprocess.Popen("python3 ICtest.py"+subArgString, shell=True)
-    ICTest.wait()
-    ICReport = subprocess.Popen("python3 ICtestReport.py"+subArgString, shell=True)
-    ICReport.wait()
-    pyunitTest = subprocess.Popen("python3 pyunitTest.py"+subArgString, shell=True)
-    pyunitTest.wait()
-    #weeklyDash = subprocess.Popen("python3 weeklyDash.py"+subArgString, shell=True)
-    #weeklyDash.wait()
+# else:
+#     buildTest = subprocess.Popen("python3 buildTest.py"+subArgString, shell = True)
+#     buildTest.wait()
+#     unitTest = subprocess.Popen("python3 unitTest.py"+subArgString, shell = True)
+#     unitTest.wait()
+#     #intelTest = subprocess.Popen("python3 intelChecks.py"+subArgString, shell=True)
+#     #intelTest.wait()
+#     ICTest = subprocess.Popen("python3 ICtest.py"+subArgString, shell=True)
+#     ICTest.wait()
+#     ICReport = subprocess.Popen("python3 ICtestReport.py"+subArgString, shell=True)
+#     ICReport.wait()
+#     pyunitTest = subprocess.Popen("python3 pyunitTest.py"+subArgString, shell=True)
+#     pyunitTest.wait()
+#     #weeklyDash = subprocess.Popen("python3 weeklyDash.py"+subArgString, shell=True)
+#     #weeklyDash.wait()
 
 print(f"Ending {sys.argv[0]}", flush=True)

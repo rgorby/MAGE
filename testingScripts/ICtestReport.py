@@ -1,129 +1,133 @@
-import os
+# import os
 import sys
-import subprocess
-from os.path import expanduser
-sys.path.insert(1, "./python-slackclient")
-from slack import WebClient
-from slack.errors import SlackApiError
-import logging
-logging.basicConfig(level=logging.DEBUG)
-import time
-from os import path
-import argparse
+# import subprocess
+# from os.path import expanduser
+# sys.path.insert(1, "./python-slackclient")
+# from slack import WebClient
+# from slack.errors import SlackApiError
+# import logging
+# logging.basicConfig(level=logging.DEBUG)
+# import time
+# from os import path
+# import argparse
 
-# read arguments
-parser = argparse.ArgumentParser()
-parser.add_argument('-t',action='store_true',default=False, help='Enables testing mode')
-parser.add_argument('-l',action='store_true',default=False, help='Enables loud mode')
-parser.add_argument('-a',action='store_true',default=False, help='Run all tests')
-parser.add_argument('-f',action='store_true',default=False, help='Force the tests to run')
-parser.add_argument('--account',type=str, default='', help='qsub account number')
+print(f"Starting {sys.argv[0]}", flush=True)
 
-args = parser.parse_args()
-isTest = args.t
-beLoud = args.l
-doAll = args.a
-forceRun = args.f
-account = args.account
+# # read arguments
+# parser = argparse.ArgumentParser()
+# parser.add_argument('-t',action='store_true',default=False, help='Enables testing mode')
+# parser.add_argument('-l',action='store_true',default=False, help='Enables loud mode')
+# parser.add_argument('-a',action='store_true',default=False, help='Run all tests')
+# parser.add_argument('-f',action='store_true',default=False, help='Force the tests to run')
+# parser.add_argument('--account',type=str, default='', help='qsub account number')
 
-# Get Slack API token
-slack_token = os.environ["SLACK_BOT_TOKEN"]
-print(slack_token)
-client = WebClient(token=slack_token, timeout=120)
+# args = parser.parse_args()
+# isTest = args.t
+# beLoud = args.l
+# doAll = args.a
+# forceRun = args.f
+# account = args.account
 
-# Get CWD and set Kaiju to "home"
-calledFrom = os.path.dirname(os.path.abspath(__file__))
-os.chdir(calledFrom)
-orig = os.getcwd()
-os.chdir('..')
-home = os.getcwd()
+# # Get Slack API token
+# slack_token = os.environ["SLACK_BOT_TOKEN"]
+# print(slack_token)
+# client = WebClient(token=slack_token, timeout=120)
 
-# Go to ICBuilds folder
-os.chdir(home)
-os.chdir('ICBuilds')
+# # Get CWD and set Kaiju to "home"
+# calledFrom = os.path.dirname(os.path.abspath(__file__))
+# os.chdir(calledFrom)
+# orig = os.getcwd()
+# os.chdir('..')
+# home = os.getcwd()
 
-# get my current branch
-p = subprocess.Popen("git symbolic-ref --short HEAD", shell=True, stdout=subprocess.PIPE)
-gBranch = p.stdout.read()
-gBranch = gBranch.decode('ascii')
-gBranch = gBranch.rstrip()
-print(gBranch)
+# # Go to ICBuilds folder
+# os.chdir(home)
+# os.chdir('ICBuilds')
 
-# Get List of subdirectories
-directoryList = os.listdir(os.getcwd())
+# # get my current branch
+# p = subprocess.Popen("git symbolic-ref --short HEAD", shell=True, stdout=subprocess.PIPE)
+# gBranch = p.stdout.read()
+# gBranch = gBranch.decode('ascii')
+# gBranch = gBranch.rstrip()
+# print(gBranch)
 
-print(directoryList)
+# # Get List of subdirectories
+# directoryList = os.listdir(os.getcwd())
 
-# Check for Gamera
+# print(directoryList)
 
-incorrectList = []
+# # Check for Gamera
 
-# Loop through the list
-for element in directoryList:
-    # Check for gamera.x
-    exists = path.exists(element + "/bin/gamera.x")
-    # If not, record an error
-    if (not exists):
-        print("Found a bad one!")
-        temp = element[0:6]
-        temp = temp + " couldn't be made with module set "
-        moduleSet = element[-1]
-        temp = temp + moduleSet
-        temp = temp + " and "
-        ICfile = element[6:]
-        ICfile = ICfile[:-1]
-        temp = temp + ICfile + "."
-        incorrectList.append(temp)
-        temp = ""
+# incorrectList = []
 
-print(incorrectList)
+# # Loop through the list
+# for element in directoryList:
+#     # Check for gamera.x
+#     exists = path.exists(element + "/bin/gamera.x")
+#     # If not, record an error
+#     if (not exists):
+#         print("Found a bad one!")
+#         temp = element[0:6]
+#         temp = temp + " couldn't be made with module set "
+#         moduleSet = element[-1]
+#         temp = temp + moduleSet
+#         temp = temp + " and "
+#         ICfile = element[6:]
+#         ICfile = ICfile[:-1]
+#         temp = temp + ICfile + "."
+#         incorrectList.append(temp)
+#         temp = ""
 
-# Get the module list
-os.chdir(home)
-os.chdir("testingScripts")
+# print(incorrectList)
 
-file = open('modules1.txt', 'r')
-modules = file.readlines()
-moduleList = []
-tempString = ""
+# # Get the module list
+# os.chdir(home)
+# os.chdir("testingScripts")
 
-for line in modules:
-    if (line.strip() == "##NEW ENVIRONMENT##"):
-        moduleList.append(tempString)
-        tempString = ""
-    else:
-        tempString += line
+# file = open('modules1.txt', 'r')
+# modules = file.readlines()
+# moduleList = []
+# tempString = ""
 
-moduleList.append(tempString)
+# for line in modules:
+#     if (line.strip() == "##NEW ENVIRONMENT##"):
+#         moduleList.append(tempString)
+#         tempString = ""
+#     else:
+#         tempString += line
 
-for moduleSet in moduleList:
-    print(moduleSet)
+# moduleList.append(tempString)
 
-myText = ""
+# for moduleSet in moduleList:
+#     print(moduleSet)
 
-# Create a long string to send to slack
-for element in incorrectList:
-    myText = myText + element + "\n"
+# myText = ""
 
-myText = myText + "\nModule Set 1:\n" + moduleList[0]
-myText = myText + "\nModule Set 2:\n" + moduleList[1]
-myText = myText + "\nModule Set 3:\n" + moduleList[2] + "\n"
+# # Create a long string to send to slack
+# for element in incorrectList:
+#     myText = myText + element + "\n"
 
-hadErrors = True
-if not incorrectList:
-    hadErrors = False
-    myText = "All ICs built OK on branch " + gBranch
+# myText = myText + "\nModule Set 1:\n" + moduleList[0]
+# myText = myText + "\nModule Set 2:\n" + moduleList[1]
+# myText = myText + "\nModule Set 3:\n" + moduleList[2] + "\n"
 
-# Try to send Slack message
-if(not isTest and (beLoud or hadErrors)):
-    try:
-        response = client.chat_postMessage(
-        	channel="#kaijudev",
-        	text=myText,
-        )
-    except SlackApiError as e:
-       # You will get a SlackApiError if "ok" is False
-       assert e.response["error"]  # str like 'invalid_auth', 'channel_not_found'
-else:
-    print(myText)
+# hadErrors = True
+# if not incorrectList:
+#     hadErrors = False
+#     myText = "All ICs built OK on branch " + gBranch
 
+# # Try to send Slack message
+# if(not isTest and (beLoud or hadErrors)):
+#     try:
+#         response = client.chat_postMessage(
+#         	channel="#kaijudev",
+#         	text=myText,
+#         )
+#     except SlackApiError as e:
+#        # You will get a SlackApiError if "ok" is False
+#        assert e.response["error"]  # str like 'invalid_auth', 'channel_not_found'
+# else:
+#     print(myText)
+
+
+print(f"Ending {sys.argv[0]}", flush=True)
