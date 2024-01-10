@@ -278,20 +278,20 @@ module raijutypes
             !! (Ni, Nj, Nk, 2) Cell-centered velocities, [Rp/s] in ionosphere
 
 
-        !> Variables coming from MHD flux tube tracing, size (Ni, Nj, Ns)
+        ! Variables coming from MHD flux tube tracing, size (Ni, Nj, Ns)
         real(rp), dimension(:,:,:), allocatable :: Pavg
         real(rp), dimension(:,:,:), allocatable :: Davg
-        !> (Ni, Nk, NDIM), Bmin vector, [nT]
+        ! (Ni, Nk, NDIM), Bmin vector, [nT]
         real(rp), dimension(:,:,:), allocatable :: Bmin
-        !> (Ni+1, Nk+1, NDIM) bMin xyz coordinates [Rx]
+        ! (Ni+1, Nk+1, NDIM) bMin xyz coordinates [Rx]
         real(rp), dimension(:,:,:), allocatable :: xyzMin
-        !> (Ni, Nk, NDIM) cell-centered bMin xyz coordinates [Rx]
+        ! (Ni, Nk, NDIM) cell-centered bMin xyz coordinates [Rx]
         real(rp), dimension(:,:,:), allocatable :: xyzMincc
-        !> (Ni+1, Nk+1) corner values
+        ! (Ni+1, Nk+1) corner values
         integer , dimension(:,:), allocatable :: topo   ! Topology (0=open, 1=closed)
         real(rp), dimension(:,:), allocatable :: thcon  ! Co-latitude  of conjugate points
         real(rp), dimension(:,:), allocatable :: phcon  ! Longitude of conjugate points
-        !> (Ni, Nj)
+        ! (Ni, Nj)
         integer , dimension(:,:), allocatable :: active  ! (-1=inactive, 0=buffer, 1=active)
         integer , dimension(:,:), allocatable :: active_last  ! Active domain from the previous coupling time step, used for half-step eta calculation
         integer , dimension(:,:), allocatable :: OCBDist  ! Cell distance from open-closed boundary
