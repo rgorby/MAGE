@@ -62,12 +62,12 @@ module gamCouple_mpi_V2G
 
         ! only over-riding specific functions
         procedure :: InitModel => gamCplMpiVInitModel
-        !procedure :: InitIO => gamCplInitIO
-        !procedure :: WriteRestart => gamCplWriteRestart
-        !procedure :: ReadRestart => gamCplReadRestart
-        !procedure :: WriteConsoleOutput => gamCplWriteConsoleOutput
-        !procedure :: WriteFileOutput => gamCplWriteFileOutput
-        !procedure :: WriteSlimFileOutput => gamCplWriteSlimFileOutput
+        procedure :: InitIO => gamCplMpiVInitIO
+        procedure :: WriteRestart => gamCplMpiVWriteRestart
+        procedure :: ReadRestart => gamCplMpiVReadRestart
+        procedure :: WriteConsoleOutput => gamCplMpiVWriteConsoleOutput
+        procedure :: WriteFileOutput => gamCplMpiVWriteFileOutput
+        procedure :: WriteSlimFileOutput => gamCplMpiVWriteSlimFileOutput
         !procedure :: AdvanceModel => gamCplMpiVAdvanceModel
         procedure :: Cleanup => gamCplMpiVCleanup
 
@@ -374,6 +374,82 @@ module gamCouple_mpi_V2G
 
     end subroutine
 
+    subroutine gamCplMpiVInitIO(App, Xml)
+        class(gamCoupler_T), intent(inout) :: App
+        type(XML_Input_T), intent(inout) :: Xml
+
+        ! initialize only my own IO, Gamera is in another process
+        vh5File = trim(App%Model%RunID) // ".gamCpl.h5"
+
+    end subroutine
+
+    subroutine gamCplMpiVWriteRestart(App)
+        class(gamCoupler_T), intent(inout) :: App
+
+        ! write only my own restart data
+        call writeGamCouplerRestart(App)
+
+    end subroutine
+
+    subroutine gamCplMpiVReadRestart(App, resId, nRes)
+        class(gamCoupler_T), intent(inout) :: App
+        character(len=*), intent(in) :: resId
+        integer, intent(in) :: nRes
+
+        ! read only my own restart data
+        call readGamCouplerRestart(App, resId, nRes)
+
+    end subroutine
+
+    subroutine gamCplMpiVWriteConsoleOutput(App)
+        class(gamCoupler_T), intent(inout) :: App
+
+        real(rp) :: cpcp(2) = 0.0
+
+        ! write only my own console info
+        if(App%Model%isLoud) then
+            call getCPCP(App%mixOutput,cpcp)
+             write (*, '(a,2f8.3,a)')             '      CPCP = ' , cpcp(NORTH), cpcp(SOUTH), ' [kV, N/S]'
+        endif
+
+    end subroutine
+
+    subroutine gamCplMpiVWriteFileOutput(App)
+        class(gamCoupler_T), intent(inout) :: App
+
+        ! write ony my own file output
+        call writeCouplerFileOutput(App)
+
+    end subroutine
+
+    subroutine gamCplMpiVWriteSlimFileOutput(App)
+        class(gamCoupler_T), intent(inout) :: App
+
+        call gamCplMpiVWriteFileOutput(App)
+
+    end subroutine
+
+    subroutine gamCplMpiVCleanup(App)
+        class(gamCouplerMpi_volt_T), intent(inout) :: App
+
+        logical :: reqStat
+        integer :: ierr
+
+        call MPI_TEST(App%ineijkGSendReq,reqStat,MPI_STATUS_IGNORE,ierr)
+        if(.not. reqStat) then
+            ! async neighborhood ops don't support cancel
+            call MPI_WAIT(App%ineijkGSendReq, MPI_STATUS_IGNORE, ierr)
+        endif
+
+        call MPI_TEST(App%inexyzGSendReq,reqStat,MPI_STATUS_IGNORE,ierr)
+        if(.not. reqStat) then
+            ! async neighborhood ops don't support cancel
+            call MPI_WAIT(App%inexyzGSendReq, MPI_STATUS_IGNORE, ierr)
+        endif
+    end subroutine
+
+    ! coupler routines
+
     subroutine gamCplMpiVInitCoupler(App, voltApp)
         class(gamCouplerMpi_volt_T), intent(inout) :: App
         class(voltApp_T), intent(inout) :: voltApp
@@ -524,25 +600,6 @@ module gamCouple_mpi_V2G
         ! Send Target Time for next coupling
         call mpi_bcast(CouplingTargetT,1,MPI_MYFLOAT, gCplApp%myRank, gCplApp%couplingComm, ierr)
 
-    end subroutine
-
-    subroutine gamCplMpiVCleanup(App)
-        class(gamCouplerMpi_volt_T), intent(inout) :: App
-
-        logical :: reqStat
-        integer :: ierr
-
-        call MPI_TEST(App%ineijkGSendReq,reqStat,MPI_STATUS_IGNORE,ierr)
-        if(.not. reqStat) then
-            ! async neighborhood ops don't support cancel
-            call MPI_WAIT(App%ineijkGSendReq, MPI_STATUS_IGNORE, ierr)
-        endif
-
-        call MPI_TEST(App%inexyzGSendReq,reqStat,MPI_STATUS_IGNORE,ierr)
-        if(.not. reqStat) then
-            ! async neighborhood ops don't support cancel
-            call MPI_WAIT(App%inexyzGSendReq, MPI_STATUS_IGNORE, ierr)
-        endif
     end subroutine
 
 end module

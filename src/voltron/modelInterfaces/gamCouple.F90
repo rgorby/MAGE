@@ -117,6 +117,17 @@ module gamCouple
     subroutine gamCplWriteFileOutput(App)
         class(gamCoupler_T), intent(inout) :: App
 
+        ! write parent's file
+        call gamWriteFileOutput(App)
+
+        ! then my own
+        call writeCouplerFileOutput(App)
+
+    end subroutine
+
+    subroutine writeCouplerFileOutput(App)
+        class(gamCoupler_T), intent(inout) :: App
+
         integer :: i,j,k
         real(rp) :: cpcp(2)
         real(rp), dimension(:,:,:,:), allocatable, save :: inEijk,inExyz,Veb
@@ -125,10 +136,6 @@ module gamCouple
         character(len=strLen) :: gStr
         type(IOVAR_T), dimension(50) :: IOVars
 
-        ! write parent's file
-        call gamWriteFileOutput(App)
-
-        ! then my own
         associate(Gr => App%Grid)
 
         if (.not. allocated(inEijk)) allocate(inEijk(PsiSh+1,Gr%jsg:Gr%jeg+1,Gr%ksg:Gr%keg+1,1:NDIM))
