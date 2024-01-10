@@ -9,7 +9,7 @@ import sys
 # logging.basicConfig(level=logging.DEBUG)
 # import argparse
 
-print(f"Starting {sys.argv[0]}", flush=True)
+print(f"Starting {sys.argv[0]}")
 
 # # read arguments
 # parser = argparse.ArgumentParser()
@@ -189,4 +189,4 @@ print(f"Starting {sys.argv[0]}", flush=True)
 # #else:
 # #    print(myText)
 
-print(f"Ending {sys.argv[0]}", flush=True)
+print(f"Ending {sys.argv[0]}")

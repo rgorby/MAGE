@@ -10,7 +10,7 @@ import sys
 # import time
 # import argparse
 
-print(f"Starting {sys.argv[0]}", flush=True)
+print(f"Starting {sys.argv[0]}")
 
 # # read arguments
 # parser = argparse.ArgumentParser()
@@ -169,4 +169,4 @@ print(f"Starting {sys.argv[0]}", flush=True)
 #         # You will get a SlackApiError if "ok" is False
 # #        assert e.response["error"]  # str like 'invalid_auth', 'channel_not_found'
 
-print(f"Ending {sys.argv[0]}", flush=True)
+print(f"Ending {sys.argv[0]}")

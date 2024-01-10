@@ -10,7 +10,7 @@ import sys
 # import time
 # import argparse
 
-print(f"Starting {sys.argv[0]}", flush=True)
+print(f"Starting {sys.argv[0]}")
 
 # # read arguments
 # parser = argparse.ArgumentParser()
@@ -192,4 +192,4 @@ print(f"Starting {sys.argv[0]}", flush=True)
 # message = "Run started on branch " + gBranch + " as jobid " + firstJobNumber
 # print(message)
 
-print(f"Ending {sys.argv[0]}", flush=True)
+print(f"Ending {sys.argv[0]}")

@@ -7,17 +7,17 @@ import sys
 # from slack.errors import SlackApiError
 # import logging
 # logging.basicConfig(level=logging.DEBUG)
-# import argparse
+import argparse
 
-print(f"Starting {sys.argv[0]}", flush=True)
+print(f"Starting {sys.argv[0]}")
 
-# # read arguments
-# parser = argparse.ArgumentParser()
-# parser.add_argument('-t',action='store_true',default=False, help='Enables testing mode')
-# parser.add_argument('-l',action='store_true',default=False, help='Enables loud mode')
-# parser.add_argument('-a',action='store_true',default=False, help='Run all tests')
-# parser.add_argument('-f',action='store_true',default=False, help='Force the tests to run')
-# parser.add_argument('--account',type=str, default='', help='qsub account number')
+# read arguments
+parser = argparse.ArgumentParser()
+parser.add_argument('-t',action='store_true',default=False, help='Enables testing mode')
+parser.add_argument('-l',action='store_true',default=False, help='Enables loud mode')
+parser.add_argument('-a',action='store_true',default=False, help='Run all tests')
+parser.add_argument('-f',action='store_true',default=False, help='Force the tests to run')
+parser.add_argument('--account',type=str, default='', help='qsub account number')
 
 # args = parser.parse_args()
 # isTest = args.t
@@ -272,4 +272,4 @@ print(f"Starting {sys.argv[0]}", flush=True)
 #         # You will get a SlackApiError if "ok" is False
 # #        assert e.response["error"]  # str like 'invalid_auth', 'channel_not_found'
 
-print(f"Ending {sys.argv[0]}", flush=True)
+print(f"Ending {sys.argv[0]}")
