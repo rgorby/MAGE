@@ -92,6 +92,7 @@ module raijuIO
         call AddOutVar(IOVars,"doGeoCorot"    ,Model%doGeoCorot    )  ! Attr
         call AddOutVar(IOVars,"doExcesstoPsph",Model%doExcesstoPsph)  ! Attr
         call AddOutVar(IOVars,"doPlasmasphere",Model%doPlasmasphere)  ! Attr
+        call AddOutVar(IOVars,"doActiveShell",Model%doActiveShell)  ! Attr
         call WriteVars(IOVars,.true.,Model%raijuH5)
 
         ! Grid data
@@ -99,6 +100,7 @@ module raijuIO
         call AddOutVar(IOVars,"X",lat2D,uStr="radians")
         call AddOutVar(IOVars,"Y",lon2D,uStr="radians")
         call AddOutVar(IOVars,"Bmag",Grid%Bmag(is:ie,js:je),uStr="nT")
+        call AddOutVar(IOVars,"Br",Grid%Br(is:ie+1,js:je+1,:),uStr="nT")
         call AddOutVar(IOVars,"areaCC",Grid%areaCC  (is:ie,js:je),uStr="Ri^2")
         call AddOutVar(IOVars,"alamc",Grid%alamc,uStr="eV * (Rx/nT)^(2/3)")
 
@@ -194,9 +196,9 @@ module raijuIO
         call AddOutVar(IOVars,"rotAxisP",axP)  ! Radians
 
         ! Add State variables
-        call AddOutVar(IOVars,"bminX",State%Bmin(is:ie,js:je,XDIR),uStr="nT")
-        call AddOutVar(IOVars,"bminY",State%Bmin(is:ie,js:je,YDIR),uStr="nT")
-        call AddOutVar(IOVars,"bminZ",State%Bmin(is:ie,js:je,ZDIR),uStr="nT")
+        call AddOutVar(IOVars,"bminX",State%Bmin(is:ie+1,js:je+1,XDIR),uStr="nT")
+        call AddOutVar(IOVars,"bminY",State%Bmin(is:ie+1,js:je+1,YDIR),uStr="nT")
+        call AddOutVar(IOVars,"bminZ",State%Bmin(is:ie+1,js:je+1,ZDIR),uStr="nT")
 
         call AddOutVar(IOVars,"eta",State%eta(is:ie,js:je, :),uStr="#/cm^3 * Rx/T") !! TODO: Maybe swap with just intensity instead
 
@@ -230,8 +232,8 @@ module raijuIO
         call AddOutVar(IOVars,"lonc"   ,State%phcon  (is:ie+1,js:je+1),uStr="radians")
         call AddOutVar(IOVars,"active" ,State%active (is:ie,js:je)*1.0_rp,uStr="-1=Inactive, 0=Buffer, 1=Active")
         call AddOutVar(IOVars,"OCBDist",State%OCBDist(is:ie,js:je)*1.0_rp,uStr="Cell distance from an open closed boundary")
-        call AddOutVar(IOVars,"espot"  ,State%espot  (is:ie,js:je),uStr="kV")
-        call AddOutVar(IOVars,"bVol"   ,State%bvol   (is:ie,js:je),uStr="Rx/nT")
+        call AddOutVar(IOVars,"espot"  ,State%espot  (is:ie+1,js:je+1),uStr="kV")
+        call AddOutVar(IOVars,"bVol"   ,State%bvol   (is:ie+1,js:je+1),uStr="Rx/nT")
         call AddOutVar(IOVars,"Pavg_in",State%Pavg   (is:ie,js:je, :),uStr="nPa")
         call AddOutVar(IOVars,"Davg_in",State%Davg   (is:ie,js:je, :),uStr="#/cc")
 
@@ -290,12 +292,12 @@ module raijuIO
         if (Model%doFatOutput) then
             ! Calc pEffective based on current state
             ! Make full ghost size since that's what the subroutine expects
-            allocate(outPEff   (Grid%shGrid%isg:Grid%shGrid%ieg,Grid%shGrid%jsg:Grid%shGrid%jeg,Grid%Nk))
+            allocate(outPEff   (Grid%shGrid%isg:Grid%shGrid%ieg+1,Grid%shGrid%jsg:Grid%shGrid%jeg+1,Grid%Nk))
             call calcEffectivePotential(Model, Grid, State, outPEff)
-            call AddOutVar(IOVars, "pEffective", outPEff(is:ie,js:je,:)*1e-3, uStr="kV")
-            call AddOutVar(IOVars, "gradPotE"    , State%gradPotE    (is:ie,js:je,:), uStr="V/m")
-            call AddOutVar(IOVars, "gradPotCorot", State%gradPotCorot(is:ie,js:je,:), uStr="V/m")
-            call AddOutVar(IOVars, "gradVM"      , State%gradVM      (is:ie,js:je,:), uStr="V/m/lambda")
+            call AddOutVar(IOVars, "pEffective", outPEff(is:ie+1,js:je+1,:)*1e-3, uStr="kV")
+            call AddOutVar(IOVars, "gradPotE"    , State%gradPotE    (is:ie+1,js:je+1,:), uStr="V/m")
+            call AddOutVar(IOVars, "gradPotCorot", State%gradPotCorot(is:ie+1,js:je+1,:), uStr="V/m")
+            call AddOutVar(IOVars, "gradVM"      , State%gradVM      (is:ie+1,js:je+1,:), uStr="V/m/lambda")
             call AddOutVar(IOVars, "cVel_th", State%cVel(is:ie,js:je,:,1), uStr="m/s")
             call AddOutVar(IOVars, "cVel_ph", State%cVel(is:ie,js:je,:,2), uStr="m/s")
             call AddOutVar(IOVars, "preciplossRates_Nk", State%lossRates  (is:ie,js:je,:), uStr="1/s")
@@ -308,7 +310,7 @@ module raijuIO
             call AddOutVar(IOVars, "dtk", State%dtk, uStr="s")
             call AddOutVar(IOVars, "nStepk", State%nStepk*1.0_rp, uStr="#", dStr="Number of steps each channel has taken")
             ! call AddOutVar(IOVars, "nStepk", State%nStepk*1.0_rp, uStr="#") 
-            call AddOutVar(IOVars, "iVel"       , State%cVel       (is:ie+1,js:je+1,:,:), uStr="m/s")
+            call AddOutVar(IOVars, "iVel"       , State%iVel       (is:ie+1,js:je+1,:,:), uStr="m/s")
             call AddOutVar(IOVars, "etaFace"    , State%etaFace    (is:ie+1,js:je+1,:,:), uStr="#/cm^3 * Rx/T")
             call AddOutVar(IOVars, "etaFacePDML", State%etaFacePDML(is:ie+1,js:je+1,:,:), uStr="#/cm^3 * Rx/T")
             call AddOutVar(IOVars, "etaFacePDMR", State%etaFacePDMR(is:ie+1,js:je+1,:,:), uStr="#/cm^3 * Rx/T")

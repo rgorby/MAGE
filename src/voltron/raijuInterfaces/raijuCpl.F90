@@ -127,6 +127,7 @@ module raijuCpl
         contains
 
         function CalcOCBDist(sh, closedCC, nBnd) result(ocbDist)
+            !! Calculates distance each cell is from open/closed boundary, up to nBnd cells away
             type(ShellGrid_T), intent(in) :: sh
                 !! RAIJU shell grid
             logical, dimension(sh%isg:sh%ieg,sh%jsg:sh%jeg), intent(in) :: closedCC
@@ -194,7 +195,6 @@ module raijuCpl
             do i=sh%isg,sh%ieg+1
                 do j=sh%jsg,sh%jeg+1
                     State%xyzMin(i,j,:)   = ijTubes(i,j)%X_bmin / Model%planet%rp_m  ! xyzMin in Rp
-                    State%topo(i,j)       = ijTubes(i,j)%topo
                     State%thcon(i,j) = PI/2-ijTubes(i,j)%latc
                     State%phcon(i,j)      = ijTubes(i,j)%lonc
                 enddo
@@ -241,6 +241,7 @@ module raijuCpl
         end associate
         
     end subroutine imagTubes2RAIJU
+
 
     subroutine defaultMHD2SpcMap(Model, Grid, State, ijTubes)
         !! Assumes:

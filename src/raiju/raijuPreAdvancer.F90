@@ -60,19 +60,23 @@ module raijuPreAdvancer
         call prepEtaLast(Grid%shGrid, State, isFirstCpl)
 
         ! Calc cell velocities
-        call Tic("Calc cell-center velocities")
+        call Tic("Calc face velocities")
         call calcPotGrads(Model, Grid, State)
+
         !$OMP PARALLEL DO default(shared) &
         !$OMP schedule(dynamic) &
         !$OMP private(k)
         do k=1,Grid%Nk
-            call calcVelocityCC(Model, Grid, State, k, State%cVel(:,:,k,:))
+            !call calcVelocityCC(Model, Grid, State, k, State%cVel(:,:,k,:))
+            call calcVelocity(Model, Grid, State, k, State%iVel(:,:,k,:))  ! Get velocity at cell interfaces
             ! Calc sub-time step
             State%dtk(k) = activeDt(Model, Grid, State, k)
+            
+            !! OLD:
             ! We can also calculate velocity at faces here because it won't change during sub-stepping
-            call ReconFaces(Grid, isG_vFaces, State%cVel(:,:,k,RAI_TH), State%iVel(:,:,k,:), Qcc_phO=State%cVel(:,:,k,RAI_PH))
+            !call ReconFaces(Grid, isG_vFaces, State%cVel(:,:,k,RAI_TH), State%iVel(:,:,k,:), Qcc_phO=State%cVel(:,:,k,RAI_PH))
         enddo
-        call Toc("Calc cell-center velocities")
+        call Toc("Calc face velocities")
 
         ! Loss rate calc depends on up-to-date densities, so we should run EvalMoments first
         call Tic("Moments Eval PreAdvance")
@@ -133,12 +137,12 @@ module raijuPreAdvancer
 !------
 ! Cell Potentials and their gradients
 !------
-    !! Potential variables come in pre-allocated, since they may be subests of larger arrays
+    !! Potential variables come in pre-allocated, since they may be subsets of larger arrays
     subroutine potExB(sh, State, pExB)
         ! Trivial, but putting it here in case we need extra options for it later
         type(ShellGrid_T), intent(in) :: sh
         type(raijuState_T), intent(in) :: State
-        real(rp), dimension(sh%isg:sh%ieg,sh%jsg:sh%jeg), intent(inout) :: pExB
+        real(rp), dimension(sh%isg:sh%ieg+1,sh%jsg:sh%jeg+1), intent(inout) :: pExB
         
         pExB = State%espot * 1.e3  ! [kV -> V]
 
@@ -150,15 +154,15 @@ module raijuPreAdvancer
         type(ShellGrid_T), intent(in) :: sh
         logical, intent(in), optional :: doGeoCorotO
 
-        real(rp), dimension(sh%isg:sh%ieg,sh%jsg:sh%jeg), intent(inout) :: pCorot
+        real(rp), dimension(sh%isg:sh%ieg+1,sh%jsg:sh%jeg+1), intent(inout) :: pCorot
         integer :: i,j
 
         if (present(doGeoCorotO)) then
             if (doGeoCorotO) then
                 pCorot = 0.0
-                do j=sh%jsg,sh%jeg
-                    do i=sh%isg,sh%ieg
-                        call geocorotation_from_SMTP(sh%thc(i), sh%phc(j), pCorot(i,j))
+                do j=sh%jsg,sh%jeg+1
+                    do i=sh%isg,sh%ieg+1
+                        call geocorotation_from_SMTP(sh%th(i), sh%ph(j), pCorot(i,j))
                     enddo
                 enddo
                 ! geopack corotation returns in kV, we need V
@@ -169,8 +173,8 @@ module raijuPreAdvancer
 
         ! IfdoGeoCorotO was not provided, or it was false, we default to corotation on aligned dipole and rotational axis
 
-        do j=sh%jsg,sh%jeg
-            pCorot(:,j) = -planet%psiCorot*(planet%rp_m/planet%ri_m)*sin(sh%thc)**2 * 1.e3  ! [kV -> V]
+        do j=sh%jsg,sh%jeg+1
+            pCorot(:,j) = -planet%psiCorot*(planet%rp_m/planet%ri_m)*sin(sh%th)**2 * 1.e3  ! [kV -> V]
         enddo
 
     end subroutine potCorot
@@ -180,11 +184,11 @@ module raijuPreAdvancer
         ! Simple gradient curvature potential [V]
         type(ShellGrid_T), intent(in) :: shGrid
         real(rp), intent(in) :: alamc
-        real(rp), dimension(shGrid%isg:shGrid%ieg,&
-                            shGrid%jsg:shGrid%jeg), intent(in) :: bVol
+        real(rp), dimension(shGrid%isg:shGrid%ieg+1,&
+                            shGrid%jsg:shGrid%jeg+1), intent(in) :: bVol
 
-        real(rp), dimension(shGrid%isg:shGrid%ieg,&
-                            shGrid%jsg:shGrid%jeg), intent(inout) :: pGC
+        real(rp), dimension(shGrid%isg:shGrid%ieg+1,&
+                            shGrid%jsg:shGrid%jeg+1), intent(inout) :: pGC
 
         pGC = alamc*bVol**(-2./3.)
 
@@ -192,18 +196,18 @@ module raijuPreAdvancer
 
 
     subroutine calcEffectivePotential(Model, Grid, State, pEff)
-        !! Calculates effective potential [V] for all lambda channels as the sum of pExB, pCorot, and pGC
         !! Note: This is not used to calculate velocities in the solver itself
+        !! Calculates effective potential [V] for all lambda channels as the sum of pExB, pCorot, and pGC
         type(raijuModel_T) , intent(in) :: Model
         type(raijuGrid_T) , intent(in) :: Grid
         type(raijuState_T), intent(in) :: State
-        real(rp), dimension(Grid%shGrid%isg:Grid%shGrid%ieg,&
-                            Grid%shGrid%jsg:Grid%shGrid%jeg,&
+        real(rp), dimension(Grid%shGrid%isg:Grid%shGrid%ieg+1,&
+                            Grid%shGrid%jsg:Grid%shGrid%jeg+1,&
                             Grid%Nk), intent(inout) :: pEff
         
         integer :: k
-        real(rp), dimension(Grid%shGrid%isg:Grid%shGrid%ieg,&
-                            Grid%shGrid%jsg:Grid%shGrid%jeg) :: pExB, pCorot, pGC
+        real(rp), dimension(Grid%shGrid%isg:Grid%shGrid%ieg+1,&
+                            Grid%shGrid%jsg:Grid%shGrid%jeg+1) :: pExB, pCorot, pGC
         
         pEff = 0.0
 
@@ -233,14 +237,17 @@ module raijuPreAdvancer
         type(raijuGrid_T ), intent(in)    :: Grid
         type(raijuState_T), intent(inout) :: State
 
-        logical , dimension(Grid%shGrid%isg:Grid%shGrid%ieg,&
-                            Grid%shGrid%jsg:Grid%shGrid%jeg) :: isGood
-        real(rp), dimension(Grid%shGrid%isg:Grid%shGrid%ieg,&
-                            Grid%shGrid%jsg:Grid%shGrid%jeg) :: pExB, pCorot
-        real(rp), dimension(Grid%shGrid%isg:Grid%shGrid%ieg,&
-                            Grid%shGrid%jsg:Grid%shGrid%jeg, 2) :: gradVM
-        ! What's good
-        where (State%active .ne. RAIJUINACTIVE)
+        ! Cell corners
+        logical , dimension(Grid%shGrid%isg:Grid%shGrid%ieg+1,&
+                            Grid%shGrid%jsg:Grid%shGrid%jeg+1) :: isGood
+        real(rp), dimension(Grid%shGrid%isg:Grid%shGrid%ieg+1,&
+                            Grid%shGrid%jsg:Grid%shGrid%jeg+1) :: pExB, pCorot
+        ! Cell faces
+        real(rp), dimension(Grid%shGrid%isg:Grid%shGrid%ieg+1,&
+                            Grid%shGrid%jsg:Grid%shGrid%jeg+1, 2) :: gradVM
+        
+        ! Determine which cell corners we consider good enough to calculating gradients from
+        where (State%topo .eq. RAIJUCLOSED)
             isGood = .true.
         elsewhere
             isGood = .false.
@@ -249,20 +256,86 @@ module raijuPreAdvancer
         ! Ionospheric and corotation potentials are just simple derivatives
         call potExB(Grid%shGrid, State, pExB)  ! [V]
         call potCorot(Model%planet, Grid%shGrid, pCorot, Model%doGeoCorot)  ! [V]
-        call calcGradIJ(Model%planet%ri_m, Grid, isGood, pExB  , State%gradPotE    )  ! [V/m]
-        call calcGradIJ(Model%planet%ri_m, Grid, isGood, pCorot, State%gradPotCorot)  ! [V/m]
+        call calcGradIJ(Model%planet%rp_m, Grid, isGood, pExB  , State%gradPotE    )  ! [V/m]
+        call calcGradIJ(Model%planet%rp_m, Grid, isGood, pCorot, State%gradPotCorot)  ! [V/m]
 
         ! GC drifts depend on grad(lambda * V^(-2/3))
         ! lambda is constant, so just need grad(V^(-2/3) )
         ! grad(V^(-2/3)) = -2/3*V^(-5/3) * grad(V)
-        call calcGradFTV(Model%planet%ri_m, Model%planet%magMoment, Grid, isGood, State%bvol, gradVM)
+        call calcGradFTV(Model%planet%rp_m, Model%planet%ri_m, Model%planet%magMoment, Grid, isGood, State%bvol, gradVM)
         State%gradVM(:,:,RAI_TH) = (-2./3.) * State%bvol**(-5./3.) * gradVM(:,:,RAI_TH)  ! [Vol^(-2/3)/m/lambda]
         State%gradVM(:,:,RAI_PH) = (-2./3.) * State%bvol**(-5./3.) * gradVM(:,:,RAI_PH)  ! [Vol^(-2/3)/m/lambda]
 
     end subroutine calcPotGrads
 
 
-    subroutine calcGradIJ(RIon, Grid, isG, Q, gradQ)
+    subroutine calcGradIJ(Rp_m, Grid, isG, Q, gradQ)
+        !! Calc gradient in spherical coordinates of corner variable Q across cell edges/faces
+        !! Up to someone else to overwrite ghosts
+        real(rp), intent(in) :: Rp_m
+            !! Planet radius in m
+        type(raijuGrid_T), intent(in) :: Grid
+        logical , dimension(Grid%shGrid%isg:Grid%shGrid%ieg+1,Grid%shGrid%jsg:Grid%shGrid%jeg+1), intent(in) :: isG
+        real(rp), dimension(Grid%shGrid%isg:Grid%shGrid%ieg+1,Grid%shGrid%jsg:Grid%shGrid%jeg+1), intent(in) :: Q
+        real(rp), dimension(Grid%shGrid%isg:Grid%shGrid%ieg+1,Grid%shGrid%jsg:Grid%shGrid%jeg+1, 2), intent(inout) :: gradQ
+            !! units(Q) / m
+        
+        integer :: i,j
+        real(rp), dimension(Grid%shGrid%isg:Grid%shGrid%ieg+1) :: sinTh
+
+        gradQ = 0.0
+
+        associate(sh=>Grid%shGrid)
+        ! Calc sin(theta) for everyone to use
+        sinTh = sin(sh%th)
+            !! NOTE: This is used in the spherical derivative of the theta faces, which are along the phi direction
+            !! so this defines sin(theta) exactly at the interface value since we are using an orthogonal grid aligned with spherical theta and phi
+
+        ! Bulk of the faces. Does not cover the final set of faces bounding the top of the box
+        !$OMP PARALLEL DO default(shared) collapse(1) &
+        !$OMP schedule(dynamic) &
+        !$OMP private(i,j) &
+        !$OMP IF(.false.)
+        do j=sh%jsg,sh%jeg
+            do i=sh%isg,sh%ieg
+
+                ! Theta dir face takes the spatial derivative of the corners along the phi direction
+                if ( isG(i,j) .and. isG(i,j+1) ) then
+                    ! NOTE: I don't think we need a 1/sin(theta) term here because it is already included in Grid%lenFace
+                    !gradQ(i,j,RAI_TH) = (Q(i,j+1) - Q(i,j)) / RIon / sinTh(i) / Grid%lenFace(i,j,RAI_TH)
+                    gradQ(i,j,RAI_TH) = (Q(i,j+1) - Q(i,j)) / (Grid%lenFace(i,j,RAI_TH) * Rp_m )  ! lenFace in units of Rp, turn into meters
+                endif ! If either point is not good then any cells using this face will be flagged as not good, and we can leave gradQ as zero there
+
+                ! Phi dir face takes the spatial derivative of the corners along the theta direction
+                if ( isG(i,j) .and. isG(i+1,j) ) then
+                    gradQ(i,j,RAI_PH) = (Q(i+1,j) - Q(i,j)) / ( Grid%lenFace(i,j,RAI_PH) * Rp_m )
+                endif
+
+            enddo
+        enddo
+
+        ! Now we handle the final row and column
+        ! Final theta faces
+        i = sh%ieg+1
+        do j=sh%jsg,sh%jeg
+            if ( isG(i,j) .and. isG(i,j+1) ) then
+                gradQ(i,j,RAI_TH) = (Q(i,j+1) - Q(i,j)) / ( Grid%lenFace(i,j,RAI_TH) * Rp_m )
+            endif
+        enddo
+
+        j = sh%jeg+1
+        do i=sh%isg,sh%ieg
+            if ( isG(i,j) .and. isG(i+1, j) ) then
+                gradQ(i,j,RAI_PH) = (Q(i+1,j) - Q(i,j)) / ( Grid%lenFace(i,j,RAI_PH) * Rp_m )
+            endif
+        enddo
+
+        end associate
+
+    end subroutine calcGradIJ
+
+
+    subroutine calcGradIJ_cc(RIon, Grid, isG, Q, gradQ)
         !! Calc gradint in spherical coordinates across entire grid, including ghosts
         !! Up to someone else to overwrite ghosts
         real(rp), intent(in) :: RIon
@@ -322,31 +395,33 @@ module raijuPreAdvancer
         gradQ(:,sh%jeg,:) = gradQ(:,sh%jeg-1,:)
 
         end associate
-    end subroutine calcGradIJ
+    end subroutine calcGradIJ_cc
 
 
-    subroutine calcGradFTV(RIon, B0, Grid, isG, V, gradV)
+    subroutine calcGradFTV(Rp_m, RIon_m, B0, Grid, isG, V, gradV)
         !! Calculates derivative of flux tube volume (bvol) in units [bVol / m]
-        real(rp), intent(in) :: RIon
-            !! Iono radius in meters
+        real(rp), intent(in) :: Rp_m
+            !! Planet radius in meters
+        real(rp), intent(in) :: RIon_m
+            !! Ionosphere radius in meters
         real(rp), intent(in) :: B0
             !! Planet's surface field strength in Gauss
         type(raijuGrid_T), intent(in) :: Grid
-        logical , dimension(Grid%shGrid%isg:Grid%shGrid%ieg,Grid%shGrid%jsg:Grid%shGrid%jeg), intent(in) :: isG
-        real(rp), dimension(Grid%shGrid%isg:Grid%shGrid%ieg,Grid%shGrid%jsg:Grid%shGrid%jeg), intent(in) :: V
-        real(rp), dimension(Grid%shGrid%isg:Grid%shGrid%ieg,Grid%shGrid%jsg:Grid%shGrid%jeg, 2), intent(inout) :: gradV
+        logical , dimension(Grid%shGrid%isg:Grid%shGrid%ieg+1,Grid%shGrid%jsg:Grid%shGrid%jeg+1), intent(in) :: isG
+        real(rp), dimension(Grid%shGrid%isg:Grid%shGrid%ieg+1,Grid%shGrid%jsg:Grid%shGrid%jeg+1), intent(in) :: V
+        real(rp), dimension(Grid%shGrid%isg:Grid%shGrid%ieg+1,Grid%shGrid%jsg:Grid%shGrid%jeg+1, 2), intent(inout) :: gradV
 
         integer :: i
         real(rp) :: dcl_dm
-        real(rp), dimension(Grid%shGrid%isg:Grid%shGrid%ieg,&
-                            Grid%shGrid%jsg:Grid%shGrid%jeg) :: V0, dV, dV0_dth
+        real(rp), dimension(Grid%shGrid%isg:Grid%shGrid%ieg+1,&
+                            Grid%shGrid%jsg:Grid%shGrid%jeg+1) :: V0, dV, dV0_dth
             !! V0 = dipole V, dV = V - V0
 
         associate(sh=>Grid%shGrid)
             
             ! Calculate dipole FTV
-            do i=sh%isg, sh%ieg
-                V0(i,:) = DipFTV_colat(sh%thc(i), B0)
+            do i=sh%isg, sh%ieg+1
+                V0(i,:) = DipFTV_colat(sh%th(i), B0)
             enddo
 
 
@@ -363,19 +438,19 @@ module raijuPreAdvancer
             ! Take gradients of each
             ! Analytic gradient of dipole FTV
             dV0_dth = 0.0
-            do i=sh%isg+1, sh%ieg-1
+            do i=sh%isg, sh%ieg+1
                 !! DerivDipFTV takes gradient w.r.t. theta
                 !! We need to convert to be w.r.t. arc len in meters
                 !dcl_dm = 0.5*(sh%thc(i+1) - sh%thc(i-1))/RIon
-                dcl_dm = 1.0/RIon
-                dV0_dth(i,:) = DerivDipFTV(sh%thc(i), B0) * dcl_dm
+                dcl_dm = 1.0/RIon_m
+                dV0_dth(i,:) = DerivDipFTV(sh%th(i), B0) * dcl_dm
             enddo
 
             ! Gradient of perturbation
-            call calcGradIJ(RIon, Grid, isG, dV, gradV)
+            call calcGradIJ(Rp_m, Grid, isG, dV, gradV)
 
-            ! Add on grad from dipole
-            gradV(:,:,RAI_TH) = gradV(:,:,RAI_TH) + dV0_dth
+            ! Add on grad from dipole (Gradient of the dipole is in the theta direction, stored on the phi face)
+            gradV(:,:,RAI_PH) = gradV(:,:,RAI_PH) + dV0_dth
             ! No need to do phi direction cause dipole doesn't have gradient in phi
 
         end associate
@@ -387,6 +462,45 @@ module raijuPreAdvancer
 !------
 ! Velocity calculations
 !------
+
+    subroutine calcVelocity(Model, Grid, State, k, Vtp)
+        !! Uses gradPots stored in State to calculate interface velocity [m/s] for lambda channel k
+        type(raijuModel_T), intent(in) :: Model
+        type(raijuGrid_T ), intent(in) :: Grid
+        type(raijuState_T), intent(in) :: State
+        integer, intent(in) :: k
+        real(rp), dimension(Grid%shGrid%isg:Grid%shGrid%ieg+1,&
+                            Grid%shGrid%jsg:Grid%shGrid%jeg+1, 2), intent(inout) :: Vtp
+                            !! Our interface velocity that we return
+
+        integer :: i,j
+        real(rp), dimension(Grid%shGrid%isg:Grid%shGrid%ieg+1, Grid%shGrid%jsg:Grid%shGrid%jeg+1, 2) :: gradPot
+
+
+        
+        gradPot = State%gradPotE + State%gradPotCorot + Grid%alamc(k)*State%gradVM  ! [V/m]        
+
+        ! Vel = ( Bvec x grad(pot) ) / B^2  = ( bhat x grad(pot) ) / B
+        ! [gradPot] = [V/m] = [T*m/s]
+        ! Note, 1/B term includes dip angle
+        !associate (colat => Grid%shGrid%thc)
+        !do j=Grid%shGrid%jsg, Grid%shGrid%jeg
+        !    !!NOTE: Assuming dipole field dip angle
+        !    cosdip(:,j) = 2.0*cos(colat)/sqrt(1.0 + 3.0*cos(colat)**2.0)
+        !enddo
+        !end associate
+
+        ! NOTE: Physically, we are taking a cross product here
+        ! BUT: we have stored e.g. the gradient of the potential across Theta face, which is in the phi direction, in (i,j,RAI_TH)
+        !  In other words, the cross product was already taken (except for the sign) when doing the gradients along faces
+
+        Vtp(:,:,RAI_TH) =      gradPot(:,:,RAI_TH) / (Grid%Br(:,:,RAI_TH)*1.0e-9)  ! [m/s]
+        Vtp(:,:,RAI_PH) = -1.0*gradPot(:,:,RAI_PH) / (Grid%Br(:,:,RAI_PH)*1.0e-9)  ! [m/s]
+
+    end subroutine calcVelocity
+
+
+
     subroutine calcVelocityCC(Model, Grid, State, k, Vtp)
         !! Uses gradPots stored in State to calculate cell-centered velocity [m/s] for lambda channel k
         type(raijuModel_T), intent(in) :: Model

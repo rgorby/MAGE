@@ -20,7 +20,7 @@ module raijuICHelpers
 
         real(rp) :: cpcp
             !! Things we get from the xml file
-        real(rp) :: L, bVol, vm
+        real(rp) :: L, bVol
             !! Internal quantities
         integer :: i,j
             !! Loops and indices
@@ -42,32 +42,32 @@ module raijuICHelpers
         ! Ni+1, Nj+1 variables
         do i=Grid%shGrid%isg,Grid%shGrid%ieg+1
             L = DipColat2L(Grid%shGrid%th(i))
+            bVol = DipFTV_L(L, Model%planet%magMoment) ! [Rx/nT]
             do j=Grid%shGrid%jsg,Grid%shGrid%jeg+1
                 State%xyzMin(i,j,XDIR) = L*cos(Grid%shGrid%ph(j))
                 State%xyzMin(i,j,YDIR) = L*sin(Grid%shGrid%ph(j))
             ! Conjugate points
                 State%thcon(i,j) = Grid%shGrid%th(i)
                 State%phcon(i,j) = Grid%shGrid%ph(j)
+
+            ! Bmin surface vars
+                State%Bmin(i,j,ZDIR) = Model%planet%magMoment/L**3.0
+                State%bvol(i,j) = bVol
+
+            ! Electrostatic potential [kV]
+                ! Taken from Toffoletto's rcm.x
+                State%espot(i,j) = -cpcp/2. * sin(Grid%shGrid%ph(j)) &
+                                    * Grid%shGrid%thc(1)/Grid%shGrid%th(i) !& 
+                                    !+ Model%planet%psiCorot/L*sin(Grid%shGrid%th(i))**2
             enddo
         enddo
 
         ! Ni, Nj variables
-        do i=Grid%shGrid%isg,Grid%shGrid%ieg
-            L = DipColat2L(Grid%shGrid%thc(i))
-            bVol = DipFTV_L(L, Model%planet%magMoment) ! [Rx/nT]
-            vm = bVol**(-2./3.)
-            do j=Grid%shGrid%jsg,Grid%shGrid%jeg
-            ! Bmin surface vars
-                State%Bmin(i,j,ZDIR) = Model%planet%magMoment/L**3.0
-                State%bvol(i,j) = bVol
-    
-            ! Electrostatic potential [kV]
-                ! Taken from Toffoletto's rcm.x
-                State%espot(i,j) = -cpcp/2. * sin(Grid%shGrid%phc(j)) &
-                                    * Grid%shGrid%thc(1)/Grid%shGrid%thc(i) !& 
-                                    !+ Model%planet%psiCorot/L*sin(Grid%shGrid%thc(i))**2
-            enddo  
-        enddo
+        !do i=Grid%shGrid%isg,Grid%shGrid%ieg
+        !    L = DipColat2L(Grid%shGrid%thc(i))
+        !    do j=Grid%shGrid%jsg,Grid%shGrid%jeg
+        !    enddo  
+        !enddo
 
         ! Finally, init etas
         call initEtaPresets(Model, Grid, State, iXML)

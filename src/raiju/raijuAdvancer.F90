@@ -23,54 +23,81 @@ module raijuAdvancer
         integer, intent(in) :: k
         
         integer :: i,j
-        real(rp), dimension(Grid%shGrid%isg:Grid%shGrid%ieg,Grid%shGrid%jsg:Grid%shGrid%jeg,2) :: vel, dtArr
-        logical , dimension(Grid%shGrid%isg:Grid%shGrid%ieg,Grid%shGrid%jsg:Grid%shGrid%jeg) :: asIJ, isGood
+        !real(rp), dimension(Grid%shGrid%isg:Grid%shGrid%ieg+1,Grid%shGrid%jsg:Grid%shGrid%jeg+1,2) :: vel, dtArr
+        !logical , dimension(Grid%shGrid%isg:Grid%shGrid%ieg+1,Grid%shGrid%jsg:Grid%shGrid%jeg+1, 2) :: asIJ, isGood
+        real(rp) :: velij
+        real(rp), dimension(Grid%shGrid%isg:Grid%shGrid%ieg+1,Grid%shGrid%jsg:Grid%shGrid%jeg+1, 2) :: dtArr
+        logical , dimension(Grid%shGrid%isg:Grid%shGrid%ieg+1,Grid%shGrid%jsg:Grid%shGrid%jeg+1, 2) :: isGood
         real(rp) :: dt
 
         associate (sh => Grid%shGrid)
         ! make activeShell 2D
-        do i=sh%isg,sh%ieg
-            asIJ(i,:) = State%activeShells(i,k)
-        enddo
-        
-        ! Only consider points that are in activeShell and not RAIJUINACTIVE
-        where (State%active .ne. RAIJUINACTIVE .and. asIJ)
-            isGood = .true.
-        elsewhere
-            isGood = .false.
-        end where
+        !do i=sh%isg,sh%ieg
+        !    asIJ(i,:) = State%activeShells(i,k)
+        !enddo
+        !
+        !! Only consider points that are in activeShell and not RAIJUINACTIVE
+        !where (State%topo .ne. RAIJUCLOSED .and. asIJ)
+        !    isGood = .true.
+        !elsewhere
+        !    isGood = .false.
+        !end where
 
-        vel(:,:,RAI_TH) = merge(abs(State%cVel(:,:,k,RAI_TH)), TINY, isGood)
-        vel(:,:,RAI_PH) = merge(abs(State%cVel(:,:,k,RAI_PH)), TINY, isGood)
+        dtArr = HUGE
 
-        ! Min dt in theta direction
-        do j=sh%jsg,sh%jeg
-            dtArr(:,j,RAI_TH) = 0.5*(Grid%delTh(:sh%ieg)+Grid%delTh(sh%isg+1:)) / (vel(:,j,RAI_TH) / Model%planet%ri_m)
-            !dtArr(:,j,RAI_TH) = 0.5*(Grid%lenFace(:sh%ieg, j, RAI_TH)+Grid%lenFace(sh%isg+1:, j, RAI_TH)) / (vel(:,j,RAI_TH) / Model%planet%ri_m)
-            !if (k == 20 .and. any(vel(:,j,1) > 400)) then
-            !    write(*,*)"dt_theta------"
-            !    write(*,*) 0.5*(Grid%lenFace(:sh%ieg, j, 1)+Grid%lenFace(sh%isg+1:, j, 1))
-            !    write(*,*)"------"
-            !endif
+        ! Determine which faces can be considered good
+        isGood = .false.
+        do j=sh%js,sh%je+1
+            do i=sh%is,sh%ie+1
+                ! NOTE: We are only checking faces bordering non-ghost cells because those are the only ones we use for evolution
+
+                ! We are responsible for face (i,j,TH) and (i,j,PH)
+                ! Theta faces first
+
+                ! This is a weird pattern. Basically, we can't cycle if the overall desired condition isn't met, because we are doing theta and phi directions in the same loop
+                ! At the time, we don't want to write one massive if condition with all options covered, or a bunch of nested if statements
+                ! So instead, we break them up, such that if a single if condition is true it means we have failed the physical condition for us to calculate a valid timestep for
+                ! If all if conditions fail then the physical conditions are met and we can do our calculations in the else block
+                if (Model%doActiveShell .and. (State%activeShells(i-1,k) .eq. .false. .or. State%activeShells(i,k) .eq. .false.) ) then
+                    continue
+                else if ( State%active(i-1,j) .eq. .false. .or. State%active(i,j) .eq. .false.) then
+                    continue
+                else
+                    ! We are good lets calculate a dt for this face
+                    velij = max(abs(State%iVel(i,j,k,RAI_TH)), TINY)
+                    dtArr(i,j,RAI_TH) = Grid%delTh(i) / ( velij / Model%planet%ri_m)  ! [s]
+                endif
+                
+                ! Phi faces
+                if (Model%doActiveShell .and. State%activeShells(i,k) .eq. .false. ) then
+                    continue
+                else if (State%active(i,j-1) .eq. .false. .or. State%active(i,j) .eq. .false. ) then 
+                    continue
+                else
+                    velij = max(abs(State%iVel(i,j,k,RAI_PH)), TINY)
+                    dtArr(i,j,RAI_PH) = Grid%delPh(j) / ( velij / Model%planet%ri_m)  ! [s]
+                endif
+
+            enddo
         enddo
-        ! In Phi direction
-        do i=sh%isg,sh%ieg
-            dtArr(i,:,RAI_PH) = 0.5*(Grid%delPh(:sh%jeg)+Grid%delPh(sh%jsg+1:)) / (vel(i,:,RAI_PH) / Model%planet%ri_m)
-            !dtArr(i,:,RAI_PH) = 0.5*(Grid%lenFace(i, :sh%jeg, RAI_PH)+Grid%lenFace(i, sh%jsg+1:, RAI_PH)) / (vel(i,:,2) / Model%planet%ri_m)
-            !if (k == 20 .and. any(vel(i,:,2) > 400)) then
-            !    write(*,*)"dt_phi------"
-            !    write(*,*) 0.5*(Grid%lenFace(i, :sh%jeg, 1)+Grid%lenFace(i, sh%jsg+1:, 1))
-            !    write(*,*)"------"
-            !endif
-        enddo
+
+        !vel(:,:,RAI_TH) = merge(abs(State%iVel(:,:,k,RAI_TH)), TINY, isGood(:,:,RAI_TH))
+        !vel(:,:,RAI_PH) = merge(abs(State%iVel(:,:,k,RAI_PH)), TINY, isGood(:,:,RAI_PH))
+!
+        !! dt in theta direction
+        !do j=sh%js,sh%je+1
+        !    dtArr(:,j,RAI_TH) = Grid%delTh(:) / (vel(:,j,RAI_TH) / Model%planet%ri_m)
+        !    !dtArr(:,j,RAI_TH) = 0.5*(Grid%delTh(:sh%ie)+Grid%delTh(sh%is+1:)) / (vel(:,j,RAI_TH) / Model%planet%ri_m)
+        !    !dtArr(:,j,RAI_TH) = 0.5*(Grid%lenFace(:sh%ieg, j, RAI_TH)+Grid%lenFace(sh%isg+1:, j, RAI_TH)) / (vel(:,j,RAI_TH) / Model%planet%ri_m)
+        !enddo
+        !! In phi direction
+        !do i=sh%is,sh%ie+1
+        !    dtArr(:,j,RAI_PH) = Grid%delPh(:) / (vel(i,:,RAI_PH) / Model%planet%ri_m)
+        !    !dtArr(i,:,RAI_PH) = 0.5*(Grid%delPh(:sh%je)+Grid%delPh(sh%js+1:)) / (vel(i,:,RAI_PH) / Model%planet%ri_m)
+        !    !dtArr(i,:,RAI_PH) = 0.5*(Grid%lenFace(i, :sh%jeg, RAI_PH)+Grid%lenFace(i, sh%jsg+1:, RAI_PH)) / (vel(i,:,2) / Model%planet%ri_m)
+        !enddo
 
         dt = Model%CFL*minval(dtArr)
-
-        !if (k == 20) then
-        !    write(*,*)"------"
-        !    write(*,*) minval(Model%CFL*dtArr), maxval(Model%CFL*dtArr)
-        !    write(*,*)"------"
-        !endif
 
         end associate
 
@@ -137,7 +164,6 @@ module raijuAdvancer
                 
 
                 ! Calc next time step
-                !! Also muting
                 dt = activeDt(Model, Grid, State, k)
 
                 ! If needed, reduce dt to fit within remaining time

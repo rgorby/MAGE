@@ -207,9 +207,11 @@ module raijutypes
         real(rp), dimension(:,:,:), allocatable :: lenFace
             !! (Ni+1, Nj+1, 2) arc length of each face
         real(rp), dimension(:,:), allocatable :: Bmag
-            !! Magnitude of B field [nT] at ionosphere
+            !! Magnitude of B field [nT] at ionosphere (cell-centered)
         real(rp), dimension(:,:), allocatable :: cosdip
-            !! Cosine of the dip angle at ionosphere. Used for velocity calculation
+            !! Cosine of the dip angle at ionosphere (cell-centered)
+        real(rp), dimension(:,:,:), allocatable :: Br
+            !! Radial/normal component of B field [nT] at ionosphere (cell faces)
 
         integer :: nB ! Number of buffer cells between open region and active domain
 
@@ -268,10 +270,10 @@ module raijutypes
         logical, dimension(:,:), allocatable :: activeShells
             !! (Ni, Nk) I shells that should be evolved for a given lambda
         real(rp), dimension(:,:,:), allocatable :: pEff
-            !! (Ni, Nj, Nk) Effective potential [V] (ExB + corot + gradient-curvature)
+            !! (Ni+1, Nj+1, Nk) Effective potential [V] (ExB + corot + gradient-curvature)
             !! Not actually used in calculations, but helpful for output
         real(rp), dimension(:,:,:), allocatable :: gradPotE, gradPotCorot, gradVM
-            !! (Ni, Nj,2) Th/phi gradient of the ionospheric potential, corotation potential, and flux tube volume raised to -2/3
+            !! (Ni+1, Nj+1,2) Th/phi gradient of the ionospheric potential, corotation potential, and flux tube volume raised to -2/3
         real(rp), dimension(:,:,:,:), allocatable :: iVel
             !! (Ni+1, Nj+1, Nk, 2) Edge-centered normal velocities
         real(rp), dimension(:,:,:,:), allocatable :: cVel
@@ -291,12 +293,12 @@ module raijutypes
         integer , dimension(:,:), allocatable :: topo   ! Topology (0=open, 1=closed)
         real(rp), dimension(:,:), allocatable :: thcon  ! Co-latitude  of conjugate points
         real(rp), dimension(:,:), allocatable :: phcon  ! Longitude of conjugate points
-        ! (Ni, Nj)
+        real(rp), dimension(:,:), allocatable :: espot  ! electro-static potential from REMIX [kV]
+        real(rp), dimension(:,:), allocatable :: bvol  ! Flux-tube volume [Rx/nT]
+        ! (Ni, Nj) cell-centered values
         integer , dimension(:,:), allocatable :: active  ! (-1=inactive, 0=buffer, 1=active)
         integer , dimension(:,:), allocatable :: active_last  ! Active domain from the previous coupling time step, used for half-step eta calculation
         integer , dimension(:,:), allocatable :: OCBDist  ! Cell distance from open-closed boundary
-        real(rp), dimension(:,:), allocatable :: espot  ! electro-static potential from REMIX [kV]
-        real(rp), dimension(:,:), allocatable :: bvol  ! Flux-tube volume [Rx/nT]
 
         !> Varibles coming from RAIJU, size (Ni, Nj, Nk)
         real(rp), dimension(:,:,:), allocatable :: lossRates

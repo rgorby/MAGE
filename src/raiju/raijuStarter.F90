@@ -247,13 +247,13 @@ module raijustarter
             ! I shells shat should be evolved for each k
             allocate( State%activeShells (sh%isg:sh%ieg, Grid%Nk) )
             ! Effective potential (used for output only)
-            allocate( State%pEff(sh%isg:sh%ieg, sh%jsg:sh%jeg, Grid%Nk) )
+            allocate( State%pEff(sh%isg:sh%ieg+1, sh%jsg:sh%jeg+1, Grid%Nk) )
             ! Gradient of ionspheric potential
-            allocate( State%gradPotE     (sh%isg:sh%ieg, sh%jsg:sh%jeg, 2) )
+            allocate( State%gradPotE     (sh%isg:sh%ieg+1, sh%jsg:sh%jeg+1, 2) )
             ! Gradient of corotation potential
-            allocate( State%gradPotCorot (sh%isg:sh%ieg, sh%jsg:sh%jeg, 2) )
+            allocate( State%gradPotCorot (sh%isg:sh%ieg+1, sh%jsg:sh%jeg+1, 2) )
             ! Gradient of (flux tube volume ^ -2/3)
-            allocate( State%gradVM      (sh%isg:sh%ieg, sh%jsg:sh%jeg, 2) )
+            allocate( State%gradVM      (sh%isg:sh%ieg+1, sh%jsg:sh%jeg+1, 2) )
             ! Interface and cell velocities
             allocate( State%iVel(sh%isg:sh%ieg+1, sh%jsg:sh%jeg+1, Grid%Nk, 2) )
             allocate( State%cVel(sh%isg:sh%ieg  , sh%jsg:sh%jeg  , Grid%Nk, 2) )
@@ -262,19 +262,19 @@ module raijustarter
             allocate( State%Pavg(sh%isg:sh%ieg  , sh%jsg:sh%jeg, Grid%nSpc) )
             allocate( State%Davg(sh%isg:sh%ieg  , sh%jsg:sh%jeg, Grid%nSpc) )
             ! Bmin surface
-            allocate( State%Bmin    (sh%isg:sh%ieg  , sh%jsg:sh%jeg  , 3 ) )
+            allocate( State%Bmin    (sh%isg:sh%ieg+1, sh%jsg:sh%jeg+1, 3 ) )
             allocate( State%xyzMin  (sh%isg:sh%ieg+1, sh%jsg:sh%jeg+1, 3 ) )
             allocate( State%xyzMincc(sh%isg:sh%ieg  , sh%jsg:sh%jeg  , 3 ) )
             allocate( State%thcon   (sh%isg:sh%ieg+1, sh%jsg:sh%jeg+1    ) )
             allocate( State%phcon   (sh%isg:sh%ieg+1, sh%jsg:sh%jeg+1    ) )
             ! 2D corner quantities
-            allocate( State%topo  (sh%isg:sh%ieg+1, sh%jsg:sh%jeg+1) )
+            allocate( State%topo (sh%isg:sh%ieg+1, sh%jsg:sh%jeg+1) )
+            allocate( State%espot(sh%isg:sh%ieg+1, sh%jsg:sh%jeg+1) )
+            allocate( State%bvol (sh%isg:sh%ieg+1, sh%jsg:sh%jeg+1) )
             ! 2D cell-centered quantities
             allocate( State%active      (sh%isg:sh%ieg, sh%jsg:sh%jeg) )
             allocate( State%active_last (sh%isg:sh%ieg, sh%jsg:sh%jeg) )
             allocate( State%OCBDist(sh%isg:sh%ieg, sh%jsg:sh%jeg) )
-            allocate( State%espot  (sh%isg:sh%ieg, sh%jsg:sh%jeg) )
-            allocate( State%bvol   (sh%isg:sh%ieg, sh%jsg:sh%jeg) )
 
             ! Coupling output data
             allocate( State%lossRates      (sh%isg:sh%ieg, sh%jsg:sh%jeg, Grid%Nk) )

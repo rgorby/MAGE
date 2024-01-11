@@ -17,7 +17,7 @@ import kaipy.raiju.raijuutils as ru
 rad2deg = 180/np.pi
 
 # Settings
-dir = '/Users/sciolam1/Workspace/runs/local/raijudev/test_evol'
+dir = '/Users/sciolam1/Workspace/runs/local/raijudev/fluxOverhaul'
 raih5fname = 'raijuSA.raiju.h5'
 
 def calc_bVol_ana(colat, b_surf):
@@ -148,12 +148,12 @@ def checkBVol(raiInfo: ru.RAIJUInfo):
         s5 = f5[raiInfo.stepStrs[1]]
         bVol = ru.getVar(s5, 'bVol')  # [Rp/nT]
         gradVM = ru.getVar(s5, 'gradVM')
-        rMin = ru.getVar(s5, 'xmin')
+        rMin = ru.getVar(s5, 'xmin')[:,0]
 
     bVol = bVol[:,0]
-    gradVM = gradVM[:,0,0]
-    rMin_cc = kt.to_center1D(rMin[:,0])
-    sinColat = np.sqrt(1/rMin_cc)
+    gradVM = gradVM[:,0,1]
+    #rMin_cc = kt.to_center1D(rMin[:,0])
+    sinColat = np.sqrt(1/rMin)
     colat = np.arcsin(sinColat)
 
     bVol_ana = calc_bVol_ana(colat, Bs_nt)
@@ -162,15 +162,15 @@ def checkBVol(raiInfo: ru.RAIJUInfo):
     gradVM_ana = (-2/3*bVol**(-5/3)) * grad_bVol_ana
 
     plt.figure()
-    plt.plot   (rMin_cc, bVol_ana , label='ana'  )
-    plt.scatter(rMin_cc, bVol, label='model', c='orange')
+    plt.plot   (rMin, bVol_ana , label='ana'  )
+    plt.scatter(rMin, bVol, label='model', c='orange')
     plt.title('bVol')
     plt.yscale('log')
     plt.legend()
 
     plt.figure()
-    plt.plot   (rMin_cc, gradVM_ana , label='ana'  )
-    plt.scatter(rMin_cc, gradVM, label='model', c='orange')
+    plt.plot   (rMin, gradVM_ana , label='ana'  )
+    plt.scatter(rMin, gradVM, label='model', c='orange')
     plt.title('$\\nabla$ bVol')
     plt.yscale('log')
     plt.legend()
@@ -197,16 +197,16 @@ def checkCorot(raiInfo: ru.RAIJUInfo, n: int):
             quit()
         
         rMin = ru.getVar(s5, 'xmin')[:,0]  # Just take all i's at j=0 (y=0)
-        cVel_ph = ru.getVar(s5, 'cVel_ph')
+        iVel_ph = ru.getVar(s5, 'iVel')[:,:,:,1]
         
-    rMin_cc = kt.to_center1D(rMin)
-    vCorot_ana = vCorot(rp_m, ri_m, cPot, Bs_nt, rMin_cc)
+    #rMin_cc = kt.to_center1D(rMin)
+    vCorot_ana = vCorot(rp_m, ri_m, cPot, Bs_nt, rMin)
     # Just get velocity from plasmasphere channel
     kPsph = raiInfo.species[ru.flavs_s['PSPH']].kStart
-    vCorot_model = cVel_ph[:,0,kPsph]
+    vCorot_model = iVel_ph[:,0,kPsph]
     plt.figure()
-    plt.plot(rMin_cc, vCorot_ana, label='analytic')
-    plt.scatter(rMin_cc, vCorot_model, s=10, c='orange', label='model')
+    plt.plot(rMin, vCorot_ana, label='analytic')
+    plt.scatter(rMin, vCorot_model, s=10, c='orange', label='model')
     plt.title("Corotation")
     plt.legend()
  
@@ -235,7 +235,7 @@ def checkGC(raiInfo: ru.RAIJUInfo, n: int, k: int):
             quit()
         
         rMin = ru.getVar(s5, 'xmin')
-        cVel_ph = ru.getVar(s5, 'cVel_ph')
+        iVel_ph = ru.getVar(s5, 'iVel')[:,:,:,1]
 
     # Find species info
     iSpc = 0
@@ -243,19 +243,19 @@ def checkGC(raiInfo: ru.RAIJUInfo, n: int, k: int):
     spc = raiInfo.species[iSpc]
     print("Species: ",spc.name)
     signQ = np.sign(spc.q)
-    rMin_cc = kt.to_center2D(rMin)
+    #rMin_cc = kt.to_center2D(rMin)
     E = alamc[k]*bVol**(-2/3)*1e-3  # [keV]
-    vGC_eq_ana = vGradEq(rp_m, ri_m, signQ, Bs_nt, E, rMin_cc)
-    vGC_iso_ana = vGCiso(rp_m, ri_m, Bs_nt, alamc[k], rMin_cc)
-    vCorot_ana  = vCorot(rp_m, ri_m, cPot , Bs_nt, rMin_cc)
+    vGC_eq_ana = vGradEq(rp_m, ri_m, signQ, Bs_nt, E, rMin)
+    vGC_iso_ana = vGCiso(rp_m, ri_m, Bs_nt, alamc[k], rMin)
+    vCorot_ana  = vCorot(rp_m, ri_m, cPot , Bs_nt   , rMin)
 
-    vPh_model = cVel_ph[:,:,k]
+    vPh_model = iVel_ph[:,:,k]
     vGC_model = vPh_model - vCorot_ana
 
     plt.figure()
-    plt.plot(   rMin_cc[:,0], vGC_eq_ana   [:,0], label='ana (grad_eq)')
-    plt.plot(   rMin_cc[:,0], vGC_iso_ana  [:,0], c='green', label='ana (GC_iso)')
-    plt.scatter(rMin_cc[:,0], vGC_model[:,0], s=10, c='orange', label='model')
+    plt.plot(   rMin[:,0], vGC_eq_ana   [:,0], label='ana (grad_eq)')
+    plt.plot(   rMin[:,0], vGC_iso_ana  [:,0], c='green', label='ana (GC_iso)')
+    plt.scatter(rMin[:,0], vGC_model[:,0], s=10, c='orange', label='model')
     #plt.plot(rMin_cc[:,0], 1 - vGC_model[:,0] / vD_ana[:,0], label='err')
     #plt.plot(rMin_cc[:,0], 1 - vGC_model[:,0] / vGC_iso_ana[:,0], label='err')
     plt.title("GC")
@@ -431,16 +431,16 @@ if __name__=="__main__":
     rp_m = f5['Planet'].attrs['Rad_surface']
     Bs_nt = f5['Planet'].attrs['Mag Moment'] * kd.G2nT
 
-    #checkCorot(raijuInfo, 10)
+    checkCorot(raijuInfo, 10)
     
     spc_p = raijuInfo.species[ru.flavs_s['HOTP']]
     spc_k = spc_p.kStart + int(spc_p.N//2)
-    #checkGC(raijuInfo, 10, spc_k)
+    checkGC(raijuInfo, 10, spc_k)
 
 
-    #checkBVol(raijuInfo)
-    #plt.show()
+    checkBVol(raijuInfo)
+    plt.show()
 
-    #plotStep(raijuInfo, 0, 150)
+    plotStep(raijuInfo, 0, 10)
 
     makeVid(raijuInfo, dir)

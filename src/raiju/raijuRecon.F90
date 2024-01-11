@@ -9,6 +9,8 @@ module raijuRecon
     real(rp), dimension(recLen), parameter :: interpWgt_6c = [ 0, 1,  -8, 37, 37,  -8, 1, 0]/60.0_rp
     real(rp), dimension(recLen), parameter :: interpWgt_8c = [-3,29,-139,533,533,-139,29,-3]/840.0_rp
 
+    real(rp), dimension(recLen), parameter :: interpWgt_7up = [-3,25,-101,319,214,-38,4,0]/420.0_rp
+
     contains
 
 
@@ -50,6 +52,16 @@ module raijuRecon
         Qi = dot_product(interpWgt_8c,Qcc(1:recLen))
 
     end function Central8
+
+    !> 7th order upwind interpolation for a single interface
+    function Upwind7(Qcc) result(Qi)
+        real(rp), dimension(recLen), intent(in) :: Qcc
+        
+        real(rp) :: Qi
+
+        Qi = dot_product(interpWgt_7up,Qcc(1:recLen))
+
+    end function Upwind7
 
 
     !> Reconstruct cell-centered variable at all faces bordering active cells
@@ -105,8 +117,11 @@ module raijuRecon
             
             !! TODO: We should add 4-th order asymmetric options before dropping to 2nd order
             !!   Will need to re-work ordering a bit once we do
-
-            if ( all(isG) ) then
+            
+            ! Prefer 7up
+            if ( all(isG(1:7)) ) then
+                Qface = Upwind7(Qcc)
+            else if ( all(isG) ) then
                 !! Yay we can do full 8-th order centered reconstruction
                 Qface = Central8(Qcc)
             else if ( all(isG(2:7)) ) then
@@ -173,8 +188,8 @@ module raijuRecon
         dQnR = Qcc(3) - Qn
 
         ! Finally, calculate L/R reconstructed values
-        QpdmL = Qn - si*max(0.0, abs(dQnL) - qL*abs(dQL))
-        QpdmR = Qn + si*max(0.0, abs(dQnR) - qR*abs(dQR))
+        QpdmL = Qn - si*max(0.0, abs(dQnL) - 0.5*qL*abs(dQL))
+        QpdmR = Qn + si*max(0.0, abs(dQnR) - 0.5*qR*abs(dQR))
 
     end subroutine raijuPDM
 
@@ -205,20 +220,20 @@ module raijuRecon
                 if (any(isG(i-2:i+1, j)) .eq. .false.) then
                     ! If full stencil isn't valid, we didn't use a high-order method to calculate the interface value anyways
                     !  so we can just use the value that's there
-                    QpdmL(i,j,1) = Qfaces(i,j,1)
-                    QpdmR(i,j,1) = Qfaces(i,j,1)
+                    QpdmL(i,j,RAI_TH) = Qfaces(i,j,RAI_TH)
+                    QpdmR(i,j,RAI_TH) = Qfaces(i,j,RAI_TH)
                 else
-                    call raijuPDM(Qcc(i-2:i+1, j), Qfaces(i, j, RAI_TH), pdmb, QpdmL(i,j,1), QpdmR(i,j,RAI_TH))
+                    call raijuPDM(Qcc(i-2:i+1, j), Qfaces(i, j, RAI_TH), pdmb, QpdmL(i,j,RAI_TH), QpdmR(i,j,RAI_TH))
                 endif
 
                 ! Phi dir
                 if (any(isG(i, j-2:j+1)) .eq. .false.) then
                     ! If full stencil isn't valid, we didn't use a high-order method to calculate the interface value anyways
                     !  so we can just use the value that's there
-                    QpdmL(i,j,2) = Qfaces(i,j,2)
-                    QpdmR(i,j,2) = Qfaces(i,j,2)
+                    QpdmL(i,j,RAI_PH) = Qfaces(i,j,RAI_PH)
+                    QpdmR(i,j,RAI_PH) = Qfaces(i,j,RAI_PH)
                 else
-                    call raijuPDM(Qcc(i, j-2:j+1), Qfaces(i, j, RAI_PH), pdmb, QpdmL(i,j,2), QpdmR(i,j,RAI_PH))
+                    call raijuPDM(Qcc(i, j-2:j+1), Qfaces(i, j, RAI_PH), pdmb, QpdmL(i,j,RAI_PH), QpdmR(i,j,RAI_PH))
                 endif
 
             enddo
@@ -316,8 +331,9 @@ module raijuRecon
         !Qflux = Qface*State%iVel(:,:,k,:)*Grid%lenFace * Model%planet%ri_m  ! [Q * Rp^2 / s]
         !Qflux = Qface*State%iVel(:,:,k,:)*Grid%lenFace / Model%planet%ri_m  ! [Q * Rp^2 / s]
 
-        QfluxL = merge(QpdmL*State%iVel(:,:,k,:), 0.0, QpdmL*State%iVel(:,:,k,:) > 0.0)  ! [Q * m/s] Effectively array-wide max between flux and 0.0
-        QfluxR = merge(QpdmR*State%iVel(:,:,k,:), 0.0, QpdmR*State%iVel(:,:,k,:) < 0.0)  ! [Q * m/s] Effectively array-wide min between flux and 0.0
+        ! Only one of these will be non-zero
+        QfluxL = merge(QpdmL*State%iVel(:,:,k,:), 0.0, State%iVel(:,:,k,:) > 0.0)  ! [Q * m/s] Effectively array-wide max between flux and 0.0
+        QfluxR = merge(QpdmR*State%iVel(:,:,k,:), 0.0, State%iVel(:,:,k,:) < 0.0)  ! [Q * m/s] Effectively array-wide min between flux and 0.0
 
         Qflux = (QfluxL + QfluxR) * Grid%lenFace / Model%planet%ri_m  ! [Q * Rp^2 / s]
 
