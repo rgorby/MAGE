@@ -120,6 +120,8 @@ module raijutypes
         integer :: maxItersPerSec
         real(rp) :: CFL
             !! CFL condition used in deciding time step
+        integer :: maxOrder
+            !! Max reconstruction order we will use when calculating etas at interfaces
         real(rp) :: PDMB
             !! 0 < PDMB < 1 used in PDM limiter. 1 = very diffusive
 
@@ -328,7 +330,8 @@ module raijutypes
 
 
         !> Only used when debugging
-        real(rp), dimension(:,:,:,:), allocatable :: etaFace   
+        real(rp), dimension(:,:,:,:), allocatable :: etaFaceReconL
+        real(rp), dimension(:,:,:,:), allocatable :: etaFaceReconR   
         real(rp), dimension(:,:,:,:), allocatable :: etaFacePDML
         real(rp), dimension(:,:,:,:), allocatable :: etaFacePDMR
         real(rp), dimension(:,:,:,:), allocatable :: etaFlux   

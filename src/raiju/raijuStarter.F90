@@ -8,6 +8,7 @@ module raijustarter
     use raijutypes
     use raijugrids
     use raijuetautils
+    use raijuRecon, only : maxOrderSupported
     use raijuout
     use raijuICHelpers
     use raijuELossWM
@@ -76,7 +77,7 @@ module raijustarter
 
         call iXML%Set_Val(Model%isMPI, "mpi/isMPI",.false.)
         if (Model%isMPI) then
-            write(*,*) "MPI not implemented for RAIJU yet, dying."
+            write(*,*) "(RAIJU) MPI not implemented yet, dying."
             stop
         endif
 
@@ -101,6 +102,11 @@ module raijustarter
 
         ! Solver params
         call iXML%Set_Val(Model%maxItersPerSec,'sim/maxIter',def_maxItersPerSec)
+        call iXML%Set_Val(Model%maxOrder,'sim/maxOrder',7)
+        if (Model%maxOrder > maxOrderSupported) then
+            write(*,*) "(RAIJU) Too much order, allowable orders <= ",maxOrderSupported
+            stop
+        endif
         call iXML%Set_Val(Model%PDMB,'sim/pdmb',def_pdmb)
         cfl0 = min(0.5/(Model%PDMB+0.5), cflMax) !Set CFL based on PDM
 
@@ -108,7 +114,7 @@ module raijustarter
         call iXML%Set_Val(Model%CFL ,'sim/cfl'  ,cfl0)
         if (Model%CFL > cfl0) then
             write(*,*) '-------------------------------------'
-            write(*,*) 'WARNING, CFL is above critical value!'
+            write(*,*) '(RAIJU) WARNING, CFL is above critical value!'
             write(*,*) 'CFL/Critical/PDMB = ', Model%CFL,cfl0,Model%PDMB
             write(*,*) '-------------------------------------'
         else
@@ -137,7 +143,7 @@ module raijustarter
                 call iXML%Set_Val(Model%kappa, "moments/kappa",6.0)
             ! TODO: Add user option which will point to whatever is in the chosen IC file
             case DEFAULT
-                write(*,*) "RAIJU received unavailable DP2Eta mapping: ",tmpStr
+                write(*,*) "(RAIJU) Received unavailable DP2Eta mapping: ",tmpStr
                 write(*,*) " Dying."
                 stop
         end select
@@ -154,12 +160,12 @@ module raijustarter
         call iXML%Set_Val(tmpStr, "losses/eLossModel","WM")
         select case (tmpStr)
             case ("WM")
-                write(*,*) "RAIJU using Wang-Bao electron wave model"
+                write(*,*) "(RAIJU) Using Wang-Bao electron wave model"
                 Model%eLossModel = RaiELOSS_WM
                 Model%eLossRateFn => calcELossRate_WM
                 ! We init later now, up in raijuInit, since initEWM needs Grid info for diagnostic output
             case default
-                write(*,*) "RAIJU did not get a valid electron loss model, goodbye"
+                write(*,*) "(RAIJU) Did not get a valid electron loss model, goodbye"
                 stop
         end select
 
@@ -288,10 +294,11 @@ module raijustarter
 
             ! Only bother allocating persistent versions of debug stuff if we ned them
             if (Model%doDebugOutput) then
-                allocate( State%etaFace    (sh%isg:sh%ieg+1, sh%jsg:sh%jeg+1, Grid%Nk, 2) )
-                allocate( State%etaFacePDML(sh%isg:sh%ieg+1, sh%jsg:sh%jeg+1, Grid%Nk, 2) )
-                allocate( State%etaFacePDMR(sh%isg:sh%ieg+1, sh%jsg:sh%jeg+1, Grid%Nk, 2) )
-                allocate( State%etaFlux    (sh%isg:sh%ieg+1, sh%jsg:sh%jeg+1, Grid%Nk, 2) )
+                allocate( State%etaFaceReconL(sh%isg:sh%ieg+1, sh%jsg:sh%jeg+1, Grid%Nk, 2) )
+                allocate( State%etaFaceReconR(sh%isg:sh%ieg+1, sh%jsg:sh%jeg+1, Grid%Nk, 2) )
+                allocate( State%etaFacePDML  (sh%isg:sh%ieg+1, sh%jsg:sh%jeg+1, Grid%Nk, 2) )
+                allocate( State%etaFacePDMR  (sh%isg:sh%ieg+1, sh%jsg:sh%jeg+1, Grid%Nk, 2) )
+                allocate( State%etaFlux      (sh%isg:sh%ieg+1, sh%jsg:sh%jeg+1, Grid%Nk, 2) )
             endif
         
         end associate

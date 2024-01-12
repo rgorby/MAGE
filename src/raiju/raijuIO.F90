@@ -310,11 +310,12 @@ module raijuIO
             call AddOutVar(IOVars, "dtk", State%dtk, uStr="s")
             call AddOutVar(IOVars, "nStepk", State%nStepk*1.0_rp, uStr="#", dStr="Number of steps each channel has taken")
             ! call AddOutVar(IOVars, "nStepk", State%nStepk*1.0_rp, uStr="#") 
-            call AddOutVar(IOVars, "iVel"       , State%iVel       (is:ie+1,js:je+1,:,:), uStr="m/s")
-            call AddOutVar(IOVars, "etaFace"    , State%etaFace    (is:ie+1,js:je+1,:,:), uStr="#/cm^3 * Rx/T")
-            call AddOutVar(IOVars, "etaFacePDML", State%etaFacePDML(is:ie+1,js:je+1,:,:), uStr="#/cm^3 * Rx/T")
-            call AddOutVar(IOVars, "etaFacePDMR", State%etaFacePDMR(is:ie+1,js:je+1,:,:), uStr="#/cm^3 * Rx/T")
-            call AddOutVar(IOVars, "etaFlux"    , State%etaFlux    (is:ie+1,js:je+1,:,:), uStr="(#/cm^3 * Rx/T) * m^2 / s")
+            call AddOutVar(IOVars, "iVel"         , State%iVel         (is:ie+1,js:je+1,:,:), uStr="m/s")
+            call AddOutVar(IOVars, "etaFaceReconL", State%etaFaceReconL(is:ie+1,js:je+1,:,:), uStr="#/cm^3 * Rx/T")
+            call AddOutVar(IOVars, "etaFaceReconR", State%etaFaceReconR(is:ie+1,js:je+1,:,:), uStr="#/cm^3 * Rx/T")
+            call AddOutVar(IOVars, "etaFacePDML"  , State%etaFacePDML  (is:ie+1,js:je+1,:,:), uStr="#/cm^3 * Rx/T")
+            call AddOutVar(IOVars, "etaFacePDMR"  , State%etaFacePDMR  (is:ie+1,js:je+1,:,:), uStr="#/cm^3 * Rx/T")
+            call AddOutVar(IOVars, "etaFlux"      , State%etaFlux      (is:ie+1,js:je+1,:,:), uStr="(#/cm^3 * Rx/T) * m^2 / s")
         endif
 
         call WriteVars(IOVars,.true.,Model%raijuH5, gStr)

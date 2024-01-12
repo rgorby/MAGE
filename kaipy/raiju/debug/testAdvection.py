@@ -18,7 +18,8 @@ rad2deg = 180/np.pi
 
 # Settings
 dir = '/Users/sciolam1/Workspace/runs/local/raijudev/fluxOverhaul'
-raih5fname = 'raijuSA.raiju.h5'
+raih5fname = 'raijuSA_1d.raiju.h5'
+#raih5fname = 'raijuSA.raiju.h5'
 
 def calc_bVol_ana(colat, b_surf):
     # bVol calc
@@ -194,7 +195,7 @@ def checkCorot(raiInfo: ru.RAIJUInfo, n: int):
 
         if np.any(espot > 0):
             print("Error: espot must be zero for checkCorot to work")
-            quit()
+            return
         
         rMin = ru.getVar(s5, 'xmin')[:,0]  # Just take all i's at j=0 (y=0)
         iVel_ph = ru.getVar(s5, 'iVel')[:,:,:,1]
@@ -232,7 +233,7 @@ def checkGC(raiInfo: ru.RAIJUInfo, n: int, k: int):
 
         if np.any(espot > 0):
             print("Error: espot must be zero for checkCorot to work")
-            quit()
+            return
         
         rMin = ru.getVar(s5, 'xmin')
         iVel_ph = ru.getVar(s5, 'iVel')[:,:,:,1]

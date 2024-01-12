@@ -5,11 +5,14 @@ module raijuRecon
 
     implicit none
 
+    integer, parameter :: maxOrderSupported = 8
     real(rp), dimension(recLen), parameter :: interpWgt_4c = [ 0, 0,  -1,  7,  7,  -1, 0, 0]/60.0_rp
     real(rp), dimension(recLen), parameter :: interpWgt_6c = [ 0, 1,  -8, 37, 37,  -8, 1, 0]/60.0_rp
     real(rp), dimension(recLen), parameter :: interpWgt_8c = [-3,29,-139,533,533,-139,29,-3]/840.0_rp
 
-    real(rp), dimension(recLen), parameter :: interpWgt_7up = [-3,25,-101,319,214,-38,4,0]/420.0_rp
+    real(rp), dimension(7), parameter :: C7Up = [-3,25,-101,319,214,-38,4]/420.0_rp
+    real(rp), dimension(5), parameter :: C5Up = [2,-13,47,27,-3]/60.0_rp
+    real(rp), dimension(3), parameter :: C3Up = [-1,5,2]/6.0_rp
 
     contains
 
@@ -17,6 +20,28 @@ module raijuRecon
 !------
 ! Reconstruction stencil routines
 !------
+
+    !> 8th order central interpolation for a single interface
+    function Central8(Qcc) result(Qi)
+        real(rp), dimension(recLen), intent(in) :: Qcc
+        
+        real(rp) :: Qi
+
+        Qi = dot_product(interpWgt_8c,Qcc(1:recLen))
+
+    end function Central8
+    
+
+    !> 6th order central interpolation for a single interface
+    function Central6(Qcc) result(Qi)
+        !! Note: still takes 8-element stencil
+        real(rp), dimension(recLen), intent(in) :: Qcc
+        
+        real(rp) :: Qi
+
+        Qi = dot_product(interpWgt_6c,Qcc(1:recLen))
+
+    end function Central6
 
 
     !> 4th order central interpolation for a single interface
@@ -31,120 +56,77 @@ module raijuRecon
     end function Central4
 
 
-    !> 6th order central interpolation for a single interface
-    function Central6(Qcc) result(Qi)
-        !! Note: still takes 8-element stencil
-        real(rp), dimension(recLen), intent(in) :: Qcc
-        
-        real(rp) :: Qi
+    function Upwind7(q1, q2, q3, q4, q5, q6, q7) result(qi)
+        real(rp), intent(in) :: q1, q2, q3, q4, q5, q6, q7
+        real(rp) :: qi
 
-        Qi = dot_product(interpWgt_6c,Qcc(1:recLen))
-
-    end function Central6
-
-
-    !> 8th order central interpolation for a single interface
-    function Central8(Qcc) result(Qi)
-        real(rp), dimension(recLen), intent(in) :: Qcc
-        
-        real(rp) :: Qi
-
-        Qi = dot_product(interpWgt_8c,Qcc(1:recLen))
-
-    end function Central8
-
-    !> 7th order upwind interpolation for a single interface
-    function Upwind7(Qcc) result(Qi)
-        real(rp), dimension(recLen), intent(in) :: Qcc
-        
-        real(rp) :: Qi
-
-        Qi = dot_product(interpWgt_7up,Qcc(1:recLen))
-
+        qi = q1*C7Up(1) + q2*C7Up(2) + q3*C7Up(3) + q4*C7Up(4) &
+           + q5*C7Up(5) + q6*C7Up(6) + q7*C7Up(7)
     end function Upwind7
 
 
-    !> Reconstruct cell-centered variable at all faces bordering active cells
-    subroutine ReconFaces(Grid, isG, Qcc, Qfaces, Qcc_phO)
-        !! If just Qcc is provided, we interpolate Qcc to faces in both theta and phi directions
-        !! If Qcc_phO is provided, we assume we interpolate Qcc to JUST theta-direction faces and Qcc_phO to JUST phi-direction faces
-        !!   This is helpful when doing velocities because we don't care about the theta direction at phi faces and visa versa
-        !! Note, we are still returning just one (Nig, Njg, 2) array
-        type(raijuGrid_T), intent(in) :: Grid
-        logical, dimension(Grid%shGrid%isg:Grid%shGrid%ieg, &
-                           Grid%shGrid%jsg:Grid%shGrid%jeg), intent(in) :: isG
-                           !! Whether a cell is safe to use in reconstruction
-        real(rp), dimension(Grid%shGrid%isg:Grid%shGrid%ieg, &
-                           Grid%shGrid%jsg:Grid%shGrid%jeg), intent(in) :: Qcc
-                           !! Cell-centered variable to interpolate to faces
-        real(rp), dimension(Grid%shGrid%isg:Grid%shGrid%ieg+1, &
-                           Grid%shGrid%jsg:Grid%shGrid%jeg+1, 2), intent(out) :: Qfaces
-                           !! Face-interpolated variable
-        real(rp), dimension(Grid%shGrid%isg:Grid%shGrid%ieg, &
-                           Grid%shGrid%jsg:Grid%shGrid%jeg), intent(in), optional :: Qcc_phO
-                           !! Can optionally use a variable other than Qcc for phi direction
+    function Upwind5(q1, q2, q3, q4, q5) result(qi)
+        real(rp), intent(in) :: q1, q2, q3, q4, q5
+        real(rp) :: qi
 
-        integer :: i,j
+        qi = q1*C5Up(1) + q2*C5Up(2) + q3*C5Up(3) + q4*C5Up(4) &
+           + q5*C5Up(5)
+    end function Upwind5
 
-        !! Note: We only populate from is:ie+1, js:je+1 because that's the only place we'll use face values
-        !!  But full size includes ghost faces for output purposes
+    function Upwind3(q1, q2, q3) result(qi)
+        real(rp), intent(in) :: q1, q2, q3
+        real(rp) :: qi
 
-        !! Note: Loop is determining face i-1/2 and j-1/2 for given i,j
-        Qfaces = 0.0
-
-        do i=Grid%shGrid%is,Grid%shGrid%ie+1
-            do j=Grid%shGrid%js,Grid%shGrid%je+1
-                ! Theta dir
-                Qfaces(i,j,RAI_TH) = reconOrder( isG(i-4:i+3, j), Qcc(i-4:i+3, j) )
-                ! Phi dir
-                if( present(Qcc_phO) ) then
-                    Qfaces(i,j,RAI_PH) = reconOrder( isG(i, j-4:j+3), Qcc_phO(i, j-4:j+3) )
-                else
-                    Qfaces(i,j,RAI_PH) = reconOrder( isG(i, j-4:j+3),     Qcc(i, j-4:j+3) )
-                endif
-            enddo
-        enddo
+        qi = q1*C5Up(1) + q2*C5Up(2) + q3*C5Up(3)
+    end function Upwind3
 
 
-        contains
+!------
+! PDM implementations
+!------
+    subroutine raijuPDM(qm, q0, qp, Qi, pdmb, Qpdm)
+        !! Applies PDM limiting on a single interface value from one direction
+        real(rp), intent(in) :: qm, q0, qp
+            !! Cell-centered values at donor cell (q0), cell behind donor (qm) and in front of donor (qp)
+        real(rp), intent(in) :: Qi
+            !! Reconstructed interface value, between q0 and qo
+        real(rp), intent(in) :: pdmb
+            !! PDM limiter value to use
+        real(rp), intent(out) :: Qpdm
+            !! PDM-ed value we return
 
-        function reconOrder(isG, Qcc) result(Qface)
-            !! Takes an 8-element stencil and determines reconstruction order based on isG
-            logical , dimension(recLen), intent(in) :: isG
-            real(rp), dimension(recLen), intent(in) :: Qcc
+        !! Using Left notation, but real direction is determined by ordering of arguments given to us
+        real(rp) :: minQ, maxQ, Qn
+        real(rp) :: dQL, dQi, sL, si, qL
+        real(rp) :: dQnL
 
-            real(rp) :: Qface
-            
-            !! TODO: We should add 4-th order asymmetric options before dropping to 2nd order
-            !!   Will need to re-work ordering a bit once we do
-            
-            ! Prefer 7up
-            if ( all(isG(1:7)) ) then
-                Qface = Upwind7(Qcc)
-            else if ( all(isG) ) then
-                !! Yay we can do full 8-th order centered reconstruction
-                Qface = Central8(Qcc)
-            else if ( all(isG(2:7)) ) then
-                !! See if we can do 6-th order centered reconstruction
-                Qface = Central6(Qcc)
-            else if ( all(isG(3:6)) ) then
-                !! 4-th order centered, hopefully do not need to drop below this
-                Qface = Central4(Qcc)
-            else if ( all(isG(4:5)) ) then
-                !! Sad. Implement asymmetric 4-th order later to try and avoid this
-                Qface = 0.5_rp*(Qcc(4) + Qcc(5))
-            else
-                !! If we are still here, one of the adjacent cells is bad
-                !! We will set to zero, and then a BC function later on will set the flux of this face to whatever it needs to be
-                Qface = 0.0_rp
-            endif
-            
-        end function reconOrder
+        ! Determine which is the intermediate value between Qi, Qi+1/2, Qi+1
+        minQ = min(q0, qp)
+        maxQ = max(q0, qp)
+        Qn   = max(minQ, min(Qi, maxQ))
 
-    end subroutine ReconFaces
+        ! Calculate differences to either side of interface, and at interface
+        dQL = pdmb*( q0 - qm )
+        dQi = pdmb*( qp - q0 )
+
+        ! Signs of differences
+        sL = sign(1.0_rp, dQL)
+        si = sign(1.0_rp, dQi)
+
+        ! Will be 0 if local extrema, or 2 if monotonic
+        qL = abs(sL + si)
+
+        ! Slope between median Qn and L cell centers
+        ! Note, may be 0 in the case where Qi was the median value
+        dQnL = Qn - q0
+
+        ! Finally, calculate L reconstructed value
+        Qpdm = Qn - si*max(0.0, abs(dQnL) - 0.5*qL*abs(dQL))
+
+    end subroutine raijuPDM
 
 
-    subroutine raijuPDM(Qcc, Qi, pdmb, QpdmL, QpdmR)
+    subroutine raijuPDMLR(Qcc, Qi, pdmb, QpdmL, QpdmR)
         !! Calculate PDM-limited value of Q at interface
         !! Using notation where interface is i+1/2
         !! Qcc is 4 elements long, i-1, i, i+1, i+2
@@ -191,56 +173,177 @@ module raijuRecon
         QpdmL = Qn - si*max(0.0, abs(dQnL) - 0.5*qL*abs(dQL))
         QpdmR = Qn + si*max(0.0, abs(dQnR) - 0.5*qR*abs(dQR))
 
-    end subroutine raijuPDM
+    end subroutine raijuPDMLR
 
+!------
+! Interface reconstruction
+!------
+! ReconFaces: responsible for doing full face reconstruction procedure, including pdm, for all active cells
+    !  -> reconFaceLR: is given 8-cell stencil, decides which order to use, applies pdm, returns L/R values
 
-    subroutine PDMFaces(sh, isG, Qcc, Qfaces, QpdmL, QpdmR, pdmb)
-        !! Calculates PDM-limited value for all faces for providd quantity
-        type(ShellGrid_T), intent(in) :: sh
-        logical , dimension(sh%isg:sh%ieg, &
-                            sh%jsg:sh%jeg)     , intent(in) :: isG
-        real(rp), dimension(sh%isg:sh%ieg, &
-                            sh%jsg:sh%jeg)     , intent(in) :: Qcc
-        real(rp), dimension(sh%isg:sh%ieg+1, &
-                            sh%jsg:sh%jeg+1, 2), intent(in) :: Qfaces
-        real(rp), dimension(sh%isg:sh%ieg+1, &
-                            sh%jsg:sh%jeg+1, 2), intent(out) :: QpdmL, QpdmR
+    subroutine ReconFaceLR(isG, Qcc, areaCC, areaFace, maxOrder, pdmb, QfaceL, QfaceR, QreconLO, QreconRO)
+        !! Receives an 8-element stencil and returns reconstructed L/R values of a single face
+        logical , dimension(recLen), intent(in) :: isG
+        real(rp), dimension(recLen), intent(in) :: Qcc
+            !! Cell centers on either side of interface
+            !! (Interface is between cells 4 and 5)
+        real(rp), dimension(recLen), intent(in) :: areaCC
+            !! Cell-centered areas
+        real(rp), intent(in) :: areaFace
+            !! Estimated cell area at the face we are reconstructing at
+        integer , intent(in) :: maxOrder
+            !! Maximum order to use for reconstruction
         real(rp), intent(in) :: pdmb
+            !! PDM limiter value to pass along to PDM functions
+        real(rp), intent(inout) :: QfaceL, QfaceR
+            !! L/R face values we return
+        real(rp), optional, intent(inout) :: QreconLO, QreconRO
+            !! We will optionally return the reconstructed states if these variables are provided to us
 
+        real(rp), dimension(recLen) :: QccA
+            !! Area-weighted cell-centered quantity
+        real(rp) :: QreconL, QreconR
+            !! Face values after reconstruction but before limiting
+
+        logical :: doUpwind
+            !! Whether we will do upwind schemes or centered schemes
+
+        !! If we are given an odd max order, we assume we should use an odd order even if it must be reduced
+        !! Same for even max order
+
+        doUpwind = mod(maxOrder,2)==1
+
+        QccA = Qcc*areaCC  ! [Q * Rp^2]
+        if (doUpwind) then
+            ! Starting at highest available order, we first see if caller wants us to use this order or higher 
+            ! and if cells are good enough to use this order.
+            ! If not, we keep going till we land at an acceptable order
+            if (maxOrder == 7 .and. all(isG)) then
+                !! Entirety of stencil must be good because we need to do both sides of the interface
+                QreconL = Upwind7(QccA(1), QccA(2), QccA(3), QccA(4), QccA(5), QccA(6), QccA(7))/areaFace
+                QreconR = Upwind7(QccA(8), QccA(7), QccA(6), QccA(5), QccA(4), QccA(3), QccA(2))/areaFace
+                call raijuPDM(Qcc(3), Qcc(4), Qcc(5), QreconL, pdmb, QfaceL)
+                call raijuPDM(Qcc(6), Qcc(5), Qcc(4), QreconR, pdmb, QfaceR)
+            else if (maxOrder >= 5 .and. all(isG(2:7))) then
+                QreconL = Upwind5(QccA(2), QccA(3), QccA(4), QccA(5), QccA(6))/areaFace
+                QreconR = Upwind5(QccA(7), QccA(6), QccA(5), QccA(4), QccA(3))/areaFace
+                call raijuPDM(Qcc(3), Qcc(4), Qcc(5), QreconL, pdmb, QfaceL)
+                call raijuPDM(Qcc(6), Qcc(5), Qcc(4), QreconR, pdmb, QfaceR)
+            else if (maxOrder >= 3 .and. all(isG(3:6))) then
+                QreconL = Upwind3(QccA(3), QccA(4), QccA(5))/areaFace
+                QreconR = Upwind3(QccA(6), QccA(5), QccA(4))/areaFace
+                call raijuPDM(Qcc(3), Qcc(4), Qcc(5), QreconL, pdmb, QfaceL)
+                call raijuPDM(Qcc(6), Qcc(5), Qcc(4), QreconR, pdmb, QfaceR)
+            else if (all(isG(4:5))) then
+                QreconL = QccA(4)/areaFace
+                QreconR = QccA(5)/areaFace
+            endif
+        else
+            ! Even orders
+            ! Note: Because directionality doesn't matter for centered, we don't need to make sure we order things correctly
+            ! and we can just do a dot product on the whole 8-cell stencil. Any bad points in lower-order stencils will be zero-ed out
+            ! Also, left and right states are equal, so we only save the reconstructed value to QreconL,
+            !  and give it to a different version of PDM that will split up the single value into L/R states
+            if(maxOrder == 8 .and. all(isG)) then
+                QreconL = Central8(QccA)/areaFace
+                call raijuPDMLR(Qcc(3:6), QreconL, pdmb, QfaceL, QfaceR)
+            else if(maxOrder >= 6 .and. all(isG(2:7))) then
+                QreconL = Central6(QccA)/areaFace
+                call raijuPDMLR(Qcc(3:6), QreconL, pdmb, QfaceL, QfaceR)
+            else if(maxOrder >= 4 .and. all(isG(3:6))) then
+                QreconL = Central4(QccA)/areaFace
+                call raijuPDMLR(Qcc(3:6), QreconL, pdmb, QfaceL, QfaceR)
+            else if(maxOrder >= 2 .and. all(isG(4:5))) then
+                QreconL = 0.5*(QccA(4) + QccA(5))/areaFace
+                QfaceL = QreconL
+                QfaceR = QreconL
+            endif
+        endif
+
+
+        if (present(QreconLO)) then
+            QreconLO = QreconL
+        endif
+
+        if (present(QreconRO)) then
+            QreconRO = QreconR
+        endif
+
+    end subroutine ReconFaceLR
+
+
+    subroutine ReconFaces(Model, Grid, isG, Qcc, QfaceL, QfaceR, QreconLO, QreconRO)
+        !! Performs full face reconstruction procedure, including pdm, on Qcc for all active cells
+        type(raijuModel_T), intent(in) :: Model
+        type(raijuGrid_T ), intent(in) :: Grid
+        logical, dimension(Grid%shGrid%isg:Grid%shGrid%ieg, &
+                           Grid%shGrid%jsg:Grid%shGrid%jeg), intent(in) :: isG
+                           !! Whether a cell is safe to use in reconstruction
+        real(rp), dimension(Grid%shGrid%isg:Grid%shGrid%ieg, &
+                           Grid%shGrid%jsg:Grid%shGrid%jeg), intent(in) :: Qcc
+                           !! Cell-centered variable to interpolate to faces
+        real(rp), dimension(Grid%shGrid%isg:Grid%shGrid%ieg+1, &
+                           Grid%shGrid%jsg:Grid%shGrid%jeg+1, 2), intent(inout) :: QfaceL, QfaceR
+                           !! Left/Right face-interpolated values
+        real(rp), dimension(Grid%shGrid%isg:Grid%shGrid%ieg+1, &
+                           Grid%shGrid%jsg:Grid%shGrid%jeg+1, 2), optional, intent(inout) :: QreconLO, QreconRO
+        
         integer :: i,j
 
-        QpdmL = 0.0
-        QpdmR = 0.0
+        QfaceL = 0.0
+        QfaceR = 0.0
 
-        ! Only calculate for faces touching non-ghost cells
-        do j=sh%js,sh%je+1
-            do i=sh%is,sh%ie+1
+        !! Note: We only populate from is:ie+1, js:je+1 because that's the only place we'll use face values
+        !!  But full size includes ghost faces for output purposes
 
-                ! Theta dir first
-                if (any(isG(i-2:i+1, j)) .eq. .false.) then
-                    ! If full stencil isn't valid, we didn't use a high-order method to calculate the interface value anyways
-                    !  so we can just use the value that's there
-                    QpdmL(i,j,RAI_TH) = Qfaces(i,j,RAI_TH)
-                    QpdmR(i,j,RAI_TH) = Qfaces(i,j,RAI_TH)
-                else
-                    call raijuPDM(Qcc(i-2:i+1, j), Qfaces(i, j, RAI_TH), pdmb, QpdmL(i,j,RAI_TH), QpdmR(i,j,RAI_TH))
-                endif
-
-                ! Phi dir
-                if (any(isG(i, j-2:j+1)) .eq. .false.) then
-                    ! If full stencil isn't valid, we didn't use a high-order method to calculate the interface value anyways
-                    !  so we can just use the value that's there
-                    QpdmL(i,j,RAI_PH) = Qfaces(i,j,RAI_PH)
-                    QpdmR(i,j,RAI_PH) = Qfaces(i,j,RAI_PH)
-                else
-                    call raijuPDM(Qcc(i, j-2:j+1), Qfaces(i, j, RAI_PH), pdmb, QpdmL(i,j,RAI_PH), QpdmR(i,j,RAI_PH))
-                endif
-
+        
+        ! I just wanna start by saying I'm not a fan of this
+        ! But I think its important to make it relatively easy to debug
+        ! And if we do it this way then we don't need to do if conditions on every loop
+        if (present(QreconLO) .and. present(QreconRO)) then
+            QreconLO = 0.0
+            QreconRO = 0.0
+            do i=Grid%shGrid%is,Grid%shGrid%ie+1
+                do j=Grid%shGrid%js,Grid%shGrid%je+1
+                    ! Theta dir
+                    !ReconFaceLR(isG, Qcc, areaCC, areaFace, maxOrder, pdmb, QfaceL, QfaceR, QreconRO, QreconLO)
+                    call ReconFaceLR(isG       (i-4:i+3,j), Qcc(i-4:i+3,j)           , &
+                                    Grid%areaCC(i-4:i+3,j), Grid%areaFace(i,j,RAI_TH), &
+                                    Model%maxOrder        , Model%PDMB               , &
+                                    QfaceL  (i,j,RAI_TH)  , QfaceR  (i,j,RAI_TH)     , &
+                                    QreconLO(i,j,RAI_TH)  , QreconRO(i,j,RAI_TH)     )
+                    ! Phi dir
+                    call ReconFaceLR(isG       (i,j-4:j+3), Qcc(i,j-4:j+3)          , &
+                                    Grid%areaCC(i,j-4:j+3), Grid%areaFace(i,j,RAI_PH), &
+                                    Model%maxOrder        , Model%PDMB               , &
+                                    QfaceL  (i,j,RAI_PH)  , QfaceR(i,j,RAI_PH), &
+                                    QreconLO(i,j,RAI_PH)  , QreconRO(i,j,RAI_PH)     )
+                enddo
             enddo
-        enddo
 
-    end subroutine PDMFaces
+        else
+            do i=Grid%shGrid%is,Grid%shGrid%ie+1
+                do j=Grid%shGrid%js,Grid%shGrid%je+1
+                    ! Theta dir
+                    !ReconFaceLR(isG, Qcc, areaCC, areaFace, maxOrder, pdmb, QfaceL, QfaceR)
+                    call ReconFaceLR(isG       (i-4:i+3,j), Qcc(i-4:i+3,j)           , &
+                                    Grid%areaCC(i-4:i+3,j), Grid%areaFace(i,j,RAI_TH), &
+                                    Model%maxOrder        , Model%PDMB               , &
+                                    QfaceL(i,j,RAI_TH)    , QfaceR(i,j,RAI_TH)       )
+                    ! Phi dir
+                    call ReconFaceLR(isG       (i,j-4:j+3), Qcc(i,j-4:j+3)           , &
+                                    Grid%areaCC(i,j-4:j+3), Grid%areaFace(i,j,RAI_PH), &
+                                    Model%maxOrder        , Model%PDMB               , &
+                                    QfaceL(i,j,RAI_PH)    , QfaceR(i,j,RAI_PH)       )
+                enddo
+            enddo
+        endif
 
+    end subroutine ReconFaces
+
+!------
+! Flux calculation
+!------
 
     subroutine calcBoundaryFluxes(sh, active, Qflux)
         !! Sets fluxes at invalid/buffer boundaries
@@ -297,21 +400,21 @@ module raijuRecon
                             Grid%shGrid%jsg:Grid%shGrid%jeg),      intent(in) :: Qcc
             !! Cell-centered quantity (eta)
         real(rp), dimension(Grid%shGrid%isg:Grid%shGrid%ieg+1, &
-                            Grid%shGrid%jsg:Grid%shGrid%jeg+1, 2), intent(out) :: Qflux
+                            Grid%shGrid%jsg:Grid%shGrid%jeg+1, 2), intent(inout) :: Qflux
             !! Flux of Q through faces
 
         ! Make some needed arrays here, figure out how to optimize later
         logical , dimension(Grid%shGrid%isg:Grid%shGrid%ieg, &
                             Grid%shGrid%jsg:Grid%shGrid%jeg) :: isG
-        real(rp), dimension(Grid%shGrid%isg:Grid%shGrid%ieg, &
-                            Grid%shGrid%jsg:Grid%shGrid%jeg) :: QA
+        !real(rp), dimension(Grid%shGrid%isg:Grid%shGrid%ieg, &
+        !                    Grid%shGrid%jsg:Grid%shGrid%jeg) :: QA
+        !real(rp), dimension(Grid%shGrid%isg:Grid%shGrid%ieg+1, &
+        !                    Grid%shGrid%jsg:Grid%shGrid%jeg+1, 2) :: QAface, Qface, QpdmL, QpdmR, QfluxL, QfluxR
         real(rp), dimension(Grid%shGrid%isg:Grid%shGrid%ieg+1, &
-                            Grid%shGrid%jsg:Grid%shGrid%jeg+1, 2) :: QAface, Qface, QpdmL, QpdmR, QfluxL, QfluxR
-        QAface = 0.0
-        Qface = 0.0
-        QpdmL = 0.0
-        QpdmR = 0.0
-        Qflux = 0.0
+                            Grid%shGrid%jsg:Grid%shGrid%jeg+1, 2) :: QfaceL, QfaceR
+        
+        QfaceL = 0.0
+        QfaceR = 0.0
 
         where (State%active .ne. RAIJUINACTIVE)
             isG = .true.
@@ -319,23 +422,35 @@ module raijuRecon
             isG = .false.
         end where
 
-        QA = Qcc * Grid%areaCC  ! Get total quantity within cell
+        !QA = Qcc * Grid%areaCC  ! Get total quantity within cell
             !! TODO: This is probably where we should include the B_cell/B_face factor
-        call ReconFaces(Grid, isG, QA, QAface)  ! Interpolate to face positions
-        Qface = QAface / Grid%areaFace  ! Return to area density at face position
+        !call ReconFaces(Grid, isG, QA, QAface)  ! Interpolate to face positions
+        !Qface = QAface / Grid%areaFace  ! Return to area density at face position
 
         ! PDM to get our final interface values
-        call PDMFaces(Grid%shGrid, isG, Qcc, Qface, QpdmL, QpdmR, Model%pdmb)
+        !call PDMFaces(Grid%shGrid, isG, Qcc, Qface, QpdmL, QpdmR, Model%pdmb)
 
         ! Calculate face fluxes
         !Qflux = Qface*State%iVel(:,:,k,:)*Grid%lenFace * Model%planet%ri_m  ! [Q * Rp^2 / s]
         !Qflux = Qface*State%iVel(:,:,k,:)*Grid%lenFace / Model%planet%ri_m  ! [Q * Rp^2 / s]
 
         ! Only one of these will be non-zero
-        QfluxL = merge(QpdmL*State%iVel(:,:,k,:), 0.0, State%iVel(:,:,k,:) > 0.0)  ! [Q * m/s] Effectively array-wide max between flux and 0.0
-        QfluxR = merge(QpdmR*State%iVel(:,:,k,:), 0.0, State%iVel(:,:,k,:) < 0.0)  ! [Q * m/s] Effectively array-wide min between flux and 0.0
+        !QfluxL = merge(QpdmL*State%iVel(:,:,k,:), 0.0, State%iVel(:,:,k,:) > 0.0)  ! [Q * m/s] Effectively array-wide max between flux and 0.0
+        !QfluxR = merge(QpdmR*State%iVel(:,:,k,:), 0.0, State%iVel(:,:,k,:) < 0.0)  ! [Q * m/s] Effectively array-wide min between flux and 0.0
 
-        Qflux = (QfluxL + QfluxR) * Grid%lenFace / Model%planet%rp_m  ! [Q * Rp^2 / s]
+        !Qflux = (QfluxL + QfluxR) * Grid%lenFace / Model%planet%rp_m  ! [Q * Rp^2 / s]
+        
+        ! ReconFaces(Model, Grid, isG, Qcc, QfaceL, QfaceR, QreconLO, QreconRO)
+        if (Model%doDebugOutput) then
+            call ReconFaces(Model, Grid, isG, Qcc, QfaceL, QfaceR, State%etaFaceReconL, State%etaFaceReconR)
+        else
+            call ReconFaces(Model, Grid, isG, Qcc, QfaceL, QfaceR)
+        endif
+
+        ! Since we know the exact velocity at the interface, 
+        ! our final flux is QL*v if stuff is leaving the cell, or QR*v if stuff is entering the cell
+        Qflux = merge(QfaceL*State%iVel(:,:,k,:), QfaceR*State%iVel(:,:,k,:), State%iVel(:,:,k,:) > 0.0)  ! [Q * m/s]
+        Qflux = Qflux / Model%planet%rp_m  ! [Q * Rp/s]
 
         ! Thus far we have ignored fluxes of faces at invalid/buffer boundary
         !  (ReconFaces set them to zero)
@@ -343,10 +458,8 @@ module raijuRecon
         !call calcBoundaryFluxes(Grid%shGrid, State%active, Qflux)
 
         if (Model%doDebugOutput) then
-            !write(*,*)"dbg output for k=",k,Qface(30,30,1)
-            State%etaFace    (:,:,k,:) = Qface
-            State%etaFacePDML(:,:,k,:) = QpdmL
-            State%etaFacePDMR(:,:,k,:) = QpdmR
+            State%etaFacePDML(:,:,k,:) = QfaceL
+            State%etaFacePDMR(:,:,k,:) = QfaceR
             State%etaFlux    (:,:,k,:) = Qflux
         endif
         

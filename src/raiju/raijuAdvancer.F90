@@ -197,7 +197,7 @@ module raijuAdvancer
         State%eta_half(:,:,k) = 1.5_rp*State%eta(:,:,k) - 0.5_rp*State%eta_last(:,:,k)
 
         ! Calculate eta face fluxes
-        call calcFluxes(Model, Grid, State, k, State%eta_half(:,:,k), Qflux)  ! [eta * Rp^2/s]
+        call calcFluxes(Model, Grid, State, k, State%eta_half(:,:,k), Qflux)  ! [eta * Rp/s]
 
         ! Save eta to eta_last
         State%eta_last(:,:,k) = State%eta(:,:,k)
@@ -206,7 +206,10 @@ module raijuAdvancer
         do j=Grid%shGrid%js,Grid%shGrid%je
             do i=Grid%shGrid%is,Grid%shGrid%ie
                 State%eta(i,j,k) = State%eta(i,j,k) + dt/Grid%areaCC(i,j) &
-                                                      * ( Qflux(i,j,RAI_TH) - Qflux(i+1,j,RAI_TH) + Qflux(i,j,RAI_PH) - Qflux(i,j+1,RAI_PH) )
+                                                    * ( Qflux(i  ,j  ,RAI_TH)*Grid%lenFace(i  ,j  ,RAI_TH) &
+                                                      - Qflux(i+1,j  ,RAI_TH)*Grid%lenFace(i+1,j  ,RAI_TH) &
+                                                      + Qflux(i  ,j  ,RAI_PH)*Grid%lenFace(i  ,j  ,RAI_PH) &
+                                                      - Qflux(i  ,j+1,RAI_PH)*Grid%lenFace(i  ,j+1,RAI_PH) )
             enddo
         enddo
 

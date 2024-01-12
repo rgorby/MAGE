@@ -94,6 +94,7 @@ if __name__=="__main__":
     kh5.CheckDirOrMake(outDir)
     
 
+    #fname = "raijuSA.raiju.h5"
     fname = "raijuSA_1d.raiju.h5"
     raiInfo = ru.RAIJUInfo.getInfo(fname)
     print(vars(raiInfo))
