@@ -82,6 +82,8 @@ module raijugrids
 
     subroutine finalizeLLGrid(Grid, planet)
         !! Use a fully-created shell grid to allocate and populate the rest of the grid parameters
+        !! NOTE: All lengths are either in units of meters or plentary radii, as specified below
+        !!  no units of ionospheric radius (even though many of these parameters "live" on the ionospheric grid)
         type(raijuGrid_T), intent(inout) :: Grid
         type(planet_T), intent(in) :: planet
 
@@ -101,7 +103,7 @@ module raijugrids
             allocate( Grid%Br(shGr%isg:shGr%ieg+1,shGr%jsg:shGr%jeg+1, 2) )
             
 
-            ! Calculate theta/phi delta between cells
+            ! Calculate theta/phi delta between cells [radians]
             ! First and last elements should be zero since there's no cells below/above isg/ieg
             Grid%delTh(shGr%isg) = 0.0
             Grid%delTh(shGr%ieg+1) = 0.0  
@@ -110,6 +112,7 @@ module raijugrids
                 Grid%delTh(i) = abs(shGr%thc(i) - shGr%thc(i-1))
             enddo
 
+            ! [radians]
             Grid%delPh(shGr%jsg) = 0.0
             Grid%delPh(shGr%jeg+1) = 0.0  
             do j=shGr%jsg+1,shGr%jeg
@@ -117,7 +120,7 @@ module raijugrids
                 Grid%delPh(j) = abs(shGr%phc(j) - shGr%phc(j-1))
             enddo
 
-            ! Calc areas at cell centers
+            ! Calc areas at cell centers [Rp^2]
             do i=shGr%isg,shGr%ieg
                 do j=shGr%jsg,shGr%jeg
                     ! r^2 * sin(th) * dTh * dPh
@@ -128,7 +131,7 @@ module raijugrids
                 enddo
             enddo
 
-            ! Area at faces
+            ! Area at faces [Rp^2]
             ! Kinda overkill, but just in case: use 8-centered reconstruction for each face
             ! Only do for faces of active cells, because we don't need them in ghosts
             Grid%areaFace = 0.0
@@ -144,7 +147,7 @@ module raijugrids
             ! Arc length of faces [Rp]
             do i=shGr%isg,shGr%ieg
                 do j=shGr%jsg,shGr%jeg
-                    ! Faces in theta dir are i +/- 1/2 faces, which are in the phi direction
+                    ! Faces in theta dir are i +/- 1/2 faces, each of which spans the phi direction
                     
                     ! Theta dir
                     Grid%lenFace(i,j,RAI_TH) = (planet%ri_m/planet%rp_m) &
@@ -155,13 +158,14 @@ module raijugrids
                                         * (shGr%th(i+1) - shGr%th(i))  ! Line segment in theta direction
                 enddo
             enddo
-            ! Do last cell's top edges too
+            ! Do last row's top edges too
             i = shGr%ieg+1
             do j=shGr%jsg,shGr%jeg
                 Grid%lenFace(i, j, RAI_TH) = (planet%ri_m/planet%rp_m) &
                                             * sin(shGr%th(shGr%ie+1)) &
                                             * (shGr%ph(shGr%jeg+1) - shGr%ph(shGr%jeg))
             enddo
+            ! And last column's side edges
             j = shGr%jeg+1
             do i=shGr%isg,shGr%ieg
                 Grid%lenFace(i,j, RAI_PH) = (planet%ri_m/planet%rp_m) &
@@ -169,7 +173,7 @@ module raijugrids
             enddo
 
 
-            ! Calc ionospheric Bmag and cos of dip angle at cell centers
+            ! Calc ionospheric Bmag [nT] and cos of dip angle at cell centers
             cosTh = cos(shGr%thc)
             BMagTh = planet%magMoment*G2nT &
                     /(planet%ri_m/planet%rp_m)**3.0 &
@@ -180,21 +184,21 @@ module raijugrids
             enddo
 
             
-            ! Radial component of Bmag at cell edges, used for velocity calculation
+            ! Radial component of Bmag [nT] at cell edges, used for velocity calculation
             Grid%Br = 0.0
             ! Theta-dir faces have theta locations at cell interfaces
             cosTh = cos(shGr%th)  ! Ni+1
             do j=shGr%jsg,shGr%jeg
                 Grid%Br(:,j,RAI_TH) = planet%magMoment*G2nT &
                                     /(planet%ri_m/planet%rp_m)**3.0 &
-                                    * 2*cosTh
+                                    * 2*cosTh  ! [nT]
             enddo
             ! Phi-dir faces have theta locations at cell centers
             cosTh = cos(shGr%thc)  ! Ni
             do j=shGr%jsg,shGr%jeg+1
                 Grid%Br(:,j,RAI_PH) = planet%magMoment*G2nT &
                                     /(planet%ri_m/planet%rp_m)**3.0 &
-                                    * 2*cosTh
+                                    * 2*cosTh  ! [nT]
             enddo
 
         end associate

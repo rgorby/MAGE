@@ -12,10 +12,6 @@ module raijutypes
 
     implicit none
 
-!------
-! Containers
-!------
-
     !  var*Var0 = CODE units --> In/Out units
     type kmUnits_T
         real(rp) :: V0   = 1.0  ! [m/s]
@@ -25,11 +21,13 @@ module raijutypes
         real(rp) :: Pot0 = 1.0  ! [Volts]
     end type kmUnits_T
 
-
+!------
+! Species
+!------
     type raijuSpecies_T
         !! Container for all info related to a specific species
         
-        !> These are all specified by raijuconfig.h5
+        ! These are all specified by raijuconfig.h5
         character(len=strLen) :: name
         integer :: N
         integer :: flav
@@ -47,7 +45,7 @@ module raijutypes
         logical :: mapExtraToPsph
             !! Whether any eta under species' lowest bound gets added to plasmasphere
 
-        !> These are calculated after read-in
+        ! These are calculated after read-in
         integer :: kStart, kEnd
             !! Start and end indices for this species in Nk-size arrays
         real(rp) :: amu
@@ -63,7 +61,7 @@ module raijutypes
     type eLossWM_T
         !! Parameters used in electron wave model from Dedong Wang and Shanshan Bao
         
-        !! Model
+        ! -- Model -- !
         real(rp) :: NpsphHigh = def_NpsphHigh
         real(rp) :: NpsphLow = def_NpsphLow
         real(rp) :: ChorusLMax = def_ChorusLmax
@@ -77,11 +75,10 @@ module raijutypes
         type(TimeSeries_T) :: KpTS
             !! Kp data from wind file
 
-        !! Grid
+        ! -- Grid -- !
         ! Chorus info
         integer :: Nkp, Nmlt, Nl, Ne
             !! Number of bins for Kp, MLT, L shell, and Energy
-
         real(rp), allocatable, dimension(:) :: Kp1D
             !! 1D array of Kp dimension for Tau4D
         real(rp), allocatable, dimension(:) :: MLT1D
@@ -93,7 +90,7 @@ module raijutypes
         real(rp), allocatable, dimension(:,:,:,:) :: Tau4D
             !! Tau(Kp, MLT, L, E) table electron scattering table [seconds]
 
-        !! State
+        ! -- State -- !
         real(rp), allocatable, dimension(:,:) :: wPS
         real(rp), allocatable, dimension(:,:) :: wHISS
         real(rp), allocatable, dimension(:,:) :: wCHORUS
@@ -197,21 +194,21 @@ module raijutypes
 
         type(ShellGrid_T) :: shGrid
         real(rp), dimension(:), allocatable :: delTh
-            !! (Ni+1) Delta theta between cell centers. For cell i, delTh(i) = lower theta del, delTh(i+1) = higher theta del
+            !! (Ngi+1) [radians] Delta theta between cell centers. For cell i, delTh(i) = lower theta del, delTh(i+1) = higher theta del
         real(rp), dimension(:), allocatable :: delPh
-            !! (Nj+1) Delta phi between cell centers. For cell j, delPh(j) = lower phi del, delPh(j+1) = higher phi del
+            !! (Ngj+1) [radians] Delta phi between cell centers. For cell j, delPh(j) = lower phi del, delPh(j+1) = higher phi del
         real(rp), dimension(:,:), allocatable :: areaCC
-            !! (Ni, Nj) Area of each cell
+            !! (Ngi, Ngj) [Rp^2] Area of each cell
         real(rp), dimension(:,:,:), allocatable :: areaFace
-            !! (Ni+1, Nj+1, 2) Estimated area at each interface. (i,j,1) = theta dir, (i,j,2) = phi dir
+            !! (Ngi+1, Ngj+1, 2) [Rp^2] Estimated area at each interface. (i,j,1) = theta dir, (i,j,2) = phi dir
         real(rp), dimension(:,:,:), allocatable :: lenFace
-            !! (Ni+1, Nj+1, 2) arc length of each face
+            !! (Ngi+1, Ngj+1, 2) [Rp] arc length of each face
         real(rp), dimension(:,:), allocatable :: Bmag
-            !! Magnitude of B field [nT] at ionosphere (cell-centered)
+            !! (Ngi, Ngj) [nT] Magnitude of B field at ionosphere (cell-centered)
         real(rp), dimension(:,:), allocatable :: cosdip
-            !! Cosine of the dip angle at ionosphere (cell-centered)
+            !! (Ngi) Cosine of the dip angle at ionosphere (cell-centered)
         real(rp), dimension(:,:,:), allocatable :: Br
-            !! Radial/normal component of B field [nT] at ionosphere (cell faces)
+            !! (Ngi+1, Ngj+1, 2) [nT] Radial/normal component of B field [nT] at ionosphere (cell faces)
 
         integer :: nB ! Number of buffer cells between open region and active domain
 
@@ -223,13 +220,6 @@ module raijutypes
         ! MPI things
         integer :: NumRk  ! Number of ranks in energy space
         integer :: Rk=0   ! Number of this rank
-
-        ! Face-centered coordinates
-        !!! Maybe don't need because shGrid has centers in lat and lon directions already
-        ! (Np/Nt,2,2)  i/j, lon/lat dir, upper/lower
-        ! llfc(i,j,XDIR,IDIR) = x-coord of I-Face
-        !real(rp), dimension(:,:,:,:), allocatable :: latfc
-        !real(rp), dimension(:,:,:,:), allocatable :: lonfc
 
         ! (Nj) I of last active cell for each j slice
         integer, dimension(:), allocatable :: iBnd
@@ -261,62 +251,80 @@ module raijutypes
         type(IOClock_T) :: IO
             !! Timers for IO operations
 
+        ! -- Solver values -- !
         real(rp), dimension(:,:,:), allocatable :: eta
-            !! (Ni, Nj, Nk) etas
+            !! (Ngi, Ngj, Nk) [#/cc * Rp/nT] etas
         real(rp), dimension(:,:,:), allocatable :: eta_half
-            !! (Ni, Nj, Nk) etas  0.5*dt forward from t
+            !! (Ngi, Ngj, Nk) [#/cc * Rp/nT] etas  0.5*dt forward from t
         real(rp), dimension(:,:,:), allocatable :: eta_last
-            !! (Ni, Nj, Nk) etas from previous time step, used for halt-time calculation
+            !! (Ngi, Ngj, Nk) [#/cc * Rp/nT] etas from previous time step, used for halt-time calculation
         logical, dimension(:,:), allocatable :: activeShells
-            !! (Ni, Nk) I shells that should be evolved for a given lambda
+            !! (Ngi, Nk) i shells that should be evolved for a given lambda
         real(rp), dimension(:,:,:), allocatable :: pEff
-            !! (Ni+1, Nj+1, Nk) Effective potential [V] (ExB + corot + gradient-curvature)
+            !! (Ngi+1, Ngj+1, Nk) [V] Effective potential (ExB + corot + gradient-curvature)
             !! Not actually used in calculations, but helpful for output
         real(rp), dimension(:,:,:), allocatable :: gradPotE, gradPotCorot, gradVM
-            !! (Ni+1, Nj+1,2) Th/phi gradient of the ionospheric potential, corotation potential, and flux tube volume raised to -2/3
+            !! (Ngi+1, Ngj+1,2) [V/m] Th/phi gradient of the ionospheric potential, corotation potential, and flux tube volume raised to -2/3
+            !! units of gradVM are [FTV^(2/3)/m]. Multiplying by lambda gives units of [V/m]
         real(rp), dimension(:,:,:,:), allocatable :: iVel
-            !! (Ni+1, Nj+1, Nk, 2) Edge-centered normal velocities
+            !! (Ngi+1, Ngj+1, Nk, 2) [m/s] Edge-centered normal velocities
         real(rp), dimension(:,:,:,:), allocatable :: cVel
-            !! (Ni, Nj, Nk, 2) Cell-centered velocities, [Rp/s] in ionosphere
+            !! (Ngi, Ngj, Nk, 2) [m/s] Cell-centered velocities
 
 
-        ! Variables coming from MHD flux tube tracing, size (Ni, Nj, Ns)
+        ! -- Variables coming from MHD flux tube tracing, size (Ni, Nj, Ns) -- !
         real(rp), dimension(:,:,:), allocatable :: Pavg
+            !! (Ngi, Ngj, Ns) [nPa] Average pressure along flux tube
         real(rp), dimension(:,:,:), allocatable :: Davg
-        ! (Ni, Nk, NDIM), Bmin vector, [nT]
+            !! (Ngi, Ngj, Ns) [#/cc] Average density along flux tube
         real(rp), dimension(:,:,:), allocatable :: Bmin
-        ! (Ni+1, Nk+1, NDIM) bMin xyz coordinates [Rx]
+            !! (Ngi, Ngj, NDIM) [nT] Bmin vector
         real(rp), dimension(:,:,:), allocatable :: xyzMin
-        ! (Ni, Nk, NDIM) cell-centered bMin xyz coordinates [Rx]
+            !! (Ngi+1, Ngj+1, 3) [Rp] bMin xyz coordinates
         real(rp), dimension(:,:,:), allocatable :: xyzMincc
-        ! (Ni+1, Nk+1) corner values
-        integer , dimension(:,:), allocatable :: topo   ! Topology (0=open, 1=closed)
-        real(rp), dimension(:,:), allocatable :: thcon  ! Co-latitude  of conjugate points
-        real(rp), dimension(:,:), allocatable :: phcon  ! Longitude of conjugate points
-        real(rp), dimension(:,:), allocatable :: espot  ! electro-static potential from REMIX [kV]
-        real(rp), dimension(:,:), allocatable :: bvol  ! Flux-tube volume [Rx/nT]
-        ! (Ni, Nj) cell-centered values
-        integer , dimension(:,:), allocatable :: active  ! (-1=inactive, 0=buffer, 1=active)
-        integer , dimension(:,:), allocatable :: active_last  ! Active domain from the previous coupling time step, used for half-step eta calculation
-        integer , dimension(:,:), allocatable :: OCBDist  ! Cell distance from open-closed boundary
+            !! (Ngi, Ngj, 3) [Rp] cell-centered bMin xyz coordinates
+        
+        ! (Ngi+1, Ngj+1) corner values
+        integer , dimension(:,:), allocatable :: topo   
+            !! (Ngi+1, Ngj+1) Topology (0=open, 1=closed)
+        real(rp), dimension(:,:), allocatable :: thcon
+            !! (Ngi+1, Ngj+1) Co-latitude  of conjugate points
+        real(rp), dimension(:,:), allocatable :: phcon
+            !! (Ngi+1, Ngj+1) Longitude of conjugate points
+        real(rp), dimension(:,:), allocatable :: espot
+            !! (Ngi+1, Ngj+1) [kV] electro-static potential
+        real(rp), dimension(:,:), allocatable :: bvol
+            !! (Ngi+1, Ngj+1) [Rp/nT] Flux-tube volume
+        
+        ! (Ngi, Ngj) cell-centered values
+        integer , dimension(:,:), allocatable :: active
+            !! (Ngi, Ngj) (-1=inactive, 0=buffer, 1=active)
+        integer , dimension(:,:), allocatable :: active_last
+            !! (Ngi, Ngj) Active domain from the previous coupling time step, used for half-step eta calculation
+        integer , dimension(:,:), allocatable :: OCBDist
+            !! (Ngi, Ngj) Cell distance from open-closed boundary
 
-        !> Varibles coming from RAIJU, size (Ni, Nj, Nk)
+        ! (Ngi, Ngj, Nk) Varibles coming from RAIJU
         real(rp), dimension(:,:,:), allocatable :: lossRates
-            !! Loss rates [1/s] for each grid and lambda point. Generally stays the same over coupling time so we store them all here
+            !! (Ngi, Ngj, Nk) [1/s] Loss rates for each grid and lambda point. Generally stays the same over coupling time so we store them all here
         real(rp), dimension(:,:,:), allocatable :: lossRatesPrecip
-            !! Loss rates [1/s] that result in precipitation. Should be <= lossRates
+            !! (Ngi, Ngj, Nk) [1/s] Loss rates that result in precipitation. Should be <= lossRates
         real(rp), dimension(:,:,:), allocatable :: precipType_ele
-            !! Prepication type used for electrons
+            !! (Ngi, Ngj, Nk) Prepication type used for electrons
         real(rp), dimension(:,:,:), allocatable :: precipNFlux
-            !! Precipitation number fluxes [#/cm^2/s]
+            !! (Ngi, Ngj, Nk) [#/cm^2/s] Precipitation number fluxes
         real(rp), dimension(:,:,:), allocatable :: precipEFlux
-            !! Precipitation energy fluxes [erg/cm^2/s]
-        ! (Ni, Nj, Nspc+1) (First index is bulk)
+            !! (Ngi, Ngj, Nk) [erg/cm^2/s] Precipitation energy fluxes
+        
+        ! (Ngi, Ngj, Nspc+1) (First Nspc index is bulk) Moments
         ! Last dimension will be D/P of different populations (not necessarily same as species)
         ! Example: Total, hot protons, cold protons, electrons, other species
-        real(rp), dimension(:,:,:), allocatable :: Den    ! Density  [amu/cc]
-        real(rp), dimension(:,:,:), allocatable :: Press  ! Pressure [nPa]
-        real(rp), dimension(:,:,:), allocatable :: vAvg   ! Average cell velocity [km/s]
+        real(rp), dimension(:,:,:), allocatable :: Den    
+            !! (Ngi, Ngj, Nspc+1) Density  [amu/cc]
+        real(rp), dimension(:,:,:), allocatable :: Press
+            !! (Ngi, Ngj, Nspc+1) Pressure [nPa]
+        real(rp), dimension(:,:,:), allocatable :: vAvg
+            !! (Ngi, Ngj, Nspc+1) Average cell velocity [km/s]
 
 
         !> Only used when debugging
@@ -337,6 +345,10 @@ module raijutypes
         type(raijuGrid_T ) :: Grid
         type(raijuState_T) :: State
     end type raijuApp_T
+
+!------
+! Interfaces
+!------
 
     abstract interface
         subroutine raijuStateIC_T(Model,Grid,State,inpXML)

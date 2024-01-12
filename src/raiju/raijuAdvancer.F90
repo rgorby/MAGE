@@ -16,6 +16,7 @@ module raijuAdvancer
     contains
 
     function activeDt(Model, Grid, State, k) result(dt)
+        !! Calculates min dt needed to safele evolve active domain for given energy invariant channel k
         !! TODO: Consider dynamic CFL factor
         type(raijuModel_T), intent(in) :: Model
         type(raijuGrid_T ), intent(in) :: Grid
@@ -23,25 +24,12 @@ module raijuAdvancer
         integer, intent(in) :: k
         
         integer :: i,j
-        !real(rp), dimension(Grid%shGrid%isg:Grid%shGrid%ieg+1,Grid%shGrid%jsg:Grid%shGrid%jeg+1,2) :: vel, dtArr
-        !logical , dimension(Grid%shGrid%isg:Grid%shGrid%ieg+1,Grid%shGrid%jsg:Grid%shGrid%jeg+1, 2) :: asIJ, isGood
         real(rp) :: velij
         real(rp), dimension(Grid%shGrid%isg:Grid%shGrid%ieg+1,Grid%shGrid%jsg:Grid%shGrid%jeg+1, 2) :: dtArr
         logical , dimension(Grid%shGrid%isg:Grid%shGrid%ieg+1,Grid%shGrid%jsg:Grid%shGrid%jeg+1, 2) :: isGood
         real(rp) :: dt
 
         associate (sh => Grid%shGrid)
-        ! make activeShell 2D
-        !do i=sh%isg,sh%ieg
-        !    asIJ(i,:) = State%activeShells(i,k)
-        !enddo
-        !
-        !! Only consider points that are in activeShell and not RAIJUINACTIVE
-        !where (State%topo .ne. RAIJUCLOSED .and. asIJ)
-        !    isGood = .true.
-        !elsewhere
-        !    isGood = .false.
-        !end where
 
         dtArr = HUGE
 
@@ -50,57 +38,44 @@ module raijuAdvancer
         do j=sh%js,sh%je+1
             do i=sh%is,sh%ie+1
                 ! NOTE: We are only checking faces bordering non-ghost cells because those are the only ones we use for evolution
+                ! TODO: Strictly speaking, there are some faces that are included here that shouldn't be because they're never used to evolve anything
+                !  so we should make the loop js:je, is:ie, and handle the last row and column afterwards
 
                 ! We are responsible for face (i,j,TH) and (i,j,PH)
                 ! Theta faces first
 
                 ! This is a weird pattern. Basically, we can't cycle if the overall desired condition isn't met, because we are doing theta and phi directions in the same loop
-                ! At the time, we don't want to write one massive if condition with all options covered, or a bunch of nested if statements
-                ! So instead, we break them up, such that if a single if condition is true it means we have failed the physical condition for us to calculate a valid timestep for
+                ! At the same time, we don't want to write one massive if condition with all options covered, or a bunch of nested if statements
+                ! So instead, we break them up, such that if a single if condition is true it means we have failed the physical condition for us to calculate a valid timestep
                 ! If all if conditions fail then the physical conditions are met and we can do our calculations in the else block
                 if (Model%doActiveShell .and. (State%activeShells(i-1,k) .eq. .false. .or. State%activeShells(i,k) .eq. .false.) ) then
+                    ! In order for a theta-dir face to be usable, we need both sides to be active
                     continue
                 else if ( State%active(i-1,j) .eq. .false. .or. State%active(i,j) .eq. .false.) then
                     continue
                 else
                     ! We are good lets calculate a dt for this face
-                    velij = max(abs(State%iVel(i,j,k,RAI_TH)), TINY)
-                    dtArr(i,j,RAI_TH) = Grid%delTh(i) / ( velij / Model%planet%ri_m)  ! [s]
+                    velij = max(abs(State%iVel(i,j,k,RAI_TH)), TINY)  ! [m/s]
+                    dtArr(i,j,RAI_TH) = ( Grid%delTh(i) * Model%planet%ri_m ) / velij  ! [s]
                 endif
                 
                 ! Phi faces
                 if (Model%doActiveShell .and. State%activeShells(i,k) .eq. .false. ) then
+                    ! In order for a phi-dir face to be usable, we just need this i shell to be active
                     continue
                 else if (State%active(i,j-1) .eq. .false. .or. State%active(i,j) .eq. .false. ) then 
                     continue
                 else
                     velij = max(abs(State%iVel(i,j,k,RAI_PH)), TINY)
-                    dtArr(i,j,RAI_PH) = Grid%delPh(j) / ( velij / Model%planet%ri_m)  ! [s]
+                    dtArr(i,j,RAI_PH) = ( Grid%delPh(j) * Model%planet%ri_m ) / velij  ! [s]
                 endif
 
             enddo
         enddo
 
-        !vel(:,:,RAI_TH) = merge(abs(State%iVel(:,:,k,RAI_TH)), TINY, isGood(:,:,RAI_TH))
-        !vel(:,:,RAI_PH) = merge(abs(State%iVel(:,:,k,RAI_PH)), TINY, isGood(:,:,RAI_PH))
-!
-        !! dt in theta direction
-        !do j=sh%js,sh%je+1
-        !    dtArr(:,j,RAI_TH) = Grid%delTh(:) / (vel(:,j,RAI_TH) / Model%planet%ri_m)
-        !    !dtArr(:,j,RAI_TH) = 0.5*(Grid%delTh(:sh%ie)+Grid%delTh(sh%is+1:)) / (vel(:,j,RAI_TH) / Model%planet%ri_m)
-        !    !dtArr(:,j,RAI_TH) = 0.5*(Grid%lenFace(:sh%ieg, j, RAI_TH)+Grid%lenFace(sh%isg+1:, j, RAI_TH)) / (vel(:,j,RAI_TH) / Model%planet%ri_m)
-        !enddo
-        !! In phi direction
-        !do i=sh%is,sh%ie+1
-        !    dtArr(:,j,RAI_PH) = Grid%delPh(:) / (vel(i,:,RAI_PH) / Model%planet%ri_m)
-        !    !dtArr(i,:,RAI_PH) = 0.5*(Grid%delPh(:sh%je)+Grid%delPh(sh%js+1:)) / (vel(i,:,RAI_PH) / Model%planet%ri_m)
-        !    !dtArr(i,:,RAI_PH) = 0.5*(Grid%lenFace(i, :sh%jeg, RAI_PH)+Grid%lenFace(i, sh%jsg+1:, RAI_PH)) / (vel(i,:,2) / Model%planet%ri_m)
-        !enddo
-
         dt = Model%CFL*minval(dtArr)
 
         end associate
-
             
     end function activeDt
 
@@ -167,6 +142,7 @@ module raijuAdvancer
                 dt = activeDt(Model, Grid, State, k)
 
                 ! If needed, reduce dt to fit within remaining time
+                ! This way, all channels will end exactly at tEnd
                 if (t + dt > tEnd) then
                     dt = max(tEnd - t, TINY)  ! Make sure we never go back in time and advance at least a little bit so we will eventually end
                 endif

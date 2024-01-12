@@ -295,7 +295,7 @@ module raijuRecon
         integer, intent(in) :: k
         real(rp), dimension(Grid%shGrid%isg:Grid%shGrid%ieg, &
                             Grid%shGrid%jsg:Grid%shGrid%jeg),      intent(in) :: Qcc
-            !! Cell-centered quantity (e.x.: eta)
+            !! Cell-centered quantity (eta)
         real(rp), dimension(Grid%shGrid%isg:Grid%shGrid%ieg+1, &
                             Grid%shGrid%jsg:Grid%shGrid%jeg+1, 2), intent(out) :: Qflux
             !! Flux of Q through faces
@@ -320,7 +320,7 @@ module raijuRecon
         end where
 
         QA = Qcc * Grid%areaCC  ! Get total quantity within cell
-            !! TODO: This is probably where we should include the B_face factor
+            !! TODO: This is probably where we should include the B_cell/B_face factor
         call ReconFaces(Grid, isG, QA, QAface)  ! Interpolate to face positions
         Qface = QAface / Grid%areaFace  ! Return to area density at face position
 
@@ -335,7 +335,7 @@ module raijuRecon
         QfluxL = merge(QpdmL*State%iVel(:,:,k,:), 0.0, State%iVel(:,:,k,:) > 0.0)  ! [Q * m/s] Effectively array-wide max between flux and 0.0
         QfluxR = merge(QpdmR*State%iVel(:,:,k,:), 0.0, State%iVel(:,:,k,:) < 0.0)  ! [Q * m/s] Effectively array-wide min between flux and 0.0
 
-        Qflux = (QfluxL + QfluxR) * Grid%lenFace / Model%planet%ri_m  ! [Q * Rp^2 / s]
+        Qflux = (QfluxL + QfluxR) * Grid%lenFace / Model%planet%rp_m  ! [Q * Rp^2 / s]
 
         ! Thus far we have ignored fluxes of faces at invalid/buffer boundary
         !  (ReconFaces set them to zero)
