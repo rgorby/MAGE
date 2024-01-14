@@ -84,14 +84,16 @@ module rcmimag
 
         planetM0g = vApp%planet%magMoment
 
-        write(*,*) '---------------'
-        write(*,*) 'RCM planet params'
-        write(*,*) 'Rp        [m]  = ', Rp_m
-        write(*,*) 'RIon      [Rp] = ', RIonRCM
-        write(*,*) 'RIon      [m]  = ', RIonRCM*Rp_m
-        write(*,*) 'MagMoment [G]  = ', planetM0g
-        write(*,*) '---------------'
-        
+        if (vApp%isLoud) then
+            write(*,*) '---------------'
+            write(*,*) 'RCM planet params'
+            write(*,*) 'Rp        [m]  = ', Rp_m
+            write(*,*) 'RIon      [Rp] = ', RIonRCM
+            write(*,*) 'RIon      [m]  = ', RIonRCM*Rp_m
+            write(*,*) 'MagMoment [G]  = ', planetM0g
+            write(*,*) '---------------'
+        endif
+                
         call iXML%Set_Val(RunID,"/Kaiju/gamera/sim/runid","sim")
         RCMApp%rcm_runid = trim(RunID)
 
@@ -371,6 +373,7 @@ module rcmimag
     ! Pass RCM hot electron density and pressure to REMIX.
         vApp%imag2mix%eden  = RCMApp%Nrcm
         vApp%imag2mix%epre  = RCMApp%Percm
+        vApp%imag2mix%npsp  = RCMApp%Npsph
 
         vApp%imag2mix%isFresh = .true.
 

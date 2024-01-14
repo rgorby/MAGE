@@ -736,7 +736,7 @@ module gioH5
             Model%ts      = 0
             Model%t       = tReset      
         else
-            Model%IO%nOut = GetIOInt(IOVars,"nOut") + 1
+            Model%IO%nOut = GetIOInt(IOVars,"nOut")
             Model%IO%nRes = GetIOInt(IOVars,"nRes") + 1
             Model%ts      = GetIOInt(IOVars,"ts")
             Model%t       = GetIOReal(IOVars,"t")

@@ -164,7 +164,7 @@ class OMNI(SolarWind):
                         data[lastValidIndex+j][varIdx] = val
                 lastValidIndex = curIndex
 
-        return (numpy.array(data, numpy.float), hasBeenInterpolated)
+        return (numpy.array(data, float), hasBeenInterpolated)
 
     def _coarseFilter(self, dataArray, hasBeenInterpolated):
         """

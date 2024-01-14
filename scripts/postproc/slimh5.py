@@ -21,8 +21,8 @@ def cntSteps(fname):
         Steps = [stp for stp in grpNames if "/Step#" in stp]
         nSteps = len(Steps)
         """
-        #sIds = np.array([str.split(s,"#")[-1] for s in Steps],dtype=np.int)
-        sIds = np.array([str.split(s,"#")[-1] for s in hf.keys() if "Step#" in s],dtype=np.int)
+        #sIds = np.array([str.split(s,"#")[-1] for s in Steps],dtype=int)
+        sIds = np.array([str.split(s,"#")[-1] for s in hf.keys() if "Step#" in s],dtype=int)
         nSteps = len(sIds)
     return nSteps,sIds
 
@@ -131,6 +131,9 @@ if __name__ == "__main__":
                 sQ = str(Q)
                 #print("\tCopying %s"%(sQ))
                 oH5[gOut].create_dataset(sQ,data=iH5[gIn][sQ])
+                for k in iH5[gIn][sQ].attrs.keys():
+                    aStr = str(k)
+                    oH5[gOut][sQ].attrs.create(k,iH5[gIn][sQ].attrs[aStr])
         # make a new file every Nsf steps
             if(n%Nsf==0 and n != 0):
                 oH5.close()

@@ -165,7 +165,7 @@ def AddVectors(Grid,fname,vIds,cDims,vDims,Nd,nStp):
 		AddDI(fDI,fname,nStp,cDims,"Bz")	
 #Decide on centering
 def getLoc(gDims,vDims):
-	vDims = np.array(vDims,dtype=np.int)
+	vDims = np.array(vDims,dtype=int)
 	dimLocs = []
 	if len(gDims) != len(vDims):
 		return "Other"

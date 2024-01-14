@@ -493,8 +493,8 @@ def genRing(XX,YY,Nk=64,Tol=1.0,doVerb=False):
 	Nrng = Nj//2
 
 	
-	NChs = np.zeros(Nrng,dtype=np.int)
-	NCha = np.zeros(Nrng,dtype=np.int)
+	NChs = np.zeros(Nrng,dtype=int)
+	NCha = np.zeros(Nrng,dtype=int)
 	rS = []
 	for n in range(Nrng):
 		kiP = np.max(dK[: ,n]/dI[: ,n])
@@ -504,8 +504,8 @@ def genRing(XX,YY,Nk=64,Tol=1.0,doVerb=False):
 		dkoMax = np.max([kiP,kjP,kiM,kjM])
 		dRng = dkoMax/Tol
 		#Do safe and aggressive
-		djRs = np.int(2**np.floor(np.log2(Tol/dkoMax)))
-		djRa = np.int(2**np.ceil(np.log2(Tol/dkoMax)))
+		djRs = int(2**np.floor(np.log2(Tol/dkoMax)))
+		djRa = int(2**np.ceil(np.log2(Tol/dkoMax)))
 
 		if (dRng<=1.0):
 			if (doVerb):
@@ -618,8 +618,8 @@ def VizGrid(XX,YY,xxG=None,yyG=None,doGhost=False,doShow=True,xyBds=None,fOut="g
 	Ax.plot(XX,YY    ,color=C,linewidth=1.5,alpha=Alph)
 	Ax.plot(XX.T,YY.T,color=C,linewidth=1.5,alpha=Alph)
 
-	Nr4 = np.int(Ni/4)
-	Np4 = np.int(Nj/4)
+	Nr4 = int(Ni/4)
+	Np4 = int(Nj/4)
 	C4 = "blue"
 	LW4 = 2.0
 	for dx in range(1,4):

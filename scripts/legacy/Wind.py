@@ -21,7 +21,7 @@ tMax = 16.0
 dt = 15.0 #Cadence [s]                                                                                                                                                                               
 
 SimT = (tMax-tMin)*60.0*60.0
-NumT = np.int( np.ceil(SimT/dt)+1 )
+NumT = int( np.ceil(SimT/dt)+1 )
 
 print("Generating %d slices, T=[%5.2f,%5.2f]"%(NumT,tMin,tMax))
 

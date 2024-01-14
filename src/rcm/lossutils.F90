@@ -115,7 +115,7 @@ MODULE lossutils
         integer(iprec), intent(in) :: ie
         real(rprec), intent(in) :: alam,vm,beq,rcurv,lossc
         real(rprec) :: lossFLC
-        real(rprec) :: Np,bfp,ftv,K,V,TauSS,Rgyro,eps,xSS,earg
+        real(rprec) :: Np,bfp,ftv,K,V,TauSS,Rgyro,eps,earg
 
         bfp = beq/(sin(lossc)**2.0) !Foot point field strength, nT
         ftv = (1.0/vm)**(3.0/2.0) !flux-tube volume Re/nT
@@ -182,7 +182,7 @@ MODULE lossutils
         REAL(rprec) :: tau
         REAL(rprec) :: tauKMLE(2,2,2,2),tauMLE(2,2,2),tauLE(2,2),tauE(2)! tauKMLE(1,2,2,2) means tauKlMuLuEu, l:lower bound, u: upper bound in the NN method
         REAL(rprec) :: dK,wK,dM,wM,dL,wL,dE,wE
-        INTEGER :: iK,kL,kU,mL,mU,lL,lU,eL,eU
+        INTEGER :: kL,kU,mL,mU,lL,lU,eL,eU
 
 
         associate(Nm=>EWMTauInput%ChorusTauInput%Nm,Nl=>EWMTauInput%ChorusTauInput%Nl,Nk=>EWMTauInput%ChorusTauInput%Nk,Ne=>EWMTauInput%ChorusTauInput%Ne,&
@@ -345,18 +345,10 @@ MODULE lossutils
         MLT = mltx
         L = Lshx ! L=3-6
         E = log10(engx) ! engx is Ek in MeV
+        call ClampValue(L,1.5_rprec,5.5_rprec) ! Clamp L to satisfy 1.5<L<5.5
         L2 = L*L
         fL = 0.1328*L2 - 2.1463*L + 3.7857
-        !if(L>5.5 .or. L<1.5 .or. E>1.0 .or. E<-3.0 .or. E<fL) then 
-        !! Both sectors are only valid for log10(Ek)>=f(L), 1keV<Ek<10MeV, 1.5<=L<=5.5.
-        !    return
-        !endif
-
-        call ClampValue(L,1.5_rprec,5.5_rprec)
-      
-        L2 = L*L !renew L2
-        
-        call ClampValue(E,max(-3.0_rprec,fL),1.0_rprec) 
+        call ClampValue(E,max(-3.0_rprec,fL),1.0_rprec) ! Clamp E to satisfy 1 KeV < Ek < 10 MeV and E >= f(L)
 
         b0 = 2.080
         b1 = 0.1773

@@ -813,7 +813,7 @@ class DSCOVRNC(OMNI):
         #timeshift = 46 #minutes
         # simple projectile motion
         # t = (x - x0)/v
-        timeshift = np.int(np.round((np.mean(satx)*-1)/(np.nanmean(vx))/60.0))
+        timeshift = int(np.round((np.mean(satx)*-1)/(np.nanmean(vx))/60.0))
         startTime = t0 + datetime.timedelta(minutes=timeshift)
         #endTime = t0 + datetime.timedelta(minutes=timeshift+ntimes)
         endTime = t1

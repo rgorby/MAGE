@@ -63,3 +63,6 @@ analysis/notebooks/Tutorial/.ipynb_checkpoints
 
 # Visual Studio Code environment files
 .env
+
+# ifort cruft 
+*.i90

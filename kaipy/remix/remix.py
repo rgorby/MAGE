@@ -40,6 +40,10 @@ class remix:
 										'max':10},
 						 'jhall'     : {'min':-2,
 						 				'max':2},
+                                                 'gtype'     : {'min':0,
+                                                                                'max':1},
+                                                 'npsp'     : {'min':0,
+                                                                                'max':1.e3},
 						 'Menergy'    : {'min':0,
 										'max':20},
 						 'Mflux'      : {'min':0,
@@ -85,6 +89,10 @@ class remix:
 			self.variables['sigmah']['data']    = self.ion['Hall conductance '+h]
 			self.variables['energy']['data']    = self.ion['Average energy '+h]
 			self.variables['flux']['data']      = self.ion['Number flux '+h]
+			if 'RCM grid type '+h in self.ion.keys():
+				self.variables['gtype']['data']     = self.ion['RCM grid type '+h]
+			if 'RCM plasmasphere density '+h in self.ion.keys():
+				self.variables['npsp']['data']      = self.ion['RCM plasmasphere density '+h]*1.0e-6 # /m^3 -> /cc.
 			# variables['efield']['data']    = efield_n*1.e6
 			# variables['joule']['data']     = sigmap_n*efield_n**2*1.e-3
 			if 'Zhang average energy '+h in self.ion.keys():
@@ -112,6 +120,10 @@ class remix:
 			self.variables['sigmah']['data']    = self.ion['Hall conductance '+h][:,::-1]
 			self.variables['energy']['data']    = self.ion['Average energy '+h][:,::-1]
 			self.variables['flux']['data']      = self.ion['Number flux '+h][:,::-1]
+			if 'RCM grid type '+h in self.ion.keys():
+				self.variables['gtype']['data']     = self.ion['RCM grid type '+h][:,::-1]
+			if 'RCM plasmasphere density '+h in self.ion.keys():
+				self.variables['npsp']['data']      = self.ion['RCM plasmasphere density '+h][:,::-1]*1.0e-6 # /m^3 -> /cc.
 			if 'Zhang average energy '+h in self.ion.keys():
 				self.variables['Menergy']['data'] = self.ion['Zhang average energy '+h][:,::-1]
 				self.variables['Mflux']['data']   = self.ion['Zhang number flux '+h][:,::-1]
@@ -132,7 +144,9 @@ class remix:
 				self.variables['Pflux']['data'][self.variables['Penergy']['data']==1.e-20] = 0.
 
 		# convert energy flux to erg/cm2/s to conform to Newell++, doi:10.1029/2009JA014326, 2009
-		self.variables['eflux']['data'] = self.variables['energy']['data']*self.variables['flux']['data']*1.6e-9 
+		self.variables['eflux']['data'] = self.variables['energy']['data']*self.variables['flux']['data']*1.6e-9
+                # Mask out Eavg where EnFlux<0.1
+		# self.variables['energy']['data'][self.variables['sigmap']['data']<=2.5]=0.0
 		self.Initialized=True
 
 
@@ -182,7 +196,7 @@ class remix:
 	def plot(self,varname,
 			 ncontours=16,   # default number of potential contours
 			 addlabels={},
-			 gs=None,doInset=False,doCB=True,doCBVert=True):
+			 gs=None,doInset=False,doCB=True,doCBVert=True,doGTYPE=False,doPP=False):
 
 		# define function for potential contour overplotting
 		# to keep code below clean and compact
@@ -196,6 +210,8 @@ class remix:
 			tc = np.hstack([tc,2.*np.pi+tc[:,[0]]])
 			rc = np.hstack([rc,rc[:,[0]]])
 			tmp=self.variables['potential']['data']
+			lower = self.variables['potential']['min']
+			upper = self.variables['potential']['max']
 			tmp = np.hstack([tmp,tmp[:,[0]]])
 
 			# similar trick to make contours go through the pole
@@ -213,13 +229,44 @@ class remix:
 				LW = 0.5
 				alpha = 1
 				tOff = np.pi/2.
-			ax.contour(tc+tOff,rc,tmp,15,colors='black',linewidths=LW,alpha=alpha)
+			contours = np.linspace(lower,upper,ncontours)
+			ax.contour(tc+tOff,rc,tmp,contours,colors='black',linewidths=LW,alpha=alpha)
 
 			if (not doInset):
 				# also, print min/max values of the potential
 				ax.text(73.*np.pi/180.,1.03*r.max(),('min: '+format_str+'\nmax: ' +format_str) % 
 					  (tmp.min() ,tmp.max()))
 
+		# define function for grid type contour overplotting
+		# to keep code below clean and compact
+		def boundary_overplot(con_name,con_level,con_color,doInset=False):
+			tc = 0.25*(theta[:-1,:-1]+theta[1:,:-1]+theta[:-1,1:]+theta[1:,1:])
+			rc = 0.25*(r[:-1,:-1]+r[1:,:-1]+r[:-1,1:]+r[1:,1:])
+
+			# trick to plot contours smoothly across the periodic boundary:
+			# wrap around: note, careful with theta -- need to add 2*pi to keep it ascending
+			# otherwise, contours mess up
+			tc = np.hstack([tc,2.*np.pi+tc[:,[0]]])
+			rc = np.hstack([rc,rc[:,[0]]])
+			tmp=self.variables[con_name]['data']
+			tmp = np.hstack([tmp,tmp[:,[0]]])
+
+			# similar trick to make contours go through the pole
+			# add pole
+			tc = np.vstack([tc[[0],:],tc])
+			rc = np.vstack([0.*rc[[0],:],rc])
+			tmp = np.vstack([tmp[0,:].mean()*np.ones_like(tmp[[0],:]),tmp])
+
+			# finally, plot
+			if (doInset):
+				LW = 0.5
+				alpha = 1
+				tOff = 0.0
+			else:
+				LW = 0.75
+				alpha = 1
+				tOff = np.pi/2.
+			ax.contour(tc+tOff,rc,tmp,levels=con_level,colors=con_color,linewidths=LW,alpha=alpha)
 
 		if not self.Initialized:
 			sys.exit("Variables should be initialized for the specific hemisphere (call init_var) prior to plotting.")
@@ -367,6 +414,10 @@ class remix:
 
 		if varname=='current': 
 			potential_overplot(doInset)
+		if doGTYPE and varname=='eflux': 
+			boundary_overplot('gtype',[0.01,0.99],'green',doInset)
+		if doPP and varname=='eflux':
+			boundary_overplot('npsp',[10],'cyan',doInset)
 
 		return ax
 	# mpl.rcParams['contour.negative_linestyle'] = 'solid'

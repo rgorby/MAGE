@@ -29,7 +29,7 @@ module volthelpers_mpi
             return
         endif
 
-        call Tic("VoltHelpers")
+        call Tic("VoltHelpers", .true.)
         call Tic("VHWait")
 
         ! lock the data window to read status
@@ -51,7 +51,7 @@ module volthelpers_mpi
         end if
 
         call Toc("VHWait")
-        call Toc("VoltHelpers")
+        call Toc("VoltHelpers", .true.)
 
     end function
 
@@ -559,6 +559,7 @@ module volthelpers_mpi
             ! perform load balancing of squish block sizes
             call LoadBalanceBlocks(vApp, helperLoads)
         endif
+
         call Toc("VHReqSquishE")
 
     end subroutine

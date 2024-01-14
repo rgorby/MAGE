@@ -45,11 +45,14 @@ module voltapp
             call getIDeckStr(inpXML)
 
         endif
-        !Start by shutting up extra ranks
-        if (.not. vApp%isLoud) call xmlInp%BeQuiet()
+
+        if(vApp%isLoud) write(*,*) 'Voltron Reading input deck from ', trim(inpXML)
 
         !Create XML reader
         xmlInp = New_XML_Input(trim(inpXML),'Kaiju/Voltron',.true.)
+
+        !Start by shutting up extra ranks
+        if (.not. vApp%isLoud) call xmlInp%BeQuiet()
 
         ! try to verify that the XML file has "Kaiju" as a root element
         kaijuRoot = ""
@@ -78,16 +81,18 @@ module voltapp
 
     !Initialize planet information
         call getPlanetParams(vApp%planet, xmlInp)
-        call printPlanetParams(vApp%planet)
+        if (vApp%isLoud) then
+            call printPlanetParams(vApp%planet)
+        endif
 
     !Initialize state information
         !Check for Earth to decide what things need to happen
         if (trim(gApp%Model%gamOut%uID) == "EARTH") then
             vApp%isEarth = .true.
-            write(*,*) "Going into geospace mode ..."
+            if (vApp%isLoud) write(*,*) "Going into geospace mode ..."
         else
             vApp%isEarth = .false.
-            write(*,*) "Not using geospace mode ..."
+            if (vApp%isLoud) write(*,*) "Not using geospace mode ..."
         endif
 
         !Set file to read from and pass desired variable name to initTS
@@ -276,9 +281,9 @@ module voltapp
         if(.not. vApp%isSeparate) then
             !Do first couplings if the gamera data is local and therefore uptodate
             if (vApp%time>=vApp%DeepT) then
-                call Tic("DeepCoupling")
+                call Tic("DeepCoupling", .true.)
                 call DeepUpdate(vApp,gApp)
-                call Toc("DeepCoupling")
+                call Toc("DeepCoupling", .true.)
             endif
         endif
 
@@ -287,7 +292,7 @@ module voltapp
         if (gApp%Model%dt0<TINY) gApp%Model%dt0 = gApp%Model%dt
         
         !Bring overview info
-        call printConfigStamp()
+        if (vApp%isLoud) call printConfigStamp()
 
         !Finally do first output stuff
         !console output
@@ -382,10 +387,10 @@ module voltapp
 
             call updateF107(vApp%remixApp%ion,maxF107)
     
-            write(*,*) 'Using F10.7 = ', maxF107        
+            if (vApp%isLoud) write(*,*) 'Using F10.7 = ', maxF107        
         endif                
 
-        write(*,*) 'Using MJD0  = ', gApp%Model%MJD0
+        if (vApp%isLoud) write(*,*) 'Using MJD0  = ', gApp%Model%MJD0
 
         call init_mhd2Mix(vApp%mhd2mix, gApp, vApp%remixApp)
         call init_mix2Mhd(vApp%mix2mhd, vApp%remixApp, gApp)
@@ -473,9 +478,9 @@ module voltapp
         call Toc("G2R")
 
         ! run remix
-        call Tic("ReMIX")
+        call Tic("ReMIX", .true.)
         call runRemix(vApp)
-        call Toc("ReMIX")
+        call Toc("ReMIX", .true.)
 
         ! convert mixOutput to gamera data
         call Tic("R2G")
@@ -517,9 +522,9 @@ module voltapp
         class(voltApp_T), intent(inout) :: vApp
 
         !Advance inner magnetosphere model to tAdv
-        call Tic("InnerMag")
+        call Tic("InnerMag", .true.)
         call vApp%imagApp%doAdvance(vApp,vApp%DeepT)
-        call Toc("InnerMag")
+        call Toc("InnerMag", .true.)
 
     end subroutine
 
@@ -653,6 +658,7 @@ module voltapp
         Model%doMHD = .true.
         call inpXML%Set_Val(Model%epsds,'tracer/epsds',1.0e-2)    
         call setBackground(Model,inpXML)
+        call inpXML%Set_Val(Model%doDip,'tracer/doDip',.false.)
 
     !Initialize ebState
         !CHIMP grid is initialized from Gamera's active corners
