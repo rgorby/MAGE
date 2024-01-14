@@ -3,6 +3,8 @@ cmake/user.cmake
 build*/
 kaiju.sublime-workspace
 
+kaipy/raiju/debug/.ipynb_checkpoints/
+
 # Related to unit testing
 external/FARGPARSE-*/
 external/GFTL-*/
