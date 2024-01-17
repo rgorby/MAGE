@@ -479,10 +479,11 @@ def run_preprocessing_steps(options):
     # NOTE: Assumes wsa2gamera.py is in PATH.
     cmd = "wsa2gamera.py"
     args = [cmd, "wsa2gamera.ini"]
-    subprocess.run(
-        args, check=True,
-        stdout=subprocess.PIPE, stderr=subprocess.STDOUT
-    )
+    with open("wsa2gamera.log", "w", encoding="utf-8") as fl:
+        subprocess.run(
+            args, check=True,
+            stdout=fl, stderr=fl
+        )
 
 
 def create_ini_files(options):
