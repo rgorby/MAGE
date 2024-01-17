@@ -306,8 +306,8 @@ module ebinterp
                 !Add JacB0 at true point
                 gcFields%JacE = wAx*gcFieldsAxP%JacE + (1-wAx)*gcFieldsAxM%JacE
                 gcFields%JacB =     wAx *( gcFieldsAxP%JacB - Model%JacB0(Xp) ) + &
-                        (1-wAx)*( gcFieldsAxM%JacB - Model%JacB0(Xm) ) + &
-                                  Model%JacB0(xyz)
+                                 (1-wAx)*( gcFieldsAxM%JacB - Model%JacB0(Xm) ) + &
+                                           Model%JacB0(xyz)
             else
                 !Otherwise do standard thing
 
@@ -341,18 +341,18 @@ module ebinterp
                 do m=1,NDIM !Derivative direction (x,y,z)
                     do n=1,NDIM !Vector component
                         gcFields%JacB(n,m) = wT1*( Tix(IDIR,m)*sum(eW*dB1(:,:,:,n))   &
-                                         +Tix(JDIR,m)*sum(zW*dB1(:,:,:,n))   &
-                                         +Tix(KDIR,m)*sum(pW*dB1(:,:,:,n)) ) &
-                                  + wT2*( Tix(IDIR,m)*sum(eW*dB2(:,:,:,n))   & 
-                                         +Tix(JDIR,m)*sum(zW*dB2(:,:,:,n))   &
-                                         +Tix(KDIR,m)*sum(pW*dB2(:,:,:,n)) )
+                                                  +Tix(JDIR,m)*sum(zW*dB1(:,:,:,n))   &
+                                                  +Tix(KDIR,m)*sum(pW*dB1(:,:,:,n)) ) &
+                                           + wT2*( Tix(IDIR,m)*sum(eW*dB2(:,:,:,n))   & 
+                                                  +Tix(JDIR,m)*sum(zW*dB2(:,:,:,n))   &
+                                                  +Tix(KDIR,m)*sum(pW*dB2(:,:,:,n)) )
 
                         gcFields%JacE(n,m) = wT1*( Tix(IDIR,m)*sum(eW* E1(:,:,:,n))   &
-                                         +Tix(JDIR,m)*sum(zW* E1(:,:,:,n))   &
-                                         +Tix(KDIR,m)*sum(pW* E1(:,:,:,n)) ) &
-                                  + wT2*( Tix(IDIR,m)*sum(eW* E2(:,:,:,n))   & 
-                                         +Tix(JDIR,m)*sum(zW* E2(:,:,:,n))   &
-                                         +Tix(KDIR,m)*sum(pW* E2(:,:,:,n)) )
+                                                  +Tix(JDIR,m)*sum(zW* E1(:,:,:,n))   &
+                                                  +Tix(KDIR,m)*sum(pW* E1(:,:,:,n)) ) &
+                                           + wT2*( Tix(IDIR,m)*sum(eW* E2(:,:,:,n))   & 
+                                                  +Tix(JDIR,m)*sum(zW* E2(:,:,:,n))   &
+                                                  +Tix(KDIR,m)*sum(pW* E2(:,:,:,n)) )
 
 
                     enddo
