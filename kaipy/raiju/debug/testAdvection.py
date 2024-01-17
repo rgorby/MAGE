@@ -50,8 +50,8 @@ def vCorot(Rp_m, Ri_m, cPot, b_surf, r):
     b_surf: surface B-field [nT]
     r: eval equatorial radius [Rp]
 
-    vCorot [rad/s] = cPot * b_surf / Rp^2
-    vCorot [m/s] = cPot * b_surf * r [Rp] / Rp^2 = cPos * b_surf * r / Rp
+    vCorot [rad/s] = cPot / b_surf / Rp^2
+    vCorot [m/s] = cPot / b_surf * r [Rp] / Rp^2 = cPos / b_surf * r / Rp
     """
     v_eq = (cPot*1e3) / (b_surf * 1e-9) * (r*Rp_m) / Rp_m**2  # [m/s]
 
