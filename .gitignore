@@ -3,8 +3,6 @@ cmake/user.cmake
 build*/
 kaiju.sublime-workspace
 
-kaipy/raiju/debug/.ipynb_checkpoints/
-
 # Related to unit testing
 external/FARGPARSE-*/
 external/GFTL-*/
@@ -14,6 +12,9 @@ external/PFUNIT-*/
 tests/*/*.F90
 !tests/helperCode/*.F90
 !tests/helperCode_mpi/*.F90
+
+# Pre-compile generated files
+src/base/git_info.F90
 
 # Compiled Object files
 *.slo
