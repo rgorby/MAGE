@@ -119,7 +119,7 @@ def create_command_line_parser():
     return parser
 
 
-def get_run_option(name, description, mode="BASIC"):
+def get_run_option(name, description, mode="BASIC", override=None):
     """Prompt the user for a single run option.
 
     Prompt the user for a single run option. If no user input is provided,
@@ -357,8 +357,12 @@ def prompt_user_for_run_options(args):
     # [WSA] options
     o = options["wsa2gamera"]["WSA"] = {}
     od = option_descriptions["wsa2gamera"]["WSA"]
+    # Ensure the simulation setting wsa_file gets copied over 
+    # This may be overridden below (duplicate prompt necessary??) 
+    # in expert mode
     for on in od:
         o[on] = get_run_option(on, od[on], mode)
+        if(on == "wsafile"): o[on] = options["simulation"]["wsa_file"]
 
     # [Constants] options
     o = options["wsa2gamera"]["Constants"] = {}
@@ -754,7 +758,7 @@ def main():
     path = f"{options['simulation']['job_name']}.json"
     if os.path.exists(path):
         if not clobber:
-            raise FileExistsError(f"Options file {path} exists!")
+            raise FileExistsError(f"Options file {path} exists!\nPlease enable the --clobber option if you intended to overwrite.")
     with open(path, "w", encoding="utf-8") as f:
         json.dump(options, f, indent=JSON_INDENT)
 
