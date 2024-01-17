@@ -167,7 +167,8 @@ module raijuICHelpers
 
                 call iXML%Set_Val(D0,"prob/constEta" , 1.0)
                 j = Grid%shGrid%Np/2
-                State%eta(Grid%shGrid%is:Grid%shGrid%ie,j-6:j+6,:) = D0
+                i = Grid%shGrid%Nt/2
+                State%eta(i-6:i+6,j-6:j+6,:) = D0
                 State%eta_last = State%eta
 
             case default

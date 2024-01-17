@@ -100,7 +100,8 @@ module raijuIO
         call AddOutVar(IOVars,"X",lat2D,uStr="radians")
         call AddOutVar(IOVars,"Y",lon2D,uStr="radians")
         call AddOutVar(IOVars,"Bmag",Grid%Bmag(is:ie,js:je),uStr="nT")
-        call AddOutVar(IOVars,"Br",Grid%Br(is:ie+1,js:je+1,:),uStr="nT")
+        call AddOutVar(IOVars,"BrFace",Grid%BrFace(is:ie+1,js:je+1,:),uStr="nT")
+        call AddOutVar(IOVars,"BrCC",Grid%BrCC(is:ie,js:je),uStr="nT")
         call AddOutVar(IOVars,"areaCC",Grid%areaCC  (is:ie,js:je),uStr="Ri^2")
         call AddOutVar(IOVars,"alamc",Grid%alamc,uStr="eV * (Rx/nT)^(2/3)")
 

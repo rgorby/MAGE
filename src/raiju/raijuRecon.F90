@@ -181,7 +181,7 @@ module raijuRecon
 ! ReconFaces: responsible for doing full face reconstruction procedure, including pdm, for all active cells
     !  -> reconFaceLR: is given 8-cell stencil, decides which order to use, applies pdm, returns L/R values
 
-    subroutine ReconFaceLR(isG, Qcc, areaCC, areaFace, maxOrder, pdmb, QfaceL, QfaceR, QreconLO, QreconRO)
+    subroutine ReconFaceLR(isG, Qcc, areaCC, areaFace, BrCC, BrFace, maxOrder, pdmb, QfaceL, QfaceR, QreconLO, QreconRO)
         !! Receives an 8-element stencil and returns reconstructed L/R values of a single face
         logical , dimension(recLen), intent(in) :: isG
         real(rp), dimension(recLen), intent(in) :: Qcc
@@ -191,6 +191,10 @@ module raijuRecon
             !! Cell-centered areas
         real(rp), intent(in) :: areaFace
             !! Estimated cell area at the face we are reconstructing at
+        real(rp), dimension(recLen), intent(in) :: BrCC
+            !! Cell-centered radial magnetic field
+        real(rp), intent(in) :: BrFace
+            !! Estimated radial magnetic field at the face we are reconstructing at
         integer , intent(in) :: maxOrder
             !! Maximum order to use for reconstruction
         real(rp), intent(in) :: pdmb
@@ -213,30 +217,30 @@ module raijuRecon
 
         doUpwind = mod(maxOrder,2)==1
 
-        QccA = Qcc*areaCC  ! [Q * Rp^2]
+        QccA = Qcc*areaCC*BrCC  ! [Q * Rp^2 * nT]
         if (doUpwind) then
             ! Starting at highest available order, we first see if caller wants us to use this order or higher 
             ! and if cells are good enough to use this order.
             ! If not, we keep going till we land at an acceptable order
             if (maxOrder == 7 .and. all(isG)) then
                 !! Entirety of stencil must be good because we need to do both sides of the interface
-                QreconL = Upwind7(QccA(1), QccA(2), QccA(3), QccA(4), QccA(5), QccA(6), QccA(7))/areaFace
-                QreconR = Upwind7(QccA(8), QccA(7), QccA(6), QccA(5), QccA(4), QccA(3), QccA(2))/areaFace
+                QreconL = Upwind7(QccA(1), QccA(2), QccA(3), QccA(4), QccA(5), QccA(6), QccA(7))/areaFace/BrFace
+                QreconR = Upwind7(QccA(8), QccA(7), QccA(6), QccA(5), QccA(4), QccA(3), QccA(2))/areaFace/BrFace
                 call raijuPDM(Qcc(3), Qcc(4), Qcc(5), QreconL, pdmb, QfaceL)
                 call raijuPDM(Qcc(6), Qcc(5), Qcc(4), QreconR, pdmb, QfaceR)
             else if (maxOrder >= 5 .and. all(isG(2:7))) then
-                QreconL = Upwind5(QccA(2), QccA(3), QccA(4), QccA(5), QccA(6))/areaFace
-                QreconR = Upwind5(QccA(7), QccA(6), QccA(5), QccA(4), QccA(3))/areaFace
+                QreconL = Upwind5(QccA(2), QccA(3), QccA(4), QccA(5), QccA(6))/areaFace/BrFace
+                QreconR = Upwind5(QccA(7), QccA(6), QccA(5), QccA(4), QccA(3))/areaFace/BrFace
                 call raijuPDM(Qcc(3), Qcc(4), Qcc(5), QreconL, pdmb, QfaceL)
                 call raijuPDM(Qcc(6), Qcc(5), Qcc(4), QreconR, pdmb, QfaceR)
             else if (maxOrder >= 3 .and. all(isG(3:6))) then
-                QreconL = Upwind3(QccA(3), QccA(4), QccA(5))/areaFace
-                QreconR = Upwind3(QccA(6), QccA(5), QccA(4))/areaFace
+                QreconL = Upwind3(QccA(3), QccA(4), QccA(5))/areaFace/BrFace
+                QreconR = Upwind3(QccA(6), QccA(5), QccA(4))/areaFace/BrFace
                 call raijuPDM(Qcc(3), Qcc(4), Qcc(5), QreconL, pdmb, QfaceL)
                 call raijuPDM(Qcc(6), Qcc(5), Qcc(4), QreconR, pdmb, QfaceR)
             else if (all(isG(4:5))) then
-                QreconL = QccA(4)/areaFace
-                QreconR = QccA(5)/areaFace
+                QreconL = QccA(4)/areaFace/BrFace
+                QreconR = QccA(5)/areaFace/BrFace
             endif
         else
             ! Even orders
@@ -245,16 +249,16 @@ module raijuRecon
             ! Also, left and right states are equal, so we only save the reconstructed value to QreconL,
             !  and give it to a different version of PDM that will split up the single value into L/R states
             if(maxOrder == 8 .and. all(isG)) then
-                QreconL = Central8(QccA)/areaFace
+                QreconL = Central8(QccA)/areaFace/BrFace
                 call raijuPDMLR(Qcc(3:6), QreconL, pdmb, QfaceL, QfaceR)
             else if(maxOrder >= 6 .and. all(isG(2:7))) then
-                QreconL = Central6(QccA)/areaFace
+                QreconL = Central6(QccA)/areaFace/BrFace
                 call raijuPDMLR(Qcc(3:6), QreconL, pdmb, QfaceL, QfaceR)
             else if(maxOrder >= 4 .and. all(isG(3:6))) then
-                QreconL = Central4(QccA)/areaFace
+                QreconL = Central4(QccA)/areaFace/BrFace
                 call raijuPDMLR(Qcc(3:6), QreconL, pdmb, QfaceL, QfaceR)
             else if(maxOrder >= 2 .and. all(isG(4:5))) then
-                QreconL = 0.5*(QccA(4) + QccA(5))/areaFace
+                QreconL = 0.5*(QccA(4) + QccA(5))/areaFace/BrFace
                 QfaceL = QreconL
                 QfaceR = QreconL
             endif
@@ -303,36 +307,40 @@ module raijuRecon
         if (present(QreconLO) .and. present(QreconRO)) then
             QreconLO = 0.0
             QreconRO = 0.0
-            do i=Grid%shGrid%is,Grid%shGrid%ie+1
-                do j=Grid%shGrid%js,Grid%shGrid%je+1
+            do j=Grid%shGrid%js,Grid%shGrid%je+1
+                do i=Grid%shGrid%is,Grid%shGrid%ie+1
                     ! Theta dir
                     !ReconFaceLR(isG, Qcc, areaCC, areaFace, maxOrder, pdmb, QfaceL, QfaceR, QreconRO, QreconLO)
                     call ReconFaceLR(isG       (i-4:i+3,j), Qcc(i-4:i+3,j)           , &
                                     Grid%areaCC(i-4:i+3,j), Grid%areaFace(i,j,RAI_TH), &
+                                    Grid%Brcc  (i-4:i+3,j), Grid%BrFace  (i,j,RAI_TH), &
                                     Model%maxOrder        , Model%PDMB               , &
                                     QfaceL  (i,j,RAI_TH)  , QfaceR  (i,j,RAI_TH)     , &
                                     QreconLO(i,j,RAI_TH)  , QreconRO(i,j,RAI_TH)     )
                     ! Phi dir
                     call ReconFaceLR(isG       (i,j-4:j+3), Qcc(i,j-4:j+3)          , &
                                     Grid%areaCC(i,j-4:j+3), Grid%areaFace(i,j,RAI_PH), &
+                                    Grid%Brcc  (i,j-4:j+3), Grid%BrFace  (i,j,RAI_PH), &
                                     Model%maxOrder        , Model%PDMB               , &
-                                    QfaceL  (i,j,RAI_PH)  , QfaceR(i,j,RAI_PH), &
+                                    QfaceL  (i,j,RAI_PH)  , QfaceR(i,j,RAI_PH)       , &
                                     QreconLO(i,j,RAI_PH)  , QreconRO(i,j,RAI_PH)     )
                 enddo
             enddo
 
         else
-            do i=Grid%shGrid%is,Grid%shGrid%ie+1
-                do j=Grid%shGrid%js,Grid%shGrid%je+1
+            do j=Grid%shGrid%js,Grid%shGrid%je+1
+                do i=Grid%shGrid%is,Grid%shGrid%ie+1
                     ! Theta dir
                     !ReconFaceLR(isG, Qcc, areaCC, areaFace, maxOrder, pdmb, QfaceL, QfaceR)
                     call ReconFaceLR(isG       (i-4:i+3,j), Qcc(i-4:i+3,j)           , &
                                     Grid%areaCC(i-4:i+3,j), Grid%areaFace(i,j,RAI_TH), &
+                                    Grid%Brcc  (i-4:i+3,j), Grid%BrFace  (i,j,RAI_TH), &
                                     Model%maxOrder        , Model%PDMB               , &
                                     QfaceL(i,j,RAI_TH)    , QfaceR(i,j,RAI_TH)       )
                     ! Phi dir
                     call ReconFaceLR(isG       (i,j-4:j+3), Qcc(i,j-4:j+3)           , &
                                     Grid%areaCC(i,j-4:j+3), Grid%areaFace(i,j,RAI_PH), &
+                                    Grid%Brcc  (i,j-4:j+3), Grid%BrFace  (i,j,RAI_PH), &
                                     Model%maxOrder        , Model%PDMB               , &
                                     QfaceL(i,j,RAI_PH)    , QfaceR(i,j,RAI_PH)       )
                 enddo
@@ -450,7 +458,7 @@ module raijuRecon
         ! Since we know the exact velocity at the interface, 
         ! our final flux is QL*v if stuff is leaving the cell, or QR*v if stuff is entering the cell
         Qflux = merge(QfaceL*State%iVel(:,:,k,:), QfaceR*State%iVel(:,:,k,:), State%iVel(:,:,k,:) > 0.0)  ! [Q * m/s]
-        Qflux = Qflux / Model%planet%rp_m  ! [Q * Rp/s]
+        Qflux = Qflux * Grid%BrFace / Model%planet%rp_m  ! [Q * nT * Rp/s]
 
         ! Thus far we have ignored fluxes of faces at invalid/buffer boundary
         !  (ReconFaces set them to zero)

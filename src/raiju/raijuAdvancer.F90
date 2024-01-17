@@ -195,17 +195,17 @@ module raijuAdvancer
         ! Calculate eta at half-step
         ! For now, just implement simple AB sub-stepping
         State%eta_half(:,:,k) = 1.5_rp*State%eta(:,:,k) - 0.5_rp*State%eta_last(:,:,k)
+        ! Save eta to eta_last
+        State%eta_last(:,:,k) = State%eta(:,:,k)
 
         ! Calculate eta face fluxes
         call calcFluxes(Model, Grid, State, k, State%eta_half(:,:,k), Qflux)  ! [eta * Rp/s]
 
-        ! Save eta to eta_last
-        State%eta_last(:,:,k) = State%eta(:,:,k)
         
         ! Calc new eta
         do j=Grid%shGrid%js,Grid%shGrid%je
             do i=Grid%shGrid%is,Grid%shGrid%ie
-                State%eta(i,j,k) = State%eta(i,j,k) + dt/Grid%areaCC(i,j) &
+                State%eta(i,j,k) = State%eta(i,j,k) + dt/Grid%areaCC(i,j)/Grid%BrCC(i,j) &
                                                     * ( Qflux(i  ,j  ,RAI_TH)*Grid%lenFace(i  ,j  ,RAI_TH) &
                                                       - Qflux(i+1,j  ,RAI_TH)*Grid%lenFace(i+1,j  ,RAI_TH) &
                                                       + Qflux(i  ,j  ,RAI_PH)*Grid%lenFace(i  ,j  ,RAI_PH) &

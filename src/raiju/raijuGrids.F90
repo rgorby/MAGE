@@ -100,7 +100,8 @@ module raijugrids
             allocate( Grid%lenFace (shGr%isg:shGr%ieg+1,shGr%jsg:shGr%jeg+1, 2) )
             allocate( Grid%Bmag  (shGr%isg:shGr%ieg,shGr%jsg:shGr%jeg) )
             allocate( Grid%cosdip(shGr%isg:shGr%ieg,shGr%jsg:shGr%jeg) )
-            allocate( Grid%Br(shGr%isg:shGr%ieg+1,shGr%jsg:shGr%jeg+1, 2) )
+            allocate( Grid%BrFace(shGr%isg:shGr%ieg+1,shGr%jsg:shGr%jeg+1, 2) )
+            allocate( Grid%Brcc(shGr%isg:shGr%ieg,shGr%jsg:shGr%jeg) )
             
 
             ! Calculate theta/phi delta between cells [radians]
@@ -185,20 +186,26 @@ module raijugrids
 
             
             ! Radial component of Bmag [nT] at cell edges, used for velocity calculation
-            Grid%Br = 0.0
+            Grid%BrFace = 0.0
             ! Theta-dir faces have theta locations at cell interfaces
             cosTh = cos(shGr%th)  ! Ni+1
             do j=shGr%jsg,shGr%jeg
-                Grid%Br(:,j,RAI_TH) = planet%magMoment*G2nT &
-                                    /(planet%ri_m/planet%rp_m)**3.0 &
-                                    * 2*cosTh  ! [nT]
+                Grid%BrFace(:,j,RAI_TH) = planet%magMoment*G2nT &
+                                        /(planet%ri_m/planet%rp_m)**3.0 &
+                                        * 2*cosTh  ! [nT]
             enddo
             ! Phi-dir faces have theta locations at cell centers
             cosTh = cos(shGr%thc)  ! Ni
             do j=shGr%jsg,shGr%jeg+1
-                Grid%Br(:,j,RAI_PH) = planet%magMoment*G2nT &
-                                    /(planet%ri_m/planet%rp_m)**3.0 &
-                                    * 2*cosTh  ! [nT]
+                Grid%BrFace(:,j,RAI_PH) = planet%magMoment*G2nT &
+                                        /(planet%ri_m/planet%rp_m)**3.0 &
+                                        * 2*cosTh  ! [nT]
+            enddo
+            ! Also do Br for cell centers, can re-use cosTh
+            do j=shGr%jsg,shGr%jeg
+                Grid%Brcc(:,j) = planet%magMoment*G2nT &
+                               /(planet%ri_m/planet%rp_m)**3.0 &
+                               * 2*cosTh  ! [nT]
             enddo
 
         end associate

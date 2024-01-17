@@ -209,8 +209,10 @@ module raijutypes
             !! (Ngi, Ngj) [nT] Magnitude of B field at ionosphere (cell-centered)
         real(rp), dimension(:,:), allocatable :: cosdip
             !! (Ngi) Cosine of the dip angle at ionosphere (cell-centered)
-        real(rp), dimension(:,:,:), allocatable :: Br
+        real(rp), dimension(:,:,:), allocatable :: BrFace
             !! (Ngi+1, Ngj+1, 2) [nT] Radial/normal component of B field [nT] at ionosphere (cell faces)
+        real(rp), dimension(:,:), allocatable :: Brcc
+            !! (Ngi, Ngj) [nT] same as BrFace but at cell centers
 
         integer :: nB ! Number of buffer cells between open region and active domain
 

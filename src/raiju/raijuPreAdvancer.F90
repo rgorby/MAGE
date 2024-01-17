@@ -294,7 +294,8 @@ module raijuPreAdvancer
                 if ( isG(i,j) .and. isG(i,j+1) ) then
                     ! NOTE: I don't think we need a 1/sin(theta) term here because it is already included in Grid%lenFace
                     !gradQ(i,j,RAI_TH) = (Q(i,j+1) - Q(i,j)) / RIon / sinTh(i) / Grid%lenFace(i,j,RAI_TH)
-                    gradQ(i,j,RAI_TH) = (Q(i,j+1) - Q(i,j)) / (Grid%lenFace(i,j,RAI_TH) * Rp_m )  ! lenFace in units of Rp, turn into meters
+                    !!!! Hacky experimental sinTh, need to see if this should actually be here
+                    gradQ(i,j,RAI_TH) = (Q(i,j+1) - Q(i,j)) * sinTh(i) / ( Grid%lenFace(i,j,RAI_TH) * Rp_m )  ! lenFace in units of Rp, turn into meters
                 endif ! If either point is not good then any cells using this face will be flagged as not good, and we can leave gradQ as zero there
 
                 ! Phi dir face takes the spatial derivative of the corners along the theta direction
@@ -310,7 +311,7 @@ module raijuPreAdvancer
         i = sh%ieg+1
         do j=sh%jsg,sh%jeg
             if ( isG(i,j) .and. isG(i,j+1) ) then
-                gradQ(i,j,RAI_TH) = (Q(i,j+1) - Q(i,j)) / ( Grid%lenFace(i,j,RAI_TH) * Rp_m )
+                gradQ(i,j,RAI_TH) = (Q(i,j+1) - Q(i,j)) * sinTh(i) / ( Grid%lenFace(i,j,RAI_TH) * Rp_m )
             endif
         enddo
 
@@ -489,8 +490,8 @@ module raijuPreAdvancer
         !  In other words, the cross product was already taken (except for the sign) when doing the gradients along faces
         !  So just need to include the sign here to complete the cross product
 
-        Vtp(:,:,RAI_TH) =      gradPot(:,:,RAI_TH) / (Grid%Br(:,:,RAI_TH)*1.0e-9)  ! [m/s]
-        Vtp(:,:,RAI_PH) = -1.0*gradPot(:,:,RAI_PH) / (Grid%Br(:,:,RAI_PH)*1.0e-9)  ! [m/s]
+        Vtp(:,:,RAI_TH) =      gradPot(:,:,RAI_TH) / (Grid%BrFace(:,:,RAI_TH)*1.0e-9)  ! [m/s]
+        Vtp(:,:,RAI_PH) = -1.0*gradPot(:,:,RAI_PH) / (Grid%BrFace(:,:,RAI_PH)*1.0e-9)  ! [m/s]
 
     end subroutine calcVelocity
 

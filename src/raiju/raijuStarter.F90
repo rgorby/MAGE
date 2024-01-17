@@ -176,7 +176,7 @@ module raijustarter
         ! Set planet params
         !! This should only be kept for as long as planet_T doesn't contain pointers
         !! In this current case, there should be a full copy to our own planet params
-        call getPlanetParams(Model%planet, iXML)
+        call getPlanetParams(Model%planet, iXML, doLoudO=.true.)
 
 
         !TODO: Add flags to output certain data, like coupling information
