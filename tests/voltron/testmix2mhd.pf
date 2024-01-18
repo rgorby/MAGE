@@ -55,7 +55,7 @@ contains
     end associate
 
     !Can add a test of the interpolation to Gamera shells here?
-    call voltronApp%gApp%CoupleRemix(voltronApp)
+    call CouplePotentialToMhd(voltronApp)
 
     ! find the remix BC to verify the resulting Gamera data
     SELECT type(iiBC=>voltronApp%gApp%Grid%externalBCs(INI)%p)

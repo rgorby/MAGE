@@ -64,7 +64,7 @@ contains
     write(*,*) 'Min/Max of potential (NORTH) = ', minval(voltronApp%remixApp%ion(NORTH)%S%Solution), maxval(voltronApp%remixApp%ion(NORTH)%S%Solution)
     write(*,*) 'Min/Max of potential (SOUTH) = ', minval(voltronApp%remixApp%ion(SOUTH)%S%Solution), maxval(voltronApp%remixApp%ion(SOUTH)%S%Solution)
     
-    call voltronApp%gApp%CoupleRemix(voltronApp)
+    call CouplePotentialToMhd(voltronApp)
 
   end subroutine testZeroInput
 
@@ -144,7 +144,7 @@ contains
     call run_mix(voltronApp%remixApp%ion, curTilt)
 
     ! potential in remixApp%ion(h)%St%Vars(:,:,POT)
-    call voltronApp%gApp%CoupleRemix(voltronApp)
+    call CouplePotentialToMhd(voltronApp)
 
   end subroutine testAzimuthallyDependentFAC
 
