@@ -9,33 +9,6 @@ module basetypes
 
     implicit none
 
-    type :: BaseModel_T
-        !Output info
-        type (IOClock_T) :: IO
-
-        !Unit information
-        !type (Units_T) :: Units
-        ! should this be a type which is extended by other apps?
-
-        !Whether this model is controlled by another model
-        logical :: isSub = .false.
-
-        contains
-    end type BaseModel_T
-
-    type :: BaseGrid_T
-        contains
-        ! this base class contains nothing, but its existence is useful for interfaces
-    end type BaseGrid_T
-
-    type, abstract :: BaseState_T
-        !Time info
-        real(rp) :: time = -HUGE
-        real(rp) :: MJD = -HUGE
-
-        contains
-    end type BaseState_T
-
     type, abstract :: BaseApp_T
         contains
         ! the base App intentionally does NOT contain instances of the base model/grid/state

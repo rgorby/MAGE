@@ -1,9 +1,11 @@
 ! implementation of coupling between voltron and mpi-decomposed gamera
 
 module gamCouple_mpi_V2G
-    use gamCouple
     use gamtypes_mpi
     use volttypes_mpi
+    use uservoltic ! required to have IonInnerBC_T defined
+    use init
+    use gamCouple
 
     implicit none
 
@@ -71,10 +73,8 @@ module gamCouple_mpi_V2G
         !procedure :: AdvanceModel => gamCplMpiVAdvanceModel
         procedure :: Cleanup => gamCplMpiVCleanup
 
-        procedure :: InitCoupler => gamCplMpiVInitCoupler
-        procedure :: UpdateCoupler => gamCplMpiVUpdateCoupler
-        !procedure :: CoupleRemix => gamMpiCoupleRemix
-        !procedure :: CoupleImag  => gamMpiCoupleImag
+        procedure :: InitMhdCoupler => gamCplMpiVInitMhdCoupler
+        procedure :: UpdateMhdData => gamCplMpiVUpdateMhdData
 
     end type
 
@@ -208,7 +208,7 @@ module gamCouple_mpi_V2G
     end subroutine
 
     subroutine createVoltDataTypes(vApp, iRanks, jRanks, kRanks)
-        type(gamCouplerMpi_volt_T), intent(inout) :: vApp
+        class(gamCouplerMpi_volt_T), intent(inout) :: vApp
         integer, dimension(1:SIZE(vApp%recvRanks)+1), intent(in) :: iRanks, jRanks, kRanks
 
         integer :: ierr, NiRanks, NjRanks, NkRanks, NipT, NjpT, NkpT, dataSize
@@ -375,16 +375,16 @@ module gamCouple_mpi_V2G
     end subroutine
 
     subroutine gamCplMpiVInitIO(App, Xml)
-        class(gamCoupler_T), intent(inout) :: App
+        class(gamCouplerMpi_volt_T), intent(inout) :: App
         type(XML_Input_T), intent(inout) :: Xml
 
         ! initialize only my own IO, Gamera is in another process
-        vh5File = trim(App%Model%RunID) // ".gamCpl.h5"
+        App%vh5File = trim(App%Model%RunID) // ".gamCpl.h5"
 
     end subroutine
 
     subroutine gamCplMpiVWriteRestart(App)
-        class(gamCoupler_T), intent(inout) :: App
+        class(gamCouplerMpi_volt_T), intent(inout) :: App
 
         ! write only my own restart data
         call writeGamCouplerRestart(App)
@@ -392,7 +392,7 @@ module gamCouple_mpi_V2G
     end subroutine
 
     subroutine gamCplMpiVReadRestart(App, resId, nRes)
-        class(gamCoupler_T), intent(inout) :: App
+        class(gamCouplerMpi_volt_T), intent(inout) :: App
         character(len=*), intent(in) :: resId
         integer, intent(in) :: nRes
 
@@ -402,7 +402,7 @@ module gamCouple_mpi_V2G
     end subroutine
 
     subroutine gamCplMpiVWriteConsoleOutput(App)
-        class(gamCoupler_T), intent(inout) :: App
+        class(gamCouplerMpi_volt_T), intent(inout) :: App
 
         real(rp) :: cpcp(2) = 0.0
 
@@ -415,7 +415,7 @@ module gamCouple_mpi_V2G
     end subroutine
 
     subroutine gamCplMpiVWriteFileOutput(App)
-        class(gamCoupler_T), intent(inout) :: App
+        class(gamCouplerMpi_volt_T), intent(inout) :: App
 
         ! write ony my own file output
         call writeCouplerFileOutput(App)
@@ -423,7 +423,7 @@ module gamCouple_mpi_V2G
     end subroutine
 
     subroutine gamCplMpiVWriteSlimFileOutput(App)
-        class(gamCoupler_T), intent(inout) :: App
+        class(gamCouplerMpi_volt_T), intent(inout) :: App
 
         call gamCplMpiVWriteFileOutput(App)
 
@@ -450,14 +450,14 @@ module gamCouple_mpi_V2G
 
     ! coupler routines
 
-    subroutine gamCplMpiVInitCoupler(App, voltApp)
+    subroutine gamCplMpiVInitMhdCoupler(App, voltApp)
         class(gamCouplerMpi_volt_T), intent(inout) :: App
         class(voltApp_T), intent(inout) :: voltApp
 
         integer :: ierr
 
         ! call parent init function
-        call gamInitCoupler(App, voltApp)
+        call gamInitMhdCoupler(App, voltApp)
 
         ! over-ride some of the initial voltron parameters on the gamera ranks
         ! local gamera has correct values from the above parent init function
@@ -470,7 +470,7 @@ module gamCouple_mpi_V2G
 
     end subroutine
 
-    subroutine gamCplMpiVUpdateCoupler(App, voltApp)
+    subroutine gamCplMpiVUpdateMhdData(App, voltApp)
         class(gamCouplerMpi_volt_T), intent(inout) :: App
         class(voltApp_T), intent(inout) :: voltApp
 

@@ -8,9 +8,10 @@ module voltapp
     use chmpdefs
     use starter
     use mhd2mix_interface
-    use gamCouple
     use mhd2chmp_interface
     use chmp2mhd_interface
+    use mix2mhd_interface
+    use imag2mhd_interface
     use ebsquish
     use innermagsphere
     use dates
@@ -294,16 +295,12 @@ module voltapp
         vApp%DeepT = vApp%DeepT + vApp%DeepDT
 
         ! this will step coupled Gamera
-        call vApp%gApp%UpdateCoupler(vApp)
+        call vApp%gApp%UpdateMhdData(vApp)
 
         ! call base update function with local data
         call Tic("DeepUpdate")
         call DeepUpdate(vApp, vApp%gApp)
         call Toc("DeepUpdate")
-
-        ! update data in coupled gamera
-        call vApp%gApp%CoupleRemix(vApp)
-        call vApp%gApp%CoupleImag(vApp)
 
         ! step complete
         vApp%time = vApp%DeepT
@@ -380,7 +377,10 @@ module voltapp
 
         if (vApp%isLoud) write(*,*) 'Using MJD0  = ', gApp%Model%MJD0
 
-        call vApp%gApp%InitCoupler(vApp)
+        ! initialize remix to gamera structures
+        call init_mix2MhdCoupler(vApp%gApp, vApp%remixApp)
+        ! initialize additional coupled gamera data
+        call vApp%gApp%InitMhdCoupler(vApp)
 
         call init_mhd2Mix(vApp%mhd2mix, gApp, vApp%remixApp)
         !vApp%mix2mhd%mixOutput = 0.0
@@ -468,13 +468,9 @@ module voltapp
         call runRemix(vApp)
         call Toc("ReMIX", .true.)
 
-        ! convert mixOutput to gamera data
         call Tic("R2G")
-        call vApp%gApp%CoupleRemix(vApp)
+        call CouplePotentialToMhd(vApp)
         call Toc("R2G")
-
-        !Update coupling time now so that voltron knows what to expect
-        vApp%DeepT = vApp%DeepT + vApp%DeepDT
 
         ! only do imag after spinup with deep enabled
         if(vApp%doDeep .and. vApp%time >= 0) then
@@ -520,7 +516,7 @@ module voltapp
 
         !Now use imag model and squished coordinates to fill Gamera source terms
         call Tic("IM2G")
-        call vApp%gApp%CoupleImag(vApp)
+        call CoupleSourceToMhd(vApp)
         call Toc("IM2G")
 
     end subroutine

@@ -98,16 +98,39 @@ module volttypes
     end type innerMagBase_T
 
 
-    type, extends(gamApp_T), abstract :: gamCplbase_T
+    integer, parameter :: mix2mhd_varn = 1  ! for now just the potential is sent back
+    type, extends(gamApp_T) :: gamCoupler_T
+
+        ! data for coupling remix to gamera
+        real(rp), dimension(:,:,:,:,:), allocatable :: mixOutput
+        real(rp), dimension(:,:,:), allocatable :: gPsi
+        type(Map_T), allocatable, dimension(:,:) :: PsiMaps
+        real(rp) :: rm2g
+        real(rp) :: Rion
+
+        ! data for coupling imag to gamera
+        real(rp), dimension(:,:,:,:), allocatable :: SrcNC !Node-centered source terms
+
+        ! data for coupler
+        character(len=strLen) :: vh5File
+
         contains
 
-        ! add new coupling function which can be over-ridden by children
-        procedure(InitCoupler_interface), deferred :: InitCoupler
-        procedure(UpdateCoupler_interface), deferred :: UpdateCoupler
-        procedure(CoupleRemix_interface), deferred :: CoupleRemix
-        procedure(CoupleImag_interface),  deferred :: CoupleImag
+        ! only over-riding specific functions
+        !procedure :: InitModel => gamCplInitModel
+        procedure :: InitIO => gamCplInitIO
+        procedure :: WriteRestart => gamCplWriteRestart
+        procedure :: ReadRestart => gamCplReadRestart
+        procedure :: WriteConsoleOutput => gamCplWriteConsoleOutput
+        procedure :: WriteFileOutput => gamCplWriteFileOutput
+        procedure :: WriteSlimFileOutput => gamCplWriteSlimFileOutput
+        !procedure :: AdvanceModel => gamCplAdvanceModel
 
-    end type gamCplBase_T
+        ! add new coupling function which can be over-ridden by children
+        procedure :: InitMhdCoupler => gamInitMhdCoupler
+        procedure :: UpdateMhdData => gamUpdateMhdData
+
+    end type gamCoupler_T
 
     type, extends(BaseOptions_T) :: VoltOptions_T
         procedure(StateIC_T), pointer, nopass :: gamUserInitFunc
@@ -165,7 +188,7 @@ module volttypes
         logical :: isEarth = .false.
 
         !Local gamera object to couple to
-        class(gamCplBase_T), allocatable :: gApp
+        class(gamCoupler_T), allocatable :: gApp
 
         !voltron specific options
         type(VoltOptions_T) :: vOptions
@@ -173,32 +196,41 @@ module volttypes
     end type voltApp_T
 
     ! interface for coupling functions
-    abstract interface
-        subroutine InitCoupler_interface(App, voltApp)
-            import gamCplBase_T
-            import voltApp_T
-            class(gamCplBase_T), intent(inout) :: App
+    interface
+        module subroutine gamCplInitIO(App, Xml)
+            class(gamCoupler_T), intent(inout) :: App
+            type(XML_Input_T), intent(inout) :: Xml
+        end subroutine
+
+        module subroutine gamCplWriteRestart(App)
+            class(gamCoupler_T), intent(inout) :: App
+        end subroutine
+
+        module subroutine gamCplReadRestart(App, resId, nRes)
+            class(gamCoupler_T), intent(inout) :: App
+            character(len=*), intent(in) :: resId
+            integer, intent(in) :: nRes
+        end subroutine
+
+        module subroutine gamCplWriteConsoleOutput(App)
+            class(gamCoupler_T), intent(inout) :: App
+        end subroutine
+
+        module subroutine gamCplWriteFileOutput(App)
+            class(gamCoupler_T), intent(inout) :: App
+        end subroutine
+
+        module subroutine gamCplWriteSlimFileOutput(App)
+            class(gamCoupler_T), intent(inout) :: App
+        end subroutine
+
+        module subroutine gamInitMhdCoupler(App, voltApp)
+            class(gamCoupler_T), intent(inout) :: App
             class(voltApp_T), intent(inout) :: voltApp
         end subroutine
 
-        subroutine UpdateCoupler_interface(App, voltApp)
-            import gamCplBase_T
-            import voltApp_T
-            class(gamCplBase_T), intent(inout) :: App
-            class(voltApp_T), intent(inout) :: voltApp
-        end subroutine
-
-        subroutine CoupleRemix_interface(App, voltApp)
-            import gamCplBase_T
-            import voltApp_T
-            class(gamCplBase_T), intent(inout) :: App
-            class(voltApp_T), intent(inout) :: voltApp
-        end subroutine
-        
-        subroutine CoupleImag_interface(App, voltApp)
-            import gamCplBase_T
-            import voltApp_T
-            class(gamCplBase_T), intent(inout) :: App
+        module subroutine gamUpdateMhdData(App, voltApp)
+            class(gamCoupler_T), intent(inout) :: App
             class(voltApp_T), intent(inout) :: voltApp
         end subroutine
 

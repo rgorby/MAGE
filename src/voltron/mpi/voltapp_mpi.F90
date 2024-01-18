@@ -273,16 +273,12 @@ module voltapp_mpi
         endif
 
         ! this will step coupled Gamera
-        call vApp%gApp%UpdateCoupler(vApp)
+        call vApp%gApp%UpdateMhdData(vApp)
 
         ! call base update function with local data
         call Tic("DeepUpdate")
         call DeepUpdate_mpi(vApp)
         call Toc("DeepUpdate")
-
-        ! update data in coupled gamera
-        call vApp%gApp%CoupleRemix(vApp)
-        call vApp%gApp%CoupleImag(vApp)
 
         ! step complete
         vApp%time = vApp%DeepT
@@ -305,8 +301,9 @@ module voltapp_mpi
         call runRemix(vApp)
         call Toc("ReMIX", .true.)
 
-        !Update coupling time now so that voltron knows what to expect
-        vApp%DeepT = vApp%DeepT + vApp%DeepDT
+        call Tic("R2G")
+        call CouplePotentialToMhd(vApp)
+        call Toc("R2G")
 
         ! only do imag after spinup
         if(vApp%time > 0) then

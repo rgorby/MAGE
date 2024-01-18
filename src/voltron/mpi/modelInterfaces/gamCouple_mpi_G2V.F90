@@ -1,9 +1,9 @@
 ! implementation of coupling between voltron and mpi-decomposed gamera
 
 module gamCouple_mpi_G2V
-    use gamCouple
     use gamtypes_mpi
     use volttypes_mpi
+    use uservoltic ! required to have IonInnerBC_T defined
 
     implicit none
 

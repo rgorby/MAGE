@@ -68,7 +68,13 @@ module gamtypes
 
 !Overall model information
     !Algorithmic/Run options
-    type, extends(BaseModel_T):: Model_T
+    type :: Model_T
+        !Output info
+        type (IOClock_T) :: IO
+
+        !Whether this model is controlled by another model
+        logical :: isSub = .false.
+
         character(len=strLen) :: RunID
         integer :: nSpc, nDim, nG !Number of species, dimensions, ghosts
         real(rp) :: CFL, gamma
@@ -146,7 +152,7 @@ module gamtypes
     !Face transforms (Tf) = (Ni+1,Nj+1,Nk+1,9,NDIM)
     !Edge velocity transforms (Te) = (Ni,Nj,Nk,9,NDIM)
     !Edge mag transforms (Teb) = (Ni,Nj,Nk,4,NDIM)
-    type, extends(BaseGrid_T) :: Grid_T
+    type :: Grid_T
         integer :: Nip,Njp,Nkp
         integer :: Ni,Nj,Nk
 
@@ -230,7 +236,11 @@ module gamtypes
     end type Grid_T
 
 !State information
-    type, extends(BaseState_T) :: State_T
+    type :: State_T
+        !Time info
+        real(rp) :: time = -HUGE
+        !real(rp) :: MJD = -HUGE
+
         !Size (local grid) Ni,Nj,Nk,NVAR,(nSpc)
         real(rp), dimension(:,:,:,:,:), allocatable :: Gas
         !Size (local grid) Ni+1,Nj+1,Nk+1,nDim
