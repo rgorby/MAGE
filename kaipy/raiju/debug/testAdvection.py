@@ -17,9 +17,10 @@ import kaipy.raiju.raijuutils as ru
 rad2deg = 180/np.pi
 
 # Settings
-dir = '/Users/sciolam1/Workspace/runs/local/raijudev/fluxOverhaul'
-raih5fname = 'raijuSA_1d.raiju.h5'
-#raih5fname = 'raijuSA.raiju.h5'
+#dir = '/Users/sciolam1/Workspace/runs/local/raijudev/fluxOverhaul'
+dir = '.'
+#raih5fname = 'raijuSA_1d.raiju.h5'
+raih5fname = 'raijuSA.raiju.h5'
 
 def calc_bVol_ana(colat, b_surf):
     # bVol calc
@@ -432,16 +433,16 @@ if __name__=="__main__":
     rp_m = f5['Planet'].attrs['Rad_surface']
     Bs_nt = f5['Planet'].attrs['Mag Moment'] * kd.G2nT
 
-    checkCorot(raijuInfo, 10)
+    #checkCorot(raijuInfo, 10)
     
     spc_p = raijuInfo.species[ru.flavs_s['HOTP']]
     spc_k = spc_p.kStart + int(spc_p.N//2)
-    checkGC(raijuInfo, 10, spc_k)
+    #checkGC(raijuInfo, 10, spc_k)
 
 
-    checkBVol(raijuInfo)
-    plt.show()
+    #checkBVol(raijuInfo)
+    #plt.show()
 
-    plotStep(raijuInfo, 0, 10)
+    #plotStep(raijuInfo, 0, 10)
 
     makeVid(raijuInfo, dir)

@@ -12,29 +12,45 @@ module raijuICHelpers
 
     contains
 
+!------
+! Routines responsible for making sure full state is defined
+!------
+
     subroutine initRaijuIC_DIP(Model, Grid, State, iXML)
+        !! Most general and customizable configuration
+        !! Will set dipole B field but get rest of definition (eta and electrostatic potential) from xml input
         type(raijuModel_T) , intent(in)    :: Model
         type(raijuGrid_T)  , intent(in)    :: Grid
         type(raijuState_T) , intent(inout) :: State
         type(XML_Input_T), intent(in)    :: iXML
 
-        real(rp) :: cpcp
-            !! Things we get from the xml file
+        write(*,*) "Initializing a dipole field with XML-determined electrostatic potential and eta distribution"
+
+        call initBDipole(Model, Grid, State)
+        call initEspotPresets(Model, Grid, State, iXML)
+        call initEtaPresets(Model, Grid, State, iXML)
+        call EvalMoments(Grid, State)
+
+    end subroutine initRaijuIC_DIP
+
+
+!------
+! Hard-coded magnetic field configurations
+!------
+
+    subroutine initBDipole(Model, Grid, State)
+        type(raijuModel_T) , intent(in)    :: Model
+        type(raijuGrid_T)  , intent(in)    :: Grid
+        type(raijuState_T) , intent(inout) :: State
+
         real(rp) :: L, bVol
-            !! Internal quantities
         integer :: i,j
-            !! Loops and indices
+        
 
-        write(*,*) "Initializing a dipole field with perscribed cpcp"
-
-        ! Using L-dependent pressure profile from Liemohn 2003
-        call iXML%Set_Val(cpcp,"prob/cpcp", 50.0)  ! Cross-polar cap potential [kV]
-        ! Start by setting all variables we init to zero
         State%Bmin = 0.0
         State%xyzMin = 0.0
         State%topo = 1  ! Everything closed
         State%active = 1 ! Everything active
-        State%espot = 0.0
         State%thcon = 0.0  ! Conjugate points are the same
         State%phcon = 0.0
         State%bvol = 0.0
@@ -51,32 +67,12 @@ module raijuICHelpers
                 State%phcon(i,j) = Grid%shGrid%ph(j)
 
             ! Bmin surface vars
-                State%Bmin(i,j,ZDIR) = Model%planet%magMoment/L**3.0
+                State%Bmin(i,j,ZDIR) = Model%planet%magMoment*G2nT/L**3.0  ! [nT]
                 State%bvol(i,j) = bVol
-
-            ! Electrostatic potential [kV]
-                ! Taken from Toffoletto's rcm.x
-                State%espot(i,j) = -cpcp/2. * sin(Grid%shGrid%ph(j)) &
-                                    * Grid%shGrid%th(1)/Grid%shGrid%th(i) !& 
-                                    !+ Model%planet%psiCorot/L*sin(Grid%shGrid%th(i))**2
             enddo
         enddo
 
-        ! Ni, Nj variables
-        !do i=Grid%shGrid%isg,Grid%shGrid%ieg
-        !    L = DipColat2L(Grid%shGrid%thc(i))
-        !    do j=Grid%shGrid%jsg,Grid%shGrid%jeg
-        !    enddo  
-        !enddo
-
-        ! Finally, init etas
-        call initEtaPresets(Model, Grid, State, iXML)
-
-        ! Calc moments
-        call EvalMoments(Grid, State)
-
-
-    end subroutine initRaijuIC_DIP
+    end subroutine initBDipole
 
 
 !------
@@ -84,6 +80,7 @@ module raijuICHelpers
 !------
 
     subroutine initEtaPresets(Model, Grid, State, iXML)
+        !! Based on xml input, creates desired eta distribution
         type(raijuModel_T) , intent(in)    :: Model
         type(raijuGrid_T)  , intent(in)    :: Grid
         type(raijuState_T) , intent(inout) :: State
@@ -110,6 +107,7 @@ module raijuICHelpers
         !call iXML%Set_Val(phiMax,"prob/phiMax", 360.0)  ! Min phi to populate etas
 
         State%eta = 0.0
+        State%eta_last = 0.0
 
         select case(trim(epType))
             case("RING") ! Fully symmetric ring parameterized by Leimohn 2003
@@ -163,7 +161,7 @@ module raijuICHelpers
                 enddo
                 State%eta_last = State%eta
             
-            case("LINE")  ! Line of constant eta for all channels
+            case("WEDGE")  ! Small wedge of constant eta for all channels
 
                 call iXML%Set_Val(D0,"prob/constEta" , 1.0)
                 j = Grid%shGrid%Np/2
@@ -171,8 +169,21 @@ module raijuICHelpers
                 State%eta(i-6:i+6,j-6:j+6,:) = D0
                 State%eta_last = State%eta
 
+            case("YLINE")  ! Line in the tail along Y-SM direction
+
+                call iXML%Set_Val(D0,"prob/constEta" , 1.0)
+                call iXML%Set_Val(L,"prob/Xval" , -6.0)  ! Note, just using L here to not make a whole bunch of variables for each option
+                do j=Grid%shGrid%jsg,Grid%shGrid%jeg
+                    do i=Grid%shGrid%is,Grid%shGrid%ie
+                        if ( any(State%xyzmin(i:i+1,j:j+1,XDIR) .le. L) .and. any(State%xyzmin(i:i+1,j:j+1,XDIR) .ge. L) ) then
+                            State%eta(i,j,:) = D0
+                        endif
+                    enddo
+                enddo
+                State%eta_last = State%eta
+
             case default
-                write(*,*) "ERROR: Pick a valid eta preset in raijuICHelpers.F90:initEtaPresets"
+                write(*,*) "(RAIJU) ERROR: Pick a valid eta preset in raijuICHelpers.F90:initEtaPresets"
                 stop
        
         end select
@@ -203,6 +214,92 @@ module raijuICHelpers
         end subroutine applyDkT2Eta
 
     end subroutine initEtaPresets
+
+!------
+! Electrostatic potential distributions
+!------
+
+    subroutine initEspotPresets(Model, Grid, State, iXML)
+        !! Based on xml input, chooses desired electrostatic potential distribution
+        !! Actual espot setting is done in different routines so that they are more generally accessible
+        type(raijuModel_T) , intent(in)    :: Model
+        type(raijuGrid_T)  , intent(in)    :: Grid
+        type(raijuState_T) , intent(inout) :: State
+        type(XML_Input_T), intent(in)    :: iXML
+
+        character(len=strLen) :: espotType
+            !! Eta preset identifier
+        integer :: i,j
+        
+        
+        call iXML%Set_Val(espotType,"prob/espotPreset" , "TOFFO")
+
+        select case(trim(espotType))
+            case("TOFFO") ! Simple distribution from Toffoletto's rcm.x
+                call espot_TOFFO(Grid, State, iXML)
+            case("BT") ! Simple distribution from Toffoletto's rcm.x
+                call espot_BT(Grid, State, iXML)
+            case default
+                write(*,*) "(RAIJU) ERROR: Pick a valid electrostatic potential preset in raijuICHelpers.F90:initEspotPresets"
+                stop
+        end select
+
+    end subroutine initEspotPresets
+
+
+    subroutine espot_TOFFO(Grid, State, iXML)
+        type(raijuGrid_T)  , intent(in)    :: Grid
+        type(raijuState_T) , intent(inout) :: State
+        type(XML_Input_T)  , intent(in)    :: iXML
+        
+        real(rp) :: cpcp
+        integer :: i,j
+
+        State%espot = 0.0
+        call iXML%Set_Val(cpcp,"prob/cpcp", 50.0)  ! Cross-polar cap potential [kV]
+
+        ! Ni+1, Nj+1 variables
+        do j=Grid%shGrid%jsg,Grid%shGrid%jeg+1
+            do i=Grid%shGrid%isg,Grid%shGrid%ieg+1
+                ! Taken from Toffoletto's rcm.x
+                State%espot(i,j) = -cpcp/2. * sin(Grid%shGrid%ph(j)) &
+                                    * Grid%shGrid%th(1)/Grid%shGrid%th(i)
+            enddo
+        enddo
+    end subroutine espot_TOFFO
+
+
+    subroutine espot_BT(Grid, State, iXML)
+        !! Electrostatic potential described in "Basic Space Plasma Physics" - Baumjohann and Treumann
+        !! (page 99, Eqs 5.14-5.15)
+        type(raijuGrid_T)  , intent(in)    :: Grid
+        type(raijuState_T) , intent(inout) :: State
+        type(XML_Input_T)  , intent(in)    :: iXML
+        
+        real(rp) :: cpcp, gamma
+        real(rp) :: Agamma
+        real(rp) :: dy, L
+        integer :: i,j
+
+        !call iXML%Set_Val(E0,"prob/E0", 50.0)  ! Electric field in mV/m
+        call iXML%Set_Val(cpcp,"prob/cpcp", 50.0)  ! cross polar cap potential in kV
+        call iXML%Set_Val(gamma,"prob/fShield", 1.0)  ! Shielding factor. 1 = no shielding, 2-3 is more realistic
+
+        ! Get deltaY
+        j = Grid%shGrid%Np/4
+        dy = State%xyzmin(Grid%shGrid%is,j,YDIR) - State%xyzmin(Grid%shGrid%ie,j,YDIR)  ! Rp
+
+        Agamma = 0.5*cpcp*dy**(-1.0*gamma)
+        
+        do j = Grid%shGrid%jsg,Grid%shGrid%jeg+1
+            do i = Grid%shGrid%isg,Grid%shGrid%ieg+1
+                L = sqrt( State%xyzmin(i,j,XDIR)**2 + State%xyzmin(i,j,YDIR)**2 )  ! Rp
+                State%espot(i,j) = -1*Agamma * L**gamma * sin(Grid%shGrid%ph(j))
+            enddo
+        enddo
+        
+
+    end subroutine espot_BT
     
 
 end module raijuICHelpers

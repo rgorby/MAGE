@@ -295,7 +295,8 @@ module raijuPreAdvancer
                     ! NOTE: I don't think we need a 1/sin(theta) term here because it is already included in Grid%lenFace
                     !gradQ(i,j,RAI_TH) = (Q(i,j+1) - Q(i,j)) / RIon / sinTh(i) / Grid%lenFace(i,j,RAI_TH)
                     !!!! Hacky experimental sinTh, need to see if this should actually be here
-                    gradQ(i,j,RAI_TH) = (Q(i,j+1) - Q(i,j)) * sinTh(i) / ( Grid%lenFace(i,j,RAI_TH) * Rp_m )  ! lenFace in units of Rp, turn into meters
+                    !gradQ(i,j,RAI_TH) = (Q(i,j+1) - Q(i,j)) * sinTh(i) / ( Grid%lenFace(i,j,RAI_TH) * Rp_m )  ! lenFace in units of Rp, turn into meters
+                    gradQ(i,j,RAI_TH) = (Q(i,j+1) - Q(i,j)) / ( Grid%lenFace(i,j,RAI_TH) * Rp_m )  ! lenFace in units of Rp, turn into meters
                 endif ! If either point is not good then any cells using this face will be flagged as not good, and we can leave gradQ as zero there
 
                 ! Phi dir face takes the spatial derivative of the corners along the theta direction
@@ -311,7 +312,8 @@ module raijuPreAdvancer
         i = sh%ieg+1
         do j=sh%jsg,sh%jeg
             if ( isG(i,j) .and. isG(i,j+1) ) then
-                gradQ(i,j,RAI_TH) = (Q(i,j+1) - Q(i,j)) * sinTh(i) / ( Grid%lenFace(i,j,RAI_TH) * Rp_m )
+                !gradQ(i,j,RAI_TH) = (Q(i,j+1) - Q(i,j)) * sinTh(i) / ( Grid%lenFace(i,j,RAI_TH) * Rp_m )
+                gradQ(i,j,RAI_TH) = (Q(i,j+1) - Q(i,j)) / ( Grid%lenFace(i,j,RAI_TH) * Rp_m )
             endif
         enddo
 
