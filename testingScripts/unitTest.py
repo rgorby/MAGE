@@ -1,4 +1,6 @@
+import glob
 import os
+import subprocess
 import sys
 # import subprocess
 # from os.path import expanduser
@@ -52,121 +54,117 @@ if debug:
     print(f"home = {home}")
 
 # Delete everything in the unitTest folder
+# os.chdir(home)
+# os.system('rm -rf unitTest1')
+# os.system('rm -rf unitTest2')
+# os.system('mkdir unitTest1')
+# os.system('mkdir unitTest2')
+
+# Copy pFUnit stuff into Kaiju External
 os.chdir(home)
-os.system('rm -rf unitTest1')
-os.system('rm -rf unitTest2')
-os.system('mkdir unitTest1')
-os.system('mkdir unitTest2')
+os.system('cp -r /glade/p/hao/msphere/gamshare/pFUnit-4.2.0/ifort-23-mpich-derecho/FARGPARSE-1.1 external')
+os.system('cp -r /glade/p/hao/msphere/gamshare/pFUnit-4.2.0/ifort-23-mpich-derecho/GFTL-1.3 external')
+os.system('cp -r /glade/p/hao/msphere/gamshare/pFUnit-4.2.0/ifort-23-mpich-derecho/GFTL_SHARED-1.2 external')
+os.system('cp -r /glade/p/hao/msphere/gamshare/pFUnit-4.2.0/ifort-23-mpich-derecho/PFUNIT-4.2 external')
 
-# # Copy pFUnit stuff into Kaiju External
-# os.chdir(home)
-# os.system('cp -r /glade/p/hao/msphere/gamshare/pFUnit-4.2.0/ifort-21-MPT/FARGPARSE-1.1 external')
-# os.system('cp -r /glade/p/hao/msphere/gamshare/pFUnit-4.2.0/ifort-21-MPT/GFTL-1.3 external')
-# os.system('cp -r /glade/p/hao/msphere/gamshare/pFUnit-4.2.0/ifort-21-MPT/GFTL_SHARED-1.2 external')
-# os.system('cp -r /glade/p/hao/msphere/gamshare/pFUnit-4.2.0/ifort-21-MPT/PFUNIT-4.2 external')
+# Go back to scripts folder
+os.chdir(home)
+os.chdir("testingScripts")
 
-# # Go back to scripts folder
-# os.chdir(home)
-# os.chdir("testingScripts")
+#***********************
 
-# iteration = 1
+# Perform unit tests with each module set..
 
-# # Read in modules.txt and load only the requested modules
-# file = open('unitModules.txt', 'r')
-# modules = file.readlines()
-# #print(modules)
+# Get a list of build module sets.
+module_list_files = glob.glob("mage_unit_test_modules/*.lst")
+if debug:
+    print(f"module_list_files = {module_list_files}")
 
-# ModuleList = []
-# myModules = []
-# tempString = ""
+# Perform a test build with each set of modules.
+for module_list_file in module_list_files:
+    if debug:
+        print(f"module_list_file = {module_list_file}")
 
-# # Create List from separate modules
-# for line in modules:
-#     if (line.strip() == "##NEW ENVIRONMENT##"):
-#         # Set aside what we have already
-#         ModuleList.append(myModules)
-#         # Reset
-#         myModules = []
-#         iteration += 1
-#     else:
-#         myModules.append(line.strip())
+    # Move to the home directory for testing.
+    os.chdir(home)
 
-# # Add the last module set
-# ModuleList.append(myModules)
+    # Read this module list file.
+    path = os.path.join('testingScripts', module_list_file)
+    with open(path, encoding="utf-8") as f:
+        lines = f.readlines()
+    module_names = [line.rstrip() for line in lines]
+    if debug:
+        print(f"module_names = {module_names}")
 
-# for setOfModules in ModuleList:
-# 	for line in setOfModules:
-# 		print(line)
+    # Extract the name of the list.
+    filename = os.path.split(module_list_file)[-1]
+    if debug:
+        print(f"filename = {filename}")
+    module_list_name = filename.replace('.lst', '')
+    if debug:
+        print(f"module_list_name = {module_list_name}")
 
-# # Create the list of arguments for the first set
-# arguments = "module purge; module list;"
+    # Make a directory for this build, and go there.
+    dir_name = f"unit_{module_list_name}"
+    build_directory = os.path.join(home, dir_name)
+    if debug:
+        print(f"build_directory = {build_directory}")
+    os.system(f"rm -rf {build_directory}")
+    os.mkdir(build_directory)
+    os.chdir(build_directory)
 
-# for line in ModuleList[0]:
-# 	arguments = arguments + "module load " + line + ";"
+    # Assemble the commands to load the listed modules.
+    module_cmd = 'module --force purge; module load'
+    for module_name in module_names:
+        module_cmd += f" {module_name}"
+    if debug:
+        print(f"module_cmd = {module_cmd}")
 
-# # BUILD EXECUTABLES AND TESTS
-# # Move to the correct test folder
-# os.chdir(home)
-# os.chdir('unitTest1')
-# #arguments = arguments + "cd" + home + ";"
-# #arguments = arguments + "cd kaiju/unitTest1;"
-# # Invoke cmake
-# arguments = arguments + "cmake ../ -DCMAKE_BUILD_TYPE=RELWITHDEBINFO -DALLOW_INVALID_COMPILERS=ON -DENABLE_MPI=ON;"
-# # Make gamera, voltron and allTests
-# arguments = arguments + "make gamera_mpi; make voltron_mpi; make allTests;"
-# print(arguments)
-# subprocess.call(arguments, shell=True)
+    # Run cmake to build the Makefile.
+    cmake_cmd = module_cmd + '; FC=`which ifort` FFLAGS="-qmkl" cmake -DCMAKE_BUILD_TYPE=RELWITHDEBINFO -DENABLE_MPI=ON -DENABLE_MKL=ON ..'
+    if debug:
+        print(f"cmake_cmd = {cmake_cmd}")
+    cmake_process = subprocess.Popen(cmake_cmd, shell=True)
+    if debug:
+        print(f"cmake_process = {cmake_process}")
+    cmake_process.wait()
 
-# # Create the list of arguments for the second set
-# # NOT WORKING RIGHT NOW
-# #arguments = "module purge; module list;"
+    # Run the build.
+    make_cmd = module_cmd + '; make gamera_mpi; make voltron_mpi; make allTests'
+    if debug:
+        print(f"make_cmd = {make_cmd}")
+    make_process = subprocess.Popen(make_cmd, shell=True)
+    if debug:
+        print(f"make_process = {make_process}")
+    make_process.wait()
 
-# #for line in ModuleList[1]:
-# 	#arguments = arguments + "module load " + line + ";"
+    # Copy in the test PBS scripts.
+    subprocess.call("cp ../tests/genTestData.pbs ./bin", shell=True)
+    subprocess.call("cp ../tests/runNonCaseTests1.pbs ./bin", shell=True)
+    subprocess.call("cp ../tests/runNonCaseTests2.pbs ./bin", shell=True)
+    subprocess.call("cp ../tests/runCaseTests.pbs ./bin", shell=True)
+    subprocess.call("cp ../tests/voltron_mpi/bcwind.h5 ./bin", shell=True)
+    subprocess.call("cp ../tests/voltron_mpi/lfmD.h5 ./bin", shell=True)
+    subprocess.call("cp ../tests/voltron_mpi/rcmconfig.h5 ./bin", shell=True)
 
-# # BUILD EXECUTABLES AND TESTS
-# # Move to the correct test folder
-# #os.chdir(home)
-# #os.chdir('kaiju/unitTest2')
-# # Invoke cmake
-# #arguments = arguments + "cmake ../ -DALLOW_INVALID_COMPILERS=ON;"
-# # Make Gamera, Voltron, and allTests
-# #arguments = arguments + "make gamera_mpi; make voltron_mpi; make allTests;"
-# #print(arguments)
-# #subprocess.call(arguments, shell=True)
-# #ModuleList.append(tempString)
-# #arguments = "module purge; module list;"
-# #print(arguments)
-# #subprocess.call(arguments, shell=True)
+    # Go to the bin directory for testing.
+    path = os.path.join(home, dir_name, 'bin')
+    os.chdir(path)
 
-# # Submitting the test
-# # Go to correct directory
-# os.chdir(home)
-# os.chdir('tests')
+    # Make a list of modules to use for this unit test.
+    modset = ''
+    for line in module_names:
+        modset = modset + line + " "
 
-# #finalString = readString + "\n"
-# subprocess.call("cp ../tests/genTestData.pbs ../unitTest1/bin", shell=True)
-# subprocess.call("cp runNonCaseTests1.pbs ../unitTest1/bin", shell=True)
-# subprocess.call("cp runNonCaseTests2.pbs ../unitTest1/bin", shell=True)
-# subprocess.call("cp runCaseTests.pbs ../unitTest1/bin", shell=True)
-
-# os.chdir(home)
-# os.chdir('unitTest1/bin')
-
-# # list all modules with spaces between them, to be loaded in the qsub scripts
-# modset = ""
-# for line in ModuleList[0]:
-#     modset = modset + line + " "
-
-# # submit job to generate data needed for automated tests
-# arguments = 'qsub -A ' + account + ' -v MODULE_LIST="' + modset + '",KAIJUROOTDIR=' + home + ' genTestData.pbs'
-# print(arguments)
-# submission = subprocess.Popen(arguments, shell=True, stdout=subprocess.PIPE)
-# readString = submission.stdout.read()
-# readString = readString.decode('ascii')
-# print(readString)
-# dataGenJob = readString.split('.')[0]
-# print(dataGenJob)
+    # Submit job to generate data needed for automated tests.
+    arguments = 'qsub -A ' + account + ' -v MODULE_LIST="' + modset + '",KAIJUROOTDIR=' + home + ' genTestData.pbs'
+    print(arguments)
+    submission = subprocess.Popen(arguments, shell=True, stdout=subprocess.PIPE)
+    readString = submission.stdout.read()
+    readString = readString.decode('ascii')
+    print(readString)
+    dataGenJob = readString.split('.')[0]
+    print(dataGenJob)
 
 # # now submit the three automated testing jobs, all contingent on the data gen job
 # arguments = 'qsub -A ' + account + ' -v MODULE_LIST="' + modset + '",KAIJUROOTDIR=' + home + ' -W depend=afterok:' + dataGenJob + ' runCaseTests.pbs'

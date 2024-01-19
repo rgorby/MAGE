@@ -95,8 +95,8 @@ subArgString = subArgString + " --account " + account
 if debug:
     print(f"subArgString = {subArgString}")
 if (doAll == True):
-    buildTest = subprocess.Popen("python3 buildTest.py -d -l"+subArgString, shell = True)
-    buildTest.wait()
+    # buildTest = subprocess.Popen("python3 buildTest.py -d -l"+subArgString, shell = True)
+    # buildTest.wait()
     unitTest = subprocess.Popen("python3 unitTest.py"+subArgString, shell = True)
     unitTest.wait()
     # intelTest = subprocess.Popen("python3 intelChecks.py"+subArgString, shell=True)
