@@ -439,6 +439,14 @@ def prompt_user_for_run_options(args):
     for on in od:
         o[on] = get_run_option(on, od[on], mode)
 
+    # <coupling> options
+    options["gamera"]["coupling"] = {}
+    o = options["gamera"]["coupling"]
+    od = option_descriptions["gamera"]["coupling"]
+    od["blockHalo"]["default"] = od["blockHalo"]["default"][hpc_platform]
+    for on in od:
+        o[on] = get_run_option(on, od[on], mode)
+
     # [restart] options
     o = options["gamera"]["restart"] = {}
     od = option_descriptions["gamera"]["restart"]

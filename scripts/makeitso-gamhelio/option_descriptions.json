@@ -233,17 +233,17 @@
                 "default": "220.0"
             },
             "Ni": {
-                "LEVEL": "EXPERT",
+                "LEVEL": "BASIC",
                 "prompt": "Number of radial grid cells",
                 "default": "128"
             },
             "Nj": {
-                "LEVEL": "EXPERT",
+                "LEVEL": "BASIC",
                 "prompt": "Number of polar angle grid cells",
                 "default": "64"
             },
             "Nk": {
-                "LEVEL": "EXPERT",
+                "LEVEL": "BASIC",
                 "prompt": "Number of azimuthal angle grid cells",
                 "default": "128"
             }
@@ -375,18 +375,18 @@
         "output": {
             "dtOut": {
                 "LEVEL": "EXPERT",
-                "prompt": "Screen output interval (timesteps)",
+                "prompt": "Timestep slice output interval (simulated hours)",
                 "default": "10.0"
             },
             "tsOut": {
                 "LEVEL": "EXPERT",
-                "prompt": "Timestep slice output interval (simulated hours)",
+                "prompt": "Screen output interval (timesteps)",
                 "default": "50.0"
             },
-            "timer": {
+            "doTimer": {
                 "LEVEL": "EXPERT",
-                "prompt": "timer",
-                "default": "F",
+                "prompt": "Code timing output enabled",
+                "default": "T",
                 "valids": ["T", "t", "F", "f"]
             }
         },
@@ -447,6 +447,17 @@
                 "prompt": "bcPeriodic",
                 "default": "T",
                 "valids": ["T", "t", "F", "f"]
+            }
+        },
+        "coupling": {
+            "blockHalo": {
+                "LEVEL": "EXPERT",
+                "prompt": "(GAMERA) Block halo MPI",
+                "default": {
+                    "derecho": "T",
+                    "pleiades": "F"
+                },
+                "valids": ["T", "F"]
             }
         },
         "restart": {
