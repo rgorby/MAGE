@@ -192,6 +192,7 @@ module raijustarter
 
         character(len=strLen) :: tmpStr
         type(ShellGrid_T) :: shGrid
+        logical :: doHack_constB
 
         ! Set grid params
         call iXML%Set_Val(Grid%nB, "grid/Nbnd", 4      )  ! Number of cells between open boundary and active domain
@@ -220,6 +221,14 @@ module raijustarter
 
         ! Finalize the spatial part of the grid
         call finalizeLLGrid(Grid, Model%planet)
+
+        ! Hax?
+        call iXML%Set_Val(doHack_constB, "hax/doConstB",.false.)
+        if (doHack_constB) then
+            Grid%Bmag = Model%planet%magMoment*G2nT
+            Grid%Brcc = Model%planet%magMoment*G2nT
+            Grid%BrFace = Model%planet%magMoment*G2nT
+        endif
         
 
         ! Now handle lambda grid
@@ -317,6 +326,9 @@ module raijustarter
             case("DIP")
                 !! Simple Maxwellian in a dipole field
                 Model%initState => initRaijuIC_DIP
+            case("TTA")
+                !! Test Theta Advection
+                Model%initState => initRaijuIC_testThetaAdvection
             case("USER")
                 ! Call the IC in the module raijuuseric
                 ! This module is set in cmake via the RAIJUIC variable

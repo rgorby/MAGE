@@ -71,6 +71,9 @@ program raijuSAx
         call mjdRECALC(raiApp%State%mjd)
     endif
 
+    ! Before we get started, run preAdvancer once just so that Step#0 has that information
+    call raijuPreAdvance(raiApp%Model, raiApp%Grid, raiApp%State)
+
     ! Ready to loop
     do while ( raiApp%State%t < (raiApp%Model%tFin + 0.5) )
         

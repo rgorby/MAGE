@@ -474,7 +474,6 @@ module raijuPreAdvancer
         integer :: i,j
         real(rp), dimension(Grid%shGrid%isg:Grid%shGrid%ieg+1, Grid%shGrid%jsg:Grid%shGrid%jeg+1, 2) :: gradPot
 
-
         ! alamc [eV * (Rp/nT)^(2/3)]
         ! gradVM [(Rp/nT)^(-2/3) / m]
         ! alamc*gradVM [eV/m]

@@ -2,6 +2,7 @@ module raijuICHelpers
     use kdefs
     use XML_Input
     use planethelper
+    use math
 
     use raijudefs
     use raijutypes
@@ -34,6 +35,43 @@ module raijuICHelpers
     end subroutine initRaijuIC_DIP
 
 
+    subroutine initRaijuIC_testThetaAdvection(Model, Grid, State, iXML)
+        !! Dipole field, purely radial convection
+        !! V will vary, up to postprocessing to check and make sure its right everywhere
+        type(raijuModel_T) , intent(in)    :: Model
+        type(raijuGrid_T)  , intent(in)    :: Grid
+        type(raijuState_T) , intent(inout) :: State
+        type(XML_Input_T), intent(in)    :: iXML
+
+        integer :: i,j
+        integer :: jMid, jWidth, iWidth
+        real(rp) :: pDrop, delPhi
+
+        ! B-field
+        call initBDipole(Model, Grid, State)
+
+        !Espot
+        call iXML%Set_Val(jWidth,"test/jWidth" , 6)
+        call iXML%Set_Val(pDrop,"prob/cpcp" , 50.0_rp)  ! keV
+        jMid = Grid%shGrid%Np/2
+        delPhi = Grid%shGrid%ph(jMid+jWidth+1) - Grid%shGrid%ph(jMid-jWidth)
+
+        State%espot(:,:jMid-jWidth) = 0
+        State%espot(:,jMid+jWidth+1:) = pDrop
+        do j=jMid-jWidth, jMid+jWidth
+            State%espot(:,j) = pDrop * (Grid%shGrid%ph(j) - Grid%shGrid%ph(jMid-jWidth)) / delPhi 
+        enddo
+
+        ! Eta
+        iWidth = 4
+        State%eta(Grid%shGrid%is:Grid%shGrid%is+iWidth,jMid-jWidth:jMid+jWidth,:) = 1.0
+        State%eta_last = State%eta
+
+        call EvalMoments(Grid, State)
+
+
+    end subroutine initRaijuIC_testThetaAdvection
+
 !------
 ! Hard-coded magnetic field configurations
 !------
@@ -44,6 +82,7 @@ module raijuICHelpers
         type(raijuState_T) , intent(inout) :: State
 
         real(rp) :: L, bVol
+        real(rp), dimension(3) :: xyzIono
         integer :: i,j
         
 
@@ -57,9 +96,14 @@ module raijuICHelpers
 
         ! Ni+1, Nj+1 variables
         do i=Grid%shGrid%isg,Grid%shGrid%ieg+1
-            L = DipColat2L(Grid%shGrid%th(i))
-            bVol = DipFTV_L(L, Model%planet%magMoment) ! [Rx/nT]
             do j=Grid%shGrid%jsg,Grid%shGrid%jeg+1
+                xyzIono(1) = Model%planet%ri_m/Model%planet%rp_m * sin(Grid%shGrid%th(i)) * cos(Grid%shGrid%ph(j))
+                xyzIono(2) = Model%planet%ri_m/Model%planet%rp_m * sin(Grid%shGrid%th(i)) * sin(Grid%shGrid%ph(j))
+                xyzIono(3) = Model%planet%ri_m/Model%planet%rp_m * cos(Grid%shGrid%th(i))
+
+                L = DipoleL(xyzIono)
+                bVol = DipFTV_L(L, Model%planet%magMoment) ! [Rx/nT]
+
                 State%xyzMin(i,j,XDIR) = L*cos(Grid%shGrid%ph(j))
                 State%xyzMin(i,j,YDIR) = L*sin(Grid%shGrid%ph(j))
             ! Conjugate points
@@ -300,6 +344,6 @@ module raijuICHelpers
         
 
     end subroutine espot_BT
-    
+
 
 end module raijuICHelpers

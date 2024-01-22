@@ -88,7 +88,8 @@ module raijugrids
         type(planet_T), intent(in) :: planet
 
         integer :: i,j
-        real(rp), dimension(Grid%shGrid%isg:Grid%shGrid%ieg) :: cosTh, BMagTh
+        real(rp), dimension(Grid%shGrid%isg:Grid%shGrid%ieg) :: cosThc, BMagTh
+        real(rp), dimension(Grid%shGrid%isg:Grid%shGrid%ieg+1) :: cosTh
 
         associate(shGr=>Grid%shGrid)
             ! First allocate remaining arrays
@@ -175,13 +176,13 @@ module raijugrids
 
 
             ! Calc ionospheric Bmag [nT] and cos of dip angle at cell centers
-            cosTh = cos(shGr%thc)
+            cosThc = cos(shGr%thc)
             BMagTh = planet%magMoment*G2nT &
                     /(planet%ri_m/planet%rp_m)**3.0 &
                     * sqrt(1.0+3.0*cosTh**2.0)  ! [nT]
             do j=shGr%jsg,shGr%jeg
                 Grid%Bmag(:,j) = BMagTh
-                Grid%cosdip(:,j) = 2.0*cosTh/sqrt(1.0 + 3.0*cosTh**2.0) 
+                Grid%cosdip(:,j) = 2.0*cosTh/sqrt(1.0 + 3.0*cosThc**2.0) 
             enddo
 
             
@@ -195,17 +196,18 @@ module raijugrids
                                         * 2*cosTh  ! [nT]
             enddo
             ! Phi-dir faces have theta locations at cell centers
-            cosTh = cos(shGr%thc)  ! Ni
+            cosThc = cos(shGr%thc)  ! Ni
             do j=shGr%jsg,shGr%jeg+1
-                Grid%BrFace(:,j,RAI_PH) = planet%magMoment*G2nT &
+                Grid%BrFace(shGr%isg:shGr%ieg,j,RAI_PH) &
+                                        = planet%magMoment*G2nT &
                                         /(planet%ri_m/planet%rp_m)**3.0 &
-                                        * 2*cosTh  ! [nT]
+                                        * 2*cosThc  ! [nT]
             enddo
             ! Also do Br for cell centers, can re-use cosTh
             do j=shGr%jsg,shGr%jeg
                 Grid%Brcc(:,j) = planet%magMoment*G2nT &
                                /(planet%ri_m/planet%rp_m)**3.0 &
-                               * 2*cosTh  ! [nT]
+                               * 2*cosThc  ! [nT]
             enddo
 
         end associate

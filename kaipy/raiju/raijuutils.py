@@ -64,6 +64,7 @@ class RAIJUInfo(kh5.H5Info):
     nSpc: int = None
     species: List[SpeciesInfo] = None
     Nk: int = 0
+    planet: dict = None
     extra: dict = None # Extra info we can add later
     
 
@@ -90,11 +91,19 @@ class RAIJUInfo(kh5.H5Info):
                                   alami, alamc, 
                                   name)
                 specs.append(spc)
+            
+            planetInfo = {}
+            for k in f5['Planet'].attrs.keys():
+                v = f5['Planet'].attrs[k]
+                if isinstance(v, bytes):
+                    v = v.decode('utf-8')
+                planetInfo[k] = v
+
         Nk = 0
         for s in specs: Nk += s.N
         # Now make our final object
         return RAIJUInfo(fi.fname, fi.Nt, fi.steps, fi.stepStrs, fi.times, fi.MJDs, fi.UTs,
-                       len(specs), specs, Nk, {})
+                       len(specs), specs, Nk, planetInfo, {})
 
 
 #------
@@ -105,7 +114,7 @@ def getVar(grp: h5.Group, varName: str) -> np.ndarray:
     """ Get vars from h5 file this way so that we're sure everyone agrees on type and shape
     """
     try:
-        return grp[varName][:].T
+        return grp[varName][:].T  # .T to go from Fortran to python indexing order
     except KeyError:
         print("Error: {} not in keys".format(varName))
         return None
