@@ -45,7 +45,7 @@ else
     export MPICOMMAND="mpirun"
 fi
 
-MPICOMMAND=mpiexec
+MPICOMMAND="mpiexec $KAIJUHOME/scripts/preproc/pinCpuCores.sh"
 
 module list
 hostname

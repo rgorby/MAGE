@@ -1,26 +1,39 @@
 #!/bin/bash
 #PBS -N nonCaseTests2
+#PBS -A UJHB0019
 #PBS -j oe
-#PBS -q regular
+#PBS -q main
 #PBS -l walltime=12:00:00
-#PBS -l select=2:ncpus=36:mpiprocs=9:ompthreads=36
+#PBS -l select=2:ncpus=128:mpiprocs=9:ompthreads=36
 
 source ~/.bashrc
+
+KAIJUROOTDIR=/glade/work/ewinter/mage_testing/derecho/kaiju/ewinter-move_testing_to_derecho/kaiju
 
 if [[ ! -z "$KAIJUROOTDIR" ]]; then
     #If the root folder of a kaiju repo was passed in, souce the environment setup script
     source $KAIJUROOTDIR/scripts/setupEnvironment.sh
 fi
 
-if [[ ! -z "$MODULE_LIST" ]]; then
-    # user passed a list of modules to load as the environment variable MODULE_LIST
-    module purge
-    module load $MODULE_LIST
-elif [[ ! -z "$MODULE_SET" ]]; then
-    # user passed a module set name to load as the environment variable MODULE_SET
-    module purge
-    module restore $MODULE_SET
-fi
+# if [[ ! -z "$MODULE_LIST" ]]; then
+#     # user passed a list of modules to load as the environment variable MODULE_LIST
+#     module purge
+#     module load $MODULE_LIST
+# elif [[ ! -z "$MODULE_SET" ]]; then
+#     # user passed a module set name to load as the environment variable MODULE_SET
+#     module purge
+#     module restore $MODULE_SET
+# fi
+
+module load ncarenv/23.06
+module load cmake/3.26.3
+module load craype/2.7.20
+module load intel/2023.0.0
+module load geos/3.9.1  # Must come after intel/2023.0.0
+module load ncarcompilers/1.0.0  # Must come after intel/2023.0.0
+module load cray-mpich/8.1.25
+module load hdf5/1.12.2  # NOTE: Not the MPI version
+module load mkl/2023.0.0
 
 if [[ ! -z "$MPT_VERSION" ]]; then
     echo "USING MPIEXEC_MPT"
@@ -29,6 +42,8 @@ else
     echo "USING MPIRUN"
     export MPICOMMAND="mpirun"
 fi
+
+MPICOMMAND="mpiexec $KAIJUHOME/scripts/preproc/pinCpuCores.sh"
 
 module list
 hostname

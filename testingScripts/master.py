@@ -95,10 +95,10 @@ subArgString = subArgString + " --account " + account
 if debug:
     print(f"subArgString = {subArgString}")
 if (doAll == True):
-    # buildTest = subprocess.Popen("python3 buildTest.py -d -l"+subArgString, shell = True)
-    # buildTest.wait()
-    unitTest = subprocess.Popen("python3 unitTest.py"+subArgString, shell = True)
-    unitTest.wait()
+    buildTest = subprocess.Popen("python3 buildTest.py -d -l"+subArgString, shell = True)
+    buildTest.wait()
+    # unitTest = subprocess.Popen("python3 unitTest.py"+subArgString, shell = True)
+    # unitTest.wait()
     # intelTest = subprocess.Popen("python3 intelChecks.py"+subArgString, shell=True)
     # intelTest.wait()
     # ICTest = subprocess.Popen("python3 ICtest.py"+subArgString, shell=True)

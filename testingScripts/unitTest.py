@@ -166,47 +166,42 @@ for module_list_file in module_list_files:
     dataGenJob = readString.split('.')[0]
     print(dataGenJob)
 
-# # now submit the three automated testing jobs, all contingent on the data gen job
-# arguments = 'qsub -A ' + account + ' -v MODULE_LIST="' + modset + '",KAIJUROOTDIR=' + home + ' -W depend=afterok:' + dataGenJob + ' runCaseTests.pbs'
-# print(arguments)
-# submission = subprocess.Popen(arguments, shell=True, stdout=subprocess.PIPE)
-# readString = submission.stdout.read()
-# readString = readString.decode('ascii')
-# print(readString)
+    # now submit the three automated testing jobs, all contingent on
+    # the data gen job.
+    arguments = 'qsub -A ' + account + ' -v MODULE_LIST="' + modset + '",KAIJUROOTDIR=' + home + ' -W depend=afterok:' + dataGenJob + ' runCaseTests.pbs'
+    print(arguments)
+    submission = subprocess.Popen(arguments, shell=True, stdout=subprocess.PIPE)
+    readString = submission.stdout.read()
+    readString = readString.decode('ascii')
+    print(readString)
+    finalString = readString
+    firstJob = readString.split('.')[0]
+    print(firstJob)
 
-# finalString = readString
-# firstJob = readString.split('.')[0]
-# print(firstJob)
+    arguments = 'qsub -A ' + account + ' -v MODULE_LIST="' + modset + '",KAIJUROOTDIR=' + home + ' -W depend=afterok:' + dataGenJob + ' runNonCaseTests1.pbs'
+    print(arguments)
+    submission = subprocess.Popen(arguments, shell=True, stdout=subprocess.PIPE)
+    readString = submission.stdout.read()
+    readString = readString.decode('ascii')
+    print(readString)
+    finalString = finalString + readString
+    secondJob = readString.split('.')[0]
+    print (secondJob)
 
-# arguments = 'qsub -A ' + account + ' -v MODULE_LIST="' + modset + '",KAIJUROOTDIR=' + home + ' -W depend=afterok:' + dataGenJob + ' runNonCaseTests1.pbs'
-# print(arguments)
-# submission = subprocess.Popen(arguments, shell=True, stdout=subprocess.PIPE)
-# readString = submission.stdout.read()
-# readString = readString.decode('ascii')
-# print(readString)
+    arguments = 'qsub -A ' + account + ' -v MODULE_LIST="' + modset + '",KAIJUROOTDIR=' + home + ' -W depend=afterok:' + dataGenJob + ' runNonCaseTests2.pbs'
+    print(arguments)
+    submission = subprocess.Popen(arguments, shell=True, stdout=subprocess.PIPE)
+    readString = submission.stdout.read()
+    readString = readString.decode('ascii')
+    print(readString)
+    finalString = finalString + readString
+    thirdJob = readString.split('.')[0]
+    print (thirddJob)
 
-# finalString = finalString + readString
-
-# secondJob = readString.split('.')[0]
-# print (secondJob)
-
-# arguments = 'qsub -A ' + account + ' -v MODULE_LIST="' + modset + '",KAIJUROOTDIR=' + home + ' -W depend=afterok:' + dataGenJob + ' runNonCaseTests2.pbs'
-# print(arguments)
-# submission = subprocess.Popen(arguments, shell=True, stdout=subprocess.PIPE)
-# readString = submission.stdout.read()
-# readString = readString.decode('ascii')
-# print(readString)
-
-# finalString = finalString + readString
-
-# thirdJob = readString.split('.')[0]
-# print (secondJob)
-
-
-# file = open("jobs.txt", 'w+')
-# file.write(firstJob + "\n")
-# file.write(secondJob + "\n")
-# file.write(thirdJob)
+    file = open("jobs.txt", 'w+')
+    file.write(firstJob + "\n")
+    file.write(secondJob + "\n")
+    file.write(thirdJob)
 
 # # SUBMIT JOB THAT WILL FOLLOW UP ONCE PREVIOUS JOBS HAVE FINISHED
 
