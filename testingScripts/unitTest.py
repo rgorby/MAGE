@@ -1,281 +1,349 @@
+#!/usr/bin/env python
+
+"""Run MAGE unit tests.
+
+This script runs a series of unit tests of the MAGE software.
+
+Authors
+-------
+Jeff Garretson (jeffrey.garretson@jhuapl.edu)
+Eric Winter (eric.winter@jhuapl.edu)
+"""
+
+
+# Import standard modules.
+import argparse
+import datetime
 import glob
 import os
-import subprocess
 import sys
-# import subprocess
-# from os.path import expanduser
-# sys.path.insert(1, "./python-slackclient")
+import subprocess
+
+# Import 3rd-party modules.
 from slack_sdk import WebClient
-# from slack.errors import SlackApiError
-# import logging
-# logging.basicConfig(level=logging.DEBUG)
-import argparse
+from slack_sdk.errors import SlackApiError
 
-print(f"Starting {sys.argv[0]}")
+# Import project modules.
 
-# read arguments
-parser = argparse.ArgumentParser()
-parser.add_argument('-d',action='store_true',default=False, help='Enables debugging output')
-parser.add_argument('-t',action='store_true',default=False, help='Enables testing mode')
-parser.add_argument('-l',action='store_true',default=False, help='Enables loud mode')
-parser.add_argument('-a',action='store_true',default=False, help='Run all tests')
-parser.add_argument('-f',action='store_true',default=False, help='Force the tests to run')
-parser.add_argument('--account',type=str, default='', help='qsub account number')
 
-args = parser.parse_args()
-debug = args.d
-isTest = args.t
-beLoud = args.l
-doAll = args.a
-forceRun = args.f
-account = args.account
-if debug:
-    print(f"args = {args}")
+# Program constants
 
-# Get Slack API token
-slack_token = os.environ["SLACK_BOT_TOKEN"]
-if debug:
-    print(f"slack_token = {slack_token}")
-client = WebClient(token=slack_token)
-if debug:
-    print(f"client = {client}")
+# Program description.
+DESCRIPTION = "Script for MAGE unit testing"
 
-# Get CWD and move to the main Kaiju folder
-calledFrom = os.path.dirname(os.path.abspath(__file__))
-if debug:
-    print(f"calledFrom = {calledFrom}")
-origCWD = os.getcwd()
-if debug:
-    print(f"origCWD = {origCWD}")
-os.chdir(calledFrom)
-os.chdir('..')
-home = os.getcwd()
-if debug:
-    print(f"home = {home}")
 
-# Delete everything in the unitTest folder
-# os.chdir(home)
-# os.system('rm -rf unitTest1')
-# os.system('rm -rf unitTest2')
-# os.system('mkdir unitTest1')
-# os.system('mkdir unitTest2')
+def create_command_line_parser():
+    """Create the command-line argument parser.
 
-# Copy pFUnit stuff into Kaiju External
-os.chdir(home)
-os.system('cp -r /glade/p/hao/msphere/gamshare/pFUnit-4.2.0/ifort-23-mpich-derecho/FARGPARSE-1.1 external')
-os.system('cp -r /glade/p/hao/msphere/gamshare/pFUnit-4.2.0/ifort-23-mpich-derecho/GFTL-1.3 external')
-os.system('cp -r /glade/p/hao/msphere/gamshare/pFUnit-4.2.0/ifort-23-mpich-derecho/GFTL_SHARED-1.2 external')
-os.system('cp -r /glade/p/hao/msphere/gamshare/pFUnit-4.2.0/ifort-23-mpich-derecho/PFUNIT-4.2 external')
+    Create the parser for command-line arguments.
 
-# Go back to scripts folder
-os.chdir(home)
-os.chdir("testingScripts")
+    Parameters
+    ----------
+    None
 
-#***********************
+    Returns
+    -------
+    parser : argparse.ArgumentParser
+        Command-line argument parser for this script.
 
-# Perform unit tests with each module set..
+    Raises
+    ------
+    None
+    """
+    parser = argparse.ArgumentParser(description=DESCRIPTION)
+    parser.add_argument(
+        "--account", default=None,
+        help="PBS account to use for testing (default: %(default)s)"
+    )
+    parser.add_argument(
+        "--all", "-a", action="store_true",
+        help="Run all tests (default: %(default)s)."
+    )
+    parser.add_argument(
+        "--debug", "-d", action="store_true",
+        help="Print debugging output (default: %(default)s)."
+    )
+    parser.add_argument(
+        "--force", "-f", action="store_true",
+        help="Force all tests to run (default: %(default)s)."
+    )
+    parser.add_argument(
+        "--loud", "-l", action="store_true",
+        help="Enable loud mode (default: %(default)s)."
+    )
+    parser.add_argument(
+        "--test", "-t", action="store_true",
+        help="Enable testing mode (default: %(default)s)."
+    )
+    parser.add_argument(
+        "--verbose", "-v", action="store_true",
+        help="Print verbose output (default: %(default)s)."
+    )
+    return parser
 
-# Get a list of build module sets.
-module_list_files = glob.glob("mage_unit_test_modules/*.lst")
-if debug:
-    print(f"module_list_files = {module_list_files}")
 
-# Perform a test build with each set of modules.
-for module_list_file in module_list_files:
+def main():
+    """Begin main program.
+
+    This is the main program code.
+
+    Parameters
+    ----------
+    None
+
+    Returns
+    -------
+    None
+
+    Raises
+    ------
+    None
+    """
+    # Set up the command-line parser.
+    parser = create_command_line_parser()
+
+    # Parse the command-line arguments.
+    args = parser.parse_args()
+    if args.debug:
+        print(f"args = {args}")
+    account = args.account
+    doAll = args.all
+    debug = args.debug
+    forceRun = args.force
+    beLoud = args.loud
+    isTest = args.test
+    verbose = args.verbose
+
     if debug:
-        print(f"module_list_file = {module_list_file}")
+        print(f"Starting {sys.argv[0]} at {datetime.datetime.now()}")
 
-    # Move to the home directory for testing.
+    #--------------------------------------------------------------------------
+
+    # Set up for communication with Slack.
+
+    # Get the Slack API token
+    slack_token = os.environ["SLACK_BOT_TOKEN"]
+    if debug:
+        print(f"slack_token = {slack_token}")
+
+    # Create the Slack client.
+    slack_client = WebClient(token=slack_token)
+    if debug:
+        print(f"slack_client = {slack_client}")
+
+    #--------------------------------------------------------------------------
+
+    # Determine the path to the MAGE installation to use for testing.
+
+    # Fetch the path to this running script.
+    called_from = os.path.dirname(os.path.abspath(__file__))
+    if debug:
+        print(f"called_from = {called_from}")
+
+    # Assume this script is in a subdirectory of the kaiju directory.
+    os.chdir(called_from)
+    os.chdir('..')
+
+    # Use this directory as the home directory for testing.
+    home = os.getcwd()
+    if debug:
+        print(f"home = {home}")
+    if verbose:
+        print('I am the unit test script. This is my current home directory:')
+        print(home)
+
+    #--------------------------------------------------------------------------
+
+    # Clean up from previous tests.
     os.chdir(home)
+    os.system('rm -rf unitTest*')
 
-    # Read this module list file.
-    path = os.path.join('testingScripts', module_list_file)
-    with open(path, encoding="utf-8") as f:
-        lines = f.readlines()
-    module_names = [line.rstrip() for line in lines]
-    if debug:
-        print(f"module_names = {module_names}")
+    #--------------------------------------------------------------------------
 
-    # Extract the name of the list.
-    filename = os.path.split(module_list_file)[-1]
-    if debug:
-        print(f"filename = {filename}")
-    module_list_name = filename.replace('.lst', '')
-    if debug:
-        print(f"module_list_name = {module_list_name}")
+    # Make a copy of the pFUnit code under kaiju/external.
+    os.chdir(home)
+    os.system('cp -r /glade/p/hao/msphere/gamshare/pFUnit-4.2.0/ifort-23-mpich-derecho/FARGPARSE-1.1 external')
+    os.system('cp -r /glade/p/hao/msphere/gamshare/pFUnit-4.2.0/ifort-23-mpich-derecho/GFTL-1.3 external')
+    os.system('cp -r /glade/p/hao/msphere/gamshare/pFUnit-4.2.0/ifort-23-mpich-derecho/GFTL_SHARED-1.2 external')
+    os.system('cp -r /glade/p/hao/msphere/gamshare/pFUnit-4.2.0/ifort-23-mpich-derecho/PFUNIT-4.2 external')
 
-    # Make a directory for this build, and go there.
-    dir_name = f"unit_{module_list_name}"
-    build_directory = os.path.join(home, dir_name)
-    if debug:
-        print(f"build_directory = {build_directory}")
-    os.system(f"rm -rf {build_directory}")
-    os.mkdir(build_directory)
-    os.chdir(build_directory)
+    #--------------------------------------------------------------------------
 
-    # Assemble the commands to load the listed modules.
-    module_cmd = 'module --force purge; module load'
-    for module_name in module_names:
-        module_cmd += f" {module_name}"
+    # Run the unit tests with each set of modules.
+    
+    # Go back to scripts folder
+    path = os.path.join(home, 'testingScripts', 'mage_build_test_modules')
     if debug:
-        print(f"module_cmd = {module_cmd}")
-
-    # Run cmake to build the Makefile.
-    cmake_cmd = module_cmd + '; FC=`which ifort` FFLAGS="-qmkl" cmake -DCMAKE_BUILD_TYPE=RELWITHDEBINFO -DENABLE_MPI=ON -DENABLE_MKL=ON ..'
-    if debug:
-        print(f"cmake_cmd = {cmake_cmd}")
-    cmake_process = subprocess.Popen(cmake_cmd, shell=True)
-    if debug:
-        print(f"cmake_process = {cmake_process}")
-    cmake_process.wait()
-
-    # Run the build.
-    make_cmd = module_cmd + '; make gamera_mpi; make voltron_mpi; make allTests'
-    if debug:
-        print(f"make_cmd = {make_cmd}")
-    make_process = subprocess.Popen(make_cmd, shell=True)
-    if debug:
-        print(f"make_process = {make_process}")
-    make_process.wait()
-
-    # Copy in the test PBS scripts.
-    subprocess.call("cp ../tests/genTestData.pbs ./bin", shell=True)
-    subprocess.call("cp ../tests/runNonCaseTests1.pbs ./bin", shell=True)
-    subprocess.call("cp ../tests/runNonCaseTests2.pbs ./bin", shell=True)
-    subprocess.call("cp ../tests/runCaseTests.pbs ./bin", shell=True)
-    subprocess.call("cp ../tests/voltron_mpi/bcwind.h5 ./bin", shell=True)
-    subprocess.call("cp ../tests/voltron_mpi/lfmD.h5 ./bin", shell=True)
-    subprocess.call("cp ../tests/voltron_mpi/rcmconfig.h5 ./bin", shell=True)
-
-    # Go to the bin directory for testing.
-    path = os.path.join(home, dir_name, 'bin')
+        print(f"path = {path}")
     os.chdir(path)
 
-    # Make a list of modules to use for this unit test.
-    modset = ''
-    for line in module_names:
-        modset = modset + line + " "
+    # Get a list of build module sets.
+    module_list_files = glob.glob('*.lst')
+    if debug:
+        print(f"module_list_files = {module_list_files}")
 
-    # Submit job to generate data needed for automated tests.
-    arguments = 'qsub -A ' + account + ' -v MODULE_LIST="' + modset + '",KAIJUROOTDIR=' + home + ' genTestData.pbs'
-    print(arguments)
-    submission = subprocess.Popen(arguments, shell=True, stdout=subprocess.PIPE)
-    readString = submission.stdout.read()
-    readString = readString.decode('ascii')
-    print(readString)
-    dataGenJob = readString.split('.')[0]
-    print(dataGenJob)
+    # Run unit tests with each set of modules.
+    for module_list_file in module_list_files:
+        if debug:
+            print(f"module_list_file = {module_list_file}")
 
-    # now submit the three automated testing jobs, all contingent on
-    # the data gen job.
-    arguments = 'qsub -A ' + account + ' -v MODULE_LIST="' + modset + '",KAIJUROOTDIR=' + home + ' -W depend=afterok:' + dataGenJob + ' runCaseTests.pbs'
-    print(arguments)
-    submission = subprocess.Popen(arguments, shell=True, stdout=subprocess.PIPE)
-    readString = submission.stdout.read()
-    readString = readString.decode('ascii')
-    print(readString)
-    finalString = readString
-    firstJob = readString.split('.')[0]
-    print(firstJob)
+        # Extract the name of the list.
+        module_list_name = module_list_file.replace('.lst', '')
+        if debug:
+            print(f"module_list_name = {module_list_name}")
 
-    arguments = 'qsub -A ' + account + ' -v MODULE_LIST="' + modset + '",KAIJUROOTDIR=' + home + ' -W depend=afterok:' + dataGenJob + ' runNonCaseTests1.pbs'
-    print(arguments)
-    submission = subprocess.Popen(arguments, shell=True, stdout=subprocess.PIPE)
-    readString = submission.stdout.read()
-    readString = readString.decode('ascii')
-    print(readString)
-    finalString = finalString + readString
-    secondJob = readString.split('.')[0]
-    print (secondJob)
+        # Read this module list file, extracting cmake environment and options, if any.
+        path = os.path.join(home, 'testingScripts', 'mage_build_test_modules',
+                            module_list_file)
+        with open(path, encoding="utf-8") as f:
+            lines = f.readlines()
+        cmake_env = ''
+        label = 'CMAKE_ENV='
+        if lines[0].startswith(label):
+            cmake_env = lines[0][len(label):].rstrip()
+            lines.pop(0)  # Remove cmake environment line.
+        cmake_options = ''
+        label = 'CMAKE_OPTIONS='
+        if lines[0].startswith(label):
+            cmake_options = lines[0][len(label):].rstrip()
+            lines.pop(0)  # Remove cmake options line.
+        module_names = [line.rstrip() for line in lines]
+        if debug:
+            print(f"module_names = {module_names}")
 
-    arguments = 'qsub -A ' + account + ' -v MODULE_LIST="' + modset + '",KAIJUROOTDIR=' + home + ' -W depend=afterok:' + dataGenJob + ' runNonCaseTests2.pbs'
-    print(arguments)
-    submission = subprocess.Popen(arguments, shell=True, stdout=subprocess.PIPE)
-    readString = submission.stdout.read()
-    readString = readString.decode('ascii')
-    print(readString)
-    finalString = finalString + readString
-    thirdJob = readString.split('.')[0]
-    print (thirddJob)
+        # Make a directory for this test, and go there.
+        dir_name = f"unitTest_{module_list_name}"
+        build_directory = os.path.join(home, dir_name)
+        if debug:
+            print(f"build_directory = {build_directory}")
+        os.mkdir(build_directory)
+        os.chdir(build_directory)
 
-    file = open("jobs.txt", 'w+')
-    file.write(firstJob + "\n")
-    file.write(secondJob + "\n")
-    file.write(thirdJob)
+        # Assemble the commands to load the listed modules.
+        module_cmd = f"module --force purge; module load {' '.join(module_names)}"
+        # for module_name in module_names:
+        #     module_cmd += f" {module_name}"
+        if debug:
+            print(f"module_cmd = {module_cmd}")
 
-# # SUBMIT JOB THAT WILL FOLLOW UP ONCE PREVIOUS JOBS HAVE FINISHED
+        # Run cmake to build the Makefile.
+        cmake_cmd = f"{module_cmd}; {cmake_env} cmake {cmake_options} .."
+        if debug:
+            print(f"cmake_cmd = {cmake_cmd}")
+        cmake_process = subprocess.Popen(cmake_cmd, shell=True)
+        if debug:
+            print(f"cmake_process = {cmake_process}")
+        cmake_process.wait()
 
-# # HERE IS THE STUFF FOR MOVING TO THE CORRECT FOLDER
-# # Move to the correct unitTest folder
-# #        arguments = arguments + "cd unitTest" + str(iteration) + "; "
-#         # Invoke cmake
-# #        arguments = arguments + "cmake ../ -DALLOW_INVALID_COMPILERS=ON;"
+        # Run the build.
+        make_cmd = module_cmd + '; make gamera_mpi voltron_mpi allTests'
+        if debug:
+            print(f"make_cmd = {make_cmd}")
+        make_process = subprocess.Popen(make_cmd, shell=True)
+        if debug:
+            print(f"make_process = {make_process}")
+        make_process.wait()
+
+        # Copy in the test PBS scripts.
+        subprocess.call("cp ../tests/genTestData.pbs ./bin", shell=True)
+        subprocess.call("cp ../tests/runNonCaseTests1.pbs ./bin", shell=True)
+        subprocess.call("cp ../tests/runNonCaseTests2.pbs ./bin", shell=True)
+        subprocess.call("cp ../tests/runCaseTests.pbs ./bin", shell=True)
+        subprocess.call("cp ../tests/voltron_mpi/bcwind.h5 ./bin", shell=True)
+        subprocess.call("cp ../tests/voltron_mpi/lfmD.h5 ./bin", shell=True)
+        subprocess.call("cp ../tests/voltron_mpi/rcmconfig.h5 ./bin", shell=True)
+        subprocess.call("cp ../tests/voltron_mpi/geo_mpi.xml ./bin", shell=True)
+
+        # Go to the bin directory for testing.
+        path = os.path.join(home, dir_name, 'bin')
+        os.chdir(path)
+
+        # Submit the job to generate data needed for automated tests.
+        module_list = ' '.join(module_names)
+        qsub_cmd = f"qsub -A {account} -v MODULE_LIST='{module_list}',KAIJUROOTDIR={home} genTestData.pbs"
+        if debug:
+            print(f"qsub_cmd = {qsub_cmd}")
+        submission = subprocess.Popen(qsub_cmd, shell=True, stdout=subprocess.PIPE)
+        submission.wait()
+        readString = submission.stdout.read().decode('ascii')
+        if debug:
+            print(f"readString = {readString}")
+        dataGenJob = readString.split('.')[0]
+        if debug:
+            print(f"dataGenJob = {dataGenJob}")
+
+        # # Submit the first automated testing job, contingent on the data generation job.
+        # qsub_cmd = f"qsub -A {account} -W depend=afterok:{dataGenJob} runCaseTests.pbs"
+        # if debug:
+        #     print(f"qsub_cmd = {qsub_cmd}")
+        # submission = subprocess.Popen(qsub_cmd, shell=True, stdout=subprocess.PIPE)
+        # submission.wait()
+        # readString = submission.stdout.read().decode('ascii')
+        # if debug:
+        #     print(f"readString = {readString}")
+        # firstJob = readString.split('.')[0]
+        # if debug:
+        #     print(f"firstJob = {firstJob}")
+
+        # # Submit the second automated testing job, contingent on the data generation job.
+        # qsub_cmd = f"qsub -A {account} -W depend=afterok:{dataGenJob} runNonCaseTests1.pbs"
+        # if debug:
+        #     print(f"qsub_cmd = {qsub_cmd}")
+        # submission = subprocess.Popen(qsub_cmd, shell=True, stdout=subprocess.PIPE)
+        # submission.wait()
+        # readString = submission.stdout.read().decode('ascii')
+        # if debug:
+        #     print(f"readString = {readString}")
+        # secondJob = readString.split('.')[0]
+        # if debug:
+        #     print(f"secondJob = {secondJob}")
+
+        # # Submit the third automated testing job, contingent on the data generation job.
+        # qsub_cmd = f"qsub -A {account} -W depend=afterok:{dataGenJob} runNonCaseTests2.pbs"
+        # if debug:
+        #     print(f"qsub_cmd = {qsub_cmd}")
+        # submission = subprocess.Popen(qsub_cmd, shell=True, stdout=subprocess.PIPE)
+        # submission.wait()
+        # readString = submission.stdout.read().decode('ascii')
+        # if debug:
+        #     print(f"readString = {readString}")
+        # thirdJob = readString.split('.')[0]
+        # if debug:
+        #     print(f"thirdJob = {thirdJob}")
+
+        # # Record the job IDs.
+        # with open('jobs.txt', 'w', encoding='utf-8') as f:
+        #     f.write(f"{firstJob}\n")
+        #     f.write(f"{secondJob}\n")
+        #     f.write(f"{thirdJob}\n")
 
 
-# # Change directory to Kaiju repo
-# #os.chdir(home)
-# #os.chdir("kaiju")
+        # # <HACK>
+        # message = f"Unit tests submitted in jobs {dataGenJob}, {firstJob}, {secondJob}, {thirdJob}"
+        # # </HACK>
 
-# # Check build directories for good executables
-# #myText = ""
-# #i = 1
-# #isPerfect = True
-# #while i <= iteration:
-# #    isGamera = False
-# #    isVoltron = False
-    
-#     # Move to next build folder
-# #    os.chdir("build" + str(i) + "/bin")
+        # # If this is a test run, don't post to Slack.
+        # if isTest:
+        #     pass
+        # else:
+        #     # If loud, or an error occurred, send Slack message.
+        #     if beLoud:
+        #         try:
+        #             response = slack_client.chat_postMessage(
+        #                 channel="#kaijudev",
+        #                 text=message,
+        #             )
+        #         except SlackApiError as e:
+        #             # You will get a SlackApiError if "ok" is False
+        #             assert e.response["error"]  # str like 'invalid_auth', 'channel_not_found'
 
-# #    print(os.getcwd())
+        # # Send message to stdout.
+        # print(message)
 
-# #    anyWrong = False
-# #    missing = []
+    if debug:
+        print(f"Ending {sys.argv[0]} at {datetime.datetime.now()}")
 
-#     # Check for all executables
-# #    for element in executableList:
-# #        isThere = os.path.isfile(element)
-# #        if (isThere == False):
-# #            anyWrong = True
-# #            isPerfect = False
-# #            missing.append(element)
-    
-#     # If any are missing, report. Otherwise, skip
-# #    if (not anyWrong):
-# #        i = i + 1
-#         # Move back out into kaiju folder
-# #        os.chdir(home)
-# #        os.chdir("kaiju")
-# #        continue
-    
-# #    else:
-# #        myText = myText + "*Trying the following module set:*\n"
-# #        myText = myText + ModuleList[i - 1]
 
-#         # Which executables failed?
-# #        for element in missing:
-# #            myText = myText + "I couldn't build " + element + "\n"
-            
-#         # Move back out into kaiju folder
-# #        os.chdir(home)
-# #        os.chdir("kaiju")
-# #        i = i + 1
-
-# # If nothing was wrong, change myText
-# #if (isPerfect == True):
-# #    myText = ""
-# #    myText = "Everything built properly!"
-
-# # If not a test, send message to Slack
-# #if (not isTest):
-#     # Try to send Slack message
-# #    try:
-# #        response = client.chat_postMessage(
-# #            channel="#kaijudev",
-# #            text=myText,
-# #        )
-# #    except SlackApiError as e:
-#         # You will get a SlackApiError if "ok" is False
-# #        assert e.response["error"]  # str like 'invalid_auth', 'channel_not_found'
-
-print(f"Ending {sys.argv[0]}")
+if __name__ == '__main__':
+    """Call main program function."""
+    main()

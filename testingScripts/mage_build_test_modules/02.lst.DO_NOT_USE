@@ -5,6 +5,6 @@ cmake/3.26.3
 craype/2.7.20
 intel/2023.0.0
 ncarcompilers/1.0.0
-cray-mpich/8.1.25
+intel-mpi/2021.8.0
 hdf5-mpi/1.12.2
 mkl/2023.0.0

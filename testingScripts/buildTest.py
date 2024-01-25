@@ -1,160 +1,208 @@
+#!/usr/bin/env python
+
+
+"""Run MAGE build regression tests.
+
+This script runs a series of builds of the MAGE software using sets of modules
+listed in files under:
+
+$KAIJUHOME/testingScripts/mage_build_modules
+
+Any file in this directory which ends in .lst will be treated as a module
+list file, and used for a build test. The results of each build test are
+posted to Slack.
+
+Authors
+-------
+Jeff Garretson (jeffrey.garretson@jhuapl.edu)
+Eric Winter (eric.winter@jhuapl.edu)
+"""
+
+
+# Import standard modules.
+import argparse
+import datetime
 import glob
 import os
 import sys
 import subprocess
-# from os.path import expanduser
-# sys.path.insert(1, "./python-slackclient")
+
+# Import 3rd-party modules.
 from slack_sdk import WebClient
 from slack_sdk.errors import SlackApiError
-# import logging
-# logging.basicConfig(level=logging.DEBUG)
-import argparse
 
-print(f"Starting {sys.argv[0]}")
+# Import project modules.
 
-# read arguments
-parser = argparse.ArgumentParser()
-parser.add_argument('-d',action='store_true',default=False, help='Enables debugging output')
-parser.add_argument('-t',action='store_true',default=False, help='Enables testing mode')
-parser.add_argument('-l',action='store_true',default=False, help='Enables loud mode')
-parser.add_argument('-a',action='store_true',default=False, help='Run all tests')
-parser.add_argument('-f',action='store_true',default=False, help='Force the tests to run')
-parser.add_argument('--account',type=str, default='', help='qsub account number')
 
-args = parser.parse_args()
-debug = args.d
-isTest = args.t
-beLoud = args.l
-doAll = args.a
-forceRun = args.f
-account = args.account
-if debug:
-    print(f"args = {args}")
+# Program constants
 
-# Get Slack API token
-slack_token = os.environ["SLACK_BOT_TOKEN"]
-if debug:
-    print(f"slack_token = {slack_token}")
-client = WebClient(token=slack_token)
-if debug:
-    print(f"client = {client}")
+# Program description.
+DESCRIPTION = "Script for MAGE build testing"
 
-# Get CWD and move to main kaiju folder
-calledFrom = os.path.dirname(os.path.abspath(__file__))
-if debug:
-    print(f"calledFrom = {calledFrom}")
-os.chdir(calledFrom)
-origCWD = os.getcwd()
-if debug:
-    print(f"origCWD = {origCWD}")
-os.chdir('..')
-home = os.getcwd()
-if debug:
-    print(f"home = {home}")
-# print("I am the build script. This is my home directory: ")
-# print(home)
 
-# Delete all build folders
-os.system("rm -rf build*/")
-os.system('ls')
+def create_command_line_parser():
+    """Create the command-line argument parser.
 
-# Create a test build folder, get the list of executables to be generated and store them
-os.chdir(home)
-os.system("mkdir testFolder")
-os.chdir("testFolder")
+    Create the parser for command-line arguments.
 
-# get my current branch
-p = subprocess.Popen("git symbolic-ref --short HEAD", shell=True, stdout=subprocess.PIPE)
-gBranch = p.stdout.read()
-gBranch = gBranch.decode('ascii')
-gBranch = gBranch.rstrip()
-if debug:
-    print(f"gBranch = {gBranch}")
-# print(gBranch)
+    Parameters
+    ----------
+    None
 
-# Set up some MPI modules in order to ask for the correct set of executables
-testModules = 'module --force purge'
-testModules += '; module load ncarenv/23.06'
-testModules += '; module load cmake/3.26.3'
-testModules += '; module load craype/2.7.20'
-testModules += '; module load intel/2023.0.0'
-testModules += '; module load geos/3.9.1'
-testModules += '; module load ncarcompilers/1.0.0'
-testModules += '; module load cray-mpich/8.1.25'
-testModules += '; module load hdf5-mpi/1.12.2'
-testModules += '; module load mkl/2023.0.0'
-if debug:
-    print(f"testModules = {testModules}")
+    Returns
+    -------
+    parser : argparse.ArgumentParser
+        Command-line argument parser for this script.
 
-os.system("module load cmake/3.26.3; cmake -DENABLE_MPI=ON ..")
-cmd = testModules + "; make help | grep '\.x'"
-if debug:
-    print(f"cmd = {cmd}")
-listProcess = subprocess.Popen(cmd, shell=True, stdout=subprocess.PIPE)
-if debug:
-    print(f"listProcess = {listProcess}")
-listProcess.wait()
-executableString = listProcess.stdout.read()
-if debug:
-    print(f"executableString = {executableString}")
-executableString = executableString.decode('ascii')
-if debug:
-    print(f"executableString = {executableString}")
-executableList = executableString.splitlines()
-if debug:
-    print(f"executableList = {executableList}")
+    Raises
+    ------
+    None
+    """
+    parser = argparse.ArgumentParser(description=DESCRIPTION)
+    parser.add_argument(
+        "--account", default=None,
+        help="PBS account to use for testing (default: %(default)s)"
+    )
+    parser.add_argument(
+        "--all", "-a", action="store_true",
+        help="Run all tests (default: %(default)s)."
+    )
+    parser.add_argument(
+        "--debug", "-d", action="store_true",
+        help="Print debugging output (default: %(default)s)."
+    )
+    parser.add_argument(
+        "--force", "-f", action="store_true",
+        help="Force all tests to run (default: %(default)s)."
+    )
+    parser.add_argument(
+        "--loud", "-l", action="store_true",
+        help="Enable loud mode (default: %(default)s)."
+    )
+    parser.add_argument(
+        "--test", "-t", action="store_true",
+        help="Enable testing mode (default: %(default)s)."
+    )
+    parser.add_argument(
+        "--verbose", "-v", action="store_true",
+        help="Print verbose output (default: %(default)s)."
+    )
+    return parser
 
-# Loop through each entry of the list and remove the first four characters
-for index, element in enumerate(executableList):
-    executableList[index] = executableList[index][4:]
-if debug:
-    print(f"executableList = {executableList}")
 
-# Go back to scripts folder
-os.chdir(home)
-os.system("rm -rf testFolder")
-os.chdir("testingScripts")
+def main():
+    """Begin main program.
 
-#***********************
+    This is the main program code.
 
-# Perform test builds.
+    Parameters
+    ----------
+    None
 
-# Get a list of build module sets.
-module_list_files = glob.glob("mage_build_test_modules/*.lst")
-if debug:
-    print(f"module_list_files = {module_list_files}")
+    Returns
+    -------
+    None
 
-# Perform a test build with each set of modules.
-for module_list_file in module_list_files:
+    Raises
+    ------
+    None
+    """
+    # Set up the command-line parser.
+    parser = create_command_line_parser()
+
+    # Parse the command-line arguments.
+    args = parser.parse_args()
+    if args.debug:
+        print(f"args = {args}")
+    account = args.account
+    doAll = args.all
+    debug = args.debug
+    forceRun = args.force
+    beLoud = args.loud
+    isTest = args.test
+    verbose = args.verbose
+
     if debug:
-        print(f"module_list_file = {module_list_file}")
+        print(f"Starting {sys.argv[0]} at {datetime.datetime.now()}")
 
-    # Move to the home directory for testing.
+    #--------------------------------------------------------------------------
+
+    # Set up for communication with Slack.
+
+    # Get the Slack API token
+    slack_token = os.environ["SLACK_BOT_TOKEN"]
+    if debug:
+        print(f"slack_token = {slack_token}")
+    slack_client = WebClient(token=slack_token)
+    if debug:
+        print(f"slack_client = {slack_client}")
+
+    #--------------------------------------------------------------------------
+
+    # Determine the path to the MAGE installation to use for testing.
+
+    # Fetch the path to this running script.
+    called_from = os.path.dirname(os.path.abspath(__file__))
+    if debug:
+        print(f"called_from = {called_from}")
+
+    # Assume this script is in a subdirectory of the kaiju directory.
+    os.chdir(called_from)
+    os.chdir('..')
+
+    # Use this directory as the home directory for testing.
+    home = os.getcwd()
+    if debug:
+        print(f"home = {home}")
+    if verbose:
+        print('I am the build script. This is my current home directory:')
+        print(home)
+
+    #--------------------------------------------------------------------------
+
+    # Clean up the results from previous builds.
+    if verbose:
+        print("Cleaning up from previous build tests.")
+    os.system("rm -rf build*/ testFolder")
+    if verbose:
+        print('The current test directory contents are:')
+        os.system('ls')
+
+    #--------------------------------------------------------------------------
+
+    # Do a preliminary cmake run to generate the list of executables.
+
+    # Find the current branch.
     os.chdir(home)
+    p = subprocess.Popen('git symbolic-ref --short HEAD', shell=True, stdout=subprocess.PIPE)
+    git_branch = p.stdout.read().decode('ascii').rstrip()
+    if debug:
+        print(f"git_branch = {git_branch}")
 
-    # Read this module list file.
-    path = os.path.join('testingScripts', module_list_file)
+    # Make and move to the preliminary build folder.
+    os.system('mkdir testFolder')
+    os.chdir('testFolder')
+
+    # Read this module list file, extracting cmake environment and options, if any.
+    path = os.path.join(home, 'testingScripts', 'mage_build_test_modules',
+                        '01.lst')
     with open(path, encoding="utf-8") as f:
         lines = f.readlines()
+    if debug:
+        print(f"lines = {lines}")
+    cmake_env = ''
+    label = 'CMAKE_ENV='
+    if lines[0].startswith(label):
+        cmake_env = lines[0][len(label):].rstrip()
+        lines.pop(0)  # Remove cmake environment line.
+    cmake_options = ''
+    label = 'CMAKE_OPTIONS='
+    if lines[0].startswith(label):
+        cmake_options = lines[0][len(label):].rstrip()
+        lines.pop(0)  # Remove cmake options line.
     module_names = [line.rstrip() for line in lines]
     if debug:
         print(f"module_names = {module_names}")
-
-    # Extract the name of the list.
-    filename = os.path.split(module_list_file)[-1]
-    if debug:
-        print(f"filename = {filename}")
-    module_list_name = filename.replace('.lst', '')
-    if debug:
-        print(f"module_list_name = {module_list_name}")
-
-    # Make a directory for this build, and go there.
-    dir_name = f"build_{module_list_name}"
-    build_directory = os.path.join(home, dir_name)
-    if debug:
-        print(f"build_directory = {build_directory}")
-    os.mkdir(build_directory)
-    os.chdir(build_directory)
 
     # Assemble the commands to load the listed modules.
     module_cmd = 'module --force purge; module load'
@@ -164,7 +212,7 @@ for module_list_file in module_list_files:
         print(f"module_cmd = {module_cmd}")
 
     # Run cmake to build the Makefile.
-    cmake_cmd = module_cmd + '; FC=`which ifort` FFLAGS="-qmkl" cmake -DENABLE_MPI=ON -DENABLE_MKL=ON ..'
+    cmake_cmd = f"{module_cmd}; {cmake_env} cmake {cmake_options} .."
     if debug:
         print(f"cmake_cmd = {cmake_cmd}")
     cmake_process = subprocess.Popen(cmake_cmd, shell=True)
@@ -172,50 +220,146 @@ for module_list_file in module_list_files:
         print(f"cmake_process = {cmake_process}")
     cmake_process.wait()
 
-    # Run the build.
-    make_cmd = module_cmd + '; make'
+    # Build the list of executable targets.
+    make_cmd = f"{module_cmd}; make help | grep '\.x'"
     if debug:
         print(f"make_cmd = {make_cmd}")
-    make_process = subprocess.Popen(make_cmd, shell=True)
+    listProcess = subprocess.Popen(make_cmd, shell=True, stdout=subprocess.PIPE)
     if debug:
-        print(f"make_process = {make_process}")
-    make_process.wait()
-
-    # Create a test result message.
-    message = f"IGNORE - TESTING\n*Trying the following module set: {module_names}*\n"
-
-    # Check for all executables
-    os.chdir('bin')
-    missing = []
-    for element in executableList:
-        if os.path.isfile(element) == False:
-            missing.append(element)
+        print(f"listProcess = {listProcess}")
+    listProcess.wait()
+    executableString = listProcess.stdout.read().decode('ascii')
     if debug:
-        print(f"missing = {missing}")
-    os.chdir('..')
-    isPerfect = True
-    if len(missing) > 0:
-        isPerfect = False
-        for element in missing:
-            message += f"I couldn't build {element}.\n"
-    else:
-        message += f"Everything built properly on branch {gBranch}!"
+        print(f"executableString = {executableString}")
+    executableList = executableString.splitlines()
     if debug:
-        print(f"message = {message}")
+        print(f"executableList = {executableList}")
 
-    # Don't print if it's a test, otherwise print if force, or there's an error.
-    # if (not isTest and (beLoud or not isPerfect) ):
-    # Try to send Slack message
-    try:
-        response = client.chat_postMessage(
-            channel="#kaijudev",
-            text=message,
-        )
-    except SlackApiError as e:
-        # You will get a SlackApiError if "ok" is False
-        assert e.response["error"]  # str like 'invalid_auth', 'channel_not_found'
-    # else:
-    #     # If not slack, just print to command line
-    #     print(message)
+    # Remove the first four characters (dots and spaces).
+    executableList = [e[4:] for e in executableList]
+    if debug:
+        print(f"executableList = {executableList}")
 
-print(f"Ending {sys.argv[0]}")
+    #--------------------------------------------------------------------------
+
+    # Do a build with each set of modules.
+
+    # Go back to scripts folder.
+    path = os.path.join(home, 'testingScripts', 'mage_build_test_modules')
+    os.chdir(path)
+
+    # Get a list of build module sets.
+    module_list_files = glob.glob('*.lst')
+    if debug:
+        print(f"module_list_files = {module_list_files}")
+
+    # Perform a test build with each set of modules.
+    for module_list_file in module_list_files:
+        if debug:
+            print(f"module_list_file = {module_list_file}")
+
+        # Extract the name of the list.
+        module_list_name = module_list_file.replace('.lst', '')
+        if debug:
+            print(f"module_list_name = {module_list_name}")
+
+        # Read this module list file, extracting cmake environment and options, if any.
+        path = os.path.join(home, 'testingScripts', 'mage_build_test_modules',
+                            module_list_file)
+        with open(path, encoding="utf-8") as f:
+            lines = f.readlines()
+        cmake_env = ''
+        label = 'CMAKE_ENV='
+        if lines[0].startswith(label):
+            cmake_env = lines[0][len(label):].rstrip()
+            lines.pop(0)  # Remove cmake environment line.
+        cmake_options = ''
+        label = 'CMAKE_OPTIONS='
+        if lines[0].startswith(label):
+            cmake_options = lines[0][len(label):].rstrip()
+            lines.pop(0)  # Remove cmake options line.
+        module_names = [line.rstrip() for line in lines]
+        if debug:
+            print(f"module_names = {module_names}")
+
+        # Make a directory for this build, and go there.
+        dir_name = f"build_{module_list_name}"
+        build_directory = os.path.join(home, dir_name)
+        if debug:
+            print(f"build_directory = {build_directory}")
+        os.mkdir(build_directory)
+        os.chdir(build_directory)
+
+        # Assemble the commands to load the listed modules.
+        module_cmd = 'module --force purge; module load'
+        for module_name in module_names:
+            module_cmd += f" {module_name}"
+        if debug:
+            print(f"module_cmd = {module_cmd}")
+
+        # Run cmake to build the Makefile.
+        cmake_cmd = f"{module_cmd}; {cmake_env} cmake {cmake_options} .."
+        if debug:
+            print(f"cmake_cmd = {cmake_cmd}")
+        cmake_process = subprocess.Popen(cmake_cmd, shell=True)
+        if debug:
+            print(f"cmake_process = {cmake_process}")
+        cmake_process.wait()
+
+        # Run the build.
+        make_cmd = f"{module_cmd}; make"
+        if debug:
+            print(f"make_cmd = {make_cmd}")
+        make_process = subprocess.Popen(make_cmd, shell=True)
+        if debug:
+            print(f"make_process = {make_process}")
+        make_process.wait()
+
+        # Create a test result message.
+        message = '*IGNORE - TESTING*\n'
+        message = f"Building MAGE branch {git_branch} with module set {module_list_file}: {module_names}\n"
+
+        # Check for all executables
+        os.chdir('bin')
+        missing = []
+        for executable in executableList:
+            if not os.path.isfile(executable):
+                missing.append(executable)
+        if debug:
+            print(f"missing = {missing}")
+        os.chdir('..')
+        isPerfect = True
+        if len(missing) > 0:
+            isPerfect = False
+            for executable in missing:
+                message += f"I couldn't build {executable}.\n"
+        else:
+            message += f"Everything built properly on branch {git_branch} with module set {module_list_file}!"
+        if debug:
+            print(f"message = {message}")
+
+        # If this is a test run, don't post to Slack.
+        if isTest:
+            pass
+        else:
+            # If loud, or an error occurred, send Slack message.
+            if beLoud or not isPerfect:
+                try:
+                    response = slack_client.chat_postMessage(
+                        channel="#kaijudev",
+                        text=message,
+                    )
+                except SlackApiError as e:
+                    # You will get a SlackApiError if "ok" is False
+                    assert e.response["error"]  # str like 'invalid_auth', 'channel_not_found'
+
+        # Send message to stdout.
+        print(message)
+
+    if debug:
+        print(f"Ending {sys.argv[0]} at {datetime.datetime.now()}")
+
+
+if __name__ == '__main__':
+    """Call main program function."""
+    main()

@@ -8,69 +8,29 @@
 #PBS -l select=4:ncpus=128:mpiprocs=2:ompthreads=64+1:ncpus=128:mpiprocs=1:ompthreads=128
 
 
-export TMPDIR=/glade/work/ewinter/mage_testing/derecho/temp
-mkdir -p $TMPDIR
+#KAIJUROOTDIR=/glade/work/ewinter/mage_testing/derecho/kaiju/ewinter-move_testing_to_derecho/kaiju
+source $KAIJUROOTDIR/scripts/setupEnvironment.sh
 
-#Optional stuff to load an environment
-source ~/.bashrc
-
-if [[ ! -z "$KAIJUROOTDIR" ]]; then
-    #If the root folder of a kaiju repo was passed in, souce the environment setup script
-    source $KAIJUROOTDIR/scripts/setupEnvironment.sh
-fi
-
-if [[ -z "$KAIJUHOME" ]]; then
-    # $KAIJUHOME environment variable is not set
-    echo "The KAIJUHOME environment variable is not set"
-    echo "You must either pass your environment with the -V option or"
-    echo "  execute the kaiju/scripts/setupEnvironment script in your ~/.bashrc file"
-    exit
-fi
-
-if [[ ! -z "$MODULE_LIST" ]]; then
-    # user passed a list of modules to load as the environment variable MODULE_LIST
-    # call this with the flag '-v MODULE_LIST="<modules>"' to use this option
-    # where <modules> is a space-separated list of modules in quotes
-    # Example:
-    #  qsub -v MODULE_LIST="intel/2021.2 ncarenv/1.3 ncarcompilers/0.5.0 mpt/2.22" RunMpi.pbs
-    module purge
-    module load $MODULE_LIST
-elif [[ ! -z "$MODULE_SET" ]]; then
-    # user passed a module set name to load as the environment variable MODULE_SET
-    # call this with the flag '-v MODULE_SET=<set name>' to use this option
-    # where <set_name> is a saved set of modules, as printed by 'module savelist'
-    # Example:
-    # qsub -v MODULE_SET=kaiju21 RunMpi.pbs
-    module purge
-    module restore $MODULE_SET
-else
-    # user did not pass a module set, load a default set
-    module purge
-    module restore mpikaiju
-fi
-
-if [[ ! -z "$MPT_VERSION" ]]; then
-    echo "USING MPIEXEC_MPT"
-    export MPI_TYPE_DEPTH=32
-    export OMP_NUM_THREADS=36
-    export MPI_IB_CONGESTED=0
-    export NODEFILE=$TMPDIR/nodefile.$PBS_JOBID
-    cp $PBS_NODEFILE $NODEFILE
-    export MPICOMMAND="mpiexec $KAIJUHOME/scripts/preproc/correctOMPenvironment.sh $NODEFILE omplace"
-else
-    echo "USING MPIRUN"
-    export MPICOMMAND="mpiexec $KAIJUHOME/scripts/preproc/pinCpuCores.sh"
-    export OMP_NUM_THREADS=128
-    export MPI_TYPE_DEPTH=32
-    export KMP_STACKSIZE=128M
-#    export I_MPI_PIN_DOMAIN="omp"
-fi
-
+module --force purge
+# module load ncarenv/23.06
+# module load cmake/3.26.3
+# module load craype/2.7.20
+# module load intel/2023.0.0
+# module load ncarcompilers/1.0.0
+# module load cray-mpich/8.1.25
+# module load hdf5-mpi/1.12.2
+# module load mkl/2023.0.0
+module load $MODULE_LIST
 module list
+
+export MPICOMMAND="mpiexec $KAIJUHOME/scripts/preproc/pinCpuCores.sh"
+export OMP_NUM_THREADS=128
+export MPI_TYPE_DEPTH=32
+export KMP_STACKSIZE=128M
+
 echo "Running on host `hostname` on `date`"
 echo "PWD = $PWD"
 
 $MPICOMMAND ./voltron_mpi.x geo_mpi.xml > geo_mpi.out
 
 echo "Finished run on `date`"
-
