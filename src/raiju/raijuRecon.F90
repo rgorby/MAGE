@@ -430,23 +430,6 @@ module raijuRecon
             isG = .false.
         end where
 
-        !QA = Qcc * Grid%areaCC  ! Get total quantity within cell
-            !! TODO: This is probably where we should include the B_cell/B_face factor
-        !call ReconFaces(Grid, isG, QA, QAface)  ! Interpolate to face positions
-        !Qface = QAface / Grid%areaFace  ! Return to area density at face position
-
-        ! PDM to get our final interface values
-        !call PDMFaces(Grid%shGrid, isG, Qcc, Qface, QpdmL, QpdmR, Model%pdmb)
-
-        ! Calculate face fluxes
-        !Qflux = Qface*State%iVel(:,:,k,:)*Grid%lenFace * Model%planet%ri_m  ! [Q * Rp^2 / s]
-        !Qflux = Qface*State%iVel(:,:,k,:)*Grid%lenFace / Model%planet%ri_m  ! [Q * Rp^2 / s]
-
-        ! Only one of these will be non-zero
-        !QfluxL = merge(QpdmL*State%iVel(:,:,k,:), 0.0, State%iVel(:,:,k,:) > 0.0)  ! [Q * m/s] Effectively array-wide max between flux and 0.0
-        !QfluxR = merge(QpdmR*State%iVel(:,:,k,:), 0.0, State%iVel(:,:,k,:) < 0.0)  ! [Q * m/s] Effectively array-wide min between flux and 0.0
-
-        !Qflux = (QfluxL + QfluxR) * Grid%lenFace / Model%planet%rp_m  ! [Q * Rp^2 / s]
         
         ! ReconFaces(Model, Grid, isG, Qcc, QfaceL, QfaceR, QreconLO, QreconRO)
         if (Model%doDebugOutput) then

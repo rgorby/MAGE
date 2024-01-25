@@ -134,14 +134,14 @@ program raijuOWDx
             call Tic("fromV to State")
             ! Now put fomV info into RAIJU's State
             !call raijuCpl_Volt2RAIJU(raijuCplBase, vApp, raiApp)
-            call raijuCplBase%raijuCpl_Volt2RAIJU(raijuCplBase, vApp, raiApp)
+            call raijuCplBase%convertToRAIJU(raijuCplBase, vApp, raiApp)
             call Toc("fromV to State")
 
         ! Step RAIJU
             call Tic("RAIJU Advance")
             call raijuAdvance(raiApp%Model,raiApp%Grid,raiApp%State, raiApp%Model%dt, isFirstCpl)
             call Toc("RAIJU Advance")
-            !isFirstCpl = .false.
+            isFirstCpl = .false.
 
             write(*,*)raiApp%State%t
             write(*,*)ebModel%t/inTscl
@@ -173,42 +173,6 @@ program raijuOWDx
 
     contains
 
-    subroutine raijuAdvance(Model, Grid, State, dtCpl, isFirstCplO)
-        type(raijuModel_T), intent(inout) :: Model
-        type(raijuGrid_T) , intent(in) :: Grid
-        type(raijuState_T), intent(inout) :: State
-        real(rp), intent(in) :: dtCpl
-        logical, optional, intent(in) :: isFirstCplO
-
-        logical :: isFirstCpl
-        integer :: k
-
-        if (present(isFirstCplO)) then
-            isFirstCpl = isFirstCplO
-        else
-            isFirstCpl = .false.
-        endif
-
-        State%dt = dtCpl
-
-        call raijuPreAdvance(Model, Grid, State, isfirstCpl)
-
-        ! Step
-        call Tic("AdvanceState")
-        call AdvanceState(Model, Grid, State)
-        call Toc("AdvanceState")
-            ! Push
-            ! Losses
-        ! etas to moments
-        call Tic("Moments Eval PostAdvance")
-        call EvalMoments(Grid, State)
-        call Toc("Moments Eval PostAdvance")
-
-        
-
-    end subroutine raijuAdvance
-
-    
     subroutine WriteRCMFLs(RCMFLs,nOut,MJD,time,Ni,Nj)
         use ebtypes
         use rice_housekeeping_module, only : nSkipFL

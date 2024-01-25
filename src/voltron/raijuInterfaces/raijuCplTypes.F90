@@ -33,9 +33,9 @@ module raijuCplTypes
         type(raiju_fromV_T) :: fromV
         type(raiju_toV_T  ) :: toV
 
-        procedure(raijuCpl_v2r_T), pointer ::  convertToRAIJU   => NULL()
+        procedure(raijuCpl_v2r_T), pointer, nopass ::  convertToRAIJU   => NULL()
             !! Updates fromV object using Voltron information, then puts it into RAIJU
-        procedure(raijuCpl_r2v_T), pointer ::  convertToVoltron => NULL()
+        procedure(raijuCpl_r2v_T), pointer, nopass ::  convertToVoltron => NULL()
             !! Updates toV object using RAIJU information, then puts it into Voltron
     end type raiju_cplBase_T
 

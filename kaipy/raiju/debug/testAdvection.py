@@ -19,8 +19,8 @@ rad2deg = 180/np.pi
 # Settings
 #dir = '/Users/sciolam1/Workspace/runs/local/raijudev/fluxOverhaul'
 dir = '.'
-raih5fname = 'raijuSA_1d.raiju.h5'
-#raih5fname = 'raijuSA.raiju.h5'
+#raih5fname = 'raijuSA_1d.raiju.h5'
+raih5fname = 'raijuSA.raiju.h5'
 
 def calc_bVol_ana(colat, b_surf):
     # bVol calc
@@ -319,7 +319,8 @@ def makeVid(raijuInfo, outdir, stride=1):
     AxC1 = fig.add_subplot(gs[0, 3])
     
     # Create the Colorbars``.
-    norm_eta = kv.genNorm(0,1, doLog=False)
+    #etaMax = 0.3*np.max(eta)
+    norm_eta = kv.genNorm(1e-4,1e8, doLog=True)
     cm_eta = 'viridis'
     kv.genCB(AxC1, norm_eta, "eta [eV * (Rp/nT)^(2/3)]", cM=cm_eta, doVert=True)
 
@@ -367,9 +368,9 @@ def makeVid(raijuInfo, outdir, stride=1):
         Ax_eta_pLow.xaxis.set_major_formatter(plt.NullFormatter())
         Ax_eta_pLow.yaxis.set_major_formatter(plt.NullFormatter())
         Ax_eta_pMid.xaxis.set_major_formatter(plt.NullFormatter())
-        Ax_eta_pLow .set_title('H+ eta={}, E={:0.2f}-{:0.2f} keV'.format(k_pLow , np.min(energies[:,:,k_pLow ]), np.max(energies[:,:,k_pLow ])), fontsize=fontsize_title)
-        Ax_eta_pMid .set_title('H+ eta={}, E={:0.2f}-{:0.2f} keV'.format(k_pMid , np.min(energies[:,:,k_pMid ]), np.max(energies[:,:,k_pMid ])), fontsize=fontsize_title)
-        Ax_eta_pHigh.set_title('H+ eta={}, E={:0.2f}-{:0.2f} keV'.format(k_pHigh, np.min(energies[:,:,k_pHigh]), np.max(energies[:,:,k_pHigh])), fontsize=fontsize_title)
+        Ax_eta_pLow .set_title('H+ $\lambda$={}, E={:0.2f}-{:0.2f} keV'.format(k_pLow , np.min(energies[:,:,k_pLow ]), np.max(energies[:,:,k_pLow ])), fontsize=fontsize_title)
+        Ax_eta_pMid .set_title('H+ $\lambda$={}, E={:0.2f}-{:0.2f} keV'.format(k_pMid , np.min(energies[:,:,k_pMid ]), np.max(energies[:,:,k_pMid ])), fontsize=fontsize_title)
+        Ax_eta_pHigh.set_title('H+ $\lambda$={}, E={:0.2f}-{:0.2f} keV'.format(k_pHigh, np.min(energies[:,:,k_pHigh]), np.max(energies[:,:,k_pHigh])), fontsize=fontsize_title)
 
         ru.plotXYMin(Ax_eta_eLow , xmin, ymin, eta[:,:,k_eLow ], norm=norm_eta, cmap=cm_eta, shading='auto', lblsize=None)
         ru.plotXYMin(Ax_eta_eMid , xmin, ymin, eta[:,:,k_eMid ], norm=norm_eta, cmap=cm_eta, shading='auto', lblsize=None)
@@ -379,9 +380,9 @@ def makeVid(raijuInfo, outdir, stride=1):
         Ax_eta_eMid .xaxis.set_major_formatter(plt.NullFormatter())
         Ax_eta_eMid .yaxis.set_major_formatter(plt.NullFormatter())
         Ax_eta_eHigh.yaxis.set_major_formatter(plt.NullFormatter())
-        Ax_eta_eLow .set_title('e- eta={}, E={:0.2f}-{:0.2f} keV'.format(k_eLow , np.min(energies[:,:,k_eLow ]), np.max(energies[:,:,k_eLow ])), fontsize=fontsize_title)
-        Ax_eta_eMid .set_title('e- eta={}, E={:0.2f}-{:0.2f} keV'.format(k_eMid , np.min(energies[:,:,k_eMid ]), np.max(energies[:,:,k_eMid ])), fontsize=fontsize_title)
-        Ax_eta_eHigh.set_title('e- eta={}, E={:0.2f}-{:0.2f} keV'.format(k_eHigh, np.min(energies[:,:,k_eHigh]), np.max(energies[:,:,k_eHigh])), fontsize=fontsize_title)
+        Ax_eta_eLow .set_title('e- $\lambda$={}, E={:0.2f}-{:0.2f} keV'.format(k_eLow , np.min(energies[:,:,k_eLow ]), np.max(energies[:,:,k_eLow ])), fontsize=fontsize_title)
+        Ax_eta_eMid .set_title('e- $\lambda$={}, E={:0.2f}-{:0.2f} keV'.format(k_eMid , np.min(energies[:,:,k_eMid ]), np.max(energies[:,:,k_eMid ])), fontsize=fontsize_title)
+        Ax_eta_eHigh.set_title('e- $\lambda$={}, E={:0.2f}-{:0.2f} keV'.format(k_eHigh, np.min(energies[:,:,k_eHigh]), np.max(energies[:,:,k_eHigh])), fontsize=fontsize_title)
 
         fig.suptitle("step# {}; t = {:0.2f} s".format(n, time))
         kv.savePic(filename)
@@ -434,16 +435,16 @@ if __name__=="__main__":
     rp_m = f5['Planet'].attrs['Rad_surface']
     Bs_nt = f5['Planet'].attrs['Mag Moment'] * kd.G2nT
 
-    checkCorot(raijuInfo, 10)
+    checkCorot(raijuInfo, 1)
     
     spc_p = raijuInfo.species[ru.flavs_s['HOTP']]
     spc_k = spc_p.kStart + int(spc_p.N//2)
-    checkGC(raijuInfo, 10, spc_k)
+    checkGC(raijuInfo, 1, spc_k)
 
 
     #checkBVol(raijuInfo)
     plt.show()
 
-    #plotStep(raijuInfo, 0, 10)
+    plotStep(raijuInfo, 0, 10)
 
     makeVid(raijuInfo, dir)
