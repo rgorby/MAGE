@@ -13,19 +13,19 @@ module raijuCpl
 
     contains
 
-    subroutine raijuCpl_init(vApp, sApp, cplBase)
+    subroutine raijuCpl_init(vApp, raiApp, cplBase)
         type(voltApp_T), intent(in) :: vApp
-        type(raijuApp_T), intent(in) :: sApp
+        type(raijuApp_T), intent(in) :: raiApp
         type(raiju_cplBase_T), intent(inout) :: cplBase
 
         associate(fromV=>cplBase%fromV, toV=>cplBase%toV, &
-            sh=>sApp%Grid%shGrid)
+            sh=>raiApp%Grid%shGrid)
 
         ! Init fromV first
             ! Allocations
             allocate(fromV%fLines (sh%isg:sh%ieg+1, sh%jsg:sh%jeg+1))
             allocate(fromV%ijTubes(sh%isg:sh%ieg+1, sh%jsg:sh%jeg+1))
-            allocate(fromV%pot    (sh%isg:sh%ieg  , sh%jsg:sh%jeg  ))
+            allocate(fromV%pot    (sh%isg:sh%ieg+1, sh%jsg:sh%jeg+1))
 
             ! Initial values
             fromV%tLastUpdate = -1.0*HUGE
@@ -40,9 +40,7 @@ module raijuCpl
 
         ! If using user IC, let user determine coupling
         !  (this assumes icStr was already set by raijuInitState)
-        if (trim(sApp%Model%icStr) .eq. "USER") then
-            !call RAIJUinitCplUserIC(sApp%Model, sApp%Grid, sApp%State, cplBase)
-            !call userInitCplFunc(vApp, sApp, cplBase)
+        if (trim(raiApp%Model%icStr) .eq. "USER") then
             write(*,*) "Can't do user initCpl yet"
             stop
         else
@@ -55,31 +53,31 @@ module raijuCpl
     end subroutine raijuCpl_init
 
     
-    subroutine raijuCpl_Volt2RAIJU(cplBase, vApp, sApp)
+    subroutine raijuCpl_Volt2RAIJU(cplBase, vApp, raiApp)
         !! Take info from cplBase%fromV and put it into RAIJU state
         class(raiju_cplBase_T), intent(in) :: cplBase
         type(voltApp_T), intent(in   ) :: vApp
-        type(raijuApp_T ), intent(inout) :: sApp
+        type(raijuApp_T ), intent(inout) :: raiApp
         
         
         ! Start with calculating the active domain so that ingestion can make decisions based on it
-        call setActiveDomain(sApp%Grid%shGrid, sApp%Grid%nB, cplBase%fromV%ijTubes, sApp%State)
+        call setActiveDomain(raiApp%Grid%shGrid, raiApp%Grid%nB, cplBase%fromV%ijTubes, raiApp%State)
 
         ! Populate raiju state with coupling info
         ! Tubes
-        call imagTubes2RAIJU(sApp%Model, sApp%Grid, sApp%State, &
+        call imagTubes2RAIJU(raiApp%Model, raiApp%Grid, raiApp%State, &
                 cplBase%fromV%ijTubes, &
                 cplBase%fromV%mhd2spcMap)
         ! Potential
-        sApp%State%espot(:,:) = cplBase%fromV%pot(:,:)
+        raiApp%State%espot(:,:) = cplBase%fromV%pot(:,:)
 
     end subroutine raijuCpl_Volt2RAIJU
 
 
-    subroutine raijuCpl_RAIJU2Volt(cplBase, vApp, sApp)
+    subroutine raijuCpl_RAIJU2Volt(cplBase, vApp, raiApp)
         type(raiju_cplBase_T), intent(inout) :: cplBase
         type(voltApp_T), intent(inout) :: vApp
-        type(raijuApp_T) , intent(in   ) :: sApp
+        type(raijuApp_T) , intent(in   ) :: raiApp
     end subroutine raijuCpl_RAIJU2Volt
 
 !------

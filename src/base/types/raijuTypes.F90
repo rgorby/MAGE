@@ -195,6 +195,8 @@ module raijutypes
         integer :: gType  ! Enum of grid type
 
         type(ShellGrid_T) :: shGrid
+        real(rp), dimension(:), allocatable :: thRp
+            !! (Ngi+1) [radians] Theta value at planet's surface (1 Rp)
         real(rp), dimension(:), allocatable :: delTh
             !! (Ngi+1) [radians] Delta theta between cell centers. For cell i, delTh(i) = lower theta del, delTh(i+1) = higher theta del
         real(rp), dimension(:), allocatable :: delPh

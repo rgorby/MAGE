@@ -9,6 +9,7 @@ module raijugrids
     use raijutypes
     use raijuRecon
     use raijuSpeciesHelper
+    use planethelper
 
     implicit none
 
@@ -88,12 +89,14 @@ module raijugrids
         type(planet_T), intent(in) :: planet
 
         integer :: i,j
+        real(rp) :: L
+        real(rp), dimension(3) :: xyz
         real(rp), dimension(Grid%shGrid%isg:Grid%shGrid%ieg) :: cosThc, BMagTh
         real(rp), dimension(Grid%shGrid%isg:Grid%shGrid%ieg+1) :: cosTh
 
         associate(shGr=>Grid%shGrid)
             ! First allocate remaining arrays
-
+            allocate( Grid%thRp(shGr%isg:shGr%ieg+1) )
             allocate( Grid%delTh(shGr%isg:shGr%ieg+1) )
             allocate( Grid%delPh(shGr%jsg:shGr%jeg+1) )
             allocate( Grid%areaCC  (shGr%isg:shGr%ieg  ,shGr%jsg:shGr%jeg) )
@@ -104,6 +107,17 @@ module raijugrids
             allocate( Grid%BrFace(shGr%isg:shGr%ieg+1,shGr%jsg:shGr%jeg+1, 2) )
             allocate( Grid%Brcc(shGr%isg:shGr%ieg,shGr%jsg:shGr%jeg) )
             
+
+            ! For each theta value (defined on spherical grid in the ionosphere), 
+            ! calculate corresponding theta of field line mapped to planet's surface
+            xyz = 0.0
+            do i=shGr%isg, shGr%ieg+1
+                ! Don't need longitude information so just assume we are at Y=0
+                xyz(1) = planet%ri_m/planet%rp_m*sin(shGr%th(i))
+                xyz(3) = planet%ri_m/planet%rp_m*cos(shGr%th(i))
+                L = DipoleL(xyz)
+                Grid%thRp(i) = abs(asin(sqrt(1.0_rp/L)))
+            enddo
 
             ! Calculate theta/phi delta between cells [radians]
             ! First and last elements should be zero since there's no cells below/above isg/ieg

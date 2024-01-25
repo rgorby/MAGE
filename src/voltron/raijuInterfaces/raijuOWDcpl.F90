@@ -40,10 +40,6 @@ module raijuowdcpl
         call genImagTubes(fromV, vApp, sApp)
 
         ! Set potential
-        !call mix_map_grids(m2sMap, rmState%nPot, fromV%pot)
-        !!!!!
-        !! Stupid bug working between RAIJU's and rmState's indexing
-        !!!!!!
         associate(sh=>sApp%Grid%shGrid)
         call mix_map_grids(m2sMap, rmState%nPot, tmpPot)
         !fromV%pot(sh%is:sh%ie,sh%js:sh%je) = tmpPot
@@ -142,7 +138,6 @@ module raijuowdcpl
         call init_grid_fromXY(mixGrid, mixState%XY(:,:,XDIR),mixState%XY(:,:,YDIR),.false.,.true.)
         call init_grid_fromTP(mixedGrid, colat2D, lon2D,.false.,.true.)
         call mix_set_map(mixGrid, mixedGrid, m2sMap)
-        !write(*,*) map%M(:,:,1)
 
     end subroutine InitMixMap
 

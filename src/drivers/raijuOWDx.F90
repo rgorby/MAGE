@@ -133,7 +133,8 @@ program raijuOWDx
 
             call Tic("fromV to State")
             ! Now put fomV info into RAIJU's State
-            call raijuCpl_Volt2RAIJU(raijuCplBase, vApp, raiApp)
+            !call raijuCpl_Volt2RAIJU(raijuCplBase, vApp, raiApp)
+            call raijuCplBase%raijuCpl_Volt2RAIJU(raijuCplBase, vApp, raiApp)
             call Toc("fromV to State")
 
         ! Step RAIJU

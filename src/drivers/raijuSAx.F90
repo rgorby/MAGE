@@ -10,8 +10,8 @@ program raijuSAx
     use raijudefs
     use raijustarter
     use raijuBCs
-    use raijuPreAdvancer
-    use raijuAdvancer
+    use raijuPreAdvancer, only : raijuPreAdvance
+    use raijuAdvancer   , only : raijuAdvance
 
 
     implicit none
@@ -29,6 +29,7 @@ program raijuSAx
     character(len=strLen) :: FLH5
     
     logical :: doChmpOut,doFLOut
+    logical :: isfirstCpl = .true.
 
     real(rp) :: mjd0
 
@@ -73,6 +74,7 @@ program raijuSAx
 
     ! Before we get started, run preAdvancer once just so that Step#0 has that information
     call raijuPreAdvance(raiApp%Model, raiApp%Grid, raiApp%State)
+    isfirstCpl = .false.
 
     ! Ready to loop
     do while ( raiApp%State%t < (raiApp%Model%tFin + 0.5) )
@@ -117,39 +119,6 @@ program raijuSAx
     write(*,*)"Main Objective complete!"
 
     contains
-
-    subroutine raijuAdvance(Model, Grid, State, dtCpl, isFirstCplO)
-        type(raijuModel_T), intent(inout) :: Model
-        type(raijuGrid_T) , intent(in) :: Grid
-        type(raijuState_T), intent(inout) :: State
-        real(rp), intent(in) :: dtCpl
-        logical, optional, intent(in) :: isFirstCplO
-
-        logical :: isFirstCpl
-        integer :: k
-
-        if (present(isFirstCplO)) then
-            isFirstCpl = isFirstCplO
-        else
-            isFirstCpl = .false.
-        endif
-
-        State%dt = dtCpl
-
-        call raijuPreAdvance(Model, Grid, State, isfirstCpl)
-
-        ! Step
-        call Tic("AdvanceState")
-        call AdvanceState(Model, Grid, State)
-        call Toc("AdvanceState")
-            ! Push
-            ! Losses
-        ! etas to moments
-        call Tic("Moments Eval")
-        call EvalMoments(Grid, State)
-        call Toc("Moments Eval")
-
-    end subroutine raijuAdvance
 
 
     subroutine test_WM(iXML)

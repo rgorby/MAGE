@@ -19,8 +19,8 @@ rad2deg = 180/np.pi
 # Settings
 #dir = '/Users/sciolam1/Workspace/runs/local/raijudev/fluxOverhaul'
 dir = '.'
-#raih5fname = 'raijuSA_1d.raiju.h5'
-raih5fname = 'raijuSA.raiju.h5'
+raih5fname = 'raijuSA_1d.raiju.h5'
+#raih5fname = 'raijuSA.raiju.h5'
 
 def calc_bVol_ana(colat, b_surf):
     # bVol calc
@@ -138,8 +138,6 @@ def vGCiso(Rp_m: float, Ri_m: float, b_surf: float, alamc: float, r: np.ndarray)
     # We did gradient in iono and used iono b-field, so we already have stuff in ionosphere
     return v_drift
 
-    
-
 
 def checkBVol(raiInfo: ru.RAIJUInfo):
 
@@ -192,13 +190,13 @@ def checkCorot(raiInfo: ru.RAIJUInfo, n: int):
         Bs_nt = f5['Planet'].attrs['Mag Moment'    ] * kd.G2nT  # [nT]
         cPot  = f5['Planet'].attrs['Psi Corot']  # [kV]
         s5 = f5[raiInfo.stepStrs[n]]
-        espot = ru.getVar(s5, 'espot') # [kV]
+        espot = ru.getVar(s5, 'espot')  # [kV]
 
         if np.any(espot > 0):
             print("Error: espot must be zero for checkCorot to work")
             return
         
-        rMin = ru.getVar(s5, 'xmin')[:,0]  # Just take all i's at j=0 (y=0)
+        rMin    = ru.getVar(s5, 'xmin')[:,0]  # Just take all i's at j=0 (y=0)
         iVel_ph = ru.getVar(s5, 'iVel')[:,:,:,1]
         
     #rMin_cc = kt.to_center1D(rMin)
@@ -206,6 +204,9 @@ def checkCorot(raiInfo: ru.RAIJUInfo, n: int):
     # Just get velocity from plasmasphere channel
     kPsph = raiInfo.species[ru.flavs_s['PSPH']].kStart
     vCorot_model = iVel_ph[:,0,kPsph]
+
+    print("corot:")
+    print(vCorot_model/vCorot_ana)
     plt.figure()
     plt.plot(rMin, vCorot_ana, label='analytic')
     plt.scatter(rMin, vCorot_model, s=10, c='orange', label='model')
@@ -433,15 +434,15 @@ if __name__=="__main__":
     rp_m = f5['Planet'].attrs['Rad_surface']
     Bs_nt = f5['Planet'].attrs['Mag Moment'] * kd.G2nT
 
-    #checkCorot(raijuInfo, 10)
+    checkCorot(raijuInfo, 10)
     
     spc_p = raijuInfo.species[ru.flavs_s['HOTP']]
     spc_k = spc_p.kStart + int(spc_p.N//2)
-    #checkGC(raijuInfo, 10, spc_k)
+    checkGC(raijuInfo, 10, spc_k)
 
 
     #checkBVol(raijuInfo)
-    #plt.show()
+    plt.show()
 
     #plotStep(raijuInfo, 0, 10)
 

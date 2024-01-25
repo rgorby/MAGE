@@ -9,11 +9,11 @@ module raijuPreAdvancer
     use raijuBCs
     use raijulosses
     use raijuRecon
-    use raijuAdvancer, only : activeDt
 
     implicit none
 
     contains
+
 
 !------
 ! Main high-level functions
@@ -57,14 +57,9 @@ module raijuPreAdvancer
         !$OMP schedule(dynamic) &
         !$OMP private(k)
         do k=1,Grid%Nk
-            !call calcVelocityCC(Model, Grid, State, k, State%cVel(:,:,k,:))
             call calcVelocity(Model, Grid, State, k, State%iVel(:,:,k,:))  ! Get velocity at cell interfaces
-            ! Calc sub-time step
+            ! Calc sub-time step. Each channel will do this on its own, but this way we can output the step sizes everyone is using
             State%dtk(k) = activeDt(Model, Grid, State, k)
-            
-            !! OLD:
-            ! We can also calculate velocity at faces here because it won't change during sub-stepping
-            !call ReconFaces(Grid, isG_vFaces, State%cVel(:,:,k,RAI_TH), State%iVel(:,:,k,:), Qcc_phO=State%cVel(:,:,k,RAI_PH))
         enddo
         call Toc("Calc face velocities")
 
@@ -85,6 +80,7 @@ module raijuPreAdvancer
         call Toc("Calc loss rates")
 
     end subroutine raijuPreAdvance
+
 
 !------
 ! Transitions between coupling chunks
@@ -124,6 +120,7 @@ module raijuPreAdvancer
 
     end subroutine prepEtaLast
 
+
 !------
 ! Cell Potentials and their gradients
 !------
@@ -162,7 +159,6 @@ module raijuPreAdvancer
         endif
 
         ! IfdoGeoCorotO was not provided, or it was false, we default to corotation on aligned dipole and rotational axis
-
         do j=sh%jsg,sh%jeg+1
             pCorot(:,j) = -planet%psiCorot*(planet%rp_m/planet%ri_m)*sin(sh%th)**2 * 1.e3  ! [kV -> V]
         enddo
@@ -272,124 +268,55 @@ module raijuPreAdvancer
             !! [units(Q)/m] we return
         
         integer :: i,j
-        real(rp), dimension(Grid%shGrid%isg:Grid%shGrid%ieg+1) :: sinTh
 
         gradQ = 0.0
 
         associate(sh=>Grid%shGrid)
-        ! Calc sin(theta) for everyone to use
-        sinTh = sin(sh%th)
-            !! NOTE: This is used in the spherical derivative of the theta faces, which are along the phi direction
-            !! so this defines sin(theta) exactly at the interface value since we are using an orthogonal grid aligned with spherical theta and phi
 
         ! Bulk of the faces. Does not cover the final set of faces bounding the top of the box
         !$OMP PARALLEL DO default(shared) collapse(1) &
         !$OMP schedule(dynamic) &
         !$OMP private(i,j) &
         !$OMP IF(.false.)
-        do j=sh%jsg,sh%jeg
-            do i=sh%isg,sh%ieg
-
-                ! Theta dir face takes the spatial derivative of the corners along the phi direction
-                if ( isG(i,j) .and. isG(i,j+1) ) then
-                    ! NOTE: I don't think we need a 1/sin(theta) term here because it is already included in Grid%lenFace
-                    !gradQ(i,j,RAI_TH) = (Q(i,j+1) - Q(i,j)) / RIon / sinTh(i) / Grid%lenFace(i,j,RAI_TH)
-                    !!!! Hacky experimental sinTh, need to see if this should actually be here
-                    !gradQ(i,j,RAI_TH) = (Q(i,j+1) - Q(i,j)) * sinTh(i) / ( Grid%lenFace(i,j,RAI_TH) * Rp_m )  ! lenFace in units of Rp, turn into meters
-                    gradQ(i,j,RAI_TH) = (Q(i,j+1) - Q(i,j)) / ( Grid%lenFace(i,j,RAI_TH) * Rp_m )  ! lenFace in units of Rp, turn into meters
-                endif ! If either point is not good then any cells using this face will be flagged as not good, and we can leave gradQ as zero there
-
-                ! Phi dir face takes the spatial derivative of the corners along the theta direction
-                if ( isG(i,j) .and. isG(i+1,j) ) then
-                    gradQ(i,j,RAI_PH) = (Q(i+1,j) - Q(i,j)) / ( Grid%lenFace(i,j,RAI_PH) * Rp_m )
-                endif
-
-            enddo
-        enddo
+        !do j=sh%jsg,sh%jeg
+        !    do i=sh%isg,sh%ieg
+!
+        !        ! Theta dir face takes the spatial derivative of the corners along the phi direction
+        !        if ( isG(i,j) .and. isG(i,j+1) ) then
+        !            gradQ(i,j,RAI_TH) = (Q(i,j+1) - Q(i,j)) / ( Grid%lenFace(i,j,RAI_TH) * Rp_m )  ! lenFace in units of Rp, turn into meters
+        !        endif ! If either point is not good then any cells using this face will be flagged as not good, and we can leave gradQ as zero there
+        !        
+        !        ! Phi dir face takes the spatial derivative of the corners along the theta direction
+        !        if ( isG(i,j) .and. isG(i+1,j) ) then
+        !            gradQ(i,j,RAI_PH) = (Q(i+1,j) - Q(i,j)) / ( Grid%lenFace(i,j,RAI_PH) * Rp_m )
+        !        endif
+!
+        !    enddo
+        !enddo
 
         ! Now we handle the final row and column
         ! Final theta faces
-        i = sh%ieg+1
+        !i = sh%ieg+1
         do j=sh%jsg,sh%jeg
-            if ( isG(i,j) .and. isG(i,j+1) ) then
-                !gradQ(i,j,RAI_TH) = (Q(i,j+1) - Q(i,j)) * sinTh(i) / ( Grid%lenFace(i,j,RAI_TH) * Rp_m )
-                gradQ(i,j,RAI_TH) = (Q(i,j+1) - Q(i,j)) / ( Grid%lenFace(i,j,RAI_TH) * Rp_m )
-            endif
+            do i=sh%isg,sh%ieg+1
+                if ( isG(i,j) .and. isG(i,j+1) ) then
+                    gradQ(i,j,RAI_TH) = (Q(i,j+1) - Q(i,j)) / ( Grid%lenFace(i,j,RAI_TH) * Rp_m )
+                endif
+            enddo
         enddo
 
-        j = sh%jeg+1
-        do i=sh%isg,sh%ieg
-            if ( isG(i,j) .and. isG(i+1, j) ) then
-                gradQ(i,j,RAI_PH) = (Q(i+1,j) - Q(i,j)) / ( Grid%lenFace(i,j,RAI_PH) * Rp_m )
-            endif
+        !j = sh%jeg+1
+        do j=sh%jsg,sh%jeg+1
+            do i=sh%isg,sh%ieg
+                if ( isG(i,j) .and. isG(i+1, j) ) then
+                    gradQ(i,j,RAI_PH) = (Q(i+1,j) - Q(i,j)) / ( Grid%lenFace(i,j,RAI_PH) * Rp_m )
+                endif
+            enddo
         enddo
 
         end associate
 
     end subroutine calcGradIJ
-
-
-    subroutine calcGradIJ_cc(RIon, Grid, isG, Q, gradQ)
-        !! Calc gradint in spherical coordinates across entire grid, including ghosts
-        !! Up to someone else to overwrite ghosts
-        real(rp), intent(in) :: RIon
-            !! Ionosphere radius in m
-        type(raijuGrid_T), intent(in) :: Grid
-        logical , dimension(Grid%shGrid%isg:Grid%shGrid%ieg,Grid%shGrid%jsg:Grid%shGrid%jeg), intent(in) :: isG
-        real(rp), dimension(Grid%shGrid%isg:Grid%shGrid%ieg,Grid%shGrid%jsg:Grid%shGrid%jeg), intent(in) :: Q
-        real(rp), dimension(Grid%shGrid%isg:Grid%shGrid%ieg,Grid%shGrid%jsg:Grid%shGrid%jeg, 2), intent(inout) :: gradQ
-            !! I think [unitsQ/rad]
-
-        integer :: i,j
-        real(rp), dimension(Grid%shGrid%isg:Grid%shGrid%ieg) :: sinTh
-        
-        gradQ = 0.0
-        
-        associate(sh=>Grid%shGrid)
-        ! Calc sin(theta) for everyone to use
-        sinTh = sin(sh%thc)
-
-        ! Leave out the end rows and columns
-        !$OMP PARALLEL DO default(shared) collapse(1) &
-        !$OMP schedule(dynamic) &
-        !$OMP private(i,j) &
-        !$OMP IF(.false.)
-        do j=sh%jsg+1,sh%jeg-1
-            do i=sh%isg+1,sh%ieg-1
-                if (.not. isG(i,j)) then
-                    cycle
-                end if
-
-                ! Theta dir
-                if(isG(i-1,j) .and. isG(i+1,j)) then
-                    gradQ(i,j,RAI_TH) = (Q(i+1,j) - Q(i-1,j))/RIon/(Grid%delTh(i)+Grid%delTh(i+1))
-                else if (isG(i-1,j)) then
-                    gradQ(i,j,RAI_TH) = (Q(i,j)-Q(i-1,j))/RIon/Grid%delTh(i)
-                else if (isG(i+1,j)) then
-                    gradQ(i,j,RAI_TH) = (Q(i+1,j)-Q(i,j))/RIon/Grid%delTh(i+1)
-                end if
-
-                ! Phi dir
-                if(isG(i,j-1) .and. isG(i,j+1)) then
-                    gradQ(i,j,RAI_PH) = (Q(i,j+1) - Q(i,j-1))/RIon/sinTh(i)/(Grid%delPh(j)+Grid%delPh(j+1))
-                else if (isG(i,j-1)) then
-                    gradQ(i,j,RAI_PH) = (Q(i,j)-Q(i,j-1))/RIon/sinTh(i)/Grid%delPh(j)
-                else if (isG(i,j-1)) then
-                    gradQ(i,j,RAI_PH) = (Q(i,j+1)-Q(i,j))/RIon/sinTh(i)/Grid%delPh(j+1)
-                end if
-            enddo
-        enddo
-
-        ! Edge rows and columns
-        ! Set to same gradient so that resulting velocity is the same
-        ! Doesn't really matter since they won't be included in reconstructions anyways
-        gradQ(sh%isg,:,:) = gradQ(sh%isg+1,:,:)
-        gradQ(sh%ieg,:,:) = gradQ(sh%ieg-1,:,:)
-        gradQ(:,sh%jsg,:) = gradQ(:,sh%jsg+1,:)
-        gradQ(:,sh%jeg,:) = gradQ(:,sh%jeg-1,:)
-
-        end associate
-    end subroutine calcGradIJ_cc
 
 
     subroutine calcGradFTV(Rp_m, RIon_m, B0, Grid, isG, V, gradV)
@@ -420,7 +347,9 @@ module raijuPreAdvancer
             
             ! Calculate dipole FTV
             do i=sh%isg, sh%ieg+1
-                V0(i,:) = DipFTV_colat(sh%th(i), B0)
+                !V0(i,:) = DipFTV_colat(sh%th(i), B0)
+                ! DipFTV_colat takes a colat at 1 Rp, make sure we use that value instead of colat in ionosphere (shGrid%th)
+                V0(i,:) = DipFTV_colat(Grid%thRp(i), B0)
             enddo
 
 
@@ -441,7 +370,8 @@ module raijuPreAdvancer
                 !! DerivDipFTV takes gradient w.r.t. theta
                 !! We need to convert to be w.r.t. arc len in meters
                 dcl_dm = 1.0/RIon_m
-                dV0_dth(i,:) = DerivDipFTV(sh%th(i), B0) * dcl_dm
+                !dV0_dth(i,:) = DerivDipFTV(sh%th(i), B0) * dcl_dm
+                dV0_dth(i,:) = DerivDipFTV(Grid%thRp(i), B0) * dcl_dm
             enddo
 
             ! Gradient of perturbation
@@ -454,7 +384,6 @@ module raijuPreAdvancer
         end associate
 
     end subroutine calcGradFTV
-
 
 
 !------
@@ -497,38 +426,175 @@ module raijuPreAdvancer
     end subroutine calcVelocity
 
 
+!------
+! time handling
+!------
 
-    subroutine calcVelocityCC(Model, Grid, State, k, Vtp)
-        !! Uses gradPots stored in State to calculate cell-centered velocity [m/s] for lambda channel k
+    function activeDt(Model, Grid, State, k) result(dt)
+        !! Calculates min dt needed to safele evolve active domain for given energy invariant channel k
+        !! TODO: Consider dynamic CFL factor
         type(raijuModel_T), intent(in) :: Model
         type(raijuGrid_T ), intent(in) :: Grid
         type(raijuState_T), intent(in) :: State
         integer, intent(in) :: k
-        real(rp), dimension(Grid%shGrid%isg:Grid%shGrid%ieg,&
-                            Grid%shGrid%jsg:Grid%shGrid%jeg, 2), intent(inout) :: Vtp
-
-        integer :: i,j
-        real(rp), dimension(Grid%shGrid%isg:Grid%shGrid%ieg, Grid%shGrid%jsg:Grid%shGrid%jeg) :: cosdip
-        real(rp), dimension(Grid%shGrid%isg:Grid%shGrid%ieg, Grid%shGrid%jsg:Grid%shGrid%jeg, 2) :: gradPot
-
-
         
-        gradPot = State%gradPotE + State%gradPotCorot + Grid%alamc(k)*State%gradVM  ! [V/m]        
+        integer :: i,j
+        real(rp) :: velij
+        real(rp), dimension(Grid%shGrid%isg:Grid%shGrid%ieg+1,Grid%shGrid%jsg:Grid%shGrid%jeg+1, 2) :: dtArr
+        logical , dimension(Grid%shGrid%isg:Grid%shGrid%ieg+1,Grid%shGrid%jsg:Grid%shGrid%jeg+1, 2) :: isGood
+        real(rp) :: dt
 
-        ! Vel = ( Bvec x grad(pot) ) / B^2  = ( bhat x grad(pot) ) / B
-        ! [gradPot] = [V/m] = [T*m/s]
-        ! Note, 1/B term includes dip angle
-        !associate (colat => Grid%shGrid%thc)
-        !do j=Grid%shGrid%jsg, Grid%shGrid%jeg
-        !    !!NOTE: Assuming dipole field dip angle
-        !    cosdip(:,j) = 2.0*cos(colat)/sqrt(1.0 + 3.0*cos(colat)**2.0)
-        !enddo
-        !end associate
+        associate (sh => Grid%shGrid)
 
-        Vtp(:,:,RAI_TH) =      gradPot(:,:,RAI_PH) / Grid%cosdip / (Grid%Bmag*1.0e-9)  ! [m/s]
-        Vtp(:,:,RAI_PH) = -1.0*gradPot(:,:,RAI_TH) / Grid%cosdip / (Grid%Bmag*1.0e-9)  ! [m/s]
+        dtArr = HUGE
 
-    end subroutine calcVelocityCC
+        ! Determine which faces can be considered good
+        isGood = .false.
+        do j=sh%js,sh%je+1
+            do i=sh%is,sh%ie+1
+                ! NOTE: We are only checking faces bordering non-ghost cells because those are the only ones we use for evolution
+                ! TODO: Strictly speaking, there are some faces that are included here that shouldn't be because they're never used to evolve anything
+                !  so we should make the loop js:je, is:ie, and handle the last row and column afterwards
+
+                ! We are responsible for face (i,j,TH) and (i,j,PH)
+                ! Theta faces first
+
+                ! This is a weird pattern. Basically, we can't cycle if the overall desired condition isn't met, because we are doing theta and phi directions in the same loop
+                ! At the same time, we don't want to write one massive if condition with all options covered, or a bunch of nested if statements
+                ! So instead, we break them up, such that if a single if condition is true it means we have failed the physical condition for us to calculate a valid timestep
+                ! If all if conditions fail then the physical conditions are met and we can do our calculations in the else block
+                if (Model%doActiveShell .and. (State%activeShells(i-1,k) .eq. .false. .or. State%activeShells(i,k) .eq. .false.) ) then
+                    ! In order for a theta-dir face to be usable, we need both sides to be active
+                    continue
+                else if ( State%active(i-1,j) .eq. .false. .or. State%active(i,j) .eq. .false.) then
+                    continue
+                else
+                    ! We are good lets calculate a dt for this face
+                    velij = max(abs(State%iVel(i,j,k,RAI_TH)), TINY)  ! [m/s]
+                    dtArr(i,j,RAI_TH) = ( Grid%delTh(i) * Model%planet%ri_m ) / velij  ! [s]
+                endif
+                
+                ! Phi faces
+                if (Model%doActiveShell .and. State%activeShells(i,k) .eq. .false. ) then
+                    ! In order for a phi-dir face to be usable, we just need this i shell to be active
+                    continue
+                else if (State%active(i,j-1) .eq. .false. .or. State%active(i,j) .eq. .false. ) then 
+                    continue
+                else
+                    velij = max(abs(State%iVel(i,j,k,RAI_PH)), TINY)
+                    dtArr(i,j,RAI_PH) = ( Grid%delPh(j) * Model%planet%ri_m ) / velij  ! [s]
+                endif
+
+            enddo
+        enddo
+
+        dt = Model%CFL*minval(dtArr)
+
+        end associate
+            
+    end function activeDt
+
+
+
+
+!------
+! Graveyard
+!------
+
+!    subroutine calcGradIJ_cc(RIon, Grid, isG, Q, gradQ)
+!        !! Calc gradint in spherical coordinates across entire grid, including ghosts
+!        !! Up to someone else to overwrite ghosts
+!        real(rp), intent(in) :: RIon
+!            !! Ionosphere radius in m
+!        type(raijuGrid_T), intent(in) :: Grid
+!        logical , dimension(Grid%shGrid%isg:Grid%shGrid%ieg,Grid%shGrid%jsg:Grid%shGrid%jeg), intent(in) :: isG
+!        real(rp), dimension(Grid%shGrid%isg:Grid%shGrid%ieg,Grid%shGrid%jsg:Grid%shGrid%jeg), intent(in) :: Q
+!        real(rp), dimension(Grid%shGrid%isg:Grid%shGrid%ieg,Grid%shGrid%jsg:Grid%shGrid%jeg, 2), intent(inout) :: gradQ
+!            !! I think [unitsQ/rad]
+!
+!        integer :: i,j
+!        real(rp), dimension(Grid%shGrid%isg:Grid%shGrid%ieg) :: sinTh
+!        
+!        gradQ = 0.0
+!        
+!        associate(sh=>Grid%shGrid)
+!        ! Calc sin(theta) for everyone to use
+!        sinTh = sin(sh%thc)
+!
+!        ! Leave out the end rows and columns
+!        !$OMP PARALLEL DO default(shared) collapse(1) &
+!        !$OMP schedule(dynamic) &
+!        !$OMP private(i,j) &
+!        !$OMP IF(.false.)
+!        do j=sh%jsg+1,sh%jeg-1
+!            do i=sh%isg+1,sh%ieg-1
+!                if (.not. isG(i,j)) then
+!                    cycle
+!                end if
+!
+!                ! Theta dir
+!                if(isG(i-1,j) .and. isG(i+1,j)) then
+!                    gradQ(i,j,RAI_TH) = (Q(i+1,j) - Q(i-1,j))/RIon/(Grid%delTh(i)+Grid%delTh(i+1))
+!                else if (isG(i-1,j)) then
+!                    gradQ(i,j,RAI_TH) = (Q(i,j)-Q(i-1,j))/RIon/Grid%delTh(i)
+!                else if (isG(i+1,j)) then
+!                    gradQ(i,j,RAI_TH) = (Q(i+1,j)-Q(i,j))/RIon/Grid%delTh(i+1)
+!                end if
+!
+!                ! Phi dir
+!                if(isG(i,j-1) .and. isG(i,j+1)) then
+!                    gradQ(i,j,RAI_PH) = (Q(i,j+1) - Q(i,j-1))/RIon/sinTh(i)/(Grid%delPh(j)+Grid%delPh(j+1))
+!                else if (isG(i,j-1)) then
+!                    gradQ(i,j,RAI_PH) = (Q(i,j)-Q(i,j-1))/RIon/sinTh(i)/Grid%delPh(j)
+!                else if (isG(i,j-1)) then
+!                    gradQ(i,j,RAI_PH) = (Q(i,j+1)-Q(i,j))/RIon/sinTh(i)/Grid%delPh(j+1)
+!                end if
+!            enddo
+!        enddo
+!
+!        ! Edge rows and columns
+!        ! Set to same gradient so that resulting velocity is the same
+!        ! Doesn't really matter since they won't be included in reconstructions anyways
+!        gradQ(sh%isg,:,:) = gradQ(sh%isg+1,:,:)
+!        gradQ(sh%ieg,:,:) = gradQ(sh%ieg-1,:,:)
+!        gradQ(:,sh%jsg,:) = gradQ(:,sh%jsg+1,:)
+!        gradQ(:,sh%jeg,:) = gradQ(:,sh%jeg-1,:)
+!
+!        end associate
+!    end subroutine calcGradIJ_cc
+
+
+!    subroutine calcVelocityCC(Model, Grid, State, k, Vtp)
+!        !! Uses gradPots stored in State to calculate cell-centered velocity [m/s] for lambda channel k
+!        type(raijuModel_T), intent(in) :: Model
+!        type(raijuGrid_T ), intent(in) :: Grid
+!        type(raijuState_T), intent(in) :: State
+!        integer, intent(in) :: k
+!        real(rp), dimension(Grid%shGrid%isg:Grid%shGrid%ieg,&
+!                            Grid%shGrid%jsg:Grid%shGrid%jeg, 2), intent(inout) :: Vtp
+!
+!        integer :: i,j
+!        real(rp), dimension(Grid%shGrid%isg:Grid%shGrid%ieg, Grid%shGrid%jsg:Grid%shGrid%jeg) :: cosdip
+!        real(rp), dimension(Grid%shGrid%isg:Grid%shGrid%ieg, Grid%shGrid%jsg:Grid%shGrid%jeg, 2) :: gradPot
+!
+!
+!        
+!        gradPot = State%gradPotE + State%gradPotCorot + Grid%alamc(k)*State%gradVM  ! [V/m]        
+!
+!        ! Vel = ( Bvec x grad(pot) ) / B^2  = ( bhat x grad(pot) ) / B
+!        ! [gradPot] = [V/m] = [T*m/s]
+!        ! Note, 1/B term includes dip angle
+!        !associate (colat => Grid%shGrid%thc)
+!        !do j=Grid%shGrid%jsg, Grid%shGrid%jeg
+!        !    !!NOTE: Assuming dipole field dip angle
+!        !    cosdip(:,j) = 2.0*cos(colat)/sqrt(1.0 + 3.0*cos(colat)**2.0)
+!        !enddo
+!        !end associate
+!
+!        Vtp(:,:,RAI_TH) =      gradPot(:,:,RAI_PH) / Grid%cosdip / (Grid%Bmag*1.0e-9)  ! [m/s]
+!        Vtp(:,:,RAI_PH) = -1.0*gradPot(:,:,RAI_TH) / Grid%cosdip / (Grid%Bmag*1.0e-9)  ! [m/s]
+!
+!    end subroutine calcVelocityCC
 
 
 

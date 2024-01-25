@@ -126,25 +126,15 @@ def getEqVelocity(s5: h5.Group, eFieldEq: np.ndarray, doCheck=False) -> np.ndarr
 
     velEq = eFieldEq / (bminFaces * 1e-9)  # V/m / T = V/m * (m^2/V/s) = m/s
 
-    # a
-
     if doCheck:
         print("Velocity check")
         j = int((Njc-1)//2)
+        xEq = ru.getVar(s5, 'xmin')[:,j]  # [Rp]
+        thIono = ru.getVar(s5.file, 'X')[:,j]  # 1D Thetas
         kPsph = raiI.species[ru.flavs_s['PSPH']].kStart
         iVelIono = ru.getVar(s5,'iVel')[:,:,kPsph,:]  # [m/s]
 
-        # Compare dt's from one cell center to the next
-        xEq = ru.getVar(s5, 'xmin')[:,j]  # [Rp]
-        xcc = kt.to_center1D(xEq)
-        xDiffEq = raiI.planet['Rad_surface'] * (xcc[1:] - xcc[:-1])
-
-        thIono = ru.getVar(s5.file, 'X')[:,j]  # 1D Thetas
-        thIonoCC = kt.to_center1D(thIono)
-        xDiffIono = raiI.planet['Rad_ionosphere'] * (thIonoCC[1:] - thIonoCC[:-1])  # [m]
-
         # Check vEq
-        """
         jStart, jEnd = getGradBnds(s5)
         phi = ru.getVar(s5.file, 'Y')[0,:]
         espot = ru.getVar(s5, 'espot')*1e3  # [V]
@@ -152,13 +142,12 @@ def getEqVelocity(s5: h5.Group, eFieldEq: np.ndarray, doCheck=False) -> np.ndarr
         delPot = espot[0,jEnd] - espot[0,jStart]
         vEq = delPot/delPhi * xEq**2 / (raiI.planet['Mag Moment']*kd.G2nT*1e-9 * raiI.planet['Rad_surface'])
 
-        print(vEq/velEq[:,j,0])
-        plt.plot(vEq, label='here')
-        plt.plot(velEq[:,j,0], label='calc')
+        plt.figure()
+        x = np.arange(dtIono.shape[0])
+        plt.plot(x, vEq, label='Partial-analytic')
+        plt.scatter(x, velEq[:,j,0], label='Model')
         plt.legend()
-        plt.show()
-        quit()
-        """
+
 
         # Check vIono
         jStart, jEnd = getGradBnds(s5)
@@ -169,19 +158,26 @@ def getEqVelocity(s5: h5.Group, eFieldEq: np.ndarray, doCheck=False) -> np.ndarr
         Bi = raiI.planet['Mag Moment']*kd.G2nT*1e-9 * (raiI.planet['Rad_ionosphere']/raiI.planet['Rad_surface'])**(-3)
         vI = delPot/delPhi / (2*Bi*np.sin(thIono)*np.cos(thIono)*raiI.planet['Rad_ionosphere'])
 
-        print(vI/iVelIono[:,j,0])
-        plt.plot   (np.arange(0,Nic), vI, label='here')
-        plt.scatter(np.arange(0,Nic), iVelIono[:,j,0], label='calc')
+        plt.figure()
+        plt.plot   (np.arange(0,Nic), vI, label='Partial-Analytic')
+        plt.scatter(np.arange(0,Nic), iVelIono[:,j,0], label='model')
         plt.legend()
-        plt.show()
-        
+        plt.title("Velocity comparison")
+        plt.xlabel("i")
+        plt.ylabel("Velocity [m/s]")
 
 
+        # Compare dt's from one cell center to the next
+        xcc = kt.to_center1D(xEq)
+        xDiffEq = raiI.planet['Rad_surface'] * (xcc[1:] - xcc[:-1])
 
+        thIonoCC = kt.to_center1D(thIono)
+        xDiffIono = raiI.planet['Rad_ionosphere'] * (thIonoCC[1:] - thIonoCC[:-1])  # [m]
 
         dtEq   = xDiffEq   / velEq   [1:-1,j,0]
         dtIono = xDiffIono / iVelIono[1:-1,j,0]
 
+        print("dt comp")
         print('eq:')
         print(dtEq)
         print('iono')
@@ -189,9 +185,13 @@ def getEqVelocity(s5: h5.Group, eFieldEq: np.ndarray, doCheck=False) -> np.ndarr
         print(dtEq/dtIono)
 
         plt.figure()
-        plt.plot(dtEq, label='eq')
-        plt.plot(dtIono, label='iono')
+        x = np.arange(dtIono.shape[0])
+        plt.plot(x, dtEq, label='eq')
+        plt.scatter(x, dtIono, label='iono')
         plt.legend()
+        plt.title("Dt in ionosphere vs equator")
+        plt.xlabel("i")
+        plt.ylabel("dt [s]")
         plt.show()
     
 
@@ -240,20 +240,22 @@ def showSimpleEq(raiI: ru.RAIJUInfo, s5: h5.Group, faces='Efield', fname=None):
     if faces=='Efield':
         eFieldEq = getEqEField(raiI, s5)*1e3  # [mV/m]
         norm_eField = kv.genNorm(np.min(eFieldEq), np.max(eFieldEq))
-        cm_eField = 'RdPu'
+        #cm_eField = 'RdPu'
+        cm_eField = 'PuBuGn'
 
         jStart, jEnd = getGradBnds(s5)
-        map_efd = dbg.drawFaces(ax, xEq[:,jStart:jEnd], yEq[:,jStart:jEnd], eFieldEq[:,jStart:jEnd], direction='theta', norm=norm_eField, cmap=cm_eField, iono=False)
+        map_efd = dbg.drawFaces(ax, xEq[:,jStart:jEnd+1], yEq[:,jStart:jEnd+1], eFieldEq[:,jStart:jEnd+1], direction='theta', norm=norm_eField, cmap=cm_eField, iono=False)
         cax_efd = divider.append_axes('top', size='5%', pad=0.05)
         fig.colorbar(map_efd, cax=cax_efd, orientation='horizontal').set_label('E [mV/m]')
     elif faces=='Vel':
         eFieldEq = getEqEField(raiI, s5)  # [V/m]
         velEq = getEqVelocity(s5, eFieldEq)*1e-3  # [km/s]
         norm_vel = kv.genNorm(np.min(velEq), np.max(velEq))
-        cm_vel = 'RdPu'
+        #cm_vel = 'RdPu'
+        cm_vel = 'PuBuGn'
 
         jStart, jEnd = getGradBnds(s5)
-        map_efd = dbg.drawFaces(ax, xEq[:,jStart:jEnd], yEq[:,jStart:jEnd], velEq[:,jStart:jEnd], direction='theta', norm=norm_vel, cmap=cm_vel, iono=False)
+        map_efd = dbg.drawFaces(ax, xEq[:,jStart:jEnd+1], yEq[:,jStart:jEnd+1], velEq[:,jStart:jEnd+1], direction='theta', norm=norm_vel, cmap=cm_vel, iono=False)
         cax_efd = divider.append_axes('top', size='5%', pad=0.05)
         fig.colorbar(map_efd, cax=cax_efd, orientation='horizontal').set_label('Velocity [km/s]')
 
@@ -265,8 +267,11 @@ def showSimpleEq(raiI: ru.RAIJUInfo, s5: h5.Group, faces='Efield', fname=None):
     eMax = np.max(espot)
     eMin = np.min(espot)
     isInteresting = np.logical_and(espot > eMin, espot < eMax)
-    xBnds = [np.min(xEq[isInteresting]), np.max(xEq[isInteresting])]
-    yBnds = [-np.max(yEq[isInteresting]), np.max(yEq[isInteresting])]
+    #xBnds = [np.min(xEq[isInteresting]), np.max(xEq[isInteresting])]
+    #yBnds = [-np.max(yEq[isInteresting]), np.max(yEq[isInteresting])]
+    jMid = int(xEq.shape[1]//2)
+    xBnds = [np.min(xEq), xEq[-1,jMid]]
+    yBnds = [yEq[0,jStart], yEq[0,jEnd]]
     ax.set_xlim(xBnds)
     ax.set_ylim(yBnds)
     
@@ -419,14 +424,14 @@ if __name__=="__main__":
         print("ERROR: Can't have corotation on for this analysis")
         quit()
 
-    """
-    showSimpleEq(raiI, s1, faces='Efield')
-    showSimpleEq(raiI, s1, faces='Vel')
+    
+    showSimpleEq(raiI, f5[raiI.stepStrs[0]], faces='Efield')
+    showSimpleEq(raiI, f5[raiI.stepStrs[0]], faces='Vel')
     plt.show()
-    """
+    
 
     eFieldEq = getEqEField(raiI, s1, doCheck=False)
-    getEqVelocity(s1, eFieldEq, doCheck=True)
+    getEqVelocity(s1, eFieldEq, doCheck=False)
 
     tArrive = getCellTiming(raiI, s1, iStart=iStart)
     tArrive_ana = getCellTiming_ana(raiI, f5, iStart=iStart)

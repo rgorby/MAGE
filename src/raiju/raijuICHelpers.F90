@@ -81,20 +81,20 @@ module raijuICHelpers
         type(raijuGrid_T)  , intent(in)    :: Grid
         type(raijuState_T) , intent(inout) :: State
 
-        real(rp) :: L, bVol
+        real(rp) :: L
         real(rp), dimension(3) :: xyzIono
         integer :: i,j
         
 
-        State%Bmin = 0.0
+        State%Bmin   = 0.0
         State%xyzMin = 0.0
-        State%topo = 1  ! Everything closed
-        State%active = 1 ! Everything active
-        State%thcon = 0.0  ! Conjugate points are the same
-        State%phcon = 0.0
-        State%bvol = 0.0
+        State%topo   = RAIJUCLOSED  ! Everything closed
+        State%active = RAIJUACTIVE ! Everything active
+        State%thcon  = 0.0  ! Conjugate points are the same
+        State%phcon  = 0.0
+        State%bvol   = 0.0
 
-        ! Ni+1, Nj+1 variables
+        ! Ni+1, Nj+1 corner variables
         do i=Grid%shGrid%isg,Grid%shGrid%ieg+1
             do j=Grid%shGrid%jsg,Grid%shGrid%jeg+1
                 xyzIono(1) = Model%planet%ri_m/Model%planet%rp_m * sin(Grid%shGrid%th(i)) * cos(Grid%shGrid%ph(j))
@@ -102,7 +102,6 @@ module raijuICHelpers
                 xyzIono(3) = Model%planet%ri_m/Model%planet%rp_m * cos(Grid%shGrid%th(i))
 
                 L = DipoleL(xyzIono)
-                bVol = DipFTV_L(L, Model%planet%magMoment) ! [Rx/nT]
 
                 State%xyzMin(i,j,XDIR) = L*cos(Grid%shGrid%ph(j))
                 State%xyzMin(i,j,YDIR) = L*sin(Grid%shGrid%ph(j))
@@ -112,7 +111,7 @@ module raijuICHelpers
 
             ! Bmin surface vars
                 State%Bmin(i,j,ZDIR) = Model%planet%magMoment*G2nT/L**3.0  ! [nT]
-                State%bvol(i,j) = bVol
+                State%bvol(i,j) = DipFTV_L(L, Model%planet%magMoment) ! [Rp/nT]
             enddo
         enddo
 
