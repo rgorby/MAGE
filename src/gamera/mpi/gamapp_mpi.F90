@@ -553,7 +553,10 @@ module gamapp_mpi
 
         amPrintingRank = .false.
 
-        if(gamappMpi%slowestRankPrints) then
+        if(.not. gamAppMpi%Grid%isTiled) then
+            ! only a single rank
+            amPrintingRank = .true.
+        else if(gamAppMpi%slowestRankPrints) then
             ! only the slowest rank prints
 
             myRank = gamAppMpi%Grid%Ri*gamAppMpi%Grid%NumRj*gamAppMpi%Grid%NumRk + &
@@ -562,7 +565,7 @@ module gamapp_mpi
 
             inData(1) = gamAppMpi%Model%kzcsMHD
             inData(2) = myRank
-            call MPI_ALLREDUCE(inData, outData, 1, MPI_2MYFLOAT, MPI_MINLOC, gamAppMpi%gamMpiComm, ierr)
+            call MPI_AllReduce(inData, outData, 1, MPI_2MYFLOAT, MPI_MINLOC, gamAppMpi%gamMpiComm, ierr)
             slowRank = outData(2) ! convert rank back to an integer
             if(myRank == slowRank) then
                 amPrintingRank = .true.
