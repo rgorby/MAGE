@@ -8,35 +8,24 @@ module raijuDomain
     contains
 
 
-    subroutine setActiveDomain(sh, nB, State)
-        type(ShellGrid_T), intent(in) :: sh
-        integer, intent(in) :: nB
-            !! Number of cells between open boundary and active domain
+    subroutine setActiveDomain(Model, Grid, State)
+        !! Sets State%active array
+        !! Determines Inactive -> buffer -> active cells
+        type(raijuModel_T), intent(in   ) :: Model
+        type(raijuGrid_T ), intent(in   ) :: Grid
         type(raijuState_T), intent(inout) :: State
 
-        integer :: i,j
-        logical, dimension(sh%isg:sh%ieg,sh%jsg:sh%jeg) :: closedCC
+        logical, dimension(Grid%shGrid%isg:Grid%shGrid%ieg,Grid%shGrid%jsg:Grid%shGrid%jeg) :: isInactive
+        logical, dimension(Grid%shGrid%isg:Grid%shGrid%ieg,Grid%shGrid%jsg:Grid%shGrid%jeg) :: isBuffer
 
 
-        ! We make sure the whole thing is initialized later, but just in case
-        State%active = RAIJUINACTIVE
-
-        ! Mark any cell center with an open corner as open
-        closedCC = .true.
-        do i=sh%isg, sh%ieg
-            do j=sh%jsg, sh%jeg
-                if (any(State%topo .eq. RAIJUOPEN)) then
-                    closedCC(i,j) = .false.
-                endif
-            enddo
-        enddo
-
-        call CalcOCBDist(sh, closedCC, nB, State%OCBDist)
+        call getInactiveCells(Model, Grid, State, isInactive)
+        call getBufferCells  (Model, Grid, State, isInactive, isBuffer)
 
         ! Set zones
-        where (State%OCBDist .eq. 0)
+        where (isInactive)
             State%active = RAIJUINACTIVE
-        else where (State%OCBDist .le. nB)
+        else where (isBuffer)
             State%active = RAIJUBUFFER
         elsewhere
             State%active = RAIJUACTIVE
@@ -45,12 +34,64 @@ module raijuDomain
     end subroutine setActiveDomain
 
 
-    subroutine CalcOCBDist(sh, closedCC, nBnd, ocbDist)
+    subroutine getInactiveCells(Model, Grid, State, isInactive)
+        !! Applies series of criteria to determine which cells should be marked as inactive
+        type(raijuModel_T), intent(in) :: Model
+        type(raijuGrid_T ), intent(in) :: Grid
+        type(raijuState_T), intent(in) :: State
+        logical, dimension(Grid%shGrid%isg:Grid%shGrid%ieg,Grid%shGrid%jsg:Grid%shGrid%jeg), intent(inout) :: isInactive
+
+        integer :: i,j
+
+        isInactive = .false.
+
+        do j=Grid%shGrid%jsg, Grid%shGrid%jeg
+            do i=Grid%shGrid%isg, Grid%shGrid%ieg
+
+                ! Any cell with an open corner is bad
+                if (any(State%topo(i:i+1,j:j+1) .eq. RAIJUOPEN)) then
+                    isInactive(i,j) = .true.
+                endif
+
+                ! Future criteria, like flow speed, bmin strength, etc. will go here
+
+            enddo
+        enddo
+    end subroutine getInactiveCells
+
+
+    subroutine getBufferCells(Model, Grid, State, isInactive, isBuffer)
+        !! Determines which cells should be marked as inactive
+        type(raijuModel_T), intent(in) :: Model
+        type(raijuGrid_T ), intent(in) :: Grid
+        type(raijuState_T), intent(in) :: State
+        logical, dimension(Grid%shGrid%isg:Grid%shGrid%ieg,Grid%shGrid%jsg:Grid%shGrid%jeg), intent(in) :: isInactive
+        logical, dimension(Grid%shGrid%isg:Grid%shGrid%ieg,Grid%shGrid%jsg:Grid%shGrid%jeg), intent(inout) :: isBuffer
+
+        integer, dimension(Grid%shGrid%isg:Grid%shGrid%ieg,Grid%shGrid%jsg:Grid%shGrid%jeg) :: ocbDist
+            !! Distance each cell is to open-closed boundary, up to nB + 1
+
+        ! As a first pass, we will blanket enforce that there must always be nB buffer between any inactive and active cells
+
+        !We can do more complex stuff later
+
+        call CalcOCBDist(Grid%shGrid, isInactive, Grid%nB, ocbDist)
+
+        where (ocbDist > 0 .and. ocbDist .le. Grid%nB)
+            isBuffer = .true.
+        elsewhere
+            isBuffer = .false.
+        end where
+
+    end subroutine getBufferCells
+
+
+    subroutine CalcOCBDist(sh, isInactive, nBnd, ocbDist)
         !! Calculates distance each cell is from open/closed boundary, up to nBnd cells away
         type(ShellGrid_T), intent(in) :: sh
             !! RAIJU shell grid
-        logical, dimension(sh%isg:sh%ieg,sh%jsg:sh%jeg), intent(in) :: closedCC
-            !! Whether cell centers are closed or open
+        logical, dimension(sh%isg:sh%ieg,sh%jsg:sh%jeg), intent(in) :: isInactive
+            !! Whether cell centers are inactive
         integer, intent(in) :: nBnd
             !! Number of desired layers between open/closed boundary and active domain
         integer, dimension(sh%isg:sh%ieg,sh%jsg:sh%jeg), intent(out) :: ocbDist
@@ -59,10 +100,10 @@ module raijuDomain
         integer :: iLayer, i, j, iL, iU, jL, jU
 
 
-        where (closedCC)
-            ocbDist = nBnd + 1
-        elsewhere
+        where ( isInactive )
             ocbDist = 0
+        elsewhere
+            ocbDist = nBnd + 1
         end where
 
 
@@ -76,7 +117,7 @@ module raijuDomain
                     jL = max(j-1, sh%jsg)
                     jU = min(j+1, sh%jeg)
 
-                    if (closedCC(i,j) .eq. .false.) then
+                    if (isInactive(i,j)) then
                         cycle
                     else if ( (ocbDist(i,j) .eq. nBnd+1) .and. any(ocbDist(iL:iU,jL:jU) .eq. iLayer-1) ) then
                         !! If current point's distance hasn't been decided and its bordering cell with iL-1, this point is distance iL from ocb

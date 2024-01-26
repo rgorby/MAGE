@@ -167,7 +167,9 @@ module raijuAdvancer
 
         real(rp), dimension(Grid%shGrid%isg:Grid%shGrid%ieg+1, &
                             Grid%shGrid%jsg:Grid%shGrid%jeg+1, 2) :: Qflux
-            !! TODO: May not want to keep this at this scope
+        logical, dimension(Grid%shGrid%isg:Grid%shGrid%ieg, &
+                            Grid%shGrid%jsg:Grid%shGrid%jeg) :: isGoodEvol
+            !! TODO: May not want to keep these at this scope
 
         integer :: i,j
 
@@ -180,10 +182,21 @@ module raijuAdvancer
         ! Calculate eta face fluxes
         call calcFluxes(Model, Grid, State, k, State%eta_half(:,:,k), Qflux)  ! [eta * Rp/s]
 
-        
+        !! This probably doesn't need to be at this scope. 
+        !! Same with isG inside calcFluxes; can be pushed at least 1 level up
+        where (State%active .eq. RAIJUACTIVE)
+            isGoodEvol = .true.
+        elsewhere
+            isGoodEvol = .false.
+        end where
+
         ! Calc new eta
         do j=Grid%shGrid%js,Grid%shGrid%je
             do i=Grid%shGrid%is,Grid%shGrid%ie
+                if (.not. isGoodEvol(i,j)) then
+                    cycle
+                endif
+                
                 State%eta(i,j,k) = State%eta(i,j,k) + dt/Grid%areaCC(i,j)/Grid%BrCC(i,j) &
                                                     * ( Qflux(i  ,j  ,RAI_TH)*Grid%lenFace(i  ,j  ,RAI_TH) &
                                                       - Qflux(i+1,j  ,RAI_TH)*Grid%lenFace(i+1,j  ,RAI_TH) &

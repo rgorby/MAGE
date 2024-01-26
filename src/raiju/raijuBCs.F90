@@ -14,51 +14,102 @@ module raijuBCs
         type(raijuGrid_T) , intent(in) :: Grid
         type(raijuState_T), intent(inout) :: State
         logical, optional, intent(in) :: doWholeDomainO
-
-        integer :: i,j,s,k
-        real(rp) :: kT,vm
-        logical :: doWholeDomain
             !! Whether we should apply certain BCs (moments2eta mapping) to entire active domain or not
+
+        logical :: doWholeDomain
+        integer :: s
         logical, dimension(Grid%shGrid%isg:Grid%shGrid%ieg,&
-                           Grid%shGrid%jsg:Grid%shGrid%jeg) :: doBC
+                           Grid%shGrid%jsg:Grid%shGrid%jeg) :: doMomentIngest
             !! Whether we do moments to eta mapping at given grid cell
 
-        integer :: psphIdx
-            !! Index of plasmasphere
-        real(rp) :: etaBelow
-            !! Amount of eta below lowest lambda bound (every i,j gets a copy)
-        
         if (present(doWholeDomainO)) then
             doWholeDomain = doWholeDomainO
         else
             doWholeDomain = .false.
         endif
 
+        call calcMomentIngestionLocs(Model, Grid, State, doWholeDomain, doMomentIngest)
+        call applyMomentIngestion(Model, Grid, State, doMomentIngest)
+
+
+        if (Model%doActiveShell ) then
+            ! Do first round of determining active shells for each k
+            ! We do this everywhere
+            do s=1,Grid%nSpc
+                call setActiveShellsByContribution(Grid%shGrid, Grid%spc(s), State%bVol, &
+                    State%eta(:,:,Grid%spc(s)%kStart:Grid%spc(s)%kEnd), &
+                    State%activeShells(:,Grid%spc(s)%kStart:Grid%spc(s)%kEnd), &  ! This is what we're writing to
+                    worthyFracO=Model%worthyFrac)
+            enddo
+        endif
+
+    end subroutine applyRaijuBCs
+
+
+    subroutine calcMomentIngestionLocs(Model, Grid, State, doWholeDomain, doMomentIngest)
+        !! Determine which locations will have etas set by MHD moments
+        type(raijuModel_T), intent(in) :: Model
+        type(raijuGrid_T) , intent(in) :: Grid
+        type(raijuState_T), intent(inout) :: State
+        logical, intent(in) :: doWholeDomain
+        logical, dimension(Grid%shGrid%isg:Grid%shGrid%ieg,&
+                           Grid%shGrid%jsg:Grid%shGrid%jeg), intent(inout) :: doMomentIngest
+        
+        integer :: i,j
+
+        doMomentIngest = .false.
         ! Determine where to do BCs
         ! Will definitely be its own function later to do ellipse fitting, restriction of fast flows, etc
         if(doWholeDomain) then
-            where (State%active .eq. RAIJUBUFFER .or. State%active .eq. RAIJUACTIVE)
-                doBC = .true.
-            elsewhere
-                doBC = .false.
+            where (State%active .ne. RAIJUINACTIVE)
+                doMomentIngest = .true.
             end where
         else
-            where (State%active .eq. RAIJUBUFFER)
-                doBC = .true.
-            elsewhere
-                doBC = .false.
-            end where
+
+            do j=Grid%shGrid%jsg,Grid%shGrid%jeg
+                do i=Grid%shGrid%isg,Grid%shGrid%ieg
+                    
+                    ! All buffer cells get set to moments
+                    if (State%active(i,j) .eq. RAIJUBUFFER) then
+                        doMomentIngest(i,j) = .true.
+
+                    ! If a cell is currently active but it wasn't previously, we want to give it the freshest moment information
+                    elseif (State%active(i,j) .eq. RAIJUACTIVE .and. State%active_last(i,j) .ne. RAIJUACTIVE) then
+                        doMomentIngest(i,j) = .true.
+                    
+                    endif
+
+                enddo
+            enddo
+
         endif
- 
+
+    end subroutine calcMomentIngestionLocs
+
+
+    subroutine applyMomentIngestion(Model, Grid, State, doMomentIngest)
+        !! Based on doMomentIngest map, map moments to eta channels for all species
+        type(raijuModel_T), intent(in) :: Model
+        type(raijuGrid_T) , intent(in) :: Grid
+        type(raijuState_T), intent(inout) :: State
+        logical, dimension(Grid%shGrid%isg:Grid%shGrid%ieg,&
+                           Grid%shGrid%jsg:Grid%shGrid%jeg), intent(in) :: doMomentIngest
+
+        integer :: i,j,s
+        integer :: psphIdx
+            !! Index of plasmasphere species
+        real(rp) :: kT,vm
+        real(rp) :: etaBelow
+            !! Amount of eta below lowest lambda bound (every i,j gets a copy)
 
         psphIdx = spcIdx(Grid, F_PSPH)
         !$OMP PARALLEL DO default(shared) &
         !$OMP schedule(dynamic) &
-        !$OMP private(i,j,s,vm,kT, etaBelow)
-        do i=Grid%shGrid%isg,Grid%shGrid%ieg
-            do j=Grid%shGrid%jsg,Grid%shGrid%jeg
+        !$OMP private(i,j,s,vm,kT,etaBelow)
+        do j=Grid%shGrid%jsg,Grid%shGrid%jeg
+            do i=Grid%shGrid%isg,Grid%shGrid%ieg
                 ! Skip if we should leave point alone
-                if(.not. doBC(i,j)) then
+                if(.not. doMomentIngest(i,j)) then
                     cycle
                 endif
 
@@ -80,21 +131,7 @@ module raijuBCs
             enddo  ! j
         enddo  ! i
 
-
-        if (Model%doActiveShell ) then
-
-            ! Do first round of determining active shells for each k
-            ! We do this everywhere
-            do s=1,Grid%nSpc
-                call setActiveShellsByContribution(Grid%shGrid, Grid%spc(s), State%bVol, &
-                    State%eta(:,:,Grid%spc(s)%kStart:Grid%spc(s)%kEnd), &
-                    State%activeShells(:,Grid%spc(s)%kStart:Grid%spc(s)%kEnd), &  ! This is what we're writing to
-                    worthyFracO=Model%worthyFrac)
-            enddo  ! s
-        endif
-
-    end subroutine applyRaijuBCs
-
+    end subroutine applyMomentIngestion
 
 !------
 ! Active I Shell calculations

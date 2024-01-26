@@ -105,7 +105,7 @@ module raijuCpl
             end where
 
             ! Now that topo is set, we can calculate active domain
-            call setActiveDomain(Grid%shGrid, Grid%nB, State)
+            call setActiveDomain(Model, Grid, State)
 
             ! Assign corner quantities
             !$OMP PARALLEL DO default(shared) collapse(1) &
@@ -127,7 +127,7 @@ module raijuCpl
             !$OMP private(i,j)
             do i=sh%isg,sh%ieg
                 do j=sh%jsg,sh%jeg
-                    ! Always do xyzmin
+                    ! Note: we are doing this for all cells regardless of their goodness
                     State%xyzMincc(i,j,XDIR) = toCenter2D(State%xyzMin(i:i+1,j:j+1,XDIR))  ! [Rp]
                     State%xyzMincc(i,j,YDIR) = toCenter2D(State%xyzMin(i:i+1,j:j+1,YDIR))  ! [Rp]
                     State%xyzMincc(i,j,ZDIR) = toCenter2D(State%xyzMin(i:i+1,j:j+1,ZDIR))  ! [Rp]

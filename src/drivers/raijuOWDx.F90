@@ -111,9 +111,11 @@ program raijuOWDx
                     ebModel%tOut = inTscl*raiApp%State%IO%tOut  ! Idk if we need to set this since chimp isn't controlling its own output
                 endif
 
-                call WriteRCMFLs(raijuCplBase%fromV%fLines,raiApp%State%IO%nOut, &
-                        raiApp%State%mjd,raiApp%State%t, &
-                        raiApp%Grid%shGrid%Nt,raiApp%Grid%shGrid%Np)
+                if (doFLOut) then
+                    call WriteRCMFLs(raijuCplBase%fromV%fLines,raiApp%State%IO%nOut, &
+                            raiApp%State%mjd,raiApp%State%t, &
+                            raiApp%Grid%shGrid%Nt,raiApp%Grid%shGrid%Np)
+                endif
             endif
             call Toc("Output")
 
