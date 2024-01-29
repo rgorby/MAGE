@@ -379,7 +379,7 @@ module gamapp_mpi
         call CalcGridInfo(Model,Grid,gamAppMpi%State,gamAppMpi%oState,gamAppMpi%Solver,xmlInp,userInitFunc)
 
         ! All Gamera ranks compare restart numbers to ensure they're the same
-        if(Model%isRestart) then
+        if(Model%isRestart .and. Grid%isTiled) then
             if(Grid%Ri==0 .and. Grid%Rj==0 .and. Grid%Rk==0) then
                 ! master rank receives data
                 allocate(gamRestartNumbers(commSize))
