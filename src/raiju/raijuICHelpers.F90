@@ -88,11 +88,12 @@ module raijuICHelpers
 
         State%Bmin   = 0.0
         State%xyzMin = 0.0
-        State%topo   = RAIJUCLOSED  ! Everything closed
-        State%active = RAIJUACTIVE ! Everything active
         State%thcon  = 0.0  ! Conjugate points are the same
         State%phcon  = 0.0
         State%bvol   = 0.0
+        State%topo        = RAIJUCLOSED  ! Everything closed
+        State%active      = RAIJUACTIVE  ! Everything active
+        State%active_last = RAIJUACTIVE  ! Everything active
 
         ! Ni+1, Nj+1 corner variables
         do i=Grid%shGrid%isg,Grid%shGrid%ieg+1

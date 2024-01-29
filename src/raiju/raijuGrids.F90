@@ -26,7 +26,8 @@ module raijugrids
         real(rp), dimension(:), allocatable :: Theta
         real(rp), dimension(:), allocatable :: Phi
         real(rp) :: dTheta, dPhi, thetaL, thetaU
-        integer :: Nt,Np,Ng,Ngn,Ngs,Nge,Ngw
+        integer :: Nt,Np,Ng
+        integer, dimension(4) :: nGhosts
         integer :: i
 
 
@@ -42,11 +43,8 @@ module raijugrids
         thetaL = thetaL*deg2rad
         thetaU = thetaU*deg2rad
 
-        ! Probably need to change
-        Ngn = Ng
-        Ngs = Ng
-        Nge = Ng
-        Ngw = Ng
+        ! Express numGhosts in the way GenShellGrid expects
+        nGhosts = Ng
 
         ! Allocate arrays
         allocate(Theta(Nt))
@@ -63,10 +61,8 @@ module raijugrids
         do i=1,Np
             Phi(i) = (i-1)*dPhi
         enddo
-        !write(*,*)"Orig theta:",Theta
-        !write(*,*)"Orig phi:",Phi
 
-        call GenShellGrid(Grid%shGrid,Theta,Phi,Ngn,Ngs,Nge,Ngw)
+        call GenShellGrid(Grid%shGrid,Theta,Phi,nGhosts)
 
     end subroutine raijuGenUniSphGrid
 
@@ -160,32 +156,20 @@ module raijugrids
                 enddo
             enddo
 
-            ! Arc length of faces [Rp]
-            do i=shGr%isg,shGr%ieg
-                do j=shGr%jsg,shGr%jeg
-                    ! Faces in theta dir are i +/- 1/2 faces, each of which spans the phi direction
-                    
-                    ! Theta dir
-                    Grid%lenFace(i,j,RAI_TH) = (planet%ri_m/planet%rp_m) &
-                                        * sin(shGr%th(i)) &
-                                        * (shGr%ph(j+1) - shGr%ph(j))  ! Line segment in phi direction
-                    ! Phi dir
-                    Grid%lenFace(i,j,RAI_PH) = (planet%ri_m/planet%rp_m) &
-                                        * (shGr%th(i+1) - shGr%th(i))  ! Line segment in theta direction
+
+            ! Faces in theta dir are i +/- 1/2 faces, each of which spans the phi direction
+            do j=shGr%jsg,shGr%jeg
+                do i=shGr%isg,shGr%ieg+1
+                    Grid%lenFace(i, j, RAI_TH) = (planet%ri_m/planet%rp_m) &
+                                               * sin(shGr%th(i)) &
+                                               * (shGr%ph(j+1) - shGr%ph(j))
                 enddo
             enddo
-            ! Do last row's top edges too
-            i = shGr%ieg+1
-            do j=shGr%jsg,shGr%jeg
-                Grid%lenFace(i, j, RAI_TH) = (planet%ri_m/planet%rp_m) &
-                                            * sin(shGr%th(shGr%ie+1)) &
-                                            * (shGr%ph(shGr%jeg+1) - shGr%ph(shGr%jeg))
-            enddo
-            ! And last column's side edges
-            j = shGr%jeg+1
-            do i=shGr%isg,shGr%ieg
-                Grid%lenFace(i,j, RAI_PH) = (planet%ri_m/planet%rp_m) &
-                                            * (shGr%th(shGr%ieg+1) - shGr%th(shGr%ieg))
+            do j=shGr%jsg,shGr%jeg+1
+                do i=shGr%isg,shGr%ieg
+                    Grid%lenFace(i,j, RAI_PH) = (planet%ri_m/planet%rp_m) &
+                                              * (shGr%th(i+1) - shGr%th(i))
+                enddo
             enddo
 
 
