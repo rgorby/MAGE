@@ -37,8 +37,8 @@ from astropy.io import fits
 from jinja2 import Template
 
 # Import project modules.
-from kaipy.kdefs import JD2MJD
-
+from kaipy.kdefs import JD2MJD, Tsolar_synodic
+from kaipy.kaiTools import MJD2UT
 
 # Program constants
 
@@ -274,13 +274,16 @@ def prompt_user_for_run_options(args):
     mjdc = read_mjdc_from_fits(o[on])
     o["mjdc"] = mjdc
 
+    date_format = '%Y-%m-%dT%H:%M:%S'
+    # Set start and end dates based on fits file MJDc
+    od["start_date"]["default"] = MJD2UT(mjdc).strftime(date_format)
+    od["stop_date"]["default"] = MJD2UT(mjdc + Tsolar_synodic).strftime(date_format)
     # Prompt for the start and stop date of the run.
     for on in ["start_date", "stop_date"]:
         o[on] = get_run_option(on, od[on], mode)
 
     # Compute the total simulation time in seconds, use as segment duration
     # default in hours.
-    date_format = '%Y-%m-%dT%H:%M:%S'
     start_date = o["start_date"]
     stop_date = o["stop_date"]
     t1 = datetime.datetime.strptime(start_date, date_format)
