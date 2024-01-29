@@ -1,61 +1,43 @@
 #!/bin/bash
 #PBS -N nonCaseTests2
 #PBS -A UJHB0019
-#PBS -j oe
+#PBS -l walltime=00:30:00
 #PBS -q main
-#PBS -l walltime=12:00:00
-#PBS -l select=2:ncpus=128:mpiprocs=9:ompthreads=36
+#PBS -l select=4:ncpus=128:mpiprocs=2:ompthreads=64+1:ncpus=128:mpiprocs=1:ompthreads=128
+#PBS -j oe
+#PBS -m abe
 
-source ~/.bashrc
+# NOTE: The user account must be specified on the qsub command line with the
+# -A option,
+# KAIJUROOTDIR and MODULE_LIST must be set as transferred environment
+# variables on the qsub command line.
+# Example qsub command:
+# qsub -A UJHB0019 -v $HOME/kaiju,MODULE_LIST='module1 module2 ...'
 
-KAIJUROOTDIR=/glade/work/ewinter/mage_testing/derecho/kaiju/ewinter-move_testing_to_derecho/kaiju
+echo "Job $PBS_JOBID started at `date` on `hostname` in directory `pwd`."
 
-if [[ ! -z "$KAIJUROOTDIR" ]]; then
-    #If the root folder of a kaiju repo was passed in, souce the environment setup script
-    source $KAIJUROOTDIR/scripts/setupEnvironment.sh
-fi
+echo 'Setting up MAGE environment.'
+source $KAIJUROOTDIR/scripts/setupEnvironment.sh
 
-# if [[ ! -z "$MODULE_LIST" ]]; then
-#     # user passed a list of modules to load as the environment variable MODULE_LIST
-#     module purge
-#     module load $MODULE_LIST
-# elif [[ ! -z "$MODULE_SET" ]]; then
-#     # user passed a module set name to load as the environment variable MODULE_SET
-#     module purge
-#     module restore $MODULE_SET
-# fi
-
-module load ncarenv/23.06
-module load cmake/3.26.3
-module load craype/2.7.20
-module load intel/2023.0.0
-module load geos/3.9.1  # Must come after intel/2023.0.0
-module load ncarcompilers/1.0.0  # Must come after intel/2023.0.0
-module load cray-mpich/8.1.25
-module load hdf5/1.12.2  # NOTE: Not the MPI version
-module load mkl/2023.0.0
-
-if [[ ! -z "$MPT_VERSION" ]]; then
-    echo "USING MPIEXEC_MPT"
-    export MPICOMMAND="mpiexec_mpt omplace"
-else
-    echo "USING MPIRUN"
-    export MPICOMMAND="mpirun"
-fi
-
-MPICOMMAND="mpiexec $KAIJUHOME/scripts/preproc/pinCpuCores.sh"
-
+echo 'Loading modules.'
+module --force purge
+module load $MODULE_LIST
+echo 'The following modules are loaded:'
 module list
-hostname
-export OMP_NUM_THREADS=36
-export OMP_STACKSIZE=128M
-export MPI_TYPE_DEPTH=32
 
-echo ""
-echo "Running Voltron MPI Tests"
+echo 'Setting environment variables.'
+MPICOMMAND="mpiexec $KAIJUHOME/scripts/preproc/pinCpuCores.sh"
+export OMP_NUM_THREADS=128
+export MPI_TYPE_DEPTH=32
+export KMP_STACKSIZE=128M
+echo 'The active environment variables are:'
+printenv
+
+echo 'Running VOLTRON MPI tests.'
 date
 ${MPICOMMAND} ./voltMpiTests > voltMpiTests.out
 date
-echo "Voltron MPI Tests Complete"
+echo 'VOLTRON MPI tests complete.'
 echo | tail -n 3 ./voltMpiTests.out
 
+echo "Job $PBS_JOBID ended at `date` on `hostname` in directory `pwd`."

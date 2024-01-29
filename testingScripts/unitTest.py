@@ -162,10 +162,13 @@ def main():
 
     # Make a copy of the pFUnit code under kaiju/external.
     os.chdir(home)
-    os.system('cp -r /glade/p/hao/msphere/gamshare/pFUnit-4.2.0/ifort-23-mpich-derecho/FARGPARSE-1.1 external')
-    os.system('cp -r /glade/p/hao/msphere/gamshare/pFUnit-4.2.0/ifort-23-mpich-derecho/GFTL-1.3 external')
-    os.system('cp -r /glade/p/hao/msphere/gamshare/pFUnit-4.2.0/ifort-23-mpich-derecho/GFTL_SHARED-1.2 external')
-    os.system('cp -r /glade/p/hao/msphere/gamshare/pFUnit-4.2.0/ifort-23-mpich-derecho/PFUNIT-4.2 external')
+    pfunit_home = (
+        '/glade/p/hao/msphere/gamshare/pFUnit-4.2.0/ifort-23-mpich-derecho'
+        )
+    os.system(f"cp -r {pfunit_home}/FARGPARSE-1.1 external/")
+    os.system(f"cp -r {pfunit_home}/GFTL-1.3 external/")
+    os.system(f"cp -r {pfunit_home}/GFTL_SHARED-1.2 external/")
+    os.system(f"cp -r {pfunit_home}/PFUNIT-4.2 external/")
 
     #--------------------------------------------------------------------------
 
@@ -182,6 +185,11 @@ def main():
     if debug:
         print(f"module_list_files = {module_list_files}")
 
+    # <HACK>
+    # Just use first module set for now.
+    module_list_files = [module_list_files[0]]
+    # </HACK>
+
     # Run unit tests with each set of modules.
     for module_list_file in module_list_files:
         if debug:
@@ -192,7 +200,8 @@ def main():
         if debug:
             print(f"module_list_name = {module_list_name}")
 
-        # Read this module list file, extracting cmake environment and options, if any.
+        # Read this module list file, extracting cmake environment and options,
+        # if any.
         path = os.path.join(home, 'testingScripts', 'mage_build_test_modules',
                             module_list_file)
         with open(path, encoding="utf-8") as f:
@@ -221,8 +230,6 @@ def main():
 
         # Assemble the commands to load the listed modules.
         module_cmd = f"module --force purge; module load {' '.join(module_names)}"
-        # for module_name in module_names:
-        #     module_cmd += f" {module_name}"
         if debug:
             print(f"module_cmd = {module_cmd}")
 
@@ -263,7 +270,9 @@ def main():
         qsub_cmd = f"qsub -A {account} -v MODULE_LIST='{module_list}',KAIJUROOTDIR={home} genTestData.pbs"
         if debug:
             print(f"qsub_cmd = {qsub_cmd}")
-        submission = subprocess.Popen(qsub_cmd, shell=True, stdout=subprocess.PIPE)
+        submission = subprocess.Popen(
+            qsub_cmd, shell=True, stdout=subprocess.PIPE
+        )
         submission.wait()
         readString = submission.stdout.read().decode('ascii')
         if debug:
@@ -272,73 +281,81 @@ def main():
         if debug:
             print(f"dataGenJob = {dataGenJob}")
 
-        # # Submit the first automated testing job, contingent on the data generation job.
-        # qsub_cmd = f"qsub -A {account} -W depend=afterok:{dataGenJob} runCaseTests.pbs"
-        # if debug:
-        #     print(f"qsub_cmd = {qsub_cmd}")
-        # submission = subprocess.Popen(qsub_cmd, shell=True, stdout=subprocess.PIPE)
-        # submission.wait()
-        # readString = submission.stdout.read().decode('ascii')
-        # if debug:
-        #     print(f"readString = {readString}")
-        # firstJob = readString.split('.')[0]
-        # if debug:
-        #     print(f"firstJob = {firstJob}")
+        # Submit the first automated testing job, contingent on the
+        # data generation job.
+        qsub_cmd = f"qsub -A {account} -W depend=afterok:{dataGenJob} -v MODULE_LIST='{module_list}',KAIJUROOTDIR={home} runCaseTests.pbs"
+        if debug:
+            print(f"qsub_cmd = {qsub_cmd}")
+        submission = subprocess.Popen(
+            qsub_cmd, shell=True, stdout=subprocess.PIPE
+        )
+        submission.wait()
+        readString = submission.stdout.read().decode('ascii')
+        if debug:
+            print(f"readString = {readString}")
+        firstJob = readString.split('.')[0]
+        if debug:
+            print(f"firstJob = {firstJob}")
 
-        # # Submit the second automated testing job, contingent on the data generation job.
-        # qsub_cmd = f"qsub -A {account} -W depend=afterok:{dataGenJob} runNonCaseTests1.pbs"
-        # if debug:
-        #     print(f"qsub_cmd = {qsub_cmd}")
-        # submission = subprocess.Popen(qsub_cmd, shell=True, stdout=subprocess.PIPE)
-        # submission.wait()
-        # readString = submission.stdout.read().decode('ascii')
-        # if debug:
-        #     print(f"readString = {readString}")
-        # secondJob = readString.split('.')[0]
-        # if debug:
-        #     print(f"secondJob = {secondJob}")
+        # Submit the second automated testing job, contingent on the
+        # data generation job.
+        qsub_cmd = f"qsub -A {account} -W depend=afterok:{dataGenJob} -v MODULE_LIST='{module_list}',KAIJUROOTDIR={home} runNonCaseTests1.pbs"
+        if debug:
+            print(f"qsub_cmd = {qsub_cmd}")
+        submission = subprocess.Popen(
+            qsub_cmd, shell=True, stdout=subprocess.PIPE
+        )
+        submission.wait()
+        readString = submission.stdout.read().decode('ascii')
+        if debug:
+            print(f"readString = {readString}")
+        secondJob = readString.split('.')[0]
+        if debug:
+            print(f"secondJob = {secondJob}")
 
-        # # Submit the third automated testing job, contingent on the data generation job.
-        # qsub_cmd = f"qsub -A {account} -W depend=afterok:{dataGenJob} runNonCaseTests2.pbs"
-        # if debug:
-        #     print(f"qsub_cmd = {qsub_cmd}")
-        # submission = subprocess.Popen(qsub_cmd, shell=True, stdout=subprocess.PIPE)
-        # submission.wait()
-        # readString = submission.stdout.read().decode('ascii')
-        # if debug:
-        #     print(f"readString = {readString}")
-        # thirdJob = readString.split('.')[0]
-        # if debug:
-        #     print(f"thirdJob = {thirdJob}")
+        # Submit the third automated testing job, contingent on the
+        # data generation job.
+        qsub_cmd = f"qsub -A {account} -W depend=afterok:{dataGenJob} -v MODULE_LIST='{module_list}',KAIJUROOTDIR={home} runNonCaseTests2.pbs"
+        if debug:
+            print(f"qsub_cmd = {qsub_cmd}")
+        submission = subprocess.Popen(
+            qsub_cmd, shell=True, stdout=subprocess.PIPE
+        )
+        submission.wait()
+        readString = submission.stdout.read().decode('ascii')
+        if debug:
+            print(f"readString = {readString}")
+        thirdJob = readString.split('.')[0]
+        if debug:
+            print(f"thirdJob = {thirdJob}")
 
-        # # Record the job IDs.
-        # with open('jobs.txt', 'w', encoding='utf-8') as f:
-        #     f.write(f"{firstJob}\n")
-        #     f.write(f"{secondJob}\n")
-        #     f.write(f"{thirdJob}\n")
+        # Record the job IDs.
+        with open('jobs.txt', 'w', encoding='utf-8') as f:
+            f.write(f"{firstJob}\n")
+            f.write(f"{secondJob}\n")
+            f.write(f"{thirdJob}\n")
 
+        # <HACK>
+        message = f"Unit tests submitted in jobs {dataGenJob}, {firstJob}, {secondJob}, {thirdJob}"
+        # </HACK>
 
-        # # <HACK>
-        # message = f"Unit tests submitted in jobs {dataGenJob}, {firstJob}, {secondJob}, {thirdJob}"
-        # # </HACK>
+        # If this is a test run, don't post to Slack.
+        if isTest:
+            pass
+        else:
+            # If loud, or an error occurred, send Slack message.
+            if beLoud:
+                try:
+                    response = slack_client.chat_postMessage(
+                        channel="#kaijudev",
+                        text=message,
+                    )
+                except SlackApiError as e:
+                    # You will get a SlackApiError if "ok" is False
+                    assert e.response["error"]  # str like 'invalid_auth', 'channel_not_found'
 
-        # # If this is a test run, don't post to Slack.
-        # if isTest:
-        #     pass
-        # else:
-        #     # If loud, or an error occurred, send Slack message.
-        #     if beLoud:
-        #         try:
-        #             response = slack_client.chat_postMessage(
-        #                 channel="#kaijudev",
-        #                 text=message,
-        #             )
-        #         except SlackApiError as e:
-        #             # You will get a SlackApiError if "ok" is False
-        #             assert e.response["error"]  # str like 'invalid_auth', 'channel_not_found'
-
-        # # Send message to stdout.
-        # print(message)
+        # Send message to stdout.
+        print(message)
 
     if debug:
         print(f"Ending {sys.argv[0]} at {datetime.datetime.now()}")
