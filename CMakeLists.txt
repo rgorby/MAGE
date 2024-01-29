@@ -211,6 +211,11 @@ add_executable(gremix.x src/drivers/gremix.F90)
 target_link_libraries(gremix.x baselib)
 add_dependencies(gremix.x baselib)
 
+message("\tAdding executable testNewRM.x")
+add_executable(testNewRMS.x src/drivers/testNewRMS.F90)
+target_link_libraries(testNewRMS.x baselib)
+add_dependencies(testNewRMS.x baselib)
+
 #-------------
 #Kaiju: RCM
 message("Adding RCM module ...")

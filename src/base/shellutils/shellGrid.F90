@@ -1,4 +1,4 @@
-! Various data structures and routines to define grids on spherical shells
+!> Various data structures and routines to define grids on spherical shells
 module shellGrid
     use kdefs
     use math
@@ -9,53 +9,67 @@ module shellGrid
         enumerator :: NORTH=1,SOUTH,EAST,WEST
     end enum
     
-    ! Data type for holding 2D spherical shell grid
+    !> Data type for holding 2D spherical shell grid
     type ShellGrid_T
-        integer :: nShellVars = 1 ! number of shell grid functions
+        integer :: nShellVars = 1 
+            !! Number of shell grid functions
         type(shellGridFunction_T), dimension(:), allocatable :: shellVars
+            !! Array of (Nt, Np) cell-centered variables
         
-        integer :: Np,Nt ! Number of lon/lat cells (phi/theta)
+        integer :: Np,Nt 
+            !! Number of lon/lat cells (phi/theta)
         ! xxc = centers (Nx)
         ! xx  = corners (Nx+1)
         ! th (theta) runs from north pole toward south
         ! Assuming lat \in -pi/2,pi/2 and lon \in [0,2pi]
         ! note, th/ph are colatitude/longitude; also, defining lat/latc for latitude
-        real(rp), dimension(:), allocatable :: th, ph, thc, phc, lat, latc  ! Radians
-        logical :: doSP = .false., doNP = .false. ! Whether active grid contains south/north pole, no ghosts in this case
-        logical :: ghostSP = .false., ghostNP = .false. ! Whether the last ghost corner is the south/north pole
+        real(rp), dimension(:), allocatable :: th, ph, thc, phc, lat, latc  
+            !! [radians]
+        logical :: doSP = .false., doNP = .false. 
+            !! Whether active grid contains south/north pole, no ghosts in this case
+        logical :: ghostSP = .false., ghostNP = .false. 
+            !! Whether the last ghost corner is the south/north pole
 
         real(rp) :: minTheta, maxTheta, minPhi, maxPhi
+            !! Theta and phi bounds of grid excluding ghost cells
         real(rp) :: minGTheta, maxGTheta, minGPhi, maxGPhi
+            !! Theta and phi bounds of grid including ghost cells
 
-        ! Local indices, active region
         integer :: is=1,ie,js=1,je
-        ! Local indices, including ghosts
+            !! Local indices, active region
         integer :: isg,ieg,jsg,jeg
+            !! Local indices, including ghosts
 
-        ! Ghosts for north, south, east, and west boundaries. East=>larger phi. West => smaller phi.
-        ! default to 0
         integer :: Ngn=0, Ngs=0, Nge=1, Ngw=1
+            !! Ghosts for north, south, east, and west boundaries. East=>larger phi. West => smaller phi.
+            !! default to 0
 
-        logical :: isPeriodic   ! Whether the low/high phi boundary is periodic
-        logical :: isPhiUniform ! Define this to speed up search for interpolation
+        logical :: isPeriodic   
+            !! Whether the low/high phi boundary is periodic
+        logical :: isPhiUniform 
+            !! Define this to speed up search for interpolation
     end type ShellGrid_T
 
     type ShellGridFunction_T
         real(rp), dimension(:,:), allocatable :: cellData
 ! corner data currently unused. If ever uncommented, need to allocate/init in initShellGridFunctions below
 !        real(rp), dimension(:,:), allocatable :: cornerData 
-        logical, dimension(4) :: bcsApplied ! flag indicating whether BCs were applied (ghosts filled) for [n,s,e,w] boundaries
+        logical, dimension(4) :: bcsApplied 
+            !! Flag indicating whether BCs were applied (ghosts filled) for [n,s,e,w] boundaries
     end type ShellGridFunction_T
 
     contains
 
-    ! Create a shell grid data structure
-    ! Takes Theta and Phi 1D arrays (uniform or not)
-    ! Decides if isPeriodic and isPhiUniform based on the Phi array passed in
-    subroutine GenShellGrid(shGr,Theta,Phi,nGhosts)
+    !> Create a shell grid data structure
+    !> Takes Theta and Phi 1D arrays (uniform or not)
+    !> Decides if isPeriodic and isPhiUniform based on the Phi array passed in
+    subroutine GenShellGrid(shGr,Theta,Phi,nGhosts,nShellVarsO)
         type(ShellGrid_T), intent(inout) :: shGr
         real(rp), dimension(:), intent(in) :: Theta, Phi
-        integer, optional, dimension(4), intent(in) :: nGhosts ! how many ghosts on each side (n,s,e,w)
+        integer, optional, dimension(4), intent(in) :: nGhosts 
+            !! How many ghosts on each side (n,s,e,w)
+        integer, optional, intent(in) :: nShellVarsO
+            !! Number of shell vars we should allocate space for
 
         integer :: i,j
         real(rp) :: delta
@@ -68,6 +82,10 @@ module shellGrid
             shGr%Nge = nGhosts(EAST) ! otherwise, always 1 as set in ShellGrid type
             shGr%Ngw = nGhosts(WEST) ! otherwise, always 1 as set in ShellGrid type
         end if
+
+        if (present(nShellVarsO)) then
+            shGr%nShellVars = nShellVarsO
+        endif
 
         ! do some checks first
         if (.not.(isAscending(Theta))) then 
