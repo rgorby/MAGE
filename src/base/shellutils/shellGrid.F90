@@ -272,5 +272,6 @@ module shellGrid
                 
             end subroutine initShellGridFunctions
 
-    end subroutine GenShellGrid
+        end subroutine GenShellGrid
+        
 end module shellGrid

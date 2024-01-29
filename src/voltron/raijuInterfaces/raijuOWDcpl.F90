@@ -42,29 +42,16 @@ module raijuowdcpl
         ! Set potential
         associate(sh=>sApp%Grid%shGrid)
         call mix_map_grids(m2sMap, rmState%nPot, tmpPot)
-        !fromV%pot(sh%is:sh%ie,sh%js:sh%je) = tmpPot
-
+\
         ! Dimensions from grabbed potential are isg:ie, js:je because poleward ghosts have useful information for us
         fromV%pot(sh%isg:sh%ie,sh%js:sh%je) = tmpPot
 
-        !do i=sh%isg,sh%is-1
-        !    fromV%pot(i,:) = fromV%pot(sh%is,:)
-        !enddo
         do i=sh%ie+1,sh%ieg
             fromV%pot(i,:) = fromV%pot(sh%ie,:)
         enddo
 
         ! Handle j ghosts
         call wrapJcc(sh, fromV%pot)
-
-        !do j=sh%jsg,sh%js-1
-        !    fromV%pot(:,j) = fromV%pot(:,sh%js)
-        !enddo
-        !do j=sh%je+1,sh%jeg
-        !    fromV%pot(:,j) = fromV%pot(:,sh%je)
-        !enddo
-        
-        
 
         end associate
 
@@ -131,7 +118,6 @@ module raijuowdcpl
         enddo
 
         do i=1,shGrid%Nt+shGrid%Ngn+1
-            !lon2D(i,:) = shGrid%phc(shGrid%js:shGrid%je)
             lon2D(i,:) = shGrid%ph(shGrid%js:shGrid%je+1)
         enddo
 
