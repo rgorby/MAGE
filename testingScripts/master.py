@@ -206,14 +206,16 @@ def main():
         # unitTest = subprocess.Popen(f"python unitTest.py {subArgString}",
         #                             shell=True)
         # unitTest.wait()
+        # if verbose:
+        #     print("Running Intel checks.")
+        # intelTest = subprocess.Popen(f"python intelChecks.py {subArgString}",
+        #                              shell=True)
+        # intelTest.wait()
         if verbose:
-            print("Running Intel checks.")
-        intelTest = subprocess.Popen(f"python intelChecks.py {subArgString}",
-                                     shell=True)
-        intelTest.wait()
-        # ICTest = subprocess.Popen(f"python ICtest.py {subArgString}",
-        #                           shell=True)
-        # ICTest.wait()
+            print("Running IC tests.")
+        ICTest = subprocess.Popen(f"python ICtest.py {subArgString}",
+                                  shell=True)
+        ICTest.wait()
         # ICReport = subprocess.Popen(f"python ICtestReport.py {subArgString}",
         #                             shell=True)
         # ICReport.wait()
