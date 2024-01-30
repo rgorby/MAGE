@@ -198,51 +198,53 @@ def main():
     # running the next test.
     if doAll:
         # Run all tests.
-        # buildTest = subprocess.Popen(f"python3 buildTest.py {subArgString}",
+        # buildTest = subprocess.Popen(f"python buildTest.py {subArgString}",
         #                              shell=True)
         # buildTest.wait()
+        # if verbose:
+        #     print("Running unit tests.")
+        # unitTest = subprocess.Popen(f"python unitTest.py {subArgString}",
+        #                             shell=True)
+        # unitTest.wait()
         if verbose:
-            print("Running unit tests.")
-        unitTest = subprocess.Popen(f"python3 unitTest.py {subArgString}",
-                                    shell=True)
-        unitTest.wait()
-        # intelTest = subprocess.Popen(f"python3 intelChecks.py {subArgString}",
-        #                              shell=True)
-        # intelTest.wait()
-        # ICTest = subprocess.Popen(f"python3 ICtest.py {subArgString}",
+            print("Running Intel checks.")
+        intelTest = subprocess.Popen(f"python intelChecks.py {subArgString}",
+                                     shell=True)
+        intelTest.wait()
+        # ICTest = subprocess.Popen(f"python ICtest.py {subArgString}",
         #                           shell=True)
         # ICTest.wait()
-        # ICReport = subprocess.Popen(f"python3 ICtestReport.py {subArgString}",
+        # ICReport = subprocess.Popen(f"python ICtestReport.py {subArgString}",
         #                             shell=True)
         # ICReport.wait()
-        # pyunitTest = subprocess.Popen(f"python3 pyunitTest.py {subArgString}",
+        # pyunitTest = subprocess.Popen(f"python pyunitTest.py {subArgString}",
         #                               shell=True)
         # pyunitTest.wait()
-        # weeklyDash = subprocess.Popen(f"python3 weeklyDash.py {subArgString}",
+        # weeklyDash = subprocess.Popen(f"python weeklyDash.py {subArgString}",
         #                               shell=True)
         # weeklyDash.wait()
     else:
         pass
     # Run only typical tests.
-    # buildTest = subprocess.Popen(f"python3 buildTest.py {subArgString}",
+    # buildTest = subprocess.Popen(f"python buildTest.py {subArgString}",
     #                              shell=True, check=True)
     # buildTest.wait()
-    # unitTest = subprocess.Popen(f"python3 unitTest.py {subArgString}",
+    # unitTest = subprocess.Popen(f"python unitTest.py {subArgString}",
     #                             shell = True)
     # unitTest.wait()
-    # intelTest = subprocess.Popen(f"python3 intelChecks.py {subArgString}",
+    # intelTest = subprocess.Popen(f"python intelChecks.py {subArgString}",
     #                              shell=True)
     # intelTest.wait()
-    # ICTest = subprocess.Popen(f"python3 ICtest.py {subArgString}",
+    # ICTest = subprocess.Popen(f"python ICtest.py {subArgString}",
     #                           shell=True)
     # ICTest.wait()
-    # ICReport = subprocess.Popen(f"python3 ICtestReport.py {subArgString}",
+    # ICReport = subprocess.Popen(f"python ICtestReport.py {subArgString}",
     #                             shell=True)
     # ICReport.wait()
-    # pyunitTest = subprocess.Popen(f"python3 pyunitTest.py {subArgString}",
+    # pyunitTest = subprocess.Popen(f"python pyunitTest.py {subArgString}",
     #                               shell=True)
     # pyunitTest.wait()
-    # weeklyDash = subprocess.Popen(f"python3 weeklyDash.py {subArgString}",
+    # weeklyDash = subprocess.Popen(f"python weeklyDash.py {subArgString}",
     #                               shell=True)
     # weeklyDash.wait()
 
