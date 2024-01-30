@@ -51,6 +51,8 @@ module remixReader
         type(IOVAR_T), dimension(MAXIOVARS) :: IOVars
         real(rp), dimension(:), allocatable :: th1D, ph1D
             !! 1D arrays of theta and phi coordinates, derived from XY locations
+        real(rp), dimension(:,:,:), allocatable :: tmpXY
+            !! Remix data is coming in at (Np,Nt), we use this to read and then convert to (Nt,Np)
         integer :: Nt,Np
             !! # of non-ghost cell centers
         character(len=strLen) :: rmF 
@@ -70,16 +72,20 @@ module remixReader
         Np = IOVars(FindIO(IOVars, "X"))%dims(1) - 1
         Nt = IOVars(FindIO(IOVars, "X"))%dims(2) - 1
         write(*,*)Nt,Np
-        allocate(rmState%XY(Np+1,Nt+1,XDIR:YDIR))
-        call IOArray2DFill(IOVars,"X",rmState%XY(:,:,XDIR))
-        call IOArray2DFill(IOVars,"Y",rmState%XY(:,:,YDIR))
-        
+        allocate(rmState%XY(Nt+1,Np+1,XDIR:YDIR))
+        allocate(tmpXY(Np+1,Nt+1,XDIR:YDIR))
+        call IOArray2DFill(IOVars,"X",tmpXY(:,:,XDIR))
+        call IOArray2DFill(IOVars,"Y",tmpXY(:,:,YDIR))
+
+        rmSTate%XY(:,:,XDIR) = transpose(tmpXY(:,:,XDIR))
+        rmSTate%XY(:,:,YDIR) = transpose(tmpXY(:,:,YDIR))
+
         ! XY are in units of ionospheric radii (r = 1 Ri)
         ! So the theta and phi we calculate are also for the ionospheric grid
         allocate(th1D(Nt+1))
         allocate(ph1D(Np+1))
-        th1D = asin(rmState%XY(1,:,XDIR))
-        ph1D = atan2(rmState%XY(:,Nt,YDIR), rmState%XY(:,Nt,XDIR))
+        th1D = asin(rmState%XY(:,1,XDIR))
+        ph1D = atan2(rmState%XY(Nt,:,YDIR), rmState%XY(Nt,:,XDIR))
         do j=Np/2,Np+1
             if (ph1D(j) < 0) then
                 ph1D(j) = ph1D(j) + 2.0_rp*PI
@@ -89,7 +95,7 @@ module remixReader
         write(*,*) th1D
         write(*,*) "ph1D"
         write(*,*) ph1D
-        call GenShellGrid(rmState%shGrid, th1D, ph1D, nShellVarsO=nShellVars)
+        call GenShellGrid(rmState%shGrid, th1D, ph1D)
 
     end subroutine initRM
 

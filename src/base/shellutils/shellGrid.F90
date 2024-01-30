@@ -8,23 +8,27 @@ module shellGrid
     enum, bind(C)
         enumerator :: NORTH=1,SOUTH,EAST,WEST
     end enum
+
+    !> Identifiers for location of variable data relative to shell grid
+    !> Cell center, corners, theta faces, phi faces
+    enum, bind(C)
+        enumerator :: SHCC,SHCORNER,SHFTH,SHFPH
+    end enum
     
     !> Data type for holding 2D spherical shell grid
     type ShellGrid_T
-        integer :: nShellVars = 1 
-            !! Number of shell grid functions
-        type(shellGridFunction_T), dimension(:), allocatable :: shellVars
-            !! Array of (Nt, Np) cell-centered variables
         
-        integer :: Np,Nt 
-            !! Number of lon/lat cells (phi/theta)
+        integer :: Nt,Np
+            !! Number of colat/lon cells (theta, phi)
         ! xxc = centers (Nx)
         ! xx  = corners (Nx+1)
         ! th (theta) runs from north pole toward south
         ! Assuming lat \in -pi/2,pi/2 and lon \in [0,2pi]
         ! note, th/ph are colatitude/longitude; also, defining lat/latc for latitude
-        real(rp), dimension(:), allocatable :: th, ph, thc, phc, lat, latc  
-            !! [radians]
+        real(rp), dimension(:), allocatable :: th, ph, lat
+            !! (Nt or Np) [radians] grid corners
+        real(rp), dimension(:), allocatable :: thc, phc, latc  
+            !! (Nt+1 or Np+1) [radians] grid centers
         logical :: doSP = .false., doNP = .false. 
             !! Whether active grid contains south/north pole, no ghosts in this case
         logical :: ghostSP = .false., ghostNP = .false. 
@@ -48,29 +52,36 @@ module shellGrid
             !! Whether the low/high phi boundary is periodic
         logical :: isPhiUniform 
             !! Define this to speed up search for interpolation
+
+        !> Subgrid information
+        !> ShellGrids that are subgrids of other shellGrids store info about their parent grid
+        logical :: isChild
+        integer :: bndis,bndie,bndjs,bndje
+            !! Indices of parent grid that bound this grid
+            !! TODO: that bound this grid's active cells, or ghosts as well?
     end type ShellGrid_T
 
-    type ShellGridFunction_T
-        real(rp), dimension(:,:), allocatable :: cellData
-! corner data currently unused. If ever uncommented, need to allocate/init in initShellGridFunctions below
-!        real(rp), dimension(:,:), allocatable :: cornerData 
+    type ShellGridVar_T
+        integer :: loc
+            !! Location of data on the shellGrid (e.g. center, corner, theta of phi face)
+            !! Corresponds to enum above (SHCC, SHCORNER, SHFTH, SHFPH)
+        real(rp), dimension(:,:), allocatable :: data
         logical, dimension(4) :: bcsApplied 
             !! Flag indicating whether BCs were applied (ghosts filled) for [n,s,e,w] boundaries
-    end type ShellGridFunction_T
+    end type ShellGridVar_T
+
 
     contains
 
     !> Create a shell grid data structure
     !> Takes Theta and Phi 1D arrays (uniform or not)
     !> Decides if isPeriodic and isPhiUniform based on the Phi array passed in
-    subroutine GenShellGrid(shGr,Theta,Phi,nGhosts,nShellVarsO)
+    subroutine GenShellGrid(shGr,Theta,Phi,nGhosts)
         type(ShellGrid_T), intent(inout) :: shGr
         real(rp), dimension(:), intent(in) :: Theta, Phi
         integer, optional, dimension(4), intent(in) :: nGhosts 
             !! How many ghosts on each side (n,s,e,w)
-        integer, optional, intent(in) :: nShellVarsO
-            !! Number of shell vars we should allocate space for
-
+        
         integer :: i,j
         real(rp) :: delta
         real(rp), dimension(:), allocatable :: dphi
@@ -82,10 +93,6 @@ module shellGrid
             shGr%Nge = nGhosts(EAST) ! otherwise, always 1 as set in ShellGrid type
             shGr%Ngw = nGhosts(WEST) ! otherwise, always 1 as set in ShellGrid type
         end if
-
-        if (present(nShellVarsO)) then
-            shGr%nShellVars = nShellVarsO
-        endif
 
         ! do some checks first
         if (.not.(isAscending(Theta))) then 
@@ -184,14 +191,17 @@ module shellGrid
         ! Nuke arrays if already allocated
         if (allocated(shGr%th))   deallocate(shGr%th)
         if (allocated(shGr%ph))   deallocate(shGr%ph)
+        if (allocated(shGr%lat))  deallocate(shGr%lat)
         if (allocated(shGr%thc))  deallocate(shGr%thc)
         if (allocated(shGr%phc))  deallocate(shGr%phc)
-
+        if (allocated(shGr%latc)) deallocate(shGr%latc)
         ! Create new arrays
         allocate(shGr%th  (isg:ieg+1))
         allocate(shGr%thc (isg:ieg  ))
         allocate(shGr%ph  (jsg:jeg+1))
         allocate(shGr%phc (jsg:jeg  ))
+        allocate(shGr%lat (isg:ieg+1))
+        allocate(shGr%latc(isg:ieg  ))
 
         ! Set grid coordinates
         shGr%th(is:ie+1) = Theta  ! note the arrays are conformable because of the index definitions above
@@ -256,6 +266,10 @@ module shellGrid
         shGr%thc = ( shGr%th(isg+1:ieg+1) + shGr%th(isg:ieg) )/2.
         shGr%phc = ( shGr%ph(jsg+1:jeg+1) + shGr%ph(jsg:jeg) )/2.
 
+        ! Set latitude
+        shGr%lat  = PI/2.0_rp - shGr%th
+        shGr%latc = PI/2.0_rp - shGr%thc
+
         ! Note, the bounds below only include the active cells
         shGr%minTheta = minval(shGr%th(is:ie+1))
         shGr%maxTheta = maxval(shGr%th(is:ie+1))
@@ -270,25 +284,40 @@ module shellGrid
 
         end associate
 
-        ! finally, initialize the shell grid functions
-        ! nuke everything 
-        if (allocated(shGr%shellVars))   deallocate(shGr%shellVars)
-        allocate(shGr%shellVars(shGr%nShellVars)) 
-        do i=1,shGr%nShellVars
-            call initShellGridFunctions(shGr%shellVars(i))
-        end do
-
-        contains
-            subroutine initShellGridFunctions(shellVar)
-                type(shellGridFunction_T), intent(out) :: shellVar
-                
-                if (.not.allocated(shellVar%cellData)) allocate(shellVar%cellData(shGr%Nt,shGr%Np))
-                shellVar%cellData = 0.  ! initialize to 0
-                
-                ! unset all BC's
-                shellVar%bcsApplied = .false.
-                
-            end subroutine initShellGridFunctions
-
     end subroutine GenShellGrid
+
+
+    subroutine initShellGridVar(shGr, loc, shellVar)
+        type(ShellGrid_T), intent(in) :: shGr
+            !! ShellGrid that this variable is related to
+        integer, intent(in) :: loc
+            !! Location of data (cell center, corner, theta or phi face)
+        type(shellGridVar_T), intent(out) :: shellVar
+        
+        ! If you didn't want your data blown up you shouldn't have called init
+        if (allocated(shellVar%data)) deallocate(shellVar%data)
+            
+        shellVar%loc = loc
+
+        select case(loc)
+            case(SHCC)
+                allocate(shellVar%data(shGr%Nt,shGr%Np))
+            case(SHCORNER)
+                allocate(shellVar%data(shGr%Nt+1,shGr%Np+1))
+            case(SHFTH)
+                allocate(shellVar%data(shGr%Nt+1,shGr%Np))
+            case(SHFPH)
+                allocate(shellVar%data(shGr%Nt,shGr%Np+1))
+            case default
+                write(*,*) "initShellGridVar got an invalid data location:",loc
+                stop
+        end select
+
+        shellVar%data = 0.  ! initialize to 0
+        
+        ! unset all BC's
+        shellVar%bcsApplied = .false.
+        
+    end subroutine initShellGridVar
+
 end module shellGrid

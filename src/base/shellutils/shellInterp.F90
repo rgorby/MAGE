@@ -12,15 +12,19 @@ module shellInterp
     contains
 
     ! Interpolate on grid shGr a cell-centered variable at point t(heta),p(hi)
-    ! The cell-centered variable is selected via the Qind parameter
+    ! Qin is the shellVar
     ! Result is Qinterp
     ! Optional : isGood (Nt,Np), a mask for good/bad data
     ! Optional : isGoodP, whether Qinterp is a good value
-    subroutine InterpShell(shGr,Qind,t,pin,Qinterp,isGoodP,isGood)
+    subroutine InterpShell(shGr,Qin,t,pin,Qinterp,isGoodP,isGood)
         type(ShellGrid_T), intent(in) :: shGr
-        integer, intent(in)  :: Qind
+            !! ShellGrid of source grid
+        type(ShellGridVar_T), intent(in)  :: Qin
+            !! Variable stored on source grid
         real(rp), intent(out) :: Qinterp
+            !! Value we return
         real(rp), intent(in)  :: t,pin
+            !! Theta and Phi location of point we are interpolating to
         logical , intent(out), optional :: isGoodP
         logical , intent(in) , optional :: isGood(shGr%Nt,shGr%Np) ! TODO: consider if this should include ghosts
 
@@ -32,6 +36,10 @@ module shellInterp
         real(rp), dimension(-1:+1) :: wE,wZ
 
 
+        if (Qin%loc .ne. SHCC) then
+            write(*,*) "InterpShell only interpolates cell-centered data right now, goodbye"
+            stop
+        endif
 
         ! if ( (t>shGr%maxTheta).and.(.not.shGr%bcsApplied(SOUTH)) ) then
         !     ! Point inside ghosts but BCs not applied, get outta here
@@ -82,7 +90,7 @@ module shellInterp
         ! Trap for near-pole cases
 
         if (shGr%doNP .and. (i0==1)) then
-            call interpPole(shGr,Qind,t,pin,Qinterp)
+            call interpPole(shGr,Qin,t,pin,Qinterp)
 
             ! Handle north pole and return
             write(*,*) "Not implemented!"
@@ -134,7 +142,7 @@ module shellInterp
                 if (ip<1)         ip = 1
                 if (ip>shGr%Nt) ip = shGr%Nt
 
-                Qs(n) = shGr%shellVars(Qind)%cellData(ip,jp)
+                Qs(n) = Qin%data(ip,jp)
                 Ws(n) = wE(di)*wZ(dj)
                 
                 if (present(isGood)) then
@@ -249,9 +257,9 @@ module shellInterp
 
     end subroutine GetShellIJ
 
-    subroutine interpPole(shGr,Qind,t,pin,Qinterp)
+    subroutine interpPole(shGr,Qin,t,pin,Qinterp)
         type(ShellGrid_T), intent(in) :: shGr
-        integer, intent(in)  :: Qind
+        type(ShellGridVar_T), intent(in)  :: Qin
         real(rp), intent(out) :: Qinterp
         real(rp), intent(in)  :: t,pin
         real(rp) :: f0,f1,f2,I1,I2
@@ -293,7 +301,7 @@ module shellInterp
 
         f0 = 0.
         do j=1,shGr%Np
-            f0 = f0 + (shGr%ph(j+1)-shGr%ph(j))*shGr%shellVars(Qind)%cellData(iind,j)/(2.*PI)
+            f0 = f0 + (shGr%ph(j+1)-shGr%ph(j))*Qin%data(iind,j)/(2.*PI)
 
             ! find which cells do pi/2, 3pi/2 and pi points belong to
             ! this can be done a priori but it doesn't add to the computation
