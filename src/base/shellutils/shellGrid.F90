@@ -2,6 +2,8 @@
 module shellGrid
     use kdefs
     use math
+
+    implicit none
     
     ! note, this will conflict with mixdefs
     ! but NORTH, SOUTH are defined the same way
@@ -20,13 +22,11 @@ module shellGrid
         
         integer :: Nt,Np
             !! Number of colat/lon cells (theta, phi)
-        ! xxc = centers (Nx)
-        ! xx  = corners (Nx+1)
-        ! th (theta) runs from north pole toward south
-        ! Assuming lat \in -pi/2,pi/2 and lon \in [0,2pi]
-        ! note, th/ph are colatitude/longitude; also, defining lat/latc for latitude
         real(rp), dimension(:), allocatable :: th, ph, lat
             !! (Nt or Np) [radians] grid corners
+            !! th (theta) is colatitude and runs from north pole toward south
+            !! Phi is longitude, with zero/2pi at 12 MLT
+            !! Assuming lat \in -pi/2,pi/2 and lon \in [0,2pi]
         real(rp), dimension(:), allocatable :: thc, phc, latc  
             !! (Nt+1 or Np+1) [radians] grid centers
         logical :: doSP = .false., doNP = .false. 

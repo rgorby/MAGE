@@ -17,10 +17,10 @@ program testNewRMS
 
     call initRM(ftag, inpXML, rmState)
 
-    write(*,*) "th1D:"
-    write(*,*) rmState%shGrid%th
-    write(*,*) "ph1D:"
-    write(*,*) rmState%shGrid%ph
+    !write(*,*) "th1D:"
+    !write(*,*) rmState%shGr%th(rmState%shGr%is:rmState%shGr%ie)
+    !write(*,*) "ph1D:"
+    !write(*,*) rmState%shGr%ph(rmState%shGr%js:rmState%shGr%je)*180.0_rp/PI
 
 
 end program testNewRMS
