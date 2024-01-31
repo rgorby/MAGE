@@ -58,7 +58,11 @@ module shellGrid
         logical :: isChild = .false.
         integer :: bndis,bndie,bndjs,bndje
             !! Indices of parent grid that bound this grid
-            !! TODO: that bound this grid's active cells, or ghosts as well?
+        ! TODO: add unique identifiers for this SG, and for potential paren't SG
+        ! That way, child always knows which grid it came from
+        ! Can be checked against when calling routines like InterpParentToChild, InterpChildToParent
+
+
     end type ShellGrid_T
 
     type ShellGridVar_T
@@ -322,12 +326,14 @@ module shellGrid
     end subroutine initShellVar
 
 
-    subroutine GenChildShellGrid(pSG, cSG, sub_is, sub_ie, sub_js, sub_je)
+    subroutine GenChildShellGrid(pSG, cSG, nGhosts, sub_is, sub_ie, sub_js, sub_je)
         !! Given a parent ShellGrid, makes a child ShellGrid as a subset of parent
         type(ShellGrid_T), intent(in) :: pSG
             !! Parent ShellGrid
         type(ShellGrid_T), intent(out) :: cSG
             !! Child ShellGrid
+        integer, optional, dimension(4), intent(in) :: nGhosts
+            !! Number of ghosts the child grid will have
         integer, optional, intent(in) :: sub_is, sub_ie, sub_js, sub_je
             !! Start and end i/j indices of parent grid that bound active domain of new child grid
             !! These are optional. If left out, we will essentially make a copy of the parent grid
@@ -351,7 +357,7 @@ module shellGrid
         if (ie > pSG%ie+1) then
             write(*,*) "ERROR GenChildShellGrid: Invalid ie bound."
             write(*,*) "Requested:",ie
-            write(*,*) "Mimumum:",pSG%ie
+            write(*,*) "Maximum:",pSG%ie+1
             stop
         endif
         if (js < pSG%js) then
@@ -363,7 +369,7 @@ module shellGrid
         if (je > pSG%je+1) then
             write(*,*) "ERROR GenChildShellGrid: Invalid je bound."
             write(*,*) "Requested:",je
-            write(*,*) "Mimumum:",pSG%je
+            write(*,*) "Maximum:",pSG%je+1
             stop
         endif
         if (is > ie) then
@@ -376,7 +382,30 @@ module shellGrid
         endif
 
         ! Otherwise we are ready to make a child grid
-        call GenShellGrid(cSG, pSG%th(is:ie), pSG%ph(js:je))
+        if ( present(nGhosts) ) then
+            ! The ghosts can't overrun parent grid's ghost bounds
+            if (    is - nGhosts(NORTH) < pSG%isg  ) then
+                write(*,*) "ERROR GenChildShellGrid: Child ghosts overrun parent ghosts in is direction"
+                stop
+            elseif (ie + nGhosts(SOUTH) > pSG%ieg+1) then
+                write(*,*) "ERROR GenChildShellGrid: Child ghosts overrun parent ghosts in ie direction"
+                stop
+            elseif (js - nGhosts(WEST ) < pSG%jsg  ) then
+                write(*,*) "ERROR GenChildShellGrid: Child ghosts overrun parent ghosts in js direction"
+                stop
+            elseif (je + nGhosts(EAST ) > pSG%jeg+1) then
+                write(*,*) "ERROR GenChildShellGrid: Child ghosts overrun parent ghosts in je direction"
+                stop
+            endif
+
+            ! Otherwise, this ghost definition is okay
+            call GenShellGrid(cSG, pSG%th(is:ie), pSG%ph(js:je), nGhosts=nGhosts)
+
+        else
+            ! No ghosts defined, go with default
+            call GenShellGrid(cSG, pSG%th(is:ie), pSG%ph(js:je))
+        endif
+        
 
         cSG%isChild = .true.
         cSG%bndis = is
