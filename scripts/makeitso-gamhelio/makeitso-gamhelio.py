@@ -276,8 +276,8 @@ def prompt_user_for_run_options(args):
 
     date_format = '%Y-%m-%dT%H:%M:%S'
     # Set start and end dates based on fits file MJDc
-    od["start_date"]["default"] = MJD2UT(mjdc).strftime(date_format)
-    od["stop_date"]["default"] = MJD2UT(mjdc + Tsolar_synodic).strftime(date_format)
+    od["start_date"]["default"] = MJD2UT(mjdc - Tsolar_synodic/2).strftime(date_format)
+    od["stop_date"]["default"] = MJD2UT(mjdc + Tsolar_synodic/2).strftime(date_format)
     # Prompt for the start and stop date of the run.
     for on in ["start_date", "stop_date"]:
         o[on] = get_run_option(on, od[on], mode)
