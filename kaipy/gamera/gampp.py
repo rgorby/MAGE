@@ -343,7 +343,7 @@ class GameraPipe(object):
 		if (vScl is not None):
 			V = vScl*V
 		return V
-	
+
 	#Get 3D variable "vID" from Step# sID
 	def GetVar(self,vID,sID=None,vScl=None,doVerb=True):
 		''' Read Var with name vID

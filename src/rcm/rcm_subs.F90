@@ -2508,7 +2508,7 @@ SUBROUTINE Move_plasma_grid_MHD (dt,nstep)
         ENDIF
 
         eeta_avg(:,:,kc) = 0.0
-        if ( (kc==1) .and. dp_on == .false.) then  ! We are plasmasphere and we don't want to evolve it
+        if ( (kc==1) .and. (.not. dp_on)) then  ! We are plasmasphere and we don't want to evolve it
             ! Just set eeta_avg to whatever eta is there, and leave
             !! Note: Regions that have ever been outside of active domain will never have psph again, based on current implementation (2023-08-24)
             eeta_avg(:,:,kc) = eeta(:,:,kc)
