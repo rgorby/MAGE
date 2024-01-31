@@ -150,7 +150,7 @@ def main():
     if debug:
         print(f"home = {home}")
     if verbose:
-        print('I am the unit test script. This is my current home directory:')
+        print('I am the Intel check script. This is my current home directory:')
         print(home)
 
     #--------------------------------------------------------------------------
@@ -206,6 +206,9 @@ def main():
             cmake_options = lines[0][len(label):].rstrip()
             lines.pop(0)  # Remove cmake options line.
         module_names = [line.rstrip() for line in lines]
+
+        # Add the module for Intel Inspector.
+        module_names.append('intel-oneapi-inspector')
         if debug:
             print(f"module_names = {module_names}")
 

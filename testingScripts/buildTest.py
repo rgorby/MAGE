@@ -242,16 +242,24 @@ def main():
 
     #--------------------------------------------------------------------------
 
-    # Do a build with each set of modules.
+    # Make a list of module sets to build with.
 
-    # Go back to scripts folder.
+    # Go to the module sets folder.
     path = os.path.join(home, 'testingScripts', 'mage_build_test_modules')
     os.chdir(path)
+    if debug:
+        print(f"cwd = {os.getcwd()}")
 
-    # Get a list of build module sets.
-    module_list_files = glob.glob('*.lst')
+    # Read the list of  module sets to use for build tests.
+    with open('build_test_module_sets.lst', encoding='utf-8') as f:
+        lines = f.readlines()
+    module_list_files = [s.rstrip() for s in lines]
     if debug:
         print(f"module_list_files = {module_list_files}")
+
+    #--------------------------------------------------------------------------
+
+    # Do a build with each set of modules.
 
     # Perform a test build with each set of modules.
     for module_list_file in module_list_files:
@@ -259,7 +267,7 @@ def main():
             print(f"module_list_file = {module_list_file}")
 
         # Extract the name of the list.
-        module_list_name = module_list_file.replace('.lst', '')
+        module_list_name = module_list_file.rstrip('.lst')
         if debug:
             print(f"module_list_name = {module_list_name}")
 

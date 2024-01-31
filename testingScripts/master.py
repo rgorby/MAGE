@@ -198,6 +198,8 @@ def main():
     # running the next test.
     if doAll:
         # Run all tests.
+        # if verbose:
+        #     print("Running build tests.")
         # buildTest = subprocess.Popen(f"python buildTest.py {subArgString}",
         #                              shell=True)
         # buildTest.wait()
@@ -211,17 +213,21 @@ def main():
         # intelTest = subprocess.Popen(f"python intelChecks.py {subArgString}",
         #                              shell=True)
         # intelTest.wait()
-        if verbose:
-            print("Running IC tests.")
-        ICTest = subprocess.Popen(f"python ICtest.py {subArgString}",
-                                  shell=True)
-        ICTest.wait()
+        # if verbose:
+        #     print("Running IC tests.")
+        # ICTest = subprocess.Popen(f"python ICtest.py {subArgString}",
+        #                           shell=True)
+        # ICTest.wait()
+        # if verbose:
+        #     print("Running IC test report.")
         # ICReport = subprocess.Popen(f"python ICtestReport.py {subArgString}",
         #                             shell=True)
         # ICReport.wait()
-        # pyunitTest = subprocess.Popen(f"python pyunitTest.py {subArgString}",
-        #                               shell=True)
-        # pyunitTest.wait()
+        if verbose:
+            print("Running python unit tests.")
+        pyunitTest = subprocess.Popen(f"python pyunitTest.py {subArgString}",
+                                      shell=True)
+        pyunitTest.wait()
         # weeklyDash = subprocess.Popen(f"python weeklyDash.py {subArgString}",
         #                               shell=True)
         # weeklyDash.wait()
