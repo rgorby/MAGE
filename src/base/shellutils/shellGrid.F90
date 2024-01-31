@@ -1,62 +1,91 @@
-! Various data structures and routines to define grids on spherical shells
+!> Various data structures and routines to define grids on spherical shells
 module shellGrid
     use kdefs
     use math
+
+    implicit none
     
     ! note, this will conflict with mixdefs
     ! but NORTH, SOUTH are defined the same way
     enum, bind(C)
         enumerator :: NORTH=1,SOUTH,EAST,WEST
     end enum
+
+    !> Identifiers for location of variable data relative to shell grid
+    !> Cell center, corners, theta faces, phi faces
+    enum, bind(C)
+        enumerator :: SHCC,SHCORNER,SHFTH,SHFPH
+    end enum
     
-    ! Data type for holding 2D spherical shell grid
+    !> Data type for holding 2D spherical shell grid
     type ShellGrid_T
-        integer :: nShellVars = 1 ! number of shell grid functions
-        type(shellGridFunction_T), dimension(:), allocatable :: shellVars
         
-        integer :: Np,Nt ! Number of lon/lat cells (phi/theta)
-        ! xxc = centers (Nx)
-        ! xx  = corners (Nx+1)
-        ! th (theta) runs from north pole toward south
-        ! Assuming lat \in -pi/2,pi/2 and lon \in [0,2pi]
-        ! note, th/ph are colatitude/longitude; also, defining lat/latc for latitude
-        real(rp), dimension(:), allocatable :: th, ph, thc, phc, lat, latc  ! Radians
-        logical :: doSP = .false., doNP = .false. ! Whether active grid contains south/north pole, no ghosts in this case
-        logical :: ghostSP = .false., ghostNP = .false. ! Whether the last ghost corner is the south/north pole
+        integer :: Nt,Np
+            !! Number of colat/lon cells (theta, phi)
+        real(rp), dimension(:), allocatable :: th, ph, lat
+            !! (Nt or Np) [radians] grid corners
+            !! th (theta) is colatitude and runs from north pole toward south
+            !! Phi is longitude, with zero/2pi at 12 MLT
+            !! Assuming lat \in -pi/2,pi/2 and lon \in [0,2pi]
+        real(rp), dimension(:), allocatable :: thc, phc, latc  
+            !! (Nt+1 or Np+1) [radians] grid centers
+        logical :: doSP = .false., doNP = .false. 
+            !! Whether active grid contains south/north pole, no ghosts in this case
+        logical :: ghostSP = .false., ghostNP = .false. 
+            !! Whether the last ghost corner is the south/north pole
 
         real(rp) :: minTheta, maxTheta, minPhi, maxPhi
+            !! Theta and phi bounds of grid excluding ghost cells
         real(rp) :: minGTheta, maxGTheta, minGPhi, maxGPhi
+            !! Theta and phi bounds of grid including ghost cells
 
-        ! Local indices, active region
         integer :: is=1,ie,js=1,je
-        ! Local indices, including ghosts
+            !! Local indices, active region
         integer :: isg,ieg,jsg,jeg
+            !! Local indices, including ghosts
 
-        ! Ghosts for north, south, east, and west boundaries. East=>larger phi. West => smaller phi.
-        ! default to 0
         integer :: Ngn=0, Ngs=0, Nge=1, Ngw=1
+            !! Ghosts for north, south, east, and west boundaries. East=>larger phi. West => smaller phi.
+            !! default to 0
 
-        logical :: isPeriodic   ! Whether the low/high phi boundary is periodic
-        logical :: isPhiUniform ! Define this to speed up search for interpolation
+        logical :: isPeriodic   
+            !! Whether the low/high phi boundary is periodic
+        logical :: isPhiUniform 
+            !! Define this to speed up search for interpolation
+
+        !> Subgrid information
+        !> ShellGrids that are subgrids of other shellGrids store info about their parent grid
+        logical :: isChild = .false.
+        integer :: bndis,bndie,bndjs,bndje
+            !! Indices of parent grid that bound this grid
+        ! TODO: add unique identifiers for this SG, and for potential paren't SG
+        ! That way, child always knows which grid it came from
+        ! Can be checked against when calling routines like InterpParentToChild, InterpChildToParent
+
+
     end type ShellGrid_T
 
-    type ShellGridFunction_T
-        real(rp), dimension(:,:), allocatable :: cellData
-! corner data currently unused. If ever uncommented, need to allocate/init in initShellGridFunctions below
-!        real(rp), dimension(:,:), allocatable :: cornerData 
-        logical, dimension(4) :: bcsApplied ! flag indicating whether BCs were applied (ghosts filled) for [n,s,e,w] boundaries
-    end type ShellGridFunction_T
+    type ShellGridVar_T
+        integer :: loc
+            !! Location of data on the shellGrid (e.g. center, corner, theta of phi face)
+            !! Corresponds to enum above (SHCC, SHCORNER, SHFTH, SHFPH)
+        real(rp), dimension(:,:), allocatable :: data
+        logical, dimension(4) :: bcsApplied 
+            !! Flag indicating whether BCs were applied (ghosts filled) for [n,s,e,w] boundaries
+    end type ShellGridVar_T
+
 
     contains
 
-    ! Create a shell grid data structure
-    ! Takes Theta and Phi 1D arrays (uniform or not)
-    ! Decides if isPeriodic and isPhiUniform based on the Phi array passed in
+    !> Create a shell grid data structure
+    !> Takes Theta and Phi 1D arrays (uniform or not)
+    !> Decides if isPeriodic and isPhiUniform based on the Phi array passed in
     subroutine GenShellGrid(shGr,Theta,Phi,nGhosts)
         type(ShellGrid_T), intent(inout) :: shGr
         real(rp), dimension(:), intent(in) :: Theta, Phi
-        integer, optional, dimension(4), intent(in) :: nGhosts ! how many ghosts on each side (n,s,e,w)
-
+        integer, optional, dimension(4), intent(in) :: nGhosts 
+            !! How many ghosts on each side (n,s,e,w)
+        
         integer :: i,j
         real(rp) :: delta
         real(rp), dimension(:), allocatable :: dphi
@@ -166,14 +195,17 @@ module shellGrid
         ! Nuke arrays if already allocated
         if (allocated(shGr%th))   deallocate(shGr%th)
         if (allocated(shGr%ph))   deallocate(shGr%ph)
+        if (allocated(shGr%lat))  deallocate(shGr%lat)
         if (allocated(shGr%thc))  deallocate(shGr%thc)
         if (allocated(shGr%phc))  deallocate(shGr%phc)
-
+        if (allocated(shGr%latc)) deallocate(shGr%latc)
         ! Create new arrays
         allocate(shGr%th  (isg:ieg+1))
         allocate(shGr%thc (isg:ieg  ))
         allocate(shGr%ph  (jsg:jeg+1))
         allocate(shGr%phc (jsg:jeg  ))
+        allocate(shGr%lat (isg:ieg+1))
+        allocate(shGr%latc(isg:ieg  ))
 
         ! Set grid coordinates
         shGr%th(is:ie+1) = Theta  ! note the arrays are conformable because of the index definitions above
@@ -238,6 +270,10 @@ module shellGrid
         shGr%thc = ( shGr%th(isg+1:ieg+1) + shGr%th(isg:ieg) )/2.
         shGr%phc = ( shGr%ph(jsg+1:jeg+1) + shGr%ph(jsg:jeg) )/2.
 
+        ! Set latitude
+        shGr%lat  = PI/2.0_rp - shGr%th
+        shGr%latc = PI/2.0_rp - shGr%thc
+
         ! Note, the bounds below only include the active cells
         shGr%minTheta = minval(shGr%th(is:ie+1))
         shGr%maxTheta = maxval(shGr%th(is:ie+1))
@@ -252,26 +288,131 @@ module shellGrid
 
         end associate
 
-        ! finally, initialize the shell grid functions
-        ! nuke everything 
-        if (allocated(shGr%shellVars))   deallocate(shGr%shellVars)
-        allocate(shGr%shellVars(shGr%nShellVars)) 
-        do i=1,shGr%nShellVars
-            call initShellGridFunctions(shGr%shellVars(i))
-        end do
+    end subroutine GenShellGrid
 
-        contains
-            subroutine initShellGridFunctions(shellVar)
-                type(shellGridFunction_T), intent(out) :: shellVar
-                
-                if (.not.allocated(shellVar%cellData)) allocate(shellVar%cellData(shGr%Nt,shGr%Np))
-                shellVar%cellData = 0.  ! initialize to 0
-                
-                ! unset all BC's
-                shellVar%bcsApplied = .false.
-                
-            end subroutine initShellGridFunctions
 
-        end subroutine GenShellGrid
+    subroutine initShellVar(shGr, loc, shellVar)
+        !! Inits a ShellGridVar that associated with provided and initialized ShellGrid
+        type(ShellGrid_T), intent(in) :: shGr
+            !! ShellGrid that this variable is related to
+        integer, intent(in) :: loc
+            !! Location of data (cell center, corner, theta or phi face)
+        type(ShellGridVar_T), intent(out) :: shellVar
         
+        ! If you didn't want your data blown up you shouldn't have called init
+        if (allocated(shellVar%data)) deallocate(shellVar%data)
+            
+        shellVar%loc = loc
+
+        select case(loc)
+            case(SHCC)
+                allocate(shellVar%data(shGr%Nt,shGr%Np))
+            case(SHCORNER)
+                allocate(shellVar%data(shGr%Nt+1,shGr%Np+1))
+            case(SHFTH)
+                allocate(shellVar%data(shGr%Nt+1,shGr%Np))
+            case(SHFPH)
+                allocate(shellVar%data(shGr%Nt,shGr%Np+1))
+            case default
+                write(*,*) "initShellGridVar got an invalid data location:",loc
+                stop
+        end select
+
+        shellVar%data = 0.  ! initialize to 0
+        
+        ! unset all BC's
+        shellVar%bcsApplied = .false.
+        
+    end subroutine initShellVar
+
+
+    subroutine GenChildShellGrid(pSG, cSG, nGhosts, sub_is, sub_ie, sub_js, sub_je)
+        !! Given a parent ShellGrid, makes a child ShellGrid as a subset of parent
+        type(ShellGrid_T), intent(in) :: pSG
+            !! Parent ShellGrid
+        type(ShellGrid_T), intent(out) :: cSG
+            !! Child ShellGrid
+        integer, optional, dimension(4), intent(in) :: nGhosts
+            !! Number of ghosts the child grid will have
+        integer, optional, intent(in) :: sub_is, sub_ie, sub_js, sub_je
+            !! Start and end i/j indices of parent grid that bound active domain of new child grid
+            !! These are optional. If left out, we will essentially make a copy of the parent grid
+
+        integer :: is, ie, js, je
+            !! Actual bounds used
+
+        ! If a bound is provided then we use that, if not we default to parent grid's bounds
+        is = merge(sub_is, pSG%is  , present(sub_is))
+        ie = merge(sub_ie, pSG%ie+1, present(sub_ie))
+        js = merge(sub_js, pSG%js  , present(sub_js))
+        je = merge(sub_je, pSG%je+1, present(sub_je))
+
+        ! Check for valid bounds
+        if (is < pSG%is) then
+            write(*,*) "ERROR GenChildShellGrid: Invalid is bound."
+            write(*,*) "Requested:",is
+            write(*,*) "Mimumum:",pSG%is
+            stop
+        endif
+        if (ie > pSG%ie+1) then
+            write(*,*) "ERROR GenChildShellGrid: Invalid ie bound."
+            write(*,*) "Requested:",ie
+            write(*,*) "Maximum:",pSG%ie+1
+            stop
+        endif
+        if (js < pSG%js) then
+            write(*,*) "ERROR GenChildShellGrid: Invalid js bound."
+            write(*,*) "Requested:",js
+            write(*,*) "Mimumum:",pSG%js
+            stop
+        endif
+        if (je > pSG%je+1) then
+            write(*,*) "ERROR GenChildShellGrid: Invalid je bound."
+            write(*,*) "Requested:",je
+            write(*,*) "Maximum:",pSG%je+1
+            stop
+        endif
+        if (is > ie) then
+            write(*,*) "ERROR GenChildShellGrid: is > ie"
+            stop
+        endif
+        if (js > je) then
+            write(*,*) "ERROR GenChildShellGrid: js > je"
+            stop
+        endif
+
+        ! Otherwise we are ready to make a child grid
+        if ( present(nGhosts) ) then
+            ! The ghosts can't overrun parent grid's ghost bounds
+            if (    is - nGhosts(NORTH) < pSG%isg  ) then
+                write(*,*) "ERROR GenChildShellGrid: Child ghosts overrun parent ghosts in is direction"
+                stop
+            elseif (ie + nGhosts(SOUTH) > pSG%ieg+1) then
+                write(*,*) "ERROR GenChildShellGrid: Child ghosts overrun parent ghosts in ie direction"
+                stop
+            elseif (js - nGhosts(WEST ) < pSG%jsg  ) then
+                write(*,*) "ERROR GenChildShellGrid: Child ghosts overrun parent ghosts in js direction"
+                stop
+            elseif (je + nGhosts(EAST ) > pSG%jeg+1) then
+                write(*,*) "ERROR GenChildShellGrid: Child ghosts overrun parent ghosts in je direction"
+                stop
+            endif
+
+            ! Otherwise, this ghost definition is okay
+            call GenShellGrid(cSG, pSG%th(is:ie), pSG%ph(js:je), nGhosts=nGhosts)
+
+        else
+            ! No ghosts defined, go with default
+            call GenShellGrid(cSG, pSG%th(is:ie), pSG%ph(js:je))
+        endif
+        
+
+        cSG%isChild = .true.
+        cSG%bndis = is
+        cSG%bndie = ie
+        cSG%bndjs = js
+        cSG%bndje = je
+
+    end subroutine GenChildShellGrid
+
 end module shellGrid
