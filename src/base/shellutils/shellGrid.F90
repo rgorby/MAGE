@@ -55,7 +55,7 @@ module shellGrid
 
         !> Subgrid information
         !> ShellGrids that are subgrids of other shellGrids store info about their parent grid
-        logical :: isChild
+        logical :: isChild = .false.
         integer :: bndis,bndie,bndjs,bndje
             !! Indices of parent grid that bound this grid
             !! TODO: that bound this grid's active cells, or ghosts as well?
@@ -287,12 +287,13 @@ module shellGrid
     end subroutine GenShellGrid
 
 
-    subroutine initShellGridVar(shGr, loc, shellVar)
+    subroutine initShellVar(shGr, loc, shellVar)
+        !! Inits a ShellGridVar that associated with provided and initialized ShellGrid
         type(ShellGrid_T), intent(in) :: shGr
             !! ShellGrid that this variable is related to
         integer, intent(in) :: loc
             !! Location of data (cell center, corner, theta or phi face)
-        type(shellGridVar_T), intent(out) :: shellVar
+        type(ShellGridVar_T), intent(out) :: shellVar
         
         ! If you didn't want your data blown up you shouldn't have called init
         if (allocated(shellVar%data)) deallocate(shellVar%data)
@@ -318,6 +319,71 @@ module shellGrid
         ! unset all BC's
         shellVar%bcsApplied = .false.
         
-    end subroutine initShellGridVar
+    end subroutine initShellVar
+
+
+    subroutine GenChildShellGrid(pSG, cSG, sub_is, sub_ie, sub_js, sub_je)
+        !! Given a parent ShellGrid, makes a child ShellGrid as a subset of parent
+        type(ShellGrid_T), intent(in) :: pSG
+            !! Parent ShellGrid
+        type(ShellGrid_T), intent(out) :: cSG
+            !! Child ShellGrid
+        integer, optional, intent(in) :: sub_is, sub_ie, sub_js, sub_je
+            !! Start and end i/j indices of parent grid that bound active domain of new child grid
+            !! These are optional. If left out, we will essentially make a copy of the parent grid
+
+        integer :: is, ie, js, je
+            !! Actual bounds used
+
+        ! If a bound is provided then we use that, if not we default to parent grid's bounds
+        is = merge(sub_is, pSG%is  , present(sub_is))
+        ie = merge(sub_ie, pSG%ie+1, present(sub_ie))
+        js = merge(sub_js, pSG%js  , present(sub_js))
+        je = merge(sub_je, pSG%je+1, present(sub_je))
+
+        ! Check for valid bounds
+        if (is < pSG%is) then
+            write(*,*) "ERROR GenChildShellGrid: Invalid is bound."
+            write(*,*) "Requested:",is
+            write(*,*) "Mimumum:",pSG%is
+            stop
+        endif
+        if (ie > pSG%ie+1) then
+            write(*,*) "ERROR GenChildShellGrid: Invalid ie bound."
+            write(*,*) "Requested:",ie
+            write(*,*) "Mimumum:",pSG%ie
+            stop
+        endif
+        if (js < pSG%js) then
+            write(*,*) "ERROR GenChildShellGrid: Invalid js bound."
+            write(*,*) "Requested:",js
+            write(*,*) "Mimumum:",pSG%js
+            stop
+        endif
+        if (je > pSG%je+1) then
+            write(*,*) "ERROR GenChildShellGrid: Invalid je bound."
+            write(*,*) "Requested:",je
+            write(*,*) "Mimumum:",pSG%je
+            stop
+        endif
+        if (is > ie) then
+            write(*,*) "ERROR GenChildShellGrid: is > ie"
+            stop
+        endif
+        if (js > je) then
+            write(*,*) "ERROR GenChildShellGrid: js > je"
+            stop
+        endif
+
+        ! Otherwise we are ready to make a child grid
+        call GenShellGrid(cSG, pSG%th(is:ie), pSG%ph(js:je))
+
+        cSG%isChild = .true.
+        cSG%bndis = is
+        cSG%bndie = ie
+        cSG%bndjs = js
+        cSG%bndje = je
+
+    end subroutine GenChildShellGrid
 
 end module shellGrid

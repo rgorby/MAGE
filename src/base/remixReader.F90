@@ -4,36 +4,60 @@ module remixReader
     use kdefs
     use ioH5
     use XML_Input
-    use ioH5
+    use iotable
     use shellGrid
 
     implicit none
 
     integer :: MAXIOVARS = 20
 
+!------
+! Types
+!------
+    type rmHemi_T
+        integer :: nStp
+        real(rp) :: time
+        type(ShellGrid_T) :: shGr
+            !! Copy of ShellGrid as defined in rmState_T
+        type(ShellGridVar_T) :: Fac,SigP,SigH,Pot
+            !! Vars defined relative to ShellGrid
+    end type rmHemi_T
+
 
     type rmState_T
         ! Model stuff
+        character(len=strLen) :: rmF
+            !! Remix filename we are reading form
         logical :: doPed, doHall
             !! TODO: used by calcdb. Maybe they shouldn't live here. We don't do anything with them inside this module
 
         ! Grid stuff
         real(rp), dimension(:,:,:), allocatable :: XY
             !! X/Y coordinates in 2D. Convenient since we need it for lots of 2D arrays
-        type(shellGrid_T) :: shGr
+        type(ShellGrid_T) :: shGr
+        ! Its kinda like a grid of file steps if you really think about it
+        type(ioTab_T) :: rmTab
+            !! Table of steps in a mix.h5 file
 
         ! State stuff
         real(rp) :: time
             !! Current sim time according to whoever's using rmState
         integer :: i1=-1,i2=-1
             !! Input file step numbers bracketing time
-
-        type(ShellGridVar_T), dimension(:) ::
+        type(rmHemi_T) :: rmN1,rmN2,rmS1,rmS2
+            !! File data at step numbers bracketing time
+        logical :: doStatic
+            !! Whether or not we are out of valid remix data and should switch to static operation
+        type(ShellGridVar_T), dimension(NORTH:SOUTH) :: nsFac, nsSigP, nsSigH, nsPot
+            !! Time-interpolated North/South hemisphere shellVar objects
     end type rmState_T
 
 
     contains
 
+!------
+! Init
+!------
 
     subroutine initRM(ftag,inpXML,rmState)
         character(len=strLen), intent(in) :: ftag
@@ -50,19 +74,22 @@ module remixReader
             !! Temporary X/Y in real mix corner format
         integer :: Nt,Np
             !! # of non-ghost cell centers
-        character(len=strLen) :: rmF 
-            !! Remix file
-        integer :: j
+        integer :: j, h
+            !! Loop indices
         
-        write(rmF,'(2a)') trim(adjustl(ftag)),'.mix.h5'
-
-        write(*,*) 'Initializing RMState w/ ', trim(rmF)
+        write(rmState%rmF,'(2a)') trim(adjustl(ftag)),'.mix.h5'
+        write(*,*) 'Initializing RMState w/ ', trim(rmState%rmF)
+        
+        ! Get file data loaded in
+        call InitIOTab(rmState%rmTab, inpXML, rmState%rmF)
+        rmState%rmTab%bStr = trim(adjustl(ftag))
+        rmState%doStatic = (rmState%rmTab%N == 1)
 
         ! Start with grid
         call ClearIO(IOVars)
         call AddInVar(IOVars,"X")
         call AddInVar(IOVars,"Y")
-        call ReadVars(IOVars,.true.,rmF)
+        call ReadVars(IOVars,.true.,rmState%rmF)
 
 
         !! Grid conversion
@@ -71,21 +98,23 @@ module remixReader
         !! This means that the variable data is now stored at cell corners
         !! But, the outputted variable data only goes from phi [0,2Pi-dphi]
         !! So in order to comply with shellGrid expectations, we need to copy first phi column to end of array as well
+        !! So the final size of the arrays we care about are (Nt-1,Np)
         Np = IOVars(FindIO(IOVars, "X"))%dims(1)
         Nt = IOVars(FindIO(IOVars, "X"))%dims(2)
-        write(*,*)Nt,Np
+
+        ! One day we will get grid in this format directly from the mix.h5 file
+        ! But today is not that day
         allocate(rmState%XY(Nt-1,Np,XDIR:YDIR))
         allocate(tmpXY(Np,Nt,XDIR:YDIR))
         call IOArray2DFill(IOVars,"X",tmpXY(:,:,XDIR))
         call IOArray2DFill(IOVars,"Y",tmpXY(:,:,YDIR))
-
-        ! One day we will get grid in this format directly from the mix.h5 file
-        ! But today is not that day
         call genInGrid(tmpXY(:,:,XDIR), tmpXY(:,:,YDIR), tmpXcn, tmpYcn)
         rmState%XY(:,:Np-1,XDIR) = transpose(tmpXcn)
         rmState%XY(:,:Np-1,YDIR) = transpose(tmpYcn)
         ! Wrap in j
         rmState%XY(:,Np,:) = rmState%XY(:,1,:)
+        
+        ! Now XY is in the desired format, time for shellGrid
 
         ! XY are in units of ionospheric radii (r = 1 Ri)
         ! So the theta and phi we calculate are also for the ionospheric grid
@@ -103,19 +132,166 @@ module remixReader
         if (abs(ph1D(1)) < TINY) then
             ph1D(1) = 0.0
         endif
-        !write(*,*) "th1D"
-        !write(*,*) th1D
-        !write(*,*) "ph1D"
-        !write(*,*) ph1D*180.0_rp/PI
+        
         call GenShellGrid(rmState%shGr, th1D, ph1D)
 
         ! Hooray we have a shellGrid now
+        ! Init our vars
+        do h=NORTH,SOUTH
+            call initShellVar(rmState%shGr, SHCORNER, rmState%nsFac(h))
+            call initShellVar(rmState%shGr, SHCORNER, rmState%nsPot(h))
+            call initShellVar(rmState%shGr, SHCORNER, rmState%nsSigP(h))
+            call initShellVar(rmState%shGr, SHCORNER, rmState%nsSigH(h))
+        enddo
+        
+        ! Now init hemispheres
+        call initHemi(rmState%rmN1, rmState%shGr)
+        call initHemi(rmState%rmN2, rmState%shGr)
+        call initHemi(rmState%rmS1, rmState%shGr)
+        call initHemi(rmState%rmS2, rmState%shGr)
 
+
+        contains
+
+
+        subroutine initHemi(rmHemi,shGr)
+            type(rmHemi_T), intent(inout) :: rmHemi
+            type(ShellGrid_T), intent(in) :: shGr
+                !! Reference shellGrid, already defined
+
+            rmHemi%nStp = -1 !Not yet set
+            rmHemi%time = 0.0
+            
+            ! Generate our own copy of the parent shellGrid
+            call GenChildShellGrid(rmState%shGr, rmHemi%shGr)
+
+            ! Init our variables
+            call initShellVar(rmHemi%shGr, SHCORNER, rmHemi%Fac)
+            call initShellVar(rmHemi%shGr, SHCORNER, rmHemi%Pot)
+            call initShellVar(rmHemi%shGr, SHCORNER, rmHemi%SigP)
+            call initShellVar(rmHemi%shGr, SHCORNER, rmHemi%SigH)
+
+        end subroutine initHemi
 
 
     end subroutine initRM
 
 
+!------
+! Update
+!------
+
+    subroutine updateRM(rmState, t)
+        ! Update rmState to time t
+        ! TODO: This should do fancier stuff, like ebICstd:updateFields
+        type(rmState_T), intent(inout) :: rmState
+        real(rp), intent(in) :: t
+
+        real(rp) :: w1, w2
+        
+        ! Update tabSlices
+        call GetTabSlc(rmState%rmTab,t,rmState%i1,rmState%i2)
+        if ( t >= maxval(rmState%rmTab%times) ) then
+            rmState%doStatic = .true.
+        endif
+
+        ! Read the 4 hemispheres
+        call readHemi(rmState, rmState%rmN1, rmState%i1, NORTH)
+        call readHemi(rmState, rmState%rmS1, rmState%i1, SOUTH)
+
+        call readHemi(rmState, rmState%rmN2, rmState%i2, NORTH)
+        call readHemi(rmState, rmState%rmS2, rmState%i2, SOUTH)
+
+        !Now fill in remix main state for this t
+        call GetTWgts(rmState%rmN1%time, rmState%rmN2%time, t, rmState%doStatic, w1, w2)
+        call hemi2rm(rmState, w1, w2)
+
+        write(*,*)"-----"
+        write(*,*)t
+        write(*,*)rmState%rmN1%time,",",rmState%rmN2%time
+        write(*,*)w1,",",w2
+
+        contains
+
+        subroutine readHemi(rmState, rmHemi, nStp, nsID)
+            !! Reads hemisphere information from remix file step
+            type(rmState_T), intent(in) :: rmState
+            type(rmHemi_T), intent(inout) :: rmHemi
+            integer, intent(in) :: nStp, nsID
+
+            character(len=strLen) :: hID,gStr
+            type(IOVAR_T), dimension(MAXIOVARS) :: IOVars
+
+            ! Check to see if we need to read
+            if (rmHemi%nStp == nStp) then
+                ! We've already read this data
+                return
+            endif
+            ! Otherwise, get the date
+            ! Which hemisphere?
+            if (nsID == NORTH) then
+                hID = "NORTH"
+            else
+                hID = "SOUTH"
+            endif
+            gStr = trim(rmState%rmTab%gStrs(nStp))
+
+            rmHemi%time = rmState%rmTab%times(nStp)
+            rmHemi%nStp = nStp
+
+            call ClearIO(IOVars)
+            call AddInVar(IOVars,"Field-aligned current " // hID)
+            call AddInVar(IOVars, "Pedersen conductance " // hID)
+            call AddInVar(IOVars,     "Hall conductance " // hID)
+            call AddInVar(IOVars,            "Potential " // hID)
+            call ReadVars(IOVars,.true.,rmState%rmF,gStr)
+
+            ! Abstract away the janky mapping, eventually replace with ShellGrid-friendly variable reading
+            call readVarJank(IOVars, "Field-aligned current " // hID, rmHemi%shGr, rmHemi%Fac )
+            call readVarJank(IOVars,  "Pedersen conductance " // hID, rmHemi%shGr, rmHemi%SigP)
+            call readVarJank(IOVars,      "Hall conductance " // hID, rmHemi%shGr, rmHemi%SigH)
+            call readVarJank(IOVars,             "Potential " // hID, rmHemi%shGr, rmHemi%Pot )
+
+        end subroutine readHemi
+
+    end subroutine updateRM
+
+
+!------
+! Helpers
+!------
+
+    subroutine GetTWgts(t1, t2, t, doStatic, w1, w2)
+        real(rp), intent(in)  :: t1, t2, t
+        logical, intent(in) :: doStatic
+        real(rp), intent(out) :: w1,w2
+
+        real(rp) :: dt
+
+        if (doStatic) then
+            w1 = 1.0
+            w2 = 0.0
+        else
+            dt = t2-t1
+            w1 = (t2 -  t)/dt
+            w2 = (t  - t1)/dt
+        endif
+    end subroutine GetTWgts
+
+
+    subroutine hemi2rm(rmState, w1, w2)
+        type(rmState_T), intent(inout) :: rmState
+        real(rp), intent(in) :: w1, w2
+
+        rmState%nsFac (NORTH)%data = w1*rmState%rmN1%Fac %data + w2*rmState%rmN2%Fac %data
+        rmState%nsPot (NORTH)%data = w1*rmState%rmN1%Pot %data + w2*rmState%rmN2%Pot %data
+        rmState%nsSigP(NORTH)%data = w1*rmState%rmN1%SigP%data + w2*rmState%rmN2%SigP%data
+        rmState%nsSigH(NORTH)%data = w1*rmState%rmN1%SigH%data + w2*rmState%rmN2%SigH%data
+        rmState%nsFac (SOUTH)%data = w1*rmState%rmS1%Fac %data + w2*rmState%rmS2%Fac %data
+        rmState%nsPot (SOUTH)%data = w1*rmState%rmS1%Pot %data + w2*rmState%rmS2%Pot %data
+        rmState%nsSigP(SOUTH)%data = w1*rmState%rmS1%SigP%data + w2*rmState%rmS2%SigP%data
+        rmState%nsSigH(SOUTH)%data = w1*rmState%rmS1%SigH%data + w2*rmState%rmS2%SigH%data
+    end subroutine hemi2rm
 
 !------
 ! Temporary Helpers
@@ -145,5 +321,23 @@ module remixReader
         !x(:,1) = 0
         !y(:,1) = 0
       end subroutine genInGrid
+
+
+      subroutine readVarJank(IOV, vName, shGr, v)
+        !! Placeholder readVar to make current remix output file work will ShellGrid format
+        !! TODO: One day we will remove this once we implement a more standardized ShellGrid-friendly output file format
+        type(IOVAR_T), dimension(MAXIOVARS), intent(in) :: IOV
+        character(len=strLen), intent(in) :: vName
+        type(ShellGrid_T), intent(in) :: shGr
+        type(ShellGridVar_T), intent(inout) :: v
+
+        real(rp), dimension(shGr%Np, shGr%Nt+1) :: tmpVar
+
+        call IOArray2DFill(IOV,vName,tmpVar)
+
+        v%data(:,:shGr%Np) = transpose(tmpVar)
+        v%data(:,shGr%Np+1) = v%data(:,1)
+
+    end subroutine readVarJank
 
 end module remixReader
