@@ -204,6 +204,8 @@ def main():
     if doAll:
         # Run all tests.
         if verbose:
+            print('Running all tests.')
+        if verbose:
             print('Running build tests.')
         # buildTest = subprocess.Popen(f"python buildTest.py {subArgString}",
         #                              shell=True)
@@ -239,6 +241,8 @@ def main():
         #                               shell=True)
         # weeklyDash.wait()
     else:
+        if verbose:
+            print('Running typical tests.')
         # Run only typical tests.
         if verbose:
             print('Running build tests.')
@@ -265,7 +269,6 @@ def main():
         # pyunitTest = subprocess.Popen(f"python pyunitTest.py {subArgString}",
         #                               shell=True)
         # pyunitTest.wait()
-
 
     if debug:
         print(f"Ending {sys.argv[0]} at {datetime.datetime.now()}")
