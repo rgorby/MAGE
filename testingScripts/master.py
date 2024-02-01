@@ -136,6 +136,8 @@ def main():
     # Assume this script is in a subdirectory of the kaiju directory.
     os.chdir(called_from)
     os.chdir('..')
+    if debug:
+        print(f"cwd = {os.getcwd()}")
 
     # Use this directory as the home directory for testing.
     home = os.getcwd()
@@ -157,21 +159,24 @@ def main():
         print(text)
 
     # Find the current branch.
-    p = subprocess.Popen('git symbolic-ref --short HEAD', shell=True, stdout=subprocess.PIPE)
+    p = subprocess.Popen('git symbolic-ref --short HEAD', shell=True,
+                         stdout=subprocess.PIPE)
     git_branch = p.stdout.read().decode('ascii').rstrip()
     if debug:
         print(f"git_branch = {git_branch}")
 
-    # If there are no changes to the code, and the forced-test flag is not set,
-    # abort this test.
+    # If there are no changes to the code, and the forced-test flag is
+    # not set, abort this test.
     if text == 'Already up to date.' and not forceRun:
-        print("No test today. Branch " + git_branch + " is already up to date!")
+        print(f"No test today. Branch {git_branch} is already up to date!")
         exit(0)
 
     #--------------------------------------------------------------------------
 
     # Move to the directory containing the test scripts, and run them.
     os.chdir('testingScripts')
+    if debug:
+        print(f"cwd = {os.getcwd()}")
     if verbose:
         print('I made it this far!')
         print(os.path.dirname(os.path.abspath(__file__)))
@@ -198,63 +203,69 @@ def main():
     # running the next test.
     if doAll:
         # Run all tests.
-        # if verbose:
-        #     print("Running build tests.")
+        if verbose:
+            print('Running build tests.')
         # buildTest = subprocess.Popen(f"python buildTest.py {subArgString}",
         #                              shell=True)
         # buildTest.wait()
-        # if verbose:
-        #     print("Running unit tests.")
+        if verbose:
+            print('Running unit tests.')
         # unitTest = subprocess.Popen(f"python unitTest.py {subArgString}",
         #                             shell=True)
         # unitTest.wait()
-        # if verbose:
-        #     print("Running Intel checks.")
+        if verbose:
+            print('Running Intel Inspector checks.')
         # intelTest = subprocess.Popen(f"python intelChecks.py {subArgString}",
         #                              shell=True)
         # intelTest.wait()
-        # if verbose:
-        #     print("Running IC tests.")
+        if verbose:
+            print('Running initial condition tests.')
         # ICTest = subprocess.Popen(f"python ICtest.py {subArgString}",
         #                           shell=True)
         # ICTest.wait()
-        # if verbose:
-        #     print("Running IC test report.")
+        if verbose:
+            print('Running initial conditions test report.')
         # ICReport = subprocess.Popen(f"python ICtestReport.py {subArgString}",
         #                             shell=True)
         # ICReport.wait()
         if verbose:
-            print("Running python unit tests.")
-        pyunitTest = subprocess.Popen(f"python pyunitTest.py {subArgString}",
-                                      shell=True)
-        pyunitTest.wait()
+            print('Running python unit tests.')
+        # pyunitTest = subprocess.Popen(f"python pyunitTest.py {subArgString}",
+        #                               shell=True)
+        # pyunitTest.wait()
+        if verbose:
+            print('Running weekly dash.')
         # weeklyDash = subprocess.Popen(f"python weeklyDash.py {subArgString}",
         #                               shell=True)
         # weeklyDash.wait()
     else:
-        pass
-    # Run only typical tests.
-    # buildTest = subprocess.Popen(f"python buildTest.py {subArgString}",
-    #                              shell=True, check=True)
-    # buildTest.wait()
-    # unitTest = subprocess.Popen(f"python unitTest.py {subArgString}",
-    #                             shell = True)
-    # unitTest.wait()
-    # intelTest = subprocess.Popen(f"python intelChecks.py {subArgString}",
-    #                              shell=True)
-    # intelTest.wait()
-    # ICTest = subprocess.Popen(f"python ICtest.py {subArgString}",
-    #                           shell=True)
-    # ICTest.wait()
-    # ICReport = subprocess.Popen(f"python ICtestReport.py {subArgString}",
-    #                             shell=True)
-    # ICReport.wait()
-    # pyunitTest = subprocess.Popen(f"python pyunitTest.py {subArgString}",
-    #                               shell=True)
-    # pyunitTest.wait()
-    # weeklyDash = subprocess.Popen(f"python weeklyDash.py {subArgString}",
-    #                               shell=True)
-    # weeklyDash.wait()
+        # Run only typical tests.
+        if verbose:
+            print('Running build tests.')
+        # buildTest = subprocess.Popen(f"python buildTest.py {subArgString}",
+        #                              shell=True)
+        # buildTest.wait()
+        if verbose:
+            print('Running unit tests.')
+        # unitTest = subprocess.Popen(f"python unitTest.py {subArgString}",
+        #                             shell=True)
+        # unitTest.wait()
+        if verbose:
+            print('Running initial condition tests.')
+        # ICTest = subprocess.Popen(f"python ICtest.py {subArgString}",
+        #                           shell=True)
+        # ICTest.wait()
+        if verbose:
+            print('Running initial conditions test report.')
+        # ICReport = subprocess.Popen(f"python ICtestReport.py {subArgString}",
+        #                             shell=True)
+        # ICReport.wait()
+        if verbose:
+            print('Running python unit tests.')
+        # pyunitTest = subprocess.Popen(f"python pyunitTest.py {subArgString}",
+        #                               shell=True)
+        # pyunitTest.wait()
+
 
     if debug:
         print(f"Ending {sys.argv[0]} at {datetime.datetime.now()}")
