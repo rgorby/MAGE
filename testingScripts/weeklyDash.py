@@ -1,73 +1,256 @@
-# import os
+#!/usr/bin/env python
+
+
+"""Run the MAGE weekly dash tests.
+
+This script runs the MAGE weekly dash tests.
+
+Authors
+-------
+Jeff Garretson (jeffrey.garretson@jhuapl.edu)
+Eric Winter (eric.winter@jhuapl.edu)
+"""
+
+
+# Import standard modules.
+import argparse
+import datetime
+import os
 import sys
-# import subprocess
-# from os.path import expanduser
-# sys.path.insert(1, "./python-slackclient")
-# from slack import WebClient
-# from slack.errors import SlackApiError
-# import logging
-# logging.basicConfig(level=logging.DEBUG)
-# import time
-# import argparse
+import subprocess
 
-print(f"Starting {sys.argv[0]}")
+# Import 3rd-party modules.
+from slack_sdk import WebClient
+from slack_sdk.errors import SlackApiError
 
-# # read arguments
-# parser = argparse.ArgumentParser()
-# parser.add_argument('-t',action='store_true',default=False, help='Enables testing mode')
-# parser.add_argument('-l',action='store_true',default=False, help='Enables loud mode')
-# parser.add_argument('-a',action='store_true',default=False, help='Run all tests')
-# parser.add_argument('-f',action='store_true',default=False, help='Force the tests to run')
-# parser.add_argument('--account',type=str, default='', help='qsub account number')
+# Import project modules.
 
-# args = parser.parse_args()
-# isTest = args.t
-# beLoud = args.l
-# doAll = args.a
-# forceRun = args.f
-# account = args.account
 
-# # Get Slack API token
-# slack_token = os.environ["SLACK_BOT_TOKEN"]
-# print(slack_token)
-# client = WebClient(token=slack_token)
+# Program constants
 
-# # Get CWD and set kaiju to "home"
-# calledFrom = os.path.dirname(os.path.abspath(__file__))
-# os.chdir(calledFrom)
-# orig = os.getcwd()
-# os.chdir('..')
-# home = os.getcwd()
+# Program description.
+DESCRIPTION = "Run the MAGE weekly dash tests."
 
-# os.chdir(home)
 
-# # get my current branch
-# p = subprocess.Popen("git symbolic-ref --short HEAD", shell=True, stdout=subprocess.PIPE)
-# gBranch = p.stdout.read()
-# gBranch = gBranch.decode('ascii')
-# gBranch = gBranch.rstrip()
-# print(gBranch)
+def create_command_line_parser():
+    """Create the command-line argument parser.
 
-# # If the weekly dash base folder doesn't exist, need to generate the restart
-# if( not os.path.exists("dashRestarts")):
-#     message = "No restart data available for weekly dash on branch " + gBranch + ". Please generate restart data and try again."
-#     if(not isTest):
-#         try:
-#             response = client.chat_postMessage(
-#                 channel="#kaijudev",
-#                 text=message,
-#             )
-#         except SlackApiError as e:
-#            # You will get a SlackApiError if "ok" is False
-#            assert e.response["error"]  # str like 'invalid_auth', 'channel_not_found'
-#     else:
-#         print(message)
-#     exit()
+    Create the parser for command-line arguments.
 
-# # Build voltron_mpi.x
-# os.system('rm -r weeklyDash')
-# os.system('mkdir weeklyDash')
-# os.chdir("weeklyDash")
+    Parameters
+    ----------
+    None
+
+    Returns
+    -------
+    parser : argparse.ArgumentParser
+        Command-line argument parser for this script.
+
+    Raises
+    ------
+    None
+    """
+    parser = argparse.ArgumentParser(description=DESCRIPTION)
+    parser.add_argument(
+        "--account", default=None,
+        help="PBS account to use for testing (default: %(default)s)"
+    )
+    parser.add_argument(
+        "--all", "-a", action="store_true",
+        help="Run all tests (default: %(default)s)."
+    )
+    parser.add_argument(
+        "--debug", "-d", action="store_true",
+        help="Print debugging output (default: %(default)s)."
+    )
+    parser.add_argument(
+        "--force", "-f", action="store_true",
+        help="Force all tests to run (default: %(default)s)."
+    )
+    parser.add_argument(
+        "--loud", "-l", action="store_true",
+        help="Enable loud mode (default: %(default)s)."
+    )
+    parser.add_argument(
+        "--test", "-t", action="store_true",
+        help="Enable testing mode (default: %(default)s)."
+    )
+    parser.add_argument(
+        "--verbose", "-v", action="store_true",
+        help="Print verbose output (default: %(default)s)."
+    )
+    return parser
+
+
+def main():
+    """Begin main program.
+
+    This is the main program code.
+
+    Parameters
+    ----------
+    None
+
+    Returns
+    -------
+    None
+
+    Raises
+    ------
+    None
+    """
+    # Set up the command-line parser.
+    parser = create_command_line_parser()
+
+    # Parse the command-line arguments.
+    args = parser.parse_args()
+    if args.debug:
+        print(f"args = {args}")
+    account = args.account
+    doAll = args.all
+    debug = args.debug
+    forceRun = args.force
+    beLoud = args.loud
+    isTest = args.test
+    verbose = args.verbose
+
+    if debug:
+        print(f"Starting {sys.argv[0]} at {datetime.datetime.now()}")
+
+    #--------------------------------------------------------------------------
+
+    # Set up for communication with Slack.
+
+    # Get the Slack API token
+    slack_token = os.environ["SLACK_BOT_TOKEN"]
+    if debug:
+        print(f"slack_token = {slack_token}")
+    slack_client = WebClient(token=slack_token)
+    if debug:
+        print(f"slack_client = {slack_client}")
+
+    #--------------------------------------------------------------------------
+
+    # Determine the path to the MAGE installation to use for testing.
+
+    # Fetch the path to this running script.
+    called_from = os.path.dirname(os.path.abspath(__file__))
+    if debug:
+        print(f"called_from = {called_from}")
+
+    # Assume this script is in a subdirectory of the kaiju directory.
+    os.chdir(called_from)
+    os.chdir('..')
+
+    # Use this directory as the home directory for testing.
+    home = os.getcwd()
+    if debug:
+        print(f"home = {home}")
+    if verbose:
+        print('I am the build script. This is my current home directory:')
+        print(home)
+
+    #--------------------------------------------------------------------------
+
+    # Clean up the results from previous builds.
+    if verbose:
+        print("Cleaning up from previous build tests.")
+    os.system("rm -rf build*/ testFolder")
+    if verbose:
+        print('The current test directory contents are:')
+        os.system('ls')
+
+    #--------------------------------------------------------------------------
+
+    # Find the current branch.
+    os.chdir(home)
+    p = subprocess.Popen('git symbolic-ref --short HEAD', shell=True, stdout=subprocess.PIPE)
+    git_branch = p.stdout.read().decode('ascii').rstrip()
+    if debug:
+        print(f"git_branch = {git_branch}")
+
+    #--------------------------------------------------------------------------
+
+    # If the weekly dash base folder doesn't exist, create it and
+    # generate the restart data.
+    if not os.path.exists('dashRestarts'):
+        message = (
+            'No restart data available for weekly dash on branch '
+            "{git_branch}. Please generate restart data and try again."
+            )
+        if isTest:
+            pass
+        else:
+            # If loud, send Slack message.
+            if beLoud:
+                try:
+                    response = slack_client.chat_postMessage(
+                        channel="#kaijudev",
+                        text=message,
+                    )
+                except SlackApiError as e:
+                    # You will get a SlackApiError if "ok" is False
+                    assert e.response["error"]  # str like 'invalid_auth', 'channel_not_found'
+            print(message)
+            exit()
+
+    #--------------------------------------------------------------------------
+
+    # Clean up from previous builds.
+    os.chdir(home)
+    # os.system('rm -r weeklyDash')
+    # os.system('mkdir weeklyDash')
+    # os.chdir('weeklyDash')
+
+    # #--------------------------------------------------------------------------
+
+    # # Run the Intel checks with each set of modules.
+    
+    # # Go back to scripts folder
+    # path = os.path.join(home, 'testingScripts', 'mage_build_test_modules')
+    # if debug:
+    #     print(f"path = {path}")
+    # os.chdir(path)
+
+    # # Get a list of build module sets.
+    # module_list_files = glob.glob('*.lst')
+    # if debug:
+    #     print(f"module_list_files = {module_list_files}")
+
+    # # <HACK>
+    # # Just use first module set for now.
+    # module_list_files = [module_list_files[0]]
+    # # </HACK>
+
+    # # Run unit tests with each set of modules.
+    # for module_list_file in module_list_files:
+    #     if debug:
+    #         print(f"module_list_file = {module_list_file}")
+
+    #     # Extract the name of the list.
+    #     module_list_name = module_list_file.replace('.lst', '')
+    #     if debug:
+    #         print(f"module_list_name = {module_list_name}")
+
+    #     # Read this module list file, extracting cmake environment and options,
+    #     # if any.
+    #     path = os.path.join(home, 'testingScripts', 'mage_build_test_modules',
+    #                         module_list_file)
+    #     with open(path, encoding="utf-8") as f:
+    #         lines = f.readlines()
+    #     cmake_env = ''
+    #     label = 'CMAKE_ENV='
+    #     if lines[0].startswith(label):
+    #         cmake_env = lines[0][len(label):].rstrip()
+    #         lines.pop(0)  # Remove cmake environment line.
+    #     cmake_options = ''
+    #     label = 'CMAKE_OPTIONS='
+    #     if lines[0].startswith(label):
+    #         cmake_options = lines[0][len(label):].rstrip()
+    #         lines.pop(0)  # Remove cmake options line.
+    #     module_names = [line.rstrip() for line in lines]
+
+    # Build voltron_mpi.x
 
 # # Read in modules.txt and load only the requested modules
 # file = open('../testingScripts/dashModules.txt', 'r')
@@ -192,4 +375,10 @@ print(f"Starting {sys.argv[0]}")
 # message = "Run started on branch " + gBranch + " as jobid " + firstJobNumber
 # print(message)
 
-print(f"Ending {sys.argv[0]}")
+    if debug:
+        print(f"Ending {sys.argv[0]} at {datetime.datetime.now()}")
+
+
+if __name__ == '__main__':
+    """Call main program function."""
+    main()

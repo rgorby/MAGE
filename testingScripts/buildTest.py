@@ -251,7 +251,7 @@ def main():
         print(f"cwd = {os.getcwd()}")
 
     # Read the list of  module sets to use for build tests.
-    with open('build_test_module_sets.lst', encoding='utf-8') as f:
+    with open('build_test.lst', encoding='utf-8') as f:
         lines = f.readlines()
     module_list_files = [s.rstrip() for s in lines]
     if debug:

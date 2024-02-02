@@ -172,18 +172,24 @@ def main():
 
     #--------------------------------------------------------------------------
 
-    # Run the unit tests with each set of modules.
-    
-    # Go back to scripts folder
-    path = os.path.join(home, 'testingScripts', 'mage_build_test_modules')
-    if debug:
-        print(f"path = {path}")
-    os.chdir(path)
+    # Make a list of module sets to build with.
 
-    # Get a list of build module sets.
-    module_list_files = glob.glob('*.lst')
+    # Go to the module sets folder.
+    path = os.path.join(home, 'testingScripts', 'mage_unit_test_modules')
+    os.chdir(path)
+    if debug:
+        print(f"cwd = {os.getcwd()}")
+
+    # Read the list of  module sets to use for build tests.
+    with open('unit_test.lst', encoding='utf-8') as f:
+        lines = f.readlines()
+    module_list_files = [s.rstrip() for s in lines]
     if debug:
         print(f"module_list_files = {module_list_files}")
+
+    #--------------------------------------------------------------------------
+
+    # Run the unit tests with each set of modules.
 
     # <HACK>
     # Just use first module set for now.
