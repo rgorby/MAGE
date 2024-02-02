@@ -16,7 +16,6 @@ Authors
 -------
 Jeff Garretson (jeffrey.garretson@jhuapl.edu)
 Eric Winter (eric.winter@jhuapl.edu)
-
 """
 
 
@@ -25,8 +24,9 @@ import argparse
 import datetime
 import glob
 import os
-import sys
+import shutil
 import subprocess
+import sys
 
 # Import 3rd-party modules.
 from slack_sdk import WebClient
@@ -134,6 +134,8 @@ def main():
     slack_token = os.environ['SLACK_BOT_TOKEN']
     if debug:
         print(f"slack_token = {slack_token}")
+
+    # Create the Slack client.
     slack_client = WebClient(token=slack_token)
     if debug:
         print(f"slack_client = {slack_client}")
@@ -165,11 +167,13 @@ def main():
     # Clean up the results from previous builds.
     if verbose:
         print('Cleaning up from previous build tests.')
-    cmd = 'rm -rf build*/ testFolder'
-    if debug:
-        print(f"cmd = {cmd}")
-    cproc = subprocess.run(cmd, shell=True, check=True, text=True,
-                           stdout=subprocess.PIPE, stderr=subprocess.STDOUT)
+    directories = glob.glob('build_*')
+    directories.append('testFolder')
+    for directory in directories:
+        try:
+            shutil.rmtree(directory)
+        except:
+            pass
     if verbose:
         print('The current test directory contents are:')
         os.system('ls')
@@ -216,9 +220,8 @@ def main():
         print(f"module_names = {module_names}")
 
     # Assemble the commands to load the listed modules.
-    module_cmd = 'module --force purge; module load'
-    for module_name in module_names:
-        module_cmd += f" {module_name}"
+    module_cmd = 'module --force purge; module load '
+    module_cmd += ' '.join(module_names)
     if debug:
         print(f"module_cmd = {module_cmd}")
 
@@ -354,12 +357,12 @@ def main():
             if beLoud or not isPerfect:
                 try:
                     response = slack_client.chat_postMessage(
-                        channel="#kaijudev",
+                        channel='#kaijudev',
                         text=message,
                     )
                 except SlackApiError as e:
                     # You will get a SlackApiError if "ok" is False
-                    assert e.response["error"]  # str like 'invalid_auth', 'channel_not_found'
+                    assert e.response['error']  # str like 'invalid_auth', 'channel_not_found'
 
         # Send message to stdout.
         print(message)
