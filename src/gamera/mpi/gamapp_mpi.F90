@@ -587,7 +587,11 @@ module gamapp_mpi
 
         ! gamera mpi specific output
         if(gamAppMpi%printMagFluxFaceError) then
-            call MPI_AllReduce(gamAppMpi%faceError, totalFaceError, 1, MPI_MYFLOAT, MPI_SUM, gamAppMpi%gamMpiComm, ierr)
+            if(gamAppMpi%Grid%isTiled) then
+                call MPI_AllReduce(gamAppMpi%faceError, totalFaceError, 1, MPI_MYFLOAT, MPI_SUM, gamAppMpi%gamMpiComm, ierr)
+            else
+                totalFaceError = gamAppMpi%faceError
+            endif
             if (gamAppMpi%Model%isLoud) then
                 write(*,*) ANSICYAN
                 write(*,*) 'GAMERA MPI'
@@ -612,7 +616,7 @@ module gamapp_mpi
 
         !Track timing for all gamera ranks to finish physical BCs
         ! Only synchronize when timing
-        if(gamAppMpi%Model%IO%doTimerOut) then
+        if(gamAppMpi%Model%IO%doTimerOut .and. gamAppMpi%Grid%isTiled) then
             call Tic("Sync BCs")
             call MPI_BARRIER(gamAppMpi%gamMpiComm,ierr)
             call Toc("Sync BCs")
@@ -625,7 +629,7 @@ module gamapp_mpi
 
         !Track timing for all gamera ranks to finish halo comms
         ! Only synchronize when timing
-        if(gamAppMpi%Model%IO%doTimerOut) then
+        if(gamAppMpi%Model%IO%doTimerOut .and. gamAppMpi%Grid%isTiled) then
             call Tic("Sync Halos")
             call MPI_BARRIER(gamAppMpi%gamMpiComm,ierr)
             call Toc("Sync Halos")
@@ -673,7 +677,7 @@ module gamapp_mpi
 
         !Track timing for all gamera ranks to finish periodic BCs
         ! Only synchronize when timing
-        if(gamAppMpi%Model%IO%doTimerOut) then
+        if(gamAppMpi%Model%IO%doTimerOut .and. gamAppMpi%Grid%isTiled) then
             call Tic("Sync Periodics")
             call MPI_BARRIER(gamAppMpi%gamMpiComm,ierr)
             call Toc("Sync Periodics")
@@ -692,7 +696,7 @@ module gamapp_mpi
 
         !Track timing for all gamera ranks to finish math
         ! Only synchronize when timing
-        if(gamAppMpi%Model%IO%doTimerOut) then
+        if(gamAppMpi%Model%IO%doTimerOut .and. gamAppMpi%Grid%isTiled) then
             call Tic("Sync Math")
             call MPI_BARRIER(gamAppMpi%gamMpiComm,ierr)
             call Toc("Sync Math")
