@@ -4,16 +4,8 @@
 """Master script for automated MAGE regression testing.
 
 This script controls automated MAGE regression testing on
-derecho. This script should be scheduled to run every night at 2300 CT
-on derecho. The cron job entry should look something like this:
-
-30 23 * * * bash -c 'ssh derecho /glade/work/ewinter/mage_testing/derecho/scripts/run_mage_test_00.sh' >> /glade/work/ewinter/mage_testing/derecho/logs/test.out 2>&1
-
-Note that this crontab must be used on the cron host connected to
-derecho.
-
-The bash script run_mage_test_00.sh sets up the environment for this
-script, then runs it.
+derecho. This script should be run in a cron job using the testing
+setup script run_mage_test_00.sh.
 
 Authors
 -------
@@ -38,7 +30,7 @@ import subprocess
 # Program constants
 
 # Program description.
-DESCRIPTION = "Master script for MAGE regression testing"
+DESCRIPTION = 'Master script for MAGE regression testing'
 
 
 def create_command_line_parser():
@@ -78,7 +70,7 @@ def create_command_line_parser():
     )
     parser.add_argument(
         '--loud', '-l', action='store_true',
-        help="Enable loud mode (default: %(default)s)."
+        help="Enable loud mode (post results to Slack) (default: %(default)s)."
     )
     parser.add_argument(
         '--test', '-t', action='store_true',
@@ -151,21 +143,19 @@ def main():
     cmd = 'git pull'
     if debug:
         print(f"cmd = {cmd}")
-    proc = subprocess.run(cmd, shell=True, check=True,
-                          stdout=subprocess.PIPE, stderr=subprocess.STDOUT)
-    if verbose:
-        print(proc.stdout.decode('ascii').rstrip())
-    git_pull_output = proc.stdout.decode('ascii').rstrip()
+    cproc = subprocess.run(cmd, shell=True, check=True, text=True,
+                           stdout=subprocess.PIPE, stderr=subprocess.STDOUT)
+    git_pull_output = cproc.stdout.rstrip()
     if debug:
-        print(f"git_pull_output = {git_pull_output}")
+        print(git_pull_output)
 
     # Find the current branch.
     cmd = 'git symbolic-ref --short HEAD'
     if debug:
         print(f"cmd = {cmd}")
-    proc = subprocess.run(cmd, shell=True, check=True,
-                          stdout=subprocess.PIPE, stderr=subprocess.STDOUT)
-    git_branch = proc.stdout.decode('ascii').rstrip()
+    cproc = subprocess.run(cmd, shell=True, check=True, text=True,
+                           stdout=subprocess.PIPE, stderr=subprocess.STDOUT)
+    git_branch = cproc.stdout.rstrip()
     if debug:
         print(f"git_branch = {git_branch}")
 
@@ -205,6 +195,7 @@ def main():
 
     # Run the tests.
     if doAll:
+
         # Run all tests.
         if verbose:
             print('Running all tests.')
@@ -214,89 +205,90 @@ def main():
         cmd = f"python buildTest.py {subArgString}"
         if debug:
             print(f"cmd = {cmd}")
-        # proc = subprocess.run(cmd, shell=True, check=True)
+        cproc = subprocess.run(cmd, shell=True, check=True)
 
-        if verbose:
-            print('Running Fortran unit tests.')
-        cmd = f"python unitTest.py {subArgString}"
-        if debug:
-            print(f"cmd = {cmd}")
-        # proc = subprocess.run(cmd, shell=True, check=True)
+        # if verbose:
+        #     print('Running Fortran unit tests.')
+        # cmd = f"python unitTest.py {subArgString}"
+        # if debug:
+        #     print(f"cmd = {cmd}")
+        # cproc = subprocess.run(cmd, shell=True, check=True)
 
-        if verbose:
-            print('Running Intel Inspector checks.')
-        cmd = f"python intelChecks.py {subArgString}"
-        if debug:
-            print(f"cmd = {cmd}")
-        # proc = subprocess.run(cmd, shell=True, check=True)
+        # if verbose:
+        #     print('Running Intel Inspector checks.')
+        # cmd = f"python intelChecks.py {subArgString}"
+        # if debug:
+        #     print(f"cmd = {cmd}")
+        # cproc = subprocess.run(cmd, shell=True, check=True)
 
-        if verbose:
-            print('Running initial condition tests.')
-        cmd = f"python ICtest.py {subArgString}"
-        if debug:
-            print(f"cmd = {cmd}")
-        # proc = subprocess.run(cmd, shell=True, check=True)
+        # if verbose:
+        #     print('Running initial condition tests.')
+        # cmd = f"python ICtest.py {subArgString}"
+        # if debug:
+        #     print(f"cmd = {cmd}")
+        # cproc = subprocess.run(cmd, shell=True, check=True)
 
-        if verbose:
-            print('Running initial conditions test report.')
-        cmd = f"python ICtestReport.py {subArgString}"
-        if debug:
-            print(f"cmd = {cmd}")
-        # proc = subprocess.run(cmd, shell=True, check=True)
+        # if verbose:
+        #     print('Running initial conditions test report.')
+        # cmd = f"python ICtestReport.py {subArgString}"
+        # if debug:
+        #     print(f"cmd = {cmd}")
+        # cproc = subprocess.run(cmd, shell=True, check=True)
 
-        if verbose:
-            print('Running python unit tests.')
-        cmd = f"python pyunitTest.py {subArgString}"
-        if debug:
-            print(f"cmd = {cmd}")
-        # proc = subprocess.run(cmd, shell=True, check=True)
+        # if verbose:
+        #     print('Running python unit tests.')
+        # cmd = f"python pyunitTest.py {subArgString}"
+        # if debug:
+        #     print(f"cmd = {cmd}")
+        # cproc = subprocess.run(cmd, shell=True, check=True)
 
-        if verbose:
-            print('Running weekly dash.')
-        cmd = f"python weeklyDash.py {subArgString}"
-        if debug:
-            print(f"cmd = {cmd}")
-        # proc = subprocess.run(cmd, shell=True, check=True)
+        # if verbose:
+        #     print('Running weekly dash.')
+        # cmd = f"python weeklyDash.py {subArgString}"
+        # if debug:
+        #     print(f"cmd = {cmd}")
+        # cproc = subprocess.run(cmd, shell=True, check=True)
 
     else:
+
         # Run only typical tests.
         if verbose:
             print('Running typical tests.')
 
-        if verbose:
-            print('Running build tests.')
-        cmd = f"python buildTest.py {subArgString}"
-        if debug:
-            print(f"cmd = {cmd}")
-        # proc = subprocess.run(cmd, shell=True, check=True)
+        # if verbose:
+        #     print('Running build tests.')
+        # cmd = f"python buildTest.py {subArgString}"
+        # if debug:
+        #     print(f"cmd = {cmd}")
+        # cproc = subprocess.run(cmd, shell=True, check=True)
 
-        if verbose:
-            print('Running Fortran unit tests.')
-        cmd = f"python unitTest.py {subArgString}"
-        if debug:
-            print(f"cmd = {cmd}")
-        # proc = subprocess.run(cmd, shell=True, check=True)
+        # if verbose:
+        #     print('Running Fortran unit tests.')
+        # cmd = f"python unitTest.py {subArgString}"
+        # if debug:
+        #     print(f"cmd = {cmd}")
+        # cproc = subprocess.run(cmd, shell=True, check=True)
 
-        if verbose:
-            print('Running initial condition tests.')
-        cmd = f"python ICtest.py {subArgString}"
-        if debug:
-            print(f"cmd = {cmd}")
-        # proc = subprocess.run(cmd, shell=True, check=True)
+        # if verbose:
+        #     print('Running initial condition tests.')
+        # cmd = f"python ICtest.py {subArgString}"
+        # if debug:
+        #     print(f"cmd = {cmd}")
+        # cproc = subprocess.run(cmd, shell=True, check=True)
 
-        if verbose:
-            print('Running initial conditions test report.')
-        cmd = f"python ICtestReport.py {subArgString}"
-        if debug:
-            print(f"cmd = {cmd}")
-        # proc = subprocess.run(cmd, shell=True, check=True)
+        # if verbose:
+        #     print('Running initial conditions test report.')
+        # cmd = f"python ICtestReport.py {subArgString}"
+        # if debug:
+        #     print(f"cmd = {cmd}")
+        # cproc = subprocess.run(cmd, shell=True, check=True)
 
-        if verbose:
-            print('Running python unit tests.')
-        cmd = f"python pyunitTest.py {subArgString}"
-        if debug:
-            print(f"cmd = {cmd}")
-        # proc = subprocess.run(cmd, shell=True, check=True)
+        # if verbose:
+        #     print('Running python unit tests.')
+        # cmd = f"python pyunitTest.py {subArgString}"
+        # if debug:
+        #     print(f"cmd = {cmd}")
+        # cproc = subprocess.run(cmd, shell=True, check=True)
 
     if verbose:
         print(f"Ending {sys.argv[0]} at {datetime.datetime.now()}")

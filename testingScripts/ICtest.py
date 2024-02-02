@@ -69,7 +69,7 @@ def create_command_line_parser():
     )
     parser.add_argument(
         "--loud", "-l", action="store_true",
-        help="Enable loud mode (default: %(default)s)."
+        help="Enable loud mode (post results to Slack) (default: %(default)s)."
     )
     parser.add_argument(
         "--test", "-t", action="store_true",

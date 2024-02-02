@@ -8,14 +8,15 @@ listed in files under:
 
 $KAIJUHOME/testingScripts/mage_build_modules
 
-Any file in this directory which ends in .lst will be treated as a module
-list file, and used for a build test. The results of each build test are
-posted to Slack.
+This script reads the file build_test.lst from this directory, and
+uses the contents as a list of module list files to use for MAGE build
+tests.
 
 Authors
 -------
 Jeff Garretson (jeffrey.garretson@jhuapl.edu)
 Eric Winter (eric.winter@jhuapl.edu)
+
 """
 
 
@@ -37,7 +38,7 @@ from slack_sdk.errors import SlackApiError
 # Program constants
 
 # Program description.
-DESCRIPTION = "Script for MAGE build testing"
+DESCRIPTION = 'Script for MAGE build testing'
 
 
 def create_command_line_parser():
@@ -60,31 +61,31 @@ def create_command_line_parser():
     """
     parser = argparse.ArgumentParser(description=DESCRIPTION)
     parser.add_argument(
-        "--account", default=None,
+        '--account', default='UJHB0019',
         help="PBS account to use for testing (default: %(default)s)"
     )
     parser.add_argument(
-        "--all", "-a", action="store_true",
+        '--all', '-a', action='store_true',
         help="Run all tests (default: %(default)s)."
     )
     parser.add_argument(
-        "--debug", "-d", action="store_true",
+        '--debug', '-d', action='store_true',
         help="Print debugging output (default: %(default)s)."
     )
     parser.add_argument(
-        "--force", "-f", action="store_true",
+        '--force', '-f', action='store_true',
         help="Force all tests to run (default: %(default)s)."
     )
     parser.add_argument(
-        "--loud", "-l", action="store_true",
-        help="Enable loud mode (default: %(default)s)."
+        '--loud', '-l', action='store_true',
+        help="Enable loud mode (post results to Slack) (default: %(default)s)."
     )
     parser.add_argument(
-        "--test", "-t", action="store_true",
+        '--test', '-t', action='store_true',
         help="Enable testing mode (default: %(default)s)."
     )
     parser.add_argument(
-        "--verbose", "-v", action="store_true",
+        '--verbose', '-v', action='store_true',
         help="Print verbose output (default: %(default)s)."
     )
     return parser
@@ -130,7 +131,7 @@ def main():
     # Set up for communication with Slack.
 
     # Get the Slack API token
-    slack_token = os.environ["SLACK_BOT_TOKEN"]
+    slack_token = os.environ['SLACK_BOT_TOKEN']
     if debug:
         print(f"slack_token = {slack_token}")
     slack_client = WebClient(token=slack_token)
@@ -146,7 +147,8 @@ def main():
     if debug:
         print(f"called_from = {called_from}")
 
-    # Assume this script is in a subdirectory of the kaiju directory.
+    # Assume this script is in a subdirectory of the kaiju directory,
+    # and go there.
     os.chdir(called_from)
     os.chdir('..')
 
@@ -162,8 +164,12 @@ def main():
 
     # Clean up the results from previous builds.
     if verbose:
-        print("Cleaning up from previous build tests.")
-    os.system("rm -rf build*/ testFolder")
+        print('Cleaning up from previous build tests.')
+    cmd = 'rm -rf build*/ testFolder'
+    if debug:
+        print(f"cmd = {cmd}")
+    cproc = subprocess.run(cmd, shell=True, check=True, text=True,
+                           stdout=subprocess.PIPE, stderr=subprocess.STDOUT)
     if verbose:
         print('The current test directory contents are:')
         os.system('ls')
@@ -174,19 +180,24 @@ def main():
 
     # Find the current branch.
     os.chdir(home)
-    p = subprocess.Popen('git symbolic-ref --short HEAD', shell=True, stdout=subprocess.PIPE)
-    git_branch = p.stdout.read().decode('ascii').rstrip()
+    cmd = 'git symbolic-ref --short HEAD'
+    if debug:
+        print(f"cmd = {cmd}")
+    cproc = subprocess.run(cmd, shell=True, check=True, text=True,
+                           stdout=subprocess.PIPE, stderr=subprocess.STDOUT)
+    git_branch = cproc.stdout.rstrip()
     if debug:
         print(f"git_branch = {git_branch}")
 
     # Make and move to the preliminary build folder.
-    os.system('mkdir testFolder')
+    os.mkdir('testFolder')
     os.chdir('testFolder')
 
-    # Read this module list file, extracting cmake environment and options, if any.
+    # Read the first module list file, extracting cmake environment
+    # and options, if any.
     path = os.path.join(home, 'testingScripts', 'mage_build_test_modules',
                         '01.lst')
-    with open(path, encoding="utf-8") as f:
+    with open(path, encoding='utf-8') as f:
         lines = f.readlines()
     if debug:
         print(f"lines = {lines}")
@@ -212,26 +223,18 @@ def main():
         print(f"module_cmd = {module_cmd}")
 
     # Run cmake to build the Makefile.
-    cmake_cmd = f"{module_cmd}; {cmake_env} cmake {cmake_options} .."
+    cmd = f"{module_cmd}; {cmake_env} cmake {cmake_options} .."
     if debug:
-        print(f"cmake_cmd = {cmake_cmd}")
-    cmake_process = subprocess.Popen(cmake_cmd, shell=True)
-    if debug:
-        print(f"cmake_process = {cmake_process}")
-    cmake_process.wait()
+        print(f"cmd = {cmd}")
+    cproc = subprocess.run(cmd, shell=True, check=True, text=True)
 
     # Build the list of executable targets.
-    make_cmd = f"{module_cmd}; make help | grep '\.x'"
+    cmd = f"{module_cmd}; make help | grep '\.x'"
     if debug:
-        print(f"make_cmd = {make_cmd}")
-    listProcess = subprocess.Popen(make_cmd, shell=True, stdout=subprocess.PIPE)
-    if debug:
-        print(f"listProcess = {listProcess}")
-    listProcess.wait()
-    executableString = listProcess.stdout.read().decode('ascii')
-    if debug:
-        print(f"executableString = {executableString}")
-    executableList = executableString.splitlines()
+        print(f"cmd = {cmd}")
+    cproc = subprocess.run(cmd, shell=True, check=True, text=True,
+                           capture_output=True)
+    executableList = cproc.stdout.splitlines()
     if debug:
         print(f"executableList = {executableList}")
 
@@ -260,21 +263,20 @@ def main():
     #--------------------------------------------------------------------------
 
     # Do a build with each set of modules.
-
-    # Perform a test build with each set of modules.
     for module_list_file in module_list_files:
         if debug:
             print(f"module_list_file = {module_list_file}")
 
         # Extract the name of the list.
         module_list_name = module_list_file.rstrip('.lst')
-        if debug:
-            print(f"module_list_name = {module_list_name}")
+        if verbose:
+            print(f"Starting build with module list {module_list_name}.")
 
-        # Read this module list file, extracting cmake environment and options, if any.
+        # Read this module list file, extracting cmake environment and
+        # options, if any.
         path = os.path.join(home, 'testingScripts', 'mage_build_test_modules',
                             module_list_file)
-        with open(path, encoding="utf-8") as f:
+        with open(path, encoding='utf-8') as f:
             lines = f.readlines()
         cmake_env = ''
         label = 'CMAKE_ENV='
@@ -299,33 +301,28 @@ def main():
         os.chdir(build_directory)
 
         # Assemble the commands to load the listed modules.
-        module_cmd = 'module --force purge; module load'
-        for module_name in module_names:
-            module_cmd += f" {module_name}"
+        module_cmd = 'module --force purge; module load '
+        module_cmd += ' '.join(module_names)
         if debug:
             print(f"module_cmd = {module_cmd}")
 
         # Run cmake to build the Makefile.
-        cmake_cmd = f"{module_cmd}; {cmake_env} cmake {cmake_options} .."
+        cmd = f"{module_cmd}; {cmake_env} cmake {cmake_options} .."
         if debug:
-            print(f"cmake_cmd = {cmake_cmd}")
-        cmake_process = subprocess.Popen(cmake_cmd, shell=True)
-        if debug:
-            print(f"cmake_process = {cmake_process}")
-        cmake_process.wait()
+            print(f"cmd = {cmd}")
+        cproc = subprocess.run(cmd, shell=True, check=True, text=True)
 
         # Run the build.
-        make_cmd = f"{module_cmd}; make"
+        cmd = f"{module_cmd}; make"
         if debug:
-            print(f"make_cmd = {make_cmd}")
-        make_process = subprocess.Popen(make_cmd, shell=True)
-        if debug:
-            print(f"make_process = {make_process}")
-        make_process.wait()
+            print(f"cmd = {cmd}")
+        cproc = subprocess.run(cmd, shell=True, check=True, text=True)
 
         # Create a test result message.
-        message = '*IGNORE - TESTING*\n'
-        message = f"Building MAGE branch {git_branch} with module set {module_list_file}: {module_names}\n"
+        message = (
+            f"Built MAGE branch {git_branch} with module set "
+            "{module_list_file}: {module_names}\n"
+        )
 
         # Check for all executables
         os.chdir('bin')
@@ -342,7 +339,10 @@ def main():
             for executable in missing:
                 message += f"I couldn't build {executable}.\n"
         else:
-            message += f"Everything built properly on branch {git_branch} with module set {module_list_file}!"
+            message += (
+                f"Everything built properly on branch {git_branch} "
+                f"with module set {module_list_file}!"
+            )
         if debug:
             print(f"message = {message}")
 
