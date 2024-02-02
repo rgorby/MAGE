@@ -1,5 +1,5 @@
 module git_info
     implicit none
-    character(len=*), parameter :: gitB = 'oneByOneFix'
-    character(len=*), parameter :: gitH = '450d1099'
+    character(len=*), parameter :: gitB = '  ><>  ><>'
+    character(len=*), parameter :: gitH = '<><  <><  '
 end module git_info
