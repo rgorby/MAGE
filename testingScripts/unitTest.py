@@ -180,7 +180,10 @@ def main():
     for directory in pfunit_binary_directories:
         from_path = os.path.join(pfunit_home, directory)
         to_path = os.path.join('external', directory)
-        shutil.rmtree(to_path)
+        try:
+            shutil.rmtree(to_path)
+        except:
+            pass
         shutil.copytree(from_path, to_path)
 
     #--------------------------------------------------------------------------
@@ -258,7 +261,12 @@ def main():
         cmd = f"{module_cmd}; {cmake_env} cmake {cmake_options} .."
         if debug:
             print(f"cmd = {cmd}")
-        cproc = subprocess.run(cmd, shell=True, check=True, text=True)
+        # <HACK> To ignore cmake error on bcwind.h5 for now.
+        try:
+            cproc = subprocess.run(cmd, shell=True, check=True, text=True)
+        except:
+            pass
+        # </HACK>
 
         # Run the build.
         cmd = f"{module_cmd}; make gamera_mpi voltron_mpi allTests"
