@@ -171,10 +171,14 @@ module planethelper
 
     function CorotPotential(Rp_m, period, Bmag) result(cPot)
         !! Calculates corotation potential, assuming dipole and rotational axes are aligned
-        real(rp), intent(in) :: Rp_m  ! Planetary radius in meters
-        real(rp), intent(in) :: period  ! Rotation period in seconds
-        real(rp), intent(in) :: Bmag  ! Magnetic moment in Gauss
-        real(rp) :: cPot  ! Corotation potential in kV
+        real(rp), intent(in) :: Rp_m  
+            !! Planetary radius in meters
+        real(rp), intent(in) :: period  
+            !! Rotation period in seconds
+        real(rp), intent(in) :: Bmag  
+            !! Magnetic moment in Gauss
+        real(rp) :: cPot  
+            !! Corotation potential in kV
 
         cPot = Rp_m**2.0 * (2.0*PI/period) * (Bmag*G2T) * 1.0e-3 ! [kV]
     end function CorotPotential

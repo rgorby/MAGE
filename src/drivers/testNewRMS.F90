@@ -22,7 +22,8 @@ program testNewRMS
     dt = 0.5 * (rmState%rmTab%times(rmState%rmTab%N) - rmState%rmTab%times(rmState%rmTab%N-1))
     write(*,*)"dt=",dt
     t = 0
-    do while (t < dt*20)
+    !do while (t < dt*20)
+    do while (t < rmState%rmTab%times(rmState%rmTab%N) + 4*dt)
         call updateRM(rmState, t)
         t = t + dt
     enddo

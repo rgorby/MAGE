@@ -229,7 +229,7 @@ module shellInterp
             ! get an idea of where we are using the last available deltaTheta
             ! and get outta here
             
-            iX = shGr%ieg+1+floor((t-shGr%maxGTheta)/(shGr%th(shGr%ieg+1)-shGr%th(shGr%ieg)))
+            iX = shGr%ieg+ceiling((t-shGr%maxGTheta)/(shGr%th(shGr%ieg+1)-shGr%th(shGr%ieg)))
             return
         endif
 
@@ -238,7 +238,7 @@ module shellInterp
             ! get an idea of where we are using the last available deltaTheta
             ! and get outta here
             
-            iX = shGr%isg-1-floor((shGr%minGTheta-t)/(shGr%th(shGr%isg+1)-shGr%th(shGr%isg)))
+            iX = shGr%isg-ceiling((shGr%minGTheta-t)/(shGr%th(shGr%isg+1)-shGr%th(shGr%isg)))
             return
         endif
 
