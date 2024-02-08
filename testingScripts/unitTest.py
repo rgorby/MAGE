@@ -308,7 +308,7 @@ def main():
         ]
         job_ids = []
         for pbs_file in pbs_files:
-            cmd = (f"qsub -A {account} -v MODULE_LIST='{module_list}',"
+            cmd = (f"qsub -A {account} -v MODULE_LIST='{' '.join(module_names)}',"
                    f"KAIJUROOTDIR={home}")
             if len(job_ids) > 0:
                 cmd += f" -W depend=afterok:{job_ids[0]}"

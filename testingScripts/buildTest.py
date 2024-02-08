@@ -346,7 +346,7 @@ def main():
         # </HACK>
 
         # Run the build.
-        cmd = f"{module_cmd}; make"
+        cmd = f"{module_cmd}; make {' '.join(executableList)}"
         if debug:
             print(f"cmd = {cmd}")
         cproc = subprocess.run(cmd, shell=True, check=True, text=True)
