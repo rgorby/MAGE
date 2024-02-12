@@ -35,14 +35,14 @@ printenv
 
 echo 'Running non-MPI test cases.'
 date
-./caseTests > caseTests.out
+./caseTests >& caseTests.out
 date
 echo 'Non-MPI test cases complete.'
 echo | tail -n 3 ./caseTests.out
 
 echo 'Running MPI test cases.'
 date
-${MPICOMMAND} ./caseMpiTests > caseMpiTests.out
+${MPICOMMAND} ./caseMpiTests >& caseMpiTests.out
 date
 echo 'MPI test cases complete.'
 echo | tail -n 3 ./caseMpiTests.out

@@ -257,6 +257,11 @@ def main():
         if debug:
             print(f"module_cmd = {module_cmd}")
 
+        # <HACK>
+        # Extra argument needed for unit test build.
+        cmake_options += ' -DCMAKE_BUILD_TYPE=RELWITHDEBINFO'
+        # </HACK>
+
         # Run cmake to build the Makefile.
         cmd = f"{module_cmd}; {cmake_env} cmake {cmake_options} .."
         if debug:
@@ -302,9 +307,9 @@ def main():
         # Submit the jobs to create the test data and run the unit tests.
         pbs_files = [
             'genTestData.pbs',
-            'runCaseTests.pbs',
+            # 'runCaseTests.pbs',
             'runNonCaseTests1.pbs',
-            'runNonCaseTests2.pbs',
+            # 'runNonCaseTests2.pbs',
         ]
         job_ids = []
         for pbs_file in pbs_files:

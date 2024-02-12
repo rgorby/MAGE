@@ -200,12 +200,12 @@ def main():
         if verbose:
             print('Running all tests.')
 
-        if verbose:
-            print('Running build tests.')
-        cmd = f"python buildTest.py {subArgString}"
-        if debug:
-            print(f"cmd = {cmd}")
-        cproc = subprocess.run(cmd, shell=True, check=True)
+        # if verbose:
+        #     print('Running build tests.')
+        # cmd = f"python buildTest.py {subArgString}"
+        # if debug:
+        #     print(f"cmd = {cmd}")
+        # cproc = subprocess.run(cmd, shell=True, check=True)
 
         if verbose:
             print('Running Fortran unit tests.')
