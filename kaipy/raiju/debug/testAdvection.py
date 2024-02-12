@@ -324,6 +324,7 @@ def makeVid(raijuInfo, outdir, stride=1):
     cm_eta = 'viridis'
     kv.genCB(AxC1, norm_eta, "eta [eV * (Rp/nT)^(2/3)]", cM=cm_eta, doVert=True)
 
+    xBnds = [-15, 10]
 
     # Open file, get some values
     f5 = h5.File(raijuInfo.fname, 'r')
@@ -342,11 +343,13 @@ def makeVid(raijuInfo, outdir, stride=1):
     n_pad = int(np.log10(raijuInfo.Nt)) + 1
     nplt = 0
     for n in raijuInfo.steps[::stride]:
-        if (np.mod(nplt,5) == 0):
-            print("\tvid %d"%(n))
         filename = "vid.{:0>{npad}d}.png".format(nplt, npad=n_pad)
         filename = os.path.join(outdir, 'vid', filename)
         nplt += 1
+        if os.path.exists(filename):
+            continue
+        if (np.mod(nplt,5) == 0):
+            print("\tvid %d"%(n))
 
         s5 = f5[raijuInfo.stepStrs[n]]
         time = s5.attrs['time']
@@ -354,6 +357,12 @@ def makeVid(raijuInfo, outdir, stride=1):
         ymin = ru.getVar(s5, 'ymin')
         eta  = ru.getVar(s5, 'eta' )
         bVol = ru.getVar(s5, 'bVol')
+        active = ru.getVar(s5, 'active')
+        topo = ru.getVar(s5, 'topo')
+
+        active3d = np.broadcast_to(active[:,:,np.newaxis], eta.shape)
+        eta = np.ma.masked_where(active3d != ru.domain["ACTIVE"], eta)
+        bVol = np.ma.masked_where(topo != ru.topo['CLOSED'], bVol)
 
         energies = alamc[np.newaxis,np.newaxis,:] * bVol[:,:,np.newaxis]**(-2/3) * 1e-3  # [keV]
         energies = np.abs(energies)
@@ -361,6 +370,7 @@ def makeVid(raijuInfo, outdir, stride=1):
         # Psph
         ru.plotXYMin(Ax_eta_psph , xmin, ymin, eta[:,:,k_psph ], norm=norm_eta, cmap=cm_eta, shading='auto', lblsize=None)
         Ax_eta_psph.set_title('Psph', fontsize=fontsize_title)
+        kv.setBndsByAspect(Ax_eta_psph, xBnds)
 
         ru.plotXYMin(Ax_eta_pLow , xmin, ymin, eta[:,:,k_pLow ], norm=norm_eta, cmap=cm_eta, shading='auto', lblsize=None)
         ru.plotXYMin(Ax_eta_pMid , xmin, ymin, eta[:,:,k_pMid ], norm=norm_eta, cmap=cm_eta, shading='auto', lblsize=None)
@@ -371,6 +381,9 @@ def makeVid(raijuInfo, outdir, stride=1):
         Ax_eta_pLow .set_title('H+ $\lambda$={}, E={:0.2f}-{:0.2f} keV'.format(k_pLow , np.min(energies[:,:,k_pLow ]), np.max(energies[:,:,k_pLow ])), fontsize=fontsize_title)
         Ax_eta_pMid .set_title('H+ $\lambda$={}, E={:0.2f}-{:0.2f} keV'.format(k_pMid , np.min(energies[:,:,k_pMid ]), np.max(energies[:,:,k_pMid ])), fontsize=fontsize_title)
         Ax_eta_pHigh.set_title('H+ $\lambda$={}, E={:0.2f}-{:0.2f} keV'.format(k_pHigh, np.min(energies[:,:,k_pHigh]), np.max(energies[:,:,k_pHigh])), fontsize=fontsize_title)
+        kv.setBndsByAspect(Ax_eta_pLow, xBnds)
+        kv.setBndsByAspect(Ax_eta_pMid, xBnds)
+        kv.setBndsByAspect(Ax_eta_pHigh, xBnds)
 
         ru.plotXYMin(Ax_eta_eLow , xmin, ymin, eta[:,:,k_eLow ], norm=norm_eta, cmap=cm_eta, shading='auto', lblsize=None)
         ru.plotXYMin(Ax_eta_eMid , xmin, ymin, eta[:,:,k_eMid ], norm=norm_eta, cmap=cm_eta, shading='auto', lblsize=None)
@@ -383,6 +396,9 @@ def makeVid(raijuInfo, outdir, stride=1):
         Ax_eta_eLow .set_title('e- $\lambda$={}, E={:0.2f}-{:0.2f} keV'.format(k_eLow , np.min(energies[:,:,k_eLow ]), np.max(energies[:,:,k_eLow ])), fontsize=fontsize_title)
         Ax_eta_eMid .set_title('e- $\lambda$={}, E={:0.2f}-{:0.2f} keV'.format(k_eMid , np.min(energies[:,:,k_eMid ]), np.max(energies[:,:,k_eMid ])), fontsize=fontsize_title)
         Ax_eta_eHigh.set_title('e- $\lambda$={}, E={:0.2f}-{:0.2f} keV'.format(k_eHigh, np.min(energies[:,:,k_eHigh]), np.max(energies[:,:,k_eHigh])), fontsize=fontsize_title)
+        kv.setBndsByAspect(Ax_eta_eLow, xBnds)
+        kv.setBndsByAspect(Ax_eta_eMid, xBnds)
+        kv.setBndsByAspect(Ax_eta_eHigh, xBnds)
 
         fig.suptitle("step# {}; t = {:0.2f} s".format(n, time))
         kv.savePic(filename)
