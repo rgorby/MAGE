@@ -70,6 +70,8 @@ module shellGrid
         integer :: loc
             !! Location of data on the shellGrid (e.g. center, corner, theta of phi face)
             !! Corresponds to enum above (SHCC, SHCORNER, SHFTH, SHFPH)
+        integer :: Ni, Nj
+            !! Number of values in i and j direction
         real(rp), dimension(:,:), allocatable :: data
             !! The actual variable values
         logical, dimension(:,:), allocatable :: mask
@@ -320,15 +322,23 @@ module shellGrid
             case(SHCC)
                 allocate(shellVar%data(isg:ieg,jsg:jeg))
                 allocate(shellVar%mask(isg:ieg,jsg:jeg))
+                shellvar%Ni = shGr%Nt + shGr%Ngn + shGr%Ngs
+                shellvar%Nj = shGr%Np + shGr%Ngw + shGr%Nge
             case(SHCORNER)
                 allocate(shellVar%data(isg:ieg+1,jsg:jeg+1))
                 allocate(shellVar%mask(isg:ieg+1,jsg:jeg+1))
+                shellvar%Ni = shGr%Nt + shGr%Ngn + shGr%Ngs +1
+                shellvar%Nj = shGr%Np + shGr%Ngw + shGr%Nge +1
             case(SHFTH)
                 allocate(shellVar%data(isg:ieg+1,jsg:jeg))
                 allocate(shellVar%mask(isg:ieg+1,jsg:jeg))
+                shellvar%Ni = shGr%Nt + shGr%Ngn + shGr%Ngs +1
+                shellvar%Nj = shGr%Np + shGr%Ngw + shGr%Nge
             case(SHFPH)
                 allocate(shellVar%data(isg:ieg,jsg:jeg+1))
                 allocate(shellVar%mask(isg:ieg,jsg:jeg+1))
+                shellvar%Ni = shGr%Nt + shGr%Ngn + shGr%Ngs
+                shellvar%Nj = shGr%Np + shGr%Ngw + shGr%Nge +1
             case default
                 write(*,*) "initShellGridVar got an invalid data location:",loc
                 stop

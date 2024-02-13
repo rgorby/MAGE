@@ -333,6 +333,7 @@ module remixReader
 
         !real(rp), dimension(shGr%Np, shGr%Nt+1) :: tmpVar
         real(rp), dimension(shGr%js:shGr%je, shGr%is:shGr%ie+1) :: tmpVar
+        integer :: idx
 
         associate (isg=>shGr%isg, ieg=>shGr%ieg, jsg=>shGr%jsg, jeg=>shGr%jeg,\
             is =>shGr%is , ie =>shGr%ie , js =>shGr%js , je =>shGr%je )
@@ -344,6 +345,23 @@ module remixReader
         !v%data(:,shGr%Np+1) = v%data(:,1)
         v%data(is:ie+1,js:je) = transpose(tmpVar)
         v%data(is:ie+1,je+1) = v%data(:,1)
+
+        ! Copy last good cell through ghosts just so there's a value there
+        do idx=isg,is-1
+            v%data(idx,:) = v%data(is,:)
+        enddo
+        do idx=ie+2,ieg
+            v%data(idx,:) = v%data(ie+1,:)
+        enddo
+        do idx=jsg,js-1
+            v%data(:,idx) = v%data(:,js)
+        enddo
+        do idx=je+2,jeg
+            v%data(:,idx) = v%data(:,je+1)
+        enddo
+        ! But, we're gonna say that only our real domain is valid
+        v%mask = .false.
+        v%mask(is:ie+1, js:je+1) = .true.
 
         end associate
 

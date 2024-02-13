@@ -48,33 +48,15 @@ module shellInterp
         type(ShellGridVar_T), intent(inout) :: varOut
             !! sgVar interpolated ontp sgDest
         real(rp), dimension(:), optional, intent(in) :: dThetaO
-            !! Cell width in theta direction, assumed to be the same size as sgVar
-            !! In the case where sgVar is cell-centered, this is the real cell width
-            !! In the case where sgVar is defined at the corners, this is the width of a hypothetical cell with sgVar at the cell centers
+            !! Cell width in theta direction
         real(rp), dimension(:), optional, intent(in) :: dPhiO
-            !! Width in theta direction, assumed to be the same size as sgVar
+            !! Width in theta direction
 
 
-        integer :: isAlloc, ieAlloc
+        integer :: extraPnt
+        integer :: i,j
         real(rp), dimension(:), allocatable :: dTheta, dPhi
 
-
-        ! Determine our cell widths, which the user may have already supplied
-        ! This gives user the option to define cell widths however they prefer (e.g. higher-order estimates if necessary)
-        ! If not provided, a default 4-point stencil will be used to calculate it
-        !if (sgVar%loc == SHCC) then
-        !    isAlloc = sgSource%isg
-        !    ieAlloc = sgSource%ieg
-        !elseif (sgVar%loc == SHCORNER) then
-        !    isAlloc = sgSource%isg+1
-        !    ieAlloc = sgSource%ieg+1
-        !else
-        !    write(*,*)"ERROR: InterpShellVar_TSC_SG only handles SHCC and SHCORNER right now"
-        !    stop
-        !endif
-!
-        !allocate(dTheta(isAlloc:ieAlloc))
-        !allocate(dPhi(isAlloc:ieAlloc))
         if ( present(dThetaO) ) then
             ! First, make sure they are the same shape
             if (size(dTheta) .ne. size(dThetaO)) then
@@ -82,11 +64,21 @@ module shellInterp
                 stop
             endif
             ! Otherwise, we can safely copy one to the other
+            ! First, allocate the right size
+            extraPnt = merge(1, 0, sgVar%loc == SHCORNER .or. sgVar%loc == SHFTH)
+            allocate(dTheta(sgSource%isg:sgSource%ieg+extraPnt))
+            ! Then copy
             dTheta = dThetaO
         else
             ! If dTheta not present, we calculate it ourselves
-            call calcdx_TSC(sgSource%th, sgSource%isg, sgSource%ieg, sgVar%loc, dTheta)
-            continue
+
+            if (sgVar%loc == SHCC .or. sgVar%loc == SHFPH) then
+                ! Note that the location id is the variable's 1D location w.r.t. the theta axis
+                call calcdx_TSC(sgSource%th, sgSource%isg, sgSource%ieg, SHCC, dTheta)
+            elseif (sgVar%loc == SHCORNER .or. sgVar%loc == SHFTH) then
+                call calcdx_TSC(sgSource%th, sgSource%isg, sgSource%ieg, SHCORNER, dTheta)
+            endif
+            !! Note: calcdx_TSC sets the dimension of dTheta and dPhi
         endif
 
         if ( present(dPhiO) ) then
@@ -96,15 +88,200 @@ module shellInterp
                 stop
             endif
             ! Otherwise, we can safely copy one to the other
+            ! First, allocate the right size
+            extraPnt = merge(1, 0, sgVar%loc == SHCORNER .or. sgVar%loc == SHFPH)
+            allocate(dPhi(sgSource%jsg:sgSource%jeg+extraPnt))
+            ! Then copy
             dPhi = dPhiO
         else
             ! If dPhi not present, we calculate it ourselves
-            call calcdx_TSC(sgSource%ph, sgSource%jsg, sgSource%jeg, sgVar%loc, dPhi)
-            continue
+            if (sgVar%loc == SHCC .or. sgVar%loc == SHFTH) then
+                call calcdx_TSC(sgSource%ph, sgSource%jsg, sgSource%jeg, SHCC, dPhi)
+            elseif (sgVar%loc == SHCORNER .or. sgVar%loc == SHFPH) then
+                call calcdx_TSC(sgSource%ph, sgSource%jsg, sgSource%jeg, SHCORNER, dPhi)
+            endif
         endif
+
+        ! Now that we have our dTheta and dPhi, we can start interpolating
+
+        ! Which destination grid locations we loop over depends on the destination variable location
+        select case(varOut%loc)
+            case(SHCC)
+                do j=sgDest%jsg,sgDest%jeg
+                    do i=sgDest%isg,sgDest%ieg
+                        varOut%data(i,j) = InterpShellVar_TSC_pnt( \
+                                            sgVar, sgSource,\
+                                            dTheta, dPhi,\
+                                            sgDest%thc(i), sgDest%phc(j))
+                    enddo
+                enddo
+            case(SHCORNER)
+                do j=sgDest%jsg,sgDest%jeg+1
+                    do i=sgDest%isg,sgDest%ieg+1
+                        varOut%data(i,j) = InterpShellVar_TSC_pnt( \
+                                            sgVar, sgSource,\
+                                            dTheta, dPhi,\
+                                            sgDest%th(i), sgDest%ph(j))
+                    enddo
+                enddo
+            case(SHFTH)
+                do j=sgDest%jsg,sgDest%jeg
+                    do i=sgDest%isg,sgDest%ieg+1
+                        varOut%data(i,j) = InterpShellVar_TSC_pnt( \
+                                            sgVar, sgSource,\
+                                            dTheta, dPhi,\
+                                            sgDest%th(i), sgDest%phc(j))
+                    enddo
+                enddo
+            case(SHFPH)
+                do j=sgDest%jsg,sgDest%jeg+1
+                    do i=sgDest%isg,sgDest%ieg
+                        varOut%data(i,j) = InterpShellVar_TSC_pnt( \
+                                            sgVar, sgSource,\
+                                            dTheta, dPhi,\
+                                            sgDest%thc(i), sgDest%ph(j))
+                    enddo
+                enddo
+        end select
         
 
     end subroutine InterpShellVar_TSC_SG
+
+
+    function InterpShellVar_TSC_pnt(sgVar, sgSource, dTheta, dPhi, t, pin) result(Qout)
+        !! Given the source information, interpolate sgVar to point (t,p) and return as Qout
+        type(ShellGridVar_T), intent(in) :: sgVar
+        type(ShellGrid_T   ), intent(in) :: sgSource
+        real(rp), dimension(:), intent(in) :: dTheta
+        real(rp), dimension(:), intent(in) :: dPhi
+        real(rp), intent(in) :: t
+        real(rp), intent(in) :: pin
+
+        real(rp) :: Qout
+        real(rp) :: p
+        integer :: i0, j0
+            !! i and j locations of point t,p
+            !! Whether they are respect to corner, center, or a face depends on sgVar%loc
+
+        ! First, make sure dTheta and dPhi are defined at sgVar locations        
+        if ( size(dTheta) .ne. sgVar%Ni ) then
+            write(*,*)"ERROR in InterpShellVar_TSC_pnt: dTheta != sgVar%Ni"
+            write(*,*) size(dTheta), sgVar%Ni
+            stop
+        endif
+
+        if ( size(dPhi) .ne. sgVar%Nj ) then
+            write(*,*)"ERROR in InterpShellVar_TSC_pnt: dPhi != sgVar%Nj"
+            write(*,*) size(dPhi), sgVar%Nj
+            stop
+        endif
+
+        ! Check bounds
+        p = modulo(pin,2*PI)
+
+        ! Also make sure the requested theta is in bounds
+        if ( (t<0.).or.(t>PI) ) then
+            write(*,*) "ERROR in InterpShellVar_TSC_pnt: Theta should be in the range [0,PI]. Quitting..."
+            stop
+        end if
+
+        i0 = getShellILoc(sgSource, sgVar%loc, t)
+        j0 = getShellJLoc(sgSource, sgVar%loc, p)
+
+        if ( (i0 < sgSource%isg) .or. (i0 > sgSource%isg + sgVar%Ni - 1) ) then
+            write(*,*)"ERROR: InterpShellVar_TSC_pnt can't handle points outside of grid yet"
+            stop
+        endif
+
+        Qout = 0.0
+    end function InterpShellVar_TSC_pnt
+
+
+    function getShellILoc(shGr, varLoc, t) result(iLoc)
+        type(ShellGrid_T), intent(in) :: shGr
+        integer :: varLoc
+            !! Location id of the source variable
+        real(rp), intent(in) :: t
+
+        integer :: iLoc
+
+        !if (varLoc == SHCC     .or. varLoc == SHFPH) thLoc = SHCC
+        !if (varLoc == SHCORNER .or. varLoc == SHFTH) thLoc = SHCORNER
+
+        if (varLoc == SHCC .or. varLoc == SHFPH) then
+            !! Variable is defined at center w.r.t. theta direction
+            if ( (t>shGr%maxGTheta) ) then                
+                iLoc = shGr%ieg+ceiling((t-shGr%maxGTheta)/(shGr%th(shGr%ieg+1)-shGr%th(shGr%ieg)))
+                return
+            endif
+    
+            if ( (t<shGr%minGTheta) ) then
+                iLoc = shGr%isg-ceiling((shGr%minGTheta-t)/(shGr%th(shGr%isg+1)-shGr%th(shGr%isg)))
+                return
+            endif
+    
+            ! If still here then the lat bounds are okay, find closest lat cell center
+            iLoc = minloc( abs(shGr%thc-t),dim=1 )
+
+        elseif (varLoc == SHCORNER .or. varLoc == SHFTH) then
+            !! Variable is defined at corners w.r.t. theta direction
+            if ( (t>shGr%maxTheta) ) then
+                iLoc = shGr%ieg+1 + floor( 0.5 + (t-shGr%maxGTheta)/(shGr%th(shGr%ieg+1)-shGr%th(shGr%ieg)) )
+            endif
+
+            if ( (t < shGr%minTheta)) then
+                iLoc = shGr%isg   - floor( 0.5 + (shGr%minGTheta-t)/(shGr%th(shGr%isg+1)-shGr%th(shGr%isg)) )
+            endif
+
+            ! If still here then the lat bounds are okay, find closest lat cell corner
+            iLoc = minloc( abs(shGr%th-t),dim=1 )
+        endif   
+
+    end function getShellILoc
+
+
+    function getShellJLoc(shGr, varLoc, pin) result(jLoc)
+        type(ShellGrid_T), intent(in) :: shGr
+        integer :: varLoc
+            !! Location id of the source variable
+        real(rp), intent(in) :: pin
+
+        real(rp) :: p, dp, dJ
+        integer :: jLoc
+
+        p = modulo(pin,2*PI)
+
+        ! note, shellGrid only implements [0,2pi] grids
+        ! but do this check here in case it's needed in the future
+        if ( (p>shGr%maxPhi) .or. (p<shGr%minPhi) ) then
+            ! Point not on this grid, get outta here
+            write(*,*) "ERROR in getShellJLoc, phi somehow outside of bounds"
+            stop
+        endif
+
+        if (varLoc == SHCC .or. varLoc == SHFTH) then
+            !! Variable is defined at centers w.r.t. phi direction
+            if (shGr%isPhiUniform) then
+                ! note this is faster, thus preferred
+                dp = shGr%phc(2)-shGr%phc(1)
+                dJ = p/dp
+                jLoc = floor(dJ) + 1
+            else
+                jLoc = minloc( abs(shGr%phc-p),dim=1 ) ! Find closest lat cell center
+            end if
+        elseif (varLoc == SHCORNER .or. varLoc == SHFTH) then
+            !! Variable is defined at corners w.r.t. phi direction
+            if (shGr%isPhiUniform) then
+                ! note this is faster, thus preferred
+                dp = shGr%ph(2)-shGr%ph(1)
+                dJ = p/dp
+                jLoc = floor(dJ) + 1
+            else
+                jLoc = minloc( abs(shGr%ph-p),dim=1 ) ! Find closest lat cell center
+            end if
+        endif
+
+    end function getShellJLoc
 
     ! Interpolate on grid shGr a cell-centered variable at point t(heta),p(hi)
     ! Qin is the shellVar
@@ -433,6 +610,7 @@ module shellInterp
 
         integer :: i
 
+        if (allocated(dx)) deallocate(dx)
 
         if (loc == SHCORNER) then
             
@@ -452,10 +630,6 @@ module shellInterp
             write(*,*) "ERROR: Invalid location id in calcdx_TSC. Must be SHCC or SHCORNER"
             stop
         endif
-
-        write(*,*)"----"
-        write(*,*) x
-        write(*,*) dx
 
     end subroutine calcdx_TSC
 
