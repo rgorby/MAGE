@@ -4,6 +4,7 @@ program testNewRMS
     use XML_Input
 
     use remixReader
+    use shellInterp
 
     implicit none
 
@@ -25,7 +26,22 @@ program testNewRMS
     !do while (t < dt*20)
     do while (t < rmState%rmTab%times(rmState%rmTab%N) + 4*dt)
         call updateRM(rmState, t)
+        call testShellInterp(rmState)
         t = t + dt
     enddo
+
+
+    contains
+
+    subroutine testShellInterp(rmS)
+        type(rmState_T), intent(in) :: rmS
+
+        type(ShellGridVar_T) :: tmpVar
+
+        call initShellVar(rmS%shGr, rmS%nsFac(NORTH)%loc, tmpVar)
+
+        call InterpShellVar_TSC_SG(rmS%nsFac(NORTH), rmS%shGr, rmS%shGr, tmpVar)
+
+    end subroutine testShellInterp
 
 end program testNewRMS

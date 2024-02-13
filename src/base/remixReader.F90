@@ -331,12 +331,21 @@ module remixReader
         type(ShellGrid_T), intent(in) :: shGr
         type(ShellGridVar_T), intent(inout) :: v
 
-        real(rp), dimension(shGr%Np, shGr%Nt+1) :: tmpVar
+        !real(rp), dimension(shGr%Np, shGr%Nt+1) :: tmpVar
+        real(rp), dimension(shGr%js:shGr%je, shGr%is:shGr%ie+1) :: tmpVar
+
+        associate (isg=>shGr%isg, ieg=>shGr%ieg, jsg=>shGr%jsg, jeg=>shGr%jeg,\
+            is =>shGr%is , ie =>shGr%ie , js =>shGr%js , je =>shGr%je )
+
 
         call IOArray2DFill(IOV,vName,tmpVar)
 
-        v%data(:,:shGr%Np) = transpose(tmpVar)
-        v%data(:,shGr%Np+1) = v%data(:,1)
+        !v%data(:,:shGr%Np) = transpose(tmpVar)
+        !v%data(:,shGr%Np+1) = v%data(:,1)
+        v%data(is:ie+1,js:je) = transpose(tmpVar)
+        v%data(is:ie+1,je+1) = v%data(:,1)
+
+        end associate
 
     end subroutine readVarJank
 

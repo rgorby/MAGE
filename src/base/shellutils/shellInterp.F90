@@ -1,4 +1,5 @@
 ! Various data structures and routines to do interpolation from (and to?) a spherical shell grid
+! Routines are fairly broken up to try and allow for a reasonable balance of flexibility and performance
 ! TODO: Add routine to take list of scattered points and interpolate to ShellGrid_T
 module shellInterp
     use kdefs
@@ -10,6 +11,100 @@ module shellInterp
     integer, parameter, private :: NumTSC = 9
 
     contains
+
+
+    ! InterpShellVar
+    ! InterpShellVar_ChildToParent
+    ! InterpShellVar_ParentToChild
+    ! InterpShellVar_TSC_SG
+    ! InterpShellVar_TSC_pnt
+
+    subroutine InterpShellVar(sgVar, sgSource, sgDest, varOut)
+        !! This is meant to be the highest-abstraction option for interpolation
+        !! Not expected to be used very frequently, but maybe it makes sense for some simple variables
+        !! Basically, the source and destination are well-defined within ShellGrid's intended use, 
+        !!   so we can make the best decisions here on how to interpolate this variable
+        type(ShellGridVar_T), intent(in) :: sgVar
+            !! the variable we are interpolating
+        type(ShellGrid_T)   , intent(in) :: sgSource
+            !! Source shellGrid that sgVar lives on
+        type(ShellGrid_T)   , intent(in) :: sgDest
+            !! The destination grid
+        type(ShellGridVar_T), intent(inout) :: varOut
+            !! sgVar interpolated ontp sgDest
+
+
+    end subroutine InterpShellVar
+
+
+    subroutine InterpShellVar_TSC_SG(sgVar, sgSource, sgDest, varOut, dThetaO, dPhiO)
+        !! Interpolate a ShellGridVar to another ShellGrid using the Triangle-Schaped Cloud method
+        type(ShellGridVar_T), intent(in) :: sgVar
+            !! the variable we are interpolating
+        type(ShellGrid_T)   , intent(in) :: sgSource
+            !! Source shellGrid that sgVar lives on
+        type(ShellGrid_T)   , intent(in) :: sgDest
+            !! The destination grid
+        type(ShellGridVar_T), intent(inout) :: varOut
+            !! sgVar interpolated ontp sgDest
+        real(rp), dimension(:), optional, intent(in) :: dThetaO
+            !! Cell width in theta direction, assumed to be the same size as sgVar
+            !! In the case where sgVar is cell-centered, this is the real cell width
+            !! In the case where sgVar is defined at the corners, this is the width of a hypothetical cell with sgVar at the cell centers
+        real(rp), dimension(:), optional, intent(in) :: dPhiO
+            !! Width in theta direction, assumed to be the same size as sgVar
+
+
+        integer :: isAlloc, ieAlloc
+        real(rp), dimension(:), allocatable :: dTheta, dPhi
+
+
+        ! Determine our cell widths, which the user may have already supplied
+        ! This gives user the option to define cell widths however they prefer (e.g. higher-order estimates if necessary)
+        ! If not provided, a default 4-point stencil will be used to calculate it
+        !if (sgVar%loc == SHCC) then
+        !    isAlloc = sgSource%isg
+        !    ieAlloc = sgSource%ieg
+        !elseif (sgVar%loc == SHCORNER) then
+        !    isAlloc = sgSource%isg+1
+        !    ieAlloc = sgSource%ieg+1
+        !else
+        !    write(*,*)"ERROR: InterpShellVar_TSC_SG only handles SHCC and SHCORNER right now"
+        !    stop
+        !endif
+!
+        !allocate(dTheta(isAlloc:ieAlloc))
+        !allocate(dPhi(isAlloc:ieAlloc))
+        if ( present(dThetaO) ) then
+            ! First, make sure they are the same shape
+            if (size(dTheta) .ne. size(dThetaO)) then
+                write(*,*) "WARNING: InterpShellVar_TSC_SG got a mismatched dThetaO shape. Dying."
+                stop
+            endif
+            ! Otherwise, we can safely copy one to the other
+            dTheta = dThetaO
+        else
+            ! If dTheta not present, we calculate it ourselves
+            call calcdx_TSC(sgSource%th, sgSource%isg, sgSource%ieg, sgVar%loc, dTheta)
+            continue
+        endif
+
+        if ( present(dPhiO) ) then
+            ! First, make sure they are the same shape
+            if (size(dPhi) .ne. size(dPhiO)) then
+                write(*,*) "WARNING: InterpShellVar_TSC_SG got a mismatched dPhiO shape. Dying."
+                stop
+            endif
+            ! Otherwise, we can safely copy one to the other
+            dPhi = dPhiO
+        else
+            ! If dPhi not present, we calculate it ourselves
+            call calcdx_TSC(sgSource%ph, sgSource%jsg, sgSource%jeg, sgVar%loc, dPhi)
+            continue
+        endif
+        
+
+    end subroutine InterpShellVar_TSC_SG
 
     ! Interpolate on grid shGr a cell-centered variable at point t(heta),p(hi)
     ! Qin is the shellVar
@@ -313,5 +408,122 @@ module shellInterp
         write(*,*) 'pi indices ',jpi2,jpi,jpi32
 
     end subroutine interpPole
+
+
+!------
+! Low-level interp helpers
+!------
+
+    subroutine calcdx_TSC(x, isg, ieg, loc, dx)
+        !! Calculates dx for positional array x using a 4-point stencil
+        !! This is desirable for TSC so that we can have better accuracy 
+        !! in the case of a non-uniformly space grid
+        
+        ! Note, even though we are not doing much in this function, we are 
+        ! breaking it out here in case we want to do higher-order for TSC or something later
+        integer, intent(in) :: isg, ieg
+            !! Start/end indices of cell centers
+        real(rp), dimension(isg:ieg+1), intent(in) :: x
+            !! 1D spatial grid, should always be cell corners
+        integer, intent(in) :: loc
+            !! Location identifier, MUST BE SHCC OR SHCORNER
+            !! This is the location of the points we are calculating dx at relative to x
+        real(rp), dimension(:), allocatable, intent(out) :: dx
+            !! 'cell width' we return
+
+        integer :: i
+
+
+        if (loc == SHCORNER) then
+            
+            allocate(dx(isg:ieg+1))
+            do i=isg,ieg+1
+                dx(i) = Diff1D_4h(x, isg, ieg+1, i)
+            enddo
+
+        else if (loc == SHCC) then
+
+            allocate(dx(isg:ieg))
+            do i=isg,ieg
+                dx(i) = Diff1D_4halfh(x, isg, ieg, i)
+            enddo
+
+        else
+            write(*,*) "ERROR: Invalid location id in calcdx_TSC. Must be SHCC or SHCORNER"
+            stop
+        endif
+
+        write(*,*)"----"
+        write(*,*) x
+        write(*,*) dx
+
+    end subroutine calcdx_TSC
+
+
+    function Diff1D_4halfh(Q,is,ie,i0) result(Qp)
+        !! Use 4-point stencil to calculate first derivative of coordinates
+        !! This is for the case where position we are calculating the difference for is at Q(i0+1/2)
+        !! e.g. we ar using corners to calculate the difference at cell center
+        !! adapted from chimp/ebinit.F90
+        integer, intent(in) :: is,ie
+            !! Start and end indices of bounding grid
+        integer, intent(in) :: i0
+            !! Index of the pointe we are evaluating, offset half a cell from its lower bound Q(i0)
+        real(rp), intent(in) :: Q(is:ie)
+        real(rp) :: Qp
+        real(rp) :: Qblk(4),c(4)
+
+        ! Note that we have fewer cases than Diff1D_4h
+        ! That's because even when i0 is the last cell-centered coordinate,
+        ! we still have 1 usable corner value before we reach the void
+        if (i0 == is) then
+            ! Q coordinates at -0.5,0.5,1.5,2.5 relative to our point
+            Qblk = [Q(is), Q(is+1), Q(is+2), Q(is+3)]
+            c = [-23.0, 21.0, 3.0, -1.0]/25.0
+        else if (i0 == ie-1) then
+            ! Q coordinates at -2.5,-1.5,-0.5,0.5 relative to our point
+            Qblk = [Q(is-2), Q(is-1), Q(is), Q(is+1)]
+            c = [1.0, -3.0, -21.0, 23.0]/25.0
+        else
+            ! Q coordinates at -1.5,-0.5,0.5,1.5 relative to our point
+            Qblk = [Q(is-1), Q(is), Q(is+1), Q(is+2)]
+            c = [1.0, -27.0, 27.0, -1.0]/24.0
+        endif
+        Qp = dot_product(Qblk,c)
+
+    end function Diff1D_4halfh
+    
+
+    function Diff1D_4h(Q,is,ie,i0) result(Qp)
+        !! Use 4-point stencil to calculate first derivative of coordinates
+        !! This is for the case where position we are calculating the difference for is at Q(i0)
+        !! (In contrast to e.g. using cell corner values to calculate the difference located at the cell center)
+        !! adapted from chimp/ebinit.F90
+        integer, intent(in) :: is,ie,i0
+        real(rp), intent(in) :: Q(is:ie)
+        real(rp) :: Qp
+        real(rp) :: Qblk(4),c(4)
+        if (i0 == is) then
+            !Forward
+            Qblk = [Q(is),Q(is+1),Q(is+2),Q(is+3)]
+            c = [-11.0,18.0,-9.0,2.0]/6.0
+        else if (i0 == is+1) then
+            !1 back
+            Qblk = [Q(is),Q(is+1),Q(is+2),Q(is+3)]
+            c = [-2.0,-3.0,6.0,-1.0]/6.0
+        else if (i0 == ie) then
+            Qblk = [Q(ie-3),Q(ie-2),Q(ie-1),Q(ie)]
+            c = [-2.0,9.0,-18.0,11.0]/6.0
+        else if (i0 == ie-1) then
+            Qblk = [Q(ie-3),Q(ie-2),Q(ie-1),Q(ie)]
+            c = [1.0,-6.0,3.0,2.0]/6.0
+        else
+            !Centered
+            Qblk = [Q(i0-2),Q(i0-1),Q(i0+1),Q(i0+2)]
+            c = [1.0,-8.0,8.0,-1.0]/12.0
+        endif
+        Qp = dot_product(Qblk,c)
+        
+    end function Diff1D_4h
 
 end module shellInterp
