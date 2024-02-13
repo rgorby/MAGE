@@ -1,16 +1,16 @@
 #!/usr/bin/env python
 
 
-"""makeitso for the MAGE heliosphere software.
+"""makeitso for the GAMERA heliosphere software.
 
-This script performs all of the steps needed to prepare to run a MAGE
+This script performs all of the steps needed to prepare to run a GAMERA MHD
 heliosphere simulation run. By default, this script is interactive - the user
 is prompted for each decision that must be made to prepare for the run, based
 on the current "--mode" setting.
 
 The modes are:
 
-"BASIC" (the default) - the user is prompted to set only a small subset of MAGE
+"BASIC" (the default) - the user is prompted to set only a small subset of GAMERA
 parameters. All "INTERMEDIATE"- and "EXPERT"-mode parameters are automatically
 set to default values.
 
@@ -43,7 +43,7 @@ from kaipy.kaiTools import MJD2UT
 # Program constants
 
 # Program description
-DESCRIPTION = "Interactive script to prepare a MAGE heliosphere run"
+DESCRIPTION = "Interactive script to prepare a GAMERA heliosphere run"
 
 # Indent level for JSON output
 JSON_INDENT = 4
