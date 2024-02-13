@@ -1,0 +1,43 @@
+module testGridGen
+    use testHelper
+    use kdefs, only : TINY
+
+    use shellGrid
+
+    implicit none
+
+    contains
+
+    @before
+	subroutine setup()
+	end subroutine setup
+
+	@after
+	subroutine teardown()
+	end subroutine teardown
+
+    @test
+    subroutine testGenShellGrid()
+        !! Test to ensure GenShellGrid correctly creates a ShellGrid instance
+        integer :: Npnt = 50
+        real(rp), dimension(pnt) :: thetas, phis
+        integer :: i,j
+        real(rp) :: dth, dph
+
+        dth = 0.5*PI / Npnt
+        dph = 2.0*PI / Npnt
+
+        do i=1,Npnt
+            thetas(i) = (i-1)*dth
+        enddo
+
+        do j=1,Npnt
+            phis(j) = (i-1)*dph
+        enddo
+
+        write(*,*) thetas
+        write(*,*) phis
+
+    end subroutine testGenShellGrid
+
+end module testGridGen
