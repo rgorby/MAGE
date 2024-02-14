@@ -16,8 +16,9 @@ import argparse
 import datetime
 import glob
 import os
-import sys
+import re
 import subprocess
+import sys
 
 # Import 3rd-party modules.
 from slack_sdk import WebClient
@@ -156,12 +157,12 @@ def main():
     #--------------------------------------------------------------------------
 
     # Determine the current git branch.
-    git_process = subprocess.Popen(
-        'git symbolic-ref --short HEAD', shell=True, stdout=subprocess.PIPE
-    )
+    cmd = 'git symbolic-ref --short HEAD'
     if debug:
-        print(f"git_process = {git_process}")
-    git_branch = p.stdout.read().decode('ascii').rstrip()
+        print(f"cmd = {cmd}")
+    cproc = subprocess.run(cmd, shell=True, check=True, text=True,
+                           stdout=subprocess.PIPE, stderr=subprocess.STDOUT)
+    git_branch = cproc.stdout.rstrip()
     if debug:
         print(f"git_branch = {git_branch}")
     
