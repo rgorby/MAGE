@@ -174,6 +174,7 @@ def main():
             shutil.rmtree(directory)
         except:
             pass
+
     # <HACK>
     # Remove the pFUnit compiled code to prevent using it during the
     # build test. If PFUNIT-4.2 is in kaiju/external during a build,
@@ -194,9 +195,6 @@ def main():
         except:
             pass
     # </HACK>
-    if verbose:
-        print('The current test directory contents are:')
-        os.system('ls')
 
     #--------------------------------------------------------------------------
 

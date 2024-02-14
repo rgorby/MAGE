@@ -15,9 +15,11 @@ Eric Winter (eric.winter@jhuapl.edu)
 # Import standard modules.
 import argparse
 import datetime
+import glob
 import os
-import sys
+import shutil
 import subprocess
+import sys
 
 # Import 3rd-party modules.
 from slack_sdk import WebClient
@@ -29,7 +31,7 @@ from slack_sdk.errors import SlackApiError
 # Program constants
 
 # Program description.
-DESCRIPTION = "Run the MAGE weekly dash tests."
+DESCRIPTION = 'Run the MAGE weekly dash tests.'
 
 
 def create_command_line_parser():
@@ -52,32 +54,32 @@ def create_command_line_parser():
     """
     parser = argparse.ArgumentParser(description=DESCRIPTION)
     parser.add_argument(
-        "--account", default=None,
-        help="PBS account to use for testing (default: %(default)s)"
+        '--account', default=None,
+        help='PBS account to use for testing (default: %(default)s)'
     )
     parser.add_argument(
-        "--all", "-a", action="store_true",
-        help="Run all tests (default: %(default)s)."
+        '--all', '-a', action='store_true',
+        help='Run all tests (default: %(default)s).'
     )
     parser.add_argument(
-        "--debug", "-d", action="store_true",
-        help="Print debugging output (default: %(default)s)."
+        '--debug', '-d', action='store_true',
+        help='Print debugging output (default: %(default)s).'
     )
     parser.add_argument(
-        "--force", "-f", action="store_true",
-        help="Force all tests to run (default: %(default)s)."
+        '--force', '-f', action='store_true',
+        help='Force all tests to run (default: %(default)s).'
     )
     parser.add_argument(
-        "--loud", "-l", action="store_true",
-        help="Enable loud mode (post results to Slack) (default: %(default)s)."
+        '--loud', '-l', action='store_true',
+        help='Enable loud mode (post results to Slack) (default: %(default)s).'
     )
     parser.add_argument(
-        "--test", "-t", action="store_true",
-        help="Enable testing mode (default: %(default)s)."
+        '--test', '-t', action='store_true',
+        help='Enable testing mode (default: %(default)s).'
     )
     parser.add_argument(
-        "--verbose", "-v", action="store_true",
-        help="Print verbose output (default: %(default)s)."
+        '--verbose', '-v', action='store_true',
+        help='Print verbose output (default: %(default)s).'
     )
     return parser
 
@@ -122,9 +124,11 @@ def main():
     # Set up for communication with Slack.
 
     # Get the Slack API token
-    slack_token = os.environ["SLACK_BOT_TOKEN"]
+    slack_token = os.environ['SLACK_BOT_TOKEN']
     if debug:
         print(f"slack_token = {slack_token}")
+
+    # Create the Slack client.
     slack_client = WebClient(token=slack_token)
     if debug:
         print(f"slack_client = {slack_client}")
@@ -138,7 +142,8 @@ def main():
     if debug:
         print(f"called_from = {called_from}")
 
-    # Assume this script is in a subdirectory of the kaiju directory.
+    # Assume this script is in a subdirectory of the kaiju directory,
+    # and go there.
     os.chdir(called_from)
     os.chdir('..')
 
@@ -147,18 +152,9 @@ def main():
     if debug:
         print(f"home = {home}")
     if verbose:
-        print('I am the build script. This is my current home directory:')
+        print('I am the weekly dash script. '
+              'This is my current home directory:')
         print(home)
-
-    #--------------------------------------------------------------------------
-
-    # Clean up the results from previous builds.
-    if verbose:
-        print("Cleaning up from previous build tests.")
-    os.system("rm -rf build*/ testFolder")
-    if verbose:
-        print('The current test directory contents are:')
-        os.system('ls')
 
     #--------------------------------------------------------------------------
 
@@ -171,13 +167,12 @@ def main():
 
     #--------------------------------------------------------------------------
 
-    # If the weekly dash base folder doesn't exist, create it and
-    # generate the restart data.
+    # If the weekly dash restart files don't exist, abort the test.
     if not os.path.exists('dashRestarts'):
         message = (
             'No restart data available for weekly dash on branch '
             "{git_branch}. Please generate restart data and try again."
-            )
+        )
         if isTest:
             pass
         else:
@@ -197,89 +192,119 @@ def main():
     #--------------------------------------------------------------------------
 
     # Clean up from previous builds.
+    if verbose:
+        print('Cleaning up from previous tests.')
     os.chdir(home)
-    # os.system('rm -r weeklyDash')
-    # os.system('mkdir weeklyDash')
-    # os.chdir('weeklyDash')
+    directories = glob.glob('weeklyDash_*')
+    for directory in directories:
+        shutil.rmtree(directory)
 
-    # #--------------------------------------------------------------------------
-
-    # # Run the Intel checks with each set of modules.
-    
-    # # Go back to scripts folder
-    # path = os.path.join(home, 'testingScripts', 'mage_build_test_modules')
-    # if debug:
-    #     print(f"path = {path}")
-    # os.chdir(path)
-
-    # # Get a list of build module sets.
-    # module_list_files = glob.glob('*.lst')
-    # if debug:
-    #     print(f"module_list_files = {module_list_files}")
-
-    # # <HACK>
-    # # Just use first module set for now.
-    # module_list_files = [module_list_files[0]]
+    # <HACK>
+    # Remove the pFUnit compiled code to prevent using it during the
+    # build test. If PFUNIT-4.2 is in kaiju/external during a build,
+    # make will try to build the unit test code even if it is not
+    # requested, which causes fatal errors when building with a module
+    # set that uses a non-Intel compioler, since pFUnit was built with
+    # the Intel compiler.
+    # pfunit_binary_directories = [
+    #     'FARGPARSE-1.1',
+    #     'GFTL-1.3',
+    #     'GFTL_SHARED-1.2',
+    #     'PFUNIT-4.2',
+    # ]
+    # for directory in pfunit_binary_directories:
+    #     path = os.path.join(home, 'external', directory)
+    #     try:
+    #         shutil.rmtree(path)
+    #     except:
+    #         pass
     # # </HACK>
 
-    # # Run unit tests with each set of modules.
-    # for module_list_file in module_list_files:
-    #     if debug:
-    #         print(f"module_list_file = {module_list_file}")
+    #--------------------------------------------------------------------------
 
-    #     # Extract the name of the list.
-    #     module_list_name = module_list_file.replace('.lst', '')
-    #     if debug:
-    #         print(f"module_list_name = {module_list_name}")
+    # Make a list of module sets to build with.
 
-    #     # Read this module list file, extracting cmake environment and options,
-    #     # if any.
-    #     path = os.path.join(home, 'testingScripts', 'mage_build_test_modules',
-    #                         module_list_file)
-    #     with open(path, encoding="utf-8") as f:
-    #         lines = f.readlines()
-    #     cmake_env = ''
-    #     label = 'CMAKE_ENV='
-    #     if lines[0].startswith(label):
-    #         cmake_env = lines[0][len(label):].rstrip()
-    #         lines.pop(0)  # Remove cmake environment line.
-    #     cmake_options = ''
-    #     label = 'CMAKE_OPTIONS='
-    #     if lines[0].startswith(label):
-    #         cmake_options = lines[0][len(label):].rstrip()
-    #         lines.pop(0)  # Remove cmake options line.
-    #     module_names = [line.rstrip() for line in lines]
+    # Go to the module sets folder.
+    path = os.path.join(home, 'testingScripts', 'mage_build_test_modules')
+    os.chdir(path)
+    if debug:
+        print(f"cwd = {os.getcwd()}")
 
-    # Build voltron_mpi.x
+    # Read the list of  module sets to use for build tests.
+    with open('weekly_dash.lst', encoding='utf-8') as f:
+        lines = f.readlines()
+    module_list_files = [s.rstrip() for s in lines]
+    if debug:
+        print(f"module_list_files = {module_list_files}")
 
-# # Read in modules.txt and load only the requested modules
-# file = open('../testingScripts/dashModules.txt', 'r')
-# modules = file.readlines()
-# #print(modules)
+    # <HACK>
+    # Just use first module set for now.
+    module_list_files = [module_list_files[0]]
+    # </HACK>
 
-# myModules = []
-# tempString = ""
+    #--------------------------------------------------------------------------
 
-# # Create List from separate modules
-# for line in modules:
-#     myModules.append(line.strip())
+    # Run the tests with each set of modules.
+    for module_list_file in module_list_files:
+        if debug:
+            print(f"module_list_file = {module_list_file}")
 
-# for line in myModules:
-# 	print(line)
+        # Extract the name of the list.
+        module_list_name = module_list_file.replace('.lst', '')
+        if debug:
+            print(f"module_list_name = {module_list_name}")
 
-# # Create the list of arguments for the first set
-# arguments = "module purge; module list;"
+        # Read this module list file, extracting cmake environment and
+        # options, if any.
+        path = os.path.join(home, 'testingScripts', 'mage_build_test_modules',
+                            module_list_file)
+        with open(path, encoding="utf-8") as f:
+            lines = f.readlines()
+        cmake_env = ''
+        label = 'CMAKE_ENV='
+        if lines[0].startswith(label):
+            cmake_env = lines[0][len(label):].rstrip()
+            lines.pop(0)  # Remove cmake environment line.
+        cmake_options = ''
+        label = 'CMAKE_OPTIONS='
+        if lines[0].startswith(label):
+            cmake_options = lines[0][len(label):].rstrip()
+            lines.pop(0)  # Remove cmake options line.
+        module_names = [line.rstrip() for line in lines]
 
-# for line in myModules:
-# 	arguments = arguments + "module load " + line + ";"
+        # Add the cmake option for the weekly dash build.
+        cmake_options += ' -DCMAKE_BUILD_TYPE=Release'
 
-# # BUILD EXECUTABLES
-# # Invoke cmake
-# arguments = arguments + "cmake ../ -DENABLE_MPI=ON -DENABLE_MKL=ON -DCMAKE_BUILD_TYPE=Release;"
-# # Make voltron_mpi
-# arguments = arguments + "make voltron_mpi;"
-# print(arguments)
-# subprocess.call(arguments, shell=True)
+        # Make a directory for this build, and go there.
+        dir_name = f"weeklyDash_{module_list_name}"
+        build_directory = os.path.join(home, dir_name)
+        if debug:
+            print(f"build_directory = {build_directory}")
+        os.mkdir(build_directory)
+        os.chdir(build_directory)
+
+        # Assemble the commands to load the listed modules.
+        module_cmd = 'module --force purge; module load '
+        module_cmd += ' '.join(module_names)
+        if debug:
+            print(f"module_cmd = {module_cmd}")
+
+        # Run cmake to build the Makefile.
+        cmd = f"{module_cmd}; {cmake_env} cmake {cmake_options} .."
+        if debug:
+            print(f"cmd = {cmd}")
+        # <HACK> To ignore cmake error on bcwind.h5 for now.
+        try:
+            cproc = subprocess.run(cmd, shell=True, check=True, text=True)
+        except:
+            pass
+        # </HACK>
+
+        # Run the build.
+        cmd = f"{module_cmd}; make voltron_mpi.x"
+        if debug:
+            print(f"cmd = {cmd}")
+        cproc = subprocess.run(cmd, shell=True, check=True, text=True)
 
 # os.chdir("bin")
 
