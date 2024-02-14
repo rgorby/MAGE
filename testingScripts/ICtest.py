@@ -29,7 +29,7 @@ from slack_sdk.errors import SlackApiError
 # Program constants
 
 # Program description.
-DESCRIPTION = "Script for MAGE initial condition testing"
+DESCRIPTION = 'Script for MAGE initial condition testing'
 
 
 def create_command_line_parser():
@@ -52,32 +52,32 @@ def create_command_line_parser():
     """
     parser = argparse.ArgumentParser(description=DESCRIPTION)
     parser.add_argument(
-        "--account", default=None,
-        help="PBS account to use for testing (default: %(default)s)"
+        '--account', default=None,
+        help='PBS account to use for testing (default: %(default)s)'
     )
     parser.add_argument(
-        "--all", "-a", action="store_true",
-        help="Run all tests (default: %(default)s)."
+        '--all', '-a', action='store_true',
+        help='Run all tests (default: %(default)s).'
     )
     parser.add_argument(
-        "--debug", "-d", action="store_true",
-        help="Print debugging output (default: %(default)s)."
+        '--debug', '-d', action='store_true',
+        help='Print debugging output (default: %(default)s).'
     )
     parser.add_argument(
-        "--force", "-f", action="store_true",
-        help="Force all tests to run (default: %(default)s)."
+        '--force', '-f', action='store_true',
+        help='Force all tests to run (default: %(default)s).'
     )
     parser.add_argument(
-        "--loud", "-l", action="store_true",
-        help="Enable loud mode (post results to Slack) (default: %(default)s)."
+        '--loud', '-l', action='store_true',
+        help='Enable loud mode (post results to Slack) (default: %(default)s).'
     )
     parser.add_argument(
-        "--test", "-t", action="store_true",
-        help="Enable testing mode (default: %(default)s)."
+        '--test', '-t', action='store_true',
+        help='Enable testing mode (default: %(default)s).'
     )
     parser.add_argument(
-        "--verbose", "-v", action="store_true",
-        help="Print verbose output (default: %(default)s)."
+        '--verbose', '-v', action='store_true',
+        help='Print verbose output (default: %(default)s).'
     )
     return parser
 
@@ -122,7 +122,7 @@ def main():
     # Set up for communication with Slack.
 
     # Get the Slack API token
-    slack_token = os.environ["SLACK_BOT_TOKEN"]
+    slack_token = os.environ['SLACK_BOT_TOKEN']
     if debug:
         print(f"slack_token = {slack_token}")
 
@@ -143,42 +143,40 @@ def main():
     # Assume this script is in a subdirectory of the kaiju directory.
     os.chdir(called_from)
     os.chdir('..')
-    if debug:
-        print(f"Now in directory {os.getcwd()}.")
 
     # Use this directory as the home directory for testing.
     home = os.getcwd()
     if debug:
         print(f"home = {home}")
     if verbose:
-        print('I am the unit test script. This is my current home directory:')
+        print('I am the initial condition test script. This is my current '
+              'home directory:')
         print(home)
 
     #--------------------------------------------------------------------------
 
     # Clean up from previous tests.
-    os.chdir(home)
-    if debug:
-        print(f"Now in directory {os.getcwd()}.")
     if verbose:
         print('Cleaning up from previous initial condition test builds.')
+    os.chdir(home)
     os.system('rm -rf ICBuilds')
 
     #--------------------------------------------------------------------------
-    
-    # Go to module lists folder
-    module_sets_path = os.path.join(home, 'testingScripts',
-                                    'mage_build_test_modules')
-    if debug:
-        print(f"module_sets_path = {module_sets_path}")
-    os.chdir(module_sets_path)
-    if debug:
-        print(f"Now in directory {os.getcwd()}.")
 
-    # Get a list of build module sets.
-    module_set_files = glob.glob('*.lst')
+    # Make a list of module sets to build with.
+
+    # Go to the module sets folder.
+    path = os.path.join(home, 'testingScripts', 'mage_build_test_modules')
+    os.chdir(path)
     if debug:
-        print(f"module_set_files = {module_set_files}")
+        print(f"cwd = {os.getcwd()}")
+
+    # Read the list of  module sets to use for Intel checks.
+    with open('initial_condition_checks.lst', encoding='utf-8') as f:
+        lines = f.readlines()
+    module_list_files = [s.rstrip() for s in lines]
+    if debug:
+        print(f"module_list_files = {module_list_files}")
 
     #--------------------------------------------------------------------------
     
@@ -213,19 +211,21 @@ def main():
     os.mkdir(initial_condition_test_root)
 
     # Run initial condition tests with each set of modules.
-    for module_set_file in module_set_files:
-        if debug:
-            print(f"module_set_file = {module_set_file}")
+    for module_list_file in module_list_files:
+        if verbose:
+            print('Performing initial condition checks with module set '
+                  f"{module_list_file}.")
 
         # Extract the name of the list.
-        module_set_name = module_set_file.replace('.lst', '')
+        module_list_name = module_list_file.replace('.lst', '')
         if debug:
-            print(f"module_set_name = {module_set_name}")
+            print(f"module_list_name = {module_list_name}")
 
         # Read this module list file, extracting cmake environment and
         # options, if any.
-        module_set_path = os.path.join(module_sets_path, module_set_file)
-        with open(module_set_path, encoding='utf-8') as f:
+        path = os.path.join(home, 'testingScripts', 'mage_build_test_modules',
+                            module_list_file)
+        with open(path, encoding='utf-8') as f:
             lines = f.readlines()
         cmake_env = ''
         label = 'CMAKE_ENV='
@@ -259,7 +259,7 @@ def main():
             # Make a directory for this test, and go there.
             build_directory = os.path.join(
                 home, 'ICBuilds',
-                f"gamera_{initial_condition_name}_{module_set_name}"
+                f"gamera_{initial_condition_name}_{module_list_name}"
             )
             if debug:
                 print(f"build_directory = {build_directory}")
@@ -299,7 +299,7 @@ def main():
 
             # <HACK>
             message = (
-                f"Build using module set {module_set_name} for "
+                f"Build using module set {module_list_name} for "
                 f"initial conditions {initial_condition_name} "
                 f"returned {make_return_code}."
             )

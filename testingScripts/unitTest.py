@@ -215,7 +215,7 @@ def main():
     # Run unit tests with each set of modules.
     for module_list_file in module_list_files:
         if verbose:
-            print("Performing Fortran unit tests with module set "
+            print('Performing Fortran unit tests with module set '
                   f"{module_list_file}.")
 
         # Extract the name of the list.
@@ -252,8 +252,7 @@ def main():
         os.chdir(build_directory)
 
         # Assemble the commands to load the listed modules.
-        module_cmd = 'module --force purge; module load '
-        module_cmd += ' '.join(module_names)
+        module_cmd = f"module --force purge; module load {' '.join(module_names)}"
         if debug:
             print(f"module_cmd = {module_cmd}")
 
@@ -272,6 +271,8 @@ def main():
         except:
             pass
         # </HACK>
+        if debug:
+            print(f"cproc = {cproc}")
 
         # Run the build.
         cmd = f"{module_cmd}; make gamera_mpi voltron_mpi allTests"
@@ -307,9 +308,9 @@ def main():
         # Submit the jobs to create the test data and run the unit tests.
         pbs_files = [
             'genTestData.pbs',
-            # 'runCaseTests.pbs',
+            'runCaseTests.pbs',
             'runNonCaseTests1.pbs',
-            # 'runNonCaseTests2.pbs',
+            # 'runNonCaseTests2.pbs',  # Hangs for 12 hours - skip
         ]
         job_ids = []
         for pbs_file in pbs_files:

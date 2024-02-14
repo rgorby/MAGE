@@ -17,6 +17,7 @@ import datetime
 import glob
 import os
 import sys
+import shutil
 import subprocess
 import time
 
@@ -30,7 +31,7 @@ from slack_sdk.errors import SlackApiError
 # Program constants
 
 # Program description.
-DESCRIPTION = "Script for MAGE Ontel checks"
+DESCRIPTION = 'Script for MAGE Intel checks'
 
 
 def create_command_line_parser():
@@ -53,32 +54,32 @@ def create_command_line_parser():
     """
     parser = argparse.ArgumentParser(description=DESCRIPTION)
     parser.add_argument(
-        "--account", default=None,
-        help="PBS account to use for testing (default: %(default)s)"
+        '--account', default=None,
+        help='PBS account to use for testing (default: %(default)s)'
     )
     parser.add_argument(
-        "--all", "-a", action="store_true",
-        help="Run all tests (default: %(default)s)."
+        '--all', '-a', action='store_true',
+        help='Run all tests (default: %(default)s).'
     )
     parser.add_argument(
-        "--debug", "-d", action="store_true",
-        help="Print debugging output (default: %(default)s)."
+        '--debug', '-d', action='store_true',
+        help='Print debugging output (default: %(default)s).'
     )
     parser.add_argument(
-        "--force", "-f", action="store_true",
-        help="Force all tests to run (default: %(default)s)."
+        '--force', '-f', action='store_true',
+        help='Force all tests to run (default: %(default)s).'
     )
     parser.add_argument(
-        "--loud", "-l", action="store_true",
-        help="Enable loud mode (post results to Slack) (default: %(default)s)."
+        '--loud', '-l', action='store_true',
+        help='Enable loud mode (post results to Slack) (default: %(default)s).'
     )
     parser.add_argument(
-        "--test", "-t", action="store_true",
-        help="Enable testing mode (default: %(default)s)."
+        '--test', '-t', action='store_true',
+        help='Enable testing mode (default: %(default)s).'
     )
     parser.add_argument(
-        "--verbose", "-v", action="store_true",
-        help="Print verbose output (default: %(default)s)."
+        '--verbose', '-v', action='store_true',
+        help='Print verbose output (default: %(default)s).'
     )
     return parser
 
@@ -123,7 +124,7 @@ def main():
     # Set up for communication with Slack.
 
     # Get the Slack API token
-    slack_token = os.environ["SLACK_BOT_TOKEN"]
+    slack_token = os.environ['SLACK_BOT_TOKEN']
     if debug:
         print(f"slack_token = {slack_token}")
 
@@ -156,21 +157,27 @@ def main():
     #--------------------------------------------------------------------------
 
     # Clean up from previous tests.
+    if verbose:
+        print(f'Cleaning up from previous Intel checks.')
     os.chdir(home)
-    os.system('rm -rf intelChecks*')
+    directories = glob.glob('intelChecks*')
+    for directory in directories:
+        shutil.rmtree(directory)
 
     #--------------------------------------------------------------------------
 
-    # Run the Intel checks with each set of modules.
-    
-    # Go back to scripts folder
-    path = os.path.join(home, 'testingScripts', 'mage_build_test_modules')
-    if debug:
-        print(f"path = {path}")
-    os.chdir(path)
+    # Make a list of module sets to build with.
 
-    # Get a list of build module sets.
-    module_list_files = glob.glob('*.lst')
+    # Go to the module sets folder.
+    path = os.path.join(home, 'testingScripts', 'mage_build_test_modules')
+    os.chdir(path)
+    if debug:
+        print(f"cwd = {os.getcwd()}")
+
+    # Read the list of  module sets to use for Intel checks.
+    with open('intel_checks.lst', encoding='utf-8') as f:
+        lines = f.readlines()
+    module_list_files = [s.rstrip() for s in lines]
     if debug:
         print(f"module_list_files = {module_list_files}")
 
@@ -179,21 +186,26 @@ def main():
     module_list_files = [module_list_files[0]]
     # </HACK>
 
-    # Run unit tests with each set of modules.
+    #--------------------------------------------------------------------------
+
+    # Run the Intel checks with each set of modules.
+    
+    # Run Intel checks with each set of modules.
     for module_list_file in module_list_files:
-        if debug:
-            print(f"module_list_file = {module_list_file}")
+        if verbose:
+            print('Performing Intel checks with module set '
+                  f"{module_list_file}.")
 
         # Extract the name of the list.
         module_list_name = module_list_file.replace('.lst', '')
         if debug:
             print(f"module_list_name = {module_list_name}")
 
-        # Read this module list file, extracting cmake environment and options,
-        # if any.
+        # Read this module list file, extracting cmake environment and
+        # options, if any.
         path = os.path.join(home, 'testingScripts', 'mage_build_test_modules',
                             module_list_file)
-        with open(path, encoding="utf-8") as f:
+        with open(path, encoding='utf-8') as f:
             lines = f.readlines()
         cmake_env = ''
         label = 'CMAKE_ENV='
@@ -212,7 +224,7 @@ def main():
         if debug:
             print(f"module_names = {module_names}")
 
-        # Add the additional flags needed for intel checks.
+        # Add the additional flags needed for Intel checks.
         cmake_options += ' -DDISABLE_DEBUG_BOUNDS_CHECKS=ON'
         cmake_options += ' -DCMAKE_BUILD_TYPE=DEBUG'
 
@@ -230,101 +242,66 @@ def main():
             print(f"module_cmd = {module_cmd}")
 
         # Run cmake to build the Makefile.
-        cmake_cmd = f"{module_cmd}; {cmake_env} cmake {cmake_options} .."
+        cmd = f"{module_cmd}; {cmake_env} cmake {cmake_options} .."
         if debug:
-            print(f"cmake_cmd = {cmake_cmd}")
-        cmake_process = subprocess.Popen(cmake_cmd, shell=True)
+            print(f"cmd = {cmd}")
+        cproc = subprocess.run(cmd, shell=True, check=True, text=True)
         if debug:
-            print(f"cmake_process = {cmake_process}")
-        cmake_process.wait()
+            print(f"cproc = {cproc}")
 
         # Run the build.
-        make_cmd = module_cmd + '; make gamera_mpi voltron_mpi'
+        cmd = f"{module_cmd}; make gamera_mpi voltron_mpi"
         if debug:
-            print(f"make_cmd = {make_cmd}")
-        make_process = subprocess.Popen(make_cmd, shell=True)
-        if debug:
-            print(f"make_process = {make_process}")
-        make_process.wait()
+            print(f"cmd = {cmd}")
+        cproc = subprocess.run(cmd, shell=True, check=True, text=True)
 
         # Copy in the test PBS scripts and files.
-        testing_files_home = '../testingScripts'
-        subprocess.call(
-            f"cp {testing_files_home}/tinyCase.xml bin/",
-            shell=True
-        )
-        subprocess.call(
-            f"cp {testing_files_home}/intelCheckSubmitMem.pbs bin/",
-            shell=True
-        )
-        subprocess.call(
-            f"cp {testing_files_home}/intelCheckSubmitThread.pbs bin/",
-            shell=True
-        )
-        subprocess.call(
-            f"cp {testing_files_home}/bcwind.h5 ./bin",
-            shell=True
-        )
-        subprocess.call(
-            f"cp {testing_files_home}/lfmD.h5 ./bin",
-            shell=True
-        )
-        subprocess.call(
-            f"cp {testing_files_home}/rcmconfig.h5 ./bin",
-            shell=True
-        )
-        subprocess.call(
-            f"cp {testing_files_home}/memSuppress.sup ./bin",
-            shell=True
-        )
-        subprocess.call(
-            f"cp {testing_files_home}/threadSuppress.sup ./bin",
-            shell=True
-        )
+        test_files = [
+            'tinyCase.xml',
+            'intelCheckSubmitMem.pbs',
+            'intelCheckSubmitThread.pbs',
+            'bcwind.h5',
+            'lfmD.h5',
+            'rcmconfig.h5',
+            'memSuppress.sup',
+            'threadSuppress.sup',
+        ]
+        for filename in test_files:
+            from_path = os.path.join(home, 'testingScripts', filename)
+            to_path = os.path.join('bin', filename)
+            shutil.copyfile(from_path, to_path)
 
         # Go to the bin directory for testing.
-        path = os.path.join(home, dir_name, 'bin')
-        os.chdir(path)
+        os.chdir('bin')
 
-        # Submit the job to run the Intel memory checks.
-        module_list = ' '.join(module_names)
-        qsub_cmd = f"qsub -A {account} -v MODULE_LIST='{module_list}',KAIJUROOTDIR={home} intelCheckSubmitMem.pbs"
-        if debug:
-            print(f"qsub_cmd = {qsub_cmd}")
-        submission = subprocess.Popen(
-            qsub_cmd, shell=True, stdout=subprocess.PIPE
-        )
-        submission.wait()
-        readString = submission.stdout.read().decode('ascii')
-        if debug:
-            print(f"readString = {readString}")
-        memCheckJob = readString.split('.')[0]
-        if debug:
-            print(f"memCheckJob = {memCheckJob}")
-
-        # Submit the job to run the Intel thread checks.
-        module_list = ' '.join(module_names)
-        qsub_cmd = f"qsub -A {account} -v MODULE_LIST='{module_list}',KAIJUROOTDIR={home} intelCheckSubmitThread.pbs"
-        if debug:
-            print(f"qsub_cmd = {qsub_cmd}")
-        submission = subprocess.Popen(
-            qsub_cmd, shell=True, stdout=subprocess.PIPE
-        )
-        submission.wait()
-        readString = submission.stdout.read().decode('ascii')
-        if debug:
-            print(f"readString = {readString}")
-        threadCheckJob = readString.split('.')[0]
-        if debug:
-            print(f"threadCheckJob = {threadCheckJob}")
+        pbs_files = [
+            # 'intelCheckSubmitMem.pbs',
+            'intelCheckSubmitThread.pbs',
+            # 'intelCheckReportSubmit.pbs',
+        ]
+        job_ids = []
+        for pbs_file in pbs_files:
+            cmd = (f"qsub -A {account} -v MODULE_LIST='{' '.join(module_names)}',"
+                   f"KAIJUROOTDIR={home} {pbs_file}")
+            # Add report dependency if needed. Assumes
+            if pbs_file == 'intelCheckReportSubmit.pbs':
+                cmd += f"-W depend=after:{':'.join(job_ids)}"
+            if debug:
+                print(f"cmd = {cmd}")
+            cproc = subprocess.run(cmd, shell=True, check=True, text=True,
+                                   capture_output=True)
+            job_id = cproc.stdout.split('.')[0]
+            if debug:
+                print(f"job_id = {job_id}")
+            job_ids.append(job_id)
 
         # Record the job IDs.
         with open('jobs.txt', 'w', encoding='utf-8') as f:
-            f.write(f"{memCheckJob}\n")
-            f.write(f"{threadCheckJob}\n")
+            for job_id in job_ids:
+                f.write(f"{job_id}\n")
 
         # <HACK>
-        message = f"Intel tests submitted in jobs {memCheckJob}, {threadCheckJob}"
+        message = f"Intel tests submitted in jobs {', '.join(job_ids)}"
         # </HACK>
 
         # If this is a test run, don't post to Slack.
@@ -335,41 +312,15 @@ def main():
             if beLoud:
                 try:
                     response = slack_client.chat_postMessage(
-                        channel="#kaijudev",
+                        channel='#kaijudev',
                         text=message,
                     )
                 except SlackApiError as e:
-                    # You will get a SlackApiError if "ok" is False
-                    assert e.response["error"]  # str like 'invalid_auth', 'channel_not_found'
+                    # You will get a SlackApiError if 'ok' is False
+                    assert e.response['error']  # str like 'invalid_auth', 'channel_not_found'
 
         # Send message to stdout.
         print(message)
-
-# # SUBMIT FOLLOW-UP JOB FOR SLACK POSTING
-# #os.chdir(home)
-# #os.chdir('kaiju/testingScripts')
-# #arguments = 'qsub intelCheckReportSubmit.pbs -W depend=after:'
-# #arguments = arguments + numberString
-# #print(arguments)
-
-# # WAIT ABOUT 1 MINUTE
-# #time.sleep(60)
-
-# #report = subprocess.call(arguments, shell=True, stdout=subprocess.PIPE)
-
-# # FINISHED
-
-# # If not a test, send message to Slack
-# #if (not isTest):
-#     # Try to send Slack message
-# #    try:
-# #        response = client.chat_postMessage(
-# #            channel="#kaijudev",
-# #            text=myText,
-# #        )
-# #    except SlackApiError as e:
-#         # You will get a SlackApiError if "ok" is False
-# #        assert e.response["error"]  # str like 'invalid_auth', 'channel_not_found'
 
     if debug:
         print(f"Ending {sys.argv[0]} at {datetime.datetime.now()}")

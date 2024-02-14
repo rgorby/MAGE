@@ -29,7 +29,7 @@ from slack_sdk.errors import SlackApiError
 # Program constants
 
 # Program description.
-DESCRIPTION = "Generate reports for MAGE initial condition testing"
+DESCRIPTION = 'Generate reports for MAGE initial condition testing'
 
 
 def create_command_line_parser():
@@ -52,32 +52,32 @@ def create_command_line_parser():
     """
     parser = argparse.ArgumentParser(description=DESCRIPTION)
     parser.add_argument(
-        "--account", default=None,
-        help="PBS account to use for testing (default: %(default)s)"
+        '--account', default=None,
+        help='PBS account to use for testing (default: %(default)s)'
     )
     parser.add_argument(
-        "--all", "-a", action="store_true",
-        help="Run all tests (default: %(default)s)."
+        '--all', '-a', action='store_true',
+        help='Run all tests (default: %(default)s).'
     )
     parser.add_argument(
-        "--debug", "-d", action="store_true",
-        help="Print debugging output (default: %(default)s)."
+        '--debug', '-d', action='store_true',
+        help='Print debugging output (default: %(default)s).'
     )
     parser.add_argument(
-        "--force", "-f", action="store_true",
-        help="Force all tests to run (default: %(default)s)."
+        '--force', '-f', action='store_true',
+        help='Force all tests to run (default: %(default)s).'
     )
     parser.add_argument(
-        "--loud", "-l", action="store_true",
-        help="Enable loud mode (post results to Slack) (default: %(default)s)."
+        '--loud', '-l', action='store_true',
+        help='Enable loud mode (post results to Slack) (default: %(default)s).'
     )
     parser.add_argument(
-        "--test", "-t", action="store_true",
-        help="Enable testing mode (default: %(default)s)."
+        '--test', '-t', action='store_true',
+        help='Enable testing mode (default: %(default)s).'
     )
     parser.add_argument(
-        "--verbose", "-v", action="store_true",
-        help="Print verbose output (default: %(default)s)."
+        '--verbose', '-v', action='store_true',
+        help='Print verbose output (default: %(default)s).'
     )
     return parser
 
@@ -143,15 +143,14 @@ def main():
     # Assume this script is in a subdirectory of the kaiju directory.
     os.chdir(called_from)
     os.chdir('..')
-    if debug:
-        print(f"Now in directory {os.getcwd()}.")
 
     # Use this directory as the home directory for testing.
     home = os.getcwd()
     if debug:
         print(f"home = {home}")
     if verbose:
-        print('I am the unit test script. This is my current home directory:')
+        print('I am the initial condition check report script. '
+              'This is my current home directory:')
         print(home)
 
     #--------------------------------------------------------------------------

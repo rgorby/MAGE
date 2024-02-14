@@ -207,12 +207,12 @@ def main():
         #     print(f"cmd = {cmd}")
         # cproc = subprocess.run(cmd, shell=True, check=True)
 
-        if verbose:
-            print('Running Fortran unit tests.')
-        cmd = f"python unitTest.py {subArgString}"
-        if debug:
-            print(f"cmd = {cmd}")
-        cproc = subprocess.run(cmd, shell=True, check=True)
+        # if verbose:
+        #     print('Running Fortran unit tests.')
+        # cmd = f"python unitTest.py {subArgString}"
+        # if debug:
+        #     print(f"cmd = {cmd}")
+        # cproc = subprocess.run(cmd, shell=True, check=True)
 
         # if verbose:
         #     print('Running Intel Inspector checks.')
@@ -228,12 +228,12 @@ def main():
         #     print(f"cmd = {cmd}")
         # cproc = subprocess.run(cmd, shell=True, check=True)
 
-        # if verbose:
-        #     print('Running initial conditions test report.')
-        # cmd = f"python ICtestReport.py {subArgString}"
-        # if debug:
-        #     print(f"cmd = {cmd}")
-        # cproc = subprocess.run(cmd, shell=True, check=True)
+        if verbose:
+            print('Running initial conditions test report.')
+        cmd = f"python ICtestReport.py {subArgString}"
+        if debug:
+            print(f"cmd = {cmd}")
+        cproc = subprocess.run(cmd, shell=True, check=True)
 
         # if verbose:
         #     print('Running python unit tests.')
