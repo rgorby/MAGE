@@ -228,19 +228,19 @@ def main():
         #     print(f"cmd = {cmd}")
         # cproc = subprocess.run(cmd, shell=True, check=True)
 
-        if verbose:
-            print('Running initial conditions test report.')
-        cmd = f"python ICtestReport.py {subArgString}"
-        if debug:
-            print(f"cmd = {cmd}")
-        cproc = subprocess.run(cmd, shell=True, check=True)
-
         # if verbose:
-        #     print('Running python unit tests.')
-        # cmd = f"python pyunitTest.py {subArgString}"
+        #     print('Running initial conditions test report.')
+        # cmd = f"python ICtestReport.py {subArgString}"
         # if debug:
         #     print(f"cmd = {cmd}")
         # cproc = subprocess.run(cmd, shell=True, check=True)
+
+        if verbose:
+            print('Running python unit tests.')
+        cmd = f"python pyunitTest.py {subArgString}"
+        if debug:
+            print(f"cmd = {cmd}")
+        cproc = subprocess.run(cmd, shell=True, check=True)
 
         # if verbose:
         #     print('Running weekly dash.')
