@@ -1,0 +1,161 @@
+module testGridInterp_TSC
+
+    use testHelper
+    use kdefs, only : TINY
+
+    use shellGrid
+    use shellInterp
+
+    implicit none
+
+    integer, parameter :: Npnt = 50
+    integer, parameter :: Nsamples = (Npnt-1)*4
+    real(rp), dimension(4) :: subPnts = [0.01, 0.49, 0.51, 0.99] 
+    real(rp), dimension(Nsamples) :: pntsTheta, pntsPhi
+    integer, dimension(Nsamples) :: idxTh_cc, idxPh_cc
+            !! These are the indices that each pntsTheta/pntsPhi should evaluate to when finding cell centers
+    integer, dimension(Nsamples) :: idxTh_corner, idxPh_corner 
+            !! These are the indices that each pntsTheta/pntsPhi should evaluate to when finding cell corners
+    type(ShellGrid_T) :: sh
+    character(len=strLen) :: checkMessage
+
+    contains
+
+    @before
+	subroutine setup()
+        real(rp), dimension(Npnt) :: thetas, phis
+        real(rp) :: dth, dph
+        integer :: i,j
+
+        dth = 0.5*PI / (Npnt-1)
+        dph = 2.0*PI / (Npnt-1)
+
+        do i=1,Npnt
+            thetas(i) = (i-1)*dth
+        enddo
+
+        do j=1,Npnt
+            phis(j) = (j-1)*dph
+        enddo
+
+	    call GenShellGrid(sh, thetas, phis)
+
+        ! init interp sample points
+        do i=1,Nsamples,4
+            pntsTheta(i:i+3) = thetas(i/4+1) + (dTh * subPnts)
+            pntsPhi  (i:i+3) = phis  (i/4+1) + (dPh * subPnts)
+        enddo
+
+        ! Set up idx arrays
+        do i=1,Nsamples,4
+            idxTh_cc(i:i+3) = i/4+1
+            idxPh_cc(i:i+3) = i/4+1
+        enddo
+
+        idxTh_corner(:2) = 1
+        idxPh_corner(:2) = 1
+        idxTh_corner(Nsamples-1:) = Npnt
+        idxPh_corner(Nsamples-1:) = Npnt
+        do i=3,Nsamples-2,4
+            idxTh_corner(i:i+3) = i/4+2
+            idxPh_corner(i:i+3) = i/4+2
+        enddo
+
+	end subroutine setup
+
+
+	@after
+	subroutine teardown()
+        call deallocShellGrid(sh)	    
+    end subroutine teardown
+
+    @test
+    subroutine testGridLoc_CC()
+        !! Tests the functions responsible for finging the index of the point closest to point (t,p)
+        !! In the case where we have a cell-centered variable
+        integer :: testLocI, testLocJ
+        integer :: i
+
+        ! Get the values we're here to test
+        do i=1,Nsamples
+            testLocI = getShellILoc(sh,SHCC,pntsTheta(i))
+            testLocJ = getShellJLoc(sh,SHCC,pntsPhi(i))
+
+            write (checkMessage,*) "Got theta index wrong."
+            @assertEqual(testLocI, idxTh_cc(i), checkMessage)
+            continue ! These obviously do nothing but if I don't include them my syntax highlighting breaks which is absolutely unacceptable
+            write (checkMessage,*) "Got phi index wrong."
+            @assertEqual(testLocJ, idxPh_cc(i), checkMessage)
+            continue
+        enddo
+    end subroutine
+
+
+    @test
+    subroutine testGridLoc_corner()
+        !! Tests the functions responsible for finging the index of the point closest to point (t,p)
+        !! In the case where we have a corner-centered variable
+        integer :: testLocI, testLocJ
+        integer :: i
+
+        ! Get the values we're here to test
+        do i=1,Nsamples
+            testLocI = getShellILoc(sh,SHCORNER,pntsTheta(i))
+            testLocJ = getShellJLoc(sh,SHCORNER,pntsPhi(i))
+
+            write (checkMessage,*) "Got theta index wrong."
+            @assertEqual(testLocI, idxTh_corner(i), checkMessage)
+            continue
+            write (checkMessage,*) "Got phi index wrong."
+            @assertEqual(testLocJ, idxPh_corner(i), checkMessage)
+            continue
+        enddo
+    end subroutine
+
+
+    @test
+    subroutine testGridLoc_thetaFace()
+        !! Tests the functions responsible for finging the index of the point closest to point (t,p)
+        !! In the case where we have a variable on theta faces
+        integer :: testLocI, testLocJ
+        integer :: i
+
+        ! Get the values we're here to test
+        do i=1,Nsamples
+            testLocI = getShellILoc(sh,SHFTH,pntsTheta(i))
+            testLocJ = getShellJLoc(sh,SHFTH,pntsPhi(i))
+
+            write (checkMessage,*) "Got theta index wrong."
+            @assertEqual(testLocI, idxTh_corner(i), checkMessage)
+            continue
+            write (checkMessage,*) "Got phi index wrong."
+            @assertEqual(testLocJ, idxPh_cc(i), checkMessage)
+            continue
+        enddo
+    end subroutine
+
+
+    @test
+    subroutine testGridLoc_phiFace()
+        !! Tests the functions responsible for finging the index of the point closest to point (t,p)
+        !! In the case where we have a variable on phi faces
+        integer :: testLocI, testLocJ
+        integer :: i
+
+        ! Get the values we're here to test
+        do i=1,Nsamples
+            testLocI = getShellILoc(sh,SHFPH,pntsTheta(i))
+            testLocJ = getShellJLoc(sh,SHFPH,pntsPhi(i))
+
+            write (checkMessage,*) "Got theta index wrong."
+            @assertEqual(testLocI, idxTh_cc(i), checkMessage)
+            continue
+            write (checkMessage,*) "Got phi index wrong."
+            @assertEqual(testLocJ, idxPh_corner(i), checkMessage)
+            continue
+        enddo
+    end subroutine
+
+
+
+end module testGridInterp_TSC

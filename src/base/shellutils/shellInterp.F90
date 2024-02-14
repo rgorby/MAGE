@@ -269,12 +269,12 @@ module shellInterp
             else
                 jLoc = minloc( abs(shGr%phc-p),dim=1 ) ! Find closest lat cell center
             end if
-        elseif (varLoc == SHCORNER .or. varLoc == SHFTH) then
+        elseif (varLoc == SHCORNER .or. varLoc == SHFPH) then
             !! Variable is defined at corners w.r.t. phi direction
             if (shGr%isPhiUniform) then
                 ! note this is faster, thus preferred
                 dp = shGr%ph(2)-shGr%ph(1)
-                dJ = p/dp
+                dJ = p/dp + 0.5
                 jLoc = floor(dJ) + 1
             else
                 jLoc = minloc( abs(shGr%ph-p),dim=1 ) ! Find closest lat cell center

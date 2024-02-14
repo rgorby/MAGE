@@ -444,4 +444,18 @@ module shellGrid
 
     end subroutine GenChildShellGrid
 
+
+    subroutine deallocShellGrid(sh)
+        !! Deallocates any allocated memory
+        type(ShellGrid_T), intent(inout) :: sh
+
+        deallocate(sh%th)
+        deallocate(sh%ph)
+        deallocate(sh%thc)
+        deallocate(sh%phc)
+        deallocate(sh%lat)
+        deallocate(sh%latc)
+
+    end subroutine deallocShellGrid
+
 end module shellGrid
