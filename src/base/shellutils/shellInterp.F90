@@ -163,6 +163,8 @@ module shellInterp
             !! i and j locations of point t,p
             !! Whether they are respect to corner, center, or a face depends on sgVar%loc
 
+        Qout = 0.0
+
         ! First, make sure dTheta and dPhi are defined at sgVar locations        
         if ( size(dTheta) .ne. sgVar%Ni ) then
             write(*,*)"ERROR in InterpShellVar_TSC_pnt: dTheta != sgVar%Ni"
@@ -193,7 +195,12 @@ module shellInterp
             stop
         endif
 
-        Qout = 0.0
+        ! Make sure data is good at this point
+        if (.not. sgVar%mask(i0,j0)) then
+            return
+        endif
+
+        
     end function InterpShellVar_TSC_pnt
 
 
@@ -205,8 +212,6 @@ module shellInterp
 
         integer :: iLoc
 
-        !if (varLoc == SHCC     .or. varLoc == SHFPH) thLoc = SHCC
-        !if (varLoc == SHCORNER .or. varLoc == SHFTH) thLoc = SHCORNER
 
         if (varLoc == SHCC .or. varLoc == SHFPH) then
             !! Variable is defined at center w.r.t. theta direction

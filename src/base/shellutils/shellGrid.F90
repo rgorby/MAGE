@@ -26,7 +26,7 @@ module shellGrid
             !! (Nt+1 or Np+1) [radians] grid corners
             !! th (theta) is colatitude and runs from north pole toward south
             !! Phi is longitude, with zero/2pi at 12 MLT
-            !! Assuming lat \in -pi/2,pi/2 and lon \in [0,2pi]
+            !! Assuming lat in -pi/2,pi/2 and lon in [0,2pi]
         real(rp), dimension(:), allocatable :: thc, phc, latc  
             !! (Nt or Np) [radians] grid centers
         logical :: doSP = .false., doNP = .false. 
@@ -72,6 +72,10 @@ module shellGrid
             !! Corresponds to enum above (SHCC, SHCORNER, SHFTH, SHFPH)
         integer :: Ni, Nj
             !! Number of values in i and j direction
+        !!!Note: should maybe have start/end indices instead. 
+        ! Named something like isv,iev to distinguish them from is, isg in shellGrid
+        ! Because the variable has different sizes depending on its location
+        ! This is helpful for e.g. InterpShellVar_TSC_pnt determining size of dtheta and dPhi arrays
         real(rp), dimension(:,:), allocatable :: data
             !! The actual variable values
         logical, dimension(:,:), allocatable :: mask
