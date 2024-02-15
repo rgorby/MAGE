@@ -23,12 +23,12 @@ module shellGrid
         integer :: Nt,Np
             !! Number of colat/lon cells (theta, phi)
         real(rp), dimension(:), allocatable :: th, ph, lat
-            !! (Nt or Np) [radians] grid corners
+            !! (Nt+1 or Np+1) [radians] grid corners
             !! th (theta) is colatitude and runs from north pole toward south
             !! Phi is longitude, with zero/2pi at 12 MLT
-            !! Assuming lat \in -pi/2,pi/2 and lon \in [0,2pi]
+            !! Assuming lat in -pi/2,pi/2 and lon in [0,2pi]
         real(rp), dimension(:), allocatable :: thc, phc, latc  
-            !! (Nt+1 or Np+1) [radians] grid centers
+            !! (Nt or Np) [radians] grid centers
         logical :: doSP = .false., doNP = .false. 
             !! Whether active grid contains south/north pole, no ghosts in this case
         logical :: ghostSP = .false., ghostNP = .false. 
@@ -66,12 +66,26 @@ module shellGrid
     end type ShellGrid_T
 
     type ShellGridVar_T
+
         integer :: loc
             !! Location of data on the shellGrid (e.g. center, corner, theta of phi face)
             !! Corresponds to enum above (SHCC, SHCORNER, SHFTH, SHFPH)
+        integer :: Ni, Nj
+            !! Number of values in i and j direction
+        !!!Note: should maybe have start/end indices instead. 
+        ! Named something like isv,iev to distinguish them from is, isg in shellGrid
+        ! Because the variable has different sizes depending on its location
+        ! This is helpful for e.g. InterpShellVar_TSC_pnt determining size of dtheta and dPhi arrays
         real(rp), dimension(:,:), allocatable :: data
+            !! The actual variable values
+        logical, dimension(:,:), allocatable :: mask
+            !! Mask indicating whether the data at a given index is valid
+            !! e.g. good for interpolation, etc.
+
+
         logical, dimension(4) :: bcsApplied 
             !! Flag indicating whether BCs were applied (ghosts filled) for [n,s,e,w] boundaries
+
     end type ShellGridVar_T
 
 
@@ -301,24 +315,43 @@ module shellGrid
         
         ! If you didn't want your data blown up you shouldn't have called init
         if (allocated(shellVar%data)) deallocate(shellVar%data)
+        if (allocated(shellVar%data)) deallocate(shellVar%mask)
             
         shellVar%loc = loc
 
+        associate(isg=>shGr%isg, ieg=>shGr%ieg, \
+                  jsg=>shGr%jsg, jeg=>shGr%jeg)
+
         select case(loc)
             case(SHCC)
-                allocate(shellVar%data(shGr%Nt,shGr%Np))
+                allocate(shellVar%data(isg:ieg,jsg:jeg))
+                allocate(shellVar%mask(isg:ieg,jsg:jeg))
+                shellvar%Ni = shGr%Nt + shGr%Ngn + shGr%Ngs
+                shellvar%Nj = shGr%Np + shGr%Ngw + shGr%Nge
             case(SHCORNER)
-                allocate(shellVar%data(shGr%Nt+1,shGr%Np+1))
+                allocate(shellVar%data(isg:ieg+1,jsg:jeg+1))
+                allocate(shellVar%mask(isg:ieg+1,jsg:jeg+1))
+                shellvar%Ni = shGr%Nt + shGr%Ngn + shGr%Ngs +1
+                shellvar%Nj = shGr%Np + shGr%Ngw + shGr%Nge +1
             case(SHFTH)
-                allocate(shellVar%data(shGr%Nt+1,shGr%Np))
+                allocate(shellVar%data(isg:ieg+1,jsg:jeg))
+                allocate(shellVar%mask(isg:ieg+1,jsg:jeg))
+                shellvar%Ni = shGr%Nt + shGr%Ngn + shGr%Ngs +1
+                shellvar%Nj = shGr%Np + shGr%Ngw + shGr%Nge
             case(SHFPH)
-                allocate(shellVar%data(shGr%Nt,shGr%Np+1))
+                allocate(shellVar%data(isg:ieg,jsg:jeg+1))
+                allocate(shellVar%mask(isg:ieg,jsg:jeg+1))
+                shellvar%Ni = shGr%Nt + shGr%Ngn + shGr%Ngs
+                shellvar%Nj = shGr%Np + shGr%Ngw + shGr%Nge +1
             case default
                 write(*,*) "initShellGridVar got an invalid data location:",loc
                 stop
         end select
 
+        end associate
+
         shellVar%data = 0.  ! initialize to 0
+        shellVar%mask = .false.  ! Up to user to determine which points are valid
         
         ! unset all BC's
         shellVar%bcsApplied = .false.
@@ -414,5 +447,19 @@ module shellGrid
         cSG%bndje = je
 
     end subroutine GenChildShellGrid
+
+
+    subroutine deallocShellGrid(sh)
+        !! Deallocates any allocated memory
+        type(ShellGrid_T), intent(inout) :: sh
+
+        deallocate(sh%th)
+        deallocate(sh%ph)
+        deallocate(sh%thc)
+        deallocate(sh%phc)
+        deallocate(sh%lat)
+        deallocate(sh%latc)
+
+    end subroutine deallocShellGrid
 
 end module shellGrid
