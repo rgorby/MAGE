@@ -1,3 +1,4 @@
+! Simple driver to test remix reader into ShellGrid
 program testNewRMS
 
     use kdefs
