@@ -1,4 +1,4 @@
-module testGridInterp_TSC
+module testGridLocator
 
     use testHelper
     use kdefs, only : TINY
@@ -158,4 +158,4 @@ module testGridInterp_TSC
 
 
 
-end module testGridInterp_TSC
+end module testGridLocator

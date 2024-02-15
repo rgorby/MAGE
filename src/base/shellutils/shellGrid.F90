@@ -23,12 +23,12 @@ module shellGrid
         integer :: Nt,Np
             !! Number of colat/lon cells (theta, phi)
         real(rp), dimension(:), allocatable :: th, ph, lat
-            !! (Nt or Np) [radians] grid corners
+            !! (Nt+1 or Np+1) [radians] grid corners
             !! th (theta) is colatitude and runs from north pole toward south
             !! Phi is longitude, with zero/2pi at 12 MLT
             !! Assuming lat \in -pi/2,pi/2 and lon \in [0,2pi]
         real(rp), dimension(:), allocatable :: thc, phc, latc  
-            !! (Nt+1 or Np+1) [radians] grid centers
+            !! (Nt or Np) [radians] grid centers
         logical :: doSP = .false., doNP = .false. 
             !! Whether active grid contains south/north pole, no ghosts in this case
         logical :: ghostSP = .false., ghostNP = .false. 
