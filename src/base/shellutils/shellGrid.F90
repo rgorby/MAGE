@@ -72,10 +72,10 @@ module shellGrid
             !! Corresponds to enum above (SHCC, SHCORNER, SHFTH, SHFPH)
         integer :: Ni, Nj
             !! Number of values in i and j direction
-        !!!Note: should maybe have start/end indices instead. 
-        ! Named something like isv,iev to distinguish them from is, isg in shellGrid
-        ! Because the variable has different sizes depending on its location
-        ! This is helpful for e.g. InterpShellVar_TSC_pnt determining size of dtheta and dPhi arrays
+        integer :: isv,iev,jsv,jev
+            !! Start and end indices for this variable
+            !! ex: if loc=SHCORNER, isv = sh%isg, iev=sh%ieg+1
+            !! This is helpful for e.g. InterpShellVar_TSC_pnt determining size of dtheta and dPhi arrays
         real(rp), dimension(:,:), allocatable :: data
             !! The actual variable values
         logical, dimension(:,:), allocatable :: mask
@@ -305,13 +305,17 @@ module shellGrid
     end subroutine GenShellGrid
 
 
-    subroutine initShellVar(shGr, loc, shellVar)
+    subroutine initShellVar(shGr, loc, shellVar, maskO)
         !! Inits a ShellGridVar that associated with provided and initialized ShellGrid
         type(ShellGrid_T), intent(in) :: shGr
             !! ShellGrid that this variable is related to
         integer, intent(in) :: loc
             !! Location of data (cell center, corner, theta or phi face)
         type(ShellGridVar_T), intent(out) :: shellVar
+        logical, dimension(:,:), optional, intent(in) :: maskO
+            !! Optional mask to initialize with
+
+        integer :: iExtra, jExtra
         
         ! If you didn't want your data blown up you shouldn't have called init
         if (allocated(shellVar%data)) deallocate(shellVar%data)
@@ -319,39 +323,47 @@ module shellGrid
             
         shellVar%loc = loc
 
-        associate(isg=>shGr%isg, ieg=>shGr%ieg, \
-                  jsg=>shGr%jsg, jeg=>shGr%jeg)
-
+        ! Determine which dimensions have extra index relative to # cells based on variable's location on grid
         select case(loc)
             case(SHCC)
-                allocate(shellVar%data(isg:ieg,jsg:jeg))
-                allocate(shellVar%mask(isg:ieg,jsg:jeg))
-                shellvar%Ni = shGr%Nt + shGr%Ngn + shGr%Ngs
-                shellvar%Nj = shGr%Np + shGr%Ngw + shGr%Nge
+                iExtra = 0
+                jExtra = 0
             case(SHCORNER)
-                allocate(shellVar%data(isg:ieg+1,jsg:jeg+1))
-                allocate(shellVar%mask(isg:ieg+1,jsg:jeg+1))
-                shellvar%Ni = shGr%Nt + shGr%Ngn + shGr%Ngs +1
-                shellvar%Nj = shGr%Np + shGr%Ngw + shGr%Nge +1
+                iExtra = 1
+                jExtra = 1
             case(SHFTH)
-                allocate(shellVar%data(isg:ieg+1,jsg:jeg))
-                allocate(shellVar%mask(isg:ieg+1,jsg:jeg))
-                shellvar%Ni = shGr%Nt + shGr%Ngn + shGr%Ngs +1
-                shellvar%Nj = shGr%Np + shGr%Ngw + shGr%Nge
+                iExtra = 1
+                jExtra = 0
             case(SHFPH)
-                allocate(shellVar%data(isg:ieg,jsg:jeg+1))
-                allocate(shellVar%mask(isg:ieg,jsg:jeg+1))
-                shellvar%Ni = shGr%Nt + shGr%Ngn + shGr%Ngs
-                shellvar%Nj = shGr%Np + shGr%Ngw + shGr%Nge +1
+                iExtra = 0
+                jExtra = 1
             case default
                 write(*,*) "initShellGridVar got an invalid data location:",loc
                 stop
         end select
 
-        end associate
+        allocate(shellVar%data(shGr%isg:shGr%ieg+iExtra, shGr%jsg:shGr%jeg+jExtra))
+        allocate(shellVar%mask(shGr%isg:shGr%ieg+iExtra, shGr%jsg:shGr%jeg+jExtra))
+        shellVar%Ni = shGr%Nt + shGr%Ngn + shGr%Ngs + iExtra
+        shellVar%Nj = shGr%Np + shGr%Nge + shGr%Ngw + jExtra
+
+        shellVar%isv = shGr%isg
+        shellVar%iev = shGr%ieg + iExtra
+        shellVar%jsv = shGr%jsg
+        shellVar%jev = shGr%jeg + jExtra
+
 
         shellVar%data = 0.  ! initialize to 0
         shellVar%mask = .false.  ! Up to user to determine which points are valid
+
+        if (present(maskO)) then
+            if ( all(shape(shellVar%mask) == shape(maskO)) ) then
+                shellVar%mask = maskO
+            else
+                write(*,*)"ERROR in initShellVar: maskO shape doesn't match."
+                stop
+            endif
+        endif
         
         ! unset all BC's
         shellVar%bcsApplied = .false.

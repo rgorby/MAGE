@@ -116,8 +116,11 @@ module shellInterp
                     enddo
                 enddo
             case(SHCORNER)
-                do j=sgDest%jsg,sgDest%jeg+1
-                    do i=sgDest%isg,sgDest%ieg+1
+                !do j=sgDest%jsg,sgDest%jeg+1
+                !    do i=sgDest%isg,sgDest%ieg+1
+                do j=varOut%jsv,varOut%jev
+                    do i=varOut%isv,varOut%iev
+                        !if (.not. varOut%mask(i,j)) cycle
                         varOut%data(i,j) = InterpShellVar_TSC_pnt( \
                                             sgVar, sgSource,\
                                             dTheta, dPhi,\
@@ -148,22 +151,31 @@ module shellInterp
     end subroutine InterpShellVar_TSC_SG
 
 
-    function InterpShellVar_TSC_pnt(sgVar, sgSource, dTheta, dPhi, t, pin) result(Qout)
+    function InterpShellVar_TSC_pnt(sgVar, sgSource, dTheta, dPhi, t, pin, goodInterpO) result(Qinterp)
         !! Given the source information, interpolate sgVar to point (t,p) and return as Qout
         type(ShellGridVar_T), intent(in) :: sgVar
         type(ShellGrid_T   ), intent(in) :: sgSource
-        real(rp), dimension(:), intent(in) :: dTheta
-        real(rp), dimension(:), intent(in) :: dPhi
+        real(rp), dimension(sgVar%isv:sgVar%iev), intent(in) :: dTheta
+        real(rp), dimension(sgVar%jsv:sgVar%jev), intent(in) :: dPhi
         real(rp), intent(in) :: t
         real(rp), intent(in) :: pin
+        logical, optional :: goodInterpO
+            !! True if we are returning a meaningful interpolated value
 
-        real(rp) :: Qout
+        real(rp) :: Qinterp
         real(rp) :: p
         integer :: i0, j0
             !! i and j locations of point t,p
             !! Whether they are respect to corner, center, or a face depends on sgVar%loc
+        real(rp) :: t0, p0
+            !! Theta and Phi values at point i0,j0
+        real(rp) :: eta, zeta
+        real(rp), dimension(-1:+1) :: wE,wZ
+        real(rp), dimension(NumTSC) :: Ws,Qs
+        logical , dimension(NumTSC) :: isGs
+        integer :: ipnt,jpnt,n,di,dj
 
-        Qout = 0.0
+        Qinterp = 0.0
 
         ! First, make sure dTheta and dPhi are defined at sgVar locations        
         if ( size(dTheta) .ne. sgVar%Ni ) then
@@ -187,8 +199,8 @@ module shellInterp
             stop
         end if
 
-        i0 = getShellILoc(sgSource, sgVar%loc, t)
-        j0 = getShellJLoc(sgSource, sgVar%loc, p)
+        call getShellILoc(sgSource, sgVar%loc, t, i0, t0)  ! Sets i0 and t0 to closest i/theta values to interp point t
+        call getShellJLoc(sgSource, sgVar%loc, p, j0, p0)  ! Sets j0 and p0 to closest i/phi   values to interp point p
 
         if ( (i0 < sgSource%isg) .or. (i0 > sgSource%isg + sgVar%Ni - 1) ) then
             write(*,*)"ERROR: InterpShellVar_TSC_pnt can't handle points outside of grid yet"
@@ -197,62 +209,163 @@ module shellInterp
 
         ! Make sure data is good at this point
         if (.not. sgVar%mask(i0,j0)) then
+            if (present(goodInterpO)) goodInterpO = .false.
+            write(*,*)"ah",i0,j0
             return
         endif
 
+        ! If still here we're gonna do something, so we can tell our caller we are returning a valid value
+        if (present(goodInterpO)) goodInterpO = .true.
+
+        if (sgSource%doNP .and. (i0==sgSource%is)) then
+            call interpPole(sgSource,sgVar,t,p,Qinterp)
+            ! Handle north pole and return
+            write(*,*) "Not implemented!"
+            stop
+        endif
+
+        ! First, if active grid has poles 
+        if (sgSource%doSP .and. (i0==sgSource%ie)) then
+            ! Handle south pole and return
+            write(*,*) "Not implemented!"
+            stop
+        endif
+
+        ! Now, if ghost grid has poles
+        if (sgSource%ghostSP .and. (i0==sgsource%ieg)) then
+            write(*,*) "Not implemented!"
+            stop
+        endif
+
+        if (sgSource%ghostNP .and. (i0==sgSource%isg)) then
+            write(*,*) "Not implemented!"
+            stop
+        endif
+
+        ! Note: If still here we know i0 isn't on the boundary
+
+        eta  = (t - t0)/dTheta(i0)
+        zeta = (p - p0)/dPhi  (j0)
+
+        call ClampMapVar(eta)
+        call ClampMapVar(zeta)
+
+        ! Calculate weights
+        call TSCweight1D(eta ,wE)
+        call TSCweight1D(zeta,wZ)
+
+        ! Collect weights/values
+        n = 1
+        do dj=-1,+1
+            do di=-1,+1
+                ipnt = i0+di
+                jpnt = j0+dj
+                
+                ! Wrap around boundary
+                if (jpnt<1)           jpnt = sgSource%Np
+                if (jpnt>sgSource%Np) jpnt = 1
+
+                ! Do zero-grad for theta
+                if (ipnt<1)           ipnt = 1
+                if (ipnt>sgSource%Nt) ipnt = sgSource%Nt
+
+                Qs(n) = sgVar%data(ipnt,jpnt)
+                Ws(n) = wE(di)*wZ(dj)
+                isGs(n) = sgVar%mask(ipnt,jpnt)
+
+                if (.not. isGs(n)) Ws(n) = 0.0
+
+                n = n + 1
+            enddo
+        enddo
+
+        ! Renormalize
+        Ws = Ws/sum(Ws)
+
+        ! Get final value
+        Qinterp = dot_product(Qs,Ws)
+
+        ! Have some internal functions
+        contains
         
+        ! Clamps mapping in [-0.5,0.5]
+        subroutine ClampMapVar(ez)
+            REAL(rp), intent(inout) :: ez
+            if (ez<-0.5) ez = -0.5
+            if (ez>+0.5) ez = +0.5
+        end subroutine ClampMapVar
+
+        ! 1D triangular shaped cloud weights
+        ! 1D weights for triangular shaped cloud interpolation
+        ! Assuming on -1,1 reference element, dx=1
+        ! Check for degenerate cases ( |eta| > 0.5 )
+        subroutine TSCweight1D(eta,wE)
+            real(rp), intent(in)  :: eta
+            real(rp), intent(out) :: wE(-1:1)
+
+            wE(-1) = 0.5*(0.5-eta)**2.0
+            wE( 1) = 0.5*(0.5+eta)**2.0
+            wE( 0) = 0.75 - eta**2.0
+
+        end subroutine TSCweight1D
+
     end function InterpShellVar_TSC_pnt
 
 
-    function getShellILoc(shGr, varLoc, t) result(iLoc)
+    subroutine getShellILoc(shGr, varLoc, t, iLoc, tLoc)
         type(ShellGrid_T), intent(in) :: shGr
         integer :: varLoc
             !! Location id of the source variable
         real(rp), intent(in) :: t
+        integer, intent(out) :: iLoc
+        real(rp), optional, intent(out) :: tLoc
 
-        integer :: iLoc
 
 
         if (varLoc == SHCC .or. varLoc == SHFPH) then
             !! Variable is defined at center w.r.t. theta direction
             if ( (t>shGr%maxGTheta) ) then                
                 iLoc = shGr%ieg+ceiling((t-shGr%maxGTheta)/(shGr%th(shGr%ieg+1)-shGr%th(shGr%ieg)))
-                return
-            endif
-    
-            if ( (t<shGr%minGTheta) ) then
+            else if ( (t<shGr%minGTheta) ) then
                 iLoc = shGr%isg-ceiling((shGr%minGTheta-t)/(shGr%th(shGr%isg+1)-shGr%th(shGr%isg)))
-                return
+            else
+                ! If still here then the lat bounds are okay, find closest lat cell center
+                iLoc = minloc( abs(shGr%thc-t),dim=1 )
             endif
-    
-            ! If still here then the lat bounds are okay, find closest lat cell center
-            iLoc = minloc( abs(shGr%thc-t),dim=1 )
+
+            if (present(tLoc)) then
+                tLoc = shGr%thc(iLoc)
+            endif
 
         elseif (varLoc == SHCORNER .or. varLoc == SHFTH) then
             !! Variable is defined at corners w.r.t. theta direction
             if ( (t>shGr%maxTheta) ) then
                 iLoc = shGr%ieg+1 + floor( 0.5 + (t-shGr%maxGTheta)/(shGr%th(shGr%ieg+1)-shGr%th(shGr%ieg)) )
-            endif
-
-            if ( (t < shGr%minTheta)) then
+            else if ( (t < shGr%minTheta)) then
                 iLoc = shGr%isg   - floor( 0.5 + (shGr%minGTheta-t)/(shGr%th(shGr%isg+1)-shGr%th(shGr%isg)) )
+            else
+                ! If still here then the lat bounds are okay, find closest lat cell corner
+                iLoc = minloc( abs(shGr%th-t),dim=1 )
             endif
 
-            ! If still here then the lat bounds are okay, find closest lat cell corner
-            iLoc = minloc( abs(shGr%th-t),dim=1 )
-        endif   
+            if (present(tLoc)) then
+                tLoc = shGr%th(iLoc)
+            endif
 
-    end function getShellILoc
+        endif
+
+    end subroutine getShellILoc
 
 
-    function getShellJLoc(shGr, varLoc, pin) result(jLoc)
+    subroutine getShellJLoc(shGr, varLoc, pin, jLoc, pLoc)
         type(ShellGrid_T), intent(in) :: shGr
         integer :: varLoc
             !! Location id of the source variable
         real(rp), intent(in) :: pin
+        integer, intent(out) :: jLoc
+        real(rp), optional, intent(out) :: pLoc
 
         real(rp) :: p, dp, dJ
-        integer :: jLoc
 
         p = modulo(pin,2*PI)
 
@@ -273,7 +386,12 @@ module shellInterp
                 jLoc = floor(dJ) + 1
             else
                 jLoc = minloc( abs(shGr%phc-p),dim=1 ) ! Find closest lat cell center
-            end if
+            endif
+
+            if (present(pLoc)) then
+                pLoc = shGr%phc(jLoc)
+            endif
+
         elseif (varLoc == SHCORNER .or. varLoc == SHFPH) then
             !! Variable is defined at corners w.r.t. phi direction
             if (shGr%isPhiUniform) then
@@ -283,10 +401,15 @@ module shellInterp
                 jLoc = floor(dJ) + 1
             else
                 jLoc = minloc( abs(shGr%ph-p),dim=1 ) ! Find closest lat cell center
-            end if
+            endif
+
+            if (present(pLoc)) then
+                pLoc = shGr%ph(jLoc)
+            endif
+
         endif
 
-    end function getShellJLoc
+    end subroutine getShellJLoc
 
     ! Interpolate on grid shGr a cell-centered variable at point t(heta),p(hi)
     ! Qin is the shellVar
@@ -554,7 +677,7 @@ module shellInterp
             pole = SOUTH
             iind = shGr%ie
         else
-            write(*,*) "Inside interPole. Shouldn't be here. Quitting..."
+            write(*,*) "Inside interpPole. Shouldn't be here. Quitting..."
         end if
 
         write(*,*) 'which pole ',pole,iind
