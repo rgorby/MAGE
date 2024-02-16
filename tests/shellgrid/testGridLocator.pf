@@ -78,8 +78,8 @@ module testGridLocator
 
         ! Get the values we're here to test
         do i=1,Nsamples
-            testLocI = getShellILoc(sh,SHCC,pntsTheta(i))
-            testLocJ = getShellJLoc(sh,SHCC,pntsPhi(i))
+            call getShellILoc(sh,SHCC,pntsTheta(i), testLocI)
+            call getShellJLoc(sh,SHCC,pntsPhi  (i), testLocJ)
 
             write (checkMessage,*) "Got theta index wrong."
             @assertEqual(testLocI, idxTh_cc(i), checkMessage)
@@ -100,8 +100,8 @@ module testGridLocator
 
         ! Get the values we're here to test
         do i=1,Nsamples
-            testLocI = getShellILoc(sh,SHCORNER,pntsTheta(i))
-            testLocJ = getShellJLoc(sh,SHCORNER,pntsPhi(i))
+            call getShellILoc(sh,SHCORNER,pntsTheta(i), testLocI)
+            call getShellJLoc(sh,SHCORNER,pntsPhi  (i), testLocJ)
 
             write (checkMessage,*) "Got theta index wrong."
             @assertEqual(testLocI, idxTh_corner(i), checkMessage)
@@ -122,8 +122,8 @@ module testGridLocator
 
         ! Get the values we're here to test
         do i=1,Nsamples
-            testLocI = getShellILoc(sh,SHFTH,pntsTheta(i))
-            testLocJ = getShellJLoc(sh,SHFTH,pntsPhi(i))
+            call getShellILoc(sh,SHFTH,pntsTheta(i), testLocI)
+            call getShellJLoc(sh,SHFTH,pntsPhi  (i), testLocJ)
 
             write (checkMessage,*) "Got theta index wrong."
             @assertEqual(testLocI, idxTh_corner(i), checkMessage)
@@ -144,8 +144,8 @@ module testGridLocator
 
         ! Get the values we're here to test
         do i=1,Nsamples
-            testLocI = getShellILoc(sh,SHFPH,pntsTheta(i))
-            testLocJ = getShellJLoc(sh,SHFPH,pntsPhi(i))
+            call getShellILoc(sh,SHFPH,pntsTheta(i), testLocI)
+            call getShellJLoc(sh,SHFPH,pntsPhi  (i), testLocJ)
 
             write (checkMessage,*) "Got theta index wrong."
             @assertEqual(testLocI, idxTh_cc(i), checkMessage)
@@ -155,7 +155,5 @@ module testGridLocator
             continue
         enddo
     end subroutine
-
-
 
 end module testGridLocator

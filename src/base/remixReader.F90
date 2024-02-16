@@ -6,6 +6,7 @@ module remixReader
     use XML_Input
     use iotable
     use shellGrid
+    use shellUtils
 
     implicit none
 
@@ -133,23 +134,27 @@ module remixReader
             ph1D(1) = 0.0
         endif
         
-        call GenShellGrid(rmState%shGr, th1D, ph1D)
+        associate(sh=>rmState%shGr)
+
+        call GenShellGrid(sh, th1D, ph1D)
 
         ! Hooray we have a shellGrid now
         ! Init our vars
         do h=NORTH,SOUTH
-            call initShellVar(rmState%shGr, SHCORNER, rmState%nsFac(h))
-            call initShellVar(rmState%shGr, SHCORNER, rmState%nsPot(h))
-            call initShellVar(rmState%shGr, SHCORNER, rmState%nsSigP(h))
-            call initShellVar(rmState%shGr, SHCORNER, rmState%nsSigH(h))
+            call initShellVar(sh, SHCORNER, rmState%nsFac(h))
+            rmState%nsFac(h)%mask(sh%is:sh%ie+1, sh%js:sh%je+1) = .true.
+            call initShellVar(sh, SHCORNER, rmState%nsPot(h) , rmState%nsFac(h)%mask)
+            call initShellVar(sh, SHCORNER, rmState%nsSigP(h), rmState%nsFac(h)%mask)
+            call initShellVar(sh, SHCORNER, rmState%nsSigH(h), rmState%nsFac(h)%mask)
         enddo
         
         ! Now init hemispheres
-        call initHemi(rmState%rmN1, rmState%shGr)
-        call initHemi(rmState%rmN2, rmState%shGr)
-        call initHemi(rmState%rmS1, rmState%shGr)
-        call initHemi(rmState%rmS2, rmState%shGr)
+        call initHemi(rmState%rmN1, sh)
+        call initHemi(rmState%rmN2, sh)
+        call initHemi(rmState%rmS1, sh)
+        call initHemi(rmState%rmS2, sh)
 
+        end associate
 
         contains
 
@@ -162,14 +167,19 @@ module remixReader
             rmHemi%nStp = -1 !Not yet set
             rmHemi%time = 0.0
             
-            ! Generate our own copy of the parent shellGrid
-            call GenChildShellGrid(rmState%shGr, rmHemi%shGr)
+            associate(hsg=>rmHemi%shGr)
+            
+                ! Generate our own copy of the parent shellGrid
+            call GenChildShellGrid(shGr, hsg)
 
             ! Init our variables
-            call initShellVar(rmHemi%shGr, SHCORNER, rmHemi%Fac)
-            call initShellVar(rmHemi%shGr, SHCORNER, rmHemi%Pot)
-            call initShellVar(rmHemi%shGr, SHCORNER, rmHemi%SigP)
-            call initShellVar(rmHemi%shGr, SHCORNER, rmHemi%SigH)
+            call initShellVar(hsg, SHCORNER, rmHemi%Fac)
+            rmHemi%Fac%mask(hsg%is:hsg%ie+1, hsg%js:hsg%je+1) = .true.
+            call initShellVar(hsg, SHCORNER, rmHemi%Pot , rmHemi%Fac%mask) 
+            call initShellVar(hsg, SHCORNER, rmHemi%SigP, rmHemi%Fac%mask)
+            call initShellVar(hsg, SHCORNER, rmHemi%SigH, rmHemi%Fac%mask)
+            
+            end associate
 
         end subroutine initHemi
 
@@ -341,8 +351,6 @@ module remixReader
 
         call IOArray2DFill(IOV,vName,tmpVar)
 
-        !v%data(:,:shGr%Np) = transpose(tmpVar)
-        !v%data(:,shGr%Np+1) = v%data(:,1)
         v%data(is:ie+1,js:je) = transpose(tmpVar)
         v%data(is:ie+1,je+1) = v%data(:,1)
 
@@ -353,12 +361,9 @@ module remixReader
         do idx=ie+2,ieg
             v%data(idx,:) = v%data(ie+1,:)
         enddo
-        do idx=jsg,js-1
-            v%data(:,idx) = v%data(:,js)
-        enddo
-        do idx=je+2,jeg
-            v%data(:,idx) = v%data(:,je+1)
-        enddo
+        
+        call wrapJ_SGV(shGr, v)
+        
         ! But, we're gonna say that only our real domain is valid
         v%mask = .false.
         v%mask(is:ie+1, js:je+1) = .true.
@@ -366,5 +371,6 @@ module remixReader
         end associate
 
     end subroutine readVarJank
+
 
 end module remixReader
