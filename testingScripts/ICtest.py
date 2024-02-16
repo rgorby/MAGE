@@ -16,8 +16,8 @@ import argparse
 import datetime
 import glob
 import os
-import sys
 import subprocess
+import sys
 
 # Import 3rd-party modules.
 from slack_sdk import WebClient
@@ -276,26 +276,18 @@ def main():
                 print(f"cmake_options = {cmake_options}")
 
             # Run cmake to build the Makefile.
-            cmake_cmd = (
+            cmd = (
                 f"{module_cmd}; {cmake_env} cmake {cmake_options} ../.."
             )
             if debug:
-                print(f"cmake_cmd = {cmake_cmd}")
-            cmake_process = subprocess.Popen(cmake_cmd, shell=True)
-            if debug:
-                print(f"cmake_process = {cmake_process}")
-            cmake_return_code = cmake_process.wait()
-            if debug:
-                print(f"cmake_return_code = {cmake_return_code}")
+                print(f"cmd = {cmd}")
+            cproc = subprocess.run(cmd, shell=True, check=True, text=True)
 
             # Run the build.
-            make_cmd = f"{module_cmd}; make gamera.x"
+            cmd = f"{module_cmd}; make gamera.x"
             if debug:
-                print(f"make_cmd = {make_cmd}")
-            make_process = subprocess.Popen(make_cmd, shell=True)
-            if debug:
-                print(f"make_process = {make_process}")
-            make_return_code = make_process.wait()
+                print(f"cmd = {cmd}")
+            cproc = subprocess.run(cmd, shell=True, check=True, text=True)
 
             # <HACK>
             message = (
