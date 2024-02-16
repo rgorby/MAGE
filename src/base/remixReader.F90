@@ -6,6 +6,7 @@ module remixReader
     use XML_Input
     use iotable
     use shellGrid
+    use shellUtils
 
     implicit none
 
@@ -350,8 +351,6 @@ module remixReader
 
         call IOArray2DFill(IOV,vName,tmpVar)
 
-        !v%data(:,:shGr%Np) = transpose(tmpVar)
-        !v%data(:,shGr%Np+1) = v%data(:,1)
         v%data(is:ie+1,js:je) = transpose(tmpVar)
         v%data(is:ie+1,je+1) = v%data(:,1)
 
@@ -362,12 +361,9 @@ module remixReader
         do idx=ie+2,ieg
             v%data(idx,:) = v%data(ie+1,:)
         enddo
-        do idx=jsg,js-1
-            v%data(:,idx) = v%data(:,js)
-        enddo
-        do idx=je+2,jeg
-            v%data(:,idx) = v%data(:,je+1)
-        enddo
+        
+        call wrapJ_SGV(shGr, v)
+        
         ! But, we're gonna say that only our real domain is valid
         v%mask = .false.
         v%mask(is:ie+1, js:je+1) = .true.

@@ -156,6 +156,4 @@ module testGridLocator
         enddo
     end subroutine
 
-
-
 end module testGridLocator

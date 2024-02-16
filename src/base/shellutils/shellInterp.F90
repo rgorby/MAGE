@@ -5,6 +5,7 @@ module shellInterp
     use kdefs
     use math
     use shellgrid
+    use shellutils
 
     implicit none
 
@@ -107,8 +108,12 @@ module shellInterp
         ! Which destination grid locations we loop over depends on the destination variable location
         select case(varOut%loc)
             case(SHCC)
+                ! This indexing works just fine, but I'm not gonna do it cause its less clear what we're actually looping over
+                !do j=varOut%jsv,varOut%jev
+                !    do i=varOut%isv,varOut%iev
                 do j=sgDest%jsg,sgDest%jeg
                     do i=sgDest%isg,sgDest%ieg
+                        if (.not. varOut%mask(i,j)) cycle
                         varOut%data(i,j) = InterpShellVar_TSC_pnt( \
                                             sgVar, sgSource,\
                                             dTheta, dPhi,\
@@ -116,11 +121,9 @@ module shellInterp
                     enddo
                 enddo
             case(SHCORNER)
-                !do j=sgDest%jsg,sgDest%jeg+1
-                !    do i=sgDest%isg,sgDest%ieg+1
-                do j=varOut%jsv,varOut%jev
-                    do i=varOut%isv,varOut%iev
-                        !if (.not. varOut%mask(i,j)) cycle
+                do j=sgDest%jsg,sgDest%jeg+1
+                    do i=sgDest%isg,sgDest%ieg+1
+                        if (.not. varOut%mask(i,j)) cycle
                         varOut%data(i,j) = InterpShellVar_TSC_pnt( \
                                             sgVar, sgSource,\
                                             dTheta, dPhi,\
@@ -130,6 +133,7 @@ module shellInterp
             case(SHFTH)
                 do j=sgDest%jsg,sgDest%jeg
                     do i=sgDest%isg,sgDest%ieg+1
+                        if (.not. varOut%mask(i,j)) cycle
                         varOut%data(i,j) = InterpShellVar_TSC_pnt( \
                                             sgVar, sgSource,\
                                             dTheta, dPhi,\
@@ -139,6 +143,7 @@ module shellInterp
             case(SHFPH)
                 do j=sgDest%jsg,sgDest%jeg+1
                     do i=sgDest%isg,sgDest%ieg
+                        if (.not. varOut%mask(i,j)) cycle
                         varOut%data(i,j) = InterpShellVar_TSC_pnt( \
                                             sgVar, sgSource,\
                                             dTheta, dPhi,\
@@ -146,6 +151,8 @@ module shellInterp
                     enddo
                 enddo
         end select
+
+        call wrapJ_SGV(sgDest, varOut)
         
 
     end subroutine InterpShellVar_TSC_SG
@@ -771,7 +778,7 @@ module shellInterp
             !! Start and end indices of bounding grid
         integer, intent(in) :: i0
             !! Index of the pointe we are evaluating, offset half a cell from its lower bound Q(i0)
-        real(rp), intent(in) :: Q(is:ie)
+        real(rp), intent(in) :: Q(is:ie+1)
         real(rp) :: Qp
         real(rp) :: Qblk(4),c(4)
 
@@ -782,13 +789,13 @@ module shellInterp
             ! Q coordinates at -0.5,0.5,1.5,2.5 relative to our point
             Qblk = [Q(is), Q(is+1), Q(is+2), Q(is+3)]
             c = [-23.0, 21.0, 3.0, -1.0]/25.0
-        else if (i0 == ie-1) then
+        else if (i0 == ie) then
             ! Q coordinates at -2.5,-1.5,-0.5,0.5 relative to our point
-            Qblk = [Q(is-2), Q(is-1), Q(is), Q(is+1)]
+            Qblk = [Q(ie-2), Q(ie-1), Q(ie), Q(ie+1)]
             c = [1.0, -3.0, -21.0, 23.0]/25.0
         else
             ! Q coordinates at -1.5,-0.5,0.5,1.5 relative to our point
-            Qblk = [Q(is-1), Q(is), Q(is+1), Q(is+2)]
+            Qblk = [Q(i0-1), Q(i0), Q(i0+1), Q(i0+2)]
             c = [1.0, -27.0, 27.0, -1.0]/24.0
         endif
         Qp = dot_product(Qblk,c)
