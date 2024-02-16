@@ -61,7 +61,8 @@ module remixReader
 !------
 
     subroutine initRM(ftag,inpXML,rmState)
-        character(len=strLen), intent(in) :: ftag
+        !character(len=strLen), intent(in) :: ftag
+        character(len=*), intent(in) :: ftag
             !! Filename tag in this format: <ftag>.mix.h5
         type(XML_Input_T), intent(in) :: inpXML
         type(rmState_T), intent(inout) :: rmState
@@ -216,10 +217,10 @@ module remixReader
         call GetTWgts(rmState%rmN1%time, rmState%rmN2%time, t, rmState%doStatic, w1, w2)
         call hemi2rm(rmState, w1, w2)
 
-        write(*,*)"-----"
-        write(*,*)t
-        write(*,*)rmState%rmN1%time,",",rmState%rmN2%time
-        write(*,*)w1,",",w2
+        !write(*,*)"-----"
+        !write(*,*)t
+        !write(*,*)rmState%rmN1%time,",",rmState%rmN2%time
+        !write(*,*)w1,",",w2
 
         contains
 

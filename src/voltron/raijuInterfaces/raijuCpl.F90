@@ -4,6 +4,7 @@ module raijuCpl
     use math
     use imagtubes
     use planethelper
+    use shellGrid
 
     use raijudefs
     use raijuTypes
@@ -20,6 +21,8 @@ module raijuCpl
         type(raijuApp_T), intent(in) :: raiApp
         type(raiju_cplBase_T), intent(inout) :: cplBase
 
+        integer, dimension(4) :: chGhosts
+
         associate(fromV=>cplBase%fromV, toV=>cplBase%toV, &
             sh=>raiApp%Grid%shGrid)
 
@@ -27,11 +30,24 @@ module raijuCpl
             ! Allocations
             allocate(fromV%fLines (sh%isg:sh%ieg+1, sh%jsg:sh%jeg+1))
             allocate(fromV%ijTubes(sh%isg:sh%ieg+1, sh%jsg:sh%jeg+1))
-            allocate(fromV%pot    (sh%isg:sh%ieg+1, sh%jsg:sh%jeg+1))
+
+            ! Shell Grid inits
+            !chGhosts(NORTH) = sh%Ngn
+            !chGhosts(SOUTH) = sh%Ngs
+            !chGhosts(EAST) = sh%Nge
+            !chGhosts(WEST) = sh%Ngw
+            chGhosts(1) = sh%Ngn
+            chGhosts(2) = sh%Ngs
+            chGhosts(3) = sh%Nge
+            chGhosts(4) = sh%Ngw
+            call GenChildShellGrid(sh, fromV%shGr, nGhosts=chGhosts)
+            call initShellVar(fromV%shGr, SHCORNER, fromV%pot)
+            !allocate(fromV%pot    (sh%isg:sh%ieg+1, sh%jsg:sh%jeg+1))
 
             ! Initial values
             fromV%tLastUpdate = -1.0*HUGE
-            fromV%pot = 0.0
+            fromV%pot%data = 0.0
+            fromV%pot%mask = .true.
 
         ! Init toV next
             ! Allocations
@@ -67,7 +83,7 @@ module raijuCpl
                 cplBase%fromV%ijTubes, &
                 cplBase%fromV%mhd2spcMap)
         ! Potential
-        raiApp%State%espot(:,:) = cplBase%fromV%pot(:,:)
+        raiApp%State%espot(:,:) = cplBase%fromV%pot%data(:,:)
 
     end subroutine raijuCpl_Volt2RAIJU
 

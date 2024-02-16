@@ -111,6 +111,9 @@ module shellInterp
                 ! This indexing works just fine, but I'm not gonna do it cause its less clear what we're actually looping over
                 !do j=varOut%jsv,varOut%jev
                 !    do i=varOut%isv,varOut%iev
+                !$OMP PARALLEL DO default(shared) collapse(1) &
+                !$OMP schedule(dynamic) &
+                !$OMP private(i,j)
                 do j=sgDest%jsg,sgDest%jeg
                     do i=sgDest%isg,sgDest%ieg
                         if (.not. varOut%mask(i,j)) cycle
@@ -121,6 +124,9 @@ module shellInterp
                     enddo
                 enddo
             case(SHCORNER)
+                !$OMP PARALLEL DO default(shared) collapse(1) &
+                !$OMP schedule(dynamic) &
+                !$OMP private(i,j)
                 do j=sgDest%jsg,sgDest%jeg+1
                     do i=sgDest%isg,sgDest%ieg+1
                         if (.not. varOut%mask(i,j)) cycle
@@ -131,6 +137,9 @@ module shellInterp
                     enddo
                 enddo
             case(SHFTH)
+                !$OMP PARALLEL DO default(shared) collapse(1) &
+                !$OMP schedule(dynamic) &
+                !$OMP private(i,j)
                 do j=sgDest%jsg,sgDest%jeg
                     do i=sgDest%isg,sgDest%ieg+1
                         if (.not. varOut%mask(i,j)) cycle
@@ -141,6 +150,9 @@ module shellInterp
                     enddo
                 enddo
             case(SHFPH)
+                !$OMP PARALLEL DO default(shared) collapse(1) &
+                !$OMP schedule(dynamic) &
+                !$OMP private(i,j)
                 do j=sgDest%jsg,sgDest%jeg+1
                     do i=sgDest%isg,sgDest%ieg
                         if (.not. varOut%mask(i,j)) cycle
@@ -209,10 +221,21 @@ module shellInterp
         call getShellILoc(sgSource, sgVar%loc, t, i0, t0)  ! Sets i0 and t0 to closest i/theta values to interp point t
         call getShellJLoc(sgSource, sgVar%loc, p, j0, p0)  ! Sets j0 and p0 to closest i/phi   values to interp point p
 
-        if ( (i0 < sgSource%isg) .or. (i0 > sgSource%isg + sgVar%Ni - 1) ) then
-            write(*,*)"ERROR: InterpShellVar_TSC_pnt can't handle points outside of grid yet"
-            stop
+        if (i0 > sgVar%iev .or. i0 < sgVar%isv) then
+            write(*,*) "theta oob",i0
+            return
         endif
+
+        if (j0 > sgVar%jev .or. j0 < sgVar%jsv) then
+            write(*,*) "phi oob",j0
+            write(*,*)"How did you manage that?"
+            return
+        endif
+
+        !if ( (i0 < sgSource%isg) .or. (i0 > sgSource%isg + sgVar%Ni - 1) ) then
+        !    write(*,*)"ERROR: InterpShellVar_TSC_pnt can't handle points outside of grid yet"
+        !    stop
+        !endif
 
         ! Make sure data is good at this point
         if (.not. sgVar%mask(i0,j0)) then
@@ -220,6 +243,7 @@ module shellInterp
             write(*,*)"ah",i0,j0
             return
         endif
+
 
         ! If still here we're gonna do something, so we can tell our caller we are returning a valid value
         if (present(goodInterpO)) goodInterpO = .true.
@@ -319,44 +343,54 @@ module shellInterp
     end function InterpShellVar_TSC_pnt
 
 
-    subroutine getShellILoc(shGr, varLoc, t, iLoc, tLoc)
+    subroutine getShellILoc(shGr, varLoc, t, iLoc, tLocO)
         type(ShellGrid_T), intent(in) :: shGr
         integer :: varLoc
             !! Location id of the source variable
         real(rp), intent(in) :: t
         integer, intent(out) :: iLoc
-        real(rp), optional, intent(out) :: tLoc
+        real(rp), optional, intent(out) :: tLocO
 
-
+        real(rp) :: tLoc
 
         if (varLoc == SHCC .or. varLoc == SHFPH) then
             !! Variable is defined at center w.r.t. theta direction
             if ( (t>shGr%maxGTheta) ) then                
                 iLoc = shGr%ieg+ceiling((t-shGr%maxGTheta)/(shGr%th(shGr%ieg+1)-shGr%th(shGr%ieg)))
+                tLoc = shGr%thc(shGr%ieg)  ! Just return the last available theta value
+                write(*,*)"theta going out of bounds",t,shGr%maxGTheta
             else if ( (t<shGr%minGTheta) ) then
                 iLoc = shGr%isg-ceiling((shGr%minGTheta-t)/(shGr%th(shGr%isg+1)-shGr%th(shGr%isg)))
+                tLoc = shGr%thc(shGr%isg)
+                write(*,*)"theta going out of bounds",t,shGr%minGTheta
             else
                 ! If still here then the lat bounds are okay, find closest lat cell center
                 iLoc = minloc( abs(shGr%thc-t),dim=1 )
+                tLoc = shGr%thc(iLoc)
             endif
 
-            if (present(tLoc)) then
-                tLoc = shGr%thc(iLoc)
+            if (present(tLocO)) then
+                tLocO = tLoc
             endif
 
         elseif (varLoc == SHCORNER .or. varLoc == SHFTH) then
             !! Variable is defined at corners w.r.t. theta direction
             if ( (t>shGr%maxTheta) ) then
                 iLoc = shGr%ieg+1 + floor( 0.5 + (t-shGr%maxGTheta)/(shGr%th(shGr%ieg+1)-shGr%th(shGr%ieg)) )
+                tLoc = shGr%th(shGr%ieg+1)  ! Just return the last available theta value
+                write(*,*)"theta going out of bounds",t,shGr%maxGTheta
             else if ( (t < shGr%minTheta)) then
                 iLoc = shGr%isg   - floor( 0.5 + (shGr%minGTheta-t)/(shGr%th(shGr%isg+1)-shGr%th(shGr%isg)) )
+                tLoc = shGr%th(shGr%isg)
+                write(*,*)"theta going out of bounds",t,shGr%maxGTheta
             else
                 ! If still here then the lat bounds are okay, find closest lat cell corner
                 iLoc = minloc( abs(shGr%th-t),dim=1 )
+                tLoc = shGr%th(iLoc)
             endif
 
-            if (present(tLoc)) then
-                tLoc = shGr%th(iLoc)
+            if (present(tLocO)) then
+                tLocO = tLoc
             endif
 
         endif

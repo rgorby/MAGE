@@ -8,11 +8,14 @@ module raijuowdcpl
     use raijucpltypes
     use raijuGrids
 
+    use shellinterp
+    use remixReader
+
     !!Temporary. Eventually we will just use shellGrid stuff
-    use calcdbtypes
-    use calcdbio
-    use mixinterp
-    use mixgeom
+    !use calcdbtypes
+    !use calcdbio
+    !use mixinterp
+    !use mixgeom
 
     implicit none
 
@@ -24,36 +27,37 @@ module raijuowdcpl
 
     !> This function takes updated model states and does the operations
     !> necessary to update the cplBase%fromV object
-    subroutine packFromV(fromV, vApp, rmState, sApp)
+    subroutine packFromV(fromV, vApp, rmState, raiApp)
         type(raiju_fromV_T), intent(inout) :: fromV
         type(voltApp_T), intent(inout) :: vApp
         type(rmState_T) :: rmState
-        type(raijuApp_T) , intent(in) :: sApp
+        type(raijuApp_T) , intent(in) :: raiApp
 
         integer :: i,j
         real(rp), dimension(:,:), allocatable :: tmpPot
 
         ! Update coupling time
-        fromV%tLastUpdate = sApp%State%t
+        fromV%tLastUpdate = raiApp%State%t
 
         ! Using chimp, populate imagTubes
-        call genImagTubes(fromV, vApp, sApp)
+        call genImagTubes(fromV, vApp, raiApp)
 
         ! Set potential
-        associate(sh=>sApp%Grid%shGrid)
-        call mix_map_grids(m2sMap, rmState%nPot, tmpPot)
-\
-        ! Dimensions from grabbed potential are isg:ie, js:je because poleward ghosts have useful information for us
-        fromV%pot(sh%isg:sh%ie,sh%js:sh%je) = tmpPot
+        !associate(sh=>raiApp%Grid%shGrid)
+        !call mix_map_grids(m2sMap, rmState%nPot, tmpPot)
 
-        do i=sh%ie+1,sh%ieg
-            fromV%pot(i,:) = fromV%pot(sh%ie,:)
-        enddo
+        ! Dimensions from grabbed potential are isg:ie, js:je because poleward ghosts have useful information for us
+        !fromV%pot(sh%isg:sh%ie,sh%js:sh%je) = tmpPot
+
+        !do i=sh%ie+1,sh%ieg
+        !    fromV%pot(i,:) = fromV%pot(sh%ie,:)
+        !enddo
+        call InterpShellVar_TSC_SG(rmState%nsPot(1), rmState%shGr, fromV%shGr, fromV%pot)
 
         ! Handle j ghosts
-        call wrapJcc(sh, fromV%pot)
+        !call wrapJcc(sh, fromV%pot)
 
-        end associate
+        !end associate
 
 
     end subroutine packFromV
@@ -99,33 +103,33 @@ module raijuowdcpl
 !  !! TEMPORARY, replace with shellGrid interp stuff later
 !------
 
-    subroutine InitMixMap(shGrid, mixState)
-        !! Adapted from rcmXimag.F90:rcmGrid
-        !! Take a shell grid and generate map from remix grid to shellGrid
-        type(ShellGrid_T), intent(in) :: shGrid
-        type(rmState_T), intent(in) :: mixState
-
-        integer :: i,j
-        type(mixGrid_T) :: mixGrid, mixedGrid  ! Mix grid from file, shGrid converted to mixGrid
-        real(rp), dimension(:,:), allocatable :: colat2D,lon2D
-
-        allocate(colat2D(shGrid%Nt+shGrid%Ngn+1,shGrid%Np+1))  ! We include poleward ghost cells since remix has useful data there
-        allocate(lon2D  (shGrid%Nt+shGrid%Ngn+1,shGrid%Np+1))
-
-        do j=1,shGrid%Np+1
-            !colat2D(:,i) = shGrid%thc(shGrid%is:shGrid%ie)
-            colat2D(:,j) = shGrid%th(shGrid%isg:shGrid%ie+1)
-        enddo
-
-        do i=1,shGrid%Nt+shGrid%Ngn+1
-            lon2D(i,:) = shGrid%ph(shGrid%js:shGrid%je+1)
-        enddo
-
-        call init_grid_fromXY(mixGrid, mixState%XY(:,:,XDIR),mixState%XY(:,:,YDIR),.false.,.true.)
-        call init_grid_fromTP(mixedGrid, colat2D, lon2D,.false.,.true.)
-        call mix_set_map(mixGrid, mixedGrid, m2sMap)
-
-    end subroutine InitMixMap
+!    subroutine InitMixMap(shGrid, mixState)
+!        !! Adapted from rcmXimag.F90:rcmGrid
+!        !! Take a shell grid and generate map from remix grid to shellGrid
+!        type(ShellGrid_T), intent(in) :: shGrid
+!        type(rmState_T), intent(in) :: mixState
+!
+!        integer :: i,j
+!        type(mixGrid_T) :: mixGrid, mixedGrid  ! Mix grid from file, shGrid converted to mixGrid
+!        real(rp), dimension(:,:), allocatable :: colat2D,lon2D
+!
+!        allocate(colat2D(shGrid%Nt+shGrid%Ngn+1,shGrid%Np+1))  ! We include poleward ghost cells since remix has useful data there
+!        allocate(lon2D  (shGrid%Nt+shGrid%Ngn+1,shGrid%Np+1))
+!
+!        do j=1,shGrid%Np+1
+!            !colat2D(:,i) = shGrid%thc(shGrid%is:shGrid%ie)
+!            colat2D(:,j) = shGrid%th(shGrid%isg:shGrid%ie+1)
+!        enddo
+!
+!        do i=1,shGrid%Nt+shGrid%Ngn+1
+!            lon2D(i,:) = shGrid%ph(shGrid%js:shGrid%je+1)
+!        enddo
+!
+!        call init_grid_fromXY(mixGrid, mixState%XY(:,:,XDIR),mixState%XY(:,:,YDIR),.false.,.true.)
+!        call init_grid_fromTP(mixedGrid, colat2D, lon2D,.false.,.true.)
+!        call mix_set_map(mixGrid, mixedGrid, m2sMap)
+!
+!    end subroutine InitMixMap
 
 
 end module raijuowdcpl

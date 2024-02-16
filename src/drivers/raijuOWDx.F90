@@ -21,8 +21,9 @@ program raijuOWDx
     use chmpunits
 
     ! Remix, actually
-    use calcdbtypes
-    use calcdbio
+    !use calcdbtypes
+    !use calcdbio
+    use remixReader
 
     ! Voltron stuff
     use volttypes
@@ -41,7 +42,7 @@ program raijuOWDx
     type(raijuApp_T   ) :: raiApp
     type(raiju_cplBase_T) :: raijuCplBase
 
-    character(len=strLen) :: XMLStr, gStr
+    character(len=strLen) :: XMLStr, gStr, ftag
     type(XML_Input_T) :: inpXML    
     
     character(len=strLen) :: FLH5
@@ -80,11 +81,12 @@ program raijuOWDx
         raiApp%State%mjd = mjd0
 
         ! Init Remix reader
-        call initRM  (ebModel,ebState,rmState,inpXML)
+        !call initRM  (ebModel,ebState,rmState,inpXML)
+        call initRM("msphere", inpXML, rmState)
         rmState%time = inTscl*raiApp%Model%t0
 
         ! Set mix->RAIJU map
-        call InitMixMap(raiApp%Grid%shGrid, rmState)
+        !call InitMixMap(raiApp%Grid%shGrid, rmState)
         
         ! Init outputs
         ebModel%doEBOut = doChmpOut
@@ -125,7 +127,8 @@ program raijuOWDx
             call Toc("CHIMP update")
 
             call Tic("REMIX update")
-            call updateRemix(ebModel,ebState,ebModel%t,rmState)
+            !call updateRemix(ebModel,ebState,ebModel%t,rmState)
+            call updateRM(rmState, rmState%time)
             call Toc("REMIX update")
 
             ! Populate RAIJU's fromV object with updated model info
@@ -160,7 +163,8 @@ program raijuOWDx
             ebModel%t     = ebModel%t  + inTscl*raiApp%Model%dt
             ebModel%ts    = ebModel%ts + 1
 
-            rmState%time  = rmState%time + inTScl*raiApp%Model%dt
+            !rmState%time  = rmState%time + inTScl*raiApp%Model%dt
+            rmState%time  = rmState%time + raiApp%Model%dt
 
             if (raiApp%Model%doClockConsoleOut) then
                 call printClocks()

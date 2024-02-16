@@ -3,6 +3,7 @@ module raijuCplTypes
     use volttypes
     use imagtubes
     use ebtypes
+    use shellGrid
 
     use raijutypes
 
@@ -12,10 +13,13 @@ module raijuCplTypes
     type raiju_fromV_T
         real(rp) :: tLastUpdate
             !! Time of last update, according to voltron
+        type(ShellGrid_T) :: shGr
+            !! Copy of raijuModel's shellGrid
         type(fLine_T), dimension(:,:), allocatable :: fLines
         type(IMAGTube_T), dimension(:,:), allocatable :: ijTubes
             !! imagTubes with field-line averaged info
-        real(rp), dimension(:,:), allocatable :: pot
+        !real(rp), dimension(:,:), allocatable :: pot
+        type(ShellGridVar_T) :: pot
             !! electrostatic potential from ionosphere [kV]
         procedure(raijuMHD2SpcMap_T), pointer, nopass :: mhd2spcMap => NULL()
             !! This is called by convertToRAIJU to map MHD fluids to RAIJU species
