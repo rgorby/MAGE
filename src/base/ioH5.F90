@@ -13,52 +13,9 @@ module ioH5
     use ioH5Overload
     use files
     use dates
-#ifdef __ENABLE_ZFP
-    use h5zzfp_props_f
-#endif
+
     implicit none
 
-#ifdef __ENABLE_COMPRESS
-    !> Compression Mode variables
-    enum, bind(C)
-        enumerator :: ZFP,ZSTD,ZLIB,SZIP,BLOSC
-    end enum
-    logical, parameter, private :: ENABLE_COMPRESS = .TRUE.
-    integer, parameter, private :: COMPRESS_ZSTD = 32015
-    integer, parameter, private :: COMPRESS_ZFP = 32013
-    integer, parameter, private :: COMPRESS_BLOSC = 32026
-    integer, parameter, private :: H5Z_FLAG_MANDATORY = INT(Z'00000000')
-    ! Compression Algorithm Selection
-#ifdef __ENABLE_SZIP
-    integer, parameter, private :: Z_ALG = SZIP
-#endif
-#ifdef __ENABLE_ZLIB
-    integer, parameter, private :: Z_ALG = ZLIB
-#endif
-#ifdef __ENABLE_ZFP
-    integer, parameter, private :: Z_ALG = ZFP
-    ! ZFP compression parameters (defaults taken from ZFP header)
-    integer(C_INT) :: zfpmode = 5 !1=rate, 2=prec, 3=acc, 4=expert, 5=lossless
-    real(dp) :: rate = 4.0_dp
-    real(dp) :: acc = 0.00001_dp
-    integer(C_INT) :: prec = 11
-    integer(C_INT) :: dim = 0
-    ! Used for Expert Mode
-    integer(C_INT) :: minbits = 1
-    integer(C_INT) :: maxbits = 32768
-    integer(C_INT) :: maxprec = 64
-    integer(C_INT) :: minexp = -1074
-#endif
-#ifdef __ENABLE_ZSTD
-    integer, parameter, private :: Z_ALG = ZSTD
-#endif
-#ifdef __ENABLE_BLOCSC
-    integer, parameter, private :: Z_ALG = BLOCSC
-#endif
-
-#else
-    logical, parameter, private :: ENABLE_COMPRESS = .FALSE.
-#endif
     ! timeAttributeCache options
     integer(HSIZE_T), parameter, private ::  CACHE_CHUNK_SIZE = 256
     character(len=strLen), parameter :: attrGrpName = "timeAttributeCache"
@@ -134,35 +91,6 @@ contains
         nvar = FindIO(IOVars,vID,.true.)
         vOut = IOVars(nvar)%data(1)
     end function GetIOReal
-
-    !> Calculate cdims for a given dataset size
-    subroutine CalcChunkSize(elsize, dims, cdims)
-        !> Size of elements in bytes
-        integer, intent(in)                          :: elsize
-        !> Dimensions of dataset
-        integer(HSIZE_T), dimension(*), intent(in)   :: dims
-        !>  Maximum allowed chunk size/dims
-        integer(HSIZE_T), dimension(:), intent(out)  :: cdims
-           
-        real, parameter :: max_bytes = 1048576
-        !1048576 bytes {64,64,32} double
-        !2097152 bytes {64,64,64} double 
-        !1048576 bytes {64,64,64} float
-        !2097152 bytes {64,64,128} float
-    
-        integer :: d
-        real(dp) :: nbytes
-
-        d = size(cdims)
-        cdims(1:d) = dims(1:d)
-        nbytes = elsize*product(1.d0*cdims)
-        do while ((nbytes.gt.max_bytes).and.(d.gt.0))
-            cdims(d) = max(floor(cdims(d)*max_bytes/nbytes,Int32),1)
-            nbytes = elsize*product(1.d0*cdims)
-            d = d - 1
-        enddo
-    
-    end subroutine CalcChunkSize
 
     !-------------------------------------------   
     !Various routines to get information about step structure of H5 file
@@ -813,15 +741,13 @@ contains
     !FIXME: Add variable attributes (units, scaling, etc)
     !> Write a variable to an HDF dataset and add
     !> attributes to the dataset
-    subroutine WriteHDFVar(IOVar,gId,doIOPO,doCompress)
+    subroutine WriteHDFVar(IOVar,gId,doIOPO)
         !> IO Var to write
         type(IOVAR_T), intent(inout)    :: IOVar
         !> Group ID
         integer(HID_T), intent(in)      :: gId
         !> Flag to do IO Precision
         logical, intent(in), optional   :: doIOPO
-        !> Flag to compress
-        logical, intent(in), optional   :: doCompress
 
         logical :: doIOP !Do IO precision for reals
         integer :: Nr
@@ -830,17 +756,7 @@ contains
         integer(HID_T) :: dId, sId, pId
         real(rp) :: vScl
         integer(HSIZE_T), dimension(:), allocatable :: cdims
-        !real(dp), dimension(:), allocatable, target:: data
-#ifdef __ENABLE_COMPRESS
-        logical :: avail
-        !type(C_PTR) :: f_ptr
-        integer :: status
-        ! Used for ZFP HDF5 plugin
-        integer(C_INT), dimension(:), allocatable :: cd_values
-        integer(C_SIZE_T) :: cd_nelmts = 1
-        integer :: szip_options_mask
-        integer :: szip_pixels_per_block
-#endif
+
         Nr = IOVar%Nr
         allocate(cdims(Nr))
         !allocate(data(size(IOVar%data)))
@@ -857,160 +773,14 @@ contains
         !Write based on data type
         select case(IOVar%vType)
         case(IONULL,IOREAL)
-            if(.not. doCompress) then  
-                !Assume real by default
-                if (doIOP) then
-                    call h5ltmake_dataset_float_f(gId,trim(IOVar%idStr), Nr, h5dims(1:Nr), & 
-                            real(vScl*IOVar%data,sp),herr)
-                else
-                    call h5ltmake_dataset_double_f(gId,trim(IOVar%idStr), Nr, h5dims(1:Nr), &
-                            real(vScl*IOVar%data,dp),herr)
-                endif
-#ifdef __ENABLE_COMPRESS
+            !Assume real by default
+            if (doIOP) then
+                call h5ltmake_dataset_float_f(gId,trim(IOVar%idStr), Nr, h5dims(1:Nr), & 
+                        real(vScl*IOVar%data,sp),herr)
             else
-                call h5screate_simple_f(Nr, h5dims(1:Nr), sid, herr)
-                call h5pcreate_f(H5P_DATASET_CREATE_F, pId, herr)
-                if (doIOP) then
-                    call CalcChunkSize(sp, h5dims(1:Nr), cdims)
-                else
-                    call CalcChunkSize(dp, h5dims(1:Nr), cdims)
-                endif
-                call h5pset_chunk_f(pId, Nr, cdims, herr)
-
-                if(Z_ALG == ZLIB) then
-                    call H5zfilter_avail_f(H5Z_FILTER_DEFLATE_F, avail, status)
-                    if(avail) then
-                        call h5pset_shuffle(pId, herr)
-                        call h5pset_deflate_f(pId, 6, herr)
-                    else
-                        write(*,*) 'ZLIB filter not available, please ensure HDF5 was built with ZLIB enabled \n'
-                        stop
-                    endif
-                elseif(Z_ALG == SZIP) then
-                    call H5zfilter_avail_f(H5Z_FILTER_SZIP_F, avail, status)
-                    if(avail) then
-                        szip_options_mask = H5_SZIP_NN_OM_F
-                        if (doIOP) then
-                            szip_pixels_per_block = 16
-                        else
-                            szip_pixels_per_block = 8
-                        endif
-                        call H5pset_szip_f(pId, szip_options_mask, szip_pixels_per_block, herr)
-                    else
-                        write(*,*) 'SZIP filter not available, please ensure HDF5 was built with SZIP enabled \n'
-                        stop
-                    endif
-                elseif(Z_ALG == ZSTD) then
-                    call H5zfilter_avail_f(COMPRESS_ZSTD, avail, status)
-                    if(avail) then
-                        allocate(cd_values(1))
-                        cd_nelmts = 1
-                        cd_values(1) = 20
-                        call h5pset_filter_f(pId, COMPRESS_ZSTD, H5Z_FLAG_MANDATORY, &
-                        cd_nelmts, cd_values, herr)
-                    else
-                        write(*,*) 'ZSTD filter not available, please ensure the ZSTD HDF5 plugin is loaded. \n'
-                        write(*,*) 'You may also use the default compression SZIP without needing plugins.'
-                        stop
-                    endif
-#ifdef __ENABLE_ZFP
-                elseif(Z_ALG == ZFP) then
-                    ! Only necessary for using H5Z_zfp properties calls
-                    ! status = H5Z_zfp_initialize()
-                    
-                    call H5zfilter_avail_f(COMPRESS_ZFP, avail, status)
-
-                    if (avail) then
-                        ! Setup ZFP
-                        !------------
-                        ! Use Plug-in
-                        !------------
-                        allocate(cd_values(1:H5Z_ZFP_CD_NELMTS_MEM))
-                        cd_values = 0
-                        cd_nelmts = H5Z_ZFP_CD_NELMTS_MEM
-                        
-                        if (zfpmode .EQ. H5Z_ZFP_MODE_RATE)  then
-                            call H5pset_zfp_rate_cdata(rate, cd_nelmts, cd_values)
-                            if(cd_values(1).NE.1 .OR. cd_nelmts.NE.4) then
-                                print*,'H5Pset_zfp_rate_cdata failed'
-                                stop 1
-                            endif
-                        else if (zfpmode .EQ. H5Z_ZFP_MODE_PRECISION)  then
-                            call H5pset_zfp_precision_cdata(prec, cd_nelmts, cd_values)
-                            if(cd_values(1).NE.2 .OR. cd_nelmts.NE.3) then
-                                print*,'H5Pset_zfp_precision_cdata failed'
-                                stop 1
-                            endif
-                        else if (zfpmode .EQ. H5Z_ZFP_MODE_ACCURACY) then
-                            call H5pset_zfp_accuracy_cdata(0._dp, cd_nelmts, cd_values)
-                            if(cd_values(1).NE.3 .OR. cd_nelmts.NE.4) then
-                                print*,'H5Pset_zfp_accuracy_cdata failed'
-                                stop 1
-                            endif
-                        else if (zfpmode .EQ. H5Z_ZFP_MODE_EXPERT)  then
-                            call H5pset_zfp_expert_cdata(minbits, maxbits, maxprec, minexp, cd_nelmts, cd_values)
-                            if(cd_values(1).NE.4 .OR. cd_nelmts.NE.6) then
-                                print*,'H5Pset_zfp_expert_cdata failed'
-                                stop 1
-                            endif
-                        else if (zfpmode .EQ. H5Z_ZFP_MODE_REVERSIBLE)  then
-                            call H5pset_zfp_reversible_cdata(cd_nelmts, cd_values)
-                            if(cd_values(1).NE.5 .OR. cd_nelmts.NE.1) then
-                                print*,'H5Pset_zfp_reversible_cdata failed'
-                                stop 1
-                            endif
-                        endif
-                
-                        call h5pset_filter_f(pId, COMPRESS_ZFP, H5Z_FLAG_MANDATORY, &
-                                cd_nelmts, cd_values, herr)
-
-                        !---------------
-                        ! Use Properties (this sets the filter)
-                        !---------------
-                        ! if (zfpmode == H5Z_ZFP_MODE_RATE)  then
-                        !     status = H5Pset_zfp_rate(pId, rate)
-                        !     !call check("H5Pset_zfp_rate", status, nerr)
-                        ! else if (zfpmode == H5Z_ZFP_MODE_PRECISION)  then
-                        !     status = H5Pset_zfp_precision(pId, prec)
-                        !     !call check("H5Pset_zfp_precision", status, nerr)
-                        ! else if (zfpmode == H5Z_ZFP_MODE_ACCURACY) then
-                        !     status = H5Pset_zfp_accuracy(pId, acc)
-                        !     !call check("H5Pset_zfp_accuracy", status, nerr)
-                        ! else if (zfpmode == H5Z_ZFP_MODE_EXPERT)  then
-                        !     status = H5Pset_zfp_expert(pId, minbits, maxbits, maxprec, minexp)
-                        !     !call check("H5Pset_zfp_expert", status, nerr)
-                        ! else if (zfpmode == H5Z_ZFP_MODE_REVERSIBLE)  then
-                        !     status = H5Pset_zfp_reversible(pId)
-                        !     !call check("H5Pset_zfp_reversible", status, nerr)
-                        ! endif
-                        ! status = H5Z_zfp_finalize()
-                    else
-                        write(*,*) 'ZFP filter not available, please ensure the ZFP HDF5 plugin is loaded.'
-                        write(*,*) 'You may also use the default compression SZIP without needing plugins.'
-                        stop
-                    endif
-#endif              
-                endif
-
-                if (doIOP) then
-                    call h5dcreate_f(gId, trim(IOVar%idStr), H5T_NATIVE_REAL, sId, &
-                    dId, herr, dcpl_id=pId)
-                    !data = vScl*IOVar%data
-                    !f_ptr = C_LOC(data(1))
-                    call h5dwrite_f(dId, H5T_NATIVE_REAL, real(vScl*IOVar%data,sp), h5dims(1:Nr), herr)
-                else
-                    call h5dcreate_f(gId, trim(IOVar%idStr), H5T_NATIVE_DOUBLE, sId, &
-                    dId, herr, dcpl_id=pId)
-                    !data = vScl*IOVar%data
-                    !f_ptr = C_LOC(data(1))
-                    call h5dwrite_f(dId, H5T_NATIVE_DOUBLE, real(vScl*IOVar%data,dp), h5dims(1:Nr), herr)
-                endif
-
-                call h5pclose_f(pId, herr)
-                call h5dclose_f(dId, herr)
-                call h5sclose_f(sId, herr)
-#endif           
-            endif
+                call h5ltmake_dataset_double_f(gId,trim(IOVar%idStr), Nr, h5dims(1:Nr), &
+                        real(vScl*IOVar%data,dp),herr)
+            endif         
         case(IOINT)
             call h5ltmake_dataset_int_f(gId,trim(IOVar%idStr), Nr, h5dims(1:Nr), &
                     int(vScl*IOVar%data),herr)
@@ -1045,7 +815,6 @@ contains
 
         logical :: fExist, gExist, doStampCheck
         logical :: writeCache, cacheExist, cacheCreate
-        logical :: doCompress
         integer :: herr
         integer(HID_T) :: h5fId, gId, ggId, outId, cacheId
         character(len=strLen) :: h5File
@@ -1055,7 +824,6 @@ contains
         h5File = baseStr
         writeCache = .false.
         cacheCreate = .false.
-        doCompress = .false.
 
         if (present(doStampCheckO)) then
             doStampCheck = doStampCheckO
@@ -1150,24 +918,21 @@ contains
             else
                 outId = gId 
             endif
-            doCompress = ENABLE_COMPRESS
         else
             !Write to root
             outId = h5fId
-            doCompress = .False.
         endif !gStrO
 
         !Do writing
         if(present(doStampCheckO)) then
-            call WriteVars2ID(IOVars,outId,doIOp, &
-                                doCompress=doCompress,isRoot=.true.)
+            call WriteVars2ID(IOVars,outId,doIOp,isRoot=.true.)
         else
             ! Write step vars and attributes to group outId
             if(writeCache) then  
                 call WriteVars2ID(IOVars,outId,doIOp, &
-                    cacheId=cacheId,doCompress=doCompress)
+                    cacheId=cacheId)
             else
-                call WriteVars2ID(IOVars,outId,doIOp,doCompress=doCompress)
+                call WriteVars2ID(IOVars,outId,doIOp)
             end if
         end if
 
@@ -1182,12 +947,11 @@ contains
     end subroutine WriteVars
 
     !> Write out all IOVars to their respective IDs
-    subroutine WriteVars2ID(IOVars,outId,doIOp,cacheId,doCompress,isRoot)
+    subroutine WriteVars2ID(IOVars,outId,doIOp,cacheId,isRoot)
         type(IOVAR_T), dimension(:), intent(inout) :: IOVars
         logical, intent(in) :: doIOp
         integer(HID_T), intent(in) :: outId
         integer(HID_T), intent(in), optional :: cacheId
-        logical, intent(in), optional :: doCompress
         logical, intent(in), optional :: isRoot
         integer :: n, Nv
         integer(HID_T) :: Nr
@@ -1218,7 +982,7 @@ contains
                         write(*,*) 'Writing dataset "',trim(IOVars(n)%idStr),'" as a hyperslab not yet supported'
                         stop
                     else
-                        call WriteHDFVar(IOVars(n),outId,doIOP,doCompress)
+                        call WriteHDFVar(IOVars(n),outId,doIOP)
                     endif
                 endif !Nr=0
             endif !isSet

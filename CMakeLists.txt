@@ -31,8 +31,6 @@ file(APPEND ${GIT_INFO_FILE} "    character(len=*), parameter :: gitB = '${GIT_B
 file(APPEND ${GIT_INFO_FILE} "    character(len=*), parameter :: gitH = '${GIT_COMMIT_HASH}'\n")
 file(APPEND ${GIT_INFO_FILE} "end module git_info\n")
 
-
-
 #Set some configuration defaults
 option(ENABLE_OMP "Enable OMP parallelization" ON )
 option(ENABLE_MPI "Enable MPI parallelization" OFF)
@@ -40,24 +38,6 @@ option(ENABLE_MKL "Enable Intel MKL usage" OFF)
 option(ENABLE_COLORTEXT "Enable ascii color in text output" ON)
 option(ENABLE_CODECOV "Enable Code Coverage tracking" OFF)
 option(ALLOW_INVALID_COMPILERS "Allow Invalid Compiler Versions" OFF)
-option(ENABLE_COMPRESS "Enable Dataset Compression" OFF)
-
-#Set Compression Type
-set(COMPRESS_METHOD "SZIP" CACHE STRING "Set Compression Method (default SZIP) 
-                                        Other options: ZLIB, ZFP, ZSTD")
-
-if(ENABLE_COMPRESS)
-    add_compile_definitions(__ENABLE_COMPRESS)
-    if(COMPRESS_METHOD MATCHES ZLIB )
-        add_compile_definitions(__ENABLE_ZLIB)
-    elseif(COMPRESS_METHOD MATCHES ZFP)
-        add_compile_definitions(__ENABLE_ZFP)
-    elseif(COMPRESS_MTHOD MATCHES ZSTD)
-        add_compile_definitions(__ENABLE_ZSTD)
-    else()
-        add_compile_definitions(__ENABLE_SZIP)
-    endif()
-endif()
 
 #Vector blocking
 set(bricksize 16 CACHE STRING "Vector brick size")
@@ -282,8 +262,7 @@ if(ENABLE_MPI)
     add_executable(gamhelio_mpi.x src/drivers/gamera_mpix.F90 ${GAMHELIC})
     target_link_libraries(gamhelio_mpi.x baselib gamlib basempilib gammpilib)
     add_dependencies(gamhelio_mpi gamhelio_mpi.x)
-
-
+    
 endif()
 
 if(PFUNIT_FOUND)
