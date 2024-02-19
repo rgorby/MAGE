@@ -390,7 +390,7 @@ module remixReader
 
         logical :: gExist
 
-        type(IOVAR_T), dimension(4) :: IOVars
+        type(IOVAR_T), dimension(10) :: IOVars
 
         if (isFirst) then
 
@@ -409,6 +409,8 @@ module remixReader
         ! If still here, varO and vNameO present
         if (present(gStrO)) then
             call ClearIO(IOVars)
+            call AddOutVar(IOVars, "time", rmState%time)
+            call AddOutVar(IOVars, "N1_time", rmState%rmN1%time)
             call AddOutVar(IOVars, "nsPot NORTH data", rmState%nsPot(NORTH)%data)
             call AddOutVar(IOVars, "nsPot NORTH mask", rmState%nsPot(NORTH)%mask*1.0_rp)
             call WriteVars(IOVars,.true.,fname,gStrO=gStrO)
