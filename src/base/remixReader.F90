@@ -8,6 +8,8 @@ module remixReader
     use shellGrid
     use shellUtils
 
+    use hdf5
+
     implicit none
 
     integer :: MAXIOVARS = 20
@@ -378,33 +380,39 @@ module remixReader
     end subroutine readVarJank
 
 
-    subroutine outputRMSG(rmState, fname, isFirst)
+    subroutine outputRMSG(rmState, fname, isFirst, gStrO)
         !! Write rmState stuff to file
         !! Pretty much just for debugging
         type(rmState_T), intent(in) :: rmState
         character(len=*), intent(in) :: fname
         logical, intent(in) :: isFirst
+        character(len=*), optional, intent(in) :: gStrO
+
+        logical :: gExist
 
         type(IOVAR_T), dimension(4) :: IOVars
 
         if (isFirst) then
 
             call CheckAndKill(fname, .true.)
-
+        endif
+        
+        if (.not. ioExist(fname, "sh_th")) then
             call ClearIO(IOVars)
             call AddOutVar(IOVars,"sh_th",rmState%shGr%th)
             call AddOutVar(IOVars,"sh_ph",rmState%shGr%ph)
             call WriteVars(IOVars,.true.,fname)
-            return
         endif
+
 
         ! If still here, we are good and need to write more stuff to file
         ! If still here, varO and vNameO present
-        call ClearIO(IOVars)
-
-        call AddOutVar(IOVars, "nsPot NORTH data", rmState%nsPot(NORTH)%data)
-        call AddOutVar(IOVars, "nsPot NORTH mask", rmState%nsPot(NORTH)%mask*1.0_rp)
-        call WriteVars(IOVars,.true.,fname)
+        if (present(gStrO)) then
+            call ClearIO(IOVars)
+            call AddOutVar(IOVars, "nsPot NORTH data", rmState%nsPot(NORTH)%data)
+            call AddOutVar(IOVars, "nsPot NORTH mask", rmState%nsPot(NORTH)%mask*1.0_rp)
+            call WriteVars(IOVars,.true.,fname,gStrO=gStrO)
+        endif
     end subroutine outputRMSG
 
 end module remixReader

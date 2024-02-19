@@ -119,6 +119,12 @@ program raijuOWDx
                             raiApp%State%mjd,raiApp%State%t, &
                             raiApp%Grid%shGrid%Nt,raiApp%Grid%shGrid%Np)
                 endif
+
+                write(gStr,'(A,I0)') "Step#", raiApp%State%IO%nOut
+                call outputRMSG(rmState,"rmReader.h5",.false., gStr)
+                if (raiApp%State%t > raiApp%Model%t0 + raiApp%Model%dt*2) then
+                    stop
+                endif
             endif
             call Toc("Output")
 
@@ -170,9 +176,6 @@ program raijuOWDx
             ! rmState%time  = rmState%time + raiApp%Model%dt
             rmState%time  = raiApp%State%t
 
-
-            call outputRMSG(rmState,"rmReader.h5", .false.)
-            stop
 
             if (raiApp%Model%doClockConsoleOut) then
                 call printClocks()
