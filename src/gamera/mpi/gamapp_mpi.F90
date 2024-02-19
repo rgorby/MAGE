@@ -379,7 +379,7 @@ module gamapp_mpi
         call CalcGridInfo(Model,Grid,gamAppMpi%State,gamAppMpi%oState,gamAppMpi%Solver,xmlInp,userInitFunc)
 
         ! All Gamera ranks compare restart numbers to ensure they're the same
-        if(Model%isRestart) then
+        if(Model%isRestart .and. Grid%isTiled) then
             if(Grid%Ri==0 .and. Grid%Rj==0 .and. Grid%Rk==0) then
                 ! master rank receives data
                 allocate(gamRestartNumbers(commSize))
@@ -553,7 +553,10 @@ module gamapp_mpi
 
         amPrintingRank = .false.
 
-        if(gamappMpi%slowestRankPrints) then
+        if(.not. gamAppMpi%Grid%isTiled) then
+            ! only a single rank
+            amPrintingRank = .true.
+        else if(gamAppMpi%slowestRankPrints) then
             ! only the slowest rank prints
 
             myRank = gamAppMpi%Grid%Ri*gamAppMpi%Grid%NumRj*gamAppMpi%Grid%NumRk + &
@@ -562,7 +565,7 @@ module gamapp_mpi
 
             inData(1) = gamAppMpi%Model%kzcsMHD
             inData(2) = myRank
-            call MPI_ALLREDUCE(inData, outData, 1, MPI_2MYFLOAT, MPI_MINLOC, gamAppMpi%gamMpiComm, ierr)
+            call MPI_AllReduce(inData, outData, 1, MPI_2MYFLOAT, MPI_MINLOC, gamAppMpi%gamMpiComm, ierr)
             slowRank = outData(2) ! convert rank back to an integer
             if(myRank == slowRank) then
                 amPrintingRank = .true.
@@ -584,7 +587,11 @@ module gamapp_mpi
 
         ! gamera mpi specific output
         if(gamAppMpi%printMagFluxFaceError) then
-            call MPI_AllReduce(gamAppMpi%faceError, totalFaceError, 1, MPI_MYFLOAT, MPI_SUM, gamAppMpi%gamMpiComm, ierr)
+            if(gamAppMpi%Grid%isTiled) then
+                call MPI_AllReduce(gamAppMpi%faceError, totalFaceError, 1, MPI_MYFLOAT, MPI_SUM, gamAppMpi%gamMpiComm, ierr)
+            else
+                totalFaceError = gamAppMpi%faceError
+            endif
             if (gamAppMpi%Model%isLoud) then
                 write(*,*) ANSICYAN
                 write(*,*) 'GAMERA MPI'
@@ -609,7 +616,7 @@ module gamapp_mpi
 
         !Track timing for all gamera ranks to finish physical BCs
         ! Only synchronize when timing
-        if(gamAppMpi%Model%IO%doTimerOut) then
+        if(gamAppMpi%Model%IO%doTimerOut .and. gamAppMpi%Grid%isTiled) then
             call Tic("Sync BCs")
             call MPI_BARRIER(gamAppMpi%gamMpiComm,ierr)
             call Toc("Sync BCs")
@@ -622,7 +629,7 @@ module gamapp_mpi
 
         !Track timing for all gamera ranks to finish halo comms
         ! Only synchronize when timing
-        if(gamAppMpi%Model%IO%doTimerOut) then
+        if(gamAppMpi%Model%IO%doTimerOut .and. gamAppMpi%Grid%isTiled) then
             call Tic("Sync Halos")
             call MPI_BARRIER(gamAppMpi%gamMpiComm,ierr)
             call Toc("Sync Halos")
@@ -670,7 +677,7 @@ module gamapp_mpi
 
         !Track timing for all gamera ranks to finish periodic BCs
         ! Only synchronize when timing
-        if(gamAppMpi%Model%IO%doTimerOut) then
+        if(gamAppMpi%Model%IO%doTimerOut .and. gamAppMpi%Grid%isTiled) then
             call Tic("Sync Periodics")
             call MPI_BARRIER(gamAppMpi%gamMpiComm,ierr)
             call Toc("Sync Periodics")
@@ -689,7 +696,7 @@ module gamapp_mpi
 
         !Track timing for all gamera ranks to finish math
         ! Only synchronize when timing
-        if(gamAppMpi%Model%IO%doTimerOut) then
+        if(gamAppMpi%Model%IO%doTimerOut .and. gamAppMpi%Grid%isTiled) then
             call Tic("Sync Math")
             call MPI_BARRIER(gamAppMpi%gamMpiComm,ierr)
             call Toc("Sync Math")
