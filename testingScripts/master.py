@@ -111,12 +111,11 @@ def main():
         if verbose:
             print('Running all tests.')
         test_scripts = [
-            'buildTest.py',
+            # 'buildTest.py',
             # 'unitTest.py',
             # 'intelChecks.py',
             # 'ICtest.py',
-            # 'ICtestReport.py',
-            # 'pyunitTest.py',
+            'pyunitTest.py',
             # 'weeklyDash.py',
         ]
     else:
@@ -126,7 +125,6 @@ def main():
             # 'buildTest.py',
             # 'unitTest.py',
             # 'ICtest.py',
-            # 'ICtestReport.py',
             # 'pyunitTest.py',
         ]
     for test_script in test_scripts:

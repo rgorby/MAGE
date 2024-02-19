@@ -198,8 +198,6 @@ def git_get_branch_name():
     None
     """
     cmd = 'git symbolic-ref --short HEAD'
-    if debug:
-        print(f"cmd = {cmd}")
     cproc = subprocess.run(cmd, shell=True, check=True, text=True,
                            capture_output=True)
     git_branch_name = cproc.stdout.rstrip()

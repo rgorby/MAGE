@@ -1,6 +1,5 @@
 #!/usr/bin/env python
 
-
 """Run MAGE build regression tests.
 
 This script runs a series of builds of the MAGE software using sets of
@@ -16,7 +15,6 @@ Authors
 -------
 Jeff Garretson (jeffrey.garretson@jhuapl.edu)
 Eric Winter (eric.winter@jhuapl.edu)
-
 """
 
 
@@ -38,6 +36,9 @@ from kaipy.testing import common
 
 # Program description.
 DESCRIPTION = 'Script for MAGE build testing'
+
+# Prefix for naming build test directories
+BUILD_TEST_DIRECTORY_PREFIX = 'build_'
 
 # glob pattern for naming build test directories
 BUILD_TEST_DIRECTORY_GLOB_PATTERN = 'build_*'
@@ -109,7 +110,7 @@ def main():
 
     #--------------------------------------------------------------------------
 
-    # Clean up the results from previous tests.
+    # Clean up from previous tests.
     if verbose:
         print('Cleaning up from previous tests.')
     directories = glob.glob(BUILD_TEST_DIRECTORY_GLOB_PATTERN)
@@ -143,15 +144,17 @@ def main():
 
     #--------------------------------------------------------------------------
 
-    # Do a preliminary cmake run to generate the list of executables.
-
-    if verbose:
-        print(f"Generating list of executables for branch {git_branch_name}.")
-
     # Find the current branch.
     git_branch_name = common.git_get_branch_name()
     if debug:
         print(f"git_branch_name = {git_branch_name}")
+
+    #--------------------------------------------------------------------------
+
+    # Do a preliminary cmake run to generate the list of executables.
+
+    if verbose:
+        print(f"Generating list of executables for branch {git_branch_name}.")
 
     # Make and move to the preliminary build folder.
     os.mkdir(EXECUTABLE_LIST_BUILD_DIRECTORY)
@@ -243,7 +246,7 @@ def main():
             print(f"cmake_options = {cmake_options}")
 
         # Make a directory for this build, and go there.
-        dir_name = f"build_{module_list_name}"
+        dir_name = f"{BUILD_TEST_DIRECTORY_PREFIX}{module_list_name}"
         build_directory = os.path.join(kaiju_home, dir_name)
         if debug:
             print(f"build_directory = {build_directory}")

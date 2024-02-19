@@ -12,7 +12,6 @@ Eric Winter (eric.winter@jhuapl.edu)
 
 
 # Import standard modules.
-import argparse
 import datetime
 import glob
 import os
@@ -21,10 +20,9 @@ import subprocess
 import sys
 
 # Import 3rd-party modules.
-from slack_sdk import WebClient
-from slack_sdk.errors import SlackApiError
 
 # Import project modules.
+from kaipy.testing import common
 
 
 # Program constants
@@ -32,55 +30,59 @@ from slack_sdk.errors import SlackApiError
 # Program description.
 DESCRIPTION = 'Script for MAGE Fortran unit testing'
 
+# Prefix for naming unit test directories
+UNIT_TEST_DIRECTORY_PREFIX = 'unitTest_'
 
-def create_command_line_parser():
-    """Create the command-line argument parser.
+# glob pattern for naming unit test directories
+UNIT_TEST_DIRECTORY_GLOB_PATTERN = 'unitTest_*'
 
-    Create the parser for command-line arguments.
+# Home directory for pFUnit compiled code
+PFUNIT_HOME = '/glade/u/home/ewinter/work/mage_testing/derecho/pfunit/pFUnit-4.2.0/ifort-23-mpich-derecho'
 
-    Parameters
-    ----------
-    None
+# Name of kaiju subdirectory for external code
+KAIJU_EXTERNAL_DIRECTORY = 'external'
 
-    Returns
-    -------
-    parser : argparse.ArgumentParser
-        Command-line argument parser for this script.
+# Subdirectory of KAIJUHOME containing the test scripts
+KAIJU_TEST_SCRIPTS_DIRECTORY = 'testingScripts'
 
-    Raises
-    ------
-    None
-    """
-    parser = argparse.ArgumentParser(description=DESCRIPTION)
-    parser.add_argument(
-        '--account', default='UJHB0019',
-        help="PBS account to use for testing (default: %(default)s)"
-    )
-    parser.add_argument(
-        '--all', '-a', action='store_true',
-        help="Run all tests (default: %(default)s)."
-    )
-    parser.add_argument(
-        '--debug', '-d', action='store_true',
-        help="Print debugging output (default: %(default)s)."
-    )
-    parser.add_argument(
-        '--force', '-f', action='store_true',
-        help="Force all tests to run (default: %(default)s)."
-    )
-    parser.add_argument(
-        '--loud', '-l', action='store_true',
-        help="Enable loud mode (post results to Slack) (default: %(default)s)."
-    )
-    parser.add_argument(
-        '--test', '-t', action='store_true',
-        help="Enable testing mode (default: %(default)s)."
-    )
-    parser.add_argument(
-        '--verbose', '-v', action='store_true',
-        help="Print verbose output (default: %(default)s)."
-    )
-    return parser
+# Subdirectory of KAIJU_TEST_SCRIPTS_DIRECTORY containing module lists
+MODULE_LIST_DIRECTORY = 'mage_build_test_modules'
+
+# Name of file containing names of modules lists to use for unit tests
+UNIT_TEST_LIST_FILE = 'unit_test.lst'
+
+# List of pFUnit directories to copy
+PFUNIT_BINARY_DIRECTORIES = [
+    'FARGPARSE-1.1',
+    'GFTL-1.3',
+    'GFTL_SHARED-1.2',
+    'PFUNIT-4.2',
+]
+
+# PBS scripts for unit test jobs.
+UNIT_TEST_PBS_SCRIPTS = [
+    'genTestData.pbs',
+    'runCaseTests.pbs',
+    'runNonCaseTests1.pbs',
+    # 'runNonCaseTests2.pbs',  # Hangs for 12 hours
+]
+
+# Subdirectory of kaiju containing unit test data files.
+TESTS_DIRECTORY = 'tests'
+
+# Subdirectory of kaiju/tests containing unit test data files.
+UNIT_TEST_DATA_DIRECTORY = 'voltron_mpi'
+
+# Data files for unit tests
+UNIT_TEST_DATA_FILES = [
+    'bcwind.h5',
+    'lfmD.h5',
+    'rcmconfig.h5',
+    'geo_mpi.xml',
+]
+
+# Name of build subdirectory containing binaries
+BUILD_BIN_DIR = 'bin'
 
 
 def main():
@@ -101,85 +103,51 @@ def main():
     None
     """
     # Set up the command-line parser.
-    parser = create_command_line_parser()
+    parser = common.create_command_line_parser(DESCRIPTION)
 
     # Parse the command-line arguments.
     args = parser.parse_args()
     if args.debug:
         print(f"args = {args}")
     account = args.account
-    doAll = args.all
     debug = args.debug
-    forceRun = args.force
-    beLoud = args.loud
-    isTest = args.test
+    be_loud = args.loud
+    is_test = args.test
     verbose = args.verbose
 
     if debug:
         print(f"Starting {sys.argv[0]} at {datetime.datetime.now()}")
+        print(f"Current directory is {os.getcwd()}")
 
     #--------------------------------------------------------------------------
 
     # Set up for communication with Slack.
-
-    # Get the Slack API token
-    slack_token = os.environ['SLACK_BOT_TOKEN']
-    if debug:
-        print(f"slack_token = {slack_token}")
-
-    # Create the Slack client.
-    slack_client = WebClient(token=slack_token)
+    slack_client = common.slack_create_client()
     if debug:
         print(f"slack_client = {slack_client}")
 
     #--------------------------------------------------------------------------
 
-    # Determine the path to the MAGE installation to use for testing.
-
-    # Fetch the path to this running script.
-    called_from = os.path.dirname(os.path.abspath(__file__))
-    if debug:
-        print(f"called_from = {called_from}")
-
-    # Assume this script is in a subdirectory of the kaiju directory,
-    # and go there.
-    os.chdir(called_from)
-    os.chdir('..')
-
-    # Use this directory as the home directory for testing.
-    home = os.getcwd()
-    if debug:
-        print(f"home = {home}")
-    if verbose:
-        print('I am the unit test script. This is my current home directory:')
-        print(home)
+    # Move to the MAGE installation directory.
+    kaiju_home = os.environ['KAIJUHOME']
+    os.chdir(kaiju_home)
 
     #--------------------------------------------------------------------------
 
-    # Clean up from previous tests.
+    # Clean up the results from previous tests.
     if verbose:
-        print(f'Cleaning up from previous unit tests.')
-    os.chdir(home)
-    directories = glob.glob('unitTest*')
+        print(f'Cleaning up from previous tests.')
+    directories = glob.glob(UNIT_TEST_DIRECTORY_GLOB_PATTERN)
     for directory in directories:
         shutil.rmtree(directory)
 
     #--------------------------------------------------------------------------
 
-    # Make a copy of the pFUnit code under kaiju/external.
-    os.chdir(home)
-    pfunit_home = (
-        '/glade/p/hao/msphere/gamshare/pFUnit-4.2.0/ifort-23-mpich-derecho'
-        )
-    pfunit_binary_directories = [
-        'FARGPARSE-1.1',
-        'GFTL-1.3',
-        'GFTL_SHARED-1.2',
-        'PFUNIT-4.2',
-    ]
-    for directory in pfunit_binary_directories:
-        from_path = os.path.join(pfunit_home, directory)
-        to_path = os.path.join('external', directory)
+    # Make a copy of the pFUnit code under kaiju/external. Delete
+    # existing copies.
+    for directory in PFUNIT_BINARY_DIRECTORIES:
+        from_path = os.path.join(PFUNIT_HOME, directory)
+        to_path = os.path.join(KAIJU_EXTERNAL_DIRECTORY, directory)
         try:
             shutil.rmtree(to_path)
         except:
@@ -190,14 +158,10 @@ def main():
 
     # Make a list of module sets to build with.
 
-    # Go to the module sets folder.
-    path = os.path.join(home, 'testingScripts', 'mage_build_test_modules')
-    os.chdir(path)
-    if debug:
-        print(f"cwd = {os.getcwd()}")
-
-    # Read the list of  module sets to use for build tests.
-    with open('unit_test.lst', encoding='utf-8') as f:
+    # Read the list of  module sets to use for unit tests.
+    path = os.path.join(kaiju_home, KAIJU_TEST_SCRIPTS_DIRECTORY,
+                        MODULE_LIST_DIRECTORY, UNIT_TEST_LIST_FILE)
+    with open(path, encoding='utf-8') as f:
         lines = f.readlines()
     module_list_files = [s.rstrip() for s in lines]
     if debug:
@@ -225,27 +189,21 @@ def main():
 
         # Read this module list file, extracting cmake environment and
         # options, if any.
-        path = os.path.join(home, 'testingScripts', 'mage_build_test_modules',
-                            module_list_file)
-        with open(path, encoding='utf-8') as f:
-            lines = f.readlines()
-        cmake_env = ''
-        label = 'CMAKE_ENV='
-        if lines[0].startswith(label):
-            cmake_env = lines[0][len(label):].rstrip()
-            lines.pop(0)  # Remove cmake environment line.
-        cmake_options = ''
-        label = 'CMAKE_OPTIONS='
-        if lines[0].startswith(label):
-            cmake_options = lines[0][len(label):].rstrip()
-            lines.pop(0)  # Remove cmake options line.
-        module_names = [line.rstrip() for line in lines]
+        path = os.path.join(kaiju_home, KAIJU_TEST_SCRIPTS_DIRECTORY,
+                            MODULE_LIST_DIRECTORY, module_list_file)
+        if debug:
+            print(f"path = {path}")
+        module_names, cmake_environment, cmake_options = (
+            common.read_build_module_list_file(path)
+        )
         if debug:
             print(f"module_names = {module_names}")
+            print(f"cmake_environment = {cmake_environment}")
+            print(f"cmake_options = {cmake_options}")
 
         # Make a directory for this test, and go there.
-        dir_name = f"unitTest_{module_list_name}"
-        build_directory = os.path.join(home, dir_name)
+        dir_name = f"{UNIT_TEST_DIRECTORY_PREFIX}{module_list_name}"
+        build_directory = os.path.join(kaiju_home, dir_name)
         if debug:
             print(f"build_directory = {build_directory}")
         os.mkdir(build_directory)
@@ -262,17 +220,15 @@ def main():
         # </HACK>
 
         # Run cmake to build the Makefile.
-        cmd = f"{module_cmd}; {cmake_env} cmake {cmake_options} .."
+        cmd = f"{module_cmd}; {cmake_environment} cmake {cmake_options} {kaiju_home}"
         if debug:
             print(f"cmd = {cmd}")
         # <HACK> To ignore cmake error on bcwind.h5 for now.
         try:
-            cproc = subprocess.run(cmd, shell=True, check=True, text=True)
+            cproc = subprocess.run(cmd, shell=True, check=True)
         except:
             pass
         # </HACK>
-        if debug:
-            print(f"cproc = {cproc}")
 
         # Run the build.
         cmd = f"{module_cmd}; make gamera_mpi voltron_mpi allTests"
@@ -281,41 +237,25 @@ def main():
         cproc = subprocess.run(cmd, shell=True, check=True, text=True)
 
         # Copy in the test PBS scripts.
-        test_files = [
-            'genTestData.pbs',
-            'runNonCaseTests1.pbs',
-            'runNonCaseTests2.pbs',
-            'runCaseTests.pbs',
-        ]
-        for filename in test_files:
-            from_path = os.path.join(home, 'tests', filename)
-            to_path = os.path.join('bin', filename)
+        for filename in UNIT_TEST_PBS_SCRIPTS:
+            from_path = os.path.join(kaiju_home, TESTS_DIRECTORY, filename)
+            to_path = os.path.join(BUILD_BIN_DIR, filename)
             shutil.copyfile(from_path, to_path)
-        test_files = [
-            'bcwind.h5',
-            'lfmD.h5',
-            'rcmconfig.h5',
-            'geo_mpi.xml',
-        ]
-        for filename in test_files:
-            from_path = os.path.join(home, 'tests', 'voltron_mpi', filename)
-            to_path = os.path.join('bin', filename)
+        for filename in UNIT_TEST_DATA_FILES:
+            from_path = os.path.join(kaiju_home, TESTS_DIRECTORY, UNIT_TEST_DATA_DIRECTORY, filename)
+            to_path = os.path.join(BUILD_BIN_DIR, filename)
             shutil.copyfile(from_path, to_path)
-
+            
         # Go to the bin directory for testing.
-        os.chdir('bin')
-
-        # Submit the jobs to create the test data and run the unit tests.
-        pbs_files = [
-            'genTestData.pbs',
-            'runCaseTests.pbs',
-            'runNonCaseTests1.pbs',
-            # 'runNonCaseTests2.pbs',  # Hangs for 12 hours - skip
-        ]
+        os.chdir(BUILD_BIN_DIR)
+    
+        # Submit the jobs to create the test data and run the unit
+        # tests.  Note that the unit test jobs will only run if the
+        # data generation job completes successfully.
         job_ids = []
-        for pbs_file in pbs_files:
+        for pbs_file in UNIT_TEST_PBS_SCRIPTS:
             cmd = (f"qsub -A {account} -v MODULE_LIST='{' '.join(module_names)}',"
-                   f"KAIJUROOTDIR={home}")
+                   f"KAIJUROOTDIR={kaiju_home}")
             if len(job_ids) > 0:
                 cmd += f" -W depend=afterok:{job_ids[0]}"
             cmd += f" {pbs_file}"
@@ -337,20 +277,10 @@ def main():
         message = f"Unit tests submitted in jobs {', '.join(job_ids)}"
         # </HACK>
 
-        # If this is a test run, don't post to Slack.
-        if isTest:
-            pass
-        else:
-            # If loud, or an error occurred, send Slack message.
-            if beLoud:
-                try:
-                    response = slack_client.chat_postMessage(
-                        channel='#kaijudev',
-                        text=message,
-                    )
-                except SlackApiError as e:
-                    # You will get a SlackApiError if "ok" is False
-                    assert e.response['error']  # str like 'invalid_auth', 'channel_not_found'
+        # If this is a test run, don't post to Slack. Otherwise, if
+        # loud, send Slack message.
+        if not is_test and be_loud:
+            common.slack_send_message(slack_client, message)
 
         # Send message to stdout.
         print(message)
