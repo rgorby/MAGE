@@ -126,7 +126,7 @@ module remixReader
         ph1D = atan2(rmState%XY(Nt-1,:,YDIR), rmState%XY(Nt-1,:,XDIR))
 
         ! Clean up phi for shellGrid generation
-        do j=Np/2,Np
+        do j=Np/2-1,Np
             if (ph1D(j) < 0) then
                 ph1D(j) = ph1D(j) + 2.0_rp*PI
             endif
@@ -134,9 +134,11 @@ module remixReader
         if (abs(ph1D(1)) < TINY) then
             ph1D(1) = 0.0
         endif
-        
+        if (ph1D(Np) < PI) then
+            ph1D(Np) = ph1D(Np) + 2.0_rp*PI
+        endif
         associate(sh=>rmState%shGr)
-
+        write(*,*)ph1D
         call GenShellGrid(sh, th1D, ph1D)
 
         ! Hooray we have a shellGrid now
@@ -245,7 +247,9 @@ module remixReader
             else
                 hID = "SOUTH"
             endif
+
             gStr = trim(rmState%rmTab%gStrs(nStp))
+            write(*,'(5a)') '<Reading hemisphere from ', trim(rmState%rmTab%bStr), '/', trim(gStr), '>'
 
             rmHemi%time = rmState%rmTab%times(nStp)
             rmHemi%nStp = nStp
@@ -373,5 +377,34 @@ module remixReader
 
     end subroutine readVarJank
 
+
+    subroutine outputRMSG(rmState, fname, isFirst)
+        !! Write rmState stuff to file
+        !! Pretty much just for debugging
+        type(rmState_T), intent(in) :: rmState
+        character(len=*), intent(in) :: fname
+        logical, intent(in) :: isFirst
+
+        type(IOVAR_T), dimension(4) :: IOVars
+
+        if (isFirst) then
+
+            call CheckAndKill(fname, .true.)
+
+            call ClearIO(IOVars)
+            call AddOutVar(IOVars,"sh_th",rmState%shGr%th)
+            call AddOutVar(IOVars,"sh_ph",rmState%shGr%ph)
+            call WriteVars(IOVars,.true.,fname)
+            return
+        endif
+
+        ! If still here, we are good and need to write more stuff to file
+        ! If still here, varO and vNameO present
+        call ClearIO(IOVars)
+
+        call AddOutVar(IOVars, "nsPot NORTH data", rmState%nsPot(NORTH)%data)
+        call AddOutVar(IOVars, "nsPot NORTH mask", rmState%nsPot(NORTH)%mask*1.0_rp)
+        call WriteVars(IOVars,.true.,fname)
+    end subroutine outputRMSG
 
 end module remixReader

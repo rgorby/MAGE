@@ -83,8 +83,9 @@ program raijuOWDx
         ! Init Remix reader
         !call initRM  (ebModel,ebState,rmState,inpXML)
         call initRM("msphere", inpXML, rmState)
-        rmState%time = inTscl*raiApp%Model%t0
+        rmState%time = raiApp%Model%t0
 
+        call outputRMSG(rmState,"rmReader.h5", .true.)
         ! Set mix->RAIJU map
         !call InitMixMap(raiApp%Grid%shGrid, rmState)
         
@@ -150,21 +151,28 @@ program raijuOWDx
 
             write(*,*)raiApp%State%t
             write(*,*)ebModel%t/inTscl
-            write(*,*)rmState%time/inTscl
+            write(*,*)rmState%time
             write(*,*)"MJDs: "
             write(*,*)raiApp%State%mjd
             write(*,*)T2MJD((ebModel%t - ebState%ebTab%times(1))/inTscl, ebState%ebTab%MJDs(1))
+            write(*,*)T2MJD((rmState%time - rmState%rmTab%times(1)), rmState%rmTab%MJDs(1))
 
             ! Advance model times
             raiApp%State%t  = raiApp%State%t  + raiApp%Model%dt
             raiApp%State%ts = raiApp%State%ts + 1
             raiApp%State%mjd = T2MJD(raiApp%State%t,mjd0)
 
-            ebModel%t     = ebModel%t  + inTscl*raiApp%Model%dt
+            ! ebModel%t     = ebModel%t  + inTscl*raiApp%Model%dt
+            ebModel%t     = inTscl*raiApp%State%t
             ebModel%ts    = ebModel%ts + 1
 
             !rmState%time  = rmState%time + inTScl*raiApp%Model%dt
-            rmState%time  = rmState%time + raiApp%Model%dt
+            ! rmState%time  = rmState%time + raiApp%Model%dt
+            rmState%time  = raiApp%State%t
+
+
+            call outputRMSG(rmState,"rmReader.h5", .false.)
+            stop
 
             if (raiApp%Model%doClockConsoleOut) then
                 call printClocks()

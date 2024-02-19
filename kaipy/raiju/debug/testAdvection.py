@@ -451,16 +451,16 @@ if __name__=="__main__":
     rp_m = f5['Planet'].attrs['Rad_surface']
     Bs_nt = f5['Planet'].attrs['Mag Moment'] * kd.G2nT
 
-    checkCorot(raijuInfo, 1)
+    # checkCorot(raijuInfo, 1)
     
     spc_p = raijuInfo.species[ru.flavs_s['HOTP']]
     spc_k = spc_p.kStart + int(spc_p.N//2)
-    checkGC(raijuInfo, 1, spc_k)
+    # checkGC(raijuInfo, 1, spc_k)
 
 
     #checkBVol(raijuInfo)
-    plt.show()
+    # plt.show()
 
-    plotStep(raijuInfo, 0, 10)
+    # plotStep(raijuInfo, 0, 10)
 
     makeVid(raijuInfo, dir)
