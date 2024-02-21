@@ -59,7 +59,7 @@ def getRootVars(fname,gDims):
 			#Don't include stuff that starts with step or X,Y,Z
 			vID = str(k)
 			doV = True
-			if ("Step" in vID):
+			if ("Step" in vID or "timeAttributeCache" in vID ):
 				doV = False
 			if ((vID == "X") or (vID=="Y") or (vID=="Z")):
 				doV = False
