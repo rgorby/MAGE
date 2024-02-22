@@ -122,10 +122,8 @@ program raijuOWDx
 
                 write(gStr,'(A,I0)') "Step#", raiApp%State%IO%nOut-1  ! nOut got advanced by raijuOutput above
                 call outputRMSG(rmState,"rmReader.h5",.false., gStr)
-                if (raiApp%State%t > raiApp%Model%t0 + raiApp%Model%dt*20) then
-                    stop
-                endif
             endif
+            
             call Toc("Output")
 
         ! Update other models
