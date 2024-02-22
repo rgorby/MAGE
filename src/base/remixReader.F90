@@ -8,6 +8,8 @@ module remixReader
     use shellGrid
     use shellUtils
 
+    use hdf5
+
     implicit none
 
     integer :: MAXIOVARS = 20
@@ -61,7 +63,8 @@ module remixReader
 !------
 
     subroutine initRM(ftag,inpXML,rmState)
-        character(len=strLen), intent(in) :: ftag
+        !character(len=strLen), intent(in) :: ftag
+        character(len=*), intent(in) :: ftag
             !! Filename tag in this format: <ftag>.mix.h5
         type(XML_Input_T), intent(in) :: inpXML
         type(rmState_T), intent(inout) :: rmState
@@ -125,7 +128,7 @@ module remixReader
         ph1D = atan2(rmState%XY(Nt-1,:,YDIR), rmState%XY(Nt-1,:,XDIR))
 
         ! Clean up phi for shellGrid generation
-        do j=Np/2,Np
+        do j=Np/2-1,Np
             if (ph1D(j) < 0) then
                 ph1D(j) = ph1D(j) + 2.0_rp*PI
             endif
@@ -133,9 +136,11 @@ module remixReader
         if (abs(ph1D(1)) < TINY) then
             ph1D(1) = 0.0
         endif
-        
+        if (ph1D(Np) < PI) then
+            ph1D(Np) = ph1D(Np) + 2.0_rp*PI
+        endif
         associate(sh=>rmState%shGr)
-
+        write(*,*)ph1D
         call GenShellGrid(sh, th1D, ph1D)
 
         ! Hooray we have a shellGrid now
@@ -216,10 +221,10 @@ module remixReader
         call GetTWgts(rmState%rmN1%time, rmState%rmN2%time, t, rmState%doStatic, w1, w2)
         call hemi2rm(rmState, w1, w2)
 
-        write(*,*)"-----"
-        write(*,*)t
-        write(*,*)rmState%rmN1%time,",",rmState%rmN2%time
-        write(*,*)w1,",",w2
+        !write(*,*)"-----"
+        !write(*,*)t
+        !write(*,*)rmState%rmN1%time,",",rmState%rmN2%time
+        !write(*,*)w1,",",w2
 
         contains
 
@@ -244,7 +249,9 @@ module remixReader
             else
                 hID = "SOUTH"
             endif
+
             gStr = trim(rmState%rmTab%gStrs(nStp))
+            write(*,'(5a)') '<Reading hemisphere from ', trim(rmState%rmTab%bStr), '/', trim(gStr), '>'
 
             rmHemi%time = rmState%rmTab%times(nStp)
             rmHemi%nStp = nStp
@@ -372,5 +379,42 @@ module remixReader
 
     end subroutine readVarJank
 
+
+    subroutine outputRMSG(rmState, fname, isFirst, gStrO)
+        !! Write rmState stuff to file
+        !! Pretty much just for debugging
+        type(rmState_T), intent(in) :: rmState
+        character(len=*), intent(in) :: fname
+        logical, intent(in) :: isFirst
+        character(len=*), optional, intent(in) :: gStrO
+
+        logical :: gExist
+
+        type(IOVAR_T), dimension(10) :: IOVars
+
+        if (isFirst) then
+
+            call CheckAndKill(fname, .true.)
+        endif
+        
+        if (.not. ioExist(fname, "sh_th")) then
+            call ClearIO(IOVars)
+            call AddOutVar(IOVars,"sh_th",rmState%shGr%th)
+            call AddOutVar(IOVars,"sh_ph",rmState%shGr%ph)
+            call WriteVars(IOVars,.true.,fname)
+        endif
+
+
+        ! If still here, we are good and need to write more stuff to file
+        ! If still here, varO and vNameO present
+        if (present(gStrO)) then
+            call ClearIO(IOVars)
+            call AddOutVar(IOVars, "time", rmState%time)
+            call AddOutVar(IOVars, "N1_time", rmState%rmN1%time)
+            call AddOutVar(IOVars, "nsPot NORTH data", rmState%nsPot(NORTH)%data)
+            call AddOutVar(IOVars, "nsPot NORTH mask", rmState%nsPot(NORTH)%mask*1.0_rp)
+            call WriteVars(IOVars,.true.,fname,gStrO=gStrO)
+        endif
+    end subroutine outputRMSG
 
 end module remixReader
