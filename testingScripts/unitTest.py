@@ -174,9 +174,7 @@ def main():
 
     #--------------------------------------------------------------------------
 
-    # Run the unit tests with each set of modules.
-
-    # Run unit tests with each set of modules.
+    # Run the tests with each set of modules.
     for module_list_file in module_list_files:
         if verbose:
             print('Performing Fortran unit tests with module set '

@@ -13,7 +13,6 @@ Eric Winter (eric.winter@jhuapl.edu)
 
 
 # Import standard modules.
-import argparse
 import datetime
 import glob
 import os
@@ -22,10 +21,9 @@ import subprocess
 import sys
 
 # Import 3rd-party modules.
-from slack_sdk import WebClient
-from slack_sdk.errors import SlackApiError
 
 # Import project modules.
+from kaipy.testing import common
 
 
 # Program constants
@@ -33,55 +31,35 @@ from slack_sdk.errors import SlackApiError
 # Program description.
 DESCRIPTION = 'Run the MAGE weekly dash tests.'
 
+# Globa pattern for weekly dash test direectories
+WEEKLY_DASH_DIRECTORY_GLOB_PATTERN = 'weeklyDash_*'
 
-def create_command_line_parser():
-    """Create the command-line argument parser.
+# Source directory for weekly dash restart files
+WEEKLY_DASH_RESTART_SRC_DIRECTORY = '/glade/work/ewinter/mage_testing/derecho/dashRestarts'
 
-    Create the parser for command-line arguments.
+# Prefix for weekly dash directory name
+WEEKLY_DASH_DIRECTORY_PREFIX = 'weeklyDash_'
 
-    Parameters
-    ----------
-    None
+# Name of working directory containing dash restart files.
+WORKING_DASH_RESTART_DIRECTORY = 'dashRestarts'
 
-    Returns
-    -------
-    parser : argparse.ArgumentParser
-        Command-line argument parser for this script.
+# Subdirectory of KAIJUHOME containing the test scripts
+KAIJU_TEST_SCRIPTS_DIRECTORY = 'testingScripts'
 
-    Raises
-    ------
-    None
-    """
-    parser = argparse.ArgumentParser(description=DESCRIPTION)
-    parser.add_argument(
-        '--account', default=None,
-        help='PBS account to use for testing (default: %(default)s)'
-    )
-    parser.add_argument(
-        '--all', '-a', action='store_true',
-        help='Run all tests (default: %(default)s).'
-    )
-    parser.add_argument(
-        '--debug', '-d', action='store_true',
-        help='Print debugging output (default: %(default)s).'
-    )
-    parser.add_argument(
-        '--force', '-f', action='store_true',
-        help='Force all tests to run (default: %(default)s).'
-    )
-    parser.add_argument(
-        '--loud', '-l', action='store_true',
-        help='Enable loud mode (post results to Slack) (default: %(default)s).'
-    )
-    parser.add_argument(
-        '--test', '-t', action='store_true',
-        help='Enable testing mode (default: %(default)s).'
-    )
-    parser.add_argument(
-        '--verbose', '-v', action='store_true',
-        help='Print verbose output (default: %(default)s).'
-    )
-    return parser
+# Subdirectory of KAIJU_TEST_SCRIPTS_DIRECTORY containing module lists
+MODULE_LIST_DIRECTORY = 'mage_build_test_modules'
+
+# Name of file containing names of modules lists to use for weekly dash
+WEEKLY_DASH_LIST_FILE = 'weekly_dash.lst'
+
+# Subdirectory of build directory containing compiled products to use in tests
+BIN_DIR = 'bin'
+
+# List of weekly dash test files to copy
+WEEKLY_DASH_TEST_FILES = [
+    'weeklyDashGo.xml',
+    'weeklyDashGo.pbs',
+]
 
 
 def main():
@@ -102,102 +80,60 @@ def main():
     None
     """
     # Set up the command-line parser.
-    parser = create_command_line_parser()
+    parser = common.create_command_line_parser(DESCRIPTION)
 
     # Parse the command-line arguments.
     args = parser.parse_args()
     if args.debug:
         print(f"args = {args}")
     account = args.account
-    doAll = args.all
     debug = args.debug
-    forceRun = args.force
-    beLoud = args.loud
-    isTest = args.test
+    be_loud = args.loud
+    is_test = args.test
     verbose = args.verbose
 
     if debug:
         print(f"Starting {sys.argv[0]} at {datetime.datetime.now()}")
+        print(f"Current directory is {os.getcwd()}")
 
     #--------------------------------------------------------------------------
 
     # Set up for communication with Slack.
-
-    # Get the Slack API token
-    slack_token = os.environ['SLACK_BOT_TOKEN']
-    if debug:
-        print(f"slack_token = {slack_token}")
-
-    # Create the Slack client.
-    slack_client = WebClient(token=slack_token)
+    slack_client = common.slack_create_client()
     if debug:
         print(f"slack_client = {slack_client}")
 
     #--------------------------------------------------------------------------
 
-    # Determine the path to the MAGE installation to use for testing.
-
-    # Fetch the path to this running script.
-    called_from = os.path.dirname(os.path.abspath(__file__))
+    # Move to the MAGE installation directory.
+    kaiju_home = os.environ['KAIJUHOME']
     if debug:
-        print(f"called_from = {called_from}")
-
-    # Assume this script is in a subdirectory of the kaiju directory,
-    # and go there.
-    os.chdir(called_from)
-    os.chdir('..')
-
-    # Use this directory as the home directory for testing.
-    home = os.getcwd()
-    if debug:
-        print(f"home = {home}")
+        print(f"kaiju_home = {kaiju_home}")
+    os.chdir(kaiju_home)
     if verbose:
-        print('I am the weekly dash script. '
-              'This is my current home directory:')
-        print(home)
+        print(f"Now in directory {os.getcwd()}.")
 
     #--------------------------------------------------------------------------
 
     # Find the current branch.
-    os.chdir(home)
-    p = subprocess.Popen('git symbolic-ref --short HEAD', shell=True, stdout=subprocess.PIPE)
-    git_branch = p.stdout.read().decode('ascii').rstrip()
+    git_branch_name = common.git_get_branch_name()
     if debug:
-        print(f"git_branch = {git_branch}")
-
-    #--------------------------------------------------------------------------
-
-    # If the weekly dash restart files don't exist, abort the test.
-    if not os.path.exists('dashRestarts'):
-        message = (
-            'No restart data available for weekly dash on branch '
-            "{git_branch}. Please generate restart data and try again."
-        )
-        if isTest:
-            pass
-        else:
-            # If loud, send Slack message.
-            if beLoud:
-                try:
-                    response = slack_client.chat_postMessage(
-                        channel="#kaijudev",
-                        text=message,
-                    )
-                except SlackApiError as e:
-                    # You will get a SlackApiError if "ok" is False
-                    assert e.response["error"]  # str like 'invalid_auth', 'channel_not_found'
-            print(message)
-            exit()
+        print(f"git_branch_name = {git_branch_name}")
 
     #--------------------------------------------------------------------------
 
     # Clean up from previous builds.
     if verbose:
         print('Cleaning up from previous tests.')
-    os.chdir(home)
-    directories = glob.glob('weeklyDash_*')
+    directories = glob.glob(WEEKLY_DASH_DIRECTORY_GLOB_PATTERN)
+    directories.append(WORKING_DASH_RESTART_DIRECTORY)
     for directory in directories:
-        shutil.rmtree(directory)
+        if debug:
+            print(f"Trying to remove {directory}.")
+        try:
+            shutil.rmtree(directory)
+        except:
+            pass
 
     # <HACK>
     # Remove the pFUnit compiled code to prevent using it during the
@@ -206,48 +142,60 @@ def main():
     # requested, which causes fatal errors when building with a module
     # set that uses a non-Intel compioler, since pFUnit was built with
     # the Intel compiler.
-    # pfunit_binary_directories = [
-    #     'FARGPARSE-1.1',
-    #     'GFTL-1.3',
-    #     'GFTL_SHARED-1.2',
-    #     'PFUNIT-4.2',
-    # ]
-    # for directory in pfunit_binary_directories:
-    #     path = os.path.join(home, 'external', directory)
-    #     try:
-    #         shutil.rmtree(path)
-    #     except:
-    #         pass
-    # # </HACK>
+    directories = [
+        'FARGPARSE-1.1',
+        'GFTL-1.3',
+        'GFTL_SHARED-1.2',
+        'PFUNIT-4.2',
+    ]
+    for directory in directories:
+        path = os.path.join(kaiju_home, 'external', directory)
+        if verbose:
+            print(f"<HACK> Trying to remove pFUnit code {path}.")
+        try:
+            shutil.rmtree(path)
+        except:
+            pass
+        if verbose:
+            print(f"</HACK> Done trying to remove pFUnit code {path}.")
+    # </HACK>
+
+    #--------------------------------------------------------------------------
+
+    # Copy the weekly dash restart files.
+    # from_dir = WEEKLY_DASH_RESTART_SRC_DIRECTORY
+    # to_dir = WORKING_DASH_RESTART_DIRECTORY
+    # if verbose:
+    #     print(f"Copying weekly dash restart files from {from_dir} to {to_dir}.")
+    # shutil.copytree(from_dir, to_dir)
 
     #--------------------------------------------------------------------------
 
     # Make a list of module sets to build with.
 
-    # Go to the module sets folder.
-    path = os.path.join(home, 'testingScripts', 'mage_build_test_modules')
-    os.chdir(path)
-    if debug:
-        print(f"cwd = {os.getcwd()}")
-
     # Read the list of  module sets to use for build tests.
-    with open('weekly_dash.lst', encoding='utf-8') as f:
-        lines = f.readlines()
-    module_list_files = [s.rstrip() for s in lines]
+    path = os.path.join(kaiju_home, KAIJU_TEST_SCRIPTS_DIRECTORY,
+                        MODULE_LIST_DIRECTORY, WEEKLY_DASH_LIST_FILE)
+    if verbose:
+        print(f"Reading module list from {path}.")
+    module_list_files, _, _ = common.read_build_module_list_file(path)
     if debug:
         print(f"module_list_files = {module_list_files}")
 
     # <HACK>
     # Just use first module set for now.
     module_list_files = [module_list_files[0]]
+    if verbose:
+        print(f"<HACK> Only using first module set {module_list_files[0]}! </HACK>.")
     # </HACK>
 
-    #--------------------------------------------------------------------------
+    # #--------------------------------------------------------------------------
 
     # Run the tests with each set of modules.
     for module_list_file in module_list_files:
-        if debug:
-            print(f"module_list_file = {module_list_file}")
+        if verbose:
+            print('Performing weekly dash with module set '
+                  f"{module_list_file}.")
 
         # Extract the name of the list.
         module_list_name = module_list_file.replace('.lst', '')
@@ -256,149 +204,196 @@ def main():
 
         # Read this module list file, extracting cmake environment and
         # options, if any.
-        path = os.path.join(home, 'testingScripts', 'mage_build_test_modules',
-                            module_list_file)
-        with open(path, encoding="utf-8") as f:
-            lines = f.readlines()
-        cmake_env = ''
-        label = 'CMAKE_ENV='
-        if lines[0].startswith(label):
-            cmake_env = lines[0][len(label):].rstrip()
-            lines.pop(0)  # Remove cmake environment line.
-        cmake_options = ''
-        label = 'CMAKE_OPTIONS='
-        if lines[0].startswith(label):
-            cmake_options = lines[0][len(label):].rstrip()
-            lines.pop(0)  # Remove cmake options line.
-        module_names = [line.rstrip() for line in lines]
+        path = os.path.join(kaiju_home, KAIJU_TEST_SCRIPTS_DIRECTORY,
+                            MODULE_LIST_DIRECTORY, module_list_file)
+        if debug:
+            print(f"path = {path}")
+        module_names, cmake_environment, cmake_options = (
+            common.read_build_module_list_file(path)
+        )
+        if debug:
+            print(f"module_names = {module_names}")
+            print(f"cmake_environment = {cmake_environment}")
+            print(f"cmake_options = {cmake_options}")
 
         # Add the cmake option for the weekly dash build.
         cmake_options += ' -DCMAKE_BUILD_TYPE=Release'
+        if debug:
+            print(f"cmake_options = {cmake_options}")
 
         # Make a directory for this build, and go there.
-        dir_name = f"weeklyDash_{module_list_name}"
-        build_directory = os.path.join(home, dir_name)
+        dir_name = f"{WEEKLY_DASH_DIRECTORY_PREFIX}{module_list_name}"
+        build_directory = os.path.join(kaiju_home, dir_name)
         if debug:
             print(f"build_directory = {build_directory}")
         os.mkdir(build_directory)
         os.chdir(build_directory)
+        if verbose:
+            print(f"Now in directory {os.getcwd()}.")
 
         # Assemble the commands to load the listed modules.
-        module_cmd = 'module --force purge; module load '
-        module_cmd += ' '.join(module_names)
+        module_cmd = f"module --force purge; module load {' '.join(module_names)}"
         if debug:
             print(f"module_cmd = {module_cmd}")
 
         # Run cmake to build the Makefile.
-        cmd = f"{module_cmd}; {cmake_env} cmake {cmake_options} .."
+        if verbose:
+            print('Running cmake to generate Makefile.')
+        cmd = (f"{module_cmd}; {cmake_environment} cmake {cmake_options} "
+               f"{kaiju_home}")
         if debug:
             print(f"cmd = {cmd}")
-        # <HACK> To ignore cmake error on bcwind.h5 for now.
+        # <HACK> Ignore cmake error on bcwind.h5 for now.
         try:
-            cproc = subprocess.run(cmd, shell=True, check=True, text=True)
+            cproc = subprocess.run(cmd, shell=True, check=True)
         except:
-            pass
+            if verbose:
+                print('<HACK> Ignoring cmake error for bcwind.h5 rule. </HACK>')
+        if debug:
+            print(f"cproc = {cproc}")
         # </HACK>
 
         # Run the build.
         cmd = f"{module_cmd}; make voltron_mpi.x"
         if debug:
             print(f"cmd = {cmd}")
+        if verbose:
+            print('Running make to build code.')
         cproc = subprocess.run(cmd, shell=True, check=True, text=True)
+        if debug:
+            print(f"cproc = {cproc}")
 
-# os.chdir("bin")
+        # Move into the bin directory to run the tests.
+        os.chdir(BIN_DIR)
+        if verbose:
+            print(f"Now in directory {os.getcwd()}.")
 
-# # copy additional files from testing folder
-# subprocess.call("cp ../../testingScripts/weeklyDashGo.xml .", shell=True)
-# subprocess.call("cp ../../testingScripts/weeklyDashGo.pbs .", shell=True)
+        # Copy the restart data and reference results.
+        # if verbose:
+            print('Copying restart data and reference results for weekly dash.')
+        from_glob = os.path.join(WEEKLY_DASH_RESTART_SRC_DIRECTORY, '*')
+        for from_path in glob.glob(from_glob):
+            if debug:
+                print(f"from_path = {from_path}")
+            filename = os.path.split(from_path)[-1]
+            to_path = os.path.join('.', filename)
+            shutil.copyfile(from_path, to_path)
 
-# # Generate new supporting files
-# subprocess.call("genLFM.py -gid Q", shell=True)
-# os.system("mv lfmQ.h5 NEWlfmX.h5")
-# subprocess.call("cda2wind.py -t0 2016-08-09T02:00:00 -t1 2016-08-09T12:00:00 -o NEWbcwind.h5", shell=True)
-# subprocess.call("genRCM.py -o NEWrcmconfig.h5", shell=True)
+        # Generate the LFM grid file.
+        if verbose:
+            print('Creating LFM grid file.')
+        cmd = 'genLFM.py -gid Q'
+        if debug:
+            print(f"cmd = {cmd}")
+        cproc = subprocess.run(cmd, shell=True, check=True)
+        if debug:
+            print(f"cproc = {cproc}")
+        shutil.move('lfmQ.h5', 'NEWlfmX.h5')
 
-# # Copy the restart data
-# subprocess.call("cp ../../dashRestarts/* .", shell=True)
+        # Compare the new LFM grid file to the original.
+        cmd = 'h5diff lfmX.h5 NEWlfmX.h5'
+        if debug:
+            print(f"cmd = {cmd}")
+        cproc = subprocess.run(cmd, shell=True, text=True, capture_output=True)
+        if debug:
+            print(f"cproc = {cproc}")
+        grid_diff = cproc.stdout.rstrip()
+        if debug:
+            print(f"grid_diff = {grid_diff}")
+        if grid_diff != '' or cproc.returncode != 0:
+            message = (
+                f"Quad grid for weekly dash has changed on branch {git_branch_name}."
+                'Case cannot be run. Please re-generate restart data, and ensure the grid change was intentional.'
+            )
+            if not is_test:
+                common.slack_send_message(slack_client, message)
+            else:
+                print(message)
 
-# # Compare new supporting files to originals
-# lfmp = subprocess.Popen("h5diff lfmX.h5 NEWlfmX.h5", shell=True, stdout=subprocess.PIPE)
-# lfmp.wait()
-# gridDiff = lfmp.stdout.read().decode('ascii').rstrip()
-# if(gridDiff != "" or lfmp.returncode != 0):
-#     message = "Quad grid for weekly dash has changed on branch " + gBranch + ". Case cannot be run. Please re-generate restart data, and ensure the grid change was intentional."
-#     if(not isTest):
-#         try:
-#             response = client.chat_postMessage(
-#                 channel="#kaijudev",
-#                 text=message,
-#             )
-#         except SlackApiError as e:
-#            # You will get a SlackApiError if "ok" is False
-#            assert e.response["error"]  # str like 'invalid_auth', 'channel_not_found'
-#     else:
-#         print(message)
-#     exit()
+        # Generate the solar wind boundary condition file.
+        if verbose:
+            print('Creating solar wind initial conditions file.')
+        cmd = 'cda2wind.py -t0 2016-08-09T02:00:00 -t1 2016-08-09T12:00:00 -o NEWbcwind.h5'
+        if debug:
+            print(f"cmd = {cmd}")
+        cproc = subprocess.run(cmd, shell=True, check=True)
+        if debug:
+            print(f"cproc = {cproc}")
 
-# bcp = subprocess.Popen("h5diff bcwind.h5 NEWbcwind.h5", shell=True, stdout=subprocess.PIPE)
-# bcp.wait()
-# windDiff = bcp.stdout.read().decode('ascii').rstrip()
-# if(windDiff != "" or bcp.returncode != 0):
-#     message = "solar wind file for weekly dash has changed on branch " + gBranch + ". Case cannot be run. Please re-generate restart data, and ensure the wind data change was intentional."
-#     if(not isTest):
-#         try:
-#             response = client.chat_postMessage(
-#                 channel="#kaijudev",
-#                 text=message,
-#             )
-#         except SlackApiError as e:
-#            # You will get a SlackApiError if "ok" is False
-#            assert e.response["error"]  # str like 'invalid_auth', 'channel_not_found'
-#     else:
-#         print(message)
-#     exit()
+        # Compare the new solar wind boundary condition file to the original.
+        cmd = 'h5diff bcwind.h5 NEWbcwind.h5'
+        if debug:
+            print(f"cmd = {cmd}")
+        cproc = subprocess.run(cmd, shell=True, text=True, capture_output=True)
+        if debug:
+            print(f"cproc = {cproc}")
+        wind_diff = cproc.stdout.rstrip()
+        if debug:
+            print(f"wind_diff = {wind_diff}")
+        if wind_diff != '' or cproc.returncode != 0:
+            message = (
+                f"Solar wind file for weekly dash has changed on branch {git_branch_name}."
+                'Case cannot be run. Please re-generate restart data, and ensure the wind data change was intentional.'
+            )
+            if not is_test:
+                common.slack_send_message(slack_client, message)
+            else:
+                print(message)
 
-# rcmp = subprocess.Popen("h5diff rcmconfig.h5 NEWrcmconfig.h5", shell=True, stdout=subprocess.PIPE)
-# rcmp.wait()
-# rcmDiff = rcmp.stdout.read().decode('ascii').rstrip()
-# if(rcmDiff != "" or rcmp.returncode != 0):
-#     message = "rcmconfig for weekly dash has changed on branch " + gBranch + ". Case cannot be run. Please re-generate restart data, and ensure the rcmconfig change was intentional."
-#     if(not isTest):
-#         try:
-#             response = client.chat_postMessage(
-#                 channel="#kaijudev",
-#                 text=message,
-#             )
-#         except SlackApiError as e:
-#            # You will get a SlackApiError if "ok" is False
-#            assert e.response["error"]  # str like 'invalid_auth', 'channel_not_found'
-#     else:
-#         print(message)
-#     exit()
+        # Generate the RCM configuration file.
+        cmd = 'genRCM.py -o NEWrcmconfig.h5'
+        if debug:
+            print(f"cmd = {cmd}")
+        cproc = subprocess.run(cmd, shell=True, check=True)
+        if debug:
+            print(f"cproc = {cproc}")
 
-# # Submit the run
+        # Compare the new RCM configuration file to the original.
+        cmd = 'h5diff rcmconfig.h5 NEWrcmconfig.h5'
+        if debug:
+            print(f"cmd = {cmd}")
+        cproc = subprocess.run(cmd, shell=True, text=True, capture_output=True)
+        if debug:
+            print(f"cproc = {cproc}")
+        rcm_diff = cproc.stdout.rstrip()
+        if debug:
+            print(f"rcm_diff = {rcm_diff}")
+        if rcm_diff != '' or cproc.returncode != 0:
+            message = (
+                f"rcmconfig for weekly dash has changed on branch {git_branch_name}."
+                'Case cannot be run. Please re-generate restart data, and ensure the rcmconfig change was intentional.'
+            )
+            if not is_test:
+                common.slack_send_message(slack_client, message)
+            else:
+                print(message)
 
-# # list all modules with spaces between them, to be loaded in the qsub scripts
-# modset = ""
-# for line in myModules:
-#     modset = modset + line + " "
+        # Copy files needed for the weekly dash job.
+        if verbose:
+            print('Copying files needed for weekly dash.')
+        for f in WEEKLY_DASH_TEST_FILES:
+            from_file = os.path.join(kaiju_home, KAIJU_TEST_SCRIPTS_DIRECTORY, f)
+            to_file = os.path.join('.', f)
+            shutil.copyfile(from_file, to_file)
 
-# # submit weekly dash
-# arguments = 'qsub -A ' + account + ' -v MODULE_LIST="' + modset + '",KAIJUROOTDIR=' + home + ' weeklyDashGo.pbs'
-# print(arguments)
-# submission = subprocess.Popen(arguments, shell=True, stdout=subprocess.PIPE)
-# readString = submission.stdout.read()
-# readString = readString.decode('ascii')
-# print(readString)
+        # Create the qsub command to submit a model run with these files.
+        cmd = f"qsub -A {account} -v MODULE_LIST='{' '.join(module_names)}',KAIJUROOTDIR={kaiju_home} weeklyDashGo.pbs"
+        if debug:
+            print(f"cmd = {cmd}")
+        cproc = subprocess.run(cmd, shell=True, check=True, text=True,
+                               capture_output=True)
+        if debug:
+            print(f"cproc = {cproc}")
+        firstJobNumber = cproc.stdout.split('.')[0]
+        if debug:
+            print(f"firstJobNumber = {firstJobNumber}")
 
-# firstJobNumber = readString.split('.')[0]
-# print(firstJobNumber)
+        # Save the job number in a file.
+        with open('jobs.txt', 'w', encoding='utf-8') as f:
+            f.write(f"{firstJobNumber}\n")
 
-# file = open("jobs.txt", 'w+')
-# file.write(firstJobNumber)
-
-# message = "Run started on branch " + gBranch + " as jobid " + firstJobNumber
-# print(message)
+        message = f"Run started on branch {git_branch_name} as jobid {firstJobNumber}."
+        print(message)
 
     if debug:
         print(f"Ending {sys.argv[0]} at {datetime.datetime.now()}")
