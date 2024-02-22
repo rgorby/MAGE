@@ -44,13 +44,13 @@ module remixReader
 
         ! State stuff
         real(rp) :: time
-            !! Current sim time according to whoever's using rmState
+            !! Current sim time according to whoever's in charge of rmState
         integer :: i1=-1,i2=-1
             !! Input file step numbers bracketing time
         type(rmHemi_T) :: rmN1,rmN2,rmS1,rmS2
             !! File data at step numbers bracketing time
         logical :: doStatic
-            !! Whether or not we are out of valid remix data and should switch to static operation
+            !! Whether or not we are out of valid remix time bounds and should switch to static operation
         type(ShellGridVar_T), dimension(NORTH:SOUTH) :: nsFac, nsSigP, nsSigH, nsPot
             !! Time-interpolated North/South hemisphere shellVar objects
     end type rmState_T
@@ -63,7 +63,6 @@ module remixReader
 !------
 
     subroutine initRM(ftag,inpXML,rmState)
-        !character(len=strLen), intent(in) :: ftag
         character(len=*), intent(in) :: ftag
             !! Filename tag in this format: <ftag>.mix.h5
         type(XML_Input_T), intent(in) :: inpXML
@@ -80,6 +79,7 @@ module remixReader
             !! # of non-ghost cell centers
         integer :: j, h
             !! Loop indices
+        real(rp) :: Rp_m, Ri_rp
         
         write(rmState%rmF,'(2a)') trim(adjustl(ftag)),'.mix.h5'
         write(*,*) 'Initializing RMState w/ ', trim(rmState%rmF)
@@ -93,6 +93,8 @@ module remixReader
         call ClearIO(IOVars)
         call AddInVar(IOVars,"X")
         call AddInVar(IOVars,"Y")
+        call AddInVar(IOVars,"Ri_m")  ! Attribute
+        call AddInVar(IOVars,"Rp_m")  ! Attribute
         call ReadVars(IOVars,.true.,rmState%rmF)
 
 
@@ -103,8 +105,13 @@ module remixReader
         !! But, the outputted variable data only goes from phi [0,2Pi-dphi]
         !! So in order to comply with shellGrid expectations, we need to copy first phi column to end of array as well
         !! So the final size of the arrays we care about are (Nt-1,Np)
+        !! Also, keep in mind that mix.h5 drops the pole theta points, so we have 1 less theta than run-time mix. Doesn't matter here though
         Np = IOVars(FindIO(IOVars, "X"))%dims(1)
         Nt = IOVars(FindIO(IOVars, "X"))%dims(2)
+
+        ! Get ionosphere radius in units of Rp
+        Rp_m  = IOVars(FindIO(IOVars, "Rp_m"))%data(1)
+        Ri_rp = IOVars(FindIO(IOVars, "Ri_m"))%data(1) / Rp_m
 
         ! One day we will get grid in this format directly from the mix.h5 file
         ! But today is not that day
@@ -140,8 +147,8 @@ module remixReader
             ph1D(Np) = ph1D(Np) + 2.0_rp*PI
         endif
         associate(sh=>rmState%shGr)
-        write(*,*)ph1D
-        call GenShellGrid(sh, th1D, ph1D)
+        
+        call GenShellGrid(sh, th1D, ph1D, "remixReader", radO=Ri_rp)
 
         ! Hooray we have a shellGrid now
         ! Init our vars
@@ -174,7 +181,7 @@ module remixReader
             
             associate(hsg=>rmHemi%shGr)
             
-                ! Generate our own copy of the parent shellGrid
+            ! Generate our own copy of the parent shellGrid
             call GenChildShellGrid(shGr, hsg)
 
             ! Init our variables

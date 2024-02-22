@@ -56,8 +56,8 @@ program testNewRMS
         allocate(i0_arr(tmpVarSame%isv:tmpVarSame%iev))
         allocate(j0_arr(tmpVarSame%jsv:tmpVarSame%jev))
 
-        call InterpShellVar_TSC_SG(rmS%nsFac(NORTH), rmS%shGr, rmS%shGr, tmpVarSame)
-        call InterpShellVar_TSC_SG(rmS%nsFac(NORTH), rmS%shGr, rmS%shGr, tmpVarCC)
+        call InterpShellVar_TSC_SG(rmS%shGr, rmS%nsFac(NORTH), rmS%shGr, tmpVarSame)
+        call InterpShellVar_TSC_SG(rmS%shGr, rmS%nsFac(NORTH), rmS%shGr, tmpVarCC)
 
         !do j=tmpVarSame%jsv,tmpVarSame%jev
         !    do i=tmpVarSame%isv,tmpVarSame%iev
@@ -98,7 +98,7 @@ program testNewRMS
 
 
         ! Now interp back to corners
-        call InterpShellVar_TSC_SG(tmpVarCC, rmS%shGr, rmS%shGr, tmpVarSame)
+        call InterpShellVar_TSC_SG(rmS%shGr, tmpVarCC, rmS%shGr, tmpVarSame)
         call dump(fOutname, rmS%shGr, tmpVarSame, "tmpVarC2CC2C")
 
         stop

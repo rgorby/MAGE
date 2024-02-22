@@ -42,7 +42,7 @@ module testGridGen
             phis(j) = (j-1)*dph
         enddo
 
-	    call GenShellGrid(sh, thetas, phis)
+	    call GenShellGrid(sh, thetas, phis, 'shTest', radO=1.1)
 
 
         @assertEqual(Npnt-1, sh%Nt, "sh%Nt doesn't match")

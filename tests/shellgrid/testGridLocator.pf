@@ -156,4 +156,6 @@ module testGridLocator
         enddo
     end subroutine
 
+    ! TODO: Test what happens when we request a location outside of I/J bounds
+
 end module testGridLocator

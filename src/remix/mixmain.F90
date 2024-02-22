@@ -30,6 +30,7 @@ module mixmain
       if (.not.allocated(I)) allocate(I(size(hmsphrs)))
       
       I%rad_iono_m = RIonE*1.e+6 ! Default to RIonE. To change, overwrite directly after the init_mix call
+      I%rad_planet_m = REarth
       if (present(isRestart)) doRestart = isRestart
       if (present(optIO)) then
           doIO = optIO

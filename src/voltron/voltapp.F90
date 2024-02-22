@@ -357,7 +357,8 @@ module voltapp
             call init_mix(vApp%remixApp%ion,[NORTH, SOUTH],RunID=RunID,isRestart=isRestart,nRes=vApp%IO%nRes,optIO=vApp%writeFiles)
         endif
         
-        vApp%remixApp%ion%rad_iono_m = vApp%planet%ri_m
+        vApp%remixApp%ion%rad_iono_m  = vApp%planet%ri_m
+        vApp%remixApp%ion%rad_planet_m = vApp%planet%rp_m
         if (vApp%doGCM) then
             write(*,*) "Initializing GCM ..."
             call init_gcm(vApp%gcm,vApp%remixApp%ion,gApp%Model%isRestart)

@@ -20,6 +20,10 @@ module shellGrid
     !> Data type for holding 2D spherical shell grid
     type ShellGrid_T
         
+        character(len=strLen) :: name
+            !! Name assigned to this ShellGrid instance, determined by the model initializing it
+        real(rp) :: radius
+            !! [Rp, planetary radii] Radius that this ShellGrid lives at
         integer :: Nt,Np
             !! Number of colat/lon cells (theta, phi)
         real(rp), dimension(:), allocatable :: th, ph, lat
@@ -56,6 +60,8 @@ module shellGrid
         !> Subgrid information
         !> ShellGrids that are subgrids of other shellGrids store info about their parent grid
         logical :: isChild = .false.
+        character(len=strLen) :: parentName
+            !! Name of the parent grid  that this one derives from
         integer :: bndis,bndie,bndjs,bndje
             !! Indices of parent grid that bound this grid
         ! TODO: add unique identifiers for this SG, and for potential paren't SG
@@ -83,7 +89,8 @@ module shellGrid
             !! e.g. good for interpolation, etc.
 
 
-        logical, dimension(4) :: bcsApplied 
+        ! Commenting out for now, I think we will ultimately not use this
+        !logical, dimension(4) :: bcsApplied 
             !! Flag indicating whether BCs were applied (ghosts filled) for [n,s,e,w] boundaries
 
     end type ShellGridVar_T
@@ -94,11 +101,16 @@ module shellGrid
     !> Create a shell grid data structure
     !> Takes Theta and Phi 1D arrays (uniform or not)
     !> Decides if isPeriodic and isPhiUniform based on the Phi array passed in
-    subroutine GenShellGrid(shGr,Theta,Phi,nGhosts)
+    subroutine GenShellGrid(shGr,Theta,Phi,name,nGhosts,radO)
         type(ShellGrid_T), intent(inout) :: shGr
         real(rp), dimension(:), intent(in) :: Theta, Phi
+        character(len=*) :: name
+            !! Name identifier used for this grid instance
         integer, optional, dimension(4), intent(in) :: nGhosts 
             !! How many ghosts on each side (n,s,e,w)
+        real(rp), optional, intent(in) :: radO
+            !! Radius in planetary radii from planet center this grid lives at
+            !! WARNING: Will default to 1 if not provided! That should rarely be the case
         
         integer :: i,j
         real(rp) :: delta
@@ -302,6 +314,21 @@ module shellGrid
 
         end associate
 
+        shGr%name = name
+
+        if (present(radO)) then
+            ! Try to trap for people thinking units are meters or km
+            if (radO > 10) then
+                write(*,*) "WARNING for ShellGrid with name: ",name
+                write(*,*) "Radius being set to ",radO," planetary radii. That seems kinda big."
+            endif
+            shGr%radius = radO
+        else
+            write(*,*) "WARNING for ShellGrid with name: ",name
+            write(*,*) "Radius being set to 1 planetary radius. That seems kinda low."
+            shGr%radius = 1.0_rp
+        endif
+
     end subroutine GenShellGrid
 
 
@@ -354,8 +381,8 @@ module shellGrid
 
 
         shellVar%data = 0.  ! initialize to 0
-        shellVar%mask = .false.  ! Up to user to determine which points are valid
 
+        ! Init mask, either by maskO or defaults
         if (present(maskO)) then
             if ( all(shape(shellVar%mask) == shape(maskO)) ) then
                 shellVar%mask = maskO
@@ -363,10 +390,9 @@ module shellGrid
                 write(*,*)"ERROR in initShellVar: maskO shape doesn't match."
                 stop
             endif
+        else
+            shellVar%mask = .false.  ! Up to user to determine which points are valid
         endif
-        
-        ! unset all BC's
-        shellVar%bcsApplied = .false.
         
     end subroutine initShellVar
 
@@ -444,15 +470,16 @@ module shellGrid
             endif
 
             ! Otherwise, this ghost definition is okay
-            call GenShellGrid(cSG, pSG%th(is:ie), pSG%ph(js:je), nGhosts=nGhosts)
+            call GenShellGrid(cSG, pSG%th(is:ie), pSG%ph(js:je), pSG%name, nGhosts=nGhosts, radO=pSG%radius)
 
         else
             ! No ghosts defined, go with default
-            call GenShellGrid(cSG, pSG%th(is:ie), pSG%ph(js:je))
+            call GenShellGrid(cSG, pSG%th(is:ie), pSG%ph(js:je), pSG%name, radO=pSG%radius)
         endif
         
 
         cSG%isChild = .true.
+        cSG%parentName = pSG%name
         cSG%bndis = is
         cSG%bndie = ie
         cSG%bndjs = js

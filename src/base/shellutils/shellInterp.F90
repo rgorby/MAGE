@@ -14,21 +14,21 @@ module shellInterp
     contains
 
 
-    ! InterpShellVar
-    ! InterpShellVar_ChildToParent
-    ! InterpShellVar_ParentToChild
+    ! InterpShellVar - TODO
+    ! InterpShellVar_ChildToParent - TODO
+    ! InterpShellVar_ParentToChild - TODO
     ! InterpShellVar_TSC_SG
     ! InterpShellVar_TSC_pnt
 
-    subroutine InterpShellVar(sgVar, sgSource, sgDest, varOut)
+    subroutine InterpShellVar(sgSource, sgVar, sgDest, varOut)
         !! This is meant to be the highest-abstraction option for interpolation
         !! Not expected to be used very frequently, but maybe it makes sense for some simple variables
         !! Basically, the source and destination are well-defined within ShellGrid's intended use, 
         !!   so we can make the best decisions here on how to interpolate this variable
-        type(ShellGridVar_T), intent(in) :: sgVar
-            !! the variable we are interpolating
         type(ShellGrid_T)   , intent(in) :: sgSource
             !! Source shellGrid that sgVar lives on
+        type(ShellGridVar_T), intent(in) :: sgVar
+            !! the variable we are interpolating
         type(ShellGrid_T)   , intent(in) :: sgDest
             !! The destination grid
         type(ShellGridVar_T), intent(inout) :: varOut
@@ -38,12 +38,12 @@ module shellInterp
     end subroutine InterpShellVar
 
 
-    subroutine InterpShellVar_TSC_SG(sgVar, sgSource, sgDest, varOut, dThetaO, dPhiO)
+    subroutine InterpShellVar_TSC_SG(sgSource, sgVar, sgDest, varOut, dThetaO, dPhiO)
         !! Interpolate a ShellGridVar to another ShellGrid using the Triangle-Schaped Cloud method
-        type(ShellGridVar_T), intent(in) :: sgVar
-            !! the variable we are interpolating
         type(ShellGrid_T)   , intent(in) :: sgSource
             !! Source shellGrid that sgVar lives on
+        type(ShellGridVar_T), intent(in) :: sgVar
+            !! the variable we are interpolating
         type(ShellGrid_T)   , intent(in) :: sgDest
             !! The destination grid
         type(ShellGridVar_T), intent(inout) :: varOut
@@ -56,19 +56,18 @@ module shellInterp
 
         integer :: extraPnt
         integer :: i,j
-        real(rp), dimension(:), allocatable :: dTheta, dPhi
+        real(rp), dimension(:), allocatable :: dTheta
+        real(rp), dimension(:), allocatable :: dPhi
+        logical :: goodInterp
 
         if ( present(dThetaO) ) then
             ! First, make sure they are the same shape
-            if (size(dTheta) .ne. size(dThetaO)) then
+            if (size(dTheta) .ne. sgVar%Ni) then
                 write(*,*) "WARNING: InterpShellVar_TSC_SG got a mismatched dThetaO shape. Dying."
                 stop
             endif
             ! Otherwise, we can safely copy one to the other
-            ! First, allocate the right size
-            extraPnt = merge(1, 0, sgVar%loc == SHCORNER .or. sgVar%loc == SHFTH)
-            allocate(dTheta(sgSource%isg:sgSource%ieg+extraPnt))
-            ! Then copy
+            allocate(dTheta(sgVar%isv:sgVar%iev))
             dTheta = dThetaO
         else
             ! If dTheta not present, we calculate it ourselves
@@ -84,15 +83,12 @@ module shellInterp
 
         if ( present(dPhiO) ) then
             ! First, make sure they are the same shape
-            if (size(dPhi) .ne. size(dPhiO)) then
+            if (size(dPhiO) .ne. sgVar%Nj) then
                 write(*,*) "WARNING: InterpShellVar_TSC_SG got a mismatched dPhiO shape. Dying."
                 stop
             endif
             ! Otherwise, we can safely copy one to the other
-            ! First, allocate the right size
-            extraPnt = merge(1, 0, sgVar%loc == SHCORNER .or. sgVar%loc == SHFPH)
-            allocate(dPhi(sgSource%jsg:sgSource%jeg+extraPnt))
-            ! Then copy
+            allocate(dPhi(sgVar%jsv:sgVar%jev))
             dPhi = dPhiO
         else
             ! If dPhi not present, we calculate it ourselves
@@ -108,19 +104,24 @@ module shellInterp
         ! Which destination grid locations we loop over depends on the destination variable location
         select case(varOut%loc)
             case(SHCC)
-                ! This indexing works just fine, but I'm not gonna do it cause its less clear what we're actually looping over
                 !do j=varOut%jsv,varOut%jev
                 !    do i=varOut%isv,varOut%iev
+                !^^^ This indexing works just fine, but I'm not gonna do it cause its less clear what we're actually looping over
                 !$OMP PARALLEL DO default(shared) collapse(1) &
                 !$OMP schedule(dynamic) &
                 !$OMP private(i,j)
                 do j=sgDest%jsg,sgDest%jeg
                     do i=sgDest%isg,sgDest%ieg
                         if (.not. varOut%mask(i,j)) cycle
-                        varOut%data(i,j) = InterpShellVar_TSC_pnt( \
-                                            sgVar, sgSource,\
-                                            dTheta, dPhi,\
-                                            sgDest%thc(i), sgDest%phc(j))
+                        ! NOTE/TODO: This is where we would do transformations of destination grid's theta dn phi to source grid
+                        ! in the case where they have different coordinate systems
+                        call InterpShellVar_TSC_pnt( \
+                                sgSource, sgVar,\
+                                dTheta, dPhi,\
+                                sgDest%thc(i), sgDest%phc(j),\
+                                varOut%data(i,j), goodInterp)
+                        ! TODO: Handle case where goodInterp is false here
+                        ! Probably will be model dependent. Maybe we return a 2D goodInterp array if an optional array is provided to us
                     enddo
                 enddo
             case(SHCORNER)
@@ -130,10 +131,13 @@ module shellInterp
                 do j=sgDest%jsg,sgDest%jeg+1
                     do i=sgDest%isg,sgDest%ieg+1
                         if (.not. varOut%mask(i,j)) cycle
-                        varOut%data(i,j) = InterpShellVar_TSC_pnt( \
-                                            sgVar, sgSource,\
-                                            dTheta, dPhi,\
-                                            sgDest%th(i), sgDest%ph(j))
+                        ! NOTE/TODO: This is where we would do transformations of destination grid's theta dn phi to source grid
+                        ! in the case where they have different coordinate systems
+                        call InterpShellVar_TSC_pnt( \
+                                sgSource, sgVar,\
+                                dTheta, dPhi,\
+                                sgDest%th(i), sgDest%ph(j),\
+                                varOut%data(i,j), goodInterp)
                     enddo
                 enddo
             case(SHFTH)
@@ -143,10 +147,13 @@ module shellInterp
                 do j=sgDest%jsg,sgDest%jeg
                     do i=sgDest%isg,sgDest%ieg+1
                         if (.not. varOut%mask(i,j)) cycle
-                        varOut%data(i,j) = InterpShellVar_TSC_pnt( \
-                                            sgVar, sgSource,\
-                                            dTheta, dPhi,\
-                                            sgDest%th(i), sgDest%phc(j))
+                        ! NOTE/TODO: This is where we would do transformations of destination grid's theta dn phi to source grid
+                        ! in the case where they have different coordinate systems
+                        call InterpShellVar_TSC_pnt( \
+                                sgSource, sgVar,\
+                                dTheta, dPhi,\
+                                sgDest%th(i), sgDest%phc(j),\
+                                varOut%data(i,j), goodInterp)
                     enddo
                 enddo
             case(SHFPH)
@@ -156,32 +163,44 @@ module shellInterp
                 do j=sgDest%jsg,sgDest%jeg+1
                     do i=sgDest%isg,sgDest%ieg
                         if (.not. varOut%mask(i,j)) cycle
-                        varOut%data(i,j) = InterpShellVar_TSC_pnt( \
-                                            sgVar, sgSource,\
-                                            dTheta, dPhi,\
-                                            sgDest%thc(i), sgDest%ph(j))
+                        ! NOTE/TODO: This is where we would do transformations of destination grid's theta dn phi to source grid
+                        ! in the case where they have different coordinate systems
+                        call InterpShellVar_TSC_pnt( \
+                                sgSource, sgVar,\
+                                dTheta, dPhi,\
+                                sgDest%thc(i), sgDest%ph(j),\
+                                varOut%data(i,j), goodInterp)
                     enddo
                 enddo
         end select
 
+        ! Fill j ghosts with active cell data
         call wrapJ_SGV(sgDest, varOut)
         
 
     end subroutine InterpShellVar_TSC_SG
 
 
-    function InterpShellVar_TSC_pnt(sgVar, sgSource, dTheta, dPhi, t, pin, goodInterpO) result(Qinterp)
+    subroutine InterpShellVar_TSC_pnt(sgsource, sgVar, dTheta, dPhi, t, pin, Qinterp, goodInterpO)
         !! Given the source information, interpolate sgVar to point (t,p) and return as Qout
-        type(ShellGridVar_T), intent(in) :: sgVar
         type(ShellGrid_T   ), intent(in) :: sgSource
+            !! Source ShellGrid
+        type(ShellGridVar_T), intent(in) :: sgVar
+            !! Variable relative to provided ShellGrid
         real(rp), dimension(sgVar%isv:sgVar%iev), intent(in) :: dTheta
+            !! Cell width in theta, centered at variable positions on source grid
         real(rp), dimension(sgVar%jsv:sgVar%jev), intent(in) :: dPhi
+            !! Cell width in phi, centered at variable positions on source grid
         real(rp), intent(in) :: t
+            !! Theta coordinate with respect to source grid
         real(rp), intent(in) :: pin
-        logical, optional :: goodInterpO
+            !! Phi coordinate with respect to source grid
+        real(rp), intent(out) :: Qinterp
+            !! Interpolated value we are returning
+        logical, optional, intent(inout) :: goodInterpO
             !! True if we are returning a meaningful interpolated value
 
-        real(rp) :: Qinterp
+        
         real(rp) :: p
         integer :: i0, j0
             !! i and j locations of point t,p
@@ -222,25 +241,19 @@ module shellInterp
         call getShellJLoc(sgSource, sgVar%loc, p, j0, p0)  ! Sets j0 and p0 to closest i/phi   values to interp point p
 
         if (i0 > sgVar%iev .or. i0 < sgVar%isv) then
-            write(*,*) "theta oob",i0
+            write(*,*) "ERROR in InterpShellVar_TSC_pnt: Theta out of bounds. idx=",i0
             return
         endif
 
         if (j0 > sgVar%jev .or. j0 < sgVar%jsv) then
-            write(*,*) "phi oob",j0
-            write(*,*)"How did you manage that?"
+            write(*,*) "ERROR in InterpShellVar_TSC_pnt: Phi out of bounds. idx=",j0
+            write(*,*) "This wasn't supposed to be possible, good job."
             return
         endif
-
-        !if ( (i0 < sgSource%isg) .or. (i0 > sgSource%isg + sgVar%Ni - 1) ) then
-        !    write(*,*)"ERROR: InterpShellVar_TSC_pnt can't handle points outside of grid yet"
-        !    stop
-        !endif
 
         ! Make sure data is good at this point
         if (.not. sgVar%mask(i0,j0)) then
             if (present(goodInterpO)) goodInterpO = .false.
-            write(*,*)"ah",i0,j0
             return
         endif
 
@@ -340,7 +353,7 @@ module shellInterp
 
         end subroutine TSCweight1D
 
-    end function InterpShellVar_TSC_pnt
+    end subroutine InterpShellVar_TSC_pnt
 
 
     subroutine getShellILoc(shGr, varLoc, t, iLoc, tLocO)
@@ -358,11 +371,11 @@ module shellInterp
             if ( (t>shGr%maxGTheta) ) then                
                 iLoc = shGr%ieg+ceiling((t-shGr%maxGTheta)/(shGr%th(shGr%ieg+1)-shGr%th(shGr%ieg)))
                 tLoc = shGr%thc(shGr%ieg)  ! Just return the last available theta value
-                write(*,*)"theta going out of bounds",t,shGr%maxGTheta
+                !write(*,*)"theta going out of bounds",t,shGr%maxGTheta
             else if ( (t<shGr%minGTheta) ) then
                 iLoc = shGr%isg-ceiling((shGr%minGTheta-t)/(shGr%th(shGr%isg+1)-shGr%th(shGr%isg)))
                 tLoc = shGr%thc(shGr%isg)
-                write(*,*)"theta going out of bounds",t,shGr%minGTheta
+                !write(*,*)"theta going out of bounds",t,shGr%minGTheta
             else
                 ! If still here then the lat bounds are okay, find closest lat cell center
                 iLoc = minloc( abs(shGr%thc-t),dim=1 )
@@ -378,11 +391,11 @@ module shellInterp
             if ( (t>shGr%maxTheta) ) then
                 iLoc = shGr%ieg+1 + floor( 0.5 + (t-shGr%maxGTheta)/(shGr%th(shGr%ieg+1)-shGr%th(shGr%ieg)) )
                 tLoc = shGr%th(shGr%ieg+1)  ! Just return the last available theta value
-                write(*,*)"theta going out of bounds",t,shGr%maxGTheta
+                !write(*,*)"theta going out of bounds",t,shGr%maxGTheta
             else if ( (t < shGr%minTheta)) then
                 iLoc = shGr%isg   - floor( 0.5 + (shGr%minGTheta-t)/(shGr%th(shGr%isg+1)-shGr%th(shGr%isg)) )
                 tLoc = shGr%th(shGr%isg)
-                write(*,*)"theta going out of bounds",t,shGr%maxGTheta
+                !write(*,*)"theta going out of bounds",t,shGr%maxGTheta
             else
                 ! If still here then the lat bounds are okay, find closest lat cell corner
                 iLoc = minloc( abs(shGr%th-t),dim=1 )
@@ -414,7 +427,8 @@ module shellInterp
         ! but do this check here in case it's needed in the future
         if ( (p>shGr%maxPhi) .or. (p<shGr%minPhi) ) then
             ! Point not on this grid, get outta here
-            write(*,*) "ERROR in getShellJLoc, phi somehow outside of bounds"
+            write(*,*) "ERROR in getShellJLoc, phi outside of bounds"
+            write(*,*) p, shGr%minPhi, shGr%maxPhi
             stop
         endif
 
@@ -452,252 +466,7 @@ module shellInterp
 
     end subroutine getShellJLoc
 
-    ! Interpolate on grid shGr a cell-centered variable at point t(heta),p(hi)
-    ! Qin is the shellVar
-    ! Result is Qinterp
-    ! Optional : isGood (Nt,Np), a mask for good/bad data
-    ! Optional : isGoodP, whether Qinterp is a good value
-    subroutine InterpShell(shGr,Qin,t,pin,Qinterp,isGoodP,isGood)
-        type(ShellGrid_T), intent(in) :: shGr
-            !! ShellGrid of source grid
-        type(ShellGridVar_T), intent(in)  :: Qin
-            !! Variable stored on source grid
-        real(rp), intent(out) :: Qinterp
-            !! Value we return
-        real(rp), intent(in)  :: t,pin
-            !! Theta and Phi location of point we are interpolating to
-        logical , intent(out), optional :: isGoodP
-        logical , intent(in) , optional :: isGood(shGr%Nt,shGr%Np) ! TODO: consider if this should include ghosts
-
-        integer :: i0,j0,ij0(2),di,dj
-        integer :: ip,jp,n
-        real(rp) :: p,dt,dp,eta,zeta
-        real(rp), dimension(NumTSC) :: Ws,Qs
-        logical , dimension(NumTSC) :: isGs
-        real(rp), dimension(-1:+1) :: wE,wZ
-
-
-        if (Qin%loc .ne. SHCC) then
-            write(*,*) "InterpShell only interpolates cell-centered data right now, goodbye"
-            stop
-        endif
-
-        ! if ( (t>shGr%maxTheta).and.(.not.shGr%bcsApplied(SOUTH)) ) then
-        !     ! Point inside ghosts but BCs not applied, get outta here
-        !     return
-        ! endif
-
-        ! if ( (t<shGr%minTheta).and.(.not.shGr%bcsApplied(NORTH)) ) then
-        !     ! Point inside ghosts but BCs not applied, get outta here
-        !     return
-        ! endif
-
-
-        Qinterp = 0.0
-        if (present(isGoodP)) then
-            isGoodP = .false.
-        endif
-
-        ! make sure phi is inside the [0,2pi] interval
-        ! we do this inside GetShellIJ, but do it here also just in case phi is used here
-        p = modulo(pin,2*PI)
-
-        ! also make sure the requested theta is in bounds
-        if ( (t<0.).or.(t>PI) ) then
-            write(*,*) "Inside InterpShell."
-            write(*,*) "Theta should be in the range [0,PI]. Quitting..."
-            stop
-        end if
-        
-        ! Note, check inside if the point is in our grid (including ghosts)
-        ! Note, all points are within the longitude bounds because we only use periodic grids
-        ! If the point is outside of latitude bounds, ij0(1) will be set to a nominal cell number extrapolated outside of bounds
-        ! (i.e., how many cells outside of the boundary are we)
-        call GetShellIJ(shGr,t,p,ij0) !Find the i,j cell this point is in
-
-        i0 = ij0(1)
-        j0 = ij0(2)
-
-        if (present(isGood)) then
-            ! Check cell is good
-            if (.not. isGood(i0,j0)) return
-        endif
-
-        ! Have central cell and know that it's good
-        if (present(isGoodP)) then
-            isGoodP = .true.
-        end if
-
-        ! Trap for near-pole cases
-
-        if (shGr%doNP .and. (i0==1)) then
-            call interpPole(shGr,Qin,t,pin,Qinterp)
-
-            ! Handle north pole and return
-            write(*,*) "Not implemented!"
-            stop
-        endif
-
-        ! First, if active grid has poles 
-        if (shGr%doSP .and. (i0==shGr%Nt)) then
-            ! Handle south pole and return
-            write(*,*) "Not implemented!"
-            stop
-        endif
-
-        ! Now, if ghost grid has poles
-        if (shGr%ghostSP .and. (i0==shGr%ieg)) then
-        endif
-
-        if (shGr%ghostNP .and. (i0==shGr%isg)) then
-        endif
-
-        ! Note: If still here we know i0 isn't on the boundary
-
-        ! Calculate local mapping
-        dt = shGr%th(i0+1)-shGr%th(i0) 
-        dp = shGr%ph(j0+1)-shGr%ph(j0)
-
-        eta  = ( t - shGr%thc(i0) )/dt
-        zeta = ( p - shGr%phc(j0) )/dp
-
-
-        call ClampMapVar(eta)
-        call ClampMapVar(zeta)
-
-        ! Calculate weights
-        call TSCweight1D(eta ,wE)
-        call TSCweight1D(zeta,wZ)
-
-        ! Now loop over surrounding cells and get weights/values
-        n = 1
-        do dj=-1,+1
-            do di=-1,+1
-                ip = i0+di
-                jp = j0+dj
-                ! Wrap around boundary
-                if (jp<1)       jp = shGr%Np
-                if (jp>shGr%Np) jp = 1
-
-                ! Do zero-grad for theta
-                if (ip<1)         ip = 1
-                if (ip>shGr%Nt) ip = shGr%Nt
-
-                Qs(n) = Qin%data(ip,jp)
-                Ws(n) = wE(di)*wZ(dj)
-                
-                if (present(isGood)) then
-                    isGs(n) = isGood(ip,jp)
-                else
-                    isGs(n) = .true.
-                endif
-                if (.not. isGs(n)) Ws(n) = 0.0
-
-                n = n + 1
-            enddo
-        enddo !dj
-
-        ! Renormalize
-        Ws = Ws/sum(Ws)
-
-        ! Get final value
-        Qinterp = dot_product(Qs,Ws)
-        
-    ! Have some internal functions
-    contains
-    
-        ! Clamps mapping in [-0.5,0.5]
-        subroutine ClampMapVar(ez)
-            REAL(rp), intent(inout) :: ez
-            if (ez<-0.5) ez = -0.5
-            if (ez>+0.5) ez = +0.5
-        end subroutine ClampMapVar
-
-        ! 1D triangular shaped cloud weights
-        ! 1D weights for triangular shaped cloud interpolation
-        ! Assuming on -1,1 reference element, dx=1
-        ! Check for degenerate cases ( |eta| > 0.5 )
-        subroutine TSCweight1D(eta,wE)
-            real(rp), intent(in)  :: eta
-            real(rp), intent(out) :: wE(-1:1)
-
-            wE(-1) = 0.5*(0.5-eta)**2.0
-            wE( 1) = 0.5*(0.5+eta)**2.0
-            wE( 0) = 0.75 - eta**2.0
-
-        end subroutine TSCweight1D
-
-    end subroutine InterpShell
-
-    ! For a shGr type find the ij cell that the point t(theta)/p(hi) is in
-    ! NOTE: Returns 0,0 if the point isn't in the grid
-    subroutine GetShellIJ(shGr,t,pin,ij0)
-        type(ShellGrid_T), intent(in) :: shGr
-        real(rp), intent(in) :: t,pin
-        integer, intent(out) :: ij0(2)
-
-        real(rp) :: p,dp,dJ
-        integer  :: iX,jX
-
-        ! make sure longitude is inside the [0,2pi] interval
-        p = modulo(pin,2*PI)
-
-        ! note, shellGrid only implements [0,2pi] grids
-        ! but do this check here in case it's needed in the future
-        if ( (p>shGr%maxPhi) .or. (p<shGr%minPhi) ) then
-            ! Point not on this grid, get outta here
-            return
-        endif
-
-        ij0 = 0
-
-        ! First get lon part, b/c we always assume periodic
-        ! so always on the grid in the phi direction
-        if (shGr%isPhiUniform) then
-            ! note this is faster, thus preferred
-            dp = shGr%phc(2)-shGr%phc(1)
-            dJ = p/dp
-            jX = floor(dJ) + 1
-        else
-            jX = minloc( abs(shGr%phc-p),dim=1 ) ! Find closest lat cell center
-        end if
-
-        ! Now do latitude, this is more complicated
-
-        ! Do some short circuiting
-        if ( (t>shGr%maxGTheta) ) then
-            ! Point outside ghost grid
-            ! get an idea of where we are using the last available deltaTheta
-            ! and get outta here
-            
-            iX = shGr%ieg+ceiling((t-shGr%maxGTheta)/(shGr%th(shGr%ieg+1)-shGr%th(shGr%ieg)))
-            return
-        endif
-
-        if ( (t<shGr%minGTheta) ) then
-            ! Point outside ghost grid
-            ! get an idea of where we are using the last available deltaTheta
-            ! and get outta here
-            
-            iX = shGr%isg-ceiling((shGr%minGTheta-t)/(shGr%th(shGr%isg+1)-shGr%th(shGr%isg)))
-            return
-        endif
-
-        ! If still here then the lat bounds are okay, let's do this
-
-        ! Get lat part
-        iX = minloc( abs(shGr%thc-t),dim=1 ) ! Find closest lat cell center
-
-        ! ! Impose bounds just in case
-        ! iX = max(iX,1)
-        ! iX = min(iX,shGr%Nt)
-        ! jX = max(jX,1)
-        ! jX = min(jX,shGr%Np)
-
-        ij0 = [iX,jX]
-
-    end subroutine GetShellIJ
-
+    !! Big TODO here
     subroutine interpPole(shGr,Qin,t,pin,Qinterp)
         type(ShellGrid_T), intent(in) :: shGr
         type(ShellGridVar_T), intent(in)  :: Qin
@@ -805,8 +574,7 @@ module shellInterp
 
     function Diff1D_4halfh(Q,is,ie,i0) result(Qp)
         !! Use 4-point stencil to calculate first derivative of coordinates
-        !! This is for the case where position we are calculating the difference for is at Q(i0+1/2)
-        !! e.g. we ar using corners to calculate the difference at cell center
+        !! This is for the case where we are using corners to calculate the difference at cell center
         !! adapted from chimp/ebinit.F90
         integer, intent(in) :: is,ie
             !! Start and end indices of bounding grid

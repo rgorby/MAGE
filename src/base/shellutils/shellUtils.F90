@@ -1,4 +1,4 @@
-! Heap of helpful functions for ShellGrids and ShellGridVars
+! Heap of misc. helpful functions for ShellGrids and ShellGridVars
 module shellUtils
 
     use shellGrid
