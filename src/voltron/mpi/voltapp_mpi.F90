@@ -355,7 +355,7 @@ module voltapp_mpi
         call mpi_bcast(vApp%gAppLocal%Model%t,    1, MPI_MYFLOAT, vApp%myRank, vApp%voltMpiComm, ierr)
         call mpi_bcast(vApp%gAppLocal%Model%MJD0, 1, MPI_MYFLOAT, vApp%myRank, vApp%voltMpiComm, ierr)
         call mpi_bcast(vApp%gAppLocal%Model%tFin, 1, MPI_MYFLOAT, vApp%myRank, vApp%voltMpiComm, ierr)
-        call mpi_bcast(vApp%gAppLocal%Model%dt,   1, MPI_MYFLOAT, vApp%myRank, vApp%voltMpiComm, ierr)
+        !call mpi_bcast(vApp%gAppLocal%Model%dt,   1, MPI_MYFLOAT, vApp%myRank, vApp%voltMpiComm, ierr)
 
         ! receive updated gamera parameters from gamera rank
         call mpi_recv(vApp%gAppLocal%Model%dt0, 1, MPI_MYFLOAT, MPI_ANY_SOURCE, 97510, vApp%voltMpiComm, MPI_STATUS_IGNORE, ierr)
@@ -371,7 +371,7 @@ module voltapp_mpi
                        1, MPI_MYFLOAT, vApp%myRank, vApp%voltMpiComm, ierr)
         call mpi_bcast(vApp%IO%tsOut, 1, MPI_INTEGER, vApp%myRank, vApp%voltMpiComm, ierr)
 
-	! create the MPI datatypes needed to transfer state data
+        ! create the MPI datatypes needed to transfer state data
         call createVoltDataTypes(vApp, iRanks, jRanks, kRanks)
 
         deallocate(neighborRanks, inData, outData, iRanks, jRanks, kRanks)
@@ -447,6 +447,14 @@ module voltapp_mpi
             call DeepUpdate_mpi(vApp, vApp%time)
         endif
         call Toc("Coupling", .true.)
+
+        !Finally do first output stuff
+        !console output
+        call consoleOutputVOnly(vApp,vApp%gAppLocal,vApp%gAppLocal%Model%MJD0)
+        !file output
+        if (.not. vApp%gAppLocal%Model%isRestart) then
+            call fOutputVOnly(vApp,vApp%gAppLocal)
+        endif
 
     end subroutine initVoltron_mpi
 

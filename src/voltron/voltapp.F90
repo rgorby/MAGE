@@ -288,24 +288,22 @@ module voltapp
         endif
 
         !Recalculate timestep
-        gApp%Model%dt = CalcDT(gApp%Model,gApp%Grid,gApp%State)
-        if (gApp%Model%dt0<TINY) gApp%Model%dt0 = gApp%Model%dt
+        !Why? if this is non-MPI, then why do we recalculate after gamera has already done that
+        !if this IS MPI then we can't calculate it, only Gamera ranks can
+        !gApp%Model%dt = CalcDT(gApp%Model,gApp%Grid,gApp%State)
+        !if (gApp%Model%dt0<TINY) gApp%Model%dt0 = gApp%Model%dt
         
         !Bring overview info
         if (vApp%isLoud) call printConfigStamp()
 
-        !Finally do first output stuff
+        !Finally do first output stuff, if this is not mpi
         !console output
-        if (vApp%isSeparate) then
-            call consoleOutputVOnly(vApp,gApp,gApp%Model%MJD0)
-        else
+        if (.not. vApp%isSeparate) then
             call consoleOutputV(vApp,gApp)
         endif
         !file output
         if (.not. gApp%Model%isRestart) then
-            if(vApp%isSeparate) then
-                call fOutputVOnly(vApp,gApp)
-            else
+            if(.not. vApp%isSeparate) then
                 call fOutputV(vApp, gApp)
             endif
         endif
@@ -498,7 +496,7 @@ module voltapp
                 call Squish(vApp) ! do all squish blocks here
               call SquishEnd(vApp)
             call PostDeep(vApp, gApp)
-        else
+        elseif(vApp%doDeep) then
             gApp%Grid%Gas0 = 0
         endif
 

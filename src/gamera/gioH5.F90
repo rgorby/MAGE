@@ -237,7 +237,11 @@ module gioH5
         endif
 
         !Write out the chain
-        call WriteVars(IOVars,.true.,GamH5File)
+        if(doFat) then
+            call WriteVars(IOVars,.false.,GamH5File)
+        else
+            call WriteVars(IOVars,.true.,GamH5File)
+        endif
         
     end subroutine writeH5GridInit
 
@@ -507,7 +511,11 @@ module gioH5
 
         !------------------
         !Finalize
-        call WriteVars(IOVars,.true.,GamH5File,trim(gStr))
+        if(doFat) then
+            call WriteVars(IOVars,.false.,GamH5File,trim(gStr))
+        else
+            call WriteVars(IOVars,.true.,GamH5File,trim(gStr))
+        endif
 
         end associate
 

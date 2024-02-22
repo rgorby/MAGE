@@ -178,7 +178,13 @@ module gam2VoltComm_mpi
         call mpi_bcast(gApp%Model%t, 1, MPI_MYFLOAT, g2vComm%voltRank, g2vComm%voltMpiComm, ierr)
         call mpi_bcast(gApp%Model%MJD0, 1, MPI_MYFLOAT, g2vComm%voltRank, g2vComm%voltMpiComm, ierr)
         call mpi_bcast(gApp%Model%tFin, 1, MPI_MYFLOAT, g2vComm%voltRank, g2vComm%voltMpiComm, ierr)
-        call mpi_bcast(gApp%Model%dt, 1, MPI_MYFLOAT, g2vComm%voltRank, g2vComm%voltMpiComm, ierr)
+        !call mpi_bcast(gApp%Model%dt, 1, MPI_MYFLOAT, g2vComm%voltRank, g2vComm%voltMpiComm, ierr)
+
+        ! also update state time variables
+        if(.not. gApp%Model%isRestart) then
+            gApp%State%time = gApp%Model%t
+            gApp%oState%time = gApp%State%time-gApp%Model%dt
+        endif
 
         ! send updated gamera parameter to the voltron rank
         ! only the rank with Ri/Rj/Rk==0 should send the values to voltron
