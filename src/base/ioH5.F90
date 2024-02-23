@@ -71,7 +71,7 @@ contains
     ! -------------------------------------------   
     ! Various routines to quickly pull scalars from IOVar_T
     !
-    !> Helper funciton to pull INT from an IOVar data
+    !> Helper function to pull INT from an IOVar data
     function GetIOInt(IOVars,vID) result(vOut)
         type(IOVAR_T), dimension(:), intent(in) :: IOVars
         character(len=*), intent(in) :: vID
