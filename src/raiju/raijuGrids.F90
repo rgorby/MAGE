@@ -19,8 +19,9 @@ module raijugrids
 ! Spatial grid setup stuff
 !------
 
-    subroutine raijuGenUniSphGrid(Grid, iXML)
-        type(raijuGrid_T)  , intent(inout) :: Grid
+    subroutine raijuGenUniSphGrid(Model, Grid, iXML)
+        type(raijuModel_T), intent(in   ) :: Model
+        type(raijuGrid_T) , intent(inout) :: Grid
         type(XML_Input_T), intent(in)    :: iXML
 
         real(rp), dimension(:), allocatable :: Theta
@@ -62,7 +63,7 @@ module raijugrids
             Phi(i) = (i-1)*dPhi
         enddo
 
-        call GenShellGrid(Grid%shGrid,Theta,Phi,nGhosts)
+        call GenShellGrid(Grid%shGrid,Theta,Phi,"RAIJU",nGhosts=nGhosts,radO=Model%planet%Ri_m/Model%planet%Rp_m)
 
     end subroutine raijuGenUniSphGrid
 
