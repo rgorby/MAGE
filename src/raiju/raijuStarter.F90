@@ -203,7 +203,7 @@ module raijustarter
             case("UNISPH")
                 Grid%gType = G_UNISPH
                 ! Generate our own grid from scratch
-                call raijuGenUniSphGrid(Model, Grid, iXML)
+                call raijuGenUniSphGrid(Grid, iXML)
             case("SHGRID")
                 Grid%gType = G_SHGRID
                 ! Then we should be receiving a predefined ShellGrid that Voltron has set up

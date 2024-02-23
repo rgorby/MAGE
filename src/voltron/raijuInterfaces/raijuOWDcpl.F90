@@ -52,7 +52,7 @@ module raijuowdcpl
         !do i=sh%ie+1,sh%ieg
         !    fromV%pot(i,:) = fromV%pot(sh%ie,:)
         !enddo
-        call InterpShellVar_TSC_SG(rmState%shGr, rmState%nsPot(1), fromV%shGr, fromV%pot)
+        call InterpShellVar_TSC_SG(rmState%nsPot(1), rmState%shGr, fromV%shGr, fromV%pot)
 
         ! Handle j ghosts
         !call wrapJcc(sh, fromV%pot)
