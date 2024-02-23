@@ -116,6 +116,9 @@ contains
     ! save grid only for north
     call AddOutVar(IOVars,"X",xc,uStr="Ri")
     call AddOutVar(IOVars,"Y",yc,uStr="Ri")
+    ! Save units of Ri and Rp as root attributes
+    call AddOutVar(IOVars,"Ri_m",I%rad_iono_m)
+    call AddOutVar(IOVars,"Rp_m",I%rad_planet_m)
 
     call AddOutVar(IOVars,"UnitsID","ReMIX")
              

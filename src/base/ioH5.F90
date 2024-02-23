@@ -263,10 +263,14 @@ contains
     !fStr:/vStr (if no gStrO), otherwise
     !fStr:/gStrO/vStr
     function ioExist(fStr,vStr,gStrO)
-        character(len=*), intent(in) :: fStr,vStr
+        character(len=*), intent(in) :: fStr
+            !! Filename
+        character(len=*), intent(in) :: vStr
+            !! Dataset or attribute name
         character(len=*), intent(in), optional :: gStrO
+            !! Optional group string
+        
         logical :: ioExist
-
         logical :: fExist, gExist, dsExist,atExist
         integer(HID_T) :: h5fId, gId
         integer :: herr
