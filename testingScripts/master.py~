@@ -116,8 +116,7 @@ def main():
             # 'intelChecks.py',
             # 'ICtest.py',
             # 'pyunitTest.py',
-            # 'weeklyDash.py',
-            'weeklyDashReport.py',
+            'weeklyDash.py',
         ]
     else:
         if verbose:

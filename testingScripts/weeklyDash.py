@@ -31,7 +31,7 @@ from kaipy.testing import common
 # Program description.
 DESCRIPTION = 'Run the MAGE weekly dash tests.'
 
-# Globa pattern for weekly dash test direectories
+# Glob pattern for weekly dash test direectories
 WEEKLY_DASH_DIRECTORY_GLOB_PATTERN = 'weeklyDash_*'
 
 # Source directory for weekly dash restart files

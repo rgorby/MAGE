@@ -266,7 +266,7 @@ def slack_create_client():
     return slack_client
 
 
-def slack_send_message(slack_client, message):
+def slack_send_message(slack_client, message, thread_ts=None):
     """Send a message to Slack.
 
     Send a message to Slack.
@@ -277,10 +277,13 @@ def slack_send_message(slack_client, message):
         Client for Slack communication
     message : str
         Message to send to Slack
+    thread_ts : XXX, default None
+        Set to desired Slack thread identifier, if any
 
     Returns
     -------
-    None
+    response : XXX
+        Response from Slack API when posting the message.
 
     Raises
     ------
@@ -289,7 +292,45 @@ def slack_send_message(slack_client, message):
     try:
         response = slack_client.chat_postMessage(
             channel=SLACK_CHANNEL_NAME,
-            text=message,
+            text=message, thread_ts=thread_ts
         )
     except SlackApiError as e:
         print(f"Error while sending Slack message: {e.response['error']}")
+    return response
+
+
+def slack_send_image(slack_client, image_file_path, initial_comment='', thread_ts=None):
+    """Send an image file to Slack.
+
+    Send an image file to Slack.
+
+    Parameters
+    ----------
+    slack_client : slack_sdk.WebClient
+        Client for Slack communication
+    image_file_path : str
+        Path to image file to send to Slack
+    initial_comment : str
+        Comment to include with image, default ''
+    thread_ts : XXX, default None
+        Set to desired Slack thread identifier, if any
+
+    Returns
+    -------
+    response : XXX
+        Response from Slack API when posting the image.
+
+    Raises
+    ------
+    None
+    """
+    try:
+        response = slack_client.files_upload(
+            channels=SLACK_CHANNEL_NAME,
+            thread_ts=thread_ts,
+            file=image_file_path,
+            initial_comment=initial_comment,
+        )
+    except SlackApiError as e:
+        print(f"Error while sending image to Slack message: {e.response['error']}")
+    return response
