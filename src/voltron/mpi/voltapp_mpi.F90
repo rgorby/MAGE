@@ -140,9 +140,9 @@ module voltapp_mpi
                 call mpi_Abort(MPI_COMM_WORLD, 1, ierr)
             endif
 
-	    ! add topology to the helper communicator to permit neighborhood operations
-	    reorder = .false. ! don't allow MPI to reorder the ranks, master must remain master
-	    call mpi_dist_graph_create_adjacent(helperComm, &
+            ! add topology to the helper communicator to permit neighborhood operations
+            reorder = .false. ! don't allow MPI to reorder the ranks, master must remain master
+            call mpi_dist_graph_create_adjacent(helperComm, &
                 1,(/0/),(/1/), &
                 1,(/0/),(/1/), &
                 MPI_INFO_NULL, reorder, vApp%vHelpComm, ierr)
@@ -360,17 +360,6 @@ module voltapp_mpi
         ! receive updated gamera parameters from gamera rank
         call mpi_recv(vApp%gAppLocal%Model%dt0, 1, MPI_MYFLOAT, MPI_ANY_SOURCE, 97510, vApp%voltMpiComm, MPI_STATUS_IGNORE, ierr)
 
-        ! synchronize IO timing
-        call mpi_bcast(vApp%IO%tOut/vApp%gAppLocal%Model%Units%gT0, &
-                       1, MPI_MYFLOAT, vApp%myRank, vApp%voltMpiComm, ierr)
-        call mpi_bcast(vApp%IO%tRes/vApp%gAppLocal%Model%Units%gT0, &
-                       1, MPI_MYFLOAT, vApp%myRank, vApp%voltMpiComm, ierr)
-        call mpi_bcast(vApp%IO%dtOut/vApp%gAppLocal%Model%Units%gT0, &
-                       1, MPI_MYFLOAT, vApp%myRank, vApp%voltMpiComm, ierr)
-        call mpi_bcast(vApp%IO%dtRes/vApp%gAppLocal%Model%Units%gT0, &
-                       1, MPI_MYFLOAT, vApp%myRank, vApp%voltMpiComm, ierr)
-        call mpi_bcast(vApp%IO%tsOut, 1, MPI_INTEGER, vApp%myRank, vApp%voltMpiComm, ierr)
-
         ! create the MPI datatypes needed to transfer state data
         call createVoltDataTypes(vApp, iRanks, jRanks, kRanks)
 
@@ -448,13 +437,24 @@ module voltapp_mpi
         endif
         call Toc("Coupling", .true.)
 
-        !Finally do first output stuff
+        !do first output stuff
         !console output
         call consoleOutputVOnly(vApp,vApp%gAppLocal,vApp%gAppLocal%Model%MJD0)
         !file output
         if (.not. vApp%gAppLocal%Model%isRestart) then
             call fOutputVOnly(vApp,vApp%gAppLocal)
         endif
+
+        ! synchronize IO timing after first output
+        call mpi_bcast(vApp%IO%tOut/vApp%gAppLocal%Model%Units%gT0, &
+                       1, MPI_MYFLOAT, vApp%myRank, vApp%voltMpiComm, ierr)
+        call mpi_bcast(vApp%IO%tRes/vApp%gAppLocal%Model%Units%gT0, &
+                       1, MPI_MYFLOAT, vApp%myRank, vApp%voltMpiComm, ierr)
+        call mpi_bcast(vApp%IO%dtOut/vApp%gAppLocal%Model%Units%gT0, &
+                       1, MPI_MYFLOAT, vApp%myRank, vApp%voltMpiComm, ierr)
+        call mpi_bcast(vApp%IO%dtRes/vApp%gAppLocal%Model%Units%gT0, &
+                       1, MPI_MYFLOAT, vApp%myRank, vApp%voltMpiComm, ierr)
+        call mpi_bcast(vApp%IO%tsOut, 1, MPI_INTEGER, vApp%myRank, vApp%voltMpiComm, ierr)
 
     end subroutine initVoltron_mpi
 
