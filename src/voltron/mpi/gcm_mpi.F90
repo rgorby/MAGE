@@ -136,14 +136,12 @@ contains
       if (gcmCplComm /= MPI_COMM_NULL) then
         call Tic("Passing")
         if (.not. allocated(gcm%invar2d)) allocate(gcm%invar2d(gcm%nlat,gcm%nlon,gcm2mix_nvar))
-        do v=1,gcm2mix_nvar
-          call mpi_recv(gcm%invar2d(:,:,v), gcm%nlat*gcm%nlon, MPI_DOUBLE_PRECISION, gcmCplRank, (tgcmId+voltId)*100+v, gcmCplComm, MPI_STATUS_IGNORE,ierr)
-          if(ierr /= MPI_Success) then
-              call MPI_Error_string( ierr, message, length, ierr)
-              print *,message(1:length)
-              call mpi_Abort(MPI_COMM_WORLD, 1, ierr)
-          end if
-        enddo
+        call mpi_recv(gcm%invar2d, gcm%nlat*gcm%nlon*gcm2mix_nvar, MPI_DOUBLE_PRECISION, gcmCplRank, (tgcmId+voltId)*100, gcmCplComm, MPI_STATUS_IGNORE,ierr)
+        if(ierr /= MPI_Success) then
+            call MPI_Error_string( ierr, message, length, ierr)
+            print *,message(1:length)
+            call mpi_Abort(MPI_COMM_WORLD, 1, ierr)
+        end if
         call Toc("Passing")
 
       endif
@@ -193,15 +191,13 @@ contains
         end do
 
         ! Send the coupling data
-        do v=1,mix2gcm_nvar
-        write(*,*) " MIXCPL: ", gcmCplRank,(tgcmId+voltId)*100+v,gcmCplComm,gcm%nlat,gcm%nlon
-          call mpi_send(gcm%outvar2d(:,:,v), gcm%nlat*gcm%nlon, MPI_DOUBLE_PRECISION, gcmCplRank, (tgcmId+voltId)*100+v, gcmCplComm, ierr)
+        write(*,*) " MIXCPL: ", gcmCplRank,(tgcmId+voltId)*100,gcmCplComm,gcm%nlat,gcm%nlon
+          call mpi_send(gcm%outvar2d, gcm%nlat*gcm%nlon*mix2gcm_nvar, MPI_DOUBLE_PRECISION, gcmCplRank, (tgcmId+voltId)*100, gcmCplComm, ierr)
           if(ierr /= MPI_Success) then
               call MPI_Error_string( ierr, message, length, ierr)
               print *,message(1:length)
               call mpi_Abort(MPI_COMM_WORLD, 1, ierr)
           end if
-        enddo
 
       endif
       

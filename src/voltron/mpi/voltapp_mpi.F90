@@ -325,8 +325,8 @@ module voltapp_mpi
             vApp%gAppLocal%oState,vAPp%gApplocal%State,xmlInp,userInitFunc)
 
         ! now initialize basic voltron structures from gamera data
-        if(vApp%gcmCplComm /= MPI_COMM_NULL) then
-          call init_gcm_mix_mpi(vApp%gcm,vApp%gcmCplComm,vApp%gcmCplRank)
+        if(vApp%gcmCplRank /= -1) then
+          call init_gcm_mix_mpi(vApp%gcm,vApp%mageCplComm,vApp%gcmCplRank)
         endif
         if(present(optFilename)) then
             call initVoltron(vApp, vApp%gAppLocal, optFilename)
@@ -334,7 +334,7 @@ module voltapp_mpi
             call initVoltron(vApp, vApp%gAppLocal)
         endif
 
-        if ( ( vApp%doGCM ) .and. (vApp%gcmCplComm /= MPI_COMM_NULL) ) then
+        if ( ( vApp%doGCM ) .and. (vApp%gcmCplRank /= -1) ) then
             write(*,*) "Initializing GCM ..."
             !call init_gcm_file(vApp%gcm,vApp%remixApp%ion,gApp%Model%isRestart)
             call init_gcm_mpi(vApp%gcm,vApp%remixApp%ion,vApp%gAppLocal%Model%isRestart)
@@ -531,9 +531,9 @@ module voltapp_mpi
         call convertGameraToRemix(vApp%mhd2mix, vApp%gAppLocal, vApp%remixApp)
         call Toc("G2R")
 
-        if (vApp%doGCM .and. vApp%time >=0 .and. vApp%gcmCplComm /= MPI_COMM_NULL) then
+        if (vApp%doGCM .and. vApp%time >=0 .and. vApp%gcmCplRank /= -1) then
             call Tic("GCM2MIX")
-            call coupleGCM2MIX(vApp%gcm,vApp%remixApp%ion,vApp%MJD,vApp%time,vApp%gcmCplComm,vApp%gcmCplRank)
+            call coupleGCM2MIX(vApp%gcm,vApp%remixApp%ion,vApp%MJD,vApp%time,vApp%mageCplComm,vApp%gcmCplRank)
             call Toc("GCM2MIX")
         end if
 

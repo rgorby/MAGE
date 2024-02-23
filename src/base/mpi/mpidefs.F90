@@ -25,12 +25,15 @@ module mpidefs
   integer, parameter :: MPI_AN_MYADDR   = MPI_ADDRESS_KIND ! this is the default
 #endif
 
-!MPI Communicator Id
-    integer, parameter :: voltId  = 116
-    integer, parameter :: gamId   = 45
-    integer, parameter :: rcmId   = 34
-    integer, parameter :: tgcmId  = 57
-    integer, parameter :: hidraId = 40
+!MPI Coupling Communicator Id
+    integer, parameter :: voltId   = 116
+    integer, parameter :: gamId    = 45
+    integer, parameter :: rcmId    = 34
+    integer, parameter :: tgcmId   = 57
+    integer, parameter :: hidraId  = 40
+    integer, parameter :: hidraNId = 54
+    integer, parameter :: hidraSId = 59
+    integer, parameter :: mageId   = 26
 
 contains
 
