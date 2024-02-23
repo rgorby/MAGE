@@ -474,33 +474,6 @@ module uservoltic
 
         contains 
 
-            function isGoodFaceIJK(Model,Grid,i,j,k,d) result(isGood)
-                type(Model_T), intent(in) :: Model
-                type(Grid_T) , intent(in) :: Grid
-                integer      , intent(in) :: i,j,k,d
-
-                logical :: isGood
-
-                select case(d)
-                    case(IDIR)
-                        isGood =     (i >= Grid%isg) .and. (i <= Grid%ieg+1) &
-                               .and. (j >= Grid%jsg) .and. (j <= Grid%jeg  ) &
-                               .and. (k >= Grid%ksg) .and. (k <= Grid%keg  ) 
-
-                    case(JDIR)
-                        isGood =     (i >= Grid%isg) .and. (i <= Grid%ieg  ) &
-                               .and. (j >= Grid%jsg) .and. (j <= Grid%jeg+1) &
-                               .and. (k >= Grid%ksg) .and. (k <= Grid%keg  ) 
-
-                    case(KDIR)
-                        isGood =     (i >= Grid%isg) .and. (i <= Grid%ieg  ) &
-                               .and. (j >= Grid%jsg) .and. (j <= Grid%jeg  ) &
-                               .and. (k >= Grid%ksg) .and. (k <= Grid%keg+1) 
-
-                end select
-             
-            end function isGoodFaceIJK
-
             function isLowLat(xyz,llBC)
                 real(rp), dimension(NDIM), intent(in) :: xyz
                 real(rp), intent(in) :: llBC

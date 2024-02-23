@@ -36,12 +36,12 @@ DenPP = 50.0
 ppCol = "orange"
 
 #Get equatorial coordinates, masked if asked to
-def RCMEq(rcmdata,nStp,doMask=False,doXYZ=doXYZ):
+def RCMEq(rcmdata,nStp,doMask=False,doXYZ=doXYZ, doVerb=True):
 
-	bmX = rcmdata.GetVar("xMin",nStp)
-	bmY = rcmdata.GetVar("yMin",nStp)
+	bmX = rcmdata.GetVar("xMin",nStp, doVerb=doVerb)
+	bmY = rcmdata.GetVar("yMin",nStp, doVerb=doVerb)
 	if (doXYZ):
-		bmZ = rcmdata.GetVar("zMin",nStp)
+		bmZ = rcmdata.GetVar("zMin",nStp, doVerb=doVerb)
 		bmP = np.arctan2(bmY,bmX)
 		bmR = np.sqrt(bmX*bmX + bmY*bmY + bmZ*bmZ)
 		bmX = bmR*np.cos(bmP)
@@ -52,22 +52,22 @@ def RCMEq(rcmdata,nStp,doMask=False,doXYZ=doXYZ):
 		bmY = ma.masked_array(bmY,mask=I)
 	return bmX,bmY
 
-def GetVarMask(rcmdata,nStp,Qid="P",I=None):
+def GetVarMask(rcmdata,nStp,Qid="P",I=None, doVerb=True):
 	if (I is None):
 		I = GetMask(rcmdata,nStp)
-	Q = rcmdata.GetVar(Qid,nStp)
+	Q = rcmdata.GetVar(Qid,nStp, doVerb=doVerb)
 	Q = ma.masked_array(Q,mask=I)
 	return Q
 
-def GetPotential(rcmdata,nStp,I=None,NumCP=25):
+def GetPotential(rcmdata,nStp,I=None,NumCP=25, doVerb=True):
 	if (I is None):
 		I = GetMask(rcmdata,nStp)
-	pot = (1.0e-3)*rcmdata.GetVar("pot",nStp)
+	pot = (1.0e-3)*rcmdata.GetVar("pot",nStp, doVerb=doVerb)
 	
 	
 	if (doCorot):
 		#Add corotation potential
-		colat = GetVarMask(rcmdata,nStp,"colat" ,I)
+		colat = GetVarMask(rcmdata,nStp,"colat" ,I, doVerb=doVerb)
 		pcorot = -Psi0*(RioRe)*(np.sin(colat)**2.0)
 		pot = pot + pcorot
 	pMag = np.abs(pot).max()
@@ -77,20 +77,20 @@ def GetPotential(rcmdata,nStp,I=None,NumCP=25):
 
 #Calculate mask
 #doRCM: Do RCM domain or full closed region
-def GetMask(rcmdata,nStp):
-	IOpen = rcmdata.GetVar("IOpen",nStp)
+def GetMask(rcmdata,nStp, doVerb=True):
+	IOpen = rcmdata.GetVar("IOpen",nStp, doVerb=doVerb)
 	
 	if (doEll):
 		ioCut = -0.5
 	else:
 		ioCut = 0.5
-	bmX = rcmdata.GetVar("xMin",nStp)
-	bmY = rcmdata.GetVar("yMin",nStp)
+	bmX = rcmdata.GetVar("xMin",nStp, doVerb=doVerb)
+	bmY = rcmdata.GetVar("yMin",nStp, doVerb=doVerb)
 	bmR = np.sqrt(bmX*bmX + bmY*bmY)
 
 	Ir = (bmR<rMin) | (bmR>rMax)
 	if (doCut):
-		Prcm = rcmdata.GetVar("P",nStp)
+		Prcm = rcmdata.GetVar("P",nStp, doVerb=doVerb)
 		I = Ir | (IOpen > ioCut) | (Prcm<pCut)
 	else:
 		I = Ir | (IOpen > ioCut)
@@ -115,7 +115,7 @@ def RCMInset(AxRCM,rcmdata,nStp,vP,pCol="k",doPP=True):
 		Npp  = GetVarMask(rcmdata,nStp,"Npsph"    ,I)
 		
 	#Start plotting
-	AxRCM.pcolor(bmX,bmY,Prcm,norm=vP,cmap=pCMap)
+	AxRCM.pcolor(bmX,bmY,Prcm,norm=vP,cmap=pCMap,shading='auto')
 	AxRCM.plot(bmX,bmY,color=eCol,linewidth=eLW)
 	AxRCM.plot(bmX.T,bmY.T,color=eCol,linewidth=eLW)
 	if (pCol is not None):

@@ -3,28 +3,34 @@
 
 """makeitso for the MAGE magnetosphere software.
 
-This master script is used to perform all of the steps needed to prepare
-for the run of a MAGE magnetosphere model. This script is interactive - the
-user is prompted for each decision that must be made to prepare for the run.
-This script was designed for use on HPC systems using an MPI build of the
-kaiju code.
+This script is perforsm all of the steps needed to prepare to run a MAGE
+magnetosphere simulation run. By default, this script is interactive - the user
+is prompted for each decision  that must be made to prepare for the run, based
+on the current "--mode" setting.
 
-When complete, the options specified for the current run are saved to the
-JSON file "options.json" in the current directory.
+The modes are:
 
-NOTE: This script assumes the KAIJUHOME environment variable has been set
-correctly. This is typically done by sourcing the setup script:
-$KAIJUHOME/scripts/setupEnvironment.[c]sh
+"BASIC" (the default) - the user is prompted to set only a small subset of MAGE
+parameters. All "INTERMEDIATE"- and "EXPERT"-mode parameters are automatically
+set to default values.
+
+"INTERMEDIATE" - The user is prompted for "BASIC" and "INTERMEDIATE"
+parameters, with "EXPERT" parameters set to defaults.
+
+"EXPERT" - The user is prompted for *all* adjustable parameters.
 """
 
 
 # Import standard modules.
 import argparse
+import copy
+import datetime
 import json
 import os
 import subprocess
 
 # Import 3rd-party modules.
+import h5py
 from jinja2 import Template
 
 # Import project modules.
@@ -38,44 +44,11 @@ DESCRIPTION = "Interactive script to prepare a MAGE magnetosphere model run."
 # Indent level for JSON output.
 JSON_INDENT = 4
 
+# Path to current kaiju installation
+KAIJUHOME = os.environ["KAIJUHOME"]
 
-# Program defaults
-
-# Module sets by platform and run type.
-modules = {
-    "cheyenne": [
-        "cmake/3.22.0",
-        "git/2.33.1",
-        "ncarenv/1.3",
-        "intel/2022.1",
-        "geos/3.10.1",
-        "ncarcompilers/0.5.0",
-        "mpt/2.25",
-        "hdf5-mpi/1.12.2",
-    ],
-    "derecho": [
-        "ncarenv/23.06",
-        "cmake/3.26.3",
-        "craype/2.7.20",
-        "intel/2023.0.0",
-        "geos/3.9.1",
-        "ncarcompilers/1.0.0",
-        "cray-mpich/8.1.25",
-        "hdf5-mpi/1.12.2",
-    ],
-    "pleiades": [
-        "nas"
-        "pkgsrc/2022Q1-rome",
-        "comp-intel/2020.4.304",
-        "mpi-hpe/mpt.2.23",
-        "hdf5/1.8.18_mpt",
-    ],
-}
-
-# Path to directory containing support files.
-SUPPORT_FILES_DIRECTORY = os.path.join(
-    os.environ["KAIJUHOME"], "scripts", "makeitso"
-)
+# Path to directory containing support files for makeitso.
+SUPPORT_FILES_DIRECTORY = os.path.join(KAIJUHOME, "scripts", "makeitso")
 
 # Path to option descriptions file.
 OPTION_DESCRIPTIONS_FILE = os.path.join(
@@ -109,21 +82,29 @@ def create_command_line_parser():
     """
     parser = argparse.ArgumentParser(description=DESCRIPTION)
     parser.add_argument(
-        "--debug", "-d", action="store_true", default=False,
+        "--clobber", action="store_true",
+        help="Overwrite existing options file (default: %(default)s)."
+    )
+    parser.add_argument(
+        "--debug", "-d", action="store_true",
         help="Print debugging output (default: %(default)s)."
     )
     parser.add_argument(
-        "--options", "-o", default=None,
+        "--mode", default="BASIC",
+        help="User mode (BASIC|INTERMEDIATE|EXPERT) (default: %(default)s)."
+    )
+    parser.add_argument(
+        "--options_path", "-o", default=None,
         help="Path to JSON file of options (default: %(default)s)"
     )
     parser.add_argument(
-        "--verbose", "-v", action="store_true", default=False,
+        "--verbose", "-v", action="store_true",
         help="Print verbose output (default: %(default)s)."
     )
     return parser
 
 
-def get_run_option(name, description):
+def get_run_option(name, description, mode="BASIC"):
     """Prompt the user for a single run option.
 
     Prompt the user for a single run option. If no user input is provided,
@@ -137,6 +118,8 @@ def get_run_option(name, description):
         Name of option
     description : dict, default None
         Dictionary of metadata for the option.
+    mode : str
+        User experience mode: "BASIC", "INTERMEDIATE", or "ADVANCED".
 
     Returns
     -------
@@ -148,9 +131,17 @@ def get_run_option(name, description):
     None
     """
     # Extract prompt, default, and valids.
+    level = description["LEVEL"]
     prompt = description.get("prompt", "")
     default = description.get("default", None)
     valids = description.get("valids", None)
+
+    # Compare the current mode to the parameter level setting. If the variable
+    # level is higher than the user mode, just use the default.
+    if mode == "BASIC" and level in ["INTERMEDIATE", "EXPERT"]:
+        return default
+    if mode == "INTERMEDIATE" and level in ["EXPERT"]:
+        return default
 
     # If provided, add the valid values in val1|val2 format to the prompt.
     if valids is not None:
@@ -184,7 +175,38 @@ def get_run_option(name, description):
     return str(option_value)
 
 
-def get_run_options():
+def fetch_bcwind_time_range(bcwind_path):
+    """Fetch the start and stop times for a bcwind file.
+
+    Fetch the start and stop times for a bcwind file.
+
+    Parameters
+    ----------
+    bcwind_path : str
+        Path to bcwind file
+
+    Returns
+    -------
+    start_date, stop_date : str
+        First and last entries in UT group, as strings, in
+        'YYYY-MM-DDTHH:MM:SS' format.
+
+    Raises
+    ------
+    None
+    """
+    with h5py.File(bcwind_path, "r") as f:
+        start_date = f["UT"][0].decode("utf-8")
+        stop_date = f["UT"][-1].decode("utf-8")
+        # <HACK> Convert from "YYYY-MM-DD HH:MM:SS" format to
+        # "YYYY-MM-DDTHH:MM:SS" format.
+        start_date = start_date.replace(" ", "T")
+        stop_date = stop_date.replace(" ", "T")
+        # </HACK>
+    return start_date, stop_date
+
+
+def prompt_user_for_run_options(args):
     """Prompt the user for run options.
 
     Prompt the user for run options.
@@ -196,7 +218,8 @@ def get_run_options():
 
     Parameters
     ----------
-    None
+    args : dict
+        Dictionary of command-line options
 
     Returns
     -------
@@ -207,145 +230,351 @@ def get_run_options():
     ------
     None
     """
+    # Save the user mode.
+    mode = args.mode
+
     # Read the dictionary of option descriptions.
     with open(OPTION_DESCRIPTIONS_FILE, "r", encoding="utf-8") as f:
-        options_yaml = json.load(f)
-        option_descriptions = options_yaml["option_descriptions"]
+        option_descriptions = json.load(f)
 
     # Initialize the dictionary of program options.
     options = {}
 
-    # Fetch the HPC system and run type.
-    for name in ["hpc_system"]:
-        options[name] = get_run_option(name, option_descriptions[name])
+    #-------------------------------------------------------------------------
 
-    # Specify the location of the kaiju installation to use.
-    # The installation is assumed to be the installation which contains
-    # this running script. Note that this code requires that the KAIJUHOME
-    # environment variable is set. This environment variable is set
-    # automatically when the user runs the setupEnvironment.[c]sh script
-    # or its equivalent.
-    options["kaijuhome"] = os.environ["KAIJUHOME"]
+    # General options for the simulation
+    o = options["simulation"] = {}
+    od = option_descriptions["simulation"]
 
-    # Compute the default build directory based on KAIJUHOME and the run
-    # type. The build directory is the directory where cmake and make were
-    # run during the build process. Typically, this is done in the kaiju
-    # subdirectory "build_mpi" (for MPI builds).
-    option_descriptions["kaiju_build_directory"]["default"] = (
-        f"{options['kaijuhome']}/build_mpi"
-    )
+    # Prompt for the name of the job.
+    for on in ["job_name"]:
+        o[on] = get_run_option(on, od[on], mode)
 
-    # Fetch options about the kaiju software to use.
-    option_names = [
-        "kaiju_build_directory"
-    ]
-    for name in option_names:
-        options[name] = get_run_option(name, option_descriptions[name])
+    # Ask the user if a boundary condition file is available. If not, offer to
+    # generate one from the start and end date.
+    for on in ["bcwind_available"]:
+        o[on] = get_run_option(on, od[on], mode)
+    if o["bcwind_available"] == "Y":
+        for on in ["bcwind_file"]:
+            o[on] = get_run_option(on, od[on], mode)
+        # Fetch the start and stop date from the bcwind file.
+        start_date, stop_date = fetch_bcwind_time_range(o[on])
+        o["start_date"] = start_date
+        o["stop_date"] = stop_date
+    else:
+        # Prompt for the start and stop date of the run. This will also be
+        # used as the start and stop date of the data in the boundary condition
+        # file, which will be created using CDAWeb data.
+        for on in ["start_date", "stop_date"]:
+            o[on] = get_run_option(on, od[on], mode)
 
-    # Fetch high-level options about the run.
-    # NOTE: All files must be in the run directory.
-    option_names = [
-        "run_directory", "runid", "LFM_grid_type", "solar_wind_file"
-    ]
-    for name in option_names:
-        options[name] = get_run_option(name, option_descriptions[name])
+    # Compute the total simulation time in seconds, use as segment duration
+    # default.
+    date_format = '%Y-%m-%dT%H:%M:%S'
+    start_date = o["start_date"]
+    stop_date = o["stop_date"]
+    t1 = datetime.datetime.strptime(start_date, date_format)
+    t2 = datetime.datetime.strptime(stop_date, date_format)
+    simulation_duration = (t2 - t1).total_seconds()
+    od["segment_duration"]["default"] = str(simulation_duration)
 
-    # PBS job options
-    # Assumes all nodes have same architecture.
-    hpc_system = options["hpc_system"]
-    option_names = [
-        "pbs_account_name", "pbs_queue", "pbs_walltime",
-        "pbs_select", "pbs_ncpus",
-        "pbs_mpiprocs", "pbs_ompthreads",
-        "pbs_num_helpers", "pbs_numjobs",
-    ]
-    for name in option_names:
-        options[name] = get_run_option(name, option_descriptions[name])
+    # Ask if the user wants to split the run into multiple segments.
+    # If so, prompt for the segment duration. If not, use the default
+    # for the segment duration (which is the simulation duration).
+    for on in ["use_segments"]:
+        o[on] = get_run_option(on, od[on], mode)
+    if o["use_segments"] == "Y":
+        for on in ["segment_duration"]:
+            o[on] = get_run_option(on, od[on], mode)
+    else:
+        o["segment_duration"] = od["segment_duration"]["default"]
 
-    # The helper nodes use one OMP thread per core.
-    options["pbs_helper_ompthreads"] = options["pbs_ncpus"]
+    # Compute the number of segments based on the simulation duration and
+    # segment duration, with 1 additional segment just for spinup. Add 1 if
+    # there is a remainder.
+    num_segments = simulation_duration/float(o["segment_duration"])
+    if num_segments > int(num_segments):
+        num_segments += 1
+    num_segments = int(num_segments) + 1
 
-    # Specify the command to launch an MPI program.
-    options["pbs_mpiexec_command"] = "mpiexec omplace"
+    # Prompt for the remaining parameters.
+    for on in ["gamera_grid_type", "gamera_grid_inner_radius", "hpc_system"]:
+        o[on] = get_run_option(on, od[on], mode)
 
-    # Assemble the module load statements into a single string.
-    hpc_system = options["hpc_system"]
-    module_names = modules[hpc_system]
-    pbs_module_load = ""
-    for module_name in module_names:
-        pbs_module_load += f"module load {module_name}\n"
-    pbs_module_load = pbs_module_load.rstrip()
-    options["pbs_module_load"] = pbs_module_load
+    #-------------------------------------------------------------------------
 
-    # Specify other environment variables to set.
-    options["pbs_additional_environment_variables"] = ""
+    # PBS options
+    options["pbs"] = {}
+    o = options["pbs"]
 
-    # GAMERA section
-    option_names = [
-        "gamera_sim_doH5g", "gamera_sim_H5Grid", "gamera_sim_icType",
-        "gamera_sim_pdmb", "gamera_sim_rmeth",
-        "gamera_floors_dFloor", "gamera_floors_pFloor",
-        "gamera_timestep_doCPR", "gamera_timestep_limCPR",
-        "gamera_restart_doRes", "gamera_restart_resID", "gamera_restart_nRes",
-        "gamera_physics_doMHD", "gamera_physics_doBoris", "gamera_physics_Ca",
-        "gamera_ring_gid", "gamera_ring_doRing",
-        "gamera_ringknobs_doVClean",
-        "gamera_wind_tsfile",
-        "gamera_source_doSource", "gamera_source_doWolfLim",
-        "gamera_source_doBounceDT", "gamera_source_nBounce",
-        "gamera_iPdir_N", "gamera_iPdir_bcPeriodic",
-        "gamera_jPdir_N", "gamera_jPdir_bcPeriodic",
-        "gamera_kPdir_N", "gamera_kPdir_bcPeriodic",
-    ]
-    for name in option_names:
-        options[name] = get_run_option(name, option_descriptions[name])
+    # Common (HPC platform-independent) options
+    od = option_descriptions["pbs"]["_common"]
+    od["account_name"]["default"] = os.getlogin()
+    od["kaiju_install_directory"]["default"] = KAIJUHOME
+    od["kaiju_build_directory"]["default"] = os.path.join(KAIJUHOME, "build_mpi")
+    od["num_segments"]["default"] = str(num_segments)
+    for on in od:
+        o[on] = get_run_option(on, od[on], mode)
 
-    # VOLTRON section
-    option_names = [
-        "voltron_time_tFin",
-        "voltron_spinup_doSpin", "voltron_spinup_tSpin",
-        "voltron_output_dtOut", "voltron_output_tsOut",
-        "voltron_coupling_dtCouple", "voltron_coupling_rTrc",
-        "voltron_coupling_imType", "voltron_coupling_doQkSquish",
-        "voltron_coupling_qkSquishStride",
-        "voltron_restart_dtRes",
-        "voltron_imag_doInit",
-        "voltron_ebsquish_epsSquish",
-    ]
-    for name in option_names:
-        options[name] = get_run_option(name, option_descriptions[name])
+    # HPC platform-specific options
+    hpc_platform = options["simulation"]["hpc_system"]
+    gamera_grid_type = options["simulation"]["gamera_grid_type"]
+    od = option_descriptions["pbs"][hpc_platform]
+    od["select"]["default"] = od["select"]["default"][gamera_grid_type]
+    od["num_helpers"]["default"] = od["num_helpers"]["default"][gamera_grid_type]
+    for on in od:
+        o[on] = get_run_option(on, od[on], mode)
 
-    # CHIMP section
-    option_names = [
-        "chimp_units_uid",
-        "chimp_fields_grType",
-        "chimp_domain_dtype",
-        "chimp_tracer_epsds",
-    ]
-    for name in option_names:
-        options[name] = get_run_option(name, option_descriptions[name])
+    # Compute the number of nodes in the second chunk.
+    # Should be 1 (for voltron) + num_helpers.
+    num_helpers = int(o["num_helpers"])
+    select2 = 1 + num_helpers
+    o["select2"] = str(select2)
 
-    # REMIX section
-    option_names = [
-        "remix_conductance_doStarlight", "remix_conductance_doRamp",
-        "remix_precipitation_aurora_model_type", "remix_precipitation_alpha",
-        "remix_precipitation_beta",
-    ]
-    for name in option_names:
-        options[name] = get_run_option(name, option_descriptions[name])
+    #-------------------------------------------------------------------------
 
-    # RCM section
-    option_names = [
-        "rcm_rcmdomain_domType",
-        "rcm_ellipse_xSun", "rcm_ellipse_yDD", "rcm_ellipse_xTail",
-        "rcm_ellipse_isDynamic", "rcm_grid_LowLat", "rcm_grid_HiLat",
-        "rcm_grid_doLatStretch",
-        "rcm_plasmasphere_isDynamic", "rcm_plasmasphere_initKp",
-        "rcm_plasmasphere_doRefill", "rcm_plasmasphere_DenPP0",
-        "rcm_plasmasphere_tAvg",
-    ]
-    for name in option_names:
-        options[name] = get_run_option(name, option_descriptions[name])
+    # GAMERA options
+    options["gamera"] = {}
+
+    # <sim> options
+    options["gamera"]["sim"] = {}
+    o = options["gamera"]["sim"]
+    od = option_descriptions["gamera"]["sim"]
+    od["H5Grid"]["default"] = f"lfm{options['simulation']['gamera_grid_type']}.h5"
+    od["runid"]["default"] = options["simulation"]["job_name"]
+    for on in od:
+        o[on] = get_run_option(on, od[on], mode)
+
+    # <floors> options
+    options["gamera"]["floors"] = {}
+    o = options["gamera"]["floors"]
+    od = option_descriptions["gamera"]["floors"]
+    for on in od:
+        o[on] = get_run_option(on, od[on], mode)
+
+    # <timestep> options
+    options["gamera"]["timestep"] = {}
+    o = options["gamera"]["timestep"]
+    od = option_descriptions["gamera"]["timestep"]
+    for on in od:
+        o[on] = get_run_option(on, od[on], mode)
+
+    # <restart> options
+    # NOTE: Update this later so that restart parameters are only
+    # prompted for when doRes is "T".
+    options["gamera"]["restart"] = {}
+    o = options["gamera"]["restart"]
+    od = option_descriptions["gamera"]["restart"]
+    od["resID"]["default"] = options["simulation"]["job_name"]
+    for on in od:
+        o[on] = get_run_option(on, od[on], mode)
+
+    # <physics> options
+    options["gamera"]["physics"] = {}
+    o = options["gamera"]["physics"]
+    od = option_descriptions["gamera"]["physics"]
+    for on in od:
+        o[on] = get_run_option(on, od[on], mode)
+
+    # <ring> options
+    options["gamera"]["ring"] = {}
+    o = options["gamera"]["ring"]
+    od = option_descriptions["gamera"]["ring"]
+    for on in od:
+        o[on] = get_run_option(on, od[on], mode)
+
+    # <wind> options
+    options["gamera"]["wind"] = {}
+    o = options["gamera"]["wind"]
+    od = option_descriptions["gamera"]["wind"]
+    for on in od:
+        o[on] = get_run_option(on, od[on], mode)
+
+    # <source> options
+    options["gamera"]["source"] = {}
+    o = options["gamera"]["source"]
+    od = option_descriptions["gamera"]["source"]
+    for on in od:
+        o[on] = get_run_option(on, od[on], mode)
+
+    # <iPdir> options
+    options["gamera"]["iPdir"] = {}
+    o = options["gamera"]["iPdir"]
+    od = option_descriptions["gamera"]["iPdir"]
+    od["N"]["default"] = od["N"]["default"][gamera_grid_type]
+    for on in od:
+        o[on] = get_run_option(on, od[on], mode)
+
+    # <jPdir> options
+    options["gamera"]["jPdir"] = {}
+    o = options["gamera"]["jPdir"]
+    od = option_descriptions["gamera"]["jPdir"]
+    od["N"]["default"] = od["N"]["default"][gamera_grid_type]
+    for on in od:
+        o[on] = get_run_option(on, od[on], mode)
+
+    # <kPdir> options
+    options["gamera"]["kPdir"] = {}
+    o = options["gamera"]["kPdir"]
+    od = option_descriptions["gamera"]["kPdir"]
+    od["N"]["default"] = od["N"]["default"][gamera_grid_type]
+    for on in od:
+        o[on] = get_run_option(on, od[on], mode)
+
+    # <coupling> options
+    options["gamera"]["coupling"] = {}
+    o = options["gamera"]["coupling"]
+    od = option_descriptions["gamera"]["coupling"]
+    od["blockHalo"]["default"] = od["blockHalo"]["default"][hpc_platform]
+    for on in od:
+        o[on] = get_run_option(on, od[on], mode)
+
+    #-------------------------------------------------------------------------
+
+    # VOLTRON options
+    options["voltron"] = {}
+
+    # <time> options
+    options["voltron"]["time"] = {}
+    o = options["voltron"]["time"]
+    od = option_descriptions["voltron"]["time"]
+    od["tFin"]["default"] = simulation_duration
+    for on in od:
+        o[on] = get_run_option(on, od[on], mode)
+
+    # <spinup> options
+    options["voltron"]["spinup"] = {}
+    o = options["voltron"]["spinup"]
+    od = option_descriptions["voltron"]["spinup"]
+    for on in od:
+        o[on] = get_run_option(on, od[on], mode)
+
+    # <output> options
+    options["voltron"]["output"] = {}
+    o = options["voltron"]["output"]
+    od = option_descriptions["voltron"]["output"]
+    for on in od:
+        o[on] = get_run_option(on, od[on], mode)
+
+    # <coupling> options
+    options["voltron"]["coupling"] = {}
+    o = options["voltron"]["coupling"]
+    od = option_descriptions["voltron"]["coupling"]
+    od["doAsyncCoupling"]["default"] = od["doAsyncCoupling"]["default"][hpc_platform]
+    for on in od:
+        o[on] = get_run_option(on, od[on], mode)
+
+    # <restart> options
+    options["voltron"]["restart"] = {}
+    o = options["voltron"]["restart"]
+    od = option_descriptions["voltron"]["restart"]
+    for on in od:
+        o[on] = get_run_option(on, od[on], mode)
+
+    # <imag> options
+    options["voltron"]["imag"] = {}
+    o = options["voltron"]["imag"]
+    od = option_descriptions["voltron"]["imag"]
+    for on in od:
+        o[on] = get_run_option(on, od[on], mode)
+
+    # <helpers> options
+    options["voltron"]["helpers"] = {}
+    o = options["voltron"]["helpers"]
+    od = option_descriptions["voltron"]["helpers"]
+    od["numHelpers"]["default"] = num_helpers
+    if num_helpers == 0:
+        od["useHelpers"]["default"] = "F"
+    for on in od:
+        o[on] = get_run_option(on, od[on], mode)
+
+    #-------------------------------------------------------------------------
+
+    # CHIMP options
+    options["chimp"] = {}
+
+    # <units> options
+    options["chimp"]["units"] = {}
+    o = options["chimp"]["units"]
+    od = option_descriptions["chimp"]["units"]
+    for on in od:
+        o[on] = get_run_option(on, od[on], mode)
+
+    # <fields> options
+    options["chimp"]["fields"] = {}
+    o = options["chimp"]["fields"]
+    od = option_descriptions["chimp"]["fields"]
+    for on in od:
+        o[on] = get_run_option(on, od[on], mode)
+
+    # <domain> options
+    options["chimp"]["domain"] = {}
+    o = options["chimp"]["domain"]
+    od = option_descriptions["chimp"]["domain"]
+    for on in od:
+        o[on] = get_run_option(on, od[on], mode)
+
+    # <tracer> options
+    options["chimp"]["tracer"] = {}
+    o = options["chimp"]["tracer"]
+    od = option_descriptions["chimp"]["tracer"]
+    for on in od:
+        o[on] = get_run_option(on, od[on], mode)
+
+    #-------------------------------------------------------------------------
+
+    # REMIX options
+    options["remix"] = {}
+
+    # <conductance> options
+    options["remix"]["conductance"] = {}
+    o = options["remix"]["conductance"]
+    od = option_descriptions["remix"]["conductance"]
+    for on in od:
+        o[on] = get_run_option(on, od[on], mode)
+
+    # <precipitation> options
+    options["remix"]["precipitation"] = {}
+    o = options["remix"]["precipitation"]
+    od = option_descriptions["remix"]["precipitation"]
+    for on in od:
+        o[on] = get_run_option(on, od[on], mode)
+
+    #-------------------------------------------------------------------------
+
+    # RCM options
+    options["rcm"] = {}
+
+    # <conductance> options
+    options["rcm"]["rcmdomain"] = {}
+    o = options["rcm"]["rcmdomain"]
+    od = option_descriptions["rcm"]["rcmdomain"]
+    for on in od:
+        o[on] = get_run_option(on, od[on], mode)
+
+    # <ellipse> options
+    # Only use if domType == "ELLIPSE"?
+    options["rcm"]["ellipse"] = {}
+    o = options["rcm"]["ellipse"]
+    od = option_descriptions["rcm"]["ellipse"]
+    for on in od:
+        o[on] = get_run_option(on, od[on], mode)
+
+    # <grid> options
+    options["rcm"]["grid"] = {}
+    o = options["rcm"]["grid"]
+    od = option_descriptions["rcm"]["grid"]
+    for on in od:
+        o[on] = get_run_option(on, od[on], mode)
+
+    # <plasmasphere> options
+    options["rcm"]["plasmasphere"] = {}
+    o = options["rcm"]["plasmasphere"]
+    od = option_descriptions["rcm"]["plasmasphere"]
+    for on in od:
+        o[on] = get_run_option(on, od[on], mode)
+
+    #-------------------------------------------------------------------------
 
     # Return the options dictionary.
     return options
@@ -372,8 +601,17 @@ def run_preprocessing_steps(options):
     # Create the LFM grid file.
     # NOTE: Assumes genLFM.py is in PATH.
     cmd = "genLFM.py"
-    args = [cmd, "-gid", options["LFM_grid_type"]]
+    args = [cmd, "-gid", options["simulation"]["gamera_grid_type"],
+            '-Rin', options["simulation"]["gamera_grid_inner_radius"]]
     subprocess.run(args, check=True)
+
+    # If needed, create the solar wind file by fetching data from CDAWeb.
+    # NOTE: Assumes cda2wind.py is in PATH.
+    if options["simulation"]["bcwind_available"] == "N":
+        cmd = "cda2wind.py"
+        args = [cmd, "-t0", options["simulation"]["start_date"], "-t1",
+                options["simulation"]["stop_date"], "-interp", "-bx"]
+        subprocess.run(args, check=True)
 
     # Create the RCM configuration file.
     # NOTE: Assumes genRCM.py is in PATH.
@@ -410,30 +648,44 @@ def create_ini_files(options):
     # Initialize the list of file paths.
     ini_files = []
 
-    # If a single segment was requested, create a single file.
-    # If multiple segments were requested, create an .ini file for each
-    # segment.
-    if int(options["pbs_numjobs"]) == 1:
-        ini_content = template.render(options)
-        ini_file = os.path.join(
+    # Create an .ini file for the spinup segment.
+    opt = copy.deepcopy(options)  # Need a copy of options
+    runid = opt["simulation"]["job_name"]
+    job = 0
+    segment_id = f"{runid}-{job:02d}"
+    opt["simulation"]["segment_id"] = segment_id
+    tFin = float(opt["voltron"]["time"]["tFin"])
+    dT = float(options["simulation"]["segment_duration"])
+    tFin_segment = 1.0  # Just perform spinup in first segment
+    opt["voltron"]["time"]["tFin"] = str(tFin_segment)
+    ini_content = template.render(opt)
+    ini_file = os.path.join(
+        opt["pbs"]["run_directory"], f"{opt['simulation']['segment_id']}.ini"
+    )
+    ini_files.append(ini_file)
+    with open(ini_file, "w", encoding="utf-8") as f:
+        f.write(ini_content)
 
-            options["run_directory"], f"{options['runid']}.ini"
+    # Create an .ini file for each simulation segment.
+    for job in range(1, int(options["pbs"]["num_segments"])):
+        opt = copy.deepcopy(options)  # Need a copy of options
+        runid = opt["simulation"]["job_name"]
+        segment_id = f"{runid}-{job:02d}"
+        opt["simulation"]["segment_id"] = segment_id
+        opt["gamera"]["restart"]["doRes"] = "T"
+        tFin = float(opt["voltron"]["time"]["tFin"])
+        dT = float(options["simulation"]["segment_duration"])
+        tFin_segment = job*dT + 1  # Add 1 to ensure last restart file is created
+        if tFin_segment > tFin:    # Last segment may be shorter than the others.
+            tFin_segment = tFin + 1
+        opt["voltron"]["time"]["tFin"] = str(tFin_segment)
+        ini_content = template.render(opt)
+        ini_file = os.path.join(
+            opt["pbs"]["run_directory"], f"{opt['simulation']['segment_id']}.ini"
         )
+        ini_files.append(ini_file)
         with open(ini_file, "w", encoding="utf-8") as f:
             f.write(ini_content)
-        ini_files.append(ini_file)
-    else:
-        for job in range(int(options["pbs_numjobs"])):
-            opt = options  # Need a copy of options
-            if job > 0:
-                opt["gamera_restart_doRes"] = "T"
-            ini_content = template.render(options)
-            ini_file = os.path.join(
-                options["run_directory"], f"{options['runid']}-{job:02d}.ini"
-            )
-            ini_files.append(ini_file)
-            with open(ini_file, "w", encoding="utf-8") as f:
-                f.write(ini_content)
 
     # Return the paths to the .ini files.
     return ini_files
@@ -442,7 +694,8 @@ def create_ini_files(options):
 def convert_ini_to_xml(ini_files):
     """Convert the .ini files to XML.
 
-    Convert the .ini files describing the run to XML files.
+    Convert the .ini files describing the run to XML files. The intermediate
+    .ini files are then deleted.
 
     Parameters
     ----------
@@ -474,6 +727,9 @@ def convert_ini_to_xml(ini_files):
         # Add this file to the list of XML files.
         xml_files.append(xml_file)
 
+        # Remove the .ini file.
+        os.remove(ini_file)
+
     # Return the paths to the XML files.
     return xml_files
 
@@ -492,40 +748,49 @@ def create_pbs_scripts(options):
     -------
     pbs_scripts : list of str
         Paths to PBS job script.
+    submit_all_jobs_script : str
+        Path to script which submits all PBS jobs.
 
     Raises
     ------
-    None
+    TypeError:
+        For a non-integral of nodes requested
     """
-    # Read and create the template.
+    # Compute the number of nodes to request based on the MPI decomposition
+    # and the MPI ranks per node.
+    ni = int(options["gamera"]["iPdir"]["N"])
+    nj = int(options["gamera"]["jPdir"]["N"])
+    nk = int(options["gamera"]["kPdir"]["N"])
+    ranks_per_node = int(options["pbs"]["mpiprocs"])
+    select_nodes = ni*nj*nk/ranks_per_node
+    if int(select_nodes) != select_nodes:
+        raise TypeError(f"Requested non-integral node count ({select_nodes})!")
+    options["pbs"]["select"] = str(int(select_nodes))
+
+    # Read the template.
     with open(PBS_TEMPLATE, "r", encoding="utf-8") as f:
         template_content = f.read()
     template = Template(template_content)
 
     # Create a PBS script for each segment.
     pbs_scripts = []
-    if int(options["pbs_numjobs"]) == 1:
-        pbs_content = template.render(options)
+    for job in range(int(options["pbs"]["num_segments"])):
+        opt = copy.deepcopy(options)  # Need a copy of options
+        runid = opt["simulation"]["job_name"]
+        segment_id = f"{runid}-{job:02d}"
+        opt["simulation"]["segment_id"] = segment_id
+        pbs_content = template.render(opt)
         pbs_script = os.path.join(
-            options["run_directory"], f"{options['runid']}.pbs"
+            opt["pbs"]["run_directory"],
+            f"{opt['simulation']['segment_id']}.pbs"
         )
+        pbs_scripts.append(pbs_script)
         with open(pbs_script, "w", encoding="utf-8") as f:
             f.write(pbs_content)
-            pbs_scripts.append(pbs_script)
-    else:
-        for segment in range(int(options["pbs_numjobs"])):
-            pbs_content = template.render(options)
-            pbs_script = os.path.join(
-                options["run_directory"],
-                f"{options['runid']}-{segment:02d}.pbs"
-            )
-            pbs_scripts.append(pbs_script)
-            with open(pbs_script, "w", encoding="utf-8") as f:
-                f.write(pbs_content)
 
     # Create a single script which will submit all of the PBS jobs in order.
-    path = "submit_pbs.sh"
-    with open(path, "w", encoding="utf-8") as f:
+    submit_all_jobs_script = f"{options['simulation']['job_name']}_pbs.sh"
+    with open(submit_all_jobs_script, "w", encoding="utf-8") as f:
         s = pbs_scripts[0]
         cmd = f"job_id=`qsub {s}`\n"
         f.write(cmd)
@@ -538,9 +803,9 @@ def create_pbs_scripts(options):
             f.write(cmd)
             cmd = f"echo $job_id\n"
             f.write(cmd)
-    
+
     # Return the paths to the PBS scripts.
-    return pbs_scripts
+    return pbs_scripts, submit_all_jobs_script
 
 
 def main():
@@ -565,11 +830,12 @@ def main():
 
     # Parse the command-line arguments.
     args = parser.parse_args()
-    debug = args.debug
-    options_path = args.options
-    verbose = args.verbose
-    if debug:
+    if args.debug:
         print(f"args = {args}")
+    clobber = args.clobber
+    debug = args.debug
+    options_path = args.options_path
+    verbose = args.verbose
 
     # Fetch the run options.
     if options_path:
@@ -578,20 +844,20 @@ def main():
             options = json.load(f)
     else:
         # Prompt the user for the run options.
-        options = get_run_options()
+        options = prompt_user_for_run_options(args)
     if debug:
         print(f"options = {options}")
 
-    # Save the options dictionary as a JSON file.
-    path = os.path.join(options["run_directory"], "options.json")
+    # Move to the run directory.
+    os.chdir(options["pbs"]["run_directory"])
+
+    # Save the options dictionary as a JSON file in the current directory.
+    path = f"{options['simulation']['job_name']}.json"
+    if os.path.exists(path):
+        if not clobber:
+            raise FileExistsError(f"Options file {path} exists!")
     with open(path, "w", encoding="utf-8") as f:
         json.dump(options, f, indent=JSON_INDENT)
-
-    # Save the current directory.
-    original_directory = os.getcwd()
-
-    # Move to the output directory.
-    os.chdir(options["run_directory"])
 
     # Run the preprocessing steps.
     if verbose:
@@ -615,13 +881,14 @@ def main():
     # Create the PBS job script(s).
     if verbose:
         print("Creating PBS job script(s) for run.")
-    pbs_scripts = create_pbs_scripts(options)
+    pbs_scripts, all_jobs_script = create_pbs_scripts(options)
     if verbose:
         print(f"The PBS job scripts {pbs_scripts} are ready.")
-
-    # Move back to the original directory.
-    os.chdir(original_directory)
-
+    print(f"The PBS scripts {pbs_scripts} have been created, each with a "
+          "corresponding XML file. To submit the jobs with the proper "
+          "dependency (to ensure each segment runs in order), please run the "
+          f"script {all_jobs_script} like this:\n"
+          f"bash {all_jobs_script}")
 
 if __name__ == "__main__":
     """Begin main program."""

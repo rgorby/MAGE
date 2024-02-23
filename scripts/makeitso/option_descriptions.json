@@ -1,346 +1,746 @@
 {
     "version": "0.0.0",
-    "option_descriptions": {
-        "hpc_system": {
-            "prompt": "Name of HPC system",
-            "default": "cheyenne",
-            "valids": ["cheyenne", "derecho", "pleiades"]
+
+    "simulation": {
+        "job_name": {
+            "LEVEL": "BASIC",
+            "prompt": "Name to use for PBS job(s)",
+            "default": "geospace"
         },
-        "kaijuhome": {
-            "prompt": "Path to kaiju installation"
+        "bcwind_available": {
+            "LEVEL": "BASIC",
+            "prompt": "Do you have an existing boundary condition file to use?",
+            "default": "N",
+            "valids": ["Y", "N"]
         },
-        "kaiju_build_directory": {
-            "prompt": "Path to kaiju build directory"
+        "bcwind_file": {
+            "LEVEL": "BASIC",
+            "prompt": "Name of boundary condition file to use",
+            "default": "bcwind.h5"
         },
-        "run_directory": {
-            "prompt": "Run directory",
-            "default": "."
+        "start_date": {
+            "LEVEL": "BASIC",
+            "prompt": "Start date for simulation (yyyy-mm-ddThh:mm:ss)",
+            "default": "2016-08-09T09:00:00"
         },
-        "runid": {
-            "prompt": "ID string for run",
-            "default": "msphere"
+        "stop_date": {
+            "LEVEL": "BASIC",
+            "prompt": "Stop date for simulation (yyyy-mm-ddThh:mm:ss)",
+            "default": "2016-08-09T10:00:00"
         },
-        "LFM_grid_type": {
-            "prompt": "Lyon-Fedder-Mobarry (LFM) grid type",
-            "default": "D",
+        "use_segments": {
+            "LEVEL": "BASIC",
+            "prompt": "Do you want to split your job into multiple segments?",
+            "default": "N",
+            "valids": ["Y", "N"]
+        },
+        "segment_duration": {
+            "LEVEL": "BASIC",
+            "prompt": "Segment length in simulated seconds"
+        },
+        "gamera_grid_type": {
+            "LEVEL": "BASIC",
+            "prompt": "GAMERA grid type",
+            "default": "Q",
             "valids": ["D", "Q", "O", "H"]
         },
-        "solar_wind_file": {
-            "prompt": "Name of solar wind file",
-            "default": "bcwind.h5"
-        },
-        "pbs_account_name": {
-            "prompt": "PBS account name"
-        },
-        "pbs_queue": {
-            "prompt": "PBS queue name",
-            "default": "regular"
-        },
-        "pbs_walltime": {
-            "prompt": "Requested time for PBS job (HH:MM:SS)",
-            "default": "01:00:00"
-        },
-        "pbs_select": {
-            "prompt": "Number of nodes",
-            "default": "2"
-        },
-        "pbs_ncpus": {
-            "prompt": "Number of cores per node",
-            "default": "36"
-        },
-        "pbs_mpiprocs": {
-            "prompt": "Number of MPI ranks per node",
-            "default": "2"
-        },
-        "pbs_ompthreads": {
-            "prompt": "Number of OMP threads per MPI rank",
-            "default": "18"
-        },
-        "pbs_num_helpers": {
-            "prompt": "Number of voltron helper processes",
-            "default": "1"
-        },
-        "pbs_numjobs": {
-            "prompt": "Number of sequential PBS jobs to submit",
-            "default": "1"
-        },
-        "gamera_sim_doH5g": {
-            "prompt": "gamera_sim_doH5g",
-            "default": "T"
-        },
-        "gamera_sim_H5Grid": {
-            "prompt": "Path to LFM grid file",
-            "default": "lfmD.h5"
-        },
-        "gamera_sim_icType": {
-            "prompt": "Initial condition type",
-            "default": "user",
-            "valids": ["user"]
-        },
-        "gamera_sim_pdmb": {
-            "prompt": "gamera_sim_pdmb",
-            "default": "1.0"
-        },
-        "gamera_sim_rmeth": {
-            "prompt": "gamera_sim_rmeth",
-            "default": "7UP"
-        },
-        "gamera_floors_dFloor": {
-            "prompt": "gamera_floors_dFloor",
-            "default": "1.0e-4"
-        },
-        "gamera_floors_pFloor": {
-            "prompt": "gamera_floors_pFloor",
-            "default": "1.0e-6"
-        },
-        "gamera_timestep_doCPR": {
-            "prompt": "gamera_timestep_doCPR",
-            "default": "T",
-            "valids": ["T", "F"]
-        },
-        "gamera_timestep_limCPR": {
-            "prompt": "gamera_timestep_limCPR",
-            "default": "0.25"
-        },
-        "gamera_restart_doRes": {
-            "prompt": "gamera_restart_doRes",
-            "default": "F",
-            "valids": ["T", "F"]
-        },
-        "gamera_restart_resID": {
-            "prompt": "gamera_restart_resID",
-            "default": "msphere"
-        },
-        "gamera_restart_nRes": {
-            "prompt": "gamera_restart_nRes",
-            "default": "-1"
-        },
-        "gamera_physics_doMHD": {
-            "prompt": "gamera_physics_doMHD",
-            "default": "T",
-            "valids": ["T", "F"]
-        },
-        "gamera_physics_doBoris": {
-            "prompt": "gamera_physics_doBoris",
-            "default": "T",
-            "valids": ["T", "F"]
-        },
-        "gamera_physics_Ca": {
-            "prompt": "gamera_physics_Ca",
-            "default": "10.0"
-        },
-        "gamera_ring_gid": {
-            "prompt": "gamera_ring_gid",
-            "default": "lfm"
-        },
-        "gamera_ring_doRing": {
-            "prompt": "gamera_ring_doRing",
-            "default": "T",
-            "valids": ["T", "F"]
-        },
-        "gamera_ringknobs_doVClean": {
-            "prompt": "gamera_ringknobs_doVClean",
-            "default": "T",
-            "valids": ["T", "F"]
-        },
-        "gamera_wind_tsfile": {
-            "prompt": "gamera_wind_tsfile",
-            "default": "bcwind.h5"
-        },
-        "gamera_source_doSource": {
-            "prompt": "gamera_source_doSource",
-            "default": "T",
-            "valids": ["T", "F"]
-        },
-        "gamera_source_doWolfLim": {
-            "prompt": "gamera_source_doWolfLim",
-            "default": "T",
-            "valids": ["T", "F"]
-        },
-        "gamera_source_doBounceDT": {
-            "prompt": "gamera_source_doBounceDT",
-            "default": "T",
-            "valids": ["T", "F"]
-        },
-        "gamera_source_nBounce": {
-            "prompt": "gamera_source_nBounce",
-            "default": "1.0"
-        },
-        "gamera_iPdir_N": {
-            "prompt": "gamera_iPdir_N",
-            "default": "2"
-        },
-        "gamera_iPdir_bcPeriodic": {
-            "prompt": "gamera_iPdir_bcPeriodic",
-            "default": "F",
-            "valids": ["T", "F"]
-        },
-        "gamera_jPdir_N": {
-            "prompt": "gamera_jPdir_N",
-            "default": "2"
-        },
-        "gamera_jPdir_bcPeriodic": {
-            "prompt": "gamera_jPdir_bcPeriodic",
-            "default": "F",
-            "valids": ["T", "F"]
-        },
-        "gamera_kPdir_N": {
-            "prompt": "gamera_kPdir_N",
-            "default": "1"
-        },
-        "gamera_kPdir_bcPeriodic": {
-            "prompt": "gamera_kPdir_bcPeriodic",
-            "default": "T",
-            "valids": ["T", "F"]
-        },
-        "voltron_time_tFin": {
-            "prompt": "voltron_time_tFin",
-            "default": "3600.0"
-        },
-        "voltron_spinup_doSpin": {
-            "prompt": "voltron_spinup_doSpin",
-            "default": "T",
-            "valids": ["T", "F"]
-        },
-        "voltron_spinup_tSpin": {
-            "prompt": "voltron_spinup_tSpin",
-            "default": "3600.0"
-        },
-        "voltron_output_dtOut": {
-            "prompt": "voltron_output_dtOut",
-            "default": "900.0"
-        },
-        "voltron_output_tsOut": {
-            "prompt": "voltron_output_tsOut",
-            "default": "100"
-        },
-        "voltron_coupling_dtCouple": {
-            "prompt": "voltron_coupling_dtCouple",
-            "default": "5.0"
-        },
-        "voltron_coupling_rTrc": {
-            "prompt": "voltron_coupling_rTrc",
-            "default": "4.0"
-        },
-        "voltron_coupling_imType": {
-            "prompt": "voltron_coupling_imType",
-            "default": "RCM"
-        },
-        "voltron_coupling_doQkSquish": {
-            "prompt": "voltron_coupling_doQkSquish",
-            "default": "T",
-            "valids": ["T", "F"]
-        },
-        "voltron_coupling_qkSquishStride": {
-            "prompt": "voltron_coupling_qkSquishStride",
-            "default": "2"
-        },
-        "voltron_restart_dtRes": {
-            "prompt": "voltron_restart_dtRes",
-            "default": "1800.0"
-        },
-        "voltron_imag_doInit": {
-            "prompt": "voltron_imag_doInit",
-            "default": "T",
-            "valids": ["T", "F"]
-        },
-        "voltron_ebsquish_epsSquish": {
-            "prompt": "voltron_ebsquish_epsSquish",
-            "default": "0.05"
-        },
-        "chimp_units_uid": {
-            "prompt": "chimp_units_uid",
-            "default": "EARTHCODE"
-        },
-        "chimp_fields_grType": {
-            "prompt": "chimp_fields_grType",
-            "default": "lfm"
-        },
-        "chimp_domain_dtype": {
-            "prompt": "chimp_domain_dtype",
-            "default": "MAGE"
-        },
-        "chimp_tracer_epsds": {
-            "prompt": "chimp_tracer_epsds",
-            "default": "0.05"
-        },
-         "remix_conductance_doStarlight": {
-            "prompt": "remix_conductance_doStarlight",
-            "default": "T",
-            "valids": ["T", "F"]
-        },
-        "remix_conductance_doRamp": {
-            "prompt": "remix_conductance_doRamp",
-            "default": "F",
-            "valids": ["T", "F"]
-        },
-        "remix_precipitation_aurora_model_type": {
-            "prompt": "remix_precipitation_aurora_model_type",
-            "default": "RCMONO"
-        },
-        "remix_precipitation_alpha": {
-            "prompt": "remix_precipitation_alpha",
-            "default": "0.2"
-        },
-        "remix_precipitation_beta": {
-            "prompt": "remix_precipitation_beta",
-            "default": "04"
-        },
-        "rcm_rcmdomain_domType": {
-            "prompt": "rcm_rcmdomain_domType",
-            "default": "ELLIPSE"
-        },
-        "rcm_ellipse_xSun": {
-            "prompt": "rcm_ellipse_xSun",
-            "default": "12.5"
-        },
-        "rcm_ellipse_yDD": {
-            "prompt": "rcm_ellipse_yDD",
-            "default": "15.0"
-        },
-        "rcm_ellipse_xTail": {
-            "prompt": "rcm_ellipse_xTail",
-            "default": "15.0"
-        },
-        "rcm_ellipse_isDynamic": {
-            "prompt": "rcm_ellipse_isDynamic",
-            "default": "T",
-            "valids": ["T", "F"]
-        },
-        "rcm_grid_LowLat": {
-            "prompt": "rcm_grid_LowLat",
-            "default": "30.0"
-        },
-        "rcm_grid_HiLat": {
-            "prompt": "rcm_grid_HiLat",
-            "default": "75.0"
-        },
-        "rcm_grid_doLatStretch": {
-            "prompt": "rcm_grid_doLatStretch",
-            "default": "F",
-            "valids": ["T", "F"]
-        },
-        "rcm_plasmasphere_isDynamic": {
-            "prompt": "rcm_plasmasphere_isDynamic",
-            "default": "F",
-            "valids": ["T", "F"]
-        },
-        "rcm_plasmasphere_initKp": {
-            "prompt": "rcm_plasmasphere_initKp",
-            "default": "2"
-        },
-        "rcm_plasmasphere_doRefill": {
-            "prompt": "rcm_plasmasphere_doRefill",
-            "default": "T",
-            "valids": ["T", "F"]
-        },
-        "rcm_plasmasphere_DenPP0": {
-            "prompt": "rcm_plasmasphere_DenPP0",
-            "default": "1.0e-2"
-        },
-        "rcm_plasmasphere_tAvg": {
-            "prompt": "rcm_plasmasphere_tAvg",
-            "default": "600.0"
+        "gamera_grid_inner_radius": {
+            "LEVEL": "INTERMEDIATE",
+            "prompt": "GAMERA grid inner radius (in Earth radii)",
+            "default": "2.0"
+        },
+        "hpc_system": {
+            "LEVEL": "BASIC",
+            "prompt": "Name of HPC system",
+            "default": "pleiades",
+            "valids": ["derecho", "pleiades"]
+        }
+    },
+
+    "pbs": {
+        "_common": {
+            "account_name": {
+                "LEVEL": "BASIC",
+                "prompt": "PBS account name"
+            },
+            "run_directory": {
+                "LEVEL": "BASIC",
+                "prompt": "Run directory",
+                "default": "."
+            },
+            "kaiju_install_directory": {
+                "LEVEL": "BASIC",
+                "prompt": "Path to kaiju installation"
+            },
+            "kaiju_build_directory": {
+                "LEVEL": "BASIC",
+                "prompt": "Path to kaiju build directory"
+            },
+            "num_segments": {
+                "LEVEL": "EXPERT",
+                "prompt": "Number of sequential PBS jobs to submit for the run",
+                "default": "1"
+            }
+        },
+        "derecho": {
+            "queue": {
+                "LEVEL": "BASIC",
+                "prompt": "PBS queue name",
+                "default": "main",
+                "valids": ["develop", "main"]
+            },
+            "walltime": {
+                "LEVEL": "BASIC",
+                "prompt": "WARNING: You are responsible for ensuring that the wall time is sufficient to run a segment of your simulation!\nRequested wall time for each PBS job segment (HH:MM:SS)",
+                "default": "01:00:00"
+            },
+            "select": {
+                "LEVEL": "EXPERT",
+                "prompt": "Number of nodes to request",
+                "default": {
+                    "D": "2",
+                    "Q": "8",
+                    "O": "32",
+                    "H": "128"
+                }
+            },
+            "ncpus": {
+                "LEVEL": "EXPERT",
+                "prompt": "Number of cores per node",
+                "default": "128"
+            },
+            "mpiprocs": {
+                "LEVEL": "EXPERT",
+                "prompt": "Number of MPI ranks per node",
+                "default": "2"
+            },
+            "ompthreads": {
+                "LEVEL": "EXPERT",
+                "prompt": "Number of OMP threads per MPI rank",
+                "default": "64"
+            },
+            "num_helpers": {
+                "LEVEL": "EXPERT",
+                "prompt": "Number of helper nodes",
+                "default": {
+                    "D": "0",
+                    "Q": "2",
+                    "O": "4",
+                    "H": "8"
+                }
+            },
+            "helper_mpiprocs": {
+                "LEVEL": "EXPERT",
+                "prompt": "Number of MPI ranks per helper node",
+                "default": "1"
+            },
+            "helper_ompthreads": {
+                "LEVEL": "EXPERT",
+                "prompt": "Number of OMP threads per helper node",
+                "default": "128"
+            },
+            "other": {
+                "LEVEL": "EXPERT",
+                "prompt": "Additional options for PBS -l",
+                "default": ""
+            },
+            "modules": {
+                "LEVEL": "EXPERT",
+                "prompt": "Modules to load",
+                "default": [
+                    "ncarenv/23.06",
+                    "cmake/3.26.3",
+                    "craype/2.7.20",
+                    "intel/2023.0.0",
+                    "geos/3.9.1",
+                    "ncarcompilers/1.0.0",
+                    "cray-mpich/8.1.25",
+                    "hdf5/1.12.2",
+                    "mkl/2023.0.0"
+                ]
+            },
+            "environment_variables": {
+                "LEVEL": "EXPERT",
+                "prompt": "Additional environment variable settings",
+                "default": null
+            },
+            "mpiexec_command": {
+                "LEVEL": "EXPERT",
+                "prompt": "MPI command to launch run",
+                "default": "mpiexec pinCpuCores.sh"
+            }
+        },
+        "pleiades": {
+            "queue": {
+                "LEVEL": "BASIC",
+                "prompt": "PBS queue name",
+                "default": "normal",
+                "valids": ["low", "normal", "long", "debug", "devel"]
+            },
+            "walltime": {
+                "LEVEL": "BASIC",
+                "prompt": "WARNING: You are responsible for ensuring that the wall time is sufficient to run a segment of your simulation!\nRequested wall time for each PBS job segment (HH:MM:SS)",
+                "default": "01:00:00"
+            },
+            "select": {
+                "LEVEL": "EXPERT",
+                "prompt": "Number of nodes to request",
+                "default": {
+                    "D": "2",
+                    "Q": "8",
+                    "O": "32",
+                    "H": "128"
+                }
+            },
+            "ncpus": {
+                "LEVEL": "EXPERT",
+                "prompt": "Number of cores per node",
+                "default": "28"
+            },
+            "mpiprocs": {
+                "LEVEL": "EXPERT",
+                "prompt": "Number of MPI ranks per node",
+                "default": "2"
+            },
+            "ompthreads": {
+                "LEVEL": "EXPERT",
+                "prompt": "Number of OMP threads per MPI rank",
+                "default": "14"
+            },
+            "num_helpers": {
+                "LEVEL": "EXPERT",
+                "prompt": "Number of helper nodes",
+                "default": {
+                    "D": "0",
+                    "Q": "2",
+                    "O": "4",
+                    "H": "8"
+                }
+            },
+            "helper_mpiprocs": {
+                "LEVEL": "EXPERT",
+                "prompt": "Number of MPI ranks per helper node",
+                "default": "1"
+            },
+            "helper_ompthreads": {
+                "LEVEL": "EXPERT",
+                "prompt": "Number of OMP threads per helper node",
+                "default": "28"
+            },
+            "other": {
+                "LEVEL": "EXPERT",
+                "prompt": "Additional options for PBS -l",
+                "default": ":model=bro"
+            },
+            "modules": {
+                "LEVEL": "EXPERT",
+                "prompt": "Modules to load",
+                "default": [
+                    "nas",
+                    "pkgsrc/2022Q1-rome",
+                    "comp-intel/2020.4.304",
+                    "mpi-hpe/mpt.2.23",
+                    "hdf5/1.8.18_mpt"
+                ]
+            },
+            "environment_variables": {
+                "LEVEL": "EXPERT",
+                "prompt": "Additional environment variable settings",
+                "default": null
+            },
+            "mpiexec_command": {
+                "LEVEL": "EXPERT",
+                "prompt": "MPI command to launch run",
+                "default": "mpiexec correctOMPenvironment.sh $nodefile omplace"
+            }
+        }
+    },
+
+    "gamera": {
+        "sim": {
+            "H5Grid": {
+                "LEVEL": "INTERMEDIATE",
+                "prompt": "(GAMERA) Relative path to LFM grid file"
+            },
+            "doH5g": {
+                "LEVEL": "INTERMEDIATE",
+                "prompt": "(GAMERA) Use an existing HDF5 LFM grid file",
+                "default": "T",
+                "valids": ["T", "F"]
+            },
+            "icType": {
+                "LEVEL": "INTERMEDIATE",
+                "prompt": "(GAMERA) Initial condition type",
+                "default": "user",
+                "valids": ["user"]
+            },
+            "runid": {
+                "LEVEL": "EXPERT",
+                "prompt": "(GAMERA) Run ID for simulation",
+                "default": "geospace",
+                "source": "src/voltron/rcmimag.F90"
+            },
+            "pdmb": {
+                "LEVEL": "EXPERT",
+                "prompt": "(GAMERA) Partial donor method limit (0+-1)",
+                "default": "0.75"
+            },
+            "rmeth": {
+                "LEVEL": "EXPERT",
+                "prompt": "(GAMERA) Reconstruction methodology",
+                "default": "8C",
+                "valids": ["7UP", "8C", "8CENT"]
+            }
+        },
+        "floors": {
+            "dFloor": {
+                "LEVEL": "INTERMEDIATE",
+                "prompt": "(GAMERA) Lowest allowable density in MHD domain (cm**-3)",
+                "default": "1.0e-4"
+            },
+            "pFloor": {
+                "LEVEL": "INTERMEDIATE",
+                "prompt": "(GAMERA) Lowest allowable pressure in MHD domain (nPa)",
+                "default": "1.0e-6"
+            }
+        },
+        "timestep": {
+            "doCPR": {
+                "LEVEL": "EXPERT",
+                "prompt": "(GAMERA) Handle minor timestep issues",
+                "default": "T",
+                "valids": ["T", "F"]
+            },
+            "limCPR": {
+                "LEVEL": "EXPERT",
+                "prompt": "(GAMERA) Pass entire MHD variable state to CHIMP, etc.",
+                "default": "0.20"
+            }
+        },
+        "restart": {
+            "doRes": {
+                "LEVEL": "INTERMEDIATE",
+                "prompt": "(GAMERA) Restart from a saved state",
+                "default": "F",
+                "valids": ["T", "F"]
+            },
+            "nRes": {
+                "LEVEL": "INTERMEDIATE",
+                "prompt": "(GAMERA) Index of restart file to use (-1 for latest (XXXXX-symlink) restart file)",
+                "default": "-1"
+            },
+            "resID": {
+                "LEVEL": "INTERMEDIATE",
+                "prompt": "(GAMERA) Run ID for restart step",
+                "default": "geospace"
+            }
+        },
+        "physics": {
+            "doBoris": {
+                "LEVEL": "EXPERT",
+                "prompt": "(GAMERA) Apply Boris correction",
+                "default": "T",
+                "valids": ["T", "F"]
+            },
+            "Ca": {
+                "LEVEL": "INTERMEDIATE",
+                "prompt": "(GAMERA) Maximum value of light speed (10**5 m/s)",
+                "default": "10.0"
+            },
+            "doMHD": {
+                "LEVEL": "EXPERT",
+                "prompt": "(GAMERA) Pass entire MHD variable state to CHIMP, etc.",
+                "default": "T",
+                "valids": ["T", "F"]
+            }
+        },
+        "ring": {
+            "doRing": {
+                "LEVEL": "EXPERT",
+                "prompt": "(GAMERA) Apply ring averaging around axis",
+                "default": "T",
+                "valids": ["T", "F"]
+            },
+            "gid": {
+                "LEVEL": "EXPERT",
+                "prompt": "(GAMERA) Grid type for ring averaging",
+                "default": "lfm"
+            }
+        },
+        "wind": {
+            "tsfile": {
+                "LEVEL": "BASIC",
+                "prompt": "(GAMERA) Relative path to HDF5 file containing solar wind boundary conditions",
+                "default": "bcwind.h5"
+            }
+        },
+        "source": {
+            "doSource": {
+                "LEVEL": "INTERMEDIATE",
+                "prompt": "(GAMERA) Ingest inner magnetosphere model moments into MHD model",
+                "default": "T",
+                "valids": ["T", "F"]
+            },
+            "doBounceDT": {
+                "LEVEL": "EXPERT",
+                "prompt": "(GAMERA) Use Alfven bounce-time weighting for inner magnetosphere ingest",
+                "default": "T",
+                "valids": ["T", "F"],
+                "source": "src/voltron/rcmimag.F90"
+            },
+            "nBounce": {
+                "LEVEL": "EXPERT",
+                "prompt": "(GAMERA) Number of Alfven bounce timescales for weighting",
+                "default": "1.0",
+                "source": "src/voltron/rcmimag.F90"
+            },
+            "doWolfLim": {
+                "LEVEL": "INTERMEDIATE",
+                "prompt": "(GAMERA) Use plasma beta to limit pressure ingested from RCM to MHD",
+                "default": "T",
+                "valids": ["T", "F"],
+                "source": "src/voltron/rcmimag.F90"
+            }
+        },
+        "iPdir": {
+            "N": {
+                "LEVEL": "INTERMEDIATE",
+                "prompt": "(GAMERA) Number of MPI blocks in i-direction",
+                "default": {
+                    "D": "2",
+                    "Q": "4",
+                    "O": "8",
+                    "H": "16"
+                }
+            },
+            "bcPeriodic": {
+                "LEVEL": "EXPERT",
+                "prompt": "(GAMERA) True if boundary conditions are periodic",
+                "default": "F",
+                "valids": ["T", "F"]
+            }
+        },
+        "jPdir": {
+            "N": {
+                "LEVEL": "INTERMEDIATE",
+                "prompt": "(GAMERA) Number of MPI blocks in j-direction",
+                "default": {
+                    "D": "2",
+                    "Q": "4",
+                    "O": "8",
+                    "H": "16"
+                }
+            },
+            "bcPeriodic": {
+                "LEVEL": "EXPERT",
+                "prompt": "(GAMERA) True if boundary conditions are periodic",
+                "default": "F",
+                "valids": ["T", "F"]
+            }
+        },
+        "kPdir": {
+            "N": {
+                "LEVEL": "INTERMEDIATE",
+                "prompt": "(GAMERA) Number of MPI blocks in k-direction",
+                "default": {
+                    "D": "1",
+                    "Q": "1",
+                    "O": "1",
+                    "H": "1"
+                }
+            },
+            "bcPeriodic": {
+                "LEVEL": "EXPERT",
+                "prompt": "(GAMERA) True if boundary conditions are periodic",
+                "default": "T",
+                "valids": ["T", "F"]
+            }
+        },
+        "coupling": {
+            "blockHalo": {
+                "LEVEL": "EXPERT",
+                "prompt": "(GAMERA) Block halo MPI",
+                "default": {
+                    "derecho": "T",
+                    "pleiades": "F"
+                },
+                "valids": ["T", "F"]
+            }
+        }
+    },
+
+    "voltron": {
+        "time": {
+            "tFin": {
+                "LEVEL": "EXPERT",
+                "prompt": "(VOLTRON) Final simulated time (seconds)",
+                "default": "64800.0"
+            }
+        },
+        "spinup": {
+            "doSpin": {
+                "LEVEL": "INTERMEDIATE",
+                "prompt": "(VOLTRON) Set to 'T' to perform a spinup period",
+                "default": "T",
+                "valids": ["T", "F"]
+            },
+            "tSpin": {
+                "LEVEL": "INTERMEDIATE",
+                "prompt": "(VOLTRON) Number of simulated seconds for hydrodynamic spinup",
+                "default": "7200.0"
+            },
+            "tIO": {
+                "LEVEL": "EXPERT",
+                "prompt": "(VOLTRON) Simulation time to begin variable and restart dumps",
+                "default": "0.0"
+            }
+        },
+        "output": {
+            "dtOut": {
+                "LEVEL": "BASIC",
+                "prompt": "(VOLTRON) File output cadence in simulated seconds",
+                "default": "60.0"
+            },
+            "tsOut": {
+                "LEVEL": "INTERMEDIATE",
+                "prompt": "(VOLTRON) Cadence for status updates on screen in simulated seconds",
+                "default": "300.0"
+            }
+        },
+        "coupling": {
+            "doQkSquish": {
+                "LEVEL": "INTERMEDIATE",
+                "prompt": "(VOLTRON) Use stride for field line tracing for RCM ingestion into gamera",
+                "default": "T",
+                "valids": ["T", "F"]
+            },
+            "qkSquishStride": {
+                "LEVEL": "INTERMEDIATE",
+                "prompt": "(VOLTRON) Set stride for field line tracing for RCM ingestion into gamera (must be integer power of 2)",
+                "default": "2",
+                "NOTE": "Should be computed based on grid resolution."
+            },
+            "dtCouple": {
+                "LEVEL": "INTERMEDIATE",
+                "prompt": "(VOLTRON) Interval in simulated seconds between component coupling",
+                "default": "5.0"
+            },
+            "doDeep": {
+                "LEVEL": "INTERMEDIATE",
+                "prompt": "(VOLTRON) Use an inner magnetosphere model?",
+                "default": "T",
+                "valids": ["T", "F"]
+            },
+            "imType": {
+                "LEVEL": "EXPERT",
+                "prompt": "(VOLTRON) Inner magnetosphere model to use",
+                "default": "RCM",
+                "valids": ["RCM", "SST", "TS07", "RCMX"]
+            },
+            "doAsyncCoupling": {
+                "LEVEL": "EXPERT",
+                "prompt": "(VOLTRON) Perform asynchronous model coupling",
+                "default": {
+                    "derecho": "F",
+                    "pleiades": "T"
+                },
+                "valids": ["T", "F"]
+            }
+        },
+        "restart": {
+            "dtRes": {
+                "LEVEL": "INTERMEDIATE",
+                "prompt": "(VOLTRON) Cadence for restart file generation in simulated seconds",
+                "default": "1800.0"
+            }
+        },
+        "imag": {
+            "doInit": {
+                "LEVEL": "EXPERT",
+                "prompt": "(VOLTRON) Initialize inner magnetosphere model",
+                "default": "T",
+                "valids": ["T", "F"],
+                "source": "src/voltron/rcmimag.F90"
+            }
+        },
+        "helpers": {
+            "numHelpers": {
+                "LEVEL": "INTERMEDIATE",
+                "prompt": "(VOLTRON) Number of helper nodes",
+                "default": null,
+                "NOTE": "Will be computed"
+            },
+            "useHelpers": {
+                "LEVEL": "EXPERT",
+                "prompt": "(VOLTRON) Set to T to use helper nodes for coupling with RCM",
+                "default": "T",
+                "valids": ["T", "F"],
+                "SOURCE": "src/drivers/voltron_mpix.F90"
+            },
+            "doSquishHelp": {
+                "LEVEL": "EXPERT",
+                "prompt": "(VOLTRON) Override default number of squish blocks",
+                "default": "T",
+                "valids": ["T", "F"]
+            }
+        }
+    },
+
+    "chimp": {
+        "units": {
+            "uid": {
+                "LEVEL": "EXPERT",
+                "prompt": "(CHIMP) Name of units system for GAMERA inputs to CHIMP",
+                "default": "EARTHCODE",
+                "valids": ["EARTH", "EARTHCODE", "JUPITER", "JUPITERCODE", "SATURN", "SATURNCODE", "HELIO", "LFM", "LFMJUPITER" ]
+            }
+        },
+        "fields": {
+           "grType": {
+                "LEVEL": "EXPERT",
+                "prompt": "(CHIMP) NExpected grid type for GAMERA output",
+                "default": "lfm",
+                "valids": ["lfm", "egg", "sph"]
+            }
+        },
+        "domain": {
+            "dtype": {
+                "LEVEL": "EXPERT",
+                "prompt": "(CHIMP) NDomain over which to perform CHIMP calculations",
+                "default": "MAGE",
+                "valids": ["SPH", "LFM", "LFMCYL", "MAGE", "EGG", "ELL"]
+            }
+        },
+        "tracer": {
+            "epsds": {
+                "LEVEL": "INTERMEDIATE",
+                "prompt": "(CHIMP) NTolerance level for field-line tracer integration",
+                "default": "0.05"
+            }
+        }
+    },
+
+    "remix": {
+        "conductance": {
+            "doStarlight": {
+                "LEVEL": "INTERMEDIATE",
+                "prompt": "(REMIX) Compute starlight contribution to conductance",
+                "default": "T",
+                "valids": ["T", "F"]
+            },
+            "apply_cap": {
+                "LEVEL": "INTERMEDIATE",
+                "prompt": "(REMIX) Apply cap to Hall conductance based on Pedersen conductance",
+                "default": "T",
+                "valids": ["T", "F"]
+            }
+        },
+        "precipitation": {
+            "aurora_model_type": {
+                "LEVEL": "INTERMEDIATE",
+                "prompt": "(REMIX) Name of auroral precipitation model to use",
+                "default": "LINMRG",
+                "valids": ["FEDDER", "ZHANG", "RCMHD", "RCMONO", "RCMFED", "LINMRG"]
+            },
+            "beta": {
+                "LEVEL": "INTERMEDIATE",
+                "prompt": "(REMIX) Loss cone filling fraction",
+                "default": "0.2"
+            },
+            "doAuroralSmooth": {
+                "LEVEL": "INTERMEDIATE",
+                "prompt": "(REMIX) Enable Auroral Smoothing",
+                "default": "F",
+                "valids": ["T", "F"]
+            }
+        }
+    },
+
+    "rcm": {
+        "rcmdomain": {
+            "domType": {
+                "LEVEL": "EXPERT",
+                "prompt": "(RCM) RCM domain type",
+                "default": "ELLIPSE",
+                "NOTE": "OBSOLETE?"
+            }
+        },
+        "ellipse": {
+            "xSun": {
+                "LEVEL": "INTERMEDIATE",
+                "prompt": "(RCM) Maximum extent in +x direction in Earth radii",
+                "default": "12.5"
+            },
+            "yDD": {
+                "LEVEL": "INTERMEDIATE",
+                "prompt": "(RCM) Maximum extent in +/- y dimension in Earth radii",
+                "default": "15.0"
+            },
+            "xTail": {
+                "LEVEL": "INTERMEDIATE",
+                "prompt": "(RCM) Maximum extent in -x direction in Earth radii",
+                "default": "-15.0"
+            },
+            "isDynamic": {
+                "LEVEL": "EXPERT",
+                "prompt": "(RCM) Dynamically determine the RCM outer boundary",
+                "default": "T",
+                "valids": ["T", "F"]
+            }
+        },
+        "grid": {
+            "LowLat": {
+                "LEVEL": "INTERMEDIATE",
+                "prompt": "(RCM) Low-latitude boundary (degrees) for RCM grid",
+                "default": "30.0",
+                "NOTE": "Should map to 0.5 Re less than MHD inner boundary"
+            },
+            "HiLat": {
+                "LEVEL": "INTERMEDIATE",
+                "prompt": "(RCM) High-latitude boundary (degrees) for RCM grid",
+                "default": "75.0"
+            }
+        },
+        "plasmasphere": {
+            "isDynamic": {
+                "LEVEL": "INTERMEDIATE",
+                "prompt": "(RCM) Enable evolution of plasmasphere using ExB",
+                "default": "T",
+                "valids": ["T", "F"]
+            },
+            "initKp": {
+                "LEVEL": "EXPERT",
+                "prompt": "(RCM) Value of Kp used to initialize plasmasphere density profile",
+                "default": "5",
+                "NOTE": "From Gallagher (2000?)"
+            },
+            "doRefill": {
+                "LEVEL": "INTERMEDIATE",
+                "prompt": "(RCM) Allow plasmasphere refilling",
+                "default": "T",
+                "valids": ["T", "F"],
+                "NOTE": "Empirical model from Denton (2012)"
+            },
+            "tAvg": {
+                "LEVEL": "INTERMEDIATE",
+                "prompt": "(RCM) Weighting timescale (seconds) for exponential moving average of ionospheric potential",
+                "default": "60.0"
+            }
+        },
+        "loss": {
+            "doFLCLoss": {
+                "LEVEL": "EXPERT",
+                "prompt": "(RCM) rcm_loss_doFLCDo field line curvature loss",
+                "default": "F",
+                "valids": ["T", "F"]
+            },
+            "eLossMethod": {
+                "LEVEL": "EXPERT",
+                "prompt": "(RCM) Electron loss model",
+                "default": "WM",
+                "valids": ["WM", "FDG", "SS"]
+            }
         }
     }
+
 }

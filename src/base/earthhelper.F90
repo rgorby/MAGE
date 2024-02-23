@@ -33,7 +33,7 @@ module earthhelper
     real(rp), parameter, private :: GLMin = 1.0
     real(rp), parameter, private :: GLMax = 8.0
 
-    integer, private :: kpDefault = 1
+    real(rp), private :: kpDefault = 1.0
 
 
     !Toy code for putting in a quiet time RC
@@ -58,20 +58,20 @@ module earthhelper
 
     !Routine to change kp-default on the fly if necessary
     subroutine SetKp0(kp)
-        integer, intent(in) :: kp
+        real(rp), intent(in) :: kp
 
         !Can only be 1,5
-        if ( (kp>=1) .and. (kp<=5) ) then
+        if ( (kp>=1.0) .and. (kp<=5.0) ) then
             kpDefault = kp
-        else if (kp>5) then
-            kpDefault = 5
+        else if (kp>5.0) then
+            kpDefault = 5.0
         endif
 
     end subroutine SetKp0
     !Return 2D gallagher density afa r,phi (rad)
     function GallagherRP(r,phi,kpO) result(D)
         real(rp), intent(in) :: r,phi
-        integer, intent(in), optional :: kpO
+        real(rp), intent(in), optional :: kpO
         real(rp) :: D
         real(rp) :: x,y
         x = r*cos(phi)
@@ -87,7 +87,7 @@ module earthhelper
     !Return 2D gallagher density
     function GallagherXY(x,y,kpO) result(D)
         real(rp), intent(in) :: x,y
-        integer, intent(in), optional :: kpO
+        real(rp), intent(in), optional :: kpO
         real(rp) :: D
 
         real(rp), dimension(8) :: xfn,yfn,xfd,yfd
@@ -97,9 +97,9 @@ module earthhelper
         D = 0.0
 
         if (present(kpO)) then
-            kp = kpO
+            kp = nint(kpO) ! Gallagher model takes integer Kp
         else
-            kp = kpDefault
+            kp = nint(kpDefault)
         endif
 
         select case(kp)

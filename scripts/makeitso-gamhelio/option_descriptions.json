@@ -1,0 +1,483 @@
+{
+    "version": "0.0.0",
+
+    "simulation": {
+        "job_name": {
+            "LEVEL": "BASIC",
+            "prompt": "Name to use for PBS job(s)",
+            "default": "helio"
+        },
+        "wsa_file": {
+            "LEVEL": "BASIC",
+            "prompt": "Path to WSA boundary condition file to use",
+            "default": "wsa.fits"
+        },
+        "start_date": {
+            "LEVEL": "BASIC",
+            "prompt": "Start date for simulation (yyyy-mm-ddThh:mm:ss)",
+            "default": "2017-08-02T19:44:23"
+        },
+        "stop_date": {
+            "LEVEL": "BASIC",
+            "prompt": "Stop date for simulation (yyyy-mm-ddThh:mm:ss)",
+            "default": "2017-08-02T21:44:23"
+        },
+        "use_segments": {
+            "LEVEL": "BASIC",
+            "prompt": "Do you want to split your job into multiple segments?",
+            "default": "N",
+            "valids": ["Y", "y", "N", "n"]
+        },
+        "segment_duration": {
+            "LEVEL": "BASIC",
+            "prompt": "Segment length in simulated hours"
+        },
+        "hpc_system": {
+            "LEVEL": "BASIC",
+            "prompt": "Name of HPC system",
+            "default": "pleiades",
+            "valids": ["derecho", "pleiades"]
+        }
+    },
+
+
+    "pbs": {
+        "_common": {
+            "account_name": {
+                "LEVEL": "BASIC",
+                "prompt": "PBS account name"
+            },
+            "run_directory": {
+                "LEVEL": "BASIC",
+                "prompt": "Run directory",
+                "default": "."
+            },
+            "kaiju_install_directory": {
+                "LEVEL": "BASIC",
+                "prompt": "Path to kaiju installation"
+            },
+            "kaiju_build_directory": {
+                "LEVEL": "BASIC",
+                "prompt": "Path to kaiju build directory"
+            },
+            "num_segments": {
+                "LEVEL": "COMPUTED",
+                "NOTE": "Number of sequential PBS jobs to submit for the run",
+                "default": "1"
+            }
+        },
+        "derecho": {
+            "queue": {
+                "LEVEL": "BASIC",
+                "prompt": "PBS queue name",
+                "default": "main",
+                "valids": ["develop", "main"]
+            },
+            "walltime": {
+                "LEVEL": "BASIC",
+                "prompt": "WARNING: You are responsible for ensuring that the wall time is sufficient to run a segment of your simulation!\nRequested wall time for each PBS job segment (HH:MM:SS)",
+                "default": "01:00:00"
+            },
+            "select": {
+                "LEVEL": "EXPERT",
+                "prompt": "Number of nodes to request",
+                "default": "1"
+            },
+            "ncpus": {
+                "LEVEL": "EXPERT",
+                "prompt": "Number of cores per node",
+                "default": "128"
+            },
+            "mpiprocs": {
+                "LEVEL": "EXPERT",
+                "prompt": "Number of MPI ranks per node",
+                "default": "2"
+            },
+            "ompthreads": {
+                "LEVEL": "EXPERT",
+                "prompt": "Number of OMP threads per MPI rank",
+                "default": "64"
+            },
+            "other": {
+                "LEVEL": "EXPERT",
+                "prompt": "Additional options for PBS -l",
+                "default": ""
+            },
+            "modules": {
+                "LEVEL": "EXPERT",
+                "prompt": "Modules to load",
+                "default": [
+                    "ncarenv/23.06",
+                    "cmake/3.26.3",
+                    "craype/2.7.20",
+                    "intel/2023.0.0",
+                    "geos/3.9.1",
+                    "ncarcompilers/1.0.0",
+                    "cray-mpich/8.1.25",
+                    "hdf5/1.12.2",
+                    "mkl/2023.0.0"
+                ]
+            },
+            "environment_variables": {
+                "LEVEL": "EXPERT",
+                "prompt": "Additional environment variable settings",
+                "default": null
+            },
+            "mpiexec_command": {
+                "LEVEL": "EXPERT",
+                "prompt": "MPI command to launch run",
+                "default": "mpiexec pinCpuCores.sh"
+            }
+        },
+        "pleiades": {
+            "queue": {
+                "LEVEL": "BASIC",
+                "prompt": "PBS queue name",
+                "default": "normal",
+                "valids": ["low", "normal", "long", "debug", "devel"]
+            },
+            "walltime": {
+                "LEVEL": "BASIC",
+                "prompt": "WARNING: You are responsible for ensuring that the wall time is sufficient to run a segment of your simulation!\nRequested wall time for each PBS job segment (HH:MM:SS)",
+                "default": "01:00:00"
+            },
+            "select": {
+                "LEVEL": "EXPERT",
+                "prompt": "Number of nodes to request",
+                "default": "1"
+            },
+            "ncpus": {
+                "LEVEL": "EXPERT",
+                "prompt": "Number of cores per node",
+                "default": "28"
+            },
+            "mpiprocs": {
+                "LEVEL": "EXPERT",
+                "prompt": "Number of MPI ranks per node",
+                "default": "2"
+            },
+            "ompthreads": {
+                "LEVEL": "EXPERT",
+                "prompt": "Number of OMP threads per MPI rank",
+                "default": "14"
+            },
+            "other": {
+                "LEVEL": "EXPERT",
+                "prompt": "Additional options for PBS -l",
+                "default": ":model=bro"
+            },
+            "modules": {
+                "LEVEL": "EXPERT",
+                "prompt": "Modules to load",
+                "default": [
+                    "nas",
+                    "pkgsrc/2022Q1-rome",
+                    "comp-intel/2020.4.304",
+                    "mpi-hpe/mpt.2.23",
+                    "hdf5/1.8.18_mpt"
+                ]
+            },
+            "environment_variables": {
+                "LEVEL": "EXPERT",
+                "prompt": "Additional environment variable settings",
+                "default": null
+            },
+            "mpiexec_command": {
+                "LEVEL": "EXPERT",
+                "prompt": "MPI command to launch run",
+                "default": "mpiexec correctOMPenvironment.sh $nodefile omplace"
+            }
+        }
+    },
+
+    "wsa2gamera": {
+        "Gamera": {
+            "gameraGridFile": {
+                "LEVEL": "EXPERT",
+                "prompt": "GAMERA grid file",
+                "default": "heliogrid.h5"
+            },
+            "GridDir": {
+                "LEVEL": "EXPERT",
+                "prompt": "Directory for GAMERA grid file"
+            },
+            "gameraIbcFile": {
+                "LEVEL": "EXPERT",
+                "prompt": "GAMERA inner boundary conditions file",
+                "default": "innerbc.h5"
+            },
+            "IbcDir": {
+                "LEVEL": "EXPERT",
+                "prompt": "Directory for inner boundary conditions file"
+            }
+        },
+        "Grid": {
+            "tMin": {
+                "LEVEL": "EXPERT",
+                "prompt": "Minimum solar polar angle fraction ([0, 1]->[0, 2*pi])",
+                "default": "0.1"
+            },
+            "tMax": {
+                "LEVEL": "EXPERT",
+                "prompt": "Maximum solar polar angle fraction ([0, 1]->[0, 2*pi])",
+                "default": "0.9"
+            },
+            "Rin": {
+                "LEVEL": "EXPERT",
+                "prompt": "Radius of inner grid edge (Rsun)",
+                "default": "21.5"
+            },
+            "Rout": {
+                "LEVEL": "EXPERT",
+                "prompt": "Radius of outer grid edge (Rsun)",
+                "default": "220.0"
+            },
+            "Ni": {
+                "LEVEL": "BASIC",
+                "prompt": "Number of radial grid cells",
+                "default": "128"
+            },
+            "Nj": {
+                "LEVEL": "BASIC",
+                "prompt": "Number of polar angle grid cells",
+                "default": "64"
+            },
+            "Nk": {
+                "LEVEL": "BASIC",
+                "prompt": "Number of azimuthal angle grid cells",
+                "default": "128"
+            }
+        },
+        "WSA": {
+            "wsafile": {
+                "LEVEL": "EXPERT",
+                "prompt": "Path to WSA FITS file",
+                "default": "wsa.fits"
+            },
+            "density_temperature_infile": {
+                "LEVEL": "EXPERT",
+                "prompt": "Density and pressure in the file",
+                "default": "no",
+                "valids": ["yes", "no"]
+            },
+            "gauss_smooth_width": {
+                "LEVEL": "EXPERT",
+                "prompt": "Gaussian smoothing width (Rsun)",
+                "default": "0"
+            },
+            "normalized": {
+                "LEVEL": "EXPERT",
+                "prompt": "Normalize values from WSA FITS file",
+                "default": "no",
+                "valids": ["yes", "no"]
+            }
+        },
+        "Constants": {
+            "gamma": {
+                "LEVEL": "EXPERT",
+                "prompt": "Solar wind adiabatic index (not used?)",
+                "default": "1.5"
+            },
+            "Nghost": {
+                "LEVEL": "EXPERT",
+                "prompt": "Number of ghost cells for each dimension",
+                "default": "4"
+            },
+            "Tsolar": {
+                "LEVEL": "EXPERT",
+                "prompt": "Solar rotation period (Earth days)",
+                "default": "25.38"
+            },
+            "nCS": {
+                "LEVEL": "EXPERT",
+                "prompt": "Current sheet number density (cm^-3)",
+                "default": "1100.0"
+            },
+            "TCS": {
+                "LEVEL": "EXPERT",
+                "prompt": "Current sheet temperature (K)",
+                "default": "1.0e6"
+            }
+        },
+        "Normalization": {
+            "B0": {
+                "LEVEL": "EXPERT",
+                "prompt": "Solar wind magnetic field (Gauss, not used?)",
+                "default": "1.0e-3"
+            },
+            "n0": {
+                "LEVEL": "EXPERT",
+                "prompt": "Solar wind number density (cm^-3, not used?)",
+                "default": "200.0"
+            }
+        }
+    },
+
+    "gamera": {
+        "sim": {
+            "runid": {
+                "LEVEL": "EXPERT",
+                "prompt": "Run ID",
+                "default": "helio"
+            },
+            "doH5g": {
+                "LEVEL": "EXPERT",
+                "prompt": "Use an existing HDF5 LFM grid file",
+                "default": "T",
+                "valids": ["T", "F"]
+            },
+            "H5Grid": {
+                "LEVEL": "EXPERT",
+                "prompt": "H5Grid",
+                "default": "heliogrid.h5"
+            },
+            "icType": {
+                "LEVEL": "EXPERT",
+                "prompt": "icType",
+                "default": "user"
+            },
+            "pdmb": {
+                "LEVEL": "EXPERT",
+                "prompt": "pdmb",
+                "default": "1.0"
+            },
+            "rmeth": {
+                "LEVEL": "EXPERT",
+                "prompt": "rmeth",
+                "default": "7UP"
+            }
+        },
+        "time": {
+            "tFin": {
+                "LEVEL": "EXPERT",
+                "prompt": "Time duration to simulate (hours)",
+                "default": "200.0"
+            }
+        },
+        "spinup": {
+            "doSpin": {
+                "LEVEL": "EXPERT",
+                "prompt": "Use a spinup period",
+                "default": "T",
+                "valids": ["T", "t", "F", "f"]
+            },
+            "tSpin": {
+                "LEVEL": "EXPERT",
+                "prompt": "Spinup time duration (simulated hours)",
+                "default": "200.0"
+            },
+            "tIO": {
+                "LEVEL": "EXPERT",
+                "prompt": "Simulated time (hours) to start screen output (negtive for output during spinup)",
+                "default": "0.0"
+            }
+        },
+        "output": {
+            "dtOut": {
+                "LEVEL": "EXPERT",
+                "prompt": "Timestep slice output interval (simulated hours)",
+                "default": "10.0"
+            },
+            "tsOut": {
+                "LEVEL": "EXPERT",
+                "prompt": "Screen output interval (timesteps)",
+                "default": "50.0"
+            },
+            "doTimer": {
+                "LEVEL": "EXPERT",
+                "prompt": "Code timing output enabled",
+                "default": "T",
+                "valids": ["T", "t", "F", "f"]
+            }
+        },
+        "physics": {
+            "doMHD": {
+                "LEVEL": "EXPERT",
+                "prompt": "doMHD",
+                "default": "T",
+                "valids": ["T", "t", "F", "f"]
+            },
+            "gamma": {
+                "LEVEL": "EXPERT",
+                "prompt": "gamma",
+                "default": "1.5"
+            }
+        },
+        "prob": {
+            "Tsolar": {
+                "LEVEL": "EXPERT",
+                "prompt": "T_solar",
+                "default": "25.38"
+            }
+        },
+        "iPdir": {
+            "N": {
+                "LEVEL": "EXPERT",
+                "prompt": "Number of MPI chunks in r-dimension",
+                "default": "2"
+            },
+            "bcPeriodic": {
+                "LEVEL": "EXPERT",
+                "prompt": "bcPeriodic",
+                "default": "F",
+                "valids": ["T", "t", "F", "f"]
+            }
+        },
+        "jPdir": {
+            "N": {
+                "LEVEL": "EXPERT",
+                "prompt": "Number of MPI chunks in latitude dimension",
+                "default": "2"
+            },
+            "bcPeriodic": {
+                "LEVEL": "EXPERT",
+                "prompt": "bcPeriodic",
+                "default": "F",
+                "valids": ["T", "t", "F", "f"]
+            }
+        },
+        "kPdir": {
+            "N": {
+                "LEVEL": "EXPERT",
+                "prompt": "Number of MPI chunks in longitude dimension",
+                "default": "2"
+            },
+            "bcPeriodic": {
+                "LEVEL": "EXPERT",
+                "prompt": "bcPeriodic",
+                "default": "T",
+                "valids": ["T", "t", "F", "f"]
+            }
+        },
+        "coupling": {
+            "blockHalo": {
+                "LEVEL": "EXPERT",
+                "prompt": "(GAMERA) Block halo MPI",
+                "default": {
+                    "derecho": "T",
+                    "pleiades": "F"
+                },
+                "valids": ["T", "F"]
+            }
+        },
+        "restart": {
+            "doRes": {
+                "LEVEL": "INTERMEDIATE",
+                "prompt": "Restart from a saved state",
+                "default": "F",
+                "valids": ["T", "F"]
+            },
+            "nRes": {
+                "LEVEL": "INTERMEDIATE",
+                "prompt": "Index of restart file to use (-1 for latest (XXXXX-symlink) restart file)",
+                "default": "-1"
+            },
+            "resID": {
+                "LEVEL": "INTERMEDIATE",
+                "prompt": "Run ID for restart step",
+                "default": "helio"
+            }
+        }
+    }
+
+}
