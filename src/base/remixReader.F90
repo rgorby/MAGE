@@ -153,8 +153,7 @@ module remixReader
         endif
         associate(sh=>rmState%shGr)
         
-        ! call GenShellGrid(sh, th1D, ph1D, "remixReader", radO=Ri_rp)
-        call GenShellGrid(sh, th1D, ph1D, "remixReader")
+        call GenShellGrid(sh, th1D, ph1D, "remixReader", radO=Ri_rp)
 
         ! Hooray we have a shellGrid now
         ! Init our vars
