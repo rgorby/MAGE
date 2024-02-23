@@ -38,7 +38,7 @@ module testGridLocator
             phis(j) = (j-1)*dph
         enddo
 
-	    call GenShellGrid(sh, thetas, phis)
+	    call GenShellGrid(sh, thetas, phis,'shgrTest_loc', radO=1.1_rp)
 
         ! init interp sample points
         do i=1,Nsamples,4

@@ -325,8 +325,9 @@ module shellGrid
             shGr%radius = radO
         else
             write(*,*) "WARNING for ShellGrid with name: ",name
-            write(*,*) "Radius being set to 1 planetary radius. That seems kinda low."
-            shGr%radius = 1.0_rp
+            write(*,*) "No radius provided, assuming Earth's ionosphere according to kdefs:"
+            shGr%radius = RIonE*1.0e6/REarth
+            write(*,*) shGr%radius," Rp"
         endif
 
     end subroutine GenShellGrid

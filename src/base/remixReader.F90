@@ -109,9 +109,14 @@ module remixReader
         Np = IOVars(FindIO(IOVars, "X"))%dims(1)
         Nt = IOVars(FindIO(IOVars, "X"))%dims(2)
 
-        ! Get ionosphere radius in units of Rp
-        Rp_m  = IOVars(FindIO(IOVars, "Rp_m"))%data(1)
-        Ri_rp = IOVars(FindIO(IOVars, "Ri_m"))%data(1) / Rp_m
+        ! Get ionosphere radius in units of Rp if possible
+        if (ioExist(rmState%rmF, "Rp_m") .and. ioExist(rmState%rmF, "Ri_m")) then
+            Rp_m  = IOVars(FindIO(IOVars, "Rp_m"))%data(1)
+            Ri_rp = IOVars(FindIO(IOVars, "Ri_m"))%data(1) / Rp_m
+        else
+            ! If info not present in file, default to hard-coded Earth values
+            Ri_rp = RIonE*1e6/REarth
+        endif
 
         ! One day we will get grid in this format directly from the mix.h5 file
         ! But today is not that day
@@ -148,7 +153,8 @@ module remixReader
         endif
         associate(sh=>rmState%shGr)
         
-        call GenShellGrid(sh, th1D, ph1D, "remixReader", radO=Ri_rp)
+        ! call GenShellGrid(sh, th1D, ph1D, "remixReader", radO=Ri_rp)
+        call GenShellGrid(sh, th1D, ph1D, "remixReader")
 
         ! Hooray we have a shellGrid now
         ! Init our vars
