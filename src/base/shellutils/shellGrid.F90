@@ -4,12 +4,6 @@ module shellGrid
     use math
 
     implicit none
-    
-    ! note, this will conflict with mixdefs
-    ! but NORTH, SOUTH are defined the same way
-    enum, bind(C)
-        enumerator :: NORTH=1,SOUTH,EAST,WEST
-    end enum
 
     !> Identifiers for location of variable data relative to shell grid
     !> Cell center, corners, theta faces, phi faces
