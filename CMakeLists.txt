@@ -203,6 +203,13 @@ target_link_libraries(remix2rcm.x   remixlib baselib)
 add_dependencies(remix remix.x remix2remix.x remix2rcm.x baselib)
 
 #-------------
+# ShellGrid Tester
+message("\tAdding executable testNewRM.x")
+add_executable(testNewRMS.x src/drivers/testNewRMS.F90)
+target_link_libraries(testNewRMS.x baselib)
+add_dependencies(testNewRMS.x baselib)
+
+#-------------
 #Kaiju: RCM
 message("Adding RCM module ...")
 message("\tRCM Grid is of size ${RCMSIZEI} x ${RCMSIZEJ} x ${RCMSIZEK}")
