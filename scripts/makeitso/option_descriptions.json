@@ -738,7 +738,7 @@
                 "LEVEL": "EXPERT",
                 "prompt": "(RCM) Electron loss model",
                 "default": "WM",
-                "valids": ["WM", "FDG", "ELOSS_FDG", "ELOSS_C05", "ELOSS_C19", "ELOSS_WM"]
+                "valids": ["WM", "FDG", "SS"]
             }
         }
     }

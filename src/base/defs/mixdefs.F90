@@ -20,10 +20,6 @@ module mixdefs
   end enum
 
   enum, bind(C)
-     enumerator :: NORTH=1,SOUTH
-  end enum
-
-  enum, bind(C)
      enumerator :: AMIE=1,MOEN_BREKKE,LOMPE
   end enum
 

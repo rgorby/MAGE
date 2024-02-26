@@ -31,7 +31,6 @@ module calcdbtypes
         logical :: doPed,doHall
     end type rmState_T
 
-	INTEGER, parameter :: NORTH=1,SOUTH=2
 	INTEGER, parameter :: rSegs=30
 
 !--------

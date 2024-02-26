@@ -31,8 +31,6 @@ file(APPEND ${GIT_INFO_FILE} "    character(len=*), parameter :: gitB = '${GIT_B
 file(APPEND ${GIT_INFO_FILE} "    character(len=*), parameter :: gitH = '${GIT_COMMIT_HASH}'\n")
 file(APPEND ${GIT_INFO_FILE} "end module git_info\n")
 
-
-
 #Set some configuration defaults
 option(ENABLE_OMP "Enable OMP parallelization" ON )
 option(ENABLE_MPI "Enable MPI parallelization" OFF)
@@ -203,6 +201,13 @@ target_link_libraries(remix2rcm.x   remixlib baselib)
 add_dependencies(remix remix.x remix2remix.x remix2rcm.x baselib)
 
 #-------------
+# ShellGrid Tester
+message("\tAdding executable testNewRM.x")
+add_executable(testNewRMS.x src/drivers/testNewRMS.F90)
+target_link_libraries(testNewRMS.x baselib)
+add_dependencies(testNewRMS.x baselib)
+
+#-------------
 #Kaiju: RCM
 message("Adding RCM module ...")
 message("\tRCM Grid is of size ${RCMSIZEI} x ${RCMSIZEJ} x ${RCMSIZEK}")
@@ -264,8 +269,7 @@ if(ENABLE_MPI)
     add_executable(gamhelio_mpi.x src/drivers/gamera_mpix.F90 ${GAMHELIC})
     target_link_libraries(gamhelio_mpi.x baselib gamlib basempilib gammpilib)
     add_dependencies(gamhelio_mpi gamhelio_mpi.x)
-
-
+    
 endif()
 
 if(PFUNIT_FOUND)
