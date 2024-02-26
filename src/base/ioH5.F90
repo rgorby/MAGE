@@ -495,8 +495,6 @@ contains
             inStr = "NULL"
         endif
         IOVar%descStr = inStr
-        !write(*,"(A,A,A,I)") 'Read dataset ', trim(IOVar%idStr), ' from ', gId
-
         IOVar%isDone = .true.
     end subroutine ReadHDFVar
 
@@ -572,7 +570,6 @@ contains
             write(*,*) 'Unknown HDF data type, bailing ...'
             stop
         end select
-        write(*,"(A,A,F,A,I)") 'Read attribute ', trim(IOVar%idStr), IOVar%data(1), " from ", gId
         IOVar%isDone = .true.
     end subroutine ReadHDFAtt
 
