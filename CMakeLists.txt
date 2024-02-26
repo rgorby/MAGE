@@ -23,14 +23,19 @@ execute_process(COMMAND git log -1 --format=%h WORKING_DIRECTORY ${CMAKE_SOURCE_
 	OUTPUT_VARIABLE GIT_COMMIT_HASH
 	OUTPUT_STRIP_TRAILING_WHITESPACE)
 
-#Add defines for commit hash/branch
-add_compile_definitions(GITCOMMITHASH=${GIT_COMMIT_HASH})
-add_compile_definitions(GITBRANCH=${GIT_BRANCH})
+# Generate git_info.F90 with GITBRANCH value
+set(GIT_INFO_FILE "${CMAKE_SOURCE_DIR}/src/base/git_info.F90")
+file(WRITE ${GIT_INFO_FILE} "module git_info\n")
+file(APPEND ${GIT_INFO_FILE} "    implicit none\n")
+file(APPEND ${GIT_INFO_FILE} "    character(len=*), parameter :: gitB = '${GIT_BRANCH}'\n")
+file(APPEND ${GIT_INFO_FILE} "    character(len=*), parameter :: gitH = '${GIT_COMMIT_HASH}'\n")
+file(APPEND ${GIT_INFO_FILE} "end module git_info\n")
 
 #Set some configuration defaults
 option(ENABLE_OMP "Enable OMP parallelization" ON )
 option(ENABLE_MPI "Enable MPI parallelization" OFF)
 option(ENABLE_MKL "Enable Intel MKL usage" OFF)
+option(ENABLE_COLORTEXT "Enable ascii color in text output" ON)
 option(ENABLE_CODECOV "Enable Code Coverage tracking" OFF)
 option(ALLOW_INVALID_COMPILERS "Allow Invalid Compiler Versions" OFF)
 
@@ -93,6 +98,9 @@ endif()
 
 if(ENABLE_MKL)
     add_compile_definitions(USEMKL)
+endif()
+if(ENABLE_COLORTEXT)
+    add_compile_definitions(USECOLORTEXT)
 endif()
 
 #Include compile flag generator
@@ -193,6 +201,13 @@ target_link_libraries(remix2rcm.x   remixlib baselib)
 add_dependencies(remix remix.x remix2remix.x remix2rcm.x baselib)
 
 #-------------
+# ShellGrid Tester
+message("\tAdding executable testNewRM.x")
+add_executable(testNewRMS.x src/drivers/testNewRMS.F90)
+target_link_libraries(testNewRMS.x baselib)
+add_dependencies(testNewRMS.x baselib)
+
+#-------------
 #Kaiju: RCM
 message("Adding RCM module ...")
 message("\tRCM Grid is of size ${RCMSIZEI} x ${RCMSIZEJ} x ${RCMSIZEK}")
@@ -254,8 +269,7 @@ if(ENABLE_MPI)
     add_executable(gamhelio_mpi.x src/drivers/gamera_mpix.F90 ${GAMHELIC})
     target_link_libraries(gamhelio_mpi.x baselib gamlib basempilib gammpilib)
     add_dependencies(gamhelio_mpi gamhelio_mpi.x)
-
-
+    
 endif()
 
 if(PFUNIT_FOUND)

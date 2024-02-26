@@ -2,6 +2,7 @@ module strings
     use kdefs
     use, intrinsic :: iso_fortran_env
     use dates, ONLY : DateTimeStr
+    use git_info, only: gitB, gitH
     implicit none
 
     contains
@@ -23,7 +24,7 @@ module strings
             call get_command_argument(1,IDeckStr)
         endif
 
-        write(*,*) 'Reading input deck from ', trim(IDeckStr)
+        !write(*,*) 'Reading input deck from ', trim(IDeckStr)
         inquire(file=IDeckStr,exist=fExist)
         if (.not. fExist) then
             write(*,*) 'Error opening input deck, exiting ...'
@@ -80,39 +81,16 @@ module strings
     subroutine GitHash(gStr)
 
         character(len=*), intent(inout) :: gStr
-        character(len=strLen) :: cOpts
-        integer :: n,nOff,nH
+        gStr = gitH        
 
-        nOff = 16
-        nH = 7
-#ifdef __INTEL_COMPILER_OLD
-        gStr = "XXXXXXX" !Avoid unavailable compiler_options
-#else
-        cOpts = compiler_options()
-        n = index(cOpts,"-DGITCOMMITHASH=")
-        gStr = cOpts(n+nOff:n+nOff+nH)        
-#endif
     end subroutine GitHash
 
     !Create string with git hash if possible
     subroutine GitBranch(gStr)
 
         character(len=*), intent(inout) :: gStr
-        character(len=strLen) :: cOpts
-        integer :: n,nOff
+        gStr = gitB
 
-        nOff = 12
-#ifdef __INTEL_COMPILER_OLD
-        
-        gStr = "XXXXXXX" !Avoid unavailable compiler_options
-#else
-        cOpts = compiler_options()
-        n = index(cOpts,"-DGITBRANCH=")
-        !Don't know length of branch name, so need to find next space
-        gStr = cOpts(n+nOff:)
-        n = index(gStr," ")
-        gStr = gStr(1:n-1)
-#endif
     end subroutine GitBranch
 
 

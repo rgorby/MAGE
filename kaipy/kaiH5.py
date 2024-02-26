@@ -1,4 +1,5 @@
 import h5py
+#import hdf5plugin
 import numpy as np
 import os, sys, subprocess
 import kaipy.kdefs as kdefs
@@ -11,6 +12,7 @@ def genName(bStr,i,j,k,Ri,Rj,Rk,nRes=None):
 	else:
 		fID = bStr + "_%04d_%04d_%04d_%04d_%04d_%04d"%(Ri,Rj,Rk,i,j,k)+".gam.Res.%05d.h5"%(nRes)
 	return fID
+
 #Generate old-style MPI name
 def genNameOld(bStr,i,j,k,Ri,Rj,Rk,nRes=None):
 	n = k + j*Rk + i*Rj*Rk
@@ -99,10 +101,14 @@ def cntSteps(fname,doTryRecover=True,s0=0):
 	try:
 		CheckOrDie(fname)
 		with h5py.File(fname,'r') as hf:
-			Steps = [grp for grp in alive_it(hf.keys(),title="#-Steps".ljust(kdefs.barLab),length=kdefs.barLen,bar=kdefs.barDef) if "Step#" in grp]
-		sIds = np.array([str.split(s,"#")[-1] for s in Steps],dtype=np.int)
-		sIds.sort()
-		nSteps = len(Steps)
+			if(kdefs.grpTimeCache in hf.keys() and 'step' in hf[kdefs.grpTimeCache].keys()):
+				sIds = np.asarray(hf[kdefs.grpTimeCache]['step'])
+				nSteps = sIds.size
+			else:
+				Steps = [grp for grp in alive_it(hf.keys(),title="#-Steps".ljust(kdefs.barLab),length=kdefs.barLen,bar=kdefs.barDef) if "Step#" in grp]
+				sIds = np.array([str.split(s,"#")[-1] for s in Steps],dtype=int)
+				sIds.sort()
+				nSteps = len(Steps)
 		
 		return nSteps,sIds
 	except (ValueError, IndexError) as e:
@@ -145,7 +151,7 @@ def cntX(fname,gID=None,StrX="/Step#"):
 		Steps = [stp for stp in grpNames if StrX in stp]
 		nSteps = len(Steps)
 
-		sIds = np.array([str.split(s,"#")[-1] for s in Steps],dtype=np.int)
+		sIds = np.array([str.split(s,"#")[-1] for s in Steps],dtype=int)
 		sIds.sort()
 		return nSteps,sIds
 
@@ -159,11 +165,18 @@ def getTs(fname,sIds=None,aID="time",aDef=0.0):
 	CheckOrDie(fname)
 	titStr = "Time series: %s"%(aID)
 
-	with h5py.File(fname,'r') as hf, alive_bar(Nt,title=titStr.ljust(kdefs.barLab),length=kdefs.barLen,bar=kdefs.barDef) as bar:
-		for idx, n in enumerate(sIds):
-			gId = "/Step#%d"%(n)
-			T[idx] = hf[gId].attrs.get(aID,aDef)
-			bar()
+	with h5py.File(fname,'r') as hf:
+		if(kdefs.grpTimeCache in hf.keys()):
+			if(aID in hf[kdefs.grpTimeCache]):
+				T = np.asarray(hf[kdefs.grpTimeCache][aID])
+			else:
+				T[:] = aDef
+		else:
+			with alive_bar(Nt,title=titStr.ljust(kdefs.barLab),length=kdefs.barLen,bar=kdefs.barDef) as bar:
+				for idx, n in enumerate(sIds):
+					gId = "/Step#%d"%(n)
+					T[idx] = hf[gId].attrs.get(aID,aDef)
+					bar()
 	return T
 
 #Get shape/dimension of grid
@@ -171,7 +184,7 @@ def getDims(fname,vID="X",doFlip=True):
 	CheckOrDie(fname)
 	with h5py.File(fname,'r') as hf:
 		Dims = hf["/"][vID].shape
-	Ds = np.array(Dims,dtype=np.int)
+	Ds = np.array(Dims,dtype=int)
 	if (doFlip):
 		Ds = np.flip(Ds,axis=0)
 	return Ds
@@ -198,14 +211,26 @@ def getVars(fname,smin):
 	return vIds
 
 #Get variable data
-def PullVar(fname,vID,s0=None):
+def PullVarLoc(fname,vID,s0=None,slice=(),loc=None):
+	''' Pull variable data from HDF5 file
+		and pass through (i,j,k) MPI rank loc
+
+	'''
+	V = PullVar(fname,vID,s0,slice)
+	return V,loc
+
+#Get variable data
+def PullVar(fname,vID,s0=None,slice=()):
+	''' Pull variable data from HDF5 file
+	
+	'''
 	CheckOrDie(fname)
 	with h5py.File(fname,'r') as hf:
 		if (s0 is None):
-			V = hf[vID][()].T
+			V = hf[vID][slice].T
 		else:
 			gId = "/Step#%d"%(s0)
-			V = hf[gId][vID][()].T
+			V = hf[gId][vID][slice].T
 	return V
 
 #Get attribute data from Step#s0 or root (s0=None)

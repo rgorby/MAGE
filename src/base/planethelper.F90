@@ -9,13 +9,14 @@ module planethelper
     
     contains
 
-    subroutine getPlanetParams(planet, xmlInp, pStrO)
+    subroutine getPlanetParams(planet, xmlInp, pStrO, doLoudO)
         type(planet_T), intent(inout) :: planet
         type(XML_Input_T), intent(in) :: xmlInp
         character(len=*), intent(in), optional :: pStrO
+        logical, intent(in), optional :: doLoudO
 
         character(len=strLen) :: pID !Planet ID string
-        logical :: doCorot
+        logical :: doCorot, doLoud
         real(rp) :: RIon
         real(rp) :: period  ! Rotation period in seconds
 
@@ -23,6 +24,12 @@ module planethelper
             pID = pStrO
         else
             call xmlInp%Set_Val(pID,"/Kaiju/Gamera/prob/planet","Earth")
+        endif
+
+        if (present(doLoudO)) then
+            doLoud = doLoudO
+        else
+            doLoud = .false.
         endif
 
         planet%name = trim(toUpper(pID))
@@ -36,7 +43,7 @@ module planethelper
             call xmlInp%Set_val(planet%magMoment, "/Kaiju/Gamera/prob/M0", EarthM0g)
             call xmlInp%Set_val(period, "/Kaiju/Gamera/prob/period", 86400.0)
             planet%psiCorot = CorotPotential(planet%rp_m, period, planet%magMoment)
-            write(*,*)" Calculated corotation potential [kV]: ", planet%psiCorot
+            if (doLoud) write(*,*)" Calculated corotation potential [kV]: ", planet%psiCorot
             planet%doGrav = .true.
         case("Saturn","saturn","SATURN")
             planet%rp_m = RSaturnXE*REarth

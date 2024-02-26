@@ -1,14 +1,35 @@
 #!/bin/bash
 
-# This PBS script illustrates how to run the "geo_serial" model using the
-# serial version of the kaiju software.
+# This PBS script illustrates how to run the geo_serial quickstart case using
+# the serial version of the kaiju software.
 
 # The lines starting with "#PBS" are directives for the PBS job control
-# system, used on pleiades, electra, cheyenne, and many other HPC systems.
+# system, used on pleiades, cheyenne, and derecho.
+
+# On pleiades, this job should run in roughly 82 minutes of wall-clock time.
+# On cheyenne, this job should run in roughly 67 minutes of wall-clock time.
+# On derecho, this job should run in roughly 37 minutes of wall-clock time.
+
+# Example usage
+# qsub geo_serial.pbs
+
+# IMPORTANT: You *must* do the following in the code below:
+# 1. Uncomment the #PBS lines for your system, comment out the #PBS lines
+#    specific to other systems. Keep the common #PBS lines.
+# 2. (cheyenne and derecho only) Set the #PBS -A directive to your own account.
+# 3. Uncomment the modules lines for your system, comment out the others.
+# 4. Set kaiju_install_dir to your local kaiju installation.
+# 5. Set PATH to include your bin subdirectory of the build subdirectory of
+#    your local kaiju installation.
+# 6. If using the Intel compiler, uncomment the setting for KMP_STACK_SIZE and
+#    comment out setting OMP_STACK_SIZE. If not using the Intel compiler, do
+#    the opposite - uncomment OMP_STACK_SIZE, comment out KMP_STACK_SIZE.
 
 #------------------------------------------------------------------------------
 # START OF PBS DIRECTIVES
 #------------------------------------------------------------------------------
+
+# PBS directives for all systems
 
 # Provide a useful name for this PBS job. This name will appear in the "qstat"
 # output for this job.
@@ -26,25 +47,22 @@
 # to stay within the time limits of the queue you are submitting to.
 #PBS -l walltime=02:00:00
 
-# Send an email to the address specified in -M when the job is (a)borted,
-# (b)egins, and/or (e)nds.
+# Send an email to the user when the job is (a)borted, (b)egins, and/or (e)nds.
+# An alternate email address may be specified with the #PBS -M directive.
 #PBS -m abe
-#PBS -M eric.winter@jhuapl.edu
 
 #-----------------------------------------------------------------------------
 
-# In the lines below, uncomment the set appropriate for your system, and
-# comment out the other set. The default is pleades/electra.
+# System-specific PBS directives
+
+# In the lines below, uncomment the set of PBS directives appropriate for your
+# system, and comment out other sets. The default is pleiades.
 
 #-----------------------------------------------------------------------------
 
-# For the pleiades or electra HPC systems at NASA Ames HECC:
+# For the pleiades system at NASA Ames HECC:
 
-# Submit the job to the PBS queue called "normal". The queues on pleiades have
-# the following time limits: "low" (4 hours), "normal" (8 hours), "long" (120
-# hours), "debug" (2 hours), "devel" (2 hours). For more information on
-# pleiades queues, see:
-# https://www.nas.nasa.gov/hecc/support/kb/pbs-job-queue-structure_187.html
+# Submit the job to the PBS queue called "normal".
 #PBS -q normal
 
 # This is the line where you request specific resources from the PBS system.
@@ -54,52 +72,44 @@
 # ompthreads=28 -> Each node will run 28 OMP threads. Note that this will
 # also cause the OMP_THREADS environment variable to be set to 28.
 # model=bro -> Each compute node must contain Broadwell chips. Specifying
-# "model" is a HECC-specific PBS requirement. The node(s) may be on pleiades
-# OR electra (not both), using whichever system is available first.
+# "model" is a HECC-specific PBS requirement.
 #PBS -l select=1:ncpus=28:ompthreads=28:model=bro
 
 #-----------------------------------------------------------------------------
 
-# For the cheyenne HPC system at UCAR:
+# For the cheyenne system at UCAR:
 
-# Specify the user account under which the job should be run.
+# You *must* set the -A directive to your account number.
 ##PBS -A UJHB0015
-
-# Submit the job to the PBS queue called "regular". The queues on cheyenne
-# have the following time limits: "premium" (12 hours), "regular" (12 hours),
-# "economy" (12 hours). For more information on cheyenne queues, see:
-# https://arc.ucar.edu/knowledge_base/72581495
 ##PBS -q regular
-
-# This is the line where you request specific resources from the PBS system.
-# See the comments in the pleiades example above for an explanation of the
-# components of this line.
 ##PBS -l select=1:ncpus=36:ompthreads=36
+
+#-----------------------------------------------------------------------------
+
+# For the derecho system at UCAR:
+
+# You *must* set the -A directive to your account number.
+##PBS -A UJHB0019
+##PBS -q main
+##PBS -l select=1:ncpus=128:ompthreads=128
 
 #------------------------------------------------------------------------------
 # END OF PBS DIRECTIVES
 #------------------------------------------------------------------------------
-
-# This PBS job script will run the serial version of the kaiju software on the
-# geo_serial quickstart case.
-
-# On pleiades, this job should run in roughly 82 minutes of wall-clock time.
-# On cheyenne, the job should run in roughly XXX of wall clock time.
-
-# Example usage
-# qsub -v geo_serial.pbs
 
 echo "Job $PBS_JOBID started at `date` on `hostname`."
 
 # Specify the ID string for the run. This can be set to any desired string.
 # PBS_JOBNAME is used here as an example, as it is set by the #PBS -N
 # directive near the top of this file.
-export RUNID=$PBS_JOBNAME
+runid=$PBS_JOBNAME
+
+#------------------------------------------------------------------------------
+# START OF MODULE DIRECTIVES
+#------------------------------------------------------------------------------
 
 # Load the required modules for serial kaiju.
-# NOTE: pleiades and electra do not have the "module restore" facility
-# found on cheyenne. The modules must be explicitly loaded each time
-# they are needed.
+
 # NOTE: This set of modules assumes your kaiju installation was built
 # using this same list of modules. If you used different modules at
 # build time (for example, if you used a GNU compiler), update this
@@ -108,49 +118,70 @@ export RUNID=$PBS_JOBNAME
 # Comment out the module lines for all systems except the one you are using.
 module purge
 
-# For pleiades/electra:
-module load pkgsrc/2021Q2
-module load comp-intel/2020.4.304
+# For pleiades:
+module load nas
+module load pkgsrc/2022Q1-rome     # For git-lfs and cmake
+module load comp-intel/2020.4.304  # Latest version
 module load hdf5/1.8.18_serial
 
 # For cheyenne:
+# module load cmake/3.22.0
+# module load git/2.33.1  # Needed for git-lfs
 # module load ncarenv/1.3
-# module load intel/19.1.1
-# module load ncarcompilers/0.5.0  # Must be after intel
-# module load cmake/3.18.2
-# module load hdf5/1.10.8
+# module load intel/2022.1
+# module load geos/3.10.1  # Must come after intel/2022.1
+# module load ncarcompilers/0.5.0  # Must come after intel/2022.1
+# module load hdf5/1.12.2
+
+# For derecho:
+# module load ncarenv/23.06
+# module load craype/2.7.20
+# module load intel/2023.0.0
+# module load ncarcompilers/1.0.0  # Must come after intel/2023.0.0               
+# module load hdf5/1.12.2
+# module load cmake/3.26.3
+# module load geos/3.9.1  # Must come after intel/2023.0.0                        
 
 echo "The following modules are loaded:"
 module list
 
+#------------------------------------------------------------------------------
+# END OF MODULE DIRECTIVES
+#------------------------------------------------------------------------------
+
 # Define the kaiju installation location.
 # NOTE: You MUST set this variable to the path to your kaiju directory, which
 # is the top-level directory created when you cloned the kaiju repository.
-export KAIJU_INSTALL_DIR=$HOME/kaiju
+kaiju_install_dir=$HOME/kaiju
 
-# Set kaiju-related environment variables.
 # This script sets KAIJUHOME and other environment variables.
-source $KAIJU_INSTALL_DIR/scripts/setupEnvironment.sh
+source $kaiju_install_dir/scripts/setupEnvironment.sh
 
 # Add the kaiju binary directory to the command path.
-# NOTE: You should set this variable to the path to the bin subdirectory of
-# your kaiju build directory. The setting below assumes that the serial version
-# of kaiju was built in the build_serial subdirectory of the kaiju home directory
-# (which is typically the same as KAIJU_INSTALL_DIR).
+# NOTE: You *must* set this variable to the path to the bin
+# subdirectory of your kaiju build directory. The setting below
+# assumes that the serial version of kaiju was built in the
+# build_serial subdirectory of the kaiju home directory (which is
+# typically the same as kaiju_install_dir).
 export PATH=$KAIJUHOME/build_serial/bin:$PATH
 
 # Set the OMP stack size to prevent a crash.
 # If this setting is ignored, the model may cause the kaiju code to crash
-# with a segmentation fault and core dump. The value of "100M" was chosen
+# with a segmentation fault and core dump. The value of "128M" was chosen
 # ~arbitrarily; experimentation may allow a smaller value to be used.
-export OMP_STACKSIZE=100M
+# NOTE: OMP_STACKSIZE is the standard OpenMP environment variable for setting
+# the OMP stack size. If using the Intel compiler, comment out the
+# OMP_STACKSIZE line and uncomment the KMP_STACKSIZE line. KMP_STACKSIZE is the
+# Intel-specific environment variable for setting the OMP stack size.
+# export OMP_STACKSIZE=128M
+export KMP_STACKSIZE=128M
 
 echo "The active environment variables are:"
 printenv
 
 # Run the model. Direct output from the program is saved in a text file.
-EXE=voltron.x
-echo "Running $EXE on model $RUNID."
-$EXE $RUNID.xml >& ${EXE}.${RUNID}.out
+exe=voltron.x
+echo "Running $exe on model $runid."
+$exe $runid.xml >& ${exe}.${runid}.out
 
 echo "Job $PBS_JOBID ended at `date` on `hostname`."

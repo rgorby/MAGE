@@ -1,0 +1,75 @@
+module testGridGen
+    use testHelper
+    use kdefs, only : TINY
+
+    use shellGrid
+
+    implicit none
+
+    integer :: Npnt = 50
+
+    contains
+
+    @before
+	subroutine setup()
+	end subroutine setup
+
+	@after
+	subroutine teardown()
+	end subroutine teardown
+
+    @test
+    subroutine testGenShellGrid()
+        !! Test to ensure GenShellGrid correctly creates a ShellGrid instance
+        real(rp), dimension(Npnt) :: thetas, phis
+        integer :: i,j
+        real(rp) :: dth, dph
+        type(ShellGrid_T) :: sh
+
+        real(rp) :: mid
+
+	    real(rp) :: OKerr = 1e-8
+	    character(len=strLen) :: checkMessage
+
+        dth = 0.5*PI / (Npnt-1)
+        dph = 2.0*PI / (Npnt-1)
+
+        do i=1,Npnt
+            thetas(i) = (i-1)*dth
+        enddo
+
+        do j=1,Npnt
+            phis(j) = (j-1)*dph
+        enddo
+
+	    call GenShellGrid(sh, thetas, phis, 'shgrTest_gen', radO=1.1_rp)
+
+
+        @assertEqual(Npnt-1, sh%Nt, "sh%Nt doesn't match")
+        @assertEqual(Npnt-1, sh%Np, "sh%Np doesn't match")
+
+        write (checkMessage,'(A,E9.2)') "Theta grid error > ",OKerr
+	    do i=1,Npnt
+		    @assertLessThanOrEqual(thetas(i)-sh%th(i), OKerr, checkMessage)
+	    enddo
+
+	    write (checkMessage,'(A,E9.2)') "Phi grid error > ",OKerr
+	    do j=1,Npnt
+		    @assertLessThanOrEqual(phis(j)-sh%ph(j), OKerr, checkMessage)
+	    enddo
+
+	    write (checkMessage,'(A,E9.2)') "Thc grid error > ",OKerr
+        do i=1,Npnt-1
+            mid = (thetas(i+1) + thetas(i)) / 2.0
+            @assertLessThanOrEqual(mid - sh%thc(i), OKerr, checkMessage)
+        enddo
+
+	    write (checkMessage,'(A,E9.2)') "Phc grid error > ",OKerr
+        do j=1,Npnt-1
+            mid = (phis(i+1) + phis(i)) / 2.0
+            @assertLessThanOrEqual(mid - sh%phc(i), OKerr, checkMessage)
+        enddo
+
+    end subroutine testGenShellGrid
+
+end module testGridGen

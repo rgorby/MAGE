@@ -1,9 +1,9 @@
 #!/usr/bin/env python
 
 
-"""Perform sample computations on the results of the bw3d example.
+"""Perform sample computations on the results of the bw3d quickstart case.
 
-Perform sample computations on the results of the bw3d example.
+Perform sample computations on the results of the bw3d quickstart case.
 """
 
 
@@ -21,12 +21,11 @@ import kaipy.gamera.gampp as gampp
 # Program constants and defaults
 
 # Default identifier for model to run,
-default_runid = "bw3d"
+runid = "bw3d"
 
 # Program description.
 description = (
-    "Perform sample computations on the results of the %s example." %
-    default_runid
+    "Perform sample computations on the results of the bw3d quickstart case."
 )
 
 
@@ -43,28 +42,24 @@ def create_command_line_parser():
     -------
     parser : argparse.ArgumentParser
         Command-line argument parser for this script.
+
+    Raises
+    ------
+    None
     """
     parser = argparse.ArgumentParser(description=description)
     parser.add_argument(
-        "-d", "--debug", action="store_true", default=False,
+        "--debug", "-d", action="store_true", default=False,
         help="Print debugging output (default: %(default)s)."
     )
     parser.add_argument(
-        "--directory", type=str, metavar="directory", default=os.getcwd(),
-        help="Directory to contain files generated for the run (default: %(default)s)"
-    )
-    parser.add_argument(
-        "--runid", type=str, metavar="runid", default=default_runid,
-        help="ID string of the run (default: %(default)s)"
-    )
-    parser.add_argument(
-        "-v", "--verbose", action="store_true", default=False,
+        "--verbose", "-v", action="store_true", default=False,
         help="Print verbose output (default: %(default)s)."
     )
     return parser
 
 
-def compute_asymmetry_metric(directory, runid):
+def compute_asymmetry_metric():
     """Compute the asymmetry metric at first and last steps.
 
     Compute the asymmetry metric for the first and last steps:
@@ -74,10 +69,7 @@ def compute_asymmetry_metric(directory, runid):
 
     Parameters
     ----------
-    directory : str
-        Path to directory containing model results.
-    runid : str
-        ID string for model to run.
+    None
 
     Returns
     -------
@@ -85,7 +77,7 @@ def compute_asymmetry_metric(directory, runid):
         Asymmetry metric (in code units) for first and last steps.
     """
     # Open a pipe to the data file.
-    data_pipe = gampp.GameraPipe(directory, runid, doVerbose=False)
+    data_pipe = gampp.GameraPipe(".", runid, doVerbose=False)
 
     # Load the grid cell volumes.
     dV = data_pipe.GetVar("dV", None, doVerb=False)[...]
@@ -109,7 +101,7 @@ def compute_asymmetry_metric(directory, runid):
     return asymmetry_metric_first, asymmetry_metric_last
 
 
-if __name__ == "__main__":
+def main():
     """Begin main program."""
 
     # Set up the command-line parser.
@@ -117,17 +109,21 @@ if __name__ == "__main__":
 
     # Parse the command-line arguments.
     args = parser.parse_args()
+    if args.debug:
+        print(f"args = {args}")
     debug = args.debug
-    directory = args.directory
-    runid = args.runid
     verbose = args.verbose
 
     # Compute the asymmetry metric.
     if verbose:
         print("Computing asymmetry metric.")
-    asymmetry_metric_first, asymmetry_metric_last = (
-        compute_asymmetry_metric(directory, runid)
-    )
-    print("Asymmetry metric (SUM(ABS(Pb - Pb.T)*dV), code units):")
-    print("At start: %s" % asymmetry_metric_first)
-    print("At end: %s" % asymmetry_metric_last)
+    asymmetry_metric_first, asymmetry_metric_last = compute_asymmetry_metric()
+    if verbose:
+        print("Asymmetry metric (SUM(ABS(Pb - Pb.T)*dV), code units):")
+        print(f"At start: {asymmetry_metric_first}")
+        print(f"At end: {asymmetry_metric_last}")
+
+
+if __name__ == "__main__":
+    """Begin main program."""
+    main()
