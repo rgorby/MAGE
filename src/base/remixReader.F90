@@ -31,9 +31,7 @@ module remixReader
         ! Model stuff
         character(len=strLen) :: rmF
             !! Remix filename we are reading form
-        logical :: doPed, doHall
-            !! TODO: used by calcdb. Maybe they shouldn't live here. We don't do anything with them inside this module
-
+        
         ! Grid stuff
         real(rp), dimension(:,:,:), allocatable :: XY
             !! X/Y coordinates in 2D. Convenient since we need it for lots of 2D arrays
