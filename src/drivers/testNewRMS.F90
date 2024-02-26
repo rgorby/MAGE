@@ -15,25 +15,25 @@ program testNewRMS
     character(len=strLen) :: ftag = 'msphere'
     character(len=100) :: fOutname = "rms.h5"
     type(XML_Input_T) :: inpXML
-    type(rmState_T) :: rmState
+    type(rmReader_T) :: rmReader
 
     integer :: i
     real(rp) :: dt, t
 
     inpXML = New_XML_Input(trim(xmlStr),"Kaiju/REMIX",.true.)
 
-    call initRM(ftag, inpXML, rmState)
+    call initRM(ftag, inpXML, rmReader)
     
-    call dump(fOutname, rmState%shGr)
+    call dump(fOutname, rmReader%shGr)
 
-    dt = 0.5 * (rmState%rmTab%times(rmState%rmTab%N) - rmState%rmTab%times(rmState%rmTab%N-1))
+    dt = 0.5 * (rmReader%rmTab%times(rmReader%rmTab%N) - rmReader%rmTab%times(rmReader%rmTab%N-1))
     write(*,*)"dt=",dt
-    t = rmState%rmTab%times(2)
+    t = rmReader%rmTab%times(2)
     write(*,*)t
     !do while (t < dt*20)
-    do while (t < rmState%rmTab%times(rmState%rmTab%N) + 4*dt)
-        call updateRM(rmState, t)
-        call testShellInterp(rmState)
+    do while (t < rmReader%rmTab%times(rmReader%rmTab%N) + 4*dt)
+        call updateRM(rmReader, t)
+        call testShellInterp(rmReader)
         t = t + dt
     enddo
 
@@ -41,7 +41,7 @@ program testNewRMS
     contains
 
     subroutine testShellInterp(rmS)
-        type(rmState_T), intent(in) :: rmS
+        type(rmReader_T), intent(in) :: rmS
 
         type(ShellGridVar_T) :: tmpVarSame, tmpVarCC
         integer :: i,j

@@ -17,7 +17,7 @@ module shellGrid
         character(len=strLen) :: name
             !! Name assigned to this ShellGrid instance, determined by the model initializing it
         real(rp) :: radius
-            !! [Rp, planetary radii] Radius that this ShellGrid lives at
+            !! Radius that this ShellGrid lives at, in units of Rp (planetary radii)
         integer :: Nt,Np
             !! Number of colat/lon cells (theta, phi)
         real(rp), dimension(:), allocatable :: th, ph, lat
@@ -392,12 +392,14 @@ module shellGrid
     end subroutine initShellVar
 
 
-    subroutine GenChildShellGrid(pSG, cSG, nGhosts, sub_is, sub_ie, sub_js, sub_je)
+    subroutine GenChildShellGrid(pSG, cSG, name, nGhosts, sub_is, sub_ie, sub_js, sub_je)
         !! Given a parent ShellGrid, makes a child ShellGrid as a subset of parent
         type(ShellGrid_T), intent(in) :: pSG
             !! Parent ShellGrid
         type(ShellGrid_T), intent(out) :: cSG
             !! Child ShellGrid
+        character(len=*) :: name
+            !! Name identifier used for this grid instance
         integer, optional, dimension(4), intent(in) :: nGhosts
             !! Number of ghosts the child grid will have
         integer, optional, intent(in) :: sub_is, sub_ie, sub_js, sub_je
@@ -447,6 +449,13 @@ module shellGrid
             stop
         endif
 
+        ! Make sure name is not a copy of its parent's
+        if (trim(name) == trim(pSG%name)) then
+            write(*,*) "ERROR GenChildShellGrid: Child can't have same name as its parent"
+            write(*,*) " Try '",trim(pSG%name)," ",trim(pSG%name),"sson'"
+            stop
+        endif
+
         ! Otherwise we are ready to make a child grid
         if ( present(nGhosts) ) then
             ! The ghosts can't overrun parent grid's ghost bounds
@@ -465,11 +474,11 @@ module shellGrid
             endif
 
             ! Otherwise, this ghost definition is okay
-            call GenShellGrid(cSG, pSG%th(is:ie), pSG%ph(js:je), pSG%name, nGhosts=nGhosts, radO=pSG%radius)
+            call GenShellGrid(cSG, pSG%th(is:ie), pSG%ph(js:je), name, nGhosts=nGhosts, radO=pSG%radius)
 
         else
             ! No ghosts defined, go with default
-            call GenShellGrid(cSG, pSG%th(is:ie), pSG%ph(js:je), pSG%name, radO=pSG%radius)
+            call GenShellGrid(cSG, pSG%th(is:ie), pSG%ph(js:je), name, radO=pSG%radius)
         endif
         
 

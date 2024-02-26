@@ -21,13 +21,13 @@ module remixReader
         integer :: nStp
         real(rp) :: time
         type(ShellGrid_T) :: shGr
-            !! Copy of ShellGrid as defined in rmState_T
+            !! Copy of ShellGrid as defined in rmReader_T
         type(ShellGridVar_T) :: Fac,SigP,SigH,Pot
             !! Vars defined relative to ShellGrid
     end type rmHemi_T
 
 
-    type rmState_T
+    type rmReader_T
         ! Model stuff
         character(len=strLen) :: rmF
             !! Remix filename we are reading form
@@ -42,7 +42,7 @@ module remixReader
 
         ! State stuff
         real(rp) :: time
-            !! Current sim time according to whoever's in charge of rmState
+            !! Current sim time according to whoever's in charge of rmReader
         integer :: i1=-1,i2=-1
             !! Input file step numbers bracketing time
         type(rmHemi_T) :: rmN1,rmN2,rmS1,rmS2
@@ -51,7 +51,7 @@ module remixReader
             !! Whether or not we are out of valid remix time bounds and should switch to static operation
         type(ShellGridVar_T), dimension(NORTH:SOUTH) :: nsFac, nsSigP, nsSigH, nsPot
             !! Time-interpolated North/South hemisphere shellVar objects
-    end type rmState_T
+    end type rmReader_T
 
 
     contains
@@ -60,11 +60,11 @@ module remixReader
 ! Init
 !------
 
-    subroutine initRM(ftag,inpXML,rmState)
+    subroutine initRM(ftag,inpXML,rmReader)
         character(len=*), intent(in) :: ftag
             !! Filename tag in this format: <ftag>.mix.h5
         type(XML_Input_T), intent(in) :: inpXML
-        type(rmState_T), intent(inout) :: rmState
+        type(rmReader_T), intent(inout) :: rmReader
 
         type(IOVAR_T), dimension(MAXIOVARS) :: IOVars
         real(rp), dimension(:), allocatable :: th1D, ph1D
@@ -79,13 +79,13 @@ module remixReader
             !! Loop indices
         real(rp) :: Rp_m, Ri_rp
         
-        write(rmState%rmF,'(2a)') trim(adjustl(ftag)),'.mix.h5'
-        write(*,*) 'Initializing RMState w/ ', trim(rmState%rmF)
+        write(rmReader%rmF,'(2a)') trim(adjustl(ftag)),'.mix.h5'
+        write(*,*) 'Initializing rmReader w/ ', trim(rmReader%rmF)
         
         ! Get file data loaded in
-        call InitIOTab(rmState%rmTab, inpXML, rmState%rmF)
-        rmState%rmTab%bStr = trim(adjustl(ftag))
-        rmState%doStatic = (rmState%rmTab%N == 1)
+        call InitIOTab(rmReader%rmTab, inpXML, rmReader%rmF)
+        rmReader%rmTab%bStr = trim(adjustl(ftag))
+        rmReader%doStatic = (rmReader%rmTab%N == 1)
 
         ! Start with grid
         call ClearIO(IOVars)
@@ -93,7 +93,7 @@ module remixReader
         call AddInVar(IOVars,"Y")
         call AddInVar(IOVars,"Ri_m")  ! Attribute
         call AddInVar(IOVars,"Rp_m")  ! Attribute
-        call ReadVars(IOVars,.true.,rmState%rmF)
+        call ReadVars(IOVars,.true.,rmReader%rmF)
 
 
         !! Grid conversion
@@ -108,7 +108,7 @@ module remixReader
         Nt = IOVars(FindIO(IOVars, "X"))%dims(2)
 
         ! Get ionosphere radius in units of Rp if possible
-        if (ioExist(rmState%rmF, "Rp_m") .and. ioExist(rmState%rmF, "Ri_m")) then
+        if (ioExist(rmReader%rmF, "Rp_m") .and. ioExist(rmReader%rmF, "Ri_m")) then
             Rp_m  = IOVars(FindIO(IOVars, "Rp_m"))%data(1)
             Ri_rp = IOVars(FindIO(IOVars, "Ri_m"))%data(1) / Rp_m
         else
@@ -118,15 +118,15 @@ module remixReader
 
         ! One day we will get grid in this format directly from the mix.h5 file
         ! But today is not that day
-        allocate(rmState%XY(Nt-1,Np,XDIR:YDIR))
+        allocate(rmReader%XY(Nt-1,Np,XDIR:YDIR))
         allocate(tmpXY(Np,Nt,XDIR:YDIR))
         call IOArray2DFill(IOVars,"X",tmpXY(:,:,XDIR))
         call IOArray2DFill(IOVars,"Y",tmpXY(:,:,YDIR))
         call genInGrid(tmpXY(:,:,XDIR), tmpXY(:,:,YDIR), tmpXcn, tmpYcn)
-        rmState%XY(:,:Np-1,XDIR) = transpose(tmpXcn)
-        rmState%XY(:,:Np-1,YDIR) = transpose(tmpYcn)
+        rmReader%XY(:,:Np-1,XDIR) = transpose(tmpXcn)
+        rmReader%XY(:,:Np-1,YDIR) = transpose(tmpYcn)
         ! Wrap in j
-        rmState%XY(:,Np,:) = rmState%XY(:,1,:)
+        rmReader%XY(:,Np,:) = rmReader%XY(:,1,:)
         
         ! Now XY is in the desired format, time for shellGrid
 
@@ -134,8 +134,8 @@ module remixReader
         ! So the theta and phi we calculate are also for the ionospheric grid
         allocate(th1D(Nt-1))
         allocate(ph1D(Np))
-        th1D = asin(rmState%XY(:,1,XDIR))
-        ph1D = atan2(rmState%XY(Nt-1,:,YDIR), rmState%XY(Nt-1,:,XDIR))
+        th1D = asin(rmReader%XY(:,1,XDIR))
+        ph1D = atan2(rmReader%XY(Nt-1,:,YDIR), rmReader%XY(Nt-1,:,XDIR))
 
         ! Clean up phi for shellGrid generation
         do j=Np/2-1,Np
@@ -149,35 +149,41 @@ module remixReader
         if (ph1D(Np) < PI) then
             ph1D(Np) = ph1D(Np) + 2.0_rp*PI
         endif
-        associate(sh=>rmState%shGr)
+
+
+        associate(sh=>rmReader%shGr)
         
         call GenShellGrid(sh, th1D, ph1D, "remixReader", radO=Ri_rp)
 
         ! Hooray we have a shellGrid now
         ! Init our vars
         do h=NORTH,SOUTH
-            call initShellVar(sh, SHCORNER, rmState%nsFac(h))
-            rmState%nsFac(h)%mask(sh%is:sh%ie+1, sh%js:sh%je+1) = .true.
-            call initShellVar(sh, SHCORNER, rmState%nsPot(h) , rmState%nsFac(h)%mask)
-            call initShellVar(sh, SHCORNER, rmState%nsSigP(h), rmState%nsFac(h)%mask)
-            call initShellVar(sh, SHCORNER, rmState%nsSigH(h), rmState%nsFac(h)%mask)
+            call initShellVar(sh, SHCORNER, rmReader%nsFac(h))
+            rmReader%nsFac(h)%mask(sh%is:sh%ie+1, sh%js:sh%je+1) = .true.
+            call initShellVar(sh, SHCORNER, rmReader%nsPot(h) , rmReader%nsFac(h)%mask)
+            call initShellVar(sh, SHCORNER, rmReader%nsSigP(h), rmReader%nsFac(h)%mask)
+            call initShellVar(sh, SHCORNER, rmReader%nsSigH(h), rmReader%nsFac(h)%mask)
         enddo
         
         ! Now init hemispheres
-        call initHemi(rmState%rmN1, sh)
-        call initHemi(rmState%rmN2, sh)
-        call initHemi(rmState%rmS1, sh)
-        call initHemi(rmState%rmS2, sh)
+        call initHemi(rmReader%rmN1, sh, "_N1")
+        call initHemi(rmReader%rmN2, sh, "_N2")
+        call initHemi(rmReader%rmS1, sh, "_S1")
+        call initHemi(rmReader%rmS2, sh, "_S2")
 
         end associate
+
 
         contains
 
 
-        subroutine initHemi(rmHemi,shGr)
+        subroutine initHemi(rmHemi,shGr, nameSuffix)
             type(rmHemi_T), intent(inout) :: rmHemi
             type(ShellGrid_T), intent(in) :: shGr
                 !! Reference shellGrid, already defined
+            character(len=*), intent(in) :: nameSuffix
+
+            character(len=strLen) :: fullName
 
             rmHemi%nStp = -1 !Not yet set
             rmHemi%time = 0.0
@@ -185,7 +191,8 @@ module remixReader
             associate(hsg=>rmHemi%shGr)
             
             ! Generate our own copy of the parent shellGrid
-            call GenChildShellGrid(shGr, hsg)
+            write(fullName,"(A,A)") trim(shGr%name), nameSuffix
+            call GenChildShellGrid(shGr, hsg, fullName)
 
             ! Init our variables
             call initShellVar(hsg, SHCORNER, rmHemi%Fac)
@@ -206,41 +213,41 @@ module remixReader
 ! Update
 !------
 
-    subroutine updateRM(rmState, t)
-        ! Update rmState to time t
+    subroutine updateRM(rmReader, t)
+        ! Update rmReader to time t
         ! TODO: This should do fancier stuff, like ebICstd:updateFields
-        type(rmState_T), intent(inout) :: rmState
+        type(rmReader_T), intent(inout) :: rmReader
         real(rp), intent(in) :: t
 
         real(rp) :: w1, w2
         
         ! Update tabSlices
-        call GetTabSlc(rmState%rmTab,t,rmState%i1,rmState%i2)
-        if ( t >= maxval(rmState%rmTab%times) ) then
-            rmState%doStatic = .true.
+        call GetTabSlc(rmReader%rmTab,t,rmReader%i1,rmReader%i2)
+        if ( t >= maxval(rmReader%rmTab%times) ) then
+            rmReader%doStatic = .true.
         endif
 
         ! Read the 4 hemispheres
-        call readHemi(rmState, rmState%rmN1, rmState%i1, NORTH)
-        call readHemi(rmState, rmState%rmS1, rmState%i1, SOUTH)
+        call readHemi(rmReader, rmReader%rmN1, rmReader%i1, NORTH)
+        call readHemi(rmReader, rmReader%rmS1, rmReader%i1, SOUTH)
 
-        call readHemi(rmState, rmState%rmN2, rmState%i2, NORTH)
-        call readHemi(rmState, rmState%rmS2, rmState%i2, SOUTH)
+        call readHemi(rmReader, rmReader%rmN2, rmReader%i2, NORTH)
+        call readHemi(rmReader, rmReader%rmS2, rmReader%i2, SOUTH)
 
         !Now fill in remix main state for this t
-        call GetTWgts(rmState%rmN1%time, rmState%rmN2%time, t, rmState%doStatic, w1, w2)
-        call hemi2rm(rmState, w1, w2)
+        call GetTWgts(rmReader%rmN1%time, rmReader%rmN2%time, t, rmReader%doStatic, w1, w2)
+        call hemi2rm(rmReader, w1, w2)
 
         !write(*,*)"-----"
         !write(*,*)t
-        !write(*,*)rmState%rmN1%time,",",rmState%rmN2%time
+        !write(*,*)rmReader%rmN1%time,",",rmReader%rmN2%time
         !write(*,*)w1,",",w2
 
         contains
 
-        subroutine readHemi(rmState, rmHemi, nStp, nsID)
+        subroutine readHemi(rmReader, rmHemi, nStp, nsID)
             !! Reads hemisphere information from remix file step
-            type(rmState_T), intent(in) :: rmState
+            type(rmReader_T), intent(in) :: rmReader
             type(rmHemi_T), intent(inout) :: rmHemi
             integer, intent(in) :: nStp, nsID
 
@@ -260,10 +267,10 @@ module remixReader
                 hID = "SOUTH"
             endif
 
-            gStr = trim(rmState%rmTab%gStrs(nStp))
-            write(*,'(5a)') '<Reading hemisphere from ', trim(rmState%rmTab%bStr), '/', trim(gStr), '>'
+            gStr = trim(rmReader%rmTab%gStrs(nStp))
+            write(*,'(5a)') '<Reading hemisphere from ', trim(rmReader%rmTab%bStr), '/', trim(gStr), '>'
 
-            rmHemi%time = rmState%rmTab%times(nStp)
+            rmHemi%time = rmReader%rmTab%times(nStp)
             rmHemi%nStp = nStp
 
             call ClearIO(IOVars)
@@ -271,7 +278,7 @@ module remixReader
             call AddInVar(IOVars, "Pedersen conductance " // hID)
             call AddInVar(IOVars,     "Hall conductance " // hID)
             call AddInVar(IOVars,            "Potential " // hID)
-            call ReadVars(IOVars,.true.,rmState%rmF,gStr)
+            call ReadVars(IOVars,.true.,rmReader%rmF,gStr)
 
             ! Abstract away the janky mapping, eventually replace with ShellGrid-friendly variable reading
             call readVarJank(IOVars, "Field-aligned current " // hID, rmHemi%shGr, rmHemi%Fac )
@@ -306,18 +313,18 @@ module remixReader
     end subroutine GetTWgts
 
 
-    subroutine hemi2rm(rmState, w1, w2)
-        type(rmState_T), intent(inout) :: rmState
+    subroutine hemi2rm(rmReader, w1, w2)
+        type(rmReader_T), intent(inout) :: rmReader
         real(rp), intent(in) :: w1, w2
 
-        rmState%nsFac (NORTH)%data = w1*rmState%rmN1%Fac %data + w2*rmState%rmN2%Fac %data
-        rmState%nsPot (NORTH)%data = w1*rmState%rmN1%Pot %data + w2*rmState%rmN2%Pot %data
-        rmState%nsSigP(NORTH)%data = w1*rmState%rmN1%SigP%data + w2*rmState%rmN2%SigP%data
-        rmState%nsSigH(NORTH)%data = w1*rmState%rmN1%SigH%data + w2*rmState%rmN2%SigH%data
-        rmState%nsFac (SOUTH)%data = w1*rmState%rmS1%Fac %data + w2*rmState%rmS2%Fac %data
-        rmState%nsPot (SOUTH)%data = w1*rmState%rmS1%Pot %data + w2*rmState%rmS2%Pot %data
-        rmState%nsSigP(SOUTH)%data = w1*rmState%rmS1%SigP%data + w2*rmState%rmS2%SigP%data
-        rmState%nsSigH(SOUTH)%data = w1*rmState%rmS1%SigH%data + w2*rmState%rmS2%SigH%data
+        rmReader%nsFac (NORTH)%data = w1*rmReader%rmN1%Fac %data + w2*rmReader%rmN2%Fac %data
+        rmReader%nsPot (NORTH)%data = w1*rmReader%rmN1%Pot %data + w2*rmReader%rmN2%Pot %data
+        rmReader%nsSigP(NORTH)%data = w1*rmReader%rmN1%SigP%data + w2*rmReader%rmN2%SigP%data
+        rmReader%nsSigH(NORTH)%data = w1*rmReader%rmN1%SigH%data + w2*rmReader%rmN2%SigH%data
+        rmReader%nsFac (SOUTH)%data = w1*rmReader%rmS1%Fac %data + w2*rmReader%rmS2%Fac %data
+        rmReader%nsPot (SOUTH)%data = w1*rmReader%rmS1%Pot %data + w2*rmReader%rmS2%Pot %data
+        rmReader%nsSigP(SOUTH)%data = w1*rmReader%rmS1%SigP%data + w2*rmReader%rmS2%SigP%data
+        rmReader%nsSigH(SOUTH)%data = w1*rmReader%rmS1%SigH%data + w2*rmReader%rmS2%SigH%data
     end subroutine hemi2rm
 
 !------
@@ -390,10 +397,10 @@ module remixReader
     end subroutine readVarJank
 
 
-    subroutine outputRMSG(rmState, fname, isFirst, gStrO)
-        !! Write rmState stuff to file
+    subroutine outputRMSG(rmReader, fname, isFirst, gStrO)
+        !! Write rmReader stuff to file
         !! Pretty much just for debugging
-        type(rmState_T), intent(in) :: rmState
+        type(rmReader_T), intent(in) :: rmReader
         character(len=*), intent(in) :: fname
         logical, intent(in) :: isFirst
         character(len=*), optional, intent(in) :: gStrO
@@ -409,8 +416,8 @@ module remixReader
         
         if (.not. ioExist(fname, "sh_th")) then
             call ClearIO(IOVars)
-            call AddOutVar(IOVars,"sh_th",rmState%shGr%th)
-            call AddOutVar(IOVars,"sh_ph",rmState%shGr%ph)
+            call AddOutVar(IOVars,"sh_th",rmReader%shGr%th)
+            call AddOutVar(IOVars,"sh_ph",rmReader%shGr%ph)
             call WriteVars(IOVars,.true.,fname)
         endif
 
@@ -419,10 +426,10 @@ module remixReader
         ! If still here, varO and vNameO present
         if (present(gStrO)) then
             call ClearIO(IOVars)
-            call AddOutVar(IOVars, "time", rmState%time)
-            call AddOutVar(IOVars, "N1_time", rmState%rmN1%time)
-            call AddOutVar(IOVars, "nsPot NORTH data", rmState%nsPot(NORTH)%data)
-            call AddOutVar(IOVars, "nsPot NORTH mask", rmState%nsPot(NORTH)%mask*1.0_rp)
+            call AddOutVar(IOVars, "time", rmReader%time)
+            call AddOutVar(IOVars, "N1_time", rmReader%rmN1%time)
+            call AddOutVar(IOVars, "nsPot NORTH data", rmReader%nsPot(NORTH)%data)
+            call AddOutVar(IOVars, "nsPot NORTH mask", rmReader%nsPot(NORTH)%mask*1.0_rp)
             call WriteVars(IOVars,.true.,fname,gStrO=gStrO)
         endif
     end subroutine outputRMSG
