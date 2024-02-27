@@ -724,12 +724,6 @@ def main():
     else:
         print(f"weekly run completed successfully on branch {git_branch_name}")
 
-    # Delete jobs.txt
-    # os.chdir(kaiju_home)
-    # os.chdir(WEEKLY_DASH_DIRECTORY)
-    # os.chdir(BIN_DIR)
-    # os.remove('jobs.txt')
-
     if debug:
         print(f"Ending {sys.argv[0]} at {datetime.datetime.now()}")
 

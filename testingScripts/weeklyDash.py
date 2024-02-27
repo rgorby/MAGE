@@ -162,15 +162,6 @@ def main():
 
     #--------------------------------------------------------------------------
 
-    # Copy the weekly dash restart files.
-    # from_dir = WEEKLY_DASH_RESTART_SRC_DIRECTORY
-    # to_dir = WORKING_DASH_RESTART_DIRECTORY
-    # if verbose:
-    #     print(f"Copying weekly dash restart files from {from_dir} to {to_dir}.")
-    # shutil.copytree(from_dir, to_dir)
-
-    #--------------------------------------------------------------------------
-
     # Make a list of module sets to build with.
 
     # Read the list of  module sets to use for build tests.

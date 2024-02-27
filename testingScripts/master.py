@@ -71,69 +71,71 @@ def main():
         print(f"Starting {sys.argv[0]} at {datetime.datetime.now()}")
         print(f"Current directory is {os.getcwd()}")
 
+    # #--------------------------------------------------------------------------
+
+    # # Move to the MAGE installation directory.
+    # kaiju_home = os.environ['KAIJUHOME']
+    # os.chdir(kaiju_home)
+
+    # #--------------------------------------------------------------------------
+
+    # # Check to see if any changes have been made in the MAGE
+    # # repository.
+
+    # # Find the current branch.
+    # if verbose:
+    #     print(f"Fetching git branch name for directory {kaiju_home}.")
+    # git_branch_name = common.git_get_branch_name()
+    # if debug:
+    #     print(f"git_branch_name = {git_branch_name}")
+
+    # # Pull any changes from the repository.
+    # if verbose:
+    #     print(f"Pulling changes from repository on branch {git_branch_name}.")
+    # git_pull_output = common.git_pull()
+    # if debug:
+    #     print(git_pull_output)
+
+    # # If there are no changes to the code, and the forced-test flag is
+    # # not set, abort this test.
+    # if git_pull_output == 'Already up to date.' and not force_tests:
+    #     print(f"No test today. Branch {git_branch_name} is already up to date!")
+    #     exit(0)
+
+    # #--------------------------------------------------------------------------
+
+    # # Run the tests.
+
+    # # Run the tests.
+    # if run_all_tests:
+    #     if verbose:
+    #         print('Running all tests.')
+    #     test_scripts = [
+    #         # 'buildTest.py',
+    #         # 'unitTest.py',
+    #         # 'intelChecks.py',
+    #         # 'ICtest.py',
+    #         # 'pyunitTest.py',
+    #         # 'weeklyDash.py',
+    #         # 'weeklyDashReport.py',
+    #     ]
+    # else:
+    #     if verbose:
+    #         print('Running typical tests.')
+    #     test_scripts = [
+    #         # 'buildTest.py',
+    #         # 'unitTest.py',
+    #         # 'ICtest.py',
+    #         # 'pyunitTest.py',
+    #     ]
+    # for test_script in test_scripts:
+    #     path = os.path.join(kaiju_home, KAIJU_TEST_SCRIPTS_DIRECTORY,
+    #                         test_script)
+    #     if verbose:
+    #         print(f"Running test script {test_script}.")
+    #     common.run_mage_test_script(path, args)
+
     #--------------------------------------------------------------------------
-
-    # Move to the MAGE installation directory.
-    kaiju_home = os.environ['KAIJUHOME']
-    os.chdir(kaiju_home)
-
-    #--------------------------------------------------------------------------
-
-    # Check to see if any changes have been made in the MAGE
-    # repository.
-
-    # Find the current branch.
-    if verbose:
-        print(f"Fetching git branch name for directory {kaiju_home}.")
-    git_branch_name = common.git_get_branch_name()
-    if debug:
-        print(f"git_branch_name = {git_branch_name}")
-
-    # Pull any changes from the repository.
-    if verbose:
-        print(f"Pulling changes from repository on branch {git_branch_name}.")
-    git_pull_output = common.git_pull()
-    if debug:
-        print(git_pull_output)
-
-    # If there are no changes to the code, and the forced-test flag is
-    # not set, abort this test.
-    if git_pull_output == 'Already up to date.' and not force_tests:
-        print(f"No test today. Branch {git_branch_name} is already up to date!")
-        exit(0)
-
-    #--------------------------------------------------------------------------
-
-    # Run the tests.
-
-    # Run the tests.
-    if run_all_tests:
-        if verbose:
-            print('Running all tests.')
-        test_scripts = [
-            # 'buildTest.py',
-            # 'unitTest.py',
-            # 'intelChecks.py',
-            # 'ICtest.py',
-            # 'pyunitTest.py',
-            # 'weeklyDash.py',
-            'weeklyDashReport.py',
-        ]
-    else:
-        if verbose:
-            print('Running typical tests.')
-        test_scripts = [
-            # 'buildTest.py',
-            # 'unitTest.py',
-            # 'ICtest.py',
-            # 'pyunitTest.py',
-        ]
-    for test_script in test_scripts:
-        path = os.path.join(kaiju_home, KAIJU_TEST_SCRIPTS_DIRECTORY,
-                            test_script)
-        if verbose:
-            print(f"Running test script {test_script}.")
-        common.run_mage_test_script(path, args)
 
     if verbose:
         print(f"Ending {sys.argv[0]} at {datetime.datetime.now()}")

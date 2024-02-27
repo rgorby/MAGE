@@ -121,6 +121,13 @@ def main():
 
     #--------------------------------------------------------------------------
 
+    # <HACK>
+    # Get testing account from environment.
+    account = os.environ['DERECHO_TESTING_ACCOUNT']
+    # </HACK>
+
+    #--------------------------------------------------------------------------
+
     # Set up for communication with Slack.
     slack_client = common.slack_create_client()
     if debug:
