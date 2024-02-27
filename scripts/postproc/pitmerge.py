@@ -26,8 +26,12 @@ def createfile(fIn,fOut,doLink=False):
 		print("\t%s"%(aStr))
 	#Copy root groups
 	print("Copying root variables ...")
+
 	for Q in iH5.keys():
 		sQ = str(Q)
+		#Skip cache, we ad it later
+		if 'timeAttributeCache' in sQ:
+			continue
 		#Don't include stuff that starts with "Step"
 		if "Step" not in sQ:
 			if doLink:
@@ -78,6 +82,13 @@ if __name__ == "__main__":
 	#Create file w/ attributes and root variables as first file
 	oH5 = createfile(dbIns[0],fOut, doLink)
 
+	# Store and concat timeAttributeCache to add at the very end
+	timeCacheVars = {}
+	with h5py.File(dbIns[0], 'r') as tacF:
+		for k in tacF['timeAttributeCache'].keys():
+			#timeCacheVars[k] = tacF['timeAttributeCache'][k][:].tolist()
+			timeCacheVars[k] = np.array([], dtype=tacF['timeAttributeCache'][k].dtype)
+
 	s0 = 0 #Current step
 	nowTime = 0.0
 	oldTime = -np.inf
@@ -93,6 +104,15 @@ if __name__ == "__main__":
 		print("Reading steps %d to %d from %s"%(nS,nE,fIn))
 		print("\tWriting to %d to %d"%(s0,s0+dN-1))
 		iH5 = h5py.File(fIn,'r')
+
+		# Grow timeAttributeCache
+		for k in iH5['timeAttributeCache'].keys():
+			#timeCacheVars[k].append(iH5['timeAttributeCache'][k][:].tolist())
+			data = iH5['timeAttributeCache'][k][:]
+			if k == 'step':
+				data += s0
+			timeCacheVars[k] = np.append(timeCacheVars[k], data, axis=0)
+		print(timeCacheVars['step'])
 
 		#Loop over steps in the input file
 		for s in range(nS,nE+1):
@@ -130,5 +150,13 @@ if __name__ == "__main__":
 			s0 = s0 + 1
 
 		iH5.close()
+
+	# Write timeAttributeCache to output file
+	tag = oH5.create_group('timeAttributeCache')
+	for k in timeCacheVars:
+		print(k)
+		print(timeCacheVars[k].dtype)
+		tag.create_dataset(k, data=timeCacheVars[k], dtype=timeCacheVars[k].dtype)
+	
 	#Done
-	oH5.close()
+	#oH5.close()
