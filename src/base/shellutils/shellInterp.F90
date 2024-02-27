@@ -237,7 +237,6 @@ module shellInterp
         call getShellJLoc(sgSource, sgVar%loc, ph, j0, p0)  ! Sets j0 and p0 to closest i/phi   values to interp point p
 
         if (i0 > sgVar%iev .or. i0 < sgVar%isv) then
-            write(*,*) "ERROR in InterpShellVar_TSC_pnt: Theta out of bounds. idx=",i0
             return
         endif
 
