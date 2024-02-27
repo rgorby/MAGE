@@ -1,0 +1,67 @@
+module testSGInterp
+
+    use testHelper
+    use kdefs, only : TINY
+
+    use shellGrid
+    use shellInterp
+
+    implicit none
+
+    integer, parameter :: Npnt = 50
+    type(ShellGrid_T) :: sh
+    character(len=strLen) :: checkMessage
+
+    contains
+
+    @before
+	subroutine setup()
+        real(rp), dimension(Npnt) :: thetas, phis
+        real(rp) :: dth, dph
+        integer :: i,j
+
+        dth = 0.5*PI / (Npnt-1)
+        dph = 2.0*PI / (Npnt-1)
+
+        do i=1,Npnt
+            thetas(i) = (i-1)*dth
+        enddo
+
+        do j=1,Npnt
+            phis(j) = (j-1)*dph
+        enddo
+
+	    call GenShellGrid(sh, thetas, phis,'shgrTest_loc', radO=1.1_rp)
+
+	end subroutine setup
+
+    @after
+	subroutine teardown()
+        call deallocShellGrid(sh)	    
+    end subroutine teardown
+
+    @test
+    subroutine testEquivDCell()
+        !! Checks to see if the dTheta and dPhi calculated in TSG_SG and TSC_pnt evaluate to the same quantities
+        type(ShellGridVar_T) :: var_src  ! Contains source data
+        type(ShellGridVar_T) :: var_thruSG, var_thruPnt  ! Interpolated via TSC_SG and directly through TSC_pnt
+
+        integer :: i,j
+
+        call initShellVar(sh, SHCORNER, var_src)
+
+        ! Try cell-centered first
+        call initShellVar(sh, SHCC, var_thruSG)
+        call initShellVar(sh, SHCC, var_thruPnt)
+
+        ! Make some random data
+        do j=sh%jsg,sh%jeg+1
+            do i=sh%isg,sh%ieg+1
+                var_src%data(i,j) = random_number()
+            enddo
+        enddo
+        write(*,*)var_src
+
+    end subroutine testEquivDCell
+
+end module testSGInterp
