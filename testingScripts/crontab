@@ -1,0 +1,3 @@
+# NOTE: Embedding the command sent to derecho via ssh in double-quotes
+# ensures proper remote argument parsing.
+34 00 * * * ssh derecho "/glade/work/ewinter/mage_testing/derecho/kaiju/ewinter-move_testing_to_derecho/kaiju/testingScripts/run_mage_tests.sh -d -v 'buildTest.py -d -v -l,ICtest.py -d -v -l,unitTest.py -d -v -l,pyunitTest.py -d -v -l'" >> /glade/work/ewinter/mage_testing/derecho/logs/test.out 2>&1
