@@ -6,8 +6,8 @@ Create a report for the results of the MAGE pythin unit tests.
 
 Authors
 -------
-Jeff Garretson (jeffrey.garretson@jhuapl.edu)
-Eric Winter (eric.winter@jhuapl.edu)
+Jeff Garretson
+Eric Winter
 """
 
 
