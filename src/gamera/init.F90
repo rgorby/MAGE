@@ -321,7 +321,7 @@ module init
         real(rp) :: C0,MJD0
         integer :: nSeed, icSeed
         integer, dimension(:), allocatable :: vSeed
-        logical :: doFatIO
+        logical :: doFatIO,doHighPrecOut
 
         !Start by shutting up extra ranks
         if (.not. Model%isLoud) call xmlInp%BeQuiet()
@@ -406,6 +406,10 @@ module init
         call xmlInp%Set_Val(doFatIO      ,'output/doFatIO' ,.false.)
         if (doFatIO) then
             call SetFatIO()
+        endif
+        call xmlInp%Set_Val(doHighPrecOut,'output/doHighPrecOut' ,.false.)
+        if(doHighPrecOut) then
+            call SetHPOut()
         endif
         
         !Whether to read restart
