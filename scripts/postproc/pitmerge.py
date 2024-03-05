@@ -29,7 +29,7 @@ def createfile(fIn,fOut,doLink=False):
 
 	for Q in iH5.keys():
 		sQ = str(Q)
-		#Skip cache, we ad it later
+		#Skip cache, we add it later
 		if 'timeAttributeCache' in sQ:
 			continue
 		#Don't include stuff that starts with "Step"
@@ -86,7 +86,6 @@ if __name__ == "__main__":
 	timeCacheVars = {}
 	with h5py.File(dbIns[0], 'r') as tacF:
 		for k in tacF['timeAttributeCache'].keys():
-			#timeCacheVars[k] = tacF['timeAttributeCache'][k][:].tolist()
 			timeCacheVars[k] = np.array([], dtype=tacF['timeAttributeCache'][k].dtype)
 
 	s0 = 0 #Current step
@@ -107,12 +106,10 @@ if __name__ == "__main__":
 
 		# Grow timeAttributeCache
 		for k in iH5['timeAttributeCache'].keys():
-			#timeCacheVars[k].append(iH5['timeAttributeCache'][k][:].tolist())
 			data = iH5['timeAttributeCache'][k][:]
 			if k == 'step':
-				data += s0
+				data += s0  # Cache for merged h5 file needs to remap original steps to their position in merged file
 			timeCacheVars[k] = np.append(timeCacheVars[k], data, axis=0)
-		print(timeCacheVars['step'])
 
 		#Loop over steps in the input file
 		for s in range(nS,nE+1):
@@ -152,11 +149,10 @@ if __name__ == "__main__":
 		iH5.close()
 
 	# Write timeAttributeCache to output file
+	print("Writing timeAttributeCache")
 	tag = oH5.create_group('timeAttributeCache')
 	for k in timeCacheVars:
-		print(k)
-		print(timeCacheVars[k].dtype)
 		tag.create_dataset(k, data=timeCacheVars[k], dtype=timeCacheVars[k].dtype)
 	
 	#Done
-	#oH5.close()
+	oH5.close()

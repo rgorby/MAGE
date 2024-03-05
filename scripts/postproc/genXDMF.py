@@ -199,23 +199,18 @@ if __name__ == "__main__":
 	#Get variable information
 	print("Getting variable information")
 	Nt = len(sIDstrs)
-	#T = kh5.getTs(h5fname,sIDs)
-	#T = np.array([])
 	T = np.zeros(Nt)
 	# Also get file info, in case any of the steps are ExternalLinks to other files
 	# Assume this is done at the step level
 	fNames_link = [""]*Nt
 	steps_link = [""]*Nt
 	with h5.File(h5fname,'r') as f5:
-		#T = np.array([f5[k].attrs['time'] for k in f5.keys() if "Step" in k])
 		for i,sIDstr in enumerate(sIDstrs):
 			if 'time' in f5[sIDstr].attrs.keys():
-				#T = np.append(T, f5[sIDstr].attrs['time'])
 				T[i] = f5[sIDstr].attrs['time']
 			else:
-				#T = np.append(T, int(sIDstr.split("#")[1]))
 				T[i] = int(sIDstr.split("#")[1])
-			fNames_link[i] = f5[sIDstr].file.filename.split('/')[-1]  # !!NOTE: This means the files linked to must be in the same directory
+			fNames_link[i] = f5[sIDstr].file.filename.split('/')[-1]  # !!NOTE: This means the xdmf file must live in the same directory as the data files
 			steps_link[i] = int(f5[sIDstr].name.split('#')[1])
 
 		#steps = np.array([k for k in f5.keys() if "Step" in k])
@@ -266,10 +261,8 @@ if __name__ == "__main__":
 		if doAppendStep:
 			stepStr = sIDstrs[n]
 			sgVars = [os.path.join(stepStr, v) for v in gridVars]
-			#kxmf.AddGrid(h5fname,Geom,gDimStr,sgVars)
 			kxmf.AddGrid(fNames_link[n],Geom,gDimStr,sgVars)
 		else:
-			#kxmf.AddGrid(h5fname,Geom,gDimStr,gridVars)
 			kxmf.AddGrid(fNames_link[n],Geom,gDimStr,gridVars)
 
 		Time = et.SubElement(Grid,"Time")
@@ -283,12 +276,10 @@ if __name__ == "__main__":
 		#--------------------------------
 		#Step variables
 		for v in range(Nv):
-			#kxmf.AddData(Grid,h5fname,vIds[v],vLocs[v],vDimStr,nStp)
 			kxmf.AddData(Grid,fNames_link[n],vIds[v],vLocs[v],vDimStr,steps_link[n])
 		#--------------------------------
 		#Base grid variables
 		for v in range(Nrv):
-			#kxmf.AddData(Grid,h5fname,rvIds[v],rvLocs[v],vDimStr)
 			kxmf.AddData(Grid,fNames_link[n],rvIds[v],rvLocs[v],vDimStr)
 
 		if doAddRCMVars:
