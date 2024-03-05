@@ -15,6 +15,7 @@ Authors
 -------
 Jeff Garretson
 Eric Winter
+
 """
 
 
@@ -220,11 +221,20 @@ def main():
 
     #--------------------------------------------------------------------------
 
+    # Initialize the build test report string.
+    message = f"Running {sys.argv[0]}.\n"
+
     # Do a build with each set of modules.
     for module_list_file in module_list_files:
         if verbose:
             print('Performing build test with module_list_file '
                   f"{module_list_file}")
+
+        # Create a test result message.
+        message += (
+            f"Building MAGE branch {git_branch_name} with module set "
+            f"{module_list_file}.\n"
+        )
 
         # Extract the name of the list.
         module_list_name = module_list_file.rstrip('.lst')
@@ -264,24 +274,29 @@ def main():
         cmd = f"{module_cmd}; {cmake_environment} cmake {cmake_options} {kaiju_home}"
         if debug:
             print(f"cmd = {cmd}")
-        # <HACK> To ignore cmake error on bcwind.h5 for now.
         try:
             cproc = subprocess.run(cmd, shell=True, check=True)
-        except:
-            pass
-        # </HACK>
+        except subprocess.CalledProcessError as e:
+            message += 'cmake failed.\n'
+            message += f"e.cmd = {e.cmd}\n"
+            message += f"e.returncode = {e.returncode}\n"
+            message += 'See test log for output.\n'
+            message += f"Skipping remaining steps for module set {module_list_file}.\n"
+            continue
 
         # Run the build.
         cmd = f"{module_cmd}; make {' '.join(executable_list)}"
         if debug:
             print(f"cmd = {cmd}")
-        cproc = subprocess.run(cmd, shell=True, check=True)
-
-        # Create a test result message.
-        message = (
-            f"Built MAGE branch {git_branch_name} with module set "
-            f"{module_list_file}\n"
-        )
+        try:
+            cproc = subprocess.run(cmd, shell=True, check=True)
+        except subprocess.CalledProcessError as e:
+            message += 'make failed.\n'
+            message += f"e.cmd = {e.cmd}\n"
+            message += f"e.returncode = {e.returncode}\n"
+            message += 'See test log for output.\n'
+            message += f"Skipping remaining steps for module set {module_list_file}.\n"
+            continue
 
         # Check for all executables
         missing = []
@@ -297,18 +312,20 @@ def main():
         else:
             message += (
                 f"Everything built properly on branch {git_branch_name} "
-                f"with module set {module_list_file}!"
+                f"with module set {module_list_file}.\n"
             )
-        if debug:
-            print(f"message = {message}")
 
-        # If this is a test run, don't post to Slack. Otherwise, if
-        # loud, or an error occurred, send Slack message.
-        if not is_test and (be_loud or len(missing) > 0):
-            common.slack_send_message(slack_client, message)
+    # If this is a test run, don't post to Slack. Otherwise, if loud,
+    # send Slack message.
+    if debug:
+        print('Sending build test report to Slack.')
+    if is_test:
+        pass
+    elif be_loud:
+        common.slack_send_message(slack_client, message)
 
-        # Send message to stdout.
-        print(message)
+    # Send message to stdout.
+    print(message)
 
     if debug:
         print(f"Ending {sys.argv[0]} at {datetime.datetime.now()}")
