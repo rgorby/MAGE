@@ -67,3 +67,6 @@ analysis/notebooks/Tutorial/.ipynb_checkpoints
 
 # ifort cruft 
 *.i90
+
+# Emacs backup files
+*~

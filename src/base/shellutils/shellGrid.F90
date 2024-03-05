@@ -44,7 +44,7 @@ module shellGrid
 
         integer :: Ngn=0, Ngs=0, Nge=1, Ngw=1
             !! Ghosts for north, south, east, and west boundaries. East=>larger phi. West => smaller phi.
-            !! default to 0
+            !! default to 0 for N/S, 1 for E/W
 
         logical :: isPeriodic   
             !! Whether the low/high phi boundary is periodic
@@ -58,7 +58,7 @@ module shellGrid
             !! Name of the parent grid  that this one derives from
         integer :: bndis,bndie,bndjs,bndje
             !! Indices of parent grid that bound this grid
-        ! TODO: add unique identifiers for this SG, and for potential paren't SG
+        ! TODO: add unique identifiers for this SG, and for potential parent SG
         ! That way, child always knows which grid it came from
         ! Can be checked against when calling routines like InterpParentToChild, InterpChildToParent
 

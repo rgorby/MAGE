@@ -1,0 +1,42 @@
+<Kaiju>
+  <RCM>
+    <rcmdomain domType="ELLIPSE" />
+    <ellipse isDynamic="T" xSun="12.5" xTail="-20.0" yDD="15.0" />
+    <grid HiLat="75.0" LowLat="30.0" doLatStretch="F" />
+    <plasmasphere DenPP0="1.0e-2" doRefill="T" initKp="2" isDynamic="T" tAvg="600.0" />
+  </RCM>
+  <CHIMP>
+    <units uid="EARTHCODE" />
+    <fields grType="lfm" />
+    <domain dtype="MAGE" />
+    <tracer epsds="0.05" />
+  </CHIMP>
+  <VOLTRON>
+    <time tFin="3600.0" />
+    <spinup doSpin="T" tSpin="3600.0" />
+    <output dtOut="900.0" tsOut="100" />
+    <coupling doQkSquish="T" dtCouple="5.0" imType="RCM" qkSquishStride="2" rTrc="40.0" doAsyncCoupling="F" />
+    <restart dtRes="1800.0" />
+    <imag doInit="T" />
+    <ebsquish epsSquish="0.05" />
+  </VOLTRON>
+  <Gamera>
+    <sim H5Grid="lfmD.h5" doH5g="T" icType="user" pdmb="1.0" rmeth="7UP" runid="geo_mpi" />
+    <floors dFloor="1.0e-4" pFloor="1.0e-6" />
+    <timestep doCPR="T" limCPR="0.25" />
+    <restart doRes="F" nRes="-1" resID="msphere" />
+    <physics Ca="10.0" doBoris="T" doMHD="T" />
+    <ring doRing="T" gid="lfm" />
+    <ringknobs doVClean="T" />
+    <wind tsfile="bcwind.h5" />
+    <source doBounceDT="T" doSource="T" doWolfLim="T" nBounce="1.0" />
+    <iPdir N="2" bcPeriodic="F" />
+    <jPdir N="4" bcPeriodic="F" />
+    <kPdir N="1" bcPeriodic="T" />
+    <coupling blockHalo="T" />
+  </Gamera>
+  <REMIX>
+    <conductance doRamp="F" doStarlight="T" />
+    <precipitation alpha="0.2" aurora_model_type="LINMRG" beta="0.4" />
+  </REMIX>
+</Kaiju>

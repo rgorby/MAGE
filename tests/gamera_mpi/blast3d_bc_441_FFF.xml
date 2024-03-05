@@ -12,5 +12,6 @@
     <output dtOut="0.1" tsOut="1000000"/>
     <physics doMHD="T" do25D="F"/>
     <prob alpha="45.0" V0="1.41421356237"/>
+    <coupling blockHalo="T" />
   </Gamera>
 </Kaiju>

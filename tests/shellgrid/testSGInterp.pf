@@ -1,0 +1,146 @@
+module testSGInterp
+
+    use testHelper
+    use kdefs, only : TINY
+
+    use shellGrid
+    use shellInterp
+
+    implicit none
+
+    integer, parameter :: Npnt = 50
+    type(ShellGrid_T) :: sh
+    character(len=strLen) :: checkMessage
+
+    contains
+
+    @before
+	subroutine setup()
+        real(rp), dimension(Npnt) :: thetas, phis
+        real(rp) :: dth, dph
+        real(rp) :: thetaL = 10.0 *PI/180.0  ! So we avoid pole
+        integer :: i,j
+
+        dth = (0.5*PI - thetaL) / (Npnt-1)
+        dph = 2.0*PI / (Npnt-1)
+
+        do i=1,Npnt
+            thetas(i) = thetaL + (i-1)*dth
+        enddo
+
+        do j=1,Npnt
+            phis(j) = (j-1)*dph
+        enddo
+
+	    call GenShellGrid(sh, thetas, phis,'shgrTest_loc', radO=1.1_rp)
+
+	end subroutine setup
+
+    @after
+	subroutine teardown()
+        call deallocShellGrid(sh)	    
+    end subroutine teardown
+
+    @test
+    subroutine testEquivDCell_CC()
+        !! Checks to see if the dTheta and dPhi calculated in TSG_SG and TSC_pnt evaluate to the same quantities
+        type(ShellGridVar_T) :: var_src  ! Contains source data
+        type(ShellGridVar_T) :: var_thruSG, var_thruPnt  ! Interpolated via TSC_SG and directly through TSC_pnt
+
+        integer :: i,j
+        real(rp) :: diffSum = 0.0
+
+        call initShellVar(sh, SHCORNER, var_src)
+        var_src%mask = .true.
+
+        ! Try cell-centered first
+        call initShellVar(sh, SHCC, var_thruSG )
+        call initShellVar(sh, SHCC, var_thruPnt)
+        var_thruSG%mask = .true.
+        var_thruPnt%mask = .true.
+
+        ! Make some random data
+        do j=sh%jsg,sh%jeg+1
+            do i=sh%isg,sh%ieg+1
+                call random_number(var_src%data(i,j))
+            enddo
+        enddo
+
+        call InterpShellVar_TSC_SG(sh, var_src, sh, var_thruSG)
+        !$OMP PARALLEL DO default(shared) collapse(1) &
+        !$OMP schedule(dynamic) &
+        !$OMP private(i,j)
+        do j=sh%jsg,sh%jeg
+            do i=sh%isg,sh%ieg
+                if (.not. var_thruPnt%mask(i,j)) cycle
+                call InterpShellVar_TSC_pnt( \
+                        sh, var_src,\
+                        sh%thc(i), sh%phc(j),\
+                        var_thruPnt%data(i,j) )
+            enddo
+        enddo
+        call wrapJ_SGV(sh, var_thruPnt)
+
+        ! Check diffs
+        do j=sh%jsg,sh%jeg+1
+            do i=sh%isg,sh%ieg+1
+                diffSum = diffSum + abs(var_thruPnt%data(i,j) - var_thruSG%data(i,j))
+            enddo
+        enddo
+
+        @assertLessThanOrEqual(diffSum, TINY, "TSC_SG and TSC_pnt results don't match for SHCC dest vars")
+        continue
+    end subroutine testEquivDCell_CC
+
+
+    @test
+    subroutine testEquivDCell_Corner()
+        !! Checks to see if the dTheta and dPhi calculated in TSG_SG and TSC_pnt evaluate to the same quantities
+        type(ShellGridVar_T) :: var_src  ! Contains source data
+        type(ShellGridVar_T) :: var_thruSG, var_thruPnt  ! Interpolated via TSC_SG and directly through TSC_pnt
+
+        integer :: i,j
+        real(rp) :: diffSum = 0.0
+
+        call initShellVar(sh, SHCORNER, var_src)
+        var_src%mask = .true.
+
+        call initShellVar(sh, SHCORNER, var_thruSG )
+        call initShellVar(sh, SHCORNER, var_thruPnt)
+        var_thruSG%mask = .true.
+        var_thruPnt%mask = .true.
+
+        ! Make some random data
+        do j=sh%jsg,sh%jeg+1
+            do i=sh%isg,sh%ieg+1
+                call random_number(var_src%data(i,j))
+            enddo
+        enddo
+
+        call InterpShellVar_TSC_SG(sh, var_src, sh, var_thruSG)
+        !$OMP PARALLEL DO default(shared) collapse(1) &
+        !$OMP schedule(dynamic) &
+        !$OMP private(i,j)
+        do j=sh%jsg,sh%jeg+1
+            do i=sh%isg,sh%ieg+1
+                if (.not. var_thruPnt%mask(i,j)) cycle
+                call InterpShellVar_TSC_pnt( \
+                        sh, var_src,\
+                        sh%th(i), sh%ph(j),\
+                        var_thruPnt%data(i,j) )
+            enddo
+        enddo
+        call wrapJ_SGV(sh, var_thruPnt)
+
+        ! Check diffs
+        do j=sh%jsg,sh%jeg+1
+            do i=sh%isg,sh%ieg+1
+                diffSum = diffSum + abs(var_thruPnt%data(i,j) - var_thruSG%data(i,j))
+            enddo
+        enddo
+
+        @assertLessThanOrEqual(diffSum, TINY, "TSC_SG and TSC_pnt results don't match for SHCORNER dest vars")
+        continue
+    end subroutine testEquivDCell_Corner
+
+end module testSGInterp
