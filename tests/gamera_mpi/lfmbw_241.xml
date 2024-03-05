@@ -10,5 +10,6 @@
     <iPdir N="2" bcPeriodic="F"/>
     <jPdir N="4" bcPeriodic="F"/>
     <kPdir N="1" bcPeriodic="T"/>
+    <coupling blockHalo="T" />
   </Gamera>
 </Kaiju>
