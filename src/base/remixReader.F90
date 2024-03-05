@@ -429,7 +429,7 @@ module remixReader
             call AddOutVar(IOVars, "time", rmReader%time)
             call AddOutVar(IOVars, "N1_time", rmReader%rmN1%time)
             call AddOutVar(IOVars, "nsPot NORTH data", rmReader%nsPot(NORTH)%data)
-            call AddOutVar(IOVars, "nsPot NORTH mask", rmReader%nsPot(NORTH)%mask*1.0_rp)
+            call AddOutVar(IOVars, "nsPot NORTH mask", merge(1.0_rp, 0.0_rp, rmReader%nsPot(NORTH)%mask))
             call WriteVars(IOVars,.true.,fname,gStrO=gStrO)
         endif
     end subroutine outputRMSG
