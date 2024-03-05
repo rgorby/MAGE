@@ -15,25 +15,25 @@ program testNewRMS
     character(len=strLen) :: ftag = 'msphere'
     character(len=100) :: fOutname = "rms.h5"
     type(XML_Input_T) :: inpXML
-    type(rmState_T) :: rmState
+    type(rmReader_T) :: rmReader
 
     integer :: i
     real(rp) :: dt, t
 
     inpXML = New_XML_Input(trim(xmlStr),"Kaiju/REMIX",.true.)
 
-    call initRM(ftag, inpXML, rmState)
+    call initRM(ftag, inpXML, rmReader)
     
-    call dump(fOutname, rmState%shGr)
+    call dump(fOutname, rmReader%shGr)
 
-    dt = 0.5 * (rmState%rmTab%times(rmState%rmTab%N) - rmState%rmTab%times(rmState%rmTab%N-1))
+    dt = 0.5 * (rmReader%rmTab%times(rmReader%rmTab%N) - rmReader%rmTab%times(rmReader%rmTab%N-1))
     write(*,*)"dt=",dt
-    t = rmState%rmTab%times(2)
+    t = rmReader%rmTab%times(2)
     write(*,*)t
     !do while (t < dt*20)
-    do while (t < rmState%rmTab%times(rmState%rmTab%N) + 4*dt)
-        call updateRM(rmState, t)
-        call testShellInterp(rmState)
+    do while (t < rmReader%rmTab%times(rmReader%rmTab%N) + 4*dt)
+        call updateRM(rmReader, t)
+        call testShellInterp(rmReader)
         t = t + dt
     enddo
 
@@ -41,7 +41,7 @@ program testNewRMS
     contains
 
     subroutine testShellInterp(rmS)
-        type(rmState_T), intent(in) :: rmS
+        type(rmReader_T), intent(in) :: rmS
 
         type(ShellGridVar_T) :: tmpVarSame, tmpVarCC
         integer :: i,j
@@ -53,53 +53,31 @@ program testNewRMS
         call initShellVar(rmS%shGr, SHCC, tmpVarCC)
         tmpVarCC%mask = .true.
 
-        allocate(i0_arr(tmpVarSame%isv:tmpVarSame%iev))
-        allocate(j0_arr(tmpVarSame%jsv:tmpVarSame%jev))
-
-        call InterpShellVar_TSC_SG(rmS%shGr, rmS%nsFac(NORTH), rmS%shGr, tmpVarSame)
-        call InterpShellVar_TSC_SG(rmS%shGr, rmS%nsFac(NORTH), rmS%shGr, tmpVarCC)
-
-        !do j=tmpVarSame%jsv,tmpVarSame%jev
-        !    do i=tmpVarSame%isv,tmpVarSame%iev
-        !        write(*,*) i,j
-        !        write(*,*) "  ",tmpVarSame%data(i,j), tmpVarSame%mask(i,j)
-        !        if (j == tmpVarSame%jev+10) then
-        !            write(*,*) "  ",rmS%nsFAC(NORTH)%data(i,tmpvarSame%isv+1),rmS%nsFAC(NORTH)%mask(i,tmpvarSame%isv+1)
-        !            write(*,*) "  ",tmpVarSame%data(i,j)/rmS%nsFAC(NORTH)%data(i,tmpvarSame%isv+1)
-        !        else
-        !            write(*,*) "  ",rmS%nsFAC(NORTH)%data(i,j),rmS%nsFAC(NORTH)%mask(i,j)
-        !            write(*,*) "  ",tmpVarSame%data(i,j)/rmS%nsFAC(NORTH)%data(i,j)
-        !        endif
-        !    enddo
-        !enddo
-
-        ! Do our own calculation of index mappings
-        !do j=varOut%jsv,varOut%jev
-        !    do i=varOut%isv,varOut%iev
-        !        !if (.not. varOut%mask(i,j)) cycle
-        !        varOut%data(i,j) = InterpShellVar_TSC_pnt( \
-        !                            sgVar, sgSource,\
-        !                            dTheta, dPhi,\
-        !                            sgDest%th(i), sgDest%ph(j))
-        !    enddo
-        !enddo
-        do j=tmpVarSame%jsv, tmpVarSame%jev
-            call getShellJLoc(rmS%shGr, rmS%nsFac(NORTH)%loc, rmS%shGr%ph(j), j0_arr(j))
-        enddo
-        do i=tmpVarSame%isv, tmpVarSame%iev
-            call getShellILoc(rmS%shGr, rmS%nsFac(NORTH)%loc, rmS%shGr%th(i), i0_arr(i))
-        enddo
-
+        call InterpShellVar_TSC_SG(rmS%shGr, rmS%nsFac(NORTH), rmS%shGr, tmpVarSame) ! RM fac to same location
+        call InterpShellVar_TSC_SG(rmS%shGr, rmS%nsFac(NORTH), rmS%shGr, tmpVarCC)   ! RM fac to cell centers
         call dump(fOutname, rmS%shGr, rmS%nsFac(NORTH), "nsFac")
         call dump(fOutname, rmS%shGr, tmpVarSame, "tmpVarSame")
         call dump(fOutname, rmS%shGr, tmpVarCC, "tmpVarCC")
-        call dump1Dint(fOutname, i0_arr, "i0")
-        call dump1Dint(fOutname, j0_arr, "j0")
 
-
-        ! Now interp back to corners
-        call InterpShellVar_TSC_SG(rmS%shGr, tmpVarCC, rmS%shGr, tmpVarSame)
+        call InterpShellVar_TSC_SG(rmS%shGr, tmpVarCC, rmS%shGr, tmpVarSame) ! CCs back to corners
         call dump(fOutname, rmS%shGr, tmpVarSame, "tmpVarC2CC2C")
+
+        ! Try out letting InterpShellVar_TSC_pnt calculate its own dx
+        tmpVarSame%data = 0.0
+        !$OMP PARALLEL DO default(shared) collapse(1) &
+        !$OMP schedule(dynamic) &
+        !$OMP private(i,j)
+        do j=rmS%shGr%jsg,rmS%shGr%jeg+1
+            do i=rmS%shGr%isg,rmS%shGr%ieg+1
+                if (.not. tmpVarSame%mask(i,j)) cycle
+                call InterpShellVar_TSC_pnt( \
+                        rmS%shGr, rmS%nsFac(NORTH),\
+                        rmS%shGr%th(i), rmS%shGr%ph(j),\
+                        tmpVarSame%data(i,j) )
+            enddo
+        enddo
+        call wrapJ_SGV(rmS%shGr, tmpVarSame)
+        call dump(fOutname, rmS%shGr, tmpVarSame, "tmpVar_noDCell") ! Should be equal to "tmpVarSame"
 
         stop
 

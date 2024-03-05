@@ -108,6 +108,11 @@ module kdefs
         enumerator :: VELX=MOMX,VELY,VELZ,PRESSURE
     endenum
 
+    ! Directions, used by ShellGrid, Remix, calcdb, etc
+    enum, bind(C)
+        enumerator :: NORTH=1,SOUTH,EAST,WEST
+    end enum
+
 #ifdef USECOLORTEXT
 !Color options for funsies
 character, parameter :: ANSIESCAPE = char(27) !Escape character

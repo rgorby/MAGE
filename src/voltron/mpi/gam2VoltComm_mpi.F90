@@ -178,20 +178,19 @@ module gam2VoltComm_mpi
         call mpi_bcast(gApp%Model%t, 1, MPI_MYFLOAT, g2vComm%voltRank, g2vComm%voltMpiComm, ierr)
         call mpi_bcast(gApp%Model%MJD0, 1, MPI_MYFLOAT, g2vComm%voltRank, g2vComm%voltMpiComm, ierr)
         call mpi_bcast(gApp%Model%tFin, 1, MPI_MYFLOAT, g2vComm%voltRank, g2vComm%voltMpiComm, ierr)
-        call mpi_bcast(gApp%Model%dt, 1, MPI_MYFLOAT, g2vComm%voltRank, g2vComm%voltMpiComm, ierr)
+        !call mpi_bcast(gApp%Model%dt, 1, MPI_MYFLOAT, g2vComm%voltRank, g2vComm%voltMpiComm, ierr)
+
+        ! also update state time variables
+        if(.not. gApp%Model%isRestart) then
+            gApp%State%time = gApp%Model%t
+            gApp%oState%time = gApp%State%time-gApp%Model%dt
+        endif
 
         ! send updated gamera parameter to the voltron rank
         ! only the rank with Ri/Rj/Rk==0 should send the values to voltron
         if(gApp%Grid%Ri==0 .and. gApp%Grid%Rj==0 .and. gApp%Grid%Rk==0) then
             call mpi_send(gApp%Model%dt0, 1, MPI_MYFLOAT, g2vComm%voltRank, 97510, g2vComm%voltMpiComm, ierr)
         endif
-
-        ! synchronize IO timing
-        call mpi_bcast(gApp%Model%IO%tOut,  1, MPI_MYFLOAT, g2vComm%voltRank, g2vComm%voltMpiComm, ierr)
-        call mpi_bcast(gApp%Model%IO%tRes,  1, MPI_MYFLOAT, g2vComm%voltRank, g2vComm%voltMpiComm, ierr)
-        call mpi_bcast(gApp%Model%IO%dtOut, 1, MPI_MYFLOAT, g2vComm%voltRank, g2vComm%voltMpiComm, ierr)
-        call mpi_bcast(gApp%Model%IO%dtRes, 1, MPI_MYFLOAT, g2vComm%voltRank, g2vComm%voltMpiComm, ierr)
-        call mpi_bcast(gApp%Model%IO%tsOut, 1, MPI_INTEGER,     g2vComm%voltRank, g2vComm%voltMpiComm, ierr)
 
         ! create the MPI datatypes for communicating state data with voltron
         call createG2VDataTypes(g2vComm, gApp)
@@ -201,6 +200,13 @@ module gam2VoltComm_mpi
             ! deep update
             call performDeepUpdate(g2vComm, gApp)
         endif
+
+         ! synchronize IO timing
+        call mpi_bcast(gApp%Model%IO%tOut,  1, MPI_MYFLOAT, g2vComm%voltRank, g2vComm%voltMpiComm, ierr)
+        call mpi_bcast(gApp%Model%IO%tRes,  1, MPI_MYFLOAT, g2vComm%voltRank, g2vComm%voltMpiComm, ierr)
+        call mpi_bcast(gApp%Model%IO%dtOut, 1, MPI_MYFLOAT, g2vComm%voltRank, g2vComm%voltMpiComm, ierr)
+        call mpi_bcast(gApp%Model%IO%dtRes, 1, MPI_MYFLOAT, g2vComm%voltRank, g2vComm%voltMpiComm, ierr)
+        call mpi_bcast(gApp%Model%IO%tsOut, 1, MPI_INTEGER,     g2vComm%voltRank, g2vComm%voltMpiComm, ierr)
 
         if (doIOX) then
             if (.not. gApp%Model%isRestart) then

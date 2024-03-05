@@ -117,9 +117,10 @@ module shellInterp
                         ! in the case where they have different coordinate systems
                         call InterpShellVar_TSC_pnt( \
                                 sgSource, sgVar,\
-                                dTheta, dPhi,\
                                 sgDest%thc(i), sgDest%phc(j),\
-                                varOut%data(i,j), goodInterp)
+                                varOut%data(i,j), \
+                                dTheta, dPhi,\
+                                goodInterp)
                         ! TODO: Handle case where goodInterp is false here
                         ! Probably will be model dependent. Maybe we return a 2D goodInterp array if an optional array is provided to us
                     enddo
@@ -135,9 +136,10 @@ module shellInterp
                         ! in the case where they have different coordinate systems
                         call InterpShellVar_TSC_pnt( \
                                 sgSource, sgVar,\
-                                dTheta, dPhi,\
                                 sgDest%th(i), sgDest%ph(j),\
-                                varOut%data(i,j), goodInterp)
+                                varOut%data(i,j), \
+                                dTheta, dPhi,\
+                                goodInterp)
                     enddo
                 enddo
             case(SHFTH)
@@ -151,9 +153,10 @@ module shellInterp
                         ! in the case where they have different coordinate systems
                         call InterpShellVar_TSC_pnt( \
                                 sgSource, sgVar,\
-                                dTheta, dPhi,\
                                 sgDest%th(i), sgDest%phc(j),\
-                                varOut%data(i,j), goodInterp)
+                                varOut%data(i,j), \
+                                dTheta, dPhi,\
+                                goodInterp)
                     enddo
                 enddo
             case(SHFPH)
@@ -167,9 +170,10 @@ module shellInterp
                         ! in the case where they have different coordinate systems
                         call InterpShellVar_TSC_pnt( \
                                 sgSource, sgVar,\
-                                dTheta, dPhi,\
                                 sgDest%thc(i), sgDest%ph(j),\
-                                varOut%data(i,j), goodInterp)
+                                varOut%data(i,j), \
+                                dTheta, dPhi,\
+                                goodInterp)
                     enddo
                 enddo
         end select
@@ -181,30 +185,33 @@ module shellInterp
     end subroutine InterpShellVar_TSC_SG
 
 
-    subroutine InterpShellVar_TSC_pnt(sgsource, sgVar, dTheta, dPhi, t, pin, Qinterp, goodInterpO)
+    subroutine InterpShellVar_TSC_pnt(sgsource, sgVar, th, pin, Qinterp, dThetaO, dPhiO, goodInterpO)
         !! Given the source information, interpolate sgVar to point (t,p) and return as Qout
         type(ShellGrid_T   ), intent(in) :: sgSource
             !! Source ShellGrid
         type(ShellGridVar_T), intent(in) :: sgVar
             !! Variable relative to provided ShellGrid
-        real(rp), dimension(sgVar%isv:sgVar%iev), intent(in) :: dTheta
-            !! Cell width in theta, centered at variable positions on source grid
-        real(rp), dimension(sgVar%jsv:sgVar%jev), intent(in) :: dPhi
-            !! Cell width in phi, centered at variable positions on source grid
-        real(rp), intent(in) :: t
+        real(rp), intent(in) :: th
             !! Theta coordinate with respect to source grid
         real(rp), intent(in) :: pin
             !! Phi coordinate with respect to source grid
         real(rp), intent(out) :: Qinterp
             !! Interpolated value we are returning
+        real(rp), dimension(sgVar%isv:sgVar%iev), optional, intent(in) :: dThetaO
+            !! Cell width in theta, centered at variable positions on source grid
+        real(rp), dimension(sgVar%jsv:sgVar%jev), optional, intent(in) :: dPhiO
+            !! Cell width in phi, centered at variable positions on source grid
         logical, optional, intent(inout) :: goodInterpO
             !! True if we are returning a meaningful interpolated value
 
         
-        real(rp) :: p
+        real(rp) :: ph
+            !! Cleaned-up phi location we actually use
         integer :: i0, j0
             !! i and j locations of point t,p
             !! Whether they are respect to corner, center, or a face depends on sgVar%loc
+        real(rp) :: dTh, dPh
+            !! dTheta and dPhi at location i0,j0 , assuming we are in domain
         real(rp) :: t0, p0
             !! Theta and Phi values at point i0,j0
         real(rp) :: eta, zeta
@@ -213,35 +220,23 @@ module shellInterp
         logical , dimension(NumTSC) :: isGs
         integer :: ipnt,jpnt,n,di,dj
 
+        ! Default return values
         Qinterp = 0.0
-
-        ! First, make sure dTheta and dPhi are defined at sgVar locations        
-        if ( size(dTheta) .ne. sgVar%Ni ) then
-            write(*,*)"ERROR in InterpShellVar_TSC_pnt: dTheta != sgVar%Ni"
-            write(*,*) size(dTheta), sgVar%Ni
-            stop
-        endif
-
-        if ( size(dPhi) .ne. sgVar%Nj ) then
-            write(*,*)"ERROR in InterpShellVar_TSC_pnt: dPhi != sgVar%Nj"
-            write(*,*) size(dPhi), sgVar%Nj
-            stop
-        endif
+        if (present(goodInterpO)) goodInterpO = .false.
 
         ! Check bounds
-        p = modulo(pin,2*PI)
+        ph = modulo(pin,2*PI)
 
         ! Also make sure the requested theta is in bounds
-        if ( (t<0.).or.(t>PI) ) then
+        if ( (th<0.).or.(th>PI) ) then
             write(*,*) "ERROR in InterpShellVar_TSC_pnt: Theta should be in the range [0,PI]. Quitting..."
             stop
         end if
 
-        call getShellILoc(sgSource, sgVar%loc, t, i0, t0)  ! Sets i0 and t0 to closest i/theta values to interp point t
-        call getShellJLoc(sgSource, sgVar%loc, p, j0, p0)  ! Sets j0 and p0 to closest i/phi   values to interp point p
+        call getShellILoc(sgSource, sgVar%loc, th, i0, t0)  ! Sets i0 and t0 to closest i/theta values to interp point t
+        call getShellJLoc(sgSource, sgVar%loc, ph, j0, p0)  ! Sets j0 and p0 to closest i/phi   values to interp point p
 
         if (i0 > sgVar%iev .or. i0 < sgVar%isv) then
-            write(*,*) "ERROR in InterpShellVar_TSC_pnt: Theta out of bounds. idx=",i0
             return
         endif
 
@@ -264,16 +259,49 @@ module shellInterp
 
         ! Make sure data is good at this point
         if (.not. sgVar%mask(i0,j0)) then
-            if (present(goodInterpO)) goodInterpO = .false.
             return
         endif
-
 
         ! If still here we're gonna do something, so we can tell our caller we are returning a valid value
         if (present(goodInterpO)) goodInterpO = .true.
 
+        ! Determine dTheta and dPhi for this ij point
+        if (present(dThetaO)) then
+            ! First, make sure dTheta and dPhi are defined at sgVar locations     
+            if ( size(dThetaO) .ne. sgVar%Ni ) then
+                write(*,*)"ERROR in InterpShellVar_TSC_pnt: dTheta != sgVar%Ni"
+                write(*,*) size(dThetaO), sgVar%Ni
+                stop
+            endif
+            dTh = dThetaO(i0)
+        else
+            ! dThetaO array not provided, so we calculate it ourselves
+            if (sgVar%loc == SHCC .or. sgVar%loc == SHFPH) then
+                dTh = Diff1D_4halfh(sgSource%th, sgSource%isg, sgSource%ieg  , i0)
+            else if (sgVar%loc == SHCORNER .or. sgVar%loc == SHFTH) then
+                dTh = Diff1D_4h    (sgSource%th, sgSource%isg, sgSource%ieg+1, i0)
+            endif
+        endif
+
+        if (present(dPhiO)) then
+            if ( size(dPhiO) .ne. sgVar%Nj ) then
+                write(*,*)"ERROR in InterpShellVar_TSC_pnt: dPhi != sgVar%Nj"
+                write(*,*) size(dPhiO), sgVar%Nj
+                stop
+            endif
+            dPh = dPhiO(j0)
+        else
+            ! dPhiO array not provided, so we calculate it ourselves
+            if (sgVar%loc == SHCC .or. sgVar%loc == SHFTH) then
+                dPh = Diff1D_4halfh(sgSource%ph, sgSource%jsg, sgSource%jeg  , j0)
+            else if (sgVar%loc == SHCORNER .or. sgVar%loc == SHFPH) then
+                dPh = Diff1D_4h    (sgSource%ph, sgSource%jsg, sgSource%jeg+1, j0)
+            endif
+        endif
+
+
         if (sgSource%doNP .and. (i0==sgSource%is)) then
-            call interpPole(sgSource,sgVar,t,p,Qinterp)
+            call interpPole(sgSource,sgVar,th,ph,Qinterp)
             ! Handle north pole and return
             write(*,*) "Not implemented!"
             stop
@@ -299,8 +327,8 @@ module shellInterp
 
         ! Note: If still here we know i0 isn't on the boundary
 
-        eta  = (t - t0)/dTheta(i0)
-        zeta = (p - p0)/dPhi  (j0)
+        eta  = (th - t0)/dTh
+        zeta = (ph - p0)/dPh
 
         call ClampMapVar(eta)
         call ClampMapVar(zeta)
@@ -547,10 +575,10 @@ module shellInterp
         
         ! Note, even though we are not doing much in this function, we are 
         ! breaking it out here in case we want to do higher-order for TSC or something later
-        integer, intent(in) :: isg, ieg
-            !! Start/end indices of cell centers
         real(rp), dimension(isg:ieg+1), intent(in) :: x
             !! 1D spatial grid, should always be cell corners
+        integer, intent(in) :: isg, ieg
+            !! Start/end indices of cell centers
         integer, intent(in) :: loc
             !! Location identifier, MUST BE SHCC OR SHCORNER
             !! This is the location of the points we are calculating dx at relative to x
@@ -587,11 +615,12 @@ module shellInterp
         !! Use 4-point stencil to calculate first derivative of coordinates
         !! This is for the case where we are using corners to calculate the difference at cell center
         !! adapted from chimp/ebinit.F90
+        real(rp), intent(in) :: Q(is:ie+1)
+            !! Cell corners
         integer, intent(in) :: is,ie
             !! Start and end indices of bounding grid
         integer, intent(in) :: i0
-            !! Index of the pointe we are evaluating, offset half a cell from its lower bound Q(i0)
-        real(rp), intent(in) :: Q(is:ie+1)
+            !! Index of the point we are evaluating, offset half a cell from its lower bound Q(i0)
         real(rp) :: Qp
         real(rp) :: Qblk(4),c(4)
 
@@ -621,8 +650,9 @@ module shellInterp
         !! This is for the case where position we are calculating the difference for is at Q(i0)
         !! (In contrast to e.g. using cell corner values to calculate the difference located at the cell center)
         !! adapted from chimp/ebinit.F90
-        integer, intent(in) :: is,ie,i0
         real(rp), intent(in) :: Q(is:ie)
+            !! Cell corners
+        integer, intent(in) :: is,ie,i0
         real(rp) :: Qp
         real(rp) :: Qblk(4),c(4)
         if (i0 == is) then

@@ -1,0 +1,21 @@
+Tue 23 Jan 2024 12:20:46 PM MST
+
+This directory contains module lists to use for MAGE build regression tests.
+
+Any file name can be used, as long as the name ends with .lst.
+
+Do not remove or rename 01.lst - it is used internally by the testing code.
+
+The first line is optional. If used, it is of the form:
+
+CMAKE_ENV=...
+
+where everything to the right of the '=' is a set of commands to set environment variables *before* cmake on the cmake command line.
+
+The second line is optional. If used, it is of the form:
+
+CMAKE_OPTIONS=...
+
+where everything to the right of the '=' is a set of command-line arguments for the cmake command. These appear *after* cmake on the cmake command line.
+
+The rest of the file is a list of modules to losf prior to running cmake and make, one module per line.
