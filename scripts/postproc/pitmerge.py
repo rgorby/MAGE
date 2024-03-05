@@ -9,6 +9,7 @@ import h5py
 import os
 import kaipy.kaiH5 as kh5
 import glob
+import kaipy.kdefs as kd
 
 tEps = 1.0e-3 #Small time
 
@@ -30,7 +31,7 @@ def createfile(fIn,fOut,doLink=False):
 	for Q in iH5.keys():
 		sQ = str(Q)
 		#Skip cache, we add it later
-		if 'timeAttributeCache' in sQ:
+		if kd.grpTimeCache in sQ:
 			continue
 		#Don't include stuff that starts with "Step"
 		if "Step" not in sQ:
@@ -85,8 +86,8 @@ if __name__ == "__main__":
 	# Store and concat timeAttributeCache to add at the very end
 	timeCacheVars = {}
 	with h5py.File(dbIns[0], 'r') as tacF:
-		for k in tacF['timeAttributeCache'].keys():
-			timeCacheVars[k] = np.array([], dtype=tacF['timeAttributeCache'][k].dtype)
+		for k in tacF[kd.grpTimeCache].keys():
+			timeCacheVars[k] = np.array([], dtype=tacF[kd.grpTimeCache][k].dtype)
 
 	s0 = 0 #Current step
 	nowTime = 0.0
@@ -105,8 +106,8 @@ if __name__ == "__main__":
 		iH5 = h5py.File(fIn,'r')
 
 		# Grow timeAttributeCache
-		for k in iH5['timeAttributeCache'].keys():
-			data = iH5['timeAttributeCache'][k][:]
+		for k in iH5[kd.grpTimeCache].keys():
+			data = iH5[kd.grpTimeCache][k][:]
 			if k == 'step':
 				data += s0  # Cache for merged h5 file needs to remap original steps to their position in merged file
 			timeCacheVars[k] = np.append(timeCacheVars[k], data, axis=0)
@@ -149,8 +150,8 @@ if __name__ == "__main__":
 		iH5.close()
 
 	# Write timeAttributeCache to output file
-	print("Writing timeAttributeCache")
-	tag = oH5.create_group('timeAttributeCache')
+	print("Writing " + kd.grpTimeCache)
+	tag = oH5.create_group(kd.grpTimeCache)
 	for k in timeCacheVars:
 		tag.create_dataset(k, data=timeCacheVars[k], dtype=timeCacheVars[k].dtype)
 	
