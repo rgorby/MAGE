@@ -37,7 +37,7 @@ program raijuOWDx
     type(voltApp_T)   :: vApp
         !! Kinda hacky, just create a voltApp object and initialize only the parts we're gonna use ourselves
     !Holder for remix data
-    type(rmState_T) :: rmState
+    type(rmReader_T) :: rmReader
 
     type(raijuApp_T   ) :: raiApp
     type(raiju_cplBase_T) :: raijuCplBase
@@ -81,13 +81,10 @@ program raijuOWDx
         raiApp%State%mjd = mjd0
 
         ! Init Remix reader
-        !call initRM  (ebModel,ebState,rmState,inpXML)
-        call initRM("msphere", inpXML, rmState)
-        rmState%time = raiApp%Model%t0
+        call initRM("msphere", inpXML, rmReader)
+        rmReader%time = raiApp%Model%t0
 
-        call outputRMSG(rmState,"rmReader.h5", .true.)
-        ! Set mix->RAIJU map
-        !call InitMixMap(raiApp%Grid%shGrid, rmState)
+        call outputRMSG(rmReader,"rmReader.h5", .true.)
         
         ! Init outputs
         ebModel%doEBOut = doChmpOut
@@ -121,7 +118,7 @@ program raijuOWDx
                 endif
 
                 write(gStr,'(A,I0)') "Step#", raiApp%State%IO%nOut-1  ! nOut got advanced by raijuOutput above
-                call outputRMSG(rmState,"rmReader.h5",.false., gStr)
+                call outputRMSG(rmReader,"rmReader.h5",.false., gStr)
             endif
             
             call Toc("Output")
@@ -132,13 +129,12 @@ program raijuOWDx
             call Toc("CHIMP update")
 
             call Tic("REMIX update")
-            !call updateRemix(ebModel,ebState,ebModel%t,rmState)
-            call updateRM(rmState, rmState%time)
+            call updateRM(rmReader, rmReader%time)
             call Toc("REMIX update")
 
             ! Populate RAIJU's fromV object with updated model info
             call Tic("fromV packing")
-            call packFromV(raijuCplBase%fromV, vApp, rmState, raiApp)
+            call packFromV(raijuCplBase%fromV, vApp, rmReader, raiApp)
             call Toc("fromV packing")
 
             call Tic("fromV to State")
@@ -155,25 +151,21 @@ program raijuOWDx
 
             write(*,*)raiApp%State%t
             write(*,*)ebModel%t/inTscl
-            write(*,*)rmState%time
+            write(*,*)rmReader%time
             write(*,*)"MJDs: "
             write(*,*)raiApp%State%mjd
             write(*,*)T2MJD((ebModel%t - ebState%ebTab%times(1))/inTscl, ebState%ebTab%MJDs(1))
-            write(*,*)T2MJD((rmState%time - rmState%rmTab%times(1)), rmState%rmTab%MJDs(1))
+            write(*,*)T2MJD((rmReader%time - rmReader%rmTab%times(1)), rmReader%rmTab%MJDs(1))
 
             ! Advance model times
             raiApp%State%t  = raiApp%State%t  + raiApp%Model%dt
             raiApp%State%ts = raiApp%State%ts + 1
             raiApp%State%mjd = T2MJD(raiApp%State%t,mjd0)
 
-            ! ebModel%t     = ebModel%t  + inTscl*raiApp%Model%dt
             ebModel%t     = inTscl*raiApp%State%t
             ebModel%ts    = ebModel%ts + 1
 
-            !rmState%time  = rmState%time + inTScl*raiApp%Model%dt
-            ! rmState%time  = rmState%time + raiApp%Model%dt
-            rmState%time  = raiApp%State%t
-
+            rmReader%time  = raiApp%State%t
 
             if (raiApp%Model%doClockConsoleOut) then
                 call printClocks()

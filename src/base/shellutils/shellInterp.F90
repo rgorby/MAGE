@@ -246,16 +246,6 @@ module shellInterp
             return
         endif
 
-        if (j0 > sgVar%jev .or. j0 < sgVar%jsv) then
-            write(*,*) "phi oob",j0
-            write(*,*)"How did you manage that?"
-            return
-        endif
-
-        !if ( (i0 < sgSource%isg) .or. (i0 > sgSource%isg + sgVar%Ni - 1) ) then
-        !    write(*,*)"ERROR: InterpShellVar_TSC_pnt can't handle points outside of grid yet"
-        !    stop
-        !endif
 
         ! Make sure data is good at this point
         if (.not. sgVar%mask(i0,j0)) then
