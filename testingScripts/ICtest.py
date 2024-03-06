@@ -14,7 +14,6 @@ Eric Winter
 
 
 # Import standard modules.
-import argparse
 import datetime
 import glob
 import os
@@ -48,6 +47,12 @@ IC_BUILD_TEST_LIST_FILE = 'initial_condition_build_test.lst'
 # Path to directory containing initial condition source code
 IC_SRC_DIRECTORY = os.path.join('src', 'gamera', 'ICs')
 
+# Prefix for subdirectory names for individual builds.
+IC_BUILD_DIR_PREFIX = 'gamera_'
+
+# Name of build subdirectory containing binaries
+BUILD_BIN_DIR = 'bin'
+
 
 def main():
     """Begin main program.
@@ -80,6 +85,7 @@ def main():
 
     if debug:
         print(f"Starting {sys.argv[0]} at {datetime.datetime.now()}")
+        print(f"Current directory is {os.getcwd()}")
 
     #--------------------------------------------------------------------------
 
@@ -137,10 +143,23 @@ def main():
     if debug:
         print(f"module_list_files = {module_list_files}")
 
+    # Create the root directory for the initial condition tests.
+    initial_condition_test_root = os.path.join(kaiju_home, IC_BUILD_TEST_DIRECTORY)
+    if debug:
+        print(f"initial_condition_test_root = {initial_condition_test_root}")
+    os.mkdir(initial_condition_test_root)
+
+    #--------------------------------------------------------------------------
+
+    # Find the current branch.
+    git_branch_name = common.git_get_branch_name()
+    if debug:
+        print(f"git_branch_name = {git_branch_name}")
+
     #--------------------------------------------------------------------------
     
     # Get a list of initial conditions to try, ignoring files in the
-    # "deprecated" folder. GAMERA ONLY FOR NOW
+    # "deprecated" folder. GAMERA ONLY FOR NOW.
     initial_condition_directory = os.path.join(kaiju_home, IC_SRC_DIRECTORY)
     if debug:
         print(f"initial_condition_directory = {initial_condition_directory}")
@@ -154,15 +173,23 @@ def main():
 
     #--------------------------------------------------------------------------
 
+    # Make a list of module sets to build with.
+    path = os.path.join(kaiju_home, KAIJU_TEST_SCRIPTS_DIRECTORY,
+                        MODULE_LIST_DIRECTORY, IC_BUILD_TEST_LIST_FILE)
+    with open(path, encoding='utf-8') as f:
+        lines = f.readlines()
+    module_list_files = [s.rstrip() for s in lines]
+    if debug:
+        print(f"module_list_files = {module_list_files}")
+
+    #--------------------------------------------------------------------------
+
     # Build using each set of modules and each initial condition.
 
-    # Create the root directory for the initial condition tests.
-    initial_condition_test_root = os.path.join(kaiju_home, IC_BUILD_TEST_DIRECTORY)
-    if debug:
-        print(f"initial_condition_test_root = {initial_condition_test_root}")
-    os.mkdir(initial_condition_test_root)
+    # Initialize the build test report string.
+    message = f"Running {sys.argv[0]}.\n"
 
-    # Run initial condition tests with each set of modules.
+    # Build with each initial condition with each set of modules.
     for module_list_file in module_list_files:
         if verbose:
             print('Performing initial condition build tests with module set '
@@ -196,18 +223,25 @@ def main():
 
         # Build with each initial condition.
         for initial_condition_path in initial_condition_paths:
+            if debug:
+                print(f"initial_condition_path = {initial_condition_path}")
 
             # Extract the initial condition name.
             initial_condition_name = os.path.basename(initial_condition_path)
             if debug:
                 print(f"initial_condition_name = {initial_condition_name}")
-            if verbose:
-                print(f"Building with module set {module_list_name} and initial condition {initial_condition_name}.")
+
+            # Update the test result message.
+            message += (
+                f"Building MAGE branch {git_branch_name}, "
+                f"initial condition {initial_condition_name}, "
+                f"with module set {module_list_file}.\n"
+            )
 
             # Make a directory for this test, and go there.
             build_directory = os.path.join(
                 kaiju_home, IC_BUILD_TEST_DIRECTORY,
-                f"gamera_{initial_condition_name}_{module_list_name}"
+                f"{IC_BUILD_DIR_PREFIX}{initial_condition_name}_{module_list_name}"
             )
             if debug:
                 print(f"build_directory = {build_directory}")
@@ -225,36 +259,61 @@ def main():
             cmd = f"{module_cmd}; {cmake_environment} cmake {cmake_options} {kaiju_home}"
             if debug:
                 print(f"cmd = {cmd}")
-            # <HACK>
-            # Ignore cmake error on bcwind,h5.
             try:
                 cproc = subprocess.run(cmd, shell=True, check=True, text=True)
-            except:
-                pass
-            # </HACK>
+            except subprocess.CalledProcessError as e:
+                message += 'cmake failed.\n'
+                message += f"e.cmd = {e.cmd}\n"
+                message += f"e.returncode = {e.returncode}\n"
+                message += 'See test log for output.\n'
+                message += (
+                    f"Skipping remaining steps for module set {module_list_file},"
+                    f"initial condition {initial_condition_name}.\n"
+                )
+                continue
 
             # Run the build.
             cmd = f"{module_cmd}; make gamera.x"
             if debug:
                 print(f"cmd = {cmd}")
-            cproc = subprocess.run(cmd, shell=True, check=True, text=True)
-            make_return_code = cproc.returncode
+            try:
+                cproc = subprocess.run(cmd, shell=True, check=True, text=True)
+            except subprocess.CalledProcessError as e:
+                message += 'make failed.\n'
+                message += f"e.cmd = {e.cmd}\n"
+                message += f"e.returncode = {e.returncode}\n"
+                message += 'See test log for output.\n'
+                message += (
+                    f"Skipping remaining steps for module set {module_list_file},"
+                    f"initial condition {initial_condition_name}.\n"
+                )
+                continue
 
-            # <HACK>
-            message = (
-                f"Build using module set {module_list_name} for "
-                f"initial conditions {initial_condition_name} "
-                f"returned {make_return_code}."
-            )
-            # </HACK>
+            # Check for gamera.x.
+            executable = 'gamera.x'
+            path = os.path.join(build_directory, BUILD_BIN_DIR, executable)
+            if not os.path.isfile(path):
+                message += f"{executable} was not built.\n"
+            else:
+                message += (
+                    f"{executable} built properly on branch {git_branch_name} "
+                    f"with module set {module_list_file} and initial conditions "
+                    f"{initial_condition_name}.\n"
+                )
 
-            # If this is a test run, don't post to Slack. Otherwise,
-            # if loud, send Slack message.
-            if not is_test and be_loud:
-                common.slack_send_message(slack_client, message)
+    # If this is a test run, don't post to Slack. Otherwise, if loud,
+    # send Slack message.
+    if debug:
+        print('Sending build test report to Slack.')
+    if is_test:
+        pass
+    elif be_loud:
+        if debug:
+            print('Sending build test report to Slack.')
+        common.slack_send_message(slack_client, message)
 
-            # Send message to stdout.
-            print(message)
+    # Send message to stdout.
+    print(message)
 
     if debug:
         print(f"Ending {sys.argv[0]} at {datetime.datetime.now()}")
