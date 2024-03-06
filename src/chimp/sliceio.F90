@@ -8,6 +8,7 @@ module sliceio
     use xml_input
     use files
     use plasmaputils
+    use parintime
 
     implicit none
 
@@ -42,7 +43,9 @@ module sliceio
         character(len=strLen) :: idStr
         logical :: doLog
 
-        write(ebOutF,'(2a)') trim(adjustl(Model%RunID)),'.eb.h5'
+        !write(ebOutF,'(2a)') trim(adjustl(Model%RunID)),'.eb.h5'
+        !Check for time parallelism
+        call InitParInTime(Model,inpXML,"eb",ebOutF)
 
         associate( ebGr=>ebState%ebGr )
 
