@@ -20,7 +20,7 @@ module raijuDomain
 
 
         call getInactiveCells(Model, Grid, State, isInactive)
-        call getBufferCells  (Model, Grid, State, isInactive, isBuffer)
+        call getBufferCells  (Model, Grid, State, isInactive, isBuffer, State%OCBDist)
 
         ! Set zones
         where (isInactive)
@@ -60,19 +60,20 @@ module raijuDomain
     end subroutine getInactiveCells
 
 
-    subroutine getBufferCells(Model, Grid, State, isInactive, isBuffer)
+    subroutine getBufferCells(Model, Grid, State, isInactive, isBuffer, ocbDistO)
         !! Determines which cells should be marked as inactive
         type(raijuModel_T), intent(in) :: Model
         type(raijuGrid_T ), intent(in) :: Grid
         type(raijuState_T), intent(in) :: State
         logical, dimension(Grid%shGrid%isg:Grid%shGrid%ieg,Grid%shGrid%jsg:Grid%shGrid%jeg), intent(in) :: isInactive
         logical, dimension(Grid%shGrid%isg:Grid%shGrid%ieg,Grid%shGrid%jsg:Grid%shGrid%jeg), intent(inout) :: isBuffer
+        integer, dimension(Grid%shGrid%isg:Grid%shGrid%ieg,Grid%shGrid%jsg:Grid%shGrid%jeg), optional, intent(inout) :: ocbDistO
+            !! Optional array to get ocbDist out of this function if desired
 
         integer, dimension(Grid%shGrid%isg:Grid%shGrid%ieg,Grid%shGrid%jsg:Grid%shGrid%jeg) :: ocbDist
             !! Distance each cell is to open-closed boundary, up to nB + 1
-
+        
         ! As a first pass, we will blanket enforce that there must always be nB buffer between any inactive and active cells
-
         !We can do more complex stuff later
 
         call CalcOCBDist(Grid%shGrid, isInactive, Grid%nB, ocbDist)
@@ -82,6 +83,10 @@ module raijuDomain
         elsewhere
             isBuffer = .false.
         end where
+
+        if (present(ocbDistO)) then
+            ocbDistO = ocbDist
+        endif
 
     end subroutine getBufferCells
 
@@ -119,7 +124,8 @@ module raijuDomain
 
                     if (isInactive(i,j)) then
                         cycle
-                    else if ( (ocbDist(i,j) .eq. nBnd+1) .and. any(ocbDist(iL:iU,jL:jU) .eq. iLayer-1) ) then
+                    !else if ( (ocbDist(i,j) .eq. nBnd+1) .and. any(ocbDist(iL:iU,jL:jU) .eq. iLayer-1) ) then  ! This version includes the diagonal cells, which are technically not adjacent to our cell
+                    else if ( (ocbDist(i,j) .eq. nBnd+1) .and. ( any(ocbDist(iL:iU,j) .eq. iLayer-1) .or. any(ocbDist(i,jL:jU) .eq. iLayer-1) ) ) then  ! Doesn't include diagonals
                         !! If current point's distance hasn't been decided and its bordering cell with iL-1, this point is distance iL from ocb
                         ocbDist(i,j) = iLayer
                     endif

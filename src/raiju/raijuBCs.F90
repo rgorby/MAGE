@@ -59,15 +59,23 @@ module raijuBCs
 
         doMomentIngest = .false.
         ! Determine where to do BCs
-        ! Will definitely be its own function later to do ellipse fitting, restriction of fast flows, etc
         if(doWholeDomain) then
             where (State%active .ne. RAIJUINACTIVE)
                 doMomentIngest = .true.
             end where
         else
 
-            do j=Grid%shGrid%jsg,Grid%shGrid%jeg
-                do i=Grid%shGrid%isg,Grid%shGrid%ieg
+            associate(sh=>Grid%shGrid)
+
+            ! All ghost cells should be updated
+            doMomentIngest(sh%isg:sh%is-1,:) = .true.
+            doMomentIngest(sh%ie+1:sh%ieg,:) = .true.
+            doMomentIngest(:,sh%jsg:sh%js-1) = .true.
+            doMomentIngest(:,sh%je+1:sh%jeg) = .true.
+
+            ! Note: No need to loop over ghost cells since we just hard set all of them to true
+            do j=sh%js,sh%je
+                do i=sh%is,sh%ie
                     
                     ! All buffer cells get set to moments
                     if (State%active(i,j) .eq. RAIJUBUFFER) then
@@ -82,13 +90,15 @@ module raijuBCs
                 enddo
             enddo
 
+            end associate
+
         endif
 
     end subroutine calcMomentIngestionLocs
 
 
     subroutine applyMomentIngestion(Model, Grid, State, doMomentIngest)
-        !! Based on doMomentIngest map, map moments to eta channels for all species
+        !! Based on doMomentIngest mask, map moments to eta channels for all species
         type(raijuModel_T), intent(in) :: Model
         type(raijuGrid_T) , intent(in) :: Grid
         type(raijuState_T), intent(inout) :: State

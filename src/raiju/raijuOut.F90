@@ -16,9 +16,9 @@ module raijuOut
 
         if (Model%isLoud) then
             if (State%t>1.0e-2) then
-                write(tStr,'(f9.3,a)' ) State%t, ' [code]'
+                write(tStr,'(f12.3,a)' ) State%t, ' [code]'
             else
-                write(tStr,'(es9.2,a)') State%t, ' [code]'
+                write(tStr,'(es12.2,a)') State%t, ' [code]'
             endif
             write (*, '(a,a,a,a,a)') ANSIGREEN, '<Writing RAIJU HDF5 DATA @ t = ', trim(tStr), ' >', ANSIRESET
         endif

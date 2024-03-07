@@ -105,7 +105,6 @@ module raijuAdvancer
             ! Here we go!
             n = 0  ! counter
             do while ( tEnd-t > TINY)
-                !write(*,*)k,n,t,dt
                 
                 ! Calc new active shells
                 !if (Model%doActiveShell) then
