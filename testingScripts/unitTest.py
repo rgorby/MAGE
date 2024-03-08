@@ -73,12 +73,13 @@ TESTS_DIRECTORY = 'tests'
 # Subdirectory of kaiju/tests containing unit test data files.
 UNIT_TEST_DATA_DIRECTORY = 'voltron_mpi'
 
-# Data files for unit tests
-UNIT_TEST_DATA_FILES = [
+# Input files for unit tests
+UNIT_TEST_DATA_INPUT_DIRECTORY = os.path.join(os.environ['MAGE_TEST_ROOT'], 'unit_test_inputs')
+UNIT_TEST_DATA_INPUT_FILES = [
     'bcwind.h5',
+    'geo_mpi.xml',
     'lfmD.h5',
     'rcmconfig.h5',
-    'geo_mpi.xml',
 ]
 
 # Name of build subdirectory containing binaries
@@ -181,6 +182,16 @@ def main():
 
     #--------------------------------------------------------------------------
 
+    # Find the current branch.
+    git_branch_name = common.git_get_branch_name()
+    if debug:
+        print(f"git_branch_name = {git_branch_name}")
+
+    #--------------------------------------------------------------------------
+
+    # Initialize the build test report string.
+    message = f"Running {sys.argv[0]}.\n"
+
     # Run the tests with each set of modules.
     for module_list_file in module_list_files:
         if verbose:
@@ -228,26 +239,39 @@ def main():
         cmd = f"{module_cmd}; {cmake_environment} cmake {cmake_options} {kaiju_home}"
         if debug:
             print(f"cmd = {cmd}")
-        # <HACK> To ignore cmake error on bcwind.h5 for now.
         try:
-            cproc = subprocess.run(cmd, shell=True, check=True)
-        except:
-            pass
-        # </HACK>
+            cproc = subprocess.run(cmd, shell=True, check=True, text=True)
+        except subprocess.CalledProcessError as e:
+            message += 'cmake failed.\n'
+            message += f"e.cmd = {e.cmd}\n"
+            message += f"e.returncode = {e.returncode}\n"
+            message += 'See test log for output.\n'
+            message += f"Skipping remaining steps for module set {module_list_file}.\n"
+            continue
 
         # Run the build.
         cmd = f"{module_cmd}; make gamera_mpi voltron_mpi allTests"
         if debug:
             print(f"cmd = {cmd}")
-        cproc = subprocess.run(cmd, shell=True, check=True, text=True)
+        try:
+            cproc = subprocess.run(cmd, shell=True, check=True, text=True)
+        except subprocess.CalledProcessError as e:
+            message += 'make failed.\n'
+            message += f"e.cmd = {e.cmd}\n"
+            message += f"e.returncode = {e.returncode}\n"
+            message += 'See test log for output.\n'
+            message += f"Skipping remaining steps for module set {module_list_file}.\n"
+            continue
 
         # Copy in the test PBS scripts.
         for filename in UNIT_TEST_PBS_SCRIPTS:
             from_path = os.path.join(kaiju_home, TESTS_DIRECTORY, filename)
             to_path = os.path.join(BUILD_BIN_DIR, filename)
             shutil.copyfile(from_path, to_path)
-        for filename in UNIT_TEST_DATA_FILES:
-            from_path = os.path.join(kaiju_home, TESTS_DIRECTORY, UNIT_TEST_DATA_DIRECTORY, filename)
+
+        # Copy in inputs for unit test data generation.
+        for filename in UNIT_TEST_DATA_INPUT_FILES:
+            from_path = os.path.join(UNIT_TEST_DATA_INPUT_DIRECTORY, filename)
             to_path = os.path.join(BUILD_BIN_DIR, filename)
             shutil.copyfile(from_path, to_path)
             
@@ -258,6 +282,7 @@ def main():
         # tests.  Note that the unit test jobs will only run if the
         # data generation job completes successfully.
         job_ids = []
+        failed = False
         for pbs_file in UNIT_TEST_PBS_SCRIPTS:
             cmd = (f"qsub -A {account} -v MODULE_LIST='{' '.join(module_names)}',"
                    f"KAIJUROOTDIR={kaiju_home}")
@@ -266,29 +291,48 @@ def main():
             cmd += f" {pbs_file}"
             if debug:
                 print(f"cmd = {cmd}")
-            cproc = subprocess.run(cmd, shell=True, check=True, text=True,
-                                   capture_output=True)
+            try:
+                cproc = subprocess.run(cmd, shell=True, check=True, text=True,
+                                       capture_output=True)
+            except subprocess.CalledProcessError as e:
+                message += 'Job submission failed.\n'
+                message += f"e.cmd = {e.cmd}\n"
+                message += f"e.returncode = {e.returncode}\n"
+                message += f"cproc.stdout = {cproc.stdout}\n"
+                message += f"cproc.stderr = {cproc.stderr}\n"
+                message += 'See test log for output.\n'
+                message += f"Skipping remaining steps for module set {module_list_file}."
+                failed = True
+                break
+
+            # Save the job ID.
             job_id = cproc.stdout.split('.')[0]
             if debug:
                 print(f"job_id = {job_id}")
             job_ids.append(job_id)
 
-        # Record the job IDs.
-        with open('jobs.txt', 'w', encoding='utf-8') as f:
-            for job_id in job_ids:
-                f.write(f"{job_id}\n")
+            # Update the report message.
+            message += f"Fortran unit test {pbs_file} submitted as job {job_id}."
 
-        # <HACK>
-        message = f"Unit tests submitted in jobs {', '.join(job_ids)}"
-        # </HACK>
+        # Record the job IDs in a text file.
+        if not failed:
+            with open('jobs.txt', 'w', encoding='utf-8') as f:
+                for job_id in job_ids:
+                    f.write(f"{job_id}\n")
 
-        # If this is a test run, don't post to Slack. Otherwise, if
-        # loud, send Slack message.
-        if not is_test and be_loud:
-            common.slack_send_message(slack_client, message)
+    # If this is a test run, don't post to Slack. Otherwise, if loud,
+    # send Slack message.
+    if debug:
+        print('Sending unit test report to Slack.')
+    if is_test:
+        pass
+    elif be_loud:
+        if debug:
+            print('Sending build test report to Slack.')
+        common.slack_send_message(slack_client, message)
 
-        # Send message to stdout.
-        print(message)
+    # Send message to stdout.
+    print(message)
 
     if debug:
         print(f"Ending {sys.argv[0]} at {datetime.datetime.now()}")

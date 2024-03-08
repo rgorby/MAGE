@@ -230,7 +230,7 @@ def main():
             print('Performing build test with module_list_file '
                   f"{module_list_file}")
 
-        # Create a test result message.
+        # Update the test result message.
         message += (
             f"Building MAGE branch {git_branch_name} with module set "
             f"{module_list_file}.\n"
@@ -255,6 +255,13 @@ def main():
             print(f"cmake_environment = {cmake_environment}")
             print(f"cmake_options = {cmake_options}")
 
+        # Assemble the commands to load the listed modules.
+        module_cmd = (
+            f"module --force purge; module load {' '.join(module_names)}"
+        )
+        if debug:
+            print(f"module_cmd = {module_cmd}")
+
         # Make a directory for this build, and go there.
         dir_name = f"{BUILD_TEST_DIRECTORY_PREFIX}{module_list_name}"
         build_directory = os.path.join(kaiju_home, dir_name)
@@ -262,13 +269,6 @@ def main():
             print(f"build_directory = {build_directory}")
         os.mkdir(build_directory)
         os.chdir(build_directory)
-
-        # Assemble the commands to load the listed modules.
-        module_cmd = (
-            f"module --force purge; module load {' '.join(module_names)}"
-        )
-        if debug:
-            print(f"module_cmd = {module_cmd}")
 
         # Run cmake to build the Makefile.
         cmd = f"{module_cmd}; {cmake_environment} cmake {cmake_options} {kaiju_home}"
@@ -317,11 +317,11 @@ def main():
 
     # If this is a test run, don't post to Slack. Otherwise, if loud,
     # send Slack message.
-    if debug:
-        print('Sending build test report to Slack.')
     if is_test:
         pass
     elif be_loud:
+        if debug:
+            print('Sending build test report to Slack.')
         common.slack_send_message(slack_client, message)
 
     # Send message to stdout.
