@@ -37,6 +37,7 @@ if __name__ == "__main__":
 	nID = 1 #Block ID of this job
 	noMPI = False
 	doJy = False
+	doEphi = False
 	doBz = False
 	doBigRCM = False
 
@@ -57,6 +58,7 @@ if __name__ == "__main__":
 	#parser.add_argument('-nompi', action='store_true', default=noMPI,help="Don't show MPI boundaries (default: %(default)s)")
 	parser.add_argument('-bz'   , action='store_true', default=doBz ,help="Show Bz instead of dBz (default: %(default)s)")
 	parser.add_argument('-jy'   , action='store_true', default=doJy ,help="Show Jy instead of pressure (default: %(default)s)")
+	parser.add_argument('-ephi' , action='store_true', default=doEphi,help="Show Ephi instead of pressure (default: %(default)s)")
 	parser.add_argument('-bigrcm', action='store_true',default=doBigRCM,help="Show entire RCM domain (default: %(default)s)")
 	parser.add_argument('-noion', action='store_true', default=noIon,help="Don't show ReMIX data (default: %(default)s)")
 	parser.add_argument('-norcm', action='store_true', default=noRCM,help="Don't show RCM data (default: %(default)s)")
@@ -74,6 +76,7 @@ if __name__ == "__main__":
 	Nblk = args.Nblk
 	nID = args.nID
 	doJy = args.jy
+	doEphi = args.ephi
 	doBz = args.bz
 	doBigRCM = args.bigrcm
 	
@@ -167,6 +170,8 @@ if __name__ == "__main__":
 
 		if (doJy):
 			mviz.PlotJyXZ(gsph,nStp,xyBds,AxR,AxC3)
+		elif (doEphi):
+			mviz.PlotEqEphi(gsph,nStp,xyBds,AxR,AxC3)
 		else:
 			mviz.PlotMerid(gsph,nStp,xyBds,AxR,doDen,doRCM,AxC3)
 

@@ -88,8 +88,9 @@ if __name__ == "__main__":
     ax=fig.add_subplot(gs[0,0])
     ax.plot(ut_symh,dstD,label="SYM-H",linewidth=2*LW)
     ax.plot(ut,BSDst,label="Biot-Savart Dst",linewidth=LW)
-    if doDPS: 
-        ax.plot(ut,DPSDst,label="Dessler-Parker-Sckopke Dst",linewidth=LW)
+    if doDPS:
+        ntdps = np.min((len(ut), len(DPSDst)))
+        ax.plot(ut[:ntdps],DPSDst[:ntdps],label="Dessler-Parker-Sckopke Dst",linewidth=LW)
     ax.legend(loc='upper right',fontsize="small",ncol=2)
     ax.axhline(color='magenta',linewidth=0.5*LW)
     ax.xaxis_date()

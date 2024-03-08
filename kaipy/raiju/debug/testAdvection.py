@@ -20,7 +20,7 @@ rad2deg = 180/np.pi
 #dir = '/Users/sciolam1/Workspace/runs/local/raijudev/fluxOverhaul'
 dir = '.'
 #raih5fname = 'raijuSA_1d.raiju.h5'
-raih5fname = 'raijuSA.raiju.h5'
+raih5fname = 'raijuOWD_g.raiju.h5'
 
 def calc_bVol_ana(colat, b_surf):
     # bVol calc
@@ -298,8 +298,8 @@ def plotStep(raijuInfo, n, k):
 def makeVid(raijuInfo, outdir, stride=1):
 
     fontsize_title=6
-
-    kh5.CheckDirOrMake(os.path.join(outdir, 'vid'))
+    vidOut = 'raijuVid'
+    kh5.CheckDirOrMake(os.path.join(outdir, vidOut))
     
     fig = plt.figure()
 
@@ -344,7 +344,7 @@ def makeVid(raijuInfo, outdir, stride=1):
     nplt = 0
     for n in raijuInfo.steps[::stride]:
         filename = "vid.{:0>{npad}d}.png".format(nplt, npad=n_pad)
-        filename = os.path.join(outdir, 'vid', filename)
+        filename = os.path.join(outdir, vidOut, filename)
         nplt += 1
         if os.path.exists(filename):
             continue
