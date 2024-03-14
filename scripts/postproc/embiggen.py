@@ -181,7 +181,10 @@ if __name__ == "__main__":
 	oH5.close()
 
 #Split up upscaled file
-	upscl.PushRestartMPI(outid,nRes,oRi,oRj,oRk,Xr.T,Yr.T,Zr.T,Gr,FluxR,oGr,oFluxR,fTmp2X,G0r)
+	if (doGas0):
+		upscl.PushRestartMPI(outid,nRes,oRi,oRj,oRk,Xr.T,Yr.T,Zr.T,Gr,FluxR,oGr,oFluxR,fTmp2X,G0r)
+	else:
+		upscl.PushRestartMPI(outid,nRes,oRi,oRj,oRk,Xr.T,Yr.T,Zr.T,Gr,FluxR,oGr,oFluxR,fTmp2X)
 
 #Delete temp files
 	if (not doKeep):
