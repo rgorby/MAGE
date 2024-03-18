@@ -115,7 +115,7 @@ program testNewRMS
         write(tmp,'(A,A)')trim(vNameO), "_data"
         call AddOutVar(IOVars,tmp,varO%data)
         write(tmp,'(A,A)')trim(vNameO), "_mask"
-        call AddOutVar(IOVars,tmp,varO%mask*1.0_rp)
+        call AddOutVar(IOVars, tmp, merge(1.0_rp,0.0_rp,varO%mask))
         call WriteVars(IOVars,.true.,fname)
 
     end subroutine dump

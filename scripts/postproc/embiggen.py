@@ -49,6 +49,7 @@ if __name__ == "__main__":
 	
 	parser.add_argument('-grid',type=str,metavar="grid",default=grid,help="inGrid file to read from (default: %(default)s)")
 	parser.add_argument('--keep',action='store_true',default=False,help='Keep intermediate files (default: %(default)s)')
+	parser.add_argument('--norescale',action='store_true',default=False,help='Do not rescale (up or down) (default: %(default)s)')
 	parser.add_argument('--down',action='store_true',default=False,help='Downscale instead of upscale (default: %(default)s)')
 
 
@@ -68,6 +69,7 @@ if __name__ == "__main__":
 	grid = args.grid
 	doKeep = args.keep
 	doUp = not args.down
+	doRescale = not args.norescale
 
 #Pull tiled restart, write to temp file
 	#Stupidly writing temp restart to reuse old code
@@ -130,26 +132,38 @@ if __name__ == "__main__":
 	#Close input
 	iH5.close()
 
-	if (doUp):
-		print("Upscaling data ...")
-		#Do upscaling
-		Xr,Yr,Zr = upscl.upGrid(X,Y,Z)
-		Gr = upscl.upGas(X,Y,Z,G,Xr.T,Yr.T,Zr.T)
-		FluxR = upscl.upFlux(X,Y,Z,M,Xr,Yr,Zr)
-		oGr = upscl.upGas(X,Y,Z,oG,Xr.T,Yr.T,Zr.T)
-		oFluxR = upscl.upFlux(X,Y,Z,oM,Xr,Yr,Zr)
-		if (doGas0):
-			G0r = upscl.upGas(X,Y,Z,G0,Xr.T,Yr.T,Zr.T)
+	if (doRescale):
+		if (doUp):
+			print("Upscaling data ...")
+			#Do upscaling
+			Xr,Yr,Zr = upscl.upGrid(X,Y,Z)
+			Gr = upscl.upGas(X,Y,Z,G,Xr.T,Yr.T,Zr.T)
+			FluxR = upscl.upFlux(X,Y,Z,M,Xr,Yr,Zr)
+			oGr = upscl.upGas(X,Y,Z,oG,Xr.T,Yr.T,Zr.T)
+			oFluxR = upscl.upFlux(X,Y,Z,oM,Xr,Yr,Zr)
+			if (doGas0):
+				G0r = upscl.upGas(X,Y,Z,G0,Xr.T,Yr.T,Zr.T)
+		else:
+			print("Downscaling data ...")
+			Xr,Yr,Zr = upscl.downGrid(X,Y,Z)
+			Gr = upscl.downGas(X,Y,Z,G,Xr.T,Yr.T,Zr.T)
+			FluxR = upscl.downFlux(X,Y,Z,M,Xr,Yr,Zr)
+			oGr = upscl.downGas(X,Y,Z,oG,Xr.T,Yr.T,Zr.T)
+			oFluxR = upscl.downFlux(X,Y,Z,oM,Xr,Yr,Zr)
+			if (doGas0):
+				G0r = upscl.downGas(X,Y,Z,G0,Xr.T,Yr.T,Zr.T)
 	else:
-		print("Downscaling data ...")
-		Xr,Yr,Zr = upscl.downGrid(X,Y,Z)
-		Gr = upscl.downGas(X,Y,Z,G,Xr.T,Yr.T,Zr.T)
-		FluxR = upscl.downFlux(X,Y,Z,M,Xr,Yr,Zr)
-		oGr = upscl.downGas(X,Y,Z,oG,Xr.T,Yr.T,Zr.T)
-		oFluxR = upscl.downFlux(X,Y,Z,oM,Xr,Yr,Zr)
+		#No rescale, just set variables
+		Xr = X.T #Adding transpose to be consistent w/ rescaling code
+		Yr = Y.T
+		Zr = Z.T
+		Gr = G
+		FluxR = M
+		oGr = oG
+		oFluxR = oM
 		if (doGas0):
-			G0r = upscl.downGas(X,Y,Z,G0,Xr.T,Yr.T,Zr.T)
-
+			G0r = G0
+			
 	#Write out grid to restart
 	oH5.create_dataset("X",data=Xr.T)
 	oH5.create_dataset("Y",data=Yr.T)
@@ -167,7 +181,10 @@ if __name__ == "__main__":
 	oH5.close()
 
 #Split up upscaled file
-	upscl.PushRestartMPI(outid,nRes,oRi,oRj,oRk,Xr.T,Yr.T,Zr.T,Gr,FluxR,oGr,oFluxR,fTmp2X,G0r)
+	if (doGas0):
+		upscl.PushRestartMPI(outid,nRes,oRi,oRj,oRk,Xr.T,Yr.T,Zr.T,Gr,FluxR,oGr,oFluxR,fTmp2X,G0r)
+	else:
+		upscl.PushRestartMPI(outid,nRes,oRi,oRj,oRk,Xr.T,Yr.T,Zr.T,Gr,FluxR,oGr,oFluxR,fTmp2X)
 
 #Delete temp files
 	if (not doKeep):
