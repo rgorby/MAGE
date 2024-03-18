@@ -5,7 +5,7 @@
 This script runs a series of builds of the MAGE software using sets of
 modules listed in files under:
 
-$KAIJUHOME/testingScripts/mage_build_modules
+$KAIJUHOME/testingScripts/mage_build_test_modules
 
 This script reads the file build_test.lst from this directory, and
 uses the contents as a list of module list files to use for MAGE build
@@ -41,14 +41,14 @@ from kaipy.testing import common
 # Program description.
 DESCRIPTION = 'Script for MAGE build testing'
 
+# Home directory of kaiju installation
+KAIJUHOME = os.environ['KAIJUHOME']
+
 # Prefix for naming build test directories
 BUILD_TEST_DIRECTORY_PREFIX = 'build_'
 
 # glob pattern for naming build test directories
 BUILD_TEST_DIRECTORY_GLOB_PATTERN = 'build_*'
-
-# Home directory of kaiju installation
-KAIJUHOME = os.environ['KAIJUHOME']
 
 # Path to directory to use for building executable list
 EXECUTABLE_LIST_BUILD_DIRECTORY = os.path.join(KAIJUHOME, 'testFolder')
@@ -263,7 +263,7 @@ def main():
     # Do a build with each set of modules.
     for (i_test, module_list_file) in enumerate(module_list_files):
         if verbose:
-            print('Performing build test with module_list_file '
+            print('Performing build test with module set '
                   f"{module_list_file}")
 
         # Extract the name of the list.
@@ -309,7 +309,8 @@ def main():
         cmd = (
             f"{module_cmd}"
             f"; {cmake_environment} cmake {cmake_options}"
-            f" {KAIJUHOME}")
+            f" {KAIJUHOME}"
+        )
         if debug:
             print(f"cmd = {cmd}")
         try:
@@ -317,7 +318,7 @@ def main():
         except subprocess.CalledProcessError as e:
             print(
                 f"cmake for module set {module_list_name} failed.\n"
-                f"e.cmd = {e.cmd}"
+                f"e.cmd = {e.cmd}\n"
                 f"e.returncode = {e.returncode}\n"
                 'See test log for output.\n'
                 f"Skipping remaining steps for module set {module_list_name}",
