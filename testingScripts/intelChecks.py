@@ -137,6 +137,13 @@ def main():
     # Initialize the report string.
     message = f"Running {sys.argv[0]}.\n"
 
+    # <HACK>
+    message += (
+        'WARNING: Inspector checks all disabled due to failure to run, or'
+        ' timeout issues.'
+    )
+    # </HACK>
+
     # Run Intel checks with each set of modules.
     for module_list_file in module_list_files:
         if verbose:
@@ -247,7 +254,7 @@ def main():
         # Run each check in its own PBS job.
         pbs_files = [
             # 'intelCheckSubmitMem.pbs',
-            'intelCheckSubmitThread.pbs',
+            # 'intelCheckSubmitThread.pbs',
             # 'intelCheckReportSubmit.pbs',
         ]
         job_ids = []
