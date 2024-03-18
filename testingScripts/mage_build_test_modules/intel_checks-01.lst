@@ -8,4 +8,4 @@ ncarcompilers/1.0.0
 cray-mpich/8.1.25
 hdf5-mpi/1.12.2
 mkl/2023.2.0
-intel-oneapi-inspector/2024.0.0
+intel-inspector/2024.0.0
