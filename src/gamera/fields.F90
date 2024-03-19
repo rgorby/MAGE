@@ -321,7 +321,11 @@ module fields
         call recLoadBlockI(Model,Gr,MagB(:,:,1),bFluxHf (:,:,:,dT1),iB,j,k,iMax,dT2)
         
         call limLoadBlockI(Model,Gr,nAreaB      ,Gr%Face(:,:,:,dT1),iB,j,k,iMax,dT2)
-        call limLoadBlockI(Model,Gr,nMagB(:,:,1),bFluxn (:,:,:,dT1),iB,j,k,iMax,dT2)
+        if (Model%doLFMLim) then
+            call limLoadBlockI(Model,Gr,nMagB(:,:,1),bFluxn (:,:,:,dT1),iB,j,k,iMax,dT2)
+        else
+            call limLoadBlockI(Model,Gr,nMagB(:,:,1),bFluxHf(:,:,:,dT1),iB,j,k,iMax,dT2)
+        endif
 
         !Split into L/Rs
         if (doBdA) then

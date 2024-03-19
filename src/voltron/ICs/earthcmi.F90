@@ -198,11 +198,11 @@ module uservoltic
             call MagsphereIngest(Model,Gr,State)
         endif
 
-        !Call cooling function/s
-        call ChillOut(Model,Gr,State)
+        !Removing old-school chillout functions
+        ! !Call cooling function/s
+        ! call ChillOut(Model,Gr,State)
 
         !Do heavier nudging to first shell
-
         if ( Gr%hasLowerBC(IDIR) ) then
             nbc = FindBC(Model,Gr,INI)
             SELECT type(iiBC=>Gr%externalBCs(nbc)%p)
@@ -330,19 +330,19 @@ module uservoltic
 
             endif !doRing
 
-            !Now loop over inner sphere (only need active since we're only touching I fluxes)
-            !$OMP PARALLEL DO default(shared) &
-            !$OMP private(j,k)
-            do k=Gr%ks,Gr%ke
-                do j=Gr%js,Gr%je
-                    !Trap for outward mass flux
-                    if (gFlx(Gr%is,j,k,DEN,IDIR,BLK) > 0) then
-                        gFlx(Gr%is,j,k,DEN   ,IDIR,BLK) = min( 0.0,gFlx(Gr%is,j,k,DEN   ,IDIR,BLK) )
-                        gFlx(Gr%is,j,k,ENERGY,IDIR,BLK) = min( 0.0,gFlx(Gr%is,j,k,ENERGY,IDIR,BLK) )
-                    endif
+            ! !Now loop over inner sphere (only need active since we're only touching I fluxes)
+            ! !$OMP PARALLEL DO default(shared) &
+            ! !$OMP private(j,k)
+            ! do k=Gr%ks,Gr%ke
+            !     do j=Gr%js,Gr%je
+            !         !Trap for outward mass flux
+            !         if (gFlx(Gr%is,j,k,DEN,IDIR,BLK) > 0) then
+            !             gFlx(Gr%is,j,k,DEN   ,IDIR,BLK) = min( 0.0,gFlx(Gr%is,j,k,DEN   ,IDIR,BLK) )
+            !             gFlx(Gr%is,j,k,ENERGY,IDIR,BLK) = min( 0.0,gFlx(Gr%is,j,k,ENERGY,IDIR,BLK) )
+            !         endif
                     
-                enddo
-            enddo !K loop
+            !     enddo
+            ! enddo !K loop
             
         endif !Inner i-tile and not MF
 
@@ -376,7 +376,8 @@ module uservoltic
             call xmlInp%Set_Val(dtXML,"/Kaiju/voltron/coupling/dt",5.0)
             bc%dtCpl = dtXML/Model%Units%gT0
             !Get knobs for pushing
-            call xmlInp%Set_Val(bc%doIonPush,"ibc/doIonPush",.true.)
+            !K: 3/19 changed doionpush default to F
+            call xmlInp%Set_Val(bc%doIonPush,"ibc/doIonPush",.false.)
             call xmlInp%Set_Val(bc%nIonP,"ibc/nIonP",1)
         endif
 
