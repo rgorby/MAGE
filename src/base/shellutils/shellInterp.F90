@@ -494,62 +494,87 @@ module shellInterp
 
     end subroutine getShellJLoc
 
-    !! Big TODO here
-    subroutine interpPole(shGr,Qin,t,pin,Qinterp)
-        type(ShellGrid_T), intent(in) :: shGr
-        type(ShellGridVar_T), intent(in)  :: Qin
-        real(rp), intent(out) :: Qinterp
-        real(rp), intent(in)  :: t,pin
+    subroutine interpPole(shGr,Qin,tin,pin,Qinterp)
+        type(ShellGrid_T), intent(in)     :: shGr     ! source grid
+        type(ShellGridVar_T), intent(in)  :: Qin      ! source grid variable
+        real(rp), intent(out)             :: Qinterp  ! interpolated variable
+        real(rp), intent(in)              :: tin,pin  ! theta,phi of the destination point
         real(rp) :: f0,f1,f2,I1,I2
-        integer :: j,pole,iind ! the latter is the index of the pole cell (first/last for NORTH/SOUTH)
-        integer :: jpi2,jpi32,jpi  ! which cell do pi/2, 3pi/2 and pi points belong to
+        integer  :: ishift,j,pole
+        integer  :: iinterp ! the index of the pole cell (first/last for NORTH/SOUTH)
+        real(rp) :: tfactor,Qtemp
 
-        Qinterp = 0.0
-
-        ! first, find out which pole we're at
-        ! note, if we're inside this function, we already know we're at one of the poles
-        if ( (t.ge.0).and.(t.le.shGr%th(shGr%is+1)) ) then
+        ! Find out which pole we're at
+        if ( (tin.ge.shGr%th(shGr%is)).and.(tin.le.shGr%th(shGr%is+1)) ) then
+            ! note, shGr%th(shGr%is) is within TINY of 0 since we are at the pole
             pole = NORTH
-            iind = shGr%is
-        else if ( (t.le.PI).and.(t.ge.shGr%th(shGr%ie)) ) then
+            iinterp = shGr%is
+        else if ( (tin.le.shGr%th(shGr%ie+1)).and.(tin.ge.shGr%th(shGr%ie)) ) then
+            ! note, shGr%th(shGr%ie+1) is within TINY of PI since we are at the pole
             pole = SOUTH
-            iind = shGr%ie
+            iinterp = shGr%ie
         else
-            write(*,*) "Inside interpPole. Shouldn't be here. Quitting..."
+            write(*,*) "Attempting to call pole interpolation for a point that's not on the pole. Quitting..."
         end if
-
-        write(*,*) 'which pole ',pole,iind
-
 
         ! represent the function near pole to first order in theta as
         ! f(t,p) = f0 + f1*cos(p)*t + f2*sin(p)*t 
         ! (Lewis&Bellan, J. Math. Phys. 31, 2592 (1990); 
         ! https://doi.org/10.1063/1.529009
         ! 
-        ! then, 2pi*f0 = \int_0^2pi f(t(i=1),p), where t(i=1) is the cell center of first cell in i-direction
-        ! to calculate f1, define
-        ! I1 = \int_(-pi/2)^(pi/2) f(t,p)dp = - \int_(pi/2)^(3pi/2) f(t,p)dp = 2*f1*t+f0*pi
-        ! compute I1 = 0.5*(\int_(-pi/2)^(pi/2) f(t,p)dp - \int_(pi/2)^(3pi/2))
-        ! to take all points around the ring into account
-        ! then f1 = (I1-f0*pi)/(2*t)
-        !
-        ! similarly,
-        ! f2 = (I2-f0*pi)/(2*t), where
-        ! I2 = 0.5*(\int_0^pi f(t,p)dp - \int_pi^(2pi) f(t,p)dp)
+        ! for corner centered and theta face centered, 
+        ! iinterp will be right on the pole for NORTH, so we will have to shift up
+        ! otherwise, there's no shift
+        ishift = 0
 
-        f0 = 0.
-        do j=1,shGr%Np
-            f0 = f0 + (shGr%ph(j+1)-shGr%ph(j))*Qin%data(iind,j)/(2.*PI)
-
-            ! find which cells do pi/2, 3pi/2 and pi points belong to
-            ! this can be done a priori but it doesn't add to the computation
-            if ( (shGr%ph(j).le.0.5*pi).and.(shGr%ph(j+1).gt.0.5*pi) ) jpi2  = j
-            if ( (shGr%ph(j).le.    pi).and.(shGr%ph(j+1).gt.    pi) ) jpi   = j
-            if ( (shGr%ph(j).le.1.5*pi).and.(shGr%ph(j+1).gt.1.5*pi) ) jpi32 = j
-        end do
+        ! check centering wrt theta
+        select case(Qin%loc)
+        case(SHCC, SHFPH)
+            if (pole.eq.NORTH) then
+                tfactor = tin/shGr%thc(iinterp)
+            else
+                tfactor = (PI-tin)/(PI-shGr%thc(iinterp))
+            end if  
         
-        write(*,*) 'pi indices ',jpi2,jpi,jpi32
+        case(SHCORNER, SHFTH)
+            if (pole.eq.NORTH) then
+                ishift = 1
+                ! note, using th, not thc, since we're on a theta face
+                tfactor = tin/shGr%th(iinterp+ishift)
+            else
+                tfactor = (PI-tin)/(PI-shGr%th(iinterp))
+            end if  
+        
+        case default
+            write(*,*) "interpPole got an invalid data location:",loc
+            stop
+        end select 
 
+        ! determine f0, f1, f2 from the Fourier transform
+        Qinterp = 0.0
+        f0      = 0.0
+        f1      = 0.0
+        f2      = 0.0
+
+        do j=1,shGr%Np
+            ! check centering wrt phi
+            select case(Qin%loc)
+            case(SHCC, SHFTH)
+                Qtemp = Qin(iinterp+ishift,j)
+            case(SHCORNER, SHFPH)  
+                Qtemp = 0.5*(Qin(iinterp+ishift,j)+Qin(iinterp+ishift,j+1))
+            end select 
+
+            f0 = f0 + Qtemp*(shGr%ph(j+1)-shGr%ph(j))
+            f1 = f1 + Qtemp*(shGr%ph(j+1)-shGr%ph(j))*cos(shGr%phc(j))
+            f2 = f2 + Qtemp*(shGr%ph(j+1)-shGr%ph(j))*sin(shGr%phc(j))
+        end do 
+
+        f0 = f0/(2.*PI)
+        f1 = f1/PI
+        f2 = f2/PI
+
+        Qinterp = f0 + (f1*cos(pin) + f2*sin(pin))*tfactor
     end subroutine interpPole
 
 
