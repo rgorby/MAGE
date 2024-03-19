@@ -85,7 +85,8 @@ def main():
 
     Raises
     ------
-    None
+    subprocess.CalledProcessError
+        If an exception occurs in subprocess.run()
     """
     # Set up the command-line parser.
     parser = common.create_command_line_parser(DESCRIPTION)
@@ -169,7 +170,7 @@ def main():
     os.mkdir(EXECUTABLE_LIST_BUILD_DIRECTORY)
     os.chdir(EXECUTABLE_LIST_BUILD_DIRECTORY)
 
-    # Read the module list file for building the executable list,
+    # Read the module list file for building the executable list.
     if verbose:
         print(f"Reading {EXECUTABLE_LIST_MODULE_LIST} to determine"
               ' modules and build options for generating list of executables'
@@ -184,7 +185,7 @@ def main():
 
     # Assemble the commands to load the listed modules.
     module_cmd = (
-        f"module --force purge"
+        'module --force purge'
         f"; module load {' '.join(module_names)}"
     )
     if debug:
@@ -196,17 +197,20 @@ def main():
     cmd = (
         f"{module_cmd}"
         f"; {cmake_environment} cmake {cmake_options}"
-        f" {KAIJUHOME}")
+        f" {KAIJUHOME}"
+        ' >& cmake.out'
+    )
     if debug:
         print(f"cmd = {cmd}")
     try:
         _ = subprocess.run(cmd, shell=True, check=True)
     except subprocess.CalledProcessError as e:
         print(
-            'cmake for building executable list failed.\n'
+            'ERROR: cmake for building executable list failed.\n'
             f"e.cmd = {e.cmd}"
             f"e.returncode = {e.returncode}\n"
-            'See test log for output.\n'
+            f"See {os.path.join(EXECUTABLE_LIST_BUILD_DIRECTORY, 'cmake.out')}"
+            ' for output from cmake.\n'
             'Unable to generate executable list.',
             file=sys.stderr
         )
@@ -220,14 +224,19 @@ def main():
         print(f"cmd = {cmd}")
     try:
         cproc = subprocess.run(cmd, shell=True, check=True,
-                               text=True, capture_output=True)
+                               text=True, stdout=subprocess.PIPE,
+                               stderr=subprocess.STDOUT)
     except subprocess.CalledProcessError as e:
+        path = os.path.join(
+            EXECUTABLE_LIST_BUILD_DIRECTORY, 'make_to_grep.out'
+        )
+        with open(path, 'w', encoding='utf-8') as f:
+            f.write(e.stdout)
         print(
-            'make for building executable list failed.\n'
+            'ERROR: make for building executable list failed.\n'
             f"e.cmd = {e.cmd}\n"
             f"e.returncode = {e.returncode}\n"
-            f"e.stdout = {e.stdout}\n"
-            f"e.stderr = {e.stderr}\n"
+            f"See {path} for output from make piped to grep.\n"
             'Unable to generate executable list.',
             file=sys.stderr
         )
@@ -267,15 +276,15 @@ def main():
                   f"{module_list_file}")
 
         # Extract the name of the list.
-        module_list_name = module_list_file.rstrip('.lst')
+        module_set_name = module_list_file.rstrip('.lst')
         if debug:
-            print(f"module_list_name = {module_list_name}.")
+            print(f"module_set_name = {module_set_name}.")
 
         # Read this module list file, extracting cmake environment and
         # options, if any.
         path = os.path.join(MODULE_LIST_DIRECTORY, module_list_file)
-        if debug:
-            print(f"path = {path}")
+        if verbose:
+            print(f"Reading {path}.")
         module_names, cmake_environment, cmake_options = (
             common.read_build_module_list_file(path)
         )
@@ -293,7 +302,7 @@ def main():
             print(f"module_cmd = {module_cmd}")
 
         # Make a directory for this build, and go there.
-        dir_name = f"{BUILD_TEST_DIRECTORY_PREFIX}{module_list_name}"
+        dir_name = f"{BUILD_TEST_DIRECTORY_PREFIX}{module_set_name}"
         build_directory = os.path.join(KAIJUHOME, dir_name)
         if debug:
             print(f"build_directory = {build_directory}")
@@ -304,12 +313,13 @@ def main():
         if verbose:
             print(
                 'Running cmake to create Makefile for module set'
-                f" {module_list_name}."
+                f" {module_set_name}."
             )
         cmd = (
             f"{module_cmd}"
             f"; {cmake_environment} cmake {cmake_options}"
             f" {KAIJUHOME}"
+            '>& cmake.out'
         )
         if debug:
             print(f"cmd = {cmd}")
@@ -317,11 +327,12 @@ def main():
             _ = subprocess.run(cmd, shell=True, check=True)
         except subprocess.CalledProcessError as e:
             print(
-                f"cmake for module set {module_list_name} failed.\n"
+                f"ERROR: cmake for module set {module_set_name} failed.\n"
                 f"e.cmd = {e.cmd}\n"
                 f"e.returncode = {e.returncode}\n"
-                'See test log for output.\n'
-                f"Skipping remaining steps for module set {module_list_name}",
+                f"See {os.path.join(build_directory, 'cmake.out')}"
+                ' for output from cmake.\n'
+                f"Skipping remaining steps for module set {module_set_name}",
                 file=sys.stderr
             )
             continue
@@ -330,27 +341,30 @@ def main():
         if verbose:
             print(
                 'Running make to build kaiju for module set'
-                f" {module_list_name}."
+                f" {module_set_name}."
             )
-        cmd = f"{module_cmd}; {make_cmd}"
+        cmd = f"{module_cmd}; {make_cmd} >& make.out"
         if debug:
             print(f"cmd = {cmd}")
         try:
             cproc = subprocess.run(cmd, shell=True, check=True)
         except subprocess.CalledProcessError as e:
             print(
-                f"make for module set {module_list_name} failed.\n"
+                f"ERROR: make for module set {module_set_name} failed.\n"
                 f"e.cmd = {e.cmd}\n"
                 f"e.returncode = {e.returncode}\n"
-                'See test log for output.\n'
-                f"Skipping remaining steps for module set {module_list_name}",
+                f"See {os.path.join(build_directory, 'make.out')}"
+                ' for output from make.\n'
+                f"Skipping remaining steps for module set {module_set_name}",
                 file=sys.stderr
             )
             continue
 
-        # Check for all executables
+        # Check for all executables.
         if verbose:
-            print(f"Checking build results for module set {module_list_name}.")
+            print(
+                f"Checking build results for module set {module_set_name}."
+            )
         missing = []
         for executable in executable_list:
             path = os.path.join(build_directory, BUILD_BIN_DIR, executable)
@@ -358,7 +372,7 @@ def main():
                 missing.append(executable)
         if len(missing) > 0:
             for executable in missing:
-                print(f"Did not build {executable}.")
+                print(f"ERROR: Did not build {executable}.")
         else:
             test_passed[i_test] = True
 
@@ -367,22 +381,20 @@ def main():
     # -------------------------------------------------------------------------
 
     # Summarize the test results
-    test_summary_message = 'Results of build tests:\n'
+    test_summary_message = 'Results of build tests (`buildTest.py`):\n'
     for (i_test, module_list_file) in enumerate(module_list_files):
-        module_list_name = module_list_file.rstrip('.lst')
-        test_summary_message += f"Module set {module_list_name}: "
+        module_set_name = module_list_file.rstrip('.lst')
+        test_summary_message += f"Module set `{module_set_name}`: "
         if test_passed[i_test]:
             test_summary_message += 'PASSED\n'
         else:
             test_summary_message += '*FAILED*\n'
+    print(test_summary_message)
 
     # If loud mode is on, post report to Slack.
     if be_loud:
         common.slack_send_message(slack_client, test_summary_message,
                                   is_test=is_test)
-
-    # Send message to stdout.
-    print(test_summary_message)
 
     # -------------------------------------------------------------------------
 

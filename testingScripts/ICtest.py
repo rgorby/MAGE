@@ -5,7 +5,7 @@
 This script runs a series of initial condition build tests of the MAGE
 software. Each set of initial conditions provided in the kaiju source
 tree is tested with each set of modules used for these tests. The module
-sets are listed in:
+sets are listed in files under:
 
 $KAIJUHOME/testingScripts/mage_build_test_modules
 
@@ -196,6 +196,11 @@ def main():
     for _ in module_list_files:
         test_passed.append([False]*len(initial_condition_paths))
 
+    # Define the make command for each build.
+    make_cmd = 'make gamera.x'
+    if debug:
+        print(f"make_cmd = {make_cmd}")
+
     # Build with each initial condition with each set of modules.
     for (i_test, module_list_file) in enumerate(module_list_files):
         if verbose:
@@ -203,9 +208,9 @@ def main():
                   f"{module_list_file}.")
 
         # Extract the name of the list.
-        module_list_name = module_list_file.rstrip('.lst')
+        module_set_name = module_list_file.rstrip('.lst')
         if debug:
-            print(f"module_list_name = {module_list_name}.")
+            print(f"module_set_name = {module_set_name}.")
 
         # Read this module list file, extracting cmake environment and
         # options, if any.
@@ -231,11 +236,12 @@ def main():
         # Build with each initial condition.
         for (j_ic, initial_condition_path) in enumerate(initial_condition_paths):
             if verbose:
-                print(f"Building with module set {module_list_name} and IC "
+                print(f"Building with module set {module_set_name} and IC "
                       f"file {initial_condition_path}")
 
             # Extract the initial condition name.
             initial_condition_name = os.path.basename(initial_condition_path)
+            initial_condition_name = initial_condition_name.rstrip('.F90')
             if debug:
                 print(f"initial_condition_name = {initial_condition_name}")
 
@@ -243,7 +249,7 @@ def main():
             build_directory = os.path.join(
                 IC_BUILD_TEST_DIRECTORY,
                 f"{IC_BUILD_DIR_PREFIX}{initial_condition_name}"
-                f"_{module_list_name}"
+                f"_{module_set_name}"
             )
             if debug:
                 print(f"build_directory = {build_directory}")
@@ -258,10 +264,17 @@ def main():
                 print(f"IC_cmake_options = {IC_cmake_options}")
 
             # Run cmake to build the Makefile.
+            if verbose:
+                print(
+                    'Running cmake to create Makefile for module set'
+                    f" {module_set_name},"
+                    f" initial condition {initial_condition_name}."
+                )
             cmd = (
                 f"{module_cmd}"
                 f"; {cmake_environment} cmake {IC_cmake_options}"
                 f" {KAIJUHOME}"
+                '>& cmake.out'
             )
             if debug:
                 print(f"cmd = {cmd}")
@@ -269,14 +282,15 @@ def main():
                 _ = subprocess.run(cmd, shell=True, check=True)
             except subprocess.CalledProcessError as e:
                 print(
-                    f"cmake for module set {module_list_name}, "
+                    f"ERROR: cmake for module set {module_set_name}, "
                     f"initial condition {initial_condition_name} failed.\n"
                     f"e.cmd = {e.cmd}\n"
                     f"e.returncode = {e.returncode}\n"
-                    'See test log for output.\n'
+                    f"See {os.path.join(build_directory, 'cmake.out')}"
+                    ' for output from cmake.\n'
                     "Skipping remaining steps for module set "
-                    f"{module_list_name}, initial condition "
-                    "{initial_condition_name}",
+                    f"{module_set_name}, initial condition "
+                    "{initial_condition_name}.",
                     file=sys.stderr
                 )
                 continue
@@ -285,22 +299,25 @@ def main():
             if verbose:
                 print(
                     'Running make to build kaiju for module set'
-                    f" {module_list_name}, initial condition"
+                    f" {module_set_name}, initial condition"
                     f" {initial_condition_name}."
                 )
-            cmd = f"{module_cmd}; make gamera.x"
+            cmd = f"{module_cmd}; {make_cmd} >& make.out"
             if debug:
                 print(f"cmd = {cmd}")
             try:
-                cproc = subprocess.run(cmd, shell=True, check=True)
+                _ = subprocess.run(cmd, shell=True, check=True)
             except subprocess.CalledProcessError as e:
                 print(
-                    f"make for module set {module_list_name}, "
+                    f"ERROR: make for module set {module_set_name}, "
                     f"initial condition {initial_condition_name} failed.\n"
                     f"e.cmd = {e.cmd}\n"
                     f"e.returncode = {e.returncode}\n"
-                    'See test log for output.\n'
-                    f"Skipping remaining steps for module set {module_list_name}",
+                    f"See {os.path.join(build_directory, 'make.out')}"
+                    ' for output from make.\n'
+                    "Skipping remaining steps for module set "
+                    f"{module_set_name}, initial condition "
+                    "{initial_condition_name}.",
                     file=sys.stderr
                 )
                 continue
@@ -314,50 +331,40 @@ def main():
                     missing.append(executable)
             if len(missing) > 0:
                 for executable in missing:
-                    print(f"Did not build {executable}.")
+                    print(f"ERROR: Did not build {executable}.")
             else:
                 test_passed[i_test][j_ic] = True
+
         # End loop over initial conditions
     # End loop over module sets
 
     # -------------------------------------------------------------------------
 
     # Summarize the test results
-    test_summary_message = 'Results of build tests:\n'
+    test_summary_message = (
+        'Results of initial condition build tests (`ICtest.py`):\n'
+    )
     for (i_test, module_list_file) in enumerate(module_list_files):
         for (j_ic, initial_condition_path) in enumerate(initial_condition_paths):
-            module_list_name = module_list_file.rstrip('.lst')
+            module_set_name = module_list_file.rstrip('.lst')
             initial_condition_name = os.path.basename(initial_condition_path)
+            initial_condition_name = initial_condition_name.rstrip('.F90')
             test_summary_message += (
-                f"Module set {module_list_name}, initial condition "
-                f"{initial_condition_name}: "
+                f"Module set `{module_set_name}`, initial condition "
+                f"`{initial_condition_name}`: "
             )
             if test_passed[i_test][j_ic]:
                 test_summary_message += 'PASSED\n'
             else:
                 test_summary_message += '*FAILED*\n'
+    print(test_summary_message)
 
     # If loud mode is on, post report to Slack.
     if be_loud:
         common.slack_send_message(slack_client, test_summary_message,
                                   is_test=is_test)
 
-    # Send message to stdout.
-    print(test_summary_message)
-
-#     # If this is a test run, don't post to Slack. Otherwise, if loud,
-#     # send Slack message.
-#     if debug:
-#         print('Sending build test report to Slack.')
-#     if is_test:
-#         pass
-#     elif be_loud:
-#         if debug:
-#             print('Sending build test report to Slack.')
-#         common.slack_send_message(slack_client, message)
-
-#     # Send message to stdout.
-#     print(message)
+    # -------------------------------------------------------------------------
 
     if debug:
         print(f"Ending {sys.argv[0]} at {datetime.datetime.now()}")
