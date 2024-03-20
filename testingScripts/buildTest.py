@@ -347,7 +347,7 @@ def main():
         if debug:
             print(f"cmd = {cmd}")
         try:
-            cproc = subprocess.run(cmd, shell=True, check=True)
+            _ = subprocess.run(cmd, shell=True, check=True)
         except subprocess.CalledProcessError as e:
             print(
                 f"ERROR: make for module set {module_set_name} failed.\n"
