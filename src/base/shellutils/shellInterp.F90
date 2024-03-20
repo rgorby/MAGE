@@ -546,7 +546,7 @@ module shellInterp
             end if  
         
         case default
-            write(*,*) "interpPole got an invalid data location:",loc
+            write(*,*) "interpPole got an invalid data location:",Qin%loc
             stop
         end select 
 
@@ -560,9 +560,9 @@ module shellInterp
             ! check centering wrt phi
             select case(Qin%loc)
             case(SHCC, SHFTH)
-                Qtemp = Qin(iinterp+ishift,j)
+                Qtemp = Qin%data(iinterp+ishift,j)
             case(SHCORNER, SHFPH)  
-                Qtemp = 0.5*(Qin(iinterp+ishift,j)+Qin(iinterp+ishift,j+1))
+                Qtemp = 0.5*(Qin%data(iinterp+ishift,j)+Qin%data(iinterp+ishift,j+1))
             end select 
 
             f0 = f0 + Qtemp*(shGr%ph(j+1)-shGr%ph(j))
