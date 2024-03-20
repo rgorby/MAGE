@@ -473,12 +473,10 @@ module mhdgroup
         pState%time = State%time + pdt
         ht = pdt/odt
 
-        !One big // region
-        !$OMP PARALLEL default(shared) private(i,j,k,isCC)
-
         !Loop over grid and perform predictor on each cell of fluid/s
         !XYZ fields and interface fluxes
-        !$OMP DO collapse(2)
+        !$OMP PARALLEL DO default(shared) collapse(2) &
+        !$OMP private(i,j,k,isCC)        
         do k=Grid%ksg,Grid%keg+1
             do j=Grid%jsg,Grid%jeg+1
                 do i=Grid%isg,Grid%ieg+1
@@ -496,26 +494,13 @@ module mhdgroup
                     endif !MHD
                 enddo !I loop
             enddo
-        enddo !K loop (implicit barrier)
+        enddo !K loop
 
-        !Now do flux->field where necessary
-        if (Model%doMHD) then
-            !Loop through grid and replace Bxyz w/ flux-> field 
-            !$OMP DO collapse(2)
-            do k=Grid%ksg,Grid%keg
-                do j=Grid%jsg,Grid%jeg
-                    do i=Grid%isg,Grid%ieg                        
-                        pState%Bxyz(i,j,k,:) = CellBxyz(Model,Grid,pState%magFlux,i,j,k)
-                    enddo
-                enddo
-            enddo
-        endif
+        !Now finish by getting Bxyz's
+        !bflux2fld will call ring/singularity fixes
+        call bFlux2Fld(Model,Grid,pState%magFlux,pState%Bxyz)
 
-        !Close big parallel region
-        !$OMP END PARALLEL
-
-        if (Model%doRing) call RingPredictorFix(Model,Grid,pState)
-        
+        !TODO: Remove hackpredictor nonsense
         if (associated(Model%HackPredictor)) then
             call Model%HackPredictor(Model,Grid,pState)
         endif

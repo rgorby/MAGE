@@ -211,7 +211,7 @@ module wind
         type(State_T), intent(inout) :: State
 
         real(rp) :: t,D,P,wSW,wMHD,swFlx,inFlx,Cs
-        integer :: ip,ig,j,k,n,s
+        integer :: ip,jp,kp,ig,j,k,n,s
         real(rp), dimension(NDIM) :: xcc,V,B,nHat
         real(rp), dimension(NVAR) :: gW,gW_sw,gW_in,gCon
         
@@ -315,6 +315,19 @@ module wind
             enddo !j
         enddo !k
         
+        !Now that fluxes are all set, go back and set Bxyz
+        !$OMP PARALLEL DO default(shared) &
+        !$OMP private(n,ig,j,k,ip,jp,kp)    
+        do k=Grid%ksg,Grid%keg
+            do j=Grid%jsg,Grid%jeg
+                do n=1,Model%Ng
+                    ig = Grid%ie+n
+                    !Get conjugate cell, remapped physical cell if inside singularity identity otherwise
+                    call lfmIJKcc(Model,Grid,ig,j,k,ip,jp,kp)
+                    State%Bxyz(ig,j,k,:) = CellBxyz(Model,Grid,State%magFlux,ip,jp,kp)
+                enddo !n
+            enddo
+        enddo
     end subroutine WindBC
 
 
