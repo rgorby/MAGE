@@ -382,28 +382,6 @@ module ringutils
         end associate
     end subroutine RingGridFix
 
-    ! subroutine RingPredictorFix(Model,Grid,State)
-    !     type(Model_T), intent(in) :: Model
-    !     type(Grid_T), intent(in) :: Grid
-    !     type(State_T), intent(inout) :: State
-
-    !     !Set singularity information and default ring configurations
-    !     select case (Model%Ring%GridID)
-    !         !------------------
-    !         case ("cyl")
-    !             return
-
-    !         !------------------
-    !         case ("lfm")
-    !             call HackLFMPredictor(Model,Grid,State)
-                
-    !         !------------------
-    !         case default
-    !             write(*,*) 'Unknown ring type, bailing ...'
-    !             stop                
-    !     end select
-    ! end subroutine RingPredictorFix
-
     subroutine RingFlux2FieldFix(Model,Grid,Bxyz)
         type(Model_T), intent(in) :: Model
         type(Grid_T) , intent(in) :: Grid
