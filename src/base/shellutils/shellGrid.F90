@@ -410,10 +410,10 @@ module shellGrid
             !! Actual bounds used
 
         ! If a bound is provided then we use that, if not we default to parent grid's bounds
-        is = merge(sub_is, pSG%is  , present(sub_is))
-        ie = merge(sub_ie, pSG%ie+1, present(sub_ie))
-        js = merge(sub_js, pSG%js  , present(sub_js))
-        je = merge(sub_je, pSG%je+1, present(sub_je))
+        is = whichInd(sub_is, pSG%is,   present(sub_is))
+        ie = whichInd(sub_ie, pSG%ie+1, present(sub_ie))
+        js = whichInd(sub_js, pSG%js  , present(sub_js))
+        je = whichInd(sub_je, pSG%je+1, present(sub_je))
 
         ! Check for valid bounds
         if (is < pSG%is) then
@@ -489,6 +489,21 @@ module shellGrid
         cSG%bndjs = js
         cSG%bndje = je
 
+        contains 
+
+        function whichInd(indyes,indno,ispresent) result(indchoice)
+            integer, intent (in) :: indyes, indno
+            logical, intent (in) :: ispresent
+            integer              :: indchoice
+        
+            if (ispresent) then
+                indchoice = indyes
+            else    
+                indchoice = indno
+            end if  
+
+            return
+        end function
     end subroutine GenChildShellGrid
 
 
