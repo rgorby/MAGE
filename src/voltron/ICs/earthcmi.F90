@@ -407,7 +407,6 @@ module uservoltic
         Rin = norm2(Grid%xyz(Grid%is,Grid%js,Grid%ks,:))
         llBC = 90.0 - rad2deg*asin(sqrt(Rion/Rin)) !co-lat -> lat
 
-
         !$OMP PARALLEL DO default(shared) &
         !$OMP private(ig,ip,idip,j,k,jp,kp,n,np,d) &
         !$OMP private(Bd,Exyz,Veb,rHat,dA,dApm)
@@ -518,7 +517,7 @@ module uservoltic
         integer :: i,j,k,PsiShells,dN
         real(rp) :: dt
         real(rp), dimension(NVAR) :: pW,pCon
-        real(rp), dimension(NDIM) :: vMHD,xcc,Bd,Exyz,rHat,Veb,dV
+        real(rp), dimension(NDIM) :: vMHD,xcc,Bd,Exyz,rHat,Veb,dV,B
 
         if ( (.not. bc%doIonPush) .or. (.not. Grid%hasLowerBC(IDIR)) ) return
 
@@ -532,7 +531,7 @@ module uservoltic
         !Loop over active
         !$OMP PARALLEL DO default(shared) &
         !$OMP private(i,j,k,pW,pCon) &
-        !$OMP private(vMHD,xcc,Bd,Exyz,rHat,Veb,dV,dt,dN)
+        !$OMP private(vMHD,xcc,Bd,Exyz,rHat,Veb,dV,dt,dN,B)
         do k=Grid%ks,Grid%ke
             do j=Grid%js,Grid%je
                 do i=Grid%is,Grid%is+bc%nIonP-1
@@ -546,9 +545,15 @@ module uservoltic
                     Bd = VecDipole(xcc)
                     Exyz = bc%inExyz(PsiShells,j,k,:)
                     rHat = normVec(xcc)
-
+                    if (Model%doBackground) then
+                        B = State%Bxyz(i,j,k,:) + Grid%B0(i,j,k,:)
+                    else
+                        B = State%Bxyz(i,j,k,:)
+                    endif
+        
                     !Get ExB velocity w/o radial component
-                    Veb = cross(Exyz,Bd)/dot_product(Bd,Bd)
+                    !Veb = cross(Exyz,Bd)/dot_product(Bd,Bd)
+                    Veb = cross(Exyz,B)/dot_product(B,B)
                     Veb = Vec2Perp(Veb,rHat)
                     
                 !Setup push and finish up
