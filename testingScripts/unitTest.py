@@ -150,9 +150,9 @@ def main():
     # Clean up the results from previous tests.
     if verbose:
         print('Cleaning up from previous tests.')
-    # directories = glob.glob(UNIT_TEST_DIRECTORY_GLOB_PATTERN)
-    # for directory in directories:
-    #     shutil.rmtree(directory)
+    directories = glob.glob(UNIT_TEST_DIRECTORY_GLOB_PATTERN)
+    for directory in directories:
+        shutil.rmtree(directory)
 
     # -------------------------------------------------------------------------
 
@@ -160,15 +160,15 @@ def main():
     # existing copies.
     if verbose:
         print('Copying compiled pFUnit binaries.')
-    # for directory in PFUNIT_BINARY_DIRECTORIES:
-    #     from_path = directory
-    #     dir_name = os.path.split(from_path)[-1]
-    #     to_path = os.path.join(KAIJU_EXTERNAL_DIRECTORY, dir_name)
-    #     try:
-    #         shutil.rmtree(to_path)
-    #     except FileNotFoundError:
-    #         pass  # Might not exist.
-    #     shutil.copytree(from_path, to_path)
+    for directory in PFUNIT_BINARY_DIRECTORIES:
+        from_path = directory
+        dir_name = os.path.split(from_path)[-1]
+        to_path = os.path.join(KAIJU_EXTERNAL_DIRECTORY, dir_name)
+        try:
+            shutil.rmtree(to_path)
+        except FileNotFoundError:
+            pass  # Might not exist.
+        shutil.copytree(from_path, to_path)
 
     # -------------------------------------------------------------------------
 
@@ -243,7 +243,7 @@ def main():
         build_directory = os.path.join(KAIJUHOME, dir_name)
         if debug:
             print(f"build_directory = {build_directory}")
-        # os.mkdir(build_directory)
+        os.mkdir(build_directory)
         os.chdir(build_directory)
 
         # Run cmake to build the Makefile.
@@ -258,19 +258,19 @@ def main():
         )
         if debug:
             print(f"cmd = {cmd}")
-        # try:
-        #     _ = subprocess.run(cmd, shell=True, check=True)
-        # except subprocess.CalledProcessError as e:
-        #     path = os.path.join(build_directory, 'cmake.out')
-        #     print(
-        #         f"ERROR: cmake for module set {module_set_name} failed.\n"
-        #         f"e.cmd = {e.cmd}\n"
-        #         f"e.returncode = {e.returncode}\n"
-        #         f"See {path} for output from cmake.\n"
-        #         f"Skipping remaining steps for module set {module_set_name}",
-        #         file=sys.stderr
-        #     )
-        #     continue
+        try:
+            _ = subprocess.run(cmd, shell=True, check=True)
+        except subprocess.CalledProcessError as e:
+            path = os.path.join(build_directory, 'cmake.out')
+            print(
+                f"ERROR: cmake for module set {module_set_name} failed.\n"
+                f"e.cmd = {e.cmd}\n"
+                f"e.returncode = {e.returncode}\n"
+                f"See {path} for output from cmake.\n"
+                f"Skipping remaining steps for module set {module_set_name}",
+                file=sys.stderr
+            )
+            continue
 
         # Run the build.
         if verbose:
@@ -281,19 +281,19 @@ def main():
         cmd = f"{module_cmd}; {make_cmd} >& make.out"
         if debug:
             print(f"cmd = {cmd}")
-        # try:
-        #     _ = subprocess.run(cmd, shell=True, check=True)
-        # except subprocess.CalledProcessError as e:
-        #     path = os.path.join(build_directory, 'make.out')
-        #     print(
-        #         f"ERROR: make for module set {module_set_name} failed.\n"
-        #         f"e.cmd = {e.cmd}\n"
-        #         f"e.returncode = {e.returncode}\n"
-        #         f"See {path} for output from make.\n"
-        #         f"Skipping remaining steps for module set {module_set_name}",
-        #         file=sys.stderr
-        #     )
-        #     continue
+        try:
+            _ = subprocess.run(cmd, shell=True, check=True)
+        except subprocess.CalledProcessError as e:
+            path = os.path.join(build_directory, 'make.out')
+            print(
+                f"ERROR: make for module set {module_set_name} failed.\n"
+                f"e.cmd = {e.cmd}\n"
+                f"e.returncode = {e.returncode}\n"
+                f"See {path} for output from make.\n"
+                f"Skipping remaining steps for module set {module_set_name}",
+                file=sys.stderr
+            )
+            continue
 
         # Copy in the PBS scripts for unit testing.
         for filename in UNIT_TEST_PBS_SCRIPTS:
