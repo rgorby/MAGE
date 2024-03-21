@@ -1,4 +1,4 @@
 # NOTE: Embedding the command sent to derecho via ssh in double-quotes
 # ensures proper remote argument parsing.
-34 00 * * * ssh derecho "/glade/work/ewinter/mage_testing/derecho/kaiju/ewinter-derecho_testing_fixes/kaiju/testingScripts/run_mage_tests.sh -v 'buildTest.py -v -l,ICtest.py -v -l,pyunitTest.py -v -l,intelChecks.py -v -l,unitTest.py -v -l'" >> /glade/work/ewinter/mage_testing/derecho/logs/test.out 2>&1
-34 02 * * * ssh derecho "/glade/work/ewinter/mage_testing/derecho/kaiju/ewinter-derecho_testing_fixes/kaiju/testingScripts/run_mage_tests.sh -v 'unitTestReport.py -v -l'" >> /glade/work/ewinter/mage_testing/derecho/logs/test.out 2>&1
+34 00 * * * ssh derecho "/glade/work/ewinter/mage_testing/derecho/kaiju/ewinter-derecho_testing_fixes/kaiju/testingScripts/run_mage_tests.sh -v 'buildTest.py -lv,ICtest.py -lv,pyunitTest.py -lv,intelChecks.py -lv,unitTest.py -lv'" >> /glade/work/ewinter/mage_testing/derecho/logs/test.out 2>&1
+34 02 * * * ssh derecho "/glade/work/ewinter/mage_testing/derecho/kaiju/ewinter-derecho_testing_fixes/kaiju/testingScripts/run_mage_tests.sh -v 'unitTestReport.py -lv'" >> /glade/work/ewinter/mage_testing/derecho/logs/test.out 2>&1
