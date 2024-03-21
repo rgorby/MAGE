@@ -210,7 +210,7 @@ module wind
         type(State_T), intent(inout) :: State
 
         real(rp) :: t,D,P,wSW,wMHD,swFlx,inFlx,Cx
-        integer :: ip,jp,kp,ig,j,k,n,s
+        integer :: i,j,k,n,ip,jp,kp,ig,jg,kg,s
         real(rp), dimension(NDIM) :: xcc,V,B,nHat
         real(rp), dimension(NVAR) :: gW,gW_sw,gW_in,gCon
         
@@ -337,6 +337,30 @@ module wind
             enddo
         enddo
 
+        !Now fix singular regions
+        !$OMP PARALLEL DO default(shared) &
+        !$OMP private(n,i,k,ig,jg,kg,ip,jp,kp)
+        do k=Grid%ksg,Grid%keg
+            do i=Grid%ie+1,Grid%ieg
+                do n=1,Model%Ng
+                    if (Model%Ring%doS) then
+                        ig = i
+                        kg = k
+                        jg = Grid%js-n
+                        call lfmIJKcc(Model,Grid,ig,jg,kg,ip,jp,kp)
+                        State%Bxyz(ig,jg,kg,:) = State%Bxyz(ip,jp,kp,:)
+                    endif
+
+                    if (Model%Ring%doE) then
+                        ig = i
+                        kg = k
+                        jg = Grid%je+n
+                        call lfmIJKcc(Model,Grid,ig,jg,kg,ip,jp,kp)
+                        State%Bxyz(ig,jg,kg,:) = State%Bxyz(ip,jp,kp,:)
+                    endif
+                enddo !n
+            enddo
+        enddo !k
     end subroutine WindBC
 
 

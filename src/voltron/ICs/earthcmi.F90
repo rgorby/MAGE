@@ -395,7 +395,8 @@ module uservoltic
 
         real(rp) :: Rin,llBC,dA,Rion
         real(rp), dimension(NDIM) :: Bd,Exyz,Veb,rHat
-        integer :: ig,ip,idip,j,k,jp,kp,n,np,d
+        integer :: i,j,k,ig,jg,kg,ip,jp,kp,idip,n,np,d
+        !integer :: ig,ip,idip,j,k,jp,kp,n,np,d
         integer, dimension(NDIM) :: dApm
 
         
@@ -491,6 +492,31 @@ module uservoltic
                 enddo
             enddo
         enddo
+
+        !Now fix singular regions
+        !$OMP PARALLEL DO default(shared) &
+        !$OMP private(n,i,k,ig,jg,kg,ip,jp,kp)
+        do k=Grid%ksg,Grid%keg
+            do i=Grid%isg,Grid%is-1
+                do n=1,Model%Ng
+                    if (Model%Ring%doS) then
+                        ig = i
+                        kg = k
+                        jg = Grid%js-n
+                        call lfmIJKcc(Model,Grid,ig,jg,kg,ip,jp,kp)
+                        State%Bxyz(ig,jg,kg,:) = State%Bxyz(ip,jp,kp,:)
+                    endif
+
+                    if (Model%Ring%doE) then
+                        ig = i
+                        kg = k
+                        jg = Grid%je+n
+                        call lfmIJKcc(Model,Grid,ig,jg,kg,ip,jp,kp)
+                        State%Bxyz(ig,jg,kg,:) = State%Bxyz(ip,jp,kp,:)
+                    endif
+                enddo !n
+            enddo
+        enddo !k
 
         contains 
 
