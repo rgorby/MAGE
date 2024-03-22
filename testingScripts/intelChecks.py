@@ -188,14 +188,18 @@ def main():
         module_cmd = (
             f"module --force purge; module load {' '.join(module_names)}"
         )
-        module_cmd += '; module list'
         if debug:
             print(f"module_cmd = {module_cmd}")
 
         # Run cmake to build the Makefile.
+        if verbose:
+            print(
+                'Running cmake to create Makefile for module set'
+                f" {module_list_name}."
+            )
         cmd = (
             f"{module_cmd}; {cmake_environment} cmake {cmake_options}"
-            f" {kaiju_home}"
+            f" {kaiju_home} >& cmake.out"
         )
         if debug:
             print(f"cmd = {cmd}")
@@ -213,7 +217,12 @@ def main():
             continue
 
         # Run the build.
-        cmd = f"{module_cmd}; make gamera_mpi voltron_mpi"
+        if verbose:
+            print(
+                'Running make to build kaiju for module set'
+                f" {module_list_name}."
+            )
+        cmd = f"{module_cmd}; make gamera_mpi voltron_mpi >& make.out"
         if debug:
             print(f"cmd = {cmd}")
         try:
