@@ -19,6 +19,9 @@ program testNewRMS
 
     integer :: i
     real(rp) :: dt, t
+    real(rp) :: th,pin,qinterp
+    type(ShellGridVar_T) :: tmpVarSame, tmpVarCC
+    logical :: isSlava, isAnthony
 
     inpXML = New_XML_Input(trim(xmlStr),"Kaiju/REMIX",.true.)
 
@@ -26,17 +29,38 @@ program testNewRMS
     
     call dump(fOutname, rmReader%shGr)
 
-    dt = 0.5 * (rmReader%rmTab%times(rmReader%rmTab%N) - rmReader%rmTab%times(rmReader%rmTab%N-1))
-    write(*,*)"dt=",dt
-    t = rmReader%rmTab%times(2)
-    write(*,*)t
-    !do while (t < dt*20)
-    do while (t < rmReader%rmTab%times(rmReader%rmTab%N) + 4*dt)
-        call updateRM(rmReader, t)
-        call testShellInterp(rmReader)
-        t = t + dt
-    enddo
+    isAnthony = .false.
+    isSlava   = .true.
+    if (isAnthony) then 
+        dt = 0.5 * (rmReader%rmTab%times(rmReader%rmTab%N) - rmReader%rmTab%times(rmReader%rmTab%N-1))
+        write(*,*)"dt=",dt
+        t = rmReader%rmTab%times(2)
+        write(*,*)t
 
+        !do while (t < dt*20)
+        do while (t < rmReader%rmTab%times(rmReader%rmTab%N) + 4*dt)
+            call updateRM(rmReader, t)
+            call testShellInterp(rmReader)
+            t = t + dt
+        enddo
+
+    else if (isSlava) then
+        write(*,*) "# time steps ",rmReader%rmTab%N
+        ! take the last time step
+        t = rmReader%rmTab%times(rmReader%rmTab%N-1)
+        write(*,*) "time ",t
+        
+        call updateRM(rmReader, t)
+    
+        call initShellVar(rmReader%shGr, rmReader%nsFac(NORTH)%loc, tmpVarSame)
+        th = 0.6*PI/180.
+        pin = 0.4*PI/180.
+        call InterpShellVar_TSC_pnt(rmReader%shGr, tmpVarSame, th, pin, Qinterp)
+
+    else 
+        write(*,*) "I don't know who I am."
+        stop
+    end if
 
     contains
 
