@@ -133,11 +133,6 @@ module uservoltic
         tsHack => PerStep
         Model%HackStep => tsHack
 
-        ! !Corrections from solar wind or ionosphere      
-        ! if (Grid%hasLowerBC(IDIR) .or. Grid%hasUpperBC(IDIR)) then
-        !    Model%HackPredictor => PredFix
-        ! end if
-
         !Local functions
         !NOTE: Don't put BCs here as they won't be visible after the initialization call
         contains
@@ -197,10 +192,6 @@ module uservoltic
         if (Model%doSource) then
             call MagsphereIngest(Model,Gr,State)
         endif
-
-        !Removing old-school chillout functions
-        ! !Call cooling function/s
-        ! call ChillOut(Model,Gr,State)
 
         !Do heavier nudging to first shell
         if ( Gr%hasLowerBC(IDIR) ) then
@@ -263,42 +254,6 @@ module uservoltic
         
     end subroutine EFix
 
-    !Fixes cell-centered fields in the predictor
-    subroutine PredFix(Model,Gr,State)
-        type(Model_T), intent(in) :: Model
-        type(Grid_T), intent(inout) :: Gr
-        type(State_T), intent(inout) :: State
-
-        integer :: nbc
-
-        return
-
-        ! !Fix inner shells
-        ! if (Gr%hasLowerBC(IDIR)) then
-        !     nbc = FindBC(Model,Gr,INI)
-        !     SELECT type(iiBC=>Gr%externalBCs(nbc)%p)
-        !         TYPE IS (IonInnerBC_T)
-        !             call IonPredFix(Model,Gr,State)
-        !         CLASS DEFAULT
-        !             write(*,*) 'Could not find Ion Inner BC in PredFix'
-        !             stop
-        !     END SELECT
-        ! endif
-
-        ! !Fix outer shells
-        ! if (Gr%hasUpperBC(IDIR)) then
-        !     nbc = FindBC(Model,Gr,OUTI)
-        !     SELECT type(pWind=>Gr%externalBCs(nbc)%p)
-        !         TYPE IS (WindBC_T)
-        !            call WindPredFix(pWind,Model,Gr,State)
-        !         CLASS DEFAULT
-        !             write(*,*) 'Could not find Wind BC in PredFix'
-        !             stop
-        !     END SELECT
-        ! endif
-
-    end subroutine PredFix
-
     !Ensure no flux through degenerate faces
     subroutine IonFlux(Model,Gr,gFlx,mFlx)
         type(Model_T), intent(in) :: Model
@@ -332,20 +287,6 @@ module uservoltic
                 endif !doE
 
             endif !doRing
-
-            ! !Now loop over inner sphere (only need active since we're only touching I fluxes)
-            ! !$OMP PARALLEL DO default(shared) &
-            ! !$OMP private(j,k)
-            ! do k=Gr%ks,Gr%ke
-            !     do j=Gr%js,Gr%je
-            !         !Trap for outward mass flux
-            !         if (gFlx(Gr%is,j,k,DEN,IDIR,BLK) > 0) then
-            !             gFlx(Gr%is,j,k,DEN   ,IDIR,BLK) = min( 0.0,gFlx(Gr%is,j,k,DEN   ,IDIR,BLK) )
-            !             gFlx(Gr%is,j,k,ENERGY,IDIR,BLK) = min( 0.0,gFlx(Gr%is,j,k,ENERGY,IDIR,BLK) )
-            !         endif
-                    
-            !     enddo
-            ! enddo !K loop
             
         endif !Inner i-tile and not MF
 
@@ -379,7 +320,6 @@ module uservoltic
             call xmlInp%Set_Val(dtXML,"/Kaiju/voltron/coupling/dt",5.0)
             bc%dtCpl = dtXML/Model%Units%gT0
             !Get knobs for pushing
-            !K: 3/19 changed doionpush default to F
             call xmlInp%Set_Val(bc%doIonPush,"ibc/doIonPush",.true.)
             call xmlInp%Set_Val(bc%nIonP,"ibc/nIonP",1)
         endif
@@ -393,7 +333,7 @@ module uservoltic
         type(Grid_T), intent(in) :: Grid
         type(State_T), intent(inout) :: State
 
-        real(rp) :: Rin,llBC,dA,Rion
+        real(rp) :: Rin,llBC,dA,Rion,MagB0
         real(rp), dimension(NDIM) :: Bd,Exyz,Veb,rHat
         integer :: i,j,k,ig,jg,kg,ip,jp,kp,idip,n,np,d
         !integer :: ig,ip,idip,j,k,jp,kp,n,np,d
@@ -410,7 +350,7 @@ module uservoltic
 
         !$OMP PARALLEL DO default(shared) &
         !$OMP private(ig,ip,idip,j,k,jp,kp,n,np,d) &
-        !$OMP private(Bd,Exyz,Veb,rHat,dA,dApm)
+        !$OMP private(Bd,Exyz,Veb,rHat,dA,dApm,MagB0)
         do k=Grid%ksg,Grid%keg+1
             do j=Grid%jsg,Grid%jeg+1
 
@@ -429,12 +369,16 @@ module uservoltic
                         call lfmIJKcc(Model,Grid,Grid%is-1,j,k,idip,jp,kp)
 
                         !Get dipole value
-                        Bd = VecDipole(Grid%xyzcc(idip,jp,kp,:))
+                        Bd = VecDipole(Grid%xyzcc(idip,jp,kp,:)) !For direction to keep stencil regular
+                        MagB0 = norm2( VecDipole(Grid%xyzcc(ig,jp,kp,:)) )
+
                         !Get remix field
                         Exyz = bc%inExyz(np,jp,kp,:)
 
                         !ExB velocity
-                        Veb = cross(Exyz,Bd)/dot_product(Bd,Bd)
+                        !Veb = cross(Exyz,Bd)/dot_product(Bd,Bd)
+                        Veb = cross(Exyz,normVec(Bd))/MagB0 !Use is-1 direction, but is-n field strength
+
                         !Remove radial component of velocity
                         rHat = normVec(Grid%xyzcc(idip,jp,kp,:))
                         Veb = Vec2Perp(Veb,rHat)
@@ -445,35 +389,29 @@ module uservoltic
                     endif !Cell-centered
 
                 !Now do face fluxes
-                    do d=IDIR,KDIR
-                        State%magFlux(ig,j,k,d) = 0.0
-                    enddo
+                    dApm(IDIR:KDIR) = 1 !Use this to hold coefficients for singularity geometry
+
+                    if ( (Model%Ring%doS) .and. (j < Grid%js) ) then
+                        dApm(JDIR:KDIR) = -1
+                    endif
+                    if ( (Model%Ring%doE) .and. (j >= Grid%je+1) ) then
+                        dApm(JDIR:KDIR) = -1
+                    endif
                     
-                    ! dApm(IDIR:KDIR) = 1 !Use this to hold coefficients for singularity geometry
+                    !Loop over face directions
+                    do d=IDIR,KDIR
+                        call lfmIJKfc(Model,Grid,d,ig,j,k,ip,jp,kp)
+                        dA = Grid%face(ig,j,k,d)/max(Grid%face(Grid%is,jp,kp,d),TINY)
 
-                    ! if ( (Model%Ring%doS) .and. (j < Grid%js) ) then
-                    !     dApm(JDIR:KDIR) = -1
-                    ! endif
-                    ! if ( (Model%Ring%doE) .and. (j >= Grid%je+1) ) then
-                    !     dApm(JDIR:KDIR) = -1
-                    ! endif
+                        if (isGoodFaceIJK(Model,Grid,ig,j,k,d)) then
+                            if ( isLowLat(Grid%xfc(ig,j,k,:,d),llBC) ) then
+                                State%magFlux(ig,j,k,d) = 0.0
+                            else
+                                State%magFlux(ig,j,k,d) = dApm(d)*dA*State%magFlux(Grid%is,jp,kp,d)
+                            endif
+                        endif
+                    enddo !dir
 
-                    ! !Loop over face directions
-                    ! do d=IDIR,KDIR
-                    !     call lfmIJKfc(Model,Grid,d,ig,j,k,ip,jp,kp)
-
-                    !     !dA = Grid%face(ig,j,k,d)/Grid%face(Grid%is,jp,kp,d)
-                    !     dA = 1.0 !Using dA=1 for smoother magflux stencil
-
-                    !     if (isGoodFaceIJK(Model,Grid,ig,j,k,d)) then
-                    !         if ( isLowLat(Grid%xfc(ig,j,k,:,d),llBC) ) then
-                    !             !State%magFlux(ig,j,k,d) = 0.0
-                    !             State%magFlux(ig,j,k,d) = dApm(d)*dA*State%magFlux(Grid%is,jp,kp,d)
-                    !         else
-                    !             State%magFlux(ig,j,k,d) = dApm(d)*dA*State%magFlux(Grid%is,jp,kp,d)
-                    !         endif
-                    !     endif
-                    ! enddo
                 enddo !n loop (ig)
             enddo !j loop
         enddo !k loop
@@ -578,7 +516,6 @@ module uservoltic
                     endif
         
                     !Get ExB velocity w/o radial component
-                    !Veb = cross(Exyz,Bd)/dot_product(Bd,Bd)
                     Veb = cross(Exyz,B)/dot_product(B,B)
                     Veb = Vec2Perp(Veb,rHat)
                     
@@ -598,31 +535,5 @@ module uservoltic
 
     end subroutine PushIon
 
-    ! !Correct predictor Bxyz
-    ! subroutine IonPredFix(Model,Grid,State)
-    !     type(Model_T), intent(in) :: Model
-    !     type(Grid_T), intent(in) :: Grid
-    !     type(State_T), intent(inout) :: State
-
-    !     integer :: n,ip,ig,ix,jp,kp,j,k
-
-    !     if (.not. Grid%hasLowerBC(IDIR)) return
-
-    !     !$OMP PARALLEL DO default(shared) &
-    !     !$OMP private(n,ip,ig,ix,jp,kp,j,k)  
-    !     do k=Grid%ksg,Grid%keg
-    !         do j=Grid%jsg,Grid%jeg
-    !             do n=1,Model%Ng
-    !                 ip = Grid%is
-    !                 ig = Grid%is-n
-
-    !                 call lfmIJKcc(Model,Grid,ig,j,k,ix,jp,kp)
-    !                 State%Bxyz(ig,j,k,:) = State%Bxyz(ip,jp,kp,:)
-
-    !             enddo !n loop
-    !         enddo !j loop
-    !     enddo !k loop
-
-    ! end subroutine IonPredFix
     
 end module uservoltic
