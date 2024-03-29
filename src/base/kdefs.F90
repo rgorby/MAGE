@@ -54,9 +54,9 @@ module kdefs
     real(rp), parameter :: Kbltz   = 1.380649D-16      ![cm^2 g /s^2/K=erg/K] Boltzmann constant
     real(rp), parameter :: mec2    = (Me_cgs*vc_cgs**2.0)*(1.0D-3)/kev2erg ! [MeV] electron rest mass
     real(rp), parameter :: heFrac  = 1.16D0       ! Accounts for 4% helium
-    real(rp), parameter :: eCharge = 1.602D-19  ! Charge of electron
+    real(rp), parameter :: eCharge = 1.60217663D-19  ! Charge of electron
     !NOTE: dalton isn't precisely Mp b/c carbon binding energy business
-    real(rp), parameter :: dalton  = 1.66053906660*1.0D-27  ! Mass unit [kg]
+    real(rp), parameter :: dalton  = 1.6605390666D-27  ! Mass unit [kg]
 
 !Planetary constants
     !Earth
