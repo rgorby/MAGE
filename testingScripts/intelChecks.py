@@ -135,7 +135,7 @@ def main():
     # Run the Intel Inspector checks with each set of modules.
 
     # Initialize the report string.
-    message = f"Running {sys.argv[0]}.\n"
+    message = f"Running `{sys.argv[0]}`.\n"
 
     # <HACK>
     message += (

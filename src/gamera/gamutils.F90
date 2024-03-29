@@ -80,7 +80,7 @@ module gamutils
 
         !Set nSt equal to nSi/nSj/nSk for given direction
         nSt = nSi*ijkD(d,IDIR) + nSj*ijkD(d,JDIR) + nSk*ijkD(d,KDIR)
-
+        Qb = 0.0
         do n = -Nx2,Nx2-1
             l = l0 + nSt*n !Jump to next 1:iMax in direction d
             Qb(1:iMax,n) = Q(l:l+iMax-1)

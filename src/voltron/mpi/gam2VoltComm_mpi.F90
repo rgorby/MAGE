@@ -180,6 +180,9 @@ module gam2VoltComm_mpi
         call mpi_bcast(gApp%Model%tFin, 1, MPI_MYFLOAT, g2vComm%voltRank, g2vComm%voltMpiComm, ierr)
         !call mpi_bcast(gApp%Model%dt, 1, MPI_MYFLOAT, g2vComm%voltRank, g2vComm%voltMpiComm, ierr)
 
+        ! correct DT on Gamera ranks after receiving correct time information
+        call CalcDT_mpi(gApp)
+
         ! also update state time variables
         if(.not. gApp%Model%isRestart) then
             gApp%State%time = gApp%Model%t
