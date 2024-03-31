@@ -276,16 +276,6 @@ def main():
         # Move into the bin directory to run the tests.
         os.chdir(BIN_DIR)
 
-        # # Copy the restart data and reference results.
-        # if verbose:
-        #     print('Copying restart data and reference results for weekly'
-        #           ' dash.')
-        # from_glob = os.path.join(WEEKLY_DASH_RESTART_SRC_DIRECTORY, '*')
-        # for from_path in glob.glob(from_glob):
-        #     filename = os.path.split(from_path)[-1]
-        #     to_path = os.path.join('.', filename)
-        #     shutil.copyfile(from_path, to_path)
-
         # Generate the LFM grid file.
         if verbose:
             print('Creating LFM grid file.')
@@ -307,33 +297,33 @@ def main():
             continue
 
         # Compare the new LFM grid file to the reference version.
-        # if verbose:
-        #     print('Comparing new LFM grid file to reference version.')
-        # cmd = 'h5diff /glade/work/ewinter/mage_testing/derecho/weekly_dash_files/reference_results/master/lfmQ.h5 lfmQ.h5'
-        # if debug:
-        #     print(f"cmd = {cmd}")
-        # try:
-        #     cproc = subprocess.run(cmd, shell=True, check=True,
-        #                            text=True, capture_output=True)
-        # except subprocess.CalledProcessError as e:
-        #     print(
-        #         'ERROR: Unable to compare LFM grid file for module set '
-        #         f"{module_set_name} to reference version.\n"
-        #         f"e.cmd = {e.cmd}\n"
-        #         f"e.returncode = {e.returncode}\n"
-        #         'See testing log for output from h5diff.\n'
-        #         f"Skipping remaining steps for module set {module_set_name}",
-        #         file=sys.stderr
-        #     )
-        #     continue
-        # grid_diff = cproc.stdout.rstrip()
-        # if debug:
-        #     print(f"grid_diff = {grid_diff}")
-        # if grid_diff != '':
-        #     print('LFM grid for weekly dash has changed on branch'
-        #           f" {git_branch_name}. Case cannot be run. Please"
-        #           ' re-generate restart data, and ensure the grid change'
-        #           ' was intentional.')
+        if verbose:
+            print('Comparing new LFM grid file to reference version.')
+        cmd = 'h5diff /glade/work/ewinter/mage_testing/derecho/weekly_dash_files/reference_results/master/lfmQ.h5 lfmQ.h5'
+        if debug:
+            print(f"cmd = {cmd}")
+        try:
+            cproc = subprocess.run(cmd, shell=True, check=True,
+                                   text=True, capture_output=True)
+        except subprocess.CalledProcessError as e:
+            print(
+                'ERROR: Unable to compare LFM grid file for module set '
+                f"{module_set_name} to reference version.\n"
+                f"e.cmd = {e.cmd}\n"
+                f"e.returncode = {e.returncode}\n"
+                'See testing log for output from h5diff.\n'
+                f"Skipping remaining steps for module set {module_set_name}",
+                file=sys.stderr
+            )
+            continue
+        grid_diff = cproc.stdout.rstrip()
+        if debug:
+            print(f"grid_diff = {grid_diff}")
+        if grid_diff != '':
+            print('LFM grid for weekly dash has changed on branch'
+                  f" {git_branch_name}. Case cannot be run. Please"
+                  ' re-generate restart data, and ensure the grid change'
+                  ' was intentional.')
 
         # Generate the solar wind boundary condition file.
         if verbose:
@@ -357,34 +347,34 @@ def main():
             continue
 
         # Compare the new solar wind boundary condition file to the original.
-        # if verbose:
-        #     print('Comparing new solar wind file to reference version.')
-        # cmd = 'h5diff /glade/work/ewinter/mage_testing/derecho/weekly_dash_files/reference_results/master/bcwind.h5 bcwind.h5'
-        # if debug:
-        #     print(f"cmd = {cmd}")
-        # try:
-        #     cproc = subprocess.run(cmd, shell=True, check=True,
-        #                            text=True, capture_output=True)
-        # except subprocess.CalledProcessError as e:
-        #     print(
-        #         'ERROR: Unable to compare solar wind file for module set '
-        #         f"{module_set_name} to reference version.\n"
-        #         f"e.cmd = {e.cmd}\n"
-        #         f"e.returncode = {e.returncode}\n"
-        #         'See testing log for output from h5diff.\n'
-        #         f"Skipping remaining steps for module set {module_set_name}",
-        #         file=sys.stderr
-        #     )
-        #     continue
-        # wind_diff = cproc.stdout.rstrip()
-        # if debug:
-        #     print(f"wind_diff = {wind_diff}")
-        # if wind_diff != '':
-        #     print('Solar wind data for weekly dash has changed on branch'
-        #           f" {git_branch_name}. Case cannot be run. Please"
-        #           ' re-generate restart data, and ensure the change'
-        #           ' was intentional.')
-        #     continue
+        if verbose:
+            print('Comparing new solar wind file to reference version.')
+        cmd = 'h5diff /glade/work/ewinter/mage_testing/derecho/weekly_dash_files/reference_results/master/bcwind.h5 bcwind.h5'
+        if debug:
+            print(f"cmd = {cmd}")
+        try:
+            cproc = subprocess.run(cmd, shell=True, check=True,
+                                   text=True, capture_output=True)
+        except subprocess.CalledProcessError as e:
+            print(
+                'ERROR: Unable to compare solar wind file for module set '
+                f"{module_set_name} to reference version.\n"
+                f"e.cmd = {e.cmd}\n"
+                f"e.returncode = {e.returncode}\n"
+                'See testing log for output from h5diff.\n'
+                f"Skipping remaining steps for module set {module_set_name}",
+                file=sys.stderr
+            )
+            continue
+        wind_diff = cproc.stdout.rstrip()
+        if debug:
+            print(f"wind_diff = {wind_diff}")
+        if wind_diff != '':
+            print('Solar wind data for weekly dash has changed on branch'
+                  f" {git_branch_name}. Case cannot be run. Please"
+                  ' re-generate restart data, and ensure the change'
+                  ' was intentional.')
+            continue
 
         # Generate the RCM configuration file.
         if verbose:
@@ -407,34 +397,34 @@ def main():
             continue
 
         # Compare the new RCM configuration file to the original.
-        # if verbose:
-        #     print('Comparing new RCM configuration file to reference version.')
-        # cmd = 'h5diff /glade/work/ewinter/mage_testing/derecho/weekly_dash_files/reference_results/master/rcmconfig.h5 rcmconfig.h5'
-        # if debug:
-        #     print(f"cmd = {cmd}")
-        # try:
-        #     cproc = subprocess.run(cmd, shell=True, check=True,
-        #                            text=True, capture_output=True)
-        # except subprocess.CalledProcessError as e:
-        #     print(
-        #         'ERROR: Unable to compare RCM configuration file for module'
-        #         f" set {module_set_name} to reference version.\n"
-        #         f"e.cmd = {e.cmd}\n"
-        #         f"e.returncode = {e.returncode}\n"
-        #         'See testing log for output from h5diff.\n'
-        #         f"Skipping remaining steps for module set {module_set_name}",
-        #         file=sys.stderr
-        #     )
-        #     continue
-        # rcm_diff = cproc.stdout.rstrip()
-        # if debug:
-        #     print(f"rcm_diff = {rcm_diff}")
-        # if rcm_diff != '':
-        #     print('RCM configuration for weekly dash has changed on branch'
-        #           f" {git_branch_name}. Case cannot be run. Please"
-        #           ' re-generate restart data, and ensure the change'
-        #           ' was intentional.')
-        #     continue
+        if verbose:
+            print('Comparing new RCM configuration file to reference version.')
+        cmd = 'h5diff /glade/work/ewinter/mage_testing/derecho/weekly_dash_files/reference_results/master/rcmconfig.h5 rcmconfig.h5'
+        if debug:
+            print(f"cmd = {cmd}")
+        try:
+            cproc = subprocess.run(cmd, shell=True, check=True,
+                                   text=True, capture_output=True)
+        except subprocess.CalledProcessError as e:
+            print(
+                'ERROR: Unable to compare RCM configuration file for module'
+                f" set {module_set_name} to reference version.\n"
+                f"e.cmd = {e.cmd}\n"
+                f"e.returncode = {e.returncode}\n"
+                'See testing log for output from h5diff.\n'
+                f"Skipping remaining steps for module set {module_set_name}",
+                file=sys.stderr
+            )
+            continue
+        rcm_diff = cproc.stdout.rstrip()
+        if debug:
+            print(f"rcm_diff = {rcm_diff}")
+        if rcm_diff != '':
+            print('RCM configuration for weekly dash has changed on branch'
+                  f" {git_branch_name}. Case cannot be run. Please"
+                  ' re-generate restart data, and ensure the change'
+                  ' was intentional.')
+            continue
 
         # Copy files needed for the weekly dash job.
         if verbose:
