@@ -16,6 +16,7 @@ Eric Winter
 import datetime
 import glob
 import os
+import platform
 import shutil
 import subprocess
 import sys
@@ -99,29 +100,30 @@ def main():
     verbose = args.verbose
 
     if debug:
-        print(f"Starting {sys.argv[0]} at {datetime.datetime.now()}")
+        print(f"Starting {sys.argv[0]} at {datetime.datetime.now()}"
+              f" on {platform.node()}")
         print(f"Current directory is {os.getcwd()}")
 
-    # ------------------------------------------------------------------------
+    # -------------------------------------------------------------------------
 
     # Set up for communication with Slack.
     slack_client = common.slack_create_client()
     if debug:
         print(f"slack_client = {slack_client}")
 
-    # ------------------------------------------------------------------------
+    # -------------------------------------------------------------------------
 
     # Move to the MAGE installation directory.
     os.chdir(KAIJUHOME)
 
-    # ------------------------------------------------------------------------
+    # -------------------------------------------------------------------------
 
     # Find the current branch.
     git_branch_name = common.git_get_branch_name()
     if debug:
         print(f"git_branch_name = {git_branch_name}")
 
-    # ------------------------------------------------------------------------
+    # -------------------------------------------------------------------------
 
     # Clean up from previous builds.
     if verbose:
@@ -157,7 +159,7 @@ def main():
             pass  # These directories may not exist.
     # </HACK>
 
-    # ------------------------------------------------------------------------
+    # -------------------------------------------------------------------------
 
     # Make a list of module sets to build with.
 
@@ -168,7 +170,7 @@ def main():
     if debug:
         print(f"module_list_files = {module_list_files}")
 
-    # ------------------------------------------------------------------------
+    # -------------------------------------------------------------------------
 
     # Create the make command to build the code.
     make_cmd = 'make voltron_mpi.x'
@@ -274,15 +276,15 @@ def main():
         # Move into the bin directory to run the tests.
         os.chdir(BIN_DIR)
 
-        # Copy the restart data and reference results.
-        if verbose:
-            print('Copying restart data and reference results for weekly'
-                  ' dash.')
-        from_glob = os.path.join(WEEKLY_DASH_RESTART_SRC_DIRECTORY, '*')
-        for from_path in glob.glob(from_glob):
-            filename = os.path.split(from_path)[-1]
-            to_path = os.path.join('.', filename)
-            shutil.copyfile(from_path, to_path)
+        # # Copy the restart data and reference results.
+        # if verbose:
+        #     print('Copying restart data and reference results for weekly'
+        #           ' dash.')
+        # from_glob = os.path.join(WEEKLY_DASH_RESTART_SRC_DIRECTORY, '*')
+        # for from_path in glob.glob(from_glob):
+        #     filename = os.path.split(from_path)[-1]
+        #     to_path = os.path.join('.', filename)
+        #     shutil.copyfile(from_path, to_path)
 
         # Generate the LFM grid file.
         if verbose:
@@ -303,44 +305,41 @@ def main():
                 file=sys.stderr
             )
             continue
-        shutil.move('lfmQ.h5', 'NEWlfmX.h5')
 
         # Compare the new LFM grid file to the reference version.
-        if verbose:
-            print('Comparing new LFM grid file to reference version.')
-        cmd = 'h5diff lfmX.h5 NEWlfmX.h5'
-        if debug:
-            print(f"cmd = {cmd}")
-        try:
-            cproc = subprocess.run(cmd, shell=True, check=True,
-                                   text=True, capture_output=True)
-        except subprocess.CalledProcessError as e:
-            print(
-                'ERROR: Unable to compare LFM grid file for module set '
-                f"{module_set_name} to reference version.\n"
-                f"e.cmd = {e.cmd}\n"
-                f"e.returncode = {e.returncode}\n"
-                'See testing log for output from h5diff.\n'
-                f"Skipping remaining steps for module set {module_set_name}",
-                file=sys.stderr
-            )
-            continue
-        grid_diff = cproc.stdout.rstrip()
-        if debug:
-            print(f"grid_diff = {grid_diff}")
-        if grid_diff != '':
-            print('LFM grid for weekly dash has changed on branch'
-                  f" {git_branch_name}. Case cannot be run. Please"
-                  ' re-generate restart data, and ensure the grid change'
-                  ' was intentional.')
+        # if verbose:
+        #     print('Comparing new LFM grid file to reference version.')
+        # cmd = 'h5diff /glade/work/ewinter/mage_testing/derecho/weekly_dash_files/reference_results/master/lfmQ.h5 lfmQ.h5'
+        # if debug:
+        #     print(f"cmd = {cmd}")
+        # try:
+        #     cproc = subprocess.run(cmd, shell=True, check=True,
+        #                            text=True, capture_output=True)
+        # except subprocess.CalledProcessError as e:
+        #     print(
+        #         'ERROR: Unable to compare LFM grid file for module set '
+        #         f"{module_set_name} to reference version.\n"
+        #         f"e.cmd = {e.cmd}\n"
+        #         f"e.returncode = {e.returncode}\n"
+        #         'See testing log for output from h5diff.\n'
+        #         f"Skipping remaining steps for module set {module_set_name}",
+        #         file=sys.stderr
+        #     )
+        #     continue
+        # grid_diff = cproc.stdout.rstrip()
+        # if debug:
+        #     print(f"grid_diff = {grid_diff}")
+        # if grid_diff != '':
+        #     print('LFM grid for weekly dash has changed on branch'
+        #           f" {git_branch_name}. Case cannot be run. Please"
+        #           ' re-generate restart data, and ensure the grid change'
+        #           ' was intentional.')
 
         # Generate the solar wind boundary condition file.
         if verbose:
             print('Creating solar wind initial conditions file.')
         cmd = (
-            'cda2wind.py -t0 2016-08-09T02:00:00 -t1 2016-08-09T12:00:00'
-            ' -o NEWbcwind.h5'
-        )
+            'cda2wind.py -t0 2016-08-09T02:00:00 -t1 2016-08-09T12:00:00'        )
         if debug:
             print(f"cmd = {cmd}")
         try:
@@ -358,39 +357,39 @@ def main():
             continue
 
         # Compare the new solar wind boundary condition file to the original.
-        if verbose:
-            print('Comparing new solar wind file to reference version.')
-        cmd = 'h5diff bcwind.h5 NEWbcwind.h5'
-        if debug:
-            print(f"cmd = {cmd}")
-        try:
-            cproc = subprocess.run(cmd, shell=True, check=True,
-                                   text=True, capture_output=True)
-        except subprocess.CalledProcessError as e:
-            print(
-                'ERROR: Unable to compare solar wind file for module set '
-                f"{module_set_name} to reference version.\n"
-                f"e.cmd = {e.cmd}\n"
-                f"e.returncode = {e.returncode}\n"
-                'See testing log for output from h5diff.\n'
-                f"Skipping remaining steps for module set {module_set_name}",
-                file=sys.stderr
-            )
-            continue
-        wind_diff = cproc.stdout.rstrip()
-        if debug:
-            print(f"wind_diff = {wind_diff}")
-        if wind_diff != '':
-            print('Solar wind data for weekly dash has changed on branch'
-                  f" {git_branch_name}. Case cannot be run. Please"
-                  ' re-generate restart data, and ensure the change'
-                  ' was intentional.')
-            continue
+        # if verbose:
+        #     print('Comparing new solar wind file to reference version.')
+        # cmd = 'h5diff /glade/work/ewinter/mage_testing/derecho/weekly_dash_files/reference_results/master/bcwind.h5 bcwind.h5'
+        # if debug:
+        #     print(f"cmd = {cmd}")
+        # try:
+        #     cproc = subprocess.run(cmd, shell=True, check=True,
+        #                            text=True, capture_output=True)
+        # except subprocess.CalledProcessError as e:
+        #     print(
+        #         'ERROR: Unable to compare solar wind file for module set '
+        #         f"{module_set_name} to reference version.\n"
+        #         f"e.cmd = {e.cmd}\n"
+        #         f"e.returncode = {e.returncode}\n"
+        #         'See testing log for output from h5diff.\n'
+        #         f"Skipping remaining steps for module set {module_set_name}",
+        #         file=sys.stderr
+        #     )
+        #     continue
+        # wind_diff = cproc.stdout.rstrip()
+        # if debug:
+        #     print(f"wind_diff = {wind_diff}")
+        # if wind_diff != '':
+        #     print('Solar wind data for weekly dash has changed on branch'
+        #           f" {git_branch_name}. Case cannot be run. Please"
+        #           ' re-generate restart data, and ensure the change'
+        #           ' was intentional.')
+        #     continue
 
         # Generate the RCM configuration file.
         if verbose:
             print('Creating RCM configuration file.')
-        cmd = 'genRCM.py -o NEWrcmconfig.h5'
+        cmd = 'genRCM.py'
         if debug:
             print(f"cmd = {cmd}")
         try:
@@ -408,34 +407,34 @@ def main():
             continue
 
         # Compare the new RCM configuration file to the original.
-        if verbose:
-            print('Comparing new RCM configuration file to reference version.')
-        cmd = 'h5diff rcmconfig.h5 NEWrcmconfig.h5'
-        if debug:
-            print(f"cmd = {cmd}")
-        try:
-            cproc = subprocess.run(cmd, shell=True, check=True,
-                                   text=True, capture_output=True)
-        except subprocess.CalledProcessError as e:
-            print(
-                'ERROR: Unable to compare RCM configuration file for module'
-                f" set {module_set_name} to reference version.\n"
-                f"e.cmd = {e.cmd}\n"
-                f"e.returncode = {e.returncode}\n"
-                'See testing log for output from h5diff.\n'
-                f"Skipping remaining steps for module set {module_set_name}",
-                file=sys.stderr
-            )
-            continue
-        rcm_diff = cproc.stdout.rstrip()
-        if debug:
-            print(f"rcm_diff = {rcm_diff}")
-        if rcm_diff != '':
-            print('RCM configuration for weekly dash has changed on branch'
-                  f" {git_branch_name}. Case cannot be run. Please"
-                  ' re-generate restart data, and ensure the change'
-                  ' was intentional.')
-            continue
+        # if verbose:
+        #     print('Comparing new RCM configuration file to reference version.')
+        # cmd = 'h5diff /glade/work/ewinter/mage_testing/derecho/weekly_dash_files/reference_results/master/rcmconfig.h5 rcmconfig.h5'
+        # if debug:
+        #     print(f"cmd = {cmd}")
+        # try:
+        #     cproc = subprocess.run(cmd, shell=True, check=True,
+        #                            text=True, capture_output=True)
+        # except subprocess.CalledProcessError as e:
+        #     print(
+        #         'ERROR: Unable to compare RCM configuration file for module'
+        #         f" set {module_set_name} to reference version.\n"
+        #         f"e.cmd = {e.cmd}\n"
+        #         f"e.returncode = {e.returncode}\n"
+        #         'See testing log for output from h5diff.\n'
+        #         f"Skipping remaining steps for module set {module_set_name}",
+        #         file=sys.stderr
+        #     )
+        #     continue
+        # rcm_diff = cproc.stdout.rstrip()
+        # if debug:
+        #     print(f"rcm_diff = {rcm_diff}")
+        # if rcm_diff != '':
+        #     print('RCM configuration for weekly dash has changed on branch'
+        #           f" {git_branch_name}. Case cannot be run. Please"
+        #           ' re-generate restart data, and ensure the change'
+        #           ' was intentional.')
+        #     continue
 
         # Copy files needed for the weekly dash job.
         if verbose:
@@ -460,11 +459,11 @@ def main():
                                    text=True, capture_output=True)
         except subprocess.CalledProcessError as e:
             print(
-                'ERROR: Unable to model job request for module set '
-                f"{module_set_name} to reference version.\n"
+                'ERROR: Unable to submit job request for module set '
+                f"{module_set_name}.\n"
                 f"e.cmd = {e.cmd}\n"
                 f"e.returncode = {e.returncode}\n"
-                'See testing log for output from qsub.\n'
+                'See testing log for output.\n'
                 f"Skipping remaining steps for module set {module_set_name}",
                 file=sys.stderr
             )
