@@ -1,110 +1,146 @@
+#!/usr/bin/env python
+
+
+"""Master script for automated MAGE regression testing.
+
+This script controls automated MAGE regression testing on
+derecho. This script should be run in a cron job using the testing
+setup script run_mage_test_00.sh, which must run
+kaiju/scripts/setupEnvironment.sh before running this script, to
+ensure that the KAIJUHOME environment variable is set.
+
+Authors
+-------
+Jeff Garretson
+Eric Winter
+
+"""
+
+
+# Import standard modules.
+import datetime
 import os
-import sys
 import subprocess
-sys.path.insert(1, "./python-slackclient")
-from slack import WebClient
-from slack.errors import SlackApiError
-import logging
-logging.basicConfig(level=logging.DEBUG)
-import time
-import argparse
+import sys
 
-# read arguments
-parser = argparse.ArgumentParser()
-parser.add_argument('-t',action='store_true',default=False, help='Enables testing mode')
-parser.add_argument('-l',action='store_true',default=False, help='Enables loud mode')
-parser.add_argument('-a',action='store_true',default=False, help='Run all tests')
-parser.add_argument('-f',action='store_true',default=False, help='Force the tests to run')
-parser.add_argument('--account',type=str, default='', help='qsub account number')
+# Import 3rd-party modules.
 
-args = parser.parse_args()
-isTest = args.t
-beLoud = args.l
-doAll = args.a
-forceRun = args.f
-account = args.account
+# Import project modules.
+from kaipy.testing import common
 
-# Get Slack API token
-slack_token = os.environ["SLACK_BOT_TOKEN"]
-print(slack_token)
-client = WebClient(token=slack_token)
 
-# Get CWD and move to the main Kaiju folder
-calledFrom = os.path.dirname(os.path.abspath(__file__))
-origCWD = os.getcwd()
-os.chdir(calledFrom)
-os.chdir('..')
-home = os.getcwd()
-print("I am the master script. This is my current working directory: ")
-print(home)
+# Program constants
 
-# Delete all build folders
-os.system("rm -rf build*/")
-os.system('ls')
+# Program description.
+DESCRIPTION = 'Master script for MAGE regression testing'
 
-# Git Status and then attempt to pull
-os.system('git status')
-print('Attempting git pull via subprocess...')
-p = subprocess.Popen("git pull", shell=True, stdout=subprocess.PIPE)
-text = p.stdout.read()
-text = text.decode('ascii')
-text = text.rstrip()
-print(text)
+# Subdirectory of KAIJUHOME containing the test scripts.
+KAIJU_TEST_SCRIPTS_DIRECTORY = 'testingScripts'
 
-# get my current branch
-p = subprocess.Popen("git symbolic-ref --short HEAD", shell=True, stdout=subprocess.PIPE)
-gBranch = p.stdout.read()
-gBranch = gBranch.decode('ascii')
-gBranch = gBranch.rstrip()
-print(gBranch)
 
-if(forceRun == False):
-    # If not forced, check for update
-    if (text == 'Already up to date.'):
-        print("No test today. Branch " + gBranch + " is already up to date!")
-        exit()
+def main():
+    """Begin main program.
 
-os.chdir("testingScripts")
+    This is the main program code.
 
-print("I made it this far!")
-print(os.path.dirname(os.path.abspath(__file__)))
+    Parameters
+    ----------
+    None
 
-subArgString = ""
-if isTest:
-    subArgString = subArgString + " -t"
-if beLoud:
-    subArgString = subArgString + " -l"
-subArgString = subArgString + " --account " + account
+    Returns
+    -------
+    None
 
-if (doAll == True):
-    buildTest = subprocess.Popen("python3 buildTest.py"+subArgString, shell = True)
-    buildTest.wait()
-    unitTest = subprocess.Popen("python3 unitTest.py"+subArgString, shell = True)
-    unitTest.wait()
-    intelTest = subprocess.Popen("python3 intelChecks.py"+subArgString, shell=True)
-    intelTest.wait()
-    ICTest = subprocess.Popen("python3 ICtest.py"+subArgString, shell=True)
-    ICTest.wait()
-    ICReport = subprocess.Popen("python3 ICtestReport.py"+subArgString, shell=True)
-    ICReport.wait()
-    pyunitTest = subprocess.Popen("python3 pyunitTest.py"+subArgString, shell=True)
-    pyunitTest.wait()
-    weeklyDash = subprocess.Popen("python3 weeklyDash.py"+subArgString, shell=True)
-    weeklyDash.wait()
+    Raises
+    ------
+    None
+    """
+    # Set up the command-line parser.
+    parser = common.create_command_line_parser(DESCRIPTION)
 
-else:
-    buildTest = subprocess.Popen("python3 buildTest.py"+subArgString, shell = True)
-    buildTest.wait()
-    unitTest = subprocess.Popen("python3 unitTest.py"+subArgString, shell = True)
-    unitTest.wait()
-    #intelTest = subprocess.Popen("python3 intelChecks.py"+subArgString, shell=True)
-    #intelTest.wait()
-    ICTest = subprocess.Popen("python3 ICtest.py"+subArgString, shell=True)
-    ICTest.wait()
-    ICReport = subprocess.Popen("python3 ICtestReport.py"+subArgString, shell=True)
-    ICReport.wait()
-    pyunitTest = subprocess.Popen("python3 pyunitTest.py"+subArgString, shell=True)
-    pyunitTest.wait()
-    #weeklyDash = subprocess.Popen("python3 weeklyDash.py"+subArgString, shell=True)
-    #weeklyDash.wait()
+    # Parse the command-line arguments.
+    args = parser.parse_args()
+    if args.debug:
+        print(f"args = {args}")
+    run_all_tests = args.all
+    debug = args.debug
+    force_tests = args.force
+    verbose = args.verbose
 
+    if verbose:
+        print(f"Starting {sys.argv[0]} at {datetime.datetime.now()}")
+        print(f"Current directory is {os.getcwd()}")
+
+    # #--------------------------------------------------------------------------
+
+    # # Move to the MAGE installation directory.
+    # kaiju_home = os.environ['KAIJUHOME']
+    # os.chdir(kaiju_home)
+
+    # #--------------------------------------------------------------------------
+
+    # # Check to see if any changes have been made in the MAGE
+    # # repository.
+
+    # # Find the current branch.
+    # if verbose:
+    #     print(f"Fetching git branch name for directory {kaiju_home}.")
+    # git_branch_name = common.git_get_branch_name()
+    # if debug:
+    #     print(f"git_branch_name = {git_branch_name}")
+
+    # # Pull any changes from the repository.
+    # if verbose:
+    #     print(f"Pulling changes from repository on branch {git_branch_name}.")
+    # git_pull_output = common.git_pull()
+    # if debug:
+    #     print(git_pull_output)
+
+    # # If there are no changes to the code, and the forced-test flag is
+    # # not set, abort this test.
+    # if git_pull_output == 'Already up to date.' and not force_tests:
+    #     print(f"No test today. Branch {git_branch_name} is already up to date!")
+    #     exit(0)
+
+    # #--------------------------------------------------------------------------
+
+    # # Run the tests.
+
+    # # Run the tests.
+    # if run_all_tests:
+    #     if verbose:
+    #         print('Running all tests.')
+    #     test_scripts = [
+    #         # 'buildTest.py',
+    #         # 'unitTest.py',
+    #         # 'intelChecks.py',
+    #         # 'ICtest.py',
+    #         # 'pyunitTest.py',
+    #         # 'weeklyDash.py',
+    #         # 'weeklyDashReport.py',
+    #     ]
+    # else:
+    #     if verbose:
+    #         print('Running typical tests.')
+    #     test_scripts = [
+    #         # 'buildTest.py',
+    #         # 'unitTest.py',
+    #         # 'ICtest.py',
+    #         # 'pyunitTest.py',
+    #     ]
+    # for test_script in test_scripts:
+    #     path = os.path.join(kaiju_home, KAIJU_TEST_SCRIPTS_DIRECTORY,
+    #                         test_script)
+    #     if verbose:
+    #         print(f"Running test script {test_script}.")
+    #     common.run_mage_test_script(path, args)
+
+    #--------------------------------------------------------------------------
+
+    if verbose:
+        print(f"Ending {sys.argv[0]} at {datetime.datetime.now()}")
+
+
+if __name__ == '__main__':
+    """Call main program function."""
+    main()

@@ -524,10 +524,7 @@ module gamapp_mpi
             call updateMpiBCs(gamAppMpi, gamAppMpi%State)
 
             !Ensure all processes have the same starting timestep
-            Model%dt = CalcDT(Model,Grid,gamAppMpi%State)
-            tmpDT = Model%dt
-            call MPI_AllReduce(MPI_IN_PLACE, tmpDT, 1, MPI_MYFLOAT, MPI_MIN, gamAppMpi%gamMpiComm,ierr)
-            Model%dt = tmpDT
+            call CalcDT_mpi(gamAppMpi)
 
             if(Model%isRestart) then
                 !Update the ghost cells in the old state
@@ -542,6 +539,27 @@ module gamapp_mpi
 
         end associate
     end subroutine Hatch_mpi
+
+    ! each gamera rank calculates their own DT, and then synchronizes them to use
+    ! whoever has the lowest one
+    subroutine CalcDT_mpi(gamAppMpi)
+        type(gamAppMpi_T), intent(inout) :: gamAppMpi
+        real(rp) :: tmpDT
+        integer :: ierr
+
+        call Tic("DT")
+        gamAppMpi%Model%dt = CalcDT(gamAppMpi%Model,gamAppMpi%Grid,gamAppMpi%State)
+
+        if(gamAppMpi%gamMpiComm /= MPI_COMM_NULL) then
+            call Tic("mpiDT")
+            tmpDT = gamAppMpi%Model%dt
+            call MPI_AllReduce(MPI_IN_PLACE, tmpDT, 1, MPI_MYFLOAT, MPI_MIN, gamAppMpi%gamMpiComm,ierr)
+            gamAppMpi%Model%dt = tmpDT
+            call Toc("mpiDT")
+        endif
+        call Toc("DT")
+
+    end subroutine CalcDT_mpi
 
     ! this function checks logic to determine which rank should print debug timing
     ! returns true for the rank that should, and false for all others
@@ -706,19 +724,7 @@ module gamapp_mpi
         call updateMpiBCs(gamAppMpi, gamAppmpi%State)
 
         !Calculate new timestep
-        call Tic("DT")
-        gamAppMpi%Model%dt = CalcDT(gamAppMpi%Model,gamAppMpi%Grid,gamAppMpi%State)
-
-        !All MPI ranks take the lowest dt
-        if(gamAppMpi%gamMpiComm /= MPI_COMM_NULL) then
-            call Tic("mpiDT")
-            tmp = gamAppMpi%Model%dt
-            call MPI_AllReduce(MPI_IN_PLACE, tmp, 1, MPI_MYFLOAT, MPI_MIN, gamAppMpi%gamMpiComm,ierr)
-            gamAppMpi%Model%dt = tmp
-            call Toc("mpiDT")
-        endif
-
-        call Toc("DT")
+        call CalcDT_mpi(gamAppMpi)
 
     end subroutine stepGamera_mpi
 

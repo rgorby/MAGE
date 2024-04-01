@@ -112,11 +112,15 @@ module voltapp
         call tsMJD%initTS("MJD",doLoudO=.false.)
         gApp%Model%MJD0 = tsMJD%evalAt(0.0_rp) !Evaluate at T=0
         
-    !Time options
+        !Time options
         call xmlInp%Set_Val(vApp%tFin,'time/tFin',1.0_rp)
         !Sync Gamera to Voltron endtime
         gApp%Model%tFin = vApp%tFin/gTScl
         
+        !Recalculate timestep after correcting Gamera's end time
+        gApp%Model%dt = CalcDT(gApp%Model,gApp%Grid,gApp%State)
+        if (gApp%Model%dt0<TINY) gApp%Model%dt0 = gApp%Model%dt
+
         call vApp%IO%init(xmlInp,vApp%time,vApp%ts)
         
         !Pull numbering from Gamera
@@ -287,25 +291,17 @@ module voltapp
             endif
         endif
 
-        !Recalculate timestep
-        gApp%Model%dt = CalcDT(gApp%Model,gApp%Grid,gApp%State)
-        if (gApp%Model%dt0<TINY) gApp%Model%dt0 = gApp%Model%dt
-        
         !Bring overview info
         if (vApp%isLoud) call printConfigStamp()
 
-        !Finally do first output stuff
+        !Finally do first output stuff, if this is not mpi
         !console output
-        if (vApp%isSeparate) then
-            call consoleOutputVOnly(vApp,gApp,gApp%Model%MJD0)
-        else
+        if (.not. vApp%isSeparate) then
             call consoleOutputV(vApp,gApp)
         endif
         !file output
         if (.not. gApp%Model%isRestart) then
-            if(vApp%isSeparate) then
-                call fOutputVOnly(vApp,gApp)
-            else
+            if(.not. vApp%isSeparate) then
                 call fOutputV(vApp, gApp)
             endif
         endif
@@ -357,7 +353,8 @@ module voltapp
             call init_mix(vApp%remixApp%ion,[NORTH, SOUTH],RunID=RunID,isRestart=isRestart,nRes=vApp%IO%nRes,optIO=vApp%writeFiles)
         endif
         
-        vApp%remixApp%ion%rad_iono_m = vApp%planet%ri_m
+        vApp%remixApp%ion%rad_iono_m  = vApp%planet%ri_m
+        vApp%remixApp%ion%rad_planet_m = vApp%planet%rp_m
         !Ensure remix and voltron restart numbers match
         if (isRestart .and. vApp%IO%nRes /= vApp%remixApp%ion(1)%P%nRes) then
             write(*,*) "Voltron and Remix disagree on restart number, you should sort that out."
@@ -494,7 +491,7 @@ module voltapp
                 call Squish(vApp) ! do all squish blocks here
               call SquishEnd(vApp)
             call PostDeep(vApp, gApp)
-        else
+        elseif(vApp%doDeep) then
             gApp%Grid%Gas0 = 0
         endif
 

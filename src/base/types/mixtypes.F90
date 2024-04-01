@@ -122,7 +122,8 @@ module mixtypes
      type(mixParams_T)      :: P
      type(Solver_T)         :: S
      type(mixConductance_T) :: conductance
-     real(rp)               :: rad_iono_m ! Ionosphere radius in meters
+     real(rp)               :: rad_iono_m   ! Ionosphere radius in meters
+     real(rp)               :: rad_planet_m ! Planet     radius in meters
   end type mixIon_T
 
   ! used to store all instances of mixIon type, i.e., all hemispheres

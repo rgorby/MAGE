@@ -589,4 +589,18 @@ module math
         endif
         
     end function SmoothOperator33 
+
+    function isAscending(A) result(isAsc)
+      real(rp), dimension(:), intent(in) :: A
+      logical :: isAsc
+      integer :: N
+
+      N = size(A)
+
+      if ( all(A(2:N)-A(1:N-1)>0) ) then
+         isAsc = .True. 
+      else
+         isAsc = .False. 
+      end if
+    end function isAscending
 end module math
