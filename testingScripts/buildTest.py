@@ -393,8 +393,23 @@ def main():
 
     # If loud mode is on, post report to Slack.
     if be_loud:
-        common.slack_send_message(slack_client, test_summary_message,
-                                  is_test=is_test)
+        message = 'Results of build tests (buildTest.py): '
+        if 'FAILED' in test_summary_message:
+            message += '*FAILED*\n'
+        else:
+            message += '*ALL PASSED*\n'
+        message += 'Details in thread for this messsage.\n'
+        slack_response = common.slack_send_message(
+            slack_client, message, is_test=is_test
+        )
+        if slack_response['ok']:
+            thread_ts = slack_response['ts']
+            slack_response = common.slack_send_message(
+                slack_client, test_summary_message, thread_ts=thread_ts,
+                is_test=is_test
+            )
+        else:
+            print('*ERROR* Unable to post test summary to Slack.')
 
     # -------------------------------------------------------------------------
 

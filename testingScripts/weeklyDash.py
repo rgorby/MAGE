@@ -35,6 +35,9 @@ DESCRIPTION = 'Run the MAGE weekly dash tests.'
 # Home directory of kaiju installation
 KAIJUHOME = os.environ['KAIJUHOME']
 
+# Top-level directory for testing
+KAIJU_TESTING_HOME = '/glade/work/ewinter/mage_testing/derecho'
+
 # Glob pattern for weekly dash test direectories
 WEEKLY_DASH_DIRECTORY_GLOB_PATTERN = 'weeklyDash_*'
 
@@ -67,6 +70,27 @@ WEEKLY_DASH_TEST_FILES = [
     'weeklyDashGo.xml',
     'weeklyDashGo.pbs',
 ]
+
+# Path to directory containing master-branch reference results.
+REFERENCE_RESULTS_DIRECTORY_MASTER = os.path.join(
+    KAIJU_TESTING_HOME, 'weekly_dash_files', 'reference_results',
+    'master'
+)
+
+# Path to lfmQ.h5 for master-branch reference results.
+REFERENCE_RESULTS_LFM_GRID_FILE_MASTER = os.path.join(
+    REFERENCE_RESULTS_DIRECTORY_MASTER, 'lfmQ.h5'
+)
+
+# Path to bcwind.h5 for master-branch reference results.
+REFERENCE_RESULTS_BCWIND_FILE_MASTER = os.path.join(
+    REFERENCE_RESULTS_DIRECTORY_MASTER, 'bcwind.h5'
+)
+
+# Path to rcmconfig.h5 for master-branch reference results.
+REFERENCE_RESULTS_RCMCONFIG_FILE_MASTER = os.path.join(
+    REFERENCE_RESULTS_DIRECTORY_MASTER, 'rcmconfig.h5'
+)
 
 
 def main():
@@ -178,7 +202,7 @@ def main():
         print(f"make_cmd = {make_cmd}")
 
     # Run the tests with each set of modules.
-    for (i_test, module_list_file) in enumerate(module_list_files):
+    for module_list_file in module_list_files:
         if verbose:
             print('Performing weekly dash with module set '
                   f"{module_list_file}")
@@ -239,14 +263,13 @@ def main():
         try:
             _ = subprocess.run(cmd, shell=True, check=True)
         except subprocess.CalledProcessError as e:
-            print(
+            test_summary_message += (
                 f"ERROR: cmake for module set {module_set_name} failed.\n"
                 f"e.cmd = {e.cmd}\n"
                 f"e.returncode = {e.returncode}\n"
                 f"See {os.path.join(build_directory, 'cmake.out')}"
                 ' for output from cmake.\n'
-                f"Skipping remaining steps for module set {module_set_name}",
-                file=sys.stderr
+                f"Skipping remaining steps for module set {module_set_name}\n"
             )
             continue
 
@@ -262,14 +285,13 @@ def main():
         try:
             _ = subprocess.run(cmd, shell=True, check=True)
         except subprocess.CalledProcessError as e:
-            print(
+            test_summary_message += (
                 f"ERROR: make for module set {module_set_name} failed.\n"
                 f"e.cmd = {e.cmd}\n"
                 f"e.returncode = {e.returncode}\n"
                 f"See {os.path.join(build_directory, 'make.out')}"
                 ' for output from make.\n'
-                f"Skipping remaining steps for module set {module_set_name}",
-                file=sys.stderr
+                f"Skipping remaining steps for module set {module_set_name}\n"
             )
             continue
 
@@ -285,95 +307,91 @@ def main():
         try:
             _ = subprocess.run(cmd, shell=True, check=True)
         except subprocess.CalledProcessError as e:
-            print(
+            test_summary_message += (
                 'ERROR: Unable to create LFM grid file for module set '
                 f"{module_set_name}.\n"
                 f"e.cmd = {e.cmd}\n"
                 f"e.returncode = {e.returncode}\n"
                 'See testing log for output from genLFM.py.\n'
-                f"Skipping remaining steps for module set {module_set_name}",
-                file=sys.stderr
+                f"Skipping remaining steps for module set {module_set_name}\n"
             )
             continue
 
         # Compare the new LFM grid file to the reference version.
         if verbose:
             print('Comparing new LFM grid file to reference version.')
-        cmd = 'h5diff /glade/work/ewinter/mage_testing/derecho/weekly_dash_files/reference_results/master/lfmQ.h5 lfmQ.h5'
+        cmd = f"h5diff {REFERENCE_RESULTS_LFM_GRID_FILE_MASTER} lfmQ.h5"
         if debug:
             print(f"cmd = {cmd}")
         try:
             cproc = subprocess.run(cmd, shell=True, check=True,
                                    text=True, capture_output=True)
         except subprocess.CalledProcessError as e:
-            print(
-                'ERROR: Unable to compare LFM grid file for module set '
+            test_summary_message += (
+                'ERROR: Error comparing LFM grid file for module set '
                 f"{module_set_name} to reference version.\n"
                 f"e.cmd = {e.cmd}\n"
                 f"e.returncode = {e.returncode}\n"
                 'See testing log for output from h5diff.\n'
-                f"Skipping remaining steps for module set {module_set_name}",
-                file=sys.stderr
+                f"Skipping remaining steps for module set {module_set_name}\n"
             )
             continue
         grid_diff = cproc.stdout.rstrip()
         if debug:
             print(f"grid_diff = {grid_diff}")
         if grid_diff != '':
-            print('LFM grid for weekly dash has changed on branch'
+            test_summary_message += ('LFM grid for weekly dash has changed on branch'
                   f" {git_branch_name}. Case cannot be run. Please"
                   ' re-generate restart data, and ensure the grid change'
-                  ' was intentional.')
+                  ' was intentional.\n')
 
         # Generate the solar wind boundary condition file.
         if verbose:
             print('Creating solar wind initial conditions file.')
         cmd = (
-            'cda2wind.py -t0 2016-08-09T02:00:00 -t1 2016-08-09T12:00:00'        )
+            'cda2wind.py -t0 2016-08-09T02:00:00 -t1 2016-08-09T12:00:00')
         if debug:
             print(f"cmd = {cmd}")
         try:
             _ = subprocess.run(cmd, shell=True, check=True)
         except subprocess.CalledProcessError as e:
-            print(
+            test_summary_message += (
                 'ERROR: Unable to create solar wind boundary conditions file'
                 f" for module set {module_set_name}.\n"
                 f"e.cmd = {e.cmd}\n"
                 f"e.returncode = {e.returncode}\n"
                 'See testing log for output from cda2wind.py.\n'
-                f"Skipping remaining steps for module set {module_set_name}",
-                file=sys.stderr
+                f"Skipping remaining steps for module set {module_set_name}\n"
             )
             continue
 
         # Compare the new solar wind boundary condition file to the original.
         if verbose:
             print('Comparing new solar wind file to reference version.')
-        cmd = 'h5diff /glade/work/ewinter/mage_testing/derecho/weekly_dash_files/reference_results/master/bcwind.h5 bcwind.h5'
+        cmd = f"h5diff {REFERENCE_RESULTS_BCWIND_FILE_MASTER} bcwind.h5"
         if debug:
             print(f"cmd = {cmd}")
         try:
             cproc = subprocess.run(cmd, shell=True, check=True,
                                    text=True, capture_output=True)
         except subprocess.CalledProcessError as e:
-            print(
-                'ERROR: Unable to compare solar wind file for module set '
+            test_summary_message += (
+                'ERROR: Error comparing solar wind file for module set '
                 f"{module_set_name} to reference version.\n"
                 f"e.cmd = {e.cmd}\n"
                 f"e.returncode = {e.returncode}\n"
                 'See testing log for output from h5diff.\n'
-                f"Skipping remaining steps for module set {module_set_name}",
-                file=sys.stderr
+                f"Skipping remaining steps for module set {module_set_name}\n"
             )
             continue
         wind_diff = cproc.stdout.rstrip()
         if debug:
             print(f"wind_diff = {wind_diff}")
         if wind_diff != '':
-            print('Solar wind data for weekly dash has changed on branch'
+            test_summary_message += ('Solar wind data for weekly dash has changed on branch'
                   f" {git_branch_name}. Case cannot be run. Please"
                   ' re-generate restart data, and ensure the change'
-                  ' was intentional.')
+                  ' was intentional.\n')
             continue
 
         # Generate the RCM configuration file.
@@ -385,46 +403,43 @@ def main():
         try:
             _ = subprocess.run(cmd, shell=True, check=True)
         except subprocess.CalledProcessError as e:
-            print(
+            test_summary_message += (
                 'ERROR: Unable to create RCM configuration file'
                 f" for module set {module_set_name}.\n"
                 f"e.cmd = {e.cmd}\n"
                 f"e.returncode = {e.returncode}\n"
                 'See testing log for output from genRCM.py.\n'
-                f"Skipping remaining steps for module set {module_set_name}",
-                file=sys.stderr
+                f"Skipping remaining steps for module set {module_set_name}\n"
             )
             continue
 
         # Compare the new RCM configuration file to the original.
         if verbose:
             print('Comparing new RCM configuration file to reference version.')
-        cmd = 'h5diff /glade/work/ewinter/mage_testing/derecho/weekly_dash_files/reference_results/master/rcmconfig.h5 rcmconfig.h5'
+        cmd = f"h5diff {REFERENCE_RESULTS_RCMCONFIG_FILE_MASTER} rcmconfig.h5"
         if debug:
             print(f"cmd = {cmd}")
         try:
             cproc = subprocess.run(cmd, shell=True, check=True,
                                    text=True, capture_output=True)
         except subprocess.CalledProcessError as e:
-            print(
-                'ERROR: Unable to compare RCM configuration file for module'
-                f" set {module_set_name} to reference version.\n"
+            test_summary_message += (
+                'ERROR (expected): Error comparing RCM configuration file for'
+                f" module set {module_set_name} to reference version.\n"
                 f"e.cmd = {e.cmd}\n"
                 f"e.returncode = {e.returncode}\n"
                 'See testing log for output from h5diff.\n'
-                f"Skipping remaining steps for module set {module_set_name}",
-                file=sys.stderr
             )
-            continue
+            # continue  ERROR EXPECTED FOR NOW
         rcm_diff = cproc.stdout.rstrip()
         if debug:
             print(f"rcm_diff = {rcm_diff}")
         if rcm_diff != '':
-            print('RCM configuration for weekly dash has changed on branch'
+            test_summary_message += ('RCM configuration for weekly dash has changed on branch'
                   f" {git_branch_name}. Case cannot be run. Please"
                   ' re-generate restart data, and ensure the change'
-                  ' was intentional.')
-            continue
+                  ' was intentional.\n')
+            # continue  ERROR EXPECTED FOR NOW
 
         # Copy files needed for the weekly dash job.
         if verbose:
@@ -448,14 +463,13 @@ def main():
             cproc = subprocess.run(cmd, shell=True, check=True,
                                    text=True, capture_output=True)
         except subprocess.CalledProcessError as e:
-            print(
+            test_summary_message += (
                 'ERROR: Unable to submit job request for module set '
                 f"{module_set_name}.\n"
                 f"e.cmd = {e.cmd}\n"
                 f"e.returncode = {e.returncode}\n"
                 'See testing log for output.\n'
-                f"Skipping remaining steps for module set {module_set_name}",
-                file=sys.stderr
+                f"Skipping remaining steps for module set {module_set_name}\n"
             )
             continue
         firstJobNumber = cproc.stdout.split('.')[0]
@@ -475,8 +489,23 @@ def main():
 
         # If loud mode is on, post report to Slack.
         if be_loud:
-            common.slack_send_message(slack_client, test_summary_message,
-                                      is_test=is_test)
+            message = 'Results of weekly dash submission (`weeklyDash.py`): '
+            if 'ERROR' in test_summary_message:
+                message += '*FAILED*\n'
+            else:
+                message += '*ALL PASSED*\n'
+            message += 'Details in thread for this messsage.\n'
+            slack_response = common.slack_send_message(
+                slack_client, message, is_test=is_test
+            )
+            if slack_response['ok']:
+                thread_ts = slack_response['ts']
+                slack_response = common.slack_send_message(
+                    slack_client, test_summary_message, thread_ts=thread_ts,
+                    is_test=is_test
+                )
+        else:
+            print('*ERROR* Unable to post test summary to Slack.')
 
     # -------------------------------------------------------------------------
 

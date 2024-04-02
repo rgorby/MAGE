@@ -72,9 +72,7 @@ def main():
     if args.debug:
         print(f"args = {args}")
     account = args.account
-    # doAll = args.all
     debug = args.debug
-    # forceRun = args.force
     be_loud = args.loud
     is_test = args.test
     verbose = args.verbose
@@ -135,12 +133,12 @@ def main():
     # Run the Intel Inspector checks with each set of modules.
 
     # Initialize the report string.
-    message = f"Running `{sys.argv[0]}`.\n"
+    test_summary_message = f"Running `{sys.argv[0]}`.\n"
 
     # <HACK>
-    message += (
+    test_summary_message += (
         'WARNING: Inspector checks all disabled due to failure to run, or'
-        ' timeout issues.'
+        ' timeout issues.\n'
     )
     # </HACK>
 
@@ -206,11 +204,11 @@ def main():
         try:
             cproc = subprocess.run(cmd, shell=True, check=True)
         except subprocess.CalledProcessError as e:
-            message += 'cmake failed.\n'
-            message += f"e.cmd = {e.cmd}\n"
-            message += f"e.returncode = {e.returncode}\n"
-            message += 'See test log for output.\n'
-            message += (
+            test_summary_message += 'cmake failed.\n'
+            test_summary_message += f"e.cmd = {e.cmd}\n"
+            test_summary_message += f"e.returncode = {e.returncode}\n"
+            test_summary_message += 'See test log for output.\n'
+            test_summary_message += (
                 'Skipping remaining steps for module set'
                 f" {module_list_file}.\n"
             )
@@ -228,11 +226,11 @@ def main():
         try:
             cproc = subprocess.run(cmd, shell=True, check=True)
         except subprocess.CalledProcessError as e:
-            message += 'make failed.\n'
-            message += f"e.cmd = {e.cmd}\n"
-            message += f"e.returncode = {e.returncode}\n"
-            message += 'See test log for output.\n'
-            message += (
+            test_summary_message += 'make failed.\n'
+            test_summary_message += f"e.cmd = {e.cmd}\n"
+            test_summary_message += f"e.returncode = {e.returncode}\n"
+            test_summary_message += 'See test log for output.\n'
+            test_summary_message += (
                 'Skipping remaining steps for module set'
                 f" {module_list_file}.\n"
             )
@@ -281,11 +279,11 @@ def main():
                 cproc = subprocess.run(cmd, shell=True, check=True,
                                        text=True, capture_output=True)
             except subprocess.CalledProcessError as e:
-                message += 'qsub failed.\n'
-                message += f"e.cmd = {e.cmd}\n"
-                message += f"e.returncode = {e.returncode}\n"
-                message += 'See test log for output.\n'
-                message += (
+                test_summary_message += 'qsub failed.\n'
+                test_summary_message += f"e.cmd = {e.cmd}\n"
+                test_summary_message += f"e.returncode = {e.returncode}\n"
+                test_summary_message += 'See test log for output.\n'
+                test_summary_message += (
                     'Skipping remaining steps for module set'
                     f" {module_list_file}.\n"
                 )
@@ -296,21 +294,31 @@ def main():
             job_ids.append(job_id)
 
             # Update the Slack message.
-            message += f"Submitted {pbs_file} as job {job_id}."
+            test_summary_message += f"Submitted {pbs_file} as job {job_id}."
 
         # Record the job IDs.
         with open('jobs.txt', 'w', encoding='utf-8') as f:
             for job_id in job_ids:
                 f.write(f"{job_id}\n")
 
-    # If this is a test run, don't post to Slack. Otherwise, if loud,
-    # send Slack message.
-    if is_test:
-        pass
-    elif be_loud:
-        if debug:
-            print('Sending summary message to Slack.')
+    # If loud mode is on, post report to Slack.
+    if be_loud:
+        message = 'Results of Intel Inspector tests (`intelChecks.py`): '
+        message += '*FAILED (expected)*\n'
+        message += 'Details in thread for this messsage.\n'
         common.slack_send_message(slack_client, message)
+        slack_response = common.slack_send_message(
+            slack_client, message, is_test=is_test
+        )
+        if slack_response['ok']:
+            thread_ts = slack_response['ts']
+            print(f"thread_ts = {thread_ts}")
+            slack_response = common.slack_send_message(
+                slack_client, test_summary_message, thread_ts=thread_ts,
+                is_test=is_test
+            )
+        else:
+            print('*ERROR* Unable to post test summary to Slack.')
 
     # Send message to stdout.
     print(message)

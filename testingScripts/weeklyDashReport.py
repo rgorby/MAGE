@@ -18,7 +18,6 @@ import datetime
 import os
 import platform
 import re
-# import shutil
 import subprocess
 import sys
 
@@ -28,8 +27,6 @@ from astropy.time import Time
 import matplotlib as mpl
 import matplotlib.dates as mdates
 import matplotlib.pyplot as plt
-mpl.use('Agg')
-# from slack_sdk.errors import SlackApiError
 
 # Import project modules.
 import kaipy.kaiH5 as kh5
@@ -37,7 +34,7 @@ import kaipy.kaiViz as kv
 from kaipy.testing import common
 
 
-# # Program constants
+# Program constants
 
 # Program description.
 DESCRIPTION = 'Create the MAGE weekly dash test report.'
@@ -96,8 +93,8 @@ VOLTRON_OUTPUT_FILE_MASTER = os.path.join(
     REFERENCE_RESULTS_DIRECTORY_MASTER, VOLTRON_OUTPUT_FILE
 )
 
-# Compute the path to the voltron output file for the development branch reference
-# results.
+# Compute the path to the voltron output file for the development branch
+# reference results.
 VOLTRON_OUTPUT_FILE_DEVELOPMENT = os.path.join(
     REFERENCE_RESULTS_DIRECTORY_DEVELOPMENT, VOLTRON_OUTPUT_FILE
 )
@@ -517,7 +514,6 @@ def main():
     if debug:
         print(f"RT_log_f_latest = {RT_log_f_latest}")
 
-
     # <HACK>
     # Make sure the lists of UT and RT are of equal length now (console
     # output not always reliable). Equalize the lengths by truncating the
@@ -542,13 +538,18 @@ def main():
 
     # -------------------------------------------------------------------------
 
+    # Create all plots in a memory buffer.
+    mpl.use('Agg')
+
+    # -------------------------------------------------------------------------
+
     # Make the real-time performance plot.
     if verbose:
         print('Creating real-time performance plot.')
 
     # Plot parameters
     line_width = 0.75
-    alpha = 0.25 # Transparency
+    alpha = 0.25  # Transparency
     grid_color = 'slategrey'
     figsize = (14, 7)
 
@@ -676,7 +677,7 @@ def main():
 
     # Convert the UT strings to datetime objects.
     UT_dt_development = [datetime.datetime.strptime(ut, '%Y-%m-%dT%H:%M:%S.%f')
-                    for ut in UT_str_development]
+                         for ut in UT_str_development]
     if debug:
         print(f"UT_dt_development = {UT_dt_development}")
 
@@ -936,7 +937,7 @@ def main():
 
     # Make the RCM quick-look plot.
     if verbose:
-        print('Creating REMIX quicklook plot for '
+        print('Creating RCM quicklook plot for '
               f"{WEEKLY_DASH_DIRECTORY}.")
 
     # Create the plot.
@@ -1000,7 +1001,7 @@ def main():
     cmd = (
         f"convert {REMIX_SOUTH_QUICKLOOK_MASTER}"
         f" {REMIX_SOUTH_QUICKLOOK_DEVELOPMENT}"
-        ' remix_n.png -append combined_remix_s.png'
+        ' remix_s.png -append combined_remix_s.png'
     )
     if debug:
         print(f"cmd = {cmd}")
@@ -1019,7 +1020,7 @@ def main():
     cmd = (
         f"convert {RCM_QUICKLOOK_MASTER}"
         f" {RCM_QUICKLOOK_DEVELOPMENT}"
-        ' remix_n.png -append combined_qkrcmpic.png'
+        ' qkrcmpic.png -append combined_qkrcmpic.png'
     )
     if debug:
         print(f"cmd = {cmd}")
@@ -1036,23 +1037,57 @@ def main():
 
     # -------------------------------------------------------------------------
 
+    # List the file to post and their comments.
+    images_to_post = [
+        'perfPlots.png',
+        'Dst.png',
+        'CPCP.png',
+        'qkmsphpic.png',
+        'remix_n.png',
+        'remix_s.png',
+        'qkrcmpic.png',
+        'combined_msphpic.png',
+        'combined_remix_n.png',
+        'combined_remix_s.png',
+        'combined_qkrcmpic.png'
+    ]
+    comments_to_post = [
+        'Real-Time Performance\n\n',
+        'DST Plots\n\n',
+        'CPCP Plots\n\n',
+        'Magnetosphere Quicklook Plots\n\n',
+        'REMIX (north) Quicklook Plots\n\n',
+        'REMIX (south) Quicklook Plots\n\n',
+        'RCM Quicklook Plots\n\n',
+        'Magnetosphere Quicklook Comparison Plots\n\n',
+        'REMIX (north) Quicklook Comparison Plots\n\n',
+        'REMIX (south) Quicklook Comparison Plots\n\n',
+        'RCM Quicklook Comparison Plots\n\n'
+    ]
     # If loud mode is on, post results to Slack.
     if be_loud:
-        common.slack_send_image(slack_client, 'perfPlots.png', is_test=is_test)
-        common.slack_send_image(slack_client, 'Dst.png', is_test=is_test)
-        common.slack_send_image(slack_client, 'CPCP.png', is_test=is_test)
-        common.slack_send_image(slack_client, 'qkmsphpic.png', is_test=is_test)
-        common.slack_send_image(slack_client, 'remix_n.png', is_test=is_test)
-        common.slack_send_image(slack_client, 'remix_s.png', is_test=is_test)
-        common.slack_send_image(slack_client, 'qkrcmpic.png', is_test=is_test)
-        common.slack_send_image(slack_client, 'combined_msphpic.png',
-                                is_test=is_test)
-        common.slack_send_image(slack_client, 'combined_remix_n.png',
-                                is_test=is_test)
-        common.slack_send_image(slack_client, 'combined_remix_s.png',
-                                is_test=is_test)
-        common.slack_send_image(slack_client, 'combined_qkrcmpic.png',
-                                is_test=is_test)
+        message = (
+            f"Weekly dash result plots complete on branch {git_branch_name},"
+            f" run on host {short_hostname}. Latest comparative results"
+            ' attached as replies to this message.'
+        )
+        slack_response = common.slack_send_message(slack_client, message)
+        if slack_response['ok']:
+            parent_ts = slack_response['ts']
+            message = (
+                'This was a 4x4x1 (IxJxK) decomposed Quad Resolution Run using'
+                ' 8 nodes for Gamera, 1 for Voltron, and 2 Squish Helper nodes'
+                ' (11 nodes total).'
+            )
+            slack_response = common.slack_send_message(slack_client, message,
+                                                       thread_ts=parent_ts)
+            for (f, c) in zip(images_to_post, comments_to_post):
+                slack_response = common.slack_send_image(
+                    slack_client, f, initial_comment=c,
+                    thread_ts=parent_ts,
+                )
+        else:
+            print('Failed to post parent message and images to Slack.')
 
     # -------------------------------------------------------------------------
 
