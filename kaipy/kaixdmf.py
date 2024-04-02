@@ -3,7 +3,7 @@ import numpy as np
 import h5py
 import kaipy.kaiH5 as kh5
 import xml.etree.ElementTree as et
-
+import kaipy.kdefs as kdefs
 #Add grid info to step
 #Geom is topology subelement, iDims is grid size string
 def AddGrid(fname,Geom,iDims,coordStrs):
@@ -59,7 +59,7 @@ def getRootVars(fname,gDims):
 			#Don't include stuff that starts with step or X,Y,Z
 			vID = str(k)
 			doV = True
-			if ("Step" in vID):
+			if ("Step" in vID or kdefs.grpTimeCache in vID ):
 				doV = False
 			if ((vID == "X") or (vID=="Y") or (vID=="Z")):
 				doV = False

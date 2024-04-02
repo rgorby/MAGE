@@ -72,16 +72,18 @@ class GamsphPipe(GameraPipe):
 		self.yyc = np.zeros((Nr  ,Np  ))
 		self.BzD = np.zeros((Nr  ,Np  ))
 
-	#Create corners for stretched polar grid
+		#Create corners for stretched polar grid
+		#Use halfway k since it is agnostic to ghosts
+		eqK = self.Nk//2
 		#Upper half plane
 		for j in range(self.Nj):
-			self.xxi[:,j] = self.X[:,j,0]
-			self.yyi[:,j] = self.Y[:,j,0]
+			self.xxi[:,j] =  self.X[:,j,eqK]
+			self.yyi[:,j] = -self.Y[:,j,eqK]
 		#Lower half plane
 		for j in range(self.Nj,Np+1):
 			jp = Np-j
-			self.xxi[:,j] =  self.X[:,jp,0]
-			self.yyi[:,j] = -self.Y[:,jp,0]
+			self.xxi[:,j] = self.X[:,jp,eqK]
+			self.yyi[:,j] = self.Y[:,jp,eqK]
 
 		#Get centers for stretched polar grid & BzD
 		self.xxc = 0.25*(self.xxi[:-1,:-1] + self.xxi[1:,:-1] + self.xxi[:-1,1:] + self.xxi[1:,1:])
@@ -149,19 +151,23 @@ class GamsphPipe(GameraPipe):
 		
 	#Get "egg" slice, variable matched to stretched polar grid
 	#Either equatorial or meridional
-	def EggSlice(self,vID,sID=None,vScl=None,doEq=True,doVerb=True):
+	def EggSlice(self,vID,sID=None,vScl=None,doEq=True,doVerb=True,numGhost=0):
 		#Get full 3D variable first
 		Q = self.GetVar(vID,sID,vScl,doVerb)
 
 		#For upper/lower half planes, average above/below
-		Nk2 = self.Nk//2
-		Nk4 = self.Nk//4
+		Nk2 = (self.Nk-2*numGhost)//2
+		Nk4 = (self.Nk-2*numGhost)//4
 		if (doEq):
-			ku = -1
-			kl = Nk2-1
+			ku1 = self.Nk - numGhost - 1
+			ku2 = numGhost
+			kl1 = numGhost + Nk2-1
+			kl2 = numGhost + Nk2
 		else:
-			ku = Nk4 - 1
-			kl = 3*Nk4-1
+			ku1 = numGhost + Nk4 - 1
+			ku2 = numGhost + Nk4
+			kl1 = numGhost + 3*Nk4 - 1
+			kl2 = numGhost + 3*Nk4
 		Nr = self.Ni
 		Np = 2*self.Nj
 		Qk = np.zeros((Nr,Np))
@@ -169,10 +175,10 @@ class GamsphPipe(GameraPipe):
 			if (j>=self.Nj):
 				#Lower half plane
 				jp = Np-j-1
-				Qk[:,j] = 0.5*( Q[:,jp,kl] + Q[:,jp,kl+1] )
+				Qk[:,j] = 0.5*( Q[:,jp,kl1] + Q[:,jp,kl2] )
 			else:
 				jp = j
-				Qk[:,j] = 0.5*( Q[:,jp,ku] + Q[:,jp,ku+1] )
+				Qk[:,j] = 0.5*( Q[:,jp,ku1] + Q[:,jp,ku2] )
 
 		return Qk
 	#Standard equatorial dbz (in nT)
