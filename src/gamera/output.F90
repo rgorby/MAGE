@@ -110,7 +110,7 @@ contains
         character(len=strLen), intent(out) :: tStr
 
         if (T>1.0e-2) then
-            write(tStr,'(f9.3,a)' ) T, ' [code]'
+            write(tStr,'(f0.3,a)' ) T, ' [code]'
         else
             write(tStr,'(es9.2,a)') T, ' [code]'
         endif

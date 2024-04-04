@@ -5,11 +5,14 @@
 This script runs a series of builds of the MAGE software using sets of
 modules listed in files under:
 
-$KAIJUHOME/testingScripts/mage_build_modules
+$KAIJUHOME/testingScripts/mage_build_test_modules
 
 This script reads the file build_test.lst from this directory, and
 uses the contents as a list of module list files to use for MAGE build
 tests.
+
+NOTE: These tests are performed on a load-balance-assigned login node on
+derecho. No PBS job is submitted.
 
 Authors
 -------
@@ -38,28 +41,32 @@ from kaipy.testing import common
 # Program description.
 DESCRIPTION = 'Script for MAGE build testing'
 
+# Home directory of kaiju installation
+KAIJUHOME = os.environ['KAIJUHOME']
+
 # Prefix for naming build test directories
 BUILD_TEST_DIRECTORY_PREFIX = 'build_'
 
 # glob pattern for naming build test directories
 BUILD_TEST_DIRECTORY_GLOB_PATTERN = 'build_*'
 
-# Name of kaiju subdirectory to use for building executable list
-EXECUTABLE_LIST_BUILD_DIRECTORY = 'testFolder'
+# Path to directory to use for building executable list
+EXECUTABLE_LIST_BUILD_DIRECTORY = os.path.join(KAIJUHOME, 'testFolder')
 
-# Subdirectory of KAIJUHOME containing the test scripts
-KAIJU_TEST_SCRIPTS_DIRECTORY = 'testingScripts'
+# Path to directory containing the test scripts
+TEST_SCRIPTS_DIRECTORY = os.path.join(KAIJUHOME, 'testingScripts')
 
-# Subdirectory of KAIJU_TEST_SCRIPTS_DIRECTORY containing module lists
-MODULE_LIST_DIRECTORY = 'mage_build_test_modules'
+# Path to directory containing module lists
+MODULE_LIST_DIRECTORY = os.path.join(TEST_SCRIPTS_DIRECTORY,
+                                     'mage_build_test_modules')
 
-# Name of module list file to use when generating the list of executables
-EXECUTABLE_LIST_BUILD_MODULE_LIST = '01.lst'
+# Path to module list file to use when generating the list of executables
+EXECUTABLE_LIST_MODULE_LIST = os.path.join(MODULE_LIST_DIRECTORY, '01.lst')
 
-# Name of file containing names of modules lists to use for build tests
-BUILD_TEST_LIST_FILE = 'build_test.lst'
+# Path to file containing list of module sets to use for build tests
+BUILD_TEST_LIST_FILE = os.path.join(MODULE_LIST_DIRECTORY, 'build_test.lst')
 
-# Name of build subdirectory containing binaries
+# Name of subdirectory of current build subdirectory containing binaries
 BUILD_BIN_DIR = 'bin'
 
 
@@ -78,7 +85,8 @@ def main():
 
     Raises
     ------
-    None
+    subprocess.CalledProcessError
+        If an exception occurs in subprocess.run()
     """
     # Set up the command-line parser.
     parser = common.create_command_line_parser(DESCRIPTION)
@@ -92,24 +100,25 @@ def main():
     is_test = args.test
     verbose = args.verbose
 
+    # -------------------------------------------------------------------------
+
     if debug:
         print(f"Starting {sys.argv[0]} at {datetime.datetime.now()}")
         print(f"Current directory is {os.getcwd()}")
 
-    #--------------------------------------------------------------------------
+    # -------------------------------------------------------------------------
 
     # Set up for communication with Slack.
     slack_client = common.slack_create_client()
     if debug:
         print(f"slack_client = {slack_client}")
 
-    #--------------------------------------------------------------------------
+    # -------------------------------------------------------------------------
 
     # Move to the MAGE installation directory.
-    kaiju_home = os.environ['KAIJUHOME']
-    os.chdir(kaiju_home)
+    os.chdir(KAIJUHOME)
 
-    #--------------------------------------------------------------------------
+    # -------------------------------------------------------------------------
 
     # Clean up from previous tests.
     if verbose:
@@ -119,8 +128,8 @@ def main():
     for directory in directories:
         try:
             shutil.rmtree(directory)
-        except:
-            pass
+        except FileNotFoundError:
+            pass  # EXECUTABLE_LIST_BUILD_DIRECTORY may not exist.
 
     # <HACK>
     # Remove the pFUnit compiled code to prevent using it during the
@@ -136,40 +145,38 @@ def main():
         'PFUNIT-4.2',
     ]
     for directory in directories:
-        path = os.path.join(kaiju_home, 'external', directory)
+        path = os.path.join(KAIJUHOME, 'external', directory)
         try:
             shutil.rmtree(path)
-        except:
-            pass
+        except FileNotFoundError:
+            pass  # These directories may not exist.
     # </HACK>
 
-    #--------------------------------------------------------------------------
+    # -------------------------------------------------------------------------
 
     # Find the current branch.
     git_branch_name = common.git_get_branch_name()
     if debug:
         print(f"git_branch_name = {git_branch_name}")
 
-    #--------------------------------------------------------------------------
+    # -------------------------------------------------------------------------
 
     # Do a preliminary cmake run to generate the list of executables.
 
     if verbose:
         print(f"Generating list of executables for branch {git_branch_name}.")
 
-    # Make and move to the preliminary build folder.
+    # Create and move to the preliminary build folder.
     os.mkdir(EXECUTABLE_LIST_BUILD_DIRECTORY)
     os.chdir(EXECUTABLE_LIST_BUILD_DIRECTORY)
 
-    # Read the module list file for building the executable list,
-    # extracting cmake environment and options, if any.
-    path = os.path.join(kaiju_home, KAIJU_TEST_SCRIPTS_DIRECTORY,
-                        MODULE_LIST_DIRECTORY,
-                        EXECUTABLE_LIST_BUILD_MODULE_LIST)
-    if debug:
-        print(f"path = {path}")
+    # Read the module list file for building the executable list.
+    if verbose:
+        print(f"Reading {EXECUTABLE_LIST_MODULE_LIST} to determine"
+              ' modules and build options for generating list of executables'
+              ' to build.')
     module_names, cmake_environment, cmake_options = (
-        common.read_build_module_list_file(path)
+        common.read_build_module_list_file(EXECUTABLE_LIST_MODULE_LIST)
     )
     if debug:
         print(f"module_names = {module_names}")
@@ -177,76 +184,107 @@ def main():
         print(f"cmake_options = {cmake_options}")
 
     # Assemble the commands to load the listed modules.
-    module_cmd = f"module --force purge; module load {' '.join(module_names)}"
+    module_cmd = (
+        'module --force purge'
+        f"; module load {' '.join(module_names)}"
+    )
     if debug:
         print(f"module_cmd = {module_cmd}")
 
     # Run cmake to build the Makefile.
-    cmd = (f"{module_cmd}; {cmake_environment} cmake {cmake_options} "
-           f"{kaiju_home}")
+    if verbose:
+        print('Running cmake for executable list generation.')
+    cmd = (
+        f"{module_cmd}"
+        f"; {cmake_environment} cmake {cmake_options}"
+        f" {KAIJUHOME}"
+        ' >& cmake.out'
+    )
     if debug:
         print(f"cmd = {cmd}")
-    # <HACK> To ignore cmake error on bcwind.h5 for now.
     try:
-        cproc = subprocess.run(cmd, shell=True, check=True)
-    except:
-        pass
-    # </HACK>
+        _ = subprocess.run(cmd, shell=True, check=True)
+    except subprocess.CalledProcessError as e:
+        print(
+            'ERROR: cmake for building executable list failed.\n'
+            f"e.cmd = {e.cmd}"
+            f"e.returncode = {e.returncode}\n"
+            f"See {os.path.join(EXECUTABLE_LIST_BUILD_DIRECTORY, 'cmake.out')}"
+            ' for output from cmake.\n'
+            'Unable to generate executable list.',
+            file=sys.stderr
+        )
+        raise
 
-    # Build the list of executable targets.
+    # Run make to build the list of executable targets.
+    if verbose:
+        print('Running make for executable list generation.')
     cmd = f"{module_cmd}; make help | grep '\.x'"
     if debug:
         print(f"cmd = {cmd}")
-    cproc = subprocess.run(cmd, shell=True, check=True, text=True,
-                           capture_output=True)
+    try:
+        cproc = subprocess.run(cmd, shell=True, check=True,
+                               text=True, stdout=subprocess.PIPE,
+                               stderr=subprocess.STDOUT)
+    except subprocess.CalledProcessError as e:
+        path = os.path.join(
+            EXECUTABLE_LIST_BUILD_DIRECTORY, 'make_to_grep.out'
+        )
+        with open(path, 'w', encoding='utf-8') as f:
+            f.write(e.stdout)
+        print(
+            'ERROR: make for building executable list failed.\n'
+            f"e.cmd = {e.cmd}\n"
+            f"e.returncode = {e.returncode}\n"
+            f"See {path} for output from make piped to grep.\n"
+            'Unable to generate executable list.',
+            file=sys.stderr
+        )
+        raise
     executable_list = cproc.stdout.splitlines()
 
     # Remove the first four characters (dots and spaces).
-    executable_list = [e[4:] for e in executable_list]
+    executable_list = [_[4:] for _ in executable_list]
     if debug:
         print(f"executable_list = {executable_list}")
 
-    #--------------------------------------------------------------------------
+    # Create the make command to build the executable list.
+    make_cmd = f"make {' '.join(executable_list)}"
+    if debug:
+        print(f"make_cmd = {make_cmd}")
+
+    # -------------------------------------------------------------------------
 
     # Make a list of module sets to build with.
 
     # Read the list of  module sets to use for build tests.
-    path = os.path.join(kaiju_home, KAIJU_TEST_SCRIPTS_DIRECTORY,
-                        MODULE_LIST_DIRECTORY, BUILD_TEST_LIST_FILE)
-    with open(path, encoding='utf-8') as f:
+    with open(BUILD_TEST_LIST_FILE, encoding='utf-8') as f:
         lines = f.readlines()
-    module_list_files = [s.rstrip() for s in lines]
+    module_list_files = [_.rstrip() for _ in lines]
     if debug:
         print(f"module_list_files = {module_list_files}")
 
-    #--------------------------------------------------------------------------
+    # -------------------------------------------------------------------------
 
-    # Initialize the build test report string.
-    message = f"Running {sys.argv[0]}.\n"
+    # Initalize test results for all module sets to False (failed).
+    test_passed = [False]*len(module_list_files)
 
     # Do a build with each set of modules.
-    for module_list_file in module_list_files:
+    for (i_test, module_list_file) in enumerate(module_list_files):
         if verbose:
-            print('Performing build test with module_list_file '
+            print('Performing build test with module set '
                   f"{module_list_file}")
 
-        # Create a test result message.
-        message += (
-            f"Building MAGE branch {git_branch_name} with module set "
-            f"{module_list_file}.\n"
-        )
-
         # Extract the name of the list.
-        module_list_name = module_list_file.rstrip('.lst')
+        module_set_name = module_list_file.rstrip('.lst')
         if debug:
-            print(f"module_list_name = {module_list_name}.")
+            print(f"module_set_name = {module_set_name}.")
 
         # Read this module list file, extracting cmake environment and
         # options, if any.
-        path = os.path.join(kaiju_home, KAIJU_TEST_SCRIPTS_DIRECTORY,
-                            MODULE_LIST_DIRECTORY, module_list_file)
-        if debug:
-            print(f"path = {path}")
+        path = os.path.join(MODULE_LIST_DIRECTORY, module_list_file)
+        if verbose:
+            print(f"Reading {path}.")
         module_names, cmake_environment, cmake_options = (
             common.read_build_module_list_file(path)
         )
@@ -255,77 +293,110 @@ def main():
             print(f"cmake_environment = {cmake_environment}")
             print(f"cmake_options = {cmake_options}")
 
+        # Assemble the commands to load the listed modules.
+        module_cmd = (
+            f"module --force purge"
+            f"; module load {' '.join(module_names)}"
+        )
+        if debug:
+            print(f"module_cmd = {module_cmd}")
+
         # Make a directory for this build, and go there.
-        dir_name = f"{BUILD_TEST_DIRECTORY_PREFIX}{module_list_name}"
-        build_directory = os.path.join(kaiju_home, dir_name)
+        dir_name = f"{BUILD_TEST_DIRECTORY_PREFIX}{module_set_name}"
+        build_directory = os.path.join(KAIJUHOME, dir_name)
         if debug:
             print(f"build_directory = {build_directory}")
         os.mkdir(build_directory)
         os.chdir(build_directory)
 
-        # Assemble the commands to load the listed modules.
-        module_cmd = (
-            f"module --force purge; module load {' '.join(module_names)}"
-        )
-        if debug:
-            print(f"module_cmd = {module_cmd}")
-
         # Run cmake to build the Makefile.
-        cmd = f"{module_cmd}; {cmake_environment} cmake {cmake_options} {kaiju_home}"
+        if verbose:
+            print(
+                'Running cmake to create Makefile for module set'
+                f" {module_set_name}."
+            )
+        cmd = (
+            f"{module_cmd}"
+            f"; {cmake_environment} cmake {cmake_options}"
+            f" {KAIJUHOME}"
+            '>& cmake.out'
+        )
         if debug:
             print(f"cmd = {cmd}")
         try:
-            cproc = subprocess.run(cmd, shell=True, check=True)
+            _ = subprocess.run(cmd, shell=True, check=True)
         except subprocess.CalledProcessError as e:
-            message += 'cmake failed.\n'
-            message += f"e.cmd = {e.cmd}\n"
-            message += f"e.returncode = {e.returncode}\n"
-            message += 'See test log for output.\n'
-            message += f"Skipping remaining steps for module set {module_list_file}.\n"
+            print(
+                f"ERROR: cmake for module set {module_set_name} failed.\n"
+                f"e.cmd = {e.cmd}\n"
+                f"e.returncode = {e.returncode}\n"
+                f"See {os.path.join(build_directory, 'cmake.out')}"
+                ' for output from cmake.\n'
+                f"Skipping remaining steps for module set {module_set_name}",
+                file=sys.stderr
+            )
             continue
 
         # Run the build.
-        cmd = f"{module_cmd}; make {' '.join(executable_list)}"
+        if verbose:
+            print(
+                'Running make to build kaiju for module set'
+                f" {module_set_name}."
+            )
+        cmd = f"{module_cmd}; {make_cmd} >& make.out"
         if debug:
             print(f"cmd = {cmd}")
         try:
-            cproc = subprocess.run(cmd, shell=True, check=True)
+            _ = subprocess.run(cmd, shell=True, check=True)
         except subprocess.CalledProcessError as e:
-            message += 'make failed.\n'
-            message += f"e.cmd = {e.cmd}\n"
-            message += f"e.returncode = {e.returncode}\n"
-            message += 'See test log for output.\n'
-            message += f"Skipping remaining steps for module set {module_list_file}.\n"
+            print(
+                f"ERROR: make for module set {module_set_name} failed.\n"
+                f"e.cmd = {e.cmd}\n"
+                f"e.returncode = {e.returncode}\n"
+                f"See {os.path.join(build_directory, 'make.out')}"
+                ' for output from make.\n'
+                f"Skipping remaining steps for module set {module_set_name}",
+                file=sys.stderr
+            )
             continue
 
-        # Check for all executables
+        # Check for all executables.
+        if verbose:
+            print(
+                f"Checking build results for module set {module_set_name}."
+            )
         missing = []
         for executable in executable_list:
             path = os.path.join(build_directory, BUILD_BIN_DIR, executable)
             if not os.path.isfile(path):
                 missing.append(executable)
-        if debug:
-            print(f"missing = {missing}")
         if len(missing) > 0:
             for executable in missing:
-                message += f"I couldn't build {executable}.\n"
+                print(f"ERROR: Did not build {executable}.")
         else:
-            message += (
-                f"Everything built properly on branch {git_branch_name} "
-                f"with module set {module_list_file}.\n"
-            )
+            test_passed[i_test] = True
 
-    # If this is a test run, don't post to Slack. Otherwise, if loud,
-    # send Slack message.
-    if debug:
-        print('Sending build test report to Slack.')
-    if is_test:
-        pass
-    elif be_loud:
-        common.slack_send_message(slack_client, message)
+    # End of loop over module sets.
 
-    # Send message to stdout.
-    print(message)
+    # -------------------------------------------------------------------------
+
+    # Summarize the test results
+    test_summary_message = 'Results of build tests (`buildTest.py`):\n'
+    for (i_test, module_list_file) in enumerate(module_list_files):
+        module_set_name = module_list_file.rstrip('.lst')
+        test_summary_message += f"Module set `{module_set_name}`: "
+        if test_passed[i_test]:
+            test_summary_message += 'PASSED\n'
+        else:
+            test_summary_message += '*FAILED*\n'
+    print(test_summary_message)
+
+    # If loud mode is on, post report to Slack.
+    if be_loud:
+        common.slack_send_message(slack_client, test_summary_message,
+                                  is_test=is_test)
+
+    # -------------------------------------------------------------------------
 
     if debug:
         print(f"Ending {sys.argv[0]} at {datetime.datetime.now()}")
