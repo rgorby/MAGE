@@ -105,7 +105,8 @@ if __name__ == "__main__":
     doEps = False
 
     #Usually f107   above 300 is not reliable. The daily value could be distorted by flare emissions even if the flare may only last a short time during a day.
-    maxf107 = 300.0
+    maxf107  = 300.0
+    minMfast = 1.5
 
     MainS = """ This script does several things:
                   1. Fetch OMNI data from CDAWeb between the specified times (must be at least 2 hours in length)
@@ -453,7 +454,7 @@ if __name__ == "__main__":
             else:
                 lfmD[i] = [time,n[i],v_sm[0],v_sm[1],v_sm[2],cs[i],b_sm[0],b_sm[1],b_sm[2],b[i],tilt,ae[i],al[i],au[i],symh[i],tp[i],va[i],mfast[i]]
             
-            if mfast[i] < 1.5:
+            if mfast[i] < minMfast:
                 nSub += 1
                 vxSub.append(v_sm[0])
 
