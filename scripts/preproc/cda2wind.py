@@ -473,7 +473,7 @@ if __name__ == "__main__":
                 printErrMsg("Low Mach number solar wind persists for too long (%d minutes)"%(nSub))
 
             print()
-            print(Color.CYAN+"!!!!!!!!!! WARNING LOW MACH NUMBER:  Mfast < 1.5 for %d minutes, may want to extend grid !!!!!!!!!!"%(nSub)+Color.END)
+            print(Color.CYAN+"!!!!!!!!!! WARNING LOW MACH NUMBER:  Mfast < %.3f for %d minutes, may want to extend grid !!!!!!!!!!"%(minMfast,nSub)+Color.END)
             print()
 
         print("Converting to Gamera solar wind file")
