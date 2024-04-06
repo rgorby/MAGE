@@ -50,7 +50,7 @@ contains
           do j=gApp%Grid%js,gApp%Grid%je
               write (checkMessage,'(A,A,A,I0,A,I0,A,I0,A)') 'Bad K face value in ',trim(varName),' at (',i,',',j,',',gApp%Grid%ks,')'
               checkValue = abs(var(i,j,gApp%Grid%ks,KDIR) - var(i,j,gApp%Grid%ke+1,KDIR))
-              @assertLessThanOrEqual(checkValue, 1e-8_rp,trim(checkMessage))
+              @assertLessThanOrEqual(checkValue, 0.0_rp,trim(checkMessage))
           enddo
       enddo
 
@@ -70,7 +70,7 @@ contains
           do j=gApp%Grid%js,gApp%Grid%je
               write (checkMessage,'(A,A,A,I0,A,I0,A,I0,A)') 'Bad K face value in ',trim(varName),' at (',i,',',j,',',gApp%Grid%ks,')'
               checkValue = sum(abs(var(i,j,gApp%Grid%ks,:,KDIR) - var(i,j,gApp%Grid%ke+1,:,KDIR)))
-              @assertLessThanOrEqual(checkValue, 1e-8_rp,trim(checkMessage))
+              @assertLessThanOrEqual(checkValue, 0.0_rp,trim(checkMessage))
           enddo
       enddo
 
@@ -90,7 +90,7 @@ contains
           do j=gApp%Grid%js,gApp%Grid%je+1
               write (checkMessage,'(A,A,A,I0,A,I0,A,I0,A)') 'Bad I edge value in ',trim(varName),' at (',i,',',j,',',gApp%Grid%ks,')'
               checkValue = abs(var(i,j,gApp%Grid%ks,IDIR) - var(i,j,gApp%Grid%ke+1,IDIR))
-              @assertLessThanOrEqual(checkValue, 1e-8_rp,trim(checkMessage))
+              @assertLessThanOrEqual(checkValue, 0.0_rp,trim(checkMessage))
           enddo
       enddo
 
@@ -99,7 +99,7 @@ contains
           do j=gApp%Grid%js,gApp%Grid%je
               write (checkMessage,'(A,A,A,I0,A,I0,A,I0,A)') 'Bad J edge value in ',trim(varName),' at (',i,',',j,',',gApp%Grid%ks,')'
               checkValue = abs(var(i,j,gApp%Grid%ks,JDIR) - var(i,j,gApp%Grid%ke+1,JDIR))
-              @assertLessThanOrEqual(checkValue, 1e-8_rp,trim(checkMessage))
+              @assertLessThanOrEqual(checkValue, 0.0_rp,trim(checkMessage))
           enddo
       enddo
 
@@ -119,7 +119,7 @@ contains
           do j=gApp%Grid%js,gApp%Grid%je+1
               write (checkMessage,'(A,A,A,I0,A,I0,A,I0,A)') 'Bad I edge value in ',trim(varName),' at (',i,',',j,',',gApp%Grid%ks,')'
               checkValue = sum(abs(var(i,j,gApp%Grid%ks,:,IDIR) - var(i,j,gApp%Grid%ke+1,:,IDIR)))
-              @assertLessThanOrEqual(checkValue, 1e-8_rp,trim(checkMessage))
+              @assertLessThanOrEqual(checkValue, 0.0_rp,trim(checkMessage))
           enddo
       enddo
 
@@ -128,11 +128,31 @@ contains
           do j=gApp%Grid%js,gApp%Grid%je
               write (checkMessage,'(A,A,A,I0,A,I0,A,I0,A)') 'Bad J edge value in ',trim(varName),' at (',i,',',j,',',gApp%Grid%ks,')'
               checkValue = sum(abs(var(i,j,gApp%Grid%ks,:,JDIR) - var(i,j,gApp%Grid%ke+1,:,JDIR)))
-              @assertLessThanOrEqual(checkValue, 1e-8_rp,trim(checkMessage))
+              @assertLessThanOrEqual(checkValue, 0.0_rp,trim(checkMessage))
           enddo
       enddo
 
   end subroutine verifyEdges5
+
+  subroutine verifyCenters(var,varName,is,ie,js,je,ks,ke,dn)
+      integer, intent(in) :: is,ie,js,je,ks,ke,dn
+      real(rp), intent(in) :: var(is:ie,js:je,ks:ke,dn)
+      character(len=*), intent(in) :: varName
+
+      integer :: i,j
+      character(len=strLen) :: checkMessage
+      real(rp) :: checkValue
+
+      ! Cell-Centered Values
+      do i=gApp%Grid%is,gApp%Grid%ie
+          do j=gApp%Grid%js,gApp%Grid%je
+              write (checkMessage,'(A,A,A,I0,A,I0,A,I0,A)') 'Bad CC value in ',trim(varName),' at (',i,',',j,',',gApp%Grid%ks,')'
+              checkValue = sum(abs(var(i,j,gApp%Grid%ks,:) - var(i,j,gApp%Grid%ke+1,:)))
+              @assertLessThanOrEqual(checkValue, 0.0_rp,trim(checkMessage))
+          enddo
+      enddo
+
+  end subroutine verifyCenters
 
   @test
   subroutine testFaceMetricFields()
@@ -173,6 +193,14 @@ contains
 !          gApp%Grid%jsg,gApp%Grid%jeg,&
 !          gApp%Grid%ksg,gAPp%Grid%keg, 2) ! g,g,g,2,NDIM
   end subroutine testEdgeMetricFields
+
+  @test
+  subroutine testCenterMetricFields()
+      call verifyCenters(gApp%Grid%volume, 'Volume',&
+          gApp%Grid%isg,gApp%Grid%ieg,&
+          gApp%Grid%jsg,gApp%Grid%jeg,&
+          gApp%Grid%ksg,gAPp%Grid%keg, 1) ! g,g,g,1
+  end subroutine testCenterMetricFields
 
   @test
   subroutine testFaceDataFields()
