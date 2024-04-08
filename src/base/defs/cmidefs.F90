@@ -16,9 +16,9 @@ module cmidefs
     !Default spinup time [s]
     real(rp), parameter :: tSpinDef = 14400.0
     
-    real(rp), parameter :: defD0 = dalton*1.e6 !AMU/cc -> kg/m3
-    real(rp), parameter :: defV0 = 100.e3 ! 100 km/s in m/s
-    real(rp), parameter :: defB0 = sqrt(Mu0*defD0)*defV0*1.0e+9 !T->nT
-    real(rp), parameter :: defP0 = defD0*defV0*defV0*1.0e+9 !P->nPa
+    real(rp), parameter :: defD0 = dalton*1.0D+6 !AMU/cc -> kg/m3
+    real(rp), parameter :: defV0 = 1.0D+5 ! 100 km/s in m/s
+    real(rp), parameter :: defB0 = sqrt(Mu0*defD0)*defV0*1.0D+9 !T->nT
+    real(rp), parameter :: defP0 = defD0*defV0*defV0*1.0D+9 !P->nPa
 
 end module cmidefs
