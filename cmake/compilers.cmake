@@ -81,7 +81,7 @@ set(CMAKE_Fortran_FLAGS_RELWITHDEBINFO "${CMAKE_DEFOPT} -g")
 if(CMAKE_Fortran_COMPILER_ID MATCHES Intel)
 	set(dialect "-free -implicitnone")
 	#Base
-	string(APPEND CMAKE_Fortran_FLAGS " -fPIC")
+	string(APPEND CMAKE_Fortran_FLAGS " -fPIC -fpconstant")
 	#Production
     if(NOT FAST_YOLO)
         set(PROD "-align array64byte -align rec32byte -fimf-use-svml=true -fp-model=source")
