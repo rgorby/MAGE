@@ -432,10 +432,10 @@ def Aug2D(XX,YY,doEps=False,TINY=1.0e-8,KeepOut=True,Rpx=1.15):
 	#Just reflect about X-axis
 	for i in range(0,Ng):
 		ip = i+1
-		xxG[:,jS-ip] =  xxG[:,jS+ip]
-		yyG[:,jS-ip] = -yyG[:,jS+ip]
-		xxG[:,jE+i]  =  xxG[:,jE-i-2]
-		yyG[:,jE+i]  = -yyG[:,jE-i-2]
+		xxG[:,jS-ip]    =  xxG[:,jS+ip]
+		yyG[:,jS-ip]    = -yyG[:,jS+ip]
+		xxG[:,jE-1+ip]  =  xxG[:,jE-1-ip]
+		yyG[:,jE-1+ip]  = -yyG[:,jE-1-ip]
 
 	return xxG,yyG
 
@@ -549,25 +549,60 @@ def Aug3D(xxG,yyG,Nk=32,TINY=1.0e-8):
 	nFj = Nj+1+2*Ng
 	nFk = Nk+1+2*Ng
 
+	iS = Ng
+	iE = Ng+Ni+1
+	jS = Ng
+	jE = Ng+Nj+1
+	kS = Ng
+	kE = Ng+Nk+1
+
 	X3 = np.zeros((nFi,nFj,nFk))
 	Y3 = np.zeros((nFi,nFj,nFk))
 	Z3 = np.zeros((nFi,nFj,nFk))
 	
 	#Angle about axis including ghosts
-	dA = 2*np.pi/Nk
-	A = np.linspace(0-dA*Ng,2*np.pi+dA*Ng,nFk)
+	A = np.linspace(0,2*np.pi,Nk+1)
 
-	for n in range(nFk):
-		X3[:,:,n] = xxG
-		Y3[:,:,n] = yyG*np.cos(A[n])
-		Z3[:,:,n] = yyG*np.sin(A[n])
+	for n in range(Nk+1):
+		X3[:,:,kS+n] = xxG
+		Y3[:,:,kS+n] = yyG*np.cos(A[n])
+		Z3[:,:,kS+n] = yyG*np.sin(A[n])
+	
+	# K is periodic so ensure the last entry equals the first
+	X3[:,:,kE-1] = X3[:,:,kS]
+	Y3[:,:,kE-1] = Y3[:,:,kS]
+	Z3[:,:,kE-1] = Z3[:,:,kS]
+
+	# correct K periodic ghosts
+	for i in range(0,Ng):
+		ip=i+1
+		X3[:,:,kS-ip]   = X3[:,:,kE-1-ip]
+		Y3[:,:,kS-ip]   = Y3[:,:,kE-1-ip]
+		Z3[:,:,kS-ip]   = Z3[:,:,kE-1-ip]
+		X3[:,:,kE-1+ip] = X3[:,:,kS+ip]
+		Y3[:,:,kE-1+ip] = Y3[:,:,kS+ip]
+		Z3[:,:,kE-1+ip] = Z3[:,:,kS+ip]
+
+	# correct J reflective ghosts
+	for k in range(0,nFk):
+		kp = k+Nk//2
+		if kp >= kE-1:
+			kp = k-Nk//2
+		for i in range(0,Ng):
+			ip = i+1
+			X3[:,jS-ip,k]    = X3[:,jS+ip,kp]
+			Y3[:,jS-ip,k]    = Y3[:,jS+ip,kp]
+			Z3[:,jS-ip,k]    = Z3[:,jS+ip,kp]
+			X3[:,jE-1+ip,k]  = X3[:,jE-1-ip,kp]
+			Y3[:,jE-1+ip,k]  = Y3[:,jE-1-ip,kp]
+			Z3[:,jE-1+ip,k]  = Z3[:,jE-1-ip,kp]
 
 	#Force points to plane
 	Z3[:,:,Ng] = 0.0
 	Z3[:,:,-Ng-1] = 0.0
 	Z3[:,:,Ng+Nk//2] = 0.0
 
-	Y3[:,:,Ng+Nk//4]
+	Y3[:,:,Ng+Nk//4] = 0.0
 	Y3[:,:,-Ng-Nk//4-1] = 0.0
 	
 	x0 = X3[:,Ng,Ng]

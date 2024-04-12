@@ -382,27 +382,58 @@ module ringutils
         end associate
     end subroutine RingGridFix
 
-    subroutine RingPredictorFix(Model,Grid,State)
+    subroutine RingFlux2FieldFix(Model,Grid,Bxyz)
         type(Model_T), intent(in) :: Model
-        type(Grid_T), intent(in) :: Grid
-        type(State_T), intent(inout) :: State
+        type(Grid_T) , intent(in) :: Grid
+        real(rp), dimension(Grid%isg:Grid%ieg,Grid%jsg:Grid%jeg,Grid%ksg:Grid%keg,1:NDIM), intent(inout) :: Bxyz
+        integer :: n,i,k,ig,jg,kg,ip,jp,kp
 
-        !Set singularity information and default ring configurations
-        select case (Model%Ring%GridID)
+        !Kick out the riff raff
+        if (.not. Model%doRing) return
+        if ( (.not. Model%Ring%doE) .and. (.not. Model%Ring%doS) ) return
+
+        !Okay, let's get shit done
+        select case (trim(toUpper(Model%Ring%GridID)))
             !------------------
-            case ("cyl")
-                return
+            case ("CYL")
+                write(*,*) "If you care about this configuration, you should write this routine ..."
+                stop
 
             !------------------
-            case ("lfm")
-                call HackLFMPredictor(Model,Grid,State)
+            case ("LFM")
+                !Loop through cells on the other side of the singularity and replace their Bxyz with the real cell they map to
                 
+                !$OMP PARALLEL DO default(shared) &
+                !$OMP private(n,i,k,ig,jg,kg,ip,jp,kp)
+                do k=Grid%ksg,Grid%keg
+                    do i=Grid%isg,Grid%ieg
+                        do n=1,Model%Ng
+                            if (Model%Ring%doS) then
+                                ig = i
+                                kg = k
+                                jg = Grid%js-n
+                                call lfmIJKcc(Model,Grid,ig,jg,kg,ip,jp,kp)
+                                Bxyz(ig,jg,kg,:) = Bxyz(ip,jp,kp,:)
+                            endif
+
+                            if (Model%Ring%doE) then
+                                ig = i
+                                kg = k
+                                jg = Grid%je+n
+                                call lfmIJKcc(Model,Grid,ig,jg,kg,ip,jp,kp)
+                                Bxyz(ig,jg,kg,:) = Bxyz(ip,jp,kp,:)
+                            endif
+                        enddo
+                    enddo
+                enddo !k loop        
+                        
             !------------------
             case default
                 write(*,*) 'Unknown ring type, bailing ...'
                 stop                
-        end select
-    end subroutine RingPredictorFix
+        end select        
+
+    end subroutine RingFlux2FieldFix
 
     !Replace Bxyz's inside singular region with their conjugate cell value
     subroutine HackLFMPredictor(Model,Grid,State)

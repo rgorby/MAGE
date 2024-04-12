@@ -643,6 +643,7 @@ module gamapp_mpi
         !Update ghost cells
         call Tic("Halos")
         call HaloUpdate(gamAppMpi, State)
+        call bFlux2Fld(gamAppMpi%Model, gamappMpi%Grid, State%magFlux, State%Bxyz) !Update Bxyz's
         call Toc("Halos")
 
         !Track timing for all gamera ranks to finish halo comms

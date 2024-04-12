@@ -9,12 +9,28 @@ module streamline
 
     implicit none
 
-    real(rp), parameter, private :: ShueScl = 1.25 !Safety factor for Shue MP
-    real(rp), parameter, private :: rShue   = 6.0  !Radius to start checking Shue
-    integer , parameter, private :: NpChk   = 10   !Cadence for Shue checking
+    real(rp), private :: ShueScl = 2.0 !Safety factor for Shue MP
+    real(rp), private :: rShue   = 6.0  !Radius to start checking Shue
+    integer , private :: NpChk   = 10   !Cadence for Shue checking
 
     contains
 
+    subroutine setShue(Model,inpXML)
+        type(chmpModel_T), intent(inout) :: Model
+        type(XML_Input_T), intent(inout) :: inpXML
+        if (Model%isMAGE .and. (trim(toUpper(Model%uID)) == "EARTHCODE")) then
+            !This is for Earth and we're running in tandem w/ mage
+            !Setup shue for short-circuiting
+            write(*,*) "Initializing SHUE-MP checking ..."
+            call inpXML%Set_Val(ShueScl,'streamshue/ShueScl' ,ShueScl)
+            call inpXML%Set_Val(rShue  ,'streamshue/rShue'   ,rShue  )
+            call inpXML%Set_Val(NpChk  ,'streamshue/NpChk'   ,NpChk  )
+        else
+            !Otherwise don't care about Shue
+            rShue = HUGE
+        endif
+    end subroutine setShue
+    
     !doNHO = T, assume doing RCM coupling
     subroutine genStream(Model,ebState,x0,t,fL,MaxStepsO,doShueO,doNHO)
         real(rp), intent(in) :: x0(NDIM),t
