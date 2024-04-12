@@ -292,10 +292,13 @@ def prompt_user_for_run_options(args):
     # Compute the number of segments based on the simulation duration and
     # segment duration, with 1 additional segment just for spinup. Add 1 if
     # there is a remainder.
-    num_segments = simulation_duration/float(o["segment_duration"])
-    if num_segments > int(num_segments):
-        num_segments += 1
-    num_segments = int(num_segments) + 1
+    if o["use_segments"] == "Y":
+        num_segments = simulation_duration/float(o["segment_duration"])
+        if num_segments > int(num_segments):
+            num_segments += 1
+        num_segments = int(num_segments) + 1
+    else:
+        num_segments = 1
 
     # Prompt for the remaining parameters.
     for on in ["gamera_grid_type", "gamera_grid_inner_radius", "hpc_system"]:
@@ -648,37 +651,55 @@ def create_ini_files(options):
     # Initialize the list of file paths.
     ini_files = []
 
-    # Create an .ini file for the spinup segment.
-    opt = copy.deepcopy(options)  # Need a copy of options
-    runid = opt["simulation"]["job_name"]
-    job = 0
-    segment_id = f"{runid}-{job:02d}"
-    opt["simulation"]["segment_id"] = segment_id
-    tFin = float(opt["voltron"]["time"]["tFin"])
-    dT = float(options["simulation"]["segment_duration"])
-    tFin_segment = 1.0  # Just perform spinup in first segment
-    opt["voltron"]["time"]["tFin"] = str(tFin_segment)
-    ini_content = template.render(opt)
-    ini_file = os.path.join(
-        opt["pbs"]["run_directory"], f"{opt['simulation']['segment_id']}.ini"
-    )
-    ini_files.append(ini_file)
-    with open(ini_file, "w", encoding="utf-8") as f:
-        f.write(ini_content)
+    # Create the job scripts.
+    if int(options["pbs"]["num_segments"]) > 1:
 
-    # Create an .ini file for each simulation segment.
-    for job in range(1, int(options["pbs"]["num_segments"])):
+        # Create an .ini file for the spinup segment.
+        opt = copy.deepcopy(options)  # Need a copy of options
+        runid = opt["simulation"]["job_name"]
+        job = 0
+        segment_id = f"{runid}-{job:02d}"
+        opt["simulation"]["segment_id"] = segment_id
+        tFin = float(opt["voltron"]["time"]["tFin"])
+        dT = float(options["simulation"]["segment_duration"])
+        tFin_segment = 1.0  # Just perform spinup in first segment
+        opt["voltron"]["time"]["tFin"] = str(tFin_segment)
+        ini_content = template.render(opt)
+        ini_file = os.path.join(
+            opt["pbs"]["run_directory"], f"{opt['simulation']['segment_id']}.ini"
+        )
+        ini_files.append(ini_file)
+        with open(ini_file, "w", encoding="utf-8") as f:
+            f.write(ini_content)
+
+        # Create an .ini file for each simulation segment.
+        for job in range(1, int(options["pbs"]["num_segments"])):
+            opt = copy.deepcopy(options)  # Need a copy of options
+            runid = opt["simulation"]["job_name"]
+            segment_id = f"{runid}-{job:02d}"
+            opt["simulation"]["segment_id"] = segment_id
+            opt["gamera"]["restart"]["doRes"] = "T"
+            tFin = float(opt["voltron"]["time"]["tFin"])
+            dT = float(options["simulation"]["segment_duration"])
+            tFin_segment = job*dT + 1  # Add 1 to ensure last restart file is created
+            if tFin_segment > tFin:    # Last segment may be shorter than the others.
+                tFin_segment = tFin + 1
+            opt["voltron"]["time"]["tFin"] = str(tFin_segment)
+            ini_content = template.render(opt)
+            ini_file = os.path.join(
+                opt["pbs"]["run_directory"], f"{opt['simulation']['segment_id']}.ini"
+            )
+            ini_files.append(ini_file)
+            with open(ini_file, "w", encoding="utf-8") as f:
+                f.write(ini_content)
+
+    else:
+        # Use a single job segment.
+        job = 0
         opt = copy.deepcopy(options)  # Need a copy of options
         runid = opt["simulation"]["job_name"]
         segment_id = f"{runid}-{job:02d}"
         opt["simulation"]["segment_id"] = segment_id
-        opt["gamera"]["restart"]["doRes"] = "T"
-        tFin = float(opt["voltron"]["time"]["tFin"])
-        dT = float(options["simulation"]["segment_duration"])
-        tFin_segment = job*dT + 1  # Add 1 to ensure last restart file is created
-        if tFin_segment > tFin:    # Last segment may be shorter than the others.
-            tFin_segment = tFin + 1
-        opt["voltron"]["time"]["tFin"] = str(tFin_segment)
         ini_content = template.render(opt)
         ini_file = os.path.join(
             opt["pbs"]["run_directory"], f"{opt['simulation']['segment_id']}.ini"
