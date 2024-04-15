@@ -476,7 +476,7 @@ def main():
     # Convert the UT string to a list of datetime objects.
     UT_log_dt_latest = [
         datetime.datetime.strptime(ut, '%Y-%m-%d %H:%M:%S')
-        for ut in UT_log_str_development.splitlines()
+        for ut in UT_log_str_latest.splitlines()
     ]
     if debug:
         print(f"UT_log_dt_latest = {UT_log_dt_latest}")
@@ -566,7 +566,7 @@ def main():
             label=f"Development ({git_hash_development})",
             linewidth=line_width)
     ax.plot(UT_log_dt_latest, RT_log_f_latest,
-            label=f"Latest ({git_hash_latest})",
+            label=f"{git_branch_name} ({git_hash_latest})",
             linewidth=line_width)
     ax.legend(loc='lower right', fontsize='small')
 
@@ -696,7 +696,7 @@ def main():
     # Read the git hash from the voltron output file.
     if verbose:
         print(f"Reading Git hash from {VOLTRON_OUTPUT_FILE}.")
-    git_hash_master = kh5.GetHash(VOLTRON_OUTPUT_FILE)
+    git_hash_latest = kh5.GetHash(VOLTRON_OUTPUT_FILE)
     if debug:
         print(f"git_hash_latest = {git_hash_latest}")
     # NEED CHECK CODE HERE.
@@ -745,7 +745,7 @@ def main():
             label=f"Development ({git_hash_development})",
             linewidth=2*line_width)
     ax.plot(UT_dt_latest, Dst_latest,
-            label=f"Latest ({git_hash_latest})",
+            label=f"{git_branch_name} ({git_hash_latest})",
             linewidth=2*line_width)
     ax.legend(loc='upper right', fontsize='small')
 
@@ -854,10 +854,10 @@ def main():
             label=f"Development (south) ({git_hash_development})",
             color=colors[1], linewidth=2*line_width, linestyle='dashed')
     ax.plot(UT_dt_latest, CPCP_north_latest,
-            label=f"Latest (north) ({git_hash_latest})",
+            label=f"{git_branch_name} (north) ({git_hash_latest})",
             color=colors[2], linewidth=2*line_width)
     ax.plot(UT_dt_latest, CPCP_south_latest,
-            label=f"Latest (south) ({git_hash_latest})",
+            label=f"{git_branch_name} (south) ({git_hash_latest})",
             color=colors[2], linewidth=2*line_width, linestyle='dashed')
     ax.legend(loc='upper right', fontsize='small')
 

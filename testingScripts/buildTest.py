@@ -380,36 +380,43 @@ def main():
 
     # -------------------------------------------------------------------------
 
-    # Summarize the test results
-    test_summary_message = 'Results of build tests (`buildTest.py`):\n'
+    # Detail the test results
+    test_details_message = ''
     for (i_test, module_list_file) in enumerate(module_list_files):
         module_set_name = module_list_file.rstrip('.lst')
-        test_summary_message += f"Module set `{module_set_name}`: "
+        test_details_message += f"Module set `{module_set_name}`: "
         if test_passed[i_test]:
-            test_summary_message += 'PASSED\n'
+            test_details_message += '*PASSED*\n'
         else:
-            test_summary_message += '*FAILED*\n'
+            test_details_message += '*FAILED*\n'
+
+    # Summarize the test results.
+    test_summary_message = (
+        'Summary of build test results from `buildTest.py`: '
+    )
+    if 'FAILED' in test_details_message:
+        test_summary_message += '*FAILED*\n'
+    else:
+        test_summary_message += '*ALL PASSED*\n'
+
+    # Print the test results summary and details.
     print(test_summary_message)
+    print(test_details_message)
 
     # If loud mode is on, post report to Slack.
     if be_loud:
-        message = 'Results of build tests (buildTest.py): '
-        if 'FAILED' in test_summary_message:
-            message += '*FAILED*\n'
-        else:
-            message += '*ALL PASSED*\n'
-        message += 'Details in thread for this messsage.\n'
-        slack_response = common.slack_send_message(
-            slack_client, message, is_test=is_test
+        test_summary_message += 'Details in thread for this messsage.\n'
+        slack_response_summary = common.slack_send_message(
+            slack_client, test_summary_message, is_test=is_test
         )
-        if slack_response['ok']:
-            thread_ts = slack_response['ts']
-            slack_response = common.slack_send_message(
-                slack_client, test_summary_message, thread_ts=thread_ts,
+        if slack_response_summary['ok']:
+            thread_ts = slack_response_summary['ts']
+            slack_response_details = common.slack_send_message(
+                slack_client, test_details_message, thread_ts=thread_ts,
                 is_test=is_test
             )
         else:
-            print('*ERROR* Unable to post test summary to Slack.')
+            print('*ERROR* Unable to post test result summary to Slack.')
 
     # -------------------------------------------------------------------------
 
@@ -418,5 +425,4 @@ def main():
 
 
 if __name__ == '__main__':
-    """Call main program function."""
     main()

@@ -114,8 +114,11 @@ def main():
 
     # -------------------------------------------------------------------------
 
-    # Initialize the combined report string.
-    combined_test_summary_message = ''
+    # Initialize result flags.
+    myError = False
+    jobKilled = False
+    okFailure = False
+    okCount = 0
 
     # Check the results in each unit test directory.
     for unit_test_directory in unit_test_directories:
@@ -156,9 +159,10 @@ def main():
         job_file_2 = f"nonCaseTests1.o{job_ids[2]}"
         # job_file_3 = f"nonCaseTests2.o{job_ids[3]}"  # SKIP FOR NOW
         if debug:
-            print(f"job_file_1 = {job_file_0}")
-            print(f"job_file_2 = {job_file_1}")
-            print(f"job_file_3 = {job_file_2}")
+            print(f"job_file_o = {job_file_0}")
+            print(f"job_file_1 = {job_file_1}")
+            print(f"job_file_2 = {job_file_2}")
+            # print(f"job_file_3 = {job_file_3}")
 
         # Combine the results of each test log file.
         bigFile = []
@@ -170,10 +174,6 @@ def main():
             bigFile.append('\n\n\n')
 
         # Scan through for some key things like "error" and "job killed"
-        myError = False
-        jobKilled = False
-        okFailure = False
-        okCount = 0
         for line in bigFile:
             line = line.rstrip()
             if line == ' OK':
@@ -186,38 +186,14 @@ def main():
         # There should be exactly 6 OKs (8 if job_file_3 is used).
         if okCount != 6:
             okFailure = True
+        else:
+            okFailure = False
 
         if debug:
             print(f"myError = {myError}")
             print(f"jobKilled = {jobKilled}")
             print(f"okFailure = {okFailure}")
             print(f"okCount = {okCount}")
-
-        # Summarize the test results
-        test_summary_message = ''
-        test_summary_message += 'Fortran units tests: '
-        if not okFailure and not myError and not jobKilled:
-            test_summary_message += '*PASSED*\n'
-        else:
-            test_summary_message += '*FAILED*\n'
-
-        # Update the report string.
-        if myError:
-            test_summary_message += 'There were errors!\n'
-        if jobKilled:
-            test_summary_message += 'The job was killed early!\n'
-        if okFailure:
-            test_summary_message += (
-                'There were not the correct amount of OKs!\n'
-            )
-
-        # Save the test result summary for this direectory.
-        with open(UNIT_TEST_REPORT_FILE, 'w', encoding='utf-8') as f:
-            f.write(test_summary_message)
-
-        # Update the combined report string.
-        combined_test_summary_message += test_summary_message
-        # </HACK>
 
         # End of unit test directory loop
 
@@ -226,37 +202,54 @@ def main():
 
     # If no tests were complete, say so.
     if len(unit_test_directories) == 0:
-        combined_test_summary_message = (
+        print(
             'Results of unit test report `unitTestReport.py`:\n'
             f"kaiju code branch: `{git_branch_name}`\n"
             'No Fortran unit test results were available.'
         )
 
-    # -------------------------------------------------------------------------
+    # ------------------------------------------------------------------------
+
+    # NOTE: Assumes only 1 module set was used.
+
+    # Detail the test results
+    test_details_message = ''
+    if myError:
+        test_details_message += 'Errors occurred during testing.\n'
+    if jobKilled:
+        test_details_message += 'The testing job was killed.\n'
+    if okFailure:
+        test_details_message += 'There was not the correct OK count.\n'
+    else:
+        test_details_message += 'Individual tests: *ALL PASSED*\n'
+
+    # Summarize the test results.
+    test_summary_message = (
+        'Summary of Fortran unit test results from `unitTestReport.py`: '
+    )
+    if myError or jobKilled or okFailure:
+        test_summary_message += '*FAILED*\n'
+    else:
+        test_summary_message += '*ALL PASSED*\n'
+
+    # Print the test results summary and details.
+    print(test_summary_message)
+    print(test_details_message)
 
     # If loud mode is on, post report to Slack.
     if be_loud:
-        message = 'Results of Fortran unit tests (`unitTest.py`): '
-        if 'FAILED' in test_summary_message:
-            message += '*FAILED*\n'
-        else:
-            message += '*ALL PASSED*\n'
-        message += 'Details in thread for this messsage.\n'
-        slack_response = common.slack_send_message(
-            slack_client, message, is_test=is_test
+        test_summary_message += 'Details in thread for this messsage.\n'
+        slack_response_summary = common.slack_send_message(
+            slack_client, test_summary_message, is_test=is_test
         )
-        if slack_response['ok']:
-            thread_ts = slack_response['ts']
-            print(f"thread_ts = {thread_ts}")
-            slack_response = common.slack_send_message(
-                slack_client, combined_test_summary_message, thread_ts=thread_ts,
+        if slack_response_summary['ok']:
+            thread_ts = slack_response_summary['ts']
+            slack_response_details = common.slack_send_message(
+                slack_client, test_details_message, thread_ts=thread_ts,
                 is_test=is_test
             )
         else:
-            print('*ERROR* Unable to post test summary to Slack.')
-
-    # Print the test summary.
-    print(combined_test_summary_message)
+            print('*ERROR* Unable to post test result summary to Slack.')
 
     # -------------------------------------------------------------------------
 
@@ -265,5 +258,4 @@ def main():
 
 
 if __name__ == '__main__':
-    """Call main program function."""
     main()

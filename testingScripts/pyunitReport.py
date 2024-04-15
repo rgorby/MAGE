@@ -82,26 +82,23 @@ def main():
 
     # -------------------------------------------------------------------------
 
-    # Move to the MAGE installation directory.
-    os.chdir(KAIJUHOME)
-
-    # -------------------------------------------------------------------------
-
     # Move to the python unit tests directory.
     os.chdir(PYTHON_UNIT_TEST_DIRECTORY)
 
+    # -------------------------------------------------------------------------
+
+    # Detail the test results
+    test_details_message = ''
+
     # Check that the python unit tests completed.
-    test_summary_message = (
-        'Results of python unit tests (`pyunitReport.py`):\n'
-    )
+    has_fail = False
+    has_error = False
+    has_pass = False
     if os.path.exists(PYTHON_UNIT_TEST_LOG_FILE):
-        test_summary_message += 'Python unit tests ran to completion.\n'
+        test_details_message += 'Python unit tests ran to completion.\n'
         with open(PYTHON_UNIT_TEST_LOG_FILE, encoding='utf-8') as f:
             lines = f.readlines()
         last_line = lines[-1]
-        has_fail = False
-        has_error = False
-        has_pass = False
         if 'fail' in last_line:
             has_fail = True
         if 'error' in last_line:
@@ -109,38 +106,42 @@ def main():
         if 'passed' in last_line:
             has_pass = True
         if has_error:
-            test_summary_message += 'Python unit tests error detected.\n'
+            test_details_message += 'Python unit tests error detected.\n'
         if has_fail:
-            test_summary_message += 'Python unit tests failed.\n'
+            test_details_message += 'Python unit tests: *FAILED*\n'
         if has_pass and not has_error and not has_fail:
-            test_summary_message += 'Python unit tests passed.\n'
+            test_details_message += 'Python unit tests: *PASSED*\n'
         if not has_pass and not has_error and not has_fail:
-            test_summary_message += (
+            test_details_message += (
                 'Unexpected error occured during python unit tests.\n'
             )
     else:
-        test_summary_message += 'Python unit tests did not complete.\n'
-    print(test_summary_message)
+        test_details_message += 'Python unit tests did not run to completion.\n'
+        has_pass = False
+
+    # Summarize the test results.
+    test_summary_message = (
+        'Summary of python unit test results from `pyunitReport.py`: '
+    )
+    if not has_pass:
+        test_summary_message += '*FAILED*\n'
+    else:
+        test_summary_message += '*ALL PASSED*\n'
 
     # If loud mode is on, post report to Slack.
     if be_loud:
-        message = 'Results of python unit tests (`pyunitTest.py`): '
-        if has_error or has_fail:
-            message += '*FAILED*\n'
-        else:
-            message += '*ALL PASSED*\n'
-        message += 'Details in thread for this messsage.\n'
-        slack_response = common.slack_send_message(
-            slack_client, message, is_test=is_test
+        test_summary_message += 'Details in thread for this messsage.\n'
+        slack_response_summary = common.slack_send_message(
+            slack_client, test_summary_message, is_test=is_test
         )
-        if slack_response['ok']:
-            thread_ts = slack_response['ts']
-            slack_response = common.slack_send_message(
-                slack_client, test_summary_message, thread_ts=thread_ts,
+        if slack_response_summary['ok']:
+            thread_ts = slack_response_summary['ts']
+            slack_response_details = common.slack_send_message(
+                slack_client, test_details_message, thread_ts=thread_ts,
                 is_test=is_test
             )
         else:
-            print('*ERROR* Unable to post test summary to Slack.')
+            print('*ERROR* Unable to post test result summary to Slack.')
 
     # -------------------------------------------------------------------------
 

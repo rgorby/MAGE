@@ -132,16 +132,6 @@ def main():
 
     # Run the Intel Inspector checks with each set of modules.
 
-    # Initialize the report string.
-    test_summary_message = f"Running `{sys.argv[0]}`.\n"
-
-    # <HACK>
-    test_summary_message += (
-        'WARNING: Inspector checks all disabled due to failure to run, or'
-        ' timeout issues.\n'
-    )
-    # </HACK>
-
     # Run Intel checks with each set of modules.
     for module_list_file in module_list_files:
         if verbose:
@@ -204,14 +194,12 @@ def main():
         try:
             cproc = subprocess.run(cmd, shell=True, check=True)
         except subprocess.CalledProcessError as e:
-            test_summary_message += 'cmake failed.\n'
-            test_summary_message += f"e.cmd = {e.cmd}\n"
-            test_summary_message += f"e.returncode = {e.returncode}\n"
-            test_summary_message += 'See test log for output.\n'
-            test_summary_message += (
-                'Skipping remaining steps for module set'
-                f" {module_list_file}.\n"
-            )
+            print('cmake failed.')
+            print(f"e.cmd = {e.cmd}")
+            print(f"e.returncode = {e.returncode}")
+            print('See test log for output.')
+            print('Skipping remaining steps for module set'
+                  f" {module_list_file}.")
             continue
 
         # Run the build.
@@ -226,14 +214,12 @@ def main():
         try:
             cproc = subprocess.run(cmd, shell=True, check=True)
         except subprocess.CalledProcessError as e:
-            test_summary_message += 'make failed.\n'
-            test_summary_message += f"e.cmd = {e.cmd}\n"
-            test_summary_message += f"e.returncode = {e.returncode}\n"
-            test_summary_message += 'See test log for output.\n'
-            test_summary_message += (
-                'Skipping remaining steps for module set'
-                f" {module_list_file}.\n"
-            )
+            print('make failed.')
+            print(f"e.cmd = {e.cmd}")
+            print(f"e.returncode = {e.returncode}")
+            print('See test log for output.')
+            print('Skipping remaining steps for module set'
+                  f" {module_list_file}.")
             continue
 
         # Go to the bin directory for testing.
@@ -279,54 +265,62 @@ def main():
                 cproc = subprocess.run(cmd, shell=True, check=True,
                                        text=True, capture_output=True)
             except subprocess.CalledProcessError as e:
-                test_summary_message += 'qsub failed.\n'
-                test_summary_message += f"e.cmd = {e.cmd}\n"
-                test_summary_message += f"e.returncode = {e.returncode}\n"
-                test_summary_message += 'See test log for output.\n'
-                test_summary_message += (
-                    'Skipping remaining steps for module set'
-                    f" {module_list_file}.\n"
-                )
+                print('qsub failed.')
+                print(f"e.cmd = {e.cmd}")
+                print(f"e.returncode = {e.returncode}")
+                print('See test log for output.')
+                print('Skipping remaining steps for module set'
+                      f" {module_list_file}.\n")
                 continue
             job_id = cproc.stdout.split('.')[0]
             if debug:
                 print(f"job_id = {job_id}")
             job_ids.append(job_id)
 
-            # Update the Slack message.
-            test_summary_message += f"Submitted {pbs_file} as job {job_id}."
-
         # Record the job IDs.
         with open('jobs.txt', 'w', encoding='utf-8') as f:
             for job_id in job_ids:
                 f.write(f"{job_id}\n")
 
+    # -------------------------------------------------------------------------
+
+    # Detail the test results
+    test_details_message = ''
+    test_details_message += (
+        'All tests using Intel Inspector tools are currently disabled'
+        ' since we have not updated our code to use the new versions of the'
+        ' tools currently available on `derecho`.'
+    )
+
+    # Summarize the test results
+    test_summary_message = (
+        'Intel Inspector tests skipped (`intelChecks.py`).\n'
+    )
+
+    # Print the test results summary and details.
+    print(test_summary_message)
+    print(test_details_message)
+
     # If loud mode is on, post report to Slack.
     if be_loud:
-        message = 'Results of Intel Inspector tests (`intelChecks.py`): '
-        message += '*FAILED (expected)*\n'
-        message += 'Details in thread for this messsage.\n'
-        common.slack_send_message(slack_client, message)
-        slack_response = common.slack_send_message(
-            slack_client, message, is_test=is_test
+        test_summary_message += 'Details in thread for this messsage.\n'
+        slack_response_summary = common.slack_send_message(
+            slack_client, test_summary_message, is_test=is_test
         )
-        if slack_response['ok']:
-            thread_ts = slack_response['ts']
-            print(f"thread_ts = {thread_ts}")
-            slack_response = common.slack_send_message(
-                slack_client, test_summary_message, thread_ts=thread_ts,
+        if slack_response_summary['ok']:
+            thread_ts = slack_response_summary['ts']
+            slack_response_details = common.slack_send_message(
+                slack_client, test_details_message, thread_ts=thread_ts,
                 is_test=is_test
             )
         else:
-            print('*ERROR* Unable to post test summary to Slack.')
+            print('*ERROR* Unable to post test result summary to Slack.')
 
-    # Send message to stdout.
-    print(message)
+    # -------------------------------------------------------------------------
 
     if debug:
         print(f"Ending {sys.argv[0]} at {datetime.datetime.now()}")
 
 
 if __name__ == '__main__':
-    """Call main program function."""
     main()

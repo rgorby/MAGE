@@ -361,27 +361,50 @@ def main():
 
     # End of loop over module sets
 
-    # -------------------------------------------------------------------------
+    # ------------------------------------------------------------------------
+
+    # NOTE: Assumes only 1 module set was used.
+
+    # Detail the test results
+    test_details_message = ''
+    test_details_message += (
+        'Fortran unit test PBS job script `genTestData.pbs` submitted as job '
+        f"{job_ids[0][0]}.\n"
+    )
+    test_details_message += (
+        'Fortran unit test PBS job script `runCaseTests.pbs` submitted as job '
+        f"{job_ids[0][1]}.\n"
+    )
+    test_details_message += (
+        'Fortran unit test PBS job script `runNonCaseTests1.pbs` submitted as'
+        f" job {job_ids[0][2]}.\n"
+    )
+    test_details_message += (
+        'Fortran unit test PBS job script `runNonCaseTests2.pbs` skipped'
+        ' since it currently hangs on `derecho`.\n'
+    )
 
     # Summarize the test results
-    test_summary_message = (
-        'Results of Fortran unit test submission `unitTest.py`):\n'
-    )
-    for (i_set, module_set_name) in enumerate(module_set_names):
-        for (j_pbs, pbs_file) in enumerate(UNIT_TEST_PBS_SCRIPTS):
-            test_summary_message += (
-                f"Module set `{module_set_name}`, submit `{pbs_file}`: "
-            )
-            if job_ids[i_set][j_pbs] is not None:
-                test_summary_message += f"{job_ids[i_set][j_pbs]}\n"
-            else:
-                test_summary_message += '*FAILED*\n'
+    test_summary_message = 'Fortran unit tests submitted (`unitTest.py`).\n'
+
+    # Print the test results summary and details.
     print(test_summary_message)
+    print(test_details_message)
 
     # If loud mode is on, post report to Slack.
     if be_loud:
-        common.slack_send_message(slack_client, test_summary_message,
-                                  is_test=is_test)
+        test_summary_message += 'Details in thread for this messsage.\n'
+        slack_response_summary = common.slack_send_message(
+            slack_client, test_summary_message, is_test=is_test
+        )
+        if slack_response_summary['ok']:
+            thread_ts = slack_response_summary['ts']
+            slack_response_details = common.slack_send_message(
+                slack_client, test_details_message, thread_ts=thread_ts,
+                is_test=is_test
+            )
+        else:
+            print('*ERROR* Unable to post test result summary to Slack.')
 
     # -------------------------------------------------------------------------
 

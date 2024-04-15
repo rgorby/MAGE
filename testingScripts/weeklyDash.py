@@ -263,14 +263,13 @@ def main():
         try:
             _ = subprocess.run(cmd, shell=True, check=True)
         except subprocess.CalledProcessError as e:
-            test_summary_message += (
-                f"ERROR: cmake for module set {module_set_name} failed.\n"
-                f"e.cmd = {e.cmd}\n"
-                f"e.returncode = {e.returncode}\n"
-                f"See {os.path.join(build_directory, 'cmake.out')}"
-                ' for output from cmake.\n'
-                f"Skipping remaining steps for module set {module_set_name}\n"
-            )
+            print(f"ERROR: cmake for module set {module_set_name} failed.\n"
+                  f"e.cmd = {e.cmd}\n"
+                  f"e.returncode = {e.returncode}\n"
+                  f"See {os.path.join(build_directory, 'cmake.out')}"
+                  ' for output from cmake.\n'
+                  'Skipping remaining steps for module set'
+                  f" {module_set_name}\n")
             continue
 
         # Run the build.
@@ -285,14 +284,13 @@ def main():
         try:
             _ = subprocess.run(cmd, shell=True, check=True)
         except subprocess.CalledProcessError as e:
-            test_summary_message += (
-                f"ERROR: make for module set {module_set_name} failed.\n"
-                f"e.cmd = {e.cmd}\n"
-                f"e.returncode = {e.returncode}\n"
-                f"See {os.path.join(build_directory, 'make.out')}"
-                ' for output from make.\n'
-                f"Skipping remaining steps for module set {module_set_name}\n"
-            )
+            print(f"ERROR: make for module set {module_set_name} failed.\n"
+                  f"e.cmd = {e.cmd}\n"
+                  f"e.returncode = {e.returncode}\n"
+                  f"See {os.path.join(build_directory, 'make.out')}"
+                  ' for output from make.\n'
+                  'Skipping remaining steps for module set'
+                  f" {module_set_name}\n")
             continue
 
         # Move into the bin directory to run the tests.
@@ -307,14 +305,13 @@ def main():
         try:
             _ = subprocess.run(cmd, shell=True, check=True)
         except subprocess.CalledProcessError as e:
-            test_summary_message += (
-                'ERROR: Unable to create LFM grid file for module set '
-                f"{module_set_name}.\n"
-                f"e.cmd = {e.cmd}\n"
-                f"e.returncode = {e.returncode}\n"
-                'See testing log for output from genLFM.py.\n'
-                f"Skipping remaining steps for module set {module_set_name}\n"
-            )
+            print('ERROR: Unable to create LFM grid file for module set '
+                  f"{module_set_name}.\n"
+                  f"e.cmd = {e.cmd}\n"
+                  f"e.returncode = {e.returncode}\n"
+                  'See testing log for output from genLFM.py.\n'
+                  'Skipping remaining steps for module set'
+                  f"{module_set_name}\n")
             continue
 
         # Compare the new LFM grid file to the reference version.
@@ -327,20 +324,19 @@ def main():
             cproc = subprocess.run(cmd, shell=True, check=True,
                                    text=True, capture_output=True)
         except subprocess.CalledProcessError as e:
-            test_summary_message += (
-                'ERROR: Error comparing LFM grid file for module set '
-                f"{module_set_name} to reference version.\n"
-                f"e.cmd = {e.cmd}\n"
-                f"e.returncode = {e.returncode}\n"
-                'See testing log for output from h5diff.\n'
-                f"Skipping remaining steps for module set {module_set_name}\n"
-            )
+            print('ERROR: Error comparing LFM grid file for module set '
+                  f"{module_set_name} to reference version.\n"
+                  f"e.cmd = {e.cmd}\n"
+                  f"e.returncode = {e.returncode}\n"
+                  'See testing log for output from h5diff.\n'
+                  'Skipping remaining steps for module set'
+                  f"{module_set_name}\n")
             continue
         grid_diff = cproc.stdout.rstrip()
         if debug:
             print(f"grid_diff = {grid_diff}")
         if grid_diff != '':
-            test_summary_message += ('LFM grid for weekly dash has changed on branch'
+            print('LFM grid for weekly dash has changed on branch'
                   f" {git_branch_name}. Case cannot be run. Please"
                   ' re-generate restart data, and ensure the grid change'
                   ' was intentional.\n')
@@ -355,14 +351,13 @@ def main():
         try:
             _ = subprocess.run(cmd, shell=True, check=True)
         except subprocess.CalledProcessError as e:
-            test_summary_message += (
-                'ERROR: Unable to create solar wind boundary conditions file'
-                f" for module set {module_set_name}.\n"
-                f"e.cmd = {e.cmd}\n"
-                f"e.returncode = {e.returncode}\n"
-                'See testing log for output from cda2wind.py.\n'
-                f"Skipping remaining steps for module set {module_set_name}\n"
-            )
+            print('ERROR: Unable to create solar wind boundary conditions file'
+                  f" for module set {module_set_name}.\n"
+                  f"e.cmd = {e.cmd}\n"
+                  f"e.returncode = {e.returncode}\n"
+                  'See testing log for output from cda2wind.py.\n'
+                  'Skipping remaining steps for module set'
+                  f"{module_set_name}\n")
             continue
 
         # Compare the new solar wind boundary condition file to the original.
@@ -375,20 +370,19 @@ def main():
             cproc = subprocess.run(cmd, shell=True, check=True,
                                    text=True, capture_output=True)
         except subprocess.CalledProcessError as e:
-            test_summary_message += (
-                'ERROR: Error comparing solar wind file for module set '
-                f"{module_set_name} to reference version.\n"
-                f"e.cmd = {e.cmd}\n"
-                f"e.returncode = {e.returncode}\n"
-                'See testing log for output from h5diff.\n'
-                f"Skipping remaining steps for module set {module_set_name}\n"
-            )
+            print('ERROR: Error comparing solar wind file for module set '
+                  f"{module_set_name} to reference version.\n"
+                  f"e.cmd = {e.cmd}\n"
+                  f"e.returncode = {e.returncode}\n"
+                  'See testing log for output from h5diff.\n'
+                  'Skipping remaining steps for module set'
+                  f"{module_set_name}\n")
             continue
         wind_diff = cproc.stdout.rstrip()
         if debug:
             print(f"wind_diff = {wind_diff}")
         if wind_diff != '':
-            test_summary_message += ('Solar wind data for weekly dash has changed on branch'
+            print('Solar wind data for weekly dash has changed on branch'
                   f" {git_branch_name}. Case cannot be run. Please"
                   ' re-generate restart data, and ensure the change'
                   ' was intentional.\n')
@@ -403,14 +397,12 @@ def main():
         try:
             _ = subprocess.run(cmd, shell=True, check=True)
         except subprocess.CalledProcessError as e:
-            test_summary_message += (
-                'ERROR: Unable to create RCM configuration file'
-                f" for module set {module_set_name}.\n"
-                f"e.cmd = {e.cmd}\n"
-                f"e.returncode = {e.returncode}\n"
-                'See testing log for output from genRCM.py.\n'
-                f"Skipping remaining steps for module set {module_set_name}\n"
-            )
+            print('ERROR: Unable to create RCM configuration file'
+                  f" for module set {module_set_name}.\n"
+                  f"e.cmd = {e.cmd}\n"
+                  f"e.returncode = {e.returncode}\n"
+                  'See testing log for output from genRCM.py.\n'
+                  f"Skipping remaining steps for module set {module_set_name}\n")
             continue
 
         # Compare the new RCM configuration file to the original.
@@ -423,19 +415,17 @@ def main():
             cproc = subprocess.run(cmd, shell=True, check=True,
                                    text=True, capture_output=True)
         except subprocess.CalledProcessError as e:
-            test_summary_message += (
-                'ERROR (expected): Error comparing RCM configuration file for'
-                f" module set {module_set_name} to reference version.\n"
-                f"e.cmd = {e.cmd}\n"
-                f"e.returncode = {e.returncode}\n"
-                'See testing log for output from h5diff.\n'
-            )
+            print('ERROR (expected): Error comparing RCM configuration file for'
+                  f" module set {module_set_name} to reference version.\n"
+                  f"e.cmd = {e.cmd}\n"
+                  f"e.returncode = {e.returncode}\n"
+                  'See testing log for output from h5diff.\n')
             # continue  ERROR EXPECTED FOR NOW
         rcm_diff = cproc.stdout.rstrip()
         if debug:
             print(f"rcm_diff = {rcm_diff}")
         if rcm_diff != '':
-            test_summary_message += ('RCM configuration for weekly dash has changed on branch'
+            print('RCM configuration for weekly dash has changed on branch'
                   f" {git_branch_name}. Case cannot be run. Please"
                   ' re-generate restart data, and ensure the change'
                   ' was intentional.\n')
@@ -463,14 +453,12 @@ def main():
             cproc = subprocess.run(cmd, shell=True, check=True,
                                    text=True, capture_output=True)
         except subprocess.CalledProcessError as e:
-            test_summary_message += (
-                'ERROR: Unable to submit job request for module set '
-                f"{module_set_name}.\n"
-                f"e.cmd = {e.cmd}\n"
-                f"e.returncode = {e.returncode}\n"
-                'See testing log for output.\n'
-                f"Skipping remaining steps for module set {module_set_name}\n"
-            )
+            print('ERROR: Unable to submit job request for module set '
+                  f"{module_set_name}.\n"
+                  f"e.cmd = {e.cmd}\n"
+                  f"e.returncode = {e.returncode}\n"
+                  'See testing log for output.\n'
+                  f"Skipping remaining steps for module set {module_set_name}\n")
             continue
         firstJobNumber = cproc.stdout.split('.')[0]
         if debug:
@@ -480,32 +468,35 @@ def main():
         with open('jobs.txt', 'w', encoding='utf-8') as f:
             f.write(f"{firstJobNumber}\n")
 
-        # Summarize the test results
-        test_summary_message = (
-            f"Weekly dash run with module set {module_set_name} "
-            f"(`weeklyDash.py`) submitted as job {firstJobNumber}.\n"
-        )
-        print(test_summary_message)
+    # ------------------------------------------------------------------------
 
-        # If loud mode is on, post report to Slack.
-        if be_loud:
-            message = 'Results of weekly dash submission (`weeklyDash.py`): '
-            if 'ERROR' in test_summary_message:
-                message += '*FAILED*\n'
-            else:
-                message += '*ALL PASSED*\n'
-            message += 'Details in thread for this messsage.\n'
-            slack_response = common.slack_send_message(
-                slack_client, message, is_test=is_test
+    # NOTE: Assumes only 1 module set was used.
+
+    # Detail the test results
+    test_details_message = ''
+    test_details_message += f"Weekly dash submitted as job {firstJobNumber}."
+
+    # Summarize the test results.
+    test_summary_message = 'Weekly dash submitted (`weeklyDash.py`)'
+
+    # Print the test results summary and details.
+    print(test_summary_message)
+    print(test_details_message)
+
+    # If loud mode is on, post report to Slack.
+    if be_loud:
+        test_summary_message += 'Details in thread for this messsage.\n'
+        slack_response_summary = common.slack_send_message(
+            slack_client, test_summary_message, is_test=is_test
+        )
+        if slack_response_summary['ok']:
+            thread_ts = slack_response_summary['ts']
+            slack_response_details = common.slack_send_message(
+                slack_client, test_details_message, thread_ts=thread_ts,
+                is_test=is_test
             )
-            if slack_response['ok']:
-                thread_ts = slack_response['ts']
-                slack_response = common.slack_send_message(
-                    slack_client, test_summary_message, thread_ts=thread_ts,
-                    is_test=is_test
-                )
         else:
-            print('*ERROR* Unable to post test summary to Slack.')
+            print('*ERROR* Unable to post test result summary to Slack.')
 
     # -------------------------------------------------------------------------
 
