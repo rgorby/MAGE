@@ -276,34 +276,18 @@ def downVolt(G):
 #Upscale gBAvg variable (G) on grid X,Y,Z to doubled grid with simple linear interpolation.
 #Typical size at quad for example: gBAvg                    Dataset {3, 128, 96, 1}
 def upVolt(G):
-	try:
-		Nd,Nk,Nj,Ni = G.shape
-		Gu = np.zeros((Nd,2*Nk,2*Nj,Ni))
-		print("Upscaling volt variables gBAvg etc...")
-		#Loop over coarse grid
-		for d in range(Nd):
-			for i in range(Ni):
-				for k in range(Nk):
-					for j in range(Nj):
-						Gjk = G[d,k,j,i]
-						j0 = 2*j
-						k0 = 2*k
-						Gu[d,k0:k0+2,j0:j0+2,i] = Gjk
-	except:
-		Nd,Nk,Nj,Ni,Nh = G.shape
-		Gu = np.zeros((Nd,2*Nk,2*Nj,Ni,Nh))
-		print("Upscaling volt variables gBHist etc...")
-		print(G.shape)
-		#Loop over coarse grid
-		for h in range(Nh):
-			for d in range(Nd):
-				for i in range(Ni):
-					for k in range(Nk):
-						for j in range(Nj):
-							Gjk = G[d,k,j,i,h]
-							j0 = 2*j
-							k0 = 2*k
-							Gu[d,k0:k0+2,j0:j0+2,i,h] = Gjk
+	Nd,Nk,Nj,Ni = G.shape
+	Gu = np.zeros((Nd,2*Nk,2*Nj,Ni))
+	print("Upscaling volt variables gBAvg etc...")
+	#Loop over coarse grid
+	for d in range(Nd):
+		for i in range(Ni):
+			for k in range(Nk):
+				for j in range(Nj):
+					Gjk = G[d,k,j,i]
+					j0 = 2*j
+					k0 = 2*k
+					Gu[d,k0:k0+2,j0:j0+2,i] = Gjk
 	return Gu
 
 #Downscale gas variable (G) on grid X,Y,Z (w/ ghosts) to halved grid

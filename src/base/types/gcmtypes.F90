@@ -29,7 +29,6 @@ module gcmtypes
       real(rp), dimension(:), allocatable :: time,lev,lon,clat,lat
       real(rp),dimension(:,:),allocatable :: gx,gy
       real(rp),dimension(:,:,:),allocatable :: glon,gclat
-      real(rp), dimension(:,:,:), allocatable :: invar2d, outvar2d
       integer :: cplStep = 1
       !character(len=strlen) :: mix2gcmH5,gcm2mixH5,mix2gcmLock,gcm2mixLock
       character(len=strlen) :: mix2gcmH5 = "mix4gcm.h5"
