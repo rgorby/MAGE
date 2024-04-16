@@ -24,9 +24,7 @@ Eric Winter
 
 # Import standard modules.
 import datetime
-# import glob
 import os
-# import shutil
 import subprocess
 import sys
 
@@ -44,9 +42,15 @@ DESCRIPTION = 'Script for MAGE build testing'
 # Root of directory tree for this set of tests.
 MAGE_TEST_SET_ROOT = os.environ['MAGE_TEST_SET_ROOT']
 
+# Directory for build tests
+BUILD_TEST_DIRECTORY = os.path.join(MAGE_TEST_SET_ROOT, 'buildTest')
+
 # Path to directory to use for building executable list
-EXECUTABLE_LIST_BUILD_DIRECTORY = os.path.join(MAGE_TEST_SET_ROOT,
+EXECUTABLE_LIST_BUILD_DIRECTORY = os.path.join(BUILD_TEST_DIRECTORY,
                                                'build_executable_list')
+
+# Prefix for naming build test directories
+BUILD_TEST_DIRECTORY_PREFIX = 'buildTest_'
 
 # Home directory of kaiju installation
 KAIJUHOME = os.environ['KAIJUHOME']
@@ -63,9 +67,6 @@ EXECUTABLE_LIST_MODULE_LIST = os.path.join(MODULE_LIST_DIRECTORY, '01.lst')
 
 # Path to file containing list of module sets to use for build tests
 BUILD_TEST_LIST_FILE = os.path.join(MODULE_LIST_DIRECTORY, 'build_test.lst')
-
-# Prefix for naming build test directories
-BUILD_TEST_DIRECTORY_PREFIX = 'build_'
 
 # Name of subdirectory of current build subdirectory containing binaries
 BUILD_BIN_DIR = 'bin'
@@ -249,7 +250,7 @@ def main():
 
         # Make a directory for this build, and go there.
         dir_name = f"{BUILD_TEST_DIRECTORY_PREFIX}{module_set_name}"
-        build_directory = os.path.join(MAGE_TEST_SET_ROOT, dir_name)
+        build_directory = os.path.join(BUILD_TEST_DIRECTORY, dir_name)
         if debug:
             print(f"build_directory = {build_directory}")
         os.mkdir(build_directory)
