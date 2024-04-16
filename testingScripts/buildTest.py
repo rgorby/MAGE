@@ -326,7 +326,7 @@ def main():
 
     # -------------------------------------------------------------------------
 
-    Set up for communication with Slack.
+    # Set up for communication with Slack.
     slack_client = common.slack_create_client()
     if debug:
         print(f"slack_client = {slack_client}")
@@ -368,7 +368,7 @@ def main():
                 slack_client, test_report_details_string, thread_ts=thread_ts,
                 is_test=is_test
             )
-            if not 'ok' in slack_response_summary:
+            if 'ok' not in slack_response_details:
                 print('*ERROR* Unable to post test details to Slack.')
         else:
             print('*ERROR* Unable to post test summary to Slack.')
