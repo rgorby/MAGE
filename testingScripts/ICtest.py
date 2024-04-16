@@ -60,23 +60,27 @@ IC_BUILD_TEST_DIRECTORY = os.path.join(KAIJUHOME, 'ICBuilds')
 TEST_SCRIPTS_DIRECTORY = os.path.join(KAIJUHOME, 'testingScripts')
 
 # Path to directory containing module lists
-MODULE_LIST_DIRECTORY = os.path.join(TEST_SCRIPTS_DIRECTORY,
-                                     'mage_build_test_modules')
+MODULE_LIST_DIRECTORY = os.path.join(
+    TEST_SCRIPTS_DIRECTORY, 'mage_build_test_modules'
+)
 
 # Path to file containing names of module lists to use for initial
 # condition build tests
 # Path to module list file to use when generating the list of executables
-IC_BUILD_TEST_LIST_FILE = os.path.join(MODULE_LIST_DIRECTORY,
-                                       'initial_condition_build_test.lst')
+INITIAL_CONDITION_BUILD_TEST_LIST_FILE = os.path.join(
+    MODULE_LIST_DIRECTORY, 'initial_condition_build_test.lst'
+)
 
-# # Path to directory containing initial condition source code
-# IC_SRC_DIRECTORY = os.path.join(KAIJUHOME, 'src', 'gamera', 'ICs')
+# Path to directory containing initial condition source code
+INITIAL_CONDITION_SRC_DIRECTORY = os.path.join(
+    KAIJUHOME, 'src', 'gamera', 'ICs'
+)
 
-# # Prefix for subdirectory names for individual builds.
-# IC_BUILD_DIR_PREFIX = 'gamera_'
+# Prefix for subdirectory names for individual builds.
+INITIAL_CONDITION_BUILD_DIR_PREFIX = 'ICtest_'
 
-# # Name of build subdirectory containing binaries
-# BUILD_BIN_DIR = 'bin'
+# Name of build subdirectory containing binaries
+BUILD_BIN_DIR = 'bin'
 
 
 def main():
@@ -116,15 +120,16 @@ def main():
 
     # -------------------------------------------------------------------------
 
-    # Move to the root of the directory tree for this set of tests.
-    os.chdir(MAGE_TEST_SET_ROOT)
+    # Make a directory to hold all of the initial condition build tests.
+    print(f"Creating ${INITIAL_CONDITION_BUILD_TEST_DIRECTORY}.")
+    os.mkdir(INITIAL_CONDITION_BUILD_TEST_DIRECTORY)
 
     # -------------------------------------------------------------------------
 
     # Make a list of module sets to build with.
 
     # Read the list of  module sets to use for build tests.
-    with open(IC_BUILD_TEST_LIST_FILE, encoding='utf-8') as f:
+    with open(INITIAL_CONDITION_BUILD_TEST_LIST_FILE, encoding='utf-8') as f:
         lines = f.readlines()
     module_list_files = [_.rstrip() for _ in lines]
     if debug:
@@ -132,24 +137,20 @@ def main():
 
     # -------------------------------------------------------------------------
 
-    # # Create the top-level directory for the initial condition tests.
-    # os.mkdir(IC_BUILD_TEST_DIRECTORY)
+    # Get a list of initial conditions to try, ignoring files in the
+    # "deprecated" folder. GAMERA ONLY FOR NOW.
+    initial_condition_paths = []
 
-    # # -------------------------------------------------------------------------
+    for root, directories, filenames in os.walk(INITIAL_CONDITION_SRC_DIRECTORY):
+        if 'deprecated' not in root and 'underdev' not in root:
+            for filename in filenames:
+                initial_condition_paths.append(os.path.join(root, filename))
+    if debug:
+        print(f"initial_condition_paths = {initial_condition_paths}")
 
-    # # Get a list of initial conditions to try, ignoring files in the
-    # # "deprecated" folder. GAMERA ONLY FOR NOW.
-    # initial_condition_paths = []
-    # for root, directories, filenames in os.walk(IC_SRC_DIRECTORY):
-    #     if 'deprecated' not in root and 'underdev' not in root:
-    #         for filename in filenames:
-    #             initial_condition_paths.append(os.path.join(root, filename))
-    # if debug:
-    #     print(f"initial_condition_paths = {initial_condition_paths}")
+    # -------------------------------------------------------------------------
 
-    # # -------------------------------------------------------------------------
-
-    # # Build using each set of modules and each initial condition.
+    # Build using each set of modules and each initial condition.
 
     # # Initalize test results for all module sets and initial conditions to
     # # False (failed).
@@ -209,7 +210,7 @@ def main():
     #         # Make a directory for this test, and go there.
     #         build_directory = os.path.join(
     #             IC_BUILD_TEST_DIRECTORY,
-    #             f"{IC_BUILD_DIR_PREFIX}{initial_condition_name}"
+    #             f"{INITIAL_CONDITION_BUILD_DIR_PREFIX}{initial_condition_name}"
     #             f"_{module_set_name}"
     #         )
     #         if debug:
