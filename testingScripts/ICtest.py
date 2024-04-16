@@ -27,8 +27,7 @@ Eric Winter
 # Import standard modules.
 import datetime
 import os
-# import shutil
-# import subprocess
+import subprocess
 import sys
 
 # Import 3rd-party modules.
@@ -204,97 +203,97 @@ def main():
                       f"initial condition {initial_condition_name}.")
 
             # Make a directory for this build, and go there.
-            dir_name = os.path.join(
+            build_directory = os.path.join(
                 INITIAL_CONDITION_BUILD_TEST_DIRECTORY,
                 f"{INITIAL_CONDITION_BUILD_DIR_PREFIX}{initial_condition_name}"
                 f"_{module_set_name}"
             )
             if debug:
-                print(f"build_directory = {dir_name}")
-            os.mkdir(dir_name)
-            os.chdir(dir_name)
+                print(f"build_directory = {build_directory}")
+            os.mkdir(build_directory)
+            os.chdir(build_directory)
 
-    #         # Add cmake options for initial condition test builds.
-    #         IC_cmake_options = (
-    #             f"{cmake_options} -DGAMIC:FILEPATH={initial_condition_path}"
-    #         )
-    #         if debug:
-    #             print(f"IC_cmake_options = {IC_cmake_options}")
+            # Add extra cmake options for initial condition test builds.
+            IC_cmake_options = (
+                f"{cmake_options} -DGAMIC:FILEPATH={initial_condition_path}"
+            )
+            if debug:
+                print(f"IC_cmake_options = {IC_cmake_options}")
 
-    #         # Run cmake to build the Makefile.
-    #         if verbose:
-    #             print(
-    #                 'Running cmake to create Makefile for module set'
-    #                 f" {module_set_name},"
-    #                 f" initial condition {initial_condition_name}."
-    #             )
-    #         cmd = (
-    #             f"{module_cmd}"
-    #             f"; {cmake_environment} cmake {IC_cmake_options}"
-    #             f" {KAIJUHOME}"
-    #             '>& cmake.out'
-    #         )
-    #         if debug:
-    #             print(f"cmd = {cmd}")
-    #         try:
-    #             _ = subprocess.run(cmd, shell=True, check=True)
-    #         except subprocess.CalledProcessError as e:
-    #             print(
-    #                 f"ERROR: cmake for module set {module_set_name}, "
-    #                 f"initial condition {initial_condition_name} failed.\n"
-    #                 f"e.cmd = {e.cmd}\n"
-    #                 f"e.returncode = {e.returncode}\n"
-    #                 f"See {os.path.join(build_directory, 'cmake.out')}"
-    #                 ' for output from cmake.\n'
-    #                 "Skipping remaining steps for module set "
-    #                 f"{module_set_name}, initial condition "
-    #                 "{initial_condition_name}.",
-    #                 file=sys.stderr
-    #             )
-    #             continue
+            # Run cmake to build the Makefile.
+            if verbose:
+                print(
+                    'Running cmake to create Makefile for module set'
+                    f" {module_set_name},"
+                    f" initial condition {initial_condition_name}."
+                )
+            cmd = (
+                f"{module_cmd}; {cmake_environment} cmake {IC_cmake_options}"
+                f" {KAIJUHOME} >& cmake.out"
+            )
+            if debug:
+                print(f"cmd = {cmd}")
+            try:
+                # NOTE: stdout and stderr goes into cmake.out.
+                _ = subprocess.run(cmd, shell=True, check=True)
+            except subprocess.CalledProcessError as e:
+                print(
+                    f"ERROR: cmake for module set {module_set_name}, "
+                    f"initial condition {initial_condition_name} failed.\n"
+                    f"e.cmd = {e.cmd}\n"
+                    f"e.returncode = {e.returncode}\n"
+                    f"See {os.path.join(build_directory, 'cmake.out')}"
+                    ' for output from cmake.\n'
+                    "Skipping remaining steps for module set "
+                    f"{module_set_name}, initial condition "
+                    "{initial_condition_name}.",
+                    file=sys.stderr
+                )
+                continue
 
-    #         # Run the build.
-    #         if verbose:
-    #             print(
-    #                 'Running make to build kaiju for module set'
-    #                 f" {module_set_name}, initial condition"
-    #                 f" {initial_condition_name}."
-    #             )
-    #         cmd = f"{module_cmd}; {make_cmd} >& make.out"
-    #         if debug:
-    #             print(f"cmd = {cmd}")
-    #         try:
-    #             _ = subprocess.run(cmd, shell=True, check=True)
-    #         except subprocess.CalledProcessError as e:
-    #             print(
-    #                 f"ERROR: make for module set {module_set_name}, "
-    #                 f"initial condition {initial_condition_name} failed.\n"
-    #                 f"e.cmd = {e.cmd}\n"
-    #                 f"e.returncode = {e.returncode}\n"
-    #                 f"See {os.path.join(build_directory, 'make.out')}"
-    #                 ' for output from make.\n'
-    #                 "Skipping remaining steps for module set "
-    #                 f"{module_set_name}, initial condition "
-    #                 "{initial_condition_name}.",
-    #                 file=sys.stderr
-    #             )
-    #             continue
+            # Run the build.
+            if verbose:
+                print(
+                    'Running make to build kaiju for module set'
+                    f" {module_set_name}, initial condition"
+                    f" {initial_condition_name}."
+                )
+            cmd = f"{module_cmd}; {make_cmd} >& make.out"
+            if debug:
+                print(f"cmd = {cmd}")
+            try:
+                # NOTE: stdout and stderr go to makeout.
+                _ = subprocess.run(cmd, shell=True, check=True)
+            except subprocess.CalledProcessError as e:
+                print(
+                    f"ERROR: make for module set {module_set_name}, "
+                    f"initial condition {initial_condition_name} failed.\n"
+                    f"e.cmd = {e.cmd}\n"
+                    f"e.returncode = {e.returncode}\n"
+                    f"See {os.path.join(build_directory, 'make.out')}"
+                    ' for output from make.\n'
+                    "Skipping remaining steps for module set "
+                    f"{module_set_name}, initial condition "
+                    "{initial_condition_name}.",
+                    file=sys.stderr
+                )
+                continue
 
-    #         # Check for gamera.x.
-    #         executable_list = ['gamera.x']
-    #         missing = []
-    #         for executable in executable_list:
-    #             path = os.path.join(build_directory, BUILD_BIN_DIR, executable)
-    #             if not os.path.isfile(path):
-    #                 missing.append(executable)
-    #         if len(missing) > 0:
-    #             for executable in missing:
-    #                 print(f"ERROR: Did not build {executable}.")
-    #         else:
-    #             test_passed[i_test][j_ic] = True
+            # Check for gamera.x.
+            executable_list = ['gamera.x']
+            missing = []
+            for executable in executable_list:
+                path = os.path.join(build_directory, BUILD_BIN_DIR, executable)
+                if not os.path.isfile(path):
+                    missing.append(executable)
+            if len(missing) > 0:
+                for executable in missing:
+                    print(f"ERROR: Did not build {executable}.")
+            else:
+                test_passed[i_test][j_ic] = True
 
-    #     # End loop over initial conditions
-    # # End loop over module sets
+        # End loop over initial conditions
+    # End loop over module sets
 
     # -------------------------------------------------------------------------
 
