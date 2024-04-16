@@ -249,7 +249,7 @@ def main():
 
         # Make a directory for this build, and go there.
         dir_name = f"{BUILD_TEST_DIRECTORY_PREFIX}{module_set_name}"
-        build_directory = os.path.join(KAIJUHOME, dir_name)
+        build_directory = os.path.join(MAGE_TEST_SET_ROOT, dir_name)
         if debug:
             print(f"build_directory = {build_directory}")
         os.mkdir(build_directory)
