@@ -53,9 +53,6 @@ INITIAL_CONDITION_BUILD_TEST_DIRECTORY = os.path.join(
 # Home directory of kaiju installation
 KAIJUHOME = os.environ['KAIJUHOME']
 
-# Path directory for initial condition build tests
-IC_BUILD_TEST_DIRECTORY = os.path.join(KAIJUHOME, 'ICBuilds')
-
 # Path to directory containing the test scripts
 TEST_SCRIPTS_DIRECTORY = os.path.join(KAIJUHOME, 'testingScripts')
 
@@ -150,73 +147,72 @@ def main():
 
     # -------------------------------------------------------------------------
 
-    # Build using each set of modules and each initial condition.
+    # Initalize test results for all module sets and initial conditions to
+    # False (failed).
+    test_passed = []
+    for _ in module_list_files:
+        test_passed.append([False]*len(initial_condition_paths))
 
-    # # Initalize test results for all module sets and initial conditions to
-    # # False (failed).
-    # test_passed = []
-    # for _ in module_list_files:
-    #     test_passed.append([False]*len(initial_condition_paths))
+    # Define the make command for each build.
+    make_cmd = 'make gamera.x'
+    if debug:
+        print(f"make_cmd = {make_cmd}")
 
-    # # Define the make command for each build.
-    # make_cmd = 'make gamera.x'
-    # if debug:
-    #     print(f"make_cmd = {make_cmd}")
+    # Build with each initial condition with each set of modules.
+    for (i_test, module_list_file) in enumerate(module_list_files):
+        if verbose:
+            print('Performing initial condition build tests with module set '
+                  f"{module_list_file}.")
 
-    # # Build with each initial condition with each set of modules.
-    # for (i_test, module_list_file) in enumerate(module_list_files):
-    #     if verbose:
-    #         print('Performing initial condition build tests with module set '
-    #               f"{module_list_file}.")
+        # Extract the name of the list.
+        module_set_name = module_list_file.rstrip('.lst')
+        if debug:
+            print(f"module_set_name = {module_set_name}.")
 
-    #     # Extract the name of the list.
-    #     module_set_name = module_list_file.rstrip('.lst')
-    #     if debug:
-    #         print(f"module_set_name = {module_set_name}.")
+        # Read this module list file, extracting cmake environment and
+        # options, if any.
+        path = os.path.join(MODULE_LIST_DIRECTORY, module_list_file)
+        if debug:
+            print(f"path = {path}")
+        module_names, cmake_environment, cmake_options = (
+            common.read_build_module_list_file(path)
+        )
+        if debug:
+            print(f"module_names = {module_names}")
+            print(f"cmake_environment = {cmake_environment}")
+            print(f"cmake_options = {cmake_options}")
 
-    #     # Read this module list file, extracting cmake environment and
-    #     # options, if any.
-    #     path = os.path.join(MODULE_LIST_DIRECTORY, module_list_file)
-    #     if debug:
-    #         print(f"path = {path}")
-    #     module_names, cmake_environment, cmake_options = (
-    #         common.read_build_module_list_file(path)
-    #     )
-    #     if debug:
-    #         print(f"module_names = {module_names}")
-    #         print(f"cmake_environment = {cmake_environment}")
-    #         print(f"cmake_options = {cmake_options}")
+        # Assemble the commands to load the listed modules.
+        module_cmd = (
+            f"module --force purge; module load {' '.join(module_names)}"
+        )
+        if debug:
+            print(f"module_cmd = {module_cmd}")
 
-    #     # Assemble the commands to load the listed modules.
-    #     module_cmd = (
-    #         f"module --force purge"
-    #         f"; module load {' '.join(module_names)}"
-    #     )
-    #     if debug:
-    #         print(f"module_cmd = {module_cmd}")
+        # Build with each initial condition.
+        for (j_ic, initial_condition_path) in enumerate(initial_condition_paths):
 
-    #     # Build with each initial condition.
-    #     for (j_ic, initial_condition_path) in enumerate(initial_condition_paths):
-    #         if verbose:
-    #             print(f"Building with module set {module_set_name} and IC "
-    #                   f"file {initial_condition_path}")
+            # Extract the name of the initial condition.
+            initial_condition_name = os.path.split(
+                os.path.splitext(initial_condition_path)[0]
+            )[-1]
+            if debug:
+                print(f"initial_condition_name={initial_condition_name}")
 
-    #         # Extract the initial condition name.
-    #         initial_condition_name = os.path.basename(initial_condition_path)
-    #         initial_condition_name = initial_condition_name.rstrip('.F90')
-    #         if debug:
-    #             print(f"initial_condition_name = {initial_condition_name}")
+            if verbose:
+                print(f"Building with module set {module_set_name} and "
+                      f"initial condition {initial_condition_name}.")
 
-    #         # Make a directory for this test, and go there.
-    #         build_directory = os.path.join(
-    #             IC_BUILD_TEST_DIRECTORY,
-    #             f"{INITIAL_CONDITION_BUILD_DIR_PREFIX}{initial_condition_name}"
-    #             f"_{module_set_name}"
-    #         )
-    #         if debug:
-    #             print(f"build_directory = {build_directory}")
-    #         os.mkdir(build_directory)
-    #         os.chdir(build_directory)
+            # Make a directory for this build, and go there.
+            dir_name = os.path.join(
+                INITIAL_CONDITION_BUILD_TEST_DIRECTORY,
+                f"{INITIAL_CONDITION_BUILD_DIR_PREFIX}{initial_condition_name}"
+                f"_{module_set_name}"
+            )
+            if debug:
+                print(f"build_directory = {dir_name}")
+            os.mkdir(dir_name)
+            os.chdir(dir_name)
 
     #         # Add cmake options for initial condition test builds.
     #         IC_cmake_options = (
