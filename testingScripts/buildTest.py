@@ -110,9 +110,6 @@ def main():
 
     # -------------------------------------------------------------------------
 
-    # Move to the root of the directory tree for this set of tests.
-    os.chdir(MAGE_TEST_SET_ROOT)
-
     # Make a directory to hold all of the build tests.
     print(f"Creating ${BUILD_TEST_DIRECTORY}.")
     os.mkdir(BUILD_TEST_DIRECTORY)
