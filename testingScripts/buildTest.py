@@ -285,7 +285,8 @@ def main():
         # Run the build.
         if verbose:
             print(
-                'Running make to build kaiju for module set {module_set_name}."
+                'Running make to build kaiju for module set'
+                f" {module_set_name}."
             )
         cmd = f"{module_cmd}; {make_cmd} >& make.out"
         if debug:
