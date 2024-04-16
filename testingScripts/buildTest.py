@@ -219,6 +219,9 @@ def main():
     # Initalize test results for all module sets to False (failed).
     test_passed = [False]*len(module_list_files)
 
+    # Make a directory to hold all of the build tests.
+    os.mkdir(BUILD_TEST_DIRECTORY)
+
     # Do a build with each set of modules.
     for (i_test, module_list_file) in enumerate(module_list_files):
         if verbose:
