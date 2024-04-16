@@ -137,7 +137,9 @@ def main():
     # "deprecated" folder. GAMERA ONLY FOR NOW.
     initial_condition_paths = []
 
-    for root, directories, filenames in os.walk(INITIAL_CONDITION_SRC_DIRECTORY):
+    for root, directories, filenames in os.walk(
+        INITIAL_CONDITION_SRC_DIRECTORY
+    ):
         if 'deprecated' not in root and 'underdev' not in root:
             for filename in filenames:
                 initial_condition_paths.append(os.path.join(root, filename))
@@ -189,7 +191,9 @@ def main():
             print(f"module_cmd = {module_cmd}")
 
         # Build with each initial condition.
-        for (j_ic, initial_condition_path) in enumerate(initial_condition_paths):
+        for (j_ic, initial_condition_path) in enumerate(
+            initial_condition_paths
+        ):
 
             # Extract the name of the initial condition.
             initial_condition_name = os.path.split(
@@ -297,58 +301,63 @@ def main():
 
     # -------------------------------------------------------------------------
 
-    # # Set up for communication with Slack.
-    # slack_client = common.slack_create_client()
-    # if debug:
-    #     print(f"slack_client = {slack_client}")
+    # Set up for communication with Slack.
+    slack_client = common.slack_create_client()
+    if debug:
+        print(f"slack_client = {slack_client}")
 
-    # # -------------------------------------------------------------------------
+    # -------------------------------------------------------------------------
 
-    # # Detail the test results
-    # test_details_message = ''
-    # for (i_test, module_list_file) in enumerate(module_list_files):
-    #     for (j_ic, initial_condition_path) in enumerate(initial_condition_paths):
-    #         module_set_name = module_list_file.rstrip('.lst')
-    #         initial_condition_name = os.path.basename(initial_condition_path)
-    #         initial_condition_name = initial_condition_name.rstrip('.F90')
-    #         test_details_message += (
-    #             f"Module set `{module_set_name}`, initial condition "
-    #             f"`{initial_condition_name}`: "
-    #         )
-    #         if test_passed[i_test][j_ic]:
-    #             test_details_message += '*PASSED*\n'
-    #         else:
-    #             test_details_message += '*FAILED*\n'
+    # Detail the test results
+    test_report_details_string = ''
+    for (i_test, module_list_file) in enumerate(module_list_files):
+        module_set_name = module_list_file.rstrip('.lst')
+        for (j_ic, initial_condition_path) in enumerate(
+            initial_condition_paths
+        ):
+            initial_condition_name = os.path.split(
+                os.path.splitext(initial_condition_path)[0]
+            )[-1]
+            test_report_details_string += (
+                f"Module set `{module_set_name}`, initial condition "
+                f"`{initial_condition_name}`: "
+            )
+            if test_passed[i_test][j_ic]:
+                test_report_details_string += '*PASSED*\n'
+            else:
+                test_report_details_string += '*FAILED*\n'
 
-    # # Summarize the test results.
-    # test_summary_message = (
-    #     'Summary of initial condition build test results from `ICtest.py`: '
-    # )
-    # if 'FAILED' in test_details_message:
-    #     test_summary_message += '*FAILED*\n'
-    # else:
-    #     test_summary_message += '*ALL PASSED*\n'
+    # Summarize the test results.
+    test_report_summary_string = (
+        'Summary of initial condition build test results from `ICtest.py`: '
+    )
+    if 'FAILED' in test_report_details_string:
+        test_report_summary_string += '*FAILED*\n'
+    else:
+        test_report_summary_string += '*ALL PASSED*\n'
 
-    # # Print the test results summary and details.
-    # print(test_summary_message)
-    # print(test_details_message)
+    # Print the test results summary and details.
+    print(test_report_summary_string)
+    print(test_report_details_string)
 
-    # # If loud mode is on, post report to Slack.
-    # if be_loud:
-    #     test_summary_message += 'Details in thread for this messsage.\n'
-    #     slack_response_summary = common.slack_send_message(
-    #         slack_client, test_summary_message, is_test=is_test
-    #     )
-    #     if slack_response_summary['ok']:
-    #         thread_ts = slack_response_summary['ts']
-    #         slack_response_details = common.slack_send_message(
-    #             slack_client, test_details_message, thread_ts=thread_ts,
-    #             is_test=is_test
-    #         )
-    #     else:
-    #         print('*ERROR* Unable to post test result summary to Slack.')
+    # If loud mode is on, post report to Slack.
+    if be_loud:
+        test_report_summary_string += 'Details in thread for this messsage.\n'
+        slack_response_summary = common.slack_send_message(
+            slack_client, test_report_summary_string, is_test=is_test
+        )
+        if slack_response_summary['ok']:
+            thread_ts = slack_response_summary['ts']
+            slack_response_details = common.slack_send_message(
+                slack_client, test_report_details_string, thread_ts=thread_ts,
+                is_test=is_test
+            )
+            if 'ok' not in slack_response_details:
+                print('*ERROR* Unable to post test details to Slack.')
+        else:
+            print('*ERROR* Unable to post test summary to Slack.')
 
-    # # -------------------------------------------------------------------------
+    # -------------------------------------------------------------------------
 
     if debug:
         print(f"Ending {sys.argv[0]} at {datetime.datetime.now()}")
