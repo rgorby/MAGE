@@ -24,9 +24,9 @@ Eric Winter
 
 # Import standard modules.
 import datetime
-import glob
+# import glob
 import os
-import shutil
+# import shutil
 import subprocess
 import sys
 
@@ -41,17 +41,15 @@ from kaipy.testing import common
 # Program description.
 DESCRIPTION = 'Script for MAGE build testing'
 
-# Home directory of kaiju installation
-KAIJUHOME = os.environ['KAIJUHOME']
-
-# Prefix for naming build test directories
-BUILD_TEST_DIRECTORY_PREFIX = 'build_'
-
-# glob pattern for naming build test directories
-BUILD_TEST_DIRECTORY_GLOB_PATTERN = 'build_*'
+# Root of directory tree for this set of tests.
+MAGE_TEST_SET_ROOT = os.environ('MAGE_TEST_SET_ROOT')
 
 # Path to directory to use for building executable list
-EXECUTABLE_LIST_BUILD_DIRECTORY = os.path.join(KAIJUHOME, 'testFolder')
+EXECUTABLE_LIST_BUILD_DIRECTORY = os.path.join(MAGE_TEST_SET_ROOT,
+                                               'build_executable_list')
+
+# Home directory of kaiju installation
+KAIJUHOME = os.environ['KAIJUHOME']
 
 # Path to directory containing the test scripts
 TEST_SCRIPTS_DIRECTORY = os.path.join(KAIJUHOME, 'testingScripts')
@@ -66,8 +64,14 @@ EXECUTABLE_LIST_MODULE_LIST = os.path.join(MODULE_LIST_DIRECTORY, '01.lst')
 # Path to file containing list of module sets to use for build tests
 BUILD_TEST_LIST_FILE = os.path.join(MODULE_LIST_DIRECTORY, 'build_test.lst')
 
+# Prefix for naming build test directories
+# BUILD_TEST_DIRECTORY_PREFIX = 'build_'
+
+# glob pattern for naming build test directories
+# BUILD_TEST_DIRECTORY_GLOB_PATTERN = 'build_*'
+
 # Name of subdirectory of current build subdirectory containing binaries
-BUILD_BIN_DIR = 'bin'
+# BUILD_BIN_DIR = 'bin'
 
 
 def main():
@@ -108,63 +112,15 @@ def main():
 
     # -------------------------------------------------------------------------
 
-    # Set up for communication with Slack.
-    slack_client = common.slack_create_client()
-    if debug:
-        print(f"slack_client = {slack_client}")
-
-    # -------------------------------------------------------------------------
-
-    # Move to the MAGE installation directory.
-    os.chdir(KAIJUHOME)
-
-    # -------------------------------------------------------------------------
-
-    # Clean up from previous tests.
-    if verbose:
-        print('Cleaning up from previous tests.')
-    directories = glob.glob(BUILD_TEST_DIRECTORY_GLOB_PATTERN)
-    directories.append(EXECUTABLE_LIST_BUILD_DIRECTORY)
-    for directory in directories:
-        try:
-            shutil.rmtree(directory)
-        except FileNotFoundError:
-            pass  # EXECUTABLE_LIST_BUILD_DIRECTORY may not exist.
-
-    # <HACK>
-    # Remove the pFUnit compiled code to prevent using it during the
-    # build test. If PFUNIT-4.2 is in kaiju/external during a build,
-    # make will try to build the unit test code even if it is not
-    # requested, which causes fatal errors when building with a module
-    # set that uses a non-Intel compioler, since pFUnit was built with
-    # the Intel compiler.
-    directories = [
-        'FARGPARSE-1.1',
-        'GFTL-1.3',
-        'GFTL_SHARED-1.2',
-        'PFUNIT-4.2',
-    ]
-    for directory in directories:
-        path = os.path.join(KAIJUHOME, 'external', directory)
-        try:
-            shutil.rmtree(path)
-        except FileNotFoundError:
-            pass  # These directories may not exist.
-    # </HACK>
-
-    # -------------------------------------------------------------------------
-
-    # Find the current branch.
-    git_branch_name = common.git_get_branch_name()
-    if debug:
-        print(f"git_branch_name = {git_branch_name}")
+    # Move to the root of the directory tree for this set of tests.
+    os.chdir(MAGE_TEST_SET_ROOT)
 
     # -------------------------------------------------------------------------
 
     # Do a preliminary cmake run to generate the list of executables.
 
     if verbose:
-        print(f"Generating list of executables for branch {git_branch_name}.")
+        print('Generating list of executables.')
 
     # Create and move to the preliminary build folder.
     os.mkdir(EXECUTABLE_LIST_BUILD_DIRECTORY)
@@ -172,9 +128,7 @@ def main():
 
     # Read the module list file for building the executable list.
     if verbose:
-        print(f"Reading {EXECUTABLE_LIST_MODULE_LIST} to determine"
-              ' modules and build options for generating list of executables'
-              ' to build.')
+        print('Reading module list for executable list generation.')
     module_names, cmake_environment, cmake_options = (
         common.read_build_module_list_file(EXECUTABLE_LIST_MODULE_LIST)
     )
@@ -184,10 +138,7 @@ def main():
         print(f"cmake_options = {cmake_options}")
 
     # Assemble the commands to load the listed modules.
-    module_cmd = (
-        'module --force purge'
-        f"; module load {' '.join(module_names)}"
-    )
+    module_cmd = f"module --force purge; module load {' '.join(module_names)}"
     if debug:
         print(f"module_cmd = {module_cmd}")
 
@@ -195,9 +146,7 @@ def main():
     if verbose:
         print('Running cmake for executable list generation.')
     cmd = (
-        f"{module_cmd}"
-        f"; {cmake_environment} cmake {cmake_options}"
-        f" {KAIJUHOME}"
+        f"{module_cmd}; {cmake_environment} cmake {cmake_options} {KAIJUHOME}"
         ' >& cmake.out'
     )
     if debug:
@@ -223,6 +172,7 @@ def main():
     if debug:
         print(f"cmd = {cmd}")
     try:
+        # NOTE: stdout and stderr combined into stdout
         cproc = subprocess.run(cmd, shell=True, check=True,
                                text=True, stdout=subprocess.PIPE,
                                stderr=subprocess.STDOUT)
@@ -242,6 +192,8 @@ def main():
         )
         raise
     executable_list = cproc.stdout.splitlines()
+    if debug:
+        print(f"executable_list = {executable_list}")
 
     # Remove the first four characters (dots and spaces).
     executable_list = [_[4:] for _ in executable_list]
@@ -266,157 +218,164 @@ def main():
 
     # -------------------------------------------------------------------------
 
-    # Initalize test results for all module sets to False (failed).
-    test_passed = [False]*len(module_list_files)
+    # # Initalize test results for all module sets to False (failed).
+    # test_passed = [False]*len(module_list_files)
 
-    # Do a build with each set of modules.
-    for (i_test, module_list_file) in enumerate(module_list_files):
-        if verbose:
-            print('Performing build test with module set '
-                  f"{module_list_file}")
+    # # Do a build with each set of modules.
+    # for (i_test, module_list_file) in enumerate(module_list_files):
+    #     if verbose:
+    #         print('Performing build test with module set '
+    #               f"{module_list_file}")
 
-        # Extract the name of the list.
-        module_set_name = module_list_file.rstrip('.lst')
-        if debug:
-            print(f"module_set_name = {module_set_name}.")
+    #     # Extract the name of the list.
+    #     module_set_name = module_list_file.rstrip('.lst')
+    #     if debug:
+    #         print(f"module_set_name = {module_set_name}.")
 
-        # Read this module list file, extracting cmake environment and
-        # options, if any.
-        path = os.path.join(MODULE_LIST_DIRECTORY, module_list_file)
-        if verbose:
-            print(f"Reading {path}.")
-        module_names, cmake_environment, cmake_options = (
-            common.read_build_module_list_file(path)
-        )
-        if debug:
-            print(f"module_names = {module_names}")
-            print(f"cmake_environment = {cmake_environment}")
-            print(f"cmake_options = {cmake_options}")
+    #     # Read this module list file, extracting cmake environment and
+    #     # options, if any.
+    #     path = os.path.join(MODULE_LIST_DIRECTORY, module_list_file)
+    #     if verbose:
+    #         print(f"Reading {path}.")
+    #     module_names, cmake_environment, cmake_options = (
+    #         common.read_build_module_list_file(path)
+    #     )
+    #     if debug:
+    #         print(f"module_names = {module_names}")
+    #         print(f"cmake_environment = {cmake_environment}")
+    #         print(f"cmake_options = {cmake_options}")
 
-        # Assemble the commands to load the listed modules.
-        module_cmd = (
-            f"module --force purge"
-            f"; module load {' '.join(module_names)}"
-        )
-        if debug:
-            print(f"module_cmd = {module_cmd}")
+    #     # Assemble the commands to load the listed modules.
+    #     module_cmd = (
+    #         f"module --force purge"
+    #         f"; module load {' '.join(module_names)}"
+    #     )
+    #     if debug:
+    #         print(f"module_cmd = {module_cmd}")
 
-        # Make a directory for this build, and go there.
-        dir_name = f"{BUILD_TEST_DIRECTORY_PREFIX}{module_set_name}"
-        build_directory = os.path.join(KAIJUHOME, dir_name)
-        if debug:
-            print(f"build_directory = {build_directory}")
-        os.mkdir(build_directory)
-        os.chdir(build_directory)
+    #     # Make a directory for this build, and go there.
+    #     dir_name = f"{BUILD_TEST_DIRECTORY_PREFIX}{module_set_name}"
+    #     build_directory = os.path.join(KAIJUHOME, dir_name)
+    #     if debug:
+    #         print(f"build_directory = {build_directory}")
+    #     os.mkdir(build_directory)
+    #     os.chdir(build_directory)
 
-        # Run cmake to build the Makefile.
-        if verbose:
-            print(
-                'Running cmake to create Makefile for module set'
-                f" {module_set_name}."
-            )
-        cmd = (
-            f"{module_cmd}"
-            f"; {cmake_environment} cmake {cmake_options}"
-            f" {KAIJUHOME}"
-            '>& cmake.out'
-        )
-        if debug:
-            print(f"cmd = {cmd}")
-        try:
-            _ = subprocess.run(cmd, shell=True, check=True)
-        except subprocess.CalledProcessError as e:
-            print(
-                f"ERROR: cmake for module set {module_set_name} failed.\n"
-                f"e.cmd = {e.cmd}\n"
-                f"e.returncode = {e.returncode}\n"
-                f"See {os.path.join(build_directory, 'cmake.out')}"
-                ' for output from cmake.\n'
-                f"Skipping remaining steps for module set {module_set_name}",
-                file=sys.stderr
-            )
-            continue
+    #     # Run cmake to build the Makefile.
+    #     if verbose:
+    #         print(
+    #             'Running cmake to create Makefile for module set'
+    #             f" {module_set_name}."
+    #         )
+    #     cmd = (
+    #         f"{module_cmd}"
+    #         f"; {cmake_environment} cmake {cmake_options}"
+    #         f" {KAIJUHOME}"
+    #         '>& cmake.out'
+    #     )
+    #     if debug:
+    #         print(f"cmd = {cmd}")
+    #     try:
+    #         _ = subprocess.run(cmd, shell=True, check=True)
+    #     except subprocess.CalledProcessError as e:
+    #         print(
+    #             f"ERROR: cmake for module set {module_set_name} failed.\n"
+    #             f"e.cmd = {e.cmd}\n"
+    #             f"e.returncode = {e.returncode}\n"
+    #             f"See {os.path.join(build_directory, 'cmake.out')}"
+    #             ' for output from cmake.\n'
+    #             f"Skipping remaining steps for module set {module_set_name}",
+    #             file=sys.stderr
+    #         )
+    #         continue
 
-        # Run the build.
-        if verbose:
-            print(
-                'Running make to build kaiju for module set'
-                f" {module_set_name}."
-            )
-        cmd = f"{module_cmd}; {make_cmd} >& make.out"
-        if debug:
-            print(f"cmd = {cmd}")
-        try:
-            _ = subprocess.run(cmd, shell=True, check=True)
-        except subprocess.CalledProcessError as e:
-            print(
-                f"ERROR: make for module set {module_set_name} failed.\n"
-                f"e.cmd = {e.cmd}\n"
-                f"e.returncode = {e.returncode}\n"
-                f"See {os.path.join(build_directory, 'make.out')}"
-                ' for output from make.\n'
-                f"Skipping remaining steps for module set {module_set_name}",
-                file=sys.stderr
-            )
-            continue
+    #     # Run the build.
+    #     if verbose:
+    #         print(
+    #             'Running make to build kaiju for module set'
+    #             f" {module_set_name}."
+    #         )
+    #     cmd = f"{module_cmd}; {make_cmd} >& make.out"
+    #     if debug:
+    #         print(f"cmd = {cmd}")
+    #     try:
+    #         _ = subprocess.run(cmd, shell=True, check=True)
+    #     except subprocess.CalledProcessError as e:
+    #         print(
+    #             f"ERROR: make for module set {module_set_name} failed.\n"
+    #             f"e.cmd = {e.cmd}\n"
+    #             f"e.returncode = {e.returncode}\n"
+    #             f"See {os.path.join(build_directory, 'make.out')}"
+    #             ' for output from make.\n'
+    #             f"Skipping remaining steps for module set {module_set_name}",
+    #             file=sys.stderr
+    #         )
+    #         continue
 
-        # Check for all executables.
-        if verbose:
-            print(
-                f"Checking build results for module set {module_set_name}."
-            )
-        missing = []
-        for executable in executable_list:
-            path = os.path.join(build_directory, BUILD_BIN_DIR, executable)
-            if not os.path.isfile(path):
-                missing.append(executable)
-        if len(missing) > 0:
-            for executable in missing:
-                print(f"ERROR: Did not build {executable}.")
-        else:
-            test_passed[i_test] = True
+    #     # Check for all executables.
+    #     if verbose:
+    #         print(
+    #             f"Checking build results for module set {module_set_name}."
+    #         )
+    #     missing = []
+    #     for executable in executable_list:
+    #         path = os.path.join(build_directory, BUILD_BIN_DIR, executable)
+    #         if not os.path.isfile(path):
+    #             missing.append(executable)
+    #     if len(missing) > 0:
+    #         for executable in missing:
+    #             print(f"ERROR: Did not build {executable}.")
+    #     else:
+    #         test_passed[i_test] = True
 
-    # End of loop over module sets.
+    # # End of loop over module sets.
 
     # -------------------------------------------------------------------------
 
-    # Detail the test results
-    test_details_message = ''
-    for (i_test, module_list_file) in enumerate(module_list_files):
-        module_set_name = module_list_file.rstrip('.lst')
-        test_details_message += f"Module set `{module_set_name}`: "
-        if test_passed[i_test]:
-            test_details_message += '*PASSED*\n'
-        else:
-            test_details_message += '*FAILED*\n'
+    # Set up for communication with Slack.
+    # slack_client = common.slack_create_client()
+    # if debug:
+    #     print(f"slack_client = {slack_client}")
 
-    # Summarize the test results.
-    test_summary_message = (
-        'Summary of build test results from `buildTest.py`: '
-    )
-    if 'FAILED' in test_details_message:
-        test_summary_message += '*FAILED*\n'
-    else:
-        test_summary_message += '*ALL PASSED*\n'
+    # # -------------------------------------------------------------------------
 
-    # Print the test results summary and details.
-    print(test_summary_message)
-    print(test_details_message)
+    # # Detail the test results
+    # test_details_message = ''
+    # for (i_test, module_list_file) in enumerate(module_list_files):
+    #     module_set_name = module_list_file.rstrip('.lst')
+    #     test_details_message += f"Module set `{module_set_name}`: "
+    #     if test_passed[i_test]:
+    #         test_details_message += '*PASSED*\n'
+    #     else:
+    #         test_details_message += '*FAILED*\n'
 
-    # If loud mode is on, post report to Slack.
-    if be_loud:
-        test_summary_message += 'Details in thread for this messsage.\n'
-        slack_response_summary = common.slack_send_message(
-            slack_client, test_summary_message, is_test=is_test
-        )
-        if slack_response_summary['ok']:
-            thread_ts = slack_response_summary['ts']
-            slack_response_details = common.slack_send_message(
-                slack_client, test_details_message, thread_ts=thread_ts,
-                is_test=is_test
-            )
-        else:
-            print('*ERROR* Unable to post test result summary to Slack.')
+    # # Summarize the test results.
+    # test_summary_message = (
+    #     'Summary of build test results from `buildTest.py`: '
+    # )
+    # if 'FAILED' in test_details_message:
+    #     test_summary_message += '*FAILED*\n'
+    # else:
+    #     test_summary_message += '*ALL PASSED*\n'
+
+    # # Print the test results summary and details.
+    # print(test_summary_message)
+    # print(test_details_message)
+
+    # # If loud mode is on, post report to Slack.
+    # if be_loud:
+    #     test_summary_message += 'Details in thread for this messsage.\n'
+    #     slack_response_summary = common.slack_send_message(
+    #         slack_client, test_summary_message, is_test=is_test
+    #     )
+    #     if slack_response_summary['ok']:
+    #         thread_ts = slack_response_summary['ts']
+    #         slack_response_details = common.slack_send_message(
+    #             slack_client, test_details_message, thread_ts=thread_ts,
+    #             is_test=is_test
+    #         )
+    #     else:
+    #         print('*ERROR* Unable to post test result summary to Slack.')
 
     # -------------------------------------------------------------------------
 

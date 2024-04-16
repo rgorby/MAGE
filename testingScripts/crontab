@@ -10,6 +10,6 @@
 # 14 15 * * * ssh derecho "/glade/work/ewinter/mage_testing/derecho/kaiju/ewinter-derecho_testing_fixes/kaiju/testingScripts/run_mage_tests.sh -tv 'weeklyDash.py -ltv'" >> /glade/work/ewinter/mage_testing/derecho/logs/test.out 2>&1
 
 # Testing kaibc instead of ewinter-derecho_testing_fixes
-34 18 * * * ssh derecho "/glade/work/ewinter/mage_testing/derecho/kaiju/ewinter-derecho_testing_fixes/kaiju/testingScripts/run_mage_tests.sh -tv 'buildTest.py -ltv,ICtest.py -ltv,pyunitTest.py -ltv,intelChecks.py -ltv,unitTest.py -ltv,weeklyDash.py -ltv'" >> /glade/work/ewinter/mage_testing/derecho/logs/test.out 2>&1
-34 20 * * * ssh derecho "/glade/work/ewinter/mage_testing/derecho/kaiju/ewinter-derecho_testing_fixes/kaiju/testingScripts/run_mage_tests.sh -tv 'unitTestReport.py -ltv'" >> /glade/work/ewinter/mage_testing/derecho/logs/test.out 2>&1
-34 22 * * * ssh derecho "/glade/work/ewinter/mage_testing/derecho/kaiju/ewinter-derecho_testing_fixes/kaiju/testingScripts/run_mage_tests.sh -tv 'weeklyDashReportReport.py -ltv'" >> /glade/work/ewinter/mage_testing/derecho/logs/test.out 2>&1
+# 34 18 * * * ssh derecho "/glade/work/ewinter/mage_testing/derecho/kaiju/ewinter-derecho_testing_fixes/kaiju/testingScripts/run_mage_tests.sh -tv 'buildTest.py -ltv,ICtest.py -ltv,pyunitTest.py -ltv,intelChecks.py -ltv,unitTest.py -ltv,weeklyDash.py -ltv'" >> /glade/work/ewinter/mage_testing/derecho/logs/test.out 2>&1
+# 34 20 * * * ssh derecho "/glade/work/ewinter/mage_testing/derecho/kaiju/ewinter-derecho_testing_fixes/kaiju/testingScripts/run_mage_tests.sh -tv 'unitTestReport.py -ltv'" >> /glade/work/ewinter/mage_testing/derecho/logs/test.out 2>&1
+# 34 22 * * * ssh derecho "/glade/work/ewinter/mage_testing/derecho/kaiju/ewinter-derecho_testing_fixes/kaiju/testingScripts/run_mage_tests.sh -tv 'weeklyDashReportReport.py -ltv'" >> /glade/work/ewinter/mage_testing/derecho/logs/test.out 2>&1
