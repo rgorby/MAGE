@@ -380,6 +380,10 @@ def main():
         'Fortran unit test PBS job script `runNonCaseTests2.pbs` skipped'
         ' since it currently hangs on `derecho`.\n'
     )
+    test_report_details_string += (
+        'Fortran unit test report PBS job script `unitTestReport.pbs` submitted as'
+        f" job {job_ids[0][3]}.\n"
+    )
 
     # Summarize the test results
     test_report_summary_string = (
