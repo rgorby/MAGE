@@ -100,6 +100,9 @@ UNIT_TEST_DATA_INPUT_FILES = [
 # Name of build subdirectory containing binaries
 BUILD_BIN_DIR = 'bin'
 
+# Name of PBS account to use for testing jobs.
+DERECHO_TESTING_ACCOUNT = os.environ['DERECHO_TESTING_ACCOUNTs']
+
 
 def main():
     """Begin main program.
@@ -295,7 +298,7 @@ def main():
         for (j_pbs, pbs_file) in enumerate(UNIT_TEST_PBS_SCRIPTS):
             job_id = None
             cmd = (
-                f"qsub -A {account} "
+                f"qsub -A {DERECHO_TESTING_ACCOUNT} "
                 f"-v MODULE_LIST='{' '.join(module_names)}',"
                 f"KAIJUROOTDIR={KAIJUHOME}"
             )
