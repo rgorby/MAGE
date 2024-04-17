@@ -101,7 +101,7 @@ UNIT_TEST_DATA_INPUT_FILES = [
 BUILD_BIN_DIR = 'bin'
 
 # Name of PBS account to use for testing jobs.
-DERECHO_TESTING_ACCOUNT = os.environ['DERECHO_TESTING_ACCOUNTs']
+DERECHO_TESTING_ACCOUNT = os.environ['DERECHO_TESTING_ACCOUNT']
 
 
 def main():
