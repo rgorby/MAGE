@@ -84,6 +84,7 @@ UNIT_TEST_PBS_SCRIPTS = [
     'runCaseTests.pbs',
     'runNonCaseTests1.pbs',
     # 'runNonCaseTests2.pbs',  # Hangs for 12 hours
+    'unitTestReport.pbs',
 ]
 
 # Input files for unit tests
@@ -306,6 +307,11 @@ def main():
             # Assumes data generation job is first.
             if j_pbs > 0:
                 cmd += f" -W depend=afterok:{job_ids[i_set][0]}"
+            # </HACK>
+            # <HACK>
+            # Assumes report generation job is last.
+            if pbs_file == 'unitTestReport.pbs':
+                cmd += f" -W depend=afterok:{':'.join(job_ids[i_set][1:-1])}"
             # </HACK>
             cmd += f" {pbs_file}"
             if debug:

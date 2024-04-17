@@ -15,6 +15,7 @@ Authors
 -------
 Jeff Garretson
 Eric Winter
+
 """
 
 
@@ -35,11 +36,17 @@ from kaipy.testing import common
 # Program description.
 DESCRIPTION = 'Report on the MAGE Fortran unit test results.'
 
-# Home directory of kaiju installation
-KAIJUHOME = os.environ['KAIJUHOME']
+# Root of directory tree for this set of tests.
+MAGE_TEST_SET_ROOT = os.environ['MAGE_TEST_SET_ROOT']
+
+# Directory for unit tests
+UNIT_TEST_DIRECTORY = os.path.join(MAGE_TEST_SET_ROOT, 'unitTest')
 
 # glob pattern for naming unit test directories
 UNIT_TEST_DIRECTORY_GLOB_PATTERN = 'unitTest_*'
+
+# # Home directory of kaiju installation
+# KAIJUHOME = os.environ['KAIJUHOME']
 
 # Name of build subdirectory containing binaries
 BUILD_BIN_DIR = 'bin'
@@ -47,8 +54,8 @@ BUILD_BIN_DIR = 'bin'
 # Name of file containing job IDs for each unit test directory.
 JOB_ID_LIST_FILE = 'jobs.txt'
 
-# Name of file to receive unit test report.
-UNIT_TEST_REPORT_FILE = 'Report.txt'
+# # Name of file to receive unit test report.
+# UNIT_TEST_REPORT_FILE = 'Report.txt'
 
 
 def main():
@@ -80,39 +87,25 @@ def main():
     is_test = args.test
     verbose = args.verbose
 
-    # -------------------------------------------------------------------------
+    # ------------------------------------------------------------------------
 
     if debug:
         print(f"Starting {sys.argv[0]} at {datetime.datetime.now()}")
         print(f"Current directory is {os.getcwd()}")
 
-    # -------------------------------------------------------------------------
+    # ------------------------------------------------------------------------
 
-    # Set up for communication with Slack.
-    slack_client = common.slack_create_client()
-    if debug:
-        print(f"slack_client = {slack_client}")
+    # Move to the unit test directory.
+    os.chdir(UNIT_TEST_DIRECTORY)
 
-    # -------------------------------------------------------------------------
-
-    # Move to the MAGE installation directory.
-    os.chdir(KAIJUHOME)
-
-    # -------------------------------------------------------------------------
-
-    # Find the current branch.
-    git_branch_name = common.git_get_branch_name()
-    if debug:
-        print(f"git_branch_name = {git_branch_name}")
-
-    # -------------------------------------------------------------------------
+    # ------------------------------------------------------------------------
 
     # Get list of unit test directories.
     unit_test_directories = glob.glob(UNIT_TEST_DIRECTORY_GLOB_PATTERN)
     if debug:
         print(f"unit_test_directories = {unit_test_directories}")
 
-    # -------------------------------------------------------------------------
+    # ------------------------------------------------------------------------
 
     # Initialize result flags.
     myError = False
@@ -125,11 +118,9 @@ def main():
         if verbose:
             print(f"Checking unit test results in {unit_test_directory}.")
 
-        # Move back to the kaiju home.
-        os.chdir(KAIJUHOME)
-
         # Move to the directory containing the unit test results.
-        path = os.path.join(unit_test_directory, BUILD_BIN_DIR)
+        path = os.path.join(UNIT_TEST_DIRECTORY, unit_test_directory,
+                            BUILD_BIN_DIR)
         if debug:
             print(f"path = {path}")
         os.chdir(path)
@@ -150,8 +141,7 @@ def main():
         if debug:
             print(f"job_ids = {job_ids}")
 
-        # <HACK>
-        # This needs to be reorganized.
+        # NOTE: This needs to be reorganized.
 
         # Compute the names of the job log files.
         job_file_0 = f"testResGen.o{job_ids[0]}"
@@ -197,61 +187,66 @@ def main():
 
         # End of unit test directory loop
 
-    # Move back to the kaiju home.
-    os.chdir(KAIJUHOME)
-
     # If no tests were complete, say so.
     if len(unit_test_directories) == 0:
         print(
             'Results of unit test report `unitTestReport.py`:\n'
-            f"kaiju code branch: `{git_branch_name}`\n"
             'No Fortran unit test results were available.'
         )
+
+    # ------------------------------------------------------------------------
+
+    # Set up for communication with Slack.
+    slack_client = common.slack_create_client()
+    if debug:
+        print(f"slack_client = {slack_client}")
 
     # ------------------------------------------------------------------------
 
     # NOTE: Assumes only 1 module set was used.
 
     # Detail the test results
-    test_details_message = ''
+    test_report_details_string = ''
     if myError:
-        test_details_message += 'Errors occurred during testing.\n'
+        test_report_details_string += 'Errors occurred during testing.\n'
     if jobKilled:
-        test_details_message += 'The testing job was killed.\n'
+        test_report_details_string += 'The testing job was killed.\n'
     if okFailure:
-        test_details_message += 'There was not the correct OK count.\n'
+        test_report_details_string += 'There was not the correct OK count.\n'
     else:
-        test_details_message += 'Individual tests: *ALL PASSED*\n'
+        test_report_details_string += 'Individual tests: *ALL PASSED*\n'
 
     # Summarize the test results.
-    test_summary_message = (
+    test_report_summary_string = (
         'Summary of Fortran unit test results from `unitTestReport.py`: '
     )
     if myError or jobKilled or okFailure:
-        test_summary_message += '*FAILED*\n'
+        test_report_summary_string += '*FAILED*\n'
     else:
-        test_summary_message += '*ALL PASSED*\n'
+        test_report_summary_string += '*ALL PASSED*\n'
 
     # Print the test results summary and details.
-    print(test_summary_message)
-    print(test_details_message)
+    print(test_report_summary_string)
+    print(test_report_details_string)
 
     # If loud mode is on, post report to Slack.
     if be_loud:
-        test_summary_message += 'Details in thread for this messsage.\n'
+        test_report_summary_string += 'Details in thread for this messsage.\n'
         slack_response_summary = common.slack_send_message(
-            slack_client, test_summary_message, is_test=is_test
+            slack_client, test_report_summary_string, is_test=is_test
         )
         if slack_response_summary['ok']:
             thread_ts = slack_response_summary['ts']
             slack_response_details = common.slack_send_message(
-                slack_client, test_details_message, thread_ts=thread_ts,
+                slack_client, test_report_details_string, thread_ts=thread_ts,
                 is_test=is_test
             )
+            if 'ok' not in slack_response_details:
+                print('*ERROR* Unable to post test details to Slack.')
         else:
-            print('*ERROR* Unable to post test result summary to Slack.')
+            print('*ERROR* Unable to post test summary to Slack.')
 
-    # -------------------------------------------------------------------------
+    # ------------------------------------------------------------------------
 
     if debug:
         print(f"Ending {sys.argv[0]} at {datetime.datetime.now()}")

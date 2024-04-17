@@ -1,0 +1,28 @@
+#!/bin/bash
+#PBS -N unitTestReport
+#PBS -A UJHB0019
+#PBS -l walltime=00:10:00
+#PBS -q main
+#PBS -l select=1:ncpus=128
+#PBS -j oe
+#PBS -m abe
+
+echo "Job $PBS_JOBID started at `date` on `hostname` in directory `pwd`."
+
+echo 'Setting up MAGE environment.'
+source $KAIJUROOTDIR/scripts/setupEnvironment.sh
+
+echo 'Loading modules.'
+module --force purge
+module load $MODULE_LIST
+echo 'The following modules are loaded:'
+module list
+
+echo 'Setting environment variables.'
+echo 'The active environment variables are:'
+printenv
+
+echo 'Generating unit test report.'
+python $KAIJUHOME/testingScripts/unitTestReport.py -h
+
+echo "Job $PBS_JOBID ended at `date` on `hostname` in directory `pwd`."
