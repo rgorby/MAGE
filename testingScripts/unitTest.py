@@ -145,7 +145,8 @@ def main():
     # ------------------------------------------------------------------------
 
     # Make a directory to hold all of the unit tests.
-    print(f"Creating ${UNIT_TEST_DIRECTORY}.")
+    if verbose:
+        print(f"Creating ${UNIT_TEST_DIRECTORY}.")
     os.mkdir(UNIT_TEST_DIRECTORY)
 
     # ------------------------------------------------------------------------
@@ -238,7 +239,7 @@ def main():
         if debug:
             print(f"cmd = {cmd}")
         try:
-            # NOTE: stdout and stderr goes to stdout (into log file)
+            # NOTE: stdout and stderr goes cmake.out.
             _ = subprocess.run(cmd, shell=True, check=True)
         except subprocess.CalledProcessError as e:
             print(
@@ -302,7 +303,8 @@ def main():
                 f"qsub -A {DERECHO_TESTING_ACCOUNT} "
                 f"-v MODULE_LIST='{' '.join(module_names)}',"
                 f"KAIJUROOTDIR={KAIJUHOME},"
-                f"MAGE_TEST_SET_ROOT={MAGE_TEST_SET_ROOT}"
+                f"MAGE_TEST_SET_ROOT={MAGE_TEST_SET_ROOT},"
+                f"DERECHO_TESTING_ACCOUNT={DERECHO_TESTING_ACCOUNT},"
             )
             # <HACK>
             # Assumes data generation job is first.

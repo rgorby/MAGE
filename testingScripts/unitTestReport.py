@@ -45,17 +45,11 @@ UNIT_TEST_DIRECTORY = os.path.join(MAGE_TEST_SET_ROOT, 'unitTest')
 # glob pattern for naming unit test directories
 UNIT_TEST_DIRECTORY_GLOB_PATTERN = 'unitTest_*'
 
-# # Home directory of kaiju installation
-# KAIJUHOME = os.environ['KAIJUHOME']
-
 # Name of build subdirectory containing binaries
 BUILD_BIN_DIR = 'bin'
 
 # Name of file containing job IDs for each unit test directory.
 JOB_ID_LIST_FILE = 'jobs.txt'
-
-# # Name of file to receive unit test report.
-# UNIT_TEST_REPORT_FILE = 'Report.txt'
 
 
 def main():
