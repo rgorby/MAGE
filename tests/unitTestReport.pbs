@@ -46,6 +46,6 @@ echo 'The active environment variables are:'
 printenv
 
 echo 'Generating unit test report.'
-python $KAIJUHOME/testingScripts/unitTestReport.py -h
+python $KAIJUHOME/testingScripts/unitTestReport.py -dtv
 
 echo "Job $PBS_JOBID ended at `date` on `hostname` in directory `pwd`."

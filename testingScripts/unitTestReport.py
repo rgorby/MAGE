@@ -5,11 +5,8 @@
 This script generates a report on the results of the most recent run of
 the MAGE Fortran unit tests.
 
-This script *assumes* that enough time has passed that the unit test runs
-(which were submitted as PBS jobs) have completed. Those *should* take
-around 20 minutes. Add that to the build time for the unitTest.py script,
-and a conservative guess is to run this script 2 hours after running the
-unitTest.py script.
+This script should be run by the PBS script unitTestReport.pbs, to ensure
+that the report is only generated when the other unit test jobs are complete.
 
 Authors
 -------

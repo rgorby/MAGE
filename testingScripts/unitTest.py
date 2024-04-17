@@ -5,7 +5,11 @@
 This script runs a series of unit tests of the MAGE Fortran software. These
 tests are run as PBS jobs on derecho. There will be one job which generates
 the data for testing, then 1 or more dependent jobs that use the newly-
-generated data for unit testing.
+generated data for unit testing, then a job for the test report.
+
+NOTE: If this script is run as part of a set of tests for run_mage_tests.sh,
+this script must be listed *last*, since it makes changes to the kaiju source
+code tree that are incompatible with the other tests.
 
 Authors
 -------
