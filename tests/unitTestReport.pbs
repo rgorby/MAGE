@@ -20,6 +20,8 @@ module list
 
 # Set up conda.
 export MAGE_TEST_ROOT='/glade/work/ewinter/mage_testing/derecho'
+# MAGE_TEST_SET_ROOT must be passed in on command line as an
+# environment variable.
 export CONDARC="${MAGE_TEST_ROOT}/condarc"
 export CONDA_ENVS_PATH="${MAGE_TEST_ROOT}/conda"
 mage_miniconda3="${MAGE_TEST_ROOT}/miniconda3"

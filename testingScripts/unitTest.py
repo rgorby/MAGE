@@ -301,7 +301,8 @@ def main():
             cmd = (
                 f"qsub -A {DERECHO_TESTING_ACCOUNT} "
                 f"-v MODULE_LIST='{' '.join(module_names)}',"
-                f"KAIJUROOTDIR={KAIJUHOME}"
+                f"KAIJUROOTDIR={KAIJUHOME},"
+                f"MAGE_TEST_SET_ROOT={MAGE_TEST_SET_ROOT}"
             )
             # <HACK>
             # Assumes data generation job is first.
