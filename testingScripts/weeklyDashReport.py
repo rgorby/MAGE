@@ -1,6 +1,5 @@
 #!/usr/bin/env python
 
-
 """Create the MAGE weekly dash test report.
 
 This script creates the MAGE weekly dash test report.
@@ -23,7 +22,6 @@ import sys
 
 # Import 3rd-party modules.
 from astropy.time import Time
-# import h5py
 import matplotlib as mpl
 import matplotlib.dates as mdates
 import matplotlib.pyplot as plt
@@ -39,22 +37,24 @@ from kaipy.testing import common
 # Program description.
 DESCRIPTION = 'Create the MAGE weekly dash test report.'
 
-# Home directory of kaiju installation
-KAIJUHOME = os.environ['KAIJUHOME']
+# Root of directory tree for all tests.
+MAGE_TEST_ROOT = os.environ['MAGE_TEST_ROOT']
 
-# Top-level directory for testing
-KAIJU_TESTING_HOME = '/glade/work/ewinter/mage_testing/derecho'
+# Root of directory tree for this set of tests.
+MAGE_TEST_SET_ROOT = os.environ['MAGE_TEST_SET_ROOT']
+
+# Directory for unit tests
+WEEKLY_DASH_DIRECTORY = os.path.join(MAGE_TEST_SET_ROOT, 'weeklyDash')
+
+# Glob pattern for individual weekly dash directories
+WEEKLY_DASH_DIRECTORY_GLOB_PATTERN = 'weeklyDash_*'
+
+# Regular expression for git hash read from weekly dash output log.
+GIT_HASH_PATTERN = 'Git hash   = (.{8})'
 
 # Path to directory containing master-branch reference results.
 REFERENCE_RESULTS_DIRECTORY_MASTER = os.path.join(
-    KAIJU_TESTING_HOME, 'weekly_dash_files', 'reference_results',
-    'master'
-)
-
-# Path to directory containing development-branch reference results.
-REFERENCE_RESULTS_DIRECTORY_DEVELOPMENT = os.path.join(
-    KAIJU_TESTING_HOME, 'weekly_dash_files', 'reference_results',
-    'development'
+    MAGE_TEST_ROOT, 'weekly_dash_files', 'reference_results', 'master'
 )
 
 # Compute the path to the log file for the master branch reference
@@ -63,17 +63,16 @@ REFERENCE_LOG_MASTER = os.path.join(
     REFERENCE_RESULTS_DIRECTORY_MASTER, 'voltron_mpi.out'
 )
 
+# Path to directory containing development-branch reference results.
+REFERENCE_RESULTS_DIRECTORY_DEVELOPMENT = os.path.join(
+    MAGE_TEST_ROOT, 'weekly_dash_files', 'reference_results', 'development'
+)
+
 # Compute the path to the log file for the development branch reference
 # results.
 REFERENCE_LOG_DEVELOPMENT = os.path.join(
     REFERENCE_RESULTS_DIRECTORY_DEVELOPMENT, 'voltron_mpi.out'
 )
-
-# Regular expression for git hash read from weekly dash output log.
-GIT_HASH_PATTERN = 'Git hash   = (.{8})'
-
-# Path to directory containing weekly dash results.
-WEEKLY_DASH_DIRECTORY = os.path.join(KAIJUHOME, 'weeklyDash_01')
 
 # Name of subdirectory containing binaries and test results.
 BIN_DIR = 'bin'
@@ -81,8 +80,8 @@ BIN_DIR = 'bin'
 # Name of file containg PBS job IDs.
 JOB_LIST_FILE = 'jobs.txt'
 
-# Name of weekly dash log file.
-WEEKLY_DASH_LOG_FILE = 'weeklyDashGo.out'
+# String naming branch or commit used in this test.
+BRANCH_OR_COMMIT = os.environ['BRANCH_OR_COMMIT']
 
 # Name of voltron output file.
 VOLTRON_OUTPUT_FILE = 'msphere.volt.h5'
@@ -98,6 +97,19 @@ VOLTRON_OUTPUT_FILE_MASTER = os.path.join(
 VOLTRON_OUTPUT_FILE_DEVELOPMENT = os.path.join(
     REFERENCE_RESULTS_DIRECTORY_DEVELOPMENT, VOLTRON_OUTPUT_FILE
 )
+
+# # Home directory of kaiju installation
+# KAIJUHOME = os.environ['KAIJUHOME']
+
+# # Top-level directory for testing
+# KAIJU_TESTING_HOME = '/glade/work/ewinter/mage_testing/derecho'
+
+# # Path to directory containing weekly dash results.
+# WEEKLY_DASH_DIRECTORY = os.path.join(KAIJUHOME, 'weeklyDash_01')
+
+# # Name of weekly dash log file.
+# weekly_dash_log_latest = 'weeklyDashGo.out'
+
 
 # Compute the paths to the quicklook plots for the master branch.
 MAGNETOSPHERE_QUICKLOOK_MASTER = os.path.join(
@@ -143,7 +155,8 @@ def main():
 
     Raises
     ------
-    None
+    subprocess.CalledProcessError
+        If an exception occurs in subprocess.run()
     """
     # Set up the command-line parser.
     parser = common.create_command_line_parser(DESCRIPTION)
@@ -157,49 +170,40 @@ def main():
     is_test = args.test
     verbose = args.verbose
 
-    # -------------------------------------------------------------------------
+    # ------------------------------------------------------------------------
 
     if debug:
         print(f"Starting {sys.argv[0]} at {datetime.datetime.now()}"
               f" on {platform.node()}")
         print(f"Current directory is {os.getcwd()}")
 
-    # -------------------------------------------------------------------------
+    # ------------------------------------------------------------------------
 
-    # Set up for communication with Slack.
-    slack_client = common.slack_create_client()
+    # Move to the top-level weekly dash directory.
+    os.chdir(WEEKLY_DASH_DIRECTORY)
+
+    # ------------------------------------------------------------------------
+
+    # Get list of weekly dash directories.
+    weekly_dash_directories = glob.glob(WEEKLY_DASH_DIRECTORY_GLOB_PATTERN)
     if debug:
-        print(f"slack_client = {slack_client}")
+        print(f"weekly_dash_directories = {weekly_dash_directories}")
 
-    # -------------------------------------------------------------------------
+    # <HACK>
+    # Use only the first mdirectory for now.
+    weekly_dash_directory = weekly_dash_directories[0]
+    # </HACK>
 
-    # Move to the MAGE installation directory.
-    os.chdir(KAIJUHOME)
-
-    # -------------------------------------------------------------------------
-
-    # Find the current branch.
-    git_branch_name = common.git_get_branch_name()
-    if debug:
-        print(f"git_branch_name = {git_branch_name}")
-
-    # -------------------------------------------------------------------------
-
-    # Get the short hostname.
-    short_hostname = platform.node()
-    if debug:
-        print(f"short_hostname = {short_hostname}")
-
-    # -------------------------------------------------------------------------
+    # ------------------------------------------------------------------------
 
     # Read reference results for the master branch.
     if verbose:
-        print('Reading reference results for master branch from'
-              f" {REFERENCE_RESULTS_DIRECTORY_MASTER}.")
+        print('Reading reference results for real-time performance for master '
+              f" branch from {REFERENCE_LOG_MASTER}.")
 
     # Read the git hash from the log file.
     if verbose:
-        print(f"Reading Git hash from {REFERENCE_LOG_MASTER}.")
+        print(f"Reading git hash from {REFERENCE_LOG_MASTER}.")
     git_hash_master = 'XXXXXXXX'
     with open(REFERENCE_LOG_MASTER, 'r', encoding='utf-8') as f:
         for line in f:
@@ -209,7 +213,6 @@ def main():
                 break
     if debug:
         print(f"git_hash_master = {git_hash_master}")
-    # NEED CHECK CODE HERE.
 
     # Read the output times for each Voltron output message (as UT strings)
     # from the log file.
@@ -228,8 +231,7 @@ def main():
         print(
             f"ERROR: Unable to read UT from {REFERENCE_LOG_MASTER}.\n"
             f"e.cmd = {e.cmd}\n"
-            f"e.returncode = {e.returncode}\n"
-            'See {REFERENCE_LOG_MASTER} for output.\n',
+            f"e.returncode = {e.returncode}\n",
             file=sys.stderr
         )
         sys.exit(1)
@@ -243,7 +245,7 @@ def main():
     if debug:
         print(f"UT_log_dt_master = {UT_log_dt_master}")
 
-    # Read % real-time performance values from the reference results log.
+    # Read % real-time performance values from the log file.
     if verbose:
         print(f"Reading performance data from {REFERENCE_LOG_MASTER}.")
     cmd = (
@@ -260,8 +262,7 @@ def main():
             'ERROR: Unable to read performance data from'
             f"{REFERENCE_LOG_MASTER}.\n"
             f"e.cmd = {e.cmd}\n"
-            f"e.returncode = {e.returncode}\n"
-            f"See {REFERENCE_LOG_MASTER} for output.\n",
+            f"e.returncode = {e.returncode}\n",
             file=sys.stderr
         )
         sys.exit(1)
@@ -292,16 +293,19 @@ def main():
         RT_log_f_master = RT_log_f_master[:len(UT_log_dt_master)]
     # </HACK>
 
-    # -------------------------------------------------------------------------
+    # ------------------------------------------------------------------------
 
     # Read reference results for the development branch.
     if verbose:
-        print('Reading reference results for development branch from'
-              f"{REFERENCE_RESULTS_DIRECTORY_DEVELOPMENT}.")
+        print(
+            'Reading reference results for real-time performance for '
+            'development branch from '
+            f"{REFERENCE_RESULTS_DIRECTORY_DEVELOPMENT}."
+        )
 
     # Read the git hash from the log file.
     if verbose:
-        print(f"Reading Git hash from {REFERENCE_LOG_DEVELOPMENT}.")
+        print(f"Reading git hash from {REFERENCE_LOG_DEVELOPMENT}.")
     git_hash_development = 'XXXXXXXX'
     with open(REFERENCE_LOG_DEVELOPMENT, 'r', encoding='utf-8') as f:
         for line in f:
@@ -311,7 +315,6 @@ def main():
                 break
     if debug:
         print(f"git_hash_development = {git_hash_development}")
-    # NEED CHECK CODE HERE.
 
     # Read the output times for each Voltron output message (as UT strings)
     # from the log file.
@@ -330,8 +333,7 @@ def main():
         print(
             f"ERROR: Unable to read UT from {REFERENCE_LOG_DEVELOPMENT}.\n"
             f"e.cmd = {e.cmd}\n"
-            f"e.returncode = {e.returncode}\n"
-            'See {REFERENCE_LOG_DEVELOPMENT} for output.\n',
+            f"e.returncode = {e.returncode}\n",
             file=sys.stderr
         )
         sys.exit(1)
@@ -364,8 +366,7 @@ def main():
             'ERROR: Unable to read performance data from'
             f"{REFERENCE_LOG_DEVELOPMENT}.\n"
             f"e.cmd = {e.cmd}\n"
-            f"e.returncode = {e.returncode}\n"
-            f"See {REFERENCE_LOG_DEVELOPMENT} for output.\n",
+            f"e.returncode = {e.returncode}\n",
             file=sys.stderr
         )
         sys.exit(1)
@@ -406,10 +407,10 @@ def main():
 
     # Read results from the latest run.
     if verbose:
-        print(f"Reading results for latest run in {WEEKLY_DASH_DIRECTORY}.")
+        print(f"Reading results for latest run in {weekly_dash_directory}.")
 
     # Go to weekly dash folder
-    os.chdir(WEEKLY_DASH_DIRECTORY)
+    os.chdir(weekly_dash_directory)
 
     # Move down to the directory containing the dash results.
     os.chdir(BIN_DIR)
@@ -426,18 +427,19 @@ def main():
             file=sys.stderr
         )
         sys.exit(1)
-    job1 = lines[0].rstrip()
+    job_id = lines[0].rstrip()
     if debug:
-        print(f"job1 = {job1}")
+        print(f"job_id = {job_id}")
 
     # <HACK>
-    job1_output_log = 'weeklyDashGo.out'
+    weekly_dash_log_latest = 'weeklyDashGo.out'
     # </HACK>
 
+    # Read the git hash from the log file.
     if verbose:
-        print(f"Reading Git hash from {job1_output_log}.")
+        print(f"Reading git hash from {weekly_dash_log_latest}.")
     git_hash_latest = 'XXXXXXXX'
-    with open(WEEKLY_DASH_LOG_FILE, 'r', encoding='utf-8') as f:
+    with open(weekly_dash_log_latest, 'r', encoding='utf-8') as f:
         for line in f:
             git_hash_match = re.search(GIT_HASH_PATTERN, line)
             if git_hash_match:
@@ -445,15 +447,14 @@ def main():
                 break
     if debug:
         print(f"git_hash_latest = {git_hash_latest}")
-    # NEED CHECK CODE HERE.
 
     # Read the output times for each Voltron output message (as UT strings)
     # from the log file.
     if verbose:
-        print(f"Reading UT from {WEEKLY_DASH_LOG_FILE}.")
+        print(f"Reading UT from {weekly_dash_log_latest}.")
     cmd = (
         'sed --quiet "s/^ \\+UT \\+= \\+\\([0-9-]\\+ [0-9:]\\+\\).*$/\\1/p" '
-        f"{WEEKLY_DASH_LOG_FILE}"
+        f"{weekly_dash_log_latest}"
     )
     if debug:
         print(f"cmd = {cmd}")
@@ -462,10 +463,9 @@ def main():
                                text=True, capture_output=True)
     except subprocess.CalledProcessError as e:
         print(
-            f"ERROR: Unable to read UT from {WEEKLY_DASH_LOG_FILE}.\n"
+            f"ERROR: Unable to read UT from {weekly_dash_log_latest}.\n"
             f"e.cmd = {e.cmd}\n"
-            f"e.returncode = {e.returncode}\n"
-            f"See {WEEKLY_DASH_LOG_FILE} for output.\n",
+            f"e.returncode = {e.returncode}\n",
             file=sys.stderr
         )
         sys.exit(1)
@@ -481,12 +481,12 @@ def main():
     if debug:
         print(f"UT_log_dt_latest = {UT_log_dt_latest}")
 
-    # Read % real-time performance values from the reference results log.
+    # Read % real-time performance values from the results log.
     if verbose:
-        print(f"Reading performance data from {WEEKLY_DASH_LOG_FILE}.")
+        print(f"Reading performance data from {weekly_dash_log_latest}.")
     cmd = (
         'sed --quiet "s/^ \\+Running @ *\\([0-9]\\+\\.\\?[0-9]*\\)% of '
-        f'real-time.*$/\\1/p" {WEEKLY_DASH_LOG_FILE}'
+        f'real-time.*$/\\1/p" {weekly_dash_log_latest}'
     )
     if debug:
         print(f"cmd = {cmd}")
@@ -496,10 +496,9 @@ def main():
     except subprocess.CalledProcessError as e:
         print(
             'ERROR: Unable to read performance data from'
-            f"{WEEKLY_DASH_LOG_FILE}.\n"
+            f"{weekly_dash_log_latest}.\n"
             f"e.cmd = {e.cmd}\n"
-            f"e.returncode = {e.returncode}\n"
-            f"See {WEEKLY_DASH_LOG_FILE} for output.\n",
+            f"e.returncode = {e.returncode}\n",
             file=sys.stderr
         )
         sys.exit(1)
@@ -520,7 +519,7 @@ def main():
     # lists at the end.
     if len(UT_log_dt_latest) > len(RT_log_f_latest):
         if verbose:
-            print(f"WARNING: UT data from {WEEKLY_DASH_LOG_FILE}"
+            print(f"WARNING: UT data from {weekly_dash_log_latest}"
                   f"is longer than RT data ({len(UT_log_dt_latest)} > "
                   f"{len(RT_log_f_latest)}); truncating UT data.")
         UT_log_dt_latest = (
@@ -528,7 +527,7 @@ def main():
         )
     elif len(RT_log_f_latest) > len(UT_log_dt_latest):
         if verbose:
-            print(f"WARNING: RT data from {WEEKLY_DASH_LOG_FILE}"
+            print(f"WARNING: RT data from {weekly_dash_log_latest}"
                   f" is longer than UT data ({len(RT_log_f_latest)} > "
                   f"{len(UT_log_dt_latest)}); truncating UT data.")
         RT_log_f_latest = (
@@ -536,12 +535,12 @@ def main():
         )
     # </HACK>
 
-    # -------------------------------------------------------------------------
+    # ------------------------------------------------------------------------
 
     # Create all plots in a memory buffer.
     mpl.use('Agg')
 
-    # -------------------------------------------------------------------------
+    # ------------------------------------------------------------------------
 
     # Make the real-time performance plot.
     if verbose:
@@ -566,7 +565,7 @@ def main():
             label=f"Development ({git_hash_development})",
             linewidth=line_width)
     ax.plot(UT_log_dt_latest, RT_log_f_latest,
-            label=f"{git_branch_name} ({git_hash_latest})",
+            label=f"{BRANCH_OR_COMMIT} ({git_hash_latest})",
             linewidth=line_width)
     ax.legend(loc='lower right', fontsize='small')
 
@@ -598,7 +597,7 @@ def main():
     kv.savePic(fOut)
     plt.close('all')
 
-    # -------------------------------------------------------------------------
+    # ------------------------------------------------------------------------
 
     # Read Dst data from the master-branch reference results.
     if verbose:
@@ -607,11 +606,10 @@ def main():
 
     # Read the git hash from the voltron output file.
     if verbose:
-        print(f"Reading Git hash from {VOLTRON_OUTPUT_FILE_MASTER}.")
+        print(f"Reading git hash from {VOLTRON_OUTPUT_FILE_MASTER}.")
     git_hash_master = kh5.GetHash(VOLTRON_OUTPUT_FILE_MASTER)
     if debug:
         print(f"git_hash_master = {git_hash_master}")
-    # NEED CHECK CODE HERE.
 
     # Read the step count and step IDs from the voltron output file.
     n_steps_master, step_IDs_master = kh5.cntSteps(VOLTRON_OUTPUT_FILE_MASTER)
@@ -641,7 +639,7 @@ def main():
     if debug:
         print(f"Dst_master = {Dst_master}")
 
-    # -------------------------------------------------------------------------
+    # ------------------------------------------------------------------------
 
     # Read Dst data from the development-branch reference results.
     if verbose:
@@ -650,11 +648,10 @@ def main():
 
     # Read the git hash from the voltron output file.
     if verbose:
-        print(f"Reading Git hash from {VOLTRON_OUTPUT_FILE_DEVELOPMENT}.")
+        print(f"Reading git hash from {VOLTRON_OUTPUT_FILE_DEVELOPMENT}.")
     git_hash_development = kh5.GetHash(VOLTRON_OUTPUT_FILE_DEVELOPMENT)
     if debug:
         print(f"git_hash_development = {git_hash_development}")
-    # NEED CHECK CODE HERE.
 
     # Read the step count and step IDs from the voltron output file.
     n_steps_development, step_IDs_development = kh5.cntSteps(
@@ -687,7 +684,7 @@ def main():
     if debug:
         print(f"Dst_development = {Dst_development}")
 
-    # -------------------------------------------------------------------------
+    # ------------------------------------------------------------------------
 
     # Read Dst from the latest run.
     if verbose:
@@ -695,11 +692,10 @@ def main():
 
     # Read the git hash from the voltron output file.
     if verbose:
-        print(f"Reading Git hash from {VOLTRON_OUTPUT_FILE}.")
+        print(f"Reading git hash from {VOLTRON_OUTPUT_FILE}.")
     git_hash_latest = kh5.GetHash(VOLTRON_OUTPUT_FILE)
     if debug:
         print(f"git_hash_latest = {git_hash_latest}")
-    # NEED CHECK CODE HERE.
 
     # Read the step count and step IDs from the voltron output file.
     n_steps_latest, step_IDs_latest = kh5.cntSteps(VOLTRON_OUTPUT_FILE)
@@ -728,7 +724,7 @@ def main():
     if debug:
         print(f"Dst_latest = {Dst_latest}")
 
-    # -------------------------------------------------------------------------
+    # ------------------------------------------------------------------------
 
     # Make the DST plot.
 
@@ -745,7 +741,7 @@ def main():
             label=f"Development ({git_hash_development})",
             linewidth=2*line_width)
     ax.plot(UT_dt_latest, Dst_latest,
-            label=f"{git_branch_name} ({git_hash_latest})",
+            label=f"{BRANCH_OR_COMMIT} ({git_hash_latest})",
             linewidth=2*line_width)
     ax.legend(loc='upper right', fontsize='small')
 
@@ -777,13 +773,13 @@ def main():
     kv.savePic(fOut)
     plt.close('all')
 
-    # -------------------------------------------------------------------------
+    # ------------------------------------------------------------------------
 
     # Read CPCP (north and south) data from the master-branch reference
     # results.
     if verbose:
-        print('Reading reference CPCP (north and south) for master branch from'
-              f"{VOLTRON_OUTPUT_FILE_MASTER}.")
+        print('Reading reference CPCP (north and south) for master branch '
+              f"from {VOLTRON_OUTPUT_FILE_MASTER}.")
 
     # Read the CPCP values from the voltron output file.
     CPCP_north_master = kh5.getTs(VOLTRON_OUTPUT_FILE_MASTER, step_IDs_master,
@@ -794,13 +790,13 @@ def main():
         print(f"CPCP_north_master = {CPCP_north_master}")
         print(f"CPCP_south_master = {CPCP_south_master}")
 
-    # -------------------------------------------------------------------------
+    # ------------------------------------------------------------------------
 
     # Read CPCP (north and south) data from the development-branch reference
     # results.
     if verbose:
-        print('Reading reference CPCP (north and south) for development branch'
-              f" from {VOLTRON_OUTPUT_FILE_DEVELOPMENT}.")
+        print('Reading reference CPCP (north and south) for development '
+              f"branch from {VOLTRON_OUTPUT_FILE_DEVELOPMENT}.")
 
     # Read the CPCP values from the voltron output file.
     CPCP_north_development = kh5.getTs(VOLTRON_OUTPUT_FILE_DEVELOPMENT,
@@ -811,7 +807,7 @@ def main():
         print(f"CPCP_north_development = {CPCP_north_development}")
         print(f"CPCP_south_development = {CPCP_south_development}")
 
-    # -------------------------------------------------------------------------
+    # ------------------------------------------------------------------------
 
     # Read CPCP (north and south) data from the latest run.
     if verbose:
@@ -827,7 +823,7 @@ def main():
         print(f"CPCP_north_latest = {CPCP_north_latest}")
         print(f"CPCP_south_latest = {CPCP_south_latest}")
 
-    # -------------------------------------------------------------------------
+    # ------------------------------------------------------------------------
 
     # Make the CPCP plot.
 
@@ -857,7 +853,7 @@ def main():
             label=f"{git_branch_name} (north) ({git_hash_latest})",
             color=colors[2], linewidth=2*line_width)
     ax.plot(UT_dt_latest, CPCP_south_latest,
-            label=f"{git_branch_name} (south) ({git_hash_latest})",
+            label=f"{BRANCH_OR_COMMIT} (south) ({git_hash_latest})",
             color=colors[2], linewidth=2*line_width, linestyle='dashed')
     ax.legend(loc='upper right', fontsize='small')
 
@@ -889,73 +885,71 @@ def main():
     kv.savePic(fOut)
     plt.close('all')
 
-    # -------------------------------------------------------------------------
+    # ------------------------------------------------------------------------
 
     # Make the magnetosphere quick-look plot.
     if verbose:
         print('Creating magnetosphere quicklook plot for '
-              f"{WEEKLY_DASH_DIRECTORY}.")
+              f"{weekly_dash_directory}.")
 
     # Create the plot.
     cmd = 'msphpic.py'
     if debug:
         print(f"cmd = {cmd}")
     try:
-        cproc = subprocess.run(cmd, shell=True, check=True)
+        _ = subprocess.run(cmd, shell=True, check=True)
     except subprocess.CalledProcessError as e:
         print(
             'ERROR: Unable to create magnetosphere quicklook plot.\n'
             f"e.cmd = {e.cmd}\n"
             f"e.returncode = {e.returncode}\n"
-            f'See {WEEKLY_DASH_LOG_FILE} for output.\n',
+            f'See log for output.\n',
             file=sys.stderr
         )
 
-    # -------------------------------------------------------------------------
+    # ------------------------------------------------------------------------
 
     # Make the REMIX quick-look plots.
     if verbose:
-        print('Creating REMIX quicklook plots for '
-              f"{WEEKLY_DASH_DIRECTORY}.")
+        print(f"Creating REMIX quicklook plots for {weekly_dash_directory}.")
 
     # Create the plot.
     cmd = 'mixpic.py'
     if debug:
         print(f"cmd = {cmd}")
     try:
-        cproc = subprocess.run(cmd, shell=True, check=True)
+        _ = subprocess.run(cmd, shell=True, check=True)
     except subprocess.CalledProcessError as e:
         print(
             'ERROR: Unable to create REMIX quicklook plots.\n'
             f"e.cmd = {e.cmd}\n"
             f"e.returncode = {e.returncode}\n"
-            f'See {WEEKLY_DASH_LOG_FILE} for output.\n',
+            f'See log for output.\n',
             file=sys.stderr
         )
 
-    # -------------------------------------------------------------------------
+    # ------------------------------------------------------------------------
 
     # Make the RCM quick-look plot.
     if verbose:
-        print('Creating RCM quicklook plot for '
-              f"{WEEKLY_DASH_DIRECTORY}.")
+        print(f"Creating RCM quicklook plot for {weekly_dash_directory}.")
 
     # Create the plot.
     cmd = 'rcmpic.py'
     if debug:
         print(f"cmd = {cmd}")
     try:
-        cproc = subprocess.run(cmd, shell=True, check=True)
+        _ = subprocess.run(cmd, shell=True, check=True)
     except subprocess.CalledProcessError as e:
         print(
             'ERROR: Unable to create RCM quicklook plot.\n'
             f"e.cmd = {e.cmd}\n"
             f"e.returncode = {e.returncode}\n"
-            f'See {WEEKLY_DASH_LOG_FILE} for output.\n',
+            f'See log for output.\n',
             file=sys.stderr
         )
 
-    # -------------------------------------------------------------------------
+    # ------------------------------------------------------------------------
 
     # Create merged images for the quicklook plots.
 
@@ -968,13 +962,13 @@ def main():
     if debug:
         print(f"cmd = {cmd}")
     try:
-        cproc = subprocess.run(cmd, shell=True, check=True)
+        _ = subprocess.run(cmd, shell=True, check=True)
     except subprocess.CalledProcessError as e:
         print(
             'ERROR: Unable to combine magnetosphere quicklook plots.\n'
             f"e.cmd = {e.cmd}\n"
             f"e.returncode = {e.returncode}\n"
-            f'See {WEEKLY_DASH_LOG_FILE} for output.\n',
+            f'See log for output.\n',
             file=sys.stderr
         )
 
@@ -993,7 +987,7 @@ def main():
             'ERROR: Unable to combine REMIX (north) quicklook plots.\n'
             f"e.cmd = {e.cmd}\n"
             f"e.returncode = {e.returncode}\n"
-            f'See {WEEKLY_DASH_LOG_FILE} for output.\n',
+            f'See log for output.\n',
             file=sys.stderr
         )
 
@@ -1012,7 +1006,7 @@ def main():
             'ERROR: Unable to combine REMIX (south) quicklook plots.\n'
             f"e.cmd = {e.cmd}\n"
             f"e.returncode = {e.returncode}\n"
-            f'See {WEEKLY_DASH_LOG_FILE} for output.\n',
+            f'See log for output.\n',
             file=sys.stderr
         )
 
@@ -1031,13 +1025,20 @@ def main():
             'ERROR: Unable to combine RCM quicklook plots.\n'
             f"e.cmd = {e.cmd}\n"
             f"e.returncode = {e.returncode}\n"
-            f'See {WEEKLY_DASH_LOG_FILE} for output.\n',
+            f'See log for output.\n',
             file=sys.stderr
         )
 
-    # -------------------------------------------------------------------------
+    # ------------------------------------------------------------------------
 
-    # List the file to post and their comments.
+    # Set up for communication with Slack.
+    slack_client = common.slack_create_client()
+    if debug:
+        print(f"slack_client = {slack_client}")
+
+    # ------------------------------------------------------------------------
+
+    # List the files to post and their comments.
     images_to_post = [
         'perfPlots.png',
         'Dst.png',
@@ -1064,14 +1065,15 @@ def main():
         'REMIX (south) Quicklook Comparison Plots\n\n',
         'RCM Quicklook Comparison Plots\n\n'
     ]
+
     # If loud mode is on, post results to Slack.
     if be_loud:
         message = (
-            f"Weekly dash result plots complete on branch {git_branch_name},"
-            f" run on host {short_hostname}. Latest comparative results"
-            ' attached as replies to this message.'
+            f"Weekly dash result plots complete on branch {BRANCH_OR_COMMIT}."
+            ' Latest comparative results attached as replies to this message.'
         )
-        slack_response = common.slack_send_message(slack_client, message)
+        slack_response = common.slack_send_message(
+            slack_client, message, is_test=is_test)
         if slack_response['ok']:
             parent_ts = slack_response['ts']
             message = (
@@ -1079,17 +1081,17 @@ def main():
                 ' 8 nodes for Gamera, 1 for Voltron, and 2 Squish Helper nodes'
                 ' (11 nodes total).'
             )
-            slack_response = common.slack_send_message(slack_client, message,
-                                                       thread_ts=parent_ts)
+            slack_response = common.slack_send_message(
+                slack_client, message, thread_ts=parent_ts, is_test=is_test)
             for (f, c) in zip(images_to_post, comments_to_post):
                 slack_response = common.slack_send_image(
                     slack_client, f, initial_comment=c,
-                    thread_ts=parent_ts,
+                    thread_ts=parent_ts, is_test=is_test
                 )
         else:
             print('Failed to post parent message and images to Slack.')
 
-    # -------------------------------------------------------------------------
+    # ------------------------------------------------------------------------
 
     if debug:
         print(f"Ending {sys.argv[0]} at {datetime.datetime.now()}"

@@ -119,7 +119,8 @@ def main():
 
     Raises
     ------
-    None
+    subprocess.CalledProcessError
+        If an exception occurs in subprocess.run()
     """
     # Set up the command-line parser.
     parser = common.create_command_line_parser(DESCRIPTION)
