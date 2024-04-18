@@ -108,6 +108,9 @@ BUILD_BIN_DIR = 'bin'
 # Name of PBS account to use for testing jobs.
 DERECHO_TESTING_ACCOUNT = os.environ['DERECHO_TESTING_ACCOUNT']
 
+# Token string for access to Slack.
+SLACK_BOT_TOKEN = os.environ['SLACK_BOT_TOKEN']
+
 
 def main():
     """Begin main program.
@@ -309,6 +312,7 @@ def main():
                 f"KAIJUROOTDIR={KAIJUHOME},"
                 f"MAGE_TEST_SET_ROOT={MAGE_TEST_SET_ROOT},"
                 f"DERECHO_TESTING_ACCOUNT={DERECHO_TESTING_ACCOUNT},"
+                f"SLACK_BOT_TOKEN={SLACK_BOT_TOKEN}"
             )
             # <HACK>
             # Assumes data generation job is first.
