@@ -54,6 +54,9 @@ WEEKLY_DASH_LIST_FILE = os.path.join(MODULE_LIST_DIRECTORY, 'weekly_dash.lst')
 # Prefix for weekly dash directory name
 WEEKLY_DASH_DIRECTORY_PREFIX = 'weeklyDash_'
 
+# Subdirectory of build directory containing compiled products to use in tests
+BIN_DIR = 'bin'
+
 # # Top-level directory for testing
 # KAIJU_TESTING_HOME = '/glade/work/ewinter/mage_testing/derecho'
 
@@ -62,9 +65,6 @@ WEEKLY_DASH_DIRECTORY_PREFIX = 'weeklyDash_'
 
 # # Name of working directory containing dash restart files.
 # WORKING_DASH_RESTART_DIRECTORY = 'dashRestarts'
-
-# # Subdirectory of build directory containing compiled products to use in tests
-# BIN_DIR = 'bin'
 
 # # Source directory for weekly dash restart files
 # WEEKLY_DASH_RESTART_SRC_DIRECTORY = os.path.join(
@@ -261,143 +261,62 @@ def main():
             )
             continue
 
-    #     # Move into the bin directory to run the tests.
-    #     os.chdir(BIN_DIR)
+        # Move into the bin directory to run the tests.
+        os.chdir(BIN_DIR)
 
-    #     # Generate the LFM grid file.
-    #     if verbose:
-    #         print('Creating LFM grid file.')
-    #     cmd = 'genLFM.py -gid Q'
-    #     if debug:
-    #         print(f"cmd = {cmd}")
-    #     try:
-    #         _ = subprocess.run(cmd, shell=True, check=True)
-    #     except subprocess.CalledProcessError as e:
-    #         print('ERROR: Unable to create LFM grid file for module set '
-    #               f"{module_set_name}.\n"
-    #               f"e.cmd = {e.cmd}\n"
-    #               f"e.returncode = {e.returncode}\n"
-    #               'See testing log for output from genLFM.py.\n'
-    #               'Skipping remaining steps for module set'
-    #               f"{module_set_name}\n")
-    #         continue
+        # Generate the LFM grid file.
+        if verbose:
+            print('Creating LFM grid file.')
+        cmd = 'genLFM.py -gid Q'
+        if debug:
+            print(f"cmd = {cmd}")
+        try:
+            _ = subprocess.run(cmd, shell=True, check=True)
+        except subprocess.CalledProcessError as e:
+            print('ERROR: Unable to create LFM grid file for module set '
+                  f"{module_set_name}.\n"
+                  f"e.cmd = {e.cmd}\n"
+                  f"e.returncode = {e.returncode}\n"
+                  'See testing log for output from genLFM.py.\n'
+                  'Skipping remaining steps for module set'
+                  f"{module_set_name}\n")
+            continue
 
-    #     # Compare the new LFM grid file to the reference version.
-    #     if verbose:
-    #         print('Comparing new LFM grid file to reference version.')
-    #     cmd = f"h5diff {REFERENCE_RESULTS_LFM_GRID_FILE_MASTER} lfmQ.h5"
-    #     if debug:
-    #         print(f"cmd = {cmd}")
-    #     try:
-    #         cproc = subprocess.run(cmd, shell=True, check=True,
-    #                                text=True, capture_output=True)
-    #     except subprocess.CalledProcessError as e:
-    #         print('ERROR: Error comparing LFM grid file for module set '
-    #               f"{module_set_name} to reference version.\n"
-    #               f"e.cmd = {e.cmd}\n"
-    #               f"e.returncode = {e.returncode}\n"
-    #               'See testing log for output from h5diff.\n'
-    #               'Skipping remaining steps for module set'
-    #               f"{module_set_name}\n")
-    #         continue
-    #     grid_diff = cproc.stdout.rstrip()
-    #     if debug:
-    #         print(f"grid_diff = {grid_diff}")
-    #     if grid_diff != '':
-    #         print('LFM grid for weekly dash has changed on branch'
-    #               f" {git_branch_name}. Case cannot be run. Please"
-    #               ' re-generate restart data, and ensure the grid change'
-    #               ' was intentional.\n')
+        # Generate the solar wind boundary condition file.
+        if verbose:
+            print('Creating solar wind initial conditions file.')
+        cmd = (
+            'cda2wind.py -t0 2016-08-09T02:00:00 -t1 2016-08-09T12:00:00')
+        if debug:
+            print(f"cmd = {cmd}")
+        try:
+            _ = subprocess.run(cmd, shell=True, check=True)
+        except subprocess.CalledProcessError as e:
+            print('ERROR: Unable to create solar wind boundary conditions file'
+                  f" for module set {module_set_name}.\n"
+                  f"e.cmd = {e.cmd}\n"
+                  f"e.returncode = {e.returncode}\n"
+                  'See testing log for output from cda2wind.py.\n'
+                  'Skipping remaining steps for module set'
+                  f"{module_set_name}\n")
+            continue
 
-    #     # Generate the solar wind boundary condition file.
-    #     if verbose:
-    #         print('Creating solar wind initial conditions file.')
-    #     cmd = (
-    #         'cda2wind.py -t0 2016-08-09T02:00:00 -t1 2016-08-09T12:00:00')
-    #     if debug:
-    #         print(f"cmd = {cmd}")
-    #     try:
-    #         _ = subprocess.run(cmd, shell=True, check=True)
-    #     except subprocess.CalledProcessError as e:
-    #         print('ERROR: Unable to create solar wind boundary conditions file'
-    #               f" for module set {module_set_name}.\n"
-    #               f"e.cmd = {e.cmd}\n"
-    #               f"e.returncode = {e.returncode}\n"
-    #               'See testing log for output from cda2wind.py.\n'
-    #               'Skipping remaining steps for module set'
-    #               f"{module_set_name}\n")
-    #         continue
-
-    #     # Compare the new solar wind boundary condition file to the original.
-    #     if verbose:
-    #         print('Comparing new solar wind file to reference version.')
-    #     cmd = f"h5diff {REFERENCE_RESULTS_BCWIND_FILE_MASTER} bcwind.h5"
-    #     if debug:
-    #         print(f"cmd = {cmd}")
-    #     try:
-    #         cproc = subprocess.run(cmd, shell=True, check=True,
-    #                                text=True, capture_output=True)
-    #     except subprocess.CalledProcessError as e:
-    #         print('ERROR: Error comparing solar wind file for module set '
-    #               f"{module_set_name} to reference version.\n"
-    #               f"e.cmd = {e.cmd}\n"
-    #               f"e.returncode = {e.returncode}\n"
-    #               'See testing log for output from h5diff.\n'
-    #               'Skipping remaining steps for module set'
-    #               f"{module_set_name}\n")
-    #         continue
-    #     wind_diff = cproc.stdout.rstrip()
-    #     if debug:
-    #         print(f"wind_diff = {wind_diff}")
-    #     if wind_diff != '':
-    #         print('Solar wind data for weekly dash has changed on branch'
-    #               f" {git_branch_name}. Case cannot be run. Please"
-    #               ' re-generate restart data, and ensure the change'
-    #               ' was intentional.\n')
-    #         continue
-
-    #     # Generate the RCM configuration file.
-    #     if verbose:
-    #         print('Creating RCM configuration file.')
-    #     cmd = 'genRCM.py'
-    #     if debug:
-    #         print(f"cmd = {cmd}")
-    #     try:
-    #         _ = subprocess.run(cmd, shell=True, check=True)
-    #     except subprocess.CalledProcessError as e:
-    #         print('ERROR: Unable to create RCM configuration file'
-    #               f" for module set {module_set_name}.\n"
-    #               f"e.cmd = {e.cmd}\n"
-    #               f"e.returncode = {e.returncode}\n"
-    #               'See testing log for output from genRCM.py.\n'
-    #               f"Skipping remaining steps for module set {module_set_name}\n")
-    #         continue
-
-    #     # Compare the new RCM configuration file to the original.
-    #     if verbose:
-    #         print('Comparing new RCM configuration file to reference version.')
-    #     cmd = f"h5diff {REFERENCE_RESULTS_RCMCONFIG_FILE_MASTER} rcmconfig.h5"
-    #     if debug:
-    #         print(f"cmd = {cmd}")
-    #     try:
-    #         cproc = subprocess.run(cmd, shell=True, check=True,
-    #                                text=True, capture_output=True)
-    #     except subprocess.CalledProcessError as e:
-    #         print('ERROR (expected): Error comparing RCM configuration file for'
-    #               f" module set {module_set_name} to reference version.\n"
-    #               f"e.cmd = {e.cmd}\n"
-    #               f"e.returncode = {e.returncode}\n"
-    #               'See testing log for output from h5diff.\n')
-    #         # continue  ERROR EXPECTED FOR NOW
-    #     rcm_diff = cproc.stdout.rstrip()
-    #     if debug:
-    #         print(f"rcm_diff = {rcm_diff}")
-    #     if rcm_diff != '':
-    #         print('RCM configuration for weekly dash has changed on branch'
-    #               f" {git_branch_name}. Case cannot be run. Please"
-    #               ' re-generate restart data, and ensure the change'
-    #               ' was intentional.\n')
-    #         # continue  ERROR EXPECTED FOR NOW
+        # Generate the RCM configuration file.
+        if verbose:
+            print('Creating RCM configuration file.')
+        cmd = 'genRCM.py'
+        if debug:
+            print(f"cmd = {cmd}")
+        try:
+            _ = subprocess.run(cmd, shell=True, check=True)
+        except subprocess.CalledProcessError as e:
+            print('ERROR: Unable to create RCM configuration file'
+                  f" for module set {module_set_name}.\n"
+                  f"e.cmd = {e.cmd}\n"
+                  f"e.returncode = {e.returncode}\n"
+                  'See testing log for output from genRCM.py.\n'
+                  f"Skipping remaining steps for module set {module_set_name}\n")
+            continue
 
     #     # Copy files needed for the weekly dash job.
     #     if verbose:
