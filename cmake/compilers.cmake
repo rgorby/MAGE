@@ -83,9 +83,13 @@ if(CMAKE_Fortran_COMPILER_ID MATCHES Intel)
 	#Base
 	string(APPEND CMAKE_Fortran_FLAGS " -fPIC -fpconstant")
 	#Production
-    set(PROD "-align array64byte -align rec32byte -no-prec-div -fast-transcendentals")
+    if(NOT FAST_YOLO)
+        set(PROD "-align array64byte -align rec32byte -fimf-use-svml=true -fp-model=source")
+    else()
+        set(PROD "-align array64byte -align rec32byte -fimf-use-svml=true -fp-model=fast")
+    endif()
     #Production with Debug Info
-    set(PRODWITHDEBUGINFO "-traceback -debug all -align array64byte -align rec32byte -no-prec-div -fast-transcendentals")
+    set(PRODWITHDEBUGINFO "-traceback -debug all -align array64byte -align rec32byte -fimf-use-svml=true -fp-model=source")
 	#Debug
     if(NOT DISABLE_DEBUG_BOUNDS_CHECKS)
         set(DEBUG "-traceback -check bounds -check uninit -debug all -gen-interfaces -warn interfaces -fp-stack-check")
