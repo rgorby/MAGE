@@ -138,7 +138,7 @@ def main():
     # ------------------------------------------------------------------------
 
     # Make a directory to hold all of the weekly dash tests.
-    print(f"Creating ${WEEKLY_DASH_DIRECTORY}.")
+    print(f"Creating {WEEKLY_DASH_DIRECTORY}.")
     os.mkdir(WEEKLY_DASH_DIRECTORY)
 
     # ------------------------------------------------------------------------
@@ -204,7 +204,7 @@ def main():
 
         # Make a directory for this build, and go there.
         dir_name = f"{WEEKLY_DASH_DIRECTORY_PREFIX}{module_set_name}"
-        build_directory = os.path.join(KAIJUHOME, dir_name)
+        build_directory = os.path.join(WEEKLY_DASH_DIRECTORY, dir_name)
         if debug:
             print(f"build_directory = {build_directory}")
         os.mkdir(build_directory)
