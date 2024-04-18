@@ -14,10 +14,9 @@ Eric Winter
 
 # Import standard modules.
 import datetime
-# import glob
 import os
 import platform
-# import shutil
+import shutil
 import subprocess
 import sys
 
@@ -57,6 +56,18 @@ WEEKLY_DASH_DIRECTORY_PREFIX = 'weeklyDash_'
 # Subdirectory of build directory containing compiled products to use in tests
 BIN_DIR = 'bin'
 
+# List of weekly dash test files to copy
+WEEKLY_DASH_TEST_FILES = [
+    'weeklyDashGo.xml',
+    'weeklyDashGo.pbs',
+]
+
+# Name of PBS account to use for testing jobs.
+DERECHO_TESTING_ACCOUNT = os.environ['DERECHO_TESTING_ACCOUNT']
+
+# Token string for access to Slack.
+SLACK_BOT_TOKEN = os.environ['SLACK_BOT_TOKEN']
+
 # # Top-level directory for testing
 # KAIJU_TESTING_HOME = '/glade/work/ewinter/mage_testing/derecho'
 
@@ -70,12 +81,6 @@ BIN_DIR = 'bin'
 # WEEKLY_DASH_RESTART_SRC_DIRECTORY = os.path.join(
 #     os.environ['MAGE_TEST_ROOT'], 'dashRestarts'
 # )
-
-# # List of weekly dash test files to copy
-# WEEKLY_DASH_TEST_FILES = [
-#     'weeklyDashGo.xml',
-#     'weeklyDashGo.pbs',
-# ]
 
 # # Path to directory containing master-branch reference results.
 # REFERENCE_RESULTS_DIRECTORY_MASTER = os.path.join(
@@ -318,80 +323,93 @@ def main():
                   f"Skipping remaining steps for module set {module_set_name}\n")
             continue
 
-    #     # Copy files needed for the weekly dash job.
-    #     if verbose:
-    #         print('Copying files needed for weekly dash.')
-    #     for filename in WEEKLY_DASH_TEST_FILES:
-    #         from_file = os.path.join(TEST_SCRIPTS_DIRECTORY, filename)
-    #         to_file = os.path.join('.', filename)
-    #         shutil.copyfile(from_file, to_file)
+        # Copy the PBS and XML files needed for the weekly dash job.
+        if verbose:
+            print('Copying PBS and XML files needed for weekly dash.')
+        for filename in WEEKLY_DASH_TEST_FILES:
+            from_file = os.path.join(TEST_SCRIPTS_DIRECTORY, filename)
+            to_file = os.path.join('.', filename)
+            shutil.copyfile(from_file, to_file)
 
-    #     # Create and submit the qsub command for a model run with these files.
-    #     if verbose:
-    #         print('Preparing to submit weekly dash model run.')
-    #     cmd = (
-    #         f"qsub -A {account} "
-    #         f"-v MODULE_LIST='{' '.join(module_names)}'"
-    #         f",KAIJUROOTDIR={KAIJUHOME} weeklyDashGo.pbs"
-    #     )
-    #     if debug:
-    #         print(f"cmd = {cmd}")
-    #     try:
-    #         cproc = subprocess.run(cmd, shell=True, check=True,
-    #                                text=True, capture_output=True)
-    #     except subprocess.CalledProcessError as e:
-    #         print('ERROR: Unable to submit job request for module set '
-    #               f"{module_set_name}.\n"
-    #               f"e.cmd = {e.cmd}\n"
-    #               f"e.returncode = {e.returncode}\n"
-    #               'See testing log for output.\n'
-    #               f"Skipping remaining steps for module set {module_set_name}\n")
-    #         continue
-    #     firstJobNumber = cproc.stdout.split('.')[0]
-    #     if debug:
-    #         print(f"firstJobNumber = {firstJobNumber}")
+        # Submit the weekly dasj job.
+        if verbose:
+            print('Preparing to submit weekly dash model run.')
+        cmd = (
+                f"qsub -A {DERECHO_TESTING_ACCOUNT} "
+                f"-v MODULE_LIST='{' '.join(module_names)}',"
+                f"KAIJUROOTDIR={KAIJUHOME},"
+                f"MAGE_TEST_SET_ROOT={MAGE_TEST_SET_ROOT},"
+                f"DERECHO_TESTING_ACCOUNT={DERECHO_TESTING_ACCOUNT},"
+                f"SLACK_BOT_TOKEN={SLACK_BOT_TOKEN}"
+        )
+        if debug:
+            print(f"cmd = {cmd}")
+            try:
+                cproc = subprocess.run(cmd, shell=True, check=True,
+                                       text=True, stdout=subprocess.PIPE,
+                                       stderr=subprocess.STDOUT)
+            except subprocess.CalledProcessError as e:
+            print('ERROR: Unable to submit job request for module set '
+                  f"{module_set_name}.\n"
+                  f"e.cmd = {e.cmd}\n"
+                  f"e.returncode = {e.returncode}\n"
+                  'See testing log for output.\n'
+                  'Skipping remaining steps for module set '
+                  f"{module_set_name}\n"
+            )
+            continue
+        firstJobNumber = cproc.stdout.split('.')[0]
+        if debug:
+            print(f"firstJobNumber = {firstJobNumber}")
 
-    #     # Save the job number in a file.
-    #     with open('jobs.txt', 'w', encoding='utf-8') as f:
-    #         f.write(f"{firstJobNumber}\n")
+        # Save the job number in a file.
+        with open('jobs.txt', 'w', encoding='utf-8') as f:
+            f.write(f"{firstJobNumber}\n")
 
-    # # -------------------------------------------------------------------------
+    # End of loop over module sets
 
-    # # Set up for communication with Slack.
-    # slack_client = common.slack_create_client()
-    # if debug:
-    #     print(f"slack_client = {slack_client}")
-    # # ------------------------------------------------------------------------
+    # ------------------------------------------------------------------------
 
-    # # NOTE: Assumes only 1 module set was used.
+    # Set up for communication with Slack.
+    slack_client = common.slack_create_client()
+    if debug:
+        print(f"slack_client = {slack_client}")
 
-    # # Detail the test results
-    # test_details_message = ''
-    # test_details_message += f"Weekly dash submitted as job {firstJobNumber}."
+    # ------------------------------------------------------------------------
 
-    # # Summarize the test results.
-    # test_summary_message = 'Weekly dash submitted (`weeklyDash.py`)'
+    # NOTE: Assumes only 1 module set was used (for now).
 
-    # # Print the test results summary and details.
-    # print(test_summary_message)
-    # print(test_details_message)
+    # Detail the test results
+    test_report_details_string = ''
+    test_report_details_string += (
+        f"Weekly dash submitted as job {firstJobNumber}."
+    )
 
-    # # If loud mode is on, post report to Slack.
-    # if be_loud:
-    #     test_summary_message += 'Details in thread for this messsage.\n'
-    #     slack_response_summary = common.slack_send_message(
-    #         slack_client, test_summary_message, is_test=is_test
-    #     )
-    #     if slack_response_summary['ok']:
-    #         thread_ts = slack_response_summary['ts']
-    #         slack_response_details = common.slack_send_message(
-    #             slack_client, test_details_message, thread_ts=thread_ts,
-    #             is_test=is_test
-    #         )
-    #     else:
-    #         print('*ERROR* Unable to post test result summary to Slack.')
+    # Summarize the test results.
+    test_report_summary_string = 'Weekly dash submitted (`weeklyDash.py`).'
 
-    # # -------------------------------------------------------------------------
+    # Print the test results summary and details.
+    print(test_report_summary_string)
+    print(test_report_details_string)
+
+    # If loud mode is on, post report to Slack.
+    if be_loud:
+        test_report_summary_string += 'Details in thread for this messsage.\n'
+        slack_response_summary = common.slack_send_message(
+            slack_client, test_report_summary_string, is_test=is_test
+        )
+        if slack_response_summary['ok']:
+            thread_ts = slack_response_summary['ts']
+            slack_response_details = common.slack_send_message(
+                slack_client, test_report_details_string, thread_ts=thread_ts,
+                is_test=is_test
+            )
+            if 'ok' not in slack_response_details:
+                print('*ERROR* Unable to post test details to Slack.')
+        else:
+            print('*ERROR* Unable to post test summary to Slack.')
+
+    # ------------------------------------------------------------------------
 
     if debug:
         print(f"Ending {sys.argv[0]} at {datetime.datetime.now()}")
