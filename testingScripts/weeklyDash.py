@@ -18,7 +18,7 @@ import datetime
 import os
 import platform
 # import shutil
-# import subprocess
+import subprocess
 import sys
 
 # Import 3rd-party modules.
@@ -210,52 +210,56 @@ def main():
         os.mkdir(build_directory)
         os.chdir(build_directory)
 
-    #     # Run cmake to build the Makefile.
-    #     if verbose:
-    #         print(
-    #             'Running cmake to create Makefile for module set'
-    #             f" {module_set_name}."
-    #         )
-    #     cmd = (
-    #         f"{module_cmd}"
-    #         f"; {cmake_environment} cmake {cmake_options}"
-    #         f" {KAIJUHOME}"
-    #         '>& cmake.out'
-    #     )
-    #     if debug:
-    #         print(f"cmd = {cmd}")
-    #     try:
-    #         _ = subprocess.run(cmd, shell=True, check=True)
-    #     except subprocess.CalledProcessError as e:
-    #         print(f"ERROR: cmake for module set {module_set_name} failed.\n"
-    #               f"e.cmd = {e.cmd}\n"
-    #               f"e.returncode = {e.returncode}\n"
-    #               f"See {os.path.join(build_directory, 'cmake.out')}"
-    #               ' for output from cmake.\n'
-    #               'Skipping remaining steps for module set'
-    #               f" {module_set_name}\n")
-    #         continue
+        # Run cmake to build the Makefile.
+        if verbose:
+            print(
+                'Running cmake to create Makefile for module set'
+                f" {module_set_name}."
+            )
+        cmd = (
+            f"{module_cmd}; {cmake_environment} cmake {cmake_options}"
+            f" {KAIJUHOME} >& cmake.out"
+        )
+        if debug:
+            print(f"cmd = {cmd}")
+        try:
+            # NOTE: stdout and stderr goes to stdout (into log file)
+            _ = subprocess.run(cmd, shell=True, check=True)
+        except subprocess.CalledProcessError as e:
+            print(
+                f"ERROR: cmake for module set {module_set_name} failed.\n"
+                f"e.cmd = {e.cmd}\n"
+                f"e.returncode = {e.returncode}\n"
+                f"See {os.path.join(build_directory, 'cmake.out')}"
+                ' for output from cmake.\n'
+                f"Skipping remaining steps for module set {module_set_name}",
+                file=sys.stderr
+            )
+            continue
 
-    #     # Run the build.
-    #     if verbose:
-    #         print(
-    #             'Running make to build kaiju for module set'
-    #             f" {module_set_name}."
-    #         )
-    #     cmd = f"{module_cmd}; {make_cmd} >& make.out"
-    #     if debug:
-    #         print(f"cmd = {cmd}")
-    #     try:
-    #         _ = subprocess.run(cmd, shell=True, check=True)
-    #     except subprocess.CalledProcessError as e:
-    #         print(f"ERROR: make for module set {module_set_name} failed.\n"
-    #               f"e.cmd = {e.cmd}\n"
-    #               f"e.returncode = {e.returncode}\n"
-    #               f"See {os.path.join(build_directory, 'make.out')}"
-    #               ' for output from make.\n'
-    #               'Skipping remaining steps for module set'
-    #               f" {module_set_name}\n")
-    #         continue
+        # Run the build.
+        if verbose:
+            print(
+                'Running make to build kaiju for module set'
+                f" {module_set_name}."
+            )
+        cmd = f"{module_cmd}; {make_cmd} >& make.out"
+        if debug:
+            print(f"cmd = {cmd}")
+        try:
+            # NOTE: stdout and stderr go into make.out.
+            _ = subprocess.run(cmd, shell=True, check=True)
+        except subprocess.CalledProcessError as e:
+            print(
+                f"ERROR: make for module set {module_set_name} failed.\n"
+                f"e.cmd = {e.cmd}\n"
+                f"e.returncode = {e.returncode}\n"
+                f"See {os.path.join(build_directory, 'make.out')}"
+                ' for output from make.\n'
+                f"Skipping remaining steps for module set {module_set_name}",
+                file=sys.stderr
+            )
+            continue
 
     #     # Move into the bin directory to run the tests.
     #     os.chdir(BIN_DIR)
