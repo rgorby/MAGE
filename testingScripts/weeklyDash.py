@@ -344,27 +344,28 @@ def main():
         )
         if debug:
             print(f"cmd = {cmd}")
-            try:
-                cproc = subprocess.run(cmd, shell=True, check=True,
-                                       text=True, stdout=subprocess.PIPE,
-                                       stderr=subprocess.STDOUT)
-            except subprocess.CalledProcessError as e:
-            print('ERROR: Unable to submit job request for module set '
-                  f"{module_set_name}.\n"
-                  f"e.cmd = {e.cmd}\n"
-                  f"e.returncode = {e.returncode}\n"
-                  'See testing log for output.\n'
-                  'Skipping remaining steps for module set '
-                  f"{module_set_name}\n"
+        try:
+            cproc = subprocess.run(cmd, shell=True, check=True,
+                                    text=True, stdout=subprocess.PIPE,
+                                    stderr=subprocess.STDOUT)
+        except subprocess.CalledProcessError as e:
+            print(
+                'ERROR: Unable to submit job request for module set '
+                f"{module_set_name}.\n"
+                f"e.cmd = {e.cmd}\n"
+                f"e.returncode = {e.returncode}\n"
+                'See testing log for output.\n'
+                'Skipping remaining steps for module set '
+                f"{module_set_name}\n"
             )
             continue
-        firstJobNumber = cproc.stdout.split('.')[0]
+        job_id = cproc.stdout.split('.')[0]
         if debug:
-            print(f"firstJobNumber = {firstJobNumber}")
+            print(f"job_id = {job_id}")
 
         # Save the job number in a file.
         with open('jobs.txt', 'w', encoding='utf-8') as f:
-            f.write(f"{firstJobNumber}\n")
+            f.write(f"{job_id}\n")
 
     # End of loop over module sets
 
@@ -382,7 +383,7 @@ def main():
     # Detail the test results
     test_report_details_string = ''
     test_report_details_string += (
-        f"Weekly dash submitted as job {firstJobNumber}."
+        f"Weekly dash submitted as job {job_id}."
     )
 
     # Summarize the test results.
