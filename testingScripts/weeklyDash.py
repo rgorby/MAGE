@@ -320,7 +320,8 @@ def main():
                   f"e.cmd = {e.cmd}\n"
                   f"e.returncode = {e.returncode}\n"
                   'See testing log for output from genRCM.py.\n'
-                  f"Skipping remaining steps for module set {module_set_name}\n")
+                  'Skipping remaining steps for module set '
+                  f"{module_set_name}\n")
             continue
 
         # Copy the PBS and XML files needed for the weekly dash job.
@@ -341,13 +342,14 @@ def main():
                 f"MAGE_TEST_SET_ROOT={MAGE_TEST_SET_ROOT},"
                 f"DERECHO_TESTING_ACCOUNT={DERECHO_TESTING_ACCOUNT},"
                 f"SLACK_BOT_TOKEN={SLACK_BOT_TOKEN}"
+                ' weeklyDashGo.pbs'
         )
         if debug:
             print(f"cmd = {cmd}")
         try:
             cproc = subprocess.run(cmd, shell=True, check=True,
-                                    text=True, stdout=subprocess.PIPE,
-                                    stderr=subprocess.STDOUT)
+                                   text=True, stdout=subprocess.PIPE,
+                                   stderr=subprocess.STDOUT)
         except subprocess.CalledProcessError as e:
             print(
                 'ERROR: Unable to submit job request for module set '
