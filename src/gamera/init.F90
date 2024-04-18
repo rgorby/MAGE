@@ -196,6 +196,16 @@ module init
 
         call PrepState(Model,Grid,oState,State,xmlInp,userInitFunc)
 
+        !Do background stuff
+        !Incorporate background field, B0, if necessary
+        if (Model%doBackground .and. Grid%doB0Init) then
+            call AddB0(Model,Grid,Model%B0)
+        endif
+        !Incorporate gravity if necessary
+        if (Model%doGrav .and. Grid%doG0Init) then
+            call AddGrav(Model,Grid,Model%Phi)
+        endif
+
         if (Model%isRestart) then
             !If restart replace State variable w/ restart file
             !Make sure inH5 is set to restart
@@ -222,15 +232,6 @@ module init
             endif
         endif
 
-    !Do background stuff
-        !Incorporate background field, B0, if necessary
-        if (Model%doBackground .and. Grid%doB0Init) then
-            call AddB0(Model,Grid,Model%B0)
-        endif
-        !Incorporate gravity if necessary
-        if (Model%doGrav .and. Grid%doG0Init) then
-            call AddGrav(Model,Grid,Model%Phi)
-        endif
 
     !Finalize setup
         !Enforce initial BC's
@@ -321,7 +322,7 @@ module init
         real(rp) :: C0,MJD0
         integer :: nSeed, icSeed
         integer, dimension(:), allocatable :: vSeed
-        logical :: doFatIO
+        logical :: doFatIO,doHighPrecOut
 
         !Start by shutting up extra ranks
         if (.not. Model%isLoud) call xmlInp%BeQuiet()
@@ -407,6 +408,10 @@ module init
         if (doFatIO) then
             call SetFatIO()
         endif
+        call xmlInp%Set_Val(doHighPrecOut,'output/doHighPrecOut' ,.false.)
+        if(doHighPrecOut) then
+            call SetHPOut()
+        endif
         
         !Whether to read restart
         call xmlInp%Set_Val(Model%isRestart,'restart/doRes',.false.)
@@ -447,6 +452,8 @@ module init
             write(*,*) "Uknown sim/rmeth, exiting ..."
             stop
         end select
+
+        call xmlInp%Set_Val(Model%doLFMLim,"sim/lfmlim",Model%doLFMLim)
 
         RingLR => NULL()
         call xmlInp%Set_Val(reconMethod,"ring/rngrec","PPM")

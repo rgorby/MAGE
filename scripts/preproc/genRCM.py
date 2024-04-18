@@ -37,6 +37,7 @@ if __name__ == "__main__":
 	L_kt   = 10
 	wolfP1 = 3
 	wolfP2 = 1
+	maxKp = 6
 	plotChoices = ['none', 'spec', 'vs']
 
 
@@ -57,6 +58,7 @@ if __name__ == "__main__":
 	parser.add_argument('--nop',action='store_true',default=False,help="Do not add zero loss first channel (default: %(default)s)")
 	parser.add_argument('--noWaveModel',action='store_true',default=False, help="Don't use wave models in the electron/ion loss (default: %(default)s)")
 	parser.add_argument('--addWM', action='store_true',default=False, help="Add wave models to an existing rcmconfig file, input file needed to be presented (default: %(default)s)")
+	parser.add_argument('-maxKp', type=int,default=maxKp, help="Max. Kp index allowed in the electron wave model, integer only (default: %(default)s)")	
 	parser.add_argument('-i', type=str,default=fOut,metavar="fIn", help="Input file name when addWM is true (default: %(default)s)")
 
 
@@ -74,12 +76,17 @@ if __name__ == "__main__":
 	wolfP2 = args.p2
 	addWM = args.addWM
 	noWaveModel = args.noWaveModel
+	maxKp = args.maxKp
 	fIn = args.i	
 	plotType = args.plotType
 
+	if maxKp >= 7:
+		print ("Maximum Kp allowed is 6. Please re-enter a valid number.")
+		exit()
+           
 	if addWM:
-		tauParams = wmParams(dim = 4, nKp = 7, nMLT = 25, nL = 41, nEk = 155)
-		genWM.genh5(fIn,fOut,tauParams,useWM = True)
+		tauParams = wmParams(dim = 4, nKp = maxKp, nMLT = 97, nL = 41, nEk = 155)
+		genWM.genh5(fIn,fOut,tauParams)
 	else:
 		# Determine proton channel limits based on resolving a certain (proton) temperature at given L
 		bVol = kT.L_to_bVol(L_kt)
@@ -106,8 +113,8 @@ if __name__ == "__main__":
 		fileIO.saveRCMConfig(alamData,params=alamParams,fname=fOut)
 		# Add data needed for wavemodel
 		if not noWaveModel:
-			tauParams = wmParams(dim = 4, nKp = 7, nMLT = 25, nL = 41, nEk = 155, dimTDS = 1, nEkTDS = 109)	
-			genWM.genh5(fOut,fOut,tauParams,useWM = True)
+			tauParams = wmParams(dim = 4, nKp = maxKp, nMLT = 97, nL = 41, nEk = 155)	
+			genWM.genh5(fOut,fOut,tauParams)
 
 		print("Wrote RCM configuration to %s"%(fOut))
 

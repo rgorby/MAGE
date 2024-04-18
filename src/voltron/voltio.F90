@@ -293,7 +293,7 @@ module voltio
             stop
         endif
 
-        vApp%IO%nOut  = GetIOInt(IOVars,"nOut") + 1
+        vApp%IO%nOut  = GetIOInt(IOVars,"nOut")
         vApp%IO%nRes  = GetIOInt(IOVars,"nRes") + 1
         vApp%ts       = GetIOInt(IOVars,"ts")
         vApp%MJD      = GetIOReal(IOVars,"MJD")
