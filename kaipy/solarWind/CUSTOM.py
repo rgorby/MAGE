@@ -735,13 +735,15 @@ class DSCOVRNC(OMNI):
         pop = []
         f1m = []
         m1m = []
-        fmt = '%Y%m%d'
+        fmt1 = '%Y%m%d%H%M%S'
+        fmt2 = '%Y%m%d%H%M%S'
         jud0 = datetime.datetime(1970,1,1,0,0,0,0)
         
         for f in filelist:
             if f[0:2] == 'oe':
-                ctime = datetime.datetime.strptime(f[15:23],fmt)
-                if ctime >= t0 and ctime <=t1:
+                ctime = datetime.datetime.strptime(f[15:29],fmt1)
+                etime = datetime.datetime.strptime(f[31:45],fmt2)
+                if (ctime >= t0 and ctime <=t1) or (t0 <= ctime and ctime <= t1) or (t0 <= etime and etime <= t1):
                     if 'pop' in f:
                         pop.append(f)
                     if 'f1m' in f:

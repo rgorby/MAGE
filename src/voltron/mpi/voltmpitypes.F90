@@ -25,6 +25,12 @@ module voltmpitypes
         logical :: doSerialVoltron = .false., doAsyncCoupling = .true.
         logical :: firstDeepUpdate = .true., firstStepUpdate = .true.
 
+        ! coupling comms variables to be done on volt rank
+        type(MPI_Comm) :: mageCplComm
+        integer :: voltCplRank,CplSize
+        integer :: gcmCplRank = -1, hidraNCplRank = -1,hidraSCplRank = -1,hidraCplRank = -1
+        integer, dimension(:),allocatable :: IAm
+
         ! array of all zeroes to simplify various send/receive calls
         integer, dimension(:), allocatable :: zeroArrayCounts
         type(MPI_Datatype), dimension(:), allocatable :: zeroArrayTypes
