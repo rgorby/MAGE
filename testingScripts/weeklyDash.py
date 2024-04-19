@@ -311,8 +311,8 @@ def main():
                 f"KAIJUROOTDIR={KAIJUHOME},"
                 f"MAGE_TEST_SET_ROOT={MAGE_TEST_SET_ROOT},"
                 f"DERECHO_TESTING_ACCOUNT={DERECHO_TESTING_ACCOUNT},"
-                f"SLACK_BOT_TOKEN={SLACK_BOT_TOKEN}",
-                f"BRANCH_OR_COMMIT={BRANCH_OR_COMMIT}",
+                f"SLACK_BOT_TOKEN={SLACK_BOT_TOKEN},"
+                f"BRANCH_OR_COMMIT={BRANCH_OR_COMMIT}"
                 ' weeklyDashGo.pbs'
         )
         if debug:
