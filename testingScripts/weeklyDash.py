@@ -69,6 +69,9 @@ DERECHO_TESTING_ACCOUNT = os.environ['DERECHO_TESTING_ACCOUNT']
 # Token string for access to Slack.
 SLACK_BOT_TOKEN = os.environ['SLACK_BOT_TOKEN']
 
+# Branch or commit string for code used in this test.
+BRANCH_OR_COMMIT = os.environ['BRANCH_OR_COMMIT']
+
 
 def main():
     """Begin main program.
@@ -308,7 +311,8 @@ def main():
                 f"KAIJUROOTDIR={KAIJUHOME},"
                 f"MAGE_TEST_SET_ROOT={MAGE_TEST_SET_ROOT},"
                 f"DERECHO_TESTING_ACCOUNT={DERECHO_TESTING_ACCOUNT},"
-                f"SLACK_BOT_TOKEN={SLACK_BOT_TOKEN}"
+                f"SLACK_BOT_TOKEN={SLACK_BOT_TOKEN}",
+                f"BRANCH_OR_COMMIT={BRANCH_OR_COMMIT}",
                 ' weeklyDashGo.pbs'
         )
         if debug:
