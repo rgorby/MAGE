@@ -851,7 +851,7 @@ def main():
             label=f"Development (south) ({git_hash_development})",
             color=colors[1], linewidth=2*line_width, linestyle='dashed')
     ax.plot(UT_dt_latest, CPCP_north_latest,
-            label=f"{git_branch_name} (north) ({git_hash_latest})",
+            label=f"{BRANCH_OR_COMMIT} (north) ({git_hash_latest})",
             color=colors[2], linewidth=2*line_width)
     ax.plot(UT_dt_latest, CPCP_south_latest,
             label=f"{BRANCH_OR_COMMIT} (south) ({git_hash_latest})",
