@@ -47,7 +47,7 @@ else
     fi
 fi
 unset __conda_setup
-conda activate $conda_testing_environment
-python $KAIJUHOME/testingScripts/weeklyDashReport.-py -dtlv
+conda activate kaiju-3.8-testing
+python $KAIJUHOME/testingScripts/weeklyDashReport.py -dtlv >& weeklyDashReport.out
 
 echo "Job $PBS_JOBID ended at `date` on `hostname` in directory `pwd`."

@@ -21,6 +21,7 @@ import subprocess
 import sys
 
 # Import 3rd-party modules.
+import jinja2
 
 # Import project modules.
 from kaipy.testing import common
@@ -67,41 +68,6 @@ DERECHO_TESTING_ACCOUNT = os.environ['DERECHO_TESTING_ACCOUNT']
 
 # Token string for access to Slack.
 SLACK_BOT_TOKEN = os.environ['SLACK_BOT_TOKEN']
-
-# # Top-level directory for testing
-# KAIJU_TESTING_HOME = '/glade/work/ewinter/mage_testing/derecho'
-
-# # Glob pattern for weekly dash test direectories
-# WEEKLY_DASH_DIRECTORY_GLOB_PATTERN = 'weeklyDash_*'
-
-# # Name of working directory containing dash restart files.
-# WORKING_DASH_RESTART_DIRECTORY = 'dashRestarts'
-
-# # Source directory for weekly dash restart files
-# WEEKLY_DASH_RESTART_SRC_DIRECTORY = os.path.join(
-#     os.environ['MAGE_TEST_ROOT'], 'dashRestarts'
-# )
-
-# # Path to directory containing master-branch reference results.
-# REFERENCE_RESULTS_DIRECTORY_MASTER = os.path.join(
-#     KAIJU_TESTING_HOME, 'weekly_dash_files', 'reference_results',
-#     'master'
-# )
-
-# # Path to lfmQ.h5 for master-branch reference results.
-# REFERENCE_RESULTS_LFM_GRID_FILE_MASTER = os.path.join(
-#     REFERENCE_RESULTS_DIRECTORY_MASTER, 'lfmQ.h5'
-# )
-
-# # Path to bcwind.h5 for master-branch reference results.
-# REFERENCE_RESULTS_BCWIND_FILE_MASTER = os.path.join(
-#     REFERENCE_RESULTS_DIRECTORY_MASTER, 'bcwind.h5'
-# )
-
-# # Path to rcmconfig.h5 for master-branch reference results.
-# REFERENCE_RESULTS_RCMCONFIG_FILE_MASTER = os.path.join(
-#     REFERENCE_RESULTS_DIRECTORY_MASTER, 'rcmconfig.h5'
-# )
 
 
 def main():
