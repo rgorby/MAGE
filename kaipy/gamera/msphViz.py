@@ -23,11 +23,12 @@ eMax = 5.0  #Max current for contours
 
 #Default pressure colorbar
 vP = kv.genNorm(vMin=1.0e-2,vMax=10.0,doLog=True)
-szStrs = ['small','std','big','dm']
+szStrs = ['small','std','big','bigger','fullD','dm']
 szBds = {}
 szBds["std"]      = [-40.0 ,20.0,2.0]
 szBds["big"]      = [-100.0,20.0,2.0]
 szBds["bigger"]   = [-200.0,25.0,2.0]
+szBds["fullD"]    = [-300.0,30.0,3.0] # full domain for double res
 szBds["small"]    = [-10.0 , 5.0,2.0]
 szBds["dm"]       = [-30.0 ,10.0,40.0/15.0]
 
@@ -47,6 +48,209 @@ def GetSizeBds(args):
 	xyBds = [xTail,xSun,-yMax,yMax]
 
 	return xyBds
+
+#Plot absolute error in the requested, or given, equatorial field
+def PlotEqErrAbs(gsphP,gsphO,nStp,xyBds,Ax,fieldNames,AxCB=None,doClear=True,doDeco=True,vMin=1e-9,vMax=1e-4,doLog=True,doVerb=True):
+	#specify two gsph objects as gsphPredicted (gsphP) and gsphObserved (gsphO)
+	#
+	normAbs = kv.genNorm(vMin,vMax,doLog=doLog)
+	cmapAbs = "PRGn"
+	if doLog:
+		cmapAbs = "magma"
+	
+	if (AxCB is not None):
+		#Add the colorbar to AxCB
+		AxCB.clear()
+
+		cbString = ""
+		for fn in fieldNames:
+			cbString = cbString + "'" + fn + "', "
+		cbString = cbString + " Absolute Error"
+		kv.genCB(AxCB,normAbs,cbString,cM=cmapAbs)
+	#Now do main plotting
+	if (doClear):
+		Ax.clear()
+	dataAbs = None
+	for fn in fieldNames:
+		dataP = gsphP.EggSlice(fn,nStp,doEq=True,doVerb=doVerb)
+		dataO = gsphO.EggSlice(fn,nStp,doEq=True,doVerb=doVerb)
+		if dataAbs is None:
+			dataAbs = np.square(dataO - dataP)
+		else:
+			dataAbs = dataAbs + np.square(dataO - dataP)
+	dataAbs = np.sqrt(dataAbs)
+	Ax.pcolormesh(gsphP.xxi,gsphP.yyi,dataAbs,cmap=cmapAbs,norm=normAbs)
+	
+	kv.SetAx(xyBds,Ax)
+	
+	if (doDeco):
+		kv.addEarth2D(ax=Ax)
+		Ax.set_xlabel('SM-X [Re]')
+		Ax.set_ylabel('SM-Y [Re]')
+	return dataAbs
+
+#Plot relative error in the requested, or given, equatorial field
+def PlotEqErrRel(gsphP,gsphO,nStp,xyBds,Ax,fieldNames,AxCB=None,doClear=True,doDeco=True,vMin=1e-16,vMax=1,doLog=True,doVerb=True):
+	#specify two gsph objects as gsphPredicted (gsphP) and gsphObserved (gsphO)
+	#
+	normRel = kv.genNorm(vMin,vMax,doLog=doLog)
+	cmapRel = "PRGn"
+	if doLog:
+		cmapRel = "magma"
+	
+	if (AxCB is not None):
+		#Add the colorbar to AxCB
+		AxCB.clear()
+		cbString = ""
+		for fn in fieldNames:
+			cbString = cbString + "'" + fn + "', "
+		cbString = cbString + " Relative Error"
+		kv.genCB(AxCB,normRel,cbString,cM=cmapRel)
+	#Now do main plotting
+	if (doClear):
+		Ax.clear()
+	dataAbs = None
+	dataBase = None
+	for fn in fieldNames:
+		dataP = gsphP.EggSlice(fn,nStp,doEq=True,doVerb=doVerb)
+		dataO = gsphO.EggSlice(fn,nStp,doEq=True,doVerb=doVerb)
+		if dataAbs is None:
+			dataBase = np.square(dataP)
+			dataAbs = np.square(dataO - dataP)
+		else:
+			dataBase = dataBase + np.square(dataP)
+			dataAbs = dataAbs + np.square(dataO - dataP)
+	dataBase = np.sqrt(dataBase)
+	dataAbs = np.sqrt(dataAbs)
+	# math breaks when Base field is exactly 0
+	dataBase[dataBase == 0] = np.finfo(np.float32).tiny
+	dataRel = np.absolute(dataAbs/dataBase)
+	Ax.pcolormesh(gsphP.xxi,gsphP.yyi,dataRel,cmap=cmapRel,norm=normRel)
+	
+	kv.SetAx(xyBds,Ax)
+	
+	if (doDeco):
+		kv.addEarth2D(ax=Ax)
+		Ax.set_xlabel('SM-X [Re]')
+		Ax.set_ylabel('SM-Y [Re]')
+	return dataRel
+
+#Plot absolute error along the requested logical axis
+def PlotLogicalErrAbs(gsphP,gsphO,nStp,Ax,fieldNames,meanAxis,AxCB=None,doClear=True,doDeco=True,vMin=1e-16,vMax=1,doLog=True,doVerb=True):
+	#specify two gsph objects as gsphPredicted (gsphP) and gsphObserved (gsphO)
+	#
+	normAbs = kv.genNorm(vMin,vMax,doLog=doLog)
+	cmapAbs = "PRGn"
+	if doLog:
+		cmapAbs = "magma"
+
+	if (AxCB is not None):
+		#Add the colorbar to AxCB
+		AxCB.clear()
+		cbString = ""
+		for fn in fieldNames:
+			cbString = cbString + "'" + fn + "', "
+		cbString = cbString + " Absolute Error along "
+		if meanAxis == 0:
+			cbString = cbString + "I axis"
+		elif meanAxis == 1:
+			cbString = cbString + "J axis"
+		elif meanAxis == 2:
+			cbString = cbString + "K axis"
+		kv.genCB(AxCB,normAbs,cbString,cM=cmapAbs)
+	#Now do main plotting
+	if (doClear):
+		Ax.clear()
+	dataAbs = CalcTotalErrAbs(gsphP,gsphO,nStp,fieldNames,doVerb=doVerb,meanAxis=meanAxis)
+	dataAbs = np.transpose(dataAbs) # transpose to put I/J on the horizontal axis
+	Ax.pcolormesh(dataAbs,cmap=cmapAbs,norm=normAbs)
+
+	if (doDeco):
+		if meanAxis == 0:
+			Ax.set_xlabel('J Indices')
+			Ax.set_ylabel('K Indices')
+		elif meanAxis == 1:
+			Ax.set_xlabel('I Indices')
+			Ax.set_ylabel('K Indices')
+		elif meanAxis == 2:
+			Ax.set_xlabel('I Indices')
+			Ax.set_ylabel('J Indices')
+	return dataAbs
+
+#Plot relative error along the requested logical axis
+def PlotLogicalErrRel(gsphP,gsphO,nStp,Ax,fieldNames,meanAxis,AxCB=None,doClear=True,doDeco=True,vMin=1e-16,vMax=1,doLog=True,doVerb=True):
+	#specify two gsph objects as gsphPredicted (gsphP) and gsphObserved (gsphO)
+	#
+	normRel = kv.genNorm(vMin,vMax,doLog=doLog)
+	cmapRel = "PRGn"
+	if doLog:
+		cmapRel = "magma"
+
+	if (AxCB is not None):
+		#Add the colorbar to AxCB
+		AxCB.clear()
+		cbString = ""
+		for fn in fieldNames:
+			cbString = cbString + "'" + fn + "', "
+		cbString = cbString + " Relative Error along "
+		if meanAxis == 0:
+			cbString = cbString + "I axis"
+		elif meanAxis == 1:
+			cbString = cbString + "J axis"
+		elif meanAxis == 2:
+			cbString = cbString + "K axis"
+		kv.genCB(AxCB,normAbs,cbString,cM=cmapAbs)
+	#Now do main plotting
+	if (doClear):
+		Ax.clear()
+	dataRel = CalcTotalErrRel(gsphP,gsphO,nStp,fieldNames,doVerb=doVerb,meanAxis=meanAxis)
+	dataRel = np.transpose(dataRel) # transpose to put I/J on the horizontal axis
+	Ax.pcolormesh(dataRel,cmap=cmapRel,norm=normRel)
+
+	if (doDeco):
+		if meanAxis == 0:
+			Ax.set_xlabel('J Indices')
+			Ax.set_ylabel('K Indices')
+		elif meanAxis == 1:
+			Ax.set_xlabel('I Indices')
+			Ax.set_ylabel('K Indices')
+		elif meanAxis == 2:
+			Ax.set_xlabel('I Indices')
+			Ax.set_ylabel('J Indices')
+	return dataRel
+
+#Calculate total cumulative absolute error between two cases
+def CalcTotalErrAbs(gsphP,gsphO,nStp,fieldNames,doVerb=True,meanAxis=None):
+	dataAbs = None
+	for fn in fieldNames:
+		dataP = gsphP.GetVar(fn,nStp,doVerb=doVerb)
+		dataO = gsphO.GetVar(fn,nStp,doVerb=doVerb)
+		if dataAbs is None:
+			dataAbs = np.square(dataO - dataP)
+		else:
+			dataAbs = dataAbs + np.square(dataO - dataP)
+	dataAbs = np.sqrt(dataAbs)
+	return np.mean(dataAbs,axis=meanAxis)
+
+#Calculate total cumulative relative error between two cases
+def CalcTotalErrRel(gsphP,gsphO,nStp,fieldNames,doVerb=True,meanAxis=None):
+	dataAbs = None
+	dataBase = None
+	for fn in fieldNames:
+		dataP = gsphP.GetVar(fn,nStp,doVerb=doVerb)
+		dataO = gsphO.GetVar(fn,nStp,doVerb=doVerb)
+		if dataAbs is None:
+			dataBase = np.square(dataP)
+			dataAbs = np.square(dataO - dataP)
+		else:
+			dataBase = dataBase + np.square(dataP)
+			dataAbs = dataAbs + np.square(dataO - dataP)
+	dataBase = np.sqrt(dataBase)
+	dataAbs = np.sqrt(dataAbs)
+	# math breaks when Base field is exactly 0
+	dataBase[dataBase == 0] = np.finfo(np.float32).tiny
+	dataRel = np.absolute(dataAbs/dataBase)
+	return np.mean(dataRel,axis=meanAxis)
 
 #Plot equatorial field
 def PlotEqB(gsph,nStp,xyBds,Ax,AxCB=None,doClear=True,doDeco=True,doBz=False):
