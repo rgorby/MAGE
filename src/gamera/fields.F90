@@ -272,7 +272,7 @@ module fields
 
         !Interpolate dV to corner
         do i=1,iMax
-            dV(i) = dot_product(interpWgt,VolB(i,:))
+            dV(i) = max( dot_product(interpWgt,VolB(i,:)),TINY )
         enddo
 
         !Now interpolate, <VdV>/<dV>
@@ -321,7 +321,11 @@ module fields
         call recLoadBlockI(Model,Gr,MagB(:,:,1),bFluxHf (:,:,:,dT1),iB,j,k,iMax,dT2)
         
         call limLoadBlockI(Model,Gr,nAreaB      ,Gr%Face(:,:,:,dT1),iB,j,k,iMax,dT2)
-        call limLoadBlockI(Model,Gr,nMagB(:,:,1),bFluxn (:,:,:,dT1),iB,j,k,iMax,dT2)
+        if (Model%doLFMLim) then
+            call limLoadBlockI(Model,Gr,nMagB(:,:,1),bFluxn (:,:,:,dT1),iB,j,k,iMax,dT2)
+        else
+            call limLoadBlockI(Model,Gr,nMagB(:,:,1),bFluxHf(:,:,:,dT1),iB,j,k,iMax,dT2)
+        endif
 
         !Split into L/Rs
         if (doBdA) then
@@ -480,7 +484,7 @@ module fields
             call recLoadBlockI(Model,Gr,AreaB      ,Gr%Face(:,:,:,dT1),iB,j,k,iMax,dT2)
             !Interpolate first
             do i=1,iMax
-                dA(i) = dot_product(interpWgt,AreaB(i,:))
+                dA(i) = max( dot_product(interpWgt,AreaB(i,:)),TINY )
             enddo
             !Loop over face Vxyz
             do d=1,NDIM
