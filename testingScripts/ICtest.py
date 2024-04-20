@@ -78,6 +78,9 @@ INITIAL_CONDITION_BUILD_DIR_PREFIX = 'ICtest_'
 # Name of build subdirectory containing binaries
 BUILD_BIN_DIR = 'bin'
 
+# Branch or commit (or tag) used for testing.
+BRANCH_OR_COMMIT = os.environ['BRANCH_OR_COMMIT']
+
 
 def main():
     """Begin main program.
@@ -330,7 +333,8 @@ def main():
 
     # Summarize the test results.
     test_report_summary_string = (
-        'Summary of initial condition build test results from `ICtest.py`: '
+        'Summary of initial condition build test results from `ICtest.py`'
+        f" for branch or commit or tag {BRANCH_OR_COMMIT}: "
     )
     if 'FAILED' in test_report_details_string:
         test_report_summary_string += '*FAILED*\n'

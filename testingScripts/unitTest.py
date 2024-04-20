@@ -111,6 +111,9 @@ DERECHO_TESTING_ACCOUNT = os.environ['DERECHO_TESTING_ACCOUNT']
 # Token string for access to Slack.
 SLACK_BOT_TOKEN = os.environ['SLACK_BOT_TOKEN']
 
+# Branch or commit (or tag) used for testing.
+BRANCH_OR_COMMIT = os.environ['BRANCH_OR_COMMIT']
+
 
 def main():
     """Begin main program.
@@ -398,7 +401,8 @@ def main():
 
     # Summarize the test results
     test_report_summary_string = (
-        'Fortran unit tests submitted (`unitTest.py`).\n'
+        'Fortran unit tests submitted by `unitTest.py`'
+        f" for branch or commit or tag {BRANCH_OR_COMMIT}\n"
     )
 
     # Print the test results summary and details.

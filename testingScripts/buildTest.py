@@ -71,6 +71,9 @@ BUILD_TEST_LIST_FILE = os.path.join(MODULE_LIST_DIRECTORY, 'build_test.lst')
 # Name of subdirectory of current build subdirectory containing binaries
 BUILD_BIN_DIR = 'bin'
 
+# Branch or commit (or tag) used for testing.
+BRANCH_OR_COMMIT = os.environ['BRANCH_OR_COMMIT']
+
 
 def main():
     """Begin main program.
@@ -347,7 +350,8 @@ def main():
 
     # Summarize the test results.
     test_report_summary_string = (
-        'Summary of build test results from `buildTest.py`: '
+        'Summary of build test results from `buildTest.py`'
+        f" for branch or commit or tag {BRANCH_OR_COMMIT}: "
     )
     if 'FAILED' in test_report_details_string:
         test_report_summary_string += '*FAILED*\n'

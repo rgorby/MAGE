@@ -360,7 +360,10 @@ def main():
     )
 
     # Summarize the test results.
-    test_report_summary_string = 'Weekly dash submitted (`weeklyDash.py`).'
+    test_report_summary_string = (
+        'Weekly dash submitted by `weeklyDash.py`'
+        f" for branch or commit or tag {BRANCH_OR_COMMIT}\n"
+    )
 
     # Print the test results summary and details.
     print(test_report_summary_string)
