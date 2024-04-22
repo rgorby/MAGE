@@ -355,6 +355,7 @@ def main():
     )
     if 'FAILED' in test_report_details_string:
         test_report_summary_string += '*FAILED*\n'
+        test_report_summary_string += 'Details in thread.\n'
     else:
         test_report_summary_string += '*ALL PASSED*\n'
 
@@ -364,20 +365,15 @@ def main():
 
     # If loud mode is on, post report to Slack.
     if be_loud:
-        test_report_summary_string += 'Details in thread for this messsage.\n'
         slack_response_summary = common.slack_send_message(
             slack_client, test_report_summary_string, is_test=is_test
         )
-        if slack_response_summary['ok']:
+        if 'FAILED' in test_report_summary_string:
             thread_ts = slack_response_summary['ts']
-            slack_response_details = common.slack_send_message(
+            _ = common.slack_send_message(
                 slack_client, test_report_details_string, thread_ts=thread_ts,
                 is_test=is_test
             )
-            if 'ok' not in slack_response_details:
-                print('*ERROR* Unable to post test details to Slack.')
-        else:
-            print('*ERROR* Unable to post test summary to Slack.')
 
     # -------------------------------------------------------------------------
 
