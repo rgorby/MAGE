@@ -35,7 +35,8 @@
     <tracer epsds="0.05"/>
   </CHIMP>
   <REMIX>
-    <conductance const_sigma="True" ped0="10.0"/>
+    <precipitation aurora_model_type="FEDDER"/>
+    <conductance doStarlight="T"/>
   </REMIX>
   <RCM>
     <rcmdomain domType="ELLIPSE"/>
