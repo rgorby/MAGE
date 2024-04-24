@@ -4,7 +4,8 @@ module testGridLocator
     use kdefs, only : TINY
 
     use shellGrid
-    use shellInterp
+    use shellUtils
+    !use shellInterp
 
     implicit none
 
@@ -78,8 +79,8 @@ module testGridLocator
 
         ! Get the values we're here to test
         do i=1,Nsamples
-            call getShellILoc(sh,SHCC,pntsTheta(i), testLocI)
-            call getShellJLoc(sh,SHCC,pntsPhi  (i), testLocJ)
+            call getSGCellILoc(sh,pntsTheta(i), testLocI)
+            call getSGCellJLoc(sh,pntsPhi  (i), testLocJ)
 
             write (checkMessage,*) "Got theta index wrong."
             @assertEqual(testLocI, idxTh_cc(i), checkMessage)
@@ -95,13 +96,17 @@ module testGridLocator
     subroutine testGridLoc_corner()
         !! Tests the functions responsible for finging the index of the point closest to point (t,p)
         !! In the case where we have a corner-centered variable
-        integer :: testLocI, testLocJ
+        integer :: testLocI, testLocJ, i_tmp, j_tmp
         integer :: i
 
         ! Get the values we're here to test
         do i=1,Nsamples
-            call getShellILoc(sh,SHCORNER,pntsTheta(i), testLocI)
-            call getShellJLoc(sh,SHCORNER,pntsPhi  (i), testLocJ)
+            call getSGCellILoc(sh,pntsTheta(i), testLocI)
+            call getSGCellJLoc(sh,pntsPhi  (i), testLocJ)
+            call iLocCC2Corner(sh,pntsTheta(i), testLocI, i_tmp)
+            call jLocCC2Corner(sh,pntsPhi  (i), testLocJ, j_tmp)
+            testLocI = i_tmp
+            testLocJ = j_tmp
 
             write (checkMessage,*) "Got theta index wrong."
             @assertEqual(testLocI, idxTh_corner(i), checkMessage)
@@ -117,13 +122,15 @@ module testGridLocator
     subroutine testGridLoc_thetaFace()
         !! Tests the functions responsible for finging the index of the point closest to point (t,p)
         !! In the case where we have a variable on theta faces
-        integer :: testLocI, testLocJ
+        integer :: testLocI, testLocJ, i_tmp
         integer :: i
 
         ! Get the values we're here to test
         do i=1,Nsamples
-            call getShellILoc(sh,SHFTH,pntsTheta(i), testLocI)
-            call getShellJLoc(sh,SHFTH,pntsPhi  (i), testLocJ)
+            call getSGCellILoc(sh,pntsTheta(i), testLocI)
+            call getSGCellJLoc(sh,pntsPhi  (i), testLocJ)
+            call iLocCC2Corner(sh,pntsTheta(i), testLocI, i_tmp)
+            testLocI = i_tmp
 
             write (checkMessage,*) "Got theta index wrong."
             @assertEqual(testLocI, idxTh_corner(i), checkMessage)
@@ -139,13 +146,15 @@ module testGridLocator
     subroutine testGridLoc_phiFace()
         !! Tests the functions responsible for finging the index of the point closest to point (t,p)
         !! In the case where we have a variable on phi faces
-        integer :: testLocI, testLocJ
+        integer :: testLocI, testLocJ, j_tmp
         integer :: i
 
         ! Get the values we're here to test
         do i=1,Nsamples
-            call getShellILoc(sh,SHFPH,pntsTheta(i), testLocI)
-            call getShellJLoc(sh,SHFPH,pntsPhi  (i), testLocJ)
+            call getSGCellILoc(sh,pntsTheta(i), testLocI)
+            call getSGCellJLoc(sh,pntsPhi  (i), testLocJ)
+            call jLocCC2Corner(sh, pntsPhi(i), testLocJ, j_tmp)
+            testLocJ = j_tmp
 
             write (checkMessage,*) "Got theta index wrong."
             @assertEqual(testLocI, idxTh_cc(i), checkMessage)

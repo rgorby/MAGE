@@ -158,11 +158,11 @@ module remixReader
         ! Hooray we have a shellGrid now
         ! Init our vars
         do h=NORTH,SOUTH
-            call initShellVar(sh, SHCORNER, rmReader%nsFac(h))
+            call initShellVar(sh, SHGR_CORNER, rmReader%nsFac(h))
             rmReader%nsFac(h)%mask(sh%is:sh%ie+1, sh%js:sh%je+1) = .true.
-            call initShellVar(sh, SHCORNER, rmReader%nsPot(h) , rmReader%nsFac(h)%mask)
-            call initShellVar(sh, SHCORNER, rmReader%nsSigP(h), rmReader%nsFac(h)%mask)
-            call initShellVar(sh, SHCORNER, rmReader%nsSigH(h), rmReader%nsFac(h)%mask)
+            call initShellVar(sh, SHGR_CORNER, rmReader%nsPot(h) , rmReader%nsFac(h)%mask)
+            call initShellVar(sh, SHGR_CORNER, rmReader%nsSigP(h), rmReader%nsFac(h)%mask)
+            call initShellVar(sh, SHGR_CORNER, rmReader%nsSigH(h), rmReader%nsFac(h)%mask)
         enddo
         
         ! Now init hemispheres
@@ -195,11 +195,11 @@ module remixReader
             call GenChildShellGrid(shGr, hsg, fullName)
 
             ! Init our variables
-            call initShellVar(hsg, SHCORNER, rmHemi%Fac)
+            call initShellVar(hsg, SHGR_CORNER, rmHemi%Fac)
             rmHemi%Fac%mask(hsg%is:hsg%ie+1, hsg%js:hsg%je+1) = .true.
-            call initShellVar(hsg, SHCORNER, rmHemi%Pot , rmHemi%Fac%mask) 
-            call initShellVar(hsg, SHCORNER, rmHemi%SigP, rmHemi%Fac%mask)
-            call initShellVar(hsg, SHCORNER, rmHemi%SigH, rmHemi%Fac%mask)
+            call initShellVar(hsg, SHGR_CORNER, rmHemi%Pot , rmHemi%Fac%mask) 
+            call initShellVar(hsg, SHGR_CORNER, rmHemi%SigP, rmHemi%Fac%mask)
+            call initShellVar(hsg, SHGR_CORNER, rmHemi%SigH, rmHemi%Fac%mask)
             
             end associate
 

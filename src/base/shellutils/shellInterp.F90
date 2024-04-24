@@ -186,7 +186,7 @@ module shellInterp
 
 
     subroutine InterpShellVar_TSC_pnt(sgsource, sgVar, th, pin, Qinterp, dThetaO, dPhiO, goodInterpO)
-        !! Given the source information, interpolate sgVar to point (t,p) and return as Qout
+        !! Given the source information, interpolate sgVar to point (t,pin) and return as Qout
         type(ShellGrid_T   ), intent(in) :: sgSource
             !! Source ShellGrid
         type(ShellGridVar_T), intent(in) :: sgVar
@@ -207,7 +207,7 @@ module shellInterp
         
         real(rp) :: ph
             !! Cleaned-up phi location we actually use
-        integer :: i0, j0
+        integer :: i0, j0, i0_tmp, j0_tmp
             !! i and j locations of point t,p
             !! Whether they are respect to corner, center, or a face depends on sgVar%loc
         real(rp) :: dTh, dPh
@@ -233,8 +233,16 @@ module shellInterp
             stop
         end if
 
-        call getShellILoc(sgSource, sgVar%loc, th, i0, t0)  ! Sets i0 and t0 to closest i/theta values to interp point t
-        call getShellJLoc(sgSource, sgVar%loc, ph, j0, p0)  ! Sets j0 and p0 to closest i/phi   values to interp point p
+        call getSGCellILoc(sgSource, th, i0, t0)
+        if (sgVar%loc .eq. SHGR_CORNER .or. sgVar%loc .eq. SHGR_FACE_THETA) then
+            call iLocCC2Corner(sgSource, th, i0, i0_tmp, t0)
+            i0 = i0_tmp
+        endif
+        call getSGCellJLoc(sgSource, ph, j0, p0)
+        if (sgVar%loc .eq. SHGR_CORNER .or. sgVar%loc .eq. SHGR_FACE_PHI  ) then
+            call jLocCC2Corner(sgSource, ph, j0, j0_tmp, p0)
+            j0 = j0_tmp
+        endif
 
         if (i0 > sgVar%iev .or. i0 < sgVar%isv) then
             return
@@ -383,116 +391,6 @@ module shellInterp
 
     end subroutine InterpShellVar_TSC_pnt
 
-
-    subroutine getShellILoc(shGr, varLoc, t, iLoc, tLocO)
-        type(ShellGrid_T), intent(in) :: shGr
-        integer :: varLoc
-            !! Location id of the source variable
-        real(rp), intent(in) :: t
-        integer, intent(out) :: iLoc
-        real(rp), optional, intent(out) :: tLocO
-
-        real(rp) :: tLoc
-
-        if (varLoc == SHGR_CC .or. varLoc == SHGR_FACE_PHI) then
-            !! Variable is defined at center w.r.t. theta direction
-            if ( (t>shGr%maxGTheta) ) then                
-                iLoc = shGr%ieg+ceiling((t-shGr%maxGTheta)/(shGr%th(shGr%ieg+1)-shGr%th(shGr%ieg)))
-                tLoc = shGr%thc(shGr%ieg)  ! Just return the last available theta value
-                !write(*,*)"theta going out of bounds",t,shGr%maxGTheta
-            else if ( (t<shGr%minGTheta) ) then
-                iLoc = shGr%isg-ceiling((shGr%minGTheta-t)/(shGr%th(shGr%isg+1)-shGr%th(shGr%isg)))
-                tLoc = shGr%thc(shGr%isg)
-                !write(*,*)"theta going out of bounds",t,shGr%minGTheta
-            else
-                ! If still here then the lat bounds are okay, find closest lat cell center
-                iLoc = minloc( abs(shGr%thc-t),dim=1 )
-                tLoc = shGr%thc(iLoc)
-            endif
-
-            if (present(tLocO)) then
-                tLocO = tLoc
-            endif
-
-        elseif (varLoc == SHGR_CORNER .or. varLoc == SHGR_FACE_THETA) then
-            !! Variable is defined at corners w.r.t. theta direction
-            if ( (t>shGr%maxTheta) ) then
-                iLoc = shGr%ieg+1 + floor( 0.5 + (t-shGr%maxGTheta)/(shGr%th(shGr%ieg+1)-shGr%th(shGr%ieg)) )
-                tLoc = shGr%th(shGr%ieg+1)  ! Just return the last available theta value
-                !write(*,*)"theta going out of bounds",t,shGr%maxGTheta
-            else if ( (t < shGr%minTheta)) then
-                iLoc = shGr%isg   - floor( 0.5 + (shGr%minGTheta-t)/(shGr%th(shGr%isg+1)-shGr%th(shGr%isg)) )
-                tLoc = shGr%th(shGr%isg)
-                !write(*,*)"theta going out of bounds",t,shGr%maxGTheta
-            else
-                ! If still here then the lat bounds are okay, find closest lat cell corner
-                iLoc = minloc( abs(shGr%th-t),dim=1 )
-                tLoc = shGr%th(iLoc)
-            endif
-
-            if (present(tLocO)) then
-                tLocO = tLoc
-            endif
-
-        endif
-
-    end subroutine getShellILoc
-
-
-    subroutine getShellJLoc(shGr, varLoc, pin, jLoc, pLoc)
-        type(ShellGrid_T), intent(in) :: shGr
-        integer :: varLoc
-            !! Location id of the source variable
-        real(rp), intent(in) :: pin
-        integer, intent(out) :: jLoc
-        real(rp), optional, intent(out) :: pLoc
-
-        real(rp) :: p, dp, dJ
-
-        p = modulo(pin,2*PI)
-
-        ! note, shellGrid only implements [0,2pi] grids
-        ! but do this check here in case it's needed in the future
-        if ( (p>shGr%maxPhi) .or. (p<shGr%minPhi) ) then
-            ! Point not on this grid, get outta here
-            write(*,*) "ERROR in getShellJLoc, phi outside of bounds"
-            write(*,*) p, shGr%minPhi, shGr%maxPhi
-            stop
-        endif
-
-        if (varLoc == SHGR_CC .or. varLoc == SHGR_FACE_THETA) then
-            !! Variable is defined at centers w.r.t. phi direction
-            if (shGr%isPhiUniform) then
-                ! note this is faster, thus preferred
-                dp = shGr%phc(2)-shGr%phc(1)
-                dJ = p/dp
-                jLoc = floor(dJ) + 1
-            else
-                jLoc = minloc( abs(shGr%phc-p),dim=1 ) ! Find closest lat cell center
-            endif
-
-            if (present(pLoc)) then
-                pLoc = shGr%phc(jLoc)
-            endif
-
-        elseif (varLoc == SHGR_CORNER .or. varLoc == SHGR_FACE_PHI) then
-            !! Variable is defined at corners w.r.t. phi direction
-            if (shGr%isPhiUniform) then
-                ! note this is faster, thus preferred
-                dp = shGr%ph(2)-shGr%ph(1)
-                dJ = p/dp + 0.5
-                jLoc = floor(dJ) + 1
-            else
-                jLoc = minloc( abs(shGr%ph-p),dim=1 ) ! Find closest lat cell center
-            endif
-
-            if (present(pLoc)) then
-                pLoc = shGr%ph(jLoc)
-            endif
-
-        endif
-
-    end subroutine getShellJLoc
 
     subroutine interpPole(shGr,Qin,tin,pin,Qinterp)
         type(ShellGrid_T), intent(in)     :: shGr     ! source grid
