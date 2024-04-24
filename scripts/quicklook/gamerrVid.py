@@ -17,8 +17,29 @@ import kaipy.kdefs as kdefs
 from mpl_toolkits.axes_grid1.inset_locator import inset_axes
 import os
 import errno
+import subprocess
+import shutil
 
 cLW = 0.25
+
+def makeMovie(frame_dir,movie_name):
+	frame_pattern = frame_dir + "/vid.%04d.png"
+	movie_file = os.getcwd() + "/" + movie_name + ".mp4"
+	ffmpegExe = "ffmpeg"
+	if shutil.which(ffmpegExe) is None:
+		ffmpegExe = "ffmpeg4"
+		if shutil.which(ffmpegExe) is None:
+			print("Could not find any ffmpeg executable. Video will not be generated.")
+			return
+
+	cmd = [
+	    ffmpegExe, "-i", frame_pattern,
+	    "-vcodec", "libx264", "-crf", "14", "-profile:v", "high", "-pix_fmt", "yuv420p",
+	    movie_file,"-y"
+	]
+	print("attempted command")
+	print(cmd)
+	subprocess.run(cmd, check=True)
 
 if __name__ == "__main__":
 	#Defaults
@@ -36,6 +57,7 @@ if __name__ == "__main__":
 	noLog = False
 	fieldNames = "Bx, By, Bz"
 	doVerb = False
+	skipMovie = False
 
 	MainS = """Creates simple multi-panel figure for Gamera magnetosphere run
 	Left Panel - Residual vertical magnetic field
@@ -56,6 +78,7 @@ if __name__ == "__main__":
 	parser.add_argument('-f',type=str,metavar="fieldnames",default=fieldNames,help="Comma-separated fields to plot (default: %(default)s)")
 	parser.add_argument('-linear',action='store_true', default=noLog,help="Plot linear line plot instead of logarithmic (default: %(default)s)")
 	parser.add_argument('-v',action='store_true', default=doVerb,help="Do verbose output (default: %(default)s)")
+	parser.add_argument('-skipMovie',action='store_true', default=skipMovie,help="Skip automatic movie generation afterwards (default: %(default)s)")
 	#parser.add_argument('-nompi', action='store_true', default=noMPI,help="Don't show MPI boundaries (default: %(default)s)")
 
 	mviz.AddSizeArgs(parser)
@@ -208,4 +231,5 @@ if __name__ == "__main__":
 			kv.savePic(fOut,bLenX=45)
 
 			bar()
+	makeMovie(oDir,oDir)
 
