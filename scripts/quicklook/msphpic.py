@@ -261,7 +261,7 @@ def makePlot(i,spacecraft,nStp):
         fname = gsph.f0
         if debug:
             print("fname = %s" % fname)
-        MJD_start = kh5.tStep(fname, gSph.s0, aID="MJD")
+        MJD_start = kh5.tStep(fname, gsph.s0, aID="MJD")
         if debug:
             print("MJD_start = %s" % MJD_start)
         MJD_end = kh5.tStep(fname, gsph.sFin, aID="MJD")
