@@ -74,7 +74,7 @@ program testNewRMS
 
         call initShellVar(rmS%shGr, rmS%nsFac(NORTH)%loc, tmpVarSame)
         tmpVarSame%mask = rmS%nsFac(NORTH)%mask
-        call initShellVar(rmS%shGr, SHCC, tmpVarCC)
+        call initShellVar(rmS%shGr, SHGR_CC, tmpVarCC)
         tmpVarCC%mask = .true.
 
         call InterpShellVar_TSC_SG(rmS%shGr, rmS%nsFac(NORTH), rmS%shGr, tmpVarSame) ! RM fac to same location

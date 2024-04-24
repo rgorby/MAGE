@@ -72,11 +72,11 @@ module shellInterp
         else
             ! If dTheta not present, we calculate it ourselves
 
-            if (sgVar%loc == SHCC .or. sgVar%loc == SHFPH) then
+            if (sgVar%loc == SHGR_CC .or. sgVar%loc == SHGR_FACE_PHI) then
                 ! Note that the location id is the variable's 1D location w.r.t. the theta axis
-                call calcdx_TSC(sgSource%th, sgSource%isg, sgSource%ieg, SHCC, dTheta)
-            elseif (sgVar%loc == SHCORNER .or. sgVar%loc == SHFTH) then
-                call calcdx_TSC(sgSource%th, sgSource%isg, sgSource%ieg, SHCORNER, dTheta)
+                call calcdx_TSC(sgSource%th, sgSource%isg, sgSource%ieg, SHGR_CC, dTheta)
+            elseif (sgVar%loc == SHGR_CORNER .or. sgVar%loc == SHGR_FACE_THETA) then
+                call calcdx_TSC(sgSource%th, sgSource%isg, sgSource%ieg, SHGR_CORNER, dTheta)
             endif
             !! Note: calcdx_TSC sets the dimension of dTheta and dPhi
         endif
@@ -92,10 +92,10 @@ module shellInterp
             dPhi = dPhiO
         else
             ! If dPhi not present, we calculate it ourselves
-            if (sgVar%loc == SHCC .or. sgVar%loc == SHFTH) then
-                call calcdx_TSC(sgSource%ph, sgSource%jsg, sgSource%jeg, SHCC, dPhi)
-            elseif (sgVar%loc == SHCORNER .or. sgVar%loc == SHFPH) then
-                call calcdx_TSC(sgSource%ph, sgSource%jsg, sgSource%jeg, SHCORNER, dPhi)
+            if (sgVar%loc == SHGR_CC .or. sgVar%loc == SHGR_FACE_THETA) then
+                call calcdx_TSC(sgSource%ph, sgSource%jsg, sgSource%jeg, SHGR_CC, dPhi)
+            elseif (sgVar%loc == SHGR_CORNER .or. sgVar%loc == SHGR_FACE_PHI) then
+                call calcdx_TSC(sgSource%ph, sgSource%jsg, sgSource%jeg, SHGR_CORNER, dPhi)
             endif
         endif
 
@@ -103,7 +103,7 @@ module shellInterp
 
         ! Which destination grid locations we loop over depends on the destination variable location
         select case(varOut%loc)
-            case(SHCC)
+            case(SHGR_CC)
                 !do j=varOut%jsv,varOut%jev
                 !    do i=varOut%isv,varOut%iev
                 !^^^ This indexing works just fine, but I'm not gonna do it cause its less clear what we're actually looping over
@@ -125,7 +125,7 @@ module shellInterp
                         ! Probably will be model dependent. Maybe we return a 2D goodInterp array if an optional array is provided to us
                     enddo
                 enddo
-            case(SHCORNER)
+            case(SHGR_CORNER)
                 !$OMP PARALLEL DO default(shared) collapse(1) &
                 !$OMP schedule(dynamic) &
                 !$OMP private(i,j)
@@ -142,7 +142,7 @@ module shellInterp
                                 goodInterp)
                     enddo
                 enddo
-            case(SHFTH)
+            case(SHGR_FACE_THETA)
                 !$OMP PARALLEL DO default(shared) collapse(1) &
                 !$OMP schedule(dynamic) &
                 !$OMP private(i,j)
@@ -159,7 +159,7 @@ module shellInterp
                                 goodInterp)
                     enddo
                 enddo
-            case(SHFPH)
+            case(SHGR_FACE_PHI)
                 !$OMP PARALLEL DO default(shared) collapse(1) &
                 !$OMP schedule(dynamic) &
                 !$OMP private(i,j)
@@ -265,9 +265,9 @@ module shellInterp
             dTh = dThetaO(i0)
         else
             ! dThetaO array not provided, so we calculate it ourselves
-            if (sgVar%loc == SHCC .or. sgVar%loc == SHFPH) then
+            if (sgVar%loc == SHGR_CC .or. sgVar%loc == SHGR_FACE_PHI) then
                 dTh = Diff1D_4halfh(sgSource%th, sgSource%isg, sgSource%ieg  , i0)
-            else if (sgVar%loc == SHCORNER .or. sgVar%loc == SHFTH) then
+            else if (sgVar%loc == SHGR_CORNER .or. sgVar%loc == SHGR_FACE_THETA) then
                 dTh = Diff1D_4h    (sgSource%th, sgSource%isg, sgSource%ieg+1, i0)
             endif
         endif
@@ -281,9 +281,9 @@ module shellInterp
             dPh = dPhiO(j0)
         else
             ! dPhiO array not provided, so we calculate it ourselves
-            if (sgVar%loc == SHCC .or. sgVar%loc == SHFTH) then
+            if (sgVar%loc == SHGR_CC .or. sgVar%loc == SHGR_FACE_THETA) then
                 dPh = Diff1D_4halfh(sgSource%ph, sgSource%jsg, sgSource%jeg  , j0)
-            else if (sgVar%loc == SHCORNER .or. sgVar%loc == SHFPH) then
+            else if (sgVar%loc == SHGR_CORNER .or. sgVar%loc == SHGR_FACE_PHI) then
                 dPh = Diff1D_4h    (sgSource%ph, sgSource%jsg, sgSource%jeg+1, j0)
             endif
         endif
@@ -394,7 +394,7 @@ module shellInterp
 
         real(rp) :: tLoc
 
-        if (varLoc == SHCC .or. varLoc == SHFPH) then
+        if (varLoc == SHGR_CC .or. varLoc == SHGR_FACE_PHI) then
             !! Variable is defined at center w.r.t. theta direction
             if ( (t>shGr%maxGTheta) ) then                
                 iLoc = shGr%ieg+ceiling((t-shGr%maxGTheta)/(shGr%th(shGr%ieg+1)-shGr%th(shGr%ieg)))
@@ -414,7 +414,7 @@ module shellInterp
                 tLocO = tLoc
             endif
 
-        elseif (varLoc == SHCORNER .or. varLoc == SHFTH) then
+        elseif (varLoc == SHGR_CORNER .or. varLoc == SHGR_FACE_THETA) then
             !! Variable is defined at corners w.r.t. theta direction
             if ( (t>shGr%maxTheta) ) then
                 iLoc = shGr%ieg+1 + floor( 0.5 + (t-shGr%maxGTheta)/(shGr%th(shGr%ieg+1)-shGr%th(shGr%ieg)) )
@@ -460,7 +460,7 @@ module shellInterp
             stop
         endif
 
-        if (varLoc == SHCC .or. varLoc == SHFTH) then
+        if (varLoc == SHGR_CC .or. varLoc == SHGR_FACE_THETA) then
             !! Variable is defined at centers w.r.t. phi direction
             if (shGr%isPhiUniform) then
                 ! note this is faster, thus preferred
@@ -475,7 +475,7 @@ module shellInterp
                 pLoc = shGr%phc(jLoc)
             endif
 
-        elseif (varLoc == SHCORNER .or. varLoc == SHFPH) then
+        elseif (varLoc == SHGR_CORNER .or. varLoc == SHGR_FACE_PHI) then
             !! Variable is defined at corners w.r.t. phi direction
             if (shGr%isPhiUniform) then
                 ! note this is faster, thus preferred
@@ -529,14 +529,14 @@ module shellInterp
 
         ! check centering wrt theta
         select case(Qin%loc)
-        case(SHCC, SHFPH)
+        case(SHGR_CC, SHGR_FACE_PHI)
             if (pole.eq.NORTH) then
                 tfactor = tin/shGr%thc(iinterp)
             else
                 tfactor = (PI-tin)/(PI-shGr%thc(iinterp))
             end if  
         
-        case(SHCORNER, SHFTH)
+        case(SHGR_CORNER, SHGR_FACE_THETA)
             if (pole.eq.NORTH) then
                 ishift = 1
                 ! note, using th, not thc, since we're on a theta face
@@ -559,9 +559,9 @@ module shellInterp
         do j=1,shGr%Np
             ! check centering wrt phi
             select case(Qin%loc)
-            case(SHCC, SHFTH)
+            case(SHGR_CC, SHGR_FACE_THETA)
                 Qtemp = Qin%data(iinterp+ishift,j)
-            case(SHCORNER, SHFPH)  
+            case(SHGR_CORNER, SHGR_FACE_PHI)  
                 Qtemp = 0.5*(Qin%data(iinterp+ishift,j)+Qin%data(iinterp+ishift,j+1))
             end select 
 
@@ -594,7 +594,7 @@ module shellInterp
         integer, intent(in) :: isg, ieg
             !! Start/end indices of cell centers
         integer, intent(in) :: loc
-            !! Location identifier, MUST BE SHCC OR SHCORNER
+            !! Location identifier, MUST BE SHGR_CC OR SHGR_CORNER
             !! This is the location of the points we are calculating dx at relative to x
         real(rp), dimension(:), allocatable, intent(out) :: dx
             !! 'cell width' we return
@@ -603,14 +603,14 @@ module shellInterp
 
         if (allocated(dx)) deallocate(dx)
 
-        if (loc == SHCORNER) then
+        if (loc == SHGR_CORNER) then
             
             allocate(dx(isg:ieg+1))
             do i=isg,ieg+1
                 dx(i) = Diff1D_4h(x, isg, ieg+1, i)
             enddo
 
-        else if (loc == SHCC) then
+        else if (loc == SHGR_CC) then
 
             allocate(dx(isg:ieg))
             do i=isg,ieg
@@ -618,7 +618,7 @@ module shellInterp
             enddo
 
         else
-            write(*,*) "ERROR: Invalid location id in calcdx_TSC. Must be SHCC or SHCORNER"
+            write(*,*) "ERROR: Invalid location id in calcdx_TSC. Must be SHGR_CC or SHGR_CORNER"
             stop
         endif
 

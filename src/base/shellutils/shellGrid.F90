@@ -8,7 +8,7 @@ module shellGrid
     !> Identifiers for location of variable data relative to shell grid
     !> Cell center, corners, theta faces, phi faces
     enum, bind(C)
-        enumerator :: SHCC,SHCORNER,SHFTH,SHFPH
+        enumerator :: SHGR_CC,SHGR_CORNER,SHGR_FACE_THETA,SHGR_FACE_PHI
     end enum
     
     !> Data type for holding 2D spherical shell grid
@@ -69,12 +69,12 @@ module shellGrid
 
         integer :: loc
             !! Location of data on the shellGrid (e.g. center, corner, theta of phi face)
-            !! Corresponds to enum above (SHCC, SHCORNER, SHFTH, SHFPH)
+            !! Corresponds to enum above (SHGR_CC, SHGR_CORNER, SHGR_FACE_THETA, SHGR_FACE_PHI)
         integer :: Ni, Nj
             !! Number of values in i and j direction
         integer :: isv,iev,jsv,jev
             !! Start and end indices for this variable
-            !! ex: if loc=SHCORNER, isv = sh%isg, iev=sh%ieg+1
+            !! ex: if loc=SHGR_CORNER, isv = sh%isg, iev=sh%ieg+1
             !! This is helpful for e.g. InterpShellVar_TSC_pnt determining size of dtheta and dPhi arrays
         real(rp), dimension(:,:), allocatable :: data
             !! The actual variable values
@@ -347,16 +347,16 @@ module shellGrid
 
         ! Determine which dimensions have extra index relative to # cells based on variable's location on grid
         select case(loc)
-            case(SHCC)
+            case(SHGR_CC)
                 iExtra = 0
                 jExtra = 0
-            case(SHCORNER)
+            case(SHGR_CORNER)
                 iExtra = 1
                 jExtra = 1
-            case(SHFTH)
+            case(SHGR_FACE_THETA)
                 iExtra = 1
                 jExtra = 0
-            case(SHFPH)
+            case(SHGR_FACE_PHI)
                 iExtra = 0
                 jExtra = 1
             case default
