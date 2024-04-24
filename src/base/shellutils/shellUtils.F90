@@ -99,14 +99,18 @@ module shellUtils
     end subroutine getSGCellJLoc
 
 
-    subroutine iLocCC2Corner(shGr, t, iLocCC, iLocCorner, tLocO)
+    subroutine iLocCC2Corner(shGr, t, iLocInout, iLocCornerO, tLocO)
         !! Takes ShellGrid cell with index i, and returns i index of closest corner to theta t
+        !! iLocInout is the i index for reference cell (i,j) 
+        !! If iLocCornerO is present, we return corner i loc through this variable and leave iLocInout alone
+        !! If iLocCornerO not present, we return corner i loc by modifying iLocInout
         type(ShellGrid_T), intent(in) :: shGr
         real(rp), intent(in) :: t
-        integer , intent(in) :: iLocCC
-        integer , intent(out) :: iLocCorner
+        integer , intent(inout) :: iLocInout
+        integer , intent(out), optional :: iLocCornerO
         real(rp), intent(out), optional :: tLocO
 
+        integer :: iLocCorner
         real(rp) :: tLoc
         
         if ( (t>shGr%maxTheta) ) then
@@ -119,10 +123,10 @@ module shellUtils
             !write(*,*)"theta going out of bounds",t,shGr%maxGTheta
         else
             ! If still here then the lat bounds are okay, find closest lat cell corner
-            if ( (shGr%th(iLocCC+1) - t) < (t - shGr%th(iLocCC)) ) then
-                iLocCorner = iLocCC + 1
+            if ( (shGr%th(iLocInout+1) - t) < (t - shGr%th(iLocInout)) ) then
+                iLocCorner = iLocInout + 1
             else
-                iLocCorner = iLocCC
+                iLocCorner = iLocInout
             endif
             tLoc = shGr%th(iLocCorner)
         endif
@@ -130,28 +134,42 @@ module shellUtils
         if (present(tLocO)) then
             tLocO = tLoc
         endif
+        if (present(iLocCornerO)) then
+            iLocCornerO = iLocCorner
+        else
+            iLocInout = iLocCorner
+        endif
 
     end subroutine iLocCC2Corner
 
 
-    subroutine jLocCC2Corner(shGr, p, jLocCC, jLocCorner, pLocO)
+    subroutine jLocCC2Corner(shGr, p, jLocInout, jLocCornerO, pLocO)
         !! Takes ShellGrid cell with index j, and returns j index of closest corner to phi p
+        !! jLocInout is the j index for reference cell (i,j) 
+        !! If jLocCornerO is present, we return corner j loc through this variable and leave jLocInout alone
+        !! If jLocCornerO not present, we return corner j loc by modifying jLocInout
         type(ShellGrid_T), intent(in) :: shGr
         real(rp), intent(in) :: p
-        integer , intent(in) :: jLocCC
-        integer , intent(out) :: jLocCorner
+        integer , intent(inout) :: jLocInout
+        integer , intent(out), optional :: jLocCornerO
         real(rp), intent(out), optional :: pLocO
 
+        integer :: jLocCorner
         real(rp) :: pLoc
 
-        if ( (shGr%ph(jLocCC+1) - p) < (p - shGr%ph(jLocCC)) ) then
-            jLocCorner = jLocCC + 1
+        if ( (shGr%ph(jLocInout+1) - p) < (p - shGr%ph(jLocInout)) ) then
+            jLocCorner = jLocInout + 1
         else
-            jLocCorner = jLocCC
+            jLocCorner = jLocInout
         endif
 
         if (present(pLocO)) then
             pLocO = shGr%ph(jLocCorner)
+        endif
+        if (present(jLocCornerO)) then
+            jLocCornerO = jLocCorner
+        else
+            jLocInout = jLocCorner
         endif
 
     end subroutine jLocCC2Corner
