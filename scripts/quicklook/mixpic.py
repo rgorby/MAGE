@@ -149,7 +149,7 @@ def create_command_line_parser():
         help="Don't display branch/hash info (default: %(default)s)"
     )
     parser.add_argument(
-        '--coord', type=str, metavar="coord", default=coord,
+        '--coord', type=str, metavar="coord", default=default_coord,
         help="Coordinate system to use (default: %(default)s)"
     )
     return parser
