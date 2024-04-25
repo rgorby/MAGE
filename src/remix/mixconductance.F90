@@ -417,7 +417,8 @@ module mixconductance
       !$OMP PARALLEL DO default(shared) &
       !$OMP private(i,j,D,Cs,Pe,Ne,J2eF0,eV2kT,dE,phi0,kT) &
       !$OMP private(Pe_mhd,Ne_mhd,kT_mhd,phi0_mhd) &
-      !$OMP private(Pe_rcm,Ne_rcm,kT_rcm,phi0_rcm)
+      !$OMP private(Pe_rcm,Ne_rcm,kT_rcm,phi0_rcm) &
+      !$OMP private(wMHD, wRCM)
       do j=1,G%Nt
          do i=1,G%Np
             if (conductance%doChill) then

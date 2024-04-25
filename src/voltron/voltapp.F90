@@ -355,10 +355,6 @@ module voltapp
         
         vApp%remixApp%ion%rad_iono_m  = vApp%planet%ri_m
         vApp%remixApp%ion%rad_planet_m = vApp%planet%rp_m
-        if (vApp%doGCM) then
-            write(*,*) "Initializing GCM ..."
-            call init_gcm(vApp%gcm,vApp%remixApp%ion,gApp%Model%isRestart)
-        end if
         !Ensure remix and voltron restart numbers match
         if (isRestart .and. vApp%IO%nRes /= vApp%remixApp%ion(1)%P%nRes) then
             write(*,*) "Voltron and Remix disagree on restart number, you should sort that out."
@@ -441,12 +437,6 @@ module voltapp
 
         ! determining the current dipole tilt
         call vApp%tilt%getValue(vApp%time,curTilt)
-
-        if (vApp%doGCM .and. vApp%time >=0) then
-            call Tic("GCM2MIX")
-            call coupleGCM2MIX(vApp%gcm,vApp%remixApp%ion,vApp%doGCM,mjd=vApp%MJD,time=vApp%time)
-            call Toc("GCM2MIX")
-        end if
 
         ! solve for remix output
         if (vApp%time<=0) then
