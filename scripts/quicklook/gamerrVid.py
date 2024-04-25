@@ -33,7 +33,7 @@ def makeMovie(frame_dir,movie_name):
 			return
 
 	cmd = [
-	    ffmpegExe, "-i", frame_pattern,
+	    ffmpegExe, "-nostdin", "-i", frame_pattern,
 	    "-vcodec", "libx264", "-crf", "14", "-profile:v", "high", "-pix_fmt", "yuv420p",
 	    movie_file,"-y"
 	]
