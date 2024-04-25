@@ -42,16 +42,18 @@ module shellUtils
         integer, intent(out) :: iLoc
         real(rp), optional, intent(out) :: tLocO
 
-        real(rp) :: tLoc
+        real(rp) :: tLoc, dTheta
 
         !! Variable is defined at center w.r.t. theta direction
         if ( (t>shGr%maxGTheta) ) then                
             iLoc = shGr%ieg+ceiling((t-shGr%maxGTheta)/(shGr%th(shGr%ieg+1)-shGr%th(shGr%ieg)))
-            tLoc = shGr%thc(shGr%ieg)  ! Just return the last available theta value
+            dTheta = shGr%thc(shGr%ieg) - shGr%thc(shGr%ieg-1)
+            tLoc = shGr%thc(shGr%ieg) + dTheta*(iLoc - shGr%ieg)
             !write(*,*)"theta going out of bounds",t,shGr%maxGTheta
         else if ( (t<shGr%minGTheta) ) then
             iLoc = shGr%isg-ceiling((shGr%minGTheta-t)/(shGr%th(shGr%isg+1)-shGr%th(shGr%isg)))
-            tLoc = shGr%thc(shGr%isg)
+            dTheta = shGr%thc(shGr%isg+1) - shGr%thc(shGr%isg)
+            tLoc = shGr%thc(shGr%isg) - dTheta*(shGr%isg - iLoc)
             !write(*,*)"theta going out of bounds",t,shGr%minGTheta
         else
             ! If still here then the lat bounds are okay, find closest lat cell center
@@ -65,11 +67,11 @@ module shellUtils
     end subroutine getSGCellILoc
 
 
-    subroutine getSGCellJLoc(shGr, pin, jLoc, pLoc)
+    subroutine getSGCellJLoc(shGr, pin, jLoc, pLocO)
         type(ShellGrid_T), intent(in) :: shGr
         real(rp), intent(in) :: pin
         integer, intent(out) :: jLoc
-        real(rp), optional, intent(out) :: pLoc
+        real(rp), optional, intent(out) :: pLocO
 
         real(rp) :: p, deltap, dJ
 
@@ -93,8 +95,8 @@ module shellUtils
             jLoc = minloc( abs(shGr%phc-p),dim=1 ) ! Find closest lat cell center
         endif
 
-        if (present(pLoc)) then
-            pLoc = shGr%phc(jLoc)
+        if (present(pLocO)) then
+            pLocO = shGr%phc(jLoc)
         endif
     end subroutine getSGCellJLoc
 
@@ -111,15 +113,19 @@ module shellUtils
         real(rp), intent(out), optional :: tLocO
 
         integer :: iLocCorner
-        real(rp) :: tLoc
+        real(rp) :: tLoc, dTheta
         
         if ( (t>shGr%maxTheta) ) then
             iLocCorner = shGr%ieg+1 + floor( 0.5 + (t-shGr%maxGTheta)/(shGr%th(shGr%ieg+1)-shGr%th(shGr%ieg)) )
             tLoc = shGr%th(shGr%ieg+1)  ! Just return the last available theta value
+            dTheta = shGr%th(shGr%ieg) - shGr%th(shGr%ieg-1)
+            tLoc = shGr%th(shGr%ieg) + dTheta*(iLocCorner - shGr%ieg)
             !write(*,*)"theta going out of bounds",t,shGr%maxGTheta
         else if ( (t < shGr%minTheta)) then
             iLocCorner = shGr%isg   - floor( 0.5 + (shGr%minGTheta-t)/(shGr%th(shGr%isg+1)-shGr%th(shGr%isg)) )
             tLoc = shGr%th(shGr%isg)
+            dTheta = shGr%th(shGr%isg+1) - shGr%th(shGr%isg)
+            tLoc = shGr%th(shGr%isg) - dTheta*(shGr%isg - iLocCorner)
             !write(*,*)"theta going out of bounds",t,shGr%maxGTheta
         else
             ! If still here then the lat bounds are okay, find closest lat cell corner

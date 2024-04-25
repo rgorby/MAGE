@@ -10,7 +10,10 @@ module testGridLocator
     implicit none
 
     integer, parameter :: Npnt = 50
+    integer, parameter :: Noob = 3 ! Number of points to leave out of ShellGrid bounds on lower and upper theta dim
     integer, parameter :: Nsamples = (Npnt-1)*4
+    real(rp), parameter :: dTh = 0.5*PI / (Npnt-1)
+    real(rp), parameter :: dPh = 2.0*PI / (Npnt-1)
     real(rp), dimension(4) :: subPnts = [0.01, 0.49, 0.51, 0.99] 
     real(rp), dimension(Nsamples) :: pntsTheta, pntsPhi
     integer, dimension(Nsamples) :: idxTh_cc, idxPh_cc
@@ -25,21 +28,21 @@ module testGridLocator
     @before
 	subroutine setup()
         real(rp), dimension(Npnt) :: thetas, phis
-        real(rp) :: dth, dph
         integer :: i,j
 
-        dth = 0.5*PI / (Npnt-1)
-        dph = 2.0*PI / (Npnt-1)
+        !dth = 0.5*PI / (Npnt-1)
+        !dph = 2.0*PI / (Npnt-1)
 
         do i=1,Npnt
-            thetas(i) = (i-1)*dth
+            thetas(i) = (i-1)*dTh
         enddo
 
         do j=1,Npnt
-            phis(j) = (j-1)*dph
+            phis(j) = (j-1)*dPh
         enddo
 
-	    call GenShellGrid(sh, thetas, phis,'shgrTest_loc', radO=1.1_rp)
+        ! Reduce shellgrid theta range to test going off grid
+	    call GenShellGrid(sh, thetas(1+Noob:Npnt-Noob), phis,'shgrTest_loc', radO=1.1_rp)
 
         ! init interp sample points
         do i=1,Nsamples,4
@@ -47,18 +50,19 @@ module testGridLocator
             pntsPhi  (i:i+3) = phis  (i/4+1) + (dPh * subPnts)
         enddo
 
-        ! Set up idx arrays
+        ! Set up idx arrays to match what we expect gridLoc routines to return w.r.t. ShellGrid dimensions
+        ! i.e. need to offset theta dims by the same amount we excluded from ShellGrid
         do i=1,Nsamples,4
-            idxTh_cc(i:i+3) = i/4+1
+            idxTh_cc(i:i+3) = i/4+1 - Noob
             idxPh_cc(i:i+3) = i/4+1
         enddo
 
-        idxTh_corner(:2) = 1
+        idxTh_corner(:2) = 1 - Noob
         idxPh_corner(:2) = 1
-        idxTh_corner(Nsamples-1:) = Npnt
+        idxTh_corner(Nsamples-1:) = Npnt - Noob
         idxPh_corner(Nsamples-1:) = Npnt
         do i=3,Nsamples-2,4
-            idxTh_corner(i:i+3) = i/4+2
+            idxTh_corner(i:i+3) = i/4+2 - Noob
             idxPh_corner(i:i+3) = i/4+2
         enddo
 
@@ -72,96 +76,109 @@ module testGridLocator
 
     @test
     subroutine testGridLoc_CC()
-        !! Tests the functions responsible for finging the index of the point closest to point (t,p)
+        !! Tests the functions responsible for finding the index of the point closest to point (t,p)
         !! In the case where we have a cell-centered variable
         integer :: testLocI, testLocJ
         integer :: i
+        real(rp) :: thetaOut, phiOut
+
 
         ! Get the values we're here to test
         do i=1,Nsamples
-            call getSGCellILoc(sh, pntsTheta(i), testLocI)
-            call getSGCellJLoc(sh, pntsPhi  (i), testLocJ)
+            call getSGCellILoc(sh, pntsTheta(i), testLocI, tLocO=thetaOut)
+            call getSGCellJLoc(sh, pntsPhi  (i), testLocJ, pLocO=phiOut)
 
             write (checkMessage,*) "Got theta index wrong."
-            @assertEqual(testLocI, idxTh_cc(i), checkMessage)
-            continue ! These obviously do nothing but if I don't include them my syntax highlighting breaks which is absolutely unacceptable
+            @assertEqual(testLocI, idxTh_cc(i), trim(checkMessage))
+            !continue ! These obviously do nothing but if I don't include them my syntax highlighting breaks which is absolutely unacceptable
             write (checkMessage,*) "Got phi index wrong."
-            @assertEqual(testLocJ, idxPh_cc(i), checkMessage)
-            continue
+            @assertEqual(testLocJ, idxPh_cc(i), trim(checkMessage))
+            write (checkMessage,*) "Got theta value wrong."
+            @assertLessThanOrEqual(abs(thetaOut-pntsTheta(i)), dTh, trim(checkMessage))
+            write (checkMessage,*) "Got phi value wrong."
+            @assertLessThanOrEqual(abs(phiOut-pntsPhi(i)), dPh, trim(checkMessage))
         enddo
     end subroutine
 
 
     @test
     subroutine testGridLoc_corner()
-        !! Tests the functions responsible for finging the index of the point closest to point (t,p)
+        !! Tests the functions responsible for finding the index of the point closest to point (t,p)
         !! In the case where we have a corner-centered variable
         integer :: testLocI, testLocJ
         integer :: i
+        real(rp) :: thetaOut, phiOut
 
         ! Get the values we're here to test
         do i=1,Nsamples
             call getSGCellILoc(sh, pntsTheta(i), testLocI)
             call getSGCellJLoc(sh, pntsPhi  (i), testLocJ)
-            call iLocCC2Corner(sh, pntsTheta(i), testLocI)
-            call jLocCC2Corner(sh, pntsPhi  (i), testLocJ)
+            call iLocCC2Corner(sh, pntsTheta(i), testLocI, tLocO=thetaOut)
+            call jLocCC2Corner(sh, pntsPhi  (i), testLocJ, pLocO=phiOut)
 
 
             write (checkMessage,*) "Got theta index wrong."
-            @assertEqual(testLocI, idxTh_corner(i), checkMessage)
-            continue
+            @assertEqual(testLocI, idxTh_corner(i), trim(checkMessage))
             write (checkMessage,*) "Got phi index wrong."
-            @assertEqual(testLocJ, idxPh_corner(i), checkMessage)
-            continue
+            @assertEqual(testLocJ, idxPh_corner(i), trim(checkMessage))
+            write (checkMessage,*) "Got theta value wrong."
+            @assertLessThanOrEqual(abs(thetaOut-pntsTheta(i)), dTh, trim(checkMessage))
+            write (checkMessage,*) "Got phi value wrong."
+            @assertLessThanOrEqual(abs(phiOut-pntsPhi(i)), dPh, trim(checkMessage))
+            
         enddo
     end subroutine
 
 
     @test
     subroutine testGridLoc_thetaFace()
-        !! Tests the functions responsible for finging the index of the point closest to point (t,p)
+        !! Tests the functions responsible for finding the index of the point closest to point (t,p)
         !! In the case where we have a variable on theta faces
         integer :: testLocI, testLocJ
         integer :: i
+        real(rp) :: thetaOut, phiOut
 
         ! Get the values we're here to test
         do i=1,Nsamples
             call getSGCellILoc(sh, pntsTheta(i), testLocI)
-            call getSGCellJLoc(sh, pntsPhi  (i), testLocJ)
-            call iLocCC2Corner(sh, pntsTheta(i), testLocI)
+            call getSGCellJLoc(sh, pntsPhi  (i), testLocJ, pLocO=phiOut)
+            call iLocCC2Corner(sh, pntsTheta(i), testLocI, tLocO=thetaOut)
 
             write (checkMessage,*) "Got theta index wrong."
-            @assertEqual(testLocI, idxTh_corner(i), checkMessage)
-            continue
+            @assertEqual(testLocI, idxTh_corner(i), trim(checkMessage))
             write (checkMessage,*) "Got phi index wrong."
-            @assertEqual(testLocJ, idxPh_cc(i), checkMessage)
-            continue
+            @assertEqual(testLocJ, idxPh_cc(i), trim(checkMessage))
+            write (checkMessage,*) "Got theta value wrong."
+            @assertLessThanOrEqual(abs(thetaOut-pntsTheta(i)), dTh, trim(checkMessage))
+            write (checkMessage,*) "Got phi value wrong."
+            @assertLessThanOrEqual(abs(phiOut-pntsPhi(i)), dPh, trim(checkMessage))
         enddo
     end subroutine
 
 
     @test
     subroutine testGridLoc_phiFace()
-        !! Tests the functions responsible for finging the index of the point closest to point (t,p)
+        !! Tests the functions responsible for finding the index of the point closest to point (t,p)
         !! In the case where we have a variable on phi faces
         integer :: testLocI, testLocJ
         integer :: i
+        real(rp) :: thetaOut, phiOut
 
         ! Get the values we're here to test
         do i=1,Nsamples
-            call getSGCellILoc(sh, pntsTheta(i), testLocI)
+            call getSGCellILoc(sh, pntsTheta(i), testLocI, tLocO=thetaOut)
             call getSGCellJLoc(sh, pntsPhi  (i), testLocJ)
-            call jLocCC2Corner(sh, pntsPhi  (i), testLocJ)
+            call jLocCC2Corner(sh, pntsPhi  (i), testLocJ, pLocO=phiOut)
 
             write (checkMessage,*) "Got theta index wrong."
-            @assertEqual(testLocI, idxTh_cc(i), checkMessage)
-            continue
+            @assertEqual(testLocI, idxTh_cc(i), trim(checkMessage))
             write (checkMessage,*) "Got phi index wrong."
-            @assertEqual(testLocJ, idxPh_corner(i), checkMessage)
-            continue
+            @assertEqual(testLocJ, idxPh_corner(i), trim(checkMessage))
+            write (checkMessage,*) "Got theta value wrong."
+            @assertLessThanOrEqual(abs(thetaOut-pntsTheta(i)), dTh, trim(checkMessage))
+            write (checkMessage,*) "Got phi value wrong."
+            @assertLessThanOrEqual(abs(phiOut-pntsPhi(i)), dPh, trim(checkMessage))
         enddo
     end subroutine
-
-    ! TODO: Test what happens when we request a location outside of I/J bounds
 
 end module testGridLocator

@@ -7,6 +7,8 @@ module shellGrid
 
     !> Identifiers for location of variable data relative to shell grid
     !> Cell center, corners, theta faces, phi faces
+    !> SHGR_FACE_THETA is face with normal pointing in theta direction
+    !> SHGR_FACE_PHI is face with normal pointing in phi direction
     enum, bind(C)
         enumerator :: SHGR_CC,SHGR_CORNER,SHGR_FACE_THETA,SHGR_FACE_PHI
     end enum
@@ -58,10 +60,6 @@ module shellGrid
             !! Name of the parent grid  that this one derives from
         integer :: bndis,bndie,bndjs,bndje
             !! Indices of parent grid that bound this grid
-        ! TODO: add unique identifiers for this SG, and for potential parent SG
-        ! That way, child always knows which grid it came from
-        ! Can be checked against when calling routines like InterpParentToChild, InterpChildToParent
-
 
     end type ShellGrid_T
 
