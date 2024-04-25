@@ -191,51 +191,10 @@ module mixconductance
       type(mixGrid_T), intent(in) :: G
       type(mixState_T), intent(inout) :: St
 
-      real(rp) :: ang65, ang100, pref, href, shall
-      real(rp) :: speder, pedslope, pedslope2, hallslope,sigmap65, sigmah65, sigmap100
-
-      conductance%zenith = PI/2 - ( asin(G%x) + St%tilt )
-      ! An alternative (correct) definition of the zenith angle (for Moen-Brekke)
       conductance%coszen = G%x*cos(St%tilt)+sqrt(1.-G%x**2-G%y**2)*sin(St%tilt) ! as it should be
       conductance%zenith = acos(conductance%coszen)
 
       select case ( conductance%euv_model_type )
-         case (AMIE)
-            ang65     = pi/180.0*65.0
-            ang100    = pi*5.0/9.0
-            pref      = 2.0*250.0**(-2.0/3.0)
-            href      = 1.0/(1.8*sqrt(250.0))
-            shall     = 1.8*sqrt(conductance%f107)
-            speder    = 0.5*conductance%f107**(2.0/3.0)
-            pedslope  = 0.24*pref*speder*rad2deg
-            pedslope2 = 0.13*pref*speder*rad2deg   
-            hallslope = 0.27*href*shall*rad2deg;
-            sigmap65  = speder*cos(ang65)**(2.0/3.0)
-            sigmah65  = shall*cos(ang65)
-            sigmap100 = sigmap65-(ang100-ang65)*pedslope
-
-            where (conductance%zenith <= ang65) 
-               conductance%euvSigmaP = speder*cos(conductance%zenith)**(2.0/3.0)
-               conductance%euvSigmaH = shall *cos(conductance%zenith)
-            elsewhere (conductance%zenith <= ang100)
-               conductance%euvSigmaP = sigmap65 - pedslope *(conductance%zenith - ang65)
-               conductance%euvSigmaH = sigmah65 - hallslope*(conductance%zenith - ang65)
-            elsewhere (conductance%zenith > ang100)
-               conductance%euvSigmaP = sigmap100 - pedslope2*(conductance%zenith-ang100)
-               conductance%euvSigmaH = sigmah65  - hallslope*(conductance%zenith-ang65)
-            end where
-         case (MOEN_BREKKE) !!! Needs testing
-            ! This works only for the dayside (zenith <= pi/2)
-            ! Set it to pedMin (hallMin) on the nightside (may rethink it later)
-            where (conductance%coszen >=0.0) 
-!               euvSigmaP = f107**0.49*( 0.34*cos(zenith)+0.93*sqrt(cos(zenith)) )
-!               euvSigmaH = f107,0.53*( 0.81*cos(zenith)+0.54*sqrt(cos(zenith)) )
-               conductance%euvSigmaP = conductance%f107**0.49*( 0.34*conductance%coszen+0.93*sqrt(conductance%coszen) )
-               conductance%euvSigmaH = conductance%f107**0.53*( 0.81*conductance%coszen+0.54*sqrt(conductance%coszen) )
-            elsewhere
-               conductance%euvSigmaP = conductance%pedmin
-               conductance%euvSigmaH = conductance%hallmin
-            end where
          case (LOMPE) 
             conductance%euvSigmaP = SigP_EUV_LOMPE(conductance%zenith,conductance%f107)
             conductance%euvSigmaH = SigH_EUV_LOMPE(conductance%zenith,conductance%f107)

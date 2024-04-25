@@ -82,10 +82,6 @@ module mixparams
         !NOTE: Changing default EUV to LOMPE, it's 2021 ffs
         call xmlInp%Set_Val(tmpStr,"conductance/euv_model_type","LOMPE")
         select case (tmpSTR)
-           case ("AMIE")
-              Params%euv_model_type = AMIE
-           case ("MOEN_BREKKE")
-              Params%euv_model_type = MOEN_BREKKE
             case ("LOMPE")
               Params%euv_model_type = LOMPE
            case default 
