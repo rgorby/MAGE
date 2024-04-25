@@ -37,8 +37,6 @@ def makeMovie(frame_dir,movie_name):
 	    "-vcodec", "libx264", "-crf", "14", "-profile:v", "high", "-pix_fmt", "yuv420p",
 	    movie_file,"-y"
 	]
-	print("attempted command")
-	print(cmd)
 	subprocess.run(cmd, check=True)
 
 if __name__ == "__main__":
@@ -231,5 +229,5 @@ if __name__ == "__main__":
 			kv.savePic(fOut,bLenX=45)
 
 			bar()
-	makeMovie(oDir,oDir)
+	makeMovie(oDir,oSub)
 
