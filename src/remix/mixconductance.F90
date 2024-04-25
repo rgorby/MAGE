@@ -12,7 +12,6 @@ module mixconductance
   
   implicit none
 
-  real(rp), dimension(:,:), allocatable, private :: RM,RRdi ! used for zhang15
   real(rp), dimension(:,:), allocatable, private :: beta_RCM,alpha_RCM,gtype_RCM ! two-dimensional beta based on RCM fluxes.
 
   !Replacing some hard-coded inline values (bad) w/ module private values (slightly less bad)
@@ -24,7 +23,6 @@ module mixconductance
   real(rp), private :: RinMHD = 0.0 !Rin of MHD grid (0 if not running w/ MHD)
   real(rp), private :: MIXgamma
   real(rp), private :: beta_inp
-  logical , private :: doDrift = .false. !Whether to add drift term from Zhang
 
   contains
 
@@ -76,14 +74,10 @@ module mixconductance
       if (.not. allocated(conductance%PrecipMask)) allocate(conductance%PrecipMask(G%Np,G%Nt))    
 
       ! these arrays are global and should not be! reallocate them
-      if(allocated(RM)) deallocate(RM)
-      if(allocated(RRdi)) deallocate(RRdi)
       if(allocated(beta_RCM)) deallocate(beta_RCM)
       if(allocated(alpha_RCM)) deallocate(alpha_RCM)
       if(allocated(gtype_RCM)) deallocate(gtype_RCM)
 
-      allocate(RM(G%Np,G%Nt))      
-      allocate(RRdi(G%Np,G%Nt))      
       allocate(beta_RCM(G%Np,G%Nt))
       allocate(alpha_RCM(G%Np,G%Nt))
       allocate(gtype_RCM(G%Np,G%Nt))
@@ -120,16 +114,11 @@ module mixconductance
       SigP0 = St%Vars(:,:,SIGMAP)
       SigH0 = St%Vars(:,:,SIGMAH)
 
-      call GenMirrorRatio(G,St)
-
       ! Compute EUV though because it's used in fedder
       call conductance_euv(conductance,G,St)
       select case ( conductance%aurora_model_type )
          case (FEDDER)
             call conductance_fedder95(conductance,G,St)
-         case (ZHANG)
-            doDrift = .true.
-            call conductance_zhang15(conductance,G,St)
          case (LINMRG)
             call conductance_linmrg(conductance,G,St)
          case default
@@ -195,51 +184,6 @@ module mixconductance
       endif
 
     end subroutine conductance_total
-
-    subroutine GenMirrorRatio(G,St,doIGRFO)
-      ! Calculate mirror ratio array RM(G%Np,G%Nt).
-      ! NOTE: Leaving this to be done every time at every lat/lon to accomodate improved model later
-      type(mixGrid_T) , intent(in) :: G
-      type(mixState_T), intent(in) :: St
-      logical,optional,intent(in) :: doIGRFO
-      real(rp) :: mlat,mlon
-      integer  :: i,j
-      logical  :: doIGRF
-      
-      if(present(doIGRFO)) then
-         doIGRF = doIGRFO
-      else ! default is using IGRF, i.e, default is unequal split.
-         doIGRF = .true. 
-      endif
-
-      if (RinMHD > 0) then
-         !Calculate actual mirror ratio
-         !NOTE: Should replace this w/ actual inner boundary field strength
-
-         !$OMP PARALLEL DO default(shared) &
-         !$OMP private(i,j,mlat,mlon)
-         do j=1,G%Nt
-            do i=1,G%Np
-               mlat = PI/2 - G%t(i,j)
-               mlon = G%p(i,j)
-
-               if(.not.doIGRF) then
-                  RM(i,j) = MirrorRatio(mlat,RinMHD)
-               elseif (St%hemisphere==NORTH) then
-                  RM(i,j) = IGRFMirrorRatio(+mlat,+mlon,RinMHD)
-               else
-                  !Southern, always a right-hand system based on the local pole.
-                  !SM phi (mlon) goes in clock-wise as opposed to counter-clockwise if looking down on the southern pole from above.
-                  RM(i,j) = IGRFMirrorRatio(-mlat,-mlon,RinMHD)
-               endif
-            enddo
-         enddo !j loop
-      else
-         !Set mirror ratio everywhere no matter the inner boundary to 10
-         !Note: This may have been okay for simulating magnetospheres 40 years ago, but it's 2021 now
-         RM = 10.0
-      endif
-    end subroutine GenMirrorRatio
 
     subroutine conductance_euv(conductance,G,St)
       ! Derive solar EUV conductance: euvSigmaP, euvSigmaH.
@@ -394,91 +338,6 @@ module mixconductance
 
     end subroutine conductance_fedder95
 
-    subroutine conductance_zhang15(conductance,G,St)
-      ! Derive electron precipitation energy flux and avg energy using the nonlinear Fridman-Lemaire relation [Zhang et al., 2014JA020615].
-      type(mixConductance_T), intent(inout) :: conductance
-      type(mixGrid_T), intent(in) :: G
-      type(mixState_T), intent(inout) :: St
-      
-      real(rp) :: signOfY, signOfJ
-      real(rp) :: D,Cs,Pe,Ne,J2eF0,eV2kT,dE,phi0,kT
-      integer :: i,j
-      
-      if (St%hemisphere==NORTH) then
-         signOfY = -1
-         signOfJ = -1  
-      elseif (St%hemisphere==SOUTH) then
-         signOfY = 1
-         signOfJ = 1
-      else
-         stop 'Wrong hemisphere label. Stopping...'
-      endif
-      
-      if (doDrift) then
-        ! Use artificial drift to get dawn-preferred diffuse electron precipitation
-        ! when only using MHD information to derive it.
-        call conductance_auroralmask(conductance,G,signOfY)
-      else
-        ! conductance%drift should be turned off when using RCM for diffuse
-        conductance%drift = 1.0
-      endif
-      
-      !$OMP PARALLEL DO default(shared) &
-      !$OMP private(i,j,D,Cs,Pe,Ne,J2eF0,eV2kT,dE,phi0,kT)
-      do j=1,G%Nt
-         do i=1,G%Np
-            if (conductance%doChill) then
-               ! MHD density replaced with gallagher where it's lower      
-               ! and temperature changed correspondingly
-               D  = max(G%D0(i,j)*Mp_cgs, St%Vars(i,j,DENSITY)) ! [g/cm^3]
-               Cs = St%Vars(i,j,SOUND_SPEED)*sqrt(St%Vars(i,j,DENSITY)/D) ! [cm/s]
-            else
-               D  = St%Vars(i,j,DENSITY)
-               Cs = St%Vars(i,j,SOUND_SPEED)
-            endif
-            ! electron pressure from MHD side in [Pa]
-            ! 0.1 is to convert [g/cm^3]*[cm/s]^2=[g/cm/s^2] to [Pa].
-            Pe = 0.1/MIXgamma*alpha_RCM(i,j)*D*(Cs**2)
-            ! electron number density from MHD side in [/m^3].
-            Ne = D/(Mp_cgs*heFrac)*1.0D6
-            ! Mean energy from MHD electron fluxes in [keV]. E_avg = 2*kT for Maxwellian.
-            kT = Pe/Ne/kev2J
-            conductance%E0  (i,j) = 2.0*kT
-            ! Thermal number flux from MHD electron fluxes in [#/cm^2/s].
-            phi0 = beta_RCM(i,j)* sqrt(Pe*Ne/(2.0D-3*PI*Me_cgs))*1.0D-4
-            conductance%phi0(i,j) = phi0
-
-            ! Note JF0 may go inf where phi0/Pe_MHD/Ne_MHD is zero.
-            J2eF0 = min( 1.D-4*signOfJ*(St%Vars(i,j,FAC)*1.D-6)/(eCharge*phi0), RM(i,j)*0.99 )
-            ! NonLinear Fridman-Lemaire relation: 
-            ! eV = 2*kB*Te + eV*(1-exp(-eV/(RM-1)/kB/Te))/(1-(1-1/RM)*exp(-eV/(RM-1)/kB/Te)), when
-            ! 1<=J/e/F0<=RM.
-            if (J2eF0>1.0) then
-               dE = kT*(RM(i,j)-1.D0)*dlog((RM(i,j)-1.D0)/(RM(i,j)-J2eF0))
-               conductance%deltaE(i,j) = dE
-               St%Vars(i,j,Z_NFLUX) = J2eF0*phi0
-            else
-               conductance%deltaE(i,j) = 0.0
-               St%Vars(i,j,Z_NFLUX) = phi0*conductance%drift(i,j)
-            endif
-
-            ! limit the max potential energy drop to maxDrop (20 [keV])
-            ! Use capped dE to calculate the mean energy.
-            ! eV2kT = exp(-eV/(RM-1)/kB/Te)
-            eV2kT = exp( -min(dE,maxDrop)/(kT*(RM(i,j)-1.D0)) )
-            ! Floor the mean energy.
-            ! Note in the original code of Zhang, EAVG is simply 2*kT+dE, a good enough approximation.
-            St%Vars(i,j,Z_EAVG) = max( 2.0*kT+min(dE,maxDrop)*(1.D0-eV2kT)/(1.D0-(1.D0-1.D0/RM(i,j))*eV2kT), eTINY)
-
-            ! Apply Zhang15 precipitation to main arrays
-            St%Vars(i,j,DELTAE)   = conductance%deltaE(i,j) ! [kV]
-            St%Vars(i,j,AVG_ENG)  = St%Vars(i,j,Z_EAVG)     ! [keV]
-            St%Vars(i,j,NUM_FLUX) = St%Vars(i,j,Z_NFLUX)    ! [#/cm^2/s]
-         enddo ! i
-      enddo ! j
-
-    end subroutine conductance_zhang15
- 
     subroutine conductance_linmrg(conductance,G,St)
       ! Derive mono-diffuse electron precipitation where mono is based on linearized FL relation,
       ! and diffuse is a combination of MHD and RCM precipitation.
@@ -803,35 +662,6 @@ module mixconductance
         conductance%rampFactor = rLowLimit
       end where
     end subroutine conductance_ramp
-
-    subroutine conductance_auroralmask(conductance,G,signOfY)
-      ! Artificial auroral mask used in Zhang15 to represent dawnward shift of diffuse electron precipitation.
-      type(mixConductance_T), intent(inout) :: conductance
-      type(mixGrid_T), intent(in) :: G      
-      real(rp), intent(in) :: signOfY
-      real(rp) :: Rio, al0, alp, Radi, order, Rady
-      
-      Rio = 1.02
-      al0 = -5.0*deg2rad
-      alp = 28*deg2rad
-      alp = min(28*deg2rad,alp)
-      Rady = Rio*sin(alp-al0)
-      Radi = Rady**2 ! Rio**2*(1-cos(alp-al0)*cos(alp-al0))
-      order = 2.0
-      
-      RRdi = 0.D0
-      RRdi = (G%y-0.03*signOfY)**2 + ( G%x/cos(al0) - Rio*cos(alp-al0)*tan(al0) )**2
-      where(RRdi < Radi)
-         conductance%AuroraMask = cos((RRdi/Radi)**order*PI/2)+0.D0
-      elsewhere
-         conductance%AuroraMask = 0.D0
-      end where
-      where(abs(G%y)<Rady)
-         conductance%drift = 1.D0 + 0.5*G%y*signOfY/Rady
-      elsewhere
-         conductance%drift = 1.D0
-      end where
-    end subroutine conductance_auroralmask
 
     subroutine conductance_beta_gtype(G,St)
       ! Use RCM precipitation and source population to derive the loss cone rate beta.

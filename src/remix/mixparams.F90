@@ -110,12 +110,10 @@ module mixparams
         select case (tmpSTR)
            case ("FEDDER")
               Params%aurora_model_type = FEDDER
-           case ("ZHANG")
-              Params%aurora_model_type = ZHANG
            case ("LINMRG")
               Params%aurora_model_type = LINMRG
            case default 
-              stop "The auroral model type entered is not supported (Available options: FEDDER, ZHANG, LINMRG)."
+              stop "The auroral model type entered is not supported (Available options: FEDDER, LINMRG)."
         end select
 
         ! =========== CONDUCTANCE MODEL PARAMETERS =================== !
