@@ -264,10 +264,10 @@ module voltapp
         if(.not. vApp%doDeep) then
             ! if we aren't using "deep" parts such as RCM, we need to use a
             !    precipitation model that doesn't rely on them
-            if(vApp%remixApp%ion(NORTH)%P%aurora_model_type /= FEDDER) then
-                write(*,*) 'The "FEDDER" precipitation model MUST be used when deep coupling is disabled.'
+            if(vApp%remixApp%ion(NORTH)%P%aurora_model_type /= FEDDER .and. vApp%remixApp%ion(NORTH)%P%aurora_model_type /= EUVONLY) then
+                write(*,*) 'The "FEDDER" or EUVONLY precipitation model MUST be used when deep coupling is disabled.'
                 write(*,*) 'Please either enable the "voltron/coupling/doDeep" option, or'
-                write(*,*) ' set "remix/precipitation/aurora_model_type" to "FEDDER"'
+                write(*,*) ' set "remix/precipitation/aurora_model_type" to "FEDDER" or "EUVONLY"'
                 stop
             endif
         endif

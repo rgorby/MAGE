@@ -1,5 +1,4 @@
 !Module to hold routines to help calculate auroral conductance
-!Fedder may have been fine for simulations 40 years ago, but it's 2021 ffs
 
 module auroralhelper
     use kdefs
