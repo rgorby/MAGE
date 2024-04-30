@@ -1,6 +1,6 @@
 #!/bin/bash
 #PBS -N KAIJU
-#PBS -A UJHB0019
+#PBS -A P28100045
 #PBS -l walltime=02:00:00
 #PBS -q main
 #PBS -l select=1:ncpus=128:ompthreads=128
