@@ -240,6 +240,12 @@ add_executable(raijuOWD.x src/drivers/raijuOWDx.F90 ${RAIJUIC})
 target_link_libraries(raijuOWD.x voltlib gamlib remixlib chimplib rcmlib raijulib baselib)
 add_dependencies(raiju raijuOWD.x)
 
+message("\tAdding executable rcm_raijumod.x")
+message("\t RCM Grid is of size ${RCMSIZEI} x ${RCMSIZEJ} x ${RCMSIZEK}")
+add_executable(rcm_raijumod.x src/drivers/rcmx_raijumod.F90)
+target_link_libraries(rcm_raijumod.x rcmlib baselib)
+add_dependencies(rcm rcm_raijumod.x baselib)
+
 
 #-------------
 #Kaiju: Voltron
