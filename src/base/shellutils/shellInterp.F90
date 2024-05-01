@@ -296,19 +296,21 @@ module shellInterp
             endif
         endif
 
-
+        ! First, check if active grid has poles
+        ! note, if the destination point is closer to the top cell boundary
+        ! than the bottom (for corner centered variables), then i0 by now is 2.
+        ! in other words, only the half of the cell closest to the pole will be interpolated as a pole.
         if (sgSource%doNP .and. (i0==sgSource%is)) then
-            call interpPole(sgSource,sgVar,th,ph,Qinterp)
             ! Handle north pole and return
-            write(*,*) "Not implemented!"
-            stop
+            call interpPole(sgSource,sgVar,th,ph,Qinterp)
+            return
         endif
 
-        ! First, if active grid has poles 
+        ! same comment as above but for south pole
         if (sgSource%doSP .and. (i0==sgSource%ie)) then
             ! Handle south pole and return
-            write(*,*) "Not implemented!"
-            stop
+            call interpPole(sgSource,sgVar,th,ph,Qinterp)
+            return
         endif
 
         ! Now, if ghost grid has poles
@@ -397,7 +399,7 @@ module shellInterp
         type(ShellGridVar_T), intent(in)  :: Qin      ! source grid variable
         real(rp), intent(out)             :: Qinterp  ! interpolated variable
         real(rp), intent(in)              :: tin,pin  ! theta,phi of the destination point
-        real(rp) :: f0,f1,f2,I1,I2
+        real(rp) :: f0,f1,f2,I1,I2,dphi,phi
         integer  :: ishift,j,pole
         integer  :: iinterp ! the index of the pole cell (first/last for NORTH/SOUTH)
         real(rp) :: tfactor,Qtemp
@@ -442,7 +444,7 @@ module shellInterp
             else
                 tfactor = (PI-tin)/(PI-shGr%th(iinterp))
             end if  
-        
+
         case default
             write(*,*) "interpPole got an invalid data location:",Qin%loc
             stop
@@ -463,18 +465,121 @@ module shellInterp
                 Qtemp = 0.5*(Qin%data(iinterp+ishift,j)+Qin%data(iinterp+ishift,j+1))
             end select 
 
-            f0 = f0 + Qtemp*(shGr%ph(j+1)-shGr%ph(j))
-            f1 = f1 + Qtemp*(shGr%ph(j+1)-shGr%ph(j))*cos(shGr%phc(j))
-            f2 = f2 + Qtemp*(shGr%ph(j+1)-shGr%ph(j))*sin(shGr%phc(j))
-        end do 
+            dphi = shGr%ph(j+1)-shGr%ph(j)
+            phi  = shGr%phc(j)
+            f0   = f0 + Qtemp*dphi
+            f1   = f1 + Qtemp*dphi*cos(phi)
+            f2   = f2 + Qtemp*dphi*sin(phi)                
+        end do
 
         f0 = f0/(2.*PI)
         f1 = f1/PI
         f2 = f2/PI
+        
+        Qinterp = f0 + ( f1*cos(pin) + f2*sin(pin) )*tfactor
 
-        Qinterp = f0 + (f1*cos(pin) + f2*sin(pin))*tfactor
     end subroutine interpPole
 
+    ! this version of the function attempts to do the expansion to an arbitrary order
+    ! however, it's incorrect in that it neglects the higher order terms in theta
+    ! in the polinomials multiplying the harmonics in eqn. 9 of Lewis & Bellan, 1990
+    ! in other words, it only retains f_m^(0) terms in that eqn. which is technically incorrect
+    ! although the error is trivially small and in fact the result looks slightly better
+    subroutine interpPoleHighOrder(shGr,Qin,tin,pin,Qinterp)
+        type(ShellGrid_T), intent(in)     :: shGr     ! source grid
+        type(ShellGridVar_T), intent(in)  :: Qin      ! source grid variable
+        real(rp), intent(out)             :: Qinterp  ! interpolated variable
+        real(rp), intent(in)              :: tin,pin  ! theta,phi of the destination point
+        real(rp) :: f0,I1,I2,dphi,phi
+        real(rp),dimension(:,:),allocatable :: fcoef
+        integer  :: ishift,j,pole
+        integer  :: iinterp ! the index of the pole cell (first/last for NORTH/SOUTH)
+        real(rp) :: tfactor,Qtemp
+        integer :: oind, order=1
+
+        ! Find out which pole we're at
+        if ( (tin.ge.shGr%th(shGr%is)).and.(tin.le.shGr%th(shGr%is+1)) ) then
+            ! note, shGr%th(shGr%is) is within TINY of 0 since we are at the pole
+            pole = NORTH
+            iinterp = shGr%is
+        else if ( (tin.le.shGr%th(shGr%ie+1)).and.(tin.ge.shGr%th(shGr%ie)) ) then
+            ! note, shGr%th(shGr%ie+1) is within TINY of PI since we are at the pole
+            pole = SOUTH
+            iinterp = shGr%ie
+        else
+            write(*,*) "Attempting to call pole interpolation for a point that's not on the pole. Quitting..."
+        end if
+
+        ! represent the function near pole to first order in theta as
+        ! f(t,p) = f0 + f1*cos(p)*t + f2*sin(p)*t + higher order terms
+        ! (Lewis&Bellan, J. Math. Phys. 31, 2592 (1990); 
+        ! https://doi.org/10.1063/1.529009
+        ! 
+        ! for corner centered and theta face centered, 
+        ! iinterp will be right on the pole for NORTH, so we will have to shift up
+        ! otherwise, there's no shift
+        ishift = 0
+
+        ! check centering wrt theta
+        select case(Qin%loc)
+        case(SHGR_CC, SHGR_FACE_PHI)
+            if (pole.eq.NORTH) then
+                tfactor = tin/shGr%thc(iinterp)
+            else
+                tfactor = (PI-tin)/(PI-shGr%thc(iinterp))
+            end if  
+        
+        case(SHGR_CORNER, SHGR_FACE_THETA)
+            if (pole.eq.NORTH) then
+                ishift = 1
+                ! note, using th, not thc, since we're on a theta face
+                tfactor = tin/shGr%th(iinterp+ishift)
+            else
+                tfactor = (PI-tin)/(PI-shGr%th(iinterp))
+            end if  
+
+        case default
+            write(*,*) "interpPole got an invalid data location:",Qin%loc
+            stop
+        end select 
+
+        ! determine f0, f1, f2 from the Fourier transform
+        Qinterp = 0.0
+        f0      = 0.0
+
+        if (allocated(fcoef)) deallocate(fcoef)
+        allocate(fcoef(order,2))
+        fcoef(:,:)  = 0.0
+
+        do j=1,shGr%Np
+            ! check centering wrt phi
+            select case(Qin%loc)
+            case(SHGR_CC, SHGR_FACE_THETA)
+                Qtemp = Qin%data(iinterp+ishift,j)
+            case(SHGR_CORNER, SHGR_FACE_PHI)  
+                Qtemp = 0.5*(Qin%data(iinterp+ishift,j)+Qin%data(iinterp+ishift,j+1))
+            end select 
+
+            dphi = shGr%ph(j+1)-shGr%ph(j)
+            phi  = shGr%phc(j)
+            f0   = f0 + Qtemp*dphi
+
+            do oind=1,order
+                fcoef(oind,1) = fcoef(oind,1) + Qtemp*dphi*cos(oind*phi)
+                fcoef(oind,2) = fcoef(oind,2) + Qtemp*dphi*sin(oind*phi)                
+            enddo
+        end do 
+
+        f0 = f0/(2.*PI)
+
+        do oind=1,order
+            fcoef(oind,:) = fcoef(oind,:)/PI
+            Qinterp = Qinterp + ( fcoef(oind,1)*cos(oind*pin) + fcoef(oind,2)*sin(oind*pin) )*tfactor**oind
+        enddo
+
+        Qinterp = Qinterp + f0
+    end subroutine interpPoleHighOrder
+    
 
 !------
 ! Low-level interp helpers

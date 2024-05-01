@@ -22,6 +22,8 @@ program testNewRMS
     real(rp) :: th,pin,qinterp
     type(ShellGridVar_T) :: tmpVarSame, tmpVarCC
     logical :: isSlava, isAnthony
+    real(rp) :: randomPhi(250)
+    integer :: io
 
     inpXML = New_XML_Input(trim(xmlStr),"Kaiju/REMIX",.true.)
 
@@ -51,12 +53,22 @@ program testNewRMS
         write(*,*) "time ",t
         
         call updateRM(rmReader, t)
-    
-        call initShellVar(rmReader%shGr, rmReader%nsFac(NORTH)%loc, tmpVarSame)
-        th = 0.6*PI/180.
-        pin = 0.4*PI/180.
-        call InterpShellVar_TSC_pnt(rmReader%shGr, tmpVarSame, th, pin, Qinterp)
 
+        call initShellVar(rmReader%shGr, rmReader%nsFac(NORTH)%loc, tmpVarSame)
+        tmpVarSame%data =  rmReader%nsFac(NORTH)%data
+        tmpVarSame%mask = .true.
+        call dump(fOutname, rmReader%shGr, tmpVarSame, "tmpVar") ! Should be equal to "tmpVarSame"
+
+        open(newunit=io, file="interppole12.txt")
+        
+        th = 0.24*PI/180.
+        call random_number(randomPhi)
+        do i=1,size(randomPhi)
+            pin = randomPhi(i)*2*PI
+            call InterpShellVar_TSC_pnt(rmReader%shGr, tmpVarSame, th, pin, Qinterp)
+            write(io,*) pin, Qinterp
+        enddo
+        close(io)
     else 
         write(*,*) "I don't know who I am."
         stop
