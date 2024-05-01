@@ -104,7 +104,7 @@ contains
           do j=gamAppMpi%Grid%js,gamAppMpi%Grid%je
               write (checkMessage,'(A,A,A,I0,A,I0,A,I0,A)') 'Bad K face value in ',trim(varName),' at (',i,',',j,',',gamAppMpi%Grid%ks,')'
               checkValue = abs(var(i,j,gamAppMpi%Grid%ks,KDIR) - var(i,j,gamAppMpi%Grid%ke+1,KDIR))
-              @assertLessThanOrEqual(checkValue, 1e-8_rp,trim(checkMessage))
+              @assertLessThanOrEqual(checkValue, 0.0_rp,trim(checkMessage))
           enddo
       enddo
 
@@ -114,7 +114,7 @@ contains
               do k=gamAppMpi%Grid%ks,gamAppMpi%Grid%ke
                   write (checkMessage,'(A,A,A,I0,A,I0,A,I0,A)') 'Bad I face value in ',trim(varName),' at (',gamAppMpi%Grid%is,',',j,',',k,')'
                   checkValue = abs(var(gamAppMpi%Grid%ie+1,j,k,IDIR)-var(gamAppMpi%Grid%is,j,k,IDIR))
-                  @assertLessThanOrEqual(checkValue, 1e-8_rp,trim(checkMessage))
+                  @assertLessThanOrEqual(checkValue, 0.0_rp,trim(checkMessage))
               enddo
           enddo
       endif
@@ -125,7 +125,7 @@ contains
               do k=gamAppMpi%Grid%ks,gamAppMpi%Grid%ke
                   write (checkMessage,'(A,A,A,I0,A,I0,A,I0,A)') 'Bad J face value in ',trim(varName),' at (',i,',',gamAppMpi%Grid%js,',',k,')'
                   checkValue = abs(var(i,gamAppMpi%Grid%je+1,k,JDIR)-var(i,gamAppMpi%grid%js,k,JDIR))
-                  @assertLessThanOrEqual(checkValue, 1e-8_rp,trim(checkMessage))
+                  @assertLessThanOrEqual(checkValue, 0.0_rp,trim(checkMessage))
               enddo
           enddo
       endif
@@ -205,7 +205,7 @@ contains
           do j=gamAppMpi%Grid%js,gamAppMpi%Grid%je
               write (checkMessage,'(A,A,A,I0,A,I0,A,I0,A)') 'Bad K face value in ',trim(varName),' at (',i,',',j,',',gamAppMpi%Grid%ks,')'
               checkValue = sum(abs(var(i,j,gamAppMpi%Grid%ks,:,KDIR) - var(i,j,gamAppMpi%Grid%ke+1,:,KDIR)))
-              @assertLessThanOrEqual(checkValue, 1e-8_rp,trim(checkMessage))
+              @assertLessThanOrEqual(checkValue, 0.0_rp,trim(checkMessage))
           enddo
       enddo
 
@@ -215,7 +215,7 @@ contains
               do k=gamAppMpi%Grid%ks,gamAppMpi%Grid%ke
                   write (checkMessage,'(A,A,A,I0,A,I0,A,I0,A)') 'Bad I face value in ',trim(varName),' at (',gamAppMpi%Grid%is,',',j,',',k,')'
                   checkValue = sum(abs(var(gamAppMpi%Grid%ie+1,j,k,:,IDIR)-var(gamAppMpi%Grid%is,j,k,:,IDIR)))
-                  @assertLessThanOrEqual(checkValue, 1e-8_rp,trim(checkMessage))
+                  @assertLessThanOrEqual(checkValue, 0.0_rp,trim(checkMessage))
               enddo
           enddo
       endif
@@ -226,7 +226,7 @@ contains
               do k=gamAppMpi%Grid%ks,gamAppMpi%Grid%ke
                   write (checkMessage,'(A,A,A,I0,A,I0,A,I0,A)') 'Bad J face value in ',trim(varName),' at (',i,',',gamAppMpi%Grid%js,',',k,')'
                   checkValue = sum(abs(var(i,gamAppMpi%Grid%je+1,k,:,JDIR)-var(i,gamAppMpi%grid%js,k,:,JDIR)))
-                  @assertLessThanOrEqual(checkValue, 1e-8_rp,trim(checkMessage))
+                  @assertLessThanOrEqual(checkValue, 0.0_rp,trim(checkMessage))
               enddo
           enddo
       endif
@@ -335,7 +335,7 @@ contains
           do j=gamAppMpi%Grid%js,gamAppMpi%Grid%je+1
               write (checkMessage,'(A,A,A,I0,A,I0,A,I0,A)') 'Bad I edge value in ',trim(varName),' at (',i,',',j,',',gamAppMpi%Grid%ks,')'
               checkValue = abs(var(i,j,gamAppMpi%Grid%ks,IDIR) - var(i,j,gamAppMpi%Grid%ke+1,IDIR))
-              @assertLessThanOrEqual(checkValue, 1e-8_rp,trim(checkMessage))
+              @assertLessThanOrEqual(checkValue, 0.0_rp,trim(checkMessage))
           enddo
       enddo
 
@@ -344,7 +344,7 @@ contains
           do j=gamAppMpi%Grid%js,gamAppMpi%Grid%je
               write (checkMessage,'(A,A,A,I0,A,I0,A,I0,A)') 'Bad J edge value in ',trim(varName),' at (',i,',',j,',',gamAppMpi%Grid%ks,')'
               checkValue = abs(var(i,j,gamAppMpi%Grid%ks,JDIR) - var(i,j,gamAppMpi%Grid%ke+1,JDIR))
-              @assertLessThanOrEqual(checkValue, 1e-8_rp,trim(checkMessage))
+              @assertLessThanOrEqual(checkValue, 0.0_rp,trim(checkMessage))
           enddo
       enddo
 
@@ -355,7 +355,7 @@ contains
               do j=gamAppMpi%Grid%js,gamAppMpi%Grid%je
                   write (checkMessage,'(A,A,A,I0,A,I0,A,I0,A)') 'Bad J edge value in ',trim(varName),' at (',gamAppMpi%Grid%is,',',j,',',k,')'
                   checkValue = abs(var(gamAppMpi%Grid%is,j,k,JDIR) - var(gamAppMpi%Grid%ie+1,j,k,JDIR))
-                  @assertLessThanOrEqual(checkValue, 1e-8_rp,trim(checkMessage))
+                  @assertLessThanOrEqual(checkValue, 0.0_rp,trim(checkMessage))
               enddo
           enddo
           ! K edges
@@ -363,7 +363,7 @@ contains
               do j=gamAppMpi%Grid%js,gamAppMpi%Grid%je+1
                   write (checkMessage,'(A,A,A,I0,A,I0,A,I0,A)') 'Bad K edge value in ',trim(varName),' at (',gamAppMpi%Grid%is,',',j,',',k,')'
                   checkValue = abs(var(gamAppMpi%Grid%is,j,k,KDIR) - var(gamAppMpi%Grid%ie+1,j,k,KDIR))
-                  @assertLessThanOrEqual(checkValue, 1e-8_rp,trim(checkMessage))
+                  @assertLessThanOrEqual(checkValue, 0.0_rp,trim(checkMessage))
               enddo
           enddo
       endif
@@ -375,7 +375,7 @@ contains
               do i=gamAppMpi%Grid%is,gamAppMpi%Grid%ie
                   write (checkMessage,'(A,A,A,I0,A,I0,A,I0,A)') 'Bad I edge value in ',trim(varName),' at (',i,',',gamAppMpi%Grid%js,',',k,')'
                   checkValue = abs(var(i,gamAppMpi%Grid%js,k,IDIR) - var(i,gamAppMpi%Grid%je+1,k,IDIR))
-                  @assertLessThanOrEqual(checkValue, 1e-8_rp,trim(checkMessage))
+                  @assertLessThanOrEqual(checkValue, 0.0_rp,trim(checkMessage))
               enddo
           enddo
           ! K edges
@@ -383,7 +383,7 @@ contains
               do i=gamAppMpi%Grid%js,gamAppMpi%Grid%ie+1
                   write (checkMessage,'(A,A,A,I0,A,I0,A,I0,A)') 'Bad K edge value in ',trim(varName),' at (',i,',',gamAppMpi%Grid%js,',',k,')'
                   checkValue = abs(var(i,gamAppMpi%Grid%js,k,KDIR) - var(i,gamAppMpi%Grid%je+1,k,KDIR))
-                  @assertLessThanOrEqual(checkValue, 1e-8_rp,trim(checkMessage))
+                  @assertLessThanOrEqual(checkValue, 0.0_rp,trim(checkMessage))
               enddo
           enddo
       endif
@@ -492,7 +492,7 @@ contains
           do j=gamAppMpi%Grid%js,gamAppMpi%Grid%je+1
               write (checkMessage,'(A,A,A,I0,A,I0,A,I0,A)') 'Bad I edge value in ',trim(varName),' at (',i,',',j,',',gamAppMpi%Grid%ks,')'
               checkValue = sum(abs(var(i,j,gamAppMpi%Grid%ks,:,IDIR) - var(i,j,gamAppMpi%Grid%ke+1,:,IDIR)))
-              @assertLessThanOrEqual(checkValue, 1e-8_rp,trim(checkMessage))
+              @assertLessThanOrEqual(checkValue, 0.0_rp,trim(checkMessage))
           enddo
       enddo
 
@@ -501,7 +501,7 @@ contains
           do j=gamAppMpi%Grid%js,gamAppMpi%Grid%je
               write (checkMessage,'(A,A,A,I0,A,I0,A,I0,A)') 'Bad J edge value in ',trim(varName),' at (',i,',',j,',',gamAppMpi%Grid%ks,')'
               checkValue = sum(abs(var(i,j,gamAppMpi%Grid%ks,:,JDIR) - var(i,j,gamAppMpi%Grid%ke+1,:,JDIR)))
-              @assertLessThanOrEqual(checkValue, 1e-8_rp,trim(checkMessage))
+              @assertLessThanOrEqual(checkValue, 0.0_rp,trim(checkMessage))
           enddo
       enddo
 
@@ -512,7 +512,7 @@ contains
               do j=gamAppMpi%Grid%js,gamAppMpi%Grid%je
                   write (checkMessage,'(A,A,A,I0,A,I0,A,I0,A)') 'Bad J edge value in ',trim(varName),' at (',gamAppMpi%Grid%is,',',j,',',k,')'
                   checkValue = sum(abs(var(gamAppMpi%Grid%is,j,k,:,JDIR) - var(gamAppMpi%Grid%ie+1,j,k,:,JDIR)))
-                  @assertLessThanOrEqual(checkValue, 1e-8_rp,trim(checkMessage))
+                  @assertLessThanOrEqual(checkValue, 0.0_rp,trim(checkMessage))
               enddo
           enddo
           ! K edges
@@ -520,7 +520,7 @@ contains
               do j=gamAppMpi%Grid%js,gamAppMpi%Grid%je+1
                   write (checkMessage,'(A,A,A,I0,A,I0,A,I0,A)') 'Bad K edge value in ',trim(varName),' at (',gamAppMpi%Grid%is,',',j,',',k,')'
                   checkValue = sum(abs(var(gamAppMpi%Grid%is,j,k,:,KDIR) - var(gamAppMpi%Grid%ie+1,j,k,:,KDIR)))
-                  @assertLessThanOrEqual(checkValue, 1e-8_rp,trim(checkMessage))
+                  @assertLessThanOrEqual(checkValue, 0.0_rp,trim(checkMessage))
               enddo
           enddo
       endif
@@ -532,7 +532,7 @@ contains
               do i=gamAppMpi%Grid%is,gamAppMpi%Grid%ie
                   write (checkMessage,'(A,A,A,I0,A,I0,A,I0,A)') 'Bad I edge value in ',trim(varName),' at (',i,',',gamAppMpi%Grid%js,',',k,')'
                   checkValue = sum(abs(var(i,gamAppMpi%Grid%js,k,:,IDIR) - var(i,gamAppMpi%Grid%je+1,k,:,IDIR)))
-                  @assertLessThanOrEqual(checkValue, 1e-8_rp,trim(checkMessage))
+                  @assertLessThanOrEqual(checkValue, 0.0_rp,trim(checkMessage))
               enddo
           enddo
           ! K edges
@@ -540,7 +540,7 @@ contains
               do i=gamAppMpi%Grid%js,gamAppMpi%Grid%ie+1
                   write (checkMessage,'(A,A,A,I0,A,I0,A,I0,A)') 'Bad K edge value in ',trim(varName),' at (',i,',',gamAppMpi%Grid%js,',',k,')'
                   checkValue = sum(abs(var(i,gamAppMpi%Grid%js,k,:,KDIR) - var(i,gamAppMpi%Grid%je+1,k,:,KDIR)))
-                  @assertLessThanOrEqual(checkValue, 1e-8_rp,trim(checkMessage))
+                  @assertLessThanOrEqual(checkValue, 0.0_rp,trim(checkMessage))
               enddo
           enddo
       endif

@@ -38,8 +38,8 @@ module msphutils
     real(rp), private :: tScl !Needed for time output, TODO: Fix this
     real(rp), private :: Rion ! Planetary ionosphere radius
     !Chill out parameters
-    logical , private :: doLFMChill = .true. !Do LFM-style chilling
-    logical , private :: doGAMChill = .true. !Do GAM-style chilling
+    logical , private :: doLFMChill = .false. !Do LFM-style chilling
+    logical , private :: doGAMChill = .false. !Do GAM-style chilling
     real(rp), private :: RhoCO = 1.0e-3 ! Number density
     real(rp), private :: CsCO  = 1.0e-2  ! Cs chillout, m/s
     real(rp), private :: cLim = 1.5 ! Cool when sound speed is above cLim*Ca

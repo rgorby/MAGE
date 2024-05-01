@@ -276,7 +276,11 @@ module stress
         if (Model%doMHD) then
             do nv=1,NDIM
                 call recLoadBlock(Model,Gr, MagB(:,:,nv),hfState%Bxyz(:,:,:,nv),iB,j,k,iMax,dN)
-                call limLoadBlock(Model,Gr,nMagB(:,:,nv), nState%Bxyz(:,:,:,nv),iB,j,k,iMax,dN)
+                if (Model%doLFMLim) then
+                    call limLoadBlock(Model,Gr,nMagB(:,:,nv), nState%Bxyz(:,:,:,nv),iB,j,k,iMax,dN)
+                else
+                    call limLoadBlock(Model,Gr,nMagB(:,:,nv),hfState%Bxyz(:,:,:,nv),iB,j,k,iMax,dN)
+                endif
             enddo
             call BlockLRs(VolB,nMagB,MagB,MagLRB(:,:,LEFT),MagLRB(:,:,RIGHT),NDIM)
 
@@ -307,7 +311,11 @@ module stress
         !---------------------------
             do nv=1,NVAR
                 call recLoadBlock(Model,Gr, ConB(:,:,nv),hfState%Gas(:,:,:,nv,s),iB,j,k,iMax,dN)
-                call limLoadBlock(Model,Gr,nConB(:,:,nv), nState%Gas(:,:,:,nv,s),iB,j,k,iMax,dN)
+                if (Model%doLFMLim) then
+                    call limLoadBlock(Model,Gr,nConB(:,:,nv), nState%Gas(:,:,:,nv,s),iB,j,k,iMax,dN)
+                else
+                    call limLoadBlock(Model,Gr,nConB(:,:,nv),hfState%Gas(:,:,:,nv,s),iB,j,k,iMax,dN)
+                endif
             enddo
             call BlockStateLRs(Model,VolB,nConB,ConB,PrimLRB(:,:,LEFT),PrimLRB(:,:,RIGHT))
 

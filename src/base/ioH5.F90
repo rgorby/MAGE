@@ -436,16 +436,19 @@ contains
         integer(HID_T), intent(in) :: gId
 
         integer(HSIZE_T), allocatable, dimension(:) :: dims
-        integer :: Nr,herr, N
-        integer :: typeClass
+        integer :: Nr,herr, N, ierror
+        integer :: typeClass, dExists
         integer(SIZE_T) :: typeSize
         character(len=strLen) :: inStr
-        logical :: aExists, dExists
+        logical :: aExists
 
         dExists = h5ltfind_dataset_f(gId, trim(IOVar%idStr))
-        if (.not. dExists) then
-            write(*,"(A,A,A)") "Info: Dataset with name '", trim(IOVar%idStr), "' does not exist, skipping read."
+        if (dExists == 0) then
+            write(*,"(3A)") "Info: Dataset with name '", trim(IOVar%idStr), "' does not exist, skipping read."
             return
+        elseif(dExists < 0) then
+            write(*,"(2A)") "Error: Failed to find Dataset with name '", trim(IOVar%idStr)
+            stop 
         endif 
         !Start by getting rank, dimensions and total size
         call h5ltget_dataset_ndims_f(gId,trim(IOVar%idStr),Nr,herr)
@@ -580,8 +583,7 @@ contains
         integer :: nStep, status
         read(stepStr(6:),*,iostat=status) nStep
         if(status /= 0) then
-            write(*,"(A,I,A,A)"), "Conversion of step ", stepStr, " failed.", & 
-            " Update to timeAttributeCache dataset size failed."
+            write(*,"(3A)") "Conversion of ", trim(stepStr), " failed. Update to timeAttributeCache dataset size failed."
             stop
         endif
     end function 
@@ -633,7 +635,8 @@ contains
 
         integer(HID_T) :: sId, dId, pId, memId
         integer :: herr
-        integer :: Nr = 1, memRank = 1
+        integer :: Nr = 1
+        integer :: memRank = 1
         logical :: dSetExists = .False.
         real(rp) :: X
         integer(HSIZE_T) :: dSize = 1, rank = 1
@@ -662,7 +665,7 @@ contains
             end select
 
             coord(1,1) = 1
-            call h5sselect_elements_f(sId, H5S_SELECT_SET_F, Nr, 1, coord, herr)
+            call h5sselect_elements_f(sId, H5S_SELECT_SET_F, Nr, 1_size_t, coord, herr)
             call h5pclose_f(pId,herr)
         else
             !write(*,"(A,1x,A)") "Found var ", trim(IOVar%idStr)
@@ -679,7 +682,7 @@ contains
             call h5screate_simple_f(Nr, cdims, memId, herr)
             ! Select the single element at coord = offset in the file space
             coord(1,1) = cacheSize
-            call h5sselect_elements_f(sId, H5S_SELECT_SET_F, Nr, 1, coord, herr)
+            call h5sselect_elements_f(sId, H5S_SELECT_SET_F, Nr, 1_size_t, coord, herr)
         end if
 
         select case(IOVar%vType)

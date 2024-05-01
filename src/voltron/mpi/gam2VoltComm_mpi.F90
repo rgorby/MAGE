@@ -56,12 +56,15 @@ module gam2VoltComm_mpi
         logical, optional, intent(in) :: doIO
 
         integer :: length, commSize, ierr, numCells, dataCount, numInNeighbors, numOutNeighbors
+        integer :: commId
         type(MPI_Comm) :: voltComm
         character( len = MPI_MAX_ERROR_STRING) :: message
         logical :: reorder, wasWeighted, doIOX
         character(len=strLen) :: inpXML
         type(XML_Input_T) :: xmlInp
         integer, dimension(1) :: rankArray, weightArray
+
+        commId = gamId + voltId
 
         ! initialize F08 MPI objects
         g2vComm%voltMpiComm = MPI_COMM_NULL
@@ -70,7 +73,7 @@ module gam2VoltComm_mpi
         ! split voltron helpers off of the communicator
         ! split allComm into a communicator with only the non-helper voltron rank
         call MPI_Comm_rank(allComm, commSize, ierr)
-        call MPI_comm_split(allComm, 0, commSize, voltComm, ierr)
+        call MPI_comm_split(allComm, commId, commSize, voltComm, ierr)
 
         if(present(optFilename)) then
             ! read from the prescribed file
@@ -179,6 +182,9 @@ module gam2VoltComm_mpi
         call mpi_bcast(gApp%Model%MJD0, 1, MPI_MYFLOAT, g2vComm%voltRank, g2vComm%voltMpiComm, ierr)
         call mpi_bcast(gApp%Model%tFin, 1, MPI_MYFLOAT, g2vComm%voltRank, g2vComm%voltMpiComm, ierr)
         !call mpi_bcast(gApp%Model%dt, 1, MPI_MYFLOAT, g2vComm%voltRank, g2vComm%voltMpiComm, ierr)
+
+        ! correct DT on Gamera ranks after receiving correct time information
+        call CalcDT_mpi(gApp)
 
         ! also update state time variables
         if(.not. gApp%Model%isRestart) then

@@ -23,7 +23,7 @@ def addTime(base, fmt="h", ut0Str=defaultUT):
 	scriptStr = r"""
 timeVal = vtk.vtkStringArray()
 timeVal.SetName('{:s}')
-t = inputs[0].GetInformation().Get(vtk.vtkDataObject.DATA_TIME_STEP())
+t = self.GetInput().GetInformation().Get(vtk.vtkDataObject.DATA_TIME_STEP())
 
 {:s}
 
