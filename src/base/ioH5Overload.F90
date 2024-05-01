@@ -406,7 +406,7 @@ module ioH5Overload
         if (present(uStr)) IOVars(n)%unitStr = trim(uStr)
         if (present(dStr)) IOVars(n)%descStr = trim(dStr)
 
-        if (X .eq. .false.) then
+        if (X .eqv. .false.) then
             call LoadIO(IOVars(n),real(0,rp))
         else
             call LoadIO(IOVars(n),real(1,rp))

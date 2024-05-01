@@ -89,7 +89,7 @@ module raijuCpl
 
 
     subroutine raijuCpl_RAIJU2Volt(cplBase, vApp, raiApp)
-        type(raiju_cplBase_T), intent(inout) :: cplBase
+        class(raiju_cplBase_T), intent(inout) :: cplBase
         type(voltApp_T), intent(inout) :: vApp
         type(raijuApp_T) , intent(in   ) :: raiApp
     end subroutine raijuCpl_RAIJU2Volt

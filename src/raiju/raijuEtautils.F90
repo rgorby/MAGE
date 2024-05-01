@@ -161,7 +161,7 @@ module raijuetautils
         type(raijuSpecies_T), intent(in) :: spc
             !! Species info
         real(rp), dimension(spc%kStart:spc%kEnd), intent(inout) :: eta
-            !! Len(spc%N) etas we need to populate
+            !! len(spc%N) etas we need to populate
         real(rp), intent(in) :: D, kT, vm
             !! Density [#/cc], Energy [keV], bVol^-2/3 [(Rx/nT)^(-2/3)]
         real(rp), optional, intent(out) :: etaBelowO

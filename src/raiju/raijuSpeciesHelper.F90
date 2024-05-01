@@ -36,6 +36,7 @@ module raijuSpeciesHelper
         
     end function
 
+
     function spcExists(Grid, flav) result(fExist)
         !! Determine if a certain species is in the species list, using flavor value
         type(raijuGrid_T), intent(in) :: Grid
@@ -49,6 +50,7 @@ module raijuSpeciesHelper
             fExist = .true.
         endif
     end function spcExists
+
 
     function SpcAmu(spc) result (amu)
         !! Calculates a species's mass in amu/daltons
@@ -95,6 +97,7 @@ module raijuSpeciesHelper
     !------
 
     subroutine populateSpeciesFromConfig(Model, Grid, configfname)
+        !! TODO: Rewrite species determination. xml config sshould determine which species we want, and we get the details from raijuconfig.h5
         !! Reads species specification from config file
         !! Populates Grid%spc object
         type(raijuModel_T)  , intent(inout) :: Model

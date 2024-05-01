@@ -68,14 +68,14 @@ module raijuBCs
             associate(sh=>Grid%shGrid)
 
             ! All ghost cells should be updated
-            doMomentIngest(sh%isg:sh%is-1,:) = .true.
-            doMomentIngest(sh%ie+1:sh%ieg,:) = .true.
-            doMomentIngest(:,sh%jsg:sh%js-1) = .true.
-            doMomentIngest(:,sh%je+1:sh%jeg) = .true.
+            !doMomentIngest(sh%isg:sh%is-1,:) = .true.
+            !doMomentIngest(sh%ie+1:sh%ieg,:) = .true.
+            !doMomentIngest(:,sh%jsg:sh%js-1) = .true.
+            !doMomentIngest(:,sh%je+1:sh%jeg) = .true.
 
             ! Note: No need to loop over ghost cells since we just hard set all of them to true
-            do j=sh%js,sh%je
-                do i=sh%is,sh%ie
+            do j=sh%jsg,sh%jeg
+                do i=sh%isg,sh%ieg
                     
                     ! All buffer cells get set to moments
                     if (State%active(i,j) .eq. RAIJUBUFFER) then
@@ -113,14 +113,13 @@ module raijuBCs
             !! Amount of eta below lowest lambda bound (every i,j gets a copy)
 
         psphIdx = spcIdx(Grid, F_PSPH)
-        !$OMP PARALLEL DO default(shared) &
+        !$OMP PARALLEL DO default(shared) collapse(1) &
         !$OMP schedule(dynamic) &
         !$OMP private(i,j,s,vm,kT,etaBelow)
         do j=Grid%shGrid%jsg,Grid%shGrid%jeg
             do i=Grid%shGrid%isg,Grid%shGrid%ieg
-                ! Skip if we should leave point alone
                 if(.not. doMomentIngest(i,j)) then
-                    cycle
+                    cycle  ! This cycle should be okay because its inside the second loop
                 endif
 
                 vm = State%bvol(i,j)**(-2./3.)

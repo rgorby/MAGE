@@ -273,30 +273,6 @@ module raijuPreAdvancer
 
         associate(sh=>Grid%shGrid)
 
-        ! Bulk of the faces. Does not cover the final set of faces bounding the top of the box
-        !$OMP PARALLEL DO default(shared) collapse(1) &
-        !$OMP schedule(dynamic) &
-        !$OMP private(i,j) &
-        !$OMP IF(.false.)
-        !do j=sh%jsg,sh%jeg
-        !    do i=sh%isg,sh%ieg
-!
-        !        ! Theta dir face takes the spatial derivative of the corners along the phi direction
-        !        if ( isG(i,j) .and. isG(i,j+1) ) then
-        !            gradQ(i,j,RAI_TH) = (Q(i,j+1) - Q(i,j)) / ( Grid%lenFace(i,j,RAI_TH) * Rp_m )  ! lenFace in units of Rp, turn into meters
-        !        endif ! If either point is not good then any cells using this face will be flagged as not good, and we can leave gradQ as zero there
-        !        
-        !        ! Phi dir face takes the spatial derivative of the corners along the theta direction
-        !        if ( isG(i,j) .and. isG(i+1,j) ) then
-        !            gradQ(i,j,RAI_PH) = (Q(i+1,j) - Q(i,j)) / ( Grid%lenFace(i,j,RAI_PH) * Rp_m )
-        !        endif
-!
-        !    enddo
-        !enddo
-
-        ! Now we handle the final row and column
-        ! Final theta faces
-        !i = sh%ieg+1
         do j=sh%jsg,sh%jeg
             do i=sh%isg,sh%ieg+1
                 if ( isG(i,j) .and. isG(i,j+1) ) then
@@ -305,7 +281,6 @@ module raijuPreAdvancer
             enddo
         enddo
 
-        !j = sh%jeg+1
         do j=sh%jsg,sh%jeg+1
             do i=sh%isg,sh%ieg
                 if ( isG(i,j) .and. isG(i+1, j) ) then
@@ -441,15 +416,12 @@ module raijuPreAdvancer
         integer :: i,j
         real(rp) :: velij
         real(rp), dimension(Grid%shGrid%isg:Grid%shGrid%ieg+1,Grid%shGrid%jsg:Grid%shGrid%jeg+1, 2) :: dtArr
-        logical , dimension(Grid%shGrid%isg:Grid%shGrid%ieg+1,Grid%shGrid%jsg:Grid%shGrid%jeg+1, 2) :: isGood
         real(rp) :: dt
 
         associate (sh => Grid%shGrid)
 
         dtArr = HUGE
 
-        ! Determine which faces can be considered good
-        isGood = .false.
         do j=sh%js,sh%je+1
             do i=sh%is,sh%ie+1
                 ! NOTE: We are only checking faces bordering non-ghost cells because those are the only ones we use for evolution
@@ -463,10 +435,10 @@ module raijuPreAdvancer
                 ! At the same time, we don't want to write one massive if condition with all options covered, or a bunch of nested if statements
                 ! So instead, we break them up, such that if a single if condition is true it means we have failed the physical condition for us to calculate a valid timestep
                 ! If all if conditions fail then the physical conditions are met and we can do our calculations in the else block
-                if (Model%doActiveShell .and. (State%activeShells(i-1,k) .eq. .false. .or. State%activeShells(i,k) .eq. .false.) ) then
+                if (Model%doActiveShell .and. ( .not. State%activeShells(i-1,k) .or. .not. State%activeShells(i,k)) ) then
                     ! In order for a theta-dir face to be usable, we need both sides to be active
                     continue
-                else if ( State%active(i-1,j) .eq. .false. .or. State%active(i,j) .eq. .false.) then
+                else if ( State%active(i-1,j) .ne. RAIJUACTIVE .or. State%active(i,j) .ne. RAIJUACTIVE ) then
                     continue
                 else
                     ! We are good lets calculate a dt for this face
@@ -475,10 +447,10 @@ module raijuPreAdvancer
                 endif
                 
                 ! Phi faces
-                if (Model%doActiveShell .and. State%activeShells(i,k) .eq. .false. ) then
+                if (Model%doActiveShell .and. .not. State%activeShells(i,k)) then
                     ! In order for a phi-dir face to be usable, we just need this i shell to be active
                     continue
-                else if (State%active(i,j-1) .eq. .false. .or. State%active(i,j) .eq. .false. ) then 
+                else if (State%active(i,j-1) .ne. RAIJUACTIVE  .or. State%active(i,j) .ne. RAIJUACTIVE ) then 
                     continue
                 else
                     velij = max(abs(State%iVel(i,j,k,RAI_PH)), TINY)
