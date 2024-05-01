@@ -385,8 +385,9 @@ module remixReader
         ! BOTH OF THESE ASSUMPTIONS ARE HERE BECAUSE THIS ENTIRE CODE IS TEMPORARY
         ! AND IS ONLY USED FOR TESTING OF SHELLUTILS AND SHELLINTERP ON STANDARD REMIX FILES
         v%data(is,js:je) = sum(v%data(is+1,js:je))/size(v%data(is+1,js:je))
-        
-        v%data(is:ie,je+1)  = v%data(:,1)
+
+        ! fix periodic boundary (note, going through the ghosts in the first dimension)
+        v%data(:,je+1)  = v%data(:,1)
 
         ! Copy last good cell through ghosts just so there's a value there
         ! note this doesn't get executed if isg=is (no ghosts)
