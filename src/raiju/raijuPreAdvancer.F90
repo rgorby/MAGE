@@ -10,6 +10,9 @@ module raijuPreAdvancer
     use raijulosses
     use raijuRecon
 
+    use shellGrid
+    use shellInterp
+
     implicit none
 
     contains
@@ -62,6 +65,12 @@ module raijuPreAdvancer
             State%dtk(k) = activeDt(Model, Grid, State, k)
         enddo
         call Toc("Calc face velocities")
+
+        if (Model%doDebugOutput) then
+            call Tic("Calc CC velocities")
+            call velFace2CC(Model, Grid, State)
+            call Toc("Calc CC velocities")
+        endif
 
         ! Loss rate calc depends on up-to-date densities, so we should run EvalMoments first
         call Tic("Moments Eval PreAdvance")
@@ -394,7 +403,6 @@ module raijuPreAdvancer
         ! But: we have stored the gradient of the potential across Theta face, which is in the phi direction, in (i,j,RAI_TH)
         !  In other words, the cross product was already taken (except for the sign) when doing the gradients along faces
         !  So just need to include the sign here to complete the cross product
-
         Vtp(:,:,RAI_TH) =      gradPot(:,:,RAI_TH) / (Grid%BrFace(:,:,RAI_TH)*1.0e-9)  ! [m/s]
         Vtp(:,:,RAI_PH) = -1.0*gradPot(:,:,RAI_PH) / (Grid%BrFace(:,:,RAI_PH)*1.0e-9)  ! [m/s]
 
@@ -467,7 +475,45 @@ module raijuPreAdvancer
     end function activeDt
 
 
+!------
+! Extras
+!------
 
+    subroutine velFace2CC(Model, Grid, State)
+        type(raijuModel_T), intent(in) :: Model
+        type(raijuGrid_T) , intent(in) :: Grid
+        type(raijuState_T), intent(inout) :: State
+
+        integer :: k
+        type(shellGridVar_T) :: sgv_iVel_th, sgv_iVel_ph, sgv_cVel_th, sgv_cVel_ph
+
+        associate(sh=>Grid%shGrid)
+
+        ! Cell-centered velocities
+        call initShellVar(sh, SHFTH, sgv_iVel_th)
+        call initShellVar(sh, SHFPH, sgv_iVel_ph)
+        call initShellVar(sh, SHCC , sgv_cVel_th)
+        call initShellVar(sh, SHCC , sgv_cVel_ph)
+        sgv_iVel_th%mask = .true.
+        sgv_iVel_ph%mask = .true.
+        sgv_cVel_th%mask = .true.
+        sgv_cVel_ph%mask = .true.
+        do k=1,Grid%Nk
+            sgv_iVel_th%data = State%iVel(:      ,:sh%jeg,k,RAI_TH)
+            sgv_iVel_ph%data = State%iVel(:sh%ieg,:      ,k,RAI_PH)
+            call InterpShellVar_TSC_SG(Grid%shGrid, sgv_iVel_th, Grid%shGrid, sgv_cVel_th)
+            call InterpShellVar_TSC_SG(Grid%shGrid, sgv_iVel_ph, Grid%shGrid, sgv_cVel_ph)
+            State%cVel(:,:,k,RAI_TH) = sgv_cVel_th%data
+            State%cVel(:,:,k,RAI_PH) = sgv_cVel_ph%data
+            !call InterpShellVar_TSC_SG(Grid%shGrid, sgv_cVel_th, Grid%shGrid, sgv_iVel_th)
+            !call InterpShellVar_TSC_SG(Grid%shGrid, sgv_cVel_ph, Grid%shGrid, sgv_iVel_ph)
+            !State%iVel(:      ,:sh%jeg,k,RAI_TH) = sgv_iVel_th%data
+            !State%iVel(:sh%ieg,:      ,k,RAI_PH) = sgv_iVel_ph%data
+        enddo
+
+        end associate
+
+    end subroutine velFace2CC
 
 !------
 ! Graveyard

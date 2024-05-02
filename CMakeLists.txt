@@ -232,7 +232,7 @@ add_custom_target(raiju ALL)
 
 message("\tAdding executable raijuSA.x")
 add_executable(raijuSA.x src/drivers/raijuSAx.F90 ${RAIJUIC})
-target_link_libraries(raijuSA.x raijulib baselib)
+target_link_libraries(raijuSA.x raijulib rcmlib baselib)
 add_dependencies(raiju raijuSA.x)
 
 message("\tAdding executable raijuOWD.x")

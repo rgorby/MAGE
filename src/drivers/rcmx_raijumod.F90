@@ -25,11 +25,16 @@ program rcmx
     real(rprec) ::mdipole = 3.0e-5 ! dipole moment in T
     real(rprec) :: mhdtime
     integer(iprec) :: rcmbndy 
-    real(rprec), parameter :: Lmax = 4.0 ! location of Pressure max
-    real(rprec), parameter :: pmax = 5.0e-8 ! pressure max in Pa
-    real(rprec), parameter :: pmin = 1.0e-11 ! min BG pressure in Pa
-    real(rprec), parameter :: nmax = 1.0e7 ! dens in ple/m^3
-    real(rprec), parameter :: nmin = 1.0e4 ! min dens in ple/m^3
+
+    real(rprec) :: Lpeak = 4.0 ! location of Pressure max
+    real(rprec) :: dL = 0.625 ! width of Pressure max
+    real(rprec) :: D0 = 10.0 ! Density at pressure max
+    real(rprec) :: T0 = 30.0 ! Temperature at pressure max
+    real(rprec) :: D, P  ! Used in loop to set at given location
+    !real(rprec), parameter :: pmax = 5.0e-8 ! pressure max in Pa
+    !real(rprec), parameter :: pmin = 1.0e-11 ! min BG pressure in Pa
+    !real(rprec), parameter :: nmax = 1.0e7 ! dens in ple/m^3
+    !real(rprec), parameter :: nmin = 1.0e4 ! min dens in ple/m^3
     !real(rprec), parameter :: potmax = 5.0e4 ! potential max
     real(rprec) :: mhd_time_start
     real(rprec) :: mhd_time_end 
@@ -40,6 +45,7 @@ program rcmx
     type(rcm_mhd_T) :: RM
 
     type(planet_T) :: planet
+    real(rp):: cpcp, gamma
 
     !Always start with fresh directory
     status = SYSTEM("rm -rf RCMFiles > /dev/null 2>&1")
@@ -61,7 +67,15 @@ program rcmx
     RM%planet_radius = planet%rp_m  ! [m]
     RM%iono_radius   = planet%ri_m  ! [m]
     mdipole = planet%magMoment*G2T  ! [T]
-    
+    !RM%planet_radius = re  ! [m]
+    !RM%iono_radius   = 6.5e6  ! [m]
+    call inpXML%Set_Val(cpcp ,"SAprob/cpcp"   , 50.0)  ! cross polar cap potential in kV
+    call inpXML%Set_Val(gamma,"SAprob/fShield", 1.0 )  ! Shielding factor. 1 = no shielding, 2-3 is more realistic
+    call inpXML%Set_Val(Lpeak,"SAprob/L" , Lpeak)
+    call inpXML%Set_Val(dL   ,"SAprob/dL", dL   )
+    call inpXML%Set_Val(D0,"SAprob/D" , D0 )  ! [#/cc]
+    call inpXML%Set_Val(T0,"SAprob/T" , T0 )  ! [keV]
+
     
     if (doRestart) then
         call RCMRestartInfo(RM,inpXML,mhd_time_start,.true.)
@@ -73,29 +87,17 @@ program rcmx
         call rcm_mhd(mhd_time_start,mhd_dt,RM,RCMINIT,iXML=inpXML)
     endif
 
-    ! Baumjohann & Treumann potential
-    call SetEspot_BT(inpXML, RM)
-
     write(*,*) 'Start / End / dt = ', mhd_time_start,mhd_time_end,mhd_dt
 
     !Setup IO
     RM%rcm_nOut = 0
     call initRCMIO(RM,doRestart)
-
-    !Set boundaries    
-    rcm_boundary_s =35
-    rcm_boundary_e =2
    
     mhdtime = mhd_time_start 
     ! now run 
 !    do mhdtime=mhd_time_start,mhd_time_end-mhd_dt,mhd_dt
     do while (mhdtime <= mhd_time_end)
         IF(.not.doRestart)then
-            rcmbndy = nint(rcm_boundary_s +&
-                (rcm_boundary_e-rcm_boundary_s)*(mhdtime-mhd_time_start)/(mhd_time_end-mhd_time_start),iprec)
-            write(*,'(a,g12.4,a,i5)')' At t =',mhdtime,' RCM boundary index =',rcmbndy
-            colat_boundary = sin(RM%gcolat(rcmbndy))
-            write(*,*)RM%nLat_ion,RM%nLon_ion
             ! compute flux tube volume and other items to pass to the RCM
             do i=1,RM%nLat_ion
                 do j=1,RM%nLon_ion
@@ -103,22 +105,18 @@ program rcmx
                     RM%Vol(i,j) = 32./35.*Lvalue**4/mdipole
                     RM%X_bmin(i,j,1) = Lvalue*cos(RM%glong(j))*RM%planet_radius
                     RM%X_bmin(i,j,2) = Lvalue*sin(RM%glong(j))*RM%planet_radius
+                    !RM%X_bmin(i,j,1) = Lvalue*cos(RM%glong(j))*re
+                    !RM%X_bmin(i,j,2) = Lvalue*sin(RM%glong(j))*re
                     RM%X_bmin(i,j,3) = 0.0
                     RM%bmin(i,j) = mdipole/Lvalue**3
                     RM%iopen(i,j) =-1  ! declare closed
                     RM%beta_average(i,j) = 0.1
-                    RM%Pave(i,j) = pmax * exp(-(Lvalue-Lmax)**2) + pmin
-                    RM%Nave(i,j) = nmax * exp(-(Lvalue-Lmax)**2) + nmin
-
-
-                    ! add a potential that goes to zero near the inner boundary 5/20 frt
-                    !sc = sin(colat_boundary)
-                    !sg = sin(RM%gcolat(i))
-                    !if(RM%gcolat(i) < colat_boundary)then
-                    !    RM%pot(i,j) = -potmax/2.*sin(RM%glong(j))*sg/sc
-                    !else
-                    !    RM%pot(i,j) = -potmax/2.*sin(RM%glong(j))/sc/(1.-1./sc**2)*(sg-1./sg)
-                    !end if
+                    !RM%Pave(i,j) = pmax * exp(-(Lvalue-Lmax)**2) + pmin
+                    !RM%Nave(i,j) = nmax * exp(-(Lvalue-Lmax)**2) + nmin
+                    D = D0*exp(-abs(Lvalue-Lpeak)/dL)  ! [#/cc]
+                    P = DkT2P(D, T0)  ! [nPa]
+                    RM%Nave(i,j) = D*1e6  ! [#/m^3]
+                    RM%Pave(i,j) = P*1e-9  ! [Pa]
 
                 end do
             end do
@@ -130,21 +128,24 @@ program rcmx
         ELSE
             do i=1,RM%nLat_ion
                 do j=1,RM%nLon_ion
-                RM%Vol(i,j) = 1/abs(vm(i,j))**1.5 * sign(1.0d0,vm(i,j))*1.0e9
-                RM%Bmin(i,j) = bmin(i,j)
-                RM%X_bmin(i,j,1) = xmin(i,j)
-                RM%X_bmin(i,j,2) = ymin(i,j)
-                RM%X_bmin(i,j,3) = zmin(i,j)
-                RM%iopen(i,j) = sign(vm(i,j),1.0d0)
-                RM%pot(i,j) = v(i,j)
+                    RM%Vol(i,j) = 1/abs(vm(i,j))**1.5 * sign(1.0d0,vm(i,j))*1.0e9
+                    RM%Bmin(i,j) = bmin(i,j)
+                    RM%X_bmin(i,j,1) = xmin(i,j)
+                    RM%X_bmin(i,j,2) = ymin(i,j)
+                    RM%X_bmin(i,j,3) = zmin(i,j)
+                    RM%iopen(i,j) = sign(vm(i,j),1.0d0)
+                    RM%pot(i,j) = v(i,j)
                 end do
             end do
         END IF ! restart
 
         if (doColdstart)then
-            write(*,'(2(a,g14.4))')' calling rcm_mhd at time: ',mhdtime,' delta t=',mhd_dt
+            write(*,'(2(a,g14.4))')' Coldstarting rcm_mhd at time: ',mhdtime,' delta t=',mhd_dt
             call rcm_mhd(mhdtime,mhd_dt,RM,RCMCOLDSTART)
             doColdstart = .false.
+
+            ! Baumjohann & Treumann potential
+            call SetEspot_BT(RM, cpcp, gamma)
         else
             write(*,'(2(a,g14.4))')' calling rcm_mhd at time: ',mhdtime,' delta t=',mhd_dt
             call rcm_mhd(mhdtime,mhd_dt,RM,RCMADVANCE)
@@ -167,57 +168,24 @@ program rcmx
 
 contains
 
-    subroutine write_2d(RM,time)
-
-        use rcm_mhd_interfaces
-        use rcm_mhd_mod, ONLY: rcm_mhd
-        USE Rcm_mod_subs, ONLY : iprec,rprec
-        type(rcm_mhd_T),intent(in) :: RM
-        real(rprec),intent(in) :: time
-        character(len=15) :: fileout
-        character(len=5) :: ctime
-        integer(iprec) ::i,j
-
-        write (ctime, '(i5.5)')int(time,iprec) 
-
-        fileout = adjustr('tomhd') //ctime// '.dat'
-        write(*,*)' writing file =',fileout
-
-        open(unit=10,file=fileout,status='unknown')
-
-        write(10,*)time
-        write(10,*)RM%nLat_ion 
-        write(10,*)RM%nLon_ion 
-
-        do i=1,RM%nLat_ion 
-            do j=1,RM%nLon_ion 
-                write(10,'(4(g14.6,1x))')RM%X_bmin(i,j,1), RM%X_bmin(i,j,2), RM%Prcm(i,j), RM%Nrcm(i,j)
-            end do
-        end do
-
-        close(10)
-        return
-    end subroutine write_2d
-
-
-    subroutine SetEspot_BT(inpXML, RM)
+    subroutine SetEspot_BT(RM, cpcp, gamma)
         !! Electrostatic potential described in "Basic Space Plasma Physics" - Baumjohann and Treumann
         !! (page 99, Eqs 5.14-5.15)
-        type(XML_Input_T), intent(in) :: inpXML
         type(rcm_mhd_T), intent(inout) :: RM
+        real(rp), intent(in) :: cpcp, gamma
 
         integer :: i,j
-        real(rp) :: cpcp, gamma, Agamma, dy, L
+        real(rp) :: Agamma, dy, L
 
-        call inpXML%Set_Val(cpcp ,"SAprob/cpcp"   , 50.0)  ! cross polar cap potential in kV
-        call inpXML%Set_Val(gamma,"SAprob/fShield", 1.0 )  ! Shielding factor. 1 = no shielding, 2-3 is more realistic
 
         ! Get deltaY
         j = RM%nLon_ion/4
-        dy = RM%X_bmin(RM%nLat_ion,j,2) - RM%X_bmin(1,j,2)
-
+        dy = ( RM%X_bmin(1,j,2) - RM%X_bmin(RM%nLat_ion,j,2) ) / RM%planet_radius
+        !write(*,*)RM%X_bmin(1,j,2)
+        !write(*,*)RM%X_bmin(RM%nLat_ion,j,2)
+        !write(*,*)dy
         Agamma = 0.5*cpcp*dy**(-1.0*gamma)*1.0D3  ! [V]
-
+        
         do i=1,RM%nLat_ion
             do j=1,RM%nLon_ion
                 L = 1.0/sin(RM%gcolat(i))**2
@@ -229,3 +197,36 @@ contains
 
 
 end program rcmx
+
+
+subroutine write_2d(RM,time)
+
+    use rcm_mhd_interfaces
+    use rcm_mhd_mod, ONLY: rcm_mhd
+    USE Rcm_mod_subs, ONLY : iprec,rprec
+    type(rcm_mhd_T),intent(in) :: RM
+    real(rprec),intent(in) :: time
+    character(len=15) :: fileout
+    character(len=5) :: ctime
+    integer(iprec) ::i,j
+
+    write (ctime, '(i5.5)')int(time,iprec) 
+
+    fileout = adjustr('tomhd') //ctime// '.dat'
+    write(*,*)' writing file =',fileout
+
+    open(unit=10,file=fileout,status='unknown')
+
+    write(10,*)time
+    write(10,*)RM%nLat_ion 
+    write(10,*)RM%nLon_ion 
+
+    do i=1,RM%nLat_ion 
+        do j=1,RM%nLon_ion 
+            write(10,'(4(g14.6,1x))')RM%X_bmin(i,j,1), RM%X_bmin(i,j,2), RM%Prcm(i,j), RM%Nrcm(i,j)
+        end do
+    end do
+
+    close(10)
+    return
+end subroutine write_2d

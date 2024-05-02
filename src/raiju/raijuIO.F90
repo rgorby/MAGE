@@ -8,6 +8,8 @@ module raijuIO
     use raijuetautils
     use raijuPreAdvancer, only : calcEffectivePotential
     use raijuELossWM, only : eWMOutput
+    use shellGrid
+    use shellInterp
 
     implicit none
 
@@ -147,7 +149,7 @@ module raijuIO
         character(len=strLen), intent(in) :: gStr
         logical, optional, intent(in) :: doGhostsO
 
-        integer :: i,j,s
+        integer :: i,j,k,s
         integer :: is, ie, js, je, ks, ke
         logical :: doGhosts
         real(rp) :: axT, axP
@@ -291,19 +293,18 @@ module raijuIO
 
         
         if (Model%doFatOutput) then
+            call AddOutVar(IOVars, "gradPotE"    , State%gradPotE    (is:ie+1,js:je+1,:), uStr="V/m")
+            call AddOutVar(IOVars, "gradPotCorot", State%gradPotCorot(is:ie+1,js:je+1,:), uStr="V/m")
+            call AddOutVar(IOVars, "gradVM"      , State%gradVM      (is:ie+1,js:je+1,:), uStr="V/m/lambda")
+            call AddOutVar(IOVars, "preciplossRates_Nk", State%lossRates  (is:ie,js:je,:), uStr="1/s")
+            call AddOutVar(IOVars, "precipNFlux_Nk"    , State%precipNFlux(is:ie,js:je,:), uStr="#/cm^2/s")
+            call AddOutVar(IOVars, "precipEFlux_Nk"    , State%precipEFlux(is:ie,js:je,:), uStr="erg/cm^2/s")
+
             ! Calc pEffective based on current state
             ! Make full ghost size since that's what the subroutine expects
             allocate(outPEff   (Grid%shGrid%isg:Grid%shGrid%ieg+1,Grid%shGrid%jsg:Grid%shGrid%jeg+1,Grid%Nk))
             call calcEffectivePotential(Model, Grid, State, outPEff)
             call AddOutVar(IOVars, "pEffective", outPEff(is:ie+1,js:je+1,:)*1e-3, uStr="kV")
-            call AddOutVar(IOVars, "gradPotE"    , State%gradPotE    (is:ie+1,js:je+1,:), uStr="V/m")
-            call AddOutVar(IOVars, "gradPotCorot", State%gradPotCorot(is:ie+1,js:je+1,:), uStr="V/m")
-            call AddOutVar(IOVars, "gradVM"      , State%gradVM      (is:ie+1,js:je+1,:), uStr="V/m/lambda")
-            call AddOutVar(IOVars, "cVel_th", State%cVel(is:ie,js:je,:,1), uStr="m/s")
-            call AddOutVar(IOVars, "cVel_ph", State%cVel(is:ie,js:je,:,2), uStr="m/s")
-            call AddOutVar(IOVars, "preciplossRates_Nk", State%lossRates  (is:ie,js:je,:), uStr="1/s")
-            call AddOutVar(IOVars, "precipNFlux_Nk"    , State%precipNFlux(is:ie,js:je,:), uStr="#/cm^2/s")
-            call AddOutVar(IOVars, "precipEFlux_Nk"    , State%precipEFlux(is:ie,js:je,:), uStr="erg/cm^2/s")
         endif
 
         if (Model%doDebugOutput) then
@@ -312,6 +313,8 @@ module raijuIO
             call AddOutVar(IOVars, "nStepk", State%nStepk*1.0_rp, uStr="#", dStr="Number of steps each channel has taken")
             ! call AddOutVar(IOVars, "nStepk", State%nStepk*1.0_rp, uStr="#") 
             call AddOutVar(IOVars, "iVel"         , State%iVel         (is:ie+1,js:je+1,:,:), uStr="m/s")
+            call AddOutVar(IOVars, "cVel_th"      , State%cVel         (is:ie  ,js:je  ,:,1), uStr="m/s")
+            call AddOutVar(IOVars, "cVel_ph"      , State%cVel         (is:ie  ,js:je  ,:,2), uStr="m/s")
             call AddOutVar(IOVars, "etaFaceReconL", State%etaFaceReconL(is:ie+1,js:je+1,:,:), uStr="#/cm^3 * Rx/T")
             call AddOutVar(IOVars, "etaFaceReconR", State%etaFaceReconR(is:ie+1,js:je+1,:,:), uStr="#/cm^3 * Rx/T")
             call AddOutVar(IOVars, "etaFacePDML"  , State%etaFacePDML  (is:ie+1,js:je+1,:,:), uStr="#/cm^3 * Rx/T")

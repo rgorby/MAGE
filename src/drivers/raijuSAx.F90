@@ -12,6 +12,7 @@ program raijuSAx
     use raijuBCs
     use raijuPreAdvancer, only : raijuPreAdvance
     use raijuAdvancer   , only : raijuAdvance
+    use raijuclaw   , only : raijuAdvance_claw
 
 
     implicit none
@@ -29,7 +30,9 @@ program raijuSAx
     character(len=strLen) :: FLH5
     
     logical :: doChmpOut,doFLOut
+    logical :: doClawAdvance = .false.
     logical :: isfirstCpl = .true.
+    
 
     real(rp) :: mjd0
 
@@ -59,6 +62,8 @@ program raijuSAx
     end select
 
     call inpXML%Set_Val(raiApp%Model%doClockConsoleOut,'driver/doClockOut',.false.)
+
+    call inpXML%Set_Val(doClawAdvance,'hax/doClaw',doClawAdvance)
 
     ! Init RAIJU
     call raijuInit(raiApp, inpXML)
@@ -91,7 +96,11 @@ program raijuSAx
 
     ! Step RAIJU
         call Tic("RAIJU Advance")
-        call raijuAdvance(raiApp%Model,raiApp%Grid,raiApp%State, raiApp%Model%dt)
+        if (doClawAdvance) then
+            call raijuAdvance_claw(raiApp%Model,raiApp%Grid,raiApp%State, raiApp%Model%dt)
+        else
+            call raijuAdvance(raiApp%Model,raiApp%Grid,raiApp%State, raiApp%Model%dt)
+        endif
         call Toc("RAIJU Advance")
 
         !write(*,*)raiApp%State%t
