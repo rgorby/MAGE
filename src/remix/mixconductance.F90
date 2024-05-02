@@ -742,7 +742,7 @@ module mixconductance
       real(rp), intent(inout) :: Q(Gr%Np,Gr%Nt)
       logical, intent(in) :: isAnchor(Gr%Np,Gr%Nt)
       real(rp) :: temp(Gr%Np,Gr%Nt)
-      real(rp) :: thres,mad,Ttmp
+      real(rp) :: thres,mad,Ttmp,madij
       integer :: i,j,it,im1,ip1,jm1,jp1,MaxIter
 
       thres = 0.025
@@ -754,7 +754,7 @@ module mixconductance
         temp = Q
 
         !$OMP PARALLEL DO default(shared) &
-        !$OMP private(i,j,jm1,jp1,im1,ip1,Ttmp) &
+        !$OMP private(i,j,jm1,jp1,im1,ip1,Ttmp,madij) &
         !$OMP reduction(max:mad)
         do j=1,Gr%Nt ! use open BC for lat.
           do i=1,Gr%Np ! use periodic BC for lon.
@@ -773,9 +773,12 @@ module mixconductance
               Ttmp =(temp(im1,jm1)+temp(im1,j)+temp(im1,jp1) &
                    + temp(i  ,jm1)+temp(i  ,j)+temp(i  ,jp1) &
                    + temp(ip1,jm1)+temp(ip1,j)+temp(ip1,jp1))/9.D0
-              mad  = max(abs(Q(i,j)-Ttmp),mad)
+              madij = abs(Q(i,j)-Ttmp)
               Q(i,j) = Ttmp
+            else
+              madij = 0.D0
             endif
+            mad = max(mad,madij)
           enddo
         enddo
         call FixPole(Gr,Q)
