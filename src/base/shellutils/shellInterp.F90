@@ -486,6 +486,8 @@ module shellInterp
     ! in other words, it only retains f_m^(0) terms in that eqn. which is technically incorrect
     ! although the error is trivially small and in fact the result looks slightly better
     subroutine interpPoleHighOrder(shGr,Qin,tin,pin,Qinterp)
+        ! note, calling this function with order=1 is equavalent to calling InterpPole above
+        
         type(ShellGrid_T), intent(in)     :: shGr     ! source grid
         type(ShellGridVar_T), intent(in)  :: Qin      ! source grid variable
         real(rp), intent(out)             :: Qinterp  ! interpolated variable
@@ -495,7 +497,7 @@ module shellInterp
         integer  :: ishift,j,pole
         integer  :: iinterp ! the index of the pole cell (first/last for NORTH/SOUTH)
         real(rp) :: tfactor,Qtemp
-        integer :: oind, order=1
+        integer :: oind, order=1 ! 12 -- I ran it up to 12th order just for funsies
 
         ! Find out which pole we're at
         if ( (tin.ge.shGr%th(shGr%is)).and.(tin.le.shGr%th(shGr%is+1)) ) then
