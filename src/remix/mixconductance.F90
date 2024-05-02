@@ -657,9 +657,15 @@ module mixconductance
       real(rp) :: phi0_rcm
       integer :: i,j
 
-      ! Initialize IM_BETA with 1, assuming all flux can be precipitated.
+      ! Initialize IM_BETA with xml input value.
       ! IM_GTYPE is interpolated from RCM: 1=RCM and 0=MHD.
-      St%Vars(:,:,IM_BETA) = beta_inp
+      !$OMP PARALLEL DO default(shared) &
+      !$OMP private(i,j)
+      do j=1,G%Nt
+         do i=1,G%Np
+            St%Vars(i,j,IM_BETA) = beta_inp
+         enddo
+      enddo
       isAncB = .false. ! beta is smoothed everywhere.
       isAncG = .false.
 
@@ -691,18 +697,42 @@ module mixconductance
       enddo
 
       ! Smooth IM_BETA and save in beta_RCM
-      beta_RCM = St%Vars(:,:,IM_BETA)
+      !$OMP PARALLEL DO default(shared) &
+      !$OMP private(i,j)
+      do j=1,G%Nt
+         do i=1,G%Np
+            beta_RCM(i,j) = St%Vars(i,j,IM_BETA)
+         enddo
+      enddo
       call conductance_smooth(G,beta_RCM,isAncB)
-      St%Vars(:,:,IM_BETA) = beta_RCM 
-      beta_RCM = min(beta_RCM,1.0)
-      beta_RCM = max(beta_RCM,0.0)
+      !$OMP PARALLEL DO default(shared) &
+      !$OMP private(i,j)
+      do j=1,G%Nt
+         do i=1,G%Np
+            St%Vars(i,j,IM_BETA) = beta_RCM(i,j)
+            if(beta_RCM(i,j)>1.D0) beta_RCM(i,j) = 1.D0
+            if(beta_RCM(i,j)<0.D0) beta_RCM(i,j) = 0.D0
+         enddo
+      enddo
 
       ! Smooth IM_GTYPE and save in gtype_RCM
-      gtype_RCM = St%Vars(:,:,IM_GTYPE)
+      !$OMP PARALLEL DO default(shared) &
+      !$OMP private(i,j)
+      do j=1,G%Nt
+         do i=1,G%Np
+            gtype_RCM(i,j) = St%Vars(i,j,IM_GTYPE)
+         enddo
+      enddo
       call conductance_smooth(G,gtype_RCM,isAncG)
-      St%Vars(:,:,IM_GTYPE) = gtype_RCM 
-      gtype_RCM = min(gtype_RCM,1.0)
-      gtype_RCM = max(gtype_RCM,0.0)
+      !$OMP PARALLEL DO default(shared) &
+      !$OMP private(i,j)
+      do j=1,G%Nt
+         do i=1,G%Np
+            St%Vars(i,j,IM_GTYPE) = gtype_RCM(i,j)
+            if(gtype_RCM(i,j)>1.D0) gtype_RCM(i,j) = 1.D0
+            if(gtype_RCM(i,j)<0.D0) gtype_RCM(i,j) = 0.D0
+         enddo
+      enddo
     end subroutine conductance_beta_gtype
 
     subroutine conductance_smooth(Gr,Q,isAnchor)
