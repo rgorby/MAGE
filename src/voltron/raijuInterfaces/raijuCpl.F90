@@ -41,7 +41,7 @@ module raijuCpl
             chGhosts(3) = sh%Nge
             chGhosts(4) = sh%Ngw
             call GenChildShellGrid(sh, fromV%shGr, "raijuCpl", nGhosts=chGhosts)
-            call initShellVar(fromV%shGr, SHCORNER, fromV%pot)
+            call initShellVar(fromV%shGr, SHGR_CORNER, fromV%pot)
             !allocate(fromV%pot    (sh%isg:sh%ieg+1, sh%jsg:sh%jeg+1))
 
             ! Initial values

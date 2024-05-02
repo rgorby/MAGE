@@ -490,10 +490,10 @@ module raijuPreAdvancer
         associate(sh=>Grid%shGrid)
 
         ! Cell-centered velocities
-        call initShellVar(sh, SHFTH, sgv_iVel_th)
-        call initShellVar(sh, SHFPH, sgv_iVel_ph)
-        call initShellVar(sh, SHCC , sgv_cVel_th)
-        call initShellVar(sh, SHCC , sgv_cVel_ph)
+        call initShellVar(sh, SHGR_FACE_THETA, sgv_iVel_th)
+        call initShellVar(sh, SHGR_FACE_PHI  , sgv_iVel_ph)
+        call initShellVar(sh, SHGR_CC, sgv_cVel_th)
+        call initShellVar(sh, SHGR_CC, sgv_cVel_ph)
         sgv_iVel_th%mask = .true.
         sgv_iVel_ph%mask = .true.
         sgv_cVel_th%mask = .true.
