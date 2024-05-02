@@ -120,8 +120,8 @@ module mixconductance
       select case ( conductance%aurora_model_type )
          case (FEDDER)
             call conductance_fedder95(conductance,G,St)
-         case (EUVONLY)
-            call conductance_euvonly(conductance,G,St)
+         case (SUNNY)
+            call conductance_sunny(conductance,G,St)
          case (LINMRG)
             call conductance_linmrg(conductance,G,St)
          case default
@@ -308,7 +308,7 @@ module mixconductance
 
     end subroutine conductance_fedder95
 
-    subroutine conductance_euvonly(conductance,G,St)
+    subroutine conductance_sunny(conductance,G,St)
       ! Assign zero precipitation when only EUV conductance is used.
       type(mixConductance_T), intent(inout) :: conductance
       type(mixGrid_T), intent(in) :: G
@@ -320,7 +320,7 @@ module mixconductance
       St%Vars(:,:,NUM_FLUX) = 0.D0
       St%Vars(:,:,DELTAE) = 0.D0
 
-    end subroutine conductance_euvonly
+    end subroutine conductance_sunny
 
     subroutine conductance_linmrg(conductance,G,St)
       ! Derive mono-diffuse electron precipitation where mono is based on linearized FL relation,

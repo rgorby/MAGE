@@ -106,12 +106,12 @@ module mixparams
         select case (tmpSTR)
            case ("FEDDER")
               Params%aurora_model_type = FEDDER
-           case ("EUVONLY")
-              Params%aurora_model_type = EUVONLY
+           case ("SUNNY")
+              Params%aurora_model_type = SUNNY
            case ("LINMRG")
               Params%aurora_model_type = LINMRG
            case default 
-              stop "The auroral model type entered is not supported (Available options: FEDDER, EUVONLY, LINMRG)."
+              stop "The auroral model type entered is not supported (Available options: FEDDER, SUNNY, LINMRG)."
         end select
 
         ! =========== CONDUCTANCE MODEL PARAMETERS =================== !
