@@ -7,8 +7,6 @@ module auroralhelper
     
     implicit none
 
-    logical , private :: doRobKap = .true. !Use Kaeppler+ 15 correction to SigH/SigP from Robinson
-
     contains
 
 !Functions for auroral conductance from precipitation values
@@ -27,12 +25,9 @@ module auroralhelper
         real(rp) :: SigP
 
         SigP = SigmaP_Robinson(eavg,eflux)
-        if (doRobKap) then
-            !Kaeppler+ 2015
-            SigH = 0.57*SigP*(eavg**0.53)
-        else
-            SigH = 0.45*SigP*(eavg**0.85)/(1.0 + 0.0025*eavg**2.0) !Includes extra Fedder correction to curb values for high eavg
-        endif
+        !Use to use Fedder correction: SigH = 0.45*SigP*(eavg**0.85)/(1.0 + 0.0025*eavg**2.0)
+        !Use Kaeppler+ 15 correction to SigH/SigP from Robinson
+        SigH = 0.57*SigP*(eavg**0.53)
     end function SigmaH_Robinson
 
 end module auroralhelper
