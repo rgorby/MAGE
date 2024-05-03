@@ -639,7 +639,7 @@ module mixconductance
       type(mixGrid_T), intent(in) :: G      
       real(rp), intent(in) :: rPolarBound,rEquatBound,rLowLimit
       
-      where (G%r < rPolarBound)
+      where (G%r <= rPolarBound)
         conductance%rampFactor = 1.0D0
       elsewhere ( (G%r > rPolarBound).and.(G%r <= rEquatBound) )
         conductance%rampFactor = 1.0D0+(rLowLimit - 1.0D0)*(G%r - rPolarBound)/(rEquatBound-rPolarBound)
