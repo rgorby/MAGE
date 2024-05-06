@@ -222,7 +222,6 @@ module raijuIO
             enddo
         enddo
         call AddOutVar(IOVars,"intensity",outIntensity(is:ie,js:je, :),uStr="1/(s*sr*keV*cm^2)")
-        !deallocate(outIntensity)
         
 
         ! Coupling things
@@ -313,8 +312,8 @@ module raijuIO
             call AddOutVar(IOVars, "nStepk", State%nStepk*1.0_rp, uStr="#", dStr="Number of steps each channel has taken")
             ! call AddOutVar(IOVars, "nStepk", State%nStepk*1.0_rp, uStr="#") 
             call AddOutVar(IOVars, "iVel"         , State%iVel         (is:ie+1,js:je+1,:,:), uStr="m/s")
-            call AddOutVar(IOVars, "cVel_th"      , State%cVel         (is:ie  ,js:je  ,:,1), uStr="m/s")
-            call AddOutVar(IOVars, "cVel_ph"      , State%cVel         (is:ie  ,js:je  ,:,2), uStr="m/s")
+            call AddOutVar(IOVars, "cVel_th"      , State%cVel         (is:ie  ,js:je  ,:,RAI_TH), uStr="m/s")
+            call AddOutVar(IOVars, "cVel_ph"      , State%cVel         (is:ie  ,js:je  ,:,RAI_PH), uStr="m/s")
             call AddOutVar(IOVars, "etaFaceReconL", State%etaFaceReconL(is:ie+1,js:je+1,:,:), uStr="#/cm^3 * Rx/T")
             call AddOutVar(IOVars, "etaFaceReconR", State%etaFaceReconR(is:ie+1,js:je+1,:,:), uStr="#/cm^3 * Rx/T")
             call AddOutVar(IOVars, "etaFacePDML"  , State%etaFacePDML  (is:ie+1,js:je+1,:,:), uStr="#/cm^3 * Rx/T")

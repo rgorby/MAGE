@@ -21,7 +21,7 @@ module shellGrid
         real(rp) :: radius
             !! Radius that this ShellGrid lives at, in units of Rp (planetary radii)
         integer :: Nt,Np
-            !! Number of colat/lon cells (theta, phi)
+            !! Number of non-ghost colat/lon cells (theta, phi)
         real(rp), dimension(:), allocatable :: th, ph, lat
             !! (Nt+1 or Np+1) [radians] grid corners
             !! th (theta) is colatitude and runs from north pole toward south
@@ -70,6 +70,7 @@ module shellGrid
             !! Corresponds to enum above (SHGR_CC, SHGR_CORNER, SHGR_FACE_THETA, SHGR_FACE_PHI)
         integer :: Ni, Nj
             !! Number of values in i and j direction
+            !! NOTE: includes ghosts!!
         integer :: isv,iev,jsv,jev
             !! Start and end indices for this variable
             !! ex: if loc=SHGR_CORNER, isv = sh%isg, iev=sh%ieg+1

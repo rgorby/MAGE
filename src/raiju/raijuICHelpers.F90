@@ -166,7 +166,7 @@ module raijuICHelpers
 
                     D = D0*exp(-abs(L-L_peak)/dL)
                     do j=Grid%shGrid%jsg,Grid%shGrid%jeg
-                        call applyDkT2Eta(Model, Grid, State, D, kT_i, kT_e, vm)
+                        call applyDkT2Eta(Model, Grid, State, i, j, D, kT_i, kT_e, vm)
                     enddo
                 enddo
                 State%eta_last = State%eta
@@ -200,7 +200,7 @@ module raijuICHelpers
                                -a1*cos(2*PI*dist/dL) &
                                +a2*cos(4*PI*dist/dL) &
                                -a3*cos(6*PI*dist/dL))
-                        call applyDkT2Eta(Model, Grid, State, D, kT_i, kT_e, vm)
+                        call applyDkT2Eta(Model, Grid, State, i, j, D, kT_i, kT_e, vm)
                     enddo
                 enddo
                 State%eta_last = State%eta
@@ -239,10 +239,11 @@ module raijuICHelpers
 
         contains
 
-        subroutine applyDkT2Eta(Model, Grid, State, D, kT_i, kT_e, vm)
+        subroutine applyDkT2Eta(Model, Grid, State, i, j, D, kT_i, kT_e, vm)
             type(raijuModel_T) , intent(in)    :: Model
             type(raijuGrid_T)  , intent(in)    :: Grid
             type(raijuState_T) , intent(inout) :: State
+            integer :: i, j
             real(rp), intent(in) :: D, kT_i, kT_e, vm
             ! Protons first
             sIdx = spcIdx(Grid, F_HOTP)

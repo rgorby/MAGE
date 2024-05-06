@@ -322,7 +322,7 @@ module raijuRecon
                                     Grid%areaCC(i,j-4:j+3), Grid%areaFace(i,j,RAI_PH), &
                                     Grid%Brcc  (i,j-4:j+3), Grid%BrFace  (i,j,RAI_PH), &
                                     Model%maxOrder        , Model%PDMB               , &
-                                    QfaceL  (i,j,RAI_PH)  , QfaceR(i,j,RAI_PH)       , &
+                                    QfaceL  (i,j,RAI_PH)  , QfaceR  (i,j,RAI_PH)     , &
                                     QreconLO(i,j,RAI_PH)  , QreconRO(i,j,RAI_PH)     )
                 enddo
             enddo

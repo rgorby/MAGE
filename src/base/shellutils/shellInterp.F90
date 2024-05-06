@@ -235,13 +235,11 @@ module shellInterp
 
         call getSGCellILoc(sgSource, th, i0, t0)
         if (sgVar%loc .eq. SHGR_CORNER .or. sgVar%loc .eq. SHGR_FACE_THETA) then
-            call iLocCC2Corner(sgSource, th, i0, i0_tmp, t0)
-            i0 = i0_tmp
+            call iLocCC2Corner(sgSource, th, i0,tLocO=t0)
         endif
         call getSGCellJLoc(sgSource, ph, j0, p0)
         if (sgVar%loc .eq. SHGR_CORNER .or. sgVar%loc .eq. SHGR_FACE_PHI  ) then
-            call jLocCC2Corner(sgSource, ph, j0, j0_tmp, p0)
-            j0 = j0_tmp
+            call jLocCC2Corner(sgSource, ph, j0,pLocO=p0)
         endif
 
         if (i0 > sgVar%iev .or. i0 < sgVar%isv) then
@@ -348,8 +346,8 @@ module shellInterp
                 if (jpnt>sgSource%Np) jpnt = 1
 
                 ! Do zero-grad for theta
-                if (ipnt<1)           ipnt = 1
-                if (ipnt>sgSource%Nt) ipnt = sgSource%Nt
+                if (ipnt<sgVar%isv)   ipnt = sgVar%isv
+                if (ipnt>sgVar%iev)   ipnt = sgVar%iev
 
                 Qs(n) = sgVar%data(ipnt,jpnt)
                 Ws(n) = wE(di)*wZ(dj)
