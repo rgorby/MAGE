@@ -1,0 +1,13 @@
+#!/bin/bash
+
+module purge
+module load nas
+module load pkgsrc/2022Q1-rome  # For git-lfs and cmake
+module load singularity/3.11.0
+
+export NOBACKUP=/nobackup/$USER
+export SINGULARITY_CACHEDIR=$NOBACKUP/.singularity/
+export SINGULARITY_SHELL=/bin/bash
+
+# multiple directories separated by a comma
+export SINGULARITY_BIND="$NOBACKUP/path/to/kaiju:/kaiju"
