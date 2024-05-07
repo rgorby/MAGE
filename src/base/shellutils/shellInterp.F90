@@ -482,11 +482,11 @@ module shellInterp
 
     ! this version of the function attempts to do the expansion to an arbitrary order
     ! however, it's incorrect in that it neglects the higher order terms in theta
-    ! in the polinomials multiplying the harmonics in eqn. 9 of Lewis & Bellan, 1990
+    ! in the polynomials multiplying the harmonics in eqn. 9 of Lewis & Bellan, 1990
     ! in other words, it only retains f_m^(0) terms in that eqn. which is technically incorrect
     ! although the error is trivially small and in fact the result looks slightly better
     subroutine interpPoleHighOrder(shGr,Qin,tin,pin,Qinterp)
-        ! note, calling this function with order=1 is equavalent to calling InterpPole above
+        ! note, calling this function with order=1 is equivalent to calling InterpPole above
         
         type(ShellGrid_T), intent(in)     :: shGr     ! source grid
         type(ShellGridVar_T), intent(in)  :: Qin      ! source grid variable
@@ -498,6 +498,8 @@ module shellInterp
         integer  :: iinterp ! the index of the pole cell (first/last for NORTH/SOUTH)
         real(rp) :: tfactor,Qtemp
         integer :: oind, order=1 ! 12 -- I ran it up to 12th order just for funsies
+
+        write(*,*)"WARNING: unless you are Slava or have talked to him about pole interpolation you shouldn't be seeing this message"
 
         ! Find out which pole we're at
         if ( (tin.ge.shGr%th(shGr%is)).and.(tin.le.shGr%th(shGr%is+1)) ) then
