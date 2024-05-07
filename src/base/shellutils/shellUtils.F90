@@ -161,7 +161,6 @@ module shellUtils
         real(rp), intent(out), optional :: pLocO
 
         integer :: jLocCorner
-        real(rp) :: pLoc
 
         if ( (shGr%ph(jLocInout+1) - p) < (p - shGr%ph(jLocInout)) ) then
             jLocCorner = jLocInout + 1
