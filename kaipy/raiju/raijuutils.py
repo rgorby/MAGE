@@ -14,6 +14,9 @@ import kaipy.kaiH5 as kh5
 
 import kaipy.raiju.lambdautils.AlamParams as aP
 
+dim = {"THETA": 0,
+       "PHI": 1}
+
 topo = {"OPEN" : 0,
         "CLOSED" : 1}
 
@@ -179,6 +182,29 @@ def intensity_kappa(n, mass, E, kT, kappa=6):
     j = 2*E/mass**2 * f  * 1e2 * np.sqrt(kd.kev2J)
     return j
 
+#------
+# Conversions
+#------
+
+def etak2Press(etak, alamc, bVol):
+    """
+    etak [#/cc * Rx/T]
+    alamc: [eV*(Rx/nT)^(2/3)]
+    bVol [Rx/nT]
+
+    Returns: pressure [nPa]
+    """
+    return 2./3.*etak*alamc*bVol**(-5./3.) * kd.ev2J * 1.e6
+
+def etak2Den(etak, bVol):
+    """
+    etak [#/cc * Rx/T]
+    bVol [Rx/nT]
+
+    Returns: density [#/cc]
+    """
+
+    return (etak*1.0E-9)/bVol  # [#/cc]
 
 # TODO:
 #   Calc vcorot, vgc, veffective

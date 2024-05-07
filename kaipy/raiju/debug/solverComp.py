@@ -155,3 +155,9 @@ if __name__=="__main__":
     norm = kv.genNorm(0.01, 5, doLog=True)
     makeCompVid(raiI, rclI, varAccessStr, vidOut, 'Total Density [#/cc]', normMain=norm, cmapMain='viridis')
 
+    #print("Making eta video")
+    #varAccessStr = "ru.getVar({}, 'eta')[:,:,27]"
+    #vidOut = os.path.join(outdir, "vid_eta27")
+    #norm = kv.genNorm(1e-15, 1e6, doLog=True)
+    #makeCompVid(raiI, rclI, varAccessStr, vidOut, 'eta [#/cc*(Rp/nT)]', normMain=norm, cmapMain='viridis')
+

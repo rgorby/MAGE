@@ -420,6 +420,7 @@ module raijuRecon
         !                    Grid%shGrid%jsg:Grid%shGrid%jeg+1, 2) :: QAface, Qface, QpdmL, QpdmR, QfluxL, QfluxR
         real(rp), dimension(Grid%shGrid%isg:Grid%shGrid%ieg+1, &
                             Grid%shGrid%jsg:Grid%shGrid%jeg+1, 2) :: QfaceL, QfaceR
+        integer :: i,j
         
         QfaceL = 0.0
         QfaceR = 0.0
@@ -440,7 +441,22 @@ module raijuRecon
 
         ! Since we know the exact velocity at the interface, 
         ! our final flux is QL*v if stuff is leaving the cell, or QR*v if stuff is entering the cell
-        Qflux = merge(QfaceL*State%iVel(:,:,k,:), QfaceR*State%iVel(:,:,k,:), State%iVel(:,:,k,:) > 0.0)  ! [Q * m/s]
+        do j=Grid%shGrid%js,Grid%shGrid%je+1
+            do i=Grid%shGrid%is,Grid%shGrid%ie+1
+                if (State%iVel(i,j,k,RAI_TH) > 0.0) then
+                    Qflux(i,j,RAI_TH) = QfaceL(i,j,RAI_TH)*State%iVel(i,j,k,RAI_TH)
+                else
+                    Qflux(i,j,RAI_TH) = QfaceR(i,j,RAI_TH)*State%iVel(i,j,k,RAI_TH)
+                endif
+
+                if (State%iVel(i,j,k,RAI_PH) > 0.0) then
+                    Qflux(i,j,RAI_PH) = QfaceL(i,j,RAI_PH)*State%iVel(i,j,k,RAI_PH)
+                else
+                    Qflux(i,j,RAI_PH) = QfaceR(i,j,RAI_PH)*State%iVel(i,j,k,RAI_PH)
+                endif
+            enddo
+        enddo
+        !Qflux = merge(QfaceL*State%iVel(:,:,k,:), QfaceR*State%iVel(:,:,k,:), State%iVel(:,:,k,:) > 0.0)  ! [Q * m/s]
         Qflux = Qflux * Grid%BrFace / Model%planet%rp_m  ! [Q * nT * Rp/s]
 
         ! Thus far we have ignored fluxes of faces at invalid/buffer boundary

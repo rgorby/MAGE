@@ -41,7 +41,7 @@ module raijutypes
         real(rp) :: fudge
             !! Strong-scattering limit
         real(rp), dimension(:), allocatable :: alami
-            !! Lambda channel cell interfaces/edges
+            !! [eV*(Rx/nT)^(2/3)] Lambda channel cell interfaces/edges
         logical :: mapExtraToPsph
             !! Whether any eta under species' lowest bound gets added to plasmasphere
 
