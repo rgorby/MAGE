@@ -21,8 +21,8 @@ While running containers on HPC platforms does not guarantee the same performanc
 Containers, from a broader viewpoint, are similar to virtual machines. They attempt to isolate an application and its dependencies into a self-contained "box". The main difference is in their implementation or architecture/design.
 
 <p align="center">
-  <p float="left"><img src="https://cdn-media-1.freecodecamp.org/images/1*RKPXdVaqHRzmQ5RPBH_d-g.png" alt="virtual machines" width="50%"/></p>
-  <img src="https://cdn-media-1.freecodecamp.org/images/1*V5N9gJdnToIrgAgVJTtl_w.png" alt="containers" width="50%"/>
+<img src="https://cdn-media-1.freecodecamp.org/images/1*RKPXdVaqHRzmQ5RPBH_d-g.png" alt="virtual machines" width="40%" float="left"/>
+<img src="https://cdn-media-1.freecodecamp.org/images/1*V5N9gJdnToIrgAgVJTtl_w.png" alt="containers" width="40%"/>
 </p>
 
 <p align="center"><b>Figure 1:</b> Virtual Machines (<b>left</b>) structure comparison with Containers (<b>right</b>).</p>
