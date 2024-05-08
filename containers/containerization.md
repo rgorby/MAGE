@@ -1,12 +1,12 @@
+# CGS GAMERA Containerization
+
 ___Last Updated:__ March 12, 2024, Brent Smith_
 
 While running containers on HPC platforms does not guarantee the same performance benchmarks as a server-dependent installation would (including adaptations specific to the system hardware), the benefit containers provide is in the ease of use, platform independence, and portability. Below are details regarding the containerization of the CGS' GAMERA model code and the use on HPC platforms such as NAS' Pleaides and NASA GSFC CCMC's AWS HPC cluster.
 
-<center>
-<h1>Table of Contents</h1>
-</center>
+<center><h1>Table of Contents</h1></center>
 
-$<toc{"level":[1,2,3],"listType":"ul"}>
+[TOC]
 
 ---
 
