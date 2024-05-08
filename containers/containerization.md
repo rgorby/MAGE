@@ -16,12 +16,12 @@ While running containers on HPC platforms does not guarantee the same performanc
 
 # 1. Containers - Quick Overview
 
+---
+
 Containers, from a broader viewpoint, are similar to virtual machines. They attempt to isolate an application and its dependencies into a self-contained "box". The main difference is in their implementation or architecture/design.
 
-<p float="left">
-  <img src="https://cdn-media-1.freecodecamp.org/images/1*RKPXdVaqHRzmQ5RPBH_d-g.png" alt="virtual machines" width="50%"/>
-</p>
-<p>
+<p align="center">
+  <p float="left"><img src="https://cdn-media-1.freecodecamp.org/images/1*RKPXdVaqHRzmQ5RPBH_d-g.png" alt="virtual machines" width="50%"/></p>
   <img src="https://cdn-media-1.freecodecamp.org/images/1*V5N9gJdnToIrgAgVJTtl_w.png" alt="containers" width="50%"/>
 </p>
 
@@ -45,6 +45,8 @@ Other containerization platforms exist that conform to the Open Containers Initi
 Docker and Singularity are the two we will work with, but other options do exist for containers and HPC usage.
 
 # 2. Docker
+
+---
 
 From collaboration with another project, we (CGS) had a start to Docker containerization of GAMERA, but that development was not intended to run the MAGE model on a HPC system so more work was needed. A Dockerfile is being provided rather than a Docker image in order to allow for further customizations of the implementation for use with the CCMC's RoR system on AWS.
 
@@ -171,6 +173,8 @@ This was installed recently and should mimic SingularityCE closely, but I have n
 
 # 3. Singularity on NAS
 
+---
+
 ## 3.1 Singularity Basics / Lessons Learned
 
 Singularity, in some ways, is similar to Docker but the primary difference is the the need for root priveleges. Below are some basics of Singularity usage along with some lessons learned that we've experienced while using Singularity on the NAS Pleiades system.
@@ -196,8 +200,8 @@ Singularity, as opposed to Docker, has defined sections within their definition 
 - The `pwd` or `cwd` will have [different values](https://stackoverflow.com/a/73153806) inside the definition file and when running an image/sandbox. This also correlates to different environment bindings that occur when running singularity images. It is recommended to run with the `-e` option so as to not rely upon external environments or filesystems. Refer to the image below for a visual of some of the bindings that occur automatically in Singularity.
 
 <p align="center">
-<img src="screenshot.png" alt="file directory structure within a container"/>
-<strong>Mapping of file content and directories from a host system into a Singularity container.</strong>
+  <img src="screenshot.png" alt="file directory structure within a container"/><br>
+  <strong>Mapping of file content and directories from a host system into a Singularity container.</strong>
 </p>
 
 - Unlike Docker, Singularity does not have a `images` command to show the cache of images built. Instead, you can see them via `singularity cache list -v` ([link](https://stackoverflow.com/a/68543409)) and clear the cache by `singularity cache clean`. Also, a `sif` image file can act as a standalone Singularity executable image.
@@ -279,6 +283,8 @@ Here are some resources regarding this development:
 
 # 4. Resources
 
+---
+
 Many of these resources have been helpful at various parts of this work and does not represent a complete listing of what is available.
 
 - Examples for Singularity:
@@ -322,6 +328,8 @@ Many of these resources have been helpful at various parts of this work and does
 		- Bracket vs non-bracket: [link](https://stackoverflow.com/a/62206472)
 
 # 5. Remaining Items
+
+---
 
 - Sinularity:
 	- AWS
