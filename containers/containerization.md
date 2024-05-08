@@ -4,7 +4,7 @@ ___Last Updated:__ March 12, 2024, Brent Smith_
 
 While running containers on HPC platforms does not guarantee the same performance benchmarks as a server-dependent installation would (including adaptations specific to the system hardware), the benefit containers provide is in the ease of use, platform independence, and portability. Below are details regarding the containerization of the CGS' GAMERA model code and the use on HPC platforms such as NAS' Pleaides and NASA GSFC CCMC's AWS HPC cluster.
 
-<center><h1>Table of Contents</h1></center>
+<h1 align="center">Table of Contents</h1>
 
 [TOC]
 
@@ -16,15 +16,11 @@ While running containers on HPC platforms does not guarantee the same performanc
 
 Containers, from a broader viewpoint, are similar to virtual machines. They attempt to isolate an application and its dependencies into a self-contained "box". The main difference is in their implementation or architecture/design.
 
-<center>
-
-<div style="float:left;">
-	<img src="../../_resources/vms.png" style="width: 50%; float:left;" />
-	<img src="../../_resources/container_arch.png" style="width: 50%; position: relative; transform: translateY(25%);" />
-</div>
-	<p><span style="display: block;"><strong>Figure 1:</strong> Virtual Machines (<strong>left</strong>) structure comparison with Containers (<strong>right</strong>).</span></p>
-
-</center>
+<p float="left">
+  <img src="https://cdn-media-1.freecodecamp.org/images/1*RKPXdVaqHRzmQ5RPBH_d-g.png" alt="virtual machines" width="50%"/>
+  <img src="https://cdn-media-1.freecodecamp.org/images/1*V5N9gJdnToIrgAgVJTtl_w.png" alt="containers" width="50%"/>
+</p>
+<p align="center">__Figure 1:__ Virtual Machines (__left__) structure comparison with Containers (__right__).</p>
 
 Here, the containerization engine (not the container) comprises of the guest OS to run the application. Because of this, containers can be more lightweight than VMs as well as faster to spin up.
 
