@@ -12,76 +12,39 @@ Eric Winter
 
 
 # Import standard modules.
-import argparse
 import datetime
 import glob
 import os
 import sys
 import shutil
 import subprocess
-import time
 
 # Import 3rd-party modules.
-from slack_sdk import WebClient
-from slack_sdk.errors import SlackApiError
 
 # Import project modules.
+from kaipy.testing import common
 
 
 # Program constants
 
 # Program description.
-DESCRIPTION = 'Script for MAGE Intel checks'
+DESCRIPTION = 'Script for MAGE checks with Intel Inspector tools'
 
+# Prefix for naming Intel Inspector checks directories
+INTEL_CHECKS_DIRECTORY_PREFIX = 'intelChecks_'
 
-def create_command_line_parser():
-    """Create the command-line argument parser.
+# glob pattern for naming Intel Inspector checks directories
+INTEL_CHECKS_DIRECTORY_GLOB_PATTERN = 'intelChecks_*'
 
-    Create the parser for command-line arguments.
+# Subdirectory of KAIJUHOME containing the test scripts
+KAIJU_TEST_SCRIPTS_DIRECTORY = 'testingScripts'
 
-    Parameters
-    ----------
-    None
+# Subdirectory of KAIJU_TEST_SCRIPTS_DIRECTORY containing module lists
+MODULE_LIST_DIRECTORY = 'mage_build_test_modules'
 
-    Returns
-    -------
-    parser : argparse.ArgumentParser
-        Command-line argument parser for this script.
-
-    Raises
-    ------
-    None
-    """
-    parser = argparse.ArgumentParser(description=DESCRIPTION)
-    parser.add_argument(
-        '--account', default=None,
-        help='PBS account to use for testing (default: %(default)s)'
-    )
-    parser.add_argument(
-        '--all', '-a', action='store_true',
-        help='Run all tests (default: %(default)s).'
-    )
-    parser.add_argument(
-        '--debug', '-d', action='store_true',
-        help='Print debugging output (default: %(default)s).'
-    )
-    parser.add_argument(
-        '--force', '-f', action='store_true',
-        help='Force all tests to run (default: %(default)s).'
-    )
-    parser.add_argument(
-        '--loud', '-l', action='store_true',
-        help='Enable loud mode (post results to Slack) (default: %(default)s).'
-    )
-    parser.add_argument(
-        '--test', '-t', action='store_true',
-        help='Enable testing mode (default: %(default)s).'
-    )
-    parser.add_argument(
-        '--verbose', '-v', action='store_true',
-        help='Print verbose output (default: %(default)s).'
-    )
-    return parser
+# Name of file containing names of modules lists to use for Intel Inspector
+# tests
+INTEL_CHECKS_LIST_FILE = 'intel_checks.lst'
 
 
 def main():
@@ -102,80 +65,61 @@ def main():
     None
     """
     # Set up the command-line parser.
-    parser = create_command_line_parser()
+    parser = common.create_command_line_parser(DESCRIPTION)
 
     # Parse the command-line arguments.
     args = parser.parse_args()
     if args.debug:
         print(f"args = {args}")
     account = args.account
-    doAll = args.all
+    # doAll = args.all
     debug = args.debug
-    forceRun = args.force
-    beLoud = args.loud
-    isTest = args.test
+    # forceRun = args.force
+    be_loud = args.loud
+    is_test = args.test
     verbose = args.verbose
 
     if debug:
         print(f"Starting {sys.argv[0]} at {datetime.datetime.now()}")
 
-    #--------------------------------------------------------------------------
+    # -------------------------------------------------------------------------
 
     # Set up for communication with Slack.
-
-    # Get the Slack API token
-    slack_token = os.environ['SLACK_BOT_TOKEN']
-    if debug:
-        print(f"slack_token = {slack_token}")
-
-    # Create the Slack client.
-    slack_client = WebClient(token=slack_token)
+    slack_client = common.slack_create_client()
     if debug:
         print(f"slack_client = {slack_client}")
 
-    #--------------------------------------------------------------------------
+    # -------------------------------------------------------------------------
 
-    # Determine the path to the MAGE installation to use for testing.
+    # Move to the MAGE installation directory.
+    kaiju_home = os.environ['KAIJUHOME']
+    os.chdir(kaiju_home)
 
-    # Fetch the path to this running script.
-    called_from = os.path.dirname(os.path.abspath(__file__))
-    if debug:
-        print(f"called_from = {called_from}")
-
-    # Assume this script is in a subdirectory of the kaiju directory.
-    os.chdir(called_from)
-    os.chdir('..')
-
-    # Use this directory as the home directory for testing.
-    home = os.getcwd()
-    if debug:
-        print(f"home = {home}")
-    if verbose:
-        print('I am the Intel check script. This is my current home directory:')
-        print(home)
-
-    #--------------------------------------------------------------------------
+    # -------------------------------------------------------------------------
 
     # Clean up from previous tests.
     if verbose:
-        print(f'Cleaning up from previous Intel checks.')
-    os.chdir(home)
-    directories = glob.glob('intelChecks*')
+        print('Cleaning up from previous Intel Inspector checks.')
+    os.chdir(kaiju_home)
+    directories = glob.glob(INTEL_CHECKS_DIRECTORY_GLOB_PATTERN)
     for directory in directories:
         shutil.rmtree(directory)
 
-    #--------------------------------------------------------------------------
+    # -------------------------------------------------------------------------
+
+    # Find the current branch.
+    git_branch_name = common.git_get_branch_name()
+    if debug:
+        print(f"git_branch_name = {git_branch_name}")
+
+    # -------------------------------------------------------------------------
 
     # Make a list of module sets to build with.
 
-    # Go to the module sets folder.
-    path = os.path.join(home, 'testingScripts', 'mage_build_test_modules')
-    os.chdir(path)
-    if debug:
-        print(f"cwd = {os.getcwd()}")
-
-    # Read the list of  module sets to use for Intel checks.
-    with open('intel_checks.lst', encoding='utf-8') as f:
+    # Read the list of  module sets to use for build tests.
+    path = os.path.join(kaiju_home, KAIJU_TEST_SCRIPTS_DIRECTORY,
+                        MODULE_LIST_DIRECTORY, INTEL_CHECKS_LIST_FILE)
+    with open(path, encoding='utf-8') as f:
         lines = f.readlines()
     module_list_files = [s.rstrip() for s in lines]
     if debug:
@@ -186,141 +130,181 @@ def main():
     module_list_files = [module_list_files[0]]
     # </HACK>
 
-    #--------------------------------------------------------------------------
+    # -------------------------------------------------------------------------
 
-    # Run the Intel checks with each set of modules.
-    
+    # Run the Intel Inspector checks with each set of modules.
+
+    # Initialize the report string.
+    message = f"Running `{sys.argv[0]}`.\n"
+
+    # <HACK>
+    message += (
+        'WARNING: Inspector checks all disabled due to failure to run, or'
+        ' timeout issues.'
+    )
+    # </HACK>
+
     # Run Intel checks with each set of modules.
     for module_list_file in module_list_files:
         if verbose:
-            print('Performing Intel checks with module set '
+            print('Performing Intel Inspector checks with module set '
                   f"{module_list_file}.")
 
         # Extract the name of the list.
-        module_list_name = module_list_file.replace('.lst', '')
+        module_list_name = module_list_file.rstrip('.lst')
         if debug:
-            print(f"module_list_name = {module_list_name}")
+            print(f"module_list_name = {module_list_name}.")
 
         # Read this module list file, extracting cmake environment and
         # options, if any.
-        path = os.path.join(home, 'testingScripts', 'mage_build_test_modules',
-                            module_list_file)
-        with open(path, encoding='utf-8') as f:
-            lines = f.readlines()
-        cmake_env = ''
-        label = 'CMAKE_ENV='
-        if lines[0].startswith(label):
-            cmake_env = lines[0][len(label):].rstrip()
-            lines.pop(0)  # Remove cmake environment line.
-        cmake_options = ''
-        label = 'CMAKE_OPTIONS='
-        if lines[0].startswith(label):
-            cmake_options = lines[0][len(label):].rstrip()
-            lines.pop(0)  # Remove cmake options line.
-        module_names = [line.rstrip() for line in lines]
-
-        # Add the module for Intel Inspector.
-        module_names.append('intel-oneapi-inspector')
+        path = os.path.join(kaiju_home, KAIJU_TEST_SCRIPTS_DIRECTORY,
+                            MODULE_LIST_DIRECTORY, module_list_file)
+        if debug:
+            print(f"path = {path}")
+        module_names, cmake_environment, cmake_options = (
+            common.read_build_module_list_file(path)
+        )
         if debug:
             print(f"module_names = {module_names}")
+            print(f"cmake_environment = {cmake_environment}")
+            print(f"cmake_options = {cmake_options}")
 
-        # Add the additional flags needed for Intel checks.
+        # Add the additional flags needed for Intel Inspector checks.
         cmake_options += ' -DDISABLE_DEBUG_BOUNDS_CHECKS=ON'
         cmake_options += ' -DCMAKE_BUILD_TYPE=DEBUG'
+        if debug:
+            print(f"cmake_options = {cmake_options}")
 
         # Make a directory for this test, and go there.
         dir_name = f"intelChecks_{module_list_name}"
-        build_directory = os.path.join(home, dir_name)
+        dir_name = f"{INTEL_CHECKS_DIRECTORY_PREFIX}{module_list_name}"
+        build_directory = os.path.join(kaiju_home, dir_name)
         if debug:
             print(f"build_directory = {build_directory}")
         os.mkdir(build_directory)
         os.chdir(build_directory)
 
         # Assemble the commands to load the listed modules.
-        module_cmd = f"module --force purge; module load {' '.join(module_names)}"
+        module_cmd = (
+            f"module --force purge; module load {' '.join(module_names)}"
+        )
+        module_cmd += '; module list'
         if debug:
             print(f"module_cmd = {module_cmd}")
 
         # Run cmake to build the Makefile.
-        cmd = f"{module_cmd}; {cmake_env} cmake {cmake_options} .."
+        cmd = (
+            f"{module_cmd}; {cmake_environment} cmake {cmake_options}"
+            f" {kaiju_home}"
+        )
         if debug:
             print(f"cmd = {cmd}")
-        cproc = subprocess.run(cmd, shell=True, check=True, text=True)
-        if debug:
-            print(f"cproc = {cproc}")
+        try:
+            cproc = subprocess.run(cmd, shell=True, check=True)
+        except subprocess.CalledProcessError as e:
+            message += 'cmake failed.\n'
+            message += f"e.cmd = {e.cmd}\n"
+            message += f"e.returncode = {e.returncode}\n"
+            message += 'See test log for output.\n'
+            message += (
+                'Skipping remaining steps for module set'
+                f" {module_list_file}.\n"
+            )
+            continue
 
         # Run the build.
         cmd = f"{module_cmd}; make gamera_mpi voltron_mpi"
         if debug:
             print(f"cmd = {cmd}")
-        cproc = subprocess.run(cmd, shell=True, check=True, text=True)
+        try:
+            cproc = subprocess.run(cmd, shell=True, check=True)
+        except subprocess.CalledProcessError as e:
+            message += 'make failed.\n'
+            message += f"e.cmd = {e.cmd}\n"
+            message += f"e.returncode = {e.returncode}\n"
+            message += 'See test log for output.\n'
+            message += (
+                'Skipping remaining steps for module set'
+                f" {module_list_file}.\n"
+            )
+            continue
+
+        # Go to the bin directory for testing.
+        os.chdir('bin')
 
         # Copy in the test PBS scripts and files.
         test_files = [
             'tinyCase.xml',
             'intelCheckSubmitMem.pbs',
             'intelCheckSubmitThread.pbs',
+            'intelCheckReportSubmit.pbs',
             'bcwind.h5',
             'lfmD.h5',
             'rcmconfig.h5',
             'memSuppress.sup',
             'threadSuppress.sup',
         ]
+        cwd = os.getcwd()
         for filename in test_files:
-            from_path = os.path.join(home, 'testingScripts', filename)
-            to_path = os.path.join('bin', filename)
+            from_path = os.path.join(kaiju_home, KAIJU_TEST_SCRIPTS_DIRECTORY,
+                                     filename)
+            to_path = os.path.join(cwd, filename)
             shutil.copyfile(from_path, to_path)
 
-        # Go to the bin directory for testing.
-        os.chdir('bin')
-
+        # Run each check in its own PBS job.
         pbs_files = [
             # 'intelCheckSubmitMem.pbs',
-            'intelCheckSubmitThread.pbs',
+            # 'intelCheckSubmitThread.pbs',
             # 'intelCheckReportSubmit.pbs',
         ]
         job_ids = []
         for pbs_file in pbs_files:
-            cmd = (f"qsub -A {account} -v MODULE_LIST='{' '.join(module_names)}',"
-                   f"KAIJUROOTDIR={home} {pbs_file}")
-            # Add report dependency if needed. Assumes
+            cmd = (
+                f"qsub -A {account}"
+                f" -v MODULE_LIST='{' '.join(module_names)}',"
+                f"KAIJUROOTDIR={kaiju_home}")
             if pbs_file == 'intelCheckReportSubmit.pbs':
-                cmd += f"-W depend=after:{':'.join(job_ids)}"
+                cmd += f" -W depend=after:{':'.join(job_ids)}"
+            cmd += f" {pbs_file}"
             if debug:
                 print(f"cmd = {cmd}")
-            cproc = subprocess.run(cmd, shell=True, check=True, text=True,
-                                   capture_output=True)
+            try:
+                cproc = subprocess.run(cmd, shell=True, check=True,
+                                       text=True, capture_output=True)
+            except subprocess.CalledProcessError as e:
+                message += 'qsub failed.\n'
+                message += f"e.cmd = {e.cmd}\n"
+                message += f"e.returncode = {e.returncode}\n"
+                message += 'See test log for output.\n'
+                message += (
+                    'Skipping remaining steps for module set'
+                    f" {module_list_file}.\n"
+                )
+                continue
             job_id = cproc.stdout.split('.')[0]
             if debug:
                 print(f"job_id = {job_id}")
             job_ids.append(job_id)
+
+            # Update the Slack message.
+            message += f"Submitted {pbs_file} as job {job_id}."
 
         # Record the job IDs.
         with open('jobs.txt', 'w', encoding='utf-8') as f:
             for job_id in job_ids:
                 f.write(f"{job_id}\n")
 
-        # <HACK>
-        message = f"Intel tests submitted in jobs {', '.join(job_ids)}"
-        # </HACK>
+    # If this is a test run, don't post to Slack. Otherwise, if loud,
+    # send Slack message.
+    if is_test:
+        pass
+    elif be_loud:
+        if debug:
+            print('Sending summary message to Slack.')
+        common.slack_send_message(slack_client, message)
 
-        # If this is a test run, don't post to Slack.
-        if isTest:
-            pass
-        else:
-            # If loud, or an error occurred, send Slack message.
-            if beLoud:
-                try:
-                    response = slack_client.chat_postMessage(
-                        channel='#kaijudev',
-                        text=message,
-                    )
-                except SlackApiError as e:
-                    # You will get a SlackApiError if 'ok' is False
-                    assert e.response['error']  # str like 'invalid_auth', 'channel_not_found'
-
-        # Send message to stdout.
-        print(message)
+    # Send message to stdout.
+    print(message)
 
     if debug:
         print(f"Ending {sys.argv[0]} at {datetime.datetime.now()}")

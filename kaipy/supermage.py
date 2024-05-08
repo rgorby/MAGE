@@ -11,6 +11,7 @@ import warnings
 import math
 import datetime
 import json
+from multiprocessing import Pool
 
 #### NEED TO POINT TO SUPERMAG API SCRIPT
 #### /glade/p/hao/msphere/gamshare/supermag/supermag_api.py 
@@ -94,7 +95,7 @@ def interp_grid(values, tri, uv, d=2):
 
 #-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#
 
-def FetchSMData(user, start, numofdays, savefolder, badfrac=0.1, nanflags=True, doDB=True):
+def FetchSMData(user, start, numofdays, savefolder, badfrac=0.1, nanflags=True, doDB=True, ncpus=1):
     """Retrieve all available SuperMagnet data for a specified period
     If data has not already been downloaded, fetches data from Supermag
     
@@ -147,32 +148,46 @@ def FetchSMData(user, start, numofdays, savefolder, badfrac=0.1, nanflags=True, 
 
         #ZZZ
         status, stations = smapi.SuperMAGGetInventory(user, startstr, extent = 86400*numofdays)
-        for iii in stations:
-            print("Fetching: ", iii)
-            #ZZZ
-            
-            status, A = smapi.SuperMAGGetData(user, startstr, extent=86400*numofdays, 
-                                           flagstring=smFlags, station = iii, FORMAT = 'list')
-            
-            if status:
-                quickvals = np.array([x['N']['nez'] for x in A])
+        if (ncpus == 1):
+            for iii in stations:
+                print("Fetching: ", iii)
+                #ZZZ
 
-                # get rid of data if too many bad values
-                if np.sum(quickvals>999990.0) >= badfrac*len(quickvals):
-                    badindex.append(False)
-                    print(iii, "BAD")
+                status, A = smapi.SuperMAGGetData(user, startstr, extent=86400*numofdays,
+                                            flagstring=smFlags, station = iii, FORMAT = 'list')
+
+                if status:
+                    quickvals = np.array([x['N']['nez'] for x in A])
+
+                    # get rid of data if too many bad values
+                    if np.sum(quickvals>999990.0) >= badfrac*len(quickvals):
+                        badindex.append(False)
+                        print(iii, "BAD")
+                    else:
+                        badindex.append(True)
+
+                    STATUS.append(status)
+                    master.append(A)
                 else:
-                    badindex.append(True)
+                    STATUS.append(status)
+                    badindex.append(False)
+                    master.append(['BAD'])
+        elif (ncpus > 1):
 
-                STATUS.append(status)
-                master.append(A)
-            else:
-                STATUS.append(status)
-                badindex.append(False)
-                master.append(['BAD'])
+            fetch_args = [(user,startstr,numofdays,smFlags,badfrac,station) for station in stations]
+
+            with Pool(processes=ncpus) as pool:
+                results = pool.starmap(doFetch, fetch_args)
+
+            STATUS, badindex, master = zip(*results)
+
+        else:
+            print("Error invalid ncpu count: ",ncpus)
 
         badindex = np.array(badindex)
         master, stations = np.array(master)[badindex], np.array(stations)[badindex]
+
+        print("Done Fetching")
 
         # Make the Supermag data a dict for saving later
         output = {}
@@ -234,6 +249,33 @@ def FetchSMData(user, start, numofdays, savefolder, badfrac=0.1, nanflags=True, 
              'mlon':mlon, 'mlat':mlat, 'mcolat':mcolat, 'BNm':BNm[i], 'BEm':BEm[i], 'BZm':BZm[i],
              'BNg':BNg[i], 'BEg':BEg[i], 'BZg':BZg[i], 'mlt':MLT[i], 'decl':DECL[i], 'sza':SZA[i]}     
     return output
+
+#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#
+
+def doFetch(user, startstr, numofdays, smFlags, badfrac, iii):
+
+    print("Fetching: ", iii)
+    #ZZZ
+
+    status, A = smapi.SuperMAGGetData(user, startstr, extent=86400*numofdays,
+                                    flagstring=smFlags, station = iii, FORMAT = 'list')
+
+    if status:
+        quickvals = np.array([x['N']['nez'] for x in A])
+
+        # get rid of data if too many bad values
+        if np.sum(quickvals>999990.0) >= badfrac*len(quickvals):
+            badindex = False
+            print(iii, "BAD")
+        else:
+            badindex = True
+
+        master = A
+    else:
+        badindex = False
+        master = ['BAD']
+
+    return status,badindex,master
 
 #-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#
 

@@ -9,6 +9,7 @@ module voltapp_mpi
     use ebsquish, only : SquishBlocksRemain, DoSquishBlock
     use, intrinsic :: ieee_arithmetic, only: IEEE_VALUE, IEEE_SIGNALING_NAN, IEEE_QUIET_NAN
     use volthelpers_mpi
+    use gcm_mpi
     
     implicit none
 
@@ -63,7 +64,7 @@ module voltapp_mpi
         type(XML_Input_T) :: xmlInp
         integer :: commSize, ierr, numCells, length, ic, numInNeighbors, numOutNeighbors
         type(MPI_Comm) :: voltComm
-        integer :: nHelpers, gamNRES
+        integer :: nHelpers, gamNRES, commId
         character( len = MPI_MAX_ERROR_STRING) :: message
         logical :: reorder, wasWeighted
         integer, allocatable, dimension(:) :: neighborRanks, inData, outData
@@ -95,10 +96,11 @@ module voltapp_mpi
 
         ! split allComm into a communicator with only the non-helper voltron rank
         call MPI_Comm_rank(allComm, commSize, ierr)
+        commId = gamId+voltId
         if(vApp%amHelper) then
             call MPI_comm_split(allComm, MPI_UNDEFINED, commSize, voltComm, ierr)
         else
-            call MPI_comm_split(allComm, 0, commSize, voltComm, ierr)
+            call MPI_comm_split(allComm, commId, commSize, voltComm, ierr)
         endif
 
         ! helpers don't do full voltron initialization
@@ -323,11 +325,20 @@ module voltapp_mpi
             vApp%gAppLocal%oState,vAPp%gApplocal%State,xmlInp,userInitFunc)
 
         ! now initialize basic voltron structures from gamera data
+        if(vApp%gcmCplRank /= -1) then
+          call init_gcm_mix_mpi(vApp%gcm,vApp%mageCplComm,vApp%gcmCplRank)
+        endif
         if(present(optFilename)) then
             call initVoltron(vApp, vApp%gAppLocal, optFilename)
         else
             call initVoltron(vApp, vApp%gAppLocal)
         endif
+
+        if ( ( vApp%doGCM ) .and. (vApp%gcmCplRank /= -1) ) then
+            write(*,*) "Initializing GCM ..."
+            !call init_gcm_file(vApp%gcm,vApp%remixApp%ion,gApp%Model%isRestart)
+            call init_gcm_mpi(vApp%gcm,vApp%remixApp%ion,vApp%gAppLocal%Model%isRestart)
+        end if
 
         ! Receive Gamera's restart number and ensure Voltron has the same restart number
         call mpi_recv(gamNRES, 1, MPI_INTEGER, MPI_ANY_SOURCE, 97520, vApp%voltMpiComm, MPI_STATUS_IGNORE, ierr)
@@ -527,6 +538,12 @@ module voltapp_mpi
         call Tic("G2R")
         call convertGameraToRemix(vApp%mhd2mix, vApp%gAppLocal, vApp%remixApp)
         call Toc("G2R")
+
+        if (vApp%doGCM .and. vApp%time >=0 .and. vApp%gcmCplRank /= -1) then
+            call Tic("GCM2MIX")
+            call coupleGCM2MIX(vApp%gcm,vApp%remixApp%ion,vApp%MJD,vApp%time,vApp%mageCplComm,vApp%gcmCplRank)
+            call Toc("GCM2MIX")
+        end if
 
         ! run remix
         call Tic("ReMIX", .true.)

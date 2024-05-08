@@ -18,6 +18,7 @@ Eric Winter
 import argparse
 import os
 import subprocess
+import sys
 
 # Import 3rd-party modules.
 from slack_sdk import WebClient
@@ -28,8 +29,9 @@ from slack_sdk.errors import SlackApiError
 
 # Module constants
 
-# Name of Slack channel to use as message target
+# Name of Slack channels to use as message target
 SLACK_CHANNEL_NAME = '#kaijudev'
+SLACK_TEST_CHANNEL_NAME = '#kaijudev-testing'
 
 
 def create_command_line_parser(description):
@@ -55,10 +57,6 @@ def create_command_line_parser(description):
     parser.add_argument(
         '--account', default=os.environ['DERECHO_TESTING_ACCOUNT'],
         help='PBS account to use for testing (default: %(default)s)'
-    )
-    parser.add_argument(
-        '--all', '-a', action='store_true',
-        help='Run all tests (default: %(default)s).'
     )
     parser.add_argument(
         '--debug', '-d', action='store_true',
@@ -97,7 +95,8 @@ def run_mage_test_script(test_script, args):
 
     Returns
     -------
-    None
+    cproc : subprocess.CompletedProcess
+        Object containing results of running the command
 
     Raises
     ------
@@ -123,6 +122,7 @@ def run_mage_test_script(test_script, args):
     # Run the test script.
     cmd = f"python {test_script} {test_script_options}"
     cproc = subprocess.run(cmd, shell=True, check=True)
+    return cproc
 
 
 def read_build_module_list_file(list_file):
@@ -174,7 +174,7 @@ def read_build_module_list_file(list_file):
     return module_or_file_names, cmake_environment, cmake_options
 
 
-#-----------------------------------------------------------------------------
+# -----------------------------------------------------------------------------
 
 # Git utilities
 
@@ -233,7 +233,7 @@ def git_pull():
     return git_pull_output
 
 
-#-----------------------------------------------------------------------------
+# -----------------------------------------------------------------------------
 
 # Slack utilities
 
@@ -266,10 +266,12 @@ def slack_create_client():
     return slack_client
 
 
-def slack_send_message(slack_client, message, thread_ts=None):
+def slack_send_message(slack_client, message, thread_ts=None, is_test=False):
     """Send a message to Slack.
 
-    Send a message to Slack.
+    Send a message to Slack. Errors during message sending are not considered
+    to be fatal. Errors are caught, an error message is printed, and the
+    program continues normally.
 
     Parameters
     ----------
@@ -278,7 +280,9 @@ def slack_send_message(slack_client, message, thread_ts=None):
     message : str
         Message to send to Slack
     thread_ts : XXX, default None
-        Set to desired Slack thread identifier, if any
+        Set to desired Slack thread identifier (timestamp), if any
+    is_test : bool
+        If True, use the testing channel as the message target.
 
     Returns
     -------
@@ -289,17 +293,25 @@ def slack_send_message(slack_client, message, thread_ts=None):
     ------
     None
     """
+    if is_test:
+        channel = SLACK_TEST_CHANNEL_NAME
+    else:
+        channel = SLACK_CHANNEL_NAME
     try:
         response = slack_client.chat_postMessage(
-            channel=SLACK_CHANNEL_NAME,
-            text=message, thread_ts=thread_ts
+            channel=channel,
+            thread_ts=thread_ts,
+            text=message,
         )
     except SlackApiError as e:
-        print(f"Error while sending Slack message: {e.response['error']}")
+        print('Sending message to Slack failed.', file=sys.stderr)
+        response = e.response
+        print(f"response = {response}", file=sys.stderr)
     return response
 
 
-def slack_send_image(slack_client, image_file_path, initial_comment='', thread_ts=None):
+def slack_send_image(slack_client, image_file_path, initial_comment='',
+                     thread_ts=None, is_test=False):
     """Send an image file to Slack.
 
     Send an image file to Slack.
@@ -313,7 +325,9 @@ def slack_send_image(slack_client, image_file_path, initial_comment='', thread_t
     initial_comment : str
         Comment to include with image, default ''
     thread_ts : XXX, default None
-        Set to desired Slack thread identifier, if any
+        Set to desired Slack thread identifier (timestamp), if any
+    is_test : bool
+        If True, use the testing channel as the message target.
 
     Returns
     -------
@@ -324,13 +338,19 @@ def slack_send_image(slack_client, image_file_path, initial_comment='', thread_t
     ------
     None
     """
+    if is_test:
+        channel = SLACK_TEST_CHANNEL_NAME
+    else:
+        channel = SLACK_CHANNEL_NAME
     try:
         response = slack_client.files_upload(
-            channels=SLACK_CHANNEL_NAME,
+            channels=channel,
             thread_ts=thread_ts,
             file=image_file_path,
             initial_comment=initial_comment,
         )
     except SlackApiError as e:
-        print(f"Error while sending image to Slack message: {e.response['error']}")
+        print('Sending image to Slack failed.', file=sys.stderr)
+        response = e.response
+        print(f"response = {response}", file=sys.stderr)
     return response

@@ -74,6 +74,9 @@ default_step = -1
 # Color to use for magnetic footprint positions.
 FOOTPRINT_COLOR = 'red'
 
+# Coordinate system for plotting
+default_coord = 'SM'
+
 
 def create_command_line_parser():
     """Create the command-line argument parser.
@@ -144,6 +147,10 @@ def create_command_line_parser():
     parser.add_argument(
         '-nohash', action='store_true', default=False,
         help="Don't display branch/hash info (default: %(default)s)"
+    )
+    parser.add_argument(
+        '--coord', type=str, metavar="coord", default=default_coord,
+        help="Coordinate system to use (default: %(default)s)"
     )
     return parser
 
