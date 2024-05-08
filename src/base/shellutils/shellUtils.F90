@@ -57,7 +57,10 @@ module shellUtils
             !write(*,*)"theta going out of bounds",t,shGr%minGTheta
         else
             ! If still here then the lat bounds are okay, find closest lat cell center
-            iLoc = minloc( abs(shGr%thc-t),dim=1 )
+            iLoc = shGr%isg
+            do while (t > shGr%th(iLoc+1))
+                iLoc = iLoc + 1
+            enddo
             tLoc = shGr%thc(iLoc)
         endif
 
@@ -92,7 +95,11 @@ module shellUtils
             dJ = p/deltap
             jLoc = floor(dJ) + 1
         else
-            jLoc = minloc( abs(shGr%phc-p),dim=1 ) ! Find closest lat cell center
+            jLoc = shGr%jsg
+            do while (p > shGr%ph(jLoc+1))
+                jLoc = jLoc + 1
+            enddo
+            !jLoc = minloc( abs(shGr%phc-p),dim=1 ) ! Find closest lat cell center
         endif
 
         if (present(pLocO)) then
@@ -161,6 +168,7 @@ module shellUtils
         real(rp), intent(out), optional :: pLocO
 
         integer :: jLocCorner
+        real(rp) :: pLoc
 
         if ( (shGr%ph(jLocInout+1) - p) < (p - shGr%ph(jLocInout)) ) then
             jLocCorner = jLocInout + 1
