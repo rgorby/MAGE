@@ -19,8 +19,10 @@ While running containers on HPC platforms does not guarantee the same performanc
 Containers, from a broader viewpoint, are similar to virtual machines. They attempt to isolate an application and its dependencies into a self-contained "box". The main difference is in their implementation or architecture/design.
 
 <p float="left">
-  <img src="https://cdn-media-1.freecodecamp.org/images/1*RKPXdVaqHRzmQ5RPBH_d-g.png" alt="virtual machines" width="450"/>
-  <img src="https://cdn-media-1.freecodecamp.org/images/1*V5N9gJdnToIrgAgVJTtl_w.png" alt="containers" width="450"/>
+  <img src="https://cdn-media-1.freecodecamp.org/images/1*RKPXdVaqHRzmQ5RPBH_d-g.png" alt="virtual machines" width="50%"/>
+</p>
+<p>
+  <img src="https://cdn-media-1.freecodecamp.org/images/1*V5N9gJdnToIrgAgVJTtl_w.png" alt="containers" width="50%"/>
 </p>
 
 <p align="center"><b>Figure 1:</b> Virtual Machines (<b>left</b>) structure comparison with Containers (<b>right</b>).</p>
@@ -178,6 +180,7 @@ Singularity, in some ways, is similar to Docker but the primary difference is th
 In 2021, Singularity development forked into two organization-led efforts: Singularity (with Sylabs) and Apptainer ([part of the Linux Foundation](https://apptainer.org/news/community-announcement-20211130)). Basically, Sylabs' fork from Singularity in 2021 kept the name Singularity (confusing) and Apptainer started with a copy of Singularity ([kept as a snapshot](https://github.com/apptainer/singularity)) and has since branched from there. The versions of Singularity avaialble on NAS are still under Sylabs as [Community Editions](https://github.com/sylabs/singularity).
 
 Here are some basic SingularityCE workflow commands:
+
 - `singularity pull` - Can specify either docker (DockerHub) images or library ([Sylabs' Container Library](https://cloud.sylabs.io/library) similar to DockerHub) or shub ([Singularity Hub](https://singularityhub.com/) through Standford University)
 - `singularity build` - Can build to a SIF (Singularity Image File) or to a `--sandbox dir_name` directory on the filesystem. Albeit confusing, you can also build a SIF file from a sandbox directory.
 - `singularity run` - This will need bind mounted directories added to it unless environment variables have been set appropriately. Also, this command can be replaced with a `./` if using a SIF image that comes from a definition file with the `%runscript` section used.
@@ -191,12 +194,11 @@ Singularity, as opposed to Docker, has defined sections within their definition 
 - `--fakeroot` will need to be used whenever building from a definition file on NAS. This simulates an elevated user priviledge within the container environment.
 - When building to a sandbox (similar to a folder on the filesystem), sometimes the Lustre filesystem has [issues removing directories](https://github.com/apptainer/singularity/issues/5450) within the sandbox. Waiting a day will allow the system to let you remove them.
 - The `pwd` or `cwd` will have [different values](https://stackoverflow.com/a/73153806) inside the definition file and when running an image/sandbox. This also correlates to different environment bindings that occur when running singularity images. It is recommended to run with the `-e` option so as to not rely upon external environments or filesystems. Refer to the image below for a visual of some of the bindings that occur automatically in Singularity.
-<center>
 
-<img src="../../_resources/Screenshot 2024-02-29 at 12.23.03 PM.png">
+<p align="center">
+<img src="screenshot.png" alt="file directory structure within a container"/>
 <strong>Mapping of file content and directories from a host system into a Singularity container.</strong>
-
-</center>
+</p>
 
 - Unlike Docker, Singularity does not have a `images` command to show the cache of images built. Instead, you can see them via `singularity cache list -v` ([link](https://stackoverflow.com/a/68543409)) and clear the cache by `singularity cache clean`. Also, a `sif` image file can act as a standalone Singularity executable image.
 	- __Note:__ The Singularity cache for NAS systems needs to be changed to a `$NOBACKUP` location as it defaults to the user's `$HOME` directory.
@@ -232,6 +234,7 @@ Once you have the GAMERA code (in a folder named `kaiju`), you should have a dir
 _Note:_ At the time of this writing, the `MAGE_CCMC_0.75.0` tag is the latest release.
 
 Here are the steps in order to build the model code:
+
 1. Modify the `modules_nas` file to contain any modifications you have to the path to your `kaiju` folder (last line of this file).
 2. Source this `modules_nas` file in order to set your Singularity cache directory (very important) and other necessary environment variables for the container.
 	- This loads one of the currently available two singularity environment modules (version 3.11.0).
