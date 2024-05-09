@@ -412,7 +412,7 @@ def main():
         REPORT_PBS_FILENAME
     ]
     for (pbs_file, job_id) in zip(pbs_files, job_ids):
-        test_report_details_string += f"{pbs_file} submitted as job {job_id}."
+        test_report_details_string += f"{pbs_file} submitted as job {job_id}.\n"
 
     # Summarize the test results
     test_report_summary_string = (
