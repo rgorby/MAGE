@@ -31,6 +31,6 @@ echo 'The active environment variables are:'
 printenv
 
 # Create the report.
-python ${KAIJUHOME}/testingScripts/intelChecksReport.py -dv >& intelChecksReportSubmit.out
+python ${KAIJUHOME}/testingScripts/intelChecksReport.py -dltv >& intelChecksReport.out
 
 echo "Job $PBS_JOBID ended at `date` on `hostname` in directory `pwd`."
