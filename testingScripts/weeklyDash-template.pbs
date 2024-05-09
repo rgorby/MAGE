@@ -10,14 +10,14 @@
 
 echo "Job $PBS_JOBID started at `date` on `hostname` in directory `pwd`."
 
-echo 'Setting up MAGE environment.'
-KAIJUROOTDIR={{ KAIJUROOTDIR }}
-source $KAIJUROOTDIR/scripts/setupEnvironment.sh
-
 echo 'Loading modules.'
 {{ module_cmd }}
 echo 'The following modules are loaded:'
 module list
+
+echo 'Setting up MAGE environment.'
+KAIJUROOTDIR={{ KAIJUROOTDIR }}
+source $KAIJUROOTDIR/scripts/setupEnvironment.sh
 
 echo 'Setting environment variables.'
 MPICOMMAND="mpiexec $KAIJUHOME/scripts/preproc/pinCpuCores.sh"

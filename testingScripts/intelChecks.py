@@ -4,6 +4,12 @@
 
 This script runs a series of tests of the MAGE software using Intel tools.
 
+The Intel Inspector memory checks run in about an hour on two derecho nodes.
+
+The Intel Inspector thread checks run in about XXX on two derecho nodes.
+ 
+The report script runs in about XXX on one derecho node.
+
 Authors
 -------
 Jeff Garretson
@@ -20,6 +26,7 @@ import shutil
 import subprocess
 
 # Import 3rd-party modules.
+from jinja2 import Template
 
 # Import project modules.
 from kaipy.testing import common
@@ -63,6 +70,30 @@ SLACK_BOT_TOKEN = os.environ['SLACK_BOT_TOKEN']
 
 # Branch or commit (or tag) used for testing.
 BRANCH_OR_COMMIT = os.environ['BRANCH_OR_COMMIT']
+
+# Path to jinja2 template file for PBS script for the memory tests.
+MEM_CHECK_PBS_TEMPLATE = os.path.join(
+    TEST_SCRIPTS_DIRECTORY, 'intelCheckSubmitMem-template.pbs'
+)
+
+# Path to jinja2 template file for PBS script for the thread tests.
+THREAD_CHECK_PBS_TEMPLATE = os.path.join(
+    TEST_SCRIPTS_DIRECTORY, 'intelCheckSubmitThread-template.pbs'
+)
+
+# Path to jinja2 template file for PBS script for the reporting script.
+REPORT_PBS_TEMPLATE = os.path.join(
+    TEST_SCRIPTS_DIRECTORY, 'intelCheckReportSubmit-template.pbs'
+)
+
+# Name of PBS file for memory checks.
+MEM_CHECK_PBS_FILENAME = 'intelCheckSubmitMem.pbs'
+
+# Name of PBS file for thread checks.
+THREAD_CHECK_PBS_FILENAME = 'intelCheckSubmitThread.pbs'
+
+# Name of PBS file for report.
+REPORT_PBS_FILENAME = 'intelCheckReportSubmit.pbs'
 
 
 def main():
@@ -119,6 +150,29 @@ def main():
     module_list_files = [_.rstrip() for _ in lines]
     if debug:
         print(f"module_list_files = {module_list_files}")
+
+    # ------------------------------------------------------------------------
+
+    # Read the template for the PBS script used for the memory tests.
+    with open(MEM_CHECK_PBS_TEMPLATE, 'r', encoding='utf-8') as f:
+        template_content = f.read()
+    mem_check_pbs_template = Template(template_content)
+    if debug:
+        print(f"mem_check_pbs_template = {mem_check_pbs_template}")
+
+    # Read the template for the PBS script used for the thread tests.
+    with open(THREAD_CHECK_PBS_TEMPLATE, 'r', encoding='utf-8') as f:
+        template_content = f.read()
+    thread_check_pbs_template = Template(template_content)
+    if debug:
+        print(f"thread_check_pbs_template = {thread_check_pbs_template}")
+
+    # Read the template for the PBS script used for the reporting.
+    with open(THREAD_CHECK_PBS_TEMPLATE, 'r', encoding='utf-8') as f:
+        template_content = f.read()
+    report_pbs_template = Template(template_content)
+    if debug:
+        print(f"report_pbs_template = {report_pbs_template}")
 
     # ------------------------------------------------------------------------
 
@@ -228,60 +282,114 @@ def main():
         # Go to the bin directory for testing.
         os.chdir(BUILD_BIN_DIR)
 
-        # Copy in the test PBS scripts and files.
+        # Copy in the files used by the tests.
         test_files = [
             'tinyCase.xml',
-            'intelCheckSubmitMem.pbs',
-            'intelCheckSubmitThread.pbs',
-            'intelCheckReportSubmit.pbs',
             'bcwind.h5',
             'lfmD.h5',
             'rcmconfig.h5',
             'memSuppress.sup',
             'threadSuppress.sup',
         ]
-        cwd = os.getcwd()
         for filename in test_files:
             from_path = os.path.join(TEST_SCRIPTS_DIRECTORY, filename)
-            to_path = os.path.join(cwd, filename)
+            to_path = os.path.join('.', filename)
             shutil.copyfile(from_path, to_path)
 
-        # Run each check in its own PBS job.
-        pbs_files = [
-            'intelCheckSubmitMem.pbs',
-            'intelCheckSubmitThread.pbs',
-            'intelCheckReportSubmit.pbs',
-        ]
+        # Assemble common data to fill in the PBS templates.
+        pbs_options = {}
+        pbs_options['account'] = os.environ['DERECHO_TESTING_ACCOUNT']
+        pbs_options['queue'] = os.environ['DERECHO_TESTING_QUEUE']
+        pbs_options['job_priority'] = os.environ['DERECHO_TESTING_PRIORITY']
+        pbs_options['modules'] = module_names
+        pbs_options['kaijuhome'] = os.environ['KAIJUHOME']
+        pbs_options['tmpdir'] = os.environ['TMPDIR']
+        pbs_options['slack_bot_token'] = os.environ['SLACK_BOT_TOKEN']
+
+        # Set options specific to the memory check, then render the template.
+        pbs_options['job_name'] = 'mage_intelCheckSubmitMem'
+        pbs_options['walltime'] = '12:00:00'
+        pbs_content = mem_check_pbs_template.render(pbs_options)
+        with open(MEM_CHECK_PBS_FILENAME, 'w', encoding='utf-8') as f:
+            f.write(pbs_content)
+
+        # Set options specific to the thread check, then render the template.
+        pbs_options['job_name'] = 'mage_intelCheckSubmitThread'
+        pbs_options['walltime'] = '12:00:00'
+        pbs_content = thread_check_pbs_template.render(pbs_options)
+        with open(THREAD_CHECK_PBS_FILENAME, 'w', encoding='utf-8') as f:
+            f.write(pbs_content)
+
+        # Set options specific to the report generator, then render the
+        # template.
+        pbs_options['job_name'] = 'mage_intelCheckReportSubmit'
+        pbs_options['walltime'] = '02:00:00'
+        pbs_content = report_pbs_template.render(pbs_options)
+        with open(REPORT_PBS_FILENAME, 'w', encoding='utf-8') as f:
+            f.write(pbs_content)
+
+        # Initialize the job ID list.
         job_ids = []
-        for pbs_file in pbs_files:
-            cmd = (
-                f"qsub -A {DERECHO_TESTING_ACCOUNT} "
-                f"-v MODULE_LIST='{' '.join(module_names)}',"
-                f"KAIJUROOTDIR={KAIJUHOME},"
-                f"MAGE_TEST_SET_ROOT={MAGE_TEST_SET_ROOT},"
-                f"DERECHO_TESTING_ACCOUNT={DERECHO_TESTING_ACCOUNT},"
-                f"SLACK_BOT_TOKEN={SLACK_BOT_TOKEN}"
-            )
-            if pbs_file == 'intelCheckReportSubmit.pbs':
-                cmd += f" -W depend=after:{':'.join(job_ids)}"
-            cmd += f" {pbs_file}"
-            if debug:
-                print(f"cmd = {cmd}")
-            try:
-                cproc = subprocess.run(cmd, shell=True, check=True,
-                                       text=True, capture_output=True)
-            except subprocess.CalledProcessError as e:
-                print('qsub failed.')
-                print(f"e.cmd = {e.cmd}")
-                print(f"e.returncode = {e.returncode}")
-                print('See test log for output.')
-                print('Skipping remaining steps for module set'
-                      f" {module_list_file}.\n")
-                continue
-            job_id = cproc.stdout.split('.')[0]
-            if debug:
-                print(f"job_id = {job_id}")
-            job_ids.append(job_id)
+
+        # Run the memory check job.
+        cmd = f"qsub {MEM_CHECK_PBS_FILENAME}"
+        if debug:
+            print(f"cmd = {cmd}")
+        try:
+            cproc = subprocess.run(cmd, shell=True, check=True,
+                                   text=True, capture_output=True)
+        except subprocess.CalledProcessError as e:
+            print('qsub failed.')
+            print(f"e.cmd = {e.cmd}")
+            print(f"e.returncode = {e.returncode}")
+            print('See test log for output.')
+            print('Skipping remaining steps for module set'
+                    f" {module_list_file}.\n")
+            continue
+        job_id = cproc.stdout.split('.')[0]
+        if debug:
+            print(f"job_id = {job_id}")
+        job_ids.append(job_id)
+
+        # Run the thread check job.
+        cmd = f"qsub {THREAD_CHECK_PBS_FILENAME}"
+        if debug:
+            print(f"cmd = {cmd}")
+        try:
+            cproc = subprocess.run(cmd, shell=True, check=True,
+                                   text=True, capture_output=True)
+        except subprocess.CalledProcessError as e:
+            print('qsub failed.')
+            print(f"e.cmd = {e.cmd}")
+            print(f"e.returncode = {e.returncode}")
+            print('See test log for output.')
+            print('Skipping remaining steps for module set'
+                    f" {module_list_file}.\n")
+            continue
+        job_id = cproc.stdout.split('.')[0]
+        if debug:
+            print(f"job_id = {job_id}")
+        job_ids.append(job_id)
+
+        # Run the report job when the other two jobs are complete.
+        cmd = f"qsub -W depend=after:{':'.join(job_ids)} {REPORT_PBS_FILENAME}"
+        if debug:
+            print(f"cmd = {cmd}")
+        try:
+            cproc = subprocess.run(cmd, shell=True, check=True,
+                                   text=True, capture_output=True)
+        except subprocess.CalledProcessError as e:
+            print('qsub failed.')
+            print(f"e.cmd = {e.cmd}")
+            print(f"e.returncode = {e.returncode}")
+            print('See test log for output.')
+            print('Skipping remaining steps for module set'
+                    f" {module_list_file}.\n")
+            continue
+        job_id = cproc.stdout.split('.')[0]
+        if debug:
+            print(f"job_id = {job_id}")
+        job_ids.append(job_id)
 
         # Record the job IDs.
         with open('jobs.txt', 'w', encoding='utf-8') as f:
@@ -299,6 +407,10 @@ def main():
 
     # Detail the test results
     test_report_details_string = ''
+    pbs_files = [
+        MEM_CHECK_PBS_FILENAME, THREAD_CHECK_PBS_FILENAME,
+        REPORT_PBS_FILENAME
+    ]
     for (pbs_file, job_id) in zip(pbs_files, job_ids):
         test_report_details_string += f"{pbs_file} submitted as job {job_id}."
 

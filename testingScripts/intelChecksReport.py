@@ -128,7 +128,7 @@ def main():
                         memOut = subprocess.check_output(
                             ['inspxe-cl', '-report problems',
                              '-result-dir ' + d, '-s-f memSuppress.sup',
-                            '-report-all'],
+                             '-report-all'],
                             stderr=subprocess.STDOUT, universal_newlines=True)
                     except subprocess.CalledProcessError as memProcErr:
                         # we need to handle non-zero error code
