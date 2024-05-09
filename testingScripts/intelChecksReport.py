@@ -58,11 +58,9 @@ def main():
     args = parser.parse_args()
     if args.debug:
         print(f"args = {args}")
-    account = args.account
     debug = args.debug
     be_loud = args.loud
     is_test = args.test
-    verbose = args.verbose
 
     # ------------------------------------------------------------------------
 
@@ -115,8 +113,8 @@ def main():
             if 'memResults' in d:
                 try:
                     memOut = subprocess.check_output(
-                        ['inspxe-cl', '-report summary',
-                         '-result-dir ' + d, '-s-f memSuppress.sup'],
+                        ['inspxe-cl', '-report summary', '-result-dir ' + d,
+                         '-s-f memSuppress.sup'],
                         stderr=subprocess.STDOUT, universal_newlines=True)
                 except subprocess.CalledProcessError as memProcErr:
                     # we need to handle non-zero error code
@@ -133,19 +131,22 @@ def main():
                     except subprocess.CalledProcessError as memProcErr:
                         # we need to handle non-zero error code
                         memOut = memProcErr.output
-                    with open(memErrsFile, "a") as memFile:
+                    with open(memErrsFile, 'a', encoding='utf-8') as memFile:
                         memFile.write(memOut)
-                        memFile.write("\n")
+                        memFile.write('\n')
 
     # Thread
     threadErrs = False
-    threadErrsFile = "combinedThreadErrs.txt"
-    for root, dirs, files in os.walk("."):
+    threadErrsFile = 'combinedThreadErrs.txt'
+    for root, dirs, files in os.walk('.'):
         for d in dirs:
-            if "threadResults" in d:
+            if 'threadResults' in d:
                 try:
-                    threadOut = subprocess.check_output(["inspxe-cl","-report summary","-result-dir " + d,"-s-f threadSuppress.sup"], \
-                        stderr=subprocess.STDOUT,universal_newlines=True)
+                    threadOut = subprocess.check_output(
+                        ['inspxe-cl', '-report summary', '-result-dir ' + d,
+                         '-s-f threadSuppress.sup'],
+                        stderr=subprocess.STDOUT, universal_newlines=True
+                    )
                 except subprocess.CalledProcessError as threadProcErr:
                     # we need to handle non-zero error code
                     threadOut = threadProcErr.output
@@ -157,13 +158,60 @@ def main():
                             'inspxe-cl', '-report problems',
                             '-result-dir ' + d, '-s-f threadSuppress.sup',
                             '-report-all'],
-                            stderr=subprocess.STDOUT,universal_newlines=True)
+                            stderr=subprocess.STDOUT, universal_newlines=True)
                     except subprocess.CalledProcessError as threadProcErr:
                         # we need to handle non-zero error code
                         threadOut = threadProcErr.output
-                    with open(threadErrsFile, "a") as threadFile:
+                    with open(
+                        threadErrsFile, 'a', encoding='utf-8'
+                    ) as threadFile:
                         threadFile.write(threadOut)
-                        threadFile.write("\n")
+                        threadFile.write('\n')
+
+    # -----------------------------------------------------------------------
+
+    # Set up for communication with Slack.
+    slack_client = common.slack_create_client()
+    if debug:
+        print(f"slack_client = {slack_client}")
+
+    # ------------------------------------------------------------------------
+
+    # Detail the test results
+    test_report_details_string = ''
+    test_report_details_string += 'Results of memory tests:\n'
+    with open(memErrsFile, 'r', encoding='utf-8') as f:
+        test_report_details_string += f.readlines()
+    test_report_details_string += '\n'
+    test_report_details_string += 'Results of thread tests:\n'
+    with open(threadErrsFile, 'r', encoding='utf-8') as f:
+        test_report_details_string += f.readlines()
+
+    # Summarize the test results
+    test_report_summary_string = (
+        'Intel Inspector tests complete (`intelChecksReport.py`).'
+    )
+
+    # Print the test results summary and details.
+    print(test_report_summary_string)
+    print(test_report_details_string)
+
+    # If loud mode is on, post report to Slack.
+    if be_loud:
+        test_report_summary_string += 'Details in thread for this messsage.\n'
+        slack_response_summary = common.slack_send_message(
+            slack_client, test_report_summary_string, is_test=is_test
+        )
+        if slack_response_summary['ok']:
+            thread_ts = slack_response_summary['ts']
+            slack_response_details = common.slack_send_message(
+                slack_client, test_report_details_string, thread_ts=thread_ts,
+                is_test=is_test
+            )
+            if 'ok' not in slack_response_details:
+                print('*ERROR* Unable to post test details to Slack.')
+        else:
+            print('*ERROR* Unable to post test summary to Slack.')
 
     # ------------------------------------------------------------------------
 
@@ -173,4 +221,3 @@ def main():
 
 if __name__ == '__main__':
     main()
-
