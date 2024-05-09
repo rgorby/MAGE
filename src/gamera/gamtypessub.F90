@@ -22,8 +22,12 @@ submodule (gamtypes) gamtypessub
 
     end subroutine gamInitIO
 
-    module subroutine gamWriteRestart(App)
+    module subroutine gamWriteRestart(App, nRes)
         class(gamApp_T), intent(inout) :: App
+        integer, intent(in) :: nRes
+
+        ! synchronize restart output number
+        App%Model%IO%nRes = nRes
 
         call resOutput(App%Model, App%Grid, App%oState, App%State)
 
@@ -48,17 +52,22 @@ submodule (gamtypes) gamtypessub
 
     end subroutine gamWriteConsoleOutput
 
-    module subroutine gamWriteFileOutput(App)
+    module subroutine gamWriteFileOutput(App, nStep)
         class(gamApp_T), intent(inout) :: App
+        integer, intent(in) :: nStep
+
+        ! synchronize file output number
+        App%Model%IO%nOut = nStep
 
         call fOutput(App%Model, App%Grid, App%State)
 
     end subroutine gamWriteFileOutput
 
-    module subroutine gamWriteSlimFileOutput(App)
+    module subroutine gamWriteSlimFileOutput(App, nStep)
         class(gamApp_T), intent(inout) :: App
+        integer, intent(in) :: nStep
 
-        call App%WriteFileOutput()
+        call App%WriteFileOutput(nStep)
 
     end subroutine gamWriteSlimFileOutput
 

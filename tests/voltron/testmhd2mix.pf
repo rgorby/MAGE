@@ -26,13 +26,10 @@ contains
     real(rp) testValue
     type(XML_Input_T) :: xmlInp
 
-    associate(gameraApp=>voltronapp%gApp)
-
-    gameraApp%gOptions%userInitFunc => initUser
-    xmlInp = New_XML_Input(trim(caseInput),'Kaiju',.true.)
-    call gameraApp%InitModel(xmlInp)
-
+    voltronApp%vOptions%gamUserInitFunc => initUser
     call initVoltron(voltronApp, caseInput)
+
+    associate(gameraApp=>voltronApp%gApp)
 
     ! create a dipole field in Gamera. This code is copied from prob.F90
     Axyz => VP_Dipole

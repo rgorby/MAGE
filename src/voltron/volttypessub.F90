@@ -21,14 +21,15 @@ submodule (volttypes) volttypessub
 
     end subroutine
 
-    module subroutine gamCplWriteRestart(App)
+    module subroutine gamCplWriteRestart(App, nRes)
         class(gamCoupler_T), intent(inout) :: App
+        integer, intent(in) :: nRes
 
         ! write parent's restart data
-        call gamWriteRestart(App)
+        call gamWriteRestart(App, nRes)
 
         ! then my own
-        call writeGamCouplerRestart(App)
+        call writeGamCouplerRestart(App, nRes)
 
     end subroutine
 
@@ -61,21 +62,23 @@ submodule (volttypes) volttypessub
 
     end subroutine
 
-    module subroutine gamCplWriteFileOutput(App)
+    module subroutine gamCplWriteFileOutput(App, nStep)
         class(gamCoupler_T), intent(inout) :: App
+        integer, intent(in) :: nStep
 
         ! write parent's file
-        call gamWriteFileOutput(App)
+        call gamWriteFileOutput(App, nStep)
 
         ! then my own
-        call writeCouplerFileOutput(App)
+        call writeCouplerFileOutput(App, nStep)
 
     end subroutine
 
-    module subroutine gamCplWriteSlimFileOutput(App)
+    module subroutine gamCplWriteSlimFileOutput(App, nStep)
         class(gamCoupler_T), intent(inout) :: App
+        integer, intent(in) :: nStep
 
-        call gamCplWriteFileOutput(App)
+        call gamCplWriteFileOutput(App, nStep)
 
     end subroutine
 
@@ -95,9 +98,22 @@ submodule (volttypes) volttypessub
         call tsMJD%initTS("MJD",doLoudO=.false.)
         App%Model%MJD0 = tsMJD%evalAt(0.0_rp) !Evaluate at T=0
 
+        call ioSync(voltApp%IO, App%Model%IO, 1.0_rp/App%Model%Units%gT0)
+        App%Model%IO%nRes = voltApp%IO%nRes
+        App%Model%IO%nOut = voltApp%IO%nOut
+
     end subroutine
 
-    module subroutine gamUpdateMhdData(App, voltApp)
+    module subroutine gamStartUpdateMhdData(App, voltApp)
+        class(gamCoupler_T), intent(inout) :: App
+        class(voltApp_T), intent(inout) :: voltApp
+
+        ! for local coupling this function doesn't do anything
+        ! all of the work is in gamFinishUpdateMhdData
+
+    end subroutine
+
+    module subroutine gamFinishUpdateMhdData(App, voltApp)
         class(gamCoupler_T), intent(inout) :: App
         class(voltApp_T), intent(inout) :: voltApp
 
@@ -109,6 +125,5 @@ submodule (volttypes) volttypessub
         call App%AdvanceModel(stepDT)
 
     end subroutine
-
 
 end submodule

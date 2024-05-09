@@ -70,7 +70,8 @@ contains
       logical :: helperQuit
 
       if(allocated(gamCplMpi)) then
-          call gamCplMpi%AdvanceModel(gamCplMpi%Model%tFin-gamCplMpi%Model%t)
+          ! adjust tFin time to gamera units
+          call gamCplMpi%AdvanceModel(gamCplMpi%Model%tFin - gamCplMpi%Model%t)
       else
           if(voltAppMpi%amHelper) then
               helperQuit = .false.

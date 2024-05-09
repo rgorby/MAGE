@@ -61,7 +61,7 @@ program gamera_mpix
         call Tic("Omega") !Start root timer
 
         !Step model
-        nextDT = min(gAppMpi%Model%tFin-gAppMpi%Model%t, gAppMpi%Model%IO%nextIOTime(gAppMpi%Model%ts, gAppMpi%Model%dt))
+        nextDT = min(gAppMpi%Model%tFin-gAppMpi%Model%t, gAppMpi%Model%IO%nextIOTime(gAppMpi%Model%t, gAppMpi%Model%ts, gAppMpi%Model%dt)-gAppMpi%Model%t)
         call gAppMpi%AdvanceModel(nextDT)
 
         !Output if necessary
@@ -80,11 +80,11 @@ program gamera_mpix
         endif
 
         if (gAppMpi%Model%IO%doOutput(gAppMpi%Model%t)) then
-            call gAppMpi%WriteFileOutput()
+            call gAppMpi%WriteFileOutput(gAppMpi%Model%IO%nOut)
         endif
 
         if (gAppMpi%Model%IO%doRestart(gAppMpi%Model%t)) then
-            call gAppMpi%WriteRestart()
+            call gAppMpi%WriteRestart(gAppMpi%Model%IO%nRes)
         endif
 
         call Toc("IO")

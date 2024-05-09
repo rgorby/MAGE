@@ -69,7 +69,8 @@ contains
       real(rp), intent(in) :: tFin
 
       if(allocated(gamCplMpi)) then
-          call gamCplMpi%AdvanceModel(tFin-gamCplMpi%Model%t)
+          ! adjust tFin time to gamera units
+          call gamCplMpi%AdvanceModel(tFin/gamCplMpi%Model%Units%gT0 - gamCplMpi%Model%t)
       else
           do while (voltAppMpi%time < tFin)
               call stepVoltron_mpi(voltAppMpi)
@@ -96,10 +97,8 @@ contains
           SELECT type(cpl=>voltAppMpi%gApp)
               TYPE IS (gamCouplerMpi_volt_T)
                   call endVoltronWaits(voltAppMpi)
-                  cpl%doSerialVoltron = .true.
+                  voltAppMPi%doSerialMHD = .true.
                   cpl%doAsyncCoupling = .false.
-                  cpl%firstRecv = .true.
-                  cpl%firstSend = .true.
               CLASS DEFAULT
                   @assertTrue(.false., "Voltron Allocated non-mpi Gamera coupler for MPI Voltron Coupling Test. Failure")
           ENDSELECT
@@ -128,10 +127,8 @@ contains
           SELECT type(cpl=>voltAppMpi%gApp)
               TYPE IS (gamCouplerMpi_volt_T)
                   call endVoltronWaits(voltAppMpi)
-                  cpl%doSerialVoltron = .false.
+                  voltAppMpi%doSerialMHD = .false.
                   cpl%doAsyncCoupling = .false.
-                  cpl%firstRecv = .true.
-                  cpl%firstSend = .true.
               CLASS DEFAULT
                   @assertTrue(.false., "Voltron Allocated non-mpi Gamera coupler for MPI Voltron Coupling Test. Failure")
           ENDSELECT
@@ -160,10 +157,8 @@ contains
           SELECT type(cpl=>voltAppMpi%gApp)
               TYPE IS (gamCouplerMpi_volt_T)
                   call endVoltronWaits(voltAppMpi)
-                  cpl%doSerialVoltron = .false.
+                  voltAppMpi%doSerialMHD = .false.
                   cpl%doAsyncCoupling = .true.
-                  cpl%firstRecv = .true.
-                  cpl%firstSend = .true.
               CLASS DEFAULT
                   @assertTrue(.false., "Voltron Allocated non-mpi Gamera coupler for MPI Voltron Coupling Test. Failure")
           ENDSELECT
@@ -193,10 +188,8 @@ contains
           SELECT type(cpl=>voltAppMpi%gApp)
               TYPE IS (gamCouplerMpi_volt_T)
                   call endVoltronWaits(voltAppMpi)
-                  cpl%doSerialVoltron = .false.
+                  voltAppMpi%doSerialMHD = .false.
                   cpl%doAsyncCoupling = .true.
-                  cpl%firstRecv = .true.
-                  cpl%firstSend = .true.
               CLASS DEFAULT
                   @assertTrue(.false., "Voltron Allocated non-mpi Gamera coupler for MPI Voltron Coupling Test. Failure")
           ENDSELECT
@@ -238,10 +231,8 @@ contains
           SELECT type(cpl=>voltAppMpi%gApp)
               TYPE IS (gamCouplerMpi_volt_T)
                   call endVoltronWaits(voltAppMpi)
-                  cpl%doSerialVoltron = .false.
+                  voltAppMpi%doSerialMHD = .false.
                   cpl%doAsyncCoupling = .true.
-                  cpl%firstRecv = .true.
-                  cpl%firstSend = .true.
               CLASS DEFAULT
                   @assertTrue(.false., "Voltron Allocated non-mpi Gamera coupler for MPI Voltron Coupling Test. Failure")
           ENDSELECT
@@ -296,10 +287,8 @@ contains
           SELECT type(cpl=>voltAppMpi%gApp)
               TYPE IS (gamCouplerMpi_volt_T)
                   call endVoltronWaits(voltAppMpi)
-                  cpl%doSerialVoltron = .false.
+                  voltAppMpi%doSerialMHD = .false.
                   cpl%doAsyncCoupling = .true.
-                  cpl%firstRecv = .true.
-                  cpl%firstSend = .true.
               CLASS DEFAULT
                   @assertTrue(.false., "Voltron Allocated non-mpi Gamera coupler for MPI Voltron Coupling Test. Failure")
           ENDSELECT

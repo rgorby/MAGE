@@ -57,7 +57,6 @@ module voltapp_mpi
             END SELECT
         endif
 
-
         ! read helper XML options
         if(present(optFilename)) then
             inpXML = optFilename
@@ -190,6 +189,9 @@ module voltapp_mpi
             call mpi_Abort(MPI_COMM_WORLD, 1, ierr)
         endif
 
+        ! additional MPI options
+        call xmlInp%Set_Val(vApp%doSerialMHD,"coupling/doSerial",.false.)
+
         ! now initialize basic voltron structures from gamera data
         if(present(optFilename)) then
             call initVoltron(vApp, optFilename)
@@ -260,6 +262,14 @@ module voltapp_mpi
                 call mpi_Abort(MPI_COMM_WORLD, 1, ierr)
             end if
         endif
+        
+        if(.not. vApp%doserialMHD) then
+            ! prepare data for MHD before first loop since MHD is concurrent
+            ! call base update function with local data
+            call Tic("DeepUpdate")
+            call DeepUpdate_mpi(vApp)
+            call Toc("DeepUpdate")
+        endif
 
     end subroutine initVoltron_mpi
 
@@ -267,21 +277,27 @@ module voltapp_mpi
     subroutine stepVoltron_mpi(vApp)
         type(voltAppMpi_T), intent(inout) :: vApp
 
-        if(vApp%time >= vApp%DeepT) then
-            ! advance to the NEXT coupling interval
-            vApp%DeepT = vApp%DeepT + vApp%DeepDT
-        endif
+        ! loop always starts with updated Gamera data
 
-        ! this will step coupled Gamera
-        call vApp%gApp%UpdateMhdData(vApp)
+        ! if gamera running concurrently, start it not
+        if(.not. vApp%doSerialMHD) call vApp%gApp%StartUpdateMhdData(vApp)
 
         ! call base update function with local data
         call Tic("DeepUpdate")
         call DeepUpdate_mpi(vApp)
         call Toc("DeepUpdate")
 
+        ! if Gamera running serially, start it now
+        if(vApp%doSerialMHD) call vApp%gApp%StartUpdateMhdData(vApp)
+
+        ! get Gamera results
+        call vApp%gApp%FinishUpdateMhdData(vApp)
+
         ! step complete
         vApp%time = vApp%DeepT
+
+        ! update the next predicted coupling interval
+        vApp%DeepT = vApp%DeepT + vApp%DeepDT
 
     end subroutine stepVoltron_mpi
 

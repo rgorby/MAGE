@@ -31,7 +31,7 @@ program gamerax
         call Tic("Omega") !Start root timer
 
         !Step model
-        nextDT = min(gApp%Model%tFin-gApp%Model%t, gApp%Model%IO%nextIOTime(gApp%Model%ts, gApp%Model%dt))
+        nextDT = min(gApp%Model%tFin-gApp%Model%t, gApp%Model%IO%nextIOTime(gApp%Model%t, gApp%Model%ts, gApp%Model%dt)-gApp%Model%t)
         call gApp%AdvanceModel(nextDT)
 
         !Output if necessary
@@ -50,11 +50,11 @@ program gamerax
         endif
 
         if (gApp%Model%IO%doOutput(gApp%Model%t)) then
-            call gApp%WriteFileOutput()
+            call gApp%WriteFileOutput(gApp%Model%IO%nOut)
         endif
 
         if (gApp%Model%IO%doRestart(gApp%Model%t)) then
-            call gApp%WriteRestart()
+            call gApp%WriteRestart(gApp%Model%IO%nRes)
         endif
 
         call Toc("IO")

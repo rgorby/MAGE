@@ -128,14 +128,16 @@ module ioclock
     end function doTimerIOClock
 
     ! Returns the time sim time when sime kind of IO should occur
-    function doNextIOTime(this, curTs, curDt)
+    function doNextIOTime(this, curT, curTs, curDt)
         class(IOClock_T), intent(in) :: this
+        real(rp), intent(in) :: curT
         integer, intent(in) :: curTs
         real(rp), intent(in) :: curDt
         real(rp) :: doNextIOTime
 
         doNextIOTime = HUGE
-        if(this%doConOut) doNextIOTime = min(doNextIOTime, curDt*(0.5+this%tsNext-curTs))
+        ! console output time is a prediction based on current DT and timesteps until output
+        if(this%doConOut) doNextIOTime = min(doNextIOTime, curT + curDt*(0.5+this%tsNext-curTs))
         if(this%doResOut) doNextIOTime = min(doNextIOTime, this%tRes)
         if(this%doDataOut) doNextIOTime = min(doNextIOTime, this%tOut)
         ! don't check for clock cleaning timer, it's not important enough (?)

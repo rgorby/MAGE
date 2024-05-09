@@ -36,9 +36,7 @@ contains
     RIn  = 1.0
     Psi0 = 10.0
 
-    voltronApp%gApp%gOptions%userInitFunc => initUser
-    xmlInp = New_XML_Input(trim(caseInput),'Kaiju',.true.)
-
+    voltronApp%vOptions%gamUserInitFunc => initUser
     call initVoltron(voltronApp, caseInput)
 
     associate(rApp=>voltronApp%remixApp)

@@ -229,7 +229,7 @@ contains
     type(voltApp_T) :: voltronApp
     character(len=strLen) :: caseInput = 'cmiD.xml'
 
-    call caseTestInit(voltronApp%gApp, caseInput)
+    voltronApp%vOptions%gamUserInitFunc => initUser
     call initVoltron(voltronApp, caseInput)
 
     ! run for one coupling interval

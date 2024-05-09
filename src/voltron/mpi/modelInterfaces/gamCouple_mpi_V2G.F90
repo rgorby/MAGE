@@ -23,8 +23,7 @@ module gamCouple_mpi_V2G
         ! voltron to gamera comms variables
         type(MPI_Comm) :: couplingComm
         integer :: myRank
-        logical :: doSerialVoltron = .false., doAsyncCoupling = .true.
-        logical :: firstRecv= .true., firstSend=.true.
+        logical :: doAsyncCoupling = .true.
         logical :: doDeep
 
         ! array of all zeroes to simplify various send/receive calls
@@ -74,7 +73,8 @@ module gamCouple_mpi_V2G
         procedure :: Cleanup => gamCplMpiVCleanup
 
         procedure :: InitMhdCoupler => gamCplMpiVInitMhdCoupler
-        procedure :: UpdateMhdData => gamCplMpiVUpdateMhdData
+        procedure :: StartUpdateMhdData => gamCplMpiVStartUpdateMhdData
+        procedure :: FinishUpdateMhdData => gamCplMpiVFinishUpdateMhdData
 
     end type
 
@@ -112,13 +112,8 @@ module gamCouple_mpi_V2G
         call MPI_Comm_rank(App%gOptionsCplMpiV%allComm, commSize, ierr)
         call MPI_comm_split(App%gOptionsCplMpiV%allComm, 0, commSize, voltComm, ierr)
 
-        call Xml%Set_Val(App%doSerialVoltron,"coupling/doSerial",.false.)
         call Xml%Set_Val(App%doAsyncCoupling,"coupling/doAsyncCoupling",.true.)
         call Xml%Set_Val(App%doDeep, "coupling/doDeep", .true.)
-        if(App%doSerialVoltron) then
-            ! don't do asynchronous coupling if comms are serial
-            App%doAsyncCoupling = .false.
-        endif
 
         ! create a new communicator using MPI Topology
         call MPI_Comm_Size(voltComm, commSize, ierr)
@@ -383,11 +378,12 @@ module gamCouple_mpi_V2G
 
     end subroutine
 
-    subroutine gamCplMpiVWriteRestart(App)
+    subroutine gamCplMpiVWriteRestart(App, Nres)
         class(gamCouplerMpi_volt_T), intent(inout) :: App
+        integer, intent(in) :: nRes
 
         ! write only my own restart data
-        call writeGamCouplerRestart(App)
+        call writeGamCouplerRestart(App, nRes)
 
     end subroutine
 
@@ -414,18 +410,20 @@ module gamCouple_mpi_V2G
 
     end subroutine
 
-    subroutine gamCplMpiVWriteFileOutput(App)
+    subroutine gamCplMpiVWriteFileOutput(App, nStep)
         class(gamCouplerMpi_volt_T), intent(inout) :: App
+        integer, intent(in) :: nStep
 
         ! write ony my own file output
-        call writeCouplerFileOutput(App)
+        call writeCouplerFileOutput(App, nStep)
 
     end subroutine
 
-    subroutine gamCplMpiVWriteSlimFileOutput(App)
+    subroutine gamCplMpiVWriteSlimFileOutput(App, nStep)
         class(gamCouplerMpi_volt_T), intent(inout) :: App
+        integer, intent(in) :: nStep
 
-        call gamCplMpiVWriteFileOutput(App)
+        call gamCplMpiVWriteFileOutput(App, nStep)
 
     end subroutine
 
@@ -468,34 +466,35 @@ module gamCouple_mpi_V2G
         ! send initial coupling time to Gamera
         call sendCplTimeMpi(App, voltApp%DeepT)
 
+        ! perform initial coupling to collect data on voltron
+        call recvGameraCplDataMpi(App)
+
+        ! over-ride IO parameters on gamera during gamera's IO init subroutine
+        call mpi_bcast(App%Model%IO%tRes, 1, MPI_MYFLOAT, App%myRank, App%couplingComm, ierr)
+        call mpi_bcast(App%Model%IO%dtRes, 1, MPI_MYFLOAT, App%myRank, App%couplingComm, ierr)
+        call mpi_bcast(App%Model%IO%nRes, 1, MPI_INTEGER, App%myRank, App%couplingComm, ierr)
+        call mpi_bcast(App%Model%IO%tOut, 1, MPI_MYFLOAT, App%myRank, App%couplingComm, ierr)
+        call mpi_bcast(App%Model%IO%dtOut, 1, MPI_MYFLOAT, App%myRank, App%couplingComm, ierr)
+        call mpi_bcast(App%Model%IO%nOut, 1, MPI_INTEGER, App%myRank, App%couplingComm, ierr)
+
     end subroutine
 
-    subroutine gamCplMpiVUpdateMhdData(App, voltApp)
+    subroutine gamCplMpiVStartUpdateMhdData(App, voltApp)
         class(gamCouplerMpi_volt_T), intent(inout) :: App
         class(voltApp_T), intent(inout) :: voltApp
 
         call Tic("Coupling", .true.)
-        if(App%firstRecv) then
-            ! need data to process
-            App%firstRecv = .false.
-            call recvGameraCplDataMpi(App)
-            return
-        endif
+        call sendGameraCplDataMpi(App, voltApp%DeepT)
+        call Toc("Coupling", .true.)
 
-        if(App%doSerialVoltron) then
-            ! doing serial
-            call sendGameraCplDataMpi(App, voltApp%DeepT)
-            call recvGameraCplDataMpi(App)
-        else
-            ! doing asynchronous
-            if(App%firstSend) then
-                call sendGameraCplDataMpi(App, voltApp%DeepT)
-                App%firstSend = .false.
-            endif
+    end subroutine
 
-            call recvGameraCplDataMpi(App)
-            call sendGameraCplDataMpi(App, voltApp%DeepT)
-        endif
+    subroutine gamCplMpiVFinishUpdateMhdData(App, voltApp)
+        class(gamCouplerMpi_volt_T), intent(inout) :: App
+        class(voltApp_T), intent(inout) :: voltApp
+
+        call Tic("Coupling", .true.)
+        call recvGameraCplDataMpi(App)
         call Toc("Coupling", .true.)
 
     end subroutine

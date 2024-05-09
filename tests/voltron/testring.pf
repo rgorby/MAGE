@@ -28,12 +28,10 @@ contains
     character(len=strLen) :: checkMessage
     type(XML_Input_T) :: xmlInp
 
-    associate(gameraApp=>voltronApp%gApp)
-
-    gameraApp%gOptions%userInitFunc => initUser
-    xmlInp = New_XML_Input(trim(caseInput),'Kaiju',.true.)
-
+    voltronApp%vOptions%gamUserInitFunc => initUser
     call initVoltron(voltronApp, caseInput)
+
+    associate(gameraApp=>voltronApp%gApp)
 
     ! set specific values to gas and magFlux
     do k=gameraApp%Grid%ks,gameraApp%Grid%ke

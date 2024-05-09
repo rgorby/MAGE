@@ -38,13 +38,13 @@ module voltapp
         logical :: doSpin,isK,doRestart
         integer :: nRes
 
-        associate(gApp=>vApp%gApp)
-
         if(.not. allocated(vApp%gApp)) then
             ! non-mpi voltron uses non-mpi local coupled gamera
             ! but don't over-ride if someone else allocated first
             allocate(gamCoupler_T :: vApp%gApp)
         endif
+
+        associate(gApp=>vApp%gApp)
 
         if(present(optFilename)) then
             ! read from the prescribed file
@@ -86,7 +86,7 @@ module voltapp
         call SetOMP(xmlInp)
 
         !initialize coupled Gamera
-         call xmlInp%SetRootStr('Kaiju/Gamera')
+        call xmlInp%SetRootStr('Kaiju/Gamera')
         gApp%gOptions%userInitFunc => vApp%vOptions%gamUserInitFunc
         call gApp%InitModel(xmlInp)
         call gApp%InitIO(xmlInp)
@@ -182,8 +182,8 @@ module voltapp
             tsMJD%wID = vApp%tilt%wID
             call tsMJD%initTS("MJD",doLoudO=.false.)
             vApp%MJD = T2MJD(vApp%time,tsMJD%evalAt(0.0_rp))
-            !Set first deep coupling (defaulting to coupling right away since shallow is part of deep now)
-            call xmlInp%Set_Val(vApp%DeepT, "coupling/tCouple", vApp%time)
+            !Set first deep coupling (defaulting to coupling one step in the future)
+            call xmlInp%Set_Val(vApp%DeepT, "coupling/tCouple", vApp%time+vApp%DeepDT)
         endif
 
         if (vApp%doDeep) then
@@ -261,17 +261,6 @@ module voltapp
             endif
         endif
 
-        !Do first coupling
-        if (vApp%doDeep .and. (vApp%time>=vApp%DeepT)) then
-            call Tic("DeepCoupling", .true.)
-            call DeepUpdate(vApp,gApp)
-            call Toc("DeepCoupling", .true.)
-        endif
-
-        !Recalculate timestep
-        gApp%Model%dt = CalcDT(gApp%Model,gApp%Grid,gApp%State)
-        if (gApp%Model%dt0<TINY) gApp%Model%dt0 = gApp%Model%dt
-        
         !Bring overview info
         if (vApp%isLoud) call printConfigStamp()
 
@@ -291,20 +280,23 @@ module voltapp
     subroutine stepVoltron(vApp)
         class(voltApp_T), intent(inout) :: vApp
 
-        ! advance to the NEXT coupling interval
-        vApp%DeepT = vApp%DeepT + vApp%DeepDT
-
-        ! this will step coupled Gamera
-        call vApp%gApp%UpdateMhdData(vApp)
+        ! loop always starts with updated Gamera data
 
         ! call base update function with local data
         call Tic("DeepUpdate")
         call DeepUpdate(vApp, vApp%gApp)
         call Toc("DeepUpdate")
 
+        ! this will step coupled Gamera
+        call vApp%gApp%StartUpdateMhdData(vApp)
+        call vApp%gApp%FinishUpdateMhdData(vApp)
+
         ! step complete
         vApp%time = vApp%DeepT
 
+        ! update the next predicted coupling interval
+        vApp%DeepT = vApp%DeepT + vApp%DeepDT
+        
     end subroutine stepVoltron
     
     !Initialize Voltron app based on Gamera data

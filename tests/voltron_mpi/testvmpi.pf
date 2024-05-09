@@ -413,9 +413,7 @@ contains
               END SELECT
           endif
 
-          do while (gamCplMpi%Model%t < 30.0)
-              call gamCplMpi%AdvanceModel(30.0-gamCplMpi%Model%t)
-          end do
+          call gamCplMpi%AdvanceModel(30.0/gamCplMpi%Model%Units%gT0 - gamCplMpi%Model%t)
 
           if(gamCplMpi%Grid%hasLowerBC(IDIR)) then
               SELECT type(iiBC=>gamCplMpi%Grid%externalBCs(INI)%p)

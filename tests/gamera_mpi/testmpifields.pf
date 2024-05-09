@@ -5,7 +5,7 @@ module testMpiFields
 
   implicit none
 
-  type(gamAppMpi_T), pointer :: gamAppMpi
+  type(gamAppMpi_T), allocatable :: gamAppMpi
 
 contains
 
@@ -16,6 +16,8 @@ contains
       type(XML_Input_T) :: xmlInp
 
       call setMpiReal()
+
+      allocate(gamAppMpi)
 
       ! set options for gamera app
       gamAppMpi%gOptions%userInitFunc => initUser
@@ -38,7 +40,7 @@ contains
       class (MpiTestMethod), intent(inout) :: this
 
       deallocate(gamAppMpi)
-      gamAppMpi => null()
+
   end subroutine teardown
 
   subroutine copyFaces4(var,is,ie,js,je,ks,ke)

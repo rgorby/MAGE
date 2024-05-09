@@ -316,8 +316,9 @@ module gamtypes
             type(XML_Input_T), intent(inout) :: Xml
         end subroutine gamInitIO
 
-        module subroutine gamWriteRestart(App)
+        module subroutine gamWriteRestart(App, nRes)
             class(gamApp_T), intent(inout) :: App
+            integer, intent(in) :: nRes
         end subroutine gamWriteRestart
 
         module subroutine gamReadRestart(App, resId, nRes)
@@ -330,12 +331,14 @@ module gamtypes
             class(gamApp_T), intent(inout) :: App
         end subroutine gamWriteConsoleOutput
 
-        module subroutine gamWriteFileOutput(App)
+        module subroutine gamWriteFileOutput(App, nStep)
             class(gamApp_T), intent(inout) :: App
+            integer, intent(in) :: nStep
         end subroutine gamWriteFileOutput
 
-        module subroutine gamWriteSlimFileOutput(App)
+        module subroutine gamWriteSlimFileOutput(App, nStep)
             class(gamApp_T), intent(inout) :: App
+            integer, intent(in) :: nStep
         end subroutine gamWriteSlimFileOutput
 
         module subroutine gamAdvanceModel(App, dt)

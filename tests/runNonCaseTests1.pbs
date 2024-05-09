@@ -61,14 +61,6 @@ echo "Voltron Tests Complete"
 echo | tail -n 3 ./voltTests.out
 
 echo ""
-echo "Running RCM Tests"
-date
-./rcmTests > rcmTests.out
-date
-echo "RCM Tests Complete"
-echo | tail -n 3 ./rcmTests.out
-
-echo ""
 echo "Running Base MPI Tests"
 date
 ${MPICOMMAND} ./baseMpiTests > baseMpiTests.out

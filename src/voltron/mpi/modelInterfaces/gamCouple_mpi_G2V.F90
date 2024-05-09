@@ -19,7 +19,7 @@ module gamCouple_mpi_G2V
         type(MPI_Comm) :: couplingComm
         integer :: myRank, voltRank
         logical :: doSerialVoltron = .false., doAsyncCoupling = .true.
-        logical :: firstCoupling = .true.
+        logical :: firstCoupling = .true., processingData = .false.
 
         real(rp) :: DeepT
         logical :: doDeep
@@ -55,7 +55,7 @@ module gamCouple_mpi_G2V
 
         ! only over-riding specific functions
         procedure :: InitModel => gamCplMpiGInitModel
-        !procedure :: InitIO => gamCplInitIO
+        procedure :: InitIO => gamCplMpiGInitIO
         !procedure :: WriteRestart => gamCplWriteRestart
         !procedure :: ReadRestart => gamCplReadRestart
         !procedure :: WriteConsoleOutput => gamCplWriteConsoleOutput
@@ -167,6 +167,48 @@ module gamCouple_mpi_G2V
         ! receive the initial coupling time
         call recvCplTimeMpi(App)
 
+        ! couple one time to update mhd data on voltron node
+        call sendVoltronCplDataMpi(App)
+
+        ! then over-ride some IO terms from voltron
+        call mpi_bcast(App%Model%IO%tRes, 1, MPI_MYFLOAT, App%voltRank, App%couplingComm, ierr)
+        call mpi_bcast(App%Model%IO%dtRes, 1, MPI_MYFLOAT, App%voltRank, App%couplingComm, ierr)
+        call mpi_bcast(App%Model%IO%nRes, 1, MPI_INTEGER, App%voltRank, App%couplingComm, ierr)
+        call mpi_bcast(App%Model%IO%tOut, 1, MPI_MYFLOAT, App%voltRank, App%couplingComm, ierr)
+        call mpi_bcast(App%Model%IO%dtOut, 1, MPI_MYFLOAT, App%voltRank, App%couplingComm, ierr)
+        call mpi_bcast(App%Model%IO%nOut, 1, MPI_INTEGER, App%voltRank, App%couplingComm, ierr)
+
+    end subroutine
+
+    subroutine gamCplMpiGInitIO(App, Xml)
+        class(gamCouplerMpi_gam_T), intent(inout) :: App
+        type(XML_Input_T), intent(inout) :: Xml
+
+        real(rp) :: save_tRes, save_dtRes, save_tOut, save_dtOut
+        integer :: save_nRes, save_nOut
+        integer :: ierr
+
+        ! save and restore parameters over-written by voltron
+        ! doing it this way allows all comms and setup with voltron to happen in the init function
+        ! and prevents some issues
+        save_tRes = App%Model%IO%tRes
+        save_dtRes = App%Model%IO%dtRes
+        save_nRes = App%Model%IO%nRes
+        save_tOut = App%Model%IO%tOut
+        save_dtOut = App%Model%IO%dtOut
+        save_nOut = App%Model%IO%nOut
+        
+        ! initialize parent's IO
+        call gamInitIO(App, Xml)
+
+        ! restore saved IO options
+        App%Model%IO%tRes = save_tRes
+        App%Model%IO%dtRes = save_dtRes
+        App%Model%IO%nRes = save_nRes
+        App%Model%IO%tOut = save_tOut
+        App%Model%IO%dtOut = save_dtOut
+        App%Model%IO%nOut = save_nOut
+
     end subroutine
 
     subroutine gamCplMpiGAdvanceModel(App, dt)
@@ -182,19 +224,25 @@ module gamCouple_mpi_G2V
 
         ! may need to step around coupling intervals
         do while(App%Model%t < targetSimT)
-            if(App%DeepT > targetSimT) then
-                ! no additional coupling required here
-                call gamMpiAdvanceModel(App, targetSimT-App%Model%t)
+            if(.not. App%processingData) then
+                ! receive new data to process
+                call recvVoltronCplDataMpi(App)
+                App%processingData = .true.
             elseif(App%DeepT <= App%Model%t) then
-                ! couple immediately
+                ! send results
                 call sendVoltronCplDataMpi(App)
-                call recvVoltronCplDatampi(App)
+                App%processingData = .false.
             else
-                ! math then couple
-                call gamMpiAdvanceModel(App, App%DeepT-App%Model%t)
-
-                call sendVoltronCplDataMpi(App)
-                call recvVoltronCplDatampi(App)
+                if(targetSimT < App%DeepT) then
+                    ! advance to the current step target time
+                    call gamMpiAdvanceModel(App, targetSimT-App%Model%t)
+                else
+                    ! advance to next coupling time
+                    call gamMpiAdvanceModel(App, App%DeepT-App%Model%t)
+                    ! send results
+                    call sendVoltronCplDataMpi(App)
+                    App%processingData = .false.
+                endif
             endif
         end do
 

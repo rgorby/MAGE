@@ -21,8 +21,9 @@ module gamCouple
 
     end subroutine getCPCP
 
-    subroutine writeCouplerFileOutput(App)
+    subroutine writeCouplerFileOutput(App, nStep)
         class(gamCoupler_T), intent(inout) :: App
+        integer, intent(in) :: nStep
 
         integer :: i,j,k
         real(rp) :: cpcp(2)
@@ -74,22 +75,23 @@ module gamCouple
         call AddOutVar(IOVars,"cpcpN",cpcp(1))
         call AddOutVar(IOVars,"cpcpS",cpcp(2))
 
-        write(gStr,'(A,I0)') "Step#", App%Model%IO%nOut
+        write(gStr,'(A,I0)') "Step#", nStep
         call WriteVars(IOVars,.true., App%vh5File,gStr)
 
         end associate
 
     end subroutine
 
-    subroutine writeGamCouplerRestart(App)
+    subroutine writeGamCouplerRestart(App, nRes)
         class(gamCoupler_T), intent(inout) :: App
+        integer, intent(in) :: nRes
 
-        character(len=strLen) :: ResF
+        character(len=strLen) :: ResF,lnResF
         integer, parameter :: MAXGCIOVAR = 20
         type(IOVAR_T), dimension(MAXGCIOVAR) :: IOVars
 
         !Restart Filename
-        write (ResF, '(A,A,I0.5,A)') trim(App%Model%RunID), ".mix2gam.Res.", App%Model%IO%nRes, ".h5"
+        write (ResF, '(A,A,I0.5,A)') trim(App%Model%RunID), ".gamCpl.Res.", nRes, ".h5"
 
         !Reset IO chain
         call ClearIO(IOVars)
@@ -104,6 +106,10 @@ module gamCouple
         !Write out, force real precision
         call WriteVars(IOVars,.false.,ResF)
 
+        !Create link to latest restart
+        write (lnResF, '(A,A,A,A)') trim(App%Model%RunID), ".gamCpl.Res.", "XXXXX", ".h5"
+        call MapSymLink(ResF,lnResF)
+
     end subroutine
 
     subroutine readGamCouplerRestart(App, resId, nRes)
@@ -117,7 +123,7 @@ module gamCouple
         type(IOVAR_T), dimension(MAXGCIOVAR) :: IOVars
 
         !Restart Filename
-        write (ResF, '(A,A,I0.5,A)') trim(resId), ".mix2gam.Res.", nRes, ".h5"
+        write (ResF, '(A,A,I0.5,A)') trim(resId), ".gamCpl.Res.", nRes, ".h5"
 
         inquire(file=ResF,exist=fExist)
         if (.not. fExist) then

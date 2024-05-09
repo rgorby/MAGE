@@ -177,7 +177,7 @@ module voltio
         class(voltApp_T), intent(inout) :: vApp
 
         !Write Gamera restart
-        call gApp%WriteRestart()
+        call gApp%WriteRestart(vApp%IO%nRes)
 
         !Write Voltron restart data
         call resOutputVOnly(vApp,gApp)
@@ -310,7 +310,7 @@ module voltio
         class(voltApp_T), intent(inout) :: vApp
 
         !Write gamera data
-        call gApp%WriteFileOutput()
+        call gApp%WriteFileOutput(vApp%IO%nOut)
 
         !Write voltron data
         call fOutputVOnly(vApp,gApp)

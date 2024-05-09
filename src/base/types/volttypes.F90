@@ -128,7 +128,8 @@ module volttypes
 
         ! add new coupling function which can be over-ridden by children
         procedure :: InitMhdCoupler => gamInitMhdCoupler
-        procedure :: UpdateMhdData => gamUpdateMhdData
+        procedure :: StartUpdateMhdData => gamStartUpdateMhdData
+        procedure :: FinishUpdateMhdData => gamFinishUpdateMhdData
 
     end type gamCoupler_T
 
@@ -189,6 +190,7 @@ module volttypes
 
         !Local gamera object to couple to
         class(gamCoupler_T), allocatable :: gApp
+        logical :: doSerialMHD = .true.
 
         !voltron specific options
         type(VoltOptions_T) :: vOptions
@@ -202,8 +204,9 @@ module volttypes
             type(XML_Input_T), intent(inout) :: Xml
         end subroutine
 
-        module subroutine gamCplWriteRestart(App)
+        module subroutine gamCplWriteRestart(App, nRes)
             class(gamCoupler_T), intent(inout) :: App
+            integer, intent(in) :: nRes
         end subroutine
 
         module subroutine gamCplReadRestart(App, resId, nRes)
@@ -216,12 +219,14 @@ module volttypes
             class(gamCoupler_T), intent(inout) :: App
         end subroutine
 
-        module subroutine gamCplWriteFileOutput(App)
+        module subroutine gamCplWriteFileOutput(App, nStep)
             class(gamCoupler_T), intent(inout) :: App
+            integer, intent(in) :: nStep
         end subroutine
 
-        module subroutine gamCplWriteSlimFileOutput(App)
+        module subroutine gamCplWriteSlimFileOutput(App, nStep)
             class(gamCoupler_T), intent(inout) :: App
+            integer, intent(in) :: nStep
         end subroutine
 
         module subroutine gamInitMhdCoupler(App, voltApp)
@@ -229,7 +234,12 @@ module volttypes
             class(voltApp_T), intent(inout) :: voltApp
         end subroutine
 
-        module subroutine gamUpdateMhdData(App, voltApp)
+        module subroutine gamStartUpdateMhdData(App, voltApp)
+            class(gamCoupler_T), intent(inout) :: App
+            class(voltApp_T), intent(inout) :: voltApp
+        end subroutine
+
+        module subroutine gamFinishUpdateMhdData(App, voltApp)
             class(gamCoupler_T), intent(inout) :: App
             class(voltApp_T), intent(inout) :: voltApp
         end subroutine
