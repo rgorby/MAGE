@@ -132,7 +132,7 @@ module raijuICHelpers
 
         character(len=strLen) :: epType
             !! Eta preset identifier
-        real(rp) :: D, kT_i, kT_e, L_peak, dL, tiote, phiMin, phiMax
+        real(rp) :: D, kT_i, kT_e, L_peak, dL, phi_peak, dPhi, tiote, phiMin, phiMax
             !! Quantities from xml
         real(rp) ::  D0, L, bVol, vm, dist
             !! Internal quantities
@@ -208,9 +208,23 @@ module raijuICHelpers
             case("WEDGE")  ! Small wedge of constant eta for all channels
 
                 call iXML%Set_Val(D0,"prob/constEta" , 1.0)
-                j = Grid%shGrid%Np/2
-                i = Grid%shGrid%Nt/2
-                State%eta(i-6:i+6,j-6:j+6,:) = D0
+                call iXML%Set_Val(L_peak  ,"prob/L" , 4.0 )  ! [Re], center L of wedge
+                call iXML%Set_Val(dL      ,"prob/dL", 1.0 )  ! [Re], L extent of wedge
+                call iXML%Set_Val(phi_peak,"prob/phi", 180.0)  ! [deg], center phi of wedge
+                call iXML%Set_Val(dPhi    ,"prob/dPhi", 10.0)  ! [deg], phi width of wedge
+                phi_peak = phi_peak*deg2rad
+                dPhi = dPhi*deg2rad
+                do i=Grid%shGrid%isg,Grid%shGrid%ieg
+                    L = DipColat2L(Grid%shGrid%thc(i))
+                    do j=Grid%shGrid%jsg,Grid%shGrid%jeg
+                        if (L > (L_peak - dL/2) .and. L < (L_peak + dL/2) .and. &
+                            Grid%shGrid%phc(j) > (phi_peak - dPhi/2) .and. &
+                            Grid%shGrid%phc(j) < (phi_peak + dPhi/2) ) then
+                                State%eta(i,j,:) = D0
+                        endif
+                    enddo
+                enddo
+                
                 State%eta_last = State%eta
 
             case("YLINE")  ! Line in the tail along Y-SM direction
