@@ -6,9 +6,9 @@ This script runs a series of tests of the MAGE software using Intel tools.
 
 The Intel Inspector memory checks run in about an hour on two derecho nodes.
 
-The Intel Inspector thread checks run in about XXX on two derecho nodes.
- 
-The report script runs in about XXX on one derecho node.
+The Intel Inspector thread checks run in about 45 minutes on two derecho nodes.
+
+The report script runs in about 40 minutes on one derecho node.
 
 Authors
 -------
@@ -184,7 +184,7 @@ def main():
         print(f"make_cmd = {make_cmd}")
 
     # Run Intel checks with each set of modules.
-    for (i_set, module_list_file) in enumerate(module_list_files):
+    for module_list_file in module_list_files:
         if verbose:
             print('Performing Intel Inspector checks with module set '
                   f"{module_list_file}.")
@@ -250,7 +250,7 @@ def main():
                 f"e.returncode = {e.returncode}\n"
                 f"See {os.path.join(build_directory, 'cmake.out')}"
                 ' for output from cmake.\n'
-                f"Skipping remaining steps for module set {module_set_name}",
+                f"Skipping remaining steps for module set {module_set_name}.",
                 file=sys.stderr
             )
             continue
@@ -274,7 +274,7 @@ def main():
                 f"e.returncode = {e.returncode}\n"
                 f"See {os.path.join(build_directory, 'make.out')}"
                 ' for output from make.\n'
-                f"Skipping remaining steps for module set {module_set_name}",
+                f"Skipping remaining steps for module set {module_set_name}.",
                 file=sys.stderr
             )
             continue
@@ -339,12 +339,14 @@ def main():
             cproc = subprocess.run(cmd, shell=True, check=True,
                                    text=True, capture_output=True)
         except subprocess.CalledProcessError as e:
-            print('qsub failed.')
-            print(f"e.cmd = {e.cmd}")
-            print(f"e.returncode = {e.returncode}")
-            print('See test log for output.')
-            print('Skipping remaining steps for module set'
-                    f" {module_list_file}.\n")
+            print(
+                'ERROR: qsub failed.\n'
+                f"e.cmd = {e.cmd}\n"
+                f"e.returncode = {e.returncode}\n"
+                'See test log for output.\n'
+                f"Skipping remaining steps for module set {module_set_name}.",
+                file=sys.stderr
+            )
             continue
         job_id = cproc.stdout.split('.')[0]
         if debug:
@@ -359,12 +361,14 @@ def main():
             cproc = subprocess.run(cmd, shell=True, check=True,
                                    text=True, capture_output=True)
         except subprocess.CalledProcessError as e:
-            print('qsub failed.')
-            print(f"e.cmd = {e.cmd}")
-            print(f"e.returncode = {e.returncode}")
-            print('See test log for output.')
-            print('Skipping remaining steps for module set'
-                    f" {module_list_file}.\n")
+            print(
+                'ERROR: qsub failed.\n'
+                f"e.cmd = {e.cmd}\n"
+                f"e.returncode = {e.returncode}\n"
+                'See test log for output.\n'
+                f"Skipping remaining steps for module set {module_set_name}.",
+                file=sys.stderr
+            )
             continue
         job_id = cproc.stdout.split('.')[0]
         if debug:
@@ -379,12 +383,14 @@ def main():
             cproc = subprocess.run(cmd, shell=True, check=True,
                                    text=True, capture_output=True)
         except subprocess.CalledProcessError as e:
-            print('qsub failed.')
-            print(f"e.cmd = {e.cmd}")
-            print(f"e.returncode = {e.returncode}")
-            print('See test log for output.')
-            print('Skipping remaining steps for module set'
-                    f" {module_list_file}.\n")
+            print(
+                'ERROR: qsub failed.\n'
+                f"e.cmd = {e.cmd}\n"
+                f"e.returncode = {e.returncode}\n"
+                'See test log for output.\n'
+                f"Skipping remaining steps for module set {module_set_name}.",
+                file=sys.stderr
+            )
             continue
         job_id = cproc.stdout.split('.')[0]
         if debug:
@@ -412,7 +418,9 @@ def main():
         REPORT_PBS_FILENAME
     ]
     for (pbs_file, job_id) in zip(pbs_files, job_ids):
-        test_report_details_string += f"{pbs_file} submitted as job {job_id}.\n"
+        test_report_details_string += (
+            f"{pbs_file} submitted as job {job_id}.\n"
+        )
 
     # Summarize the test results
     test_report_summary_string = (
@@ -439,7 +447,6 @@ def main():
                 print('*ERROR* Unable to post test details to Slack.')
         else:
             print('*ERROR* Unable to post test summary to Slack.')
-
 
     # ------------------------------------------------------------------------
 
