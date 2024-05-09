@@ -248,19 +248,20 @@ module raijulosses
             !! Time delta [s]
 
         integer :: i,j
-        real(rp) :: deleta, pNFlux, pEFlux
+        real(rp) :: deleta, pNFlux, pEFlux, eta0
         
         !$OMP PARALLEL DO default(shared) collapse(1) &
         !$OMP schedule(dynamic) &
-        !$OMP private(j,i,deleta)
+        !$OMP private(j,i,eta0, deleta)
         do j=Grid%shGrid%jsg,Grid%shGrid%jeg
             do i=Grid%shGrid%isg,Grid%shGrid%ieg
+                eta0 = State%eta(i,j,k)
                 ! First update eta using total lossRates over dt
-                deleta = State%eta(i,j,k)*(1.0-exp(-dt*State%lossRates(i,j,k)))
-                State%eta(i,j,k) = max(0.0, State%eta(i,j,k) - deleta)
+                deleta = eta0*(1.0-exp(-dt*State%lossRates(i,j,k)))
+                State%eta(i,j,k) = max(0.0, eta0 - deleta)
 
                 ! Then calculate precipitation flux using lossRatesPrecip
-                deleta = State%eta(i,j,k)*(1.0-exp(-dt*State%lossRatesPrecip(i,j,k)))
+                deleta = eta0*(1.0-exp(-dt*State%lossRatesPrecip(i,j,k)))
                 State%precipNFlux(i,j,k) = State%precipNFlux(i,j,k) + deleta2NFlux(deleta, Model%planet%rp_m, Grid%Bmag(i,j), dt)
                 State%precipEFlux(i,j,k) = State%precipEFlux(i,j,k) + nFlux2EFlux(pNFlux, Grid%alamc(k), State%bVol(i,j))
             enddo
