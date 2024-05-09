@@ -65,12 +65,6 @@ BUILD_BIN_DIR = 'bin'
 # Name of PBS account to use for testing jobs.
 DERECHO_TESTING_ACCOUNT = os.environ['DERECHO_TESTING_ACCOUNT']
 
-# Token string for access to Slack.
-SLACK_BOT_TOKEN = os.environ['SLACK_BOT_TOKEN']
-
-# Branch or commit (or tag) used for testing.
-BRANCH_OR_COMMIT = os.environ['BRANCH_OR_COMMIT']
-
 # Path to jinja2 template file for PBS script for the memory tests.
 MEM_CHECK_PBS_TEMPLATE = os.path.join(
     TEST_SCRIPTS_DIRECTORY, 'intelCheckSubmitMem-template.pbs'
@@ -83,7 +77,7 @@ THREAD_CHECK_PBS_TEMPLATE = os.path.join(
 
 # Path to jinja2 template file for PBS script for the reporting script.
 REPORT_PBS_TEMPLATE = os.path.join(
-    TEST_SCRIPTS_DIRECTORY, 'intelCheckReportSubmit-template.pbs'
+    TEST_SCRIPTS_DIRECTORY, 'intelCheckSubmitReport-template.pbs'
 )
 
 # Name of PBS file for memory checks.
@@ -93,7 +87,7 @@ MEM_CHECK_PBS_FILENAME = 'intelCheckSubmitMem.pbs'
 THREAD_CHECK_PBS_FILENAME = 'intelCheckSubmitThread.pbs'
 
 # Name of PBS file for report.
-REPORT_PBS_FILENAME = 'intelCheckReportSubmit.pbs'
+REPORT_PBS_FILENAME = 'intelCheckSubmitReport.pbs'
 
 
 def main():
@@ -168,7 +162,7 @@ def main():
         print(f"thread_check_pbs_template = {thread_check_pbs_template}")
 
     # Read the template for the PBS script used for the reporting.
-    with open(THREAD_CHECK_PBS_TEMPLATE, 'r', encoding='utf-8') as f:
+    with open(REPORT_PBS_TEMPLATE, 'r', encoding='utf-8') as f:
         template_content = f.read()
     report_pbs_template = Template(template_content)
     if debug:
@@ -298,13 +292,14 @@ def main():
 
         # Assemble common data to fill in the PBS templates.
         pbs_options = {}
-        pbs_options['account'] = os.environ['DERECHO_TESTING_ACCOUNT']
+        pbs_options['account'] = DERECHO_TESTING_ACCOUNT
         pbs_options['queue'] = os.environ['DERECHO_TESTING_QUEUE']
         pbs_options['job_priority'] = os.environ['DERECHO_TESTING_PRIORITY']
         pbs_options['modules'] = module_names
-        pbs_options['kaijuhome'] = os.environ['KAIJUHOME']
+        pbs_options['kaijuhome'] = KAIJUHOME
         pbs_options['tmpdir'] = os.environ['TMPDIR']
         pbs_options['slack_bot_token'] = os.environ['SLACK_BOT_TOKEN']
+        pbs_options['mage_test_root'] = os.environ['MAGE_TEST_ROOT']
 
         # Set options specific to the memory check, then render the template.
         pbs_options['job_name'] = 'mage_intelCheckSubmitMem'

@@ -12,7 +12,7 @@
 echo "Job $PBS_JOBID started at `date` on `hostname` in directory `pwd`."
 
 echo 'Loading modules.'
-module purge
+module --force purge
 {%- for module in modules %}
 module load {{ module }}
 {%- endfor %}
