@@ -123,6 +123,10 @@ module voltapp
         !Time options
         call xmlInp%Set_Val(vApp%tFin,'time/tFin',1.0_rp)
         
+        !Recalculate timestep after correcting Gamera's end time
+        gApp%Model%dt = CalcDT(gApp%Model,gApp%Grid,gApp%State)
+        if (gApp%Model%dt0<TINY) gApp%Model%dt0 = gApp%Model%dt
+
         call vApp%IO%init(xmlInp,vApp%time,vApp%ts)
         
         !Deep coupling
@@ -261,15 +265,28 @@ module voltapp
             endif
         endif
 
+        if(.not. vApp%isSeparate) then
+            !Do first couplings if the gamera data is local and therefore uptodate
+            if (vApp%time>=vApp%DeepT) then
+                call Tic("DeepCoupling", .true.)
+                call DeepUpdate(vApp,gApp)
+                call Toc("DeepCoupling", .true.)
+            endif
+        endif
+
         !Bring overview info
         if (vApp%isLoud) call printConfigStamp()
 
-        !Finally do first output stuff
+        !Finally do first output stuff, if this is not mpi
         !console output
-        call consoleOutputV(vApp,gApp)
+        if (.not. vApp%isSeparate) then
+            call consoleOutputV(vApp,gApp)
+        endif
         !file output
         if (.not. gApp%Model%isRestart) then
-            call fOutputV(vApp, gApp)
+            if(.not. vApp%isSeparate) then
+                call fOutputV(vApp, gApp)
+            endif
         endif
 
         end associate
@@ -334,11 +351,8 @@ module voltapp
             call init_mix(vApp%remixApp%ion,[NORTH, SOUTH],RunID=RunID,isRestart=isRestart,nRes=vApp%IO%nRes,optIO=vApp%writeFiles)
         endif
         
-        vApp%remixApp%ion%rad_iono_m = vApp%planet%ri_m
-        if (vApp%doGCM) then
-            write(*,*) "Initializing GCM ..."
-            call init_gcm(vApp%gcm,vApp%remixApp%ion,gApp%Model%isRestart)
-        end if
+        vApp%remixApp%ion%rad_iono_m  = vApp%planet%ri_m
+        vApp%remixApp%ion%rad_planet_m = vApp%planet%rp_m
         !Ensure remix and voltron restart numbers match
         if (isRestart .and. vApp%IO%nRes /= vApp%remixApp%ion(1)%P%nRes) then
             write(*,*) "Voltron and Remix disagree on restart number, you should sort that out."
@@ -426,12 +440,6 @@ module voltapp
         ! determining the current dipole tilt
         call vApp%tilt%getValue(vApp%time,curTilt)
 
-        if (vApp%doGCM .and. vApp%time >=0) then
-            call Tic("GCM2MIX")
-            call coupleGCM2MIX(vApp%gcm,vApp%remixApp%ion,vApp%doGCM,mjd=vApp%MJD,time=vApp%time)
-            call Toc("GCM2MIX")
-        end if
-
         ! solve for remix output
         if (vApp%time<=0) then
             call run_mix(vApp%remixApp%ion,curTilt,doModelOpt=.false.,mjd=vApp%MJD)
@@ -472,7 +480,7 @@ module voltapp
                 call Squish(vApp) ! do all squish blocks here
               call SquishEnd(vApp)
             call PostDeep(vApp, gApp)
-        else
+        elseif(vApp%doDeep) then
             gApp%Grid%Gas0 = 0
         endif
 

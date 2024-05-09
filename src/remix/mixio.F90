@@ -71,6 +71,10 @@ contains
     mixUnitNames(IM_ENFLX)     = "1/cm^2 s"
     mixVarNames(IM_INFLX)      = "IM Number flux proton"
     mixUnitNames(IM_INFLX)     = "1/cm^2 s"
+    mixVarNames(DELTAE)        = "Mono potential drop"
+    mixUnitNames(DELTAE)       = "kV"
+    mixVarNames(IM_NPSP)       = "RCM plasmasphere density"
+    mixUnitNames(IM_NPSP)      = "#/m^3"
   end subroutine initMIXNames
 
   subroutine initMIXIO(I,RunID,isRestart,nRes)
@@ -112,6 +116,10 @@ contains
     ! save grid only for north
     call AddOutVar(IOVars,"X",xc,uStr="Ri")
     call AddOutVar(IOVars,"Y",yc,uStr="Ri")
+   ! Save units of Ri and Rp as root attributes
+    call AddOutVar(IOVars,"Ri_m",I(1)%rad_iono_m  )
+    call AddOutVar(IOVars,"Rp_m",I(1)%rad_planet_m)
+
 
     call AddOutVar(IOVars,"UnitsID","ReMIX")
              
@@ -204,6 +212,10 @@ contains
           case (IM_ENFLX)
              doDump = .true.
           case (IM_INFLX)
+             doDump = .true.
+          case (DELTAE)
+             doDump = .true.
+          case (IM_NPSP)
              doDump = .true.
           case DEFAULT
              doDump = .false. ! only dump the variables explicitely set to be dumped above
@@ -572,6 +584,10 @@ contains
           case (IM_ENFLX)
              doDump = .true.
           case (IM_INFLX)
+             doDump = .true.
+          case (DELTAE)
+             doDump = .true.
+          case (IM_NPSP)
              doDump = .true.
           case (NEUTRAL_WIND) 
              doDump = .false.

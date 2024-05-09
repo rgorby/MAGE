@@ -40,17 +40,36 @@ contains
 
   end subroutine teardown
 
-  subroutine checkMagFluxResults(this,is,ie,js,je,ks,ke,iVal,jVal,kVal,lVal)
+  subroutine checkMagFluxResults(this,is,ie,js,je,ks,ke,iVal,jVal,kVal,lVal,iPo,jPo,kPo)
       class (MpiTestMethod), intent(inout) :: this
       integer, intent(in) :: is,ie,js,je,ks,ke
       real(rp), intent(in) :: iVal,jVal,kVal,lVal
+      integer, optional, intent(in) :: iPo,jPo,kPo
 
       integer :: i,j,k,l,iIndex,jIndex,kIndex
       real(rp) :: checkVal
       character(len=strLen) :: checkMessage
+      integer :: iP,jP,kP
+
+      if(present(iPo)) then
+          iP = iPo
+      else
+          iP = 1
+      endif
+      if(present(jPo)) then
+          jP = jPo
+      else
+          jP = 1
+      endif
+      if(present(kPo)) then
+          kP = kPo
+      else
+          kP = 1
+      endif
+
 
       l=IDIR
-      do i=is,ie+1
+      do i=is,ie+iP
           do j=js,je
               do k=ks,ke
                   iIndex = 1+modulo(i+gamAppMpi%Grid%ijkShift(IDIR)-1, &
@@ -70,7 +89,7 @@ contains
       enddo
       l=JDIR
       do i=is,ie
-          do j=js,je+1
+          do j=js,je+jP
               do k=ks,ke
                   iIndex = 1+modulo(i+gamAppMpi%Grid%ijkShift(IDIR)-1, &
                            gamAppMpi%Grid%Nip*gamAppMpi%Grid%NumRi)
@@ -90,7 +109,7 @@ contains
       l=KDIR
       do i=is,ie
           do j=js,je
-              do k=ks,ke+1
+              do k=ks,ke+kP
                   iIndex = 1+modulo(i+gamAppMpi%Grid%ijkShift(IDIR)-1, &
                            gamAppMpi%Grid%Nip*gamAppMpi%Grid%NumRi)
                   jIndex = 1+modulo(j+gamAppMpi%Grid%ijkShift(JDIR)-1, &
@@ -101,8 +120,39 @@ contains
                       iVal*iIndex + &
                       jVal*jIndex + &
                       kVal*kIndex
+                  write (checkMessage,'(I0,A,I0,A,I0,A,I0,A,I0,A)') this%getNumProcesses(),' processor wrong at (',i,',',j,',',k,',',l,')'
+                  @assertEqual(checkVal, gamAppMpi%State%magFlux(i,j,k,l), trim(checkMessage))
+              enddo
+          enddo
+      enddo
+  end subroutine
+
+   subroutine checkBxyzResults(this,is,ie,js,je,ks,ke,iVal,jVal,kVal,lVal)
+      class (MpiTestMethod), intent(inout) :: this
+      integer, intent(in) :: is,ie,js,je,ks,ke
+      real(rp), intent(in) :: iVal,jVal,kVal,lVal
+
+      integer :: i,j,k,l,iIndex,jIndex,kIndex
+      real(rp) :: checkVal
+      character(len=strLen) :: checkMessage
+
+      do i=is,ie
+          do j=js,je
+              do k=ks,ke
+                  do l=IDIR,KDIR
+                      iIndex = 1+modulo(i+gamAppMpi%Grid%ijkShift(IDIR)-1, &
+                               gamAppMpi%Grid%Nip*gamAppMpi%Grid%NumRi)
+                      jIndex = 1+modulo(j+gamAppMpi%Grid%ijkShift(JDIR)-1, &
+                               gamAppMpi%Grid%Njp*gamAppMpi%Grid%NumRj)
+                      kIndex = 1+modulo(k+gamAppMpi%Grid%ijkShift(KDIR)-1, &
+                               gamAppMpi%Grid%Nkp*gamAppMpi%Grid%NumRk)
+                      checkVal = lVal*l + &
+                          iVal*iIndex + &
+                          jVal*jIndex + &
+                          kVal*kIndex
                       write (checkMessage,'(I0,A,I0,A,I0,A,I0,A,I0,A)') this%getNumProcesses(),' processor wrong at (',i,',',j,',',k,',',l,')'
-                      @assertEqual(checkVal, gamAppMpi%State%magFlux(i,j,k,l), trim(checkMessage))
+                      @assertEqual(checkVal, gamAppMpi%State%Bxyz(i,j,k,l), trim(checkMessage))
+                  enddo
               enddo
           enddo
       enddo
@@ -201,32 +251,60 @@ contains
                                             gamAppMpi%Grid%ks,gamAppMpi%Grid%ke,&
                                             iVal,jVal,kVal,lVal)
           CASE (4)
-              ! also check I-dimension ghosts
-              call checkMagFluxResults(this,gamAppMpi%Grid%isg,gamAppMpi%Grid%ieg,&
-                                            gamAppMpi%Grid%js,gamAppMpi%Grid%je,&
-                                            gamAppMpi%Grid%ks,gamAppMpi%Grid%ke,&
-                                            iVal,jVal,kVal,lVal)
-          CASE (16)
-              ! also check I and J dimension ghosts, faces but not corners or edges
-              call checkMagFluxResults(this,gamAppMpi%Grid%isg,gamAppMpi%Grid%ieg,&
-                                            gamAppMpi%Grid%js,gamAppMpi%Grid%je,&
-                                            gamAppMpi%Grid%ks,gamAppMpi%Grid%ke,&
-                                            iVal,jVal,kVal,lVal)
+              ! also check I-dimension ghosts, faces and edges but not corners
               call checkMagFluxResults(this,gamAppMpi%Grid%is,gamAppMpi%Grid%ie,&
+                                            gamAppMpi%Grid%js,gamAppMpi%Grid%je,&
+                                            gamAppMpi%Grid%ks,gamAppMpi%Grid%ke,&
+                                            iVal,jVal,kVal,lVal)
+	      call checkMagFluxResults(this,gamAppMpi%Grid%ie+1,gamAppMpi%Grid%ieg,&
                                             gamAppMpi%Grid%jsg,gamAppMpi%Grid%jeg,&
                                             gamAppMpi%Grid%ks,gamAppMpi%Grid%ke,&
+                                            iVal,jVal,kVal,lVal)
+	      call checkMagFluxResults(this,gamAppMpi%Grid%ie+1,gamAppMpi%Grid%ieg,&
+                                            gamAppMpi%Grid%js,gamAppMpi%Grid%je,&
+                                            gamAppMpi%Grid%ksg,gamAppMpi%Grid%keg,&
+                                            iVal,jVal,kVal,lVal)
+              call checkMagFluxResults(this,gamAppMpi%Grid%isg,gamAppMpi%Grid%is-1,&
+                                            gamAppMpi%Grid%jsg,gamAppMpi%Grid%jeg,&
+                                            gamAppMpi%Grid%ks,gamAppMpi%Grid%ke,&
+                                            iVal,jVal,kVal,lVal,0,1,1)
+              call checkMagFluxResults(this,gamAppMpi%Grid%isg,gamAppMpi%Grid%is-1,&
+                                            gamAppMpi%Grid%js,gamAppMpi%Grid%je,&
+                                            gamAppMpi%Grid%ksg,gamAppMpi%Grid%keg,&
+                                            iVal,jVal,kVal,lVal,0,1,1)
+          CASE (16)
+              ! also check I and J dimension ghosts, faces and edges but not corners
+              call checkMagFluxResults(this,gamAppMpi%Grid%isg,gamAppMpi%Grid%ieg,&
+                                            gamAppMpi%Grid%jsg,gamAppMpi%Grid%jeg,&
+                                            gamAppMpi%Grid%ks,gamAppMpi%Grid%ke,&
+                                            iVal,jVal,kVal,lVal)
+	      call checkMagFluxResults(this,gamAppMpi%Grid%isg,gamAppMpi%Grid%is-1,&
+                                            gamAppMpi%Grid%js,gamAppMpi%Grid%je,&
+                                            gamAppMpi%Grid%ksg,gamAppMpi%Grid%keg,&
+                                            iVal,jVal,kVal,lVal,0,1,1)
+              call checkMagFluxResults(this,gamAppMpi%Grid%ie+1,gamAppMpi%Grid%ieg,&
+                                            gamAppMpi%Grid%js,gamAppMpi%Grid%je,&
+                                            gamAppMpi%Grid%ksg,gamAppMpi%Grid%keg,&
+                                            iVal,jVal,kVal,lVal)
+              call checkMagFluxResults(this,gamAppMpi%Grid%is,gamAppMpi%Grid%ie,&
+                                            gamAppMpi%Grid%jsg,gamAppMpi%Grid%js-1,&
+                                            gamAppMpi%Grid%ksg,gamAppMpi%Grid%keg,&
+                                            iVal,jVal,kVal,lVal,1,0,1)
+              call checkMagFluxResults(this,gamAppMpi%Grid%is,gamAppMpi%Grid%ie,&
+                                            gamAppMpi%Grid%je+1,gamAppMpi%Grid%jeg,&
+                                            gamAppMpi%Grid%ksg,gamAppMpi%Grid%keg,&
                                             iVal,jVal,kVal,lVal)
           CASE (64)
-              ! check all faces, not edges or corners
+              ! check all faces and edges, not corners
               call checkMagFluxResults(this,gamAppMpi%Grid%isg,gamAppMpi%Grid%ieg,&
-                                            gamAppMpi%Grid%js,gamAppMpi%Grid%je,&
-                                            gamAppMpi%Grid%ks,gamAppMpi%Grid%ke,&
-                                            iVal,jVal,kVal,lVal)
-              call checkMagFluxResults(this,gamAppMpi%Grid%is,gamAppMpi%Grid%ie,&
                                             gamAppMpi%Grid%jsg,gamAppMpi%Grid%jeg,&
                                             gamAppMpi%Grid%ks,gamAppMpi%Grid%ke,&
                                             iVal,jVal,kVal,lVal)
               call checkMagFluxResults(this,gamAppMpi%Grid%is,gamAppMpi%Grid%ie,&
+                                            gamAppMpi%Grid%jsg,gamAppMpi%Grid%jeg,&
+                                            gamAppMpi%Grid%ksg,gamAppMpi%Grid%keg,&
+                                            iVal,jVal,kVal,lVal)
+              call checkMagFluxResults(this,gamAppMpi%Grid%isg,gamAppMpi%Grid%ieg,&
                                             gamAppMpi%Grid%js,gamAppMpi%Grid%je,&
                                             gamAppMpi%Grid%ksg,gamAppMpi%Grid%keg,&
                                             iVal,jVal,kVal,lVal)
@@ -235,6 +313,121 @@ contains
       ENDSELECT
 
   end subroutine testHaloUpdateMagFlux
+
+  @test(npes=[1,4,16,64])
+  subroutine testHaloUpdateBxyz(this)
+      class (MpiTestMethod), intent(inout) :: this
+
+      integer :: i,j,k,l,iIndex,jIndex,kIndex,dirMax
+      real(rp) :: checkVal
+      character(len=strLen) :: checkMessage
+      real(rp) :: iVal, jVal, kVal, lVal
+
+      ! coefficients chosen to allow easy interpretation of final values
+      iVal = 1
+      jVal = 20
+      kVal = 400
+      lVal = 8000
+
+      ! clear all cells
+      gamAppMpi%State%Bxyz(:,:,:,:) = 0
+
+      ! set values in physical faces only
+      ! because the case is triply periodic is=ie+1, and the same for j and k
+      do i=gamAppMpi%Grid%is,gamAppMpi%Grid%ie
+          do j=gamAppMpi%Grid%js,gamAppMpi%Grid%je
+              do k=gamAppMpi%Grid%ks,gamAppMpi%Grid%ke
+                  do l=IDIR,KDIR
+                      iIndex = 1+modulo(i+gamAppMpi%Grid%ijkShift(IDIR)-1, &
+                               gamAppMpi%Grid%Nip*gamAppMpi%Grid%NumRi)
+                      jIndex = 1+modulo(j+gamAppMpi%Grid%ijkShift(JDIR)-1, &
+                               gamAppMpi%Grid%Njp*gamAppMpi%Grid%NumRj)
+                      kIndex = 1+modulo(k+gamAppMpi%Grid%ijkShift(KDIR)-1, &
+                               gamAppMpi%Grid%Nkp*gamAppMpi%Grid%NumRk)
+                      gamAppMpi%State%Bxyz(i,j,k,l) = &
+                          lVal*l + &
+                          kVal*(kIndex) + &
+                          jVal*(jIndex) + &
+                          iVal*(iIndex)
+                  enddo
+              enddo
+          enddo
+      enddo
+
+      ! halo update
+      call haloUpdate(gamAppMpi, gamAppMpi%State)
+
+      ! check values in all updated cells
+      SELECT CASE(this%getNumProcesses())
+          CASE (1)
+              ! degenerate MPI case doesn't update any ghost cells, only check physical for no modifications
+              call checkBxyzResults(this,gamAppMpi%Grid%is,gamAppMpi%Grid%ie,&
+                                         gamAppMpi%Grid%js,gamAppMpi%Grid%je,&
+                                         gamAppMpi%Grid%ks,gamAppMpi%Grid%ke,&
+                                         iVal,jVal,kVal,lVal)
+          CASE (4)
+              ! also check I-dimension ghosts, faces and edges but not corners
+              call checkBxyzResults(this,gamAppMpi%Grid%is,gamAppMpi%Grid%ie,&
+                                         gamAppMpi%Grid%js,gamAppMpi%Grid%je,&
+                                         gamAppMpi%Grid%ks,gamAppMpi%Grid%ke,&
+                                         iVal,jVal,kVal,lVal)
+              call checkBxyzResults(this,gamAppMpi%Grid%ie+1,gamAppMpi%Grid%ieg,&
+                                         gamAppMpi%Grid%jsg,gamAppMpi%Grid%jeg,&
+                                         gamAppMpi%Grid%ks,gamAppMpi%Grid%ke,&
+                                         iVal,jVal,kVal,lVal)
+              call checkBxyzResults(this,gamAppMpi%Grid%ie+1,gamAppMpi%Grid%ieg,&
+                                         gamAppMpi%Grid%js,gamAppMpi%Grid%je,&
+                                         gamAppMpi%Grid%ksg,gamAppMpi%Grid%keg,&
+                                         iVal,jVal,kVal,lVal)
+              call checkBxyzResults(this,gamAppMpi%Grid%isg,gamAppMpi%Grid%is-1,&
+                                         gamAppMpi%Grid%jsg,gamAppMpi%Grid%jeg,&
+                                         gamAppMpi%Grid%ks,gamAppMpi%Grid%ke,&
+                                         iVal,jVal,kVal,lVal)
+              call checkBxyzResults(this,gamAppMpi%Grid%isg,gamAppMpi%Grid%is-1,&
+                                         gamAppMpi%Grid%js,gamAppMpi%Grid%je,&
+                                         gamAppMpi%Grid%ksg,gamAppMpi%Grid%keg,&
+                                         iVal,jVal,kVal,lVal)
+          CASE (16)
+              ! also check I and J dimension ghosts, faces and edges but not corners
+              call checkBxyzResults(this,gamAppMpi%Grid%isg,gamAppMpi%Grid%ieg,&
+                                         gamAppMpi%Grid%jsg,gamAppMpi%Grid%jeg,&
+                                         gamAppMpi%Grid%ks,gamAppMpi%Grid%ke,&
+                                         iVal,jVal,kVal,lVal)
+              call checkBxyzResults(this,gamAppMpi%Grid%isg,gamAppMpi%Grid%is-1,&
+                                         gamAppMpi%Grid%js,gamAppMpi%Grid%je,&
+                                         gamAppMpi%Grid%ksg,gamAppMpi%Grid%keg,&
+                                         iVal,jVal,kVal,lVal)
+              call checkBxyzResults(this,gamAppMpi%Grid%ie+1,gamAppMpi%Grid%ieg,&
+                                         gamAppMpi%Grid%js,gamAppMpi%Grid%je,&
+                                         gamAppMpi%Grid%ksg,gamAppMpi%Grid%keg,&
+                                         iVal,jVal,kVal,lVal)
+              call checkBxyzResults(this,gamAppMpi%Grid%is,gamAppMpi%Grid%ie,&
+                                         gamAppMpi%Grid%jsg,gamAppMpi%Grid%js-1,&
+                                         gamAppMpi%Grid%ksg,gamAppMpi%Grid%keg,&
+                                         iVal,jVal,kVal,lVal)
+              call checkBxyzResults(this,gamAppMpi%Grid%is,gamAppMpi%Grid%ie,&
+                                         gamAppMpi%Grid%je+1,gamAppMpi%Grid%jeg,&
+                                         gamAppMpi%Grid%ksg,gamAppMpi%Grid%keg,&
+                                         iVal,jVal,kVal,lVal)
+          CASE (64)
+              ! check all faces and edges, not corners
+              call checkBxyzResults(this,gamAppMpi%Grid%isg,gamAppMpi%Grid%ieg,&
+                                         gamAppMpi%Grid%jsg,gamAppMpi%Grid%jeg,&
+                                         gamAppMpi%Grid%ks,gamAppMpi%Grid%ke,&
+                                         iVal,jVal,kVal,lVal)
+              call checkBxyzResults(this,gamAppMpi%Grid%is,gamAppMpi%Grid%ie,&
+                                         gamAppMpi%Grid%jsg,gamAppMpi%Grid%jeg,&
+                                         gamAppMpi%Grid%ksg,gamAppMpi%Grid%keg,&
+                                         iVal,jVal,kVal,lVal)
+              call checkBxyzResults(this,gamAppMpi%Grid%isg,gamAppMpi%Grid%ieg,&
+                                         gamAppMpi%Grid%js,gamAppMpi%Grid%je,&
+                                         gamAppMpi%Grid%ksg,gamAppMpi%Grid%keg,&
+                                         iVal,jVal,kVal,lVal)
+          CASE DEFAULT
+              @assertEqual(0,1,'Unexpected number of processes')
+      ENDSELECT
+
+  end subroutine testHaloUpdateBxyz
 
 end module testMpiMhd
 

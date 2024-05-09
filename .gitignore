@@ -13,6 +13,9 @@ tests/*/*.F90
 !tests/helperCode/*.F90
 !tests/helperCode_mpi/*.F90
 
+# Pre-compile generated files
+src/base/git_info.F90
+
 # Compiled Object files
 *.slo
 *.lo
@@ -64,3 +67,6 @@ analysis/notebooks/Tutorial/.ipynb_checkpoints
 
 # ifort cruft 
 *.i90
+
+# Emacs backup files
+*~

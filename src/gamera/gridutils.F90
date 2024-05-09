@@ -6,7 +6,8 @@ module gridutils
     use quadrature
     use metric
     use planethelper
-    
+    use ringutils
+
     implicit none
 
 
@@ -169,22 +170,22 @@ module gridutils
 
         type(Model_T), intent(in) :: Model
         type(Grid_T), intent(in) :: Grid
-        real(rp), dimension(Grid%isg:Grid%ieg+1,Grid%jsg:Grid%jeg+1,Grid%ksg:Grid%keg+1,1:NDIM), intent(in) :: magFlux
-        real(rp), dimension(Grid%isg:Grid%ieg,Grid%jsg:Grid%jeg,Grid%ksg:Grid%keg,1:NDIM), intent(out) :: magFld
+        real(rp), dimension(Grid%isg:Grid%ieg+1,Grid%jsg:Grid%jeg+1,Grid%ksg:Grid%keg+1,1:NDIM), intent(in)  :: magFlux
+        real(rp), dimension(Grid%isg:Grid%ieg  ,Grid%jsg:Grid%jeg  ,Grid%ksg:Grid%keg  ,1:NDIM), intent(out) :: magFld
         integer :: i,j,k
 
         !$OMP PARALLEL DO default(shared) collapse(2)
         do k=Grid%ksg, Grid%keg
             do j=Grid%jsg, Grid%jeg
                 do i=Grid%isg, Grid%ieg
-                    
                     magFld(i,j,k,:) = CellBxyz(Model,Grid,magFlux,i,j,k)
-
                 enddo
             enddo
         enddo
 
-
+        if (Model%doRing) then
+            call RingFlux2FieldFix(Model,Grid,magFld)
+        endif
     end subroutine bFlux2Fld
 
 ! compute the current from curl B using the cell centered fleid components
@@ -220,7 +221,8 @@ module gridutils
         call allocGridVec(Model,Grid,bInt,.false.,NDIM)
         call allocGridVec(Model,Grid,JdS ,.true. ,NDIM) !Treat like flux-sized to use CellBxyz routine
 
-        !$OMP PARALLEL DO default(shared) collapse(2)
+        !$OMP PARALLEL DO default(shared) collapse(2) &
+        !$OMP private(i,j,k)
         do k=Grid%ksg, Grid%keg
             do j=Grid%jsg, Grid%jeg
                 do i=Grid%isg, Grid%ieg
@@ -232,48 +234,60 @@ module gridutils
         ! integrate B dot dl along cell edges in the i,j,k directions, respectively
         ! the integral is done in a second-order accuracy by linearly interpolating the cell-centered magnetic fields to the cell edges
         ! since the MagFld() array has all the ghost cell information, the line-integral is relatively straightforward, but the calculation
-        ! in the first/last computation cell (center) is probably not meaningful. 
-        ! to simplify the indexing, we compute the indices from start to end+1, e.g., bint(ie+1,j,k,IDIR) is not going to be use
+        ! in the first/last computation cell (center) is probably not meaningful.
+        ! due to interpolation, calculate all values one cell away from the outer boundary
+        ! loop up to the outermost cells and down-select valid edges inside the loop
         !$OMP PARALLEL DO default(shared) collapse(2) &
-        !$OMP private(bAvg,dxyz)
+        !$OMP private(bAvg,dxyz,i,j,k)
         do k=Grid%ksg+1, Grid%keg
             do j=Grid%jsg+1, Grid%jeg
                 do i=Grid%isg+1, Grid%ieg
+                    ! lower bounds are easy, upper bounds are hard
+                    ! since we are calculating up to one cell from the boundary, check if one edge away is valid
+                    if(isGoodEdgeIJK(Model,Grid,i+1,j,k,IDIR)) then
+                        ! integrating in the i-direction along i-edges, the effective index range is isg+1:ieg-1, jsg+1:jeg, ksg+1:keg
+                        bAvg = 0.25*( Bxyz(i,j,k,:) + Bxyz(i,j-1,k,:) + Bxyz(i,j,k-1,:) + Bxyz(i,j-1,k-1,:) )
+                        dxyz = Grid%xyz(i+1,j,k,:) - Grid%xyz(i,j,k,:)
+                        bInt(i,j,k,IDIR) = dot_product(bAvg,dxyz)
+                    endif
 
-                   ! integrating in the i-direction along i-edges, the effective index range is is:ie, js:js+1, ks:ks+1
-                   bAvg = 0.25*( Bxyz(i,j,k,:) + Bxyz(i,j-1,k,:) + Bxyz(i,j,k-1,:) + Bxyz(i,j-1,k-1,:) )
-                   dxyz = Grid%xyz(i+1,j,k,:) - Grid%xyz(i,j,k,:)
-                   bInt(i,j,k,IDIR) = dot_product(bAvg,dxyz)
+                    if(isGoodEdgeIJK(Model,Grid,i,j+1,k,JDIR)) then
+                        ! integrating in the j-direction along j-edges, the effective index range is isg+1:ieg, jsg+1:jeg-1, ksg+1:keg
+                        bAvg = 0.25*( Bxyz(i,j,k,:) + Bxyz(i,j,k-1,:) + Bxyz(i-1,j,k,:) + Bxyz(i-1,j,k-1,:) )
+                        dxyz = Grid%xyz(i,j+1,k,:) - Grid%xyz(i,j,k,:)
+                        bInt(i,j,k,JDIR) = dot_product(bAvg,dxyz)
+                    endif
 
-                   ! integrating in the j-direction along j-edges, the effective index range is is:ie+1, js:je, ks:ke+1
-                   bAvg = 0.25*( Bxyz(i,j,k,:) + Bxyz(i,j,k-1,:) + Bxyz(i-1,j,k,:) + Bxyz(i-1,j,k-1,:) )
-                   dxyz = Grid%xyz(i,j+1,k,:) - Grid%xyz(i,j,k,:)
-                   bInt(i,j,k,JDIR) = dot_product(bAvg,dxyz)
-
-                   ! integrating in the k-direction along k-edges, the effective index range is is:ie+1, js:je+1, ks:ke
-                   bAvg = 0.25*(Bxyz(i,j,k,:) + Bxyz(i-1,j,k,:) + Bxyz(i,j-1,k,:) + Bxyz(i-1,j-1,k,:) )
-                   dxyz = Grid%xyz(i,j,k+1,:) - Grid%xyz(i,j,k,:)
-                   bInt(i,j,k,KDIR) = dot_product(bAvg,dxyz)
-
+                    if(isGoodEdgeIJK(Model,Grid,i,j,k+1,KDIR)) then
+                        ! integrating in the k-direction along k-edges, the effective index range is isg+1:ieg, jsg+1:jeg, ksg+1:keg-1
+                        bAvg = 0.25*(Bxyz(i,j,k,:) + Bxyz(i-1,j,k,:) + Bxyz(i,j-1,k,:) + Bxyz(i-1,j-1,k,:) )
+                        dxyz = Grid%xyz(i,j,k+1,:) - Grid%xyz(i,j,k,:)
+                        bInt(i,j,k,KDIR) = dot_product(bAvg,dxyz)
+                    endif
                 enddo
             enddo
         enddo
 
-        ! line integrals of bint to get J*dS on cell faces, the indices are from start to end+1
+        ! line integrals of bint to get J*dS on cell faces
+        ! calculate values on all faces one cell away from the outer boundary
+        ! loop up to the outermost cells and down-select valid faces inside the loop
         !$OMP PARALLEL DO default(shared) collapse(2) &
         !$OMP private(i,j,k)
-        do k=Grid%ksg, Grid%keg-1
-            do j=Grid%jsg, Grid%jeg-1
-                do i=Grid%isg, Grid%ieg-1
-                   JdS(i,j,k,IDIR) = bInt(i,j,k,JDIR) + bInt(i,j+1,k,KDIR) - bInt(i,j,k+1,JDIR) - bInt(i,j,k,KDIR)
-                   JdS(i,j,k,JDIR) = bInt(i,j,k,KDIR) + bInt(i,j,k+1,IDIR) - bInt(i+1,j,k,KDIR) - bInt(i,j,k,IDIR)
-                   JdS(i,j,k,KDIR) = bInt(i,j,k,IDIR) + bInt(i+1,j,k,JDIR) - bInt(i,j+1,k,IDIR) - bInt(i,j,k,JDIR)
+        do k=Grid%ksg+1, Grid%keg
+            do j=Grid%jsg+1, Grid%jeg
+                do i=Grid%isg+1, Grid%ieg
+                    ! lower bounds are easy, upper bounds are hard
+                    ! since we are calculating up to one cell from the boundary, check if one face away is valid
+                    if(isGoodFaceIJK(Model,Grid,i,j+1,k+1,IDIR)) JdS(i,j,k,IDIR) = bInt(i,j,k,JDIR) + bInt(i,j+1,k,KDIR) - bInt(i,j,k+1,JDIR) - bInt(i,j,k,KDIR)
+                    if(isGoodFaceIJK(Model,Grid,i+1,j,k+1,JDIR)) JdS(i,j,k,JDIR) = bInt(i,j,k,KDIR) + bInt(i,j,k+1,IDIR) - bInt(i+1,j,k,KDIR) - bInt(i,j,k,IDIR)
+                    if(isGoodFaceIJK(Model,Grid,i+1,j+1,k,KDIR)) JdS(i,j,k,KDIR) = bInt(i,j,k,IDIR) + bInt(i+1,j,k,JDIR) - bInt(i,j+1,k,IDIR) - bInt(i,j,k,JDIR)
                 enddo
             enddo
         enddo
         ! Jds ends up being defined isg+1,ieg-1
 
         ! now from J-flux to J-field using the CellBxyz function (and include scaling)
+        ! calculate values at cell centers one cell away from the outer boundary
         !$OMP PARALLEL DO default(shared) collapse(2) &
         !$OMP private(i,j,k)
         do k=Grid%ksg+1, Grid%keg-1
@@ -660,6 +674,97 @@ module gridutils
         
     end function EdgeScalar2CC
 
+    !Fill in the final rank of magflux by utilizing divB=0
+    subroutine FixGhostFace(Model,Grid,magFlux)
+        type(Model_T), intent(in)    :: Model
+        type(Grid_T) , intent(in)    :: Grid
+        real(rp)     , intent(inout) :: magFlux(Grid%isg:Grid%ieg+1,Grid%jsg:Grid%jeg+1,Grid%ksg:Grid%keg+1,1:NDIM)
+
+        integer :: i,j,k
+        real(rp) :: dFi,dFj,dFk,dFi0,dFj0,dFk0
+
+        !For cell i,j,k
+        !dFi  = magFlux(i,j,k,IDIR) - magFlux(i+1,j  ,k  ,IDIR)
+        !dFj  = magFlux(i,j,k,JDIR) - magFlux(i  ,j+1,k  ,JDIR)
+        !dFk  = magFlux(i,j,k,KDIR) - magFlux(i  ,j  ,k+1,KDIR)
+        !dFi0 = Grid%bFlux0  (i,j,k,IDIR) - Grid%bFlux0  (i+1,j  ,k  ,IDIR)
+        !dFj0 = Grid%bFlux0  (i,j,k,JDIR) - Grid%bFlux0  (i  ,j+1,k  ,JDIR)
+        !dFk0 = Grid%bFlux0  (i,j,k,KDIR) - Grid%bFlux0  (i  ,j  ,k+1,KDIR)
+        !div(dB) + div(B0) = 0 = dFi + dFj + dFk + dFi0 + dFj0 + dFk0
+        !Note: This only matters in the small region where div(B0) != 0 but div(dB+B0) = 0
+
+        !i-dir
+        !$OMP PARALLEL DO default(shared) &
+        !$OMP private(i,j,k,dFi,dFj,dFk,dFi0,dFj0,dFk0)
+        do k=Grid%ksg, Grid%keg
+            do j=Grid%jsg, Grid%jeg
+                !Want ieg+1,j,k I-face
+                i = Grid%ieg
+                dFi  = magFlux(i,j,k,IDIR) - magFlux(i+1,j  ,k  ,IDIR)
+                dFj  = magFlux(i,j,k,JDIR) - magFlux(i  ,j+1,k  ,JDIR)
+                dFk  = magFlux(i,j,k,KDIR) - magFlux(i  ,j  ,k+1,KDIR)
+                if (Model%doBackground) then
+                    dFi0 = Grid%bFlux0(i,j,k,IDIR) - Grid%bFlux0(i+1,j  ,k  ,IDIR)
+                    dFj0 = Grid%bFlux0(i,j,k,JDIR) - Grid%bFlux0(i  ,j+1,k  ,JDIR)
+                    dFk0 = Grid%bFlux0(i,j,k,KDIR) - Grid%bFlux0(i  ,j  ,k+1,KDIR)
+                else
+                    dFi0 = 0.0
+                    dFj0 = 0.0
+                    dFk0 = 0.0
+                endif
+                magFlux(i+1,j,k,IDIR) = magFlux(i,j,k,IDIR) + dFj + dFk &
+                                        + dFi0 + dFj0 + dFk0
+            enddo
+        enddo
+
+        !j-dir
+        !$OMP PARALLEL DO default(shared) &
+        !$OMP private(i,j,k,dFi,dFj,dFk,dFi0,dFj0,dFk0)
+        do k=Grid%ksg, Grid%keg
+            do i=Grid%isg, Grid%ieg
+                j = Grid%jeg
+                dFi  = magFlux(i,j,k,IDIR) - magFlux(i+1,j  ,k  ,IDIR)
+                dFj  = magFlux(i,j,k,JDIR) - magFlux(i  ,j+1,k  ,JDIR)
+                dFk  = magFlux(i,j,k,KDIR) - magFlux(i  ,j  ,k+1,KDIR)
+                if (Model%doBackground) then
+                    dFi0 = Grid%bFlux0(i,j,k,IDIR) - Grid%bFlux0(i+1,j  ,k  ,IDIR)
+                    dFj0 = Grid%bFlux0(i,j,k,JDIR) - Grid%bFlux0(i  ,j+1,k  ,JDIR)
+                    dFk0 = Grid%bFlux0(i,j,k,KDIR) - Grid%bFlux0(i  ,j  ,k+1,KDIR)
+                else
+                    dFi0 = 0.0
+                    dFj0 = 0.0
+                    dFk0 = 0.0
+                endif
+                magFlux(i,j+1,k,JDIR) = magFlux(i,j,k,JDIR) + dFi + dFk &
+                                        + dFi0 + dFj0 + dFk0
+            enddo
+        enddo   
+
+        !k-dir
+        !$OMP PARALLEL DO default(shared) &
+        !$OMP private(i,j,k,dFi,dFj,dFk,dFi0,dFj0,dFk0)
+        do j=Grid%jsg, Grid%jeg
+            do i=Grid%isg, Grid%ieg
+                k = Grid%keg
+                dFi  = magFlux(i,j,k,IDIR) - magFlux(i+1,j  ,k  ,IDIR)
+                dFj  = magFlux(i,j,k,JDIR) - magFlux(i  ,j+1,k  ,JDIR)
+                dFk  = magFlux(i,j,k,KDIR) - magFlux(i  ,j  ,k+1,KDIR)
+                if (Model%doBackground) then
+                    dFi0 = Grid%bFlux0(i,j,k,IDIR) - Grid%bFlux0(i+1,j  ,k  ,IDIR)
+                    dFj0 = Grid%bFlux0(i,j,k,JDIR) - Grid%bFlux0(i  ,j+1,k  ,JDIR)
+                    dFk0 = Grid%bFlux0(i,j,k,KDIR) - Grid%bFlux0(i  ,j  ,k+1,KDIR)
+                else
+                    dFi0 = 0.0
+                    dFj0 = 0.0
+                    dFk0 = 0.0
+                endif
+                magFlux(i,j,k+1,KDIR) = magFlux(i,j,k,KDIR) + dFi + dFk &
+                                        + dFi0 + dFj0 + dFk0
+            enddo
+        enddo
+
+    end subroutine FixGhostFace
+    
     subroutine EnergyPartition(Model,Gr,State,gIntE,gKinE,gMagP)
         type(Model_T), intent(in) :: Model
         type(Grid_T), intent(in) :: Gr
@@ -764,5 +869,58 @@ module gridutils
             enddo
         endif
     end subroutine getJxyz
+
+    function isGoodFaceIJK(Model,Grid,i,j,k,d) result(isGood)
+        type(Model_T), intent(in) :: Model
+        type(Grid_T) , intent(in) :: Grid
+        integer      , intent(in) :: i,j,k,d
+
+        logical :: isGood
+
+        isGood = .false.
+        select case(d)
+            case(IDIR)
+                isGood =     (i >= Grid%isg) .and. (i <= Grid%ieg+1) &
+                       .and. (j >= Grid%jsg) .and. (j <= Grid%jeg  ) &
+                       .and. (k >= Grid%ksg) .and. (k <= Grid%keg  )
+
+            case(JDIR)
+                isGood =     (i >= Grid%isg) .and. (i <= Grid%ieg  ) &
+                       .and. (j >= Grid%jsg) .and. (j <= Grid%jeg+1) &
+                       .and. (k >= Grid%ksg) .and. (k <= Grid%keg  )
+             case(KDIR)
+                isGood =     (i >= Grid%isg) .and. (i <= Grid%ieg  ) &
+                       .and. (j >= Grid%jsg) .and. (j <= Grid%jeg  ) &
+                       .and. (k >= Grid%ksg) .and. (k <= Grid%keg+1)
+        end select
+
+    end function isGoodFaceIJK
+
+    function isGoodEdgeIJK(Model,Grid,i,j,k,d) result(isGood)
+        type(Model_T), intent(in) :: Model
+        type(Grid_T) , intent(in) :: Grid
+        integer      , intent(in) :: i,j,k,d
+
+        logical :: isGood
+
+        isGood = .false.
+        select case(d)
+            case(IDIR)
+                isGood =     (i >= Grid%isg) .and. (i <= Grid%ieg  ) &
+                       .and. (j >= Grid%jsg) .and. (j <= Grid%jeg+1) &
+                       .and. (k >= Grid%ksg) .and. (k <= Grid%keg+1)
+
+            case(JDIR)
+                isGood =     (i >= Grid%isg) .and. (i <= Grid%ieg+1) &
+                       .and. (j >= Grid%jsg) .and. (j <= Grid%jeg  ) &
+                       .and. (k >= Grid%ksg) .and. (k <= Grid%keg+1)
+             case(KDIR)
+                isGood =     (i >= Grid%isg) .and. (i <= Grid%ieg+1) &
+                       .and. (j >= Grid%jsg) .and. (j <= Grid%jeg+1) &
+                       .and. (k >= Grid%ksg) .and. (k <= Grid%keg  )
+        end select
+
+    end function isGoodEdgeIJK
+
 
 end module gridutils

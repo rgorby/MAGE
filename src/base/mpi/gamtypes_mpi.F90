@@ -31,6 +31,13 @@ module gamtypes_mpi
         type(MPI_Datatype), dimension(:), allocatable :: recvTypesMagFlux
         integer(kind=MPI_AN_MYADDR), dimension(:), allocatable :: sendDisplsMagFlux, recvDisplsMagFlux
 
+        ! Bxyz Data Transfer Variables
+        integer, dimension(:), allocatable :: sendCountsBxyz
+        type(MPI_Datatype), dimension(:), allocatable :: sendTypesBxyz
+        integer, dimension(:), allocatable :: recvCountsBxyz
+        type(MPI_Datatype), dimension(:), allocatable :: recvTypesBxyz
+        integer(kind=MPI_AN_MYADDR), dimension(:), allocatable :: sendDisplsBxyz, recvDisplsBxyz
+
         ! Debugging flags
         logical :: printMagFluxFaceError = .false.
         real(rp) :: faceError = 0.0_rp

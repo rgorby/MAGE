@@ -63,9 +63,13 @@ import subprocess
 
 # Import supplemental modules.
 import astropy.time
+from astropy.coordinates import SkyCoord
+import astropy.units as u
 import matplotlib as mpl
 import matplotlib.pyplot as plt
 import numpy as np
+import spacepy.datamodel as dm
+from sunpy.coordinates import frames
 
 # Import project-specific modules.
 from kaipy import cdaweb_utils
@@ -93,7 +97,7 @@ default_last_step = -1
 default_pictype = "pic1"
 
 # Valid plot type strings.
-valid_pictypes = ("pic1", "pic2", "pic3", "pic4", "pic5")
+valid_pictypes = ("pic1", "pic2", "pic3", "pic4", "pic5", "pic6", "pic7")
 
 # Default movie format.
 default_movie_format = "mp4"
@@ -113,6 +117,8 @@ figure_sizes = {
     "pic3": (10, 6.5),
     "pic4": (10, 6),
     "pic5": (12, 12),
+    "pic6": (12.5, 12.5),
+    "pic7": (10, 12.5),
 }
 
 # List of colors to use for spacecraft position dots.
@@ -142,41 +148,50 @@ def create_command_line_parser():
         formatter_class=argparse.RawTextHelpFormatter
     )
     parser.add_argument(
-        "--clobber", action="store_true", default=False,
+        "--clobber", action="store_true",
         help="Overwrite existing frame and movie files (default: %(default)s)."
     )
     parser.add_argument(
-        "--debug", action="store_true", default=False,
+        "--debug", action="store_true",
         help="Print debugging output (default: %(default)s)."
     )
     parser.add_argument(
-        "-d", "--directory", type=str, metavar="directory",
+        "--directory", "-d", type=str, metavar="directory",
         default=os.getcwd(),
         help="Directory containing data to read (default: %(default)s)"
     )
     parser.add_argument(
-        "-f", "--movie_format", type=str, metavar="movie_format",
-        default=default_movie_format,
-        help="Output movie format (default: %(default)s)"
-    )
-    parser.add_argument(
-        "-id", "--runid", type=str, metavar="runid", default=default_runid,
-        help="Run ID of data (default: %(default)s)"
-    )
-    parser.add_argument(
-        "-n0", "--first_step", type=int, metavar="n0",
+        "--first_step", "-n0", type=int, metavar="n0",
         default=default_first_step,
         help="First time step to plot (default: %(default)s)"
     )
     parser.add_argument(
-        "-n1", "--last_step", type=int, metavar="n1",
+        "--hgsplot", action="store_true",
+        help="Plot in the Heliographic Stonyhurst frame corresponding to the "
+             "date of the plot (default: %(default)s)."
+    )
+    parser.add_argument(
+        "--jslice", "-jslice", type=int, metavar="jSlice", default=None,
+        help="Index of j-slice for pic7 (default: Nj/2-1)"
+    )
+    parser.add_argument(
+        "--last_step", "-n1", type=int, metavar="n1",
         default=default_last_step,
         help="Last time step to plot (default: %(default)s)"
     )
     parser.add_argument(
-        "-p", "--pictype", type=str, metavar="pictype",
+        "--movie_format", type=str, metavar="movie_format",
+        default=default_movie_format,
+        help="Output movie format (default: %(default)s)"
+    )
+    parser.add_argument(
+        "--pictype", "-p", type=str, metavar="pictype",
         default=default_pictype,
         help="Code for plot type (default: %(default)s)"
+    )
+    parser.add_argument(
+        "--runid", "-id", type=str, metavar="runid", default=default_runid,
+        help="Run ID of data (default: %(default)s)"
     )
     parser.add_argument(
         "--spacecraft", type=str, metavar="spacecraft", default=None,
@@ -184,7 +199,7 @@ def create_command_line_parser():
         " (default: %(default)s)"
     )
     parser.add_argument(
-        "-v", "--verbose", action="store_true", default=False,
+        "--verbose", "-v", action="store_true", default=False,
         help="Print verbose output (default: %(default)s)."
     )
     return parser
@@ -230,7 +245,7 @@ def fetch_spacecraft_trajectories(spacecraft_names, gsph):
     MJDc = scutils.read_MJDc(fname)
 
     # Fetch the trajectory of each spacecraft from CDAWeb.
-    for (i_sc, sc_id) in enumerate(spacecraft_names):
+    for sc_id in spacecraft_names:
 
         # Fetch the spacecraft trajectory in whatever frame is available
         # from CDAWeb.
@@ -288,7 +303,10 @@ def assemble_frames_into_gif(frame_files, args):
     # Create the movie.
     cmd = ["convert",  "-delay", "10", "-loop", "0"]
     cmd += frame_files
-    movie_file = os.path.join(movie_directory, f"{pictype}.gif")
+    if args.hgsplot:
+        movie_file = os.path.join(movie_directory, f"{pictype}-HGS.gif")
+    else:
+        movie_file = os.path.join(movie_directory, f"{pictype}.gif")
     cmd.append(movie_file)
     # NOTE: movie_file is overwritten by default.
     subprocess.run(cmd, check=True)
@@ -324,8 +342,12 @@ def assemble_frames_into_mp4(frame_files, args):
 
     # Create the movie.
     frame_directory = os.path.split(frame_files[0])[0]
-    frame_pattern = os.path.join(frame_directory, f"{pictype}-%06d.png")
-    movie_file = os.path.join(movie_directory, f"{pictype}.mp4")
+    if args.hgsplot:
+        movie_file = os.path.join(movie_directory, f"{pictype}-HGS.mp4")
+        frame_pattern = os.path.join(frame_directory, f"{pictype}-HGS-%06d.png")
+    else:
+        movie_file = os.path.join(movie_directory, f"{pictype}.mp4")
+        frame_pattern = os.path.join(frame_directory, f"{pictype}-%06d.png")
     cmd = [
         "ffmpeg", "-r", "4", "-s", "1920x1080",
         "-i", frame_pattern,
@@ -376,6 +398,65 @@ def assemble_frames_into_movie(frame_files, args):
     return movie_file
 
 
+def GHtoHGS(mjd_gh, x_gh, y_gh, z_gh, mjd_hgs):
+    """Convert Cartesin GH coordinates to HGS.
+
+    Convert Cartesian coordinates in the gamhelio frame at time mjdc to
+    the Heliographic Sonyhurst frame at time mjd.
+
+    NOTE: The gamhelio frame at time t is related to the Heliographic
+    Stonyhurst frame at time t by the reflection of the x- and y-axes:
+
+    x_gh(t) = -x_hgs(t)
+    y_gh(t) = -y_hgs(t)
+    z_gh(t) = z_hgs(t)
+
+    Since HGS is a time-dependent frame, a time must be provided for each set
+    of coordinates.
+
+    Parameters
+    ----------
+    mjd_gh : float
+        MJD of source gamhelio frame
+    x_gh, y_gh, z_gh : np.array of float (any shape) or scalar float
+        Cartesian coordinates in GH(mjdc) frame. All three arrays x, y, z must
+        have identical shapes.
+    mjd_hgs : float
+        MJD of target HGS frame
+
+    Returns
+    -------
+    x_hgs, y_hgs, z_hgs : np.array of float (same shape as x_gh, y_gh, z_gh)
+        Cartesian coordinates converted to HGS(mjd) frame.
+
+    Raises
+    ------
+    None
+    """
+    # Load the source coordinates (originially in the GH(mjd_gh) frame) into
+    #  the equivalent HGS(mjd_gh) frame.
+    c_gh = SkyCoord(
+        -x_gh*u.Rsun, -y_gh*u.Rsun, z_gh*u.Rsun,
+        frame=frames.HeliographicStonyhurst,
+        obstime=ktools.MJD2UT(mjd_gh),
+        representation_type="cartesian"
+    )
+
+    # Create the target Heliographic Stonyhurst frame.
+    hgs_frame = frames.HeliographicStonyhurst(
+        obstime=ktools.MJD2UT(mjd_hgs)
+    )
+
+    # Convert the coordinates from GH(mjd_gh) to HGS(mjd_hgs).
+    c_hgs = c_gh.transform_to(hgs_frame)
+
+    # Extract and return the converted coordinates.
+    x_hgs = dm.dmarray(c_hgs.cartesian.x)
+    y_hgs = dm.dmarray(c_hgs.cartesian.y)
+    z_hgs = dm.dmarray(c_hgs.cartesian.z)
+    return x_hgs, y_hgs, z_hgs
+
+
 def create_pic1_movie(args):
     """Create a pic1-style gamhelio movie.
 
@@ -397,6 +478,7 @@ def create_pic1_movie(args):
     """
     # Extract arguments.
     debug = args.debug
+    hgsplot=args.hgsplot
     pictype = args.pictype
     spacecraft = args.spacecraft
     verbose = args.verbose
@@ -413,9 +495,6 @@ def create_pic1_movie(args):
     figsize = figure_sizes[pictype]
     if debug:
         print(f"figsize = {figsize}")
-
-    # Create figures in a memory buffer.
-    mpl.use("Agg")
 
     # Create the figure.
     fig = plt.figure(figsize=figsize)
@@ -477,7 +556,10 @@ def create_pic1_movie(args):
         )
 
     # Compute the path to the frame directory.
-    frame_directory = os.path.join(fdir, f"frames-{pictype}")
+    if hgsplot:
+        frame_directory = os.path.join(fdir, f"frames-{pictype}-HGS")
+    else:
+        frame_directory = os.path.join(fdir, f"frames-{pictype}")
     try:
         os.mkdir(frame_directory)
     except FileExistsError as e:
@@ -485,6 +567,10 @@ def create_pic1_movie(args):
             pass
         else:
             raise e
+
+    # Get the MJDc value for use in computing the gamhelio frame.
+    fname = gsph.f0
+    MJDc = scutils.read_MJDc(fname)
 
     # Create and save frame images for each step.
     first_step = args.first_step
@@ -506,13 +592,19 @@ def create_pic1_movie(args):
             print(f"mjd = {mjd}")
 
         # Create the individual plots for this frame.
-        hviz.PlotEqMagV(gsph, i_step, plot_limits, ax_v, ax_cb_v)
-        hviz.PlotEqD(gsph, i_step, plot_limits, ax_n, ax_cb_n)
-        hviz.PlotEqTemp(gsph, i_step, plot_limits, ax_T, ax_cb_T)
-        hviz.PlotEqBr(gsph, i_step, plot_limits, ax_Br, ax_cb_Br)
-
-        # Add time in the upper left.
-        gsph.AddTime(i_step, ax_v, xy=[0.025, 0.875], fs="x-large")
+        hviz.PlotEqMagV(gsph, i_step, plot_limits, ax_v, ax_cb_v,
+                        hgsplot=hgsplot, MJDc=MJDc, MJD_plot=mjd)
+        hviz.PlotEqD(gsph, i_step, plot_limits, ax_n, ax_cb_n,
+                     hgsplot=hgsplot, MJDc=MJDc, MJD_plot=mjd)
+        hviz.PlotEqTemp(gsph, i_step, plot_limits, ax_T, ax_cb_T,
+                        hgsplot=hgsplot, MJDc=MJDc, MJD_plot=mjd)
+        hviz.PlotEqBr(gsph, i_step, plot_limits, ax_Br, ax_cb_Br,
+                      hgsplot=hgsplot, MJDc=MJDc, MJD_plot=mjd)
+        if hgsplot:
+            fig.suptitle("Heliographic Stonyhurst frame for "
+                            f"{ktools.MJD2UT(mjd)}")
+        else:
+            fig.suptitle(f"GAMERA-Helio frame for {ktools.MJD2UT(mjd)}")
 
         # Overlay spacecraft positions (optional).
         if spacecraft:
@@ -526,7 +618,11 @@ def create_pic1_movie(args):
                 t_sc = mjd
                 x_sc = np.interp(t_sc, sc_t[sc_id], sc_x[sc_id])
                 y_sc = np.interp(t_sc, sc_t[sc_id], sc_y[sc_id])
-                # z_sc = np.interp(t_sc, sc_t[sc_id], sc_z[sc_id])
+                z_sc = np.interp(t_sc, sc_t[sc_id], sc_z[sc_id])
+
+                # If needed, convert the position to HGS(mjd).
+                if hgsplot:
+                    x_sc, y_sc, z_sc = GHtoHGS(MJDc, x_sc, y_sc, z_sc, mjd)
 
                 # Plot the spacecraft position as a colored circle with black
                 # outline and a label.
@@ -541,7 +637,10 @@ def create_pic1_movie(args):
                             c="black", horizontalalignment="center")
 
         # Save the figure to a file.
-        path = os.path.join(frame_directory, f"{pictype}-{i_step:06d}.png")
+        if hgsplot:
+            path = os.path.join(frame_directory, f"{pictype}-HGS-{i_step:06d}.png")
+        else:
+            path = os.path.join(frame_directory, f"{pictype}-{i_step:06d}.png")
         if debug:
             print(f"path = {path}")
         kv.savePic(path, bLenX=45)
@@ -582,6 +681,7 @@ def create_pic2_movie(args):
     """
     # Extract arguments.
     debug = args.debug
+    hgsplot=args.hgsplot
     pictype = args.pictype
     spacecraft = args.spacecraft
     verbose = args.verbose
@@ -590,9 +690,6 @@ def create_pic2_movie(args):
     plot_limits = hviz.GetSizeBds(pictype)
     if debug:
         print(f"plot_limits = {plot_limits}")
-
-    # Create all plot images in a memory buffer.
-    mpl.use("Agg")
 
     # Fetch the figure size.
     figsize = figure_sizes[pictype]
@@ -662,7 +759,10 @@ def create_pic2_movie(args):
         )
 
     # Compute the path to the frame directory.
-    frame_directory = os.path.join(fdir, f"frames-{pictype}")
+    if hgsplot:
+        frame_directory = os.path.join(fdir, f"frames-HGS-{pictype}-HGS")
+    else:
+        frame_directory = os.path.join(fdir, f"frames-{pictype}")
     try:
         os.mkdir(frame_directory)
     except FileExistsError as e:
@@ -670,6 +770,10 @@ def create_pic2_movie(args):
             pass
         else:
             raise e
+
+    # Get the MJDc value for use in computing the gamhelio frame.
+    fname = gsph.f0
+    MJDc = scutils.read_MJDc(fname)
 
     # Create and save frame images for each step.
     first_step = args.first_step
@@ -691,13 +795,19 @@ def create_pic2_movie(args):
             print(f"mjd = {mjd}")
 
         # Create the individual plots for this frame.
-        hviz.PlotMerMagV(gsph, i_step, plot_limits, ax_v, ax_cb_v)
-        hviz.PlotMerDNorm(gsph, i_step, plot_limits, ax_n, ax_cb_n)
-        hviz.PlotMerTemp(gsph, i_step, plot_limits, ax_T, ax_cb_T)
-        hviz.PlotMerBrNorm(gsph, i_step, plot_limits, ax_Br, ax_cb_Br)
-
-        # Add time in the upper left.
-        gsph.AddTime(i_step, ax_v, xy=[0.025, 0.875], fs="x-large")
+        hviz.PlotMerMagV(gsph, i_step, plot_limits, ax_v, ax_cb_v,
+                         hgsplot=hgsplot, MJDc=MJDc, MJD_plot=mjd)
+        hviz.PlotMerDNorm(gsph, i_step, plot_limits, ax_n, ax_cb_n,
+                          hgsplot=hgsplot, MJDc=MJDc, MJD_plot=mjd)
+        hviz.PlotMerTemp(gsph, i_step, plot_limits, ax_T, ax_cb_T,
+                         hgsplot=hgsplot, MJDc=MJDc, MJD_plot=mjd)
+        hviz.PlotMerBrNorm(gsph, i_step, plot_limits, ax_Br, ax_cb_Br,
+                           hgsplot=hgsplot, MJDc=MJDc, MJD_plot=mjd)
+        if hgsplot:
+            fig.suptitle("Heliographic Stonyhurst frame for "
+                            f"{ktools.MJD2UT(mjd)}")
+        else:
+            fig.suptitle(f"GAMERA-Helio frame for {ktools.MJD2UT(mjd)}")
 
         # Overlay spacecraft positions (optional).
         if spacecraft:
@@ -710,8 +820,12 @@ def create_pic2_movie(args):
                 # Interpolate the spacecraft position at the time for the plot.
                 t_sc = mjd
                 x_sc = np.interp(t_sc, sc_t[sc_id], sc_x[sc_id])
-                # y_sc = np.interp(t_sc, sc_t[sc_id], sc_y[sc_id])
+                y_sc = np.interp(t_sc, sc_t[sc_id], sc_y[sc_id])
                 z_sc = np.interp(t_sc, sc_t[sc_id], sc_z[sc_id])
+
+                # If needed, convert the position to HGS(mjd).
+                if hgsplot:
+                    x_sc, y_sc, z_sc = GHtoHGS(MJDc, x_sc, y_sc, z_sc, mjd)
 
                 # Plot the spacecraft position as a colored circle with black
                 # outline and a label.
@@ -726,7 +840,10 @@ def create_pic2_movie(args):
                             c="black", horizontalalignment="center")
 
         # Save the figure to a file.
-        path = os.path.join(frame_directory, f"{pictype}-{i_step:06d}.png")
+        if hgsplot:
+            path = os.path.join(frame_directory, f"{pictype}-HGS-{i_step:06d}.png")
+        else:
+            path = os.path.join(frame_directory, f"{pictype}-{i_step:06d}.png")
         if debug:
             print(f"path = {path}")
         kv.savePic(path, bLenX=45)
@@ -767,6 +884,7 @@ def create_pic3_movie(args):
     """
     # Extract arguments.
     debug = args.debug
+    hgsplot=args.hgsplot
     pictype = args.pictype
     spacecraft = args.spacecraft
     verbose = args.verbose
@@ -775,9 +893,6 @@ def create_pic3_movie(args):
     plot_limits = hviz.GetSizeBds(pictype)
     if debug:
         print(f"plot_limits = {plot_limits}")
-
-    # Create all plot images in a memory buffer.
-    mpl.use("Agg")
 
     # Fetch the figure size.
     figsize = figure_sizes[pictype]
@@ -847,7 +962,10 @@ def create_pic3_movie(args):
         )
 
     # Compute the path to the frame directory.
-    frame_directory = os.path.join(fdir, f"frames-{pictype}")
+    if hgsplot:
+        frame_directory = os.path.join(fdir, f"frames-HGS-{pictype}-HGS")
+    else:
+        frame_directory = os.path.join(fdir, f"frames-{pictype}")
     try:
         os.mkdir(frame_directory)
     except FileExistsError as e:
@@ -855,6 +973,10 @@ def create_pic3_movie(args):
             pass
         else:
             raise e
+
+    # Get the MJDc value for use in computing the gamhelio frame.
+    fname = gsph.f0
+    MJDc = scutils.read_MJDc(fname)
 
     # Create and save frame images for each step.
     first_step = args.first_step
@@ -876,13 +998,26 @@ def create_pic3_movie(args):
             print(f"mjd = {mjd}")
 
         # Create the individual plots for this frame.
-        hviz.PlotiSlMagV(gsph, i_step, plot_limits, ax_v, ax_cb_v)
-        hviz.PlotiSlD(gsph, i_step, plot_limits, ax_n, ax_cb_n)
-        hviz.PlotiSlTemp(gsph, i_step, plot_limits, ax_T, ax_cb_T)
-        hviz.PlotiSlBr(gsph, i_step, plot_limits, ax_Br, ax_cb_Br)
-
-        # Add time in the upper left.
-        gsph.AddTime(i_step, ax_v, xy=[0.015, 0.82], fs="small")
+        AU_RSUN = 215.0
+        radius = AU_RSUN
+        hviz.PlotiSlMagV(gsph, i_step, plot_limits, ax_v, ax_cb_v, idx=radius,
+                         idx_is_radius=True,
+                         hgsplot=hgsplot, MJDc=MJDc, MJD_plot=mjd)
+        hviz.PlotiSlD(gsph, i_step, plot_limits, ax_n, ax_cb_n, idx=radius,
+                      idx_is_radius=True,
+                      hgsplot=hgsplot, MJDc=MJDc, MJD_plot=mjd)
+        hviz.PlotiSlTemp(gsph, i_step, plot_limits, ax_T, ax_cb_T, idx=radius,
+                         idx_is_radius=True,
+                         hgsplot=hgsplot, MJDc=MJDc, MJD_plot=mjd)
+        hviz.PlotiSlBr(gsph, i_step, plot_limits, ax_Br, ax_cb_Br, idx=radius,
+                       idx_is_radius=True,
+                       hgsplot=hgsplot, MJDc=MJDc, MJD_plot=mjd)
+        if hgsplot:
+            fig.suptitle("Heliographic Stonyhurst frame at 1 AU for "
+                            f"{ktools.MJD2UT(mjd)}")
+        else:
+            fig.suptitle("GAMERA-Helio frame at 1 AU for "
+                            f"{ktools.MJD2UT(mjd)}")
 
         # Overlay spacecraft positions (optional).
         if spacecraft:
@@ -894,6 +1029,13 @@ def create_pic3_movie(args):
 
                 # Interpolate the spacecraft position at the time for the plot.
                 t_sc = mjd
+
+                # If needed, convert the position to HGS(mjd).
+                if hgsplot:
+                    sc_x[sc_id], sc_y[sc_id], sc_z[sc_id] = (
+                        GHtoHGS(MJDc, sc_x[sc_id], sc_y[sc_id], sc_z[sc_id],
+                                mjd)
+                    )
 
                 # Convert Cartesian location to heliocentric lon/lat.
                 rxy = np.sqrt(sc_x[sc_id]**2 + sc_y[sc_id]**2)
@@ -917,7 +1059,10 @@ def create_pic3_movie(args):
                             c="black", horizontalalignment="center")
 
         # Save the figure to a file.
-        path = os.path.join(frame_directory, f"{pictype}-{i_step:06d}.png")
+        if hgsplot:
+            path = os.path.join(frame_directory, f"{pictype}-HGS-{i_step:06d}.png")
+        else:
+            path = os.path.join(frame_directory, f"{pictype}-{i_step:06d}.png")
         if debug:
             print(f"path = {path}")
         kv.savePic(path, bLenX=45)
@@ -1240,6 +1385,54 @@ def create_pic5_movie(args):
     return movie_file
 
 
+def create_pic6_movie(args):
+    """Create a pic6-style gamhelio movie.
+
+    Create a pic6-style gamhelio movie.
+
+    Parameters
+    ----------
+    args : dict
+        Dictionary of command-line arguments.
+
+    Returns
+    -------
+    movie_file : str
+        Path to movie file.
+
+    Raises
+    ------
+    None
+    """
+    # Return the path to the movie file.
+    movie_file = None
+    return movie_file
+
+
+def create_pic7_movie(args):
+    """Create a pic7-style gamhelio movie.
+
+    Create a pic7-style gamhelio movie.
+
+    Parameters
+    ----------
+    args : dict
+        Dictionary of command-line arguments.
+
+    Returns
+    -------
+    movie_file : str
+        Path to movie file.
+
+    Raises
+    ------
+    None
+    """
+    # Return the path to the movie file.
+    movie_file = None
+    return movie_file
+
+
 def create_gamhelio_movie(args):
     """Create a gamhelio movie.
 
@@ -1248,7 +1441,7 @@ def create_gamhelio_movie(args):
     Parameters
     ----------
     args : dict
-        Dictionary of command-line options.
+        Dictionary of command-line arguments.
 
     Returns
     -------
@@ -1263,7 +1456,7 @@ def create_gamhelio_movie(args):
     debug = args.debug
     pictype = args.pictype
 
-    # Check that a valid plot code was provided.
+    # Check that a valid picture type code was provided.
     if pictype not in valid_pictypes:
         raise TypeError(f"Invalid plot type ({pictype})!")
 
@@ -1278,6 +1471,10 @@ def create_gamhelio_movie(args):
         movie_file = create_pic4_movie(args)
     elif pictype == "pic5":
         movie_file = create_pic5_movie(args)
+    elif pictype == "pic6":
+        movie_file = create_pic6_movie(args)
+    elif pictype == "pic7":
+        movie_file = create_pic7_movie(args)
     else:
         raise TypeError(f"Invalid plot type ({pictype})!")
     if debug:
@@ -1295,17 +1492,14 @@ def main():
 
     # Parse the command-line arguments.
     args = parser.parse_args()
-    debug = args.debug
-    verbose = args.verbose
-    if debug:
+    if args.debug:
         print(f"args = {args}")
 
     # Create the movie based on the selected picture type.
     movie_file = create_gamhelio_movie(args)
-    if verbose:
+    if args.verbose:
         print(f"The movie is available in {movie_file}.")
 
 
 if __name__ == "__main__":
-    """Begin main program."""
     main()

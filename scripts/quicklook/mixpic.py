@@ -9,12 +9,32 @@ Author
 ------
 Kareem Sorathia (kareem.sorathia@jhuapl.edu)
 Eric Winter (eric.winter@jhuapl.edu)
+
+
+
+Example PBS script to use multiprocessing to make a video on Lou Data Analysis Nodes:
+
+#!/bin/bash
+#PBS -N MixVid
+#PBS -j oe
+#PBS -lselect=1:ncpus=36:mem=750GB
+#PBS -lwalltime=2:00:00
+#PBS -q ldan
+#PBS -W group_list=s2521
+export RUNID=“geospace”
+# load modules and set python environment
+source ~/.bashrc
+setPy
+cd $PBS_O_WORKDIR
+mixpic.py -id $RUNID --vid -ncpus 36
+
 """
 
 
 # Import standard modules.
 import argparse
 import sys
+import os
 
 # Import supplemental modules.
 from astropy.time import Time
@@ -23,12 +43,18 @@ import matplotlib as mpl
 import matplotlib.gridspec as gridspec
 import matplotlib.pyplot as plt
 import numpy as np
+import h5py as h5
+from alive_progress import alive_it
+from multiprocessing import Pool
+from psutil import cpu_count
 
 # Import project-specific modules.
 import kaipy.cdaweb_utils as cdaweb_utils
 import kaipy.kaiH5 as kaiH5
 import kaipy.kaiTools as ktools
 import kaipy.remix.remix as remix
+import kaipy.kaiViz as kv
+import kaipy.kdefs as kd
 
 
 # Program constants and defaults
@@ -47,6 +73,9 @@ default_step = -1
 
 # Color to use for magnetic footprint positions.
 FOOTPRINT_COLOR = 'red'
+
+# Coordinate system for plotting
+default_coord = 'SM'
 
 
 def create_command_line_parser():
@@ -95,67 +124,42 @@ def create_command_line_parser():
         "-v", "--verbose", action="store_true", default=False,
         help="Print verbose output (default: %(default)s)."
     )
+    parser.add_argument(
+        '-GTYPE', action='store_true', default=False,
+        help="Show RCM grid type in the eflx plot (default: %(default)s)"
+    )
+    parser.add_argument(
+        '-PP', action='store_true', default=False,
+        help="Show plasmapause (10/cc) in the eflx/nflx plot (default: %(default)s)"
+    )
+    parser.add_argument(
+        '-vid', action='store_true', default=False,
+        help="Make a video and store in mixVid directory (default: %(default)s)"
+    )
+    parser.add_argument(
+        '-overwrite', action='store_true', default=False,
+        help="Overwrite existing vid files (default: %(default)s)"
+    )
+    parser.add_argument(
+        '--ncpus', type=int, metavar="ncpus", default=1,
+        help="Number of threads to use with --vid (default: %(default)s)"
+    )
+    parser.add_argument(
+        '-nohash', action='store_true', default=False,
+        help="Don't display branch/hash info (default: %(default)s)"
+    )
+    parser.add_argument(
+        '--coord', type=str, metavar="coord", default=default_coord,
+        help="Coordinate system to use (default: %(default)s)"
+    )
     return parser
 
 
-if __name__ == "__main__":
-    """Plot the ground magnetic field perturbations."""
+def makePlot(i, remixFile, nStp):
 
-    # Set up the command-line parser.
-    parser = create_command_line_parser()
-
-    # Parse the command-line arguments.
-    args = parser.parse_args()
-    debug = args.debug
-    runid = args.id
-    nStp = args.n
-    do_nflux = args.nflux
-    do_print = args.print
-    spacecraft = args.spacecraft
-    verbose = args.verbose
-    if debug:
-        print("args = %s" % args)
-
-    # Construct the name of the REMIX results file.
-    remixFile = runid + '.mix.h5'
-    if debug:
-        print("remixFile = %s" % remixFile)
-
-    # Split the original string into a list of spacecraft IDs.
-    if spacecraft:
-        spacecraft = spacecraft.split(',')
-        if debug:
-            print("spacecraft = %s" % spacecraft)
-
-    # Enumerate the steps in the results file.
-    nsteps, sIds = kaiH5.cntSteps(remixFile)
-    if debug:
-        print("nsteps = %s" % nsteps)
-        print("sIds = %s" % sIds)
-
-    # Check that the requested step exists.
-    if nStp >= 0 and not nStp in sIds:  # ANY nStp<0 gets last step.
-        raise TypeError(f"Step #{nStp} not found in {remixFile}!")
-
-    # Get the times from the result file.
-    T = kaiH5.getTs(remixFile, sIds, aID='MJD')
-    if debug:
-        print("T = %s" % T)
-    if do_print:
-        for i, tt in enumerate(T):
-            print('Step#%06d: ' % sorted(sIds)[i], Time(tt, format='mjd').iso)
-        sys.exit(0)
-
-    # Find the time for the specified step.
-    if nStp == -1:
-        # Take the last step.
-        nStp = sorted(sIds)[-1]
-    if debug:
-        print("nStp = %s" % nStp)
-    idxStp = np.where(sIds==nStp)[0][0]
-    if debug:
-        print("idxStp = %s" % idxStp)
-    foundT = T[idxStp]
+    with h5.File(remixFile, 'r') as f5:
+        foundT = f5['Step#'+str(nStp)].attrs['MJD']
+    #foundT = T[idxStp]
     if debug:
         print("foundT = %s" % foundT)
     print('Found time:', Time(foundT, format='mjd').iso)
@@ -163,23 +167,38 @@ if __name__ == "__main__":
     if debug:
         print("utS = %s" % utS)
 
-    # Create the plots in a memory buffer.
-    mpl.use('Agg')
+    # If both N and S files exist, skip it
+    if do_vid:
+        filenameN = "{}.{:0>{n}d}.png".format("remix_n", i, n=n_pad)
+        outPathN = os.path.join(outDir, filenameN)
+        filenameS = "{}.{:0>{n}d}.png".format("remix_s", i, n=n_pad)
+        outPathS = os.path.join(outDir, filenameN)
+        if not do_overwrite and os.path.exists(outPathN) and os.path.exists(outPathS):
+            return
 
-    # Set global plot font options.
-    mpl.rc('mathtext', fontset='stixsans', default='regular')
-    mpl.rc('font', size=10)
 
     # Read the data into the remix object.
     ion = remix.remix(remixFile, nStp)
     if debug:
         print("ion = %s" % ion)
 
-    # Make separate plots for the northern and southern hemispheres.
-    for h in ['NORTH', 'SOUTH']:
+    for h in ['NORTH','SOUTH']:
+        if h == 'NORTH':
+            hemi = 'n'
+        if h == 'SOUTH':
+            hemi = 's'
 
-        # Create the figure for the plot.
-        fig = plt.figure(figsize=(12, 7.5))
+        if do_vid:
+            filename = "{}.{:0>{n}d}.png".format("remix_"+hemi, i, n=n_pad)
+            outPath = os.path.join(outDir, filename)
+        else:
+            outPath = "remix_"+hemi+".png"
+
+        # Skip this file if it already exists and we're not supposed to overwrite
+        if not do_overwrite and os.path.exists(outPath) and do_vid:
+            continue
+
+        plt.clf()
 
         # Add a label.
         plt.figtext(
@@ -203,9 +222,9 @@ if __name__ == "__main__":
         axs[3] = ion.plot('joule', gs=gs[1, 0])
         axs[4] = ion.plot('energy', gs=gs[1, 1])
         if do_nflux:
-            axs[5] = ion.plot('flux', gs=gs[1, 2])
+            axs[5] = ion.plot('flux', gs=gs[1, 2],doGTYPE=do_GTYPE,doPP=do_PP)
         else:
-            axs[5] = ion.plot('eflux', gs=gs[1, 2])
+            axs[5] = ion.plot('eflux', gs=gs[1, 2],doGTYPE=do_GTYPE,doPP=do_PP)
 
         # If requested, plot the magnetic footprints for the specified
         # spacecraft.
@@ -256,8 +275,115 @@ if __name__ == "__main__":
                     r_nudge = 0.0
                     ax.text(fp_theta + theta_nudge, fp_r + r_nudge, sc)
 
-        # Save the plot for the current hemisphere to a file.
-        if h.lower() == 'north':
-            plt.savefig('remix_n.png', dpi=300)
+        # Add Branch and Hash info
+        if do_hash:
+            fig.text(0.1,0.95,f"branch/commit: {branch}/{githash}", fontsize=6)
+
+        # Save to file
+        kv.savePic(outPath, dpiQ=300)
+
+        #plt.close(fig)
+
+if __name__ == "__main__":
+    """Plot remix data, either a single time step or as a movie"""
+
+    # Set up the command-line parser.
+    parser = create_command_line_parser()
+
+    # Parse the command-line arguments.
+    args = parser.parse_args()
+    debug = args.debug
+    runid = args.id
+    nStp = args.n
+    do_nflux = args.nflux
+    do_print = args.print
+    spacecraft = args.spacecraft
+    verbose = args.verbose
+    do_GTYPE = args.GTYPE
+    do_PP = args.PP
+    do_vid = args.vid
+    do_overwrite = args.overwrite
+    do_hash = not args.nohash
+    ncpus = args.ncpus
+
+    if debug:
+        print("args = %s" % args)
+
+    # Construct the name of the REMIX results file.
+    remixFile = runid + '.mix.h5'
+    if debug:
+        print("remixFile = %s" % remixFile)
+
+    # Get branch/hash info
+    if do_hash:
+        branch = kaiH5.GetBranch(remixFile)
+        githash = kaiH5.GetHash(remixFile)
+        if debug:
+            print(f'branch/commit: {branch}/{githash}')
+
+    # Split the original string into a list of spacecraft IDs.
+    if spacecraft:
+        spacecraft = spacecraft.split(',')
+        if debug:
+            print("spacecraft = %s" % spacecraft)
+
+    # Enumerate the steps in the results file.
+    nsteps, sIds = kaiH5.cntSteps(remixFile)
+    sIds = sorted(sIds)
+    if debug:
+        print("nsteps = %s" % nsteps)
+        print("sIds = %s" % sIds)
+
+    # Check that the requested step exists.
+    if nStp >= 0 and not nStp in sIds:  # ANY nStp<0 gets last step.
+        raise TypeError(f"Step #{nStp} not found in {remixFile}!")
+
+    # Get the times from the result file.
+    if do_print:
+        T = kaiH5.getTs(remixFile, sIds, aID='MJD')
+        if debug:
+            print("T = %s" % T)
+        for i, tt in enumerate(T):
+            print('Step#%06d: ' % sorted(sIds)[i], Time(tt, format='mjd').iso)
+        sys.exit(0)
+
+    
+    # Create the plots in a memory buffer.
+    mpl.use('Agg')
+
+    # Set global plot font options.
+    mpl.rc('mathtext', fontset='stixsans', default='regular')
+    mpl.rc('font', size=10)
+
+    # Init figure
+    fig = plt.figure(figsize=(12, 7.5))
+
+    if not do_vid:  # Then we are making a single image, keep original functionality
+        # Find the time for the specified step.
+        if nStp == -1:
+            # Take the last step.
+            nStp = sorted(sIds)[-1]
+        if debug:
+            print("nStp = %s" % nStp)
+        makePlot(nStp, remixFile, nStp)
+    
+    else:  # Then we make a video, i.e. series of images saved to mixVid
+        outDir = 'mixVid'
+        kaiH5.CheckDirOrMake(outDir)
+
+        # How many 0's do we need for filenames?
+        n_pad = int(np.log10((len(sIds)))) + 1
+
+        if ncpus == 1:
+            for i, nStp in enumerate(alive_it(sIds,length=kd.barLen,bar=kd.barDef)):
+                makePlot(i,remixFile, nStp)
         else:
-            plt.savefig('remix_s.png', dpi=300)
+            # Make list of parallel arguments
+            ag = ((i,remixFile,nStp) for i, nStp in enumerate(sIds) )
+            # Check we're not exceeding cpu_count on computer
+            ncpus = min(int(ncpus),cpu_count(logical=False))
+            print('Doing multithreading on ',ncpus,' threads')
+            # Do parallel job
+            with Pool(processes=ncpus) as pl:
+                pl.starmap(makePlot,ag)
+            print("Done making all the images. Go to mixVid folder")

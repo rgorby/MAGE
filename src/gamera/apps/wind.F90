@@ -18,6 +18,7 @@ module wind
 
     logical, parameter, private :: doWindInterp = .false.
     logical, parameter, private :: doSWDiffuse  = .true.
+    real(rp), parameter, private :: MinMach = 1.0
 
     !TODO: Remove WindTS_T pointer and call interpwind
 
@@ -120,15 +121,15 @@ module wind
         real(rp) :: D,P,DelT
         real(rp), dimension(NDIM) :: nHat,vHat,V,B,V0,xcc
         real(rp) :: CosF,SinF,CosBp,SinBp
-        real(rp) :: bcc,btt, vMag
+        real(rp) :: bcc,btt, vSpd
         integer :: n,ip,j,k
-
 
         !Set location
         call PlaceWind(windBC,Model,Model%t)
 
         !Find current wind info
         call windBC%getWind(windBC,Model,Model%t,D,P,V0,B)
+        vSpd = -norm2(V0)
 
         !Rotate current velocity
         bcc = sqrt(windBC%ByC**2.0 + windBC%BzC**2.0)
@@ -143,17 +144,15 @@ module wind
             SinF = bcc/btt
 
             !Calculate front velocity
-            windBC%vFr(XDIR) =  V0(XDIR)*(CosF**2.0)
-            windBC%vFr(YDIR) = -V0(XDIR)*CosF*SinF*CosBp
-            windBC%vFr(ZDIR) = -V0(XDIR)*CosF*SinF*SinBp
+            windBC%vFr(XDIR) =  vSpd*(CosF**2.0)
+            windBC%vFr(YDIR) = -vSpd*CosF*SinF*CosBp
+            windBC%vFr(ZDIR) = -vSpd*CosF*SinF*SinBp
         else
             !ByC and BzC are both nearly zero
-            windBC%vFr(XDIR) = V0(XDIR)
+            windBC%vFr(XDIR) = vSpd
             windBC%vFr(YDIR) = 0.0
             windBC%vFr(ZDIR) = 0.0
         endif
-
-        vMag = norm2(windBC%vFr)
 
     end subroutine RefreshWind
 
@@ -210,8 +209,8 @@ module wind
         class(Grid_T), intent(in) :: Grid
         class(State_T), intent(inout) :: State
 
-        real(rp) :: t,D,P,wSW,wMHD,swFlx,inFlx,Cs
-        integer :: ip,ig,j,k,n,s
+        real(rp) :: t,D,P,wSW,wMHD,swFlx,inFlx,Cx
+        integer :: i,j,k,n,ip,jp,kp,ig,jg,kg,s
         real(rp), dimension(NDIM) :: xcc,V,B,nHat
         real(rp), dimension(NVAR) :: gW,gW_sw,gW_in,gCon
         
@@ -226,7 +225,7 @@ module wind
         !$OMP schedule(dynamic) &
         !$OMP private(ip,ig,j,k,n,s) &
         !$OMP private(D,P,wSW,wMHD,swFlx,inFlx) &
-        !$OMP private(xcc,V,B,nHat,gW,gW_sw,gW_in,gCon,Cs)
+        !$OMP private(xcc,V,B,nHat,gW,gW_sw,gW_in,gCon,Cx)
         do k=Grid%ksg,Grid%keg+1
             do j=Grid%jsg,Grid%jeg+1
                 ip = Grid%ie
@@ -255,19 +254,28 @@ module wind
                         !Do MHD outflow cell-centered
                         if (wMHD>TINY) then
                             !Get values from last physical
-                            gCon = State%Gas(ip,j,k,:,BLK)
+                            gCon = State%Gas (ip,j,k,:,BLK)
+                            B    = State%Bxyz(ip,j,k,:)
+
                             call CellC2P(Model,gCon,gW_in)
-                            call CellPress2Cs(Model,gCon,Cs)
+                            call Con2Fast(Model,gCon,B,Cx)
 
                             !Do some work on the flow velocity
                             V = gW_in(VELX:VELZ)
                             nHat = Grid%Tf(ip+1,j,k,NORMX:NORMZ,IDIR)
 
-                            !Enforce diode, should be leaving at Mach 1
-                            if (dot_product(V,nHat) < Cs) then
-                                V = V - Vec2Para(V,nHat) + Cs*nHat
+                            !Make sure stuff is leaving fast enough
+                            if (dot_product(V,nHat) < MinMach*Cx) then
+                                !Don't let the door hit you in the ass on the way out
+                                V = V - Vec2Para(V,nHat) + MinMach*Cx*nHat
                             endif
+
                             gW_in(VELX:VELZ) = V
+                            !Ensure outward directed pressure gradient
+                            !Deplete pressure while preserving temperature (~P/D)
+                            ! gW_in(PRESSURE) = gW_in(PRESSURE)/(n+1)
+                            ! gW_in(DENSITY ) = gW_in(DENSITY )/(n+1)
+
                         endif !MHD outflow
 
                         !Mix BCs and set final ghost values
@@ -315,6 +323,44 @@ module wind
             enddo !j
         enddo !k
         
+        !Now that fluxes are all set, go back and set Bxyz
+        !$OMP PARALLEL DO default(shared) &
+        !$OMP private(n,ig,j,k,ip,jp,kp)    
+        do k=Grid%ksg,Grid%keg
+            do j=Grid%jsg,Grid%jeg
+                do n=1,Model%Ng
+                    ig = Grid%ie+n
+                    !Get conjugate cell, remapped physical cell if inside singularity identity otherwise
+                    call lfmIJKcc(Model,Grid,ig,j,k,ip,jp,kp)
+                    State%Bxyz(ig,j,k,:) = CellBxyz(Model,Grid,State%magFlux,ip,jp,kp)
+                enddo !n
+            enddo
+        enddo
+
+        !Now fix singular regions
+        !$OMP PARALLEL DO default(shared) &
+        !$OMP private(n,i,k,ig,jg,kg,ip,jp,kp)
+        do k=Grid%ksg,Grid%keg
+            do i=Grid%ie+1,Grid%ieg
+                do n=1,Model%Ng
+                    if (Model%Ring%doS) then
+                        ig = i
+                        kg = k
+                        jg = Grid%js-n
+                        call lfmIJKcc(Model,Grid,ig,jg,kg,ip,jp,kp)
+                        State%Bxyz(ig,jg,kg,:) = State%Bxyz(ip,jp,kp,:)
+                    endif
+
+                    if (Model%Ring%doE) then
+                        ig = i
+                        kg = k
+                        jg = Grid%je+n
+                        call lfmIJKcc(Model,Grid,ig,jg,kg,ip,jp,kp)
+                        State%Bxyz(ig,jg,kg,:) = State%Bxyz(ip,jp,kp,:)
+                    endif
+                enddo !n
+            enddo
+        enddo !k
     end subroutine WindBC
 
 
@@ -334,44 +380,6 @@ module wind
 
     end function WindMagFlux
 
-    !Correct predictor Bxyz
-    subroutine WindPredFix(bc,Model,Grid,State) 
-        class(windBC_T), intent(inout) :: bc
-        type(Model_T), intent(in) :: Model
-        type(Grid_T), intent(in) :: Grid
-        type(State_T), intent(inout) :: State
-
-        integer :: ig,j,k,n,ip
-        real(rp), dimension(NDIM) :: xcc,V,swB,inB
-        real(rp) :: t,D,P,wSW
-
-        if (.not. Grid%hasUpperBC(IDIR)) return
-
-        !Refresh solar wind shell values
-        call RefreshWind(bc,Model,Grid)
-        
-        t = Model%t
-
-        !$OMP PARALLEL DO default(shared) collapse(2) &
-        !$OMP private(j,k,n,ig,ip,xcc,D,P,V,wSW,swB,inB)
-        do k=Grid%ksg,Grid%keg
-            do j=Grid%js,Grid%je
-                ip = Grid%ie
-                do n=1,Model%Ng
-                    ig = Grid%ie+n
-                    xcc = Grid%xyzcc(ig,j,k,:)
-                    wSW = wgtWind(bc,Model,xcc,t)
-
-                    call GetWindAt(bc,Model,xcc,t,D,P,V,swB)
-                    inB = State%Bxyz(ip,j,k,:)
-
-                    State%Bxyz(ig,j,k,:) = wSW*swB + (1-wSW)*inB
-                enddo !n loop
-            enddo !j loop
-        enddo !k loop
-
-    end subroutine WindPredFix
-
     !Nudge outer-most physical cell
     subroutine NudgeSW(windBC,Model,Grid,State)
         class(windBC_T), intent(inout) :: windBC
@@ -379,8 +387,8 @@ module wind
         type(Grid_T), intent(in) :: Grid
         type(State_T), intent(inout) :: State
 
-        integer :: i,j,k,ip
-        real(rp) :: t,dtSW0,dtSW,wSW,D,P
+        integer :: i,j,k,ip,n
+        real(rp) :: t,dtSW0,dtSW,wSW,D,P,Cx
         real(rp), dimension(NDIM) :: xcc,V,B
         real(rp), dimension(NVAR) :: gCon,gW,gW_sw,gW_mhd
 
@@ -434,10 +442,37 @@ module wind
                     endif !Multifluid
 
                 endif !wSW nudge
-
             enddo
         enddo
         
+        if ( (Model%doRing) .and. (Model%Ring%doE) ) then
+            !Ensure small ring about axis is always outflowing
+            !$OMP PARALLEL DO default(shared) &
+            !$OMP private(i,j,k,n,gCon,gW,Cx,B)
+            do k=Grid%ks,Grid%ke
+                do n=0,1
+                    i = Grid%ie
+                    j = Grid%je+n
+
+                    if ( State%Gas(i,j,k,MOMX,BLK) > 0 ) then
+                        !Replace this momentum w/ minimum to get carried out
+                        gCon = State%Gas(i,j,k,:,BLK)
+                        B = State%Bxyz(i,j,k,:)
+                        call Con2Fast(Model,gCon,B,Cx)
+                        call CellC2P(Model,gCon,gW)
+                        gW(VELX) = -Cx
+                        call CellP2C(Model,gW,gCon)
+                        if (Model%doMultiF) then
+                            State%Gas(i,j,k,:,SWSPC) = gCon
+                            call MultiF2Bulk(Model,State%Gas(i,j,k,:,:))
+                        else
+                            State%Gas(i,j,k,:,BLK) = gCon
+                        endif
+                    endif !Mx>0
+                enddo
+            enddo
+        endif !Back of grid outflow
+
     end subroutine NudgeSW
 
     !Fix outer shell electric fields to solar wind values

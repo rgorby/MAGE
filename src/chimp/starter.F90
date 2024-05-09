@@ -255,4 +255,17 @@ module starter
         end select
     end subroutine setInterpolation
 
+    !Set streamline knobs
+    subroutine setStreamline(Model,inpXML)
+        USE streamline , ONLY : setShue
+        USE streamutils, ONLY : setStreamlineKnobs
+        type(chmpModel_T), intent(inout) :: Model
+        type(XML_Input_T), intent(inout) :: inpXML
+        !Set knobs for streamline tracing
+        call setStreamlineKnobs(Model,inpXML)
+        
+        !Set things in Shue
+        call setShue(Model,inpXML)
+    end subroutine setStreamline
+    
 end module starter

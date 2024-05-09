@@ -20,7 +20,11 @@ import os
 import matplotlib as mpl
 import matplotlib.gridspec as gridspec
 import matplotlib.pyplot as plt
+import numpy as np
+import warnings
 from mpl_toolkits.axes_grid1.inset_locator import inset_axes
+from multiprocessing import Pool
+from psutil import cpu_count
 
 # Import project-specific modules.
 from kaipy import cdaweb_utils
@@ -50,9 +54,6 @@ default_runid = "msphere"
 
 # Plot the last step by default.
 default_step = -1
-
-# Name of plot output file.
-fOut = "qkpic.png"
 
 # Color to use for spacecraft position symbols.
 SPACECRAFT_COLOR = 'red'
@@ -136,78 +137,44 @@ def create_command_line_parser():
         "--spacecraft", type=str, metavar="spacecraft", default=None,
         help="Names of spacecraft to plot positions, separated by commas (default: %(default)s)"
     )
+    parser.add_argument(
+        '-vid', action='store_true', default=False,
+        help="Make a video and store in mixVid directory (default: %(default)s)"
+    )
+    parser.add_argument(
+        '-overwrite', action='store_true', default=False,
+        help="Overwrite existing vid files (default: %(default)s)"
+    )
+    parser.add_argument(
+        '--ncpus', type=int, metavar="ncpus", default=1,
+        help="Number of threads to use with --vid (default: %(default)s)"
+    )
+    parser.add_argument(
+        '-nohash', action='store_true', default=False,
+        help="Don't display branch/hash info (default: %(default)s)"
+    )
     # Add an option for plot domain size.
     mviz.AddSizeArgs(parser)
     return parser
 
+def makePlot(i,spacecraft,nStp):
 
-if __name__ == "__main__":
-    """Make a quick figure of a Gamera magnetosphere run."""
+    # Disable some warning spam if not debug
+    if not debug:
+        warnings.filterwarnings("ignore", message="The input coordinates to pcolor are interpreted as cell centers.*")
 
-    # Set up the command-line parser.
-    parser = create_command_line_parser()
+    # Name of plot output file.
+    if do_vid:
+        fOut = "{}.{:0>{n}d}.png".format("msphpic", i, n=n_pad)
+        outPath = os.path.join(outDir, fOut)
+    else:
+        # Name of plot output file.
+        fOut = "qkmsphpic.png"
+        outPath = fOut
 
-    # Parse the command-line arguments.
-    args = parser.parse_args()
-    debug = args.debug
-    verbose = args.verbose
-    fdir = args.d
-    ftag = args.id
-    nStp = args.n
-    doDen = args.den
-    noIon = args.noion
-    noMPI = args.nompi
-    doMPI = not noMPI
-    doJy = args.jy
-    doEphi = args.ephi
-    doSrc = args.src
-    doBz = args.bz
-    noRCM = args.norcm
-    doBigRCM = args.bigrcm
-    spacecraft = args.spacecraft
-    if debug:
-        print("args = %s" % args)
-
-    # Get the domain size in Re.
-    xyBds = mviz.GetSizeBds(args)
-    if debug:
-        print("xyBds = %s" % xyBds)
-
-    # Set figure parameters.
-    doFast = False
-    doIon = not noIon
-    figSz = (12, 7.5)
-
-    # Open the gamera results pipe.
-    gsph = msph.GamsphPipe(fdir, ftag, doFast=doFast)
-
-    # If needed, fetch the number of the last step.
-    if nStp < 0:
-        nStp = gsph.sFin
-        print("Using Step %d" % nStp)
-
-    # Check for the presence of RCM results.
-    rcmChk = os.path.join(fdir, "%s.mhdrcm.h5" % ftag)
-    doRCM = os.path.exists(rcmChk)
-    if debug:
-        print("rcmChk = %s" % rcmChk)
-        print("doRCM = %s" % doRCM)
-
-    # Check for the presence of remix results.
-    rmxChk = os.path.join(fdir, "%s.mix.h5" % ftag)
-    doMIX = os.path.exists(rmxChk)
-    if debug:
-        print("rmxChk = %s" % rmxChk)
-        print("doMIX = %s" % doMIX)
-
-    # Open RCM data if available, and initialize visualization.
-    if doRCM:
-        print("Found RCM data")
-        rcmdata = gampp.GameraPipe(fdir, ftag + ".mhdrcm")
-        mviz.vP = kv.genNorm(1.0e-2, 100.0, doLog=True)
-        rcmpp.doEll = not doBigRCM
-        if debug:
-            print("rcmdata = %s" % rcmdata)
+    # Skip this file if it already exists and we're not supposed to overwrite
+    if not do_overwrite and os.path.exists(outPath) and do_vid:
+        return
 
     # Open remix data if available.
     if doMIX:
@@ -216,9 +183,6 @@ if __name__ == "__main__":
         if debug:
             print("ion = %s" % ion)
 
-    # Setup the figure.
-    mpl.use('Agg')  # Plot in memory buffer.
-    fig = plt.figure(figsize=figSz)
     gs = gridspec.GridSpec(3, 6, height_ratios=[20, 1, 1], hspace=0.025)
     if debug:
         print("fig = %s" % fig)
@@ -297,7 +261,7 @@ if __name__ == "__main__":
         fname = gsph.f0
         if debug:
             print("fname = %s" % fname)
-        MJD_start = kh5.tStep(fname, gSph.s0, aID="MJD")
+        MJD_start = kh5.tStep(fname, gsph.s0, aID="MJD")
         if debug:
             print("MJD_start = %s" % MJD_start)
         MJD_end = kh5.tStep(fname, gsph.sFin, aID="MJD")
@@ -355,5 +319,130 @@ if __name__ == "__main__":
             z_nudge = 1.0
             AxR.text(sc_x_Re[-1] + x_nudge, sc_z_Re[-1] + z_nudge, sc, c=color)
 
+    # Add Branch and Hash info
+    if do_hash:
+        fig.text(0.1,0.87,f"branch/commit: {branch}/{githash}", fontsize=6)
+
     # Save the plot to a file.
-    kv.savePic(fOut, bLenX=45)
+    kv.savePic(outPath, bLenX=45)
+
+
+if __name__ == "__main__":
+    """Make a quick figure of a Gamera magnetosphere run."""
+
+    # Set up the command-line parser.
+    parser = create_command_line_parser()
+
+    # Parse the command-line arguments.
+    args = parser.parse_args()
+    debug = args.debug
+    verbose = args.verbose
+    fdir = args.d
+    ftag = args.id
+    nStp = args.n
+    doDen = args.den
+    noIon = args.noion
+    noMPI = args.nompi
+    doMPI = not noMPI
+    doJy = args.jy
+    doEphi = args.ephi
+    doSrc = args.src
+    doBz = args.bz
+    noRCM = args.norcm
+    doBigRCM = args.bigrcm
+    do_vid = args.vid
+    do_overwrite = args.overwrite
+    do_hash = not args.nohash
+    ncpus = args.ncpus
+    spacecraft = args.spacecraft
+    if debug:
+        print("args = %s" % args)
+
+    # Get the domain size in Re.
+    xyBds = mviz.GetSizeBds(args)
+    if debug:
+        print("xyBds = %s" % xyBds)
+
+    # Set figure parameters.
+    doFast = False
+    doIon = not noIon
+    figSz = (12, 7.5)
+
+    # Open the gamera results pipe.
+    gsph = msph.GamsphPipe(fdir, ftag, doFast=doFast)
+
+    # Check for the presence of RCM results.
+    rcmChk = os.path.join(fdir, "%s.mhdrcm.h5" % ftag)
+    doRCM = os.path.exists(rcmChk)
+    if debug:
+        print("rcmChk = %s" % rcmChk)
+        print("doRCM = %s" % doRCM)
+
+    # Check for the presence of remix results.
+    rmxChk = os.path.join(fdir, "%s.mix.h5" % ftag)
+    doMIX = os.path.exists(rmxChk)
+    if debug:
+        print("rmxChk = %s" % rmxChk)
+        print("doMIX = %s" % doMIX)
+
+    # Get branch/hash info
+    if doMIX:
+        branch = kh5.GetBranch(rmxChk)
+        githash = kh5.GetHash(rmxChk)
+        if debug:
+            print(f'branch/commit: {branch}/{githash}')
+
+    # Open RCM data if available, and initialize visualization.
+    if doRCM:
+        print("Found RCM data")
+        rcmdata = gampp.GameraPipe(fdir, ftag + ".mhdrcm")
+        mviz.vP = kv.genNorm(1.0e-2, 100.0, doLog=True)
+        rcmpp.doEll = not doBigRCM
+        if debug:
+            print("rcmdata = %s" % rcmdata)
+    else:
+        rcmdata = None
+
+    # Setup the figure.
+    mpl.use('Agg')  # Plot in memory buffer.
+
+    # Set global plot font options.
+    mpl.rc('mathtext', fontset='stixsans', default='regular')
+    mpl.rc('font', size=10)
+
+    # Init figure
+    fig = plt.figure(figsize=figSz)
+
+    if not do_vid: # If we are making a single image, keep original functionality
+        # If needed, fetch the number of the last step.
+        if nStp < 0:
+            nStp = gsph.sFin
+            print("Using Step %d" % nStp)
+        makePlot(nStp,spacecraft,nStp)
+
+    else: # then we make a video, i.e. series of images saved to msphVid
+
+        # Get video loop parameters
+        s0 = max(gsph.s0,1) # Skip Step#0
+        sFin = gsph.sFin
+        nsteps = sFin - s0
+        sIds = np.array(range(s0,sFin))
+        outDir = 'msphVid'
+        kh5.CheckDirOrMake(outDir)
+
+        # How many 0's do we need for filenames?
+        n_pad = int(np.log10(nsteps)) + 1
+
+        if ncpus == 1:
+            for i, nStp in enumerate(sIds):
+                makePlot(i, spacecraft, nStp)
+        else:
+            # Make list of parallel arguments
+            ag = ((i,spacecraft,nStp) for i, nStp in enumerate(sIds) )
+            # Check we're not exceeding cpu_count on computer
+            ncpus = min(int(ncpus),cpu_count(logical=False))
+            print('Doing multithreading on ',ncpus,' threads')
+            # Do parallel job
+            with Pool(processes=ncpus) as pl:
+                pl.starmap(makePlot,ag)
+            print("Done making all the images. Go to mixVid folder")

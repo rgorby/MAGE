@@ -116,6 +116,9 @@ module gamtypes
         logical :: isMagsphere = .false.
         real(rp) :: MagM0 = 0.0
         
+        !LFM vs. new-style rec/lim
+        logical :: doLFMLim = .true. !Use state n to limit state n+1/2
+
         !Timestep stuff
         real(rp) :: limDT0 = 1.0e-3  !Ratio of dt0 to die
         logical  :: doCPR  = .false. !Whether to try and fix low timesteps

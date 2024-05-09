@@ -33,6 +33,11 @@ set(rcmTestLibs baselib gamlib voltlib remixlib rcmlib tgiclib)
 add_pfunit_ctest(rcmTests TEST_SOURCES ${rcmTestFiles} OTHER_SOURCES ${helperFiles} LINK_LIBRARIES ${rcmTestLibs})
 add_dependencies(rcmTests ${rcmTestLibs})
 
+file(GLOB shgrTestFiles "${CMAKE_CURRENT_SOURCE_DIR}/shellgrid/*.pf")
+set(shgrTestLibs baselib)
+add_pfunit_ctest (shgrTests TEST_SOURCES ${shgrTestFiles} OTHER_SOURCES ${helperFiles} LINK_LIBRARIES ${shgrTestLibs})
+add_dependencies(shgrTests ${shgrTestLibs})
+
 # copy input xml files and grid h5 files to binary folder for running
 file(GLOB_RECURSE inputFiles "${CMAKE_CURRENT_SOURCE_DIR}/*.xml")
 foreach(inputFile ${inputFiles})

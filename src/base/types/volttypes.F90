@@ -42,7 +42,7 @@ module volttypes
         !latc/lonc are the mappings to the southern hemisphere
         real(rp), dimension(:,:), allocatable :: latc,lonc
         real(rp), dimension(:,:), allocatable :: fac
-        real(rp), dimension(:,:), allocatable :: eden,epre ! add electron density and pressure channels to REMIX.
+        real(rp), dimension(:,:), allocatable :: eden,epre,npsp ! add electron density, pressure, plasmasphere density channels to REMIX.
         integer , dimension(:,:), allocatable :: gtype ! RCM grid info: active, buffer, or outside
         
         logical, dimension(:,:), allocatable :: inIMag

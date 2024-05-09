@@ -16,6 +16,7 @@ module gioH5
     type(IOVAR_T), dimension(MAXIOVAR), private :: IOVars
     logical, private :: doRoot = .true. !Whether root variables need to be written
     logical, private :: doFat = .false. !Whether to output lots of extra data
+    logical, private :: doHighPrec = .false. !Whether to output 64bit standard output
 
     !Necessary for IO routines
     character(len=strLen) ,public:: GamH5File
@@ -27,6 +28,10 @@ module gioH5
         doFat = .true.
     end subroutine SetFatIO
     
+    subroutine SetHPOut()
+        doHighPrec = .true.
+    end subroutine SetHPOut
+
     subroutine readH5Grid(Model,Grid,inH5)
         type(Model_T), intent(in) :: Model
         type(Grid_T), intent(inout) :: Grid
@@ -237,7 +242,11 @@ module gioH5
         endif
 
         !Write out the chain
-        call WriteVars(IOVars,.true.,GamH5File)
+        if(doHighPrec) then
+            call WriteVars(IOVars,.false.,GamH5File)
+        else
+            call WriteVars(IOVars,.true.,GamH5File)
+        endif
         
     end subroutine writeH5GridInit
 
@@ -507,7 +516,11 @@ module gioH5
 
         !------------------
         !Finalize
-        call WriteVars(IOVars,.true.,GamH5File,trim(gStr))
+        if(doHighPrec) then
+            call WriteVars(IOVars,.false.,GamH5File,trim(gStr))
+        else
+            call WriteVars(IOVars,.true.,GamH5File,trim(gStr))
+        endif
 
         end associate
 
@@ -736,7 +749,7 @@ module gioH5
             Model%ts      = 0
             Model%t       = tReset      
         else
-            Model%IO%nOut = GetIOInt(IOVars,"nOut") + 1
+            Model%IO%nOut = GetIOInt(IOVars,"nOut")
             Model%IO%nRes = GetIOInt(IOVars,"nRes") + 1
             Model%ts      = GetIOInt(IOVars,"ts")
             Model%t       = GetIOReal(IOVars,"t")
