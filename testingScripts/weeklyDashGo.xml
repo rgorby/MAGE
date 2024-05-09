@@ -5,7 +5,7 @@
     <time tFin="32405.0"/>
     <spinup doSpin="T" tSpin="7200.0"/>
     <output dtOut="300.0" tsOut="100"/>
-    <coupling dtCouple="5.0" imType="RCM" doQkSquish="T" qkSquishStride="2" doAsyncCoupling="F"/>
+    <coupling dtCouple="5.0" imType="RCM" doQkSquish="F" qkSquishStride="2" doAsyncCoupling="F"/>
     <restart dtRes="10800.0"/>
     <imag doInit="T"/>
     <threading NumTh="64"/>
@@ -35,7 +35,13 @@
     <tracer epsds="0.05"/>
   </CHIMP>
   <REMIX>
-    <precipitation aurora_model_type="FEDDER"/>
-    <conductance doStarlight="T"/>
+    <conductance doStarlight="T" doRamp="F"/>
+    <precipitation aurora_model_type="LINMRG" alpha="0.2" beta="0.4" doAuroralSmooth="F"/>
   </REMIX>
+  <RCM>
+    <rcmdomain domType="ELLIPSE"/>
+    <ellipse xSun="12.5" yDD="15.0" xTail="-20.0" isDynamic="T"/>
+    <grid LowLat="30.0" HiLat="75.0" doLatStretch="F"/>
+    <plasmasphere isDynamic="T" initKp="2" doRefill="T" tAvg="600.0"/>
+  </RCM>
 </Kaiju>

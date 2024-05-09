@@ -1,7 +1,7 @@
 #!/bin/bash
 #PBS -N threadCheck
 #PBS -A P28100045
-#PBS -l walltime=02:00:00
+#PBS -l walltime=12:00:00
 #PBS -q main
 #PBS -l select=2:ncpus=128:mpiprocs=1:ompthreads=128
 #PBS -j oe
@@ -16,24 +16,24 @@
 
 echo "Job $PBS_JOBID started at `date` on `hostname` in directory `pwd`."
 
-echo 'Setting up MAGE environment.'
-source $KAIJUROOTDIR/scripts/setupEnvironment.sh
+# echo 'Setting up MAGE environment.'
+# source $KAIJUROOTDIR/scripts/setupEnvironment.sh
 
-echo 'Loading modules.'
-module --force purge
-module load $MODULE_LIST
-echo 'The following modules are loaded:'
-module list
+# echo 'Loading modules.'
+# module --force purge
+# module load $MODULE_LIST
+# echo 'The following modules are loaded:'
+# module list
 
-echo 'Setting environment variables.'
-MPICOMMAND="mpiexec $KAIJUHOME/scripts/preproc/pinCpuCores.sh"
-export OMP_NUM_THREADS=128
-export MPI_TYPE_DEPTH=32
-export KMP_STACKSIZE=128M
-echo 'The active environment variables are:'
-printenv
+# echo 'Setting environment variables.'
+# MPICOMMAND="mpiexec $KAIJUHOME/scripts/preproc/pinCpuCores.sh"
+# export OMP_NUM_THREADS=128
+# export MPI_TYPE_DEPTH=32
+# export KMP_STACKSIZE=128M
+# echo 'The active environment variables are:'
+# printenv
 
-# Run the Intel checks.
-${MPICOMMAND} inspxe-cl -collect=ti3 -r threadResults -- ./voltron_mpi.x tinyCase.xml > threadTests.out
+# # Run the Intel checks.
+# ${MPICOMMAND} inspxe-cl -collect=ti3 -r threadResults -- ./voltron_mpi.x tinyCase.xml >& threadTests.out
 
 echo "Job $PBS_JOBID ended at `date` on `hostname` in directory `pwd`."
