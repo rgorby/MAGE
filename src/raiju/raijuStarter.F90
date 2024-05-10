@@ -12,6 +12,7 @@ module raijustarter
     use raijuout
     use raijuICHelpers
     use raijuELossWM
+    use raijuuseric
 
     implicit none
 
@@ -333,8 +334,7 @@ module raijustarter
                 ! Call the IC in the module raijuuseric
                 ! This module is set in cmake via the RAIJUIC variable
                 !Model%initState => userInitStateFunc
-                write(*,*)"User initState not yet implemented"
-                stop
+                call raijuInitState_useric(Model, Grid, State, iXML)
             case DEFAULT
                 write(*,*)"Invalid IC name to RAIJU, see raijuStarter.F90:raijuInitState. Bye."
                 stop

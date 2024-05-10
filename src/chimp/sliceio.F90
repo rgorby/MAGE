@@ -12,7 +12,7 @@ module sliceio
     implicit none
 
     character(len=strLen) :: ebOutF
-    integer, parameter :: MAXEBVS = 40
+    integer, parameter :: MAXEBVS = 60
     !Parameters for output EB grid (2D equatorial)
     !Fixme: Clean up and generalize
     integer  :: Nx1 = 128, Nx2 = 256
@@ -236,15 +236,17 @@ module sliceio
         character(len=strLen), intent(in) :: gStr
 
         type(IOVAR_T), dimension(MAXEBVS) :: IOVars
-        real(rp), dimension(:,:,:), allocatable :: dB2D,E2D,Q,J2D
-        real(rp), dimension(:,:), allocatable :: Vr,Lb,LbXY,dLpp,rCurv
+        real(rp), dimension(:,:,:,:), allocatable :: Q
+        real(rp), dimension(:,:,:), allocatable :: dB2D,E2D,J2D,Vr
+        real(rp), dimension(:,:), allocatable :: Lb,LbXY,dLpp,rCurv
 
-        integer :: i,j
+        integer :: i,j,s
         real(rp), dimension(NDIM) :: xp,xm,dB,Ep,Em,Bp,Bm,B
         real(rp) :: MagB,MagJ,oVGScl
-        real(rp), dimension(NVARMHD) :: Qij
+        real(rp), dimension(NVARMHD,0:Model%nSpc) :: Qij
         type(gcFields_T) :: gcFieldsP,gcFieldsM
         real(rp), dimension(NDIM,NDIM) :: jB
+        character(len=strLen) :: dID,pID,vxID,vyID,vzID,vrID
 
         !Data for tracing
         type(ebTrc_T), dimension(:,:), allocatable :: ebTrcIJ
@@ -254,7 +256,7 @@ module sliceio
         allocate( dB2D(Nx1,Nx2,NDIM))
         allocate(  E2D(Nx1,Nx2,NDIM))
         allocate(  J2D(Nx1,Nx2,NDIM))
-        allocate(Vr  (Nx1,Nx2))
+        allocate(Vr  (Nx1,Nx2,0:Model%nSpc))
         allocate(Lb  (Nx1,Nx2))
         allocate(LbXY(Nx1,Nx2))
         allocate(rCurv(Nx1,Nx2))
@@ -278,7 +280,7 @@ module sliceio
         LbXY = 0.0
 
         if (Model%doMHD) then
-            allocate(Q(Nx1,Nx2,NVARMHD))
+            allocate(Q(Nx1,Nx2,NVARMHD,0:Model%nSpc))
             Q = 0.0
         endif
         !$OMP PARALLEL DO default(shared) collapse(2) &
@@ -316,9 +318,11 @@ module sliceio
                 if (Model%doMHD) then
                     !Qij = mhdInterp(xp,Model%t,Model,ebState)
                     !Q(i,j,:) = Qij
-                    Qij = 0.5*(mhdInterp(xp,Model%t,Model,ebState) + mhdInterp(xm,Model%t,Model,ebState))
-                    Q(i,j,:) = Qij
-                    Vr(i,j) = (xxc(i,j)*Qij(VELX) + yyc(i,j)*Qij(VELY))/norm2([xxc(i,j),yyc(i,j)])
+                    Qij = 0.5*(mhdInterpMF(xp,Model%t,Model,ebState) + mhdInterpMF(xm,Model%t,Model,ebState))
+                    Q(i,j,:,:) = Qij
+                    do s=0,Model%nSpc
+                        Vr(i,j,s) = (xxc(i,j)*Qij(VELX,s) + yyc(i,j)*Qij(VELY,s))/norm2([xxc(i,j),yyc(i,j)])
+                    enddo
                 endif
 
                 !Current
@@ -399,12 +403,29 @@ module sliceio
         endif        
 
         if (Model%doMHD) then
-            call AddOutVar(IOVars,"Vx" , oVScl*Q(:,:,VELX))
-            call AddOutVar(IOVars,"Vy" , oVScl*Q(:,:,VELY))
-            call AddOutVar(IOVars,"Vz" , oVScl*Q(:,:,VELZ))
-            call AddOutVar(IOVars,"Vr" , oVScl*Vr)
-            call AddOutVar(IOVars,"D"  ,       Q(:,:,DEN))
-            call AddOutVar(IOVars,"P"  ,       Q(:,:,PRESSURE))
+            call AddOutVar(IOVars,"Vx" , oVScl*Q(:,:,VELX,BLK))
+            call AddOutVar(IOVars,"Vy" , oVScl*Q(:,:,VELY,BLK))
+            call AddOutVar(IOVars,"Vz" , oVScl*Q(:,:,VELZ,BLK))
+            call AddOutVar(IOVars,"Vr" , oVScl*Vr(:,:,BLK))
+            call AddOutVar(IOVars,"D"  ,       Q(:,:,DEN,BLK))
+            call AddOutVar(IOVars,"P"  ,       Q(:,:,PRESSURE,BLK))
+        endif
+
+        if (Model%nSpc > 0) then
+            do s=1,Model%nSpc
+                write(dID  ,'(A,I0)') "D"  , s
+                write(pID  ,'(A,I0)') "P"  , s
+                write(vxID ,'(A,I0)') "Vx" , s
+                write(vyID ,'(A,I0)') "Vy" , s
+                write(vzID ,'(A,I0)') "Vz" , s
+                write(vrID ,'(A,I0)') "Vr" , s
+                call AddOutVar(IOVars,vxID , oVScl*Q(:,:,VELX,s))
+                call AddOutVar(IOVars,vyID , oVScl*Q(:,:,VELY,s))
+                call AddOutVar(IOVars,vzID , oVScl*Q(:,:,VELZ,s))
+                call AddOutVar(IOVars,vrID , oVScl*Vr(:,:,s))
+                call AddOutVar(IOVars,dID  ,       Q(:,:,DEN,s))
+                call AddOutVar(IOVars,pID  ,       Q(:,:,PRESSURE,s))
+            enddo
         endif
 
         call WriteVars(IOVars,.true.,ebOutF,gStr)

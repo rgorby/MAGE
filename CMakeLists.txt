@@ -231,20 +231,16 @@ add_subdirectory(src/raiju)
 add_custom_target(raiju ALL)
 
 message("\tAdding executable raijuSA.x")
-add_executable(raijuSA.x src/drivers/raijuSAx.F90 ${RAIJUIC})
+#add_executable(raijuSA.x src/drivers/raijuSAx.F90 ${RAIJUIC})
+add_executable(raijuSA.x src/drivers/raijuSAx.F90)
 target_link_libraries(raijuSA.x raijulib baselib)
 add_dependencies(raiju raijuSA.x)
 
 message("\tAdding executable raijuOWD.x")
-add_executable(raijuOWD.x src/drivers/raijuOWDx.F90 ${RAIJUIC})
+#add_executable(raijuOWD.x src/drivers/raijuOWDx.F90 ${RAIJUIC})
+add_executable(raijuOWD.x src/drivers/raijuOWDx.F90)
 target_link_libraries(raijuOWD.x voltlib gamlib remixlib chimplib raijulib baselib)
 add_dependencies(raiju raijuOWD.x)
-
-message("\tAdding executable rcm_raijumod.x")
-message("\t RCM Grid is of size ${RCMSIZEI} x ${RCMSIZEJ} x ${RCMSIZEK}")
-add_executable(rcm_raijumod.x src/drivers/rcmx_raijumod.F90)
-target_link_libraries(rcm_raijumod.x rcmlib baselib)
-add_dependencies(rcm rcm_raijumod.x baselib)
 
 
 #-------------
