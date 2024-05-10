@@ -712,7 +712,9 @@ module streamline
             if (inDom) Np = Np + 1
         enddo
 
-        if (MaxFL == Np) then
+        ! check if exceeded tube bounds
+        if(Np > MaxFL) then
+            Np = MaxFL
             !$OMP CRITICAL
             write(*,*) ANSIRED
             write(*,*) "<WARNING! genTrace hit max tube size!>"
