@@ -232,12 +232,12 @@ add_custom_target(raiju ALL)
 
 message("\tAdding executable raijuSA.x")
 add_executable(raijuSA.x src/drivers/raijuSAx.F90 ${RAIJUIC})
-target_link_libraries(raijuSA.x raijulib rcmlib baselib)
+target_link_libraries(raijuSA.x raijulib baselib)
 add_dependencies(raiju raijuSA.x)
 
 message("\tAdding executable raijuOWD.x")
 add_executable(raijuOWD.x src/drivers/raijuOWDx.F90 ${RAIJUIC})
-target_link_libraries(raijuOWD.x voltlib gamlib remixlib chimplib rcmlib raijulib baselib)
+target_link_libraries(raijuOWD.x voltlib gamlib remixlib chimplib raijulib baselib)
 add_dependencies(raiju raijuOWD.x)
 
 message("\tAdding executable rcm_raijumod.x")

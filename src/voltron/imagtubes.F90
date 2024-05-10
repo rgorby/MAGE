@@ -17,19 +17,19 @@ module imagtubes
         integer(ip) :: topo
         real(rp) :: latc,lonc !Conjugate lat/lon
         real(rp) :: Lb, Tb !Arc length/bounce time
-        real(rp) :: losscone,rCurv,wIMAG
+        real(rp) :: losscone,rCurv,wIMAG,TioTe0=4.0_rp
     end type IMAGTube_T
 
     contains
 
-    subroutine MHDTube(ebTrcApp,planet,colat,lon,r,ijTube,bTrc,nTrcO,doShiftO,doShueO)
+    subroutine MHDTube(ebTrcApp,planet,colat,lon,r,ijTube,bTrc,nTrcO,doShiftO)
         type(ebTrcApp_T), intent(in) :: ebTrcApp
         type(planet_T), intent(in) :: planet
         real(rp), intent(in) :: colat, lon, r
         type(IMAGTube_T), intent(out) :: ijTube
-        type(fLine_T), intent(inout) :: bTrc
+        type(magLine_T), intent(inout) :: bTrc
         integer, intent(in), optional :: nTrcO
-        logical, intent(in), optional :: doShiftO,doShueO
+        logical, intent(in), optional :: doShiftO
 
         real(rp) :: t, bMin,bIon
         real(rp), dimension(NDIM) :: x0, bEq, xyzIon
@@ -45,12 +45,6 @@ module imagtubes
             doShift = doShiftO
         else
             doShift = .false.
-        endif
-
-        if (present(doShueO)) then
-            doShue = doShueO
-        else
-            doShue = .true.
         endif
 
         ! Take seed point in spherical coordinates
@@ -74,9 +68,9 @@ module imagtubes
             !!TODO: What do we do when we want times in between steps? Somethign similar to what slice/chop do to output
         
         if (present(nTrcO)) then
-            call genStream(ebModel,ebState,x0,t,bTrc,nTrcO,doShueO=doShue,doNHO=.true.)
+            call genStream(ebModel,ebState,x0,t,bTrc,nTrcO,doShueO=.true.,doNHO=.true.)
         else
-            call genStream(ebModel,ebState,x0,t,bTrc,      doShueO=doShue,doNHO=.true.)
+            call genStream(ebModel,ebState,x0,t,bTrc,      doShueO=.true.,doNHO=.true.)
         endif
 
 
