@@ -93,7 +93,10 @@ def makeCompVid(raiI, rclI, varAccessStr, outdir, varName=None, normMain=None, c
         var2 = eval(varAccessStr.format('s_rcl'))
 
         if normMain is None:
-            normMain = kv.genNorm(np.min((var1, var2)), np.max((var1, var2)))
+            nMax = np.max((var1, var2))
+            nMin = 1e-3*nMax
+            #normMain = kv.genNorm(np.min((var1, var2)), np.max((var1, var2)))
+            normMain = kv.genNorm(nMin, nMax, doLog=True)
         if not cbarsDone:
             #normDiff = kv.genNorm(1e-2*normMain.vmin, normMain.vmax, doLog=True)
             normDiff = kv.genNorm(-0.5, 0.5, doLog=False)
@@ -152,7 +155,8 @@ if __name__=="__main__":
     print("Making Density video")
     varAccessStr = "ru.getVar({}, 'Density')[:,:,0]"
     vidOut = os.path.join(outdir, "vid_den0")
-    norm = kv.genNorm(0.01, 5, doLog=True)
+    #norm = kv.genNorm(0.01, 5, doLog=True)
+    norm = kv.genNorm(1e-9, 1e-6, doLog=True)
     makeCompVid(raiI, rclI, varAccessStr, vidOut, 'Total Density [#/cc]', normMain=norm, cmapMain='viridis')
 
     #print("Making eta video")
