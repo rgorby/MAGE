@@ -8,7 +8,6 @@ module sliceio
     use xml_input
     use files
     use plasmaputils
-    use parintime
 
     implicit none
 
@@ -43,9 +42,7 @@ module sliceio
         character(len=strLen) :: idStr
         logical :: doLog
 
-        !write(ebOutF,'(2a)') trim(adjustl(Model%RunID)),'.eb.h5'
-        !Check for time parallelism
-        call InitParInTime(Model,inpXML,"eb",ebOutF)
+        write(ebOutF,'(2a)') trim(adjustl(Model%RunID)),'.eb.h5'
 
         associate( ebGr=>ebState%ebGr )
 
@@ -243,10 +240,10 @@ module sliceio
         real(rp), dimension(:,:), allocatable :: Vr,Lb,LbXY,dLpp,rCurv
 
         integer :: i,j
-        real(rp), dimension(NDIM) :: xp,xm,dB,Ep,Em,Bp,Bm,Eeq,Beq,B
+        real(rp), dimension(NDIM) :: xp,xm,dB,Ep,Em,Bp,Bm,B
         real(rp) :: MagB,MagJ,oVGScl
         real(rp), dimension(NVARMHD) :: Qij
-        type(gcFields_T) :: gcFieldsP,gcFieldsM,gcFieldsEq
+        type(gcFields_T) :: gcFieldsP,gcFieldsM
         real(rp), dimension(NDIM,NDIM) :: jB
 
         !Data for tracing
@@ -286,7 +283,7 @@ module sliceio
         endif
         !$OMP PARALLEL DO default(shared) collapse(2) &
         !$OMP schedule(dynamic) &
-        !$OMP private(i,j,xp,xm,Bp,Bm,Ep,Em,dB,Qij,gcFieldsP,gcFieldsM,jB,MagB,MagJ,B,Eeq,Beq,gcFieldsEq)
+        !$OMP private(i,j,xp,xm,Bp,Bm,Ep,Em,dB,Qij,gcFieldsP,gcFieldsM,jB,MagB,MagJ,B)
         do j=1,Nx2
             do i=1,Nx1
                 !Straddle slice plane
@@ -311,6 +308,9 @@ module sliceio
                 B = db+B02D(i,j,:)
                 MagB = norm2(B)
                 MagJ = oBScl*sqrt(sum(jB**2.0))
+
+                ! radius of curvature
+                rCurv(i,j) = getRCurv(B/oBScl,jB)
 
                 !Get MHD vars if requested
                 if (Model%doMHD) then
@@ -338,9 +338,6 @@ module sliceio
                     !Get field line topology stuff
                     call SliceFL(Model,ebState,0.5*(xp+xm),Model%t,ebTrcIJ(i,j))
 
-                    call ebFields(ebTrcIJ(i,j)%MagEQ,Model%t,Model,ebState,Eeq,Beq,gcFields=gcFieldsEq)
-                    ! radius of curvature
-                    rCurv(i,j) = getRCurv(Beq,gcFieldsEq%JacB)
                 endif
 
                 if (Model%doPP) then
@@ -375,7 +372,7 @@ module sliceio
             call AddOutVar(IOVars,"bD"  ,ebTrcIJ(:,:)%bD  )
             call AddOutVar(IOVars,"bP"  ,ebTrcIJ(:,:)%bP  )
             call AddOutVar(IOVars,"bS"  ,ebTrcIJ(:,:)%bS  )
-            call AddOutVar(IOVars,"bMin",ebTrcIJ(:,:)%bMin*oBscl)
+            call AddOutVar(IOVars,"bMin",ebTrcIJ(:,:)%bMin)
 
             !Equator and end-points
             call AddOutVar(IOVars,"xBEQ",ebTrcIJ(:,:)%MagEQ(XDIR))
