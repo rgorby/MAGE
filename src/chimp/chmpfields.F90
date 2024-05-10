@@ -69,6 +69,10 @@ module chmpfields
         if (Model%doMHD) then
             allocate(D(Nip,Njp,Nkp))
             allocate(P(Nip,Njp,Nkp))
+            if (Model%nSpc>0) then
+                write(*,*) "EB file reading not implemented for MF!"
+                stop
+            endif
         endif
         if (Model%doJ) then
             allocate(Jx(Nip,Njp,Nkp))
@@ -153,29 +157,21 @@ module chmpfields
                 !Convert to typical SI A/m2
                 jScl = (1.0e-9)
             case("CODE")
-                if ( trim(toUpper(Model%uID))=="EARTH") then
-                    ! note, using an ugly way to access B and L scaling by using in2G and L0 (globals from chmpunits)
-                    ! FIXME: make chimp unit treatment more elegant, like gamera
-                    jScl = in2G*1.e-5/(L0*Mu0)*1.0e-9   ! 1.e-5 to convert from G to nT and 1.e-9 to convert the result from nA to A
-                    write(*,*) "WARNING: Only code units of current density specified (probably an old run), trying sensible values. Fingers crossed :)"
-                else
-                    !Not (yet) supported units
-                    write(*,*) "------------------------"
-                    write(*,*) "Error, units of current density are not [nA/m2] !"
-                    write(*,*) "Units: ", trim(toUpper(ebIOs(nioJx)%unitStr))
-                    write(*,*) "This is likely because the GAMERA simulation is too old."
-                    write(*,*) "Either regenerate the MHD data or add the proper unit scaling."
-                    write(*,*) "Womp womp womp ..."
-                    write(*,*) "------------------------"
-                    stop
-                end if            
-            case default
-                write(*,*) "------------------------"
-                write(*,*) "Error, no units of current density specified. Bailing ..."
-                write(*,*) "Consult https://wompwompwomp.com"
-                write(*,*) "------------------------"
-                stop
-
+               if ( trim(toUpper(Model%uID))=="EARTH") then
+                  ! note, using an ugly way to access B and L scaling by using in2G and L0 (globals from chmpunits)
+                  ! FIXME: make chimp unit treatment more elegant, like gamera
+                  jScl = in2G*1.e-5/(L0*Mu0)*1.0e-9   ! 1.e-5 to convert from G to nT and 1.e-9 to convert the result from nA to A
+               else
+                  !Not (yet) supported units
+                  write(*,*) "------------------------"
+                  write(*,*) "Error, units of current density are not [nA/m2] !"
+                  write(*,*) "Units: ", trim(toUpper(ebIOs(nioJx)%unitStr))
+                  write(*,*) "This is likely because the GAMERA simulation is too old."
+                  write(*,*) "Either regenerate the MHD data or add the proper unit scaling."
+                  write(*,*) "Womp womp womp ..."
+                  write(*,*) "------------------------"
+                  stop
+             end if
             end select
         endif
 
@@ -213,9 +209,9 @@ module chmpfields
                     Exyz = -cross(Vxyz,Bxyz)
                     ebF%E(i,j,k,:) = Exyz
                     if (Model%doMHD) then
-                        ebF%W(i,j,k,DEN) = D(i,j,k)
-                        ebF%W(i,j,k,VELX:VELZ) = Vxyz
-                        ebF%W(i,j,k,PRESSURE) = P(i,j,k)
+                        ebF%W(i,j,k,DEN      ,BLK) = D(i,j,k)
+                        ebF%W(i,j,k,VELX:VELZ,BLK) = Vxyz
+                        ebF%W(i,j,k,PRESSURE ,BLK) = P(i,j,k)
                     endif
                     if (Model%doJ) then
                         Jxyz = [Jx(i,j,k),Jy(i,j,k),Jz(i,j,k)]
@@ -248,7 +244,7 @@ module chmpfields
         type(   ebGrid_T), intent(in)    :: ebGr
         type(  ebField_T), intent(inout) :: ebF
 
-        integer :: n,d,i,j,k,ip,jp,kp
+        integer :: n,d,i,j,k,ip,jp,kp,s
         integer :: Nk,Nk2
         logical :: iGh,jGh,kGh
 
@@ -272,11 +268,12 @@ module chmpfields
                         enddo
                         !MHD variables
                         if (Model%doMHD) then
-                            do d=1,NVARMHD
-                                ebF%W (i,ebGr%js+n,ebGr%ks:ebGr%ke,d) = sum(ebF%W (i,ebGr%js+n,ebGr%ks:ebGr%ke,d))/Nk
-                                ebF%W (i,ebGr%je-n,ebGr%ks:ebGr%ke,d) = sum(ebF%W (i,ebGr%je-n,ebGr%ks:ebGr%ke,d))/Nk
-                            enddo
-
+                            do s=0,Model%nSpc
+                                do d=1,NVARMHD
+                                    ebF%W (i,ebGr%js+n,ebGr%ks:ebGr%ke,d,s) = sum(ebF%W (i,ebGr%js+n,ebGr%ks:ebGr%ke,d,s))/Nk
+                                    ebF%W (i,ebGr%je-n,ebGr%ks:ebGr%ke,d,s) = sum(ebF%W (i,ebGr%je-n,ebGr%ks:ebGr%ke,d,s))/Nk
+                                enddo
+                            enddo !spc
                         endif
                     enddo !i-loop
                 enddo
@@ -296,7 +293,7 @@ module chmpfields
                             ebF%dB(i,j,k,:) = ebF%dB(ip,jp,kp,:)
                             ebF%E (i,j,k,:) = ebF%E (ip,jp,kp,:)
                             if (Model%doMHD) then
-                                ebF%W (i,j,k,:) = ebF%W (ip,jp,kp,:)
+                                ebF%W (i,j,k,:,:) = ebF%W (ip,jp,kp,:,:)
                             endif
                         endif
                     enddo

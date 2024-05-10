@@ -7,7 +7,7 @@ program kaitoyx
     use ioH5
     use files
     use kaiomp
-    
+
     implicit none
 
     type ToyGr_T
