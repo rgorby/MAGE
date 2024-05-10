@@ -55,7 +55,7 @@ module raijuowdcpl
 
         integer :: i,j
         real(rp) :: seedR
-        type(magLine_T) :: fLine
+        type(magLine_T) :: magLine
         ! Get field line info and potential from voltron
         ! And put the data into RAIJU's fromV coupling object
 
@@ -70,11 +70,11 @@ module raijuowdcpl
             !$OMP private(i,j)
             do i=sh%isg,sh%ieg+1
                 do j=sh%jsg,sh%jeg+1
-                    call CleanStream(fromV%fLines(i,j))
+                    call CleanLine(fromV%magLines(i,j))
 
                     call MHDTube(ebApp, planet,   & !ebTrcApp, planet
                         sh%th(i), sh%ph(j), seedR, &  ! colat, lon, r
-                        fromV%ijTubes(i,j), fromV%fLines(i,j), &  ! IMAGTube_T, fLine_T
+                        fromV%ijTubes(i,j), fromV%magLines(i,j), &  ! IMAGTube_T, magLine_T
                         doShiftO=.true.)
                 enddo
             enddo

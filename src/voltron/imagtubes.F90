@@ -68,9 +68,9 @@ module imagtubes
             !!TODO: What do we do when we want times in between steps? Somethign similar to what slice/chop do to output
         
         if (present(nTrcO)) then
-            call genStream(ebModel,ebState,x0,t,bTrc,nTrcO,doShueO=.true.,doNHO=.true.)
+            call genLine(ebModel,ebState,x0,t,bTrc,nTrcO,doShueO=.true.,doNHO=.true.)
         else
-            call genStream(ebModel,ebState,x0,t,bTrc,      doShueO=.true.,doNHO=.true.)
+            call genLine(ebModel,ebState,x0,t,bTrc,      doShueO=.true.,doNHO=.true.)
         endif
 
 

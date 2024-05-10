@@ -8,7 +8,7 @@ module rcm_mhd_io
     
     implicit none
 
-    integer, parameter   , private :: MAXRCMIOVAR = 40
+    integer, parameter   , private :: MAXRCMIOVAR = 80
     character(len=strLen), private :: h5File,RCMH5,FLH5
     real(rp), parameter  , private :: IMGAMMA = 5.0/3.0
     
@@ -131,6 +131,7 @@ module rcm_mhd_io
         
         call AddOutVar(IOVars,"Pmhd",RCMApp%Pave*rcmPScl,uStr="nPa")
         call AddOutVar(IOVars,"Nmhd",RCMApp%Nave*rcmNScl,uStr="#/cc")
+        call AddOutVar(IOVars,"Nmhd0",RCMApp%N0*rcmNScl,uStr="#/cc")
         call AddOutVar(IOVars,"oxyfrac",RCMApp%oxyfrac,uStr="fraction")
 
         call AddOutVar(IOVars,"latc",RCMApp%latc*180.0/PI,uStr="deg")
@@ -150,6 +151,8 @@ module rcm_mhd_io
 
         call AddOutVar(IOVars,"birk",RCMApp%fac,uStr="uA/m2",dStr="RCM Vasyliunas FACs")
         call AddOutVar(IOVars,"nTrc",RCMApp%nTrc*1.0_rp,uStr="steps")
+
+        call AddOutVar(IOVars,"TioTe0",RCMApp%TioTe0,dStr="Empirical Ti/Te")
 
         call AddOutVar(IOVars,"toMHD",merge(1.0_rp,0.0_rp,RCMApp%toMHD))
         call AddOutVar(IOVars,"errD",RCMApp%errD,uStr="X'/X")
@@ -224,7 +227,7 @@ module rcm_mhd_io
         USE ebtypes
         integer, intent(in) :: nOut,Ni,Nj
         real(rp), intent(in) :: MJD,time
-        type(fLine_T), intent(in), dimension(Ni,Nj) :: RCMFLs
+        type(magLine_T), intent(in), dimension(Ni,Nj) :: RCMFLs
 
         type(IOVAR_T), dimension(MAXRCMIOVAR) :: IOVars
         character(len=strLen) :: gStr,lnStr
@@ -260,7 +263,8 @@ module rcm_mhd_io
     !Write out individual line
     subroutine OutLine(fL,gStr,lnStr,IOVars)
         USE ebtypes
-        type(fLine_T), intent(in) :: fL
+        USE gdefs
+        type(magLine_T), intent(in) :: fL
         character(len=strLen), intent(in) :: gStr,lnStr
         type(IOVAR_T), intent(inout), dimension(MAXRCMIOVAR) :: IOVars
         integer :: i,Np,Npp,n0
@@ -284,9 +288,9 @@ module rcm_mhd_io
         call AddOutVar(IOVars,"n0",1) !Seed point is now the first point
 
         !Only output some of the variables
-        call AddOutVar(IOVars,"B",fL%lnVars(0)       %V(0:-n0:-nSkipFL),uStr="nT")
-        call AddOutVar(IOVars,"D",fL%lnVars(DEN)     %V(0:-n0:-nSkipFL),uStr="#/cc")
-        call AddOutVar(IOVars,"P",fL%lnVars(PRESSURE)%V(0:-n0:-nSkipFL),uStr="nPa")
+        call AddOutVar(IOVars,"B",fL%magB(0:-n0:-nSkipFL),uStr="nT")
+        call AddOutVar(IOVars,"D",fL%Gas (0:-n0:-nSkipFL,DEN     ,BLK),uStr="#/cc")
+        call AddOutVar(IOVars,"P",fL%Gas (0:-n0:-nSkipFL,PRESSURE,BLK),uStr="nPa" )
 
         !Write output chain
         call WriteVars(IOVars,.true.,FLH5,gStr,lnStr)
@@ -324,7 +328,8 @@ module rcm_mhd_io
         call AddOutVar(IOVars,"nflx"        ,RCMApp%nflx        )  
         call AddOutVar(IOVars,"fac"         ,RCMApp%fac         )  
         call AddOutVar(IOVars,"Pave"        ,RCMApp%Pave        )   
-        call AddOutVar(IOVars,"Nave"        ,RCMApp%Nave        ) 
+        call AddOutVar(IOVars,"Nave"        ,RCMApp%Nave        )
+        call AddOutVar(IOVars,"N0"          ,RCMApp%N0          ) 
         call AddOutVar(IOVars,"Vol"         ,RCMApp%Vol         )
         call AddOutVar(IOVars,"X_bmin"      ,RCMApp%X_bmin      )
         call AddOutVar(IOVars,"Bmin"        ,RCMApp%Bmin        )
@@ -340,6 +345,7 @@ module rcm_mhd_io
         call AddOutVar(IOVars,"Percm"   ,RCMApp%Percm   )
         call AddOutVar(IOVars,"latc"    ,RCMApp%latc    )
         call AddOutVar(IOVars,"lonc"    ,RCMApp%lonc    )
+        call AddOutVar(IOVars,"TioTe0"  ,RCMApp%TioTe0  )
         call AddOutVar(IOVars,"Lb"      ,RCMApp%Lb      )
         call AddOutVar(IOVars,"Tb"      ,RCMApp%Tb      )
         call AddOutVar(IOVars,"losscone",RCMApp%losscone)
@@ -467,6 +473,24 @@ module rcm_mhd_io
         call IOArray2DFill(IOVars,"toMHD",toMHDX)
         RCMApp%toMHD = (toMHDX>0.5)
 
+        !Handle some optional values
+        if (ioExist(ResF,"N0")) then
+            call ClearIO(IOVars)
+            call AddInVar(IOVars,"N0")
+            call ReadVars(IOVars,.false.,ResF)
+            call IOArray2DFill(IOVars,"N0",RCMApp%N0)
+        else
+            RCMApp%N0 = 0.0
+        endif
+
+        if (ioExist(ResF,"TioTe0")) then
+            call ClearIO(IOVars)
+            call AddInVar(IOVars,"TioTe0")
+            call ReadVars(IOVars,.false.,ResF)
+            call IOArray2DFill(IOVars,"TioTe0",RCMApp%TioTe0)
+        else
+            RCMApp%TioTe0 = tiote_RCM
+        endif
         write(*,*) 'Finished reading MHD2Imag restart ...'
     end subroutine ReadMHD2IMagRestart
 end module rcm_mhd_io

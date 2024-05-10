@@ -60,7 +60,7 @@ module rcmtubes
         type(voltApp_T), intent(in) :: vApp
         real(rp), intent(in) :: lat,lon
         type(RCMTube_T), intent(out) :: ijTube
-        type(fLine_T), intent(inout) :: bTrc
+        type(magLine_T), intent(inout) :: bTrc
 
         real(rp), dimension(NDIM) :: xyzIon,x0,xyzEq
         real(rp) :: bIon,L,N0_ps,P0_ps,TiEV,CsMKS,VaMKS
@@ -98,7 +98,7 @@ module rcmtubes
         type(voltApp_T), intent(in) :: vApp
         real(rp), intent(in) :: lat,lon
         type(RCMTube_T), intent(out) :: ijTube
-        type(fLine_T), intent(inout) :: bTrc
+        type(magLine_T), intent(inout) :: bTrc
         integer, intent(in), optional :: nTrcO
 
         real(rp) :: t, bMin,bIon
@@ -127,9 +127,9 @@ module rcmtubes
         t = ebState%eb1%time !Time in CHIMP units
         
         if (present(nTrcO)) then
-            call genStream(ebModel,ebState,x0,t,bTrc,nTrcO,doShueO=.true.,doNHO=.true.)
+            call genLine(ebModel,ebState,x0,t,bTrc,nTrcO,doShueO=.true.,doNHO=.true.)
         else
-            call genStream(ebModel,ebState,x0,t,bTrc,      doShueO=.true.,doNHO=.true.)
+            call genLine(ebModel,ebState,x0,t,bTrc,      doShueO=.true.,doNHO=.true.)
         endif
         
         !Topology
@@ -212,7 +212,7 @@ module rcmtubes
         type(voltApp_T), intent(in) :: vApp
         real(rp), intent(in) :: lat,lon
         type(RCMTube_T), intent(out) :: ijTube
-        type(fLine_T), intent(inout) :: bTrc
+        type(magLine_T), intent(inout) :: bTrc
         
         real(rp) :: L,colat
         real(rp) :: mdipole

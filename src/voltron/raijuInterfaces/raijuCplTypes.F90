@@ -15,7 +15,7 @@ module raijuCplTypes
             !! Time of last update, according to voltron
         type(ShellGrid_T) :: shGr
             !! Copy of raijuModel's shellGrid
-        type(magLine_T), dimension(:,:), allocatable :: fLines
+        type(magLine_T), dimension(:,:), allocatable :: magLines
         type(IMAGTube_T), dimension(:,:), allocatable :: ijTubes
             !! imagTubes with field-line averaged info
         !real(rp), dimension(:,:), allocatable :: pot

@@ -112,7 +112,7 @@ program raijuOWDx
                 endif
 
                 if (doFLOut) then
-                    call WriteRCMFLs(raijuCplBase%fromV%fLines,raiApp%State%IO%nOut, &
+                    call WriteRCMFLs(raijuCplBase%fromV%magLines,raiApp%State%IO%nOut, &
                             raiApp%State%mjd,raiApp%State%t, &
                             raiApp%Grid%shGrid%Nt,raiApp%Grid%shGrid%Np)
                 endif
@@ -185,7 +185,7 @@ program raijuOWDx
         use rice_housekeeping_module, only : nSkipFL
         integer, intent(in) :: nOut,Ni,Nj
         real(rp), intent(in) :: MJD,time
-        type(fLine_T), intent(in), dimension(Ni,Nj) :: RCMFLs
+        type(magLine_T), intent(in), dimension(Ni,Nj) :: RCMFLs
 
         type(IOVAR_T), dimension(40) :: IOVars
         character(len=strLen) :: gStr,lnStr
@@ -217,12 +217,12 @@ program raijuOWDx
         enddo
     end subroutine WriteRCMFLs
 
-    ! Do our own fline output cause original is using globals
+    ! Do our own magLine output cause original is using globals
     !Write out individual line
     subroutine OutLine(fL,gStr,lnStr,IOVars)
         USE ebtypes
         use rice_housekeeping_module, ONLY : nSkipFL
-        type(fLine_T), intent(in) :: fL
+        type(magLine_T), intent(in) :: fL
         character(len=strLen), intent(in) :: gStr,lnStr
         type(IOVAR_T), intent(inout), dimension(40) :: IOVars
         integer :: i,Np,Npp,n0
@@ -246,9 +246,9 @@ program raijuOWDx
         call AddOutVar(IOVars,"n0",1) !Seed point is now the first point
 
         !Only output some of the variables
-        call AddOutVar(IOVars,"B",fL%lnVars(0)       %V(0:-n0:-nSkipFL),uStr="nT")
-        call AddOutVar(IOVars,"D",fL%lnVars(DEN)     %V(0:-n0:-nSkipFL),uStr="#/cc")
-        call AddOutVar(IOVars,"P",fL%lnVars(PRESSURE)%V(0:-n0:-nSkipFL),uStr="nPa")
+        call AddOutVar(IOVars,"B",fL%magB(0:-n0:-nSkipFL),uStr="nT")
+        call AddOutVar(IOVars,"D",fL%Gas (0:-n0:-nSkipFL,DEN     ,BLK),uStr="#/cc")
+        call AddOutVar(IOVars,"P",fL%Gas (0:-n0:-nSkipFL,PRESSURE,BLK),uStr="nPa" )
 
         !Write output chain
         call WriteVars(IOVars,.true.,FLH5,gStr,lnStr)

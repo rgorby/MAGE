@@ -45,7 +45,7 @@ module rcmimag
         type(rcm_mhd_T) :: rcmCpl
 
         ! Holder for field line data
-        type(fLine_T), dimension(:,:), allocatable :: rcmFLs
+        type(magLine_T), dimension(:,:), allocatable :: rcmFLs
 
         contains
 

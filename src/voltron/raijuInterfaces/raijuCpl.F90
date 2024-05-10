@@ -28,7 +28,7 @@ module raijuCpl
 
         ! Init fromV first
             ! Allocations
-            allocate(fromV%fLines (sh%isg:sh%ieg+1, sh%jsg:sh%jeg+1))
+            allocate(fromV%magLines (sh%isg:sh%ieg+1, sh%jsg:sh%jeg+1))
             allocate(fromV%ijTubes(sh%isg:sh%ieg+1, sh%jsg:sh%jeg+1))
 
             ! Shell Grid inits
