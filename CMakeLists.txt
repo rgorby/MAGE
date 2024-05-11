@@ -68,7 +68,7 @@ set(GAMIC ${GAMICDEF} CACHE FILEPATH "Gamera IC file")
 file(GLOB VOLTICDEF src/voltron/ICs/earthcmi.F90)
 set(VOLTIC ${VOLTICDEF} CACHE FILEPATH "Voltron IC file")
 
-file(GLOB RAIJUICDEF src/voltron/ICs/raijuOwdIC.F90)
+file(GLOB RAIJUICDEF src/raiju/ICs/raijuOwdIC.F90)
 set(RAIJUIC ${RAIJUICDEF} CACHE FILEPATH "RAIJU IC file")
 
 file(GLOB TPICDEF src/chimp/tpICs/tpICstd.F90)

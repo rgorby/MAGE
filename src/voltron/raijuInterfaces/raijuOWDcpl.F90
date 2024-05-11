@@ -1,29 +1,24 @@
 !! Routines to handle packing coupling objects when one way driving with output files
 
 module raijuowdcpl
-
-    use imagtubes
-
-    use raijutypes
-    use raijucpltypes
-    use raijuGrids
-
+    
+    ! Base
+    use ebtypes
     use shellinterp
     use remixReader
 
-    !!Temporary. Eventually we will just use shellGrid stuff
-    !use calcdbtypes
-    !use calcdbio
-    !use mixinterp
-    !use mixgeom
+    ! Raiju
+    use raijutypes
+    use raijucpltypes
+    use raijuGrids
+    
+    ! Voltron
+    use imagtubes
 
     implicit none
 
-    type(Map_T) :: m2sMap
 
     contains
-
-    
 
     !> This function takes updated model states and does the operations
     !> necessary to update the cplBase%fromV object

@@ -67,24 +67,15 @@ module raijuBCs
 
             associate(sh=>Grid%shGrid)
 
-            ! All ghost cells should be updated
-            !doMomentIngest(sh%isg:sh%is-1,:) = .true.
-            !doMomentIngest(sh%ie+1:sh%ieg,:) = .true.
-            !doMomentIngest(:,sh%jsg:sh%js-1) = .true.
-            !doMomentIngest(:,sh%je+1:sh%jeg) = .true.
-
-            ! Note: No need to loop over ghost cells since we just hard set all of them to true
             do j=sh%jsg,sh%jeg
                 do i=sh%isg,sh%ieg
                     
                     ! All buffer cells get set to moments
                     if (State%active(i,j) .eq. RAIJUBUFFER) then
                         doMomentIngest(i,j) = .true.
-
                     ! If a cell is currently active but it wasn't previously, we want to give it the freshest moment information
                     elseif (State%active(i,j) .eq. RAIJUACTIVE .and. State%active_last(i,j) .ne. RAIJUACTIVE) then
                         doMomentIngest(i,j) = .true.
-                    
                     endif
 
                 enddo
@@ -105,17 +96,20 @@ module raijuBCs
         logical, dimension(Grid%shGrid%isg:Grid%shGrid%ieg,&
                            Grid%shGrid%jsg:Grid%shGrid%jeg), intent(in) :: doMomentIngest
 
-        integer :: i,j,s
-        integer :: psphIdx
+        integer :: i,j,f
+        integer :: psphIdx, eleIdx
             !! Index of plasmasphere species
+        integer :: s
         real(rp) :: kT,vm
         real(rp) :: etaBelow
             !! Amount of eta below lowest lambda bound (every i,j gets a copy)
+        real(rp) :: tmp_kti, tmp_kte
 
         psphIdx = spcIdx(Grid, F_PSPH)
+        eleIdx = spcIdx(Grid, F_HOTE)
         !$OMP PARALLEL DO default(shared) collapse(1) &
         !$OMP schedule(dynamic) &
-        !$OMP private(i,j,s,vm,kT,etaBelow)
+        !$OMP private(i,j,s,f,vm,kT,etaBelow)
         do j=Grid%shGrid%jsg,Grid%shGrid%jeg
             do i=Grid%shGrid%isg,Grid%shGrid%ieg
                 if(.not. doMomentIngest(i,j)) then
@@ -123,20 +117,67 @@ module raijuBCs
                 endif
 
                 vm = State%bvol(i,j)**(-2./3.)
-                do s=1,Grid%nSpc
-                    kT = DP2kT(State%Davg(i,j,s), State%Pavg(i,j,s))  ! [keV]
-                    call DkT2SpcEta(Model,Grid%spc(s), &
-                        State%eta(i,j,Grid%spc(s)%kStart:Grid%spc(s)%kEnd),&
-                        State%Davg(i,j,s), kT, vm, etaBelow)
-                    
-                    ! etaBelow has the amount of eta that is below the lowest lambda channel bound
-                    !! TODO: Check to see if we are missing too much pressure
-                    ! Maybe we want to put it in plasmasphere channel cause its cold H+
-                    if (Model%doExcesstoPsph .and. Grid%spc(s)%mapExtraToPsph) then
-                        State%eta(i,j,Grid%spc(psphIdx)%kStart) = State%eta(i,j,Grid%spc(psphIdx)%kStart) + etaBelow
+                !do s=1,Grid%nSpc
+                !    kT = DP2kT(State%Davg(i,j,s), State%Pavg(i,j,s))  ! [keV]
+                !    call DkT2SpcEta(Model,Grid%spc(s), &
+                !        State%eta(i,j,Grid%spc(s)%kStart:Grid%spc(s)%kEnd),&
+                !        State%Davg(i,j,s), kT, vm, etaBelow)
+                !    
+                !    ! etaBelow has the amount of eta that is below the lowest lambda channel bound
+                !    !! TODO: Check to see if we are missing too much pressure
+                !    ! Maybe we want to put it in plasmasphere channel cause its cold H+
+                !    if (Model%doExcesstoPsph .and. Grid%spc(s)%mapExtraToPsph) then
+                !        State%eta(i,j,Grid%spc(psphIdx)%kStart) = State%eta(i,j,Grid%spc(psphIdx)%kStart) + etaBelow
+                !    endif
+
+                ! Before we map to any RAIJU species, zero them out in case we want to accumulate
+                do s=1,Model%nSpc
+                    if (Grid%spc(s)%isMappedTo) then
+                        State%eta(i,j,Grid%spc(s)%kStart:Grid%spc(s)%kEnd) = 0.0
                     endif
 
-                enddo  ! s
+                    !!!!!!!!
+                    !! TODO: Implement proper electron mapping
+                    !!!!!!!!
+                    if (Grid%spc(s)%flav .eq. F_HOTE) then
+                        State%eta(i,j,Grid%spc(s)%kStart:Grid%spc(s)%kEnd) = 0.0
+                    endif
+                enddo
+                
+                ! Now go ahead and do mapping
+                do f=1,Model%nFluidIn
+                    s = spcIdx(Grid, Model%fluidInMaps(f)%flav)
+                    kT = DP2kT(State%Davg(i,j,f), State%Pavg(i,j,f))  ! [keV]
+                    !!!!!!!!!!!!!
+                    !! TODO: Implement proper Te map calculation
+                    !!!!!!!!!!!!!
+                    if (Grid%spc(s)%spcType .eq. RAIJUHPLUS) then
+                        tmp_kti = kT / (1.0 + 1.0/Model%tiote)
+                        tmp_kte = kT / (1.0 + Model%tiote)
+
+                        call DkT2SpcEta(Model,Grid%spc(s), &
+                            State%eta(i,j,Grid%spc(s)%kStart:Grid%spc(s)%kEnd), &
+                            State%Davg(i,j,f), tmp_kti, &
+                            vm, doAccumulateO=.true., etaBelowO=etaBelow)
+                        call DkT2SpcEta(Model,Grid%spc(eleIdx), &
+                            State%eta(i,j,Grid%spc(eleIdx)%kStart:Grid%spc(eleIdx)%kEnd), &
+                            State%Davg(i,j,f), tmp_kte, &
+                            vm, doAccumulateO=.true.)
+                    else
+                        ! Should be all we have to do, electrons should have their own fluid counterparts I think
+                        call DkT2SpcEta(Model,Grid%spc(s), &
+                            State%eta(i,j,Grid%spc(s)%kStart:Grid%spc(s)%kEnd), &
+                            State%Davg(i,j,f), kT, &
+                            vm, doAccumulateO=.true., etaBelowO=etaBelow)
+                    endif
+
+                    ! etaBelow has the amount of eta that is below the lowest lambda channel bound
+                    !! TODO: Check to see if we are missing too much pressure
+                    if (Model%doExcesstoPsph .and. Model%fluidInMaps(f)%doExcessToPsph) then
+                        State%eta(i,j,Grid%spc(psphIdx)%kStart) = State%eta(i,j,Grid%spc(psphIdx)%kStart) + etaBelow
+                    endif
+                    
+                enddo  ! f
             enddo  ! j
         enddo  ! i
 

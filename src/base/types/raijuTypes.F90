@@ -8,8 +8,6 @@ module raijutypes
 
     use raijudefs
 
-    use raijudefs
-
     implicit none
 
     !  var*Var0 = CODE units --> In/Out units
@@ -42,8 +40,6 @@ module raijutypes
             !! Strong-scattering limit
         real(rp), dimension(:), allocatable :: alami
             !! [eV*(Rx/nT)^(2/3)] Lambda channel cell interfaces/edges
-        logical :: mapExtraToPsph
-            !! Whether any eta under species' lowest bound gets added to plasmasphere
 
         ! These are calculated after read-in
         integer :: kStart, kEnd
@@ -52,6 +48,9 @@ module raijutypes
             !! Species mass in amu (even the electrons)
         integer :: spcType
             !! Enum of species type
+
+        ! Determined based on coupling details
+        logical :: isMappedTo = .false.
         
     end type raijuSpecies_T
 
@@ -96,6 +95,18 @@ module raijutypes
         real(rp), allocatable, dimension(:,:) :: wCHORUS
 
     end type eLossWM_T
+
+!------
+! Coupling helpers
+!------
+    type mhd2raiSpcMap_T
+        integer :: idx_mhd
+            !! Index of mhd fluid (in Gas array, probably)
+        integer :: flav
+            !! RAIJU flavor to map to
+        logical :: doExcessToPsph = .false.
+            !! Whether or not we map low-energy part of distribution to zero-energy plasmasphere channel
+    end type mhd2raiSpcMap_T
 
 !------
 ! Main Model, Grid, State
@@ -144,7 +155,7 @@ module raijutypes
         logical :: doGeoCorot
             !! If true, calc corotation potential from Geopack
             !! If false, calc corotation potential assuming dipole and rotational axes are aligned
-        logical :: doExcesstoPsph
+        logical :: doExcessToPsph
             !! Allow mapping of excess H+ to plasmasphere channel
 
         ! Plasmasphere settings
@@ -181,6 +192,10 @@ module raijutypes
             !! Pointer to electron loss function
         type(eLossWM_T) :: eLossWM
             !! Container for electron Wave Model data
+
+        ! Coupling info
+        integer :: nFluidIn = 0
+        type(mhd2raiSpcMap_T), dimension(:), allocatable :: fluidInMaps
 
         character(len=strLen) :: icStr
         procedure(raijuStateIC_T     ), pointer, nopass :: initState => NULL()
@@ -233,6 +248,7 @@ module raijutypes
         ! Species / lambda stuff
         integer :: Nk  ! Total number of channels for all species
         integer :: nSpc  ! Model has the main copy of this, but helpful to keep here too
+        integer :: nFluidIn  ! Model has the main copy of this, but helpful to keep here too
         type(raijuSpecies_T), dimension(:), allocatable :: spc
             !! Collection of raijuSpecies that contain all relevant species info, including alami
         real(rp), dimension(:), allocatable :: alamc

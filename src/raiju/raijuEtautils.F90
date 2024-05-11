@@ -155,7 +155,7 @@ module raijuetautils
     end function SpcEta2Press
 
 
-    subroutine DkT2SpcEta(Model, spc, eta, D, kT, vm, etaBelowO)
+    subroutine DkT2SpcEta(Model, spc, eta, D, kT, vm, doAccumulateO, etaBelowO)
         !! Take a density and pressure, and map it to RAIJU eta channels for given species
         type(raijuModel_T), intent(in) :: Model
         type(raijuSpecies_T), intent(in) :: spc
@@ -166,11 +166,21 @@ module raijuetautils
             !! Density [#/cc], Energy [keV], bVol^-2/3 [(Rx/nT)^(-2/3)]
         real(rp), optional, intent(out) :: etaBelowO
             !! If provided, we will return the eta that's below the lowest channel of this species
+        logical, optional, intent(in) :: doAccumulateO
 
+        
         integer :: k
-            !! loop variable
+        logical :: doAccumulate
 
-        eta = 0.0
+        if (present(doAccumulateO)) then
+            doAccumulate = doAccumulateO
+        else
+            doAccumulate = .false.
+        endif
+
+        if (.not. doAccumulate) then
+            eta = 0.0
+        endif
 
         ! Trap for zero density
         if (D < TINY) then
@@ -179,7 +189,7 @@ module raijuetautils
         
         if (size(eta) .eq. 1) then
             ! Just throw all the density into the one channel
-            eta(spc%kStart) = D/(vm**1.5)*sclEta ! #/cc * Rx/nT * 1/nT -> 1/T
+            eta(spc%kStart) = eta(spc%kStart) + D/(vm**1.5)*sclEta ! #/cc * Rx/nT * 1/nT -> 1/T
             return
         endif
 
@@ -191,7 +201,7 @@ module raijuetautils
 
 
         do k=spc%kStart,spc%kEnd
-            eta(k) = Model%dp2etaMap(Model,D,kT,vm,spc%alami(k),spc%alami(k+1))
+            eta(k) = eta(k) + Model%dp2etaMap(Model,D,kT,vm,spc%alami(k),spc%alami(k+1))
                 !! Model%dp2etaMap may point to one of the functions below, like Maxwell2Eta
                 !! or it may point to a user-defined mapping function
         enddo

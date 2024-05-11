@@ -104,7 +104,7 @@ module raijuSpeciesHelper
         type(raijuGrid_T), intent(inout) :: Grid
         character(len=strLen), intent(in) :: configfname
 
-        integer :: i, kPos
+        integer :: i, kPos, f, ferr, psphIdx
         character(len=strLen) :: gStr
         type(IOVAR_T), dimension(MAXIOVAR) :: IOVars ! Just grabbing lami and we're done
 
@@ -155,12 +155,12 @@ module raijuSpeciesHelper
             spc%amu = SpcAmu(spc)
             spc%spcType = SpcType(spc)
 
-            ! If species is H+ but not plasmasphere, we can map etas below its lambda bounds to plasmasphere
-            if (spc%spcType .eq. RAIJUHPLUS .and. spc%flav .ne. F_PSPH) then
-                spc%mapExtraToPsph = .true.
-            else
-                spc%mapExtraToPsph = .false.
-            endif
+            !! If species is H+ but not plasmasphere, we can map etas below its lambda bounds to plasmasphere
+            !if (spc%spcType .eq. RAIJUHPLUS .and. spc%flav .ne. F_PSPH) then
+            !    spc%mapExtraToPsph = .true.
+            !else
+            !    spc%mapExtraToPsph = .false.
+            !endif
 
             ! Calc start and end bounds, use it to set alami index range
             spc%kStart = kPos
@@ -179,7 +179,7 @@ module raijuSpeciesHelper
             write(*,*)" Fudge:        ", spc%fudge
             write(*,*)" kStart:       ", spc%kStart
             write(*,*)" kEnd:         ", spc%kEnd
-            write(*,*)" ExcesstoPsph: ", spc%mapExtraToPsph
+            !write(*,*)" ExcesstoPsph: ", spc%mapExtraToPsph
             !write(*,*)" alami:   ", spc%alami
             
 
@@ -210,6 +210,35 @@ module raijuSpeciesHelper
         call assertSpcExists(F_HOTE)  ! Hot electrons
         call assertSpcExists(F_HOTP)  ! Hot protons
 
+
+        ! Set coupling info
+        if (Model%nFluidIn > 0) then
+            do f=1,Model%nFluidIn
+                ! First, make sure mapping info is good on our side
+                if (.not. spcExists(Grid, Model%fluidInMaps(f)%flav)) then
+                    write(*,*)"ERROR initLambdaGrid: one of the fluidInMaps has a flavor that doesn't exist!"
+                    write(*,*)"Existing species (see raijudefs for enum names):"
+                    do ferr=1,Grid%nSpc
+                        write(*,*)"flavor=",Grid%spc(ferr)%flav,", spc =",Grid%spc(ferr)%spcType
+                    enddo
+                    write(*,*)"FluidIn's flav = ",Model%fluidInMaps(f)%flav
+                    stop
+                endif
+
+                ! If good, determine which species expect to get written to
+                i = spcIdx(Grid, Model%fluidInMaps(f)%flav)
+                Grid%spc(i)%isMappedTo = .true.
+                if (Model%doPlasmasphere .and. Model%fluidInMaps(f)%doExcessToPsph) then
+                    psphIdx = spcIdx(Grid, F_PSPH)
+                    Grid%spc(psphIdx)%isMappedTo = .true.
+                endif
+            enddo
+        endif
+
+        do i=1,Grid%nSpc
+            write(*,*)Grid%spc(i)%flav,Grid%spc(i)%isMappedTo
+        enddo
+        stop
 
         contains
 

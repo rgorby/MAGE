@@ -6,7 +6,6 @@ module raijuuseric
     use raijuTypes
     use raijuICHelpers
     use raijuCplTypes
-    use raijuCpl
 
     implicit none
 
@@ -14,7 +13,7 @@ module raijuuseric
 
 
     subroutine raijuInitState_useric(Model,Grid,State,inpXML)
-        type(raijuModel_T) , intent(in)    :: Model
+        type(raijuModel_T) , intent(inout)    :: Model
         type(raijuGrid_T)  , intent(in)    :: Grid
         type(raijuState_T) , intent(inout) :: State
         type(XML_Input_T), intent(in) :: inpXML

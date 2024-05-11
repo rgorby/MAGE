@@ -1,9 +1,12 @@
 ! Initialize kaimag
 module raijustarter
+    
+    ! Base
     use shellgrid
     use xml_input
     use planethelper
 
+    ! Raiju
     use raijudefs
     use raijutypes
     use raijugrids
@@ -12,6 +15,8 @@ module raijustarter
     use raijuout
     use raijuICHelpers
     use raijuELossWM
+
+    ! Cmake points to this
     use raijuuseric
 
     implicit none
@@ -96,9 +101,12 @@ module raijustarter
         else
             Model%nSpc = 2
         endif
-        call iXML%Set_Val(Model%doExcesstoPsph, "prob/doExcessMap",.true.)
+        call iXML%Set_Val(Model%doExcessToPsph, "prob/doExcessMap",.true.)
             !! Allow mapping of excess H+ to plasmasphere channel
-        
+        if (Model%doExcesstoPsph .and. .not. Model%doPlasmasphere) then
+            write(*,*)"Error: Can't map excess to psph because psph doesn't exist!"
+        endif
+
         call iXML%Set_Val(Model%nSpc, "prob/nSpc",Model%nSpc)
 
         ! Solver params
@@ -170,19 +178,43 @@ module raijustarter
                 stop
         end select
 
-
-
         call iXML%Set_Val(Model%doFatOutput, "output/doFat",.false.)
+        ! TODO: Add flags to output certain data, like coupling information
+        
+
+        ! Determine coupling information
+        call setMHD2RaiInfo(Model, iXML)
 
         ! Set planet params
-        !! This should only be kept for as long as planet_T doesn't contain pointers
-        !! In this current case, there should be a full copy to our own planet params
         call getPlanetParams(Model%planet, iXML, doLoudO=.true.)
 
-
-        !TODO: Add flags to output certain data, like coupling information
-
     end subroutine raijuInitModel
+
+
+    subroutine setMHD2RaiInfo(Model, iXML)
+        type(raijuModel_T), intent(inout) :: Model
+        type(XML_Input_T), intent(in) :: iXML
+
+        integer :: nFluids
+        integer :: f
+        character(len=strLen) :: xmlFluidTag
+
+        call iXML%Set_Val(nFluids, "cpl/nFluidsIn",0)
+        Model%nFluidIn = nFluids
+        
+        if (nFluids > 0) then
+            allocate(Model%fluidInMaps(nFluids))
+            do f=1,nFluids
+                write(xmlFluidTag,'(A,I0,A)')"fluid",f,"/imhd"
+                call iXML%Set_Val(Model%fluidInMaps(f)%idx_mhd, xmlFluidTag, 0)
+                write(xmlFluidTag,'(A,I0,A)')"fluid",f,"/flav"
+                call iXML%Set_Val(Model%fluidInMaps(f)%flav, xmlFluidTag, -1)
+                write(xmlFluidTag,'(A,I0,A)')"fluid",f,"/excessToPsph"
+                call iXML%Set_Val(Model%fluidInMaps(f)%doExcessToPsph, xmlFluidTag, .false.)
+            enddo
+        endif
+
+    end subroutine setMHD2RaiInfo
 
 
     subroutine raijuInitGrid(Model, Grid, iXML, shGridO)
@@ -234,6 +266,7 @@ module raijustarter
 
         ! Now handle lambda grid
         Grid%nSpc = Model%nSpc  ! Make a copy of nSpc
+        Grid%nFluidIn = Model%nFluidIn  ! Make a copy of nFluidIn
         call iXML%Set_Val(Grid%ignoreConfigMismatch, "config/ignoreMismatch",.false.)
         call initLambdaGrid(Model, Grid, Model%configFName)
 
@@ -275,8 +308,8 @@ module raijustarter
             allocate( State%cVel(sh%isg:sh%ieg  , sh%jsg:sh%jeg  , Grid%Nk, 2) )
             
             ! Coupling input moments
-            allocate( State%Pavg(sh%isg:sh%ieg  , sh%jsg:sh%jeg, Grid%nSpc) )
-            allocate( State%Davg(sh%isg:sh%ieg  , sh%jsg:sh%jeg, Grid%nSpc) )
+            allocate( State%Pavg(sh%isg:sh%ieg  , sh%jsg:sh%jeg, Grid%nFluidIn) )
+            allocate( State%Davg(sh%isg:sh%ieg  , sh%jsg:sh%jeg, Grid%nFluidIn) )
             ! Bmin surface
             allocate( State%Bmin    (sh%isg:sh%ieg+1, sh%jsg:sh%jeg+1, 3 ) )
             allocate( State%xyzMin  (sh%isg:sh%ieg+1, sh%jsg:sh%jeg+1, 3 ) )

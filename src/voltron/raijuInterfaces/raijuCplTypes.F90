@@ -1,20 +1,28 @@
 module raijuCplTypes
-    !! Types used to couple RAIJU to voltron
+    !! Types used to couple RAIJU to other models
+    
+    ! Base
     use volttypes
-    use imagtubes
+    use voltCplTypes
     use ebtypes
     use shellGrid
 
+    ! Voltron
     use raijutypes
 
 
     implicit none
+
+
 
     type raiju_fromV_T
         real(rp) :: tLastUpdate
             !! Time of last update, according to voltron
         type(ShellGrid_T) :: shGr
             !! Copy of raijuModel's shellGrid
+        integer :: n_MHDfluids
+            !! Number of MHD fluids to expect
+
         type(magLine_T), dimension(:,:), allocatable :: magLines
         type(IMAGTube_T), dimension(:,:), allocatable :: ijTubes
             !! imagTubes with field-line averaged info

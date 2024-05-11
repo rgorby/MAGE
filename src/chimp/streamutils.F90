@@ -765,5 +765,38 @@ module streamutils
         if (allocated(fL%Gas )) deallocate(fL%Gas )
 
     end subroutine cleanLine
-          
+
+
+    subroutine deepCopyLine(flIn, flOut)
+        type(magLine_T), intent(in) :: flIn
+        type(magLine_T), intent(out) :: flOut
+
+        integer :: N1,N2,Nv,Ns
+        
+        N1 = flIn%Nm
+        N2 = flIn%Np
+        Nv = size(flIn%Gas,dim=2)
+        Ns = ubound(flIn%Gas,dim=3)
+
+        call cleanLine(flOut)
+
+        flOut%x0 = flIn%x0
+        flOut%Nm = flIn%Nm
+        flOut%Np = flIn%Np
+        flOut%isGood = flIn%isGood
+
+        allocate(flOut%xyz (-N1:+N2,NDIM))
+        allocate(flOut%ijk (-N1:+N2,NDIM))
+        allocate(flOut%Bxyz(-N1:+N2,NDIM))
+        allocate(flOut%magB(-N1:+N2))
+        allocate(flOut%Gas(-N1:+N2,Nv,0:Ns))
+
+        flOut%xyz = flIn%xyz
+        flOut%ijk = flIn%ijk
+        flOut%Bxyz = flIn%Bxyz
+        flOut%magB = flIn%magB
+        flOut%Gas  = flIn%Gas
+
+    end subroutine deepCopyLine
+
 end module streamutils
