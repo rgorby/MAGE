@@ -1,5 +1,4 @@
 !Module to hold some improved EUV formulations
-!AMIE may have been fine for simulations 40 years ago, but it's 2021 ffs
 
 module euvhelper
     use kdefs
