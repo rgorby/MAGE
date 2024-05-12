@@ -5,6 +5,7 @@ module raijuCplHelpers
 
     ! Raiju
     use raijutypes
+    use raijuDomain
     use raijuCplTypes
     use raijuSpeciesHelper
 
@@ -71,6 +72,7 @@ module raijuCplHelpers
         
     end subroutine imagTubes2RAIJU
 
+
     subroutine defaultMHD2SpcMap(Model, Grid, State, ijTubes)
         !! Assumes:
         !!  MHD: single fluid
@@ -81,7 +83,7 @@ module raijuCplHelpers
         type(IMAGTube_T),  dimension(Grid%shGrid%isg:Grid%shGrid%ieg+1,&
                                      Grid%shGrid%jsg:Grid%shGrid%jeg+1), intent(in) :: ijTubes
 
-        integer :: i, j, k, sIdx
+        integer :: i, j, k, s, sIdx
         real(rp) :: P, D
         logical, dimension(Grid%shGrid%isg:Grid%shGrid%ieg,&
                            Grid%shGrid%jsg:Grid%shGrid%jeg) :: isGood
@@ -97,32 +99,24 @@ module raijuCplHelpers
         end where
 
         associate(sh=>Grid%shGrid)
-
             do i=sh%isg,sh%ieg
                 do j=sh%jsg,sh%jeg
                     if (isGood(i,j)) then
-                        ! This means all 4 corners are good, can do cell centered stuff
-                        P = toCenter2D(ijTubes(i:i+1,j:j+1)%Pave) * 1.0e+9  ! Pa -> nPa
-                        D = toCenter2D(ijTubes(i:i+1,j:j+1)%Nave) * 1.0e-6  ! #/m^3 -> #/cc                      
+                        do s=0,Model%nFluidIn
+                            ! This means all 4 corners are good, can do cell centered stuff
+                            P = 0.25*(ijTubes(i  ,j)%Pave(s) + ijTubes(i  ,j+1)%Pave(s) &
+                                    + ijTubes(i+1,j)%Pave(s) + ijTubes(i+1,j+1)%Pave(s)) * 1.0D+9 ! [Pa -> nPa]
+                            D = 0.25*(ijTubes(i  ,j)%Nave(s) + ijTubes(i  ,j+1)%Nave(s) &
+                                    + ijTubes(i+1,j)%Nave(s) + ijTubes(i+1,j+1)%Nave(s)) * 1.0D-6 ! [#/m^3 --> #/cc]
+                                                 
 
-                        ! First do hot protons
-                        sIdx = spcIdx(Grid, F_HOTP)
-                        State%Pavg(i,j,sIdx) = P / (1.0 + 1.0/Model%tiote)
-                        State%Davg(i,j,sIdx) = D
+                            State%Pavg(i,j,s) = P
+                            State%Davg(i,j,s) = D
 
-                        ! Electrons
-                        sIdx = spcIdx(Grid, F_HOTE)
-                        State%Pavg(i,j,sIdx) = P / (1.0 + Model%tiote)
-                        State%Davg(i,j,sIdx) = D
-
-                        !! Note: Plasmasphere input density is zero because we're doing a single fluid
+                        enddo
                     endif
                 enddo
             enddo
-            sIdx = spcIdx(Grid, F_HOTP)
-            write(*,*)"Max ",sIdx," Davg_in=",maxval(State%Davg(:,:,sIdx))
-            sIdx = spcIdx(Grid, F_HOTE)
-            write(*,*)"Max ",sIdx," Davg_in=",maxval(State%Davg(:,:,sIdx))
         end associate
 
     end subroutine defaultMHD2SpcMap

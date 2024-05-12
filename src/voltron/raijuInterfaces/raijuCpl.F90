@@ -10,7 +10,6 @@ module raijuCpl
     ! Raiju
     use raijudefs
     use raijuTypes
-    use raijuDomain
     use raijuCplTypes
     use raijuCplHelpers
     
@@ -29,7 +28,8 @@ module raijuCpl
         integer, dimension(4) :: shGhosts
 
         associate(fromV=>cplBase%fromV, toV=>cplBase%toV, &
-            sh=>raiApp%Grid%shGrid)
+            !sh=>raiApp%Grid%shGrid, nFluidIn=>vApp%ebTrcApp%ebModel%nSpc)
+            sh=>raiApp%Grid%shGrid, nFluidIn=>raiApp%Model%nFluidIn)
 
         ! Init fromV first
             ! Allocations
