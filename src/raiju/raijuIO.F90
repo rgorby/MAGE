@@ -252,13 +252,16 @@ module raijuIO
         call AddOutVar(IOVars,"Pressure",State%Press(is:ie,js:je, :),uStr="nPa")
         ! Calculate flux tube entropy using bulk pressure
         call AddOutVar(IOVars,"FTEntropy",State%Press(is:ie,js:je,1)*State%bVol(is:ie,js:je)**(5./3.),uStr="nPa*(Rp/nT)^(5/3)")
+        
+        do s=0,Grid%nFluidIn
+            write(*,*)"Davg_in ",s,maxval(State%Davg(is:ie+1,js:je+1,s))
+        enddo
         ! Add density moment as #/cc instead of amu/cc
         allocate(outDen(is:ie,js:je,Grid%nSpc+1))
-        ! Convert amu/cc to #/cc
         outDen = 0.0
         do s=1, Grid%nSpc
+            ! Convert amu/cc to #/cc
             outDen(:,:,s+1) = State%Den(is:ie,js:je,s+1)/Grid%spc(s)%amu
-            write(*,*)"Davg_in ",s,maxval(State%Davg(is:ie,js:je,s))
             write(*,*)"Den out ",s,maxval(outDen(:,:,s+1))
             ! Don't include electrons to total number density
             if(Grid%spc(s)%spcType .ne. RAIJUELE) then

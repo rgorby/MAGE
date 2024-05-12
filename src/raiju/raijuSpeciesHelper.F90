@@ -238,7 +238,6 @@ module raijuSpeciesHelper
         do i=1,Grid%nSpc
             write(*,*)Grid%spc(i)%flav,Grid%spc(i)%isMappedTo
         enddo
-        stop
 
         contains
 

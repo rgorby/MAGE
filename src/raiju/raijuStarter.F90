@@ -205,11 +205,11 @@ module raijustarter
         if (nFluids > 0) then
             allocate(Model%fluidInMaps(nFluids))
             do f=1,nFluids
-                write(xmlFluidTag,'(A,I0,A)')"fluid",f,"/imhd"
+                write(xmlFluidTag,'(A,I0,A)')"fluidIn",f,"/imhd"
                 call iXML%Set_Val(Model%fluidInMaps(f)%idx_mhd, xmlFluidTag, 0)
-                write(xmlFluidTag,'(A,I0,A)')"fluid",f,"/flav"
+                write(xmlFluidTag,'(A,I0,A)')"fluidIn",f,"/flav"
                 call iXML%Set_Val(Model%fluidInMaps(f)%flav, xmlFluidTag, -1)
-                write(xmlFluidTag,'(A,I0,A)')"fluid",f,"/excessToPsph"
+                write(xmlFluidTag,'(A,I0,A)')"fluidIn",f,"/excessToPsph"
                 call iXML%Set_Val(Model%fluidInMaps(f)%doExcessToPsph, xmlFluidTag, .false.)
             enddo
         endif
@@ -308,8 +308,8 @@ module raijustarter
             allocate( State%cVel(sh%isg:sh%ieg  , sh%jsg:sh%jeg  , Grid%Nk, 2) )
             
             ! Coupling input moments
-            allocate( State%Pavg(sh%isg:sh%ieg  , sh%jsg:sh%jeg, Grid%nFluidIn) )
-            allocate( State%Davg(sh%isg:sh%ieg  , sh%jsg:sh%jeg, Grid%nFluidIn) )
+            allocate( State%Pavg(sh%isg:sh%ieg  , sh%jsg:sh%jeg, 0:Grid%nFluidIn) )
+            allocate( State%Davg(sh%isg:sh%ieg  , sh%jsg:sh%jeg, 0:Grid%nFluidIn) )
             ! Bmin surface
             allocate( State%Bmin    (sh%isg:sh%ieg+1, sh%jsg:sh%jeg+1, 3 ) )
             allocate( State%xyzMin  (sh%isg:sh%ieg+1, sh%jsg:sh%jeg+1, 3 ) )

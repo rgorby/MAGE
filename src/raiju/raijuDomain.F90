@@ -74,7 +74,7 @@ module raijuDomain
             !! Distance each cell is to open-closed boundary, up to nB + 1
         
         ! As a first pass, we will blanket enforce that there must always be nB buffer between any inactive and active cells
-        !We can do more complex stuff later
+        ! We can do more complex stuff later
 
         call CalcOCBDist(Grid%shGrid, isInactive, Grid%nB, ocbDist)
 

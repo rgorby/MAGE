@@ -69,11 +69,15 @@ program raijuOWDx
         ! Init RAIJU
         call raijuInit(raiApp, inpXML)
         call raijuCpl_init(vApp, raiApp, raijuCplBase)
+        
 
         ! Init CHIMP
         inpXML = New_XML_Input(trim(XMLStr),"Kaiju/Chimp",.true.)
         call goApe(ebModel,ebState,iXML=inpXML)
         ebModel%t = inTscl*raiApp%Model%t0
+
+        ! Now that chimp has set its nSpc, we can do raijuCpl_init
+        !call raijuCpl_init(vApp, raiApp, raijuCplBase)
 
         ! Use ebTabs to get MJD
         !> MJD at the start of the simulation (corresponds to sim t=0)

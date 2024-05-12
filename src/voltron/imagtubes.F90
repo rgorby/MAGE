@@ -126,16 +126,17 @@ module imagtubes
         type(ebTrcApp_T), intent(in) :: ebTrcApp
         type(planet_T), intent(in) :: planet
         real(rp), intent(in) :: colat, lon, r
-        type(IMAGTube_T), intent(out) :: ijTube
+        type(IMAGTube_T), intent(inout) :: ijTube
         type(magLine_T), intent(inout) :: bTrc
         integer, intent(in), optional :: nTrcO
         logical, intent(in), optional :: doShiftO
 
+        integer :: s
         real(rp) :: t, bMin,bIon
         real(rp), dimension(NDIM) :: x0, bEq, xyzIon
         real(rp), dimension(NDIM) :: xyzC,xyzIonC
         integer :: OCb
-        real(rp) :: bD,bP,dvB,bBeta,rCurv
+        real(rp) :: bD,bP,dvB,bBeta,rCurv, bDRC, bPRC
         real(rp) :: VaMKS,CsMKS,VebMKS !Speeds in km/s
         real(rp) :: TiEV !Temperature in ev
 
@@ -203,19 +204,28 @@ module imagtubes
         bMin = bMin*oBScl*1.0e-9 !EB=>Tesla
         bEq = bEq*planet%rp_m ! Rp -> meters
 
-        !Plasma quantities
-        !dvB = Flux-tube volume (Re/EB)
-        call FLThermo(ebModel,ebGr,bTrc,bD,bP,dvB,bBeta)
+        ! Plasma quantities
+        do s=0,ebModel%nSpc
+            !dvB = Flux-tube volume (Re/EB)
+            !write(*,*)"FLThermo, s=",s
+            call FLThermo(ebModel,ebGr,bTrc,bD,bP,dvB,bBeta,s)
+            bP = bP*1.0e-9 !nPa=>Pa
+            bD = bD*1.0e+6 !#/cc => #/m3
+            ijTube%Pave(s) = bP
+            ijTube%Nave(s) = bD
+
+            if (s .eq. RCFLUID) then
+                bPRC = bP
+                bDRC = bD
+            endif
+        enddo
+
         !Converts Rp/EB => Rp/T
         dvB = dvB/(oBScl*1.0e-9)
-        bP = bP*1.0e-9 !nPa=>Pa
-        bD = bD*1.0e+6 !#/cc => #/m3
-
+        
         ijTube%X_bmin = bEq
         ijTube%bmin = bMin
-        ijTube%Vol = dvB
-        ijTube%Pave = bP
-        ijTube%Nave = bD
+        ijTube%Vol = dvB  ! Taken from last FLThermo call
         ijTube%beta_average = bBeta
 
         call FLConj(ebModel,ebGr,bTrc,xyzC)
@@ -243,7 +253,7 @@ module imagtubes
         !VaMKS = flux tube arc length [km] / Alfven crossing time [s]
         VaMKS = (ijTube%Lb*planet%rp_m*1.0e-3)/ijTube%Tb 
         !CsMKS = 9.79 x sqrt(5/3 * Ti) km/s, Ti eV
-        TiEV = (1.0e+3)*DP2kT(bD*1.0e-6,bP*1.0e+9) !Temp in eV
+        TiEV = (1.0e+3)*DP2kT(bDRC*1.0e-6,bPRC*1.0e+9) !Temp in eV
         CsMKS = 9.79*sqrt((5.0/3)*TiEV)
 
         ijTube%wIMAG = VaMKS/( sqrt(VaMKS**2.0 + CsMKS**2.0) + VebMKS)

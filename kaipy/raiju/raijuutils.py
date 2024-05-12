@@ -113,11 +113,18 @@ class RAIJUInfo(kh5.H5Info):
 # Data handlers
 #------
 
-def getVar(grp: h5.Group, varName: str) -> np.ndarray:
+def getVar(grp: h5.Group, varName: str, mask:bool=None, broadcast_dims=None) -> np.ndarray:
     """ Get vars from h5 file this way so that we're sure everyone agrees on type and shape
     """
     try:
-        return grp[varName][:].T  # .T to go from Fortran to python indexing order
+        var = grp[varName][:].T  # .T to go from Fortran to python indexing order
+        if mask is not None:
+            if broadcast_dims is not None:
+                for d in broadcast_dims:
+                    mask = np.expand_dims(mask, axis=d)
+                mask = np.broadcast_to(mask, var.shape)
+            var = np.ma.masked_where(mask, var)
+        return var
     except KeyError:
         print("Error: {} not in keys".format(varName))
         return None

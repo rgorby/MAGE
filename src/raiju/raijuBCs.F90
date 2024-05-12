@@ -109,7 +109,7 @@ module raijuBCs
         eleIdx = spcIdx(Grid, F_HOTE)
         !$OMP PARALLEL DO default(shared) collapse(1) &
         !$OMP schedule(dynamic) &
-        !$OMP private(i,j,s,f,vm,kT,etaBelow)
+        !$OMP private(i,j,s,f,vm,kT,etaBelow,tmp_kti, tmp_kte)
         do j=Grid%shGrid%jsg,Grid%shGrid%jeg
             do i=Grid%shGrid%isg,Grid%shGrid%ieg
                 if(.not. doMomentIngest(i,j)) then
