@@ -45,10 +45,11 @@ export OMP_NUM_THREADS=128
 export MPI_TYPE_DEPTH=32
 export KMP_STACKSIZE=128M
 export SLACK_BOT_TOKEN={{ slack_bot_token }}
+export DERECHO_TESTING_ACCOUNT={{ account }}
 echo 'The active environment variables are:'
 printenv
 
 # Create the report.
-python ${KAIJUHOME}/testingScripts/intelChecksReport.py -dltv >& intelChecksReport.out
+python ${KAIJUHOME}/testingScripts/intelChecksReport.py -dltv
 
 echo "Job $PBS_JOBID ended at `date` on `hostname` in directory `pwd`."

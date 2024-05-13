@@ -1,15 +1,8 @@
 # NOTE: Embedding the command sent to derecho via ssh in double-quotes
 # ensures proper remote argument parsing.
-# 34 00 * * * ssh derecho "/glade/work/ewinter/mage_testing/derecho/kaiju/ewinter-derecho_testing_fixes/kaiju/testingScripts/run_mage_tests.sh -tv 'buildTest.py -ltv,ICtest.py -ltv,pyunitTest.py -ltv,intelChecks.py -ltv,unitTest.py -ltv'" >> /glade/work/ewinter/mage_testing/derecho/logs/test.out 2>&1
-# 34 02 * * * ssh derecho "/glade/work/ewinter/mage_testing/derecho/kaiju/ewinter-derecho_testing_fixes/kaiju/testingScripts/run_mage_tests.sh -tv 'unitTestReport.py -ltv'" >> /glade/work/ewinter/mage_testing/derecho/logs/test.out 2>&1
 
-# 34 00 * * * ssh derecho "/glade/work/ewinter/mage_testing/derecho/kaiju/ewinter-derecho_testing_fixes/kaiju/testingScripts/run_mage_tests.sh -tv 'buildTest.py -ltv,ICtest.py -ltv,pyunitTest.py -ltv,intelChecks.py -ltv,unitTest.py -ltv,weeklyDash.py -ltv'" >> /glade/work/ewinter/mage_testing/derecho/logs/test.out 2>&1
-# 34 02 * * * ssh derecho "/glade/work/ewinter/mage_testing/derecho/kaiju/ewinter-derecho_testing_fixes/kaiju/testingScripts/run_mage_tests.sh -tv 'unitTestReport.py -ltv'" >> /glade/work/ewinter/mage_testing/derecho/logs/test.out 2>&1
-# 34 04 * * * ssh derecho "/glade/work/ewinter/mage_testing/derecho/kaiju/ewinter-derecho_testing_fixes/kaiju/testingScripts/run_mage_tests.sh -tv 'weeklyDashReportReport.py -ltv'" >> /glade/work/ewinter/mage_testing/derecho/logs/test.out 2>&1
+# Run quick tests every night.
+34 00 * * * ssh derecho "/glade/work/ewinter/mage_testing/derecho/kaiju/ewinter-derecho_testing_fixes/kaiju/testingScripts/run_mage_tests.sh -v 'buildTest.py -lv,ICtest.py -lv'" >> /glade/work/ewinter/mage_testing/derecho/logs/nightly-tests.out 2>&1
 
-# 14 15 * * * ssh derecho "/glade/work/ewinter/mage_testing/derecho/kaiju/ewinter-derecho_testing_fixes/kaiju/testingScripts/run_mage_tests.sh -tv 'weeklyDash.py -ltv'" >> /glade/work/ewinter/mage_testing/derecho/logs/test.out 2>&1
-
-# Testing kaibc instead of ewinter-derecho_testing_fixes
-# 34 18 * * * ssh derecho "/glade/work/ewinter/mage_testing/derecho/kaiju/ewinter-derecho_testing_fixes/kaiju/testingScripts/run_mage_tests.sh -tv 'buildTest.py -ltv,ICtest.py -ltv,pyunitTest.py -ltv,intelChecks.py -ltv,unitTest.py -ltv,weeklyDash.py -ltv'" >> /glade/work/ewinter/mage_testing/derecho/logs/test.out 2>&1
-# 34 20 * * * ssh derecho "/glade/work/ewinter/mage_testing/derecho/kaiju/ewinter-derecho_testing_fixes/kaiju/testingScripts/run_mage_tests.sh -tv 'unitTestReport.py -ltv'" >> /glade/work/ewinter/mage_testing/derecho/logs/test.out 2>&1
-# 34 22 * * * ssh derecho "/glade/work/ewinter/mage_testing/derecho/kaiju/ewinter-derecho_testing_fixes/kaiju/testingScripts/run_mage_tests.sh -tv 'weeklyDashReportReport.py -ltv'" >> /glade/work/ewinter/mage_testing/derecho/logs/test.out 2>&1
+# Run tests requiring PBS jobs on Monday nights.
+34 00 * * 1 ssh derecho "/glade/work/ewinter/mage_testing/derecho/kaiju/ewinter-derecho_testing_fixes/kaiju/testingScripts/run_mage_tests.sh -v 'pyunitTest.py -lv,intelChecks.py -lv,unitTest.py -lv'" >> /glade/work/ewinter/mage_testing/derecho/logs/weekly-tests.out 2>&1

@@ -84,8 +84,8 @@ def main():
         print(f"job2 = {job2}")
 
     # Combine the job output files.
-    job_file_1 = f"memCheck.o{job1}"
-    job_file_2 = f"threadCheck.o{job2}"
+    job_file_1 = f"mage_intelCheckSubmitMem.o{job1}"
+    job_file_2 = f"mage_intelCheckSubmitThread.o{job2}"
     if debug:
         print(f"job_file_1 = {job_file_1}")
         print(f"job_file_2 = {job_file_2}")
@@ -179,11 +179,11 @@ def main():
     test_report_details_string = ''
     test_report_details_string += 'Results of memory tests:\n'
     with open(memory_errors_file, 'r', encoding='utf-8') as f:
-        test_report_details_string += f.readlines()
+        test_report_details_string += f.read()
     test_report_details_string += '\n'
     test_report_details_string += 'Results of thread tests:\n'
     with open(thread_errors_file, 'r', encoding='utf-8') as f:
-        test_report_details_string += f.readlines()
+        test_report_details_string += f.read()
 
     # Summarize the test results
     test_report_summary_string = (

@@ -31,6 +31,6 @@ printenv
 
 # Run the Intel checks.
 MPICOMMAND="mpiexec $KAIJUHOME/scripts/preproc/pinCpuCores.sh"
-${MPICOMMAND} inspxe-cl -collect=mi3 -r memResults -- ./voltron_mpi.x tinyCase.xml >& memTests.out
+${MPICOMMAND} inspxe-cl -collect=mi3 -r memResults -- ./voltron_mpi.x tinyCase.xml
 
 echo "Job $PBS_JOBID ended at `date` on `hostname` in directory `pwd`."

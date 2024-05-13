@@ -300,6 +300,7 @@ def main():
         pbs_options['tmpdir'] = os.environ['TMPDIR']
         pbs_options['slack_bot_token'] = os.environ['SLACK_BOT_TOKEN']
         pbs_options['mage_test_root'] = os.environ['MAGE_TEST_ROOT']
+        pbs_options['derecho_testing_account'] = os.environ['DERECHO_TESTING_ACCOUNT']
 
         # Set options specific to the memory check, then render the template.
         pbs_options['job_name'] = 'mage_intelCheckSubmitMem'
@@ -371,7 +372,7 @@ def main():
         job_ids.append(job_id)
 
         # Run the report job when the other two jobs are complete.
-        cmd = f"qsub -W depend=after:{':'.join(job_ids)} {REPORT_PBS_FILENAME}"
+        cmd = f"qsub -W depend=afterok:{':'.join(job_ids)} {REPORT_PBS_FILENAME}"
         if debug:
             print(f"cmd = {cmd}")
         try:
