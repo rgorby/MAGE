@@ -99,6 +99,7 @@ module streamline
         fL%isGood = .true.
         fL%Nm = N1
         fL%Np = N2
+        fL%Nmax = MaxN
 
         !Do allocations/set seed point value
         allocate(fL%xyz(-N1:N2,NDIM))
@@ -408,7 +409,7 @@ module streamline
         isCM  = isClosed(bTrc%xyz(-Nm,:),Model)
 
         
-        isFin = (Np<MaxFL-1) .and. (Nm<MaxFL-1) !Check if finished
+        isFin = (Np<bTrc%Nmax-1) .and. (Nm<btrc%Nmax-1) !Check if finished
         isStart = (Np>0) .and. (Nm>0) !Check if both sides went somewhere
 
         OCb = 0
