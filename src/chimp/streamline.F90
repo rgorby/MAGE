@@ -726,13 +726,14 @@ module streamline
         ! check if exceeded tube bounds
         if(Np > MaxSteps) then
             Np = MaxSteps
-            !$OMP CRITICAL
-            write(*,*) ANSIRED
-            write(*,*) "<WARNING! genTrace hit max tube size!>"
-            write(*,*) "Seed: ", x0
-            write(*,*) "End : ", xyzn(Np,:)
-            write(*,'(a)',advance="no") ANSIRESET, ''
-            !$OMP END CRITICAL
+            !Removing warning that is triggered too often and probably not beneficial
+            !!$OMP CRITICAL
+            !write(*,*) ANSIRED
+            !write(*,*) "<WARNING! genTrace hit max tube size!>"
+            !write(*,*) "Seed: ", x0
+            !write(*,*) "End : ", xyzn(Np,:)
+            !write(*,'(a)',advance="no") ANSIRESET, ''
+            !!$OMP END CRITICAL
         endif
 
     end subroutine genTrace
