@@ -26,7 +26,7 @@
         "stop_date": {
             "LEVEL": "BASIC",
             "prompt": "Stop date for simulation (yyyy-mm-ddThh:mm:ss)",
-            "default": "2016-08-09T10:00:00"
+            "default": "2016-08-09T11:00:00"
         },
         "use_segments": {
             "LEVEL": "BASIC",
@@ -48,6 +48,11 @@
             "LEVEL": "INTERMEDIATE",
             "prompt": "GAMERA grid inner radius (in Earth radii)",
             "default": "2.0"
+        },
+        "gamera_grid_outer_radius": {
+            "LEVEL": "INTERMEDIATE",
+            "prompt": "GAMERA sunward outer radius (in Earth radii)",
+            "default": "30.0"
         },
         "hpc_system": {
             "LEVEL": "BASIC",

@@ -301,7 +301,8 @@ def prompt_user_for_run_options(args):
         num_segments = 1
 
     # Prompt for the remaining parameters.
-    for on in ["gamera_grid_type", "gamera_grid_inner_radius", "hpc_system"]:
+    for on in ["gamera_grid_type", "gamera_grid_inner_radius", 
+               "gamera_grid_outer_radius","hpc_system"]:
         o[on] = get_run_option(on, od[on], mode)
 
     #-------------------------------------------------------------------------
@@ -605,7 +606,8 @@ def run_preprocessing_steps(options):
     # NOTE: Assumes genLFM.py is in PATH.
     cmd = "genLFM.py"
     args = [cmd, "-gid", options["simulation"]["gamera_grid_type"],
-            '-Rin', options["simulation"]["gamera_grid_inner_radius"]]
+            '-Rin', options["simulation"]["gamera_grid_inner_radius"],
+            '-Rout', options["simulation"]["gamera_grid_outer_radius"]]
     subprocess.run(args, check=True)
 
     # If needed, create the solar wind file by fetching data from CDAWeb.
