@@ -193,6 +193,15 @@ def intensity_kappa(n, mass, E, kT, kappa=6):
 # Conversions
 #------
 
+def lambda2Energy(lambdas, bvol):
+    """
+    lambdas = [eV*(Rx/nT)^(2/3)]
+    bVol = [Rx/nT]
+    return: energy [keV]
+    """
+
+    return lambdas*bvol**(-2/3)*1e-3
+
 def etak2Press(etak, alamc, bVol):
     """
     etak [#/cc * Rx/T]

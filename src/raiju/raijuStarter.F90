@@ -50,6 +50,11 @@ module raijustarter
             call initEWM(app%Model%eLossWM, app%Model%configFName, iXML, app%Grid%shGrid)
         endif
 
+
+        ! TODO: Add some final checks before returning
+        ! e.g., if we are mapping fluids, are we mapping something to HOTP?
+        !  (totally just thought of it randomly and not because I spent 4 hours realizing this was my problem)
+
     end subroutine raijuInit
 
 

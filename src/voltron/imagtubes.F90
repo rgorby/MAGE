@@ -136,7 +136,7 @@ module imagtubes
         real(rp), dimension(NDIM) :: x0, bEq, xyzIon
         real(rp), dimension(NDIM) :: xyzC,xyzIonC
         integer :: OCb
-        real(rp) :: bD,bP,dvB,bBeta,rCurv, bDRC, bPRC
+        real(rp) :: bD,bP,dvB,bBeta,rCurv, bDRC, bPRC, bBetaRC
         real(rp) :: VaMKS,CsMKS,VebMKS !Speeds in km/s
         real(rp) :: TiEV !Temperature in ev
 
@@ -217,6 +217,7 @@ module imagtubes
             if (s .eq. RCFLUID) then
                 bPRC = bP
                 bDRC = bD
+                bBetaRC = bBeta
             endif
         enddo
 
@@ -226,7 +227,7 @@ module imagtubes
         ijTube%X_bmin = bEq
         ijTube%bmin = bMin
         ijTube%Vol = dvB  ! Taken from last FLThermo call
-        ijTube%beta_average = bBeta
+        ijTube%beta_average = bBetaRC
 
         call FLConj(ebModel,ebGr,bTrc,xyzC)
         if (doShift) then
