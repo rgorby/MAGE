@@ -662,7 +662,7 @@ module streamline
         logical :: inDom,doShue
 
         if (present(MaxStepsO)) then
-            MaxSteps = MaxStepsO
+            MaxSteps = min(MaxStepsO,MaxFL)
         else
             MaxSteps = MaxFL
         endif
