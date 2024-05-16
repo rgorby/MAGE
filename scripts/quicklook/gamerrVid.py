@@ -48,7 +48,7 @@ if __name__ == "__main__":
 	oDir = "vid2D"
 	ts = 0    #[min]
 	te = 200  #[min]
-	dt = 60.0 #[sec]
+	dt = 0.0 #[sec] 0 default means every timestep
 	Nblk = 1 #Number of blocks
 	nID = 1 #Block ID of this job
 	noMPI = False # Don't add MPI tiling
@@ -100,24 +100,6 @@ if __name__ == "__main__":
 	
 	fnList = [item.strip() for item in fieldNames.split(',')]
 
-	#Setup timing info
-	tOut = np.arange(ts*60.0,te*60.0,dt)
-	Nt = len(tOut)
-	vO = np.arange(0,Nt)
-
-	print("Writing %d outputs between minutes %d and %d"%(Nt,ts,te))
-	if (Nblk>1):
-		#Figure out work bounds
-		dI = (Nt//Nblk)
-		i0 = (nID-1)*dI
-		i1 = i0+dI
-		if (nID == Nblk):
-			i1 = Nt #Make sure we get last bit
-		print("\tBlock #%d: %d to %d"%(nID,i0,i1))
-	else:
-		i0 = 0
-		i1 = Nt
-
 	#Setup output directory
 	oDir = os.getcwd() + "/" + oSub
 	print("Writing output to %s"%(oDir))
@@ -140,12 +122,32 @@ if __name__ == "__main__":
 	#Figure parameters
 	figSz = (12,7.5)
 
-
 	#======
 	#Init data
 	gsph1 = msph.GamsphPipe(fdir1,ftag1)
 	gsph2 = msph.GamsphPipe(fdir2,ftag2)
-		
+	
+	#Setup timing info
+	if(dt > 0):
+		tOut = np.arange(ts*60.0,te*60.0,dt)
+	else:
+		tOut = [t for t in gsph1.T if t > ts*60.0 and t < te*60.0]
+	Nt = len(tOut)
+	vO = np.arange(0,Nt)
+
+	print("Writing %d outputs between minutes %d and %d"%(Nt,ts,te))
+	if (Nblk>1):
+		#Figure out work bounds
+		dI = (Nt//Nblk)
+		i0 = (nID-1)*dI
+		i1 = i0+dI
+		if (nID == Nblk):
+			i1 = Nt #Make sure we get last bit
+		print("\tBlock #%d: %d to %d"%(nID,i0,i1))
+	else:
+		i0 = 0
+		i1 = Nt
+	
 	#======
 	#Setup figure
 	fig = plt.figure(figsize=figSz)
