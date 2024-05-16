@@ -697,9 +697,9 @@ contains
          ! Remove < and > from buffer
          this%buf = adjustl(trim(this%buf))
          pos = scan(this%buf, '<')
-         this%buf = this%buf(pos + 1:)
+         this%buf = trim(this%buf(pos + 1:))
          pos = scan(this%buf, '>')
-         this%buf = this%buf(1:pos - 1)
+         this%buf = trim(this%buf(1:pos - 1))
        
          ! If nosg == 1, we have the root name:
          if(nosg == 1) then
@@ -750,7 +750,7 @@ contains
          !And modify buffer such that only 'key="val"' pairs are left (plus a />
          !or >)
 
-         this%buf = this%buf(pos+1:)
+         this%buf = trim(this%buf(pos+1:))
 
          ! Now parse the rest of the sting searching for
          ! key/value pairs
@@ -792,10 +792,10 @@ contains
            ! variable tmp contains the sub portion 
            this%buf = trim(this%buf(pos+1:))
            pos = scan(this%buf, '"') ! remove first "
-           this%buf = this%buf(pos + 1:)
+           this%buf = trim(this%buf(pos + 1:))
            pos = scan(this%buf, '"') ! get pos of second "
            xmld(nxml)%val = this%buf(1:pos - 1) ! set value
-           this%buf = this%buf(pos + 2:) ! remove value"_
+           this%buf = trim(this%buf(pos + 2:)) ! remove value"_
 
          end do
 
@@ -860,10 +860,10 @@ contains
       else
          ! If however, it 'is' in the first position, parse
          ! the string and set root
-         buf = buf(pos + 1:)
+         buf = trim(buf(pos + 1:))
          pos = scan(trim(buf), '/')
          xmld%root = buf(1:pos - 1)
-         buf = buf(pos + 1:)
+         buf = trim(buf(pos + 1:))
       endif
 
       ! and finally, set the key string. This time, no '/'
@@ -901,11 +901,8 @@ contains
       class(XML_Input_T) :: this
       integer          :: bsz
       character(len=strLen) :: buf
-      character(len=3) :: readFormat
 
-      ! do it this way to avoid memory access errors
-      readFormat = "(A)"
-      read (this%fid, readFormat, iostat=this%fst) buf
+      read(this%fid, '(A)', iostat=this%fst) buf
       this%buf = trim(buf)
       if (this%fst /= 0) then
          Read_Line = .false.
