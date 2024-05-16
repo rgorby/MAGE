@@ -96,7 +96,7 @@ module raijuBCs
         logical, dimension(Grid%shGrid%isg:Grid%shGrid%ieg,&
                            Grid%shGrid%jsg:Grid%shGrid%jeg), intent(in) :: doMomentIngest
 
-        integer :: i,j,f
+        integer :: i,j,fm,fIdx
         integer :: psphIdx, eleIdx
             !! Index of plasmasphere species
         integer :: s
@@ -109,7 +109,7 @@ module raijuBCs
         eleIdx = spcIdx(Grid, F_HOTE)
         !$OMP PARALLEL DO default(shared) collapse(1) &
         !$OMP schedule(dynamic) &
-        !$OMP private(i,j,s,f,vm,kT,etaBelow,tmp_kti, tmp_kte)
+        !$OMP private(i,j,s,fIdx,fm,vm,kT,etaBelow,tmp_kti,tmp_kte)
         do j=Grid%shGrid%jsg,Grid%shGrid%jeg
             do i=Grid%shGrid%isg,Grid%shGrid%ieg
                 if(.not. doMomentIngest(i,j)) then
@@ -145,9 +145,10 @@ module raijuBCs
                 enddo
                 
                 ! Now go ahead and do mapping
-                do f=1,Model%nFluidIn
-                    s = spcIdx(Grid, Model%fluidInMaps(f)%flav)
-                    kT = DP2kT(State%Davg(i,j,f), State%Pavg(i,j,f))  ! [keV]
+                do fm=1,Model%nFluidIn
+                    fIdx = Model%fluidInMaps(fm)%idx_mhd
+                    s = spcIdx(Grid, Model%fluidInMaps(fm)%flav)
+                    kT = DP2kT(State%Davg(i,j,fIdx), State%Pavg(i,j,fIdx))  ! [keV]
                     !!!!!!!!!!!!!
                     !! TODO: Implement proper Te map calculation
                     !!!!!!!!!!!!!
@@ -157,23 +158,23 @@ module raijuBCs
 
                         call DkT2SpcEta(Model,Grid%spc(s), &
                             State%eta(i,j,Grid%spc(s)%kStart:Grid%spc(s)%kEnd), &
-                            State%Davg(i,j,f), tmp_kti, &
+                            State%Davg(i,j,fIdx), tmp_kti, &
                             vm, doAccumulateO=.true., etaBelowO=etaBelow)
                         call DkT2SpcEta(Model,Grid%spc(eleIdx), &
                             State%eta(i,j,Grid%spc(eleIdx)%kStart:Grid%spc(eleIdx)%kEnd), &
-                            State%Davg(i,j,f), tmp_kte, &
+                            State%Davg(i,j,fIdx), tmp_kte, &
                             vm, doAccumulateO=.true.)
                     else
                         ! Should be all we have to do, electrons should have their own fluid counterparts I think
                         call DkT2SpcEta(Model,Grid%spc(s), &
                             State%eta(i,j,Grid%spc(s)%kStart:Grid%spc(s)%kEnd), &
-                            State%Davg(i,j,f), kT, &
+                            State%Davg(i,j,fIdx), kT, &
                             vm, doAccumulateO=.true., etaBelowO=etaBelow)
                     endif
 
                     ! etaBelow has the amount of eta that is below the lowest lambda channel bound
                     !! TODO: Check to see if we are missing too much pressure
-                    if (Model%doExcesstoPsph .and. Model%fluidInMaps(f)%doExcessToPsph) then
+                    if (Model%doExcesstoPsph .and. Model%fluidInMaps(fm)%doExcessToPsph) then
                         State%eta(i,j,Grid%spc(psphIdx)%kStart) = State%eta(i,j,Grid%spc(psphIdx)%kStart) + etaBelow
                     endif
                     

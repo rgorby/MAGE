@@ -59,12 +59,12 @@ module raijuSpeciesHelper
         integer :: num_e
         real(rp) :: amu
 
-        !! TODO: This is technically wrong. 
+        !! This is technically wrong. 
         !  1 mass_proton = 1.00727647 amu, but He = 4.0026 amu = 3.9736 mass_proton
         !  Because binding energy is a thing
         !  Also mass_proton != mass_neutron, but that's an even smaller difference
-        ! Swap this out for a lookup table later
-
+        !  If this becomes our biggest error we're doing pretty well
+        
         num_e = spc%numNuc_p - spc%q
         amu = ((spc%numNuc_p + spc%numNuc_n)*Mp_cgs + num_e*Me_cgs)*1.e-3/dalton
 

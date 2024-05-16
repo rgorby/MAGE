@@ -6,8 +6,7 @@ module raijuCplTypes
     use voltCplTypes
     use ebtypes
     use shellGrid
-
-    ! Voltron
+    
     use raijutypes
 
 
