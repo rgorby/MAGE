@@ -825,7 +825,8 @@ class DSCOVRNC(OMNI):
             dsttime,dst = self._readDcx(t0,t1,dcxfile)
             print("DST:",dsttime,dst)
         else:
-            dsttime,dst = self._readDst(t0,t1)
+            #dsttime,dst = self._readDst(t0,t1)
+            dsttime,dst = self._getDst(t0,t1)
         ntimes = t1 - t0
         ntimes = int(ntimes.total_seconds()/60.0)
 

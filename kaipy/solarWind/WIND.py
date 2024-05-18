@@ -117,7 +117,8 @@ class WIND(OMNI):
         #for i in range(len(self.bad_times)):
         #    badtimes.append(datetime.datetime.strptime(self.bad_times[i],self.bad_fmt))
 
-        dsttime,dst = self._readDst(t0,t1)
+        #dsttime,dst = self._readDst(t0,t1)
+        dsttime,dst = self._getDst(t0,t1)
 
         for i in range(len(tSWE)):
             for itime in range(len(self.bad_datetime)):          
@@ -162,28 +163,6 @@ class WIND(OMNI):
             DSTrows.append( data )
 
         return ( SWEstartTime, MFIstartTime, DSTstartTime, SWErows, MFIrows, DSTrows, SWEqf )
-
-    def _readDst(self,startTime,endTime):
-        dstfile = open("dst.dat",'r')
-        text = dstfile.readlines()
-        for i,j in enumerate(text):
-            if j[0] == '2':
-                iskip = i
-                break
-        dstfile.close()
-
-        dat = numpy.genfromtxt("dst.dat",skip_header=iskip, autostrip=True,dtype=None,encoding='utf-8')
-        dsttime = []
-        dst = []
-        fmt='%Y-%m-%dT%H:%M:%S.000'
-        for i in dat:
-            timestr = i[0]+"T"+i[1]
-            currenttime = datetime.datetime.strptime(timestr,fmt)
-            if currenttime >= startTime and currenttime <= endTime:
-                dsttime.append(currenttime)
-                dst.append(i[3])
-
-        return (dsttime, dst)
 
     def __checkGoodData(self, data, qf):
         """
