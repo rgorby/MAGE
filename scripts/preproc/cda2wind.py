@@ -23,8 +23,7 @@ import kaipy.solarWind
 from  kaipy.solarWind import swBCplots
 from  kaipy.solarWind.OMNI import OMNI
 from  kaipy.solarWind.WIND import WIND
-from  kaipy.solarWind.CUSTOM import DSCOVR
-from  kaipy.solarWind.CUSTOM import DSCOVRNC
+from  kaipy.solarWind.SWPC import DSCOVRNC
 import kaipy.solarWind.getKpindex as getKpindex
 import datetime
 from astropy.time import Time
@@ -141,8 +140,7 @@ if __name__ == "__main__":
     parser.add_argument('-fn', type=str,metavar="filename",default=filename,help="Name of Wind file. Only used if obs is WINDF. (default: %(default)s)")
     parser.add_argument('-f107', type=float,default=None,help="Set f10.7 value to use in bcwind file. Only used if no data available. (default: %(default)s)")
     parser.add_argument('-kp',   type=float,default=None,help="Set Kp value to use in bcwind file. Only used if no data available. (default: %(default)s)")
-    parser.add_argument('-dcx', action="store_true",default=False,help="Use dcxfile named 'dcx.txt' or passed via --dfile. Only used for DSCOVRNC obs. (default: %(default)s)")
-    parser.add_argument('--dfile', type=str,metavar="dfile",default=dfile,help="dcxfile named 'dcx.txt' or passed via --dfile. Only used for DSCOVRNC obs. (default: %(default)s)")
+    parser.add_argument('-force',  action='store_true', default=False,help="Force F107 and/or Kp to be equal to flag value. (default: %(default)s)")
     parser.add_argument('-safe', action='store_true',default=False,help="Run in SAFE mode. Does not create the h5 file if certain conditions are not met (default: %(default)s)")
     #Finalize parsing
     args = parser.parse_args()
@@ -161,10 +159,7 @@ if __name__ == "__main__":
     f107Def = args.f107
     kpDef = args.kp
     inSafeMode = args.safe
-    dodcx = args.dcx
-    dfile = args.dfile
 
-    if (obs == 'WINDF' and args.fn is None): raise Exception('Error: WINDF requires -fn to specify a WIND file')
     if (obs == 'OMNIW' and args.fn is None): raise Exception('Error: OMNIW requires -fn to specify a WIND file')
 
     t0Str = args.t0
@@ -324,14 +319,6 @@ if __name__ == "__main__":
         if status['http']['status_code'] != 200:
             printErrMsg('No valid WIND SWE data during this period')
         sw = eval('kaipy.solarWind.'+fileType+'.'+fileType)(fSWE,fMFI,t0,t1)
-    elif (obs == 'WINDF'):
-        # Using a WIND file instead of CDAweb
-        # We still use cdas to get the other OMNI stuff.  We'll just grab them inside the class
-        # Doing it this way, we can specify t0 and t1 based on file input
-        fileType = 'WIND'
-        fileType2 = 'WINDF'
-        filename = args.fn
-        sw = eval('kaipy.solarWind.'+fileType+'.'+fileType2)(filename)
     elif (obs == 'OMNIW'):
         fileType = 'OMNI'
         fileType2 = 'OMNIW'
@@ -343,22 +330,13 @@ if __name__ == "__main__":
         sw = eval('kaipy.solarWind.'+fileType+'.'+fileType2)(filename)
         filename = 'OMNIW_'+filename
 
-    elif (obs == 'CUSTOM'):
-        fileType = 'CUSTOM'
-        fileType2 = 'DSCOVR'
-        filename = args.fn
-        doBs = True
-
-        sw = eval('kaipy.solarWind.'+fileType+'.'+fileType2)(t0,filename)
-        filename = fileType2+'_'+filename
-
     elif (obs == 'DSCOVRNC'):
-        fileType = 'CUSTOM'
+        fileType = 'SWPC'
         fileType2 = 'DSCOVRNC'
         doBs = False
 
         print("DCX:",dodcx,dfile)
-        sw = eval('kaipy.solarWind.'+fileType+'.'+fileType2)(t0,t1,dodcx=dodcx,dcxfile=dfile)
+        sw = eval('kaipy.solarWind.'+fileType+'.'+fileType2)(t0,t1)
         filename = fileType2
     else:
         raise Exception('Error:  Not able to obtain dataset from spacecraft. Please select another mission.')
