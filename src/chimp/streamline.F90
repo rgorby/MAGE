@@ -409,7 +409,7 @@ module streamline
         isCM  = isClosed(bTrc%xyz(-Nm,:),Model)
 
         
-        isFin = (Np<bTrc%Nmax-1) .and. (Nm<btrc%Nmax-1) !Check if finished
+        isFin = (Np<bTrc%Nmax-1) .and. (Nm<bTrc%Nmax-1) !Check if finished
         isStart = (Np>0) .and. (Nm>0) !Check if both sides went somewhere
 
         OCb = 0
