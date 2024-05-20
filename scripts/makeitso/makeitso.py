@@ -3,7 +3,7 @@
 
 """makeitso for the MAGE magnetosphere software.
 
-This script is perforsm all of the steps needed to prepare to run a MAGE
+This script performs all of the steps needed to prepare to run a MAGE
 magnetosphere simulation run. By default, this script is interactive - the user
 is prompted for each decision  that must be made to prepare for the run, based
 on the current "--mode" setting.
