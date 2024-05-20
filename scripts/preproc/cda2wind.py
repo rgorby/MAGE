@@ -334,7 +334,6 @@ if __name__ == "__main__":
         fileType2 = 'DSCOVRNC'
         doBs = False
 
-        print("DCX:",dodcx,dfile)
         sw = eval('kaipy.solarWind.'+fileType+'.'+fileType2)(t0,t1)
         filename = fileType2
     else:
