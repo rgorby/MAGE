@@ -1,0 +1,146 @@
+#==============================================================================
+# CGS GAMERA (Serial) Containerization
+#
+# This Singularity definition file allows one to create a build environment for
+# the GAMERA model. The base image/layer is Intels OneAPI HPC Toolkit allowing
+# for Intel-based compilers.
+#
+# Run:
+#   singularity build --fakeroot gamera_serial.sif gamera_serial.def
+#   singularity run -e gamera_serial.sif
+#
+# Note: The initial build will take longer as Docker will be retrieving the
+#       base image (~5.5GB). This time will vary depending upon your network.
+# Note: The base image may fail to build (known issue). If it does, that
+#       means that Intels container repository is having network issues.
+#       A work-around is in development.
+#
+# 2024, Brent Smith
+#==============================================================================
+
+Bootstrap: docker
+From: intel/oneapi-hpckit:2023.2.1-devel-ubuntu22.04
+# Intel OneAPI Docker Images:
+#     https://github.com/intel/oneapi-containers/tree/master/images
+#     https://hub.docker.com/r/intel/oneapi-hpckit
+
+# create GAMERA source directory that is bound during build
+# using the SINGULARITY_BIND environment variable and
+# the container SINGULARITY_ROOTFS internal variable to specify
+# in the setup section not to make a directory on the host system
+# https://github.com/apptainer/singularity/issues/1549#issuecomment-411588888
+%setup
+    mkdir -p ${SINGULARITY_ROOTFS}/kaiju/
+
+%files
+    requirements.txt .
+
+#------------------------------------------------------------------------------
+# commands run in container after base OS installation
+%post -c /bin/bash
+
+    # Directory Structure
+    mkdir -p /cdf /hdf5 /miniconda3 /kaiju/build
+
+    #============================================
+    # NASA CDF Library (version 3.9.0)
+    export CDF_FILE=cdf39_0-dist-all.tar.gz
+    export CDF_URL=https://spdf.gsfc.nasa.gov/pub/software/cdf/dist
+    wget --no-check-certificate $CDF_URL/cdf39_0/linux/$CDF_FILE -P /cdf
+    cd /cdf && tar zxf $CDF_FILE && cd cdf39_0-dist &&\
+        make OS=linux ENV=gnu CURSES=no all &&\
+        make INSTALLDIR=/cdf install &&\
+        rm ../$CDF_FILE && cd /
+    #--------------------------------------------
+
+    #============================================
+    # HDF5 Library
+    export HDF_FILE=hdf5-1.14.1-2
+    export HDF_URL=https://support.hdfgroup.org/ftp/HDF5/releases/hdf5-1.14/hdf5-1.14.1/src
+    wget --no-check-certificate $HDF_URL/$HDF_FILE.tar.gz -P /hdf5
+    cd /hdf5 && tar zxf $HDF_FILE.tar.gz && cd $HDF_FILE &&\
+        ./configure FC=ifort --prefix=/hdf5 --enable-fortran &&\
+        make && make install &&\
+        rm ../$HDF_FILE.tar.gz && cd /
+    #--------------------------------------------
+
+    #============================================
+    # Update System
+    # known GPG key issue: https://github.com/intel/oneapi-containers/issues/53
+    export key=https://apt.repos.intel.com/intel-gpg-keys/GPG-PUB-KEY-INTEL-SW-PRODUCTS-2023.PUB
+    curl -fsSL $key | gpg --dearmor > /usr/share/keyrings/intel-oneapi-archive-keyring.gpg
+    apt -y update && apt install --no-install-recommends -y \
+        build-essential \
+        cmake \
+        git \
+        git-lfs \
+        libgeos-dev \
+        pkg-config && \
+        # vim \
+        rm -rf /var/lib/apt/lists/*
+    #--------------------------------------------
+
+    #============================================
+    # Python Environment
+    export PY_FILE=Miniconda3-latest-Linux-x86_64.sh
+    cp requirements.txt /miniconda3/
+    wget --no-check-certificate https://repo.anaconda.com/miniconda/$PY_FILE -P /miniconda3/
+    cd /miniconda3 && /bin/bash $PY_FILE -b -u -p /miniconda3 && \
+        rm $PY_FILE && /miniconda3/bin/conda init bash && \
+        source /miniconda3/etc/profile.d/conda.sh &&\
+        export PATH=/miniconda3/bin:$PATH &&\
+        export PYTHONPATH=/miniconda3/bin:$PATH &&\
+        conda config --set ssl_verify false &&\
+        conda config --set auto_activate_base false &&\
+        conda update -y --all &&\
+        conda create -n kaiju-3.8 python=3.8 -y &&\
+        conda activate kaiju-3.8 &&\
+        conda update -y --all &&\
+        pip3 install --default-timeout=100 -r /miniconda3/requirements.txt &&\
+        cd /
+    #--------------------------------------------
+
+    #============================================
+    # Environment for Building GAMERA in Container (and running GAMERA)
+    cat > ~/.bashrc <<EOL
+. /cdf/bin/definitions.B
+
+export PATH="/hdf5/bin":$PATH
+export HDF5_DIR=/hdf5
+export HDF5_INCLUDE_DIRS=/hdf5/include
+export CPATH=$HDF5_INCLUDE_DIRS
+export INCLUDE="-I$HDF5_INCLUDE_DIRS"
+export LD_LIBRARY_PATH="/hdf5:$LD_LIBRARY_PATH"
+
+source /miniconda3/etc/profile.d/conda.sh
+export PATH=/miniconda3/bin:$PATH
+export PYTHONPATH=/miniconda3/bin:$PATH
+conda activate kaiju-3.8
+EOL
+    cp ~/.bashrc /kaiju/build/gamera.bash
+    . /kaiju/build/gamera.bash
+    #--------------------------------------------
+
+    #============================================
+    # CGS GAMERA Setup/Compilation
+    export KAIJUHOME=/kaiju
+    export FC=/hdf5/bin/h5fc
+
+    cd $KAIJUHOME/build &&\
+        cmake -DALLOW_INVALID_COMPILERS=ON .. &&\
+        make all
+    # add GAMERA setup scripts to env
+    echo "export KAIJUHOME=/kaiju" >> ~/.bashrc
+    echo "source $KAIJUHOME/scripts/setupEnvironment.sh" >> ~/.bashrc
+    echo "export PATH=$KAIJUHOME/build/bin:$PATH" >> ~/.bashrc
+    echo "export PATH=$KAIJUHOME/quickstart/loop2d:$PATH" >> ~/.bashrc
+    cp ~/.bashrc /kaiju/build/gamera.bash
+    #--------------------------------------------
+
+    # You should now have GAMERA compiled within the container.
+    # Note: If you run `singularity shell`, you will still
+    #       need to source gamera.bash.
+
+%runscript
+    # this section defaults to a POSIX (sh) shell environment
+    exec /bin/bash /kaiju/build/gamera.bash
