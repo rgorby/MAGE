@@ -639,6 +639,7 @@ module streamutils
         fL%x0 = 0.0
         fL%Nm = 0
         fL%Np = 0
+        fL%Nmax = MaxFL
         fL%isGood = .false.
     end subroutine cleanStream                
 end module streamutils
