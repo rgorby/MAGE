@@ -24,7 +24,7 @@ from  kaipy.solarWind import swBCplots
 from  kaipy.solarWind.OMNI import OMNI
 from  kaipy.solarWind.WIND import WIND
 from  kaipy.solarWind.SWPC import DSCOVRNC
-import kaipy.solarWind.getKpindex as getKpindex
+from kaipy.solarWind.gfz_api import getGFZ
 import datetime
 from astropy.time import Time
 from cdasws import CdasWs
@@ -222,7 +222,7 @@ if __name__ == "__main__":
         kp = data['KP1800']
         if (np.all(kp == 99)):
             try:
-                    (time,index,status) = getKpindex.getKpindex(t0Str+"Z",t1Str+"Z",'Kp')
+                    (time,index,status) = getGFZ(t0Str+"Z",t1Str+"Z",'Kp')
                     tkp = np.zeros(len(time))
                     for i in range(len(time)):
                         tkp[i] = (datetime.datetime.strptime(time[i],fmt+"Z") - t0).days*24.0*60.0 + (datetime.datetime.strptime(time[i],fmt+"Z") - t0).seconds/60
