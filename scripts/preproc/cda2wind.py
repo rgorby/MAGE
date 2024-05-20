@@ -140,7 +140,6 @@ if __name__ == "__main__":
     parser.add_argument('-fn', type=str,metavar="filename",default=filename,help="Name of Wind file. Only used if obs is WINDF. (default: %(default)s)")
     parser.add_argument('-f107', type=float,default=None,help="Set f10.7 value to use in bcwind file. Only used if no data available. (default: %(default)s)")
     parser.add_argument('-kp',   type=float,default=None,help="Set Kp value to use in bcwind file. Only used if no data available. (default: %(default)s)")
-    parser.add_argument('-force',  action='store_true', default=False,help="Force F107 and/or Kp to be equal to flag value. (default: %(default)s)")
     parser.add_argument('-safe', action='store_true',default=False,help="Run in SAFE mode. Does not create the h5 file if certain conditions are not met (default: %(default)s)")
     #Finalize parsing
     args = parser.parse_args()
