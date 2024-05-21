@@ -33,18 +33,25 @@ module raijuCplHelpers
             ! Copy over all the tube info we want to have available to us
 
             ! Map ijTube's definition of topology to RAIJU's
-            where (ijTubes%topo == 2)
-                State%topo = RAIJUCLOSED
-            elsewhere
-                State%topo = RAIJUOPEN
-            end where
+            !where (ijTubes%topo == 2)
+            !    State%topo = RAIJUCLOSED
+            !elsewhere
+            !    State%topo = RAIJUOPEN
+            !end where
 
             ! Assign corner quantities
             !$OMP PARALLEL DO default(shared) collapse(1) &
             !$OMP schedule(dynamic) &
             !$OMP private(i,j)
-            do i=sh%isg,sh%ieg+1
-                do j=sh%jsg,sh%jeg+1
+            do j=sh%jsg,sh%jeg+1
+                do i=sh%isg,sh%ieg+1
+                    ! Map ijTube's definition of topology to RAIJU's
+                    if (ijTubes(i,j)%topo==2) then
+                        State%topo(i,j) = RAIJUCLOSED
+                    else
+                        State%topo(i,j) = RAIJUOPEN
+                    endif
+
                     State%xyzMin(i,j,:)  = ijTubes(i,j)%X_bmin / Model%planet%rp_m  ! xyzMin in Rp
                     State%thcon(i,j)     = PI/2-ijTubes(i,j)%latc
                     State%phcon(i,j)     = ijTubes(i,j)%lonc
@@ -58,8 +65,8 @@ module raijuCplHelpers
             !$OMP PARALLEL DO default(shared) collapse(1) &
             !$OMP schedule(dynamic) &
             !$OMP private(i,j,s,P,D)
-            do i=sh%isg,sh%ieg
-                do j=sh%jsg,sh%jeg
+            do j=sh%jsg,sh%jeg
+                do i=sh%isg,sh%ieg
                     ! Note: we are doing this for all cells regardless of their goodness
                     State%xyzMincc(i,j,XDIR) = toCenter2D(State%xyzMin(i:i+1,j:j+1,XDIR))  ! [Rp]
                     State%xyzMincc(i,j,YDIR) = toCenter2D(State%xyzMin(i:i+1,j:j+1,YDIR))  ! [Rp]

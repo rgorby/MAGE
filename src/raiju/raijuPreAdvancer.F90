@@ -240,7 +240,7 @@ module raijuPreAdvancer
         real(rp), dimension(Grid%shGrid%isg:Grid%shGrid%ieg+1,&
                             Grid%shGrid%jsg:Grid%shGrid%jeg+1, 2) :: gradVM
         
-        ! Determine which cell corners we consider good enough to calculating gradients from
+        ! Determine which cell corners we consider good enough to calculate gradients from
         where (State%topo .eq. RAIJUCLOSED)
             isGCorner = .true.
         elsewhere

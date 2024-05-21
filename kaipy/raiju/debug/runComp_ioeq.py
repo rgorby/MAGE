@@ -97,9 +97,9 @@ def plotTP(ax, ionoData, stepData, norm_press, cmap_press, norm_rmin, cmap_rmin,
 
     ax.pcolormesh(  Xiono, Yiono, stepData['press'], norm=norm_press, cmap=cmap_press)
     if stepData['model']=='raiju':
-        cs = ax.contour(Xiono, Yiono, stepData['rmin'] ,levels=lvls,cmap=cmap_rmin, norm=norm_rmin)
+        cs = ax.contour(Xiono, Yiono, stepData['rmin'], alpha=0.5, levels=lvls,cmap=cmap_rmin, norm=norm_rmin)
     elif stepData['model']=='mhdrcm':
-        cs = ax.contour(Xcc, Ycc, stepData['rmin'] ,levels=lvls,cmap=cmap_rmin, norm=norm_rmin)
+        cs = ax.contour(Xcc, Ycc, stepData['rmin'] ,alpha=0.5, levels=lvls,cmap=cmap_rmin, norm=norm_rmin)
     ax.clabel(cs)
     ru.drawGrid(ax, Xiono, Yiono, mask=stepData['mask_corner'],color='black')
     ax.set_xlim(xlim)
@@ -107,11 +107,15 @@ def plotTP(ax, ionoData, stepData, norm_press, cmap_press, norm_rmin, cmap_rmin,
     ax.grid(alpha=0.25)
 
     
-def plotEq(ax, stepData, norm, cmap, xlim, fname):
+def plotEq(ax, stepData, norm, cmap, xlim, fname, usrMask=None):
     xmin = stepData['xmin']
     ymin = stepData['ymin']
+    press = stepData['press']
 
-    ax.pcolormesh(xmin, ymin, stepData['press'], norm=norm, cmap=cmap)
+    if usrMask is not None:
+        press = np.ma.masked_where(usrMask, press)
+
+    ax.pcolormesh(xmin, ymin, press, norm=norm, cmap=cmap)
     if stepData['model']=='raiju':
         ru.drawGrid(ax, xmin, ymin, mask=stepData['mask_corner'], alpha=0.4, color='black')  
     elif stepData['model']=='mhdrcm':
@@ -123,8 +127,9 @@ def plotEq(ax, stepData, norm, cmap, xlim, fname):
     textstr = fname
 
     # place a text box in upper left in axes coords
-    ax.text(0.05, 0.95, textstr, transform=ax.transAxes, fontsize=14,
-            verticalalignment='top')
+    props = dict(facecolor='white', alpha=0.5)
+    ax.text(0.95, 0.95, textstr, transform=ax.transAxes, fontsize=14,
+            verticalalignment='top',horizontalalignment='right', bbox=props)
 
 
 def plotModelComp(r1_info, r1_model, r2_info, r2_model, stepList, outdir):

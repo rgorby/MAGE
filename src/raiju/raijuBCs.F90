@@ -144,7 +144,7 @@ module raijuBCs
                     !! TODO: Implement proper electron mapping
                     !!!!!!!!
                     if (Grid%spc(s)%flav .eq. F_HOTE) then
-                        State%eta(i,j,Grid%spc(s)%kStart:Grid%spc(s)%kEnd) = 0.0
+                        State%eta(i,j,Grid%spc(eleIdx)%kStart:Grid%spc(eleIdx)%kEnd) = 0.0
                     endif
                 enddo
                 
@@ -169,7 +169,6 @@ module raijuBCs
                             State%Davg(i,j,fIdx), tmp_kte, &
                             vm, doAccumulateO=.true.)
                     else
-                        ! Should be all we have to do, electrons should have their own fluid counterparts I think
                         call DkT2SpcEta(Model,Grid%spc(s), &
                             State%eta(i,j,Grid%spc(s)%kStart:Grid%spc(s)%kEnd), &
                             State%Davg(i,j,fIdx), kT, &

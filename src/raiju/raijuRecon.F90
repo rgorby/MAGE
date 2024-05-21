@@ -434,7 +434,7 @@ module raijuRecon
         
         ! ReconFaces(Model, Grid, isG, Qcc, QfaceL, QfaceR, QreconLO, QreconRO)
         if (Model%doDebugOutput) then
-            call ReconFaces(Model, Grid, isG, Qcc, QfaceL, QfaceR, State%etaFaceReconL, State%etaFaceReconR)
+            call ReconFaces(Model, Grid, isG, Qcc, QfaceL, QfaceR, State%etaFaceReconL(:,:,k,:), State%etaFaceReconR(:,:,k,:))
         else
             call ReconFaces(Model, Grid, isG, Qcc, QfaceL, QfaceR)
         endif
