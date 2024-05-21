@@ -97,8 +97,8 @@
             "job_priority": {
                 "LEVEL": "BASIC",
                 "prompt": "Job priority",
-                "default": "regular",
-                "valids": ["regular", "premium", "economy"]
+                "default": "economy",
+                "valids": ["regular", "economy"]
             },
             "walltime": {
                 "LEVEL": "BASIC",
