@@ -7,6 +7,7 @@
 #PBS -q {{ pbs.queue }}
 #PBS -l walltime={{ pbs.walltime }}
 #PBS -l select={{ pbs.select }}:ncpus={{ pbs.ncpus }}:mpiprocs={{ pbs.mpiprocs }}:ompthreads={{ pbs.ompthreads }}{{ pbs.other }}+{{ pbs.select2 }}:ncpus={{ pbs.ncpus }}:mpiprocs={{ pbs.helper_mpiprocs }}:ompthreads={{ pbs.helper_ompthreads }}{{ pbs.other }}
+{% if pbs.job_priority is defined %}#PBS -l job_priority={{ pbs.job_priority }}{% endif %}
 #PBS -m abe
 #PBS -j oe
 
