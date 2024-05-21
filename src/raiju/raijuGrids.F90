@@ -68,6 +68,24 @@ module raijugrids
     end subroutine raijuGenUniSphGrid
 
 
+    subroutine raijuGenWarpSphGrid(Model, Grid, iXML)
+        type(raijuModel_T), intent(in   ) :: Model
+        type(raijuGrid_T) , intent(inout) :: Grid
+        type(XML_Input_T), intent(in)    :: iXML
+
+        real(rp), dimension(:), allocatable :: Theta
+        real(rp), dimension(:), allocatable :: Phi
+        real(rp) :: dTheta, dPhi, thetaL, thetaU
+        integer :: Nt,Np,Ng
+        integer, dimension(4) :: nGhosts
+        integer :: i
+
+            write(*,*)"TODO: raijuGenWarpSphGrid"
+            stop
+        
+    end subroutine raijuGenWarpSphGrid
+
+
     subroutine raijuGenGridFromShGrid(Grid, shGrid)
         type(raijuGrid_T)  , intent(inout) :: Grid
         type(ShellGrid_T), intent(in) :: shGrid

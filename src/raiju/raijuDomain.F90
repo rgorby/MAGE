@@ -42,18 +42,30 @@ module raijuDomain
         logical, dimension(Grid%shGrid%isg:Grid%shGrid%ieg,Grid%shGrid%jsg:Grid%shGrid%jeg), intent(inout) :: isInactive
 
         integer :: i,j
-
-        isInactive = .false.
+        real(rp), dimension(2,2) :: bminSquare
 
         do j=Grid%shGrid%jsg, Grid%shGrid%jeg
-            do i=Grid%shGrid%isg, Grid%shGrid%ieg
+            do i=Grid%shGrid%ieg, Grid%shGrid%isg,-1
+                !! NOTE: idir in descending order
+                !! This means we are going from inner R boundary to outer R
 
                 ! Any cell with an open corner is bad
                 if (any(State%topo(i:i+1,j:j+1) .eq. RAIJUOPEN)) then
                     isInactive(i,j) = .true.
                 endif
 
-                ! Future criteria, like flow speed, bmin strength, etc. will go here
+                if (any(State%vaFrac(i:i+1,j:j+1) .le. Model%vaFracThresh)) then
+                    isInactive(i,j) = .true.
+                endif
+
+                bminSquare(1,1) = norm2(State%Bmin(i  ,j  ,:))
+                bminSquare(2,1) = norm2(State%Bmin(i+1,j  ,:))
+                bminSquare(1,2) = norm2(State%Bmin(i  ,j+1,:))
+                bminSquare(2,2) = norm2(State%Bmin(i+1,j+1,:))
+                if (any( bminSquare .le. Model%bminThresh) ) then
+                !if (any( norm2(State%Bmin(i:i+1,j:j+1,:),dim=3) .le. Model%bminThresh) ) then
+                    isInactive(i,j) = .true.
+                endif
 
             enddo
         enddo

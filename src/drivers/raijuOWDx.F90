@@ -101,31 +101,6 @@ program raijuOWDx
 
         ! Ready to loop
         do while ( raiApp%State%t < (raiApp%Model%tFin + 0.5) )
-            
-            call Tic("Output")
-        ! Output if ready
-            if (raiApp%State%IO%doOutput(raiApp%State%t)) then
-                call raijuOutput(raiApp%Model,raiApp%Grid,raiApp%State)
-
-                if (ebModel%doEBOut) then
-                    ! Write eb at the same output cadence as imag
-                    write(gStr,'(A,I0)') "Step#", ebModel%nOut
-                    call writeEB3D(ebModel,ebState,gStr)
-                    ebModel%nOut = ebModel%nOut + 1
-                    ebModel%tOut = inTscl*raiApp%State%IO%tOut  ! Idk if we need to set this since chimp isn't controlling its own output
-                endif
-
-                if (doFLOut) then
-                    call WriteRCMFLs(raijuCplBase%fromV%magLines,raiApp%State%IO%nOut, &
-                            raiApp%State%mjd,raiApp%State%t, &
-                            raiApp%Grid%shGrid%Nt,raiApp%Grid%shGrid%Np)
-                endif
-
-                write(gStr,'(A,I0)') "Step#", raiApp%State%IO%nOut-1  ! nOut got advanced by raijuOutput above
-                call outputRMSG(rmReader,"rmReader.h5",.false., gStr)
-            endif
-            
-            call Toc("Output")
 
         ! Update other models
             call Tic("CHIMP update")
@@ -160,6 +135,31 @@ program raijuOWDx
             write(*,*)raiApp%State%mjd
             write(*,*)T2MJD((ebModel%t - ebState%ebTab%times(1))/inTscl, ebState%ebTab%MJDs(1))
             write(*,*)T2MJD((rmReader%time - rmReader%rmTab%times(1)), rmReader%rmTab%MJDs(1))
+
+
+            call Tic("Output")
+        ! Output if ready
+            if (raiApp%State%IO%doOutput(raiApp%State%t)) then
+                call raijuOutput(raiApp%Model,raiApp%Grid,raiApp%State)
+
+                if (ebModel%doEBOut) then
+                    ! Write eb at the same output cadence as imag
+                    write(gStr,'(A,I0)') "Step#", ebModel%nOut
+                    call writeEB3D(ebModel,ebState,gStr)
+                    ebModel%nOut = ebModel%nOut + 1
+                    ebModel%tOut = inTscl*raiApp%State%IO%tOut  ! Idk if we need to set this since chimp isn't controlling its own output
+                endif
+
+                if (doFLOut) then
+                    call WriteRCMFLs(raijuCplBase%fromV%magLines,raiApp%State%IO%nOut, &
+                            raiApp%State%mjd,raiApp%State%t, &
+                            raiApp%Grid%shGrid%Nt,raiApp%Grid%shGrid%Np)
+                endif
+
+                write(gStr,'(A,I0)') "Step#", raiApp%State%IO%nOut-1  ! nOut got advanced by raijuOutput above
+                call outputRMSG(rmReader,"rmReader.h5",.false., gStr)
+            endif
+            call Toc("Output")
 
             ! Advance model times
             raiApp%State%t  = raiApp%State%t  + raiApp%Model%dt

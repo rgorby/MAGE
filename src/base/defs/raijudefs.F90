@@ -16,7 +16,7 @@ module raijudefs
 
     ! Grid settings
     enum, bind(C)
-        enumerator :: G_UNISPH, G_SHGRID
+        enumerator :: RAI_G_UNISPH, RAI_G_WARPSPH, RAI_G_SHGRID
     endenum
 
     ! Species Flavors
@@ -83,5 +83,9 @@ module raijudefs
     real(rp), parameter :: def_ChorusLmax = 7.0  ! [Re]
     real(rp), parameter :: def_PsheetLmin = 8.0  ! [Re]
     real(rp), parameter :: def_ChorusEMin = 1.1  ! [keV]
+
+    ! Coupling defaults
+    real(rp), parameter :: def_vaFracThresh = 0.10  ! min allowable fracton of Alfven to total tube velocity
+    real(rp), parameter :: def_bminThresh   = 1.0  ! [nT] default allowable bmin strencgh
 
 end module raijudefs

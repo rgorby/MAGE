@@ -195,12 +195,23 @@ module raijuAdvancer
                 if (.not. isGoodEvol(i,j)) then
                     cycle
                 endif
-                
-                State%eta(i,j,k) = State%eta(i,j,k) + dt/Grid%areaCC(i,j)/Grid%BrCC(i,j) &
+
+                if (Model%doHack_rcmEtaPush) then
+                    ! Do eta conservation exactly 
+                    ! (still finite volume for space but ignore different magnetic field between cells)
+                    State%eta(i,j,k) = State%eta(i,j,k) + dt/Grid%areaCC(i,j) &
+                                                    * ( Qflux(i  ,j  ,RAI_TH)*Grid%lenFace(i  ,j  ,RAI_TH)/Grid%BrFace(i  , j  , RAI_TH) &
+                                                      - Qflux(i+1,j  ,RAI_TH)*Grid%lenFace(i+1,j  ,RAI_TH)/Grid%BrFace(i+1, j  , RAI_TH) &
+                                                      + Qflux(i  ,j  ,RAI_PH)*Grid%lenFace(i  ,j  ,RAI_PH)/Grid%BrFace(i  , j  , RAI_PH) &
+                                                      - Qflux(i  ,j+1,RAI_PH)*Grid%lenFace(i  ,j+1,RAI_PH)/Grid%BrFace(i  , j+1, RAI_PH) )
+                else
+                    State%eta(i,j,k) = State%eta(i,j,k) + dt/Grid%areaCC(i,j)/Grid%BrCC(i,j) &
                                                     * ( Qflux(i  ,j  ,RAI_TH)*Grid%lenFace(i  ,j  ,RAI_TH) &
                                                       - Qflux(i+1,j  ,RAI_TH)*Grid%lenFace(i+1,j  ,RAI_TH) &
                                                       + Qflux(i  ,j  ,RAI_PH)*Grid%lenFace(i  ,j  ,RAI_PH) &
                                                       - Qflux(i  ,j+1,RAI_PH)*Grid%lenFace(i  ,j+1,RAI_PH) )
+                endif
+
             enddo
         enddo
 

@@ -21,6 +21,7 @@ module voltCplTypes
         real(rp) :: latc,lonc !Conjugate lat/lon
         real(rp) :: Lb, Tb !Arc length/bounce time
         real(rp) :: losscone,rCurv,wIMAG,TioTe0=4.0_rp
+        real(rp) :: Veb  ! [km/s]
     end type IMAGTube_T
 
 

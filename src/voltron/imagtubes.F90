@@ -169,9 +169,9 @@ module imagtubes
             !!TODO: What do we do when we want times in between steps? Somethign similar to what slice/chop do to output
         
         if (present(nTrcO)) then
-            call genLine(ebModel,ebState,x0,t,bTrc,nTrcO,doShueO=.true.,doNHO=.true.)
+            call genLine(ebModel,ebState,x0,t,bTrc,nTrcO,doShueO=.false.,doNHO=.true.)
         else
-            call genLine(ebModel,ebState,x0,t,bTrc,      doShueO=.true.,doNHO=.true.)
+            call genLine(ebModel,ebState,x0,t,bTrc,      doShueO=.false.,doNHO=.true.)
         endif
 
 
@@ -195,6 +195,7 @@ module imagtubes
             ijTube%losscone = 0.0
             ijTube%rCurv = 0.0
             ijTube%wIMAG = 0.0
+            ijTube%Veb   = 0.0
             return
         endif
 
@@ -249,12 +250,14 @@ module imagtubes
         !Get curvature radius and ExB velocity [km/s]
         call FLCurvRadius(ebModel,ebGr,ebState,bTrc,rCurv,VebMKS)
         ijTube%rCurv = rCurv
+        ijTube%Veb = VebMKS
 
     !Get confidence interval
         !VaMKS = flux tube arc length [km] / Alfven crossing time [s]
         VaMKS = (ijTube%Lb*planet%rp_m*1.0e-3)/ijTube%Tb 
         !CsMKS = 9.79 x sqrt(5/3 * Ti) km/s, Ti eV
-        TiEV = (1.0e+3)*DP2kT(bDRC*1.0e-6,bPRC*1.0e+9) !Temp in eV
+        !TiEV = (1.0e+3)*DP2kT(bDRC*1.0e-6,bPRC*1.0e+9) !Temp in eV
+        TiEV = (1.0e+3)*DP2kT(ijTube%Nave(BLK)*1.0e-6,ijTube%Pave(BLK)*1.0e+9) !Temp in eV
         CsMKS = 9.79*sqrt((5.0/3)*TiEV)
 
         ijTube%wIMAG = VaMKS/( sqrt(VaMKS**2.0 + CsMKS**2.0) + VebMKS)

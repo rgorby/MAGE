@@ -204,6 +204,12 @@ module raijustarter
         integer :: f
         character(len=strLen) :: xmlFluidTag
 
+
+        ! Domain determination
+        call iXML%Set_Val(Model%vaFracThresh, "cpl/vaFracThresh", def_vaFracThresh)
+        call iXML%Set_Val(Model%bminThresh, "cpl/bminThresh", def_bminThresh)
+
+        ! Fluid mapping
         call iXML%Set_Val(nFluids, "cpl/nFluidsIn",0)
         Model%nFluidIn = nFluids
         
@@ -239,11 +245,15 @@ module raijustarter
         ! Fill out Grid object depending on chosen method
         select case(tmpStr)
             case("UNISPH")
-                Grid%gType = G_UNISPH
+                Grid%gType = RAI_G_UNISPH
+                ! Generate our own grid from scratch
+                call raijuGenUniSphGrid(Model, Grid, iXML)
+            case("WARPSPH")
+                Grid%gType = RAI_G_WARPSPH
                 ! Generate our own grid from scratch
                 call raijuGenUniSphGrid(Model, Grid, iXML)
             case("SHGRID")
-                Grid%gType = G_SHGRID
+                Grid%gType = RAI_G_SHGRID
                 ! Then we should be receiving a predefined ShellGrid that Voltron has set up
                 if(present(shGridO)) then
                     shGrid = shGridO
@@ -268,6 +278,7 @@ module raijustarter
             Grid%BrFace = Model%planet%magMoment*G2nT
         endif
         
+        call iXML%Set_Val(Model%doHack_rcmEtaPush, "hax/rcmEtaPush",.false.)
 
         ! Now handle lambda grid
         Grid%nSpc = Model%nSpc  ! Make a copy of nSpc
@@ -322,9 +333,10 @@ module raijustarter
             allocate( State%thcon   (sh%isg:sh%ieg+1, sh%jsg:sh%jeg+1    ) )
             allocate( State%phcon   (sh%isg:sh%ieg+1, sh%jsg:sh%jeg+1    ) )
             ! 2D corner quantities
-            allocate( State%topo (sh%isg:sh%ieg+1, sh%jsg:sh%jeg+1) )
-            allocate( State%espot(sh%isg:sh%ieg+1, sh%jsg:sh%jeg+1) )
-            allocate( State%bvol (sh%isg:sh%ieg+1, sh%jsg:sh%jeg+1) )
+            allocate( State%topo  (sh%isg:sh%ieg+1, sh%jsg:sh%jeg+1) )
+            allocate( State%espot (sh%isg:sh%ieg+1, sh%jsg:sh%jeg+1) )
+            allocate( State%bvol  (sh%isg:sh%ieg+1, sh%jsg:sh%jeg+1) )
+            allocate( State%vaFrac(sh%isg:sh%ieg+1, sh%jsg:sh%jeg+1) )
             ! 2D cell-centered quantities
             allocate( State%active      (sh%isg:sh%ieg, sh%jsg:sh%jeg) )
             allocate( State%active_last (sh%isg:sh%ieg, sh%jsg:sh%jeg) )
@@ -358,6 +370,8 @@ module raijustarter
 
         ! Set all activeShells to true. There should be doActiveShell checks anywhere it is used, but just in case, make sure default has all shells on
         State%activeShells = .true.
+        ! Similarly, set vaFrac to safe value in case stand-alone never writes to it
+        State%vaFrac = 1.0
 
     ! Init state
         call iXML%Set_Val(Model%icStr, "prob/IC","DIP")

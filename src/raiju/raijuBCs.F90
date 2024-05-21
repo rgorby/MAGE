@@ -4,6 +4,7 @@ module raijuBCs
     use raijudefs
     use raijutypes
     use raijuetautils
+    use raijudomain
 
     implicit none
 
@@ -27,6 +28,9 @@ module raijuBCs
         else
             doWholeDomain = .false.
         endif
+
+        ! Now that topo is set, we can calculate active domain
+        call setActiveDomain(Model, Grid, State)
 
         call calcMomentIngestionLocs(Model, Grid, State, doWholeDomain, doMomentIngest)
         call applyMomentIngestion(Model, Grid, State, doMomentIngest)

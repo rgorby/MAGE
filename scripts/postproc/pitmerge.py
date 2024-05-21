@@ -18,7 +18,7 @@ def createfile(fIn,fOut,doLink=False):
 	print('Creating new output file:',fOut)
 	iH5 = h5py.File(fIn,'r')
 	oH5 = h5py.File(fOut,'w')
-#Start by scraping all variables from root
+	#Start by scraping all variables from root
 	#Copy root attributes
 	print("Copying root attributes ...")
 	for k in iH5.attrs.keys():
@@ -84,10 +84,12 @@ if __name__ == "__main__":
 	oH5 = createfile(dbIns[0],fOut, doLink)
 
 	# Store and concat timeAttributeCache to add at the very end
-	timeCacheVars = {}
 	with h5py.File(dbIns[0], 'r') as tacF:
-		for k in tacF[kd.grpTimeCache].keys():
-			timeCacheVars[k] = np.array([], dtype=tacF[kd.grpTimeCache][k].dtype)
+		doTimeCache = (kd.grpTimeCache in tacF.keys())
+		if doTimeCache:
+			timeCacheVars = {}
+			for k in tacF[kd.grpTimeCache].keys():
+				timeCacheVars[k] = np.array([], dtype=tacF[kd.grpTimeCache][k].dtype)
 
 	s0 = 0 #Current step
 	nowTime = 0.0
@@ -106,11 +108,12 @@ if __name__ == "__main__":
 		iH5 = h5py.File(fIn,'r')
 
 		# Grow timeAttributeCache
-		for k in iH5[kd.grpTimeCache].keys():
-			data = iH5[kd.grpTimeCache][k][:]
-			if k == 'step':
-				data += s0  # Cache for merged h5 file needs to remap original steps to their position in merged file
-			timeCacheVars[k] = np.append(timeCacheVars[k], data, axis=0)
+		if doTimeCache: 
+			for k in iH5[kd.grpTimeCache].keys():
+				data = iH5[kd.grpTimeCache][k][:]
+				if k == 'step':
+					data += s0  # Cache for merged h5 file needs to remap original steps to their position in merged file
+				timeCacheVars[k] = np.append(timeCacheVars[k], data, axis=0)
 
 		#Loop over steps in the input file
 		for s in range(nS,nE+1):
@@ -150,10 +153,11 @@ if __name__ == "__main__":
 		iH5.close()
 
 	# Write timeAttributeCache to output file
-	print("Writing " + kd.grpTimeCache)
-	tag = oH5.create_group(kd.grpTimeCache)
-	for k in timeCacheVars:
-		tag.create_dataset(k, data=timeCacheVars[k], dtype=timeCacheVars[k].dtype)
+	if doTimeCache:
+		print("Writing " + kd.grpTimeCache)
+		tag = oH5.create_group(kd.grpTimeCache)
+		for k in timeCacheVars:
+			tag.create_dataset(k, data=timeCacheVars[k], dtype=timeCacheVars[k].dtype)
 	
 	#Done
 	oH5.close()

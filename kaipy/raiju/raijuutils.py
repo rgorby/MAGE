@@ -279,3 +279,13 @@ def plotXYMin(Ax, xmin, ymin, var, norm=None, cmap='viridis', shading='auto', lb
     if lblsize is not None:
         Ax.set_xlabel('X [R$_p$]', fontsize=lblsize)
         Ax.set_ylabel('Y [R$_p$]', fontsize=lblsize)
+
+def drawGrid(ax, X, Y, color='slategrey', linewidth='0.15', alpha=0.8, mask=None):
+    if mask is not None:
+        Xplt = np.ma.masked_where(mask, X)
+        Yplt = np.ma.masked_where(mask, Y)
+    else:
+        Xplt = X
+        Yplt = Y
+    ax.plot(Xplt  , Yplt  , color=color, alpha=alpha, linewidth=linewidth)
+    ax.plot(Xplt.T, Yplt.T, color=color, alpha=alpha, linewidth=linewidth)

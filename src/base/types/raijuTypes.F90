@@ -196,12 +196,17 @@ module raijutypes
         ! Coupling info
         integer :: nFluidIn = 0
         type(mhd2raiSpcMap_T), dimension(:), allocatable :: fluidInMaps
+        ! Coupling-related knobs
+        real(rp) :: vaFracThresh, bminThresh
 
         character(len=strLen) :: icStr
         procedure(raijuStateIC_T     ), pointer, nopass :: initState => NULL()
         procedure(raijuUpdateV_T     ), pointer, nopass :: updateV   => NULL()
         !> TODO: Retire this and just have a single function with certain options like maxwellian or kappa
         procedure(raijuDP2EtaMap_T   ), pointer, nopass :: dp2etaMap => NULL()
+
+        ! Hax?
+        logical :: doHack_rcmEtaPush = .false.  ! If on, we explicitly do eta conservation and ignore difference of magnetic flux between cells
 
     end type raijuModel_T
 
@@ -294,7 +299,7 @@ module raijutypes
             !! (Ngi, Ngj, Nk, 2) [m/s] Cell-centered velocities
 
 
-        ! -- Variables coming from MHD flux tube tracing, size (Ni, Nj, Ns) -- !
+        ! -- Variables coming from MHD flux tube tracing -- !
         real(rp), dimension(:,:,:), allocatable :: Pavg
             !! (Ngi, Ngj, Ns) [nPa] Average pressure along flux tube
         real(rp), dimension(:,:,:), allocatable :: Davg
@@ -305,18 +310,21 @@ module raijutypes
             !! (Ngi+1, Ngj+1, 3) [Rp] bMin xyz coordinates
         real(rp), dimension(:,:,:), allocatable :: xyzMincc
             !! (Ngi, Ngj, 3) [Rp] cell-centered bMin xyz coordinates
-        
-        ! (Ngi+1, Ngj+1) corner values
         integer , dimension(:,:), allocatable :: topo   
             !! (Ngi+1, Ngj+1) Topology (0=open, 1=closed)
         real(rp), dimension(:,:), allocatable :: thcon
             !! (Ngi+1, Ngj+1) Co-latitude  of conjugate points
         real(rp), dimension(:,:), allocatable :: phcon
             !! (Ngi+1, Ngj+1) Longitude of conjugate points
-        real(rp), dimension(:,:), allocatable :: espot
-            !! (Ngi+1, Ngj+1) [kV] electro-static potential
         real(rp), dimension(:,:), allocatable :: bvol
             !! (Ngi+1, Ngj+1) [Rp/nT] Flux-tube volume
+        real(rp), dimension(:,:), allocatable :: vaFrac
+            !! (Ngi+1, Ngj+1) Fraction of total velocity coming from Alfven speed
+            !! Used to limit active region to tubes that can reasonably be treated as averaged and slowly-evolving
+
+        ! -- Coming from ionosphere solve -- !
+        real(rp), dimension(:,:), allocatable :: espot
+            !! (Ngi+1, Ngj+1) [kV] electro-static potential
         
         ! (Ngi, Ngj) cell-centered values
         integer , dimension(:,:), allocatable :: active

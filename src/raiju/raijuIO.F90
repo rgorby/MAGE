@@ -226,18 +226,19 @@ module raijuIO
 
         ! Coupling things
         call AddOutVar(IOVars,"dtCpl"  ,State%dt)  ! Attr
-        call AddOutVar(IOVars,"xmin"   ,State%xyzMin (is:ie+1,js:je+1,XDIR),uStr="Rx")
-        call AddOutVar(IOVars,"ymin"   ,State%xyzMin (is:ie+1,js:je+1,YDIR),uStr="Rx")
-        call AddOutVar(IOVars,"zmin"   ,State%xyzMin (is:ie+1,js:je+1,ZDIR),uStr="Rx")
-        call AddOutVar(IOVars,"topo"   ,State%topo   (is:ie+1,js:je+1)*1.0_rp,uStr="0=Open, 1=Closed")
-        call AddOutVar(IOVars,"colatc" ,State%thcon  (is:ie+1,js:je+1),uStr="radians")
-        call AddOutVar(IOVars,"lonc"   ,State%phcon  (is:ie+1,js:je+1),uStr="radians")
-        call AddOutVar(IOVars,"active" ,State%active (is:ie,js:je)*1.0_rp,uStr="-1=Inactive, 0=Buffer, 1=Active")
-        call AddOutVar(IOVars,"OCBDist",State%OCBDist(is:ie,js:je)*1.0_rp,uStr="Cell distance from an open closed boundary")
-        call AddOutVar(IOVars,"espot"  ,State%espot  (is:ie+1,js:je+1),uStr="kV")
-        call AddOutVar(IOVars,"bVol"   ,State%bvol   (is:ie+1,js:je+1),uStr="Rx/nT")
-        call AddOutVar(IOVars,"Pavg_in",State%Pavg   (is:ie,js:je, :),uStr="nPa")
-        call AddOutVar(IOVars,"Davg_in",State%Davg   (is:ie,js:je, :),uStr="#/cc")
+        call AddOutVar(IOVars,"xmin"   ,State%xyzMin (is:ie+1,js:je+1,XDIR)  ,uStr="Rx",dStr="(corners) X location of bmin surface")
+        call AddOutVar(IOVars,"ymin"   ,State%xyzMin (is:ie+1,js:je+1,YDIR)  ,uStr="Rx",dStr="(corners) Y location of bmin surface")
+        call AddOutVar(IOVars,"zmin"   ,State%xyzMin (is:ie+1,js:je+1,ZDIR)  ,uStr="Rx",dStr="(corners) Z location of bmin surface")
+        call AddOutVar(IOVars,"topo"   ,State%topo   (is:ie+1,js:je+1)*1.0_rp,uStr="0=Open, 1=Closed",dStr="(corners) Magnetic topology")
+        call AddOutVar(IOVars,"colatc" ,State%thcon  (is:ie+1,js:je+1)       ,uStr="radians",dStr="(corners) Congugate latitude")
+        call AddOutVar(IOVars,"lonc"   ,State%phcon  (is:ie+1,js:je+1)       ,uStr="radians",dStr="(corners) Congugate longitude")
+        call AddOutVar(IOVars,"active" ,State%active (is:ie,js:je)*1.0_rp    ,uStr="-1=Inactive, 0=Buffer, 1=Active")
+        call AddOutVar(IOVars,"OCBDist",State%OCBDist(is:ie,js:je)*1.0_rp    , dStr="Cell distance from an open closed boundary")
+        call AddOutVar(IOVars,"espot"  ,State%espot  (is:ie+1,js:je+1)       ,uStr="kV",dStr="(corners) Electrostatic potential")
+        call AddOutVar(IOVars,"bVol"   ,State%bvol   (is:ie+1,js:je+1)       ,uStr="Rx/nT",dStr="(corners) Flux Tube Volume")
+        call AddOutVar(IOVars,"vaFrac" ,State%vaFrac (is:ie+1,js:je+1)       ,uStr="fraction",dStr="Fraction of Alfven speed over magnetofast + ExB speed")
+        call AddOutVar(IOVars,"Pavg_in",State%Pavg   (is:ie,js:je, :)        ,uStr="nPa" ,dStr="Pressures from imagtubes")
+        call AddOutVar(IOVars,"Davg_in",State%Davg   (is:ie,js:je, :)        ,uStr="#/cc",dStr="Densities from imagtubes")
 
         ! Idk about you but I did not expect true to equal -1
         allocate(outActiveShell(is:ie, Grid%Nk))
