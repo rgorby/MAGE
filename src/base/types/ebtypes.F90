@@ -97,7 +97,7 @@ module ebtypes
 
     !Individual streamline
     type fLine_T
-        integer :: Nm=0,Np=0
+        integer :: Nm=0,Np=0,Nmax=MaxFL
         real(rp), dimension(NDIM) :: x0 !Seed point
         real(rp), allocatable, dimension(:,:) :: xyz
 

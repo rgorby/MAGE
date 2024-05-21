@@ -99,6 +99,7 @@ module streamline
         fL%isGood = .true.
         fL%Nm = N1
         fL%Np = N2
+        fL%Nmax = MaxN
 
         !Do allocations/set seed point value
         allocate(fL%xyz(-N1:N2,NDIM))
@@ -408,7 +409,7 @@ module streamline
         isCM  = isClosed(bTrc%xyz(-Nm,:),Model)
 
         
-        isFin = (Np<MaxFL-1) .and. (Nm<MaxFL-1) !Check if finished
+        isFin = (Np<bTrc%Nmax-1) .and. (Nm<bTrc%Nmax-1) !Check if finished
         isStart = (Np>0) .and. (Nm>0) !Check if both sides went somewhere
 
         OCb = 0
@@ -661,7 +662,7 @@ module streamline
         logical :: inDom,doShue
 
         if (present(MaxStepsO)) then
-            MaxSteps = MaxStepsO
+            MaxSteps = min(MaxStepsO,MaxFL)
         else
             MaxSteps = MaxFL
         endif
@@ -723,15 +724,16 @@ module streamline
         enddo
 
         ! check if exceeded tube bounds
-        if(Np > MaxFL) then
-            Np = MaxFL
-            !$OMP CRITICAL
-            write(*,*) ANSIRED
-            write(*,*) "<WARNING! genTrace hit max tube size!>"
-            write(*,*) "Seed: ", x0
-            write(*,*) "End : ", xyzn(Np,:)
-            write(*,'(a)',advance="no") ANSIRESET, ''
-            !$OMP END CRITICAL
+        if(Np > MaxSteps) then
+            Np = MaxSteps
+            !Removing warning that is triggered too often and probably not beneficial
+            !!$OMP CRITICAL
+            !write(*,*) ANSIRED
+            !write(*,*) "<WARNING! genTrace hit max tube size!>"
+            !write(*,*) "Seed: ", x0
+            !write(*,*) "End : ", xyzn(Np,:)
+            !write(*,'(a)',advance="no") ANSIRESET, ''
+            !!$OMP END CRITICAL
         endif
 
     end subroutine genTrace
