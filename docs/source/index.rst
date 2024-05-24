@@ -6,7 +6,7 @@ Welcome to the kaiju documentation
 ==================================
 
 Use of any code contained in this repository or data produced by it is expected
-to respect these `Rules of the Road <roadrules>`_.
+to respect these roadrules_.
 
 ..  For questions, please, `contact us <mailto:MAGEEC@LISTSERV.JHUAPL.EDU>`_.
 
