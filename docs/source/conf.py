@@ -2,9 +2,9 @@
 
 # -- Project information
 
-project = 'Lumache'
-copyright = '2021, Graziella'
-author = 'Graziella'
+project = 'MAGE'
+copyright = '2024, Center for Geospace Storms'
+author = 'Center for Geospace Storms'
 
 release = '0.1'
 version = '0.1.0'
