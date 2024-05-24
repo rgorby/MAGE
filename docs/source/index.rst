@@ -6,9 +6,9 @@ Welcome to the kaiju documentation
 ==================================
 
 Use of any code contained in this repository or data produced by it is expected
-to respect these :doc:`Rules of the road <roadrules>`.
+to respect these :doc:`rules of the road <roadrules>`.
 
-..  For questions, please, `contact us <mailto:MAGEEC@LISTSERV.JHUAPL.EDU>`_.
+For questions, please, `contact us <mailto:MAGEEC@LISTSERV.JHUAPL.EDU>`_.
 
 .. **Code improvements and contributions are welcome, and should follow the
 .. pull request process outlined on `this page <userGuide/contributingGuide>`_.**
