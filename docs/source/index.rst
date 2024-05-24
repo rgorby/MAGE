@@ -5,8 +5,10 @@
 Welcome to the kaiju documentation
 ==================================
 
-**Use of any code contained in this repository or data produced by it is
-expected to respect these `Rules of the Road <roadrules>`_. For questions, please, `contact us <mailto:MAGEEC@LISTSERV.JHUAPL.EDU>`_.**
+Use of any code contained in this repository or data produced by it is expected
+to respect these `Rules of the Road <roadrules>`_.
+
+..  For questions, please, `contact us <mailto:MAGEEC@LISTSERV.JHUAPL.EDU>`_.
 
 .. **Code improvements and contributions are welcome, and should follow the
 .. pull request process outlined on `this page <userGuide/contributingGuide>`_.**
