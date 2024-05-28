@@ -44,8 +44,10 @@ module raijuDomain
         integer :: i,j
         real(rp), dimension(2,2) :: bminSquare
 
+        isInactive = .false.
         do j=Grid%shGrid%jsg, Grid%shGrid%jeg
-            do i=Grid%shGrid%ieg, Grid%shGrid%isg,-1
+            !do i=Grid%shGrid%ieg, Grid%shGrid%isg,-1
+            do i=Grid%shGrid%isg, Grid%shGrid%ieg
                 !! NOTE: idir in descending order
                 !! This means we are going from inner R boundary to outer R
 

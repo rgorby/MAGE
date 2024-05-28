@@ -144,7 +144,7 @@ module raijuBCs
                     !! TODO: Implement proper electron mapping
                     !!!!!!!!
                     if (Grid%spc(s)%flav .eq. F_HOTE) then
-                        State%eta(i,j,Grid%spc(eleIdx)%kStart:Grid%spc(eleIdx)%kEnd) = 0.0
+                        State%eta(i,j,Grid%spc(s)%kStart:Grid%spc(s)%kEnd) = 0.0
                     endif
                 enddo
                 

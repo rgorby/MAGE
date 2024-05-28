@@ -6,9 +6,9 @@ module raijuRecon
     implicit none
 
     integer, parameter :: maxOrderSupported = 8
-    real(rp), dimension(recLen), parameter :: interpWgt_4c = [ 0, 0,  -1,  7,  7,  -1, 0, 0]/60.0_rp
-    real(rp), dimension(recLen), parameter :: interpWgt_6c = [ 0, 1,  -8, 37, 37,  -8, 1, 0]/60.0_rp
-    real(rp), dimension(recLen), parameter :: interpWgt_8c = [-3,29,-139,533,533,-139,29,-3]/840.0_rp
+    real(rp), dimension(raiRecLen), parameter :: interpWgt_4c = [ 0, 0,  -1,  7,  7,  -1, 0, 0]/60.0_rp
+    real(rp), dimension(raiRecLen), parameter :: interpWgt_6c = [ 0, 1,  -8, 37, 37,  -8, 1, 0]/60.0_rp
+    real(rp), dimension(raiRecLen), parameter :: interpWgt_8c = [-3,29,-139,533,533,-139,29,-3]/840.0_rp
 
     real(rp), dimension(7), parameter :: C7Up = [-3,25,-101,319,214,-38,4]/420.0_rp
     real(rp), dimension(5), parameter :: C5Up = [2,-13,47,27,-3]/60.0_rp
@@ -23,11 +23,11 @@ module raijuRecon
 
     !> 8th order central interpolation for a single interface
     function Central8(Qcc) result(Qi)
-        real(rp), dimension(recLen), intent(in) :: Qcc
+        real(rp), dimension(raiRecLen), intent(in) :: Qcc
         
         real(rp) :: Qi
 
-        Qi = dot_product(interpWgt_8c,Qcc(1:recLen))
+        Qi = dot_product(interpWgt_8c,Qcc(1:raiRecLen))
 
     end function Central8
     
@@ -35,11 +35,11 @@ module raijuRecon
     !> 6th order central interpolation for a single interface
     function Central6(Qcc) result(Qi)
         !! Note: still takes 8-element stencil
-        real(rp), dimension(recLen), intent(in) :: Qcc
+        real(rp), dimension(raiRecLen), intent(in) :: Qcc
         
         real(rp) :: Qi
 
-        Qi = dot_product(interpWgt_6c,Qcc(1:recLen))
+        Qi = dot_product(interpWgt_6c,Qcc(1:raiRecLen))
 
     end function Central6
 
@@ -47,11 +47,11 @@ module raijuRecon
     !> 4th order central interpolation for a single interface
     function Central4(Qcc) result(Qi)
         !! Note: still takes 8-element stencil
-        real(rp), dimension(recLen), intent(in) :: Qcc
+        real(rp), dimension(raiRecLen), intent(in) :: Qcc
         
         real(rp) :: Qi
 
-        Qi = dot_product(interpWgt_4c,Qcc(1:recLen))
+        Qi = dot_product(interpWgt_4c,Qcc(1:raiRecLen))
 
     end function Central4
 
@@ -183,15 +183,15 @@ module raijuRecon
 
     subroutine ReconFaceLR(isG, Qcc, areaCC, areaFace, BrCC, BrFace, maxOrder, pdmb, QfaceL, QfaceR, QreconLO, QreconRO)
         !! Receives an 8-element stencil and returns reconstructed L/R values of a single face
-        logical , dimension(recLen), intent(in) :: isG
-        real(rp), dimension(recLen), intent(in) :: Qcc
+        logical , dimension(raiRecLen), intent(in) :: isG
+        real(rp), dimension(raiRecLen), intent(in) :: Qcc
             !! Cell centers on either side of interface
             !! (Interface is between cells 4 and 5)
-        real(rp), dimension(recLen), intent(in) :: areaCC
+        real(rp), dimension(raiRecLen), intent(in) :: areaCC
             !! Cell-centered areas
         real(rp), intent(in) :: areaFace
             !! Estimated cell area at the face we are reconstructing at
-        real(rp), dimension(recLen), intent(in) :: BrCC
+        real(rp), dimension(raiRecLen), intent(in) :: BrCC
             !! Cell-centered radial magnetic field
         real(rp), intent(in) :: BrFace
             !! Estimated radial magnetic field at the face we are reconstructing at
@@ -204,7 +204,7 @@ module raijuRecon
         real(rp), optional, intent(inout) :: QreconLO, QreconRO
             !! We will optionally return the reconstructed states if these variables are provided to us
 
-        real(rp), dimension(recLen) :: QccA
+        real(rp), dimension(raiRecLen) :: QccA
             !! Area-weighted cell-centered quantity
         real(rp) :: QreconL, QreconR
             !! Face values after reconstruction but before limiting
@@ -435,6 +435,7 @@ module raijuRecon
         ! ReconFaces(Model, Grid, isG, Qcc, QfaceL, QfaceR, QreconLO, QreconRO)
         if (Model%doDebugOutput) then
             call ReconFaces(Model, Grid, isG, Qcc, QfaceL, QfaceR, State%etaFaceReconL(:,:,k,:), State%etaFaceReconR(:,:,k,:))
+            !call ReconFaces(Model, Grid, isG, Qcc, QfaceL, QfaceR, State%etaFaceReconL, State%etaFaceReconR)
         else
             call ReconFaces(Model, Grid, isG, Qcc, QfaceL, QfaceR)
         endif

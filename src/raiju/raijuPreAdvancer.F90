@@ -421,8 +421,8 @@ module raijuPreAdvancer
         integer, intent(in) :: k
         
         integer :: i,j
-        real(rp) :: velij
-        real(rp), dimension(Grid%shGrid%isg:Grid%shGrid%ieg+1,Grid%shGrid%jsg:Grid%shGrid%jeg+1, 2) :: dtArr
+        real(rp) :: dl, velij_th, velij_ph
+        real(rp), dimension(Grid%shGrid%is:Grid%shGrid%ie+1,Grid%shGrid%js:Grid%shGrid%je+1) :: dtArr
         real(rp) :: dt
 
         associate (sh => Grid%shGrid)
@@ -431,6 +431,8 @@ module raijuPreAdvancer
 
         do j=sh%js,sh%je+1
             do i=sh%is,sh%ie+1
+                velij_th = TINY
+                velij_ph = TINY
                 ! NOTE: We are only checking faces bordering non-ghost cells because those are the only ones we use for evolution
                 ! TODO: Strictly speaking, there are some faces that are included here that shouldn't be because they're never used to evolve anything
                 !  so we should make the loop js:je, is:ie, and handle the last row and column afterwards
@@ -449,8 +451,8 @@ module raijuPreAdvancer
                     continue
                 else
                     ! We are good lets calculate a dt for this face
-                    velij = max(abs(State%iVel(i,j,k,RAI_TH)), TINY)  ! [m/s]
-                    dtArr(i,j,RAI_TH) = ( Grid%delTh(i) * Model%planet%ri_m ) / velij  ! [s]
+                    velij_th = max(abs(State%iVel(i,j,k,RAI_TH)), TINY)  ! [m/s]
+                    !dtArr(i,j,RAI_TH) = ( Grid%delTh(i) * Model%planet%ri_m ) / velij  ! [s]
                 endif
                 
                 ! Phi faces
@@ -460,9 +462,12 @@ module raijuPreAdvancer
                 else if (State%active(i,j-1) .ne. RAIJUACTIVE  .or. State%active(i,j) .ne. RAIJUACTIVE ) then 
                     continue
                 else
-                    velij = max(abs(State%iVel(i,j,k,RAI_PH)), TINY)
-                    dtArr(i,j,RAI_PH) = ( Grid%delPh(j) * Model%planet%ri_m ) / velij  ! [s]
+                    velij_ph = max(abs(State%iVel(i,j,k,RAI_PH)), TINY)
+                    !dtArr(i,j,RAI_PH) = ( Grid%delPh(j) * Model%planet%ri_m ) / velij  ! [s]
                 endif
+
+                dl = min(Grid%delTh(i), Grid%delPh(j))
+                dtArr(i,j) = (dl*Model%planet%ri_m) / sqrt(velij_th**2 + velij_ph**2)
 
             enddo
         enddo

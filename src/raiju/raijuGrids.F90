@@ -80,8 +80,8 @@ module raijugrids
         integer, dimension(4) :: nGhosts
         integer :: i
 
-            write(*,*)"TODO: raijuGenWarpSphGrid"
-            stop
+        write(*,*)"TODO: raijuGenWarpSphGrid"
+        stop
         
     end subroutine raijuGenWarpSphGrid
 
@@ -196,10 +196,10 @@ module raijugrids
             cosThc = cos(shGr%thc)
             BMagTh = planet%magMoment*G2nT &
                     /(planet%ri_m/planet%rp_m)**3.0 &
-                    * sqrt(1.0+3.0*cosTh**2.0)  ! [nT]
+                    * sqrt(1.0+3.0*cosThc**2.0)  ! [nT]
             do j=shGr%jsg,shGr%jeg
                 Grid%Bmag(:,j) = BMagTh
-                Grid%cosdip(:,j) = 2.0*cosTh/sqrt(1.0 + 3.0*cosThc**2.0) 
+                Grid%cosdip(:,j) = 2.0*cosThc/sqrt(1.0 + 3.0*cosThc**2.0) 
             enddo
 
             

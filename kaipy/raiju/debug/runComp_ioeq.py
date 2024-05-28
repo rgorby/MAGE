@@ -187,7 +187,7 @@ def plotModelComp(r1_info, r1_model, r2_info, r2_model, stepList, outdir):
         ax_r2[1].clear()
 
         s5_r1 = r1_f5[r1_info.stepStrs[n]]
-        t_r2 = np.abs(r2_info.times - r2_info.times[n]).argmin()
+        t_r2 = np.abs(r2_info.times - r1_info.times[n]).argmin()
         s5_r2 = r2_f5[r2_info.stepStrs[t_r2]]
 
         r1_step = getStepData(s5_r1, r1_model, r1_io)

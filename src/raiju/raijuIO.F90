@@ -77,11 +77,11 @@ module raijuIO
         allocate(lon2D(is:ie+1,js:je+1))
 
         do i=js,je+1
-            lat2D(:,i) = sh%th(is:ie)
+            lat2D(:,i) = sh%th(is:ie+1)
         enddo
 
         do i=is,ie+1
-            lon2D(i,:) = sh%ph(js:je)
+            lon2D(i,:) = sh%ph(js:je+1)
         enddo
 
         ! Ready for output
@@ -233,7 +233,7 @@ module raijuIO
         call AddOutVar(IOVars,"colatc" ,State%thcon  (is:ie+1,js:je+1)       ,uStr="radians",dStr="(corners) Congugate latitude")
         call AddOutVar(IOVars,"lonc"   ,State%phcon  (is:ie+1,js:je+1)       ,uStr="radians",dStr="(corners) Congugate longitude")
         call AddOutVar(IOVars,"active" ,State%active (is:ie,js:je)*1.0_rp    ,uStr="-1=Inactive, 0=Buffer, 1=Active")
-        call AddOutVar(IOVars,"OCBDist",State%OCBDist(is:ie,js:je)*1.0_rp    , dStr="Cell distance from an open closed boundary")
+        call AddOutVar(IOVars,"OCBDist",State%OCBDist(is:ie,js:je)*1.0_rp    ,dStr="Cell distance from an open closed boundary")
         call AddOutVar(IOVars,"espot"  ,State%espot  (is:ie+1,js:je+1)       ,uStr="kV",dStr="(corners) Electrostatic potential")
         call AddOutVar(IOVars,"bVol"   ,State%bvol   (is:ie+1,js:je+1)       ,uStr="Rx/nT",dStr="(corners) Flux Tube Volume")
         call AddOutVar(IOVars,"vaFrac" ,State%vaFrac (is:ie+1,js:je+1)       ,uStr="fraction",dStr="Fraction of Alfven speed over magnetofast + ExB speed")
@@ -315,6 +315,7 @@ module raijuIO
             call AddOutVar(IOVars, "dtk", State%dtk, uStr="s")
             call AddOutVar(IOVars, "nStepk", State%nStepk*1.0_rp, uStr="#", dStr="Number of steps each channel has taken")
             ! call AddOutVar(IOVars, "nStepk", State%nStepk*1.0_rp, uStr="#") 
+            call AddOutVar(IOVars, "eta_half"     , State%eta_half     (is:ie  ,js:je  ,:)  , uStr="#/cm^3 * Rx/T")
             call AddOutVar(IOVars, "iVel"         , State%iVel         (is:ie+1,js:je+1,:,:), uStr="m/s")
             call AddOutVar(IOVars, "cVel_th"      , State%cVel         (is:ie  ,js:je  ,:,RAI_TH), uStr="m/s")
             call AddOutVar(IOVars, "cVel_ph"      , State%cVel         (is:ie  ,js:je  ,:,RAI_PH), uStr="m/s")
@@ -323,6 +324,7 @@ module raijuIO
             call AddOutVar(IOVars, "etaFacePDML"  , State%etaFacePDML  (is:ie+1,js:je+1,:,:), uStr="#/cm^3 * Rx/T")
             call AddOutVar(IOVars, "etaFacePDMR"  , State%etaFacePDMR  (is:ie+1,js:je+1,:,:), uStr="#/cm^3 * Rx/T")
             call AddOutVar(IOVars, "etaFlux"      , State%etaFlux      (is:ie+1,js:je+1,:,:), uStr="(#/cm^3 * Rx/T) * m^2 / s")
+            
         endif
 
         call WriteVars(IOVars,.true.,Model%raijuH5, gStr)

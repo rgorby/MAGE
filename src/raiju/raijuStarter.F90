@@ -185,6 +185,9 @@ module raijustarter
 
         call iXML%Set_Val(Model%doFatOutput, "output/doFat",.false.)
         ! TODO: Add flags to output certain data, like coupling information
+
+        ! Model Hax?
+        call iXML%Set_Val(Model%doHack_rcmEtaPush, "hax/rcmEtaPush",.false.)
         
 
         ! Determine coupling information
@@ -277,8 +280,6 @@ module raijustarter
             Grid%Brcc = Model%planet%magMoment*G2nT
             Grid%BrFace = Model%planet%magMoment*G2nT
         endif
-        
-        call iXML%Set_Val(Model%doHack_rcmEtaPush, "hax/rcmEtaPush",.false.)
 
         ! Now handle lambda grid
         Grid%nSpc = Model%nSpc  ! Make a copy of nSpc
