@@ -80,6 +80,9 @@ module raijuBCs
                     ! If a cell is currently active but it wasn't previously, we want to give it the freshest moment information
                     elseif (State%active(i,j) .eq. RAIJUACTIVE .and. State%active_last(i,j) .ne. RAIJUACTIVE) then
                         doMomentIngest(i,j) = .true.
+                    ! If we are a not-invalid i-dir ghost cell we get reset no matter what
+                    elseif ((State%active(i,j) .ne. RAIJUINACTIVE) .and. (i < sh%is .or. i > sh%ie) ) then
+                        doMomentIngest(i,j) = .true.
                     endif
 
                 enddo

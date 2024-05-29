@@ -230,7 +230,7 @@ module raijutypes
         real(rp), dimension(:,:), allocatable :: Bmag
             !! (Ngi, Ngj) [nT] Magnitude of B field at ionosphere (cell-centered)
         real(rp), dimension(:,:), allocatable :: cosdip
-            !! (Ngi) Cosine of the dip angle at ionosphere (cell-centered)
+            !! (Ngi, Ngj) Cosine of the dip angle at ionosphere (cell-centered)
         real(rp), dimension(:,:,:), allocatable :: BrFace
             !! (Ngi+1, Ngj+1, 2) [nT] Radial/normal component of B field [nT] at ionosphere (cell faces)
         real(rp), dimension(:,:), allocatable :: Brcc
@@ -305,7 +305,7 @@ module raijutypes
         real(rp), dimension(:,:,:), allocatable :: Davg
             !! (Ngi, Ngj, Ns) [#/cc] Average density along flux tube
         real(rp), dimension(:,:,:), allocatable :: Bmin
-            !! (Ngi, Ngj, NDIM) [nT] Bmin vector
+            !! (Ngi+1, Ngj+1, NDIM) [nT] Bmin vector
         real(rp), dimension(:,:,:), allocatable :: xyzMin
             !! (Ngi+1, Ngj+1, 3) [Rp] bMin xyz coordinates
         real(rp), dimension(:,:,:), allocatable :: xyzMincc

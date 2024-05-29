@@ -257,7 +257,7 @@ module imagtubes
         VaMKS = (ijTube%Lb*planet%rp_m*1.0e-3)/ijTube%Tb 
         !CsMKS = 9.79 x sqrt(5/3 * Ti) km/s, Ti eV
         !TiEV = (1.0e+3)*DP2kT(bDRC*1.0e-6,bPRC*1.0e+9) !Temp in eV
-        TiEV = (1.0e+3)*DP2kT(ijTube%Nave(BLK)*1.0e-6,ijTube%Pave(BLK)*1.0e+9) !Temp in eV
+        TiEV = (1.0e+3)*DP2kT(ijTube%Nave(BLK)*1.0D-6,ijTube%Pave(BLK)*1.0D9) !Temp in eV
         CsMKS = 9.79*sqrt((5.0/3)*TiEV)
 
         ijTube%wIMAG = VaMKS/( sqrt(VaMKS**2.0 + CsMKS**2.0) + VebMKS)

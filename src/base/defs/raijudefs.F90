@@ -68,7 +68,7 @@ module raijudefs
     real(rp), parameter :: cflMax = 0.3
 
     ! Settings
-    integer, parameter :: recLen = 8
+    integer, parameter :: raiRecLen = 8
         !! Reconstruction stencil length
     integer, parameter :: nSpacesDef = 4
         !! Number of i spaces between last good value and active i for species

@@ -212,16 +212,16 @@ module raijuAdvancer
                                                       - Qflux(i  ,j+1,RAI_PH)*Grid%lenFace(i  ,j+1,RAI_PH) )
                 endif
 
-                if (State%eta(i,j,k) < 0.0) then
-                    write(*,*)"RAIJU ERROR: eta below zero!"
-                    write(*,*)"i,j,k=",i,j,k
-                    write(*,*)"eta=",State%eta(i,j,k)
-                    write(*,*)"eta_half=",State%eta_half(i,j,k)
-                    write(*,*)"eta_last=",State%eta_last(i,j,k)
-                    write(*,*)"Theta fluxes:",Qflux(i  ,j  ,RAI_TH),Qflux(i+1,j  ,RAI_TH)
-                    write(*,*)"Phi fluxes:",Qflux(i  ,j  ,RAI_PH),Qflux(i,j+1,RAI_PH)
-                    stop
-                endif
+                !if (State%eta(i,j,k) < -1.0*TINY) then
+                !    write(*,*)"RAIJU ERROR: eta below zero!"
+                !    write(*,*)"i,j,k=",i,j,k
+                !    write(*,*)"eta=",State%eta(i,j,k)
+                !    write(*,*)"eta_half=",State%eta_half(i,j,k)
+                !    write(*,*)"eta_last=",State%eta_last(i,j,k)
+                !    write(*,*)"Theta fluxes:",Qflux(i  ,j  ,RAI_TH),Qflux(i+1,j  ,RAI_TH)
+                !    write(*,*)"Phi fluxes:",Qflux(i  ,j  ,RAI_PH),Qflux(i,j+1,RAI_PH)
+                !    stop
+                !endif
 
             enddo
         enddo

@@ -47,9 +47,10 @@ module raijuDomain
         isInactive = .false.
         do j=Grid%shGrid%jsg, Grid%shGrid%jeg
             !do i=Grid%shGrid%ieg, Grid%shGrid%isg,-1
-            do i=Grid%shGrid%isg, Grid%shGrid%ieg
                 !! NOTE: idir in descending order
                 !! This means we are going from inner R boundary to outer R
+            do i=Grid%shGrid%isg, Grid%shGrid%ieg
+                
 
                 ! Any cell with an open corner is bad
                 if (any(State%topo(i:i+1,j:j+1) .eq. RAIJUOPEN)) then

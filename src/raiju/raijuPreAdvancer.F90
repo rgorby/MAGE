@@ -466,7 +466,7 @@ module raijuPreAdvancer
                     !dtArr(i,j,RAI_PH) = ( Grid%delPh(j) * Model%planet%ri_m ) / velij  ! [s]
                 endif
 
-                dl = min(Grid%delTh(i), Grid%delPh(j))
+                dl = min(Grid%delTh(i), Grid%delPh(j)*sin(sh%thc(i)))
                 dtArr(i,j) = (dl*Model%planet%ri_m) / sqrt(velij_th**2 + velij_ph**2)
 
             enddo
