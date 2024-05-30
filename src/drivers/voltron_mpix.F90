@@ -33,6 +33,7 @@ program voltron_mpix
     logical :: useHelpers, helperQuit
     integer(KIND=MPI_AN_MYADDR) :: tagMax
     logical :: tagSet
+    integer :: divideSize,i
 
     ! initialize MPI
     !Set up MPI with or without thread support
@@ -71,6 +72,8 @@ program voltron_mpix
     call ReadXmlImmediate(trim(inpXML),'/Kaiju/Voltron/Helpers/numHelpers',helpersBuf,'0',.false.)
     read(helpersBuf,*) numHelpers
     if(.not. useHelpers) numHelpers = 0
+    call ReadXmlImmediate(trim(inpXML),'/Kaiju/Voltron/coupling/doGCM',helpersBuf,'F',.false.)
+    read(helpersBuf,*) vApp%doGCM
 
     ! create a new MPI communicator for just Gamera
     !    for now this is always all ranks excep the last one (which is reserved for voltron)
@@ -89,7 +92,7 @@ program voltron_mpix
     if(worldRank .ge. (worldSize-1-numHelpers)) then
         ! voltron rank
         isGamera = .false.
-        call MPI_Comm_Split(MPI_COMM_WORLD, 1, worldRank, voltComm, ierror)
+        call MPI_Comm_Split(MPI_COMM_WORLD, voltId, worldRank, voltComm, ierror)
         if(ierror /= MPI_Success) then
             call MPI_Error_string( ierror, message, length, ierror)
             print *,message(1:length)
@@ -98,13 +101,82 @@ program voltron_mpix
     else
         ! gamera rank
         isGamera = .true.
-        call MPI_Comm_Split(MPI_COMM_WORLD, 0, worldRank, gamComm, ierror)
+        call MPI_Comm_Split(MPI_COMM_WORLD, gamId, worldRank, gamComm, ierror)
         if(ierror /= MPI_Success) then
             call MPI_Error_string( ierror, message, length, ierror)
             print *,message(1:length)
             call mpi_Abort(MPI_COMM_WORLD, 1, ierror)
         end if
     endif
+
+    if (worldRank .eq. worldSize-1-numHelpers) then
+        call MPI_Comm_Split(MPI_COMM_WORLD, mageId, 0, vApp%mageCplComm, ierror)
+        call MPI_Comm_Rank(vApp%mageCplComm, vApp%voltCplRank, ierror)
+        call MPI_Comm_Size(vApp%mageCplComm, vApp%CplSize, ierror)
+      if(vApp%mageCplComm /= MPI_COMM_NULL) then
+        print *,'VOLTRON has created an mageCplComm with ', vApp%CplSize-1, ' other app(s)'
+        print *,'VOLTRON using mageCplComm tag ', mageId
+        write(*,*) "VOLTRON CPLCOMM: ",vApp%mageCplComm,vApp%voltCplRank
+
+        ! Tell everyone who I am
+        if (.not.allocated(vApp%IAm)) allocate(vApp%IAm(vApp%CplSize))
+        vApp%IAm(vApp%voltCplRank+1) = voltId
+        do i=1,vApp%CplSize
+          call MPI_Bcast(vApp%IAm(i),1,MPI_INTEGER,i-1,vApp%mageCplComm,ierror)
+        enddo
+
+        ! IAm array starts at 1, MPI Ranks start at 0
+        do i=1,vApp%CplSize
+          ! Assign rank if match
+          select case (vApp%IAm(i))
+            case (voltId)
+              if (i-1 .ne. vApp%voltCplRank) then
+                write(*,*) "I AM NOT MYSELF:",i-1,vApp%voltCplRank
+              endif
+            case (gamId)
+              write(*,*) "Gam not involved in MAGE2MAGE yet"
+            case (rcmId)
+              write(*,*) "RCM not involved in MAGE2MAGE yet"
+            case (hidraNId)
+              vApp%hidraNCplRank = i-1
+              write(*,*) "Volt coupling to hidraN"
+            case (hidraSId)
+              vApp%hidraSCplRank = i-1
+              write(*,*) "Volt coupling to hidraS"
+            case (hidraId)
+              vApp%hidraCplRank = i-1
+              write(*,*) "Volt coupling to hidra"
+            case (tgcmId)
+              vApp%gcmCplRank = i-1
+              write(*,*) "Volt coupling to TIEGCM"
+            case default
+              write(*,*) "Volt does not know about this Coupling ID: ", vApp%IAm(i)
+          end select
+        enddo
+
+      endif
+      if(vApp%CplSize == 1 .and. (.not. vApp%doGCM)) then
+        write(*,*) "VOLTRON: We're not coupling to a GCM"
+        call mpi_comm_free(vApp%mageCplComm, ierror)
+        if(ierror /= MPI_Success) then
+          call MPI_Error_string( ierror, message, length, ierror)
+          print *,message(1:length)
+          call mpi_Abort(MPI_COMM_WORLD, 1, ierror)
+        end if
+        vApp%mageCplComm = MPI_COMM_NULL
+      endif
+      if (vApp%CplSize == 1 .and. vApp%doGCM) then
+        write(*,*) "VOLTRON: Coupling to GCM Failed."
+        call mpi_Abort(MPI_COMM_WORLD, 1, ierror)
+      endif
+    else
+        call MPI_Comm_Split(MPI_COMM_WORLD, MPI_UNDEFINED, worldRank, vApp%mageCplComm, ierror)
+    endif
+    if(ierror /= MPI_Success) then
+        call MPI_Error_string( ierror, message, length, ierror)
+        print *,message(1:length)
+        call mpi_Abort(MPI_COMM_WORLD, 1, ierror)
+    end if
 
     if(isGamera) then
         call Tic("Omega", .true.)

@@ -23,8 +23,8 @@ import kaipy.solarWind
 from  kaipy.solarWind import swBCplots
 from  kaipy.solarWind.OMNI import OMNI
 from  kaipy.solarWind.WIND import WIND
-from  kaipy.solarWind.CUSTOM import DSCOVR
-from  kaipy.solarWind.CUSTOM import DSCOVRNC
+from  kaipy.solarWind.SWPC import DSCOVRNC
+from kaipy.solarWind.gfz_api import getGFZ
 import datetime
 from astropy.time import Time
 from cdasws import CdasWs
@@ -103,6 +103,7 @@ if __name__ == "__main__":
     filename=None
     doBs = True
     doEps = False
+    dfile = None
 
     #Usually f107   above 300 is not reliable. The daily value could be distorted by flare emissions even if the flare may only last a short time during a day.
     maxf107  = 300.0
@@ -158,7 +159,6 @@ if __name__ == "__main__":
     kpDef = args.kp
     inSafeMode = args.safe
 
-    if (obs == 'WINDF' and args.fn is None): raise Exception('Error: WINDF requires -fn to specify a WIND file')
     if (obs == 'OMNIW' and args.fn is None): raise Exception('Error: OMNIW requires -fn to specify a WIND file')
 
     t0Str = args.t0
@@ -220,15 +220,22 @@ if __name__ == "__main__":
 
         kp = data['KP1800']
         if (np.all(kp == 99)):
-            if inSafeMode:
-                printErrMsg('No valid Kp data')
+            try:
+                    (time,index,status) = getGFZ(t0Str+"Z",t1Str+"Z",'Kp')
+                    tkp = np.zeros(len(time))
+                    for i in range(len(time)):
+                        tkp[i] = (datetime.datetime.strptime(time[i],fmt+"Z") - t0).days*24.0*60.0 + (datetime.datetime.strptime(time[i],fmt+"Z") - t0).seconds/60
+                    kpmin = np.interp(tmin,tkp,index)
+            except:
+                if inSafeMode:
+                    printErrMsg('No valid Kp data')
 
-            if kpDef is not None:
-                print(Color.BLUE+"!!!!!!!!!! Warning: No valid Kp data, setting all values in array to %d!!!!!!!!!!"%(kpDef)+Color.END)
-                kp[:]   = kpDef
-                kpmin   = np.interp(tmin, t107min, kp) # if no good values, setting all to bad values
-            else:
-                sys.exit(Color.YELLOW+'!!!!!!!!!! Error: No valid Kp data. Set Kp to use with -kp flag !!!!!!!!!!'+Color.END)
+                if kpDef is not None:
+                    print(Color.BLUE+"!!!!!!!!!! Warning: No valid Kp data, setting all values in array to %d!!!!!!!!!!"%(kpDef)+Color.END)
+                    kp[:]   = kpDef
+                    kpmin   = np.interp(tmin, t107min, kp) # if no good values, setting all to bad values
+                else:
+                    sys.exit(Color.YELLOW+'!!!!!!!!!! Error: No valid Kp data. Set Kp to use with -kp flag !!!!!!!!!!'+Color.END)
         else:
             if (kp[0] == 99):
                 indF = np.where(kp!=99)[0][0]
@@ -252,11 +259,18 @@ if __name__ == "__main__":
                 else:
                     print(Color.DARKCYAN+'\tSetting f10.7 to: %f !!!!!' %(f107Def)+Color.END)
                     f107min = np.ones(int(totalMin))*f107Def
-                if kpDef is None:
-                    sys.exit(Color.YELLOW+'!!!!!!!!!! Error: Default Kp is not set. Update using -kp flag at execution !!!!!!!!!!'+Color.END)
-                else:
-                    print(Color.DARKCYAN+'Setting kp to: %f (can be changed with -kp flag at execution) !!!!!' %(kpDef)+Color.END)
-                    kpmin = np.ones(int(totalMin))*kpDef
+                try:
+                    (time,index,status) = getKpindex.getKpindex(t0Str+"Z",t1Str+"Z",'Kp')
+                    tkp = np.zeros(len(time))
+                    for i in range(len(time)):
+                        tkp[i] = (datetime.datetime.strptime(time[i],fmt+"Z") - t0).days*24.0*60.0 + (datetime.datetime.strptime(time[i],fmt+"Z") - t0).seconds/60
+                    kpmin = np.interp(tmin,tkp,index)
+                except:
+                    if kpDef is None:
+                        sys.exit(Color.YELLOW+'!!!!!!!!!! Error: Default Kp is not set. Update using -kp flag at execution !!!!!!!!!!'+Color.END)
+                    else:
+                        print(Color.DARKCYAN+'Setting kp to: %f (can be changed with -kp flag at execution) !!!!!' %(kpDef)+Color.END)
+                        kpmin = np.ones(int(totalMin))*kpDef
 
     if (obs == 'OMNI'):
         fileType = 'OMNI'
@@ -283,39 +297,27 @@ if __name__ == "__main__":
         # variable names do not exactly match the cdaweb outputs so check to make sure variables
         fileType = 'WIND'
         filename = 'WIND'
-        tBuffer = 20 # Extra padding for propagation
-        fOMNI = cdas.get_data(
-           'sp_phys',
-           'OMNI_HRO_1MIN',
-           t0-datetime.timedelta(minutes=tBuffer),
-           t1,#+datetime.timedelta(minutes=tBuffer),
-           ['BX_GSE,BY_GSE,BZ_GSE,Vx,Vy,Vz,proton_density,T,AE_INDEX,AL_INDEX,AU_INDEX,SYM_H,BSN_x']
+        tBuffer = 100 # Extra padding for propagation
+        t0rb = (t0 - datetime.timedelta(minutes=tBuffer)).strftime("%Y-%m-%dT%H:%M:%SZ")
+        t1rb = (t1 + datetime.timedelta(minutes=tBuffer)).strftime("%Y-%m-%dT%H:%M:%SZ")
+
+        status,fMFI = cdas.get_data(
+           'WI_K0_MFI',
+           ['BGSEc'],
+           t0rb,
+           t1rb
         )
-        fMFI = cdas.get_data(
-           'sp_phys',
-           'WI_H0_MFI',
-           t0-datetime.timedelta(minutes=tOffset+tBuffer),
-           t1+datetime.timedelta(minutes=tOffset),
-           ['BGSE']
-        )
-        fSWE = cdas.get_data(
-           'sp_phys',
+        if status['http']['status_code'] != 200:
+            printErrMsg('No valid WIND MFI data during this period')
+        status,fSWE = cdas.get_data(
            'WI_K0_SWE',
-           t0-datetime.timedelta(minutes=tOffset+tBuffer),
-           t1+datetime.timedelta(minutes=tOffset),
-           ['Np,V_GSE,QF_V,QF_Np,THERMAL_SPD']
+           ['SC_pos_gse','QF_V', 'QF_Np', 'V_GSE','THERMAL_SPD', 'Np'],
+           t0rb,
+           t1rb
         )
-        # What is our X location in km? Approximate C4 location at shock
-        xloc = 98000.
-        sw = eval('kaipy.solarWind.'+fileType+'.'+fileType)(fSWE,fMFI,fOMNI,xloc,tOffset,t0,t1)
-    elif (obs == 'WINDF'):
-        # Using a WIND file instead of CDAweb
-        # We still use cdas to get the other OMNI stuff.  We'll just grab them inside the class
-        # Doing it this way, we can specify t0 and t1 based on file input
-        fileType = 'WIND'
-        fileType2 = 'WINDF'
-        filename = args.fn
-        sw = eval('kaipy.solarWind.'+fileType+'.'+fileType2)(filename)
+        if status['http']['status_code'] != 200:
+            printErrMsg('No valid WIND SWE data during this period')
+        sw = eval('kaipy.solarWind.'+fileType+'.'+fileType)(fSWE,fMFI,t0,t1)
     elif (obs == 'OMNIW'):
         fileType = 'OMNI'
         fileType2 = 'OMNIW'
@@ -327,17 +329,8 @@ if __name__ == "__main__":
         sw = eval('kaipy.solarWind.'+fileType+'.'+fileType2)(filename)
         filename = 'OMNIW_'+filename
 
-    elif (obs == 'CUSTOM'):
-        fileType = 'CUSTOM'
-        fileType2 = 'DSCOVR'
-        filename = args.fn
-        doBs = True
-
-        sw = eval('kaipy.solarWind.'+fileType+'.'+fileType2)(t0,filename)
-        filename = fileType2+'_'+filename
-
     elif (obs == 'DSCOVRNC'):
-        fileType = 'CUSTOM'
+        fileType = 'SWPC'
         fileType2 = 'DSCOVRNC'
         doBs = False
 

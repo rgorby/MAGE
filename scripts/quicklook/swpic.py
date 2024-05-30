@@ -48,15 +48,28 @@ if __name__ == "__main__":
 	fOut = swtag.split('.')[0]+'.'+imgtype
 
 	# pulling UT variable for plotting
-	t0Fmt = "%Y-%m-%d %H:%M:%S"
+	t0Fmts = ["%Y-%m-%d %H:%M:%S","%Y-%m-%dT%H:%M:%S.%f"]
 	utfmt='%H:%M \n%Y-%m-%d'
 
 	UTall  = kh5.PullVar(swIn,"UT")
 
+	#Identify the correct time format
+	t0Fmt = None
+	for tfmt in t0Fmts:
+		try:
+			datetime.datetime.strptime(UTall[1].decode('utf-8'),tfmt)
+			t0Fmt = tfmt
+			break # datetime parse succeeded
+		except ValueError:
+			pass # datetime parse failed
+	if t0Fmt is None:
+		print("Time format in bcwind.h5 did not match any expected format.")
+		sys.exit()
+
 	utall = []
 	for n in range(len(UTall)):
 		utall.append(datetime.datetime.strptime(UTall[n].decode('utf-8'),t0Fmt))
-
+	
 	# pulling the solar wind values from the table
 	varlist = kh5.getRootVars(swIn)
 	D = kh5.PullVar(swIn,"D")
@@ -74,6 +87,6 @@ if __name__ == "__main__":
 	else:
 		pltInterp = 0*D
 	doEps = False
-	swBCplots.swQuickPlot(UTall,D,Temp,Vx,Vy,Vz,Bx,By,Bz,SYMH,pltInterp,fOut,doEps=doEps,doTrim=doTrim)
+	swBCplots.swQuickPlot(UTall,D,Temp,Vx,Vy,Vz,Bx,By,Bz,SYMH,pltInterp,fOut,doEps=doEps,doTrim=doTrim,t0fmt=t0Fmt)
 
 

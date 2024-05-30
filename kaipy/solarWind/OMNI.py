@@ -6,6 +6,8 @@ from kaipy.kdefs import *
 # 3rd party
 import numpy
 from cdasws import CdasWs
+from pyspedas import kyoto
+from pytplot import get_data
 
 # Standard
 import datetime
@@ -321,6 +323,52 @@ class OMNI(SolarWind):
             data[13] = bs_gsm[0]
             data[14] = bs_gsm[1]
             data[15] = bs_gsm[2]
+
+    def _readDst(self,startTime,endTime):
+        dstfile = open("dst.dat",'r')
+        text = dstfile.readlines()
+        for i,j in enumerate(text):
+            if j[0] == '2':
+                iskip = i
+                break
+        dstfile.close()
+
+        dat = numpy.genfromtxt("dst.dat",skip_header=iskip, autostrip=True,dtype=None,encoding='utf-8')
+        dsttime = []
+        dst = []
+        fmt='%Y-%m-%dT%H:%M:%S.000'
+        for i in dat:
+            timestr = i[0]+"T"+i[1]
+            currenttime = datetime.datetime.strptime(timestr,fmt)
+            if currenttime >= startTime and currenttime <= endTime:
+                dsttime.append(currenttime)
+                dst.append(i[3])
+
+        return (dsttime, dst)
+
+    def _getDst(self,startTime,endTime):
+        # round start String down
+        startStr = startTime.strftime('%Y-%m-%d')
+        aware_start = startTime.replace(tzinfo=datetime.timezone.utc)
+        # round end string up
+        endStr   = (endTime + datetime.timedelta(days=1)).strftime('%Y-%m-%d')
+        aware_end = endTime.replace(tzinfo=datetime.timezone.utc)
+
+        dst_vars = kyoto.dst(trange=[startStr,endStr])
+        dat = get_data('kyoto_dst')
+
+        dsttime = []
+        dst = []
+        for i in range(len(dat[0])):
+            currenttime = datetime.datetime.fromtimestamp(dat[0][i],datetime.timezone.utc)
+            currenttime = currenttime.astimezone(datetime.timezone.utc)
+            if currenttime >= aware_start and currenttime <= aware_end:
+                dt = datetime.datetime(currenttime.year,currenttime.month,currenttime.day,currenttime.hour,currenttime.minute,currenttime.second)
+                dsttime.append(dt)
+                dst.append(dat[1][i])
+                print(dt,dat[1][i])
+        return (dsttime, dst)
+
 
 class OMNIW(OMNI):
     """
