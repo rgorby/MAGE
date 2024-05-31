@@ -26,20 +26,30 @@ def cntSteps(fname):
         nSteps = len(sIds)
     return nSteps,sIds
 
+
+def copyRootVars(inGrp, oGrp):
+    """
+    Note: we are recursive
+    """
+    for k in inGrp.attrs.keys():
+        aStr = str(k)
+        oGrp.attrs.create(k,inGrp.attrs[aStr])
+    for Q in inGrp.keys():
+        sQ = str(Q)
+        #Don't include stuff that starts with "Step"
+        if "Step" not in sQ:
+            print(sQ)
+            if isinstance(inGrp[sQ], h5py.Group):
+                grpOut = oGrp.create_group(sQ)
+                copyRootVars(inGrp[sQ], grpOut)
+            else:
+                oGrp.create_dataset(sQ,data=inGrp[sQ])
+
 def createfile(iH5,fOut):
     print('Creating new output file:',fOut)
     oH5 = h5py.File(fOut,'w')
 #Start by scraping all variables from root
-    #Copy root attributes
-    for k in iH5.attrs.keys():
-        aStr = str(k)
-        oH5.attrs.create(k,iH5.attrs[aStr])
-    #Copy root groups
-    for Q in iH5.keys():
-        sQ = str(Q)
-        #Don't include stuff that starts with "Step"
-        if "Step" not in sQ:
-            oH5.create_dataset(sQ,data=iH5[sQ])
+    copyRootVars(iH5, oH5)
     return oH5
 
     
