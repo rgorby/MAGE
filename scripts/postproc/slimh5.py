@@ -38,7 +38,6 @@ def copyRootVars(inGrp, oGrp):
         sQ = str(Q)
         #Don't include stuff that starts with "Step"
         if "Step" not in sQ:
-            print(sQ)
             if isinstance(inGrp[sQ], h5py.Group):
                 grpOut = oGrp.create_group(sQ)
                 copyRootVars(inGrp[sQ], grpOut)
