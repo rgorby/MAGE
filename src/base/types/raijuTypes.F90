@@ -119,6 +119,12 @@ module raijutypes
             !! Filename of the .h5 config that holds lambda grid, wavemodel values, etc.
         character(len=strLen) :: raijuH5
             !! Filename of the h5 file we output to
+
+        ! Restart info
+        logical :: isRestart
+            !! Whether we initialize state from a restart file
+        integer :: nResIn
+            !! Restart number to use for state init (-1 for symlink)
         
         integer :: nSpc, nSpcMHD, nG
             !! Number of species in raiju
@@ -142,7 +148,6 @@ module raijutypes
         logical :: fixedTimestep
             !! Fixed or dynamic timestep
         logical :: isMPI
-        logical :: isRestart
         logical :: doLosses  ! Whether or not to calculate eta losses during advance
         logical :: isLoud       ! For debug
         logical :: writeGhosts  ! For debug

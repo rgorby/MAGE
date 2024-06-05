@@ -336,4 +336,21 @@ module raijuIO
 
     end subroutine WriteRaiju
 
+
+    subroutine WriteRaijuRes(Model, Grid, State)
+        type(raijuModel_T), intent(inout) :: Model
+        type(raijuGrid_T ), intent(in) :: Grid
+        type(raijuState_T), intent(in) :: State
+
+    end subroutine WriteRaijuRes
+
+    
+    subroutine ReadRaijuRes(Model, Grid, State, inH5)
+        type(raijuModel_T), intent(inout) :: Model
+        type(raijuGrid_T ), intent(in) :: Grid
+        type(raijuState_T), intent(in) :: State
+        character(len=*), intent(in) :: inH5
+
+    end subroutine ReadRaijuRes
+
 end module raijuIO

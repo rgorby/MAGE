@@ -92,8 +92,17 @@ module raijustarter
             stop
         endif
 
-        call iXML%Set_Val(Model%isRestart, "Kaiju/Gamera/restart/doRes",.false.)
-            ! TODO: Is this the right place to look for restart? Could be given as an extra arg
+        ! Restart time
+        if (Model%isSA) then
+            tmpStr = "restart/doRes"
+        else
+            tmpStr = "Kaiju/Gamera/restart/doRes"
+        endif
+        call iXML%Set_Val(Model%isRestart, trim(tmpStr),.false.)
+        if (Model%isRestart) then
+            call iXML%Set_Val(Model%nResIn, trim(tmpStr), dflt)
+        endif
+
         call iXML%Set_Val(Model%isLoud, "debug/isLoud",.false.)
         call iXML%Set_Val(Model%writeGhosts, "debug/writeGhosts",.false.)
         call iXML%Set_Val(Model%doDebugOutput, "debug/debugOutput",.false.)
