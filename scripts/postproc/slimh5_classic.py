@@ -24,9 +24,13 @@ def cntSteps(fname):
         Steps = [stp for stp in grpNames if "/Step#" in stp]
         nSteps = len(Steps)
         """
-        #sIds = np.array([str.split(s,"#")[-1] for s in Steps],dtype=int)
-        sIds = np.array([str.split(s,"#")[-1] for s in hf.keys() if "Step#" in s],dtype=int)
-        nSteps = len(sIds)
+        if(cacheName in hf.keys() and 'step' in hf[cacheName].keys()):
+            sIds = np.asarray(hf[cacheName]['step'])
+            nSteps = sIds.size
+        else:
+            #sIds = np.array([str.split(s,"#")[-1] for s in Steps],dtype=int)
+            sIds = np.array([str.split(s,"#")[-1] for s in hf.keys() if "Step#" in s],dtype=int)
+            nSteps = len(sIds)
     return nSteps,sIds
 
 def createfile(iH5,fOut):
