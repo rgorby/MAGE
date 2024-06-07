@@ -7,6 +7,8 @@ import os
 import h5py
 import numpy as np
 
+cacheName = "timeAttributeCache"
+
 def genMPIStr(di,dj,dk,i,j,k,n_pad=4):
     inpList = [di, dj, dk, i, j, k]
     sList = ["{:0>{n}d}".format(s, n=n_pad) for s in inpList]
@@ -39,8 +41,10 @@ def createfile(iH5,fOut):
     for Q in iH5.keys():
         sQ = str(Q)
         #Don't include stuff that starts with "Step"
-        if "Step" not in sQ:
+        if "Step" not in sQ and cacheName not in sQ:
             oH5.create_dataset(sQ,data=iH5[sQ])
+        if cacheName in sQ:
+            oH5.create_group(sQ)
     return oH5
 
     
@@ -140,6 +144,17 @@ if __name__ == "__main__":
                     aStr = str(k)
                     #print("\t\tCopying %s"%(aStr))
                     oH5[gOut][sQ].attrs.create(k,iH5[gIn][sQ].attrs[aStr])
+
+        #Add the cache after steps, select the same steps for the cache that are contained in the
+        #Ns:Ne:Nsk start,end,stride
+        for Q in iH5[cacheName].keys():
+            sQ = str(Q)
+            nOut = Ns
+            oH5[cacheName].create_dataset(sQ, data=iH5[cacheName][sQ][Ns:Ne:Nsk]-nOut)
+            for k in iH5[cacheName][sQ].attrs.keys():
+                aStr = str(k)
+                oH5[cacheName][sQ].attrs.create(k,iH5[cacheName][sQ].attrs[aStr])
+                
         #Close up
         iH5.close()
         oH5.close()

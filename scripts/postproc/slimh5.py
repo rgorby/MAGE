@@ -6,6 +6,8 @@ import os
 import h5py
 import numpy as np
 
+cacheName = "timeAttributeCache"
+
 def genMPIStr(di,dj,dk,i,j,k,n_pad=4):
     inpList = [di, dj, dk, i, j, k]
     sList = ["{:0>{n}d}".format(s, n=n_pad) for s in inpList]
@@ -29,7 +31,8 @@ def cntSteps(fname):
 def createfile(iH5,fOut):
     print('Creating new output file:',fOut)
     oH5 = h5py.File(fOut,'w')
-#Start by scraping all variables from root
+
+    #Start by scraping all variables from root
     #Copy root attributes
     for k in iH5.attrs.keys():
         aStr = str(k)
@@ -38,8 +41,10 @@ def createfile(iH5,fOut):
     for Q in iH5.keys():
         sQ = str(Q)
         #Don't include stuff that starts with "Step"
-        if "Step" not in sQ:
+        if "Step" not in sQ and cacheName not in sQ:
             oH5.create_dataset(sQ,data=iH5[sQ])
+        if cacheName in sQ:
+            oH5.create_group(sQ)
     return oH5
 
     
@@ -134,6 +139,18 @@ if __name__ == "__main__":
                 for k in iH5[gIn][sQ].attrs.keys():
                     aStr = str(k)
                     oH5[gOut][sQ].attrs.create(k,iH5[gIn][sQ].attrs[aStr])
+        
+        #Add the cache after steps, select the same steps for the cache that are contained in the
+        #Ns:Ne:Nsk start,end,stride
+        for Q in iH5[cacheName].keys():
+            sQ = str(Q)
+            nOut = 0
+            if(not p): nOut = Ns
+            oH5[cacheName].create_dataset(sQ, data=iH5[cacheName][sQ][Ns:Ne:Nsk]-nOut)
+            for k in iH5[cacheName][sQ].attrs.keys():
+                aStr = str(k)
+                oH5[cacheName][sQ].attrs.create(k,iH5[cacheName][sQ].attrs[aStr])
+
         # make a new file every Nsf steps
             if(n%Nsf==0 and n != 0):
                 oH5.close()
