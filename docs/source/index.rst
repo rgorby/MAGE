@@ -5,27 +5,21 @@
 Welcome to the kaiju documentation
 ==================================
 
-Use of any code contained in this repository or data produced by it is expected
-to respect these :doc:`rules of the road <roadrules>`.
+Use of any code contained in this repository or data produced by it is expected to respect these :doc:`rules of the road <roadrules>`.
 
 For questions, please, `contact us <mailto:MAGEEC@LISTSERV.JHUAPL.EDU>`.
 
-.. **Code improvements and contributions are welcome, and should follow the
-.. pull request process outlined on :doc:`this page <userGuide/contributingGuide>`.**
+**Code improvements and contributions are welcome, and should follow the pull request process outlined on :doc:`this page <userGuide/contributingGuide>`.**
 
-.. **If you encounter issues go through the 
-.. `Troubleshooting Guide <quickStart/trouble>`_ and `FAQ <userGuide/FAQ>`_ as well as `Google <https://www.google.com/>`_ before seeking help about your
-.. issue. If you're still having difficulty post a detailed description of
-.. your problem in the `#kaijuhelp <https://nasa-drive-cgs.slack.com/archives/C011V6V7YSJ>`_ Slack channel on the CGS workspace,
-.. where the developers and other users can try to assist you.**
+**If you encounter issues go through the `Troubleshooting Guide <quickStart/trouble>`_ and `FAQ <userGuide/FAQ>`_ as well as `Google <https://www.google.com/>`_ before seeking help about your issue. If you're still having difficulty post a detailed description of your problem in the `#kaijuhelp <https://nasa-drive-cgs.slack.com/archives/C011V6V7YSJ>`_ Slack channel on the CGS workspace, where the developers and other users can try to assist you.**
 
-.. ----
+----
 
-.. **Quick Start Guide** :raw-html-m2r:`<a name="quickStart"></a>`
-.. =======================================================================
+**Quick Start Guide** :raw-html-m2r:`<a name="quickStart"></a>`
+=======================================================================
 
-.. Building the code
-.. -----------------
+Building the code
+-----------------
 
 
 .. * `Prerequisites <quickStart/prerequisites>`_ - Setting up your system before you
