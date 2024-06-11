@@ -1,18 +1,8 @@
-
-----
-
-**Table of Contents**
-
-[TOC]
-
 General Info
 ============
 
-----
-
-This guide assumes that you have already checked out a local copy of our
-git repository using the other pages in our wiki. If not, please check
-other pages first such as `System Setup <SysSetup>`_.
+This guide assumes that you have already checked out a local copy of our git repository using the other pages in our wiki. If not, please check
+other pages first such as :doc:`the quickstart guide </quickStart/install>`.
 
 This guide will talk about concepts such as pull requests and branching.
 Details about them are beyond the scope of this guide, so for additional
@@ -84,4 +74,4 @@ merged into "development" and the code is now part of the repository),
 or reject the pull request with an explanation as to what additional
 changes may be needed to the code in the feature branch.
 
-A list of recommended reviewers is available `here <recommendedReviewers>`_.
+A list of recommended reviewers is available :doc:`here </userGuide/recommendedReviewers>`.
