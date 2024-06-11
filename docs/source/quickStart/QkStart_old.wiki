@@ -1,0 +1,128 @@
+This is a simple set of instructions to run an MHD test case w/ Gamera through the Kaiju repo.
+
+= Installation
+
+Use git clone to download the repository to where you want it.  
+
+As of 3/29/2021 the kaiju directory in the aplkaiju bitbucket site has the current version of the coupled code base.
+
+Assuming $KAIJUDIR is base installation directory, add $KAIJUDIR/scripts to $PATH and $KAIJUDIR to $PYTHONPATH.
+
+== Cheyenne
+Cheyenne is somewhat sensitive to the order of modules.  This is the configuration I've used after "module purge".  Updated 6/16/19 after Cheyenne OS upgrade.
+
+
+{{{
+#!console
+1) git/2.22.0
+2) intel/18.0.5
+3) hdf5/1.10.5
+4) impi/2018.4.274
+5) ncarenv/1.3
+6) ncarcompilers/0.5.0
+7) python/3.x.x (previously python/2.7.16)
+8) cmake/3.14.4
+}}}
+
+= Compilation
+The build system uses cmake which will attempt to auto-detect HDF5/OMP/MPI settings, however optionally you can provide a file "cmake/user.cmake" to set various variables if the auto-detect doesn't work.
+
+To force GNU, prior to cmake do
+
+{{{
+#!shell
+export FC="gfortran"
+}}}
+
+If you're using the Intel compiler see note below about making sure the HDF5 wrapper and compilers are consistent.
+
+Can also do "ccmake .." for semi-graphical interface.  For a list of various options, "cmake -L".
+
+To compile Gamera to run a simple MHD test problem, you can do
+
+{{{
+#!shell
+module purge
+module restore kaiju
+mkdir build
+cd build
+cmake ..
+make gamera
+}}}
+
+If the compilation works, you should have a file "build/bin/gamera.x". "module restore kaiju" is for Cheyenne users and only works after you have saved the eight necessary modules using the name kaiju.
+
+The Kaiju repository now contains many different components and [MAGE](https://cgs.jhuapl.edu/Models/mage.php) and configurations.  To get the complete list of available targets you can issue the `make help` command.  Note that running `make` or `make all` will build all available components and configurations and can take a considerable amount of time to build.
+
+### Running MHD Test Case
+You can run a simple 2D field loop advection test by using the XML file "examples/mhdtests/loop2d.xml".  Assuming you've copied the binary (gamera.x) and the XML input deck (loop2d.xml) to the same directory, you can simply run 
+
+{{{
+#!shell
+./gamera.x loop2d.xml
+}}}
+
+This should produce a few files: "loop2d.gam.h5", "loop2d.Res.00000.h5", and "loop2d.Res.XXXXX.h5".
+
+= Post-Processing and Visualization
+
+When the run is finished and you have the file "loop2d.gam.h5" you can now use various tools to visualize it.  The simplest approach is to do "genXDMF.py loop2d.gam.h5" which will produce an XDMF file "loop2d.gam.xmf" and output like the folllowing,
+
+{{{
+#!shell
+Generating MHD-XDMF from loop2d.gam.h5
+Writing to loop2d.gam.xmf
+	22 Time Slices / 15 Variables
+	Grid: [148 256]
+	Slices: 0 -> 21
+	Time: 0.000 -> 0.210
+}}}
+
+This XDMF file can be read natively by ParaView or VisIT. Sometimes on Cheyenne you may get an error message of "No module h5py". If ncar_pylib has been loaded, try to deactivate and then re-activate.
+
+= Intel Compiler
+Using the intel compiler, particularly on machines that don't use module environments, can often result in problems due to the discrepancy between the HDF5 wrapper and ifort.  Often the "h5fc" wrapper points to gfortran instead of an Intel-compiled HDF5 library.  As an example,
+
+{{{
+#!shell
+h5fc --version
+GNU Fortran (Homebrew GCC 8.3.0) 8.3.0
+Copyright (C) 2018 Free Software Foundation, Inc.
+This is free software; see the source for copying conditions.  There is NO
+warranty; not even for MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.
+
+ih5fc --version                                                      
+ifort (IFORT) 18.0.2 20180210
+Copyright (C) 1985-2018 Intel Corporation.  All rights reserved.
+}}}
+
+Here the default wrapper points to GNU, but should instead point to the Intel-specific wrapper.  To do this, add a file "cmake/user.cmake" with information like this,
+
+{{{
+#!shell
+cat cmake/user.cmake       
+#This is for Kareem's machine to use INTEL h5fc wrapper
+set(HDF5_Fortran_COMPILER_EXECUTABLE ih5fc)
+set(CMAKE_Fortran_COMPILER ${HDF5_Fortran_COMPILER_EXECUTABLE})
+}}}
+
+Note on platforms like Cheyenne, adding cmake/user.cmake could cause a problem of 'ih5fc command not found' when 'make gamera'. Need to remove cmake/user.cmake when compiling gamera.
+
+= Installation of Kaiju on a Laptop
+To run Gamera on your local machine you will need to install a fortran compiler, HDF5, and cmake. This is easily done with a package manager such as MacPorts or Homebrew. As an example, the installation commands for Homebrew are as follows:
+
+{{{
+#!shell
+brew install gcc 
+brew install hdf5
+brew install cmake
+}}}
+
+After the packages are installed, you will be able to compile and run the code on your laptop as described above. As a note, Python 2.7 comes installed on Mac OS X. This version does not have h5py, Python's interface with the HDF5 library. This can be installed with pip:
+
+{{{
+#!shell
+pip install h5py
+}}}
+
+h5py is also included in the installation if you use Anaconda to install Python 3 on your computer.
