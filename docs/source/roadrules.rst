@@ -1,8 +1,7 @@
 Rules of the Road
 =================
 
-If you have a problem, please try to find the answer on the wiki. (And
-Google)
+If you have a problem, please try to find the answer on the wiki (and `Google <https://google.com>`_).
 
 ----
 
