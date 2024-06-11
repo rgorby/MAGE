@@ -1,157 +1,120 @@
-.. role:: raw-html-m2r(raw)
-   :format: html
-
-
 Welcome to the kaiju documentation
 ==================================
 
-Use of any code contained in this repository or data produced by it is expected to respect these :doc:`rules of the road <roadrules>`.
+**Read this First!**
+--------------------
 
-For questions, please, `contact us <mailto:MAGEEC@LISTSERV.JHUAPL.EDU>`.
+Use of any code contained in this repository or data produced by it is expected to respect these :doc:`rules of the road <roadrules>`. For questions, please, `contact us <MAGEEC@LISTSERV.JHUAPL.EDU>`_.
 
-**Code improvements and contributions are welcome, and should follow the pull request process outlined on :doc:`this page <userGuide/contributingGuide>`.**
+Code improvements and contributions are welcome, and should follow the pull request process outlined on :doc:`this page <userGuide/contributingGuide>`.
 
-**If you encounter issues go through the `Troubleshooting Guide <quickStart/trouble>`_ and `FAQ <userGuide/FAQ>`_ as well as `Google <https://www.google.com/>`_ before seeking help about your issue. If you're still having difficulty post a detailed description of your problem in the `#kaijuhelp <https://nasa-drive-cgs.slack.com/archives/C011V6V7YSJ>`_ Slack channel on the CGS workspace, where the developers and other users can try to assist you.**
+If you encounter issues go through the :doc:`Troubleshooting Guide <quickStart/trouble>` and :doc:`FAQ <userGuide/FAQ>` as well as `Google <https://www.google.com/>`_ before seeking help about your issue. If you're still having difficulty post a detailed description of your problem in the `#kaijuhelp <https://nasa-drive-cgs.slack.com/archives/C011V6V7YSJ>`_ Slack channel on the CGS workspace, where the developers and other users can try to assist you.
 
 ----
 
-**Quick Start Guide** :raw-html-m2r:`<a name="quickStart"></a>`
-=======================================================================
+**Quick Start Guide**
+---------------------
 
 Building the code
------------------
+~~~~~~~~~~~~~~~~~
+* :doc:`Prerequisites <quickStart/prerequisites>` - Setting up your system before you clone the git repo
+* :doc:`Building kaiju <building/build>` - Building the code (new version)
+* :doc:`Verify installation <quickStart/tests>` - Testing your installation
+* :doc:`Performance <userGuide/performance>` - Performance Considerations
 
+Running the code
+~~~~~~~~~~~~~~~~
+* :doc:`Geospace Quick Start Guide <quickStart/geoQuickStart>` - Starting guide for geospace simulations
+* :doc:`Heliosphere Quick Start Guide <quickStart/helioQuickStart>` - Starting guide for heliospheric simulations
+* :doc:`CHIMP Quick Start <quickStart/chimpQuickStart>` - Starting guide for test particle simulations
+* :doc:`Planetary Magnetosphere Quick Start <quickStart/planetaryQuickStart>` - Starting guide for non-terrestrial magnetospheric simulations
 
-.. * `Prerequisites <quickStart/prerequisites>`_ - Setting up your system before you
-..   clone the git repo
-.. * `Building kaiju <building/build>`_ - Building the code (new version)
-.. * `Verify installation <quickStart/tests>`_ - Testing your installation
-.. * `Performance <userGuide/performance>`_ - Performance Considerations
+Viewing the results
+~~~~~~~~~~~~~~~~~~~
+* :doc:`Quick look plots <quickStart/quickLook>`
 
-.. Running the code
-.. ----------------
+Distributing the ``kaiju`` Python code (``kaipy``)
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
+* :doc:`Building a pip-installable package <distributing/kaipy_for_pip>`
+* :doc:`Building a conda-installable package <distributing/kaipy_for_conda>`
 
-.. * `Geospace Quick Start Guide <quickStart/geoQuickStart>`_ - Starting guide for
-..   geospace simulations
-.. * `Heliosphere Quick Start Guide <quickStart/helioQuickStart>`_ - Starting guide for
-..   heliospheric simulations
-.. * `CHIMP Quick Start <quickStart/chimpQuickStart>`_ - Starting guide for test particle
-..   simulations
-.. * `Planetary Magnetosphere Quick Start <quickStart/planetaryQuickStart>`_ - Starting
-..   guide for non-terrestrial magnetospheric simulations
+----
 
-.. Viewing the results
-.. -------------------
+**User Guide**
+--------------
 
+User Rules
+~~~~~~~~~~
+* :doc:`Contributing Guide <userGuide/contributingGuide>`
+* :doc:`Wiki Contributing Guide <userGuide/wikiContributing>`
+* :doc:`Development Roadmap <userGuide/developmentRoadmap>`
+* :doc:`FAQ <userGuide/FAQ>`
 
-.. * `Quick look plots <quickStart/quickLook>`_
+Magnetosphere Simulations with MAGE
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+* :doc:`GAMERA REMIX <userGuide/gameraRemix>` - Running a GAMERA REMIX simulation
+* :doc:`GAMERA RCM <userGuide/gameraRCM>` - Running coupled GAMERA RCM
+* :doc:`MAGE <userGuide/mage>` - Running MAGE 1.0 (GAMERA + RCM + TIEGCM)
+* :doc:`HIDRA <userGuide/hidra>` - Running Hidra ionospheric outflow simulations
+* XML Files - configuration, defaults, and description
+    * :doc:`Generating XML <userGuide/generatingXML>` - Useful info on generating XML files
+    * :doc:`GAMERA <userGuide/gameraXML>` - Basic GAMERA info
+    * :doc:`VOLTRON <userGuide/voltronXML>` - VOLTRON info
+* MAGE-FAQ - Frequently asked questions
+* :doc:`Computational Costs <userGuide/compCosts>` - Costs for running various systems
+* Analysis tools
+    * :doc:`Ground Magnetic Field Calculations <userGuide/groundMag>` - Biot-Savart calculation of magnetic field perturbations
+    * :doc:`SuperMage <userGuide/superMAGE>` - Data Model Comparison with SuperMag
+* :doc:`Outer planets and exoplanets <userGuide/exoOuterPlanets>` - Non-Earth planetary magnetospheres
 
-.. Distributing the ``kaiju`` Python code (\ ``kaipy``\ ):
-.. -----------------------------------------------------------
+Heliosphere Simulations with GAMERA-Helio
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+* :doc:`Steady State Run <userGuide/steadyStateRun>` - Creating grid, boundary conditions and submit a mpi gamera helio run
+* :doc:`Helio CME <userGuide/helio-cme>` - Running GAMERA-Helio with an embedded CME
+* :doc:`Gibson-Low CME Model <userGuide/gibson-low>` - Running standalone Gibson-Low CME Model
+* XML Files - configuration, defaults, and description
+* :doc:`Visualizing the results <userGuide/helioVisualizing>`
+* :doc:`Computational Costs <userGuide/compCostsHelio>` - Costs for running Helio simulations
 
+Particle Simulations and Analysis Tools with CHIMP
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+* :doc:`Test particle integration: push.x <userGuide/push.x>` - explanation of XML parameters along with an example XML file and job script
+* :doc:`Phase space density calculation: psd.x <userGuide/psd.x>`
+* :doc:`Extract 2D slice: slice.x <userGuide/slice.x>`
+* :doc:`Extract 3D  subdomain: chop.x <userGuide/chop.x>`
+* :doc:`Magnetic field line tracer: trace.x <userGuide/trace.x>`
+* :doc:`Ground magnetic perturbation calculation calculation: calcdb.x <userGuide/groundMag>`
+* :doc:`CHIMP XML <userGuide/chimpXML>` - explanation of XML input files for CHIMP
 
-.. * `Building a pip-installable package <distributing/kaipy_for_pip>`_
-.. * `Building a conda-installable package <distributing/kaipy_for_conda>`_
+Rice Convection Model
+~~~~~~~~~~~~~~~~~~~~~
+* :doc:`RCMX <userGuide/rcmx>` - Stand-alone RCM driver (rcm.x)
+* :doc:`XML Files <userGuide/rcm_xml>` - configuration, defaults, and description
+* :doc:`lambdautils <userGuide/lambdaUtils>` - Generating and testing rcmconfigs with lambdautils
+* :doc:`Diffuse precipitation <userGuide/wmutils>` - Electron loss and precipitation prescribed by wave models
 
-.. ----
+Comparing results with satellite data
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+* :doc:`msphsatcomp <userGuide/msphsatcomp>` - Comparison of terrestrial magnetosphere runs with satellite data
+* :doc:`heliosatcomp <userGuide/heliosatcomp>` - Comparison of heliosphere runs with satellite data
 
-.. **User Guide** :raw-html-m2r:`<a name="userGuide"></a>`
-.. ===============================================================
+Tools
+~~~~~
+* :doc:`Containerization <Pokeball>` - Early work on containerization/cloud computing
+* :doc:`Sublime Text <userGuide/Sublime_Text>` - Using sublime text for development
+* :doc:`Debugging <userGuide/debugging>` - Setting up and running the Allinea parallel debugger
+* :doc:`Globus Endpoint <userGuide/globusEndpoint>` - Sharing data at NCAR via Globus Endpoint
+* :doc:`NASA JupyterLab <userGuide/nasaJupyter>` - Using JupyterLab on NASA HEC systems to analyze results
 
-.. User Rules
-.. ----------
+Code information
+~~~~~~~~~~~~~~~~
+* :doc:`Repository Organization <userGuide/codeOrg>`  -  Structure of the kaiju repository
+* :doc:`Interpolation function in MAGE <userGuide/interpolationInMAGE>` - Info on how interpolation is done in MAGE
+* :doc:`Derivation of precipitation <userGuide/derivation_of_precipitation>` - Derivation of auroral precipitation in MAGE.
 
-
-.. * `Contributing Guide <userGuide/contributingGuide>`_
-.. * `Wiki Contributing Guide <userGuide/wikiContributing>`_
-.. * `Development Roadmap <userGuide/developmentRoadmap>`_
-.. * `FAQ <userGuide/FAQ>`_
-
-.. Magnetosphere Simulations with MAGE
-.. -----------------------------------
-
-
-.. * `GAMERA REMIX <userGuide/gameraRemix>`_ - Running a GAMERA REMIX simulation
-.. * `GAMERA RCM <userGuide/gameraRCM>`_ - Running coupled GAMERA RCM
-.. * `MAGE <userGuide/mage>`_ - Running MAGE 1.0 (GAMERA + RCM + TIEGCM)
-.. * `HIDRA <userGuide/hidra>`_ - Running Hidra ionospheric outflow simulations
-.. * XML Files - configuration, defaults, and description
-
-..   * `Generating XML <userGuide/generatingXML>`_ - Useful info on generating XML files
-..   * `GAMERA <userGuide/gameraXML>`_ - Basic GAMERA info
-..   * `VOLTRON <userGuide/voltronXML>`_ - VOLTRON info
-
-.. * MAGE-FAQ - Frequently asked questions
-.. * `Computational Costs <userGuide/compCosts>`_ - Costs for running various systems
-.. * Analysis tools
-
-..   * `Ground Magnetic Field Calculations <userGuide/groundMag>`_ - Biot-Savart calculation of magnetic field perturbations
-..   * `SuperMage <userGuide/superMAGE>`_ - Data Model Comparison with SuperMag
-
-.. * `Outer planets and exoplanets <userGuide/exoOuterPlanets>`_ - Non-Earth planetary magnetospheres
-
-.. Heliosphere Simulations with GAMERA-Helio
-.. -----------------------------------------
-
-
-.. * `Steady State Run <userGuide/steadyStateRun>`_ - Creating grid, boundary conditions and submit a mpi gamera helio run
-.. * `Helio CME <userGuide/helio-cme>`_ - Running GAMERA-Helio with an embedded CME
-.. * `Gibson-Low CME Model <userGuide/gibson-low>`_ - Running standalone Gibson-Low CME Model
-.. * XML Files - configuration, defaults, and description
-.. * `Visualizing the results <userGuide/helioVisualizing>`_
-.. * `Computational Costs <userGuide/compCostsHelio>`_ - Costs for running Helio simulations
-
-.. Particle Simulations and Analysis Tools with CHIMP
-.. --------------------------------------------------
-
-
-.. * `Test particle integration: ``push.x`` <userGuide/push.x>`_ - explanation of XML parameters along with an example XML file and job script
-.. * `Phase space density calculation: ``psd.x`` <userGuide/psd.x>`_
-.. * `Extract 2D slice: ``slice.x`` <userGuide/slice.x>`_
-.. * `Extract 3D  subdomain: ``chop.x`` <userGuide/chop.x>`_
-.. * `Magnetic field line tracer: ``trace.x`` <userGuide/trace.x>`_
-.. * `Ground magnetic perturbation calculation calculation: ``calcdb.x`` <userGuide/groundMag>`_
-.. * `CHIMP XML <userGuide/chimpXML>`_ - explanation of XML input files for CHIMP
-
-.. Rice Convection Model
-.. ---------------------
-
-
-.. * `RCMX <userGuide/rcmx>`_ - Stand-alone RCM driver (rcm.x)
-.. * `XML Files <userGuide/rcm_xml>`_ - configuration, defaults, and description
-.. * `lambdautils <userGuide/lambdaUtils>`_ - Generating and testing rcmconfigs with lambdautils
-.. * `Diffuse precipitation <userGuide/wmutils>`_ - Electron loss and precipitation prescribed by wave models
-
-.. Comparing results with satellite data
-.. -------------------------------------
-
-
-.. * `msphsatcomp <userGuide/msphsatcomp>`_ - Comparison of terrestrial magnetosphere runs with satellite data
-.. * `heliosatcomp <userGuide/heliosatcomp>`_ - Comparison of heliosphere runs with satellite data
-
-.. Tools
-.. -----
-
-
-.. * `Containerization <Pokeball>`_ - Early work on containerization/cloud computing
-.. * `Sublime Text <userGuide/Sublime_Text>`_ - Using sublime text for development
-.. * `Debugging <userGuide/debugging>`_ - Setting up and running the Allinea parallel debugger
-.. * `Globus Endpoint <userGuide/globusEndpoint>`_ - Sharing data at NCAR via Globus Endpoint
-.. * `NASA JupyterLab <userGuide/nasaJupyter>`_ - Using JupyterLab on NASA HEC systems to analyze results
-
-.. Code information
-.. ----------------
-
-
-.. * `Repository Organization <userGuide/codeOrg>`_  -  Structure of the kaiju repository
-.. * `Interpolation function in MAGE <userGuide/interpolationInMAGE>`_ - Info on how interpolation is done in MAGE
-.. * `Derivation of precipitation <userGuide/derivation_of_precipitation>`_ - Derivation of auroral precipitation in MAGE.
-
-.. Testing
-.. -------
-
-
-.. * `Unit Testing <userGuide/unitTesting>`_ - Setting up unit testing framework for Kaiju codes
-.. * `Adding new tests <userGuide/addingNewTests>`_ - Steps for adding new tests
-.. * `TIE-GCM Benchmarks <userGuide/tiegcmBenchmarks>`_ - Instructions for running the TIEGCM benchmarks
+Testing
+~~~~~~~
+* :doc:`Unit Testing <userGuide/unitTesting>` - Setting up unit testing framework for Kaiju codes
+* :doc:`Adding new tests <userGuide/addingNewTests>` - Steps for adding new tests
+* :doc:`TIE-GCM Benchmarks <userGuide/tiegcmBenchmarks>` - Instructions for running the TIEGCM benchmarks
