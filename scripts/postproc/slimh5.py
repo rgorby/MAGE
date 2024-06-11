@@ -151,8 +151,7 @@ if __name__ == "__main__":
         if cacheName in iH5.keys():
             for Q in iH5[cacheName].keys():
                 sQ = str(Q)
-                if(p): nOffset = 0
-                if(not p): nOffset = Ns
+                nOffset = 0 if p else Ns
                 if(sQ == "step"):
                     oH5[cacheName].create_dataset(sQ, data=iH5[cacheName][sQ][Ns-N0:Ne-N0:Nsk]-nOffset)
                 else:
