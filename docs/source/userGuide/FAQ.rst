@@ -1,3 +1,5 @@
+Frequently Asked Questions
+==========================
 
 This page contains frequently asked questions about running Kaiju.
 

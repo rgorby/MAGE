@@ -1,10 +1,12 @@
+Rules of the Road
+=================
 
 If you have a problem, please try to find the answer on the wiki. (And
 Google)
 
 ----
 
-If you seek help in the #kaijuhelp slack channel, please be patient and
+If you seek help in the `#kaijuhelp <https://nasa-drive-cgs.slack.com/archives/C011V6V7YSJ>`_ slack channel, please be patient and
 polite.
 
 ----
