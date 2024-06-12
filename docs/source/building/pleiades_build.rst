@@ -43,4 +43,4 @@ Step 3: Compile the ``kaiju`` software
 
 The ``kaiju`` software can be built in serial or MPI versions. The serial version should be used when running the code on a single computer, such as a Mac laptop. The MPI version should be used when running on an HPC system (a supercomputer).
 
-Instructions for building the serial and MPI versions of the ``kaiju`` software on ``pleiades`` are available `here <pleiades_build_kaiju>`_.
+Instructions for building the serial and MPI versions of the ``kaiju`` software on ``pleiades`` are available :doc:`here <pleiades_build_kaiju>`.
