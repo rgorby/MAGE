@@ -1,7 +1,8 @@
+Development Roadmap
+===================
 
 Major Efforts
-=============
-
+-------------
 
 * Improve Multifluid support
 * Improve timing\&profiling (timing info for all ranks, perhaps use
@@ -21,8 +22,7 @@ Major Efforts
   letting it tell gamera/rcm
 
 Minor Efforts
-=============
-
+-------------
 
 * Hall MHD (Pull code from old omega repo)
 * Create "default" configs to be used with XMLGenerator to create XMLs
@@ -44,8 +44,7 @@ Minor Efforts
 * Handle remix/conductance mirror ratio based on Rin
 
 Completed Efforts
-=================
-
+-----------------
 
 * MPI Implementation for "vanilla" MHD
 * MPI Implementation for coupled Gamera/ReMIX (Voltron)
