@@ -29,14 +29,14 @@ NASA CDF library
 
 The `NASA CDF (Common Data Format) library <https://cdf.gsfc.nasa.gov/>`_ is used in parts of the ``kaiju`` post-processing software when fetching spacecraft data from `CDAWeb <https://cdaweb.gsfc.nasa.gov/>`_. Prior to building the ``kaiju`` software, the CDF library must be built and installed, since it is not available as a module on ``pleiades``.
 
-Instructions for building and installing the CDF library on ``pleiades`` are available `here <pleiades_build_cdf>`_.
+Instructions for building and installing the CDF library on ``pleiades`` are available :doc:`here <pleiades_build_cdf>`.
 
 Step 2: Create a python environment
 -----------------------------------
 
-Most of the ``kaiju`` software for pre-processing, post-processing, and analysis is written in `Python <https://www.python.org/>`_. Python is available in many forms (or 'distributions'), but we recommend use of the `Miniconda] distribution <https://docs.conda.io/en/latest/miniconda.html>`_ for simplicity and compactness.
+Most of the ``kaiju`` software for pre-processing, post-processing, and analysis is written in `Python <https://www.python.org/>`_. Python is available in many forms (or 'distributions'), but we recommend use of the `Miniconda distribution <https://docs.conda.io/en/latest/miniconda.html>`_ for simplicity and compactness.
 
-Instructions for installing python and building a python environment on ``pleiades`` are available `here <pleiades_build_python>`_.
+Instructions for installing python and building a python environment on ``pleiades`` are available :doc:`here <pleiades_build_python>`.
 
 Step 3: Compile the ``kaiju`` software
 ------------------------------------------
