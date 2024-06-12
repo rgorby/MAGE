@@ -1,6 +1,6 @@
 
-Prerequisites for building the ``kaiju`` software
-=====================================================
+Prerequisites for building the kaiju software
+=============================================
 
 ----
 

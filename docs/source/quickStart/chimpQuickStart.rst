@@ -1,47 +1,56 @@
+CHIMP Quick Start Guide
+=======================
 
-CHIMP
-=====
+Introduction
+------------
 
-1. Compile chimp after gamera has been compiled successfully.
+This page provides instructions to help the user get up and running quickly
+with CHIMP.
+
+Running CHIMP
+-------------
+
+These instructions assume you are running on an HPC system that uses PBS.
+
+These instructions assume your ``kaiju`` code is in the directory referred to
+by the ``$KAIJU_DIR`` variable, and your build is done in the directory
+referred to by the ``$BUILD_DIR`` variable. Substitute the appropriate paths
+for your system.
+
+1. Build ``gamera.x`` and ``chimp.x``.
 
 .. code-block::
 
-   #!shell
-   module purge
-   module restore kaiju
-   cd $KAIJUDIR/build
-   cmake ..
-   make gamera
-   make chimp
+    cd $BUILD_DIR
+    cmake $KAIJU_DIR
+    make gamera
+    make chimp
 
-
-The executables can be found in $KAIJUDIR/build/bin
+The executables can be found in ``$BUILD_DIR/build/bin``:
 
 .. code-block::
 
-   #!shell
-   ls $KAIJUDIR/build/bin
-   gamera.x*  project.x*  psd.x*  push.x*  slice.x*
+    ls $KAIJUDIR/build/bin
+    gamera.x  project.x  psd.x  push.x  slice.x
 
-
-Notes: a) "module restore kaiju" is to load the 8 critical modules
-before compiling (see
-https://bitbucket.org/aplkaiju/kaiju/wiki/Quick_Start). b) Cheyenne
-users need to make sure ncar_pylib is activated, and may sometimes need
-to deactivate and then re-activate.
-
-2. Run chimp.
+2. Run ``chimp.x``.
 
 First check the prerequisites are all present in the work directory,
-including: a) msphere files from GAMERA output; b) xml file specifying
-the chimp parameters; c) pbs file for submitting jobs if using Cheyenne
-etc.; d) executable "push.x". An example command to submit two parallel
-jobs:
+including:
+
+a) HDF5 files from ``gamera.x`` output
+
+b) XML file specifying the CHIMP parameters
+
+c) The ``RunCHIMP.pbs`` PBS script for submitting jobs if needed
+
+d) The executable "push.x"
+
+An example command to submit two parallel jobs:
 
 .. code-block::
 
-   #!shell
-   qsub -v CHIMPEXE="./push.x" -J 1-2 -N Oxyflow RunCHIMP.pbs
+    qsub -v CHIMPEXE="./push.x" -J 1-2 -N Oxyflow RunCHIMP.pbs
 
 
 Notes: a) Need to add dot slash (./) in front of the executable name so
@@ -51,7 +60,7 @@ parallel two times. c) "-N Oxyflow" specifies the run name is "Oxyflow",
 which has to be consistent with the xml file name Oxyflow.xml (don't
 include .xml when qsub). This name will also overwrite whatever in the
 pbs file. Example xml and pbs files can be found in
-"https://bitbucket.org/aplkaiju/kaiju/wiki/ChimpXML".
+:doc:`here </userGuide/chimpXML>`.
 
 The job number is used to seed the generation of test particles within
 each run. This allows the code to be reproducible. If you want to run
