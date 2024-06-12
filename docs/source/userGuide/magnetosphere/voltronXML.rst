@@ -1,10 +1,10 @@
-
-[TOC]
-
 VOLTRON Block - Coupler
 =======================
 
-Example XML
+VOLTRON
+-------
+
+Example XML:
 
 .. code-block::
 
@@ -18,42 +18,46 @@ Example XML
    </VOLTRON>
 
 VOLTRON/time
-
+------------
 
 * tFin: [seconds] - What time (in seconds) from start of simulation to stop run at
 
 VOLTRON/output
-
+--------------
 
 * dtOut: [seconds]
 * tsOut: [?]
 * doTimer: [True/False] - ?
 
 VOLTRON/restart
-
+---------------
 
 * dtRes: [seconds] - What cadence we will output a restart file? 1800.0 = every 30 minutes
 
 VOLTRON/imag
-
+------------
 
 * doInit: [True/False] - Do we do Kareem's initialized ring current?
 
 VOLTRON/coupling - The most important section
-
+---------------------------------------------
 
 * dt: [seconds] - How often do we couple with REMIX (and GCM)
 * doGCM: [True/False] - Are we coupling to a GCM?
 * dtDeep: [seconds] - How often do we couple to RCM?
 * rTrc: [?] - ?
 * imType: [RCM] - ?
-* doQkSquish: [True/False] - this has to do with the very expensive operation of taking every (basically) cell on the gamera grid and projecting it to the northern hemisphere
-* doSerial: [True/False] - Voltron runs concurrently with Gamera by default. This can be set to True to force Voltron and Gamera to run serially, taking turns and waiting for each other.
+* doQkSquish: [True/False] - this has to do with the very expensive operation
+  of taking every (basically) cell on the gamera grid and projecting it to the
+  northern hemisphere
+* doSerial: [True/False] - Voltron runs concurrently with Gamera by default.
+  This can be set to True to force Voltron and Gamera to run serially, taking
+  turns and waiting for each other.
 
 Gamera Block - The MHD stuff
-============================
+----------------------------
 
-Example XML
+Example XML:
 
 .. code-block::
 
@@ -70,11 +74,12 @@ Example XML
    </Gamera>
 
 Gamera/sim
+----------
 
 REMIX Block - The thing that solves for Potential
-=================================================
+-------------------------------------------------
 
-Example XML
+Example XML:
 
 .. code-block::
 
@@ -86,26 +91,28 @@ Example XML
    </REMIX>
 
 REMIX/grid
+----------
 
-
-* Np: [integer] - How many bins in longitude direction (360/Np where Np=360 means 1°).
-* Nt: [integer] - how many bins in colatitude direction ( (90-LowLat)/Nt where Nt=45 and LowLat=45 means 1°).
-* LowLatBoundary: [degree] - What colatitude degree is your Low Latitude Boundary?
+* Np: [integer] - How many bins in longitude direction (360/Np where Np=360
+  means 1°).
+* Nt: [integer] - how many bins in colatitude direction ( (90-LowLat)/Nt where
+  Nt=45 and LowLat=45 means 1°).
+* LowLatBoundary: [degree] - What colatitude degree is your Low Latitude
+  Boundary?
 
 REMIX/conductance
+-----------------
 
-   There are a lot of conditionals within this section.  So this section may become complicated.
-
+There are a lot of conditionals within this section. So this section may
+become complicated.
 
 * const_sigma: [True/False] - Do we want to use uniform constant conductance?
 
 If const_sigma = True
 
-
 * ped0: [float] - set pedersen conductance to a uniform ped0 value
 
 If const_sigma = False
-
 
 * F107: [float] - What SFU is the F10.7 for the run?
 * pedmin: [float] - What is the minimum pedersen conductance
@@ -115,22 +122,25 @@ If const_sigma = False
 
 If doGCM = True
 
-
 * pedmin: [float] - minimum pedersen conductance [min(gcmped,pedmin)]
 * hallmin: [float] - minimum hall conductnace [min(gcmhall,hallmin)]
 
 REMIX/precipitation
+-------------------
 
-
-* auroral_model_type: [FEDDER,RCMONO] - Do we use Fedder precipitation or RCM+Zhang Mono precipitation? Keep in mind RCMONO requires RCM or it will do weird things.
-* alpha: [float] - Alpha parameter that specifies the Ti/Te temperature ratio. [default RCMONO=0.2, FEDDER=1.0332467]
-* beta: [float] - Beta parameter that approximately translates to loss cone filling factor. [default RCMONO = 0.4, FEDDER = 0.4362323]
+* auroral_model_type: [FEDDER,RCMONO] - Do we use Fedder precipitation or
+  RCM+Zhang Mono precipitation? Keep in mind RCMONO requires RCM or it will do
+  weird things.
+* alpha: [float] - Alpha parameter that specifies the Ti/Te temperature ratio.
+  [default RCMONO=0.2, FEDDER=1.0332467]
+* beta: [float] - Beta parameter that approximately translates to loss cone
+  filling factor. [default RCMONO = 0.4, FEDDER = 0.4362323]
 * R: [float] - Only used by FEDDER. [default FEDDER=0.083567956]
 
 CHIMP Block - Crazy fast field line tracer
-==========================================
+------------------------------------------
 
-Example XML
+Example XML:
 
 .. code-block::
 
@@ -143,9 +153,9 @@ Example XML
    </CHIMP>
 
 RCM Block - The Rice Convection Model that is often confused as the Ring Current Model
-======================================================================================
+--------------------------------------------------------------------------------------
 
-Example XML
+Example XML:
 
 .. code-block::
 
@@ -156,7 +166,7 @@ Example XML
    </RCM>
 
 RCM/ellipse
-
+-----------
 
 * xSun: [float] - maximum positive X value of RCM grid in RE
 * xTail: [float] - furthest down tail RCM grid can go.  
@@ -165,7 +175,9 @@ RCM/ellipse
 * dRadMHD: [float] - Magic number
 
 Full Example XML - By your powers combined, I am VOLTRON/MiniMAGE!
-==================================================================
+------------------------------------------------------------------
+
+Example XML:
 
 .. code-block::
 

@@ -1,17 +1,17 @@
 
-Instructions for running GAMERA-REMIX.
-
 GAMERA-REMIX
 ============
 
-A GAMERA-REMIX (GR) run without RCM simulates the magnetosphere without ring current but coupled with the ionosphere represented by the REMIX module. Note we still need to use a Voltron executable instead of Gamera executable for a GR run. To turn off RCM, set DtDeep = -1 and Gamera/dosrc to F.
+A GAMERA-REMIX (GR) run without RCM simulates the magnetosphere without ring
+current but coupled with the ionosphere represented by the REMIX module. Note
+we still need to use a Voltron executable instead of Gamera executable for a
+GR run. To turn off RCM, set DtDeep = -1 and Gamera/dosrc to F.
 
-Below are an example xml file of model parameters and an example pbs file of running parameters.
+Below are an example xml file of model parameters and an example pbs file of
+running parameters.
 
 Example xml for a double-resolution MPI run
 -------------------------------------------
-
-**NOTE: This XML is invalid. The ``<?xml...``\ > line should be the first line. The ``<KAIJU>`` element should ``<Kaiju>``. The ``VOLTRON`` ``<output>`` tag needs to be closed. **
 
 .. code-block:: xml
 

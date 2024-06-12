@@ -14,3 +14,4 @@ Table of Contents
     :maxdepth: 1
 
     user_rules/index
+    magnetosphere/index
