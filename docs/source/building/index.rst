@@ -18,7 +18,7 @@ Table of Contents
     :maxdepth: 1
 
     macos/index
-    derecho
-    pleiades
-    ubuntu-20.04
-    centos-stream-9
+    derecho/index
+    pleiades/index
+    ubuntu-20.04/index
+    centos-stream-9/index
