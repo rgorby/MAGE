@@ -20,3 +20,4 @@ Table of Contents
     rcm/index
     satComp/index
     tools/index
+    codeInformation/index

@@ -1,4 +1,5 @@
-
+Interpolation in MAGE
+=====================
 
 .. image:: https://bitbucket.org/repo/kMoBzBp/images/2723270503-Screen%20Shot%202020-09-17%20at%2010.49.32%20AM.png
    :target: https://bitbucket.org/repo/kMoBzBp/images/2723270503-Screen%20Shot%202020-09-17%20at%2010.49.32%20AM.png
