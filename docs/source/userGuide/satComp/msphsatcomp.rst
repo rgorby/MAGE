@@ -1,4 +1,3 @@
-
 Comparison of magnetosphere simulation results with satellite data
 ==================================================================
 

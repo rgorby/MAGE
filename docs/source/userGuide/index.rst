@@ -18,3 +18,4 @@ Table of Contents
     heliosphere/index
     chimp/index
     rcm/index
+    satComp/index
