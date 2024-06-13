@@ -148,7 +148,7 @@ Note: this function cannot handle nan values in the time-series. Any nan in the 
 ----
 
 Example Run
-===========
+-----------
 
 .. code-block:: python
 

@@ -1,11 +1,11 @@
-.. role:: raw-html-m2r(raw)
-   :format: html
-
-
 Running HIDRA NASA HEC Systems
 ==============================
 
-What follows below is to compile and use Jupyterlab on Pleiades. Replace rmalbarr with your specific Pleiades username. Note that you will have a certain /nobackup directory number (for me it is /nobackupp12/rmalbarr). Change this according to your number. Similarly, I have /home7/rmalbarr as my home directory. Change this home directory number for you, accordingly. 
+What follows below is to compile and use Jupyterlab on Pleiades. Replace
+rmalbarr with your specific Pleiades username. Note that you will have a
+certain /nobackup directory number (for me it is /nobackupp12/rmalbarr).
+Change this according to your number. Similarly, I have /home7/rmalbarr as my
+home directory. Change this home directory number for you, accordingly. 
 
 Get set up on Pleiades
 ----------------------

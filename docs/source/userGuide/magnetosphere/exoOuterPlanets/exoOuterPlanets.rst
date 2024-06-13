@@ -1,8 +1,8 @@
+Non-Earth Planetary Magnetospheres
+==================================
 
 Instructions for running GAMERA-REMIX for non-Earth planetary magnetosphers.
 
-Non-Earth Planetary Magnetospheres
-==================================
 
 By default, the voltron executable is designed to simulate Earth's magnetosphere, and the config file assumes that the planet is Earth. This page outlines how to run the model for non-Earth planetary magnetospheres, and what assumptions are made in the model when doing so.
 

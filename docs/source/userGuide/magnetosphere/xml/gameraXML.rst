@@ -1,3 +1,5 @@
+GAMERA XML
+==========
 
 **NOTE: This XML does not conform to the kaiju schema. It needs a top-level ``<Kaiju>`` element.**
 

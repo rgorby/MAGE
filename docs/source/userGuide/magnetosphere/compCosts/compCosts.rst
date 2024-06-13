@@ -1,4 +1,3 @@
-
 Computational Costs
 ===================
 

@@ -9,3 +9,9 @@ Table of Contents
 
     gameraRemix
     gameraRCM
+    mage/index
+    hidra/index
+    xml/index
+    compCosts/index
+    analysisTools/index
+    exoOuterPlanets/index
