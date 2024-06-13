@@ -1,4 +1,3 @@
-
 Setting up and sharing NCAR GLADE data via a Globus Collections
 ===============================================================
 

@@ -19,3 +19,4 @@ Table of Contents
     chimp/index
     rcm/index
     satComp/index
+    tools/index

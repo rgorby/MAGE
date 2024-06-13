@@ -1,3 +1,5 @@
+Sublime Text
+============
 
 This is info on using sublime text for development. There's a sublime
 project file in the kaiju root directory which you can open with sublime

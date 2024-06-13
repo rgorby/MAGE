@@ -1,18 +1,15 @@
-.. role:: raw-html-m2r(raw)
-   :format: html
-
-
 Project pokeball information
+============================
 
 Motivation
-==========
+----------
 
 
 * we want to use Containers to make the Kaiju source code distribution that includes all dependencies, easy
 * running the containerized kaiju, we furthermore want to host interactive tutorials using `Jupyter Hub <https://jupyter.org/>`_ 
 
 General Setup
-=============
+-------------
 
 (1) There is a dedicated branch in bitbucket ``pokeball/clean``\ , any push to which will trigger the build of a container\ :raw-html-m2r:`<br>`
 (2) After the container is built, a series of tests could (!) be run\ :raw-html-m2r:`<br>`
@@ -39,15 +36,14 @@ The image will be tagged with two handles:\ :raw-html-m2r:`<br>`
 {width=50%}
 
 Jupyter documentation
-=====================
-
+---------------------
 
 * `Documentation <https://docs.jupyter.org/en/latest/>`_ of the Jupyter project with all the components. 
 * `Introduction to Jupyter lab <https://nocomplexity.com/documents/jupyterlab/intro.html>`_ skip installation, userful not sure if everything works exactly the same on our notebooks.
 * `Python Notebook Introduction <https://realpython.com/jupyter-notebook-introduction/>`_ you can skip the installation and the the notebook is run from withing *jupyter lab*.
 
 'ulimit -s'
-===========
+-----------
 
 In the terminal the 'ulimit -s' will now be automatically ``unlimited`` for the notebook this is not used. Still looking if there is a way to have it automatically but what can be done is:
 
@@ -59,14 +55,14 @@ In the terminal the 'ulimit -s' will now be automatically ``unlimited`` for the 
 in the top cell and a ``!ulimit -s`` in a following cell or execution with a magic ``%%bash`` will have ``unlimited`` as well.
 
 Edit a file in jupyter
-======================
+----------------------
 
 Jupyter-lab has a file editor. It also provides a multitude of syntax highlighting (View -> Text Editor Syntax Highlighting).
 
 Simply double click a file in the file browser and it will open in the editor. 
 
 File browser
-------------
+~~~~~~~~~~~~
 
 The file browser will not allow you to navigate *above* the root directory that it starts in. In our case this is ``/home/jovyan/``. 
 As a result it is not possible to navigate to the ``/app/`` folder where the source is currently stored. 
@@ -74,7 +70,7 @@ As a result it is not possible to navigate to the ``/app/`` folder where the sou
 It is still possible to edit the files in jupyter with the magic commands:
 
 Edit via magic commands
------------------------
+~~~~~~~~~~~~~~~~~~~~~~~
 
 In a notebook type
 
@@ -91,7 +87,7 @@ and
 In case of the ``/app/`` folder this will not help you much as nobody has the rights to write there. 
 
 Path
-----
+~~~~
 
 If the kaiju *home* directory is moved, you can use 
 
@@ -114,7 +110,7 @@ to update the path with the following:
    export PYTHONPATH="${KAIJUHOME}:${PYTHONPATH}"
 
 Storage
--------
+~~~~~~~
 
 You have three directories that are for different usage:
 
@@ -124,24 +120,24 @@ You have three directories that are for different usage:
 * ``~/work`` this is your scratch. It will exist for some time but not forever it has 10GB atm.
 
 Intel version
-=============
+-------------
 
 Currently the package version ``2022.2.1`` is installed for mkl, python and the compilers. MPI and the dev tools use ``2021.7.1``. Note that the version of the compiler will display ``2021.7.1``.
 
 LFortran for interactive fortran
-================================
+--------------------------------
 
 LFortran is added to the image you will see a Fortran icon next to the Python icon in *Notebooks*. Be aware, ``Lfortran`` is not like a normal fortran in terms of the scope, see https://stackoverflow.com/questions/70825597/lfortran-in-a-jupyter-notebook-kills-kernel
 
 Plotting in notebook
-====================
+--------------------
 
 As there is currently something not working with the usual ``ipywidgets`` and ``matplotlib`` and the interactive part I looked up how to do interactive with ``plotly`` and it works not to bad. An example can be found in the `\ ``Plotly_examples.ipynb`` <https://bitbucket.org/aplkaiju/kaiju/src/2ff1f3321aa3c0c58e4b5012d26bfcda309c5951/Plotly_examples.ipynb?at=pokeball%2Fclean&viewer=nbviewer>`_. Fyi: as the plotly stuff is ``javascript`` it can not be previewed in the bitbucket ``nbviewer``. Therefore the stuff is slightly prolonged in the preview. 
 
 Important is that at the beginning of the first plot or before jupyter knows that the plots should be displayed in the notebook. This is done with ``%matplotlib inline``.
 
 ParaView and HDF5
-=================
+-----------------
 
 The analysis notebook was extended with two new features: 
 
@@ -154,13 +150,13 @@ Note: The HDF5 viewer is also in the "normal" notebook
 **Note**\ : Extensions need to be activated to properly work. Forth symbol on the far left.
 
 HDF5 viewer
------------
+~~~~~~~~~~~
 
 With `Jupyterlab-h5web <https://github.com/silx-kit/jupyterlab-h5web>`_ based on the `H5Web: React components for data visualization and exploration <https://h5web.panosc.eu/>`_ framework it is possible to view hdf5 files in various ways. 
 Depending on the size of the file this might take a while. 
 
 ParaView Kernel
----------------
+~~~~~~~~~~~~~~~
 
 The recent development of Kitware of an `Jupyter ParaView Kernel <https://gitlab.kitware.com/paraview/iparaview-kernel>`_ that allows interactive access to a ParaView Server out of jupyter. 
 Unfortunately, the list of requirements is not complete. The kernel uses ParaView itself for building and there are additional dependencies, see the Dockerfile for the information. 

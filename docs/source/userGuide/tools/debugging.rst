@@ -1,8 +1,10 @@
-
-These instructions are specific for debugging on Cheyenne.
+Debugging
+=========
 
 Compile in debug mode
-=====================
+---------------------
+
+These instructions are specific for debugging on Cheyenne.
 
 The first step of debugging is to compile the code in the debug mode.
 For GAMERA or Voltron, add the debug flag to cmake when compiling, e.g.:
@@ -37,7 +39,7 @@ Allinea, build with DEBUG instead. This is an unoptimized version of the
 application with full debugging information.
 
 Launch Alinea
-=============
+-------------
 
 Load the arm-forge module. As of 2022, the default version is
 arm-forge/20.2.
@@ -91,7 +93,7 @@ the values of variables and arrays, there are DDT guides available
 online `DDT Guide <https://developer.arm.com/docs/101136/latest/ddt>`_.
 
 Attaching DDT to batch jobs
-===========================
+---------------------------
 
 For particularly complicated or processor intensive cases, it is
 possible to submit a job normally through the qsub submission system,
@@ -125,7 +127,7 @@ Once the job begins, a connection request dialog will appear in the DDT
 GUI, and accepting it will begin the debugging session.
 
 Running DDT With a Remote Client
-================================
+--------------------------------
 
 It is strongly recommended that you run DDT with the GUI local to you,
 no matter where the software being debugged happens to be. This is
