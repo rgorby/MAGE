@@ -1,3 +1,5 @@
+Serial Test Template
+====================
 
 .. code-block:: bash
 

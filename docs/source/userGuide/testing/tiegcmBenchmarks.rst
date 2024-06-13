@@ -1,4 +1,3 @@
-
 Instructions for running TIEGCM benchmarks on Cheyenne
 ======================================================
 
@@ -151,5 +150,3 @@ and your conda environment can be created from this YML file
      - pip:
          - pyqt5-sip==4.19.18
          - pyqtwebengine==5.12.1
-
-`Link Text <Link URL>`_

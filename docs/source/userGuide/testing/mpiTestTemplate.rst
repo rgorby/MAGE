@@ -1,3 +1,5 @@
+MPI Test Template
+=================
 
 .. code-block:: bash
 

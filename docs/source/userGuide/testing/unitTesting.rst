@@ -1,3 +1,5 @@
+Unit Testing
+============
 
 Overview
 --------
@@ -11,7 +13,7 @@ On Cheyenne, there are pre-built binaries for pFUnit available at ``/glade/p/hao
 
 Within a specific build folder you will find four subfolders named ``FARGPARSE-X.X``\ , ``GFTL-X.X``\ , ``GFTL_SHARED-X.X``\ , and ``PFUNIT-X.X``. These four folders should either be copied or linked into your /kaiju/external/ folder. No additional setup is required, cmake will automatically find pFUnit once these four folders are properly located in your external folder (note that these four folders cannot be in a subfolder beneath the external folder, they must be directly within the external folder itself).
 
-If you are not on Cheyenne, or cannot use these binares for whatever reason, there are instructions for how to `Build pFUnit <buildpFUnit>`_.
+If you are not on Cheyenne, or cannot use these binares for whatever reason, there are instructions for how to :doc:`Build pFUnit <buildpFUnit>`.
 
 Building the tests
 ------------------

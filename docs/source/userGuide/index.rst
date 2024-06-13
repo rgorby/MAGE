@@ -21,3 +21,5 @@ Table of Contents
     satComp/index
     tools/index
     codeInformation/index
+    testing/index
+

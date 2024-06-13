@@ -1,6 +1,5 @@
-
 Additional Automated Tests
---------------------------
+==========================
 
 As new code is written and added to Kaiju, as many automated tests as possible should be written for it. There are not yet any strict rules about what parts of the code require tests, but if there are any parts of the code which are known to be error-prone, those are good targets for tests. Or at an absolute bare minimum create a few tests that run the code end-to-end, verifying the final output (a type of\ `Smoke testing <http://softwaretestingfundamentals.com/smoke-testing/>`_\ )
 
@@ -16,9 +15,9 @@ The easiest way to add new tests is to add more tests to existing test executabl
 
 You can use these templates for serial and MPI .pf files as a starting point:
 
-`Serial Test Template <serialTestTemplate>`_
+:doc:`Serial Test Template <serialTestTemplate>`
 
-`MPI Test Template <mpiTestTemplate>`_
+:doc:`MPI Test Template <mpiTestTemplate>`
 
 Creating a New Test Executable
 ------------------------------
