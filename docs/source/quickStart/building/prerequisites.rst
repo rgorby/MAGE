@@ -22,14 +22,14 @@ Fortran compiler
 
 The ``kaiju`` code is developed primarily using the Intel Fortran compiler, version 17 or later, which is available as a `free download from Intel <https://www.intel.com/content/www/us/en/developer/tools/oneapi/fortran-compiler.html#gs.3msomg>`_. The code can also be compiled using the GNU Fortran compiler.
 
-If you need to install the Intel Fortran compiler, instructions can be found `here <./install_intel_compilers.md>`_.
+If you need to install the Intel Fortran compiler, instructions can be found :doc:`here <install_intel_compilers>`.
 
 ----
 
 NASA CDF library
 ----------------
 
-The SpacePy package used by the Python portion of the ``kaiju`` software requires the `NASA CDF library <https://cdf.gsfc.nasa.gov/>`_. If you need to install the CDF library, instructions can be found `here <./build_cdf.md>`_.
+The SpacePy package used by the Python portion of the ``kaiju`` software requires the `NASA CDF library <https://cdf.gsfc.nasa.gov/>`_. If you need to install the CDF library, instructions can be found :doc:`here </build_cdf>`.
 
 ----
 
@@ -54,7 +54,7 @@ The ``kaiju`` software makes extensive use of the `HDF5 file format <https://www
 
 If the HDF5 library is not available, you must install it. The code can usually be installed on Linux and HPC systems using the appropriate package manager command (\ ``yum``\ , ``dnf``\ , or something similar). If you do not have administrative access to your machine, you may require the assistance of a system administrator. Once this installation has been performed, make sure to note any instructions for initializing your environment to use HDF5 (local setup scripts, ``module`` commands, etc.).
 
-If you prefer to build the HDF5 library from source code (for example, to use a more recent release of the software), instructions may be found `here <./build_hdf5.md>`_.
+If you prefer to build the HDF5 library from source code (for example, to use a more recent release of the software), instructions may be found :doc:`here <build_hdf5>`.
 
 ----
 
@@ -63,7 +63,7 @@ Python and additional modules
 
 The ``kaiju`` software was developed assuming the use of **Python 3.8 or later**.
 
-The installation of additional Python modules is described `here <./install_python.md>`_.
+The installation of additional Python modules is described :doc:`here <install_python>`.
 
 ----
 

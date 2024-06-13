@@ -1,4 +1,3 @@
-
 Python modules
 ==============
 
@@ -34,14 +33,12 @@ These instructions should work on all platforms (MacOS, Linux, HPC).
 If version conflicts arise, you can install different versions of each package individually with ``pip``. You may need to adjust package versions based on your operating system and python version. For reference, we provide the following environment files generated from working ``conda``\ -based environments on a Big Sur Mac, on ``cheyenne.ucar.edu``\ , and on ``pleiades.nas.nasa.gov``\ , for python 3.7 and 3.8:
 
 
-* `Python 3.7 on a Big Sur Mac <./kaiju-3.7_BigSur_20220817.yml>`_
-* `Python 3.8 on a Big Sur Mac <./kaiju-3.8_BigSur_20220817.yml>`_
-* `Python 3.7 on a Monterey Mac <./kaiju-3.7_Monterey_20230105.yml>`_
-* `Python 3.8 on a Monterey Mac <./kaiju-3.8_Monterey_20230105.yml>`_
-* `Python 3.7 on cheyenne <./kaiju-3.7_cheyenne_20230105.yml>`_
-* `Python 3.8 on cheyenne <./kaiju-3.8_cheyenne_20230105.yml>`_
-* `Python 3.7 on pleiades <./kaiju-3.7_pleiades_20220817.yml>`_ - NEEDS UPDATE FOR PROGRESS BAR
-* `Python 3.8 on pleiades <./kaiju-3.8_pleiades_20220817.yml>`_ - NEEDS UPDATE FOR PROGRESS BAR
+* :doc:`Python 3.7 on a Big Sur Mac <kaiju-3.7_BigSur_20220817.yml>`
+* :doc:`Python 3.8 on a Big Sur Mac <kaiju-3.8_BigSur_20220817.yml>`
+* :doc:`Python 3.7 on a Monterey Mac <kaiju-3.7_Monterey_20230105.yml>`
+* :doc:`Python 3.8 on a Monterey Mac <kaiju-3.8_Monterey_20230105.yml>`
+* :doc:`Python 3.7 on pleiades <kaiju-3.7_pleiades_20220817.yml>` - NEEDS UPDATE FOR PROGRESS BAR
+* :doc:`Python 3.8 on pleiades <kaiju-3.8_pleiades_20220817.yml>` - NEEDS UPDATE FOR PROGRESS BAR
 
 You can create copies of these environments with the command:
 

@@ -14,7 +14,7 @@ Table of Contents
 .. toctree::
     :maxdepth: 1
 
-    chimpQuickStart
-    geoQuickStart
-    helioQuickStart
-    planetaryQuickStart
+    building/index
+    running/index
+    viewing/index
+    distributing/index

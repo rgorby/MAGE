@@ -1,5 +1,5 @@
-Building gamhelio
-=================
+Steady-State Run
+================
 
 These instructions are to build the MPI gamhelio on Cheyenne supercomputer.
 

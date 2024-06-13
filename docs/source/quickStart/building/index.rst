@@ -17,8 +17,11 @@ Table of Contents
 .. toctree::
     :maxdepth: 1
 
+    prerequisites
     macos/index
     derecho/index
     pleiades/index
     ubuntu-20.04/index
     centos-stream-9/index
+    tests
+    performance

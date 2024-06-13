@@ -1,4 +1,3 @@
-
 Building the NASA CDF (Common Data Format) library
 ==================================================
 

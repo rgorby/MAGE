@@ -1,4 +1,3 @@
-
 Building the HDF5 library
 =========================
 

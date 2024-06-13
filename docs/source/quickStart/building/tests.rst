@@ -1,8 +1,8 @@
-Testing the kaiju software
-==========================
+Running a test case
+===================
 
-Running a test case (serial)
-^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+Serial
+------
 
 Before you begin
 ~~~~~~~~~~~~~~~~
