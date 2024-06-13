@@ -1,4 +1,3 @@
-
 Executable to perform field line tracing through GAMERA output data (trace.x)
 =============================================================================
 

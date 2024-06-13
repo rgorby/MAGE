@@ -1,8 +1,5 @@
-
-[TOC]
-
-Test particle pusher (push.x)
-=============================
+CHIMP XML
+=========
 
 Example XML file for test particle pusher
 
@@ -109,7 +106,7 @@ Example pbs file for submitting test particle pusher
    date
 
 Gamera output slicer (slice.x)
-==============================
+------------------------------
 
 **NOTE: This XML does not currently conform to the kaiju schema. It needs a top-level ``<Kaiju>`` element, the ``<Chimp>`` element should be ``<CHIMP>``\ , and possibly more.***
 
@@ -167,7 +164,7 @@ An example pbs script to submit slice job:
    date
 
 Gamera field line tracer (trace.x)
-==================================
+----------------------------------
 
 Example XML file
 

@@ -1,4 +1,3 @@
-
 Extract a 3D subdomain from GAMERA output (chop.x)
 ==================================================
 

@@ -280,4 +280,4 @@ Output
 ------
 
 Creates runID.job#.h5part files (one for each job, holding the particles it simulated)
-These files can be read in directly into Visit or Paraview. It is beneficial to also extract a 2D plane from the equator of the MHD data (see `slice.x <slice.x>`_\ ) and visualize particle location and MHD solution together for context.
+These files can be read in directly into Visit or Paraview. It is beneficial to also extract a 2D plane from the equator of the MHD data (see :doc:`slice.x <slice.x>`) and visualize particle location and MHD solution together for context.
