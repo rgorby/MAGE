@@ -2,7 +2,9 @@
 Running Gamera Helio with an embedded CME
 =========================================
 
-Compile ``gamhelio.x`` or ``gamhelio_mpi.x`` as described in `Helio Quickstart <https://bitbucket.org/aplkaiju/kaiju/wiki/quickStart/helioQuickStart>`_ using the `giblow <https://bitbucket.org/aplkaiju/kaiju/branch/giblow>`_ branch. 
+Compile ``gamhelio.x`` or ``gamhelio_mpi.x`` as described in 
+:doc:`Helio Quickstart </quickStart/helioQuickStart>` using the ``giblow``
+branch. 
 
 You will then need to add the ``<CME />`` element to the input xml fle and fill out the appropriate CME model parameters. Currently, only the Gibson-Low flux rope model is implemented and you may supply related model parameters in the ``<prob />`` element.  
 

@@ -1,8 +1,5 @@
-
-[TOC]
-
 Building gamhelio
-^^^^^^^^^^^^^^^^^
+=================
 
 These instructions are to build the MPI gamhelio on Cheyenne supercomputer.
 

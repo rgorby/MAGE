@@ -1,6 +1,6 @@
 
-Running the Model
-=================
+Running the Gibson & Low Model
+==============================
 
 Compiling Standalone
 --------------------

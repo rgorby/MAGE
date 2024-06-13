@@ -15,3 +15,4 @@ Table of Contents
 
     user_rules/index
     magnetosphere/index
+    heliosphere/index
