@@ -1,3 +1,5 @@
+Running rcm.x
+=============
 
 These are instructions to run the RCM stand-alone driver.
 

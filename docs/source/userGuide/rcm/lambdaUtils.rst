@@ -1,3 +1,5 @@
+Generate and Test Lambda Distributions
+======================================
 
 Starting instructions for using kaipy/rcm/lambdautils to generate and test lambda distributions for use in rcmconfigs.
 

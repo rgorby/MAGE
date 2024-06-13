@@ -17,3 +17,4 @@ Table of Contents
     magnetosphere/index
     heliosphere/index
     chimp/index
+    rcm/index

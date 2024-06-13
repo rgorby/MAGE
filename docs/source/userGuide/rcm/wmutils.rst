@@ -1,3 +1,5 @@
+Diffuse Precipitation
+=====================
 
 To run MAGE with wave model input:
 
