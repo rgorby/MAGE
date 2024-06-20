@@ -170,17 +170,26 @@ def reWrap(V):
 
 #Image files
 #Wrapper to save (and trim) figure
-def savePic(fOut,dpiQ=300,doTrim=True,bLenX=20,bLenY=None,doClose=False,doEps=False):
+def savePic(fOut,dpiQ=300,doTrim=True,bLenX=20,bLenY=None,doClose=False,doEps=False,saveFigure=None):
     #Start by saving
     import matplotlib.pyplot as plt
     if (doEps):
-        plt.savefig(fOut,dpi=dpiQ,format='eps')
+        if saveFigure is None:
+            plt.savefig(fOut,dpi=dpiQ,format='eps')
+        else:
+            saveFigure.savefig(fOut,dpi=dpiQ,format='eps')
     else:
-        plt.savefig(fOut,dpi=dpiQ)
+        if saveFigure is None:
+            plt.savefig(fOut,dpi=dpiQ)
+        else:
+            saveFigure.savefig(fOut,dpi=dpiQ)
         if (doTrim):
             trimFig(fOut,bLenX,bLenY)
     if (doClose):
-        plt.close('all')
+        if saveFigure is None:
+            plt.close('all')
+        else:
+            plt.close(saveFigure)
 
 #Use imagemagick to trim whitespace off figure
 #doEven: Guarantee even number of pixels in X/Y
