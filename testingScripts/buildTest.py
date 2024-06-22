@@ -350,6 +350,11 @@ def main():
             test_report_details_string += '*PASSED*\n'
         else:
             test_report_details_string += '*FAILED*\n'
+            test_report_details_string += 'This module set used:\n'
+            path = os.path.join(MODULE_LIST_DIRECTORY, module_list_file)
+            lines = open(path).readlines()
+            for line in lines:
+                test_report_details_string += f"{line}\n"
 
     # Summarize the test results.
     test_report_summary_string = (
