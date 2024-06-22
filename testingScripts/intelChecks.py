@@ -409,6 +409,9 @@ def main():
 
     # Detail the test results
     test_report_details_string = ''
+    test_report_details_string += (
+        f"Test results are in {os.getcwd()}.\n"
+    )
     pbs_files = [
         MEM_CHECK_PBS_FILENAME, THREAD_CHECK_PBS_FILENAME,
         REPORT_PBS_FILENAME

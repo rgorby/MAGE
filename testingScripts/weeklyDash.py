@@ -356,6 +356,9 @@ def main():
     # Detail the test results
     test_report_details_string = ''
     test_report_details_string += (
+        f"Test results are in {os.getcwd()}.\n"
+    )
+    test_report_details_string += (
         f"Weekly dash submitted as job {job_id}."
     )
 

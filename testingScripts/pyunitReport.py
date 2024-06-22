@@ -89,6 +89,9 @@ def main():
 
     # Detail the test results
     test_details_message = ''
+    test_report_details_string += (
+        f"Test results are in {os.getcwd()}.\n"
+    )
 
     # Check that the python unit tests completed.
     has_fail = False

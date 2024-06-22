@@ -340,6 +340,9 @@ def main():
 
     # Detail the test results
     test_report_details_string = ''
+    test_report_details_string += (
+        f"Test results are in {os.getcwd()}.\n"
+    )
     for (i_test, module_list_file) in enumerate(module_list_files):
         module_set_name = module_list_file.rstrip('.lst')
         test_report_details_string += f"Module set `{module_set_name}`: "

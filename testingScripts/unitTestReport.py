@@ -198,6 +198,9 @@ def main():
 
     # Detail the test results
     test_report_details_string = ''
+    test_report_details_string += (
+        f"Test results are in {os.getcwd()}.\n"
+    )
     if myError:
         test_report_details_string += 'Errors occurred during testing.\n'
     if jobKilled:
