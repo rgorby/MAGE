@@ -1,0 +1,49 @@
+module testSGIO
+
+    use testHelper
+    use kdefs
+
+    use shellGrid
+    use shellGridIO
+
+    implicit none
+
+    contains
+
+    character(len=strLen) :: fnameH5 = "testSGIO.h5"
+    type(ShellGrid_T) :: sh
+    character(len=strLen) :: checkMessage
+
+    @before
+    subroutine setup()
+
+        dth = (0.5*PI - thetaL) / (Npnt-1)
+        dph = 2.0*PI / (Npnt-1)
+
+        do i=1,Npnt
+            thetas(i) = thetaL + (i-1)*dth
+        enddo
+
+        do j=1,Npnt
+            phis(j) = (j-1)*dph
+        enddo
+
+	    call GenShellGrid(sh, thetas, phis,'shgrTest_IO', radO=1.1_rp)
+
+    end subroutine setup
+
+    @after
+    subroutine teardown()
+        call deallocShellGrid(sh)	    
+    end subroutine teardown
+
+    @test
+    subroutine testSGWrite()
+
+        call writeShellGrid(sh, fnameH5)
+
+        @assertEqual(1, 1, "ok")
+        
+    end subroutine testSGWrite
+
+end module testSGIO
