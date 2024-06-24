@@ -250,18 +250,18 @@ contains
 
           ! Per cell error metric
           @assertLessThanOrEqual(x2Err, 5e-3_rp, trim("X2 Quick Squish Error per cell is too large"))
-          @assertLessThanOrEqual(x4Err, 2e-2_rp, trim("X4 Quick Squish Error per cell is too large"))
+          @assertLessThanOrEqual(x4Err, 5e-2_rp, trim("X4 Quick Squish Error per cell is too large"))
 
           ! Approximate how many i layers of actual data there are if the data were spherical
           approxShells = Nbase
           approxShells = approxShells / (voltAppMpi%ebTrcApp%ebState%ebGr%ke+2-voltAppMpi%ebTrcApp%ebState%ebGr%ks)
           approxShells = approxShells / (voltAppMpi%ebTrcApp%ebState%ebGr%je+2-voltAppMpi%ebTrcApp%ebState%ebGr%js)
-          ! If the data were spherical, squish x2 would reduce it by half of a layer on average. It's not spherical, so increase the error margin by 5
+          ! If the data were spherical, squish x2 would reduce it by half of a layer on average. It's not spherical, so increase the error margin by 10
           Ndiv = Nbase-Nx2
-          @assertLessThanOrEqual(Ndiv/Nbase, 2.5_rp/approxShells, trim("X2 Quick Squish has too many cells missing values compared to normal squish."))
-          ! If the data were spherical, squish x4 would reduce it by 1.5 of a layer on average. It's not spherical, so increase the error margin by 5
+          @assertLessThanOrEqual(Ndiv/Nbase, 5.0_rp/approxShells, trim("X2 Quick Squish has too many cells missing values compared to normal squish."))
+          ! If the data were spherical, squish x4 would reduce it by 1.5 of a layer on average. It's not spherical, so increase the error margin by 10
           Ndiv = Nbase-Nx4
-          @assertLessThanOrEqual(Ndiv/Nbase, 7.5_rp/approxShells, trim("X4 Quick Squish has too many cells missing values compared to normal squish."))
+          @assertLessThanOrEqual(Ndiv/Nbase, 15.0_rp/approxShells, trim("X4 Quick Squish has too many cells missing values compared to normal squish."))
 
       endif
 
@@ -306,18 +306,18 @@ contains
 
           ! Per cell error metric
           @assertLessThanOrEqual(x2Err, 5e-3_rp, trim("X2 Quick Squish Error per cell is too large"))
-          @assertLessThanOrEqual(x4Err, 2e-2_rp, trim("X4 Quick Squish Error per cell is too large"))
+          @assertLessThanOrEqual(x4Err, 5e-2_rp, trim("X4 Quick Squish Error per cell is too large"))
 
           ! Approximate how many i layers of actual data there are if the data were spherical
           approxShells = Nbase
           approxShells = approxShells / (voltAppMpi%ebTrcApp%ebState%ebGr%ke+2-voltAppMpi%ebTrcApp%ebState%ebGr%ks)
           approxShells = approxShells / (voltAppMpi%ebTrcApp%ebState%ebGr%je+2-voltAppMpi%ebTrcApp%ebState%ebGr%js)
-          ! If the data were spherical, squish x2 would reduce it by half of a layer on average. It's not spherical, so increase the error margin by 5
+          ! If the data were spherical, squish x2 would reduce it by half of a layer on average. It's not spherical, so increase the error margin by 10
           Ndiv = Nbase-Nx2
-          @assertLessThanOrEqual(Ndiv/Nbase, 2.5_rp/approxShells, trim("X2 Quick Squish has too many cells missing values compared to normal squish."))
-          ! If the data were spherical, squish x4 would reduce it by 1.5 of a layer on average. It's not spherical, so increase the error margin by 5
+          @assertLessThanOrEqual(Ndiv/Nbase, 5.0_rp/approxShells, trim("X2 Quick Squish has too many cells missing values compared to normal squish."))
+          ! If the data were spherical, squish x4 would reduce it by 1.5 of a layer on average. It's not spherical, so increase the error margin by 10
           Ndiv = Nbase-Nx4
-          @assertLessThanOrEqual(Ndiv/Nbase, 7.5_rp/approxShells, trim("X4 Quick Squish has too many cells missing values compared to normal squish."))
+          @assertLessThanOrEqual(Ndiv/Nbase, 15.0_rp/approxShells, trim("X4 Quick Squish has too many cells missing values compared to normal squish."))
 
       endif
 

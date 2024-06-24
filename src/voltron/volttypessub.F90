@@ -126,4 +126,85 @@ submodule (volttypes) volttypessub
 
     end subroutine
 
+
+    ! procedures for squish helper specific gamera coupler
+     module subroutine SHgamCplInitModel(App, Xml)
+        class(SHgamCoupler_T), intent(inout) :: App
+        type(XML_Input_T), intent(inout) :: Xml
+
+        App%Grid%ijkShift(1:3) = 0
+        call ReadCorners(App%Model,App%Grid,Xml,childGameraOpt=.true.)
+        call SetRings(App%Model,App%Grid,Xml)
+        call Corners2Grid(App%Model,App%Grid)
+        call DefaultBCs(App%Model,App%Grid)
+        call PrepState(App%Model,App%Grid,App%oState,App%State,Xml,App%gOptions%userInitFunc)
+
+    end subroutine
+
+    module subroutine SHgamCplInitIO(App, Xml)
+        class(SHgamCoupler_T), intent(inout) :: App
+        type(XML_Input_T), intent(inout) :: Xml
+        ! do nothing
+    end subroutine
+
+    module subroutine SHgamCplWriteRestart(App, nRes)
+        class(SHgamCoupler_T), intent(inout) :: App
+        integer, intent(in) :: nRes
+        ! do nothing
+    end subroutine
+
+    module subroutine SHgamCplReadRestart(App, resId, nRes)
+        class(SHgamCoupler_T), intent(inout) :: App
+        character(len=*), intent(in) :: resId
+        integer, intent(in) :: nRes
+        ! do nothing
+    end subroutine
+
+    module subroutine SHgamCplWriteConsoleOutput(App)
+        class(SHgamCoupler_T), intent(inout) :: App
+        ! do nothing
+    end subroutine
+
+    module subroutine SHgamCplWriteFileOutput(App, nStep)
+        class(SHgamCoupler_T), intent(inout) :: App
+        integer, intent(in) :: nStep
+        ! do nothing
+    end subroutine
+
+    module subroutine SHgamCplWriteSlimFileOutput(App, nStep)
+        class(SHgamCoupler_T), intent(inout) :: App
+        integer, intent(in) :: nStep
+        ! do nothing
+    end subroutine
+
+    module subroutine SHgamCplAdvanceModel(App, dt)
+        class(SHgamCoupler_T), intent(inout) :: App
+        real(rp), intent(in) :: dt
+        ! do nothing
+    end subroutine
+
+    module subroutine SHgamCplCleanup(App)
+        class(SHgamCoupler_T), intent(inout) :: App
+        ! do nothing
+    end subroutine
+
+    module subroutine SHgamInitMhdCoupler(App, voltApp)
+        class(SHgamCoupler_T), intent(inout) :: App
+        class(voltApp_T), intent(inout) :: voltApp
+        ! do nothing
+    end subroutine
+
+    module subroutine SHgamStartUpdateMhdData(App, voltApp)
+        class(SHgamCoupler_T), intent(inout) :: App
+        class(voltApp_T), intent(inout) :: voltApp
+        ! do nothing
+    end subroutine
+
+    module subroutine SHgamFinishUpdateMhdData(App, voltApp)
+        class(SHgamCoupler_T), intent(inout) :: App
+        class(voltApp_T), intent(inout) :: voltApp
+        ! do nothing
+    end subroutine
+
+
 end submodule

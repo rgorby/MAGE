@@ -107,8 +107,9 @@ contains
   subroutine testJupiter()
     type(voltApp_T) :: vApp
     character(len=strLen) :: xmlName = 'cmriD_Jupiter.xml'
-    real(rp) :: jupCorot = -2.5*1702.9*92.0
+    real(rp) :: jupCorot
 
+    jupCorot = -2.5*1702.9*92.0
     vApp%vOptions%gamUserInitFunc => initUser
     call initVoltron(vApp, xmlName)
 

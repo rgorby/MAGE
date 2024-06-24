@@ -191,7 +191,7 @@ contains
       ! debugging
       !type(IOVAR_T), dimension(12) :: IOVars
 
-      write (*,'(a,I0)') 'Testing HelpSquish ',this%getNumProcesses()
+      write (*,'(a,I0)') 'Testing HelpSquish Dip',this%getNumProcesses()
 
       call manualSetup(this, 'testHelpersSquish_4.xml')
 

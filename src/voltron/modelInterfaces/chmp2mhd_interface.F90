@@ -13,7 +13,7 @@ module chmp2mhd_interface
     subroutine init_chmp2Mhd(chmp2mhd, ebTrcApp, gamApp)
         type(chmp2Mhd_T), intent(inout) :: chmp2mhd
         type(ebTrcApp_T), intent(inout) :: ebTrcApp
-        type(gamApp_T)  , intent(in)    :: gamApp
+        class(gamApp_T)  , intent(in)    :: gamApp
 
         associate(Gr=>gamApp%Grid)
         !Changing squish to do nodes

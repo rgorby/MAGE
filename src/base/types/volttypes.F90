@@ -99,6 +99,7 @@ module volttypes
 
 
     integer, parameter :: mix2mhd_varn = 1  ! for now just the potential is sent back
+
     type, extends(gamApp_T) :: gamCoupler_T
 
         ! data for coupling remix to gamera
@@ -132,6 +133,27 @@ module volttypes
         procedure :: FinishUpdateMhdData => gamFinishUpdateMhdData
 
     end type gamCoupler_T
+
+    type, extends(gamCoupler_T) :: SHgamCoupler_T
+
+        contains
+
+        ! only over-riding specific functions
+        procedure :: InitModel => SHgamCplInitModel
+        procedure :: InitIO => SHgamCplInitIO
+        procedure :: WriteRestart => SHgamCplWriteRestart
+        procedure :: ReadRestart => SHgamCplReadRestart
+        procedure :: WriteConsoleOutput => SHgamCplWriteConsoleOutput
+        procedure :: WriteFileOutput => SHgamCplWriteFileOutput
+        procedure :: WriteSlimFileOutput => SHgamCplWriteSlimFileOutput
+        procedure :: AdvanceModel => SHgamCplAdvanceModel
+
+        ! add new coupling function which can be over-ridden by children
+        procedure :: InitMhdCoupler => SHgamInitMhdCoupler
+        procedure :: StartUpdateMhdData => SHgamStartUpdateMhdData
+        procedure :: FinishUpdateMhdData => SHgamFinishUpdateMhdData
+
+    end type SHgamCoupler_T
 
     type, extends(BaseOptions_T) :: VoltOptions_T
         procedure(StateIC_T), pointer, nopass :: gamUserInitFunc
@@ -241,6 +263,69 @@ module volttypes
 
         module subroutine gamFinishUpdateMhdData(App, voltApp)
             class(gamCoupler_T), intent(inout) :: App
+            class(voltApp_T), intent(inout) :: voltApp
+        end subroutine
+
+    end interface
+
+    ! functions for squish helper specific gamera coupler
+    interface
+        module subroutine SHgamCplInitModel(App, Xml)
+            class(SHgamCoupler_T), intent(inout) :: App
+            type(XML_Input_T), intent(inout) :: Xml
+        end subroutine
+
+        module subroutine SHgamCplInitIO(App, Xml)
+            class(SHgamCoupler_T), intent(inout) :: App
+            type(XML_Input_T), intent(inout) :: Xml
+        end subroutine
+
+        module subroutine SHgamCplWriteRestart(App, nRes)
+            class(SHgamCoupler_T), intent(inout) :: App
+            integer, intent(in) :: nRes
+        end subroutine
+
+        module subroutine SHgamCplReadRestart(App, resId, nRes)
+            class(SHgamCoupler_T), intent(inout) :: App
+            character(len=*), intent(in) :: resId
+            integer, intent(in) :: nRes
+        end subroutine
+
+        module subroutine SHgamCplWriteConsoleOutput(App)
+            class(SHgamCoupler_T), intent(inout) :: App
+        end subroutine
+
+        module subroutine SHgamCplWriteFileOutput(App, nStep)
+            class(SHgamCoupler_T), intent(inout) :: App
+            integer, intent(in) :: nStep
+        end subroutine
+
+        module subroutine SHgamCplWriteSlimFileOutput(App, nStep)
+            class(SHgamCoupler_T), intent(inout) :: App
+            integer, intent(in) :: nStep
+        end subroutine
+
+        module subroutine SHgamCplAdvanceModel(App, dt)
+            class(SHgamCoupler_T), intent(inout) :: App
+            real(rp), intent(in) :: dt
+        end subroutine
+
+        module subroutine SHgamCplCleanup(App)
+            class(SHgamCoupler_T), intent(inout) :: App
+        end subroutine
+
+        module subroutine SHgamInitMhdCoupler(App, voltApp)
+            class(SHgamCoupler_T), intent(inout) :: App
+            class(voltApp_T), intent(inout) :: voltApp
+        end subroutine
+
+        module subroutine SHgamStartUpdateMhdData(App, voltApp)
+            class(SHgamCoupler_T), intent(inout) :: App
+            class(voltApp_T), intent(inout) :: voltApp
+        end subroutine
+
+        module subroutine SHgamFinishUpdateMhdData(App, voltApp)
+            class(SHgamCoupler_T), intent(inout) :: App
             class(voltApp_T), intent(inout) :: voltApp
         end subroutine
 

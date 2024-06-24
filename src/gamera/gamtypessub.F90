@@ -93,6 +93,6 @@ submodule (gamtypes) gamtypessub
         class(gamApp_T), intent(inout) :: App
         ! nothing to cleanup in non-mpi gamera
     end subroutine gamCleanup
-    
+ 
 end submodule
 

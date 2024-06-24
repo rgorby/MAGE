@@ -91,9 +91,9 @@ module gamCouple_mpi_G2V
         call MPI_Comm_rank(App%gOptionsCplMpiG%allComm, commRank, ierr)
         call MPI_comm_split(App%gOptionsCplMpiG%allComm, 0, commRank, voltComm, ierr)
 
-        call Xml%Set_Val(App%doSerialVoltron,"coupling/doSerial",.false.)
-        call Xml%Set_Val(App%doAsyncCoupling,"coupling/doAsyncCoupling",.true.)
-        call Xml%Set_Val(App%doDeep, "coupling/doDeep", .true.)
+        call Xml%Set_Val(App%doSerialVoltron,"/kaiju/voltron/coupling/doSerial",.false.)
+        call Xml%Set_Val(App%doAsyncCoupling,"/kaiju/voltron/coupling/doAsyncCoupling",.true.)
+        call Xml%Set_Val(App%doDeep, "/kaiju/voltron/coupling/doDeep", .true.)
         if(App%doSerialVoltron) then
             ! don't do asynchronous coupling if comms are serial
             App%doAsyncCoupling = .false.

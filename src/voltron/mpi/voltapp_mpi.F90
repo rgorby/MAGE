@@ -131,20 +131,24 @@ module voltapp_mpi
             end if
 
             ! initialize a full baby gamera
-            vApp%gApp%Grid%ijkShift(1:3) = 0
-            call ReadCorners(vApp%gApp%Model,vApp%gApp%Grid,xmlInp,childGameraOpt=.true.)
-            call SetRings(vApp%gApp%Model,vApp%gApp%Grid,xmlInp)
-            call Corners2Grid(vApp%gApp%Model,vApp%gApp%Grid)
-            call DefaultBCs(vApp%gApp%Model,vApp%gApp%Grid)
-            call PrepState(vApp%gApp%Model,vApp%gApp%Grid,&
-                vApp%gApp%oState,vApp%gApp%State,xmlInp,vApp%vOptions%gamUserInitFunc)
+            !vApp%gApp%Grid%ijkShift(1:3) = 0
+            !call ReadCorners(vApp%gApp%Model,vApp%gApp%Grid,xmlInp,childGameraOpt=.true.)
+            !call SetRings(vApp%gApp%Model,vApp%gApp%Grid,xmlInp)
+            !call Corners2Grid(vApp%gApp%Model,vApp%gApp%Grid)
+            !call DefaultBCs(vApp%gApp%Model,vApp%gApp%Grid)
+            !call PrepState(vApp%gApp%Model,vApp%gApp%Grid,&
+            !    vApp%gApp%oState,vApp%gApp%State,xmlInp,vApp%vOptions%gamUserInitFunc)
+
+            ! replace the gamera option with one customized for squish helpers
+            deallocate(vApp%gApp)
+            allocate(SHgamCoupler_T :: vApp%gApp)
 
             ! now initialize basic voltron structures from gamera data
-            !if(present(optFilename)) then
-            !    call initVoltron(vApp, optFilename)
-            !else
-            !    call initVoltron(vApp)
-            !endif
+            if(present(optFilename)) then
+                call initVoltron(vApp, optFilename)
+            else
+                call initVoltron(vApp)
+            endif
 
             ! get starting time values from master voltron rank
             call mpi_bcast(vApp%tFin, 1, MPI_MYFLOAT, 0, vApp%vHelpComm, ierr)
@@ -205,21 +209,8 @@ module voltapp_mpi
 
         if ( ( vApp%doGCM ) .and. (vApp%gcmCplRank /= -1) ) then
             write(*,*) "Initializing GCM ..."
-            !call init_gcm_file(vApp%gcm,vApp%remixApp%ion,gApp%Model%isRestart)
-            call init_gcm_mpi(vApp%gcm,vApp%remixApp%ion,vApp%gAppLocal%Model%isRestart)
+            call init_gcm_mpi(vApp%gcm,vApp%remixApp%ion,vApp%gApp%Model%isRestart)
         end if
-
-        ! Receive Gamera's restart number and ensure Voltron has the same restart number
-        call mpi_recv(gamNRES, 1, MPI_INTEGER, MPI_ANY_SOURCE, 97520, vApp%voltMpiComm, MPI_STATUS_IGNORE, ierr)
-        if (vApp%gAppLocal%Model%isRestart .and. vApp%IO%nRes /= gamNRES) then
-            write(*,*) "Gamera and Voltron disagree on restart number, you should sort that out."
-            write(*,*) "Error code: A house divided cannot stand"
-            write(*,*) "   Voltron nRes = ", vApp%IO%nRes
-            write(*,*) "   Gamera  nRes = ", gamNRES
-            stop
-        endif
-
-        deallocate(neighborRanks, inData, outData, iRanks, jRanks, kRanks)
 
         if(vApp%useHelpers) then
             if(vApp%doSquishHelp) then
@@ -285,33 +276,6 @@ module voltapp_mpi
             end if
         endif
         
-        if(.not. vApp%doserialMHD) then
-            ! prepare data for MHD before first loop since MHD is concurrent
-            ! call base update function with local data
-            call Tic("DeepUpdate")
-            call DeepUpdate_mpi(vApp)
-            call Toc("DeepUpdate")
-        endif
-
-        !do first output stuff
-        !console output
-        call consoleOutputVOnly(vApp,vApp%gAppLocal,vApp%gAppLocal%Model%MJD0)
-        !file output
-        if (.not. vApp%gAppLocal%Model%isRestart) then
-            call fOutputVOnly(vApp,vApp%gAppLocal)
-        endif
-
-        ! synchronize IO timing after first output
-        call mpi_bcast(vApp%IO%tOut/vApp%gAppLocal%Model%Units%gT0, &
-                       1, MPI_MYFLOAT, vApp%myRank, vApp%voltMpiComm, ierr)
-        call mpi_bcast(vApp%IO%tRes/vApp%gAppLocal%Model%Units%gT0, &
-                       1, MPI_MYFLOAT, vApp%myRank, vApp%voltMpiComm, ierr)
-        call mpi_bcast(vApp%IO%dtOut/vApp%gAppLocal%Model%Units%gT0, &
-                       1, MPI_MYFLOAT, vApp%myRank, vApp%voltMpiComm, ierr)
-        call mpi_bcast(vApp%IO%dtRes/vApp%gAppLocal%Model%Units%gT0, &
-                       1, MPI_MYFLOAT, vApp%myRank, vApp%voltMpiComm, ierr)
-        call mpi_bcast(vApp%IO%tsOut, 1, MPI_INTEGER, vApp%myRank, vApp%voltMpiComm, ierr)
-
     end subroutine initVoltron_mpi
 
      !Step Voltron if necessary (currently just updating state variables)
@@ -369,7 +333,7 @@ module voltapp_mpi
         call Toc("R2G")
 
         ! only do imag after spinup
-        if(vApp%time > 0) then
+        if(vApp%doDeep .and. vApp%time >= 0) then
             call Tic("DeepUpdate", .true.)
             call PreDeep(vApp, vApp%gApp)
             call SquishStart(vApp)
@@ -450,11 +414,6 @@ module voltapp_mpi
 
         real(rp) :: tAdv
         integer :: ierr
-
-        if (.not. vApp%doDeep) then
-            !Why are you even here?
-            return
-        endif
 
         ! ensure deep update is complete
         do while(deepInProgress(vApp))

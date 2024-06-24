@@ -265,28 +265,21 @@ module voltapp
             endif
         endif
 
-        if(.not. vApp%isSeparate) then
-            !Do first couplings if the gamera data is local and therefore uptodate
-            if (vApp%time>=vApp%DeepT) then
-                call Tic("DeepCoupling", .true.)
-                call DeepUpdate(vApp,gApp)
-                call Toc("DeepCoupling", .true.)
-            endif
+        if (vApp%time>=vApp%DeepT) then
+            call Tic("DeepCoupling", .true.)
+            call DeepUpdate(vApp,gApp)
+            call Toc("DeepCoupling", .true.)
         endif
 
         !Bring overview info
         if (vApp%isLoud) call printConfigStamp()
 
-        !Finally do first output stuff, if this is not mpi
+        !Finally do first output stuff
         !console output
-        if (.not. vApp%isSeparate) then
-            call consoleOutputV(vApp,gApp)
-        endif
+        call consoleOutputV(vApp,gApp)
         !file output
         if (.not. gApp%Model%isRestart) then
-            if(.not. vApp%isSeparate) then
-                call fOutputV(vApp, gApp)
-            endif
+            call fOutputV(vApp, gApp)
         endif
 
         end associate

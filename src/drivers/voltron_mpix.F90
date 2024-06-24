@@ -19,7 +19,7 @@ program voltron_mpix
 
     procedure(StateIC_T), pointer :: userInitFunc => initUser
     integer :: ierror, length, provided, worldSize, worldRank, numHelpers
-    type(MPI_Comm) :: voltComm
+    type(MPI_Comm) :: voltComm, dummyComm
     integer :: required=MPI_THREAD_MULTIPLE
     character( len = MPI_MAX_ERROR_STRING) :: message
     character(len=strLen) :: inpXML, helpersBuf
@@ -72,8 +72,6 @@ program voltron_mpix
     call ReadXmlImmediate(trim(inpXML),'/Kaiju/Voltron/Helpers/numHelpers',helpersBuf,'0',.false.)
     read(helpersBuf,*) numHelpers
     if(.not. useHelpers) numHelpers = 0
-    call ReadXmlImmediate(trim(inpXML),'/Kaiju/Voltron/coupling/doGCM',helpersBuf,'F',.false.)
-    read(helpersBuf,*) vApp%doGCM
 
     ! create a new MPI communicator for just Gamera
     !    for now this is always all ranks excep the last one (which is reserved for voltron)
@@ -92,6 +90,8 @@ program voltron_mpix
     if(worldRank .ge. (worldSize-1-numHelpers)) then
         ! voltron rank, including helpers (FOR NOW)
         allocate(vApp)
+        call ReadXmlImmediate(trim(inpXML),'/Kaiju/Voltron/coupling/doGCM',helpersBuf,'F',.false.)
+        read(helpersBuf,*) vApp%doGCM
         call MPI_Comm_Split(MPI_COMM_WORLD, voltId, worldRank, voltComm, ierror)
         if(ierror /= MPI_Success) then
             call MPI_Error_string( ierror, message, length, ierror)
@@ -236,6 +236,9 @@ program voltron_mpix
             print *,message(1:length)
             call mpi_Abort(MPI_COMM_WORLD, 1, ierror)
         end if
+
+        ! don't participate in second split for GCM
+        call MPI_Comm_Split(MPI_COMM_WORLD, MPI_UNDEFINED, worldRank, dummyComm, ierror)
 
         gApp%gOptionsCplMpiG%allComm = MPI_COMM_WORLD
         gApp%gOptionsMpi%doIO = .false.

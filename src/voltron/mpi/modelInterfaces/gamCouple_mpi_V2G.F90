@@ -112,8 +112,8 @@ module gamCouple_mpi_V2G
         call MPI_Comm_rank(App%gOptionsCplMpiV%allComm, commSize, ierr)
         call MPI_comm_split(App%gOptionsCplMpiV%allComm, 0, commSize, voltComm, ierr)
 
-        call Xml%Set_Val(App%doAsyncCoupling,"coupling/doAsyncCoupling",.true.)
-        call Xml%Set_Val(App%doDeep, "coupling/doDeep", .true.)
+        call Xml%Set_Val(App%doAsyncCoupling,"/kaiju/voltron/coupling/doAsyncCoupling",.true.)
+        call Xml%Set_Val(App%doDeep, "/kaiju/voltron/coupling/doDeep", .true.)
 
         ! create a new communicator using MPI Topology
         call MPI_Comm_Size(voltComm, commSize, ierr)
