@@ -80,4 +80,28 @@ module raijuOut
 
     end subroutine raijuResInput
 
+
+
+!------
+! Helpers
+!------
+
+    subroutine genResInFname(Model, ResF)
+        !!! Using Model mambers, defermine the restart name to read from
+        type(raijuModel_T), intent(in) :: Model
+        character(len=strLen), intent(out) :: ResF
+
+        character(len=strLen) :: nStr
+
+        if (Model%nResIn == -1) then
+            
+            nStr = "XXXXX"
+        else
+            write (nStr,'(I0.5)') nRes
+        endif
+
+        write (ResF, '(A,A,A,A)') trim(Model%RunID), ".raiju.Res.", nStr, ".h5"
+        
+    end subroutine genResInFname
+
 end module raijuOut
