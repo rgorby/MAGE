@@ -112,6 +112,13 @@ def main():
 
     # ------------------------------------------------------------------------
 
+    # Set up for communication with Slack.
+    slack_client = common.slack_create_client()
+    if debug:
+        print(f"slack_client = {slack_client}")
+
+    # ------------------------------------------------------------------------
+
     # Make a directory to hold all of the weekly dash tests.
     print(f"Creating {WEEKLY_DASH_DIRECTORY}.")
     os.mkdir(WEEKLY_DASH_DIRECTORY)
@@ -302,7 +309,7 @@ def main():
             to_file = os.path.join('.', filename)
             shutil.copyfile(from_file, to_file)
 
-        # Submit the weekly dasj job.
+        # Submit the weekly dash job.
         if verbose:
             print('Preparing to submit weekly dash model run.')
         cmd = (
@@ -340,54 +347,43 @@ def main():
         with open('jobs.txt', 'w', encoding='utf-8') as f:
             f.write(f"{job_id}\n")
 
-    # End of loop over module sets
-
-    # ------------------------------------------------------------------------
-
-    # Set up for communication with Slack.
-    slack_client = common.slack_create_client()
-    if debug:
-        print(f"slack_client = {slack_client}")
-
-    # ------------------------------------------------------------------------
-
-    # NOTE: Assumes only 1 module set was used (for now).
-
-    # Detail the test results
-    test_report_details_string = ''
-    test_report_details_string += (
-        f"Test results are in {os.getcwd()}.\n"
-    )
-    test_report_details_string += (
-        f"Weekly dash submitted as job {job_id}."
-    )
-
-    # Summarize the test results.
-    test_report_summary_string = (
-        'Weekly dash submitted by `weeklyDash.py`'
-        f" for branch or commit or tag {BRANCH_OR_COMMIT}\n"
-    )
-
-    # Print the test results summary and details.
-    print(test_report_summary_string)
-    print(test_report_details_string)
-
-    # If loud mode is on, post report to Slack.
-    if be_loud:
-        test_report_summary_string += 'Details in thread for this messsage.\n'
-        slack_response_summary = common.slack_send_message(
-            slack_client, test_report_summary_string, is_test=is_test
+        # Detail the test results
+        test_report_details_string = ''
+        test_report_details_string += (
+            f"Test results are in {os.getcwd()}.\n"
         )
-        if slack_response_summary['ok']:
-            thread_ts = slack_response_summary['ts']
-            slack_response_details = common.slack_send_message(
-                slack_client, test_report_details_string, thread_ts=thread_ts,
-                is_test=is_test
+        test_report_details_string += (
+            f"Weekly dash submitted as job {job_id}."
+        )
+
+        # Summarize the test results.
+        test_report_summary_string = (
+            'Weekly dash submitted by `weeklyDash.py`'
+            f" for branch or commit or tag {BRANCH_OR_COMMIT}\n"
+        )
+
+        # Print the test results summary and details.
+        print(test_report_summary_string)
+        print(test_report_details_string)
+
+        # If loud mode is on, post report to Slack.
+        if be_loud:
+            test_report_summary_string += 'Details in thread for this messsage.\n'
+            slack_response_summary = common.slack_send_message(
+                slack_client, test_report_summary_string, is_test=is_test
             )
-            if 'ok' not in slack_response_details:
-                print('*ERROR* Unable to post test details to Slack.')
-        else:
-            print('*ERROR* Unable to post test summary to Slack.')
+            if slack_response_summary['ok']:
+                thread_ts = slack_response_summary['ts']
+                slack_response_details = common.slack_send_message(
+                    slack_client, test_report_details_string, thread_ts=thread_ts,
+                    is_test=is_test
+                )
+                if 'ok' not in slack_response_details:
+                    print('*ERROR* Unable to post test details to Slack.')
+            else:
+                print('*ERROR* Unable to post test summary to Slack.')
+
+        # End of loop over module sets.
 
     # ------------------------------------------------------------------------
 
