@@ -1,5 +1,6 @@
 module raijuOut
     use raijuIO
+    use timeHelpers
 
     implicit none
 
@@ -15,12 +16,7 @@ module raijuOut
         write (gStr, '(A,I0)') "Step#", State%IO%nOut
 
         if (Model%isLoud) then
-            !if (State%t>1.0e-2) then
-            !    write(tStr,'(f12.3,a)' ) State%t, ' [code]'
-            !else
-            !    write(tStr,'(es12.2,a)') State%t, ' [code]'
-            !endif
-            call timeString(State%t, tStr)
+            call timeStrFmt(State%t, tStr)
             write (*, '(a,a,a,a,a)') ANSIGREEN, '<Writing RAIJU HDF5 DATA @ t = ', trim(tStr), ' >', ANSIRESET
         endif
 
@@ -45,15 +41,15 @@ module raijuOut
         call CheckAndKill(ResF)
 
         if (Model%isLoud) then
-            call timeString(State%t, tStr)
+            call timeStrFmt(State%t, tStr)
             write (*, '(a,a,a,a,a)') ANSIGREEN, '<Writing HDF5 RESTART @ t = ', trim(tStr), ' >', ANSIRESET
         endif
 
         !!!! Write here !!!!
 
         ! Prep for next restart
-        Sate%IO%tRes = State%IO%tRes + State%IO%dtRes
-        Sate%IO%nRes = State%IO%nRes + 1
+        State%IO%tRes = State%IO%tRes + State%IO%dtRes
+        State%IO%nRes = State%IO%nRes + 1
 
         write (lnResF, '(A,A,A,A)') trim(Model%RunID), ".raiju.Res.", "XXXXX", ".h5"
 
@@ -65,12 +61,22 @@ module raijuOut
     subroutine raijuResInput(Model, Grid, State)
         !! Mirror of raijuResOutput to make sure state is restored to same exact state as above
         type(raijuModel_T), intent(in) :: Model
-        type(raijuGrid_T) , intent(in) :: Grid
+        type(raijuGrid_T) , intent(inout) :: Grid
         type(raijuState_T), intent(inout) :: State
 
-        character(len=strLen) :: ResF
+        character(len=strLen) :: ResF, tStr
 
-        if (Model%)
+        if (Model%isLoud) then
+            call timeStrFmt(State%t, tStr)
+            write (*, '(a,a,a,a,a)') ANSIGREEN, '<Reading HDF5 RESTART @ t = ', trim(tStr), ' >', ANSIRESET
+        endif
+
+        !!!! Read here !!!!
+
+        ! Prep for next restart
+        State%IO%tRes = State%IO%tRes + State%IO%dtRes
+        State%IO%nRes = State%IO%nRes + 1
+
 
     end subroutine raijuResInput
 

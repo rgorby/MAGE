@@ -13,6 +13,7 @@ module msphutils
     use earthhelper
     use msphingest
     use planethelper
+    use timeHelpers
 
     implicit none
 !NOTE: Following comments are deprecated, see updated planet scaling datatypes
@@ -187,11 +188,7 @@ module msphutils
         real(rp), intent(in) :: T
         character(len=strLen), intent(out) :: tStr
 
-        if (abs(T*tScl)>60.0) then
-            write(tStr,'(f9.3,a)' ) T*tScl/60.0, ' [min]'
-        else
-            write(tStr,'(es9.2,a)') T*tScl     , ' [sec]'
-        endif
+        call timeStrFmt(T, tStr, tScl)
 
     end subroutine magsphereTime
     

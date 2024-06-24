@@ -123,8 +123,8 @@ module raijutypes
         ! Restart info
         logical :: isRestart
             !! Whether we initialize state from a restart file
-        integer :: nResIn
-            !! Restart number to use for state init (-1 for symlink)
+        integer :: nResIn = -2
+            !! Restart number to use for state init (-1 for symlink, -2 for uninitialized)
         
         integer :: nSpc, nSpcMHD, nG
             !! Number of species in raiju

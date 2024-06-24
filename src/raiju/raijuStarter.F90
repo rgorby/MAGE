@@ -100,7 +100,7 @@ module raijustarter
         endif
         call iXML%Set_Val(Model%isRestart, trim(tmpStr),.false.)
         if (Model%isRestart) then
-            call iXML%Set_Val(Model%nResIn, trim(tmpStr), dflt)
+            call iXML%Set_Val(Model%nResIn, trim(tmpStr), Model%nResIn)
         endif
 
         call iXML%Set_Val(Model%isLoud, "debug/isLoud",.false.)
