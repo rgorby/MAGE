@@ -172,6 +172,9 @@ module mhd2mix_interface
     real(rp), dimension(:,:), allocatable :: F
     integer :: l,h ! hemisphere
     integer :: v ! mhd var
+    integer :: Nth
+    integer :: i,j
+    real(rp) :: mixImin
 
     if (size(mhd2mix%mixInput,5).ne.size(remixApp%ion)) then
        write(*,*) 'The number of hemispheres in mhdvars is different from the size of the MIX ionosphere object. I am stopping.'
@@ -179,6 +182,7 @@ module mhd2mix_interface
     end if
 
     do h=1,size(remixApp%ion)
+       Nth = remixApp%ion(h)%G%Nt !Theta cells
        do v=1,size(mhd2mix%mixInput,4)
           do l=1,mhd2mix%JShells ! here we loop over Jshells but always use the last one (F)
              ! note the transpose to conform to the MIX layout (phi,theta)
@@ -189,17 +193,31 @@ module mhd2mix_interface
              select case (v)
              case (MHDJ)
                 ! zero out the current
-                where (remixApp%ion(h)%mixGfpd%mask.eq.-1) F=0._rp
+!                where (remixApp%ion(h)%mixGfpd%mask.eq.-1) F=0._rp
+                do i=1,remixApp%ion(h)%mixGfpd%Np
+                   do j=1,remixApp%ion(h)%mixGfpd%Nt
+                      if(remixApp%ion(h)%mixGfpd%mask(i,j) .eq. -1) F(i,j) = 0._rp
+                   enddo
+                enddo
              case (MHDD, MHDC)
                 ! set density and sound speed to min values
-                ! this helps with conductdance calculation
-                where (remixApp%ion(h)%mixGfpd%mask.eq.-1) F=minval(mhd2mix%mixInput(l,:,:,v,h))
+!                where (remixApp%ion(h)%mixGfpd%mask.eq.-1) F=minval(mhd2mix%mixInput(l,:,:,v,h))
+                mixImin = minval(mhd2mix%mixInput(l,:,:,v,h))
+                do i=1,remixApp%ion(h)%mixGfpd%Np
+                   do j=1,remixApp%ion(h)%mixGfpd%Nt
+                      if(remixApp%ion(h)%mixGfpd%mask(i,j) .eq. -1) F(i,j) = mixImin
+                   enddo
+                enddo
              end select
           end do
 
           select case (v)
           case (MHDJ)
              remixApp%ion(h)%St%Vars(:,:,FAC) = F
+             !This shouldn't matter b/c it's already zero, but if it's not oh man that's bad
+             !Probably if it's not this should return an error and the user should rethink what they're doing
+             !But i've come to realize that the user probably doesn't want the warning, they just want a mommy who can make problems magically go away
+             remixApp%ion(h)%St%Vars(:,Nth-1:Nth,FAC) = 0.0
           case (MHDD)
              remixApp%ion(h)%St%Vars(:,:,DENSITY) = F
           case (MHDC)

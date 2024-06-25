@@ -41,7 +41,7 @@ pbs_template = os.path.join(
 
 # Start and stop date of data to fetch from CDAWeb.
 start_date = "2016-08-09T09:00:00"
-stop_date = "2016-08-09T10:00:00"
+stop_date = "2016-08-09T11:00:00"
 
 
 def create_command_line_parser():

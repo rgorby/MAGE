@@ -118,24 +118,28 @@ module remixReader
 
         ! One day we will get grid in this format directly from the mix.h5 file
         ! But today is not that day
-        allocate(rmReader%XY(Nt-1,Np,XDIR:YDIR))
+        allocate(rmReader%XY(Nt,Np,XDIR:YDIR))
         allocate(tmpXY(Np,Nt,XDIR:YDIR))
         call IOArray2DFill(IOVars,"X",tmpXY(:,:,XDIR))
         call IOArray2DFill(IOVars,"Y",tmpXY(:,:,YDIR))
         call genInGrid(tmpXY(:,:,XDIR), tmpXY(:,:,YDIR), tmpXcn, tmpYcn)
-        rmReader%XY(:,:Np-1,XDIR) = transpose(tmpXcn)
-        rmReader%XY(:,:Np-1,YDIR) = transpose(tmpYcn)
+        rmReader%XY(2:Nt,:Np-1,XDIR) = transpose(tmpXcn)
+        rmReader%XY(2:Nt,:Np-1,YDIR) = transpose(tmpYcn)
+
         ! Wrap in j
         rmReader%XY(:,Np,:) = rmReader%XY(:,1,:)
+
+        ! Fill the pole
+        rmReader%XY(1,:,:) = 0.0
         
         ! Now XY is in the desired format, time for shellGrid
 
         ! XY are in units of ionospheric radii (r = 1 Ri)
         ! So the theta and phi we calculate are also for the ionospheric grid
-        allocate(th1D(Nt-1))
+        allocate(th1D(Nt))
         allocate(ph1D(Np))
         th1D = asin(rmReader%XY(:,1,XDIR))
-        ph1D = atan2(rmReader%XY(Nt-1,:,YDIR), rmReader%XY(Nt-1,:,XDIR))
+        ph1D = atan2(rmReader%XY(Nt-1,:,YDIR), rmReader%XY(Nt-1,:,XDIR))  ! note, first index doesn't matter here
 
         ! Clean up phi for shellGrid generation
         do j=Np/2-1,Np
@@ -158,11 +162,11 @@ module remixReader
         ! Hooray we have a shellGrid now
         ! Init our vars
         do h=NORTH,SOUTH
-            call initShellVar(sh, SHCORNER, rmReader%nsFac(h))
+            call initShellVar(sh, SHGR_CORNER, rmReader%nsFac(h))
             rmReader%nsFac(h)%mask(sh%is:sh%ie+1, sh%js:sh%je+1) = .true.
-            call initShellVar(sh, SHCORNER, rmReader%nsPot(h) , rmReader%nsFac(h)%mask)
-            call initShellVar(sh, SHCORNER, rmReader%nsSigP(h), rmReader%nsFac(h)%mask)
-            call initShellVar(sh, SHCORNER, rmReader%nsSigH(h), rmReader%nsFac(h)%mask)
+            call initShellVar(sh, SHGR_CORNER, rmReader%nsPot(h) , rmReader%nsFac(h)%mask)
+            call initShellVar(sh, SHGR_CORNER, rmReader%nsSigP(h), rmReader%nsFac(h)%mask)
+            call initShellVar(sh, SHGR_CORNER, rmReader%nsSigH(h), rmReader%nsFac(h)%mask)
         enddo
         
         ! Now init hemispheres
@@ -195,11 +199,11 @@ module remixReader
             call GenChildShellGrid(shGr, hsg, fullName)
 
             ! Init our variables
-            call initShellVar(hsg, SHCORNER, rmHemi%Fac)
+            call initShellVar(hsg, SHGR_CORNER, rmHemi%Fac)
             rmHemi%Fac%mask(hsg%is:hsg%ie+1, hsg%js:hsg%je+1) = .true.
-            call initShellVar(hsg, SHCORNER, rmHemi%Pot , rmHemi%Fac%mask) 
-            call initShellVar(hsg, SHCORNER, rmHemi%SigP, rmHemi%Fac%mask)
-            call initShellVar(hsg, SHCORNER, rmHemi%SigH, rmHemi%Fac%mask)
+            call initShellVar(hsg, SHGR_CORNER, rmHemi%Pot , rmHemi%Fac%mask) 
+            call initShellVar(hsg, SHGR_CORNER, rmHemi%SigP, rmHemi%Fac%mask)
+            call initShellVar(hsg, SHGR_CORNER, rmHemi%SigH, rmHemi%Fac%mask)
             
             end associate
 
@@ -366,26 +370,36 @@ module remixReader
         type(ShellGridVar_T), intent(inout) :: v
 
         !real(rp), dimension(shGr%Np, shGr%Nt+1) :: tmpVar
-        real(rp), dimension(shGr%js:shGr%je, shGr%is:shGr%ie+1) :: tmpVar
+        real(rp), dimension(shGr%js:shGr%je, shGr%is:shGr%ie) :: tmpVar
         integer :: idx
 
         associate (isg=>shGr%isg, ieg=>shGr%ieg, jsg=>shGr%jsg, jeg=>shGr%jeg,\
             is =>shGr%is , ie =>shGr%ie , js =>shGr%js , je =>shGr%je )
 
-
         call IOArray2DFill(IOV,vName,tmpVar)
+        v%data(is+1:ie,js:je) = transpose(tmpVar)
 
-        v%data(is:ie+1,js:je) = transpose(tmpVar)
-        v%data(is:ie+1,je+1) = v%data(:,1)
+        ! fix pole value
+        ! NOTE, THIS IS ASSUMING IS=1 (POLE)
+        ! NOTE, STUPIDLY ASSUMING UNIFORM SPACING IN LONGITUDE
+        ! BOTH OF THESE ASSUMPTIONS ARE HERE BECAUSE THIS ENTIRE CODE IS TEMPORARY
+        ! AND IS ONLY USED FOR TESTING OF SHELLUTILS AND SHELLINTERP ON STANDARD REMIX FILES
+        v%data(is,js:je) = sum(v%data(is+1,js:je))/size(v%data(is+1,js:je))
+
+        ! fix periodic boundary (note, going through the ghosts in the first dimension)
+        v%data(:,je+1)  = v%data(:,1)
 
         ! Copy last good cell through ghosts just so there's a value there
+        ! note this doesn't get executed if isg=is (no ghosts)
         do idx=isg,is-1
             v%data(idx,:) = v%data(is,:)
         enddo
-        do idx=ie+2,ieg
+
+        ! note this doesn't get executed if ieg=ie (no ghosts)
+        do idx=ie+1,ieg
             v%data(idx,:) = v%data(ie+1,:)
         enddo
-        
+
         call wrapJ_SGV(shGr, v)
         
         ! But, we're gonna say that only our real domain is valid

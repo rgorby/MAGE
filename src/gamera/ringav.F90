@@ -55,9 +55,11 @@ module ringav
         call Tic("ApplyE")
         call PoleE(Model,Gr,SmoothE) !Singularity fix smoothing field
         call E2Flux(Model,Gr,State%magFlux,SmoothE) !Apply smoothing field
-        call bFlux2Fld(Model,Gr,State%magFlux,State%Bxyz) !Recalculate cell-centered fields
+        
         !Clean field loops
         if (doCleanLoop) call CleanLoops(Model,Gr,State)
+        call bFlux2Fld(Model,Gr,State%magFlux,State%Bxyz) !Recalculate cell-centered fields
+        
         call Toc("ApplyE")
 
         call Toc("RA-MAG")

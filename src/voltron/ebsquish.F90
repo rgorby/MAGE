@@ -13,18 +13,19 @@ module ebsquish
 
     !Projection type
     abstract interface
-        subroutine Projection_T(ebApp,xyz,t,x1,x2,MaxStep)
+        subroutine Projection_T(ebApp,xyz,t,x1,x2,isGood,MaxStep)
             Import :: rp,NDIM,ebTrcApp_T
             type(ebTrcApp_T), intent(in) :: ebApp
             real(rp), intent(in)  :: xyz(NDIM), t
             real(rp), intent(out) :: x1,x2
+            logical , intent(out) :: isGood
             integer , intent(in), optional :: MaxStep
         end subroutine Projection_T
     end interface
 
     real(rp), parameter, private :: startEps  = 0.05
     real(rp), parameter, private :: rEps      = 0.125
-    real(rp), parameter, private :: ShueScl   = 1.25 !Safety factor for Shue MP
+    real(rp), parameter, private :: ShueScl   = 2.0 !Safety factor for Shue MP
     contains
 
     !Adjust the starting indices of the squish blocks according to the passed in array values
@@ -170,6 +171,8 @@ module ebsquish
         integer :: ksB,keB
         real(rp) :: t,x1,x2
         real(rp), dimension(NDIM) :: xyz
+        logical :: isGoodIJK
+
         procedure(Projection_T), pointer :: ProjectXYZ
 
         associate(ebModel=>vApp%ebTrcApp%ebModel,ebGr=>vApp%ebTrcApp%ebState%ebGr,ebState=>vApp%ebTrcApp%ebState, &
@@ -206,27 +209,25 @@ module ebsquish
 
         !$OMP PARALLEL DO default(shared) collapse(2) &
         !$OMP schedule(dynamic) &
-        !$OMP private(i,j,k,xyz,x1,x2)
+        !$OMP private(i,j,k,xyz,x1,x2,isGoodIJK)
         do k=ksB,keB,nSkp
             do j=ebGr%js,ebGr%je+1,nSkp
                 do i=ebGr%is,vApp%iDeep+1,nSkp
                     xyz = ebGr%xyz(i,j,k,XDIR:ZDIR)
                     if (norm2(xyz) <= vApp%rTrc) then
                         !Do projection
-                        call ProjectXYZ(vApp%ebTrcApp,xyz,t,x1,x2,vApp%nTrc)
+                        call ProjectXYZ(vApp%ebTrcApp,xyz,t,x1,x2,isGoodIJK,vApp%nTrc)
                     else
                         !Set null projection because outside radius
                         x1 = 0.0
                         x2 = 0.0
+                        isGoodIJK = .false.
                     endif
                     
                     xyzSquish(i,j,k,1) = x1
                     xyzSquish(i,j,k,2) = x2
 
-                    if ( (abs(x1)>0.0) .and. (abs(x2)>0.0) ) then
-                        isGood(i,j,k) = .true.
-                    endif
-
+                    isGood(i,j,k) = isGoodIJK
                 enddo
             enddo
         enddo
@@ -415,11 +416,12 @@ module ebsquish
     end subroutine FillSkips
 
     !Project XYZ to R,phi at Z=0 plane
-    subroutine Proj2LP(ebApp,xyz,t,x1,x2,MaxStep)
+    subroutine Proj2LP(ebApp,xyz,t,x1,x2,isGood,MaxStep)
         type(ebTrcApp_T)  , intent(in) :: ebApp
         real(rp), dimension(NDIM), intent(in) :: xyz
         real(rp), intent(in) :: t
         real(rp), intent(out) :: x1,x2
+        logical , intent(out) :: isGood
         integer , intent(in), optional :: MaxStep
 
         real(rp) :: L,phi,z
@@ -445,19 +447,26 @@ module ebsquish
         
         x1 = L
         x2 = phi
+        if (x1 > 0) then
+            isGood = .true.
+        else
+            isGood = .false.
+        endif
+
     end subroutine Proj2LP
 
     !Project XYZ to lat-lon on ionosphere
-    subroutine Proj2LL(ebApp,xyz,t,x1,x2,MaxStep)
+    subroutine Proj2LL(ebApp,xyz,t,x1,x2,isGood,MaxStep)
         type(ebTrcApp_T), intent(in) :: ebApp
         real(rp), dimension(NDIM), intent(in) :: xyz
         real(rp), intent(in) :: t
         real(rp), intent(out) :: x1,x2
+        logical , intent(out) :: isGood
         integer , intent(in), optional :: MaxStep
 
         real(rp), dimension(NDIM) :: xE,xyz0
         integer :: Np
-        logical :: isGood,isGP
+        logical :: isGP
         real(rp) :: dX,rC
         real(rp) :: x11,x22
 
@@ -465,15 +474,15 @@ module ebsquish
         x2 = 0.0
         xE = 0.0
         
-        !Do quick short-cut to safe us some effort
+        !Do quick short-cut to save us some effort
         isGood = inShueMP_SM(xyz,ShueScl)
         if (.not. isGood) return
         
         if (ebApp%ebModel%doDip) then
+            isGood = .true.
             xyz0 = DipoleShift(xyz,norm2(xyz)+startEps)
             x1 = InvLatitude(xyz0)
-            x2 = atan2(xyz0(YDIR),xyz0(XDIR))
-            if (x2 < 0) x2 = x2 + 2*PI
+            x2 = katan2(xyz0(YDIR),xyz0(XDIR))
             return
         endif
 

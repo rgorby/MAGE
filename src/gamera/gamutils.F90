@@ -80,7 +80,7 @@ module gamutils
 
         !Set nSt equal to nSi/nSj/nSk for given direction
         nSt = nSi*ijkD(d,IDIR) + nSj*ijkD(d,JDIR) + nSk*ijkD(d,KDIR)
-
+        Qb = 0.0
         do n = -Nx2,Nx2-1
             l = l0 + nSt*n !Jump to next 1:iMax in direction d
             Qb(1:iMax,n) = Q(l:l+iMax-1)
@@ -369,6 +369,25 @@ module gamutils
         Cs = sqrt(Model%gamma*P/rho)
     end subroutine CellPress2Cs
 
+    subroutine Con2Fast(Model,gCon,B,Cx)
+        type(Model_T)  , intent(in)  :: Model
+        real(rp)       , intent(in)  :: gCon(NVAR),B(NDIM)
+        real(rp)       , intent(out) :: Cx
+        real(rp) :: gW(NVAR)
+        real(rp) :: D,Cs,Va,MagB
+        call CellC2P(Model,gCon,gW) !to primitive
+        !Get sound speed
+        call CellPress2Cs(Model,gCon,Cs)
+        !Get alfven speed
+        D = gCon(DEN)
+        MagB = norm2(B)
+        Va = MagB/sqrt(D)
+        if (Model%doBoris) then
+            Va = Model%Ca*Va/sqrt(Model%Ca**2.0 + Va**2.0)
+        endif
+        Cx = sqrt(Cs**2.0 + Va**2.0)
+    end subroutine Con2Fast
+    
     subroutine CellP2C(Model,Prim,Con)
         type(Model_T), intent(in) :: Model
         real(rp), intent(out) :: Con(NVAR)

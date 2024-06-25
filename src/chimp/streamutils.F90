@@ -37,7 +37,37 @@ module streamutils
 
     procedure(OneStep_T), pointer :: StreamStep=>Step_MAGE
 
+    !Some knobs for tracing cut-off
+    real(rp), private :: bMinC !Min allowable field strength (in chimp units)
+
     contains
+
+    subroutine setStreamlineKnobs(Model,inpXML)
+        
+        type(chmpModel_T), intent(inout) :: Model
+        type(XML_Input_T), intent(inout) :: inpXML
+        character(len=strLen) :: sStr
+        real(rp) :: bMin_nT
+        if (Model%isMAGE) then
+            call inpXML%Set_Val(sStr,'streamline/steptype',"MAGE")
+        else
+            call inpXML%Set_Val(sStr,'streamline/steptype',"RK4L")
+        endif
+        select case(trim(toUpper(sStr)))
+            case("MAGE")
+                StreamStep=>Step_MAGE
+            case("RK4L")
+                StreamStep=>Step_RK4L
+        end select
+        if (Model%isMAGE) then
+            call inpXML%Set_Val(bMin_nT,"/Kaiju/voltron/imag/bMin_C",TINY)
+        else
+            bMin_nT = 0.0 !Don't do this for non-mage case
+        endif
+        !Convert bmin from nT to chimp eb coordinates
+        bMinC = bMin_nT/oBScl
+
+    end subroutine setStreamlineKnobs
 
     !Combines speedy method away from the axis w/ more careful stepping nearby
     subroutine Step_MAGE(gpt,Model,ebState,eps,h,dx,iB,oB)
@@ -54,13 +84,20 @@ module streamutils
 
         if ( (.not. present(iB)) .or. (.not. present(oB)) ) then
             write(*,*) "Non-optional error in step_mage"
-            stop
         endif
 
+        !Test field magnitude
+        if (norm2(iB) <= bMinC) then
+            !Get outta here
+            dx = 0.0
+            h  = 0.0
+            if (present(oB)) oB = 0.0
+            return
+        endif
+        
         j0 = gpt%ijkG(JDIR)
-        ! !Get approx number of rings, 4/8/12/16 (DQOH)
-        ! Nr = nint( 4*( log(1.0*ebState%ebGr%Nkp/64.0)/log(2.0) + 1) )
-        Nr = 4 !Just using 4 rings
+
+        Nr = 2 !Number of rings to treat carefully
         isAxS = (j0 < ebState%ebGr%js+Nr)
         isAxE = (j0 > ebState%ebGr%je-Nr)
 
@@ -602,6 +639,7 @@ module streamutils
         fL%x0 = 0.0
         fL%Nm = 0
         fL%Np = 0
+        fL%Nmax = MaxFL
         fL%isGood = .false.
     end subroutine cleanStream                
 end module streamutils

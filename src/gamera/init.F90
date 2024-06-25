@@ -196,6 +196,16 @@ module init
 
         call PrepState(Model,Grid,oState,State,xmlInp,userInitFunc)
 
+        !Do background stuff
+        !Incorporate background field, B0, if necessary
+        if (Model%doBackground .and. Grid%doB0Init) then
+            call AddB0(Model,Grid,Model%B0)
+        endif
+        !Incorporate gravity if necessary
+        if (Model%doGrav .and. Grid%doG0Init) then
+            call AddGrav(Model,Grid,Model%Phi)
+        endif
+
         if (Model%isRestart) then
             !If restart replace State variable w/ restart file
             !Make sure inH5 is set to restart
@@ -222,15 +232,6 @@ module init
             endif
         endif
 
-    !Do background stuff
-        !Incorporate background field, B0, if necessary
-        if (Model%doBackground .and. Grid%doB0Init) then
-            call AddB0(Model,Grid,Model%B0)
-        endif
-        !Incorporate gravity if necessary
-        if (Model%doGrav .and. Grid%doG0Init) then
-            call AddGrav(Model,Grid,Model%Phi)
-        endif
 
     !Finalize setup
         !Enforce initial BC's
@@ -451,6 +452,8 @@ module init
             write(*,*) "Uknown sim/rmeth, exiting ..."
             stop
         end select
+
+        call xmlInp%Set_Val(Model%doLFMLim,"sim/lfmlim",Model%doLFMLim)
 
         RingLR => NULL()
         call xmlInp%Set_Val(reconMethod,"ring/rngrec","PPM")

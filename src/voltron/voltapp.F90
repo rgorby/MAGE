@@ -112,11 +112,15 @@ module voltapp
         call tsMJD%initTS("MJD",doLoudO=.false.)
         gApp%Model%MJD0 = tsMJD%evalAt(0.0_rp) !Evaluate at T=0
         
-    !Time options
+        !Time options
         call xmlInp%Set_Val(vApp%tFin,'time/tFin',1.0_rp)
         !Sync Gamera to Voltron endtime
         gApp%Model%tFin = vApp%tFin/gTScl
         
+        !Recalculate timestep after correcting Gamera's end time
+        gApp%Model%dt = CalcDT(gApp%Model,gApp%Grid,gApp%State)
+        if (gApp%Model%dt0<TINY) gApp%Model%dt0 = gApp%Model%dt
+
         call vApp%IO%init(xmlInp,vApp%time,vApp%ts)
         
         !Pull numbering from Gamera
@@ -260,10 +264,10 @@ module voltapp
         if(.not. vApp%doDeep) then
             ! if we aren't using "deep" parts such as RCM, we need to use a
             !    precipitation model that doesn't rely on them
-            if(vApp%remixApp%ion(NORTH)%P%aurora_model_type /= FEDDER .and. vApp%remixApp%ion(NORTH)%P%aurora_model_type /= ZHANG) then
-                write(*,*) 'Either the "FEDDER" or "ZHANG" precipitation model MUST be used when deep coupling is disabled.'
+            if(vApp%remixApp%ion(NORTH)%P%aurora_model_type /= FEDDER .and. vApp%remixApp%ion(NORTH)%P%aurora_model_type /= SUNNY) then
+                write(*,*) 'The "FEDDER" or SUNNY precipitation model MUST be used when deep coupling is disabled.'
                 write(*,*) 'Please either enable the "voltron/coupling/doDeep" option, or'
-                write(*,*) ' set "remix/precipitation/aurora_model_type" to "FEDDER" or "ZHANG"'
+                write(*,*) ' set "remix/precipitation/aurora_model_type" to "FEDDER" or "SUNNY"'
                 stop
             endif
         endif
@@ -287,12 +291,6 @@ module voltapp
             endif
         endif
 
-        !Recalculate timestep
-        !Why? if this is non-MPI, then why do we recalculate after gamera has already done that
-        !if this IS MPI then we can't calculate it, only Gamera ranks can
-        !gApp%Model%dt = CalcDT(gApp%Model,gApp%Grid,gApp%State)
-        !if (gApp%Model%dt0<TINY) gApp%Model%dt0 = gApp%Model%dt
-        
         !Bring overview info
         if (vApp%isLoud) call printConfigStamp()
 
@@ -357,10 +355,6 @@ module voltapp
         
         vApp%remixApp%ion%rad_iono_m  = vApp%planet%ri_m
         vApp%remixApp%ion%rad_planet_m = vApp%planet%rp_m
-        if (vApp%doGCM) then
-            write(*,*) "Initializing GCM ..."
-            call init_gcm(vApp%gcm,vApp%remixApp%ion,gApp%Model%isRestart)
-        end if
         !Ensure remix and voltron restart numbers match
         if (isRestart .and. vApp%IO%nRes /= vApp%remixApp%ion(1)%P%nRes) then
             write(*,*) "Voltron and Remix disagree on restart number, you should sort that out."
@@ -443,12 +437,6 @@ module voltapp
 
         ! determining the current dipole tilt
         call vApp%tilt%getValue(vApp%time,curTilt)
-
-        if (vApp%doGCM .and. vApp%time >=0) then
-            call Tic("GCM2MIX")
-            call coupleGCM2MIX(vApp%gcm,vApp%remixApp%ion,vApp%doGCM,mjd=vApp%MJD,time=vApp%time)
-            call Toc("GCM2MIX")
-        end if
 
         ! solve for remix output
         if (vApp%time<=0) then

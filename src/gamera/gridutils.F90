@@ -6,7 +6,8 @@ module gridutils
     use quadrature
     use metric
     use planethelper
-    
+    use ringutils
+
     implicit none
 
 
@@ -169,22 +170,22 @@ module gridutils
 
         type(Model_T), intent(in) :: Model
         type(Grid_T), intent(in) :: Grid
-        real(rp), dimension(Grid%isg:Grid%ieg+1,Grid%jsg:Grid%jeg+1,Grid%ksg:Grid%keg+1,1:NDIM), intent(in) :: magFlux
-        real(rp), dimension(Grid%isg:Grid%ieg,Grid%jsg:Grid%jeg,Grid%ksg:Grid%keg,1:NDIM), intent(out) :: magFld
+        real(rp), dimension(Grid%isg:Grid%ieg+1,Grid%jsg:Grid%jeg+1,Grid%ksg:Grid%keg+1,1:NDIM), intent(in)  :: magFlux
+        real(rp), dimension(Grid%isg:Grid%ieg  ,Grid%jsg:Grid%jeg  ,Grid%ksg:Grid%keg  ,1:NDIM), intent(out) :: magFld
         integer :: i,j,k
 
         !$OMP PARALLEL DO default(shared) collapse(2)
         do k=Grid%ksg, Grid%keg
             do j=Grid%jsg, Grid%jeg
                 do i=Grid%isg, Grid%ieg
-                    
                     magFld(i,j,k,:) = CellBxyz(Model,Grid,magFlux,i,j,k)
-
                 enddo
             enddo
         enddo
 
-
+        if (Model%doRing) then
+            call RingFlux2FieldFix(Model,Grid,magFld)
+        endif
     end subroutine bFlux2Fld
 
 ! compute the current from curl B using the cell centered fleid components
@@ -673,6 +674,97 @@ module gridutils
         
     end function EdgeScalar2CC
 
+    !Fill in the final rank of magflux by utilizing divB=0
+    subroutine FixGhostFace(Model,Grid,magFlux)
+        type(Model_T), intent(in)    :: Model
+        type(Grid_T) , intent(in)    :: Grid
+        real(rp)     , intent(inout) :: magFlux(Grid%isg:Grid%ieg+1,Grid%jsg:Grid%jeg+1,Grid%ksg:Grid%keg+1,1:NDIM)
+
+        integer :: i,j,k
+        real(rp) :: dFi,dFj,dFk,dFi0,dFj0,dFk0
+
+        !For cell i,j,k
+        !dFi  = magFlux(i,j,k,IDIR) - magFlux(i+1,j  ,k  ,IDIR)
+        !dFj  = magFlux(i,j,k,JDIR) - magFlux(i  ,j+1,k  ,JDIR)
+        !dFk  = magFlux(i,j,k,KDIR) - magFlux(i  ,j  ,k+1,KDIR)
+        !dFi0 = Grid%bFlux0  (i,j,k,IDIR) - Grid%bFlux0  (i+1,j  ,k  ,IDIR)
+        !dFj0 = Grid%bFlux0  (i,j,k,JDIR) - Grid%bFlux0  (i  ,j+1,k  ,JDIR)
+        !dFk0 = Grid%bFlux0  (i,j,k,KDIR) - Grid%bFlux0  (i  ,j  ,k+1,KDIR)
+        !div(dB) + div(B0) = 0 = dFi + dFj + dFk + dFi0 + dFj0 + dFk0
+        !Note: This only matters in the small region where div(B0) != 0 but div(dB+B0) = 0
+
+        !i-dir
+        !$OMP PARALLEL DO default(shared) &
+        !$OMP private(i,j,k,dFi,dFj,dFk,dFi0,dFj0,dFk0)
+        do k=Grid%ksg, Grid%keg
+            do j=Grid%jsg, Grid%jeg
+                !Want ieg+1,j,k I-face
+                i = Grid%ieg
+                dFi  = magFlux(i,j,k,IDIR) - magFlux(i+1,j  ,k  ,IDIR)
+                dFj  = magFlux(i,j,k,JDIR) - magFlux(i  ,j+1,k  ,JDIR)
+                dFk  = magFlux(i,j,k,KDIR) - magFlux(i  ,j  ,k+1,KDIR)
+                if (Model%doBackground) then
+                    dFi0 = Grid%bFlux0(i,j,k,IDIR) - Grid%bFlux0(i+1,j  ,k  ,IDIR)
+                    dFj0 = Grid%bFlux0(i,j,k,JDIR) - Grid%bFlux0(i  ,j+1,k  ,JDIR)
+                    dFk0 = Grid%bFlux0(i,j,k,KDIR) - Grid%bFlux0(i  ,j  ,k+1,KDIR)
+                else
+                    dFi0 = 0.0
+                    dFj0 = 0.0
+                    dFk0 = 0.0
+                endif
+                magFlux(i+1,j,k,IDIR) = magFlux(i,j,k,IDIR) + dFj + dFk &
+                                        + dFi0 + dFj0 + dFk0
+            enddo
+        enddo
+
+        !j-dir
+        !$OMP PARALLEL DO default(shared) &
+        !$OMP private(i,j,k,dFi,dFj,dFk,dFi0,dFj0,dFk0)
+        do k=Grid%ksg, Grid%keg
+            do i=Grid%isg, Grid%ieg
+                j = Grid%jeg
+                dFi  = magFlux(i,j,k,IDIR) - magFlux(i+1,j  ,k  ,IDIR)
+                dFj  = magFlux(i,j,k,JDIR) - magFlux(i  ,j+1,k  ,JDIR)
+                dFk  = magFlux(i,j,k,KDIR) - magFlux(i  ,j  ,k+1,KDIR)
+                if (Model%doBackground) then
+                    dFi0 = Grid%bFlux0(i,j,k,IDIR) - Grid%bFlux0(i+1,j  ,k  ,IDIR)
+                    dFj0 = Grid%bFlux0(i,j,k,JDIR) - Grid%bFlux0(i  ,j+1,k  ,JDIR)
+                    dFk0 = Grid%bFlux0(i,j,k,KDIR) - Grid%bFlux0(i  ,j  ,k+1,KDIR)
+                else
+                    dFi0 = 0.0
+                    dFj0 = 0.0
+                    dFk0 = 0.0
+                endif
+                magFlux(i,j+1,k,JDIR) = magFlux(i,j,k,JDIR) + dFi + dFk &
+                                        + dFi0 + dFj0 + dFk0
+            enddo
+        enddo   
+
+        !k-dir
+        !$OMP PARALLEL DO default(shared) &
+        !$OMP private(i,j,k,dFi,dFj,dFk,dFi0,dFj0,dFk0)
+        do j=Grid%jsg, Grid%jeg
+            do i=Grid%isg, Grid%ieg
+                k = Grid%keg
+                dFi  = magFlux(i,j,k,IDIR) - magFlux(i+1,j  ,k  ,IDIR)
+                dFj  = magFlux(i,j,k,JDIR) - magFlux(i  ,j+1,k  ,JDIR)
+                dFk  = magFlux(i,j,k,KDIR) - magFlux(i  ,j  ,k+1,KDIR)
+                if (Model%doBackground) then
+                    dFi0 = Grid%bFlux0(i,j,k,IDIR) - Grid%bFlux0(i+1,j  ,k  ,IDIR)
+                    dFj0 = Grid%bFlux0(i,j,k,JDIR) - Grid%bFlux0(i  ,j+1,k  ,JDIR)
+                    dFk0 = Grid%bFlux0(i,j,k,KDIR) - Grid%bFlux0(i  ,j  ,k+1,KDIR)
+                else
+                    dFi0 = 0.0
+                    dFj0 = 0.0
+                    dFk0 = 0.0
+                endif
+                magFlux(i,j,k+1,KDIR) = magFlux(i,j,k,KDIR) + dFi + dFk &
+                                        + dFi0 + dFj0 + dFk0
+            enddo
+        enddo
+
+    end subroutine FixGhostFace
+    
     subroutine EnergyPartition(Model,Gr,State,gIntE,gKinE,gMagP)
         type(Model_T), intent(in) :: Model
         type(Grid_T), intent(in) :: Gr
