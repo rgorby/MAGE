@@ -97,7 +97,7 @@ module raijuOut
             
             nStr = "XXXXX"
         else
-            write (nStr,'(I0.5)') nRes
+            write (nStr,'(I0.5)') Model%nResIn
         endif
 
         write (ResF, '(A,A,A,A)') trim(Model%RunID), ".raiju.Res.", nStr, ".h5"

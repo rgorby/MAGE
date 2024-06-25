@@ -200,7 +200,7 @@ module chopio
 
         real(rp), dimension(:,:,:,:)  , allocatable :: B,E,J3
         real(rp), dimension(:,:,:,:,:), allocatable :: Q
-        real(rp), dimension(NVARMHD,0:Mpdel%nSpc) :: Qijk
+        real(rp), dimension(NVARMHD,0:Model%nSpc) :: Qijk
         real(rp), dimension(NDIM) :: Bijk,Eijk,xyz
         type(gcFields_T) :: gcFields
         real(rp), dimension(NDIM,NDIM) :: jB
@@ -294,11 +294,11 @@ module chopio
                     write(vxID ,'(A,I0)') "Vx" , s
                     write(vyID ,'(A,I0)') "Vy" , s
                     write(vzID ,'(A,I0)') "Vz" , s
-                    call AddOutVar(IOVars,vxID , oVScl*Q(:,:,VELX    ,s))
-                    call AddOutVar(IOVars,vyID , oVScl*Q(:,:,VELY    ,s))
-                    call AddOutVar(IOVars,vzID , oVScl*Q(:,:,VELZ    ,s))
-                    call AddOutVar(IOVars,dID  ,       Q(:,:,DEN     ,s))
-                    call AddOutVar(IOVars,pID  ,       Q(:,:,PRESSURE,s))
+                    call AddOutVar(IOVars,vxID , oVScl*Q(:,:,:,VELX    ,s))
+                    call AddOutVar(IOVars,vyID , oVScl*Q(:,:,:,VELY    ,s))
+                    call AddOutVar(IOVars,vzID , oVScl*Q(:,:,:,VELZ    ,s))
+                    call AddOutVar(IOVars,dID  ,       Q(:,:,:,DEN     ,s))
+                    call AddOutVar(IOVars,pID  ,       Q(:,:,:,PRESSURE,s))
                 enddo
             endif
         endif
