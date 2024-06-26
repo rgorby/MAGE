@@ -13,7 +13,7 @@ module chopio
     implicit none
 
     character(len=strLen) :: eb3DOutF
-    integer, parameter :: MAXEBVS = 30
+    integer, parameter :: MAXEBVS = 50
     
     integer  :: Nx1 = 64, Nx2 = 64, Nx3 = 64
 
