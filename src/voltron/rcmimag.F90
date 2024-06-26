@@ -240,7 +240,7 @@ module rcmimag
        !$OMP private(i,j,colat,lat,lon,isLL,ijTube)
         do j=1,RCMApp%nLon_ion
             do i=1,RCMApp%nLat_ion
-                call CleanStream(imag%rcmFLs(i,j)) !Wipe old field line info
+                call CleanLine(imag%rcmFLs(i,j)) !Wipe old field line info
 
                 colat = RCMApp%gcolat(i)
                 lat = PI/2 - colat

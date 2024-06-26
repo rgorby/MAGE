@@ -337,10 +337,11 @@ module raijuIO
     end subroutine WriteRaiju
 
 
-    subroutine WriteRaijuRes(Model, Grid, State)
-        type(raijuModel_T), intent(inout) :: Model
+    subroutine WriteRaijuRes(Model, Grid, State, ResF)
+        type(raijuModel_T), intent(in) :: Model
         type(raijuGrid_T ), intent(in) :: Grid
         type(raijuState_T), intent(in) :: State
+        character(len=strLen), intent(in) :: ResF
 
     end subroutine WriteRaijuRes
 
