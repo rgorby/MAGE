@@ -40,14 +40,15 @@ def read_strip_blanks_and_comments(path):
     Read the specified text file, and strip out:
     0. Leading and trailing whitespace
     1. Lines containing only whitespace
-    2. Lines containing comments (First non-space character us '#')
-    3. In-line comments (everything after '#' on a line)
+    2. Lines containing comments (First non-whitespace character is '#')
+    3. In-line comments (everything after '#' on a line) and resiual
+       whitespace.
 
     Parameters
     ----------
     path : str
         Path to text file to read
-    
+
     Returns
     -------
     lines : list of str
@@ -59,7 +60,7 @@ def read_strip_blanks_and_comments(path):
     None
     """
     # Read the file.
-    lines = open(path).readlines()
+    lines = open(path, encoding='ut-8').readlines()
 
     # Strip whitespace.
     lines = [line.strip() for line in lines]
@@ -67,7 +68,7 @@ def read_strip_blanks_and_comments(path):
     # Strip blank lines.
     lines = [line for line in lines if len(line) > 0]
 
-    # Strip comment lines.
+    # Strip comment lines and residual trailing whitespace.
     lines = [line for line in lines if not line.startswith('#')]
 
     # Strip in-line comments.

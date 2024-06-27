@@ -2,6 +2,7 @@
 #PBS -N wDashGo
 #PBS -A P28100045
 #PBS -l walltime=12:00:00
+#PBS -l job_priority=economy
 #PBS -q main
 #PBS -j oe
 #PBS -l select=8:ncpus=128:mpiprocs=2:ompthreads=64+3:ncpus=128:mpiprocs=1:ompthreads=128

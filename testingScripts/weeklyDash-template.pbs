@@ -3,6 +3,7 @@
 #PBS -N {{ job_name }}
 #PBS -A P28100045
 #PBS -q main
+#PBS -l job_priority={{ job_priority }}
 #PBS -l select=8:ncpus=128:mpiprocs=2:ompthreads=64+3:ncpus=128:mpiprocs=1:ompthreads=128
 #PBS -l walltime=06:00:00
 #PBS -j oe
