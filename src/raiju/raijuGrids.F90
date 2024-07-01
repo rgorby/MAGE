@@ -63,7 +63,7 @@ module raijugrids
             Phi(i) = (i-1)*dPhi
         enddo
 
-        call GenShellGrid(Grid%shGrid,Theta,Phi,"RAIJU",nGhosts=nGhosts,radO=Model%planet%Ri_m/Model%planet%Rp_m)
+        call GenShellGrid(Grid%shGrid,Theta,Phi,RAI_SG_NAME,nGhosts=nGhosts,radO=Model%planet%Ri_m/Model%planet%Rp_m)
 
     end subroutine raijuGenUniSphGrid
 
@@ -277,7 +277,11 @@ module raijugrids
         character(len=strLen), intent(in) :: configfname
 
         ! First read in species information from config file
-        call populateSpeciesFromConfig(Model, Grid, configfname)
+        if (.not. Model%isRestart) then
+            call populateSpeciesFromConfig(Model, Grid, configfname)
+        else
+            call populateSpeciesFromConfig(Model, Grid, Model%ResF)
+        endif
 
         ! Now prepare our alamc grid, tell each Species what its range is in alamc array
         call initAlamc(Grid)

@@ -45,7 +45,7 @@ module raijuOut
             write (*, '(a,a,a,a,a)') ANSIGREEN, '<Writing HDF5 RESTART @ t = ', trim(tStr), ' >', ANSIRESET
         endif
 
-        !!!! Write here !!!!
+        call WriteRaijuRes(Model, Grid, State, ResF)
 
         ! Prep for next restart
         State%IO%tRes = State%IO%tRes + State%IO%dtRes
@@ -64,14 +64,14 @@ module raijuOut
         type(raijuGrid_T) , intent(inout) :: Grid
         type(raijuState_T), intent(inout) :: State
 
-        character(len=strLen) :: ResF, tStr
+        character(len=strLen) :: tStr
 
         if (Model%isLoud) then
             call timeStrFmt(State%t, tStr)
             write (*, '(a,a,a,a,a)') ANSIGREEN, '<Reading HDF5 RESTART @ t = ', trim(tStr), ' >', ANSIRESET
         endif
 
-        !!!! Read here !!!!
+        call ReadRaijuResState(Model, Grid, State, Model%ResF)
 
         ! Prep for next restart
         State%IO%tRes = State%IO%tRes + State%IO%dtRes
@@ -100,8 +100,7 @@ module raijuOut
             write (nStr,'(I0.5)') Model%nResIn
         endif
 
-        write (ResF, '(A,A,A,A)') trim(Model%RunID), ".raiju.Res.", nStr, ".h5"
-        
+        write (ResF, '(A,A,A,A)') trim(Model%RunID), ".raiju.Res.", trim(nStr), ".h5"
     end subroutine genResInFname
 
 end module raijuOut

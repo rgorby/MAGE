@@ -57,6 +57,9 @@ module raijudefs
     ! Defaults
     !------
 
+    ! Names
+    character(len=strLen), parameter :: RAI_SG_NAME = "RAIJU"
+
     ! Units
     real(rp), parameter :: sclEta = 1.0e9  ! [1/nT -> 1/T on DkT2eta conversion]
     real(rp), parameter :: sclIntens = 1.e-4*sqrt(ev2J/(8.0*dalton))/PI ! code eta to intensity [1/(s*sr*keV*cm^2)]

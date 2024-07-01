@@ -10,11 +10,12 @@ module raijuIO
     use raijuELossWM, only : eWMOutput
     use shellGrid
     use shellInterp
+    use shellGridIO
 
     implicit none
 
     integer, parameter, private :: MAXIOVAR = 50
-    type(IOVAR_T), dimension(MAXIOVAR), private :: IOVars
+    !type(IOVAR_T), dimension(MAXIOVAR), private :: IOVars
     logical, private :: doRoot = .true. !Whether root variables need to be written
     logical, private :: doFat = .false. !Whether to output lots of extra datalogical, private :: doRoot = .true. !Whether root variables need to be written
 
@@ -30,7 +31,7 @@ module raijuIO
         integer :: i
         logical :: fExist
         real(rp), dimension(:,:), allocatable :: lat2D, lon2D
-        !type(IOVAR_T), dimension(MAXIOVAR) :: IOVars
+        type(IOVAR_T), dimension(MAXIOVAR) :: IOVars
         character(len=strLen) :: gStr
 
         doRoot = .false. ! Don't call again
@@ -149,6 +150,7 @@ module raijuIO
         character(len=strLen), intent(in) :: gStr
         logical, optional, intent(in) :: doGhostsO
 
+        type(IOVAR_T), dimension(MAXIOVAR) :: IOVars
         integer :: i,j,k,s
         integer :: is, ie, js, je, ks, ke
         logical :: doGhosts
@@ -338,20 +340,250 @@ module raijuIO
 
 
     subroutine WriteRaijuRes(Model, Grid, State, ResF)
+        !! Writes RAIJU restart info to provided path ResF
         type(raijuModel_T), intent(in) :: Model
         type(raijuGrid_T ), intent(in) :: Grid
         type(raijuState_T), intent(in) :: State
         character(len=strLen), intent(in) :: ResF
 
+        ! If a restart already exists, get rid of old one
+        call CheckAndKill(ResF)
+
+        ! Save ShellGrid to root of file
+        call writeShellGrid(Grid%shGrid, ResF)
+        ! And species info
+        call writeSpeciesInfo(Model, Grid, ResF)
+        ! All necessary State info
+        call WriteRaijuResState(Model, Grid, State, ResF)
+
     end subroutine WriteRaijuRes
 
-    
-    subroutine ReadRaijuRes(Model, Grid, State, inH5)
-        type(raijuModel_T), intent(inout) :: Model
+
+    subroutine WriteRaijuResState(Model, Grid, State, ResF)
+        !! Writes RAIJU State restart info to provided path ResF
+        type(raijuModel_T), intent(in) :: Model
         type(raijuGrid_T ), intent(in) :: Grid
         type(raijuState_T), intent(in) :: State
+        character(len=strLen), intent(in) :: ResF
+
+        type(IOVAR_T), dimension(MAXIOVAR) :: IOVars
+        integer :: i,j,k,s
+        integer :: is, ie, js, je, ks, ke
+        real(rp), dimension(:,:), allocatable :: outActiveShell
+        real(rp), dimension(:,:,:), allocatable :: tmpOut3D
+
+        ! As a first pass, be very liberal with what we save. If its too much we can be smarter
+        ! Always do ghosts
+
+        is = Grid%shGrid%isg
+        ie = Grid%shGrid%ieg
+        js = Grid%shGrid%jsg
+        je = Grid%shGrid%jeg
+
+        !Reset IO chain
+        call ClearIO(IOVars)
+
+        call AddOutVar(IOVars,"time",State%t)
+        call AddOutVar(IOVars,"MJD" ,State%mjd)
+        ! IOClock data
+        call AddOutVar(IOVars,"nOut" ,State%IO%nOut)
+        call AddOutVar(IOVars,"nRes" ,State%IO%nRes)
+
+        ! Add State variables
+
+        ! Coupling things
+        call AddOutVar(IOVars,"dtCpl"  ,State%dt)  ! Attr
+        call AddOutVar(IOVars,"xmin"   ,State%xyzMin (:,:,XDIR)  ,uStr="Rx",dStr="(corners) X location of bmin surface")
+        call AddOutVar(IOVars,"ymin"   ,State%xyzMin (:,:,YDIR)  ,uStr="Rx",dStr="(corners) Y location of bmin surface")
+        call AddOutVar(IOVars,"zmin"   ,State%xyzMin (:,:,ZDIR)  ,uStr="Rx",dStr="(corners) Z location of bmin surface")
+        call AddOutVar(IOVars,"bminX"  ,State%Bmin   (:,:,XDIR)  ,uStr="nT")
+        call AddOutVar(IOVars,"bminY"  ,State%Bmin   (:,:,YDIR)  ,uStr="nT")
+        call AddOutVar(IOVars,"bminZ"  ,State%Bmin   (:,:,ZDIR)  ,uStr="nT")
+        call AddOutVar(IOVars,"topo"   ,State%topo   (:,:)*1.0_rp,uStr="0=Open, 1=Closed",dStr="(corners) Magnetic topology")
+        call AddOutVar(IOVars,"colatc" ,State%thcon  (:,:)       ,uStr="radians",dStr="(corners) Congugate latitude")
+        call AddOutVar(IOVars,"lonc"   ,State%phcon  (:,:)       ,uStr="radians",dStr="(corners) Congugate longitude")
+        call AddOutVar(IOVars,"espot"  ,State%espot  (:,:)       ,uStr="kV",dStr="(corners) Electrostatic potential")
+        call AddOutVar(IOVars,"bVol"   ,State%bvol   (:,:)       ,uStr="Rx/nT",dStr="(corners) Flux Tube Volume")
+        call AddOutVar(IOVars,"vaFrac" ,State%vaFrac (:,:)       ,uStr="fraction",dStr="Fraction of Alfven speed over magnetofast + ExB speed")
+
+        ! If only 1 element in 3rd position, AddOutVar will write as 2D array
+        ! We know it should be 2D, so force it
+        call AddOutVar(IOVars,"Pavg_in",State%Pavg   (:,:,:)     ,uStr="nPa" ,dStr="Pressures from imagtubes", doSqzO=.false.)
+        call AddOutVar(IOVars,"Davg_in",State%Davg   (:,:,:)     ,uStr="#/cc",dStr="Densities from imagtubes", doSqzO=.false.)
+
+        ! Core variables
+        call AddOutVar(IOVars,"eta"        ,State%eta         (:,:,:)     ,uStr="#/cm^3 * Rx/T")
+        call AddOutVar(IOVars,"eta_last"   ,State%eta_last    (:,:,:)     ,uStr="#/cm^3 * Rx/T")
+        call AddOutVar(IOVars,"active"     ,State%active      (:,:)*1.0_rp,uStr="-1=Inactive, 0=Buffer, 1=Active")
+        call AddOutVar(IOVars,"active_last",State%active_last (:,:)*1.0_rp,uStr="-1=Inactive, 0=Buffer, 1=Active")
+        call AddOutVar(IOVars,"OCBDist"    ,State%OCBDist     (:,:)*1.0_rp,dStr="Cell distance from an open closed boundary")
+        ! Note: no need to convert to more intuitive 0,1 here cause we're just gonna un-do it on readResState
+        allocate(outActiveShell(is:ie, Grid%Nk))
+        where (State%activeShells)
+            outActiveShell = 1.0
+        elsewhere
+            outActiveShell = 0.0
+        end where
+        call AddOutVar(IOVars,"activeShells",outActiveShell,uStr="[Ni, Nk]")
+        ! Moments
+        call AddOutVar(IOVars,"Pressure",State%Press(:,:,:),uStr="nPa")
+        call AddOutVar(IOVars,"Density" ,State%Den  (:,:,:),uStr="amu/cc")
+        ! Precip
+        call AddOutVar(IOVars,"precipNFlux",State%precipNFlux(:,:,:),uStr="#/cm^2/s")
+        call AddOutVar(IOVars,"precipEFlux",State%precipEFlux(:,:,:),uStr="erg/cm^2/s")
+        call AddOutVar(IOVars,"precipLossRates_Nk", State%lossRates(:,:,:), uStr="1/s")
+        ! (Probably not needed but we will save anyways)
+        call AddOutVar(IOVars, "gradPotE"    , State%gradPotE     (:,:,:), uStr="V/m")
+        call AddOutVar(IOVars, "gradPotCorot", State%gradPotCorot (:,:,:), uStr="V/m")
+        call AddOutVar(IOVars, "gradVM"      , State%gradVM       (:,:,:), uStr="V/m/lambda")
+        ! More solver stuff
+        call AddOutVar(IOVars, "dtk"   , State%dtk(:), uStr="s")
+        call AddOutVar(IOVars, "nStepk", State%nStepk*1.0_rp, uStr="#", dStr="Number of steps each channel has taken")
+        !call AddOutVar(IOVars, "nStepk" , State%nStepk(:), uStr="#", dStr="Number of steps each channel has taken")
+        call AddOutVar(IOVars, "iVel"   , State%iVel  (:,:,:,:)     , uStr="m/s")
+        call AddOutVar(IOVars, "cVel_th", State%cVel  (:,:,:,RAI_TH), uStr="m/s")
+        call AddOutVar(IOVars, "cVel_ph", State%cVel  (:,:,:,RAI_PH), uStr="m/s")
+
+        call WriteVars(IOVars,.false.,ResF,"State")
+
+    end subroutine WriteRaijuResState
+
+    
+    subroutine ReadRaijuResState(Model, Grid, State, inH5)
+        type(raijuModel_T), intent(in) :: Model
+        type(raijuGrid_T ), intent(in) :: Grid
+        type(raijuState_T), intent(inout) :: State
         character(len=*), intent(in) :: inH5
 
-    end subroutine ReadRaijuRes
+        type(IOVAR_T), dimension(MAXIOVAR) :: IOVars
+        integer :: Ntg, Npg
+            !! Number of theta and phi cells, including ghosts
+        real(rp), dimension(:)  , allocatable :: tmpReal1D
+        real(rp), dimension(:,:), allocatable :: tmpReal2D
+
+        !Reset IO chain
+        call ClearIO(IOVars)
+
+        call AddInVar(IOVars,"time")
+        call AddInVar(IOVars,"MJD" )
+        call AddInVar(IOVars,"nOut")
+        call AddInVar(IOVars,"nRes")
+
+        call AddInVar(IOVars,"dtCpl"  )
+        call AddInVar(IOVars,"xmin"   )
+        call AddInVar(IOVars,"ymin"   )
+        call AddInVar(IOVars,"zmin"   )
+        call AddInVar(IOVars,"bminX"  )
+        call AddInVar(IOVars,"bminY"  )
+        call AddInVar(IOVars,"bminZ"  )
+        call AddInVar(IOVars,"topo"   )
+        call AddInVar(IOVars,"colatc" )
+        call AddInVar(IOVars,"lonc"   )
+        call AddInVar(IOVars,"espot"  )
+        call AddInVar(IOVars,"bVol"   )
+        call AddInVar(IOVars,"vaFrac" )
+        call AddInVar(IOVars,"Pavg_in")
+        call AddInVar(IOVars,"Davg_in")
+
+        call AddInVar(IOVars,"eta"        )
+        call AddInVar(IOVars,"eta_last"   )
+        call AddInVar(IOVars,"active"     )
+        call AddInVar(IOVars,"active_last")
+        call AddInVar(IOVars,"OCBDist"    )
+        call AddInVar(IOVars,"activeShells")
+
+        call AddInVar(IOVars,"Pressure")
+        call AddInVar(IOVars,"Density")
+
+        call AddInVar(IOVars,"precipNFlux")
+        call AddInVar(IOVars,"precipEFlux")
+        call AddInVar(IOVars,"precipLossRates_Nk")
+
+        call AddInVar(IOVars, "gradPotE"    )
+        call AddInVar(IOVars, "gradPotCorot")
+        call AddInVar(IOVars, "gradVM"      )
+
+        call AddInVar(IOVars, "dtk"    )
+        call AddInVar(IOVars, "nStepk" )
+        call AddInVar(IOVars, "iVel"   )
+        call AddInVar(IOVars, "cVel_th")
+        call AddInVar(IOVars, "cVel_ph")
+
+        call ReadVars(IOVars,.false.,inH5,"State")
+
+        State%t       = GetIOReal(IOVars, "time" )
+        State%mjd     = GetIOReal(IOVars, "MJD"  )
+        State%dt      = GetIOReal(IOVars, "dtCpl")
+        State%IO%nOut = GetIOInt (IOVars, "nOut" )
+        State%IO%nRes = GetIOInt (IOVars, "nRes" )
+        call IOArray2DFill(IOVars, "xmin" , State%xyzMin(:,:,XDIR))
+        call IOArray2DFill(IOVars, "ymin" , State%xyzMin(:,:,YDIR))
+        call IOArray2DFill(IOVars, "zmin" , State%xyzMin(:,:,ZDIR))
+        call IOArray2DFill(IOVars, "bminX", State%Bmin  (:,:,XDIR))
+        call IOArray2DFill(IOVars, "bminY", State%Bmin  (:,:,YDIR))
+        call IOArray2DFill(IOVars, "bminZ", State%Bmin  (:,:,ZDIR))
+        call IOArray2DFill(IOVars, "colatc", State%thcon (:,:))
+        call IOArray2DFill(IOVars, "lonc"  , State%phcon (:,:))
+        call IOArray2DFill(IOVars, "espot" , State%espot (:,:))
+        call IOArray2DFill(IOVars, "colatc", State%thcon (:,:))
+        call IOArray2DFill(IOVars, "lonc"  , State%phcon (:,:))
+        call IOArray2DFill(IOVars, "espot" , State%espot (:,:))
+        call IOArray2DFill(IOVars, "bVol"  , State%bvol  (:,:))
+        call IOArray2DFill(IOVars, "vaFrac", State%vaFrac(:,:))
+        call IOArray3DFill(IOVars, "Pavg_in", State%Pavg(:,:,:))
+        call IOArray3DFill(IOVars, "Davg_in", State%Davg(:,:,:))
+        
+
+        call IOArray3DFill(IOVars, "eta"     , State%eta     (:,:,:))
+        call IOArray3DFill(IOVars, "eta_last", State%eta_last(:,:,:))
+
+        call IOArray3DFill(IOVars, "Pressure", State%Press(:,:,:))
+        call IOArray3DFill(IOVars, "Density" , State%Den  (:,:,:))
+
+        call IOArray3DFill(IOVars, "precipNFlux", State%precipNFlux(:,:,:))
+        call IOArray3DFill(IOVars, "precipEFlux", State%precipEFlux(:,:,:))
+        call IOArray3DFill(IOVars, "precipLossRates_Nk", State%lossRates(:,:,:))
+
+        call IOArray3DFill(IOVars, "gradPotE"    , State%gradPotE    (:,:,:))
+        call IOArray3DFill(IOVars, "gradPotCorot", State%gradPotCorot(:,:,:))
+        call IOArray3DFill(IOVars, "gradVM"      , State%gradVM      (:,:,:))
+        
+        call IOArray1DFill(IOVars, "dtk", State%dtk(:))
+
+        call IOArray4DFill(IOVars, "iVel"   , State%iVel(:,:,:,:))
+        call IOArray3DFill(IOVars, "cVel_th", State%cVel(:,:,:,RAI_TH))
+        call IOArray3DFill(IOVars, "cVel_ph", State%cVel(:,:,:,RAI_PH))
+
+        ! Handle real -> int arrays
+        associate(sh=>Grid%shGrid)
+        Ntg = sh%Nt+sh%Ngn+sh%Ngs
+        Npg = sh%Np+sh%Nge+sh%Ngw
+        ! Cell corner integer variables
+        allocate(tmpReal2D(Ntg+1,Npg+1))
+        call IOArray2DFill(IOVars, "topo",tmpReal2D)
+        State%topo  (:,:)      = INT(tmpReal2D)
+        ! Cell center integer variables
+        deallocate(tmpReal2D)
+        allocate(tmpReal2D(Ntg, Npg))
+        call IOArray2DFill(IOVars, "active",tmpReal2D)
+        State%active(:,:)      = INT(tmpReal2D)
+        call IOArray2DFill(IOVars, "active_last",tmpReal2D)
+        State%active_last(:,:)      = INT(tmpReal2D)
+        call IOArray2DFill(IOVars, "OCBDist",tmpReal2D)
+        State%OCBDist(:,:)      = INT(tmpReal2D)
+        ! Weird [Ni, Nk] activeShells
+        deallocate(tmpReal2D)
+        allocate(tmpReal2D(Ntg, Grid%Nk))
+        call IOArray2DFill(IOVars, "activeShells",tmpReal2D)
+        State%activeShells = merge(.true., .false., tmpReal2D .eq. 1.0)
+
+        ! 1D Nk
+        allocate(tmpReal1D(Grid%Nk))
+        call IOArray1DFill(IOVars, "nStepk", tmpReal1D)
+        State%nStepk = INT(tmpReal1D)
+
+        end associate
+
+    end subroutine ReadRaijuResState
 
 end module raijuIO

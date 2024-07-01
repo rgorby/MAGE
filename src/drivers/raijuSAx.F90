@@ -69,10 +69,17 @@ program raijuSAx
 
     ! Init RAIJU
     call raijuInit(raiApp, inpXML)
+    if (raiApp%Model%isRestart) then
+        isFirstCpl = .false.
+    endif
+    write(*,*)"Remove this next line:"
+    call genResInFname(raiApp%Model, raiApp%Model%ResF)  ! Determine filename to read from
 
     !> MJD at the start of the simulation (corresponds to sim t=0)
-    call inpXML%Set_Val(mjd0,'prob/MJD0',51544.0)  ! default to 2000-01-01T00:00:00
-    raiApp%State%mjd = mjd0
+    if (.not. raiApp%Model%isRestart) then
+        call inpXML%Set_Val(mjd0,'prob/MJD0',51544.0)  ! default to 2000-01-01T00:00:00
+        raiApp%State%mjd = mjd0
+    endif
 
     ! If we need geopack, make sure we init
     if (raiApp%Model%doGeoCorot) then
@@ -80,7 +87,7 @@ program raijuSAx
     endif
 
     ! Before we get started, run preAdvancer once just so that Step#0 has that information
-    call raijuPreAdvance(raiApp%Model, raiApp%Grid, raiApp%State)
+    call raijuPreAdvance(raiApp%Model, raiApp%Grid, raiApp%State,isfirstCplO=isfirstCpl)
     isfirstCpl = .false.
 
     ! Ready to loop
@@ -88,6 +95,11 @@ program raijuSAx
         
         call Tic("Output")
     ! Output if ready
+        if (raiApp%State%IO%doRestart(raiApp%State%t)) then
+            call raijuResOutput(raiApp%Model,raiApp%Grid,raiApp%State)
+            !call raijuResInput(raiApp%Model,raiApp%Grid,raiApp%State)
+        endif
+
         if (raiApp%State%IO%doOutput(raiApp%State%t)) then
             call raijuOutput(raiApp%Model,raiApp%Grid,raiApp%State)
         endif

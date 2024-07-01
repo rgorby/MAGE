@@ -100,7 +100,13 @@ module raijustarter
         endif
         call iXML%Set_Val(Model%isRestart, trim(tmpStr),.false.)
         if (Model%isRestart) then
+            if (Model%isSA) then
+                tmpStr = "restart/nRes"
+            else
+                tmpStr = "Kaiju/Gamera/restart/nRes"
+            endif
             call iXML%Set_Val(Model%nResIn, trim(tmpStr), Model%nResIn)
+            call genResInFname(Model, Model%ResF)  ! Determine filename to read from
         endif
 
         call iXML%Set_Val(Model%isLoud, "debug/isLoud",.false.)
@@ -254,30 +260,34 @@ module raijustarter
         call iXML%Set_Val(Grid%nB, "grid/Nbnd", 4      )  ! Number of cells between open boundary and active domain
         call iXML%Set_Val(tmpStr, "grid/gType","UNISPH")
 
-        ! Fill out Grid object depending on chosen method
-        select case(tmpStr)
-            case("UNISPH")
-                Grid%gType = RAI_G_UNISPH
-                ! Generate our own grid from scratch
-                call raijuGenUniSphGrid(Model, Grid, iXML)
-            case("WARPSPH")
-                Grid%gType = RAI_G_WARPSPH
-                ! Generate our own grid from scratch
-                call raijuGenUniSphGrid(Model, Grid, iXML)
-            case("SHGRID")
-                Grid%gType = RAI_G_SHGRID
-                ! Then we should be receiving a predefined ShellGrid that Voltron has set up
-                if(present(shGridO)) then
-                    shGrid = shGridO
-                    call raijuGenGridFromShGrid(Grid, shGrid)
-                else
-                    write(*,*) "RAIJU expecting a ShellGrid_T but didn't receive one. Dying."
-                endif
-            case DEFAULT
-                write(*,*) "RAIJU Received invalid grid definition: ",Grid%gType
-                write(*,*) " Dying."
-                stop
-        end select
+        if (.not. Model%isRestart) then
+            ! Fill out Grid object depending on chosen method
+            select case(tmpStr)
+                case("UNISPH")
+                    Grid%gType = RAI_G_UNISPH
+                    ! Generate our own grid from scratch
+                    call raijuGenUniSphGrid(Model, Grid, iXML)
+                case("WARPSPH")
+                    Grid%gType = RAI_G_WARPSPH
+                    ! Generate our own grid from scratch
+                    call raijuGenUniSphGrid(Model, Grid, iXML)
+                case("SHGRID")
+                    Grid%gType = RAI_G_SHGRID
+                    ! Then we should be receiving a predefined ShellGrid that Voltron has set up
+                    if(present(shGridO)) then
+                        shGrid = shGridO
+                        call raijuGenGridFromShGrid(Grid, shGrid)
+                    else
+                        write(*,*) "RAIJU expecting a ShellGrid_T but didn't receive one. Dying."
+                    endif
+                case DEFAULT
+                    write(*,*) "RAIJU Received invalid grid definition: ",Grid%gType
+                    write(*,*) " Dying."
+                    stop
+            end select
+        else
+            call GenShellGridFromFile(Grid%shGrid, RAI_SG_NAME, Model%ResF)
+        endif
 
         ! Finalize the spatial part of the grid
         call finalizeLLGrid(Grid, Model%planet)
@@ -372,7 +382,13 @@ module raijustarter
             endif
         
         end associate
-        !! TODO: Handle restart somewhere around here
+        
+        if (Model%isRestart) then
+            !call ReadRaijuResState(Model, Grid, State, Model%ResF)
+            call raijuResInput(Model, Grid, State)
+            return
+        endif
+        
         ! For now, just set t to tStart and ts to 0
         State%t = Model%t0
         State%ts = 0

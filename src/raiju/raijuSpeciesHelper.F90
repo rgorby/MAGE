@@ -286,4 +286,40 @@ module raijuSpeciesHelper
 
     end subroutine initAlamc
 
+
+    subroutine writeSpeciesInfo(Model, Grid, fname)
+        !! Writes species info in raijuconfig format, so we can use the same routine to load it in again
+        type(raijuModel_T)  , intent(in) :: Model
+        type(raijuGrid_T), intent(in) :: Grid
+        character(len=strLen), intent(in) :: fname
+
+        integer :: i
+        character(len=strLen) :: gStr
+        type(IOVAR_T), dimension(MAXIOVAR) :: IOVars
+
+        ! Do an empty write to Species so we create the group, cause we can't do nested groups with one call
+        call ClearIO(IOVars)
+        call WriteVars(IOVars, .false., fname, "Species")
+
+        do i=1,Grid%nSpc 
+            associate(spc=>Grid%spc(i))
+
+            write(gStr, '(A,I0)') "Species/",i-1    
+
+            ! Write
+            call ClearIO(IOVars)
+            call AddOutVar(IOVars, "flav"    ,spc%flav)  ! Attr
+            call AddOutVar(IOVars, "N"       ,spc%N)  ! Attr
+            call AddOutVar(IOVars, "numNuc_p",spc%numNuc_p)  ! Attr
+            call AddOutVar(IOVars, "numNuc_n",spc%numNuc_n)  ! Attr
+            call AddOutVar(IOVars, "q"       ,spc%q)  ! Attr
+            call AddOutVar(IOVars, "fudge"   ,spc%fudge)  ! Attr
+            call AddOutVar(IOVars, "alami"   ,spc%alami)  ! Dataset
+            call WriteVars(IOVars, .false., fname, gStr)
+        
+            end associate
+        enddo
+
+    end subroutine writeSpeciesInfo
+
 end module raijuSpeciesHelper

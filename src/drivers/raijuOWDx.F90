@@ -69,6 +69,9 @@ program raijuOWDx
         ! Init RAIJU
         call raijuInit(raiApp, inpXML)
         call raijuCpl_init(vApp, raiApp, raijuCplBase)
+        if (raiApp%Model%isRestart) then
+            isFirstCpl = .false.
+        endif
         
 
         ! Init CHIMP

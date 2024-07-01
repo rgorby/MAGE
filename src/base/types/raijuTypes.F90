@@ -125,6 +125,8 @@ module raijutypes
             !! Whether we initialize state from a restart file
         integer :: nResIn = -1
             !! Restart number to use for state init (-1 for symlink)
+        character(len=strLen) :: ResF = ""
+            !! Restart filename to read from
         
         integer :: nSpc, nSpcMHD, nG
             !! Number of species in raiju
