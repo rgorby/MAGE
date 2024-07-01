@@ -60,7 +60,7 @@ def read_strip_blanks_and_comments(path):
     None
     """
     # Read the file.
-    lines = open(path, encoding='ut-8').readlines()
+    lines = open(path, encoding='utf-8').readlines()
 
     # Strip whitespace.
     lines = [line.strip() for line in lines]
