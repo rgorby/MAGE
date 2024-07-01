@@ -164,7 +164,7 @@ module voltapp
             call readVoltronRestart(vApp, resID, nRes)
             vApp%IO%tOut = floor(vApp%time/vApp%IO%dtOut)*vApp%IO%dtOut
             vApp%IO%tRes = vApp%time + vApp%IO%dtRes
-            vApp%IO%tsNext = vApp%ts
+            vApp%IO%tCon = vApp%time
         else
             ! non-restart initialization
             !Check for spinup info
@@ -186,8 +186,8 @@ module voltapp
             tsMJD%wID = vApp%tilt%wID
             call tsMJD%initTS("MJD",doLoudO=.false.)
             vApp%MJD = T2MJD(vApp%time,tsMJD%evalAt(0.0_rp))
-            !Set first deep coupling (defaulting to coupling one step in the future)
-            call xmlInp%Set_Val(vApp%DeepT, "coupling/tCouple", vApp%time+vApp%DeepDT)
+            !Set first deep coupling (defaulting to coupling immediately)
+            call xmlInp%Set_Val(vApp%DeepT, "coupling/tCouple", vApp%time)
         endif
 
         if (vApp%doDeep) then
@@ -279,7 +279,11 @@ module voltapp
         call consoleOutputV(vApp,gApp)
         !file output
         if (.not. gApp%Model%isRestart) then
+            ! write initialization as first output
+            ! but save and restore the initial output time so that we don't skip it
+            tIO = vApp%IO%tOut
             call fOutputV(vApp, gApp)
+            vApp%IO%tOut = tIO
         endif
 
         end associate
@@ -287,25 +291,37 @@ module voltapp
     end subroutine initVoltron
 
     !Step Voltron one coupling interval
-    subroutine stepVoltron(vApp)
+    subroutine stepVoltron(vApp, dt)
         class(voltApp_T), intent(inout) :: vApp
+        real(rp), intent(in) :: dt
 
-        ! loop always starts with updated Gamera data
+        real(rp) :: stepEndTime
 
-        ! call base update function with local data
-        call Tic("DeepUpdate")
-        call DeepUpdate(vApp, vApp%gApp)
-        call Toc("DeepUpdate")
+        stepEndTime = vApp%time + dt
 
-        ! this will step coupled Gamera
-        call vApp%gApp%StartUpdateMhdData(vApp)
-        call vApp%gApp%FinishUpdateMhdData(vApp)
+        do while(stepEndTime .ge. vApp%DeepT)
+            ! advance to next DeepT
+            ! loop always starts with updated Gamera data
 
-        ! step complete
-        vApp%time = vApp%DeepT
+            ! call base update function with local data
+            call Tic("DeepUpdate")
+            call DeepUpdate(vApp, vApp%gApp)
+            call Toc("DeepUpdate")
 
-        ! update the next predicted coupling interval
-        vApp%DeepT = vApp%DeepT + vApp%DeepDT
+            ! this will step coupled Gamera
+            call vApp%gApp%StartUpdateMhdData(vApp)
+            call vApp%gApp%FinishUpdateMhdData(vApp)
+
+            ! step complete
+            vApp%time = vApp%DeepT
+
+            ! update the next predicted coupling interval
+            vApp%DeepT = vApp%DeepT + vApp%DeepDT
+        enddo
+
+        ! step end time is greater than, or equal to, the current DeepT
+        ! advance to that partial deep step time
+        vApp%time = stepEndTime
         
     end subroutine stepVoltron
     

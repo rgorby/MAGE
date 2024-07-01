@@ -44,7 +44,6 @@ contains
 
           voltAppMpi%vOptions%gamUserInitFunc => initUser
           voltAppMpi%vOptionsMpi%allComm = getMpiF08Communicator(this)
-          voltAppMpi%vOptionsMpi%allVoltComm = voltComm
           call initVoltron_mpi(voltAppMpi, trim(caseFile))
       endif
 

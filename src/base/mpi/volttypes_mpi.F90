@@ -8,7 +8,6 @@ module volttypes_mpi
     ! mpi voltron specific options
     type, extends(BaseOptions_T) :: VoltOptionsMpi_T
         type(MPI_Comm) :: allComm
-        type(MPI_Comm) :: allVoltComm
 
         contains
     end type voltOptionsMpi_T
@@ -20,7 +19,7 @@ module volttypes_mpi
         real(rp) :: lastSquishTime
         type(MPI_Win) :: vHelpWin
         integer, dimension(:), allocatable :: vHelpIdle
-        logical :: amHelper = .false., useHelpers = .false.
+        logical :: useHelpers = .false.
         logical :: doSquishHelp = .false., masterSquish = .false.
         logical :: squishLoadBalance = .true., deepProcessingInProgress=.false.
 

@@ -31,20 +31,20 @@ program gamerax
         call Tic("Omega") !Start root timer
 
         !Step model
-        nextDT = min(gApp%Model%tFin-gApp%Model%t, gApp%Model%IO%nextIOTime(gApp%Model%t, gApp%Model%ts, gApp%Model%dt)-gApp%Model%t)
+        nextDT = min(gApp%Model%tFin-gApp%Model%t, gApp%Model%IO%nextIOTime()-gApp%Model%t)
         call gApp%AdvanceModel(nextDT)
 
         !Output if necessary
         call Tic("IO")
 
-        if (gApp%Model%IO%doConsole(gApp%Model%ts)) then
+        if (gApp%Model%IO%doConsole(gApp%Model%t)) then
             call gApp%WriteConsoleOutput()
 
             !Timing info
             if (gApp%Model%IO%doTimerOut) call printClocks()
             call cleanClocks()
 
-        elseif (gApp%Model%IO%doTimer(gApp%Model%ts)) then
+        elseif (gApp%Model%IO%doTimer(gApp%Model%t)) then
             if (gApp%Model%IO%doTimerOut) call printClocks()
             call cleanClocks()
         endif

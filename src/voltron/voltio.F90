@@ -144,7 +144,7 @@ module voltio
         endif
 
         !Setup for next output
-        vApp%IO%tsNext = vApp%ts + vApp%IO%tsOut
+        vApp%IO%tCon = vApp%IO%tCon + vApp%IO%dtCon
         
         if (vApp%doDynCplDT) then
             call UpdateCouplingCadence(vApp)

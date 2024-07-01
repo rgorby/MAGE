@@ -233,7 +233,7 @@ contains
     call initVoltron(voltronApp, caseInput)
 
     ! run for one coupling interval
-    call stepVoltron(voltronApp)
+    call stepVoltron(voltronApp, voltronApp%DeepDT)
 
     write(*,*) 'End time = ', voltronApp%gApp%Model%t
 

@@ -10,6 +10,7 @@ program voltronx
     implicit none
 
     type(voltApp_T) :: vApp
+    real(rp) :: nextDT
 
     call initClocks()
 
@@ -23,20 +24,21 @@ program voltronx
         call Tic("Omega")
         
         !Advance voltron models one coupling step
+        nextDT = min(vApp%tFin-vApp%time, vApp%IO%nextIOTime()-vApp%time)
         call Tic("StepVoltron")
-        call stepVoltron(vApp)
+        call stepVoltron(vApp, nextDT)
         call Toc("StepVoltron")
         
         !IO checks
         call Tic("IO")
         !Console output
-        if (vApp%IO%doConsole(vApp%ts)) then
+        if (vApp%IO%doConsole(vApp%time)) then
             !Using console output from Gamera
             call consoleOutputV(vApp,vApp%gApp)
             !Timing info
             if (vApp%IO%doTimerOut) call printClocks()
             call cleanClocks()
-        elseif (vApp%IO%doTimer(vApp%ts)) then
+        elseif (vApp%IO%doTimer(vApp%time)) then
             if (vApp%IO%doTimerOut) call printClocks()
             call cleanClocks()
         endif

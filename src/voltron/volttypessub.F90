@@ -87,6 +87,7 @@ submodule (volttypes) volttypessub
         class(voltApp_T), intent(inout) :: voltApp
 
         type(TimeSeries_T) :: tsMJD
+        real(rp) :: tIO
 
         allocate(App%SrcNC(App%Grid%is:voltApp%chmp2mhd%iMax+1,App%Grid%js:App%Grid%je+1,App%Grid%ks:App%Grid%ke+1,1:NVARIMAG))
 
@@ -101,6 +102,13 @@ submodule (volttypes) volttypessub
         call ioSync(voltApp%IO, App%Model%IO, 1.0_rp/App%Model%Units%gT0)
         App%Model%IO%nRes = voltApp%IO%nRes
         App%Model%IO%nOut = voltApp%IO%nOut
+
+        ! re-write Gamera's first output with corrected time, save and restore initial output time
+        if(.not. App%Model%isRestart) then
+            tIO = App%Model%IO%tOut
+            call App%WriteFileOutput(App%Model%IO%nOut)
+            App%Model%IO%tOut = tIO
+        endif
 
     end subroutine
 

@@ -35,7 +35,7 @@ module voltapp_mpi
         type(voltAppMpi_T), intent(inout) :: vApp
         character(len=*), optional, intent(in) :: optFilename
 
-        type(MPI_Comm) :: dummyComm
+        type(MPI_Comm) :: allVoltComm
         character(len=strLen) :: inpXML
         type(XML_Input_T) :: xmlInp
         integer :: commSize, ierr, numCells, length, ic
@@ -71,100 +71,15 @@ module voltapp_mpi
         vApp%vHelpComm = MPI_COMM_NULL
         vApp%vHelpWin = MPI_WIN_NULL
 
+        call voltronSplitWithApp(vApp%vOptionsMpi%allComm, helperId, 0, allVoltComm)
+
         ! get info about voltron-only mpi communicator
-        call MPI_Comm_rank(vApp%vOptionsMpi%allVoltComm, vApp%vHelpRank, ierr)
+        call MPI_Comm_rank(allVoltComm, vApp%vHelpRank, ierr)
         if(ierr /= MPI_Success) then
             call MPI_Error_string( ierr, message, length, ierr)
             print *,message(1:length)
             call mpi_Abort(MPI_COMM_WORLD, 1, ierr)
         end if
-        if(vApp%vHelpRank > 0) vApp%amHelper = .true.
-
-        ! helpers don't do full voltron initialization
-        if(vApp%amHelper) then
-
-            ! helpers don't get coupled gameras
-            deallocate(vApp%gApp)
-            allocate(gamCoupler_T :: vApp%gApp)
-
-            vApp%isLoud = .false.
-            vApp%writeFiles = .false.
-            vApp%gApp%Model%isLoud = .false.
-
-            if (.not. vApp%isLoud) call xmlInp%BeQuiet()
-
-            ! allow voltron master to split with gamera ranks
-            call MPI_comm_split(vApp%vOptionsMpi%allComm, MPI_UNDEFINED, 0, dummyComm, ierr)
-
-            call xmlInp%Set_Val(vApp%useHelpers,"/Kaiju/Voltron/Helpers/useHelpers",.false.)
-            call xmlInp%Set_Val(vApp%doSquishHelp,"/Kaiju/Voltron/Helpers/doSquishHelp",.true.)
-            call xmlInp%Set_Val(vApp%masterSquish,"/Kaiju/Voltron/Helpers/masterSquish",.false.)
-            call xmlInp%Set_Val(vApp%squishLoadBalance,"/Kaiju/Voltron/Helpers/squishLoadBalance",.true.)
-            call xmlInp%Set_Val(nHelpers,"/Kaiju/Voltron/Helpers/numHelpers",0)
-            call MPI_Comm_Size(vApp%vOptionsMpi%allVoltComm, commSize, ierr)
-            if(ierr /= MPI_Success) then
-                call MPI_Error_string( ierr, message, length, ierr)
-                print *,message(1:length)
-                call mpi_Abort(MPI_COMM_WORLD, 1, ierr)
-            end if
-            if(.not. vApp%useHelpers) then
-                print *,"Voltron helpers were created, but the helping option is disabled."
-                print *,"Please either turn the /Voltron/Helpers/useHelpers option on, or "
-                print *,"  remove the unnecessary Voltron helper ranks."
-                call mpi_Abort(MPI_COMM_WORLD, 1, ierr)
-            endif
-            if(nHelpers .ne. commSize-1) then
-                print *,"The number of voltron helpers is not correct."
-                call mpi_Abort(MPI_COMM_WORLD, 1, ierr)
-            endif
-
-            ! add topology to the helper communicator to permit neighborhood operations
-            reorder = .false. ! don't allow MPI to reorder the ranks, master must remain master
-            call mpi_dist_graph_create_adjacent(vApp%vOptionsMpi%allVoltComm, &
-                1,(/0/),(/1/), &
-                1,(/0/),(/1/), &
-                MPI_INFO_NULL, reorder, vApp%vHelpComm, ierr)
-            if(ierr /= MPI_Success) then
-                call MPI_Error_string( ierr, message, length, ierr)
-                print *,message(1:length)
-                call mpi_Abort(MPI_COMM_WORLD, 1, ierr)
-            end if
-
-            ! initialize a full baby gamera
-            !vApp%gApp%Grid%ijkShift(1:3) = 0
-            !call ReadCorners(vApp%gApp%Model,vApp%gApp%Grid,xmlInp,childGameraOpt=.true.)
-            !call SetRings(vApp%gApp%Model,vApp%gApp%Grid,xmlInp)
-            !call Corners2Grid(vApp%gApp%Model,vApp%gApp%Grid)
-            !call DefaultBCs(vApp%gApp%Model,vApp%gApp%Grid)
-            !call PrepState(vApp%gApp%Model,vApp%gApp%Grid,&
-            !    vApp%gApp%oState,vApp%gApp%State,xmlInp,vApp%vOptions%gamUserInitFunc)
-
-            ! replace the gamera option with one customized for squish helpers
-            deallocate(vApp%gApp)
-            allocate(SHgamCoupler_T :: vApp%gApp)
-
-            ! now initialize basic voltron structures from gamera data
-            if(present(optFilename)) then
-                call initVoltron(vApp, optFilename)
-            else
-                call initVoltron(vApp)
-            endif
-
-            ! get starting time values from master voltron rank
-            call mpi_bcast(vApp%tFin, 1, MPI_MYFLOAT, 0, vApp%vHelpComm, ierr)
-            call mpi_bcast(vApp%time, 1, MPI_MYFLOAT, 0, vApp%vHelpComm, ierr)
-
-            ! accept the mpi window on the voltron master rank, expose none of my own memory
-            winsize = 0 ! have to use this because it's an odd size integer
-            call mpi_win_create(MPI_BOTTOM, winsize, 1, MPI_INFO_NULL, vApp%vHelpComm, vApp%vHelpWin, ierr)
-            if(ierr /= MPI_Success) then
-                call MPI_Error_string( ierr, message, length, ierr)
-                print *,message(1:length)
-                call mpi_Abort(MPI_COMM_WORLD, 1, ierr)
-            end if
-
-            return
-        endif
 
         call xmlInp%Set_Val(vApp%useHelpers,"/Kaiju/Voltron/Helpers/useHelpers",.false.)
         call xmlInp%Set_Val(vApp%doSquishHelp,"/Kaiju/Voltron/Helpers/doSquishHelp",.true.)
@@ -181,7 +96,7 @@ module voltapp_mpi
             call mpi_Abort(MPI_COMM_WORLD, 1, ierr)
         endif
 
-        call MPI_Comm_Size(vApp%vOptionsMpi%allVoltComm, commSize, ierr)
+        call MPI_Comm_Size(allVoltComm, commSize, ierr)
         if(ierr /= MPI_Success) then
             call MPI_Error_string( ierr, message, length, ierr)
             print *,message(1:length)
@@ -230,7 +145,7 @@ module voltapp_mpi
 
             endif
 
-            call MPI_Comm_Size(vApp%vOptionsMpi%allVoltComm, commSize, ierr)
+            call MPI_Comm_Size(allVoltComm, commSize, ierr)
             if(ierr /= MPI_Success) then
                 call MPI_Error_string( ierr, message, length, ierr)
                 print *,message(1:length)
@@ -248,7 +163,7 @@ module voltapp_mpi
             ! currently all helpers only send and receive data from rank 0
             inData(:) = 1
             outData(:) = 1
-            call mpi_dist_graph_create_adjacent(vApp%vOptionsMpi%allVoltComm, &
+            call mpi_dist_graph_create_adjacent(allVoltComm, &
                 commSize-1,neighborRanks,inData, &
                 commSize-1,neighborRanks,outData, &
                 MPI_INFO_NULL, reorder, vApp%vHelpComm, ierr)
@@ -275,34 +190,150 @@ module voltapp_mpi
                 call mpi_Abort(MPI_COMM_WORLD, 1, ierr)
             end if
         endif
+
+        if(.not. vApp%doSerialMHD .and. .not. vApp%gApp%Model%isRestart) then
+            !initial coupling
+            call Tic("DeepUpdate")
+            call DeepUpdate_mpi(vApp)
+            call Toc("DeepUpdate")
+        endif
         
     end subroutine initVoltron_mpi
 
-     !Step Voltron if necessary (currently just updating state variables)
-    subroutine stepVoltron_mpi(vApp)
+    subroutine initVoltronHelper_mpi(vApp, optFilename)
         type(voltAppMpi_T), intent(inout) :: vApp
+        character(len=*), optional, intent(in) :: optFilename
 
-        ! loop always starts with updated Gamera data
+        type(MPI_Comm) :: allVoltComm
+        character(len=strLen) :: inpXML
+        type(XML_Input_T) :: xmlInp
+        integer :: commSize, ierr, numCells, length, ic
+        integer :: nHelpers, gamNRES, commId
+        character( len = MPI_MAX_ERROR_STRING) :: message
+        logical :: reorder, wasWeighted
+        integer(KIND=MPI_BASE_MYADDR) :: winsize
 
-        ! if gamera running concurrently, start it not
-        if(.not. vApp%doSerialMHD) call vApp%gApp%StartUpdateMhdData(vApp)
+        ! replace the gamera option with one customized for squish helpers
+        if(allocated(vApp%gApp)) deallocate(vApp%gApp)
+        allocate(SHgamCoupler_T :: vApp%gApp)
 
-        ! call base update function with local data
-        call Tic("DeepUpdate")
-        call DeepUpdate_mpi(vApp)
-        call Toc("DeepUpdate")
+        ! read helper XML options
+        if(present(optFilename)) then
+            inpXML = optFilename
+        else
+            call getIDeckStr(inpXML)
+        endif
+        call CheckFileOrDie(inpXML,"Error opening input deck in initVoltron_mpi, exiting ...")
+        xmlInp = New_XML_Input(trim(inpXML),'Kaiju/Gamera',.true.)
 
-        ! if Gamera running serially, start it now
-        if(vApp%doSerialMHD) call vApp%gApp%StartUpdateMhdData(vApp)
+        ! initialize F08 MPI objects
+        vApp%vHelpComm = MPI_COMM_NULL
+        vApp%vHelpWin = MPI_WIN_NULL
 
-        ! get Gamera results
-        call vApp%gApp%FinishUpdateMhdData(vApp)
+        call appWaitForVoltronSplit(vApp%vOptionsMpi%allComm, helperId, 0, allVoltComm)
 
-        ! step complete
-        vApp%time = vApp%DeepT
+        ! get info about voltron-only mpi communicator
+        call MPI_Comm_rank(allVoltComm, vApp%vHelpRank, ierr)
+        if(ierr /= MPI_Success) then
+            call MPI_Error_string( ierr, message, length, ierr)
+            print *,message(1:length)
+            call mpi_Abort(MPI_COMM_WORLD, 1, ierr)
+        end if
 
-        ! update the next predicted coupling interval
-        vApp%DeepT = vApp%DeepT + vApp%DeepDT
+        vApp%isLoud = .false.
+        vApp%writeFiles = .false.
+        vApp%gApp%Model%isLoud = .false.
+
+        if (.not. vApp%isLoud) call xmlInp%BeQuiet()
+
+        call xmlInp%Set_Val(vApp%useHelpers,"/Kaiju/Voltron/Helpers/useHelpers",.false.)
+        call xmlInp%Set_Val(vApp%doSquishHelp,"/Kaiju/Voltron/Helpers/doSquishHelp",.true.)
+        call xmlInp%Set_Val(vApp%masterSquish,"/Kaiju/Voltron/Helpers/masterSquish",.false.)
+        call xmlInp%Set_Val(vApp%squishLoadBalance,"/Kaiju/Voltron/Helpers/squishLoadBalance",.true.)
+        call xmlInp%Set_Val(nHelpers,"/Kaiju/Voltron/Helpers/numHelpers",0)
+        call MPI_Comm_Size(allVoltComm, commSize, ierr)
+        if(ierr /= MPI_Success) then
+            call MPI_Error_string( ierr, message, length, ierr)
+            print *,message(1:length)
+            call mpi_Abort(MPI_COMM_WORLD, 1, ierr)
+        end if
+        if(.not. vApp%useHelpers) then
+            print *,"Voltron helpers were created, but the helping option is disabled."
+            print *,"Please either turn the /Voltron/Helpers/useHelpers option on, or "
+            print *,"  remove the unnecessary Voltron helper ranks."
+            call mpi_Abort(MPI_COMM_WORLD, 1, ierr)
+        endif
+        if(nHelpers .ne. commSize-1) then
+            print *,"The number of voltron helpers is not correct."
+            call mpi_Abort(MPI_COMM_WORLD, 1, ierr)
+        endif
+
+        ! add topology to the helper communicator to permit neighborhood operations
+        reorder = .false. ! don't allow MPI to reorder the ranks, master must remain master
+        call mpi_dist_graph_create_adjacent(allVoltComm, &
+            1,(/0/),(/1/), &
+            1,(/0/),(/1/), &
+            MPI_INFO_NULL, reorder, vApp%vHelpComm, ierr)
+        if(ierr /= MPI_Success) then
+            call MPI_Error_string( ierr, message, length, ierr)
+            print *,message(1:length)
+            call mpi_Abort(MPI_COMM_WORLD, 1, ierr)
+        end if
+
+        ! now initialize basic voltron structures from gamera data
+        if(present(optFilename)) then
+            call initVoltron(vApp, optFilename)
+        else
+            call initVoltron(vApp)
+        endif
+
+        ! get starting time values from master voltron rank
+        call mpi_bcast(vApp%tFin, 1, MPI_MYFLOAT, 0, vApp%vHelpComm, ierr)
+        call mpi_bcast(vApp%time, 1, MPI_MYFLOAT, 0, vApp%vHelpComm, ierr)
+
+        ! accept the mpi window on the voltron master rank, expose none of my own memory
+        winsize = 0 ! have to use this because it's an odd size integer
+        call mpi_win_create(MPI_BOTTOM, winsize, 1, MPI_INFO_NULL, vApp%vHelpComm, vApp%vHelpWin, ierr)
+                    if(ierr /= MPI_Success) then
+            call MPI_Error_string( ierr, message, length, ierr)
+            print *,message(1:length)
+            call mpi_Abort(MPI_COMM_WORLD, 1, ierr)
+        end if
+
+    end subroutine
+
+    !Step Voltron if necessary (currently just updating state variables)
+    subroutine stepVoltron_mpi(vApp, dt)
+        type(voltAppMpi_T), intent(inout) :: vApp
+        real(rp), intent(in) :: dt
+
+        real(rp) :: stepEndTime
+
+        stepEndTime = vApp%time + dt
+
+        do while(stepEndTime .ge. vApp%DeepT)
+            ! if Gamera is processing data, finish it
+            ! if this is the first call, this will noop
+            call vApp%gApp%FinishUpdateMhdData(vApp)
+
+            vApp%time = vApp%DeepT
+
+            ! update the next predicted coupling interval
+            vApp%DeepT = vApp%DeepT + vApp%DeepDT
+
+            if(.not. vApp%doSerialMHD) call vApp%gApp%StartUpdateMhdData(vApp)
+
+            call Tic("DeepUpdate")
+            call DeepUpdate_mpi(vApp)
+            call Toc("DeepUpdate")
+
+            if(vApp%doSerialMHD) call vApp%gApp%StartUpdateMhdData(vApp)
+
+        enddo
+
+        ! step end time is greater than, or equal to, the current DeepT
+        ! advance to that partial deep step time
+        vApp%time = stepEndTime
 
     end subroutine stepVoltron_mpi
 

@@ -45,7 +45,6 @@ contains
 
           voltAppMpi%vOptions%gamUserInitFunc => initUser
           voltAppMpi%vOptionsMpi%allComm = getMpiF08Communicator(this)
-          voltAppMpi%vOptionsMpi%allVoltComm = voltComm
           call initVoltron_mpi(voltAppMpi, trim(caseFile))
       endif
 
@@ -426,7 +425,7 @@ contains
           endif
       else
           do while (voltAppMpi%time < 30.0)
-              call stepVoltron_mpi(voltAppMpi)
+              call stepVoltron_mpi(voltAppMpi, 30.0_rp - voltAppMpi%time)
           end do
       endif
 

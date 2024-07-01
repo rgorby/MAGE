@@ -3,6 +3,7 @@
 module gamCouple_mpi_V2G
     use gamtypes_mpi
     use volttypes_mpi
+    use couplingHelpers
     use uservoltic ! required to have IonInnerBC_T defined
     use init
     use gamCouple
@@ -25,6 +26,7 @@ module gamCouple_mpi_V2G
         integer :: myRank
         logical :: doAsyncCoupling = .true.
         logical :: doDeep
+        logical :: inProgress = .false.
 
         ! array of all zeroes to simplify various send/receive calls
         integer, dimension(:), allocatable :: zeroArrayCounts
@@ -110,7 +112,7 @@ module gamCouple_mpi_V2G
 
         ! split allComm into a communicator with only the non-helper voltron rank and Gamera ranks
         call MPI_Comm_rank(App%gOptionsCplMpiV%allComm, commSize, ierr)
-        call MPI_comm_split(App%gOptionsCplMpiV%allComm, 0, commSize, voltComm, ierr)
+        call voltronSplitWithApp(App%gOptionsCplMpiV%allComm, gamId, commSize, voltComm)
 
         call Xml%Set_Val(App%doAsyncCoupling,"/kaiju/voltron/coupling/doAsyncCoupling",.true.)
         call Xml%Set_Val(App%doDeep, "/kaiju/voltron/coupling/doDeep", .true.)
@@ -483,6 +485,10 @@ module gamCouple_mpi_V2G
         class(gamCouplerMpi_volt_T), intent(inout) :: App
         class(voltApp_T), intent(inout) :: voltApp
 
+        if(App%inProgress) return
+
+        App%inProgress = .true.
+
         call Tic("Coupling", .true.)
         call sendGameraCplDataMpi(App, voltApp%DeepT)
         call Toc("Coupling", .true.)
@@ -493,9 +499,13 @@ module gamCouple_mpi_V2G
         class(gamCouplerMpi_volt_T), intent(inout) :: App
         class(voltApp_T), intent(inout) :: voltApp
 
+        if(.not. App%inProgress) return
+
         call Tic("Coupling", .true.)
         call recvGameraCplDataMpi(App)
         call Toc("Coupling", .true.)
+
+        App%inProgress = .false.
 
     end subroutine
 

@@ -3,6 +3,7 @@
 module gamCouple_mpi_G2V
     use gamtypes_mpi
     use volttypes_mpi
+    use couplingHelpers
     use uservoltic ! required to have IonInnerBC_T defined
 
     implicit none
@@ -19,7 +20,7 @@ module gamCouple_mpi_G2V
         type(MPI_Comm) :: couplingComm
         integer :: myRank, voltRank
         logical :: doSerialVoltron = .false., doAsyncCoupling = .true.
-        logical :: firstCoupling = .true., processingData = .false.
+        logical :: processingData = .false.
 
         real(rp) :: DeepT
         logical :: doDeep
@@ -78,6 +79,7 @@ module gamCouple_mpi_G2V
         character( len = MPI_MAX_ERROR_STRING) :: message
         logical :: reorder, wasWeighted
         integer, dimension(1) :: rankArray, weightArray
+        real(rp) :: tIO
 
         ! first initialize base gamera mpi
         call gamMpiInitModel(App, Xml)
@@ -89,7 +91,7 @@ module gamCouple_mpi_G2V
         ! split voltron helpers off of the communicator
         ! split allComm into a communicator with only the non-helper voltron rank
         call MPI_Comm_rank(App%gOptionsCplMpiG%allComm, commRank, ierr)
-        call MPI_comm_split(App%gOptionsCplMpiG%allComm, 0, commRank, voltComm, ierr)
+        call appWaitForVoltronSplit(App%gOptionsCplMpiG%allComm, gamId, commRank, voltComm)
 
         call Xml%Set_Val(App%doSerialVoltron,"/kaiju/voltron/coupling/doSerial",.false.)
         call Xml%Set_Val(App%doAsyncCoupling,"/kaiju/voltron/coupling/doAsyncCoupling",.true.)
@@ -177,6 +179,13 @@ module gamCouple_mpi_G2V
         call mpi_bcast(App%Model%IO%tOut, 1, MPI_MYFLOAT, App%voltRank, App%couplingComm, ierr)
         call mpi_bcast(App%Model%IO%dtOut, 1, MPI_MYFLOAT, App%voltRank, App%couplingComm, ierr)
         call mpi_bcast(App%Model%IO%nOut, 1, MPI_INTEGER, App%voltRank, App%couplingComm, ierr)
+
+        if(.not. App%Model%isRestart) then
+            ! re-write Gamera's first output with corrected time, save and restore initial output time
+            tIO = App%Model%IO%tOut
+            call App%WriteFileOutput(App%Model%IO%nOut)
+            App%Model%IO%tOut = tIO
+        endif
 
     end subroutine
 

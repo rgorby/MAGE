@@ -9,6 +9,7 @@ module testHelpers
 
   type(gamCouplerMpi_gam_T), allocatable :: gamCplMpi
   type(voltAppMpi_T), allocatable :: voltAppMpi
+  logical :: amHelper = .false.
 
 contains
 
@@ -40,16 +41,25 @@ contains
           gamCplMpi%gOptionsMpi%doIO = .false.
           xmlInp = New_XML_Input(trim(caseFile),'Kaiju',.true.)
           call gamCplMpi%InitModel(xmlInp)
-      else
+      elseif(this%getProcessRank() == 4) then
           allocate(voltAppMpi)
+          amHelper = .false.
 
           ! make gamera-only mpi communicator
           call MPI_Comm_Split(getMpiF08Communicator(this), voltId, this%getProcessRank(), voltComm, ierror)
 
           voltAppMpi%vOptions%gamUserInitFunc => initUser
           voltAppMpi%vOptionsMpi%allComm = getMpiF08Communicator(this)
-          voltAppMpi%vOptionsMpi%allVoltComm = voltComm
           call initVoltron_mpi(voltAppMpi, trim(caseFile))
+      else
+          allocate(voltAppMpi)
+          amHelper = .true.
+
+          ! make gamera-only mpi communicator
+          call MPI_Comm_Split(getMpiF08Communicator(this), voltId, this%getProcessRank(), voltComm, ierror)
+
+          voltAppMpi%vOptionsMpi%allComm = getMpiF08Communicator(this)
+          call initVoltronHelper_mpi(voltAppMpi, trim(caseFile))
       endif
 
   end subroutine manualSetup
@@ -73,14 +83,14 @@ contains
           ! adjust tFin time to gamera units
           call gamCplMpi%AdvanceModel(gamCplMpi%Model%tFin - gamCplMpi%Model%t)
       else
-          if(voltAppMpi%amHelper) then
+          if(amHelper) then
               helperQuit = .false.
               do while(.not. helperQuit)
                   call helpVoltron(voltAppMpi, helperQuit)
               end do
           else
               do while (voltAppMpi%time < voltAppMpi%tFin)
-                  call stepVoltron_mpi(voltAppMpi)
+                  call stepVoltron_mpi(voltAppMpi, voltAppMpi%tFin-voltAppMpi%time)
               end do
               if(voltAppMpi%useHelpers) call vhReqHelperQuit(voltAppMpi)
           endif
@@ -121,7 +131,7 @@ contains
 
       ! Now compare distributed squish results to local-only squish results
       if(allocated(voltAppMpi)) then
-          if(.not. voltAppMpi%amHelper) then
+          if(.not. amHelper) then
               
               ! call doImag once to update rTrc and nTrc before doing any squishing
               call PreDeep(voltAppMpi, voltAppMpi%gApp)
@@ -204,7 +214,7 @@ contains
 
       ! Now compare distributed squish results to local-only squish results
       if(allocated(voltAppMpi)) then
-          if(.not. voltAppMpi%amHelper) then
+          if(.not. amHelper) then
 
               ! call doImag once to update rTrc and nTrc before doing any squishing
               call PreDeep(voltAppMpi, voltAppMpi%gApp)
