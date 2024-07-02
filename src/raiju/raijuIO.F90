@@ -384,6 +384,7 @@ module raijuIO
         call ClearIO(IOVars)
 
         call AddOutVar(IOVars,"time",State%t)
+        call AddOutVar(IOVars,"ts"  ,State%ts)
         call AddOutVar(IOVars,"MJD" ,State%mjd)
         ! IOClock data
         call AddOutVar(IOVars,"nOut" ,State%IO%nOut)
@@ -465,6 +466,7 @@ module raijuIO
         call ClearIO(IOVars)
 
         call AddInVar(IOVars,"time")
+        call AddInVar(IOVars,"ts"  )
         call AddInVar(IOVars,"MJD" )
         call AddInVar(IOVars,"nOut")
         call AddInVar(IOVars,"nRes")
@@ -512,11 +514,12 @@ module raijuIO
         call ReadVars(IOVars,.false.,inH5,"State")
 
         State%t       = GetIOReal(IOVars, "time" )
+        State%ts      = GetIOReal(IOVars, "ts"   )
         State%mjd     = GetIOReal(IOVars, "MJD"  )
         State%dt      = GetIOReal(IOVars, "dtCpl")
         State%IO%nOut = GetIOInt (IOVars, "nOut" )
         State%IO%nRes = GetIOInt (IOVars, "nRes" )
-        ! TODO: Handle State%IO tOut and tRes
+
         call IOArray2DFill(IOVars, "xmin" , State%xyzMin(:,:,XDIR))
         call IOArray2DFill(IOVars, "ymin" , State%xyzMin(:,:,YDIR))
         call IOArray2DFill(IOVars, "zmin" , State%xyzMin(:,:,ZDIR))

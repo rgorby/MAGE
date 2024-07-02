@@ -71,8 +71,6 @@ program raijuSAx
     call raijuInit(raiApp, inpXML)
     if (raiApp%Model%isRestart) then
         isFirstCpl = .false.
-        write(*,*)"Remove this next line:"
-        call genResInFname(raiApp%Model, raiApp%Model%ResF)  ! Determine filename to read from
     endif
     
 
