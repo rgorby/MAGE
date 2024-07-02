@@ -1,6 +1,5 @@
-submodule (volttypes) volttypessub
-    use volttypes
-    use gamCouple
+submodule (volttypes) gamCplTypessub
+    use gamCoupleHelper
 
     implicit none
 

@@ -6,7 +6,7 @@ module gamCouple_mpi_V2G
     use couplingHelpers
     use uservoltic ! required to have IonInnerBC_T defined
     use init
-    use gamCouple
+    use gamCoupleHelper
 
     implicit none
 

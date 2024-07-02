@@ -4,6 +4,7 @@
 module voltapp_mpi
     use volttypes_mpi
     use gamcouple_mpi_V2G
+    use couplingHelpers
     use mpi_f08
     use ebsquish, only : SquishBlocksRemain, DoSquishBlock
     use, intrinsic :: ieee_arithmetic, only: IEEE_VALUE, IEEE_SIGNALING_NAN, IEEE_QUIET_NAN

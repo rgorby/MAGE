@@ -1,6 +1,6 @@
-! implementation of voltron coupling between gamera and other models
+! functions to implement voltron coupling between gamera and other models
 
-module gamCouple
+module gamCoupleHelper
     use gamtypes
     use volttypes
     use step
