@@ -42,7 +42,7 @@ module raijuOut
 
         if (Model%isLoud) then
             call timeStrFmt(State%t, tStr)
-            write (*, '(a,a,a,a,a)') ANSIGREEN, '<Writing HDF5 RESTART @ t = ', trim(tStr), ' >', ANSIRESET
+            write (*, '(a,a,a,a,a)') ANSIGREEN, '<Writing RAIJU HDF5 RESTART @ t = ', trim(tStr), ' >', ANSIRESET
         endif
 
         call WriteRaijuRes(Model, Grid, State, ResF)
@@ -61,14 +61,15 @@ module raijuOut
     subroutine raijuResInput(Model, Grid, State)
         !! Mirror of raijuResOutput to make sure state is restored to same exact state as above
         type(raijuModel_T), intent(in) :: Model
-        type(raijuGrid_T) , intent(inout) :: Grid
+        type(raijuGrid_T) , intent(in) :: Grid
         type(raijuState_T), intent(inout) :: State
 
         character(len=strLen) :: tStr
 
         if (Model%isLoud) then
             call timeStrFmt(State%t, tStr)
-            write (*, '(a,a,a,a,a)') ANSIGREEN, '<Reading HDF5 RESTART @ t = ', trim(tStr), ' >', ANSIRESET
+            !write (*, '(a,a,a,a,a)') ANSIGREEN, '<Reading RAIJU HDF5 RESTART @ t = ', trim(tStr), ' >', ANSIRESET
+            write (*, '(a,a,a)') ANSIGREEN, '<Reading RAIJU HDF5 RESTART >', ANSIRESET
         endif
 
         call ReadRaijuResState(Model, Grid, State, Model%ResF)

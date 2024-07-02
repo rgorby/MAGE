@@ -71,9 +71,10 @@ program raijuSAx
     call raijuInit(raiApp, inpXML)
     if (raiApp%Model%isRestart) then
         isFirstCpl = .false.
+        write(*,*)"Remove this next line:"
+        call genResInFname(raiApp%Model, raiApp%Model%ResF)  ! Determine filename to read from
     endif
-    write(*,*)"Remove this next line:"
-    call genResInFname(raiApp%Model, raiApp%Model%ResF)  ! Determine filename to read from
+    
 
     !> MJD at the start of the simulation (corresponds to sim t=0)
     if (.not. raiApp%Model%isRestart) then

@@ -516,6 +516,7 @@ module raijuIO
         State%dt      = GetIOReal(IOVars, "dtCpl")
         State%IO%nOut = GetIOInt (IOVars, "nOut" )
         State%IO%nRes = GetIOInt (IOVars, "nRes" )
+        ! TODO: Handle State%IO tOut and tRes
         call IOArray2DFill(IOVars, "xmin" , State%xyzMin(:,:,XDIR))
         call IOArray2DFill(IOVars, "ymin" , State%xyzMin(:,:,YDIR))
         call IOArray2DFill(IOVars, "zmin" , State%xyzMin(:,:,ZDIR))
