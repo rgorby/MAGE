@@ -2,12 +2,12 @@
 
 # -- Project information
 
-project = 'MAGE'
+project = 'kaiju'
 copyright = '2024, Center for Geospace Storms'
 author = 'Center for Geospace Storms'
 
-release = '0.0'
-version = '0.0'
+release = '0.75.3'
+version = '0.75.3'
 
 # -- General configuration
 
