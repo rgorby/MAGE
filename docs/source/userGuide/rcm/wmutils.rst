@@ -15,7 +15,7 @@ To generate rcmconfig.h5 without the wave model
    python genRCM.py --noWaveModel
 
 To add the electron lifetime to an existing rcmconfig.h5 file,
-run kaiju/scripts/preproc/genRCM.py with 'addWM' option on and enter input file name.
+run kaiju/scripts/preproc/genRCM.py with 'addWM' option on and enter input file name
 
 .. code-block:: python
 
@@ -27,7 +27,7 @@ To set the maximum Kp index allowed in the chorus wave model (maxKp <= 6, defaul
 
    python genRCM.py -maxKp 6
 
-The generated rcmconfig.h5 should contain the arrays for the wave model as follows:
+The generated rcmconfig.h5 should contain the arrays for the wave model as follows
 
 * Eki                      Dataset {155}
 * Kpi                      Dataset {6}
