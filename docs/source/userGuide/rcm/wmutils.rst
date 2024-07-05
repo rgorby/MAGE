@@ -9,6 +9,7 @@ To generate rcmconfig.h5 that contains the electron lifetime based on the wave m
 just run kaiju/scripts/preproc/genRCM.py. The wave model is added by default.
 
 To generate rcmconfig.h5 without the wave model
+
 .. code-block:: python
 
    python genRCM.py --noWaveModel
@@ -21,6 +22,7 @@ run kaiju/scripts/preproc/genRCM.py with 'addWM' option on and enter input file 
    python genRCM.py --addWM True -i rcmconfig.h5
 
 To set the maximum Kp index allowed in the chorus wave model (maxKp <= 6, default 6)
+
 .. code-block:: python
 
    python genRCM.py -maxKp 6
