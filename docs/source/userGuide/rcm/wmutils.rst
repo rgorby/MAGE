@@ -1,45 +1,37 @@
-Diffuse Precipitation
+Wave model input for RCM diffuse precipitation
 =====================
 
-To run MAGE with wave model input:
+To run MAGE with wave model input for the diffuse precipitation:
 
-Make sure DWang_chorus_lifetime.h5 and tauTDS.txt is inside kaiju/kaipy/rcm/wmutils
-
-Activate the NLP environment: 
-
-.. code-block:: python
-
-   ncar_pylib casper_satcomp_pylib
+Make sure the parameters for the polynomial fit, chorus_polynomial.txt, is inside kaipy/rcm/wmutils
 
 To generate rcmconfig.h5 that contains the electron lifetime based on the wave model,
-run kaiju/scripts/preproc/genRCM.py with 'waveModel' option on.
+just run kaiju/scripts/preproc/genRCM.py. The wave model is added by default.
 
+To generate rcmconfig.h5 without the wave model
 .. code-block:: python
 
-   python genRCM.py -waveModel True
+   python genRCM.py --noWaveModel
 
 To add the electron lifetime to an existing rcmconfig.h5 file,
 run kaiju/scripts/preproc/genRCM.py with 'addWM' option on and enter input file name.
 
 .. code-block:: python
 
-   python genRCM.py -addWM True -i rcmconfig.h5
+   python genRCM.py --addWM True -i rcmconfig.h5
 
-The generated rcmconfig.h5 should contain
+To set the maximum Kp index allowed in the chorus wave model (maxKp <= 6, default 6)
+.. code-block:: python
 
+   python genRCM.py -maxKp 6
 
-* Eki              Dataset {155}
-* Kpi              Dataset {7}
-* Li               Dataset {41}
-* MLTi             Dataset {25}
-* Tau1i            Dataset {155, 41, 25, 7}
-* Tau2i            Dataset {155, 41, 25, 7}
-* EkTDSi           Dataset {109}
-* TauTDSi          Dataset {109}
-* alamc            Dataset {160}
-* dktable          Dataset {936}
-* fudgec           Dataset {160}
-* ikflavc          Dataset {160}
+The generated rcmconfig.h5 should contain the arrays for the wave model as follows:
+
+* Eki                      Dataset {155}
+* Kpi                      Dataset {6}
+* Li                       Dataset {41}
+* MLTi                     Dataset {97}
+* Taui                     Dataset {155, 41, 97, 6}
 
 In the XML file, to run MAGE with wave model input (Dedong Wang Chorus + Orlova16 Hiss), set the loss method in the RCM section as
 
