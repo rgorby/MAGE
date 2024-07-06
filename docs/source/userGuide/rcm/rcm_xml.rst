@@ -81,7 +81,7 @@ These XML elements and attributes were extracted from ``src/rcm/modules.F90``\ ,
       * ``doNewCX`` (optional, Boolean, default ``"T"``\ ): Set to ``"T"`` to use newer CX loss estimate.
       * ``doRelax`` (optional, Boolean, default ``"T"``\ ): Set to ``"T"`` to relax energy distribution.
       * ``doTDSLoss`` (optional, Boolean, default ``"T"``\ ): Set to ``"T"`` to use TDS losses.
-      * ``eLossMethod`` (optional, string, default ``"FDG"``\ : Choose the electron loss method within FDG,  WM, SS, C05,C19
+      * ``eLossMethod`` (optional, string, default ``"FDG"``\ : Choose the electron loss method within FDG,  WM, SS
 
     * 
       ``<output>``
