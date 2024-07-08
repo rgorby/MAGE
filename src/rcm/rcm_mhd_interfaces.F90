@@ -33,6 +33,7 @@ module rcm_mhd_interfaces
         real(rprec),allocatable :: fac(:,:)     !> Total FAC density (sent to MIX Coupler/Solver)A
         real(rprec),allocatable :: Pave(:,:)    ! MHD supplied average pressure on Pa
         real(rprec),allocatable :: Nave(:,:)    ! MHD supplied average density in #/m^3
+        real(rprec),allocatable :: N0  (:,:)    ! MHD supplied average COLD density in #/m^3
         real(rprec),allocatable :: Vol(:,:)     ! MHD supplied flux tube volume, -ve => open fieldline - [Re/T]
         real(rprec),allocatable :: X_bmin(:,:,:)! MHD supplied location of Bmin surface, x,y,z in meters
         real(rprec),allocatable :: Bmin(:,:)    ! MHD supplied  bmin strenght in T
@@ -49,7 +50,8 @@ module rcm_mhd_interfaces
         !Conjugate mapping, lat/lon of conjugate point mapped
         real(rprec),allocatable :: latc(:,:)
         real(rprec),allocatable :: lonc(:,:)
-
+        !Empirical Ti/Te
+        real(rprec),allocatable :: TioTe0(:,:)
         !Field line arc length [Re]
         real(rprec),allocatable :: Lb(:,:)
         !Alfven Bounce timescale [s]
