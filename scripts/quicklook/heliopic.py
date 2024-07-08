@@ -36,14 +36,14 @@ gamhelio frame used in the simulation. The plots are:
 
 pic4: A pcolormesh plot in the innermost radial slice (r = 22 Rsun) of the
 gamhelio frame used in the simulation. The plot shows the radial magnetic
-field in nT, in a coordinate frame rotating with the Sun. - SCALED?
+field in nT, in a coordinate frame rotating with the Sun.
 
 pic5: A 3-panel display showing solar wind variables as a function of radius,
 22 Rsun <= r <= 220 Rsun. The plots are:
 
-    Upper left: Solar wind number density (cm**-3) - SCALED?
-    Upper right: Solar wind speed (km/s) - SCALED?
-    Lower left: Solar wind radial momentum flux (km**2/s**2/cm**3) - SCALED?
+    Upper left: Solar wind number density (cm**-3) 
+    Upper right: Solar wind speed (km/s) 
+    Lower left: Solar wind radial momentum flux (km**2/s**2/cm**3)
 
 pic6: A 4-panel display showing components of the solar wind magnetic field
 in the solar equatorial plane (z=0), for -200 Rsun <= X, Y <= +200 Rsun.
