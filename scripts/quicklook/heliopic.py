@@ -504,9 +504,9 @@ def main():
                            hgsplot=hgsplot, MJDc=MJDc, MJD_plot=mjd,
                            use_outer_range=(not inner))
             if hgsplot:
-                fig.suptitle(f"Heliographic Stonyhurst frame at {radius} [RE] for {time_stamp}")
+                fig.suptitle(f"Heliographic Stonyhurst frame at {radius} [RS] for {time_stamp}")
             else:
-                fig.suptitle(f"GAMERA-Helio frame at {radius} [RE] for {time_stamp}")
+                fig.suptitle(f"GAMERA-Helio frame at {radius} [RS] for {time_stamp}")
         elif pic == "pic4":
             # Plot at 1 AU in frame rotating with Sun.
             hviz.PlotiSlBrRotatingFrame(gsph, nStp, xyBds, Ax, AxC)
