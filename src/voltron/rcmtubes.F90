@@ -6,7 +6,6 @@ module rcmtubes
     use streamline
     use chmpdbz, ONLY : DipoleB0
     use imaghelper
-    use planethelper
     USE rcmdefs, ONLY : bMin_C_DEF,wImag_C_DEF
 	implicit none
 
@@ -20,9 +19,13 @@ module rcmtubes
     real(rp) :: wImag_C = wImag_C_DEF
     real(rp) :: bMin_C  = bMin_C_DEF
 
+    real(rp), private :: kTCutC = 0.01 !keV, cutoff for cold
+    real(rp), private :: kTCutH = 1.0  !keV, cutoff for hot
+
 !Information taken from MHD flux tubes
     !Pave = Average pressure [Pa]
     !Nave = Average density [#/m3]
+    !N0 = Averaged COLD density [#/m3] if present
     !Vol  = Flux-tube volume [Re/T]
     !bmin = Min field strength [T]
     !X_bmin = Location of Bmin [m]
@@ -34,16 +37,17 @@ module rcmtubes
     type RCMTube_T
         real(rp) :: Vol,bmin,beta_average,Pave,Nave,pot
         real(rp) :: X_bmin(NDIM)
-        integer(ip) :: iopen
+        real(rp) :: N0 = 0.0
+        integer(ip) :: iopen = RCMTOPOPEN
         real(rp) :: latc,lonc !Conjugate lat/lon
         real(rp) :: Lb, Tb !Arc length/bounce time
-        real(rp) :: losscone,rCurv,wIMAG
+        real(rp) :: losscone,rCurv,wIMAG,TioTe0=tiote_RCM
     end type RCMTube_T
 
     !Parameters used to set RCM ICs to feed back into MHD
     type RCMIC_T
         logical :: doIC = .false.
-        real(rp) :: dst0,ktRC !Values for inner magnetosphere
+        real(rp) :: dst0     !Values for inner magnetosphere
         real(rp) :: vSW,dSW  !Solar wind values used to set plamsa sheet
         real(rp) :: dPS,ktPS !Plasmasheet values
         
@@ -91,6 +95,7 @@ module rcmtubes
         CsMKS = 9.79*sqrt((5.0/3)*TiEV) !km/s
         VaMKS = 22.0*(ijTube%bmin*1.0e+9)/sqrt(N0_ps) !km/s
         ijTube%beta_average = 2.0*(CsMKS/VaMKS)**2.0
+        ijTube%TioTe0 = tiote_RCM
     end subroutine FakeTube
 
     !MHD flux-tube
@@ -106,24 +111,21 @@ module rcmtubes
         real(rp), dimension(NDIM) :: xyzC,xyzIonC
         integer :: OCb
         real(rp) :: bD,bP,dvB,bBeta,rCurv
+        real(rp) :: bD0,bP0,kT0
 
         real(rp) :: VaMKS,CsMKS,VebMKS !Speeds in km/s
         real(rp) :: TiEV !Temperature in ev
     !First get seed for trace
-        associate(ebModel=>vApp%ebTrcApp%ebModel,ebGr=>vApp%ebTrcApp%ebState%ebGr,ebState=>vApp%ebTrcApp%ebState)
-
         !Assume lat/lon @ Earth, dipole push to first cell + epsilon
         xyzIon(XDIR) = RIonRCM*cos(lat)*cos(lon)
         xyzIon(YDIR) = RIonRCM*cos(lat)*sin(lon)
         xyzIon(ZDIR) = RIonRCM*sin(lat)
-        if (ebModel%isMAGE .and. inDomain(xyzIon,ebModel,ebState%ebGr)) then
-           x0 = DipoleShift(xyzIon,norm2(xyzIon)+TINY)
-        else
-           x0 = DipoleShift(xyzIon,vApp%mhd2chmp%Rin+TINY)
-        endif
+        x0 = DipoleShift(xyzIon,vApp%mhd2chmp%Rin+TINY)
         bIon = norm2(DipoleB0(xyzIon))*oBScl*1.0e-9 !EB=>T, ionospheric field strength
 
     !Now do field line trace
+        associate(ebModel=>vApp%ebTrcApp%ebModel,ebGr=>vApp%ebTrcApp%ebState%ebGr,ebState=>vApp%ebTrcApp%ebState)
+
         t = ebState%eb1%time !Time in CHIMP units
         
         if (present(nTrcO)) then
@@ -136,12 +138,12 @@ module rcmtubes
         !OCB =  0 (solar wind), 1 (half-closed), 2 (both ends closed)
         OCb = FLTop(ebModel,ebGr,bTrc)
         
-        if (OCb /= 2) then
+        if ((OCb /= 2) .or. (.not. bTrc%isGood)) then
             !Not closed line, set some values and get out
             ijTube%X_bmin = 0.0
             ijTube%bmin = 0.0
             ijTube%iopen = RCMTOPOPEN
-            ijTube%Vol = -1.0
+            ijTube%Vol = 0.0
             ijTube%Pave = 0.0
             ijTube%Nave = 0.0
             ijTube%beta_average = 0.0
@@ -152,22 +154,53 @@ module rcmtubes
             ijTube%losscone = 0.0
             ijTube%rCurv = 0.0
             ijTube%wIMAG = 0.0
+            ijTube%TioTe0 = tiote_RCM
             return
         endif
-
+        
     !Get diagnostics from closed field line
         !Minimal surface (bEq in Rp, bMin in EB)
         call FLEq(ebModel,bTrc,bEq,bMin)
         bMin = bMin*oBScl*1.0e-9 !EB=>Tesla
-        bEq = bEq*Rp_m !Re=>meters
+        bEq  = bEq*Rp_m !Re=>meters
 
         !Plasma quantities
         !dvB = Flux-tube volume (Re/EB)
-        call FLThermo(ebModel,ebGr,bTrc,bD,bP,dvB,bBeta)
+        if (ebModel%nSpc > 0) then
+            !Get from both COLD/RC
+            call FLThermo(ebModel,ebGr,bTrc,bD0,bP0,dvB,bBeta,COLDFLUID)
+            call FLThermo(ebModel,ebGr,bTrc,bD ,bP ,dvB,bBeta,RCFLUID)
+
+            !Only get thermodynamics from non-plasmasphere fluid
+            !RCFLUID goes to xAve
+            !COLD can be either N0,Nave, or neither. eg if plasmasphere got hot
+            if (bP0 > pFloor) then
+                kT0 = DP2kT(bD0,bP0) !Temp in keV
+
+                if (kT0 > kTCutH) then
+                    !This is actually hot, add it to RC seed
+                    bD = bD + bD0
+                    bP = bP + bP0
+                    bD0 = 0.0
+                else if (kT0 > kTCutC) then
+                    !Not cold
+                    bD0 = 0.0
+                endif
+            else
+                bD0 = 0.0
+            endif
+        else
+            !Use standard bulk
+            call FLThermo(ebModel,ebGr,bTrc,bD,bP,dvB,bBeta)
+            bD0 = 0.0
+        endif
+        ijTube%TioTe0 = TioTe_Empirical(bEq/Rp_m) !Rescaling to Re
+        
         !Converts Re/EB => Re/T
         dvB = dvB/(oBScl*1.0e-9)
-        bP = bP*1.0e-9 !nPa=>Pa
-        bD = bD*1.0e+6 !#/cc => #/m3
+        bP  = bP *1.0e-9 !nPa=>Pa
+        bD  = bD *1.0e+6 !#/cc => #/m3
+        bD0 = bD0*1.0e+6 !#/cc => #/m3
 
         ijTube%X_bmin = bEq
         ijTube%bmin = bMin
@@ -175,6 +208,7 @@ module rcmtubes
         ijTube%Vol = dvB
         ijTube%Pave = bP
         ijTube%Nave = bD
+        ijTube%N0   = bD0
         ijTube%beta_average = bBeta
 
         !Find conjugate lat/lon @ RIonRCM
@@ -185,9 +219,6 @@ module rcmtubes
         ijTube%Lb = FLArc(ebModel,ebGr,bTrc)
         !NOTE: Bounce timescale may be altered to use RCM hot density
         ijTube%Tb = FLAlfvenX(ebModel,ebGr,bTrc)
-        !ijTube%Tb = FLFastX(ebModel,ebGr,bTrc)
-
-        !write(*,*) 'Bounce compare: = ', FLFastX(ebModel,ebGr,bTrc)/FLAlfvenX(ebModel,ebGr,bTrc)
         
         ijTube%losscone = asin(sqrt(bMin/bIon))
 
@@ -197,7 +228,7 @@ module rcmtubes
 
     !Get confidence interval
         !VaMKS = flux tube arc length [km] / Alfven crossing time [s]
-        VaMKS = (ijTube%Lb*Rp_m*1.0e-3)/ijTube%Tb 
+        VaMKS = (ijTube%Lb*Rp_m*1.0e-3)/max(ijTube%Tb,TINY)
         !CsMKS = 9.79 x sqrt(5/3 * Ti) km/s, Ti eV
         TiEV = (1.0e+3)*DP2kT(bD*1.0e-6,bP*1.0e+9) !Temp in eV
         CsMKS = 9.79*sqrt((5.0/3)*TiEV)
@@ -205,13 +236,14 @@ module rcmtubes
         ijTube%wIMAG = VaMKS/( sqrt(VaMKS**2.0 + CsMKS**2.0) + VebMKS)
 
         end associate
+
     end subroutine MHDTube
 
     !Dipole flux tube info
     subroutine DipoleTube(vApp,lat,lon,ijTube,bTrc)
         type(voltApp_T), intent(in) :: vApp
         real(rp), intent(in) :: lat,lon
-        type(RCMTube_T), intent(out) :: ijTube
+        type(RCMTube_T), intent(out)   :: ijTube
         type(magLine_T), intent(inout) :: bTrc
         
         real(rp) :: L,colat
@@ -245,6 +277,7 @@ module rcmtubes
         ijTube%rCurv = L/3.0
 
         ijTube%wIMAG = 1.0 !Much imag
+        ijTube%TioTe0 = tiote_RCM
     end subroutine DipoleTube
 
     !Do some trickkery on the tubes if they seem too weird for RCM
@@ -300,54 +333,6 @@ module rcmtubes
         call Smooth2D(RCMApp%Tb) !Bounce timescale for ingestion
         
 
-    !     !Based on ratio of mix vs. rcm coupling
-    !     !After shallow coupling was removed, this will always be 0
-    !     !Ns = 0
-
-    !     !Based on ratio of mix/RCM resolutions
-    !     dphi_mix = 360.0/vApp%remixApp%ion(1)%G%Np
-    !     dphi_rcm = 360.0/Nj
-
-    !     Ns = nint( (dphi_rcm/dphi_mix)/2 )
-
-    !     if (Ns<=0) return
-
-    ! !Prep for smoothing
-    !     allocate(isG(Ni,Nj))
-    !     isG = .not. (RCMApp%iopen == RCMTOPOPEN)
-
-    !     allocate(V0(Ni,Nj))
-    !     allocate(dV(Ni,Nj))
-    !     V0 = 0.0
-    !     dV = 0.0
-
-    !     !Calculate dV, non-dipolar part of FTV
-    !     do n=1,Ni
-    !         colat = RCMApp%gcolat(n)
-    !         V0(n,:) = DipFTV_colat(colat,planetM0g)*1.0e+9
-    !     enddo
-
-    !     where (isG)
-    !         dV = RCMApp%Vol - V0
-    !     endwhere
-        
-    ! !Smooth some tubes
-
-    !     !K: Tweaking to simply do 1 iteration of smoothing
-    !     call Smooth2D(dV) !Smooth dV
-    !     call Smooth2D(RCMApp%pot) !Electrostatic potential
-    !     call Smooth2D(RCMApp%Tb) !Bounce timescale for ingestion
-        
-    !     ! do n=1,Ns
-    !     !     !call Smooth2D(RCMApp%pot) !Electrostatic potential
-    !     !     !call Smooth2D(RCMApp%Vol) !Flux-tube volume
-    !     !     call Smooth2D(dV) !Smooth dV
-    !     ! enddo
-
-    !     where (isG)
-    !         RCMApp%Vol = V0 + dV
-    !     endwhere
-
         contains
         subroutine Smooth2D(Q)
             real(rp), dimension(Ni,Nj), intent(inout) :: Q
@@ -398,19 +383,38 @@ module rcmtubes
         type(rcm_mhd_T), intent(inout) :: RCMApp
         type(voltApp_T), intent(in)    :: vApp
 
-        integer :: i,j
+        integer :: i,j, ij_TM(2)
         real(rp) :: llBC,lat,colat,lon,LPk
-        logical :: isLL
 
         real(rp) :: Pmhd,Dmhd,P0_rc,N0_rc,N0_ps,P0_ps,N,P,L
         real(rp) :: xyzSM(NDIM)
-        
-        logical :: isInTM03
+        real(rp) :: x0_TM,y0_TM,B0_TM,T0_TM,ktRC,ijB0,ktMax,ktCap
+
+        logical :: isInTM03,isLL,isOut
+
+        ktCap = 4.0 !Limit temperature increase from plasma sheet temp.
 
         !Loop through active region and reset things
         llBC = vApp%mhd2chmp%lowlatBC
 
         LPk = LPk_QTRC()
+
+        !To setup RC temperature, adiabatically push TM03 temperature at X=-10 (+eps)
+        !Find bmin at x0_TM
+        x0_TM = (-10.0 - TINY)*Rp_m
+        y0_TM = (  0.0       )*Rp_m
+
+        ij_TM = minloc( sqrt( (RCMApp%X_bmin(:,:,XDIR) - x0_TM)**2.0 + (RCMApp%X_bmin(:,:,YDIR) - y0_TM)**2.0 ), &
+                         mask=.not. (RCMApp%iopen == RCMTOPOPEN) )
+
+        !Now get temperature and B at location
+        B0_TM = RCMApp%Bmin(ij_TM(IDIR),ij_TM(JDIR))
+        call EvalTM03([x0_TM,y0_TM,0.0_rp]/Rp_m,N0_ps,P0_ps,isInTM03)
+        T0_TM = DP2kT(N0_ps,P0_ps)
+
+        if (.not. isInTM03) then
+            write(*,*) "This should not happen w/ TM03, you should figure this out ..."
+        endif
 
         do j=1,RCMApp%nLon_ion
             do i=1,RCMApp%nLat_ion
@@ -420,20 +424,26 @@ module rcmtubes
                 lon = RCMApp%glong(j)
                 
                 !Decide if we're below low-lat BC or not
-                isLL = (lat <= llBC)
+                isLL  = (lat <= llBC)
+                isOut = (RCMApp%iopen(i,j) == RCMTOPOPEN)
 
-                if (isLL) cycle
+                if (isLL .or. isOut) cycle
                 
                 !Get L,Pmhd,Dmhd (convert back to our units; nPa,#/cc,Re)
                 Pmhd = rcmPScl*RCMApp%Pave(i,j)
                 Dmhd = rcmNScl*RCMApp%Nave(i,j)
                 L    = norm2( RCMApp%X_bmin(i,j,:) )/Rp_m
-                xyzSM(:) = RCMApp%X_bmin(i,j,:)/Rp_m
+                xyzSM(:) =    RCMApp%X_bmin(i,j,:)  /Rp_m
 
             !Quiet-time ring current
                 P0_rc = P_QTRC(L)
-                !Get density from pressure and target temperature
-                N0_rc = PkT2Den(P0_rc,RCMICs%ktRC)
+                !Get target temperature from adiabatic scaling of TM plasma sheet
+                ijB0 = RCMApp%Bmin(i,j)
+                ktRC = (T0_TM)*ijB0/B0_TM
+                ktRC = min(ktRC,ktCap*T0_TM)
+
+                N0_rc = PkT2Den(P0_rc,ktRC)
+
             !Get plasma sheet values
                 !Prefer TM03 but use Borovsky statistical values otherwise
                 call EvalTM03_SM(xyzSM,N0_ps,P0_ps,isInTM03)
@@ -452,17 +462,12 @@ module rcmtubes
                     N = N0_rc
                 endif
 
-                ! !Now test against MHD
-                ! P = max(P,Pmhd)
-                ! N = max(N,Dmhd)
-
                 !Now store them
                 RCMApp%Pave(i,j) = P/rcmPScl
                 RCMApp%Nave(i,j) = N/rcmNScl
 
             enddo
         enddo
-
     end subroutine HackTubes
 
 end module rcmtubes

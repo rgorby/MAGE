@@ -244,10 +244,10 @@ module sliceio
         real(rp), dimension(:,:), allocatable :: Lb,LbXY,dLpp,rCurv
 
         integer :: i,j,s
-        real(rp), dimension(NDIM) :: xp,xm,dB,Ep,Em,Bp,Bm,B
+        real(rp), dimension(NDIM) :: xp,xm,dB,Ep,Em,Bp,Bm,Eeq,Beq,B
         real(rp) :: MagB,MagJ,oVGScl
         real(rp), dimension(NVARMHD,0:Model%nSpc) :: Qij
-        type(gcFields_T) :: gcFieldsP,gcFieldsM
+        type(gcFields_T) :: gcFieldsP,gcFieldsM,gcFieldsEq
         real(rp), dimension(NDIM,NDIM) :: jB
         character(len=strLen) :: dID,pID,vxID,vyID,vzID,vrID
 

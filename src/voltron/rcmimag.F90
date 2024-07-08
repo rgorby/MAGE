@@ -164,7 +164,6 @@ module rcmimag
         if (RCMICs%doIC) then
             !Want initial dst0
             RCMICs%dst0 = GetSWVal("symh",vApp%tilt%wID,t0)
-            call iXML%Set_Val(RCMICs%ktRC,"imag/ktRC",30.0)
             RCMICs%vSW = abs(GetSWVal("Vx",vApp%tilt%wID,t0))
             RCMICs%dSW = GetSWVal("D",vApp%tilt%wID,t0)
 
