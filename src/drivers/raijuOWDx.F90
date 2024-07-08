@@ -77,7 +77,7 @@ program raijuOWDx
         ! Init CHIMP
         inpXML = New_XML_Input(trim(XMLStr),"Kaiju/Chimp",.true.)
         call goApe(ebModel,ebState,iXML=inpXML)
-        ebModel%t = inTscl*raiApp%Model%t0
+        ebModel%t = inTscl*raiApp%State%t
 
         ! Now that chimp has set its nSpc, we can do raijuCpl_init
         !call raijuCpl_init(vApp, raiApp, raijuCplBase)
@@ -89,7 +89,7 @@ program raijuOWDx
 
         ! Init Remix reader
         call initRM("msphere", inpXML, rmReader)
-        rmReader%time = raiApp%Model%t0
+        rmReader%time = raiApp%State%t
 
         call outputRMSG(rmReader,"rmReader.h5", .true.)
         
