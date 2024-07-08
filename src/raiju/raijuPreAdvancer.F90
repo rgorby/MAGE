@@ -489,40 +489,16 @@ module raijuPreAdvancer
         type(raijuState_T), intent(inout) :: State
 
         integer :: i,j,k
-        !type(shellGridVar_T) :: sgv_iVel_th, sgv_iVel_ph, sgv_cVel_th, sgv_cVel_ph
 
         associate(sh=>Grid%shGrid)
-
-        ! Cell-centered velocities
-        !call initShellVar(sh, SHGR_FACE_THETA, sgv_iVel_th)
-        !call initShellVar(sh, SHGR_FACE_PHI  , sgv_iVel_ph)
-        !call initShellVar(sh, SHGR_CC, sgv_cVel_th)
-        !call initShellVar(sh, SHGR_CC, sgv_cVel_ph)
-        !sgv_iVel_th%mask = .true.
-        !sgv_iVel_ph%mask = .true.
-        !sgv_cVel_th%mask = .true.
-        !sgv_cVel_ph%mask = .true.
-        !do k=1,Grid%Nk
-        !    sgv_iVel_th%data = State%iVel(:      ,:sh%jeg,k,RAI_TH)
-        !    sgv_iVel_ph%data = State%iVel(:sh%ieg,:      ,k,RAI_PH)
-        !    call InterpShellVar_TSC_SG(Grid%shGrid, sgv_iVel_th, Grid%shGrid, sgv_cVel_th)
-        !    call InterpShellVar_TSC_SG(Grid%shGrid, sgv_iVel_ph, Grid%shGrid, sgv_cVel_ph)
-        !    State%cVel(:,:,k,RAI_TH) = sgv_cVel_th%data
-        !    State%cVel(:,:,k,RAI_PH) = sgv_cVel_ph%data
-        !enddo
-
-        !! Actually not sure if TSC is the best tool here
-        ! can mix together some pretty different velocities by reaching further than necessary
-        ! If we want more cell's input we need to do higher-order recon
-        ! For now, just do average
 
         !State%cVel(:,:,:,RAI_TH) = 0.5*(State%iVel(Grid%shGrid%isg+1:,:,:,RAI_TH) + State%iVel(:Grid%shGrid%ieg,:,:,RAI_TH))
         !State%cVel(:,:,:,RAI_PH) = 0.5*(State%iVel(:,Grid%shGrid%jsg+1:,:,RAI_PH) + State%iVel(:,:Grid%shGrid%jeg,:,RAI_PH))
         do i=sh%isg,sh%ieg
             do j=sh%jsg,sh%jeg
                 do k=1,Grid%Nk
-                    State%cVel(i,j,k,RAI_TH) = 0.5*(State%iVel(i+1,j,k,RAI_TH)+State%iVel(i,j,k,RAI_TH))
-					State%cVel(i,j,k,RAI_PH) = 0.5*(State%iVel(i,j+1,k,RAI_PH)+State%iVel(i,j,k,RAI_PH))
+                    State%cVel(i,j,k,RAI_TH) = 0.5*(State%iVel(i+1,j  ,k,RAI_TH)+State%iVel(i,j,k,RAI_TH))
+					State%cVel(i,j,k,RAI_PH) = 0.5*(State%iVel(i  ,j+1,k,RAI_PH)+State%iVel(i,j,k,RAI_PH))
                 enddo
             enddo
         enddo
