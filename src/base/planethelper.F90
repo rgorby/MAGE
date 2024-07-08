@@ -171,10 +171,14 @@ module planethelper
 
     function CorotPotential(Rp_m, period, Bmag) result(cPot)
         !! Calculates corotation potential, assuming dipole and rotational axes are aligned
-        real(rp), intent(in) :: Rp_m  ! Planetary radius in meters
-        real(rp), intent(in) :: period  ! Rotation period in seconds
-        real(rp), intent(in) :: Bmag  ! Magnetic moment in Gauss
-        real(rp) :: cPot  ! Corotation potential in kV
+        real(rp), intent(in) :: Rp_m  
+            !! Planetary radius in meters
+        real(rp), intent(in) :: period  
+            !! Rotation period in seconds
+        real(rp), intent(in) :: Bmag  
+            !! Magnetic moment in Gauss
+        real(rp) :: cPot  
+            !! Corotation potential in kV
 
         cPot = Rp_m**2.0 * (2.0*PI/period) * (Bmag*G2T) * 1.0e-3 ! [kV]
     end function CorotPotential
@@ -183,8 +187,12 @@ module planethelper
 
     !Turn pressure [nPa] and temperature [keV] to density [#/cc]
     function PkT2Den(P,kT) result(D)
-        real(rp), intent(in) :: P,kT
+        real(rp), intent(in) :: P
+            !! Pressure [nPa]
+        real(rp), intent(in) :: kT
+            !! Temperature [keV]
         real(rp) :: D
+            !! Density [#/cc]
 
         D = 6.25*P/max(kT,TINY)
 
@@ -192,23 +200,35 @@ module planethelper
 
     !Turn density [#/cc] and temperature [keV] to pressure [nPa]
     function DkT2P(D,kT) result(P)
-        real(rp), intent(in) :: D,kT
+        real(rp), intent(in) :: D
+            !! Density [#/cc]
+        real(rp), intent(in) :: kT
+            !! Temperature [keV]
         real(rp) :: P
+            !! Pressure [nPa]
 
         P = max(kT,TINY)*D/6.25
     end function DkT2P
 
     !Turn density [#/cc] and pressure [nPa] to temperature [keV]
     function DP2kT(D,P) result(kT)
-        real(rp), intent(in) :: D,P
+        real(rp), intent(in) :: D
+            !! Density [#/cc]
+        real(rp), intent(in) :: P
+            !! Pressure [nPa]
         real(rp) :: kT
+            !! Temperature [keV]
         kT = 6.25*P/max(D,TINY)
     end function DP2kT
 
     !Turn density [#/cc] and velocity [km/s] to dynamic pressure
     function PV2PDyn(D,V) result(PDyn)
-        real(rp), intent(in) :: D,V
+        real(rp), intent(in) :: D
+            !! Density [#/cc]
+        real(rp), intent(in) :: V
+            !! Velocity [km/s]
         real(rp) :: PDyn
+            !! Dynamic pressure [nPa]
 
         PDyn = (1.94e-6)*(D*V*V) !nPa
     end function PV2PDyn

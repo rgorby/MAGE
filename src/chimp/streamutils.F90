@@ -3,11 +3,13 @@ module streamutils
     use ebtypes
     use math
     use ebinterp
-    
+    use xml_input
+
     implicit none
 
     integer , parameter, private :: NumRKF45 = 6
-    integer , parameter, private :: NumBS23 = 4
+    integer , parameter, private :: NumRKF23 = 3
+    integer , parameter, private :: NumBS23  = 4
     real(rp), parameter, private :: StreamTol = 1.0e-3 !Units of planetary radius
     real(rp), dimension(NumRKF45), parameter, private :: & !Coefficients for RKF45
                     RKF45_LO = [25.0/216,0.0,1408.0/2565 ,2197.0/4104  ,-1.0/5 ,0.0   ], &
@@ -39,31 +41,35 @@ module streamutils
 
     !Some knobs for tracing cut-off
     real(rp), private :: bMinC !Min allowable field strength (in chimp units)
-
     contains
 
     subroutine setStreamlineKnobs(Model,inpXML)
-        
+        USE rcmdefs, ONLY : bMin_C_DEF
         type(chmpModel_T), intent(inout) :: Model
         type(XML_Input_T), intent(inout) :: inpXML
+
         character(len=strLen) :: sStr
         real(rp) :: bMin_nT
+
         if (Model%isMAGE) then
             call inpXML%Set_Val(sStr,'streamline/steptype',"MAGE")
         else
             call inpXML%Set_Val(sStr,'streamline/steptype',"RK4L")
         endif
+
         select case(trim(toUpper(sStr)))
             case("MAGE")
                 StreamStep=>Step_MAGE
             case("RK4L")
                 StreamStep=>Step_RK4L
         end select
+
         if (Model%isMAGE) then
-            call inpXML%Set_Val(bMin_nT,"/Kaiju/voltron/imag/bMin_C",TINY)
+            call inpXML%Set_Val(bMin_nT,"/Kaiju/voltron/imag/bMin_C",bMin_C_DEF)
         else
             bMin_nT = 0.0 !Don't do this for non-mage case
         endif
+
         !Convert bmin from nT to chimp eb coordinates
         bMinC = bMin_nT/oBScl
 
@@ -94,10 +100,11 @@ module streamutils
             if (present(oB)) oB = 0.0
             return
         endif
-        
-        j0 = gpt%ijkG(JDIR)
 
-        Nr = 2 !Number of rings to treat carefully
+        j0 = gpt%ijkG(JDIR)
+        ! !Get approx number of rings, 4/8/12/16 (DQOH)
+        ! Nr = nint( 4*( log(1.0*ebState%ebGr%Nkp/64.0)/log(2.0) + 1) )
+        Nr = 2 
         isAxS = (j0 < ebState%ebGr%js+Nr)
         isAxE = (j0 > ebState%ebGr%je-Nr)
 
@@ -145,7 +152,7 @@ module streamutils
         real(rp), intent(out), dimension(NDIM), optional :: oB
 
         real(rp), dimension(NDIM) :: Jb,Jb2,Jb3,F1,F2,F3,F4
-        real(rp), dimension(NDIM) :: x0,B
+        real(rp), dimension(NDIM) :: x0,B,B1,B2,B3,B4
         real(rp), dimension(NDIM,NDIM) :: JacB
         real(rp) :: dsmag,dsOld,ds,sig,MagB,MagJb,Lb
         real(rp) :: ds2,ds3,ds4
@@ -162,7 +169,7 @@ module streamutils
         endif
 
         MagB = norm2(B)
-        if (MagB<TINY) then
+        if (MagB<TINY .or. (.not. CheckMagmag(B))) then
             !Get outta here
             dx = 0.0
             h  = 0.0
@@ -180,9 +187,9 @@ module streamutils
         !Pick ds = eps*Lb
         dsmag = eps*Lb
         !Now constrain ds to be:
-        ! <= 3x dsOld, dl
+        ! <= n x dsOld, dl
         ! >= eps*dl
-        call ClampValue(dsmag,eps*gpt%dl,min(3*dsOld,gpt%dl))
+        call ClampValue(dsmag,eps*gpt%dl,min(2*dsOld,gpt%dl))
 
         h = sig*dsmag !Step length
     !Do step
@@ -199,8 +206,24 @@ module streamutils
         F1 = ds*B
         F2 = F1 + (ds2/2)*Jb
         F3 = F2 + (ds3/4)*Jb2
-        F4 = 2*F3 - F1 + (ds4/4)*Jb3
-        !F4 = ds*B + ds*ds*Jb + (ds**3.0/2.0)*Jb2 + (ds**4.0/4.0)*Jb3
+        F4 = ds*B + ds*ds*Jb + (ds**3.0/2.0)*Jb2 + (ds**4.0/4.0)*Jb3
+        !F4 = 2*F3 - F1 + (ds4/4)*Jb3
+        
+        !Construct field values for testing
+        B1 = F1/ds
+        B2 = F2/ds
+        B3 = F3/ds
+        B4 = F4/ds
+
+        isGood = CheckMagmag(B1) .and. CheckMagmag(B2) .and. &
+                 CheckMagmag(B3) .and. CheckMagmag(B4)
+        if (.not. isGood) then
+            dx = 0.0
+            h  = 0.0
+            if (present(oB)) oB = 0.0
+            !write(*,*) "Bad value in RK4L!"
+            return
+        endif
 
     !Advance
         dx = (F1+2*F2+2*F3+F4)/6.0
@@ -210,6 +233,84 @@ module streamutils
         endif
 
     end subroutine Step_RK4L
+
+    !RK23 (RKF23) w/ linearized field
+    subroutine StepRKF23Lin(gpt,Model,ebState,eps,h,dx,iB,oB)
+        type(GridPoint_T), intent(inout) :: gpt
+        type(chmpModel_T), intent(in)    :: Model
+        type(ebState_T)  , intent(in)    :: ebState
+        real(rp), intent(in) :: eps
+        real(rp), intent(inout) :: h,dx(NDIM)
+        real(rp), intent(in) , dimension(NDIM), optional :: iB
+        real(rp), intent(out), dimension(NDIM), optional :: oB
+
+        real(rp), dimension(NDIM) :: x0,x2,x3,k1,k2,k3,dxLO,dxHO,B0
+        real(rp), dimension(NDIM,NDIM) :: JacB0
+
+        real(rp) :: ddx,sScl,absh
+        logical :: isGood
+
+        x0 = gpt%xyz
+        !Need Jacobian, using streamlined routine
+        JacB0 = FastJacB(x0,gPt%t,Model,ebState,gPt%ijkG)
+
+        if (present(iB)) then
+            B0 = iB
+            isGood = .true.
+        else
+            B0 = FastMag(x0,gPt%t,Model,ebState,isGood,gPt%ijkG)
+        endif
+        !Get first hat
+        k1 = h*normVec(B0)
+
+        if (isGood) then
+            x2 = x0 + k1
+            k2 = h*LinHat(x0,B0,JacB0,x2)
+
+            x3 = x0 + (k1+k2)/4.0
+            k3 = h*LinHat(x0,B0,JacB0,x3)
+        else
+            !Bad step
+            dx = 0.0
+            h = 0.0
+            if (present(oB)) oB = 0.0
+            return
+        endif
+
+        !If we're still here, the step was good so let's calculate
+        dxLO = 0.5*(k1+k2)
+        dxHO = (k1+k2+4.0*k3)/6.0
+
+        ddx = max( norm2(dxLO-dxHO),TINY )
+        sScl = 0.7937*( (StreamTol*gpt%dl/ddx)**(1.0/3.0) ) !Relative
+        
+        !Now calculate new step
+        absh = 0.8*abs(h)*sScl
+        !Clamp min/max step
+        call ClampValue(absh,eps*gpt%dl,min(0.5*gpt%dl,2*abs(h)))
+        h = sign(absh,h)
+
+        !Using HO step
+        dx = dxHO
+        if (present(oB)) then
+            oB = FastMag(x0+dx,gPt%t,Model,ebState,isGood,gPt%ijkG)
+        endif
+
+        contains
+
+            function LinHat(x0,B0,Jb0,x) result(bhat)
+                real(rp), dimension(NDIM), intent(in) :: x0,B0,x
+                real(rp), dimension(NDIM,NDIM), intent(in) :: Jb0
+
+                real(rp), dimension(NDIM) :: bhat
+                real(rp), dimension(NDIM) :: dx,B
+
+                dx = x-x0
+                B  = B0 + matmul(Jb0,dx)
+                bhat = normVec(B)
+                 
+            end function LinHat
+    end subroutine StepRKF23Lin
 
     subroutine Step_RKF45(gpt,Model,ebState,eps,h,dx,iB,oB)
         type(GridPoint_T), intent(inout) :: gpt
@@ -275,8 +376,7 @@ module streamutils
         !Now calculate new step
         absh = 0.95*abs(h)*sScl !Optimal value according to math
         !Clamp min/max step based on fraction of cell size and 3x old value
-        call ClampValue(absh,eps*gpt%dl,3*abs(h))
-
+        call ClampValue(absh,eps*gpt%dl,min(3*abs(h),1.5*gpt%dl))
         h = sign(absh,h)
 
         !Using HO step (but see some comments about using LO for stiff problems)
@@ -284,6 +384,7 @@ module streamutils
         if (present(oB)) then
             oB = FastMag(x0+dx,gPt%t,Model,ebState,isG,gPt%ijkG)
         endif
+
     end subroutine Step_RKF45
 
     subroutine Step_BS23(gpt,Model,ebState,eps,h,dx,iB,oB)
@@ -381,7 +482,29 @@ module streamutils
 
         B = FastMag(xyz,t,Model,ebState,isIn,ijkG)
         bhat = normVec(B)
+        !Test field magnitude
+        if (norm2(B) <= bMinC) then
+            !Field too weak
+            bhat = 0.0
+            isIn = .false.
+        endif
+        
     end function FastHat
+
+    !Check if a given field is sufficiently strong (above bMinC)
+    function CheckMagmag(B) result(isGood)
+        real(rp), intent(in) :: B(NDIM)
+        logical :: isGood
+        real(rp) :: bmag
+
+        bmag = norm2(B)
+        if (bmag <= bMinC) then
+            isGood = .false.
+        else
+            isGood = .true.
+        endif
+
+    end function CheckMagmag
 
     function FastMag(xyz,t,Model,ebState,isIn,ijkG) result(B)
         real(rp), intent(in) :: xyz(NDIM),t
@@ -627,19 +750,53 @@ module streamutils
 
     end function getDiag
 
-    subroutine cleanStream(fL)
-        type(fLine_T), intent(inout) :: fL
+    subroutine cleanLine(fL)
+        type(magLine_T), intent(inout) :: fL
 
-        integer :: i
-        if (allocated(fL%xyz)) deallocate(fL%xyz)
-        if (allocated(fL%ijk)) deallocate(fL%ijk)
-        do i=0,NumVFL
-            if (allocated(fL%lnVars(i)%V)) deallocate(fL%lnVars(i)%V)
-        enddo
         fL%x0 = 0.0
         fL%Nm = 0
         fL%Np = 0
-        fL%Nmax = MaxFL
         fL%isGood = .false.
-    end subroutine cleanStream                
+
+        if (allocated(fL%xyz )) deallocate(fL%xyz )
+        if (allocated(fL%ijk )) deallocate(fL%ijk )
+        if (allocated(fL%Bxyz)) deallocate(fL%Bxyz)
+        if (allocated(fL%magB)) deallocate(fL%magB)
+        if (allocated(fL%Gas )) deallocate(fL%Gas )
+
+    end subroutine cleanLine
+
+
+    subroutine deepCopyLine(flIn, flOut)
+        type(magLine_T), intent(in) :: flIn
+        type(magLine_T), intent(out) :: flOut
+
+        integer :: N1,N2,Nv,Ns
+        
+        N1 = flIn%Nm
+        N2 = flIn%Np
+        Nv = size(flIn%Gas,dim=2)
+        Ns = ubound(flIn%Gas,dim=3)
+
+        call cleanLine(flOut)
+
+        flOut%x0 = flIn%x0
+        flOut%Nm = flIn%Nm
+        flOut%Np = flIn%Np
+        flOut%isGood = flIn%isGood
+
+        allocate(flOut%xyz (-N1:+N2,NDIM))
+        allocate(flOut%ijk (-N1:+N2,NDIM))
+        allocate(flOut%Bxyz(-N1:+N2,NDIM))
+        allocate(flOut%magB(-N1:+N2))
+        allocate(flOut%Gas(-N1:+N2,Nv,0:Ns))
+
+        flOut%xyz = flIn%xyz
+        flOut%ijk = flIn%ijk
+        flOut%Bxyz = flIn%Bxyz
+        flOut%magB = flIn%magB
+        flOut%Gas  = flIn%Gas
+
+    end subroutine deepCopyLine
+
 end module streamutils

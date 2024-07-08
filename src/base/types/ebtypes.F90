@@ -26,8 +26,10 @@ module ebtypes
 
     !Holds single slice of field data, attached to grid data in ebState
     type ebField_T
-        real(rp), dimension(:,:,:,:), allocatable :: dB,E !Fields
-        real(rp), dimension(:,:,:,:), allocatable :: W !Primitive MHD variables
+        real(rp), dimension(:,:,:,:)  , allocatable :: dB,E !Fields
+        real(rp), dimension(:,:,:,:,:), allocatable :: W !Primitive MHD variables
+        !W = ebGr%isg:ebGr%ieg,ebGr%jsg:ebGr%jeg,ebGr%ksg:ebGr%keg,NVARMHD,0:Model%nSpc
+
         real(rp), dimension(:,:,:,:), allocatable :: Jxyz !Current density, must be [A/m2]
         real(rp), dimension(:), allocatable :: Lpp !Plasmapause location,Lpp(MLT)
         real(rp) :: time !Time in code units for this slice
@@ -86,30 +88,31 @@ module ebtypes
     end type gcFields_T
 
     integer, parameter :: MaxFL = MAXTUBESIZE !Reduced for multi-threading speed
-    integer, parameter :: NumVFL = NVARMHD !Number of field line variables (other than |B|)
 
-    !Streamline variable
-    type lnVar_T
-        character(len=strLen) :: idStr !Variable name
-        real(rp), allocatable, dimension(:) :: V !Same spacing as xyz in main streamline structure (-Nm:Np)
-        real(rp) :: V0 !Value @ "equator"
-    end type lnVar_T
-
-    !Individual streamline
-    type fLine_T
-        integer :: Nm=0,Np=0,Nmax=MaxFL
+    !Magnetic field line type, w/ MF plasma information
+    type magLine_T
         real(rp), dimension(NDIM) :: x0 !Seed point
-        real(rp), allocatable, dimension(:,:) :: xyz
+        integer :: Nm=0,Np=0 !Length of line, -Nm:+Np w/ x0=>0
 
-        !xyz(-Nm:Np,:), w/ xyz(0,:) = seed point
-        type(lnVar_T), dimension(0:NumVFL) :: lnVars
+        !Whether this is a degenerate line (seed point not in domain) or didn't bother to trace
+        logical :: isGood = .false.
+
+        real(rp), allocatable, dimension(:,:) :: xyz
+        !xyz(-Nm:+Np,XDIR:ZDIR), w/ xyz(0,XDIR:ZDIR) = seed point
 
         !Localization data, ie ijk of each node of field line (not set yet)
+        !Same size as xyz array
         integer, allocatable, dimension(:,:) :: ijk
 
-        !Whether this is a degenerate line (seed point not in domain)
-        logical :: isGood = .false.
-    end type fLine_T
+        !Magnetic field along field line, (-Nm:+Np,XDIR:ZDIR)
+        real(rp), allocatable, dimension(:,:) :: Bxyz
+        real(rp), allocatable, dimension(:)   :: magB !Just vector magnitude of above
+
+        !Plasma information (primitive variables)
+        !Gas = (-Nm:+Np,NVARMHD,0:Model%nSpc) w/ 0 = BULK
+        real(rp), allocatable, dimension(:,:,:) :: Gas
+
+    end type magLine_T
         
     contains
 
@@ -132,7 +135,7 @@ module ebtypes
         ebF%dB = 0.0
         ebF%E  = 0.0
         if (Model%doMHD .and. (.not. allocated(ebF%W))) then
-            allocate(ebF%W(ebGr%isg:ebGr%ieg,ebGr%jsg:ebGr%jeg,ebGr%ksg:ebGr%keg,NVARMHD))
+            allocate(ebF%W(ebGr%isg:ebGr%ieg,ebGr%jsg:ebGr%jeg,ebGr%ksg:ebGr%keg,NVARMHD,0:Model%nSpc))
             ebF%W = 0.0
         endif
         if (Model%doJ .and. (.not. allocated(ebF%Jxyz))) then

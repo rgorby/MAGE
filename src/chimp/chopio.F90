@@ -13,7 +13,7 @@ module chopio
     implicit none
 
     character(len=strLen) :: eb3DOutF
-    integer, parameter :: MAXEBVS = 30
+    integer, parameter :: MAXEBVS = 50
     
     integer  :: Nx1 = 64, Nx2 = 64, Nx3 = 64
 
@@ -154,9 +154,9 @@ module chopio
                 enddo
             enddo
 
-            case default
-                write(*,*) 'Unknown chop type, exiting ...'
-                stop
+        case default
+            write(*,*) 'Unknown chop type, exiting ...'
+            stop
 
         end select
         !Calculate cell centers (just simple 8 point average)
@@ -198,12 +198,14 @@ module chopio
 
         type(IOVAR_T), dimension(MAXEBVS) :: IOVars
 
-        real(rp), dimension(:,:,:,:), allocatable :: B,Q,E,J3
-        real(rp), dimension(NVARMHD) :: Qijk
+        real(rp), dimension(:,:,:,:)  , allocatable :: B,E,J3
+        real(rp), dimension(:,:,:,:,:), allocatable :: Q
+        real(rp), dimension(NVARMHD,0:Model%nSpc) :: Qijk
         real(rp), dimension(NDIM) :: Bijk,Eijk,xyz
         type(gcFields_T) :: gcFields
         real(rp), dimension(NDIM,NDIM) :: jB
-        integer :: i,j,k
+        integer :: i,j,k,s
+        character(len=strLen) :: dID,pID,vxID,vyID,vzID
 
         real(rp) :: oJScl
 
@@ -213,7 +215,7 @@ module chopio
         allocate(B (Nx1,Nx2,Nx3,NDIM))
         allocate(E (Nx1,Nx2,Nx3,NDIM))
         allocate(J3(Nx1,Nx2,Nx3,NDIM))
-        allocate(Q (Nx1,Nx2,Nx3,NVARMHD))
+        allocate(Q (Nx1,Nx2,Nx3,NVARMHD,0:Model%nSpc))
 
         if (Model%doTrc) then
             !Create an ebTrc for each point on slice
@@ -241,8 +243,8 @@ module chopio
                     J3(i,j,k,:) = Jac2Curl(jB)
 
                     if (Model%doMHD) then
-                        Qijk = mhdInterp(xyz,Model%t,Model,ebState)
-                        Q(i,j,k,:) = Qijk
+                        Qijk = mhdInterpMF(xyz,Model%t,Model,ebState)
+                        Q(i,j,k,:,:) = Qijk
                     endif
 
                     if (Model%doTrc) then
@@ -280,11 +282,25 @@ module chopio
         call AddOutVar(IOVars,"Jz"  ,oJScl*J3(:,:,:,ZDIR))
 
         if (Model%doMHD) then
-            call AddOutVar(IOVars,"Vx"  ,oVScl*Q(:,:,:,VELX    ))
-            call AddOutVar(IOVars,"Vy"  ,oVScl*Q(:,:,:,VELY    ))
-            call AddOutVar(IOVars,"Vz"  ,oVScl*Q(:,:,:,VELZ    ))
-            call AddOutVar(IOVars,"D"   ,      Q(:,:,:,DEN     ))
-            call AddOutVar(IOVars,"P"   ,      Q(:,:,:,PRESSURE))
+            call AddOutVar(IOVars,"Vx"  ,oVScl*Q(:,:,:,VELX    ,BLK))
+            call AddOutVar(IOVars,"Vy"  ,oVScl*Q(:,:,:,VELY    ,BLK))
+            call AddOutVar(IOVars,"Vz"  ,oVScl*Q(:,:,:,VELZ    ,BLK))
+            call AddOutVar(IOVars,"D"   ,      Q(:,:,:,DEN     ,BLK))
+            call AddOutVar(IOVars,"P"   ,      Q(:,:,:,PRESSURE,BLK))
+            if (Model%nSpc > 0) then
+                do s=1,Model%nSpc
+                    write(dID  ,'(A,I0)') "D"  , s
+                    write(pID  ,'(A,I0)') "P"  , s
+                    write(vxID ,'(A,I0)') "Vx" , s
+                    write(vyID ,'(A,I0)') "Vy" , s
+                    write(vzID ,'(A,I0)') "Vz" , s
+                    call AddOutVar(IOVars,vxID , oVScl*Q(:,:,:,VELX    ,s))
+                    call AddOutVar(IOVars,vyID , oVScl*Q(:,:,:,VELY    ,s))
+                    call AddOutVar(IOVars,vzID , oVScl*Q(:,:,:,VELZ    ,s))
+                    call AddOutVar(IOVars,dID  ,       Q(:,:,:,DEN     ,s))
+                    call AddOutVar(IOVars,pID  ,       Q(:,:,:,PRESSURE,s))
+                enddo
+            endif
         endif
 
         if (Model%doTrc) then
