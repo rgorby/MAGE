@@ -142,6 +142,10 @@ program raijuOWDx
 
             call Tic("Output")
         ! Output if ready
+            if (raiApp%State%IO%doRestart(raiApp%State%t)) then
+                call raijuResOutput(raiApp%Model,raiApp%Grid,raiApp%State)
+            endif
+            
             if (raiApp%State%IO%doOutput(raiApp%State%t)) then
                 call raijuOutput(raiApp%Model,raiApp%Grid,raiApp%State)
 
