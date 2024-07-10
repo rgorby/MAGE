@@ -384,7 +384,6 @@ module raijustarter
         end associate
         
         if (Model%isRestart) then
-            !call ReadRaijuResState(Model, Grid, State, Model%ResF)
             call raijuResInput(Model, Grid, State)
             return
         endif

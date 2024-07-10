@@ -235,9 +235,9 @@ module raijuPreAdvancer
         integer :: i,j
         ! Cell corners
         logical , dimension(Grid%shGrid%isg:Grid%shGrid%ieg+1,&
-                            Grid%shGrid%jsg:Grid%shGrid%jeg+1) :: isGCorner, tmpBvol
+                            Grid%shGrid%jsg:Grid%shGrid%jeg+1) :: isGCorner
         real(rp), dimension(Grid%shGrid%isg:Grid%shGrid%ieg+1,&
-                            Grid%shGrid%jsg:Grid%shGrid%jeg+1) :: pExB, pCorot
+                            Grid%shGrid%jsg:Grid%shGrid%jeg+1) :: pExB, pCorot, tmpBvol
         ! Cell faces
         real(rp), dimension(Grid%shGrid%isg:Grid%shGrid%ieg+1,&
                             Grid%shGrid%jsg:Grid%shGrid%jeg+1, 2) :: gradVM
