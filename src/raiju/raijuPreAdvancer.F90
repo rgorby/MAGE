@@ -231,6 +231,8 @@ module raijuPreAdvancer
         type(raijuGrid_T ), intent(in)    :: Grid
         type(raijuState_T), intent(inout) :: State
 
+
+        integer :: i,j
         ! Cell corners
         logical , dimension(Grid%shGrid%isg:Grid%shGrid%ieg+1,&
                             Grid%shGrid%jsg:Grid%shGrid%jeg+1) :: isGCorner, tmpBvol
@@ -248,7 +250,12 @@ module raijuPreAdvancer
         end where
 
         ! Prep
-        tmpBvol = merge(State%bvol, 0.0_rp, State%bvol > 0.0_rp)
+        tmpBvol = 0.0
+        do i=Grid%shGrid%isg,Grid%shGrid%ieg+1
+            do j=Grid%shGrid%jsg,Grid%shGrid%jeg+1
+                tmpBvol(i,j) = max(0.0, State%bvol(i,j))
+            enddo
+        enddo
         
         ! Ionospheric and corotation potentials are just simple derivatives
         call potExB(Grid%shGrid, State, pExB)  ! [V]
