@@ -273,20 +273,20 @@ module chopio
         call AddOutVar(IOVars,"By"  ,oBScl*B(:,:,:,YDIR))
         call AddOutVar(IOVars,"Bz"  ,oBScl*B(:,:,:,ZDIR))
 
-        call AddOutVar(IOVars,"Ex"  ,oEScl*E(:,:,:,XDIR))
-        call AddOutVar(IOVars,"Ey"  ,oEScl*E(:,:,:,YDIR))
-        call AddOutVar(IOVars,"Ez"  ,oEScl*E(:,:,:,ZDIR))
+        call AddOutVar(IOVars,"Ex"  ,oEScl*E(:,:,:,XDIR),uStr="mV/m")
+        call AddOutVar(IOVars,"Ey"  ,oEScl*E(:,:,:,YDIR),uStr="mV/m")
+        call AddOutVar(IOVars,"Ez"  ,oEScl*E(:,:,:,ZDIR),uStr="mV/m")
 
         call AddOutVar(IOVars,"Jx"  ,oJScl*J3(:,:,:,XDIR))
         call AddOutVar(IOVars,"Jy"  ,oJScl*J3(:,:,:,YDIR))
         call AddOutVar(IOVars,"Jz"  ,oJScl*J3(:,:,:,ZDIR))
 
         if (Model%doMHD) then
-            call AddOutVar(IOVars,"Vx"  ,oVScl*Q(:,:,:,VELX    ,BLK))
-            call AddOutVar(IOVars,"Vy"  ,oVScl*Q(:,:,:,VELY    ,BLK))
-            call AddOutVar(IOVars,"Vz"  ,oVScl*Q(:,:,:,VELZ    ,BLK))
-            call AddOutVar(IOVars,"D"   ,      Q(:,:,:,DEN     ,BLK))
-            call AddOutVar(IOVars,"P"   ,      Q(:,:,:,PRESSURE,BLK))
+            call AddOutVar(IOVars,"Vx"  ,oVScl*Q(:,:,:,VELX    ,BLK),uStr="km/s")
+            call AddOutVar(IOVars,"Vy"  ,oVScl*Q(:,:,:,VELY    ,BLK),uStr="km/s")
+            call AddOutVar(IOVars,"Vz"  ,oVScl*Q(:,:,:,VELZ    ,BLK),uStr="km/s")
+            call AddOutVar(IOVars,"D"   ,      Q(:,:,:,DEN     ,BLK),uStr="#/cc")
+            call AddOutVar(IOVars,"P"   ,      Q(:,:,:,PRESSURE,BLK),uStr="nPa" )
             if (Model%nSpc > 0) then
                 do s=1,Model%nSpc
                     write(dID  ,'(A,I0)') "D"  , s
@@ -294,11 +294,11 @@ module chopio
                     write(vxID ,'(A,I0)') "Vx" , s
                     write(vyID ,'(A,I0)') "Vy" , s
                     write(vzID ,'(A,I0)') "Vz" , s
-                    call AddOutVar(IOVars,vxID , oVScl*Q(:,:,:,VELX    ,s))
-                    call AddOutVar(IOVars,vyID , oVScl*Q(:,:,:,VELY    ,s))
-                    call AddOutVar(IOVars,vzID , oVScl*Q(:,:,:,VELZ    ,s))
-                    call AddOutVar(IOVars,dID  ,       Q(:,:,:,DEN     ,s))
-                    call AddOutVar(IOVars,pID  ,       Q(:,:,:,PRESSURE,s))
+                    call AddOutVar(IOVars,vxID , oVScl*Q(:,:,:,VELX    ,s),uStr="km/s")
+                    call AddOutVar(IOVars,vyID , oVScl*Q(:,:,:,VELY    ,s),uStr="km/s")
+                    call AddOutVar(IOVars,vzID , oVScl*Q(:,:,:,VELZ    ,s),uStr="km/s")
+                    call AddOutVar(IOVars,dID  ,       Q(:,:,:,DEN     ,s),uStr="#/cc")
+                    call AddOutVar(IOVars,pID  ,       Q(:,:,:,PRESSURE,s),uStr="nPa" )
                 enddo
             endif
         endif
@@ -306,6 +306,11 @@ module chopio
         if (Model%doTrc) then
             !Field line tracing metrics
             call AddOutVar(IOVars,"OCb" ,ebTrcIJK(:,:,:)%OCb )
+            call AddOutVar(IOVars,"dvB" ,ebTrcIJK(:,:,:)%dvB/oBScl,uStr="Rx/nT")
+            call AddOutVar(IOVars,"bD"  ,ebTrcIJK(:,:,:)%bD,uStr="#/cc")
+            call AddOutVar(IOVars,"bP"  ,ebTrcIJK(:,:,:)%bP,uStr="nPa")
+            call AddOutVar(IOVars,"bS"  ,ebTrcIJK(:,:,:)%bS,uStr="Wolf^(1/gamma)")
+            call AddOutVar(IOVars,"bMin",ebTrcIJK(:,:,:)%bMin*oBScl,uStr="nT")
 
             !Equator and end-points
             call AddOutVar(IOVars,"xBEQ",ebTrcIJK(:,:,:)%MagEQ(XDIR))
