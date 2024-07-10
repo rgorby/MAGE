@@ -233,7 +233,7 @@ module raijuPreAdvancer
 
         ! Cell corners
         logical , dimension(Grid%shGrid%isg:Grid%shGrid%ieg+1,&
-                            Grid%shGrid%jsg:Grid%shGrid%jeg+1) :: isGCorner
+                            Grid%shGrid%jsg:Grid%shGrid%jeg+1) :: isGCorner, tmpBvol
         real(rp), dimension(Grid%shGrid%isg:Grid%shGrid%ieg+1,&
                             Grid%shGrid%jsg:Grid%shGrid%jeg+1) :: pExB, pCorot
         ! Cell faces
@@ -246,6 +246,9 @@ module raijuPreAdvancer
         elsewhere
             isGCorner = .false.
         end where
+
+        ! Prep
+        tmpBvol = merge(State%bvol, 0.0_rp, State%bvol > 0.0_rp)
         
         ! Ionospheric and corotation potentials are just simple derivatives
         call potExB(Grid%shGrid, State, pExB)  ! [V]
@@ -257,8 +260,10 @@ module raijuPreAdvancer
         ! lambda is constant, so just need grad(V^(-2/3) )
         ! grad(V^(-2/3)) = -2/3*V^(-5/3) * grad(V)
         call calcGradFTV(Model%planet%rp_m, Model%planet%ri_m, Model%planet%magMoment, Grid, isGCorner, State%bvol, gradVM)
-        State%gradVM(:,:,RAI_TH) = (-2./3.) * State%bvol**(-5./3.) * gradVM(:,:,RAI_TH)  ! [Vol^(-2/3)/m]
-        State%gradVM(:,:,RAI_PH) = (-2./3.) * State%bvol**(-5./3.) * gradVM(:,:,RAI_PH)  ! [Vol^(-2/3)/m]
+        !State%gradVM(:,:,RAI_TH) = (-2./3.) * State%bvol**(-5./3.) * gradVM(:,:,RAI_TH)  ! [Vol^(-2/3)/m]
+        !State%gradVM(:,:,RAI_PH) = (-2./3.) * State%bvol**(-5./3.) * gradVM(:,:,RAI_PH)  ! [Vol^(-2/3)/m]
+        State%gradVM(:,:,RAI_TH) = (-2./3.) * tmpBvol**(-5./3.) * gradVM(:,:,RAI_TH)  ! [Vol^(-2/3)/m]
+        State%gradVM(:,:,RAI_PH) = (-2./3.) * tmpBvol**(-5./3.) * gradVM(:,:,RAI_PH)  ! [Vol^(-2/3)/m]
 
     end subroutine calcPotGrads
 

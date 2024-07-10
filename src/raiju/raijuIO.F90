@@ -155,7 +155,8 @@ module raijuIO
         integer :: is, ie, js, je, ks, ke
         logical :: doGhosts
         real(rp) :: axT, axP
-        real(rp), dimension(:,:), allocatable :: outActiveShell
+        real(rp) :: bVol_cc
+        real(rp), dimension(:,:), allocatable :: outActiveShell, outEnt
         real(rp), dimension(:,:,:), allocatable :: outDen, outIntensity
         real(rp), dimension(:,:,:), allocatable :: outPrecipN, outPrecipE, outPrecipAvgE
         real(rp), dimension(:,:,:), allocatable :: outPEff  ! effective Potential
@@ -216,14 +217,18 @@ module raijuIO
             endif
             do i=is,ie
                 do j=js,je
-                    outIntensity(i,j,Grid%spc(s)%kStart:Grid%spc(s)%kEnd) = &
-                        eta2intensity(Grid%spc(s),   &
-                                      State%bVol(i,j),   &
-                                      State%eta (i,j,Grid%spc(s)%kStart:Grid%spc(s)%kEnd))
+                    if (all(State%bVol(i:i+1,j:j+1) > 0)) then
+                        bVol_cc = 0.25*(State%bVol(i,j) + State%bVol(i+1,j) + State%bVol(i,j+1) + State%bVol(i+1,j+1))
+                        outIntensity(i,j,Grid%spc(s)%kStart:Grid%spc(s)%kEnd) = &
+                            eta2intensity(Grid%spc(s),   &
+                            bVol_cc,   &
+                            State%eta (i,j,Grid%spc(s)%kStart:Grid%spc(s)%kEnd))
+                    endif
                 enddo
             enddo
         enddo
         call AddOutVar(IOVars,"intensity",outIntensity(is:ie,js:je, :),uStr="1/(s*sr*keV*cm^2)")
+        deallocate(outIntensity)
         
 
         ! Coupling things
@@ -250,11 +255,24 @@ module raijuIO
             outActiveShell = 0.0
         end where
         call AddOutVar(IOVars,"activeShells",outActiveShell,uStr="[Ni, Nk]")
+        deallocate(outActiveShell)
 
     ! Moments
-        call AddOutVar(IOVars,"Pressure",State%Press(is:ie,js:je, :),uStr="nPa")
+        call AddOutVar(IOVars,"Pressure",State%Press(is:ie,js:je,:),uStr="nPa")
+        call AddOutVar(IOVars,"Density",outDen(is:ie,js:je, :),uStr="#/cc")
         ! Calculate flux tube entropy using bulk pressure
-        call AddOutVar(IOVars,"FTEntropy",State%Press(is:ie,js:je,1)*State%bVol(is:ie,js:je)**(5./3.),uStr="nPa*(Rp/nT)^(5/3)")
+        allocate(outEnt(is:ie,js:je))
+        outEnt = -1.0
+        do i=is,ie
+            do j=js,je
+                if (all(State%bVol(i:i+1,j:j+1) > 0)) then
+                    bvol_cc = 0.25*(State%bVol(i,j) + State%bVol(i+1,j) + State%bVol(i,j+1) + State%bVol(i+1,j+1))
+                    outEnt(i,j) = State%Press(i,j,1)*bVol_cc**(5./3.)
+                endif
+            enddo
+        enddo
+        call AddOutVar(IOVars,"FTEntropy",outEnt,uStr="nPa*(Rp/nT)^(5/3)")
+        deallocate(outEnt)
         
         do s=0,Grid%nFluidIn
             write(*,*)"Davg_in ",s,maxval(State%Davg(is:ie+1,js:je+1,s))
@@ -271,8 +289,6 @@ module raijuIO
                 outDen(:,:,1) = outDen(:,:,1) + outDen(:,:,s+1)
             endif
         enddo
-        call AddOutVar(IOVars,"Density",outDen(is:ie,js:je, :),uStr="#/cc")
-        !call AddOutVar(IOVars,"Density",State%Den,uStr="#/cc")
 
     ! Precipitation
 
