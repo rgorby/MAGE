@@ -368,12 +368,11 @@ def main():
         slack_response_summary = common.slack_send_message(
             slack_client, test_report_summary_string, is_test=is_test
         )
-        if 'FAILED' in test_report_summary_string:
-            thread_ts = slack_response_summary['ts']
-            _ = common.slack_send_message(
-                slack_client, test_report_details_string, thread_ts=thread_ts,
-                is_test=is_test
-            )
+        thread_ts = slack_response_summary['ts']
+        _ = common.slack_send_message(
+            slack_client, test_report_details_string, thread_ts=thread_ts,
+            is_test=is_test
+        )
 
     # ------------------------------------------------------------------------
 
