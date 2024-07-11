@@ -49,9 +49,6 @@ BUILD_TEST_DIRECTORY = os.path.join(MAGE_TEST_SET_ROOT, 'buildTest')
 EXECUTABLE_LIST_BUILD_DIRECTORY = os.path.join(BUILD_TEST_DIRECTORY,
                                                'build_executable_list')
 
-# Prefix for naming build test directories
-BUILD_TEST_DIRECTORY_PREFIX = 'buildTest_'
-
 # Home directory of kaiju installation
 KAIJUHOME = os.environ['KAIJUHOME']
 
@@ -63,10 +60,14 @@ MODULE_LIST_DIRECTORY = os.path.join(TEST_SCRIPTS_DIRECTORY,
                                      'mage_build_test_modules')
 
 # Path to module list file to use when generating the list of executables
-EXECUTABLE_LIST_MODULE_LIST = os.path.join(MODULE_LIST_DIRECTORY, '01.lst')
+# Use a module set without MKL.
+EXECUTABLE_LIST_MODULE_LIST = os.path.join(MODULE_LIST_DIRECTORY, '04.lst')
 
 # Path to file containing list of module sets to use for build tests
 BUILD_TEST_LIST_FILE = os.path.join(MODULE_LIST_DIRECTORY, 'build_test.lst')
+
+# Prefix for naming build test directories
+BUILD_TEST_DIRECTORY_PREFIX = 'buildTest_'
 
 # Name of subdirectory of current build subdirectory containing binaries
 BUILD_BIN_DIR = 'bin'
@@ -331,13 +332,6 @@ def main():
 
     # -------------------------------------------------------------------------
 
-    # Set up for communication with Slack.
-    slack_client = common.slack_create_client()
-    if debug:
-        print(f"slack_client = {slack_client}")
-
-    # -------------------------------------------------------------------------
-
     # Detail the test results
     test_report_details_string = ''
     test_report_details_string += (
@@ -350,11 +344,6 @@ def main():
             test_report_details_string += '*PASSED*\n'
         else:
             test_report_details_string += '*FAILED*\n'
-            test_report_details_string += 'This module set used:\n'
-            path = os.path.join(MODULE_LIST_DIRECTORY, module_list_file)
-            lines = open(path).readlines()
-            for line in lines:
-                test_report_details_string += f"{line}\n"
 
     # Summarize the test results.
     test_report_summary_string = (
@@ -371,8 +360,11 @@ def main():
     print(test_report_summary_string)
     print(test_report_details_string)
 
-    # If loud mode is on, post report to Slack.
-    if be_loud:
+    # If a test failed and loud mode is on, post report to Slack.
+    if 'FAILED' in test_report_details_string and be_loud:
+        slack_client = common.slack_create_client()
+        if debug:
+            print(f"slack_client = {slack_client}")
         slack_response_summary = common.slack_send_message(
             slack_client, test_report_summary_string, is_test=is_test
         )
@@ -383,7 +375,7 @@ def main():
                 is_test=is_test
             )
 
-    # -------------------------------------------------------------------------
+    # ------------------------------------------------------------------------
 
     if debug:
         print(f"Ending {sys.argv[0]} at {datetime.datetime.now()}")
