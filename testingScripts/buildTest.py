@@ -335,7 +335,7 @@ def main():
     # Detail the test results
     test_report_details_string = ''
     test_report_details_string += (
-        f"Test results are in {os.getcwd()}.\n"
+        f"Test results are in {BUILD_TEST_DIRECTORY}.\n"
     )
     for (i_test, module_list_file) in enumerate(module_list_files):
         module_set_name = module_list_file.rstrip('.lst')
@@ -348,7 +348,7 @@ def main():
     # Summarize the test results.
     test_report_summary_string = (
         'Summary of build test results from `buildTest.py`'
-        f" for branch or commit or tag {BRANCH_OR_COMMIT}: "
+        f" for branch or commit or tag `{BRANCH_OR_COMMIT}`: "
     )
     if 'FAILED' in test_report_details_string:
         test_report_summary_string += '*FAILED*\n'
@@ -367,11 +367,15 @@ def main():
         slack_response_summary = common.slack_send_message(
             slack_client, test_report_summary_string, is_test=is_test
         )
+        if debug:
+            print(f"slack_response_summary = {slack_response_summary}")
         thread_ts = slack_response_summary['ts']
-        _ = common.slack_send_message(
+        slack_response_summary = common.slack_send_message(
             slack_client, test_report_details_string, thread_ts=thread_ts,
             is_test=is_test
         )
+        if debug:
+            print(f"slack_response_summary = {slack_response_summary}")
 
     # ------------------------------------------------------------------------
 
