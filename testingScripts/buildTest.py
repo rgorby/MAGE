@@ -352,7 +352,6 @@ def main():
     )
     if 'FAILED' in test_report_details_string:
         test_report_summary_string += '*FAILED*\n'
-        test_report_summary_string += 'Details in thread.\n'
     else:
         test_report_summary_string += '*ALL PASSED*\n'
 
