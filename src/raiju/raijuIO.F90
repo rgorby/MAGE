@@ -259,20 +259,6 @@ module raijuIO
 
     ! Moments
         call AddOutVar(IOVars,"Pressure",State%Press(is:ie,js:je,:),uStr="nPa")
-        call AddOutVar(IOVars,"Density",outDen(is:ie,js:je, :),uStr="#/cc")
-        ! Calculate flux tube entropy using bulk pressure
-        allocate(outEnt(is:ie,js:je))
-        outEnt = -1.0
-        do i=is,ie
-            do j=js,je
-                if (all(State%bVol(i:i+1,j:j+1) > 0)) then
-                    bvol_cc = 0.25*(State%bVol(i,j) + State%bVol(i+1,j) + State%bVol(i,j+1) + State%bVol(i+1,j+1))
-                    outEnt(i,j) = State%Press(i,j,1)*bVol_cc**(5./3.)
-                endif
-            enddo
-        enddo
-        call AddOutVar(IOVars,"FTEntropy",outEnt,uStr="nPa*(Rp/nT)^(5/3)")
-        deallocate(outEnt)
         
         do s=0,Grid%nFluidIn
             write(*,*)"Davg_in ",s,maxval(State%Davg(is:ie+1,js:je+1,s))
@@ -289,6 +275,21 @@ module raijuIO
                 outDen(:,:,1) = outDen(:,:,1) + outDen(:,:,s+1)
             endif
         enddo
+        call AddOutVar(IOVars,"Density",outDen(is:ie,js:je, :),uStr="#/cc")
+
+        ! Calculate flux tube entropy using bulk pressure
+        allocate(outEnt(is:ie,js:je))
+        outEnt = -1.0
+        do i=is,ie
+            do j=js,je
+                if (all(State%bVol(i:i+1,j:j+1) > 0)) then
+                    bvol_cc = 0.25*(State%bVol(i,j) + State%bVol(i+1,j) + State%bVol(i,j+1) + State%bVol(i+1,j+1))
+                    outEnt(i,j) = State%Press(i,j,1)*bVol_cc**(5./3.)
+                endif
+            enddo
+        enddo
+        call AddOutVar(IOVars,"FTEntropy",outEnt,uStr="nPa*(Rp/nT)^(5/3)")
+        deallocate(outEnt)
 
     ! Precipitation
 

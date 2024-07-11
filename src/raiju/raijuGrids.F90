@@ -223,7 +223,7 @@ module raijugrids
             ! There's a row of ieg+1 phi interfaces we are never gonna use but might as well mark them anyways
             ! So we don't get nans when dividing by BrFace when we calculate velocities
             ! Linearly extrapolate from last theta edge + difference of theta edge to theta center
-            thc_extra = 2.0*shGr%thc(shGr%ieg+1) - shGr%th(shGr%ieg)
+            thc_extra = 2.0*shGr%th(shGr%ieg+1) - shGr%thc(shGr%ieg)
             Grid%BrFace(shGr%ieg+1,:,RAI_PH) &
                                        = planet%magMoment*G2nT &
                                        /(planet%ri_m/planet%rp_m)**3.0 &
