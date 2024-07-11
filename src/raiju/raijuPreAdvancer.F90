@@ -237,7 +237,7 @@ module raijuPreAdvancer
         logical , dimension(Grid%shGrid%isg:Grid%shGrid%ieg+1,&
                             Grid%shGrid%jsg:Grid%shGrid%jeg+1) :: isGCorner
         real(rp), dimension(Grid%shGrid%isg:Grid%shGrid%ieg+1,&
-                            Grid%shGrid%jsg:Grid%shGrid%jeg+1) :: pExB, pCorot, tmpBvol
+                            Grid%shGrid%jsg:Grid%shGrid%jeg+1) :: pExB, pCorot
         ! Cell faces
         real(rp), dimension(Grid%shGrid%isg:Grid%shGrid%ieg+1,&
                             Grid%shGrid%jsg:Grid%shGrid%jeg+1, 2) :: gradVM
@@ -249,13 +249,7 @@ module raijuPreAdvancer
             isGCorner = .false.
         end where
 
-        ! Prep
-        tmpBvol = 0.0
-        do i=Grid%shGrid%isg,Grid%shGrid%ieg+1
-            do j=Grid%shGrid%jsg,Grid%shGrid%jeg+1
-                tmpBvol(i,j) = max(0.0, State%bvol(i,j))
-            enddo
-        enddo
+        State%gradVM = 0.0
         
         ! Ionospheric and corotation potentials are just simple derivatives
         call potExB(Grid%shGrid, State, pExB)  ! [V]
@@ -266,11 +260,19 @@ module raijuPreAdvancer
         ! GC drifts depend on grad(lambda * V^(-2/3))
         ! lambda is constant, so just need grad(V^(-2/3) )
         ! grad(V^(-2/3)) = -2/3*V^(-5/3) * grad(V)
-        call calcGradFTV(Model%planet%rp_m, Model%planet%ri_m, Model%planet%magMoment, Grid, isGCorner, State%bvol, gradVM)
+        !call calcGradFTV(Model%planet%rp_m, Model%planet%ri_m, Model%planet%magMoment, Grid, isGCorner, State%bvol, gradVM)
         !State%gradVM(:,:,RAI_TH) = (-2./3.) * State%bvol**(-5./3.) * gradVM(:,:,RAI_TH)  ! [Vol^(-2/3)/m]
         !State%gradVM(:,:,RAI_PH) = (-2./3.) * State%bvol**(-5./3.) * gradVM(:,:,RAI_PH)  ! [Vol^(-2/3)/m]
-        State%gradVM(:,:,RAI_TH) = (-2./3.) * tmpBvol**(-5./3.) * gradVM(:,:,RAI_TH)  ! [Vol^(-2/3)/m]
-        State%gradVM(:,:,RAI_PH) = (-2./3.) * tmpBvol**(-5./3.) * gradVM(:,:,RAI_PH)  ! [Vol^(-2/3)/m]
+        call calcGradFTV(Model%planet%rp_m, Model%planet%ri_m, Model%planet%magMoment, Grid, isGCorner, State%bvol, gradVM)
+
+        do i=Grid%shGrid%isg,Grid%shGrid%ieg+1
+            do j=Grid%shGrid%jsg,Grid%shGrid%jeg+1
+                if (State%bvol(i,j) > 0.0) then
+                    State%gradVM(i,j,RAI_TH) = (-2./3.) * State%bvol(i,j)**(-5./3.) * gradVM(i,j,RAI_TH)  ! [Vol^(-2/3)/m]
+                    State%gradVM(i,j,RAI_PH) = (-2./3.) * State%bvol(i,j)**(-5./3.) * gradVM(i,j,RAI_PH)  ! [Vol^(-2/3)/m]
+                endif
+            enddo
+        enddo
 
     end subroutine calcPotGrads
 

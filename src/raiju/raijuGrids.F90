@@ -104,7 +104,7 @@ module raijugrids
         type(planet_T), intent(in) :: planet
 
         integer :: i,j
-        real(rp) :: L
+        real(rp) :: L, thc_extra
         real(rp), dimension(3) :: xyz
         real(rp), dimension(Grid%shGrid%isg:Grid%shGrid%ieg) :: cosThc, BMagTh
         real(rp), dimension(Grid%shGrid%isg:Grid%shGrid%ieg+1) :: cosTh
@@ -207,7 +207,7 @@ module raijugrids
             Grid%BrFace = 0.0
             ! Theta-dir faces have theta locations at cell interfaces
             cosTh = cos(shGr%th)  ! Ni+1
-            do j=shGr%jsg,shGr%jeg
+            do j=shGr%jsg,shGr%jeg+1
                 Grid%BrFace(:,j,RAI_TH) = planet%magMoment*G2nT &
                                         /(planet%ri_m/planet%rp_m)**3.0 &
                                         * 2*cosTh  ! [nT]
@@ -220,6 +220,14 @@ module raijugrids
                                         /(planet%ri_m/planet%rp_m)**3.0 &
                                         * 2*cosThc  ! [nT]
             enddo
+            ! There's a row of ieg+1 phi interfaces we are never gonna use but might as well mark them anyways
+            ! So we don't get nans when dividing by BrFace when we calculate velocities
+            ! Linearly extrapolate from last theta edge + difference of theta edge to theta center
+            thc_extra = 2.0*shGr%thc(shGr%ieg+1) - shGr%th(shGr%ieg)
+            Grid%BrFace(shGr%ieg+1,:,RAI_PH) &
+                                       = planet%magMoment*G2nT &
+                                       /(planet%ri_m/planet%rp_m)**3.0 &
+                                       * 2*cos(thc_extra)  ! [nT]
             ! Also do Br for cell centers, can re-use cosTh
             do j=shGr%jsg,shGr%jeg
                 Grid%Brcc(:,j) = planet%magMoment*G2nT &

@@ -79,13 +79,10 @@ program raijuOWDx
         call goApe(ebModel,ebState,iXML=inpXML)
         ebModel%t = inTscl*raiApp%State%t
 
-        ! Now that chimp has set its nSpc, we can do raijuCpl_init
-        !call raijuCpl_init(vApp, raiApp, raijuCplBase)
-
-        ! Use ebTabs to get MJD if we didn't get it from restart
+        ! MJD at the start of the simulation (corresponds to sim t=0)
+        mjd0 = T2MJD(-1.0*ebState%ebTab%times(1)/inTscl, ebState%ebTab%MJDs(1))
+        ! Use ebTabs to set RAIJU's MJD if we didn't get it from restart
         if (.not. raiApp%Model%isRestart) then
-            !> MJD at the start of the simulation (corresponds to sim t=0)
-            mjd0 = T2MJD(-1.0*ebState%ebTab%times(1)/inTscl, ebState%ebTab%MJDs(1))
             raiApp%State%mjd = mjd0
         endif
 
@@ -108,7 +105,7 @@ program raijuOWDx
         do while ( raiApp%State%t < (raiApp%Model%tFin + 0.5) )
 
             call Tic("Output")
-        ! Output if ready
+            ! Output if ready
             if (raiApp%State%IO%doRestart(raiApp%State%t)) then
                 call raijuResOutput(raiApp%Model,raiApp%Grid,raiApp%State)
             endif
@@ -135,7 +132,7 @@ program raijuOWDx
             endif
             call Toc("Output")
 
-        ! Update other models
+            ! Update other models
             call Tic("CHIMP update")
             call updateFields(ebModel, ebState, ebModel%t)
             call Toc("CHIMP update")
@@ -155,7 +152,7 @@ program raijuOWDx
             call raijuCplBase%convertToRAIJU(raijuCplBase, vApp, raiApp)
             call Toc("fromV to State")
 
-        ! Step RAIJU
+            ! Step RAIJU
             call Tic("RAIJU Advance")
             call raijuAdvance(raiApp%Model,raiApp%Grid,raiApp%State, raiApp%Model%dt, isFirstCpl)
             call Toc("RAIJU Advance")
