@@ -339,6 +339,8 @@ module raijuIO
             ! call AddOutVar(IOVars, "nStepk", State%nStepk*1.0_rp, uStr="#") 
             call AddOutVar(IOVars, "eta_half"     , State%eta_half     (is:ie  ,js:je  ,:)  , uStr="#/cm^3 * Rx/T")
             call AddOutVar(IOVars, "iVel"         , State%iVel         (is:ie+1,js:je+1,:,:), uStr="m/s")
+            call AddOutVar(IOVars, "iVelL"        , State%iVelL        (is:ie+1,js:je+1,:,:), uStr="m/s")
+            call AddOutVar(IOVars, "iVelR"        , State%iVelR        (is:ie+1,js:je+1,:,:), uStr="m/s")
             call AddOutVar(IOVars, "cVel"         , State%cVel         (is:ie  ,js:je  ,:,:), uStr="m/s")
             call AddOutVar(IOVars, "etaFaceReconL", State%etaFaceReconL(is:ie+1,js:je+1,:,:), uStr="#/cm^3 * Rx/T")
             call AddOutVar(IOVars, "etaFaceReconR", State%etaFaceReconR(is:ie+1,js:je+1,:,:), uStr="#/cm^3 * Rx/T")

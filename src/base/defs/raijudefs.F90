@@ -69,6 +69,7 @@ module raijudefs
     real(rp), parameter :: def_pdmb = 0.75
     real(rp), parameter :: def_cfl  = 0.3
     real(rp), parameter :: cflMax = 0.3
+    logical, parameter :: def_doUseVelLRs = .false.
 
     ! Settings
     integer, parameter :: raiRecLen = 8

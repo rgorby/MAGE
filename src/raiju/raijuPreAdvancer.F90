@@ -74,6 +74,7 @@ module raijuPreAdvancer
             call calcVelocityCC_gg(Model, Grid, State, k, State%cVel(:,:,k,:))  ! Get velocity at cell interfaces
             ! Calc sub-time step. Each channel will do this on its own, but this way we can output the step sizes everyone is using
             !State%dtk(k) = activeDt(Model, Grid, State, k)
+            call reconVelocityLRs(Model, Grid, State, k, State%iVelL(:,:,k,:), State%iVelR(:,:,k,:))
         enddo
         call Toc("Calc cell-centered velocities")
 
@@ -598,6 +599,41 @@ module raijuPreAdvancer
         Vtp(:,:,RAI_TH) =      gradPot(:,:,RAI_PH) / (Grid%Brcc*1.0e-9)  ! [m/s]
         Vtp(:,:,RAI_PH) = -1.0*gradPot(:,:,RAI_TH) / (Grid%Brcc*1.0e-9)  ! [m/s]
     end subroutine calcVelocityCC_gg
+
+
+    subroutine reconVelocityLRs(Model, Grid, State, k, iVelL, iVelR)
+        type(raijuModel_T), intent(in) :: Model
+        type(raijuGrid_T ), intent(in) :: Grid
+        type(raijuState_T), intent(in) :: State
+        integer, intent(in) :: k
+        real(rp), dimension(Grid%shGrid%isg:Grid%shGrid%ieg+1,&
+                            Grid%shGrid%jsg:Grid%shGrid%jeg+1, 2), intent(inout) :: iVelL, iVelR
+
+        logical, dimension(Grid%shGrid%isg:Grid%shGrid%ieg+1,&
+                           Grid%shGrid%jsg:Grid%shGrid%jeg+1) :: isGCC
+        real(rp), dimension(Grid%shGrid%isg:Grid%shGrid%ieg+1,&
+                           Grid%shGrid%jsg:Grid%shGrid%jeg+1,2) :: tmpVelL, tmpVelR
+        
+        iVelL = 0.0
+        iVelR = 0.0
+        isGCC = .false.
+        ! The good mask here indicates if a cell can be used in reconstruction, which for us includes ACTIVE and BUFFER zones
+        where (State%active .ne. RAIJUINACTIVE)
+            isGCC = .true.
+        end where
+
+        ! ReconFaces is gonna take one cc value and reconstruct at cell faces
+        ! But phi velocity at theta edge is meaningless for us
+        ! So we make two temporary arrays, and then just pack the meaningful components into iVelL and iVelR at the end
+        call ReconFaces(Model, Grid, isGCC, State%cVel(:,:,k,RAI_TH), tmpVelL, tmpVelR)
+        iVelL(:,:,RAI_TH) = tmpVelL(:,:,RAI_TH)
+        iVelR(:,:,RAI_TH) = tmpVelR(:,:,RAI_TH)
+        call ReconFaces(Model, Grid, isGCC, State%cVel(:,:,k,RAI_PH), tmpVelL, tmpVelR)
+        iVelL(:,:,RAI_PH) = tmpVelL(:,:,RAI_PH)
+        iVelR(:,:,RAI_PH) = tmpVelR(:,:,RAI_PH)
+
+
+    end subroutine reconVelocityLRs
 
 !------
 ! time handling

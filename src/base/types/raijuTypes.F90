@@ -143,6 +143,7 @@ module raijutypes
             !! Max reconstruction order we will use when calculating etas at interfaces
         real(rp) :: PDMB
             !! 0 < PDMB < 1 used in PDM limiter. 1 = very diffusive
+        logical :: doUseVelLRs
 
         ! https://media0.giphy.com/media/XfDPdSRhYFUhIU7EPw/giphy.gif
         logical :: isSA

@@ -130,6 +130,7 @@ module raijustarter
         call iXML%Set_Val(Model%nSpc, "prob/nSpc",Model%nSpc)
 
         ! Solver params
+        call iXML%Set_Val(Model%doUseVelLRs,'sim/useVelLRs',def_doUseVelLRs)
         call iXML%Set_Val(Model%maxItersPerSec,'sim/maxIter',def_maxItersPerSec)
         call iXML%Set_Val(Model%maxOrder,'sim/maxOrder',7)
         if (Model%maxOrder > maxOrderSupported) then
