@@ -104,6 +104,7 @@ def main():
     debug = args.debug
     be_loud = args.loud
     is_test = args.test
+    slack_on_fail = args.slack_on_fail
     verbose = args.verbose
 
     # -------------------------------------------------------------------------
@@ -227,7 +228,7 @@ def main():
     # Do a build with each set of modules.
     for (i_test, module_list_file) in enumerate(module_list_files):
         if verbose:
-            print('Performing build test with module set '
+            print('Performing build test with module list file '
                   f"{module_list_file}")
 
         # Extract the name of the list.
@@ -335,7 +336,7 @@ def main():
     # Detail the test results
     test_report_details_string = ''
     test_report_details_string += (
-        f"Test results are in {BUILD_TEST_DIRECTORY}.\n"
+        f"Test results are on `derecho` in `{BUILD_TEST_DIRECTORY}`.\n"
     )
     for (i_test, module_list_file) in enumerate(module_list_files):
         module_set_name = module_list_file.rstrip('.lst')
@@ -351,16 +352,16 @@ def main():
         f" for branch or commit or tag `{BRANCH_OR_COMMIT}`: "
     )
     if 'FAILED' in test_report_details_string:
-        test_report_summary_string += '*FAILED*\n'
+        test_report_summary_string += '*FAILED*'
     else:
-        test_report_summary_string += '*ALL PASSED*\n'
+        test_report_summary_string += '*PASSED*'
 
     # Print the test results summary and details.
     print(test_report_summary_string)
     print(test_report_details_string)
 
-    # If a test failed and loud mode is on, post report to Slack.
-    if 'FAILED' in test_report_details_string and be_loud:
+    # If a test failed, or loud mode is on, post report to Slack.
+    if (slack_on_fail and 'FAILED' in test_report_details_string) or be_loud:
         slack_client = common.slack_create_client()
         if debug:
             print(f"slack_client = {slack_client}")
