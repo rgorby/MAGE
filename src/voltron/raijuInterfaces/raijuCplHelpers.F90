@@ -55,6 +55,7 @@ module raijuCplHelpers
                 enddo
             enddo
 
+            State%bvol_cc = 0.0
             ! Assign cell-centered quantities
             !$OMP PARALLEL DO default(shared) collapse(1) &
             !$OMP schedule(dynamic) &
@@ -80,6 +81,8 @@ module raijuCplHelpers
 
                             State%Pavg(i,j,s) = P
                             State%Davg(i,j,s) = D
+
+                            State%bvol_cc(i,j) = toCenter2D(State%bvol(i:i+1,j:j+1))
                         enddo
 
                         ! Do our own "wIMAG" calculation here so we ensure we use the fluid we want to (Bulk)

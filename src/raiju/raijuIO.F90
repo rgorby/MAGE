@@ -14,7 +14,7 @@ module raijuIO
 
     implicit none
 
-    integer, parameter, private :: MAXIOVAR = 50
+    integer, parameter, private :: MAXIOVAR = 70
     !type(IOVAR_T), dimension(MAXIOVAR), private :: IOVars
     logical, private :: doRoot = .true. !Whether root variables need to be written
     logical, private :: doFat = .false. !Whether to output lots of extra datalogical, private :: doRoot = .true. !Whether root variables need to be written
@@ -318,6 +318,9 @@ module raijuIO
             call AddOutVar(IOVars, "gradPotE"    , State%gradPotE    (is:ie+1,js:je+1,:), uStr="V/m")
             call AddOutVar(IOVars, "gradPotCorot", State%gradPotCorot(is:ie+1,js:je+1,:), uStr="V/m")
             call AddOutVar(IOVars, "gradVM"      , State%gradVM      (is:ie+1,js:je+1,:), uStr="V/m/lambda")
+            call AddOutVar(IOVars, "gradPotE_cc"    , State%gradPotE_cc    (is:ie,js:je,:), uStr="V/m")
+            call AddOutVar(IOVars, "gradPotCorot_cc", State%gradPotCorot_cc(is:ie,js:je,:), uStr="V/m")
+            call AddOutVar(IOVars, "gradVM_cc"      , State%gradVM_cc      (is:ie,js:je,:), uStr="V/m/lambda")
             call AddOutVar(IOVars, "preciplossRates_Nk", State%lossRates  (is:ie,js:je,:), uStr="1/s")
             call AddOutVar(IOVars, "precipNFlux_Nk"    , State%precipNFlux(is:ie,js:je,:), uStr="#/cm^2/s")
             call AddOutVar(IOVars, "precipEFlux_Nk"    , State%precipEFlux(is:ie,js:je,:), uStr="erg/cm^2/s")
@@ -336,8 +339,7 @@ module raijuIO
             ! call AddOutVar(IOVars, "nStepk", State%nStepk*1.0_rp, uStr="#") 
             call AddOutVar(IOVars, "eta_half"     , State%eta_half     (is:ie  ,js:je  ,:)  , uStr="#/cm^3 * Rx/T")
             call AddOutVar(IOVars, "iVel"         , State%iVel         (is:ie+1,js:je+1,:,:), uStr="m/s")
-            call AddOutVar(IOVars, "cVel_th"      , State%cVel         (is:ie  ,js:je  ,:,RAI_TH), uStr="m/s")
-            call AddOutVar(IOVars, "cVel_ph"      , State%cVel         (is:ie  ,js:je  ,:,RAI_PH), uStr="m/s")
+            call AddOutVar(IOVars, "cVel"         , State%cVel         (is:ie  ,js:je  ,:,:), uStr="m/s")
             call AddOutVar(IOVars, "etaFaceReconL", State%etaFaceReconL(is:ie+1,js:je+1,:,:), uStr="#/cm^3 * Rx/T")
             call AddOutVar(IOVars, "etaFaceReconR", State%etaFaceReconR(is:ie+1,js:je+1,:,:), uStr="#/cm^3 * Rx/T")
             call AddOutVar(IOVars, "etaFacePDML"  , State%etaFacePDML  (is:ie+1,js:je+1,:,:), uStr="#/cm^3 * Rx/T")

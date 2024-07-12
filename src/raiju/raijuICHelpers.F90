@@ -116,6 +116,18 @@ module raijuICHelpers
             enddo
         enddo
 
+        ! Ni, Nj cell-center variables
+        do i=Grid%shGrid%isg,Grid%shGrid%ieg
+            do j=Grid%shGrid%jsg,Grid%shGrid%jeg
+                xyzIono(1) = Model%planet%ri_m/Model%planet%rp_m * sin(Grid%shGrid%thc(i)) * cos(Grid%shGrid%phc(j))
+                xyzIono(2) = Model%planet%ri_m/Model%planet%rp_m * sin(Grid%shGrid%thc(i)) * sin(Grid%shGrid%phc(j))
+                xyzIono(3) = Model%planet%ri_m/Model%planet%rp_m * cos(Grid%shGrid%thc(i))
+
+                L = DipoleL(xyzIono)
+                State%bvol_cc(i,j) = DipFTV_L(L, Model%planet%magMoment) ! [Rp/nT]
+            enddo
+        enddo
+
     end subroutine initBDipole
 
 

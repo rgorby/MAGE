@@ -65,11 +65,23 @@ module raijuPreAdvancer
         enddo
         call Toc("Calc face velocities")
 
-        if (Model%doDebugOutput) then
-            call Tic("Calc CC velocities")
-            call velFace2CC(Model, Grid, State)
-            call Toc("Calc CC velocities")
-        endif
+        call Tic("Calc cell-centered velocities")
+        call calcPotGrads_cc(Model, Grid, State)
+        !$OMP PARALLEL DO default(shared) &
+        !$OMP schedule(dynamic) &
+        !$OMP private(k)
+        do k=1,Grid%Nk
+            call calcVelocityCC_gg(Model, Grid, State, k, State%cVel(:,:,k,:))  ! Get velocity at cell interfaces
+            ! Calc sub-time step. Each channel will do this on its own, but this way we can output the step sizes everyone is using
+            !State%dtk(k) = activeDt(Model, Grid, State, k)
+        enddo
+        call Toc("Calc cell-centered velocities")
+
+        !if (Model%doDebugOutput) then
+        !    call Tic("Calc CC velocities")
+        !    call velFace2CC(Model, Grid, State)
+        !    call Toc("Calc CC velocities")
+        !endif
 
         ! Loss rate calc depends on up-to-date densities, so we should run EvalMoments first
         call Tic("Moments Eval PreAdvance")
@@ -147,9 +159,9 @@ module raijuPreAdvancer
         ! Simple corotation potential [V]
         type(planet_T), intent(in) :: planet
         type(ShellGrid_T), intent(in) :: sh
-        logical, intent(in), optional :: doGeoCorotO
-
         real(rp), dimension(sh%isg:sh%ieg+1,sh%jsg:sh%jeg+1), intent(inout) :: pCorot
+        logical, intent(in), optional :: doGeoCorotO
+        
         integer :: i,j
 
         if (present(doGeoCorotO)) then
@@ -277,6 +289,57 @@ module raijuPreAdvancer
     end subroutine calcPotGrads
 
 
+    subroutine calcPotGrads_cc(Model, Grid, State)
+        !! Calculate cell-centered potential gradients using Green-Gauss method
+        type(raijuModel_T), intent(in) :: Model
+        type(raijuGrid_T ), intent(in) :: Grid
+        type(raijuState_T), intent(inout) :: State
+
+
+        integer :: i,j
+        real(rp) :: bvol_cc
+        ! Cell corners
+        logical , dimension(Grid%shGrid%isg:Grid%shGrid%ieg+1,&
+                            Grid%shGrid%jsg:Grid%shGrid%jeg+1) :: isGCorner
+        real(rp), dimension(Grid%shGrid%isg:Grid%shGrid%ieg+1,&
+                            Grid%shGrid%jsg:Grid%shGrid%jeg+1) :: pExB, pCorot
+        real(rp), dimension(Grid%shGrid%isg:Grid%shGrid%ieg,&
+                            Grid%shGrid%jsg:Grid%shGrid%jeg, 2) :: gradVM
+
+        State%cVel = 0.0
+
+        where (State%topo .eq. RAIJUCLOSED)
+            isGCorner = .true.
+        elsewhere
+            isGCorner = .false.
+        end where
+
+        associate(sh=>Grid%shGrid)
+        ! Gauss-Green calculation of cell-averaged phi gradients
+        ! NOTE: These are not across cell faces where gradPot(th) is phi gradient stored on theta edge.
+        !       grad(phi)_th is the gradient in the theta direction
+        call potExB(Grid%shGrid, State, pExB)  ! [V]
+        call potCorot(Model%planet, Grid%shGrid, pCorot, Model%doGeoCorot)  ! [V]
+        call calcGradIJ_cc(Model%planet%rp_m, Grid, isGCorner, pExB  , State%gradPotE_cc    )  ! [V/m
+        call calcGradIJ_cc(Model%planet%rp_m, Grid, isGCorner, pCorot, State%gradPotCorot_cc)  ! [V/m]
+
+        ! GC drifts depend on grad(lambda * V^(-2/3))
+        ! lambda is constant, so just need grad(V^(-2/3) )
+        ! grad(V^(-2/3)) = -2/3*V^(-5/3) * grad(V)
+        call calcGradFTV_cc(Model%planet%rp_m, Model%planet%ri_m, Model%planet%magMoment, Grid, isGCorner, State%bvol, gradVM)
+        do j=Grid%shGrid%jsg,Grid%shGrid%jeg    
+            do i=Grid%shGrid%isg,Grid%shGrid%ieg
+                if (all(isGCorner(i:i+1,j:j+1))) then
+                    State%gradVM_cc(i,j,RAI_TH) = (-2./3.) * State%bvol_cc(i,j)**(-5./3.) * gradVM(i,j,RAI_TH)  ! [Vol^(-2/3)/m]
+                    State%gradVM_cc(i,j,RAI_PH) = (-2./3.) * State%bvol_cc(i,j)**(-5./3.) * gradVM(i,j,RAI_PH)  ! [Vol^(-2/3)/m]
+                endif
+            enddo
+        enddo
+        end associate
+        
+    end subroutine calcPotGrads_cc
+
+
     subroutine calcGradIJ(Rp_m, Grid, isG, Q, gradQ)
         !! Calc gradient in spherical coordinates of corner variable Q across cell edges/faces
         real(rp), intent(in) :: Rp_m
@@ -314,6 +377,51 @@ module raijuPreAdvancer
         end associate
 
     end subroutine calcGradIJ
+
+
+    subroutine calcGradIJ_cc(Rp_m, Grid, isG, Q, gradQ)
+        !! Uses Green-Gauss theorem to get cell-averaged gradient, using corner-located values
+        real(rp), intent(in) :: Rp_m
+            !! Planet radius in m
+        type(raijuGrid_T), intent(in) :: Grid
+        logical , dimension(Grid%shGrid%isg:Grid%shGrid%ieg+1,Grid%shGrid%jsg:Grid%shGrid%jeg+1), intent(in) :: isG
+            !! Mask for corners that are safe to use in calculating the gradient across the attached faces
+        real(rp), dimension(Grid%shGrid%isg:Grid%shGrid%ieg+1,Grid%shGrid%jsg:Grid%shGrid%jeg+1), intent(in) :: Q
+            !! Variable we are taking the gradient of across faces
+        real(rp), dimension(Grid%shGrid%isg:Grid%shGrid%ieg,Grid%shGrid%jsg:Grid%shGrid%jeg, 2), intent(inout) :: gradQ
+
+        integer :: i,j
+        real(rp) :: qLow, qHigh 
+        
+        gradQ = 0.0
+
+        associate(sh=>Grid%shGrid)
+
+        do j=sh%jsg,sh%jeg
+            do i=sh%isg,sh%ieg
+                if (all(isG(i:i+1, j:j+1))) then
+                    ! Theta-direction gradient
+                    !qLow  = Grid%lenFace(i  ,j,RAI_TH)/2.0 * (Q(i  ,j+1) + Q(i  ,j))
+                    !qHigh = Grid%lenFace(i+1,j,RAI_TH)/2.0 * (Q(i+1,j+1) + Q(i+1,j))
+                    !gradQ(i,j,RAI_TH) = (qHigh - qLow) / (Grid%areaCC(i,j) * Rp_m)  ! [Q/m]
+                    qLow  = 0.5 * (Q(i  ,j+1) + Q(i  ,j))
+                    qHigh = 0.5 * (Q(i+1,j+1) + Q(i+1,j))
+                    gradQ(i,j,RAI_TH) = (qHigh - qLow) / (Grid%lenFace(i,j,RAI_PH) * Rp_m)  ! [Q/m]
+
+                    ! Phi-direction gradient
+                    !qLow  = Grid%lenFace(i,j  ,RAI_PH)/2.0 * (Q(i+1,j  ) + Q(i, j  ))
+                    !qHigh = Grid%lenFace(i,j+1,RAI_PH)/2.0 * (Q(i+1,j+1) + Q(i, j+1))
+                    !gradQ(i,j,RAI_PH) = (qhigh - qLow) / (Grid%areaCC(i,j) * Rp_m)
+                    qLow  = 0.5 * (Q(i+1,j  ) + Q(i, j  ))
+                    qHigh = 0.5 * (Q(i+1,j+1) + Q(i, j+1))
+                    gradQ(i,j,RAI_PH) = (qhigh - qLow) / (0.5*(Grid%lenFace(i,j,RAI_TH)+Grid%lenFace(i+1,j,RAI_TH)) * Rp_m)
+                endif
+            enddo
+        enddo
+
+        end associate
+
+    end subroutine calcGradIJ_cc
 
 
     subroutine calcGradFTV(Rp_m, RIon_m, B0, Grid, isG, V, gradV)
@@ -356,17 +464,17 @@ module raijuPreAdvancer
                 dV =  V - V0
             end where
             
-            where (dV < TINY)
-                dV = 0.0
-            end where
+            !where (dV < TINY)
+            !    dV = 0.0
+            !end where
 
             ! Take gradients of each
             ! Analytic gradient of dipole FTV
             dV0_dth = 0.0
+            dcl_dm = 1.0/RIon_m
             do i=sh%isg, sh%ieg+1
                 !! DerivDipFTV takes gradient w.r.t. theta
                 !! We need to convert to be w.r.t. arc len in meters
-                dcl_dm = 1.0/RIon_m
                 !dV0_dth(i,:) = DerivDipFTV(sh%th(i), B0) * dcl_dm
                 dV0_dth(i,:) = DerivDipFTV(Grid%thRp(i), B0) * dcl_dm
             enddo
@@ -382,6 +490,59 @@ module raijuPreAdvancer
 
     end subroutine calcGradFTV
 
+
+    subroutine calcGradFTV_cc(Rp_m, RIon_m, B0, Grid, isG, V, gradV)
+        !! Same as calcGradFTV, but calculating cell-averaged gradient instead
+        real(rp), intent(in) :: Rp_m
+            !! Planet radius [m]]
+        real(rp), intent(in) :: RIon_m
+            !! Ionosphere radius [m]
+        real(rp), intent(in) :: B0
+            !! Planet's surface field strength [Gauss]
+        type(raijuGrid_T), intent(in) :: Grid
+        logical , dimension(Grid%shGrid%isg:Grid%shGrid%ieg+1,Grid%shGrid%jsg:Grid%shGrid%jeg+1), intent(in) :: isG
+            !! Mask for corners that are safe to use in calculating the gradient across the attached faces
+        real(rp), dimension(Grid%shGrid%isg:Grid%shGrid%ieg+1,Grid%shGrid%jsg:Grid%shGrid%jeg+1), intent(in) :: V
+            !! Flux tube volume (FTV)
+        real(rp), dimension(Grid%shGrid%isg:Grid%shGrid%ieg,Grid%shGrid%jsg:Grid%shGrid%jeg, 2), intent(inout) :: gradV
+            !! grad(FTV) we return [units(FTV)/m]
+
+        integer :: i
+        real(rp) :: dcl_dm
+            !! d colat / d meters, used to convert dipole derivative w.r.t. colat to meters
+        real(rp), dimension(Grid%shGrid%isg:Grid%shGrid%ieg+1,&
+                            Grid%shGrid%jsg:Grid%shGrid%jeg+1) :: V0, dV
+        real(rp), dimension(Grid%shGrid%isg:Grid%shGrid%ieg,&
+                            Grid%shGrid%jsg:Grid%shGrid%jeg) :: dV0_dth
+            !! V0 = dipole FTV, dV = V - V0
+
+        associate(sh=>Grid%shGrid)
+
+        do i=sh%isg, sh%ieg+1
+            ! DipFTV_colat takes a colat at 1 Rp, make sure we use that value instead of colat in ionosphere (shGrid%th)
+            V0(i,:) = DipFTV_colat(Grid%thRp(i), B0)
+        enddo
+
+        dV = 0.0
+        where(isG)
+            dV = V - V0
+        end where
+
+        ! Analytic gradient of dipole FTV at cell centers
+        dV0_dth = 0.0
+        dcl_dm = 1.0/RIon_m
+        do i=sh%isg,sh%ieg
+            dV0_dth(i,:) = DerivDipFTV(Grid%thcRp(i), B0) * dcl_dm
+        enddo
+
+        ! Gradient of perturbation
+        call calcGradIJ_cc(Rp_m, Grid, isG, dV, gradV)
+
+        gradV(:,:,RAI_TH) = gradV(:,:,RAI_TH) + dV0_dth
+
+        end associate
+
+    end subroutine calcGradFTV_cc
 
 !------
 ! Velocity calculations
@@ -421,6 +582,22 @@ module raijuPreAdvancer
 
     end subroutine calcVelocity
 
+
+    subroutine calcVelocityCC_gg(Model, Grid, State, k, Vtp)
+        type(raijuModel_T), intent(in) :: Model
+        type(raijuGrid_T ), intent(in) :: Grid
+        type(raijuState_T), intent(in) :: State
+        integer, intent(in) :: k
+        real(rp), dimension(Grid%shGrid%isg:Grid%shGrid%ieg,&
+                            Grid%shGrid%jsg:Grid%shGrid%jeg, 2), intent(inout) :: Vtp
+        
+        real(rp), dimension(Grid%shGrid%isg:Grid%shGrid%ieg, Grid%shGrid%jsg:Grid%shGrid%jeg, 2) :: gradPot
+
+        gradPot = State%gradPotE_cc + State%gradPotCorot_cc + Grid%alamc(k)*State%gradVM_cc
+
+        Vtp(:,:,RAI_TH) =      gradPot(:,:,RAI_PH) / (Grid%Brcc*1.0e-9)  ! [m/s]
+        Vtp(:,:,RAI_PH) = -1.0*gradPot(:,:,RAI_TH) / (Grid%Brcc*1.0e-9)  ! [m/s]
+    end subroutine calcVelocityCC_gg
 
 !------
 ! time handling

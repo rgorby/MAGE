@@ -112,6 +112,7 @@ module raijugrids
         associate(shGr=>Grid%shGrid)
             ! First allocate remaining arrays
             allocate( Grid%thRp(shGr%isg:shGr%ieg+1) )
+            allocate( Grid%thcRp(shGr%isg:shGr%ieg  ) )
             allocate( Grid%delTh(shGr%isg:shGr%ieg+1) )
             allocate( Grid%delPh(shGr%jsg:shGr%jeg+1) )
             allocate( Grid%areaCC  (shGr%isg:shGr%ieg  ,shGr%jsg:shGr%jeg) )
@@ -132,6 +133,12 @@ module raijugrids
                 xyz(3) = planet%ri_m/planet%rp_m*cos(shGr%th(i))
                 L = DipoleL(xyz)
                 Grid%thRp(i) = abs(asin(sqrt(1.0_rp/L)))
+            enddo
+            do i=shGr%isg, shGr%ieg
+                xyz(1) = planet%ri_m/planet%rp_m*sin(shGr%thc(i))
+                xyz(3) = planet%ri_m/planet%rp_m*cos(shGr%thc(i))
+                L = DipoleL(xyz)
+                Grid%thcRp(i) = abs(asin(sqrt(1.0_rp/L)))
             enddo
 
             ! Calculate theta/phi delta between cells [radians]

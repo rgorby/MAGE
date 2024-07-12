@@ -223,7 +223,9 @@ module raijutypes
 
         type(ShellGrid_T) :: shGrid
         real(rp), dimension(:), allocatable :: thRp
-            !! (Ngi+1) [radians] Theta value at planet's surface (1 Rp)
+            !! (Ngi+1) [radians] Corner-centered theta value at planet's surface (1 Rp)
+        real(rp), dimension(:), allocatable :: thcRp
+            !! (Ngi) [radians] Cell-centered theta value at planet's surface (1 Rp)
         real(rp), dimension(:), allocatable :: delTh
             !! (Ngi+1) [radians] Delta theta between cell centers. For cell i, delTh(i) = lower theta del, delTh(i+1) = higher theta del
         real(rp), dimension(:), allocatable :: delPh
@@ -300,8 +302,15 @@ module raijutypes
         real(rp), dimension(:,:,:), allocatable :: gradPotE, gradPotCorot, gradVM
             !! (Ngi+1, Ngj+1,2) [V/m] Th/phi gradient of the ionospheric potential, corotation potential, and flux tube volume raised to -2/3
             !! units of gradVM are [FTV^(2/3)/m]. Multiplying by lambda gives units of [V/m]
+        real(rp), dimension(:,:,:), allocatable :: gradPotE_cc, gradPotCorot_cc, gradVM_cc
+            !! (Ngi, Ngj,2) [V/m] Th/phi gradient of the ionospheric potential, corotation potential, and flux tube volume raised to -2/3
+            !! Cell-centered, calculated using Green-Gauss method
         real(rp), dimension(:,:,:,:), allocatable :: iVel
             !! (Ngi+1, Ngj+1, Nk, 2) [m/s] Edge-centered normal velocities
+        real(rp), dimension(:,:,:,:), allocatable :: iVelL
+            !! (Ngi+1, Ngj+1, Nk, 2) [m/s] Left edge-centered normal velocity reconstructed from cell-centered velocities
+        real(rp), dimension(:,:,:,:), allocatable :: iVelR
+            !! (Ngi+1, Ngj+1, Nk, 2) [m/s] Right edge-centered normal velocity reconstructed from cell-centered velocities
         real(rp), dimension(:,:,:,:), allocatable :: cVel
             !! (Ngi, Ngj, Nk, 2) [m/s] Cell-centered velocities
 
@@ -325,6 +334,8 @@ module raijutypes
             !! (Ngi+1, Ngj+1) Longitude of conjugate points
         real(rp), dimension(:,:), allocatable :: bvol
             !! (Ngi+1, Ngj+1) [Rp/nT] Flux-tube volume
+        real(rp), dimension(:,:), allocatable :: bvol_cc
+            !! (Ngi, Ngj) [Rp/nT] Flux-tube volume averaged from corners
         real(rp), dimension(:,:), allocatable :: vaFrac
             !! (Ngi+1, Ngj+1) Fraction of total velocity coming from Alfven speed
             !! Used to limit active region to tubes that can reasonably be treated as averaged and slowly-evolving

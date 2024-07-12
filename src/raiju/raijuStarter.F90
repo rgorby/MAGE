@@ -340,8 +340,13 @@ module raijustarter
             ! Gradient of (flux tube volume ^ -2/3)
             allocate( State%gradVM      (sh%isg:sh%ieg+1, sh%jsg:sh%jeg+1, 2) )
             ! Interface and cell velocities
-            allocate( State%iVel(sh%isg:sh%ieg+1, sh%jsg:sh%jeg+1, Grid%Nk, 2) )
-            allocate( State%cVel(sh%isg:sh%ieg  , sh%jsg:sh%jeg  , Grid%Nk, 2) )
+            allocate( State%gradPotE_cc    (sh%isg:sh%ieg, sh%jsg:sh%jeg, 2) )
+            allocate( State%gradPotCorot_cc(sh%isg:sh%ieg, sh%jsg:sh%jeg, 2) )
+            allocate( State%gradVM_cc      (sh%isg:sh%ieg, sh%jsg:sh%jeg, 2) )
+            allocate( State%iVel (sh%isg:sh%ieg+1, sh%jsg:sh%jeg+1, Grid%Nk, 2) )
+            allocate( State%iVelL(sh%isg:sh%ieg+1, sh%jsg:sh%jeg+1, Grid%Nk, 2) )
+            allocate( State%iVelR(sh%isg:sh%ieg+1, sh%jsg:sh%jeg+1, Grid%Nk, 2) )
+            allocate( State%cVel (sh%isg:sh%ieg  , sh%jsg:sh%jeg  , Grid%Nk, 2) )
             
             ! Coupling input moments
             allocate( State%Pavg(sh%isg:sh%ieg  , sh%jsg:sh%jeg, 0:Grid%nFluidIn) )
@@ -353,9 +358,10 @@ module raijustarter
             allocate( State%thcon   (sh%isg:sh%ieg+1, sh%jsg:sh%jeg+1    ) )
             allocate( State%phcon   (sh%isg:sh%ieg+1, sh%jsg:sh%jeg+1    ) )
             ! 2D corner quantities
-            allocate( State%topo  (sh%isg:sh%ieg+1, sh%jsg:sh%jeg+1) )
-            allocate( State%espot (sh%isg:sh%ieg+1, sh%jsg:sh%jeg+1) )
-            allocate( State%bvol  (sh%isg:sh%ieg+1, sh%jsg:sh%jeg+1) )
+            allocate( State%topo   (sh%isg:sh%ieg+1, sh%jsg:sh%jeg+1) )
+            allocate( State%espot  (sh%isg:sh%ieg+1, sh%jsg:sh%jeg+1) )
+            allocate( State%bvol   (sh%isg:sh%ieg+1, sh%jsg:sh%jeg+1) )
+            allocate( State%bvol_cc(sh%isg:sh%ieg  , sh%jsg:sh%jeg  ) )
             allocate( State%vaFrac(sh%isg:sh%ieg+1, sh%jsg:sh%jeg+1) )
             ! 2D cell-centered quantities
             allocate( State%active      (sh%isg:sh%ieg, sh%jsg:sh%jeg) )
