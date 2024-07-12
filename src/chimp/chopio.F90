@@ -269,17 +269,17 @@ module chopio
         !Variables to always output
         call AddOutVar(IOVars,"time",oTScl*Model%t)
         call AddOutVar(IOVars,"MJD",ioTabMJD(ebState%ebTab,Model%t))
-        call AddOutVar(IOVars,"Bx"  ,oBScl*B(:,:,:,XDIR))
-        call AddOutVar(IOVars,"By"  ,oBScl*B(:,:,:,YDIR))
-        call AddOutVar(IOVars,"Bz"  ,oBScl*B(:,:,:,ZDIR))
+        call AddOutVar(IOVars,"Bx"  ,oBScl*B(:,:,:,XDIR),uStr="nT")
+        call AddOutVar(IOVars,"By"  ,oBScl*B(:,:,:,YDIR),uStr="nT")
+        call AddOutVar(IOVars,"Bz"  ,oBScl*B(:,:,:,ZDIR),uStr="nT")
 
         call AddOutVar(IOVars,"Ex"  ,oEScl*E(:,:,:,XDIR),uStr="mV/m")
         call AddOutVar(IOVars,"Ey"  ,oEScl*E(:,:,:,YDIR),uStr="mV/m")
         call AddOutVar(IOVars,"Ez"  ,oEScl*E(:,:,:,ZDIR),uStr="mV/m")
 
-        call AddOutVar(IOVars,"Jx"  ,oJScl*J3(:,:,:,XDIR))
-        call AddOutVar(IOVars,"Jy"  ,oJScl*J3(:,:,:,YDIR))
-        call AddOutVar(IOVars,"Jz"  ,oJScl*J3(:,:,:,ZDIR))
+        call AddOutVar(IOVars,"Jx"  ,oJScl*J3(:,:,:,XDIR),uStr="A/m2")
+        call AddOutVar(IOVars,"Jy"  ,oJScl*J3(:,:,:,YDIR),uStr="A/m2")
+        call AddOutVar(IOVars,"Jz"  ,oJScl*J3(:,:,:,ZDIR),uStr="A/m2")
 
         if (Model%doMHD) then
             call AddOutVar(IOVars,"Vx"  ,oVScl*Q(:,:,:,VELX    ,BLK),uStr="km/s")

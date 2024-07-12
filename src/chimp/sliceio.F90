@@ -251,6 +251,7 @@ module sliceio
         real(rp), dimension(NDIM,NDIM) :: jB
         character(len=strLen) :: dID,pID,vxID,vyID,vzID,vrID
 
+        real(rp) :: oJScl
         !Data for tracing
         type(ebTrc_T), dimension(:,:), allocatable :: ebTrcIJ
 
@@ -358,6 +359,12 @@ module sliceio
             enddo
         enddo
 
+        !Calculate output J (current) scaling
+        !Mu0 [Tm/A] 
+        ! Curl(B) * oBScl/L0 => nT/cm x (1.0e-9)/(1.0e-2) => T/m
+        !oJScl => A/m^2
+        oJScl = ( (1.0e-7)*oBScl/L0 )/Mu0
+
         call ClearIO(IOVars)
 
         !-------------------
@@ -404,9 +411,9 @@ module sliceio
             call AddOutVar(IOVars,"Ex" , E2D(:,:,XDIR),uStr="mV/m")
             call AddOutVar(IOVars,"Ey" , E2D(:,:,YDIR),uStr="mV/m")
             call AddOutVar(IOVars,"Ez" , E2D(:,:,ZDIR),uStr="mV/m")
-            call AddOutVar(IOVars,"Jx" , J2D(:,:,XDIR))
-            call AddOutVar(IOVars,"Jy" , J2D(:,:,YDIR))
-            call AddOutVar(IOVars,"Jz" , J2D(:,:,ZDIR))
+            call AddOutVar(IOVars,"Jx" , oJScl*J2D(:,:,XDIR),uStr="A/m2")
+            call AddOutVar(IOVars,"Jy" , oJScl*J2D(:,:,YDIR),uStr="A/m2")
+            call AddOutVar(IOVars,"Jz" , oJScl*J2D(:,:,ZDIR),uStr="A/m2")
         endif        
 
         if (Model%doMHD) then
