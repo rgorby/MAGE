@@ -110,7 +110,7 @@ module chmpfields
                         call AddInVar(ebIOs,"Jy")
                         call AddInVar(ebIOs,"Jz")
                     endif    
-                    call AddInVar(ebIOs,"time",vTypeO=IOREAL)                        
+                    !call AddInVar(ebIOs,"time",vTypeO=IOREAL)                        
                     call ReadVars(ebIOs,.true.,ebFile,gStr)
 
                     !Push piece to grid
@@ -201,6 +201,9 @@ module chmpfields
         endif
 
         !Get time data from last file
+        call ClearIO(ebIOs)
+        call AddInVar(ebIOs,"time",vTypeO=IOREAL)
+        call ReadVars(ebIOs,.true.,ebFile,gStr)
         i = FindIO(ebIOs,"time")
         ebF%time = inTScl*ebIOs(i)%data(1)
 
