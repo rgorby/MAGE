@@ -33,7 +33,7 @@ import sys
 # Import 3rd-party modules.
 
 # Import project modules.
-from kaipy.testing import common
+import common
 
 
 # Program constants
@@ -110,6 +110,7 @@ def main():
     debug = args.debug
     be_loud = args.loud
     is_test = args.test
+    slack_on_fail = args.slack_on_fail
     verbose = args.verbose
 
     # ------------------------------------------------------------------------
@@ -308,7 +309,8 @@ def main():
     # Detail the test results
     test_report_details_string = ''
     test_report_details_string += (
-        f"Test results are in {INITIAL_CONDITION_BUILD_TEST_DIRECTORY}.\n"
+        'Test results are on `derecho` in '
+        f"`{INITIAL_CONDITION_BUILD_TEST_DIRECTORY}`.\n"
     )
     for (i_test, module_list_file) in enumerate(module_list_files):
         module_set_name = module_list_file.rstrip('.lst')
@@ -335,14 +337,14 @@ def main():
     if 'FAILED' in test_report_details_string:
         test_report_summary_string += '*FAILED*\n'
     else:
-        test_report_summary_string += '*ALL PASSED*\n'
+        test_report_summary_string += '*PASSED*\n'
 
     # Print the test results summary and details.
     print(test_report_summary_string)
     print(test_report_details_string)
 
-    # If a test failed and loud mode is on, post report to Slack.
-    if 'FAILED' in test_report_details_string and be_loud:
+    # If a test failed, or loud mode is on, post report to Slack.
+    if (slack_on_fail and 'FAILED' in test_report_details_string) or be_loud:
         slack_client = common.slack_create_client()
         if debug:
             print(f"slack_client = {slack_client}")
