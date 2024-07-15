@@ -21,7 +21,6 @@ import subprocess
 import sys
 
 # Import 3rd-party modules.
-import jinja2
 
 # Import project modules.
 import common
@@ -144,7 +143,7 @@ def main():
     # ------------------------------------------------------------------------
 
     # Run the weekly dash with each set of modules.
-    for (i_test, module_list_file) in enumerate(module_list_files):
+    for module_list_file in module_list_files:
         if verbose:
             print('Performing weekly dash with module set '
                   f"{module_list_file}")
@@ -368,15 +367,17 @@ def main():
 
         # If loud mode is on, post report to Slack.
         if be_loud:
-            test_report_summary_string += 'Details in thread for this messsage.\n'
+            test_report_summary_string += (
+                'Details in thread for this messsage.\n'
+            )
             slack_response_summary = common.slack_send_message(
                 slack_client, test_report_summary_string, is_test=is_test
             )
             if slack_response_summary['ok']:
                 thread_ts = slack_response_summary['ts']
                 slack_response_details = common.slack_send_message(
-                    slack_client, test_report_details_string, thread_ts=thread_ts,
-                    is_test=is_test
+                    slack_client, test_report_details_string,
+                    thread_ts=thread_ts, is_test=is_test
                 )
                 if 'ok' not in slack_response_details:
                     print('*ERROR* Unable to post test details to Slack.')

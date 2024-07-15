@@ -431,8 +431,9 @@ def main():
             f"submitted as PBS job {job_ids[i_module_set][0]}.\n"
         )
         test_report_details_string += (
-            f"`{THREAD_CHECK_PBS_FILENAME}` for module set `{module_list_file}` "
-            f"submitted as PBS job {job_ids[i_module_set][1]}.\n"
+            f"`{THREAD_CHECK_PBS_FILENAME}` for module set "
+            f"`{module_list_file}` submitted as PBS job "
+            f"{job_ids[i_module_set][1]}.\n"
         )
         test_report_details_string += (
             f"`{REPORT_PBS_FILENAME}` for module set `{module_list_file}` "

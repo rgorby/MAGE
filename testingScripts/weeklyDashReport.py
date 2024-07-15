@@ -1070,8 +1070,10 @@ def main():
     # If loud mode is on, post results to Slack.
     if be_loud:
         message = (
-            f"Weekly dash result plots complete on branch {BRANCH_OR_COMMIT}.\n"
-            ' Latest comparative results attached as replies to this message.\n'
+            'Weekly dash result plots complete on branch '
+            f"{BRANCH_OR_COMMIT}.\n"
+            ' Latest comparative results attached as replies to this '
+            'message.\n'
         )
         message += (
             f"Test results are in {os.getcwd()}.\n"

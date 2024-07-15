@@ -137,12 +137,16 @@ def main():
                              '-report-all'],
                             stderr=subprocess.STDOUT, universal_newlines=True)
                         if debug:
-                            print(f"memory_check_output = {memory_check_output}")
+                            print(
+                                f"memory_check_output = {memory_check_output}"
+                            )
                     except subprocess.CalledProcessError as e:
                         # we need to handle non-zero error code
                         memory_check_output = e.output
                         if debug:
-                            print(f"memory_check_output = {memory_check_output}")
+                            print(
+                                f"memory_check_output = {memory_check_output}"
+                            )
                 with open(
                     memory_errors_file, 'a', encoding='utf-8'
                 ) as f:
@@ -180,12 +184,16 @@ def main():
                             '-report-all'],
                             stderr=subprocess.STDOUT, universal_newlines=True)
                         if debug:
-                            print(f"thread_check_output = {thread_check_output}")
+                            print(
+                                f"thread_check_output = {thread_check_output}"
+                            )
                     except subprocess.CalledProcessError as e:
                         # we need to handle non-zero error code
                         thread_check_output = e.output
                         if debug:
-                            print(f"thread_check_output = {thread_check_output}")
+                            print(
+                                f"thread_check_output = {thread_check_output}"
+                            )
                 with open(
                     thread_errors_file, 'a', encoding='utf-8'
                 ) as f:
