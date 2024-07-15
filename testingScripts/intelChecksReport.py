@@ -205,7 +205,7 @@ def main():
     # Detail the test results
     test_report_details_string = ''
     test_report_details_string += (
-        f"Test results are in {os.getcwd()}.\n"
+        f"Test results are in `{os.getcwd()}`.\n"
     )
     test_report_details_string += 'Results of memory tests:\n'
     with open(memory_errors_file, 'r', encoding='utf-8') as f:
