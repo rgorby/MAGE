@@ -30,7 +30,7 @@ import matplotlib.pyplot as plt
 # Import project modules.
 import kaipy.kaiH5 as kh5
 import kaipy.kaiViz as kv
-from kaipy.testing import common
+import common
 
 
 # Program constants
