@@ -30,7 +30,7 @@ import sys
 # Import 3rd-party modules.
 
 # Import project modules.
-from kaipy.testing import common
+import common
 
 
 # Program constants
@@ -140,7 +140,6 @@ def main():
     args = parser.parse_args()
     if args.debug:
         print(f"args = {args}")
-    account = args.account
     debug = args.debug
     be_loud = args.loud
     is_test = args.test
