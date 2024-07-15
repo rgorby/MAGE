@@ -1,11 +1,9 @@
 #!/bin/bash
-
-#PBS -N {{ job_name }}
-#PBS -A {{ account }}
-#PBS -q {{ queue }}
-#PBS -l job_priority={{ job_priority }}
-#PBS -l select=8:ncpus=128:mpiprocs=2:ompthreads=64+3:ncpus=128:mpiprocs=1:ompthreads=128
-#PBS -l walltime={{ walltime }}
+#PBS -N unitTestReport
+#PBS -A P28100045
+#PBS -l walltime=00:10:00
+#PBS -q main
+#PBS -l select=1:ncpus=128
 #PBS -j oe
 #PBS -m abe
 
@@ -41,21 +39,12 @@ echo 'Setting up MAGE environment.'
 source {{ kaijuhome }}/scripts/setupEnvironment.sh
 
 echo 'Setting environment variables.'
-export TMPDIR={{ tmpdir }}
-export SLACK_BOT_TOKEN={{ slack_bot_token }}
-export OMP_NUM_THREADS=128
-export MPI_TYPE_DEPTH=32
-export KMP_STACKSIZE=128M
-export MAGE_TEST_ROOT=$mage_test_root
 export MAGE_TEST_SET_ROOT={{ mage_test_set_root }}
-export BRANCH_OR_COMMIT={{ branch_or_commit }}
+export SLACK_BOT_TOKEN={{ slack_bot_token }}
 echo 'The active environment variables are:'
 printenv
 
-# Run the model.
-$MPICOMMAND ./voltron_mpi.x weeklyDashGo.xml >& weeklyDashGo.out
-
-# Generate the report.
-python $KAIJUHOME/testingScripts/weeklyDashReport.py {{ report_options }} >& weeklyDashReport.out
+echo 'Generating unit test report.'
+python $KAIJUHOME/testingScripts/unitTestReport.py {{ report_options }}
 
 echo "Job $PBS_JOBID ended at `date` on `hostname` in directory `pwd`."

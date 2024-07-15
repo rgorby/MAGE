@@ -21,9 +21,9 @@ Eric Winter
 # Import standard modules.
 import datetime
 import os
-import sys
 import shutil
 import subprocess
+import sys
 
 # Import 3rd-party modules.
 from jinja2 import Template
