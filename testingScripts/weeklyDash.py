@@ -24,7 +24,7 @@ import sys
 import jinja2
 
 # Import project modules.
-from kaipy.testing import common
+import common
 
 
 # Program constants
