@@ -19,6 +19,7 @@ module load {{ module }}
 module list
 
 echo 'Loading python environment.'
+mage_test_root='{{ mage_test_root }}'
 export CONDARC="${mage_test_root}/condarc"
 export CONDA_ENVS_PATH="${mage_test_root}/conda"
 mage_miniconda3="${mage_test_root}/miniconda3"
@@ -41,15 +42,12 @@ source {{ kaijuhome }}/scripts/setupEnvironment.sh
 
 echo 'Setting environment variables.'
 export TMPDIR={{ tmpdir }}
-export OMP_NUM_THREADS=128
-export MPI_TYPE_DEPTH=32
-export KMP_STACKSIZE=128M
 export SLACK_BOT_TOKEN={{ slack_bot_token }}
 export DERECHO_TESTING_ACCOUNT={{ account }}
 echo 'The active environment variables are:'
 printenv
 
 # Create the report.
-python ${KAIJUHOME}/testingScripts/intelChecksReport.py -dltv
+python ${KAIJUHOME}/testingScripts/intelChecksReport.py {{ report_options }}
 
 echo "Job $PBS_JOBID ended at `date` on `hostname` in directory `pwd`."
