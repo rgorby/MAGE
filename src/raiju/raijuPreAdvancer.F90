@@ -609,8 +609,8 @@ module raijuPreAdvancer
         real(rp), dimension(Grid%shGrid%isg:Grid%shGrid%ieg+1,&
                             Grid%shGrid%jsg:Grid%shGrid%jeg+1, 2), intent(inout) :: iVelL, iVelR
 
-        logical, dimension(Grid%shGrid%isg:Grid%shGrid%ieg+1,&
-                           Grid%shGrid%jsg:Grid%shGrid%jeg+1) :: isGCC
+        logical, dimension(Grid%shGrid%isg:Grid%shGrid%ieg,&
+                           Grid%shGrid%jsg:Grid%shGrid%jeg) :: isGCC
         real(rp), dimension(Grid%shGrid%isg:Grid%shGrid%ieg+1,&
                            Grid%shGrid%jsg:Grid%shGrid%jeg+1,2) :: tmpVelL, tmpVelR
         
