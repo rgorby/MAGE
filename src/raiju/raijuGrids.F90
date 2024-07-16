@@ -48,18 +48,18 @@ module raijugrids
         nGhosts = Ng
 
         ! Allocate arrays
-        allocate(Theta(Nt))
-        allocate(Phi(Np))
+        allocate(Theta(Nt+1))
+        allocate(Phi(Np+1))
 
         ! Create uniform grids
-        dTheta = (thetaU-thetaL)/(Nt-1)
-        dPhi = 2*PI/(Np-1)
+        dTheta = (thetaU-thetaL)/Nt
+        dPhi = 2*PI/Np
 
-        do i=1,Nt
+        do i=1,Nt+1
             Theta(i) = thetaL + (i-1)*dTheta
         enddo
 
-        do i=1,Np
+        do i=1,Np+1
             Phi(i) = (i-1)*dPhi
         enddo
 
@@ -69,19 +69,58 @@ module raijugrids
 
 
     subroutine raijuGenWarpSphGrid(Model, Grid, iXML)
+        !! Currently just implementation of Fok+2021 scaling of L = 1/cos^n(lat)
         type(raijuModel_T), intent(in   ) :: Model
         type(raijuGrid_T) , intent(inout) :: Grid
         type(XML_Input_T), intent(in)    :: iXML
 
         real(rp), dimension(:), allocatable :: Theta
         real(rp), dimension(:), allocatable :: Phi
-        real(rp) :: dTheta, dPhi, thetaL, thetaU
+        real(rp) :: dPhi, thetaL, thetaU
+        real(rp) :: sL, sU, ds, s
         integer :: Nt,Np,Ng
+        integer :: n
         integer, dimension(4) :: nGhosts
         integer :: i
 
-        write(*,*)"TODO: raijuGenWarpSphGrid"
-        stop
+        call iXML%Set_Val(thetaL , "grid/ThetaL", 15.0)
+            !! Lower colat boundary [deg], ~15 Re in dipole
+        call iXML%Set_Val(thetaU , "grid/ThetaU", 45.0)
+            !! Upper colat boundary [deg], 2 Re in dipole
+        call iXML%Set_Val(n , "grid/FokN", 5 )
+        call iXML%Set_Val(Nt, "grid/Nt", 71 )
+        call iXML%Set_Val(Np, "grid/Np", 361)  ! 1 deg resolution
+        call iXML%Set_Val(Ng, "grid/Ng", 4  )  ! Number of ghosts, in every direction for now
+
+        ! Turn degrees into radians
+        thetaL = thetaL*deg2rad
+        thetaU = thetaU*deg2rad
+
+        ! Get mapping of high/low theta boundaries
+        sL = sin(thetaL)**(-1.0*n)
+        sU = sin(thetaU)**(-1.0*n)
+        ds = (sU - sL) / Nt
+        ! Note: ds only equals dipole dL if n=2, otherwise it doesn't map exactly to equatorial spacing
+        ! e.g. Equatorial spacing is only constant (assuming dipole) when n=2
+        dPhi = 2*PI/Np
+
+        ! Express numGhosts in the way GenShellGrid expects
+        nGhosts = Ng
+
+        ! Allocate arrays
+        allocate(Theta(Nt+1))
+        allocate(Phi(Np+1))
+
+        do i=1,Nt+1
+            s = sL + (i-1)*ds 
+            Theta(i) = asin(s**(-1.0/n))
+        enddo
+
+        do i=1,Np+1
+            Phi(i) = (i-1)*dPhi
+        enddo
+
+        call GenShellGrid(Grid%shGrid,Theta,Phi,RAI_SG_NAME,nGhosts=nGhosts,radO=Model%planet%Ri_m/Model%planet%Rp_m)        
         
     end subroutine raijuGenWarpSphGrid
 
