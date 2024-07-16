@@ -524,7 +524,7 @@ def main():
 
         # Run the report generation job if all others ran OK.
         cmd = (
-            f"qsub -W depend=afterok:{':'.join(job_ids[i_module_set][1:])} "
+            f"qsub -W depend=afterok:{':'.join(job_ids[i_module_set][1:4])} "
             f"{UNIT_TEST_REPORT_PBS_SCRIPT}"
         )
         if debug:
