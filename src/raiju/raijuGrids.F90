@@ -53,7 +53,7 @@ module raijugrids
 
         ! Create uniform grids
         dTheta = (thetaU-thetaL)/Nt
-        dPhi = 2*PI/Np
+        dPhi = 2.0*PI/Np
 
         do i=1,Nt+1
             Theta(i) = thetaL + (i-1)*dTheta
@@ -62,7 +62,11 @@ module raijugrids
         do i=1,Np+1
             Phi(i) = (i-1)*dPhi
         enddo
-
+        ! Catch for slight overshoot
+        if ((Phi(Np+1) > 2*PI) .and. (Phi(Np+1) - 2*PI < TINY) ) then
+            Phi(Np+1) = 2.0*PI
+        endif
+        
         call GenShellGrid(Grid%shGrid,Theta,Phi,RAI_SG_NAME,nGhosts=nGhosts,radO=Model%planet%Ri_m/Model%planet%Rp_m)
 
     end subroutine raijuGenUniSphGrid
@@ -102,7 +106,7 @@ module raijugrids
         ds = (sU - sL) / Nt
         ! Note: ds only equals dipole dL if n=2, otherwise it doesn't map exactly to equatorial spacing
         ! e.g. Equatorial spacing is only constant (assuming dipole) when n=2
-        dPhi = 2*PI/Np
+        dPhi = 2.0*PI/Np
 
         ! Express numGhosts in the way GenShellGrid expects
         nGhosts = Ng
@@ -119,6 +123,10 @@ module raijugrids
         do i=1,Np+1
             Phi(i) = (i-1)*dPhi
         enddo
+        ! Catch for slight overshoot
+        if ((Phi(Np+1) > 2*PI) .and. (Phi(Np+1) - 2*PI < TINY) ) then
+            Phi(Np+1) = 2.0*PI
+        endif
 
         call GenShellGrid(Grid%shGrid,Theta,Phi,RAI_SG_NAME,nGhosts=nGhosts,radO=Model%planet%Ri_m/Model%planet%Rp_m)        
         
