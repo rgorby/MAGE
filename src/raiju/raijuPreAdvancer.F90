@@ -380,7 +380,7 @@ module raijuPreAdvancer
     end subroutine calcGradIJ
 
 
-    subroutine calcGradIJ_cc(Rp_m, Grid, isG, Q, gradQ)
+    subroutine calcGradIJ_cc(Rp_m, Grid, isG, Q, gradQ, doLimO)
         !! Uses Green-Gauss theorem to get cell-averaged gradient, using corner-located values
         real(rp), intent(in) :: Rp_m
             !! Planet radius in m
@@ -390,14 +390,26 @@ module raijuPreAdvancer
         real(rp), dimension(Grid%shGrid%isg:Grid%shGrid%ieg+1,Grid%shGrid%jsg:Grid%shGrid%jeg+1), intent(in) :: Q
             !! Variable we are taking the gradient of across faces
         real(rp), dimension(Grid%shGrid%isg:Grid%shGrid%ieg,Grid%shGrid%jsg:Grid%shGrid%jeg, 2), intent(inout) :: gradQ
+        logical, optional, intent(in) :: doLimO
 
+        real(rp), dimension(Grid%shGrid%isg:Grid%shGrid%ieg,Grid%shGrid%jsg:Grid%shGrid%jeg, 2) :: gradQLim
         integer :: i,j
         real(rp) :: qLow, qHigh 
+        logical :: doLim
         
+        if (present(doLimO)) then
+            doLim = doLimO
+        else
+            doLim = .true.
+        endif
+
         gradQ = 0.0
 
         associate(sh=>Grid%shGrid)
 
+        !$OMP PARALLEL DO default(shared) &
+        !$OMP schedule(dynamic) &
+        !$OMP private(i,j,qLow,qHigh)
         do j=sh%jsg,sh%jeg
             do i=sh%isg,sh%ieg
                 if (all(isG(i:i+1, j:j+1))) then
@@ -420,8 +432,38 @@ module raijuPreAdvancer
             enddo
         enddo
 
+        if (doLim) then
+            gradQLim = gradQ
+            !$OMP PARALLEL DO default(shared) &
+            !$OMP schedule(dynamic) &
+            !$OMP private(i,j)
+            do j=sh%jsg+1,sh%jeg-1
+                do i=sh%isg+1,sh%ieg-1
+                    gradQLim(i,j,RAI_TH) = MCLim(gradQ(i-1:i+1,j      ,RAI_TH))
+                    gradQLim(i,j,RAI_PH) = MCLim(gradQ(i      ,j-1:j+1,RAI_PH))
+                enddo
+            enddo
+            gradQ = gradQLim
+        endif
+
         end associate
 
+
+        contains
+
+        function MCLim(dq) result(dqbar)
+            real(rp), dimension(-1:1), intent(in) :: dq
+            real(rp) :: dqbar
+            real(rp) :: magdq
+
+            if (dq(-1)*dq(1) <= 0.0) then
+                dqbar = 0.0
+            else
+                magdq = min(2*abs(dq(-1)),2*abs(dq(1)),abs(dq(0)))
+                !SIGN(A,B) returns the value of A with the sign of B
+                dqbar = sign(magdq,dq(0))
+            endif
+        end function MCLim
     end subroutine calcGradIJ_cc
 
 
@@ -492,7 +534,7 @@ module raijuPreAdvancer
     end subroutine calcGradFTV
 
 
-    subroutine calcGradFTV_cc(Rp_m, RIon_m, B0, Grid, isG, V, gradV, doSmoothO)
+    subroutine calcGradFTV_cc(Rp_m, RIon_m, B0, Grid, isGcorner, V, gradV, doSmoothO, doLimO)
         !! Same as calcGradFTV, but calculating cell-averaged gradient instead
         real(rp), intent(in) :: Rp_m
             !! Planet radius [m]]
@@ -501,13 +543,13 @@ module raijuPreAdvancer
         real(rp), intent(in) :: B0
             !! Planet's surface field strength [Gauss]
         type(raijuGrid_T), intent(in) :: Grid
-        logical , dimension(Grid%shGrid%isg:Grid%shGrid%ieg+1,Grid%shGrid%jsg:Grid%shGrid%jeg+1), intent(in) :: isG
+        logical , dimension(Grid%shGrid%isg:Grid%shGrid%ieg+1,Grid%shGrid%jsg:Grid%shGrid%jeg+1), intent(in) :: isGcorner
             !! Mask for corners that are safe to use in calculating the gradient across the attached faces
         real(rp), dimension(Grid%shGrid%isg:Grid%shGrid%ieg+1,Grid%shGrid%jsg:Grid%shGrid%jeg+1), intent(in) :: V
             !! Flux tube volume (FTV)
         real(rp), dimension(Grid%shGrid%isg:Grid%shGrid%ieg,Grid%shGrid%jsg:Grid%shGrid%jeg, 2), intent(inout) :: gradV
             !! grad(FTV) we return [units(FTV)/m]
-        logical, optional, intent(in) :: doSmoothO
+        logical, optional, intent(in) :: doSmoothO, doLimO
 
         integer :: i
         real(rp) :: dcl_dm
@@ -517,12 +559,17 @@ module raijuPreAdvancer
         real(rp), dimension(Grid%shGrid%isg:Grid%shGrid%ieg,&
                             Grid%shGrid%jsg:Grid%shGrid%jeg) :: dV0_dth
             !! V0 = dipole FTV, dV = V - V0
-        logical :: doSmooth
+        logical :: doSmooth, doLim
 
         if (present(doSmoothO)) then
             doSmooth = doSmoothO
         else
             doSmooth = .true.
+        endif
+        if (present(doLimO)) then
+            doLim = doLimO
+        else
+            doLim = .true.
         endif
 
         associate(sh=>Grid%shGrid)
@@ -533,9 +580,10 @@ module raijuPreAdvancer
         enddo
 
         dV = 0.0
-        where(isG)
+        where(isGcorner)
             dV = V - V0
         end where
+
 
         ! Analytic gradient of dipole FTV at cell centers
         dV0_dth = 0.0
@@ -545,11 +593,91 @@ module raijuPreAdvancer
         enddo
 
         ! Gradient of perturbation
-        call calcGradIJ_cc(Rp_m, Grid, isG, dV, gradV)
+        if (doSmooth) then
+            call smoothV(Grid%shGrid, isGcorner, dV)
+        endif
+        
+        call calcGradIJ_cc(Rp_m, Grid, isGcorner, dV, gradV, doLimO=doLim)
 
         gradV(:,:,RAI_TH) = gradV(:,:,RAI_TH) + dV0_dth
 
         end associate
+
+
+        contains
+
+        subroutine smoothV(sh, isGc, V)
+            type(ShellGrid_T), intent(in) :: sh
+            logical , dimension(sh%isg:sh%ieg+1,sh%jsg:sh%jeg+1), intent(in) :: isGc
+            real(rp), dimension(sh%isg:sh%ieg+1,sh%jsg:sh%jeg+1), intent(inout) :: V
+            
+            real(rp), dimension(sh%isg:sh%ieg+1,sh%jsg:sh%jeg+1) :: Vsm
+            real(rp), dimension(3, 3) :: tmpV
+            logical , dimension(3, 3) :: tmpGood
+            integer :: i,j
+
+            Vsm = 0.0
+            associate (isg=>sh%isg, ieg=>sh%ieg, jsg=>sh%jsg, jeg=>sh%jeg)
+            ! Handle cells along grid extents first
+            ! isg,jsg corner
+            tmpV = 0.0
+            tmpV   (2:3,2:3) = V   (isg:isg+1,jsg:jsg+1)
+            tmpGood(2:3,2:3) = isGc(isg:isg+1,jsg:jsg+1)
+            Vsm(isg,jsg) = SmoothOperator33(tmpV, tmpGood)
+            ! ieg,jsg corner
+            tmpV = 0.0
+            tmpV   (1:2,2:3) = V   (ieg:ieg+1,jsg:jsg+1)
+            tmpGood(1:2,2:3) = isGc(ieg:ieg+1,jsg:jsg+1)
+            Vsm(ieg+1,jsg) = SmoothOperator33(tmpV, tmpGood)
+            ! isg,jeg corner
+            tmpV = 0.0
+            tmpV   (2:3,1:2) = V   (isg:isg+1,jeg:jeg+1)
+            tmpGood(2:3,1:2) = isGc(isg:isg+1,jeg:jeg+1)
+            Vsm(isg,jeg+1) = SmoothOperator33(tmpV, tmpGood)
+            ! ieg,jeg corner
+            tmpV = 0.0
+            tmpV   (1:2,1:2) = V   (ieg:ieg+1,jeg:jeg+1)
+            tmpGood(1:2,1:2) = isGc(ieg:ieg+1,jeg:jeg+1)
+            Vsm(ieg+1,jeg+1) = SmoothOperator33(tmpV, tmpGood)
+            ! jsg, jeg edges
+            do i=isg+1,ieg
+                tmpV = 0.0
+                tmpV   (:,2:3) = V   (i-1:i+1,jsg:jsg+1)
+                tmpGood(:,2:3) = isGc(i-1:i+1,jsg:jsg+1)
+                Vsm(i,jsg) = SmoothOperator33(tmpV, tmpGood)
+
+                tmpV = 0.0
+                tmpV   (:,1:2) = V   (i-1:i+1,jeg:jeg+1)
+                tmpGood(:,1:2) = isGc(i-1:i+1,jeg:jeg+1)
+                Vsm(i,jeg+1) = SmoothOperator33(tmpV, tmpGood)
+            enddo
+            ! isg,ieg edges
+            do j=jsg+1,jeg
+                tmpV = 0.0
+                tmpV   (2:3,:) = V   (isg:isg+1,j-1:j+1)
+                tmpGood(2:3,:) = isGc(isg:isg+1,j-1:j+1)
+                Vsm(isg,j) = SmoothOperator33(tmpV, tmpGood)
+
+                tmpV = 0.0
+                tmpV   (1:2,:) = V   (ieg:ieg+1,j-1:j+1)
+                tmpGood(1:2,:) = isGc(ieg:ieg+1,j-1:j+1)
+                Vsm(ieg+1,j) = SmoothOperator33(tmpV, tmpGood)
+            enddo
+            ! Now everyone else
+            !$OMP PARALLEL DO default(shared) &
+            !$OMP schedule(dynamic) &
+            !$OMP private(j,i)
+            do j=jsg+1,jeg
+                do i=isg+1,ieg
+                    Vsm(i,j) = SmoothOperator33(V(i-1:i+1,j-1:j+1), isGc(i-1:i+1,j-1:j+1))
+                enddo
+            enddo
+
+            ! Write back to provided array
+            V = Vsm
+            end associate
+
+        end subroutine smoothV
 
     end subroutine calcGradFTV_cc
 
