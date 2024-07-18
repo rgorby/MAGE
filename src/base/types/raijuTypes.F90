@@ -175,6 +175,12 @@ module raijutypes
         ! Some constants
         real(rp) :: tiote  ! Ion temp over electron temp. In the future, should be fancier
 
+        ! Active domain settings
+        real(rp) :: maxTail
+            !! Maximum tailward extend of the active AND buffer region
+        real(rp) :: maxSun
+            !! Maximum sunward extend of the active AND buffer region
+
         ! Active shell settings
         logical :: doActiveShell
             !! Use activeShell logic to try to boost dt

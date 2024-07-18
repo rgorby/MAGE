@@ -42,6 +42,7 @@ module raijuDomain
         logical, dimension(Grid%shGrid%isg:Grid%shGrid%ieg,Grid%shGrid%jsg:Grid%shGrid%jeg), intent(inout) :: isInactive
 
         integer :: i,j
+        real(rp) :: xyMin
         real(rp), dimension(2,2) :: bminSquare
 
         isInactive = .false.
@@ -67,6 +68,12 @@ module raijuDomain
                 bminSquare(2,2) = norm2(State%Bmin(i+1,j+1,:))
                 if (any( bminSquare .le. Model%bminThresh) ) then
                 !if (any( norm2(State%Bmin(i:i+1,j:j+1,:),dim=3) .le. Model%bminThresh) ) then
+                    isInactive(i,j) = .true.
+                endif
+
+                xyMin = sqrt(State%xyzMin(i,j,XDIR)**2 + State%xyzMin(i,j,YDIR)**2)
+                ! Simple circle limit
+                if ( (xyMin > Model%maxTail) .or. xyMin > Model%maxSun) then
                     isInactive(i,j) = .true.
                 endif
 

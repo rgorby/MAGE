@@ -71,6 +71,10 @@ module raijudefs
     real(rp), parameter :: cflMax = 0.3
     logical, parameter :: def_doUseVelLRs = .false.
 
+    ! Domain limits
+    real(rp), parameter :: def_maxTail = 15.0  ! [Rp]
+    real(rp), parameter :: def_maxSun  = 10.0  ! [Rp]
+
     ! Settings
     integer, parameter :: raiRecLen = 8
         !! Reconstruction stencil length

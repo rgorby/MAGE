@@ -129,6 +129,13 @@ module raijustarter
 
         call iXML%Set_Val(Model%nSpc, "prob/nSpc",Model%nSpc)
 
+        ! Domain constraints
+        call iXML%Set_Val(Model%maxTail, "domain/maxTail", def_maxTail)
+        call iXML%Set_Val(Model%maxSun , "domain/maxSun" , def_maxSun )
+        ! Store all distances as positive values, we'll add signs as needed later
+        Model%maxTail = abs(Model%maxTail)
+        Model%maxSun = abs(Model%maxSun)
+
         ! Solver params
         call iXML%Set_Val(Model%doUseVelLRs,'sim/useVelLRs',def_doUseVelLRs)
         call iXML%Set_Val(Model%maxItersPerSec,'sim/maxIter',def_maxItersPerSec)
@@ -271,7 +278,8 @@ module raijustarter
                 case("WARPSPH")
                     Grid%gType = RAI_G_WARPSPH
                     ! Generate our own grid from scratch
-                    call raijuGenWarpSphGrid(Model, Grid, iXML)
+                    !call raijuGenWarpSphGrid_Fok2021(Model, Grid, iXML)
+                    call raijuGenWarpSphGrid_Shafee2008(Model, Grid, iXML)
                 case("SHGRID")
                     Grid%gType = RAI_G_SHGRID
                     ! Then we should be receiving a predefined ShellGrid that Voltron has set up

@@ -492,7 +492,7 @@ module raijuPreAdvancer
     end subroutine calcGradFTV
 
 
-    subroutine calcGradFTV_cc(Rp_m, RIon_m, B0, Grid, isG, V, gradV)
+    subroutine calcGradFTV_cc(Rp_m, RIon_m, B0, Grid, isG, V, gradV, doSmoothO)
         !! Same as calcGradFTV, but calculating cell-averaged gradient instead
         real(rp), intent(in) :: Rp_m
             !! Planet radius [m]]
@@ -507,6 +507,7 @@ module raijuPreAdvancer
             !! Flux tube volume (FTV)
         real(rp), dimension(Grid%shGrid%isg:Grid%shGrid%ieg,Grid%shGrid%jsg:Grid%shGrid%jeg, 2), intent(inout) :: gradV
             !! grad(FTV) we return [units(FTV)/m]
+        logical, optional, intent(in) :: doSmoothO
 
         integer :: i
         real(rp) :: dcl_dm
@@ -516,6 +517,13 @@ module raijuPreAdvancer
         real(rp), dimension(Grid%shGrid%isg:Grid%shGrid%ieg,&
                             Grid%shGrid%jsg:Grid%shGrid%jeg) :: dV0_dth
             !! V0 = dipole FTV, dV = V - V0
+        logical :: doSmooth
+
+        if (present(doSmoothO)) then
+            doSmooth = doSmoothO
+        else
+            doSmooth = .true.
+        endif
 
         associate(sh=>Grid%shGrid)
 

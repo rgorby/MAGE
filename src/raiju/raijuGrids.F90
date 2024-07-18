@@ -72,7 +72,8 @@ module raijugrids
     end subroutine raijuGenUniSphGrid
 
 
-    subroutine raijuGenWarpSphGrid(Model, Grid, iXML)
+
+    subroutine raijuGenWarpSphGrid_Fok2021(Model, Grid, iXML)
         !! Currently just implementation of Fok+2021 scaling of L = 1/cos^n(lat)
         type(raijuModel_T), intent(in   ) :: Model
         type(raijuGrid_T) , intent(inout) :: Grid
@@ -130,7 +131,127 @@ module raijugrids
 
         call GenShellGrid(Grid%shGrid,Theta,Phi,RAI_SG_NAME,nGhosts=nGhosts,radO=Model%planet%Ri_m/Model%planet%Rp_m)        
         
-    end subroutine raijuGenWarpSphGrid
+    end subroutine raijuGenWarpSphGrid_Fok2021
+
+
+    subroutine raijuGenWarpSphGrid_Shafee2008(Model, Grid, iXML)
+        !! Modified version of Shafee+ 2008 (10.1086/593148)
+        type(raijuModel_T), intent(in   ) :: Model
+        type(raijuGrid_T) , intent(inout) :: Grid
+        type(XML_Input_T), intent(in)    :: iXML
+
+        real(rp), dimension(:), allocatable :: Theta
+        real(rp), dimension(:), allocatable :: Phi
+        real(rp) :: dPhi, thetaL, thetaU, x, dX
+        integer :: Nt,Np,Ng
+        integer, dimension(4) :: nGhosts
+        integer :: i
+        integer :: nPow
+            !! Power applied to non-linear scaling term
+        real(rp) :: hWgt
+            !! Weight between linear and non-linear term. 1=linear, 0=non-linear
+        real(rp) :: x_low, x_high
+            !! Bounds for generating x values between 0 and 1
+            !! FIXME: replace with theta_center and x_scale, and calculate our x_low and x_high from that
+        real(rp) :: a1, a2
+            !! Coefficients to map from (x_low, x_high) to (thetaL, thetaU), using the scaling function
+            !! If x_low=0 and x_high=1, a1 = thetaL and a2 = thetaU
+            !! But this makes the resolution focus symmetric between thetaLa nd thetaU which is not necessarily what we want
+
+        call iXML%Set_Val(thetaL , "grid/ThetaL", 15.0)
+            !! Lower colat boundary [deg], ~15 Re in dipole
+        call iXML%Set_Val(thetaU , "grid/ThetaU", 45.0)
+            !! Upper colat boundary [deg], 2 Re in dipole
+        call iXML%Set_Val(Nt, "grid/Nt", 71 )
+        call iXML%Set_Val(Np, "grid/Np", 361)  ! 1 deg resolution
+        call iXML%Set_Val(Ng, "grid/Ng", 4  )  ! Number of ghosts, in every direction for now
+        call iXML%Set_Val(nPow,"grid/nPow", 7)
+        call iXML%Set_Val(hWgt,"grid/h"   , 0.7)
+        call iXML%Set_Val(x_low ,"grid/xLow", 0.1)
+        call iXML%Set_Val(x_high,"grid/xHigh", 0.95)
+
+        ! Turn degrees into radians
+        thetaL = thetaL*deg2rad
+        thetaU = thetaU*deg2rad
+
+        if (x_low < 0 ) then
+            write(*,*) "ERROR in raijuGenWarpSphGrid_Shafee2008:"
+            write(*,*) "xLow must be greater than zero"
+            stop
+        endif
+        if (x_high > 1) then
+            write(*,*) "ERROR in raijuGenWarpSphGrid_Shafee2008:"
+            write(*,*) "xHigh must be less than one"
+            stop
+        endif
+        if (x_low > x_high) then
+            write(*,*) "ERROR in raijuGenWarpSphGrid_Shafee2008:"
+            write(*,*) "xLow must be less than xHigh"
+            stop
+        endif
+
+        call calcCoeffs(thetaL, thetaU, x_low, x_high, hWgt, nPow, a1, a2)
+        dX = (x_high - x_low) / Nt
+
+        dPhi = 2.0*PI/Np
+
+        ! Express numGhosts in the way GenShellGrid expects
+        nGhosts = Ng
+
+        ! Allocate arrays
+        allocate(Theta(Nt+1))
+        allocate(Phi(Np+1))
+
+        do i=1,Nt+1
+            x = x_low + (i-1)*dX
+            Theta(i) = a1 + (a2-a1)*scaleFunc(x, hWgt, nPow)
+        enddo
+
+        do i=1,Np+1
+            Phi(i) = (i-1)*dPhi
+        enddo
+        ! Catch for slight overshoot
+        if ((Phi(Np+1) > 2*PI) .and. (Phi(Np+1) - 2*PI < TINY) ) then
+            Phi(Np+1) = 2.0*PI
+        endif
+
+        call GenShellGrid(Grid%shGrid,Theta,Phi,RAI_SG_NAME,nGhosts=nGhosts,radO=Model%planet%Ri_m/Model%planet%Rp_m)
+
+        contains
+
+        ! Job security
+        subroutine calcCoeffs(thL, thU, xL, xU, wgt, n, coeff1, coeff2)
+            !! Calculates coefficients to use in final theta grid generation
+            real(rp), intent(in) :: thL, thU, xL, xU
+            real(rp), intent(in) :: wgt
+            integer, intent(in) :: n
+            real(rp), intent(out) :: coeff1, coeff2
+
+            real(rp) :: f_l, f_u
+
+            ! thetaL = c1 + (c2-c1)*scaleFunc(xL)
+            ! thetaU = c1 + (c2-c1)*scaleFunc(xU)
+            ! Solve for c1 and c2
+
+            f_l = scaleFunc(xL, wgt, n)
+            f_u = scaleFunc(xU, wgt, n)
+
+            coeff1 = (thL*f_u - thU*f_l) / (f_u - f_l)
+            coeff2 = (thU - a1)/f_u + a1
+
+        end subroutine calcCoeffs
+
+        function scaleFunc(x, wgt, n) result(val)
+            !! for x=[0,1], maps with linear and non-linear scaling between [0,1]
+            real(rp), intent(in) :: x
+            real(rp), intent(in) :: wgt
+            integer, intent(in) :: n
+            
+            real(rp) :: val
+            val = 0.5*(wgt*(2*x-1) + (1-wgt)*(2*x-1)**n + 1)
+        end function scaleFunc
+
+    end subroutine raijuGenWarpSphGrid_Shafee2008
 
 
     subroutine raijuGenGridFromShGrid(Grid, shGrid)
