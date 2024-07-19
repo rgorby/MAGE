@@ -36,7 +36,7 @@ contains
           ! make gamera-only mpi communicator
           call MPI_Comm_Split(getMpiF08Communicator(this), gamId, this%getProcessRank(), gamCplMpi%gOptionsMpi%gamComm, ierror)
 
-          gamCplMpi%gOptionsCplMpiG%allComm = getMpiF08Communicator(this)
+          gamCplMpi%gOptionsCplMpiG%couplingPoolComm = getMpiF08Communicator(this)
           gamCplMpi%gOptions%userInitFunc => initUser
           gamCplMpi%gOptionsMpi%doIO = .false.
           xmlInp = New_XML_Input(trim(caseFile),'Kaiju',.true.)
@@ -49,7 +49,8 @@ contains
           call MPI_Comm_Split(getMpiF08Communicator(this), voltId, this%getProcessRank(), voltComm, ierror)
 
           voltAppMpi%vOptions%gamUserInitFunc => initUser
-          voltAppMpi%vOptionsMpi%allComm = getMpiF08Communicator(this)
+	  allocate(voltAppMpi%vOptionsMpi%couplingPoolComm)
+          voltAppMpi%vOptionsMpi%couplingPoolComm = getMpiF08Communicator(this)
           call initVoltron_mpi(voltAppMpi, trim(caseFile))
       else
           allocate(voltAppMpi)
@@ -58,7 +59,9 @@ contains
           ! make gamera-only mpi communicator
           call MPI_Comm_Split(getMpiF08Communicator(this), voltId, this%getProcessRank(), voltComm, ierror)
 
-          voltAppMpi%vOptionsMpi%allComm = getMpiF08Communicator(this)
+          voltAppMpi%vOptions%gamUserInitFunc => initUser
+	  allocate(voltAppMpi%vOptionsMpi%couplingPoolComm)
+          voltAppMpi%vOptionsMpi%couplingPoolComm = getMpiF08Communicator(this)
           call initVoltronHelper_mpi(voltAppMpi, trim(caseFile))
       endif
 
@@ -98,7 +101,8 @@ contains
 
   end subroutine runApplication
 
-  @test(npes=[8])
+  ! this test doesn't work with current layout, timestepping is tested as part of test below
+  !@test(npes=[8])
   subroutine testHelpTimestepping(this)
       class (MpiTestMethod), intent(inout) :: this
 

@@ -12,7 +12,7 @@ module gamCouple_mpi_V2G
 
     ! options for MPI voltron coupler
     type, extends(BaseOptions_T) :: gamOptionsCplMpiV_T
-        type(MPI_Comm) :: allComm
+        type(MPI_Comm), pointer :: couplingPoolComm
 
         contains
     end type
@@ -110,9 +110,8 @@ module gamCouple_mpi_V2G
         call PrepState(App%Model,App%Grid,&
             App%oState,App%State,Xml,App%gOptions%userInitFunc)
 
-        ! split allComm into a communicator with only the non-helper voltron rank and Gamera ranks
-        call MPI_Comm_rank(App%gOptionsCplMpiV%allComm, commSize, ierr)
-        call voltronSplitWithApp(App%gOptionsCplMpiV%allComm, gamId, commSize, voltComm)
+        ! split couplingPoolComm into a communicator with only the non-helper voltron rank and Gamera ranks
+        call voltronSplitWithApp(App%gOptionsCplMpiV%couplingPoolComm, gamId, 0, voltComm)
 
         call Xml%Set_Val(App%doAsyncCoupling,"/kaiju/voltron/coupling/doAsyncCoupling",.true.)
         call Xml%Set_Val(App%doDeep, "/kaiju/voltron/coupling/doDeep", .true.)
@@ -142,10 +141,17 @@ module gamCouple_mpi_V2G
         ! doing a very very rough approximation of data transferred to help MPI reorder
         ! for deep updates, assume each rank sends data equal to its # physical cells
 
+        call MPI_Comm_rank(voltComm, App%myRank, ierr)
+        ! identify who is voltron
+        call MPI_Allreduce(MPI_IN_PLACE, App%myRank, 1, MPI_INTEGER, MPI_MAX, voltComm, ierr)
+
         ! get i/j/k ranks from each Gamera mpi rank
-        call mpi_gather(-1, 1, MPI_INTEGER, iRanks, 1, MPI_INTEGER, commSize-1, voltComm, ierr)
-        call mpi_gather(-1, 1, MPI_INTEGER, jRanks, 1, MPI_INTEGER, commSize-1, voltComm, ierr)
-        call mpi_gather(-1, 1, MPI_INTEGER, kRanks, 1, MPI_INTEGER, commSize-1, voltComm, ierr)
+	iRanks(:) = -1
+        jRanks(:) = -1
+        kRanks(:) = -1
+        call mpi_gather(MPI_IN_PLACE, 1, MPI_INTEGER, iRanks, 1, MPI_INTEGER, App%myRank, voltComm, ierr)
+        call mpi_gather(MPI_IN_PLACE, 1, MPI_INTEGER, jRanks, 1, MPI_INTEGER, App%myRank, voltComm, ierr)
+        call mpi_gather(MPI_IN_PLACE, 1, MPI_INTEGER, kRanks, 1, MPI_INTEGER, App%myRank, voltComm, ierr)
 
         ! get the number of physical cells from rank 0
         call mpi_recv(numCells, 1, MPI_INTEGER, 0, 97500, voltComm, MPI_STATUS_IGNORE, ierr)
@@ -193,9 +199,12 @@ module gamCouple_mpi_V2G
         end if
 
         ! get i/j/k ranks again in case MPI ranks were reordered in the new communicator
-        call mpi_gather(-1, 1, MPI_INTEGER, iRanks, 1, MPI_INTEGER, App%myRank, App%couplingComm, ierr)
-        call mpi_gather(-1, 1, MPI_INTEGER, jRanks, 1, MPI_INTEGER, App%myRank, App%couplingComm, ierr)
-        call mpi_gather(-1, 1, MPI_INTEGER, kRanks, 1, MPI_INTEGER, App%myRank, App%couplingComm, ierr)
+	iRanks(:) = -1
+        jRanks(:) = -1
+        kRanks(:) = -1
+        call mpi_gather(MPI_IN_PLACE, 1, MPI_INTEGER, iRanks, 1, MPI_INTEGER, App%myRank, App%couplingComm, ierr)
+        call mpi_gather(MPI_IN_PLACE, 1, MPI_INTEGER, jRanks, 1, MPI_INTEGER, App%myRank, App%couplingComm, ierr)
+        call mpi_gather(MPI_IN_PLACE, 1, MPI_INTEGER, kRanks, 1, MPI_INTEGER, App%myRank, App%couplingComm, ierr)
 
         ! create the MPI datatypes needed to transfer state data
         call createVoltDataTypes(App, iRanks, jRanks, kRanks)
@@ -397,6 +406,9 @@ module gamCouple_mpi_V2G
         ! read only my own restart data
         call readGamCouplerRestart(App, resId, nRes)
 
+        ! we are always in progress after a restart
+        App%inProgress = .true.
+
     end subroutine
 
     subroutine gamCplMpiVWriteConsoleOutput(App)
@@ -478,6 +490,8 @@ module gamCouple_mpi_V2G
         call mpi_bcast(App%Model%IO%tOut, 1, MPI_MYFLOAT, App%myRank, App%couplingComm, ierr)
         call mpi_bcast(App%Model%IO%dtOut, 1, MPI_MYFLOAT, App%myRank, App%couplingComm, ierr)
         call mpi_bcast(App%Model%IO%nOut, 1, MPI_INTEGER, App%myRank, App%couplingComm, ierr)
+        call mpi_bcast(App%Model%IO%tCon, 1, MPI_MYFLOAT, App%myRank, App%couplingComm, ierr)
+        call mpi_bcast(App%Model%IO%dtCon, 1, MPI_MYFLOAT, App%myRank, App%couplingComm, ierr)
 
     end subroutine
 

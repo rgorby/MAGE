@@ -7,7 +7,7 @@ module volttypes_mpi
 
     ! mpi voltron specific options
     type, extends(BaseOptions_T) :: VoltOptionsMpi_T
-        type(MPI_Comm) :: allComm
+        type(MPI_Comm), pointer :: couplingPoolComm
 
         contains
     end type voltOptionsMpi_T

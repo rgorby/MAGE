@@ -51,6 +51,19 @@ program voltron_mpix
         call mpi_Abort(MPI_COMM_WORLD, 1, ierror)
     end if
 
+    call MPI_Comm_Size(MPI_COMM_WORLD, worldSize, ierror)
+    if(ierror /= MPI_Success) then
+        call MPI_Error_string( ierror, message, length, ierror)
+        print *,message(1:length)
+        call mpi_Abort(MPI_COMM_WORLD, 1, ierror)
+    end if
+    call MPI_Comm_Rank(MPI_COMM_WORLD, worldRank, ierror)
+    if(ierror /= MPI_Success) then
+        call MPI_Error_string( ierror, message, length, ierror)
+        print *,message(1:length)
+        call mpi_Abort(MPI_COMM_WORLD, 1, ierror)
+    end if
+
     ! initialize mpi data type
     call setMpiReal()
 
@@ -84,22 +97,11 @@ program voltron_mpix
     ! every app splits into their own comunicator
     call MPI_COMM_SPLIT(MPI_COMM_WORLD, appId, 0, appComm, ierror)
 
-    call MPI_Comm_Size(MPI_COMM_WORLD, worldSize, ierror)
-    if(ierror /= MPI_Success) then
-        call MPI_Error_string( ierror, message, length, ierror)
-        print *,message(1:length)
-        call mpi_Abort(MPI_COMM_WORLD, 1, ierror)
-    end if
-    call MPI_Comm_Rank(MPI_COMM_WORLD, worldRank, ierror)
-    if(ierror /= MPI_Success) then
-        call MPI_Error_string( ierror, message, length, ierror)
-        print *,message(1:length)
-        call mpi_Abort(MPI_COMM_WORLD, 1, ierror)
-    end if
-
     if(appId == helperId) then
         allocate(vApp)
-        vApp%vOptionsMpi%allComm = MPI_COMM_WORLD
+        vApp%vOptions%gamUserInitFunc => initUser
+        allocate(vApp%vOptionsMpi%couplingPoolComm)
+        vApp%vOptionsMpi%couplingPoolComm = MPI_COMM_WORLD
         call initVoltronHelper_mpi(vApp)
 
         ! do helper loop
@@ -181,7 +183,8 @@ program voltron_mpix
         ! *** end TIEGCM coupling code
 
         vApp%vOptions%gamUserInitFunc => initUser
-        vApp%vOptionsMpi%allComm = splittingComm
+        allocate(vApp%vOptionsMpi%couplingPoolComm)
+        vApp%vOptionsMpi%couplingPoolComm = splittingComm
         call initVoltron_mpi(vApp)
 
         ! voltron run loop
@@ -231,7 +234,7 @@ program voltron_mpix
         allocate(gApp)
         gApp%gOptionsMpi%gamComm = appComm
 
-        gApp%gOptionsCplMpiG%allComm = MPI_COMM_WORLD
+        gApp%gOptionsCplMpiG%couplingPoolComm = MPI_COMM_WORLD
         gApp%gOptionsMpi%doIO = .false.
         gApp%gOptions%userInitFunc => initUser
 

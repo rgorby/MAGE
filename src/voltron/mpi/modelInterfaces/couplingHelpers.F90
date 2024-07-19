@@ -19,16 +19,19 @@ module couplingHelpers
         currentApp = appId + 1 ! ensure the loop is entered
         currentPool = startingComm
         do while(currentApp .ne. appId)
-            call MPI_Allreduce(0, voltRank, 1, MPI_INTEGER, MPI_MAX, currentPool, ierr)
+            voltRank = -1
+            call MPI_Allreduce(MPI_IN_PLACE, voltRank, 1, MPI_INTEGER, MPI_MAX, currentPool, ierr)
             call MPI_Bcast(currentApp, 1, MPI_INTEGER, voltRank, currentPool, ierr)
             if(currentApp == appId) then
                 ! it's my turn, split with volt and then skip making the second comm
                 call MPI_comm_split(currentPool, appId, key, voltCoupledComm, ierr)
-                call MPI_comm_split(currentPool, MPI_UNDEFINED, key, currentPool, ierr)
+		! key is never used when making the exclusion pool, 0 is used to preserve order
+                call MPI_comm_split(currentPool, MPI_UNDEFINED, 0, currentPool, ierr)
             else
                 ! it's not my turn, don't split with volt, and then join the second comm
                 call MPI_comm_split(currentPool, MPI_UNDEFINED, key, voltCoupledComm, ierr)
-                call MPI_comm_split(currentPool, voltId, key, currentPool, ierr)
+		! key is never used when making the exclusion pool, 0 is used to preserve order
+                call MPI_comm_split(currentPool, voltId, 0, currentPool, ierr)
             endif
         enddo
 
@@ -47,10 +50,11 @@ module couplingHelpers
         ! broadcast which app I'm creating a communicator with, split with it, and then
         ! create a smaller pool that excludes that app
         call MPI_comm_rank(couplingPool, myRank, ierr)
-        call MPI_Allreduce(myRank, myRank, 1, MPI_INTEGER, MPI_MAX, couplingPool, ierr)
+        call MPI_Allreduce(MPI_IN_PLACE, myRank, 1, MPI_INTEGER, MPI_MAX, couplingPool, ierr)
         call MPI_Bcast(appId, 1, MPI_INTEGER, myRank, couplingPool, ierr)
         call MPI_comm_split(couplingPool, appId, key, coupledComm, ierr)
-        call MPI_comm_split(couplingPool, voltId, key, couplingPool, ierr)
+	! key is never used when making the exclusion pool, 0 is used to preserve order
+        call MPI_comm_split(couplingPool, voltId, 0, couplingPool, ierr)
 
     end subroutine
 

@@ -188,6 +188,7 @@ module voltapp
             vApp%MJD = T2MJD(vApp%time,tsMJD%evalAt(0.0_rp))
             !Set first deep coupling (defaulting to coupling immediately)
             call xmlInp%Set_Val(vApp%DeepT, "coupling/tCouple", vApp%time)
+            vApp%IO%tCon = vApp%time
         endif
 
         if (vApp%doDeep) then
@@ -238,9 +239,9 @@ module voltapp
         
         if(present(optFilename)) then
             ! read from the prescribed file
-            call initializeFromGamera(vApp, gApp, optFilename)
+            call initializeFromGamera(vApp, gApp, xmlInp, optFilename)
         else
-            call initializeFromGamera(vApp, gApp)
+            call initializeFromGamera(vApp, gApp, xmlInp)
         endif
 
         ! now that remix is initialized, check if precipitation model is OK with deep choice
@@ -326,17 +327,18 @@ module voltapp
     end subroutine stepVoltron
     
     !Initialize Voltron app based on Gamera data
-    subroutine initializeFromGamera(vApp, gApp, optFilename)
+    subroutine initializeFromGamera(vApp, gApp, xmlInp, optFilename)
         type(voltApp_T), intent(inout) :: vApp
         class(gamApp_T), intent(inout) :: gApp
+	type(XML_Input_T), intent(inout) :: xmlInp
         character(len=*), optional, intent(in) :: optFilename
 
-        character(len=strLen) :: RunID
+        character(len=strLen) :: RunID, resID
         type(TimeSeries_T) :: f107
 
         logical :: isRestart
         real(rp) :: maxF107,Rin
-        integer :: n
+        integer :: n, nRes
 
         isRestart = gApp%Model%isRestart
         RunID = trim(gApp%Model%RunID)
@@ -396,6 +398,11 @@ module voltapp
         call init_mix2MhdCoupler(vApp%gApp, vApp%remixApp)
         ! initialize additional coupled gamera data
         call vApp%gApp%InitMhdCoupler(vApp)
+	if(isRestart) then
+	    call xmlInp%Set_Val(resID,"/Kaiju/gamera/restart/resID","msphere")
+            call xmlInp%Set_Val(nRes,"/Kaiju/gamera/restart/nRes" ,-1)
+	    call vApp%gApp%ReadRestart(resID, nRes)
+	endif
 
         call init_mhd2Mix(vApp%mhd2mix, gApp, vApp%remixApp)
         !vApp%mix2mhd%mixOutput = 0.0

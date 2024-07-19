@@ -9,7 +9,7 @@ module gamCouple_mpi_G2V
     implicit none
 
     type, extends(BaseOptions_T) :: gamOptionsCplMpiG_T
-        type(MPI_Comm) :: allComm
+        type(MPI_Comm) :: couplingPoolComm
 
         contains
     end type
@@ -74,7 +74,7 @@ module gamCouple_mpi_G2V
         class(gamCouplerMpi_gam_T), intent(inout) :: App
         type(XML_Input_T), intent(inout) :: Xml
 
-        integer :: length, commRank, commSize, ierr, numCells, dataCount, numInNeighbors, numOutNeighbors
+        integer :: length, commSize, ierr, numCells, dataCount, numInNeighbors, numOutNeighbors
         type(MPI_Comm) :: voltComm
         character( len = MPI_MAX_ERROR_STRING) :: message
         logical :: reorder, wasWeighted
@@ -89,9 +89,8 @@ module gamCouple_mpi_G2V
         App%zeroArraytypes = (/ MPI_DATATYPE_NULL /)
 
         ! split voltron helpers off of the communicator
-        ! split allComm into a communicator with only the non-helper voltron rank
-        call MPI_Comm_rank(App%gOptionsCplMpiG%allComm, commRank, ierr)
-        call appWaitForVoltronSplit(App%gOptionsCplMpiG%allComm, gamId, commRank, voltComm)
+        ! split couplingPoolComm into a communicator with only the non-helper voltron rank
+        call appWaitForVoltronSplit(App%gOptionsCplMpiG%couplingPoolComm, gamId, 0, voltComm)
 
         call Xml%Set_Val(App%doSerialVoltron,"/kaiju/voltron/coupling/doSerial",.false.)
         call Xml%Set_Val(App%doAsyncCoupling,"/kaiju/voltron/coupling/doAsyncCoupling",.true.)
@@ -110,11 +109,14 @@ module gamCouple_mpi_G2V
         end if
 
         call MPI_Comm_rank(voltComm, App%myRank, ierr)
+	! identify who is voltron
+	App%voltRank = -1
+	call MPI_Allreduce(MPI_IN_PLACE, App%voltRank, 1, MPI_INTEGER, MPI_MAX, voltComm, ierr)
 
         ! send my i/j/k ranks to the voltron rank
-        call mpi_gather(App%Grid%Ri, 1, MPI_INTEGER, 0, 0, MPI_DATATYPE_NULL, commSize-1, voltComm, ierr)
-        call mpi_gather(App%Grid%Rj, 1, MPI_INTEGER, 0, 0, MPI_DATATYPE_NULL, commSize-1, voltComm, ierr)
-        call mpi_gather(App%Grid%Rk, 1, MPI_INTEGER, 0, 0, MPI_DATATYPE_NULL, commSize-1, voltComm, ierr)
+        call mpi_gather(App%Grid%Ri, 1, MPI_INTEGER, 0, 0, MPI_DATATYPE_NULL, App%voltRank, voltComm, ierr)
+        call mpi_gather(App%Grid%Rj, 1, MPI_INTEGER, 0, 0, MPI_DATATYPE_NULL, App%voltRank, voltComm, ierr)
+        call mpi_gather(App%Grid%Rk, 1, MPI_INTEGER, 0, 0, MPI_DATATYPE_NULL, App%voltRank, voltComm, ierr)
 
         numCells = App%Grid%Nip*App%Grid%Njp*App%Grid%Nkp
         ! rank 0 send the number of physical cells to voltron rank
@@ -179,12 +181,17 @@ module gamCouple_mpi_G2V
         call mpi_bcast(App%Model%IO%tOut, 1, MPI_MYFLOAT, App%voltRank, App%couplingComm, ierr)
         call mpi_bcast(App%Model%IO%dtOut, 1, MPI_MYFLOAT, App%voltRank, App%couplingComm, ierr)
         call mpi_bcast(App%Model%IO%nOut, 1, MPI_INTEGER, App%voltRank, App%couplingComm, ierr)
+        call mpi_bcast(App%Model%IO%tCon, 1, MPI_MYFLOAT, App%voltRank, App%couplingComm, ierr)
+        call mpi_bcast(App%Model%IO%dtCon, 1, MPI_MYFLOAT, App%voltRank, App%couplingComm, ierr)
 
         if(.not. App%Model%isRestart) then
             ! re-write Gamera's first output with corrected time, save and restore initial output time
             tIO = App%Model%IO%tOut
             call App%WriteFileOutput(App%Model%IO%nOut)
             App%Model%IO%tOut = tIO
+        else
+            ! always processing when restarted
+            App%processingData = .true.
         endif
 
     end subroutine
@@ -193,7 +200,7 @@ module gamCouple_mpi_G2V
         class(gamCouplerMpi_gam_T), intent(inout) :: App
         type(XML_Input_T), intent(inout) :: Xml
 
-        real(rp) :: save_tRes, save_dtRes, save_tOut, save_dtOut
+        real(rp) :: save_tRes, save_dtRes, save_tOut, save_dtOut, save_tCon, save_dtCon
         integer :: save_nRes, save_nOut
         integer :: ierr
 
@@ -206,6 +213,8 @@ module gamCouple_mpi_G2V
         save_tOut = App%Model%IO%tOut
         save_dtOut = App%Model%IO%dtOut
         save_nOut = App%Model%IO%nOut
+        save_tCon = App%Model%IO%tCon
+        save_dtCon = App%Model%IO_dtCon
         
         ! initialize parent's IO
         call gamInitIO(App, Xml)
@@ -217,6 +226,8 @@ module gamCouple_mpi_G2V
         App%Model%IO%tOut = save_tOut
         App%Model%IO%dtOut = save_dtOut
         App%Model%IO%nOut = save_nOut
+        App%Model%IO%tCon = save_tCon
+        App%Model%IO%dtCon = save_dtCon
 
     end subroutine
 
@@ -238,9 +249,10 @@ module gamCouple_mpi_G2V
                 call recvVoltronCplDataMpi(App)
                 App%processingData = .true.
             elseif(App%DeepT <= App%Model%t) then
-                ! send results
+                ! send results and get new data
                 call sendVoltronCplDataMpi(App)
-                App%processingData = .false.
+                call recvVoltronCplDataMpi(App)
+                App%processingData = .true.
             else
                 if(targetSimT < App%DeepT) then
                     ! advance to the current step target time
@@ -248,9 +260,10 @@ module gamCouple_mpi_G2V
                 else
                     ! advance to next coupling time
                     call gamMpiAdvanceModel(App, App%DeepT-App%Model%t)
-                    ! send results
+                    ! send results and get new data
                     call sendVoltronCplDataMpi(App)
-                    App%processingData = .false.
+                    call recvVoltronCplDataMpi(App)
+                    App%processingData = .true.
                 endif
             endif
         end do

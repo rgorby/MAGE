@@ -52,7 +52,7 @@ module voltapp_mpi
             ! set varible for polymorphic type
             SELECT type(cplApp=>vApp%gApp)
                 TYPE IS (gamCouplerMpi_volt_T)
-                    cplApp%gOptionsCplMpiV%allComm = vApp%vOptionsMpi%allComm
+                    cplApp%gOptionsCplMpiV%couplingPoolComm => vApp%vOptionsMpi%couplingPoolComm
                 CLASS DEFAULT
                     write(*,*) 'Gamera MPI coupler is wrong type'
                     stop
@@ -72,7 +72,7 @@ module voltapp_mpi
         vApp%vHelpComm = MPI_COMM_NULL
         vApp%vHelpWin = MPI_WIN_NULL
 
-        call voltronSplitWithApp(vApp%vOptionsMpi%allComm, helperId, 0, allVoltComm)
+        call voltronSplitWithApp(vApp%vOptionsMpi%couplingPoolComm, helperId, 0, allVoltComm)
 
         ! get info about voltron-only mpi communicator
         call MPI_Comm_rank(allVoltComm, vApp%vHelpRank, ierr)
@@ -231,7 +231,7 @@ module voltapp_mpi
         vApp%vHelpComm = MPI_COMM_NULL
         vApp%vHelpWin = MPI_WIN_NULL
 
-        call appWaitForVoltronSplit(vApp%vOptionsMpi%allComm, helperId, 0, allVoltComm)
+        call appWaitForVoltronSplit(vApp%vOptionsMpi%couplingPoolComm, helperId, 0, allVoltComm)
 
         ! get info about voltron-only mpi communicator
         call MPI_Comm_rank(allVoltComm, vApp%vHelpRank, ierr)

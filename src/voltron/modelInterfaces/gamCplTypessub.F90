@@ -38,7 +38,8 @@ submodule (volttypes) gamCplTypessub
         integer, intent(in) :: nRes
 
         ! read parent's restart data
-        call gamReadRestart(App, resId, nRes)
+        ! commented out because Gamera reads it on its own (BAD)
+        !call gamReadRestart(App, resId, nRes)
 
         ! then my own
         call readGamCouplerRestart(App, resId, nRes)
