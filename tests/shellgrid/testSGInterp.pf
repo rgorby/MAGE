@@ -50,12 +50,12 @@ module testSGInterp
         integer :: i,j
         real(rp) :: diffSum = 0.0
 
-        call initShellVar(sh, SHCORNER, var_src)
+        call initShellVar(sh, SHGR_CORNER, var_src)
         var_src%mask = .true.
 
         ! Try cell-centered first
-        call initShellVar(sh, SHCC, var_thruSG )
-        call initShellVar(sh, SHCC, var_thruPnt)
+        call initShellVar(sh, SHGR_CC, var_thruSG )
+        call initShellVar(sh, SHGR_CC, var_thruPnt)
         var_thruSG%mask = .true.
         var_thruPnt%mask = .true.
 
@@ -102,11 +102,11 @@ module testSGInterp
         integer :: i,j
         real(rp) :: diffSum = 0.0
 
-        call initShellVar(sh, SHCORNER, var_src)
+        call initShellVar(sh, SHGR_CORNER, var_src)
         var_src%mask = .true.
 
-        call initShellVar(sh, SHCORNER, var_thruSG )
-        call initShellVar(sh, SHCORNER, var_thruPnt)
+        call initShellVar(sh, SHGR_CORNER, var_thruSG )
+        call initShellVar(sh, SHGR_CORNER, var_thruPnt)
         var_thruSG%mask = .true.
         var_thruPnt%mask = .true.
 

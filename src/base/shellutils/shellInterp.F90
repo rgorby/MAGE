@@ -72,11 +72,11 @@ module shellInterp
         else
             ! If dTheta not present, we calculate it ourselves
 
-            if (sgVar%loc == SHCC .or. sgVar%loc == SHFPH) then
+            if (sgVar%loc == SHGR_CC .or. sgVar%loc == SHGR_FACE_PHI) then
                 ! Note that the location id is the variable's 1D location w.r.t. the theta axis
-                call calcdx_TSC(sgSource%th, sgSource%isg, sgSource%ieg, SHCC, dTheta)
-            elseif (sgVar%loc == SHCORNER .or. sgVar%loc == SHFTH) then
-                call calcdx_TSC(sgSource%th, sgSource%isg, sgSource%ieg, SHCORNER, dTheta)
+                call calcdx_TSC(sgSource%th, sgSource%isg, sgSource%ieg, SHGR_CC, dTheta)
+            elseif (sgVar%loc == SHGR_CORNER .or. sgVar%loc == SHGR_FACE_THETA) then
+                call calcdx_TSC(sgSource%th, sgSource%isg, sgSource%ieg, SHGR_CORNER, dTheta)
             endif
             !! Note: calcdx_TSC sets the dimension of dTheta and dPhi
         endif
@@ -92,10 +92,10 @@ module shellInterp
             dPhi = dPhiO
         else
             ! If dPhi not present, we calculate it ourselves
-            if (sgVar%loc == SHCC .or. sgVar%loc == SHFTH) then
-                call calcdx_TSC(sgSource%ph, sgSource%jsg, sgSource%jeg, SHCC, dPhi)
-            elseif (sgVar%loc == SHCORNER .or. sgVar%loc == SHFPH) then
-                call calcdx_TSC(sgSource%ph, sgSource%jsg, sgSource%jeg, SHCORNER, dPhi)
+            if (sgVar%loc == SHGR_CC .or. sgVar%loc == SHGR_FACE_THETA) then
+                call calcdx_TSC(sgSource%ph, sgSource%jsg, sgSource%jeg, SHGR_CC, dPhi)
+            elseif (sgVar%loc == SHGR_CORNER .or. sgVar%loc == SHGR_FACE_PHI) then
+                call calcdx_TSC(sgSource%ph, sgSource%jsg, sgSource%jeg, SHGR_CORNER, dPhi)
             endif
         endif
 
@@ -103,7 +103,7 @@ module shellInterp
 
         ! Which destination grid locations we loop over depends on the destination variable location
         select case(varOut%loc)
-            case(SHCC)
+            case(SHGR_CC)
                 !do j=varOut%jsv,varOut%jev
                 !    do i=varOut%isv,varOut%iev
                 !^^^ This indexing works just fine, but I'm not gonna do it cause its less clear what we're actually looping over
@@ -125,7 +125,7 @@ module shellInterp
                         ! Probably will be model dependent. Maybe we return a 2D goodInterp array if an optional array is provided to us
                     enddo
                 enddo
-            case(SHCORNER)
+            case(SHGR_CORNER)
                 !$OMP PARALLEL DO default(shared) collapse(1) &
                 !$OMP schedule(dynamic) &
                 !$OMP private(i,j)
@@ -142,7 +142,7 @@ module shellInterp
                                 goodInterp)
                     enddo
                 enddo
-            case(SHFTH)
+            case(SHGR_FACE_THETA)
                 !$OMP PARALLEL DO default(shared) collapse(1) &
                 !$OMP schedule(dynamic) &
                 !$OMP private(i,j)
@@ -159,7 +159,7 @@ module shellInterp
                                 goodInterp)
                     enddo
                 enddo
-            case(SHFPH)
+            case(SHGR_FACE_PHI)
                 !$OMP PARALLEL DO default(shared) collapse(1) &
                 !$OMP schedule(dynamic) &
                 !$OMP private(i,j)
@@ -186,7 +186,7 @@ module shellInterp
 
 
     subroutine InterpShellVar_TSC_pnt(sgsource, sgVar, th, pin, Qinterp, dThetaO, dPhiO, goodInterpO)
-        !! Given the source information, interpolate sgVar to point (t,p) and return as Qout
+        !! Given the source information, interpolate sgVar to point (t,pin) and return as Qout
         type(ShellGrid_T   ), intent(in) :: sgSource
             !! Source ShellGrid
         type(ShellGridVar_T), intent(in) :: sgVar
@@ -233,8 +233,14 @@ module shellInterp
             stop
         end if
 
-        call getShellILoc(sgSource, sgVar%loc, th, i0, t0)  ! Sets i0 and t0 to closest i/theta values to interp point t
-        call getShellJLoc(sgSource, sgVar%loc, ph, j0, p0)  ! Sets j0 and p0 to closest i/phi   values to interp point p
+        call getSGCellILoc(sgSource, th, i0, t0)
+        if (sgVar%loc .eq. SHGR_CORNER .or. sgVar%loc .eq. SHGR_FACE_THETA) then
+            call iLocCC2Corner(sgSource, th, i0, tLocO=t0)
+        endif
+        call getSGCellJLoc(sgSource, ph, j0, p0)
+        if (sgVar%loc .eq. SHGR_CORNER .or. sgVar%loc .eq. SHGR_FACE_PHI  ) then
+            call jLocCC2Corner(sgSource, ph, j0, pLocO=p0)
+        endif
 
         if (i0 > sgVar%iev .or. i0 < sgVar%isv) then
             return
@@ -265,9 +271,9 @@ module shellInterp
             dTh = dThetaO(i0)
         else
             ! dThetaO array not provided, so we calculate it ourselves
-            if (sgVar%loc == SHCC .or. sgVar%loc == SHFPH) then
+            if (sgVar%loc == SHGR_CC .or. sgVar%loc == SHGR_FACE_PHI) then
                 dTh = Diff1D_4halfh(sgSource%th, sgSource%isg, sgSource%ieg  , i0)
-            else if (sgVar%loc == SHCORNER .or. sgVar%loc == SHFTH) then
+            else if (sgVar%loc == SHGR_CORNER .or. sgVar%loc == SHGR_FACE_THETA) then
                 dTh = Diff1D_4h    (sgSource%th, sgSource%isg, sgSource%ieg+1, i0)
             endif
         endif
@@ -281,26 +287,28 @@ module shellInterp
             dPh = dPhiO(j0)
         else
             ! dPhiO array not provided, so we calculate it ourselves
-            if (sgVar%loc == SHCC .or. sgVar%loc == SHFTH) then
+            if (sgVar%loc == SHGR_CC .or. sgVar%loc == SHGR_FACE_THETA) then
                 dPh = Diff1D_4halfh(sgSource%ph, sgSource%jsg, sgSource%jeg  , j0)
-            else if (sgVar%loc == SHCORNER .or. sgVar%loc == SHFPH) then
+            else if (sgVar%loc == SHGR_CORNER .or. sgVar%loc == SHGR_FACE_PHI) then
                 dPh = Diff1D_4h    (sgSource%ph, sgSource%jsg, sgSource%jeg+1, j0)
             endif
         endif
 
-
+        ! First, check if active grid has poles
+        ! note, if the destination point is closer to the top cell boundary
+        ! than the bottom (for corner centered variables), then i0 by now is 2.
+        ! in other words, only the half of the cell closest to the pole will be interpolated as a pole.
         if (sgSource%doNP .and. (i0==sgSource%is)) then
-            call interpPole(sgSource,sgVar,th,ph,Qinterp)
             ! Handle north pole and return
-            write(*,*) "Not implemented!"
-            stop
+            call interpPole(sgSource,sgVar,th,ph,Qinterp)
+            return
         endif
 
-        ! First, if active grid has poles 
+        ! same comment as above but for south pole
         if (sgSource%doSP .and. (i0==sgSource%ie)) then
             ! Handle south pole and return
-            write(*,*) "Not implemented!"
-            stop
+            call interpPole(sgSource,sgVar,th,ph,Qinterp)
+            return
         endif
 
         ! Now, if ghost grid has poles
@@ -384,174 +392,196 @@ module shellInterp
     end subroutine InterpShellVar_TSC_pnt
 
 
-    subroutine getShellILoc(shGr, varLoc, t, iLoc, tLocO)
-        type(ShellGrid_T), intent(in) :: shGr
-        integer :: varLoc
-            !! Location id of the source variable
-        real(rp), intent(in) :: t
-        integer, intent(out) :: iLoc
-        real(rp), optional, intent(out) :: tLocO
+    subroutine interpPole(shGr,Qin,tin,pin,Qinterp)
+        type(ShellGrid_T), intent(in)     :: shGr     ! source grid
+        type(ShellGridVar_T), intent(in)  :: Qin      ! source grid variable
+        real(rp), intent(out)             :: Qinterp  ! interpolated variable
+        real(rp), intent(in)              :: tin,pin  ! theta,phi of the destination point
+        real(rp) :: f0,f1,f2,I1,I2,dphi,phi
+        integer  :: ishift,j,pole
+        integer  :: iinterp ! the index of the pole cell (first/last for NORTH/SOUTH)
+        real(rp) :: tfactor,Qtemp
 
-        real(rp) :: tLoc
-
-        if (varLoc == SHCC .or. varLoc == SHFPH) then
-            !! Variable is defined at center w.r.t. theta direction
-            if ( (t>shGr%maxGTheta) ) then                
-                iLoc = shGr%ieg+ceiling((t-shGr%maxGTheta)/(shGr%th(shGr%ieg+1)-shGr%th(shGr%ieg)))
-                tLoc = shGr%thc(shGr%ieg)  ! Just return the last available theta value
-                !write(*,*)"theta going out of bounds",t,shGr%maxGTheta
-            else if ( (t<shGr%minGTheta) ) then
-                iLoc = shGr%isg-ceiling((shGr%minGTheta-t)/(shGr%th(shGr%isg+1)-shGr%th(shGr%isg)))
-                tLoc = shGr%thc(shGr%isg)
-                !write(*,*)"theta going out of bounds",t,shGr%minGTheta
-            else
-                ! If still here then the lat bounds are okay, find closest lat cell center
-                iLoc = minloc( abs(shGr%thc-t),dim=1 )
-                tLoc = shGr%thc(iLoc)
-            endif
-
-            if (present(tLocO)) then
-                tLocO = tLoc
-            endif
-
-        elseif (varLoc == SHCORNER .or. varLoc == SHFTH) then
-            !! Variable is defined at corners w.r.t. theta direction
-            if ( (t>shGr%maxTheta) ) then
-                iLoc = shGr%ieg+1 + floor( 0.5 + (t-shGr%maxGTheta)/(shGr%th(shGr%ieg+1)-shGr%th(shGr%ieg)) )
-                tLoc = shGr%th(shGr%ieg+1)  ! Just return the last available theta value
-                !write(*,*)"theta going out of bounds",t,shGr%maxGTheta
-            else if ( (t < shGr%minTheta)) then
-                iLoc = shGr%isg   - floor( 0.5 + (shGr%minGTheta-t)/(shGr%th(shGr%isg+1)-shGr%th(shGr%isg)) )
-                tLoc = shGr%th(shGr%isg)
-                !write(*,*)"theta going out of bounds",t,shGr%maxGTheta
-            else
-                ! If still here then the lat bounds are okay, find closest lat cell corner
-                iLoc = minloc( abs(shGr%th-t),dim=1 )
-                tLoc = shGr%th(iLoc)
-            endif
-
-            if (present(tLocO)) then
-                tLocO = tLoc
-            endif
-
-        endif
-
-    end subroutine getShellILoc
-
-
-    subroutine getShellJLoc(shGr, varLoc, pin, jLoc, pLoc)
-        type(ShellGrid_T), intent(in) :: shGr
-        integer :: varLoc
-            !! Location id of the source variable
-        real(rp), intent(in) :: pin
-        integer, intent(out) :: jLoc
-        real(rp), optional, intent(out) :: pLoc
-
-        real(rp) :: p, dp, dJ
-
-        p = modulo(pin,2*PI)
-
-        ! note, shellGrid only implements [0,2pi] grids
-        ! but do this check here in case it's needed in the future
-        if ( (p>shGr%maxPhi) .or. (p<shGr%minPhi) ) then
-            ! Point not on this grid, get outta here
-            write(*,*) "ERROR in getShellJLoc, phi outside of bounds"
-            write(*,*) p, shGr%minPhi, shGr%maxPhi
-            stop
-        endif
-
-        if (varLoc == SHCC .or. varLoc == SHFTH) then
-            !! Variable is defined at centers w.r.t. phi direction
-            if (shGr%isPhiUniform) then
-                ! note this is faster, thus preferred
-                dp = shGr%phc(2)-shGr%phc(1)
-                dJ = p/dp
-                jLoc = floor(dJ) + 1
-            else
-                jLoc = minloc( abs(shGr%phc-p),dim=1 ) ! Find closest lat cell center
-            endif
-
-            if (present(pLoc)) then
-                pLoc = shGr%phc(jLoc)
-            endif
-
-        elseif (varLoc == SHCORNER .or. varLoc == SHFPH) then
-            !! Variable is defined at corners w.r.t. phi direction
-            if (shGr%isPhiUniform) then
-                ! note this is faster, thus preferred
-                dp = shGr%ph(2)-shGr%ph(1)
-                dJ = p/dp + 0.5
-                jLoc = floor(dJ) + 1
-            else
-                jLoc = minloc( abs(shGr%ph-p),dim=1 ) ! Find closest lat cell center
-            endif
-
-            if (present(pLoc)) then
-                pLoc = shGr%ph(jLoc)
-            endif
-
-        endif
-
-    end subroutine getShellJLoc
-
-    !! Big TODO here
-    subroutine interpPole(shGr,Qin,t,pin,Qinterp)
-        type(ShellGrid_T), intent(in) :: shGr
-        type(ShellGridVar_T), intent(in)  :: Qin
-        real(rp), intent(out) :: Qinterp
-        real(rp), intent(in)  :: t,pin
-        real(rp) :: f0,f1,f2,I1,I2
-        integer :: j,pole,iind ! the latter is the index of the pole cell (first/last for NORTH/SOUTH)
-        integer :: jpi2,jpi32,jpi  ! which cell do pi/2, 3pi/2 and pi points belong to
-
-        Qinterp = 0.0
-
-        ! first, find out which pole we're at
-        ! note, if we're inside this function, we already know we're at one of the poles
-        if ( (t.ge.0).and.(t.le.shGr%th(shGr%is+1)) ) then
+        ! Find out which pole we're at
+        if ( (tin.ge.shGr%th(shGr%is)).and.(tin.le.shGr%th(shGr%is+1)) ) then
+            ! note, shGr%th(shGr%is) is within TINY of 0 since we are at the pole
             pole = NORTH
-            iind = shGr%is
-        else if ( (t.le.PI).and.(t.ge.shGr%th(shGr%ie)) ) then
+            iinterp = shGr%is
+        else if ( (tin.le.shGr%th(shGr%ie+1)).and.(tin.ge.shGr%th(shGr%ie)) ) then
+            ! note, shGr%th(shGr%ie+1) is within TINY of PI since we are at the pole
             pole = SOUTH
-            iind = shGr%ie
+            iinterp = shGr%ie
         else
-            write(*,*) "Inside interpPole. Shouldn't be here. Quitting..."
+            write(*,*) "Attempting to call pole interpolation for a point that's not on the pole. Quitting..."
         end if
-
-        write(*,*) 'which pole ',pole,iind
-
 
         ! represent the function near pole to first order in theta as
         ! f(t,p) = f0 + f1*cos(p)*t + f2*sin(p)*t 
         ! (Lewis&Bellan, J. Math. Phys. 31, 2592 (1990); 
         ! https://doi.org/10.1063/1.529009
         ! 
-        ! then, 2pi*f0 = \int_0^2pi f(t(i=1),p), where t(i=1) is the cell center of first cell in i-direction
-        ! to calculate f1, define
-        ! I1 = \int_(-pi/2)^(pi/2) f(t,p)dp = - \int_(pi/2)^(3pi/2) f(t,p)dp = 2*f1*t+f0*pi
-        ! compute I1 = 0.5*(\int_(-pi/2)^(pi/2) f(t,p)dp - \int_(pi/2)^(3pi/2))
-        ! to take all points around the ring into account
-        ! then f1 = (I1-f0*pi)/(2*t)
-        !
-        ! similarly,
-        ! f2 = (I2-f0*pi)/(2*t), where
-        ! I2 = 0.5*(\int_0^pi f(t,p)dp - \int_pi^(2pi) f(t,p)dp)
+        ! for corner centered and theta face centered, 
+        ! iinterp will be right on the pole for NORTH, so we will have to shift up
+        ! otherwise, there's no shift
+        ishift = 0
 
-        f0 = 0.
-        do j=1,shGr%Np
-            f0 = f0 + (shGr%ph(j+1)-shGr%ph(j))*Qin%data(iind,j)/(2.*PI)
-
-            ! find which cells do pi/2, 3pi/2 and pi points belong to
-            ! this can be done a priori but it doesn't add to the computation
-            if ( (shGr%ph(j).le.0.5*pi).and.(shGr%ph(j+1).gt.0.5*pi) ) jpi2  = j
-            if ( (shGr%ph(j).le.    pi).and.(shGr%ph(j+1).gt.    pi) ) jpi   = j
-            if ( (shGr%ph(j).le.1.5*pi).and.(shGr%ph(j+1).gt.1.5*pi) ) jpi32 = j
-        end do
+        ! check centering wrt theta
+        select case(Qin%loc)
+        case(SHGR_CC, SHGR_FACE_PHI)
+            if (pole.eq.NORTH) then
+                tfactor = tin/shGr%thc(iinterp)
+            else
+                tfactor = (PI-tin)/(PI-shGr%thc(iinterp))
+            end if  
         
-        write(*,*) 'pi indices ',jpi2,jpi,jpi32
+        case(SHGR_CORNER, SHGR_FACE_THETA)
+            if (pole.eq.NORTH) then
+                ishift = 1
+                ! note, using th, not thc, since we're on a theta face
+                tfactor = tin/shGr%th(iinterp+ishift)
+            else
+                tfactor = (PI-tin)/(PI-shGr%th(iinterp))
+            end if  
+
+        case default
+            write(*,*) "interpPole got an invalid data location:",Qin%loc
+            stop
+        end select 
+
+        ! determine f0, f1, f2 from the Fourier transform
+        Qinterp = 0.0
+        f0      = 0.0
+        f1      = 0.0
+        f2      = 0.0
+
+        do j=1,shGr%Np
+            ! check centering wrt phi
+            select case(Qin%loc)
+            case(SHGR_CC, SHGR_FACE_THETA)
+                Qtemp = Qin%data(iinterp+ishift,j)
+            case(SHGR_CORNER, SHGR_FACE_PHI)  
+                Qtemp = 0.5*(Qin%data(iinterp+ishift,j)+Qin%data(iinterp+ishift,j+1))
+            end select 
+
+            dphi = shGr%ph(j+1)-shGr%ph(j)
+            phi  = shGr%phc(j)
+            f0   = f0 + Qtemp*dphi
+            f1   = f1 + Qtemp*dphi*cos(phi)
+            f2   = f2 + Qtemp*dphi*sin(phi)                
+        end do
+
+        f0 = f0/(2.*PI)
+        f1 = f1/PI
+        f2 = f2/PI
+        
+        Qinterp = f0 + ( f1*cos(pin) + f2*sin(pin) )*tfactor
 
     end subroutine interpPole
 
+    ! this version of the function attempts to do the expansion to an arbitrary order
+    ! however, it's incorrect in that it neglects the higher order terms in theta
+    ! in the polynomials multiplying the harmonics in eqn. 9 of Lewis & Bellan, 1990
+    ! in other words, it only retains f_m^(0) terms in that eqn. which is technically incorrect
+    ! although the error is trivially small and in fact the result looks slightly better
+    subroutine interpPoleHighOrder(shGr,Qin,tin,pin,Qinterp)
+        ! note, calling this function with order=1 is equivalent to calling InterpPole above
+        
+        type(ShellGrid_T), intent(in)     :: shGr     ! source grid
+        type(ShellGridVar_T), intent(in)  :: Qin      ! source grid variable
+        real(rp), intent(out)             :: Qinterp  ! interpolated variable
+        real(rp), intent(in)              :: tin,pin  ! theta,phi of the destination point
+        real(rp) :: f0,I1,I2,dphi,phi
+        real(rp),dimension(:,:),allocatable :: fcoef
+        integer  :: ishift,j,pole
+        integer  :: iinterp ! the index of the pole cell (first/last for NORTH/SOUTH)
+        real(rp) :: tfactor,Qtemp
+        integer :: oind, order=1 ! 12 -- I ran it up to 12th order just for funsies
+
+        write(*,*)"WARNING: unless you are Slava or have talked to him about pole interpolation you shouldn't be seeing this message"
+
+        ! Find out which pole we're at
+        if ( (tin.ge.shGr%th(shGr%is)).and.(tin.le.shGr%th(shGr%is+1)) ) then
+            ! note, shGr%th(shGr%is) is within TINY of 0 since we are at the pole
+            pole = NORTH
+            iinterp = shGr%is
+        else if ( (tin.le.shGr%th(shGr%ie+1)).and.(tin.ge.shGr%th(shGr%ie)) ) then
+            ! note, shGr%th(shGr%ie+1) is within TINY of PI since we are at the pole
+            pole = SOUTH
+            iinterp = shGr%ie
+        else
+            write(*,*) "Attempting to call pole interpolation for a point that's not on the pole. Quitting..."
+        end if
+
+        ! represent the function near pole to first order in theta as
+        ! f(t,p) = f0 + f1*cos(p)*t + f2*sin(p)*t + higher order terms
+        ! (Lewis&Bellan, J. Math. Phys. 31, 2592 (1990); 
+        ! https://doi.org/10.1063/1.529009
+        ! 
+        ! for corner centered and theta face centered, 
+        ! iinterp will be right on the pole for NORTH, so we will have to shift up
+        ! otherwise, there's no shift
+        ishift = 0
+
+        ! check centering wrt theta
+        select case(Qin%loc)
+        case(SHGR_CC, SHGR_FACE_PHI)
+            if (pole.eq.NORTH) then
+                tfactor = tin/shGr%thc(iinterp)
+            else
+                tfactor = (PI-tin)/(PI-shGr%thc(iinterp))
+            end if  
+        
+        case(SHGR_CORNER, SHGR_FACE_THETA)
+            if (pole.eq.NORTH) then
+                ishift = 1
+                ! note, using th, not thc, since we're on a theta face
+                tfactor = tin/shGr%th(iinterp+ishift)
+            else
+                tfactor = (PI-tin)/(PI-shGr%th(iinterp))
+            end if  
+
+        case default
+            write(*,*) "interpPole got an invalid data location:",Qin%loc
+            stop
+        end select 
+
+        ! determine f0, f1, f2 from the Fourier transform
+        Qinterp = 0.0
+        f0      = 0.0
+
+        if (allocated(fcoef)) deallocate(fcoef)
+        allocate(fcoef(order,2))
+        fcoef(:,:)  = 0.0
+
+        do j=1,shGr%Np
+            ! check centering wrt phi
+            select case(Qin%loc)
+            case(SHGR_CC, SHGR_FACE_THETA)
+                Qtemp = Qin%data(iinterp+ishift,j)
+            case(SHGR_CORNER, SHGR_FACE_PHI)  
+                Qtemp = 0.5*(Qin%data(iinterp+ishift,j)+Qin%data(iinterp+ishift,j+1))
+            end select 
+
+            dphi = shGr%ph(j+1)-shGr%ph(j)
+            phi  = shGr%phc(j)
+            f0   = f0 + Qtemp*dphi
+
+            do oind=1,order
+                fcoef(oind,1) = fcoef(oind,1) + Qtemp*dphi*cos(oind*phi)
+                fcoef(oind,2) = fcoef(oind,2) + Qtemp*dphi*sin(oind*phi)                
+            enddo
+        end do 
+
+        f0 = f0/(2.*PI)
+
+        do oind=1,order
+            fcoef(oind,:) = fcoef(oind,:)/PI
+            Qinterp = Qinterp + ( fcoef(oind,1)*cos(oind*pin) + fcoef(oind,2)*sin(oind*pin) )*tfactor**oind
+        enddo
+
+        Qinterp = Qinterp + f0
+    end subroutine interpPoleHighOrder
+    
 
 !------
 ! Low-level interp helpers
@@ -569,7 +599,7 @@ module shellInterp
         integer, intent(in) :: isg, ieg
             !! Start/end indices of cell centers
         integer, intent(in) :: loc
-            !! Location identifier, MUST BE SHCC OR SHCORNER
+            !! Location identifier, MUST BE SHGR_CC OR SHGR_CORNER
             !! This is the location of the points we are calculating dx at relative to x
         real(rp), dimension(:), allocatable, intent(out) :: dx
             !! 'cell width' we return
@@ -578,14 +608,14 @@ module shellInterp
 
         if (allocated(dx)) deallocate(dx)
 
-        if (loc == SHCORNER) then
+        if (loc == SHGR_CORNER) then
             
             allocate(dx(isg:ieg+1))
             do i=isg,ieg+1
                 dx(i) = Diff1D_4h(x, isg, ieg+1, i)
             enddo
 
-        else if (loc == SHCC) then
+        else if (loc == SHGR_CC) then
 
             allocate(dx(isg:ieg))
             do i=isg,ieg
@@ -593,7 +623,7 @@ module shellInterp
             enddo
 
         else
-            write(*,*) "ERROR: Invalid location id in calcdx_TSC. Must be SHCC or SHCORNER"
+            write(*,*) "ERROR: Invalid location id in calcdx_TSC. Must be SHGR_CC or SHGR_CORNER"
             stop
         endif
 

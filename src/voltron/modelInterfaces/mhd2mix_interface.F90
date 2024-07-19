@@ -173,6 +173,8 @@ module mhd2mix_interface
     integer :: l,h ! hemisphere
     integer :: v ! mhd var
     integer :: Nth
+    integer :: i,j
+    real(rp) :: mixImin
 
     if (size(mhd2mix%mixInput,5).ne.size(remixApp%ion)) then
        write(*,*) 'The number of hemispheres in mhdvars is different from the size of the MIX ionosphere object. I am stopping.'
@@ -191,11 +193,21 @@ module mhd2mix_interface
              select case (v)
              case (MHDJ)
                 ! zero out the current
-                where (remixApp%ion(h)%mixGfpd%mask.eq.-1) F=0._rp
+!                where (remixApp%ion(h)%mixGfpd%mask.eq.-1) F=0._rp
+                do i=1,remixApp%ion(h)%mixGfpd%Np
+                   do j=1,remixApp%ion(h)%mixGfpd%Nt
+                      if(remixApp%ion(h)%mixGfpd%mask(i,j) .eq. -1) F(i,j) = 0._rp
+                   enddo
+                enddo
              case (MHDD, MHDC)
                 ! set density and sound speed to min values
-                ! this helps with conductdance calculation
-                where (remixApp%ion(h)%mixGfpd%mask.eq.-1) F=minval(mhd2mix%mixInput(l,:,:,v,h))
+!                where (remixApp%ion(h)%mixGfpd%mask.eq.-1) F=minval(mhd2mix%mixInput(l,:,:,v,h))
+                mixImin = minval(mhd2mix%mixInput(l,:,:,v,h))
+                do i=1,remixApp%ion(h)%mixGfpd%Np
+                   do j=1,remixApp%ion(h)%mixGfpd%Nt
+                      if(remixApp%ion(h)%mixGfpd%mask(i,j) .eq. -1) F(i,j) = mixImin
+                   enddo
+                enddo
              end select
           end do
 

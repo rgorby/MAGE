@@ -166,7 +166,7 @@ program voltron_mpix
                 end select
             enddo
         endif
-        if(vApp%CplSize == 1 .and. vApp%doGCM .eq. .false.) then
+        if(vApp%CplSize == 1 .and. (.not. vApp%doGCM)) then
             write(*,*) "VOLTRON: We're not coupling to a GCM"
             call mpi_comm_free(vApp%mageCplComm, ierror)
             if(ierror /= MPI_Success) then
@@ -176,7 +176,7 @@ program voltron_mpix
             end if
             vApp%mageCplComm = MPI_COMM_NULL
         endif
-        if (vApp%CplSize == 1 .and. vApp%doGCM .eq. .true.) then
+        if (vApp%CplSize == 1 .and. vApp%doGCM) then
             write(*,*) "VOLTRON: Coupling to GCM Failed."
             call mpi_Abort(MPI_COMM_WORLD, 1, ierror)
         endif

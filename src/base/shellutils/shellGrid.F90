@@ -7,8 +7,10 @@ module shellGrid
 
     !> Identifiers for location of variable data relative to shell grid
     !> Cell center, corners, theta faces, phi faces
+    !> SHGR_FACE_THETA is face with normal pointing in theta direction
+    !> SHGR_FACE_PHI is face with normal pointing in phi direction
     enum, bind(C)
-        enumerator :: SHCC,SHCORNER,SHFTH,SHFPH
+        enumerator :: SHGR_CC,SHGR_CORNER,SHGR_FACE_THETA,SHGR_FACE_PHI
     end enum
     
     !> Data type for holding 2D spherical shell grid
@@ -54,14 +56,10 @@ module shellGrid
         !> Subgrid information
         !> ShellGrids that are subgrids of other shellGrids store info about their parent grid
         logical :: isChild = .false.
-        character(len=strLen) :: parentName
+        character(len=strLen) :: parentName = "N/A"
             !! Name of the parent grid  that this one derives from
         integer :: bndis,bndie,bndjs,bndje
             !! Indices of parent grid that bound this grid
-        ! TODO: add unique identifiers for this SG, and for potential parent SG
-        ! That way, child always knows which grid it came from
-        ! Can be checked against when calling routines like InterpParentToChild, InterpChildToParent
-
 
     end type ShellGrid_T
 
@@ -69,12 +67,12 @@ module shellGrid
 
         integer :: loc
             !! Location of data on the shellGrid (e.g. center, corner, theta of phi face)
-            !! Corresponds to enum above (SHCC, SHCORNER, SHFTH, SHFPH)
+            !! Corresponds to enum above (SHGR_CC, SHGR_CORNER, SHGR_FACE_THETA, SHGR_FACE_PHI)
         integer :: Ni, Nj
             !! Number of values in i and j direction
         integer :: isv,iev,jsv,jev
             !! Start and end indices for this variable
-            !! ex: if loc=SHCORNER, isv = sh%isg, iev=sh%ieg+1
+            !! ex: if loc=SHGR_CORNER, isv = sh%isg, iev=sh%ieg+1
             !! This is helpful for e.g. InterpShellVar_TSC_pnt determining size of dtheta and dPhi arrays
         real(rp), dimension(:,:), allocatable :: data
             !! The actual variable values
@@ -347,16 +345,16 @@ module shellGrid
 
         ! Determine which dimensions have extra index relative to # cells based on variable's location on grid
         select case(loc)
-            case(SHCC)
+            case(SHGR_CC)
                 iExtra = 0
                 jExtra = 0
-            case(SHCORNER)
+            case(SHGR_CORNER)
                 iExtra = 1
                 jExtra = 1
-            case(SHFTH)
+            case(SHGR_FACE_THETA)
                 iExtra = 1
                 jExtra = 0
-            case(SHFPH)
+            case(SHGR_FACE_PHI)
                 iExtra = 0
                 jExtra = 1
             case default
@@ -410,10 +408,10 @@ module shellGrid
             !! Actual bounds used
 
         ! If a bound is provided then we use that, if not we default to parent grid's bounds
-        is = merge(sub_is, pSG%is  , present(sub_is))
-        ie = merge(sub_ie, pSG%ie+1, present(sub_ie))
-        js = merge(sub_js, pSG%js  , present(sub_js))
-        je = merge(sub_je, pSG%je+1, present(sub_je))
+        is = whichInd(sub_is, pSG%is,   present(sub_is))
+        ie = whichInd(sub_ie, pSG%ie+1, present(sub_ie))
+        js = whichInd(sub_js, pSG%js  , present(sub_js))
+        je = whichInd(sub_je, pSG%je+1, present(sub_je))
 
         ! Check for valid bounds
         if (is < pSG%is) then
@@ -489,6 +487,21 @@ module shellGrid
         cSG%bndjs = js
         cSG%bndje = je
 
+        contains 
+
+        function whichInd(indyes,indno,ispresent) result(indchoice)
+            integer, intent (in) :: indyes, indno
+            logical, intent (in) :: ispresent
+            integer              :: indchoice
+        
+            if (ispresent) then
+                indchoice = indyes
+            else    
+                indchoice = indno
+            end if  
+
+            return
+        end function
     end subroutine GenChildShellGrid
 
 

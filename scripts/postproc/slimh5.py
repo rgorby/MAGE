@@ -6,6 +6,8 @@ import os
 import h5py
 import numpy as np
 
+cacheName = "timeAttributeCache"
+
 def genMPIStr(di,dj,dk,i,j,k,n_pad=4):
     inpList = [di, dj, dk, i, j, k]
     sList = ["{:0>{n}d}".format(s, n=n_pad) for s in inpList]
@@ -22,14 +24,19 @@ def cntSteps(fname):
         nSteps = len(Steps)
         """
         #sIds = np.array([str.split(s,"#")[-1] for s in Steps],dtype=int)
-        sIds = np.array([str.split(s,"#")[-1] for s in hf.keys() if "Step#" in s],dtype=int)
-        nSteps = len(sIds)
+        if(cacheName in hf.keys() and 'step' in hf[cacheName].keys()):
+            sIds = np.asarray(hf[cacheName]['step'])
+            nSteps = sIds.size
+        else:
+            sIds = np.array([str.split(s,"#")[-1] for s in hf.keys() if "Step#" in s],dtype=int)
+            nSteps = len(sIds)
     return nSteps,sIds
 
 def createfile(iH5,fOut):
     print('Creating new output file:',fOut)
     oH5 = h5py.File(fOut,'w')
-#Start by scraping all variables from root
+
+    #Start by scraping all variables from root
     #Copy root attributes
     for k in iH5.attrs.keys():
         aStr = str(k)
@@ -38,8 +45,10 @@ def createfile(iH5,fOut):
     for Q in iH5.keys():
         sQ = str(Q)
         #Don't include stuff that starts with "Step"
-        if "Step" not in sQ:
+        if "Step" not in sQ and cacheName not in sQ:
             oH5.create_dataset(sQ,data=iH5[sQ])
+        if cacheName in sQ:
+            oH5.create_group(sQ)
     return oH5
 
     
@@ -73,6 +82,7 @@ if __name__ == "__main__":
     mpiIn = args.mpi
 
     N,sIds = cntSteps(fIn)
+    N0 = np.sort(sIds)[0]
     if (Ns == -1):
         Ns = np.sort(sIds)[0]
     if (Ne == -1):
@@ -89,7 +99,7 @@ if __name__ == "__main__":
             quit()
         mi, mj, mk = spl
         runTag = fIn.split('_')[0]
-        endTag = '.'.join(fIn.split('.')[1:]) #Exclude anyhting before the first '.'
+        endTag = '.'.join(fIn.split('.')[1:]) #Exclude anything before the first '.'
         inFiles = []
         outFiles = []
         for i in range(mi):
@@ -134,6 +144,22 @@ if __name__ == "__main__":
                 for k in iH5[gIn][sQ].attrs.keys():
                     aStr = str(k)
                     oH5[gOut][sQ].attrs.create(k,iH5[gIn][sQ].attrs[aStr])
+        
+        #If cache present
+        #Add the cache after steps, select the same steps for the cache that are contained in the
+        #Ns:Ne:Nsk start,end,stride
+        if cacheName in iH5.keys():
+            for Q in iH5[cacheName].keys():
+                sQ = str(Q)
+                nOffset = 0 if p else Ns
+                if(sQ == "step"):
+                    oH5[cacheName].create_dataset(sQ, data=iH5[cacheName][sQ][Ns-N0:Ne-N0:Nsk]-nOffset)
+                else:
+                    oH5[cacheName].create_dataset(sQ, data=iH5[cacheName][sQ][Ns-N0:Ne-N0:Nsk])
+                for k in iH5[cacheName][sQ].attrs.keys():
+                    aStr = str(k)
+                    oH5[cacheName][sQ].attrs.create(k,iH5[cacheName][sQ].attrs[aStr])
+
         # make a new file every Nsf steps
             if(n%Nsf==0 and n != 0):
                 oH5.close()

@@ -19,8 +19,13 @@ import os
 import errno
 import subprocess
 import shutil
+import concurrent.futures
+import multiprocessing
+import traceback
 
 cLW = 0.25
+relColor = "tab:blue"
+absColor = "tab:orange"
 
 def makeMovie(frame_dir,movie_name):
 	frame_pattern = frame_dir + "/vid.%04d.png"
@@ -39,6 +44,90 @@ def makeMovie(frame_dir,movie_name):
 	]
 	subprocess.run(cmd, check=True)
 
+# python allows changes by reference to the errTimes,errListRel, errListAbs lists
+def makeImage(i,gsph1,gsph2,tOut,doVerb,xyBds,fnList,oDir,errTimes,errListRel,errListAbs,cv,dataCounter):
+	if doVerb:
+		print("Making image %d"%(i))
+	#Convert time (in seconds) to Step #
+	nStp = np.abs(gsph1.T-tOut[i]).argmin()+gsph1.s0
+	if doVerb:
+		print("Minute = %5.2f / Step = %d"%(tOut[i]/60.0,nStp))
+	npl = vO[i]
+	
+	#======
+	#Setup figure
+	fig = plt.figure(figsize=figSz)
+	gs = gridspec.GridSpec(5,2,height_ratios=[20,5,1,5,9],hspace=0.025)
+	
+	AxTL = fig.add_subplot(gs[0,0])
+	AxTR = fig.add_subplot(gs[0,1])
+	AxB = fig.add_subplot(gs[-1,0:2])
+	AxB2 = AxB.twinx() # second plot on bottom axis
+	
+	AxCT = fig.add_subplot(gs[2,0:2])
+	
+	AxTL.clear()
+	AxTR.clear()
+	AxB.clear()
+	AxB2.clear()
+	
+	#plot upper left msph error
+	mviz.PlotEqErrRel(gsph1,gsph2,nStp,xyBds,AxTL,fnList,AxCB=AxCT,doVerb=doVerb)
+	AxTL.set_title("Equatorial Slice of Relative Error")
+	
+	#plot upper right k-axis error
+	mviz.PlotLogicalErrRel(gsph1,gsph2,nStp,AxTR,fnList,2,doVerb=doVerb)
+	AxTR.set_title("Per-Cell Relative Error along K-Axis")
+	if (not noMPI):
+		#plot I-MPI decomp on logical plot
+		if(gsph2.Ri > 1):
+			for im in range(gsph2.Ri):
+				i0 = im*gsph2.dNi
+				AxTR.plot([i0, i0],[0, gsph2.Nj],"deepskyblue",linewidth=0.25,alpha=0.5)
+		#plot J-MPI decomp on logical plot
+		if (gsph2.Rj>1):
+			for jm in range(1,gsph2.Rj):
+				j0 = jm*gsph2.dNj
+				AxTR.plot([0, gsph2.Ni],[j0, j0],"deepskyblue",linewidth=0.25,alpha=0.5)
+	
+	#plot bottom line plot
+	etval = tOut[i]/60.0
+	erval = mviz.CalcTotalErrRel(gsph1,gsph2,nStp,fnList,doVerb=doVerb)
+	eaval = mviz.CalcTotalErrAbs(gsph1,gsph2,nStp,fnList,doVerb=doVerb)
+	
+	# this section is the code must be performed sequentially to add data to the line plots one-by-one
+	with cv:
+		while not dataCounter.value == i:
+			cv.wait()
+		errTimes.append(etval)
+		errListRel.append(erval)
+		errListAbs.append(eaval)
+		if noLog:
+			AxB.plot(errTimes, errListRel,color=relColor)
+			AxB2.plot(errTimes, errListAbs,color=absColor)
+		else:
+			AxB.semilogy(errTimes, errListRel,color=relColor)
+			AxB2.semilogy(errTimes, errListAbs,color=absColor)
+		dataCounter.value = i+1
+		cv.notify_all()
+	# end of sequential region
+	AxB.set_xlabel('Time (min)')
+	AxB.set_ylabel('Per-Cell Mean Relative Error',color=relColor)
+	AxB.tick_params(axis='y',which='both',colors=relColor,left=True,right=True,labelleft=True,labelright=False)
+	AxB2.set_ylabel('Per-Cell Mean Absolute Error',color=absColor)
+	#AxB2.yaxis.tick_right()
+	AxB2.tick_params(axis='y',which='both',colors=absColor,left=True,right=True,labelleft=False,labelright=True)
+	AxB.set_title("'" + fieldNames + "' Per-Cell Error Over Time")
+	
+	gsph1.AddTime(nStp,AxTL,xy=[0.025,0.84],fs="x-large")
+	
+	#Add MPI decomp
+	if (not noMPI):
+		mviz.PlotMPI(gsph2,AxTL)
+	
+	fOut = oDir+"/vid.%04d.png"%(npl)
+	kv.savePic(fOut,bLenX=45,saveFigure=fig,doClose=True)
+
 if __name__ == "__main__":
 	#Defaults
 	fdir1 = os.getcwd()
@@ -48,9 +137,8 @@ if __name__ == "__main__":
 	oDir = "vid2D"
 	ts = 0    #[min]
 	te = 200  #[min]
-	dt = 60.0 #[sec]
-	Nblk = 1 #Number of blocks
-	nID = 1 #Block ID of this job
+	dt = 0.0 #[sec] 0 default means every timestep
+	Nth = 1 #Number of threads
 	noMPI = False # Don't add MPI tiling
 	noLog = False
 	fieldNames = "Bx, By, Bz"
@@ -71,8 +159,7 @@ if __name__ == "__main__":
 	parser.add_argument('-ts' ,type=int,metavar="tStart",default=ts,help="Starting time [min] (default: %(default)s)")
 	parser.add_argument('-te' ,type=int,metavar="tEnd"  ,default=te,help="Ending time   [min] (default: %(default)s)")
 	parser.add_argument('-dt' ,type=int,metavar="dt"    ,default=dt,help="Cadence       [sec] (default: %(default)s)")
-	parser.add_argument('-Nblk' ,type=int,metavar="Nblk",default=Nblk,help="Number of job blocks (default: %(default)s)")
-	parser.add_argument('-nID' ,type=int,metavar="nID"  ,default=nID,help="Block ID of this job [1-Nblk] (default: %(default)s)")
+	parser.add_argument('-Nth' ,type=int,metavar="Nth",default=Nth,help="Number of threads to use (default: %(default)s)")
 	parser.add_argument('-f',type=str,metavar="fieldnames",default=fieldNames,help="Comma-separated fields to plot (default: %(default)s)")
 	parser.add_argument('-linear',action='store_true', default=noLog,help="Plot linear line plot instead of logarithmic (default: %(default)s)")
 	parser.add_argument('-v',action='store_true', default=doVerb,help="Do verbose output (default: %(default)s)")
@@ -91,32 +178,13 @@ if __name__ == "__main__":
 	te  = args.te
 	dt  = args.dt
 	oSub = args.o
-	Nblk = args.Nblk
-	nID = args.nID
+	Nth = args.Nth
 	fieldNames = args.f
 	noLog = args.linear
 	doVerb = args.v
 	#noMPI = args.noMPI
 	
 	fnList = [item.strip() for item in fieldNames.split(',')]
-
-	#Setup timing info
-	tOut = np.arange(ts*60.0,te*60.0,dt)
-	Nt = len(tOut)
-	vO = np.arange(0,Nt)
-
-	print("Writing %d outputs between minutes %d and %d"%(Nt,ts,te))
-	if (Nblk>1):
-		#Figure out work bounds
-		dI = (Nt//Nblk)
-		i0 = (nID-1)*dI
-		i1 = i0+dI
-		if (nID == Nblk):
-			i1 = Nt #Make sure we get last bit
-		print("\tBlock #%d: %d to %d"%(nID,i0,i1))
-	else:
-		i0 = 0
-		i1 = Nt
 
 	#Setup output directory
 	oDir = os.getcwd() + "/" + oSub
@@ -140,94 +208,48 @@ if __name__ == "__main__":
 	#Figure parameters
 	figSz = (12,7.5)
 
-
 	#======
 	#Init data
 	gsph1 = msph.GamsphPipe(fdir1,ftag1)
 	gsph2 = msph.GamsphPipe(fdir2,ftag2)
-		
-	#======
-	#Setup figure
-	fig = plt.figure(figsize=figSz)
-	gs = gridspec.GridSpec(5,2,height_ratios=[20,5,1,5,9],hspace=0.025)
 	
+	#Setup timing info
+	if(dt > 0):
+		tOut = np.arange(ts*60.0,te*60.0,dt)
+	else:
+		tOut = [t for t in gsph1.T if t > ts*60.0 and t < te*60.0]
+	Nt = len(tOut)
+	vO = np.arange(0,Nt)
 
-	AxTL = fig.add_subplot(gs[0,0])
-	AxTR = fig.add_subplot(gs[0,1])
-	AxB = fig.add_subplot(gs[-1,0:2])
-	AxB2 = AxB.twinx() # second plot on bottom axis
-
-	AxCT = fig.add_subplot(gs[2,0:2])
-
-	print(fig.axes)
-
+	print("Writing %d outputs between minutes %d and %d"%(Nt,ts,te))
+	print("Using %d threads"%(Nth))
+	
 	errTimes = []
 	errListRel = []
 	errListAbs = []
-	relColor = "tab:blue"
-	absColor = "tab:orange"
 
 	#Loop over sub-range
 	titstr = "Comparing '%s' to '%s'"%(fdir1,fdir2)
-	with alive_bar(i1-i0,title=titstr.ljust(kdefs.barLab),length=kdefs.barLen,disable=doVerb) as bar:
-		for i in range(i0,i1):
-			#Convert time (in seconds) to Step #
-			nStp = np.abs(gsph1.T-tOut[i]).argmin()+gsph1.s0
-			if doVerb:
-				print("Minute = %5.2f / Step = %d"%(tOut[i]/60.0,nStp))
-			npl = vO[i]
-
-			AxTL.clear()
-			AxTR.clear()
-			AxB.clear()
-			AxB2.clear()
-
-			#plot upper left msph error
-			mviz.PlotEqErrRel(gsph1,gsph2,nStp,xyBds,AxTL,fnList,AxCB=AxCT,doVerb=doVerb)
-			AxTL.set_title("Equatorial Slice of Relative Error")
-
-			#plot upper right k-axis error
-			mviz.PlotLogicalErrRel(gsph1,gsph2,nStp,AxTR,fnList,2,doVerb=doVerb)
-			AxTR.set_title("Per-Cell Relative Error along K-Axis")
-			if (not noMPI):
-				#plot I-MPI decomp on logical plot
-				if(gsph2.Ri > 1):
-					for im in range(gsph2.Ri):
-						i0 = im*gsph2.dNi
-						AxTR.plot([i0, i0],[0, gsph2.Nj],"deepskyblue",linewidth=0.25,alpha=0.5)
-				#plot J-MPI decomp on logical plot
-				if (gsph2.Rj>1):
-					for jm in range(1,gsph2.Rj):
-						j0 = jm*gsph2.dNj
-						AxTR.plot([0, gsph2.Ni],[j0, j0],"deepskyblue",linewidth=0.25,alpha=0.5)
-
-			#plot bottom line plot
-			errTimes.append(tOut[i]/60.0)
-			errListRel.append(mviz.CalcTotalErrRel(gsph1,gsph2,nStp,fnList,doVerb=doVerb))
-			errListAbs.append(mviz.CalcTotalErrAbs(gsph1,gsph2,nStp,fnList,doVerb=doVerb))
-			if noLog:
-				AxB.plot(errTimes, errListRel,color=relColor)
-				AxB2.plot(errTimes, errListAbs,color=absColor)
-			else:
-				AxB.semilogy(errTimes, errListRel,color=relColor)
-				AxB2.semilogy(errTimes, errListAbs,color=absColor)
-			AxB.set_xlabel('Time (min)')
-			AxB.set_ylabel('Per-Cell Mean Relative Error',color=relColor)
-			AxB.tick_params(axis='y',which='both',colors=relColor,left=True,right=True,labelleft=True,labelright=False)
-			AxB2.set_ylabel('Per-Cell Mean Absolute Error',color=absColor)
-			#AxB2.yaxis.tick_right()
-			AxB2.tick_params(axis='y',which='both',colors=absColor,left=True,right=True,labelleft=False,labelright=True)
-			AxB.set_title("'" + fieldNames + "' Per-Cell Error Over Time")
-
-			gsph1.AddTime(nStp,AxTL,xy=[0.025,0.84],fs="x-large")
-
-			#Add MPI decomp
-			if (not noMPI):
-				mviz.PlotMPI(gsph2,AxTL)
-    
-			fOut = oDir+"/vid.%04d.png"%(npl)
-			kv.savePic(fOut,bLenX=45)
-
-			bar()
+	with alive_bar(Nt,title=titstr.ljust(kdefs.barLab),length=kdefs.barLen,disable=doVerb) as bar:
+		#with concurrent.futures.ThreadPoolExecutor(max_workers=Nth) as executor:
+		with concurrent.futures.ProcessPoolExecutor(max_workers=Nth) as executor:
+			m = multiprocessing.Manager()
+			cv = m.Condition()
+			dataCounter = m.Value('i',0)
+			met = m.list(errTimes)
+			melr = m.list(errListRel)
+			mela = m.list(errListAbs)
+			#imageFutures = {executor.submit(makeImage,i,gsph1,gsph2,tOut,doVerb,xyBds,fnList,oDir,errTimes,errListRel,errListAbs,cv): i for i in range(0,Nt)}
+			imageFutures = {executor.submit(makeImage,i,gsph1,gsph2,tOut,doVerb,xyBds,fnList,oDir,met,melr,mela,cv,dataCounter): i for i in range(0,Nt)}
+			for future in concurrent.futures.as_completed(imageFutures):
+				try:
+					retVal = future.result()
+				except Exception as e:
+					print("Exception")
+					print(e)
+					traceback.print_exc()
+					exit()
+				bar()
+        
 	makeMovie(oDir,oSub)
 
