@@ -214,7 +214,7 @@ module gamCouple_mpi_G2V
         save_dtOut = App%Model%IO%dtOut
         save_nOut = App%Model%IO%nOut
         save_tCon = App%Model%IO%tCon
-        save_dtCon = App%Model%IO_dtCon
+        save_dtCon = App%Model%IO%dtCon
         
         ! initialize parent's IO
         call gamInitIO(App, Xml)

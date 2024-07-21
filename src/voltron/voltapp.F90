@@ -140,6 +140,13 @@ module voltapp
         call xmlInp%Set_Val(vApp%DeepDT, "coupling/dtCouple", 5.0_rp)
         call xmlInp%Set_Val(vApp%rTrc,   "coupling/rTrc"  , 40.0)
 
+        !Termination can have issues if tFin is too close to a coupling time
+        if(MODULO(vApp%tFin,vApp%DeepDT) < 0.1_rp .or. (vApp%DeepDT-MODULO(vApp%tFin,vApp%DeepDT)) < 0.1_rp) then
+            write (*,*) "Ending a simulation too close to a coupling interval can cause synchronization issues"
+            write (*,*) "Increasing the ending time by a fraction of a second to create a buffer"
+            vApp%tFin = vApp%tFin + 0.25_rp
+        endif
+
         !Coupling is unified, so adding a separate XML option to control "deep" parts
         call xmlInp%Set_Val(vApp%doDeep, "coupling/doDeep", .true.)
 
