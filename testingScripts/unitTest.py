@@ -67,7 +67,7 @@ PFUNIT_HOME = os.path.join(
     MAGE_TEST_ROOT, 'pfunit', 'pFUnit-4.2.0', 'ifort-23-mpich-derecho'
 )
 
-# List of pFUnit directories to copy from PFUNIT_HOME into kaiju/external
+# List of pFUnit directories to copy from PFUNIT_HOME into kaiju_private/external
 PFUNIT_BINARY_DIRECTORIES = [
     'FARGPARSE-1.1',
     'GFTL-1.3',
@@ -269,8 +269,8 @@ def main():
         if debug:
             print(f"module_set_name = {module_set_name}.")
 
-#         # Read this module list file, extracting cmake environment and
-#         # options, if any.
+        # Read this module list file, extracting cmake environment and
+        # options, if any.
         path = os.path.join(MODULE_LIST_DIRECTORY, module_list_file)
         if debug:
             print(f"path = {path}")
@@ -417,8 +417,8 @@ def main():
         pbs_options['report_options'] = ''
         if debug:
             pbs_options['report_options'] += ' -d'
-        if be_loud:
-            pbs_options['report_options'] += ' -l'
+        # if be_loud:
+        pbs_options['report_options'] += ' -l'  # Always post report.
         if slack_on_fail:
             pbs_options['report_options'] += ' -s'
         if is_test:
