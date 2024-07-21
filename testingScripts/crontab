@@ -3,8 +3,8 @@
 
 # Run build, initial condition, and Intel Inspector tests every morning on the
 # development and master branches.
-05 00 * * * ssh derecho "/glade/u/home/ewinter/scratch/mage_testing/kaiju-private/ewinter-derecho_testing/kaiju-private/testingScripts/run_mage_tests.sh -v -b development 'buildTest.py -lv,ICtest.py -lv,intelChecks.py -lv'" >> /glade/u/home/ewinter/scratch/mage_testing/logs/nightly-tests-development.out 2>&1
-10 00 * * * ssh derecho "/glade/u/home/ewinter/scratch/mage_testing/kaiju-private/ewinter-derecho_testing/kaiju-private/testingScripts/run_mage_tests.sh -v -b master      'buildTest.py -lv,ICtest.py -lv,intelChecks.py -lv'" >> /glade/u/home/ewinter/scratch/mage_testing/logs/nightly-tests-master.out      2>&1
+05 00 * * * ssh derecho "/glade/u/home/ewinter/scratch/mage_testing/kaiju-private/ewinter-derecho_testing/kaiju-private/testingScripts/run_mage_tests.sh -v -b development 'buildTest.py -lv,ICtest.py -lv,intelChecks.py -sv'" >> /glade/u/home/ewinter/scratch/mage_testing/logs/nightly-tests-development.out 2>&1
+10 00 * * * ssh derecho "/glade/u/home/ewinter/scratch/mage_testing/kaiju-private/ewinter-derecho_testing/kaiju-private/testingScripts/run_mage_tests.sh -v -b master      'buildTest.py -lv,ICtest.py -lv,intelChecks.py -sv'" >> /glade/u/home/ewinter/scratch/mage_testing/logs/nightly-tests-master.out      2>&1
 
 # Run Fortran unit tests every morning, separately (since they change the
 # source tree).
