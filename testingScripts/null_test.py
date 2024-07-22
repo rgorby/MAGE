@@ -112,7 +112,8 @@ def main():
     # # Detail the test results
     test_report_details_string = ''
     test_report_details_string += (
-        f"Test results are on `derecho` in `{os.environ['MAGE_TEST_SET_ROOT']}`.\n"
+        'Test results are on `derecho` in '
+        f"`{os.environ['MAGE_TEST_SET_ROOT']}`.\n"
     )
 
     # Summarize the test results.
