@@ -373,7 +373,28 @@ module raijuIO
             end where
             call calcGradFTV_cc(Model%planet%rp_m, Model%planet%ri_m, Model%planet%magMoment, &
                                 Grid, tmpGood2D, State%bvol, outTmp3D, doSmoothO=.false., doLimO=.false.)
-            call AddOutVar(IOVars, "gradVM_cc_unsmoothed", outTmp3D(is:ie,js:je,:), uStr="V/m/lambda")
+                                !Grid, tmpGood2D, State%bvol, outTmp3D, doSmoothO=.true., doLimO=.false.)
+            do j=Grid%shGrid%jsg,Grid%shGrid%jeg    
+                do i=Grid%shGrid%isg,Grid%shGrid%ieg
+                    if (all(tmpGood2D(i:i+1,j:j+1))) then
+                        outTmp3D(i,j,RAI_TH) = (-2./3.) * State%bvol_cc(i,j)**(-5./3.) * outTmp3D(i,j,RAI_TH)  ! [Vol^(-2/3)/m]
+                        outTmp3D(i,j,RAI_PH) = (-2./3.) * State%bvol_cc(i,j)**(-5./3.) * outTmp3D(i,j,RAI_PH)  ! [Vol^(-2/3)/m]
+                    endif
+                enddo
+            enddo
+            call AddOutVar(IOVars, "gradVM_cc_nosm", outTmp3D(is:ie,js:je,:), uStr="V/m/lambda")
+            call calcGradFTV_cc(Model%planet%rp_m, Model%planet%ri_m, Model%planet%magMoment, &
+                                Grid, tmpGood2D, State%bvol, outTmp3D, doSmoothO=.true., doLimO=.false.)
+                                !Grid, tmpGood2D, State%bvol, outTmp3D, doSmoothO=.true., doLimO=.false.)
+            do j=Grid%shGrid%jsg,Grid%shGrid%jeg    
+                do i=Grid%shGrid%isg,Grid%shGrid%ieg
+                    if (all(tmpGood2D(i:i+1,j:j+1))) then
+                        outTmp3D(i,j,RAI_TH) = (-2./3.) * State%bvol_cc(i,j)**(-5./3.) * outTmp3D(i,j,RAI_TH)  ! [Vol^(-2/3)/m]
+                        outTmp3D(i,j,RAI_PH) = (-2./3.) * State%bvol_cc(i,j)**(-5./3.) * outTmp3D(i,j,RAI_PH)  ! [Vol^(-2/3)/m]
+                    endif
+                enddo
+            enddo
+            call AddOutVar(IOVars, "gradVM_cc_sm_nolim", outTmp3D(is:ie,js:je,:), uStr="V/m/lambda")
         endif
 
         call WriteVars(IOVars,.true.,Model%raijuH5, gStr)

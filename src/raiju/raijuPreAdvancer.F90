@@ -327,7 +327,9 @@ module raijuPreAdvancer
         ! GC drifts depend on grad(lambda * V^(-2/3))
         ! lambda is constant, so just need grad(V^(-2/3) )
         ! grad(V^(-2/3)) = -2/3*V^(-5/3) * grad(V)
-        call calcGradFTV_cc(Model%planet%rp_m, Model%planet%ri_m, Model%planet%magMoment, Grid, isGCorner, State%bvol, gradVM)
+        call calcGradFTV_cc(Model%planet%rp_m, Model%planet%ri_m, Model%planet%magMoment, &
+                            Grid, isGCorner, State%bvol, gradVM, &
+                            doSmoothO=.true., doLimO=.true.)
         do j=Grid%shGrid%jsg,Grid%shGrid%jeg    
             do i=Grid%shGrid%isg,Grid%shGrid%ieg
                 if (all(isGCorner(i:i+1,j:j+1))) then
@@ -396,6 +398,7 @@ module raijuPreAdvancer
         integer :: i,j
         real(rp) :: qLow, qHigh 
         logical :: doLim
+        logical :: doVerb
         
         if (present(doLimO)) then
             doLim = doLimO
@@ -434,13 +437,23 @@ module raijuPreAdvancer
 
         if (doLim) then
             gradQLim = gradQ
-            !$OMP PARALLEL DO default(shared) &
-            !$OMP schedule(dynamic) &
-            !$OMP private(i,j)
+            !!$OMP PARALLEL DO default(shared) &
+            !!$OMP schedule(dynamic) &
+            !!$OMP private(i,j)
             do j=sh%jsg+1,sh%jeg-1
                 do i=sh%isg+1,sh%ieg-1
-                    gradQLim(i,j,RAI_TH) = MCLim(gradQ(i-1:i+1,j      ,RAI_TH))
-                    gradQLim(i,j,RAI_PH) = MCLim(gradQ(i      ,j-1:j+1,RAI_PH))
+
+                    !gradQLim(i,j,RAI_TH) = MCLim(gradQ(i-1:i+1,j      ,RAI_TH), isG(i-1:i+1,j      ))
+                    !gradQLim(i,j,RAI_PH) = MCLim(gradQ(i      ,j-1:j+1,RAI_PH), isG(i      ,j-1:j+1))
+                    gradQLim(i,j,RAI_TH) = MCLim2(gradQ(i-1,j,RAI_TH), gradQ(i+1,j,RAI_TH), gradQ(i,j,RAI_TH), doVerb)
+                    gradQLim(i,j,RAI_PH) = MCLim2(gradQ(i,j-1,RAI_TH), gradQ(i,j+1,RAI_TH), gradQ(i,j,RAI_TH))
+
+                    if (doVerb .and. j > 170 .and. j < 190 .and. all(isG(i-1:i+1,j))) then
+                        write(*,*)i,j
+                        write(*,*)gradQ(i-1,j,RAI_TH), gradQ(i,j,RAI_TH), gradQ(i+1,j,RAI_TH)
+                        write(gradQLim(i,j,RAI_TH))
+                    endif
+                        
                 enddo
             enddo
             gradQ = gradQLim
@@ -451,17 +464,68 @@ module raijuPreAdvancer
 
         contains
 
-        function MCLim(dq) result(dqbar)
-            real(rp), dimension(-1:1), intent(in) :: dq
-            real(rp) :: dqbar
-            real(rp) :: magdq
+        function MCLim2(dqL, dqR, dqC, doVerbO) result(dqbar)
+            real(rp), intent(in) :: dqL, dqR, dqC
+            real(rp) :: magdq, dqbar
+            logical, optional, intent(inout) :: doVerbO
 
-            if (dq(-1)*dq(1) <= 0.0) then
+            if (present(doVerbO)) doVerbO = .false.
+            dqbar = 0.0
+
+            if (dqL*dqR <= 0.0) then
                 dqbar = 0.0
+                if (present(doVerbO)) doVerbO = .true.
             else
-                magdq = min(2*abs(dq(-1)),2*abs(dq(1)),abs(dq(0)))
-                !SIGN(A,B) returns the value of A with the sign of B
-                dqbar = sign(magdq,dq(0))
+                magdq = min(2*abs(dqL), 2*abs(dqR), abs(dqC))
+                dqbar = sign(magdq, dqC)
+            endif
+            
+        end function MCLim2
+
+        function MCLim(dq, isG_3, doVerbO) result(dqbar)
+            real(rp), dimension(3), intent(in) :: dq
+            logical, dimension(3), intent(in) :: isG_3
+            logical, optional, intent(in) :: doVerbO
+            real(rp) :: dqbar
+            real(rp), dimension(2) :: dqmask
+            real(rp) :: magdq
+            
+            dqbar = 0.0
+
+            if (present(doVerbO)) then
+                write(*,*)dq
+                write(*,*)isG_3
+                write(*,*)all(isG_3)
+                write(*,*)dq(1)*dq(3)
+            endif
+
+            if (all(isG_3)) then
+                ! Standard MCLim
+                if (dq(1)*dq(3) <= 0.0) then
+                    dqbar = 0.0
+                    write(*,*)"ah"
+                    write(*,*)dq
+                    write(*,*)isG_3
+                else
+                    magdq = min(2*abs(dq(1)),2*abs(dq(3)),abs(dq(2)))
+                    !SIGN(A,B) returns the value of A with the sign of B
+                    dqbar = sign(magdq,dq(2))
+                endif
+            else
+                ! Trying one-sided lim
+                dqmask(2) = dq(2)
+                if (isG_3(1) .and. isG_3(2)) then
+                    dqmask(1) = dq(1)
+                else if (isG_3(3) .and. isG_3(2)) then
+                    dqmask(1) = dq(3)
+                endif
+
+                if (dqmask(1)*dqmask(2) <= 0.0) then
+                    dqbar = 0.0
+                else
+                    magdq = min(2*abs(dqmask(1)), abs(dqmask(2)))
+                    dqbar = sign(magdq, dqmask(2))
+                endif
             endif
         end function MCLim
     end subroutine calcGradIJ_cc
@@ -596,7 +660,6 @@ module raijuPreAdvancer
         if (doSmooth) then
             call smoothV(Grid%shGrid, isGcorner, dV)
         endif
-        
         call calcGradIJ_cc(Rp_m, Grid, isGcorner, dV, gradV, doLimO=doLim)
 
         gradV(:,:,RAI_TH) = gradV(:,:,RAI_TH) + dV0_dth
@@ -612,8 +675,8 @@ module raijuPreAdvancer
             real(rp), dimension(sh%isg:sh%ieg+1,sh%jsg:sh%jeg+1), intent(inout) :: V
             
             real(rp), dimension(sh%isg:sh%ieg+1,sh%jsg:sh%jeg+1) :: Vsm
-            real(rp), dimension(3, 3) :: tmpV
-            logical , dimension(3, 3) :: tmpGood
+            real(rp), dimension(3,3) :: tmpV
+            logical , dimension(3,3) :: tmpGood
             integer :: i,j
 
             Vsm = 0.0
@@ -621,32 +684,38 @@ module raijuPreAdvancer
             ! Handle cells along grid extents first
             ! isg,jsg corner
             tmpV = 0.0
+            tmpGood = .false.
             tmpV   (2:3,2:3) = V   (isg:isg+1,jsg:jsg+1)
             tmpGood(2:3,2:3) = isGc(isg:isg+1,jsg:jsg+1)
             Vsm(isg,jsg) = SmoothOperator33(tmpV, tmpGood)
             ! ieg,jsg corner
             tmpV = 0.0
+            tmpGood = .false.
             tmpV   (1:2,2:3) = V   (ieg:ieg+1,jsg:jsg+1)
             tmpGood(1:2,2:3) = isGc(ieg:ieg+1,jsg:jsg+1)
             Vsm(ieg+1,jsg) = SmoothOperator33(tmpV, tmpGood)
             ! isg,jeg corner
             tmpV = 0.0
+            tmpGood = .false.
             tmpV   (2:3,1:2) = V   (isg:isg+1,jeg:jeg+1)
             tmpGood(2:3,1:2) = isGc(isg:isg+1,jeg:jeg+1)
             Vsm(isg,jeg+1) = SmoothOperator33(tmpV, tmpGood)
             ! ieg,jeg corner
             tmpV = 0.0
+            tmpGood = .false.
             tmpV   (1:2,1:2) = V   (ieg:ieg+1,jeg:jeg+1)
             tmpGood(1:2,1:2) = isGc(ieg:ieg+1,jeg:jeg+1)
             Vsm(ieg+1,jeg+1) = SmoothOperator33(tmpV, tmpGood)
             ! jsg, jeg edges
             do i=isg+1,ieg
                 tmpV = 0.0
+                tmpGood = .false.
                 tmpV   (:,2:3) = V   (i-1:i+1,jsg:jsg+1)
                 tmpGood(:,2:3) = isGc(i-1:i+1,jsg:jsg+1)
                 Vsm(i,jsg) = SmoothOperator33(tmpV, tmpGood)
 
                 tmpV = 0.0
+                tmpGood = .false.
                 tmpV   (:,1:2) = V   (i-1:i+1,jeg:jeg+1)
                 tmpGood(:,1:2) = isGc(i-1:i+1,jeg:jeg+1)
                 Vsm(i,jeg+1) = SmoothOperator33(tmpV, tmpGood)
@@ -654,19 +723,18 @@ module raijuPreAdvancer
             ! isg,ieg edges
             do j=jsg+1,jeg
                 tmpV = 0.0
+                tmpGood = .false.
                 tmpV   (2:3,:) = V   (isg:isg+1,j-1:j+1)
                 tmpGood(2:3,:) = isGc(isg:isg+1,j-1:j+1)
                 Vsm(isg,j) = SmoothOperator33(tmpV, tmpGood)
 
                 tmpV = 0.0
+                tmpGood = .false.
                 tmpV   (1:2,:) = V   (ieg:ieg+1,j-1:j+1)
                 tmpGood(1:2,:) = isGc(ieg:ieg+1,j-1:j+1)
                 Vsm(ieg+1,j) = SmoothOperator33(tmpV, tmpGood)
             enddo
             ! Now everyone else
-            !$OMP PARALLEL DO default(shared) &
-            !$OMP schedule(dynamic) &
-            !$OMP private(j,i)
             do j=jsg+1,jeg
                 do i=isg+1,ieg
                     Vsm(i,j) = SmoothOperator33(V(i-1:i+1,j-1:j+1), isGc(i-1:i+1,j-1:j+1))
