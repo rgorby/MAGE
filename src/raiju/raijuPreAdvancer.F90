@@ -419,18 +419,18 @@ module raijuPreAdvancer
                     ! Theta-direction gradient
                     !qLow  = Grid%lenFace(i  ,j,RAI_TH)/2.0 * (Q(i  ,j+1) + Q(i  ,j))
                     !qHigh = Grid%lenFace(i+1,j,RAI_TH)/2.0 * (Q(i+1,j+1) + Q(i+1,j))
-                    !gradQ(i,j,RAI_TH) = (qHigh - qLow) / (Grid%areaCC(i,j) * Rp_m)  ! [Q/m]
+                    !gradQ(i,j,RAI_TH) = (qHigh - qLow) / (Grid%areaCC(i,j) )
                     qLow  = 0.5 * (Q(i  ,j+1) + Q(i  ,j))
                     qHigh = 0.5 * (Q(i+1,j+1) + Q(i+1,j))
-                    gradQ(i,j,RAI_TH) = (qHigh - qLow) / (Grid%lenFace(i,j,RAI_PH) * Rp_m)  ! [Q/m]
+                    gradQ(i,j,RAI_TH) = (qHigh - qLow) / (Grid%lenFace(i,j,RAI_PH) )  ! [Q/Rp]
 
                     ! Phi-direction gradient
                     !qLow  = Grid%lenFace(i,j  ,RAI_PH)/2.0 * (Q(i+1,j  ) + Q(i, j  ))
                     !qHigh = Grid%lenFace(i,j+1,RAI_PH)/2.0 * (Q(i+1,j+1) + Q(i, j+1))
-                    !gradQ(i,j,RAI_PH) = (qhigh - qLow) / (Grid%areaCC(i,j) * Rp_m)
+                    !gradQ(i,j,RAI_PH) = (qhigh - qLow) / (Grid%areaCC(i,j) )
                     qLow  = 0.5 * (Q(i+1,j  ) + Q(i, j  ))
                     qHigh = 0.5 * (Q(i+1,j+1) + Q(i, j+1))
-                    gradQ(i,j,RAI_PH) = (qhigh - qLow) / (0.5*(Grid%lenFace(i,j,RAI_TH)+Grid%lenFace(i+1,j,RAI_TH)) * Rp_m)
+                    gradQ(i,j,RAI_PH) = (qhigh - qLow) / (0.5*(Grid%lenFace(i,j,RAI_TH)+Grid%lenFace(i+1,j,RAI_TH)) )  ! [Q/Rp]
                 endif
             enddo
         enddo
@@ -451,13 +451,15 @@ module raijuPreAdvancer
                     if (doVerb .and. j > 170 .and. j < 190 .and. all(isG(i-1:i+1,j))) then
                         write(*,*)i,j
                         write(*,*)gradQ(i-1,j,RAI_TH), gradQ(i,j,RAI_TH), gradQ(i+1,j,RAI_TH)
-                        write(gradQLim(i,j,RAI_TH))
+                        write(*,*)gradQLim(i,j,RAI_TH)
                     endif
                         
                 enddo
             enddo
             gradQ = gradQLim
         endif
+
+        gradQ = gradQ / Rp_m  ! [Q/m]
 
         end associate
 

@@ -473,10 +473,11 @@ module raijuIO
         call AddOutVar(IOVars,"lonc"   ,State%phcon  (:,:)       ,uStr="radians",dStr="(corners) Congugate longitude")
         call AddOutVar(IOVars,"espot"  ,State%espot  (:,:)       ,uStr="kV",dStr="(corners) Electrostatic potential")
         call AddOutVar(IOVars,"bVol"   ,State%bvol   (:,:)       ,uStr="Rx/nT",dStr="(corners) Flux Tube Volume")
+        call AddOutVar(IOVars,"bVolcc" ,State%bvol_cc(:,:)       ,uStr="Rx/nT",dStr="(centers) Flux Tube Volume")
         call AddOutVar(IOVars,"vaFrac" ,State%vaFrac (:,:)       ,uStr="fraction",dStr="Fraction of Alfven speed over magnetofast + ExB speed")
 
         ! If only 1 element in 3rd position, AddOutVar will write as 2D array
-        ! We know it should be 2D, so force it
+        ! We know it should be 3D, so force it
         call AddOutVar(IOVars,"Pavg_in",State%Pavg   (:,:,:)     ,uStr="nPa" ,dStr="Pressures from imagtubes", doSqzO=.false.)
         call AddOutVar(IOVars,"Davg_in",State%Davg   (:,:,:)     ,uStr="#/cc",dStr="Densities from imagtubes", doSqzO=.false.)
 
@@ -510,8 +511,7 @@ module raijuIO
         call AddOutVar(IOVars, "nStepk", State%nStepk*1.0_rp, uStr="#", dStr="Number of steps each channel has taken")
         !call AddOutVar(IOVars, "nStepk" , State%nStepk(:), uStr="#", dStr="Number of steps each channel has taken")
         call AddOutVar(IOVars, "iVel"   , State%iVel  (:,:,:,:)     , uStr="m/s")
-        call AddOutVar(IOVars, "cVel_th", State%cVel  (:,:,:,RAI_TH), uStr="m/s")
-        call AddOutVar(IOVars, "cVel_ph", State%cVel  (:,:,:,RAI_PH), uStr="m/s")
+        call AddOutVar(IOVars, "cVel"   , State%cVel  (:,:,:,:), uStr="m/s")
 
         call WriteVars(IOVars,.false.,ResF,"State")
 
@@ -551,6 +551,7 @@ module raijuIO
         call AddInVar(IOVars,"lonc"   )
         call AddInVar(IOVars,"espot"  )
         call AddInVar(IOVars,"bVol"   )
+        call AddInVar(IOVars,"bVolcc" )
         call AddInVar(IOVars,"vaFrac" )
         call AddInVar(IOVars,"Pavg_in")
         call AddInVar(IOVars,"Davg_in")
@@ -576,8 +577,7 @@ module raijuIO
         call AddInVar(IOVars, "dtk"    )
         call AddInVar(IOVars, "nStepk" )
         call AddInVar(IOVars, "iVel"   )
-        call AddInVar(IOVars, "cVel_th")
-        call AddInVar(IOVars, "cVel_ph")
+        call AddInVar(IOVars, "cVel")
 
         call ReadVars(IOVars,.false.,inH5,"State")
 
@@ -594,14 +594,15 @@ module raijuIO
         call IOArray2DFill(IOVars, "bminX", State%Bmin  (:,:,XDIR))
         call IOArray2DFill(IOVars, "bminY", State%Bmin  (:,:,YDIR))
         call IOArray2DFill(IOVars, "bminZ", State%Bmin  (:,:,ZDIR))
-        call IOArray2DFill(IOVars, "colatc", State%thcon (:,:))
-        call IOArray2DFill(IOVars, "lonc"  , State%phcon (:,:))
-        call IOArray2DFill(IOVars, "espot" , State%espot (:,:))
-        call IOArray2DFill(IOVars, "colatc", State%thcon (:,:))
-        call IOArray2DFill(IOVars, "lonc"  , State%phcon (:,:))
-        call IOArray2DFill(IOVars, "espot" , State%espot (:,:))
-        call IOArray2DFill(IOVars, "bVol"  , State%bvol  (:,:))
-        call IOArray2DFill(IOVars, "vaFrac", State%vaFrac(:,:))
+        call IOArray2DFill(IOVars, "colatc", State%thcon  (:,:))
+        call IOArray2DFill(IOVars, "lonc"  , State%phcon  (:,:))
+        call IOArray2DFill(IOVars, "espot" , State%espot  (:,:))
+        call IOArray2DFill(IOVars, "colatc", State%thcon  (:,:))
+        call IOArray2DFill(IOVars, "lonc"  , State%phcon  (:,:))
+        call IOArray2DFill(IOVars, "espot" , State%espot  (:,:))
+        call IOArray2DFill(IOVars, "bVol"  , State%bvol   (:,:))
+        call IOArray2DFill(IOVars, "bVolcc", State%bvol_cc(:,:))
+        call IOArray2DFill(IOVars, "vaFrac", State%vaFrac (:,:))
         call IOArray3DFill(IOVars, "Pavg_in", State%Pavg(:,:,:))
         call IOArray3DFill(IOVars, "Davg_in", State%Davg(:,:,:))
         
@@ -622,9 +623,8 @@ module raijuIO
         
         call IOArray1DFill(IOVars, "dtk", State%dtk(:))
 
-        call IOArray4DFill(IOVars, "iVel"   , State%iVel(:,:,:,:))
-        call IOArray3DFill(IOVars, "cVel_th", State%cVel(:,:,:,RAI_TH))
-        call IOArray3DFill(IOVars, "cVel_ph", State%cVel(:,:,:,RAI_PH))
+        call IOArray4DFill(IOVars, "iVel", State%iVel(:,:,:,:))
+        call IOArray4DFill(IOVars, "cVel", State%cVel(:,:,:,:))
 
         ! Handle real -> int arrays
         associate(sh=>Grid%shGrid)
