@@ -21,6 +21,7 @@ import subprocess
 import sys
 
 # Import 3rd-party modules.
+from jinja2 import Template
 
 # Import project modules.
 import common
@@ -59,7 +60,6 @@ BIN_DIR = 'bin'
 # List of weekly dash test files to copy
 WEEKLY_DASH_TEST_FILES = [
     'weeklyDashGo.xml',
-    'weeklyDashGo.pbs',
 ]
 
 # Name of PBS account to use for testing jobs.
@@ -70,6 +70,14 @@ SLACK_BOT_TOKEN = os.environ['SLACK_BOT_TOKEN']
 
 # Branch or commit string for code used in this test.
 BRANCH_OR_COMMIT = os.environ['BRANCH_OR_COMMIT']
+
+# Paths to jinja2 template file for PBS script.
+WEEKLY_DASH_PBS_TEMPLATE = os.path.join(
+    TEST_SCRIPTS_DIRECTORY, 'weeklyDash-template.pbs'
+)
+
+# Name of rendered PBS script.
+WEEKLY_DASH_PBS_SCRIPT = 'weeklyDash.pbs'
 
 
 def main():
@@ -99,6 +107,7 @@ def main():
         print(f"args = {args}")
     debug = args.debug
     be_loud = args.loud
+    slack_on_fail = args.slack_on_fail
     is_test = args.test
     verbose = args.verbose
 
@@ -132,6 +141,15 @@ def main():
     module_list_files = [_.rstrip() for _ in lines]
     if debug:
         print(f"module_list_files = {module_list_files}")
+
+    # ------------------------------------------------------------------------
+
+    # Read the template for the PBS script used for the test data generation.
+    with open(WEEKLY_DASH_PBS_TEMPLATE, 'r', encoding='utf-8') as f:
+        template_content = f.read()
+    weekly_dash_pbs_template = Template(template_content)
+    if debug:
+        print(f"weekly_dash_pbs_template = {weekly_dash_pbs_template}")
 
     # ------------------------------------------------------------------------
 
@@ -308,35 +326,54 @@ def main():
             to_file = os.path.join('.', filename)
             shutil.copyfile(from_file, to_file)
 
+        # Assemble data to fill in the PBS template.
+        pbs_options = {}
+        pbs_options['job_name'] = dir_name
+        pbs_options['account'] = os.environ['DERECHO_TESTING_ACCOUNT']
+        pbs_options['queue'] = os.environ['DERECHO_TESTING_QUEUE']
+        pbs_options['job_priority'] = os.environ['DERECHO_TESTING_PRIORITY']
+        pbs_options['walltime'] = '12:00:00'
+        pbs_options['modules'] = module_names
+        pbs_options['kaijuhome'] = KAIJUHOME
+        pbs_options['tmpdir'] = os.environ['TMPDIR']
+        pbs_options['slack_bot_token'] = os.environ['SLACK_BOT_TOKEN']
+        pbs_options['mage_test_root'] = os.environ['MAGE_TEST_ROOT']
+        pbs_options['mage_test_set_root'] = os.environ['MAGE_TEST_SET_ROOT']
+        pbs_options['branch_or_commit'] = os.environ['BRANCH_OR_COMMIT']
+        pbs_options['report_options'] = ''
+        if debug:
+            pbs_options['report_options'] += ' -d'
+        if be_loud:
+            pbs_options['report_options'] += ' -l'
+        if slack_on_fail:
+            pbs_options['report_options'] += ' -s'
+        if is_test:
+            pbs_options['report_options'] += ' -t'
+        if verbose:
+            pbs_options['report_options'] += ' -v'
+
+        # Render the job template.
+        pbs_content = weekly_dash_pbs_template.render(pbs_options)
+        with open(WEEKLY_DASH_PBS_SCRIPT, 'w', encoding='utf-8') as f:
+            f.write(pbs_content)
+
         # Submit the weekly dash job.
         if verbose:
             print('Preparing to submit weekly dash model run.')
-        cmd = (
-                f"qsub -A {DERECHO_TESTING_ACCOUNT} "
-                f"-v MODULE_LIST='{' '.join(module_names)}',"
-                f"KAIJUROOTDIR={KAIJUHOME},"
-                f"MAGE_TEST_SET_ROOT={MAGE_TEST_SET_ROOT},"
-                f"DERECHO_TESTING_ACCOUNT={DERECHO_TESTING_ACCOUNT},"
-                f"SLACK_BOT_TOKEN={SLACK_BOT_TOKEN},"
-                f"BRANCH_OR_COMMIT={BRANCH_OR_COMMIT}"
-                ' weeklyDashGo.pbs'
-        )
+        cmd = f"qsub {WEEKLY_DASH_PBS_SCRIPT}"
         if debug:
             print(f"cmd = {cmd}")
         try:
             cproc = subprocess.run(cmd, shell=True, check=True,
-                                   text=True, stdout=subprocess.PIPE,
-                                   stderr=subprocess.STDOUT)
+                                   text=True, capture_output=True)
         except subprocess.CalledProcessError as e:
-            print(
-                'ERROR: Unable to submit job request for module set '
-                f"{module_set_name}.\n"
-                f"e.cmd = {e.cmd}\n"
-                f"e.returncode = {e.returncode}\n"
-                'See testing log for output.\n'
-                'Skipping remaining steps for module set '
-                f"{module_set_name}\n"
-            )
+            print('ERROR: qsub failed.\n'
+                  f"e.cmd = {e.cmd}\n"
+                  f"e.returncode = {e.returncode}\n"
+                  'See test log for output.\n'
+                  'Skipping remaining steps for module set '
+                  f"{module_set_name}.",
+                  file=sys.stderr)
             continue
         job_id = cproc.stdout.split('.')[0]
         if debug:
