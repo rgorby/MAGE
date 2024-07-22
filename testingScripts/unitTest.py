@@ -67,7 +67,8 @@ PFUNIT_HOME = os.path.join(
     MAGE_TEST_ROOT, 'pfunit', 'pFUnit-4.2.0', 'ifort-23-mpich-derecho'
 )
 
-# List of pFUnit directories to copy from PFUNIT_HOME into kaiju_private/external
+# List of pFUnit directories to copy from PFUNIT_HOME into
+# kaiju_private/external
 PFUNIT_BINARY_DIRECTORIES = [
     'FARGPARSE-1.1',
     'GFTL-1.3',
@@ -544,7 +545,7 @@ def main():
         job_id = cproc.stdout.split('.')[0]
         if debug:
             print(f"job_id = {job_id}")
-        job_ids[i_module_set][3] = job_id
+        job_ids[i_module_set][4] = job_id
 
         # Record the job IDs for this module set in a file.
         with open('jobs.txt', 'w', encoding='utf-8') as f:
