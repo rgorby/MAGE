@@ -139,12 +139,12 @@ def main():
         job_file_0 = f"testResGen.o{job_ids[0]}"
         job_file_1 = f"caseTests.o{job_ids[1]}"
         job_file_2 = f"nonCaseTests1.o{job_ids[2]}"
-        # job_file_3 = f"nonCaseTests2.o{job_ids[3]}"  # SKIP FOR NOW
+        job_file_3 = f"nonCaseTests2.o{job_ids[3]}"  # SKIP FOR NOW
         if debug:
             print(f"job_file_o = {job_file_0}")
             print(f"job_file_1 = {job_file_1}")
             print(f"job_file_2 = {job_file_2}")
-            # print(f"job_file_3 = {job_file_3}")
+            print(f"job_file_3 = {job_file_3}")
 
         # Combine the results of each test log file.
         bigFile = []

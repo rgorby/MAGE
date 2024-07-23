@@ -4,20 +4,31 @@
 
 This script runs a series of unit tests of the MAGE Fortran software. These
 tests are run as PBS jobs on derecho. There will be one job which generates
-the data for testing, then 1 or more dependent jobs that use the newly-
-generated data for unit testing, then a job for the test report.
+the data for testing, then 3 dependent jobs that use the newly-generated data
+for unit testing, then a job for the test report.
 
-There are 5 PBS jobs used per module set:
+There are 5 PBS job scripts used per module set. Each is generated from a
+jinja2 template.
 
-1. Data generation - Runs in about 17 minutes on 4 derecho nodes.
+1. genTestData.pbs - Data generation. Runs in about 17 minutes on 5 derecho
+   nodes. Output in PBS job file genTestData.o*, and geo_mpi.out.
 
-2. Case tests -
+2. runCaseTests.pbs - Runs in about 17 minutes on 1 derecho node. Only runs if
+   genTestData.pbs completes successfully. Output in PBS log file
+   runCaseTests.o*, caseTests.out, and caseMpiTests.out.
 
-3. Non-case tests #1 -
+3. runNonCaseTests1.pbs - Runs in about 2 minutes on 1 derecho node. Only runs
+   if genTestData.pbs completes successfully. Output in PBS log file
+   runNonCaseTests1.o*, gamTests.out, mixTests.out, voltTests.out,
+   baseMpiTests.out, gamMpiTests.out.
 
-4. Non-case tests #2 -
+4. runNonCaseTests2.pbs - Runs in about XX minutes on 2 derecho nodes. Only
+   runs if genTestData.pbs completes successfully. Output in PBS log file
+   runNonCaseTests2.o*, and voltMpiTests.out.
 
-5. Report generation -
+5. unitTestReport.pbs - Report generation. Runs in about XX minutes on 1
+   derecho node. Only runs if jobs 2-4 complete successfully. Output in PBS
+   log file unitTestReport.o*, and unitTestReport.out.
 
 NOTE: If this script is run as part of a set of tests for run_mage_tests.sh,
 this script must be listed *last*, since it makes changes to the kaiju source
@@ -131,7 +142,10 @@ DATA_GENERATION_PBS_SCRIPT = 'genTestData.pbs'
 RUN_CASE_TESTS_PBS_SCRIPT = 'runCaseTests.pbs'
 RUN_NON_CASE_TESTS_1_PBS_SCRIPT = 'runNonCaseTests1.pbs'
 RUN_NON_CASE_TESTS_2_PBS_SCRIPT = 'runNonCaseTests2.pbs'
-UNIT_TEST_REPORT_PBS_SCRIPT = 'unitTestReport.pbs'
+# UNIT_TEST_REPORT_PBS_SCRIPT = 'unitTestReport.pbs'
+
+# Name of file to hold job list.
+JOB_LIST_FILE = 'jobs.txt'
 
 
 def main():
@@ -186,11 +200,15 @@ def main():
     for directory in PFUNIT_BINARY_DIRECTORIES:
         from_path = os.path.join(PFUNIT_HOME, directory)
         to_path = os.path.join(KAIJU_EXTERNAL_DIRECTORY, directory)
+        if debug:
+            print(f"Copying {from_path} to {to_path}.")
         shutil.copytree(from_path, to_path)
 
     # ------------------------------------------------------------------------
 
     # Make a list of module sets to build with.
+    if verbose:
+        print(f"Reading module set list from {UNIT_TEST_LIST_FILE}.")
 
     # Read the list of  module sets to use for unit tests.
     with open(UNIT_TEST_LIST_FILE, encoding='utf-8') as f:
@@ -201,7 +219,11 @@ def main():
 
     # ------------------------------------------------------------------------
 
-    # Read the template for the PBS script used for the test data generation.
+    if verbose:
+        print('Reading templates for PBS scripts.')
+
+    # # Read the template for the PBS script used for the test data
+    # generation.
     with open(DATA_GENERATION_PBS_TEMPLATE, 'r', encoding='utf-8') as f:
         template_content = f.read()
     data_generation_pbs_template = Template(template_content)
@@ -269,6 +291,8 @@ def main():
         module_set_name = module_list_file.rstrip('.lst')
         if debug:
             print(f"module_set_name = {module_set_name}.")
+
+        # --------------------------------------------------------------------
 
         # Read this module list file, extracting cmake environment and
         # options, if any.
@@ -356,16 +380,7 @@ def main():
             )
             continue
 
-        # Go to the bin directory for testing.
-        os.chdir(BUILD_BIN_DIR)
-
-        # Copy in inputs for unit test data generation.
-        for filename in UNIT_TEST_DATA_INPUT_FILES:
-            from_path = os.path.join(
-                UNIT_TEST_DATA_INPUT_DIRECTORY, filename
-            )
-            to_path = os.path.join('.', filename)
-            shutil.copyfile(from_path, to_path)
+        # --------------------------------------------------------------------
 
         # Assemble common data to fill in the PBS templates.
         pbs_options = {}
@@ -374,60 +389,30 @@ def main():
         pbs_options['job_priority'] = os.environ['DERECHO_TESTING_PRIORITY']
         pbs_options['modules'] = module_names
         pbs_options['kaijuhome'] = KAIJUHOME
-        pbs_options['tmpdir'] = os.environ['TMPDIR']
-        pbs_options['slack_bot_token'] = os.environ['SLACK_BOT_TOKEN']
-        pbs_options['mage_test_root'] = os.environ['MAGE_TEST_ROOT']
-        pbs_options['mage_test_set_root'] = os.environ['MAGE_TEST_SET_ROOT']
+
+        # Go to the bin directory for testing.
+        os.chdir(BUILD_BIN_DIR)
+
+        # --------------------------------------------------------------------
+
+        # Copy in inputs for unit test data generation.
+        for filename in UNIT_TEST_DATA_INPUT_FILES:
+            from_path = os.path.join(
+                UNIT_TEST_DATA_INPUT_DIRECTORY, filename
+            )
+            to_path = os.path.join('.', filename)
+            if debug:
+                print(f"Copying {from_path} to {to_path}.")
+            shutil.copyfile(from_path, to_path)
 
         # Set options specific to the data generation job, then render the
         # template.
-        pbs_options['job_name'] = 'mage_genTestData'
+        pbs_options['job_name'] = 'genTestData'
         pbs_options['walltime'] = '00:30:00'
         pbs_content = data_generation_pbs_template.render(pbs_options)
-        with open(DATA_GENERATION_PBS_SCRIPT, 'w', encoding='utf-8') as f:
-            f.write(pbs_content)
-
-        # Set options specific to the case tests job, then render the
-        # template.
-        pbs_options['job_name'] = 'mage_runCaseTests'
-        pbs_options['walltime'] = '12:00:00'
-        pbs_content = run_case_tests_pbs_template.render(pbs_options)
-        with open(RUN_CASE_TESTS_PBS_SCRIPT, 'w', encoding='utf-8') as f:
-            f.write(pbs_content)
-
-        # Set options specific to the 1st non-case tests job, then render the
-        # template.
-        pbs_options['job_name'] = 'mage_runNonCaseTests1'
-        pbs_options['walltime'] = '12:00:00'
-        pbs_content = run_non_case_tests_1_pbs_template.render(pbs_options)
-        with open(RUN_NON_CASE_TESTS_1_PBS_SCRIPT, 'w', encoding='utf-8') as f:
-            f.write(pbs_content)
-
-        # Set options specific to the 2nd non-case tests job, then render the
-        # template.
-        pbs_options['job_name'] = 'mage_runNonCaseTests2'
-        pbs_options['walltime'] = '12:00:00'
-        pbs_content = run_non_case_tests_2_pbs_template.render(pbs_options)
-        with open(RUN_NON_CASE_TESTS_2_PBS_SCRIPT, 'w', encoding='utf-8') as f:
-            f.write(pbs_content)
-
-        # Set options specific to the report generation job, then render the
-        # template.
-        pbs_options['job_name'] = 'mage_unitTestReport'
-        pbs_options['walltime'] = '00:00:10'
-        pbs_options['report_options'] = ''
-        if debug:
-            pbs_options['report_options'] += ' -d'
-        # if be_loud:
-        pbs_options['report_options'] += ' -l'  # Always post report.
-        if slack_on_fail:
-            pbs_options['report_options'] += ' -s'
-        if is_test:
-            pbs_options['report_options'] += ' -t'
         if verbose:
-            pbs_options['report_options'] += ' -v'
-        pbs_content = unit_test_report_pbs_template.render(pbs_options)
-        with open(UNIT_TEST_REPORT_PBS_SCRIPT, 'w', encoding='utf-8') as f:
+            print(f"Creating {DATA_GENERATION_PBS_SCRIPT}.")
+        with open(DATA_GENERATION_PBS_SCRIPT, 'w', encoding='utf-8') as f:
             f.write(pbs_content)
 
         # Run the data generation job.
@@ -447,9 +432,22 @@ def main():
                   file=sys.stderr)
             continue
         job_id = cproc.stdout.split('.')[0]
+        job_ids[i_module_set][0] = job_id
         if debug:
             print(f"job_id = {job_id}")
-        job_ids[i_module_set][0] = job_id
+            print(f"job_ids = {job_ids}")
+
+        # --------------------------------------------------------------------
+
+        # Set options specific to the case tests job, then render the
+        # template.
+        pbs_options['job_name'] = 'runCaseTests'
+        pbs_options['walltime'] = '00:40:00'
+        pbs_content = run_case_tests_pbs_template.render(pbs_options)
+        if verbose:
+            print(f"Creating {RUN_CASE_TESTS_PBS_SCRIPT}.")
+        with open(RUN_CASE_TESTS_PBS_SCRIPT, 'w', encoding='utf-8') as f:
+            f.write(pbs_content)
 
         # Run the case tests job if data was generated.
         cmd = (
@@ -475,6 +473,18 @@ def main():
             print(f"job_id = {job_id}")
         job_ids[i_module_set][1] = job_id
 
+        # --------------------------------------------------------------------
+
+        # Set options specific to the 1st non-case tests job, then render the
+        # template.
+        pbs_options['job_name'] = 'runNonCaseTests1'
+        pbs_options['walltime'] = '00:05:00'
+        if verbose:
+            print(f"Creating {RUN_NON_CASE_TESTS_1_PBS_SCRIPT}.")
+        pbs_content = run_non_case_tests_1_pbs_template.render(pbs_options)
+        with open(RUN_NON_CASE_TESTS_1_PBS_SCRIPT, 'w', encoding='utf-8') as f:
+            f.write(pbs_content)
+
         # Run the 1st non-case tests job if data was generated.
         cmd = (
             f"qsub -W depend=afterok:{job_ids[i_module_set][0]} "
@@ -498,6 +508,16 @@ def main():
         if debug:
             print(f"job_id = {job_id}")
         job_ids[i_module_set][2] = job_id
+
+        # --------------------------------------------------------------------
+
+        # Set options specific to the 2nd non-case tests job, then render the
+        # template.
+        pbs_options['job_name'] = 'runNonCaseTests2'
+        pbs_options['walltime'] = '12:00:00'
+        pbs_content = run_non_case_tests_2_pbs_template.render(pbs_options)
+        with open(RUN_NON_CASE_TESTS_2_PBS_SCRIPT, 'w', encoding='utf-8') as f:
+            f.write(pbs_content)
 
         # Run the 2nd non-case tests job if data was generated.
         cmd = (
@@ -523,32 +543,60 @@ def main():
             print(f"job_id = {job_id}")
         job_ids[i_module_set][3] = job_id
 
-        # Run the report generation job if all others ran OK.
-        cmd = (
-            f"qsub -W depend=afterok:{':'.join(job_ids[i_module_set][1:4])} "
-            f"{UNIT_TEST_REPORT_PBS_SCRIPT}"
-        )
-        if debug:
-            print(f"cmd = {cmd}")
-        try:
-            cproc = subprocess.run(cmd, shell=True, check=True,
-                                   text=True, capture_output=True)
-        except subprocess.CalledProcessError as e:
-            print('ERROR: qsub failed.\n'
-                  f"e.cmd = {e.cmd}\n"
-                  f"e.returncode = {e.returncode}\n"
-                  'See test log for output.\n'
-                  'Skipping remaining steps for module set '
-                  f"{module_set_name}.",
-                  file=sys.stderr)
-            continue
-        job_id = cproc.stdout.split('.')[0]
-        if debug:
-            print(f"job_id = {job_id}")
-        job_ids[i_module_set][4] = job_id
+        # --------------------------------------------------------------------
+
+    #     # Set options specific to the report generation job, then render the
+    #     # template.
+    #     pbs_options['job_name'] = 'unitTestReport'
+    #     pbs_options['walltime'] = '00:10:00'
+    #     pbs_options['slack_bot_token'] = os.environ['SLACK_BOT_TOKEN']
+    #     pbs_options['mage_test_root'] = os.environ['MAGE_TEST_ROOT']
+    #     pbs_options['mage_test_set_root'] = os.environ['MAGE_TEST_SET_ROOT']
+    #     pbs_options['report_options'] = ''
+    #     if debug:
+    #         pbs_options['report_options'] += ' -d'
+    #     pbs_options['report_options'] += ' -l'  # Always post report.
+    #     if slack_on_fail:
+    #         pbs_options['report_options'] += ' -s'
+    #     if is_test:
+    #         pbs_options['report_options'] += ' -t'
+    #     if verbose:
+    #         pbs_options['report_options'] += ' -v'
+    #     pbs_content = unit_test_report_pbs_template.render(pbs_options)
+    #     with open(UNIT_TEST_REPORT_PBS_SCRIPT, 'w', encoding='utf-8') as f:
+    #         f.write(pbs_content)
+
+    #     # Run the report generation job if all others ran OK.
+    #     cmd = (
+    #         f"qsub -W depend=afterok:{':'.join(job_ids[i_module_set][1:4])} "
+    #         f"{UNIT_TEST_REPORT_PBS_SCRIPT}"
+    #     )
+    #     if debug:
+    #         print(f"cmd = {cmd}")
+    #     try:
+    #         cproc = subprocess.run(cmd, shell=True, check=True,
+    #                                text=True, capture_output=True)
+    #     except subprocess.CalledProcessError as e:
+    #         print('ERROR: qsub failed.\n'
+    #               f"e.cmd = {e.cmd}\n"
+    #               f"e.returncode = {e.returncode}\n"
+    #               'See test log for output.\n'
+    #               'Skipping remaining steps for module set '
+    #               f"{module_set_name}.",
+    #               file=sys.stderr)
+    #         continue
+    #     job_id = cproc.stdout.split('.')[0]
+    #     if debug:
+    #         print(f"job_id = {job_id}")
+    #     job_ids[i_module_set][4] = job_id
+
+        # --------------------------------------------------------------------
 
         # Record the job IDs for this module set in a file.
-        with open('jobs.txt', 'w', encoding='utf-8') as f:
+        if verbose:
+            print(f"Saving job IDs for module set {module_set_name} "
+                  f"in {JOB_LIST_FILE}.")
+        with open(JOB_LIST_FILE, 'w', encoding='utf-8') as f:
             for job_id in job_ids[i_module_set]:
                 f.write(f"{job_id}\n")
 
@@ -556,6 +604,9 @@ def main():
         submit_ok[i_module_set] = True
 
     # End of loop over module sets
+    if debug:
+        print(f"submit_ok = {submit_ok}")
+        print(f"job_ids = {job_ids}")
 
     # ------------------------------------------------------------------------
 
@@ -590,17 +641,21 @@ def main():
             f"`{module_list_file}` submitted as PBS job "
             f"{job_ids[i_module_set][3]}.\n"
         )
-        test_report_details_string += (
-            f"`{UNIT_TEST_REPORT_PBS_SCRIPT}` for module set "
-            f"`{module_list_file}` submitted as PBS job "
-            f"{job_ids[i_module_set][4]}.\n"
-        )
+        # test_report_details_string += (
+        #     f"`{UNIT_TEST_REPORT_PBS_SCRIPT}` for module set "
+        #     f"`{module_list_file}` submitted as PBS job "
+        #     f"{job_ids[i_module_set][4]}.\n"
+        # )
 
     # Summarize the test results
-    test_report_summary_string = (
-        'Fortran unit tests submitted by `unitTest.py`'
-        f" for branch or commit or tag {os.environ['BRANCH_OR_COMMIT']}\n"
-    )
+    if 'FAILED' in test_report_details_string:
+        test_report_summary_string = (
+            'Fortran unit test submission: *FAILED*'
+        )
+    else:
+        test_report_summary_string = (
+            'Fortran unit test submission: *PASSED*'
+        )
 
     # Print the test results summary and details.
     print(test_report_summary_string)
