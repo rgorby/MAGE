@@ -53,6 +53,7 @@ echo 'The active environment variables are:'
 printenv
 
 # Run the model.
+MPICOMMAND="mpiexec $KAIJUHOME/scripts/preproc/pinCpuCores.sh"
 $MPICOMMAND ./voltron_mpi.x weeklyDashGo.xml >& weeklyDashGo.out
 
 # Generate the report.
