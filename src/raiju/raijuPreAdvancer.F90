@@ -617,8 +617,8 @@ module raijuPreAdvancer
         
         do j=sh%jsg,sh%jeg
             do i=sh%isg,sh%ieg
-                !bVolcc = toCenter2D(dV(i:i+1,j:j+1)) + DipFTV_colat(Grid%thcRp(i), B0)
-                bVolcc = toCenter2D(V(i:i+1,j:j+1))
+                bVolcc = toCenter2D(dV(i:i+1,j:j+1)) + DipFTV_colat(Grid%thcRp(i), B0)  ! Will include smoothing of dV if enabled
+                !bVolcc = toCenter2D(V(i:i+1,j:j+1))
                 gradVM(i,j,:) = (-2./3.)*bVolcc**(-5./3.)*gradVM(i,j,:)
             enddo
         enddo
