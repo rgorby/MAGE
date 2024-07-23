@@ -6,7 +6,7 @@ module raijuIO
     
     use raijutypes
     use raijuetautils
-    use raijuPreAdvancer, only : calcEffectivePotential, calcGradFTV_cc
+    use raijuPreAdvancer, only : calcEffectivePotential, calcGradVM_cc
     use raijuELossWM, only : eWMOutput
     use shellGrid
     use shellInterp
@@ -98,22 +98,24 @@ module raijuIO
         call AddOutVar(IOVars,"doActiveShell",Model%doActiveShell)  ! Attr
         call WriteVars(IOVars,.true.,Model%raijuH5)
 
-        ! Grid data
+        ! Root data
         call ClearIO(IOVars)
         call AddOutVar(IOVars,"X",lat2D,uStr="radians")
         call AddOutVar(IOVars,"Y",lon2D,uStr="radians")
+        call WriteVars(IOVars,.true.,Model%raijuH5)
+        ! Grid data
+        call AddOutVar(IOVars,"th_surf"  ,Grid%thRp (is:ie+1),uStr="radians",dStr="(corner) Thetas mapped to 1 Rp")
+        call AddOutVar(IOVars,"thcc_surf",Grid%thcRp(is:ie  ),uStr="radians",dStr="(cell) Thetas mapped to 1 Rp")
         call AddOutVar(IOVars,"Bmag",Grid%Bmag(is:ie,js:je),uStr="nT")
         call AddOutVar(IOVars,"BrFace",Grid%BrFace(is:ie+1,js:je+1,:),uStr="nT")
         call AddOutVar(IOVars,"BrCC",Grid%BrCC(is:ie,js:je),uStr="nT")
         call AddOutVar(IOVars,"areaCC",Grid%areaCC  (is:ie,js:je),uStr="Ri^2")
         call AddOutVar(IOVars,"alamc",Grid%alamc,uStr="eV * (Rx/nT)^(2/3)")
-
         if (Model%doDebugOutput) then
             call AddOutVar(IOVars,"areaFace",Grid%areaFace(is:ie+1,js:je+1,:),uStr="Ri^2")
             call AddOutVar(IOVars,"lenFace" ,Grid%lenFace (is:ie+1,js:je+1,:),uStr="Ri")
         endif
-
-        call WriteVars(IOVars,.true.,Model%raijuH5)
+        call WriteVars(IOVars,.true.,Model%raijuH5,"Grid")
 
         ! Output detailed lambda grid info
         do i=1,Grid%nSpc
@@ -371,29 +373,11 @@ module raijuIO
             elsewhere
                 tmpGood2D = .false.
             end where
-            call calcGradFTV_cc(Model%planet%rp_m, Model%planet%ri_m, Model%planet%magMoment, &
+            call calcGradVM_cc(Model%planet%rp_m, Model%planet%ri_m, Model%planet%magMoment, &
                                 Grid, tmpGood2D, State%bvol, outTmp3D, doSmoothO=.false., doLimO=.false.)
-                                !Grid, tmpGood2D, State%bvol, outTmp3D, doSmoothO=.true., doLimO=.false.)
-            do j=Grid%shGrid%jsg,Grid%shGrid%jeg    
-                do i=Grid%shGrid%isg,Grid%shGrid%ieg
-                    if (all(tmpGood2D(i:i+1,j:j+1))) then
-                        outTmp3D(i,j,RAI_TH) = (-2./3.) * State%bvol_cc(i,j)**(-5./3.) * outTmp3D(i,j,RAI_TH)  ! [Vol^(-2/3)/m]
-                        outTmp3D(i,j,RAI_PH) = (-2./3.) * State%bvol_cc(i,j)**(-5./3.) * outTmp3D(i,j,RAI_PH)  ! [Vol^(-2/3)/m]
-                    endif
-                enddo
-            enddo
             call AddOutVar(IOVars, "gradVM_cc_nosm", outTmp3D(is:ie,js:je,:), uStr="V/m/lambda")
-            call calcGradFTV_cc(Model%planet%rp_m, Model%planet%ri_m, Model%planet%magMoment, &
+            call calcGradVM_cc(Model%planet%rp_m, Model%planet%ri_m, Model%planet%magMoment, &
                                 Grid, tmpGood2D, State%bvol, outTmp3D, doSmoothO=.true., doLimO=.false.)
-                                !Grid, tmpGood2D, State%bvol, outTmp3D, doSmoothO=.true., doLimO=.false.)
-            do j=Grid%shGrid%jsg,Grid%shGrid%jeg    
-                do i=Grid%shGrid%isg,Grid%shGrid%ieg
-                    if (all(tmpGood2D(i:i+1,j:j+1))) then
-                        outTmp3D(i,j,RAI_TH) = (-2./3.) * State%bvol_cc(i,j)**(-5./3.) * outTmp3D(i,j,RAI_TH)  ! [Vol^(-2/3)/m]
-                        outTmp3D(i,j,RAI_PH) = (-2./3.) * State%bvol_cc(i,j)**(-5./3.) * outTmp3D(i,j,RAI_PH)  ! [Vol^(-2/3)/m]
-                    endif
-                enddo
-            enddo
             call AddOutVar(IOVars, "gradVM_cc_sm_nolim", outTmp3D(is:ie,js:je,:), uStr="V/m/lambda")
         endif
 
@@ -582,7 +566,7 @@ module raijuIO
         call ReadVars(IOVars,.false.,inH5,"State")
 
         State%t       = GetIOReal(IOVars, "time" )
-        State%ts      = GetIOReal(IOVars, "ts"   )
+        State%ts      = GetIOInt (IOVars, "ts"   )
         State%mjd     = GetIOReal(IOVars, "MJD"  )
         State%dt      = GetIOReal(IOVars, "dtCpl")
         State%IO%nOut = GetIOInt (IOVars, "nOut" )

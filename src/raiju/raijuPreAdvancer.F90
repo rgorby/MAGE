@@ -321,23 +321,14 @@ module raijuPreAdvancer
         !       grad(phi)_th is the gradient in the theta direction
         call potExB(Grid%shGrid, State, pExB)  ! [V]
         call potCorot(Model%planet, Grid%shGrid, pCorot, Model%doGeoCorot)  ! [V]
-        call calcGradIJ_cc(Model%planet%rp_m, Grid, isGCorner, pExB  , State%gradPotE_cc    )  ! [V/m
-        call calcGradIJ_cc(Model%planet%rp_m, Grid, isGCorner, pCorot, State%gradPotCorot_cc)  ! [V/m]
+        call calcGradIJ_cc(Model%planet%rp_m, Grid, isGCorner, pExB  , State%gradPotE_cc    , doLimO=.false.)  ! [V/m
+        call calcGradIJ_cc(Model%planet%rp_m, Grid, isGCorner, pCorot, State%gradPotCorot_cc, doLimO=.false.)  ! [V/m]
 
         ! GC drifts depend on grad(lambda * V^(-2/3))
         ! lambda is constant, so just need grad(V^(-2/3) )
-        ! grad(V^(-2/3)) = -2/3*V^(-5/3) * grad(V)
-        call calcGradFTV_cc(Model%planet%rp_m, Model%planet%ri_m, Model%planet%magMoment, &
-                            Grid, isGCorner, State%bvol, gradVM, &
+        call calcGradVM_cc(Model%planet%rp_m, Model%planet%ri_m, Model%planet%magMoment, &
+                            Grid, isGCorner, State%bvol, State%gradVM_cc, &
                             doSmoothO=.true., doLimO=.true.)
-        do j=Grid%shGrid%jsg,Grid%shGrid%jeg    
-            do i=Grid%shGrid%isg,Grid%shGrid%ieg
-                if (all(isGCorner(i:i+1,j:j+1))) then
-                    State%gradVM_cc(i,j,RAI_TH) = (-2./3.) * State%bvol_cc(i,j)**(-5./3.) * gradVM(i,j,RAI_TH)  ! [Vol^(-2/3)/m]
-                    State%gradVM_cc(i,j,RAI_PH) = (-2./3.) * State%bvol_cc(i,j)**(-5./3.) * gradVM(i,j,RAI_PH)  ! [Vol^(-2/3)/m]
-                endif
-            enddo
-        enddo
         end associate
         
     end subroutine calcPotGrads_cc
@@ -394,11 +385,10 @@ module raijuPreAdvancer
         real(rp), dimension(Grid%shGrid%isg:Grid%shGrid%ieg,Grid%shGrid%jsg:Grid%shGrid%jeg, 2), intent(inout) :: gradQ
         logical, optional, intent(in) :: doLimO
 
-        real(rp), dimension(Grid%shGrid%isg:Grid%shGrid%ieg,Grid%shGrid%jsg:Grid%shGrid%jeg, 2) :: gradQLim
+        real(rp), dimension(:,:,:), allocatable :: gradQtmp
         integer :: i,j
         real(rp) :: qLow, qHigh 
         logical :: doLim
-        logical :: doVerb
         
         if (present(doLimO)) then
             doLim = doLimO
@@ -436,27 +426,17 @@ module raijuPreAdvancer
         enddo
 
         if (doLim) then
-            gradQLim = gradQ
-            !!$OMP PARALLEL DO default(shared) &
-            !!$OMP schedule(dynamic) &
-            !!$OMP private(i,j)
+            allocate(gradQtmp(sh%isg:sh%ieg,sh%jsg:sh%jeg, 2))
+            gradQtmp = gradQ    
+            !$OMP PARALLEL DO default(shared) &
+            !$OMP schedule(dynamic) &
+            !$OMP private(i,j)
             do j=sh%jsg+1,sh%jeg-1
                 do i=sh%isg+1,sh%ieg-1
-
-                    !gradQLim(i,j,RAI_TH) = MCLim(gradQ(i-1:i+1,j      ,RAI_TH), isG(i-1:i+1,j      ))
-                    !gradQLim(i,j,RAI_PH) = MCLim(gradQ(i      ,j-1:j+1,RAI_PH), isG(i      ,j-1:j+1))
-                    gradQLim(i,j,RAI_TH) = MCLim2(gradQ(i-1,j,RAI_TH), gradQ(i+1,j,RAI_TH), gradQ(i,j,RAI_TH), doVerb)
-                    gradQLim(i,j,RAI_PH) = MCLim2(gradQ(i,j-1,RAI_TH), gradQ(i,j+1,RAI_TH), gradQ(i,j,RAI_TH))
-
-                    if (doVerb .and. j > 170 .and. j < 190 .and. all(isG(i-1:i+1,j))) then
-                        write(*,*)i,j
-                        write(*,*)gradQ(i-1,j,RAI_TH), gradQ(i,j,RAI_TH), gradQ(i+1,j,RAI_TH)
-                        write(*,*)gradQLim(i,j,RAI_TH)
-                    endif
-                        
+                    gradQ(i,j,RAI_TH) = MCLim(gradQtmp(i-1:i+1,j      ,RAI_TH), isG(i-1:i+1,j      ))
+                    gradQ(i,j,RAI_PH) = MCLim(gradQtmp(i      ,j-1:j+1,RAI_PH), isG(i      ,j-1:j+1))
                 enddo
             enddo
-            gradQ = gradQLim
         endif
 
         gradQ = gradQ / Rp_m  ! [Q/m]
@@ -466,48 +446,19 @@ module raijuPreAdvancer
 
         contains
 
-        function MCLim2(dqL, dqR, dqC, doVerbO) result(dqbar)
-            real(rp), intent(in) :: dqL, dqR, dqC
-            real(rp) :: magdq, dqbar
-            logical, optional, intent(inout) :: doVerbO
-
-            if (present(doVerbO)) doVerbO = .false.
-            dqbar = 0.0
-
-            if (dqL*dqR <= 0.0) then
-                dqbar = 0.0
-                if (present(doVerbO)) doVerbO = .true.
-            else
-                magdq = min(2*abs(dqL), 2*abs(dqR), abs(dqC))
-                dqbar = sign(magdq, dqC)
-            endif
-            
-        end function MCLim2
-
-        function MCLim(dq, isG_3, doVerbO) result(dqbar)
+        function MCLim(dq, isG_3) result(dqbar)
             real(rp), dimension(3), intent(in) :: dq
             logical, dimension(3), intent(in) :: isG_3
-            logical, optional, intent(in) :: doVerbO
             real(rp) :: dqbar
             real(rp), dimension(2) :: dqmask
             real(rp) :: magdq
             
             dqbar = 0.0
 
-            if (present(doVerbO)) then
-                write(*,*)dq
-                write(*,*)isG_3
-                write(*,*)all(isG_3)
-                write(*,*)dq(1)*dq(3)
-            endif
-
             if (all(isG_3)) then
                 ! Standard MCLim
                 if (dq(1)*dq(3) <= 0.0) then
                     dqbar = 0.0
-                    write(*,*)"ah"
-                    write(*,*)dq
-                    write(*,*)isG_3
                 else
                     magdq = min(2*abs(dq(1)),2*abs(dq(3)),abs(dq(2)))
                     !SIGN(A,B) returns the value of A with the sign of B
@@ -566,16 +517,11 @@ module raijuPreAdvancer
                 V0(i,:) = DipFTV_colat(Grid%thRp(i), B0)
             enddo
 
-
             ! Break up into background + perturbation
             dV = 0.0
             where (isG)
                 dV =  V - V0
             end where
-            
-            !where (dV < TINY)
-            !    dV = 0.0
-            !end where
 
             ! Take gradients of each
             ! Analytic gradient of dipole FTV
@@ -600,8 +546,8 @@ module raijuPreAdvancer
     end subroutine calcGradFTV
 
 
-    subroutine calcGradFTV_cc(Rp_m, RIon_m, B0, Grid, isGcorner, V, gradV, doSmoothO, doLimO)
-        !! Same as calcGradFTV, but calculating cell-averaged gradient instead
+    subroutine calcGradVM_cc(Rp_m, RIon_m, B0, Grid, isGcorner, V, gradVM, doSmoothO, doLimO)
+        !! Calculates the cell-centered gradient of the quantity vm = FTV^(-2/3)
         real(rp), intent(in) :: Rp_m
             !! Planet radius [m]]
         real(rp), intent(in) :: RIon_m
@@ -613,12 +559,12 @@ module raijuPreAdvancer
             !! Mask for corners that are safe to use in calculating the gradient across the attached faces
         real(rp), dimension(Grid%shGrid%isg:Grid%shGrid%ieg+1,Grid%shGrid%jsg:Grid%shGrid%jeg+1), intent(in) :: V
             !! Flux tube volume (FTV)
-        real(rp), dimension(Grid%shGrid%isg:Grid%shGrid%ieg,Grid%shGrid%jsg:Grid%shGrid%jeg, 2), intent(inout) :: gradV
+        real(rp), dimension(Grid%shGrid%isg:Grid%shGrid%ieg,Grid%shGrid%jsg:Grid%shGrid%jeg, 2), intent(inout) :: gradVM
             !! grad(FTV) we return [units(FTV)/m]
         logical, optional, intent(in) :: doSmoothO, doLimO
 
-        integer :: i
-        real(rp) :: dcl_dm
+        integer :: i,j
+        real(rp) :: dcl_dm, bVolcc
             !! d colat / d meters, used to convert dipole derivative w.r.t. colat to meters
         real(rp), dimension(Grid%shGrid%isg:Grid%shGrid%ieg+1,&
                             Grid%shGrid%jsg:Grid%shGrid%jeg+1) :: V0, dV
@@ -658,13 +604,24 @@ module raijuPreAdvancer
             dV0_dth(i,:) = DerivDipFTV(Grid%thcRp(i), B0) * dcl_dm
         enddo
 
+        ! Building gradVM term by term
+        ! grad(V^(-2/3)) = -2/3*V^(-5/3) * grad(V)
+
         ! Gradient of perturbation
         if (doSmooth) then
             call smoothV(Grid%shGrid, isGcorner, dV)
         endif
-        call calcGradIJ_cc(Rp_m, Grid, isGcorner, dV, gradV, doLimO=doLim)
+        call calcGradIJ_cc(Rp_m, Grid, isGcorner, dV, gradVM, doLimO=doLim)
 
-        gradV(:,:,RAI_TH) = gradV(:,:,RAI_TH) + dV0_dth
+        gradVM(:,:,RAI_TH) = gradVM(:,:,RAI_TH) + dV0_dth
+        
+        do j=sh%jsg,sh%jeg
+            do i=sh%isg,sh%ieg
+                !bVolcc = toCenter2D(dV(i:i+1,j:j+1)) + DipFTV_colat(Grid%thcRp(i), B0)
+                bVolcc = toCenter2D(V(i:i+1,j:j+1))
+                gradVM(i,j,:) = (-2./3.)*bVolcc**(-5./3.)*gradVM(i,j,:)
+            enddo
+        enddo
 
         end associate
 
@@ -749,7 +706,7 @@ module raijuPreAdvancer
 
         end subroutine smoothV
 
-    end subroutine calcGradFTV_cc
+    end subroutine calcGradVM_cc
 
 !------
 ! Velocity calculations
