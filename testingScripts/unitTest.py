@@ -142,7 +142,7 @@ DATA_GENERATION_PBS_SCRIPT = 'genTestData.pbs'
 RUN_CASE_TESTS_PBS_SCRIPT = 'runCaseTests.pbs'
 RUN_NON_CASE_TESTS_1_PBS_SCRIPT = 'runNonCaseTests1.pbs'
 RUN_NON_CASE_TESTS_2_PBS_SCRIPT = 'runNonCaseTests2.pbs'
-# UNIT_TEST_REPORT_PBS_SCRIPT = 'unitTestReport.pbs'
+UNIT_TEST_REPORT_PBS_SCRIPT = 'unitTestReport.pbs'
 
 # Name of file to hold job list.
 JOB_LIST_FILE = 'jobs.txt'
@@ -222,8 +222,7 @@ def main():
     if verbose:
         print('Reading templates for PBS scripts.')
 
-    # # Read the template for the PBS script used for the test data
-    # generation.
+    # Read the template for the PBS script used for the test data generation.
     with open(DATA_GENERATION_PBS_TEMPLATE, 'r', encoding='utf-8') as f:
         template_content = f.read()
     data_generation_pbs_template = Template(template_content)
@@ -545,50 +544,50 @@ def main():
 
         # --------------------------------------------------------------------
 
-    #     # Set options specific to the report generation job, then render the
-    #     # template.
-    #     pbs_options['job_name'] = 'unitTestReport'
-    #     pbs_options['walltime'] = '00:10:00'
-    #     pbs_options['slack_bot_token'] = os.environ['SLACK_BOT_TOKEN']
-    #     pbs_options['mage_test_root'] = os.environ['MAGE_TEST_ROOT']
-    #     pbs_options['mage_test_set_root'] = os.environ['MAGE_TEST_SET_ROOT']
-    #     pbs_options['report_options'] = ''
-    #     if debug:
-    #         pbs_options['report_options'] += ' -d'
-    #     pbs_options['report_options'] += ' -l'  # Always post report.
-    #     if slack_on_fail:
-    #         pbs_options['report_options'] += ' -s'
-    #     if is_test:
-    #         pbs_options['report_options'] += ' -t'
-    #     if verbose:
-    #         pbs_options['report_options'] += ' -v'
-    #     pbs_content = unit_test_report_pbs_template.render(pbs_options)
-    #     with open(UNIT_TEST_REPORT_PBS_SCRIPT, 'w', encoding='utf-8') as f:
-    #         f.write(pbs_content)
+        # Set options specific to the report generation job, then render the
+        # template.
+        pbs_options['job_name'] = 'unitTestReport'
+        pbs_options['walltime'] = '00:10:00'
+        pbs_options['slack_bot_token'] = os.environ['SLACK_BOT_TOKEN']
+        pbs_options['mage_test_root'] = os.environ['MAGE_TEST_ROOT']
+        pbs_options['mage_test_set_root'] = os.environ['MAGE_TEST_SET_ROOT']
+        pbs_options['report_options'] = ''
+        if debug:
+            pbs_options['report_options'] += ' -d'
+        pbs_options['report_options'] += ' -l'  # Always post report.
+        if slack_on_fail:
+            pbs_options['report_options'] += ' -s'
+        if is_test:
+            pbs_options['report_options'] += ' -t'
+        if verbose:
+            pbs_options['report_options'] += ' -v'
+        pbs_content = unit_test_report_pbs_template.render(pbs_options)
+        with open(UNIT_TEST_REPORT_PBS_SCRIPT, 'w', encoding='utf-8') as f:
+            f.write(pbs_content)
 
-    #     # Run the report generation job if all others ran OK.
-    #     cmd = (
-    #         f"qsub -W depend=afterok:{':'.join(job_ids[i_module_set][1:4])} "
-    #         f"{UNIT_TEST_REPORT_PBS_SCRIPT}"
-    #     )
-    #     if debug:
-    #         print(f"cmd = {cmd}")
-    #     try:
-    #         cproc = subprocess.run(cmd, shell=True, check=True,
-    #                                text=True, capture_output=True)
-    #     except subprocess.CalledProcessError as e:
-    #         print('ERROR: qsub failed.\n'
-    #               f"e.cmd = {e.cmd}\n"
-    #               f"e.returncode = {e.returncode}\n"
-    #               'See test log for output.\n'
-    #               'Skipping remaining steps for module set '
-    #               f"{module_set_name}.",
-    #               file=sys.stderr)
-    #         continue
-    #     job_id = cproc.stdout.split('.')[0]
-    #     if debug:
-    #         print(f"job_id = {job_id}")
-    #     job_ids[i_module_set][4] = job_id
+        # Run the report generation job if all others ran OK.
+        cmd = (
+            f"qsub -W depend=afterok:{':'.join(job_ids[i_module_set][1:4])} "
+            f"{UNIT_TEST_REPORT_PBS_SCRIPT}"
+        )
+        if debug:
+            print(f"cmd = {cmd}")
+        try:
+            cproc = subprocess.run(cmd, shell=True, check=True,
+                                   text=True, capture_output=True)
+        except subprocess.CalledProcessError as e:
+            print('ERROR: qsub failed.\n'
+                  f"e.cmd = {e.cmd}\n"
+                  f"e.returncode = {e.returncode}\n"
+                  'See test log for output.\n'
+                  'Skipping remaining steps for module set '
+                  f"{module_set_name}.",
+                  file=sys.stderr)
+            continue
+        job_id = cproc.stdout.split('.')[0]
+        if debug:
+            print(f"job_id = {job_id}")
+        job_ids[i_module_set][4] = job_id
 
         # --------------------------------------------------------------------
 
@@ -641,11 +640,11 @@ def main():
             f"`{module_list_file}` submitted as PBS job "
             f"{job_ids[i_module_set][3]}.\n"
         )
-        # test_report_details_string += (
-        #     f"`{UNIT_TEST_REPORT_PBS_SCRIPT}` for module set "
-        #     f"`{module_list_file}` submitted as PBS job "
-        #     f"{job_ids[i_module_set][4]}.\n"
-        # )
+        test_report_details_string += (
+            f"`{UNIT_TEST_REPORT_PBS_SCRIPT}` for module set "
+            f"`{module_list_file}` submitted as PBS job "
+            f"{job_ids[i_module_set][4]}.\n"
+        )
 
     # Summarize the test results
     if 'FAILED' in test_report_details_string:
