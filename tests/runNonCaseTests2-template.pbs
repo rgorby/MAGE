@@ -11,9 +11,6 @@
 
 echo "Job $PBS_JOBID started at `date` on `hostname` in directory `pwd`."
 
-echo 'Setting up MAGE environment.'
-source $KAIJUROOTDIR/scripts/setupEnvironment.sh
-
 echo 'Loading modules.'
 module --force purge
 {%- for module in modules %}
