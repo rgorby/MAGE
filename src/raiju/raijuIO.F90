@@ -6,7 +6,7 @@ module raijuIO
     
     use raijutypes
     use raijuetautils
-    use raijuPreAdvancer, only : calcEffectivePotential, calcGradVM_cc
+    use raijuPreAdvancer, only : calcEffectivePotential, calcGradVM_cc, calcVelocityCC_gg
     use raijuELossWM, only : eWMOutput
     use shellGrid
     use shellInterp
@@ -161,6 +161,7 @@ module raijuIO
         real(rp), dimension(:,:), allocatable :: outTmp2D
         logical , dimension(:,:), allocatable :: tmpGood2D
         real(rp), dimension(:,:,:), allocatable :: outTmp3D
+        real(rp), dimension(:,:,:,:), allocatable :: outTmp4D
         logical , dimension(:,:,:), allocatable :: tmpGood3D
         !real(rp), dimension(:,:), allocatable :: outActiveShell, outEnt
         !real(rp), dimension(:,:,:), allocatable :: outDen, outIntensity
@@ -368,6 +369,7 @@ module raijuIO
             ! Unsmoothed gradVMcc
             allocate(tmpGood2D(Grid%shGrid%isg:Grid%shGrid%ieg+1,Grid%shGrid%jsg:Grid%shGrid%jeg+1   ))
             allocate(outTmp3D (Grid%shGrid%isg:Grid%shGrid%ieg  ,Grid%shGrid%jsg:Grid%shGrid%jeg  ,2))
+            allocate(outTmp4D (Grid%shGrid%isg:Grid%shGrid%ieg  ,Grid%shGrid%jsg:Grid%shGrid%jeg,Grid%Nk ,2))
             where (State%topo .eq. RAIJUCLOSED)
                 tmpGood2D = .true.
             elsewhere
@@ -375,10 +377,26 @@ module raijuIO
             end where
             call calcGradVM_cc(Model%planet%rp_m, Model%planet%ri_m, Model%planet%magMoment, &
                                 Grid, tmpGood2D, State%bvol, outTmp3D, doSmoothO=.false., doLimO=.false.)
-            call AddOutVar(IOVars, "gradVM_cc_nosm", outTmp3D(is:ie,js:je,:), uStr="V/m/lambda")
+            !$OMP PARALLEL DO default(shared) &
+            !$OMP schedule(dynamic) &
+            !$OMP private(k)
+            do k=1,Grid%Nk
+                call calcVelocityCC_gg(Model, Grid, State, k, outTmp4D(:,:,k,:), outTmp3D)
+            enddo
+            call AddOutVar(IOVars, "gradVM_cc_nosm", outTmp3D(is:ie,js:je,:)  , uStr="V/m/lambda")
+            call AddOutVar(IOVars, "cVel_nosm"     , outTmp4D(is:ie,js:je,:,:), uStr="m/s")
             call calcGradVM_cc(Model%planet%rp_m, Model%planet%ri_m, Model%planet%magMoment, &
                                 Grid, tmpGood2D, State%bvol, outTmp3D, doSmoothO=.true., doLimO=.false.)
-            call AddOutVar(IOVars, "gradVM_cc_sm_nolim", outTmp3D(is:ie,js:je,:), uStr="V/m/lambda")
+            !$OMP PARALLEL DO default(shared) &
+            !$OMP schedule(dynamic) &
+            !$OMP private(k)
+            do k=1,Grid%Nk
+                call calcVelocityCC_gg(Model, Grid, State, k, outTmp4D(:,:,k,:), outTmp3D)
+            enddo
+            call AddOutVar(IOVars, "gradVM_cc_sm_nolim", outTmp3D(is:ie,js:je,:)  , uStr="V/m/lambda")
+            call AddOutVar(IOVars, "cVel_sm_nolim"     , outTmp4D(is:ie,js:je,:,:), uStr="m/s")
+
+            
         endif
 
         call WriteVars(IOVars,.true.,Model%raijuH5, gStr)

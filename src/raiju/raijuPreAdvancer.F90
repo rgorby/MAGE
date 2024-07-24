@@ -78,12 +78,6 @@ module raijuPreAdvancer
         enddo
         call Toc("Calc cell-centered velocities")
 
-        !if (Model%doDebugOutput) then
-        !    call Tic("Calc CC velocities")
-        !    call velFace2CC(Model, Grid, State)
-        !    call Toc("Calc CC velocities")
-        !endif
-
         ! Loss rate calc depends on up-to-date densities, so we should run EvalMoments first
         call Tic("Moments Eval PreAdvance")
         call EvalMoments(Grid, State)
@@ -130,7 +124,7 @@ module raijuPreAdvancer
         ! After the first dt, eta_last will be set with valid information and no further adjustments are necessay
         do j=sh%jsg,sh%jeg
             do i=sh%isg,sh%ieg
-                if ( (State%active(i,j) .eq. RAIJUACTIVE .and. State%active_last(i,j) .eq. RAIJUINACTIVE) &
+                if ( (State%active(i,j) .eq. RAIJUACTIVE .and. State%active_last(i,j) .ne. RAIJUACTIVE) &
                 .or. (State%active(i,j) .eq. RAIJUBUFFER) ) then
                     State%eta_last(i,j,:) = State%eta(i,j,:)
                 endif
@@ -604,15 +598,15 @@ module raijuPreAdvancer
             dV0_dth(i,:) = DerivDipFTV(Grid%thcRp(i), B0) * dcl_dm
         enddo
 
-        ! Building gradVM term by term
-        ! grad(V^(-2/3)) = -2/3*V^(-5/3) * grad(V)
-
         ! Gradient of perturbation
         if (doSmooth) then
             call smoothV(Grid%shGrid, isGcorner, dV)
         endif
-        call calcGradIJ_cc(Rp_m, Grid, isGcorner, dV, gradVM, doLimO=doLim)
 
+        ! Building gradVM term by term
+        ! grad(V^(-2/3)) = -2/3*V^(-5/3) * grad(V)
+        gradVM = 0.0
+        call calcGradIJ_cc(Rp_m, Grid, isGcorner, dV, gradVM, doLimO=doLim)
         gradVM(:,:,RAI_TH) = gradVM(:,:,RAI_TH) + dV0_dth
         
         do j=sh%jsg,sh%jeg
@@ -747,17 +741,23 @@ module raijuPreAdvancer
     end subroutine calcVelocity
 
 
-    subroutine calcVelocityCC_gg(Model, Grid, State, k, Vtp)
+    subroutine calcVelocityCC_gg(Model, Grid, State, k, Vtp, gradVMO)
         type(raijuModel_T), intent(in) :: Model
         type(raijuGrid_T ), intent(in) :: Grid
         type(raijuState_T), intent(in) :: State
         integer, intent(in) :: k
         real(rp), dimension(Grid%shGrid%isg:Grid%shGrid%ieg,&
                             Grid%shGrid%jsg:Grid%shGrid%jeg, 2), intent(inout) :: Vtp
-        
+        real(rp), dimension(Grid%shGrid%isg:Grid%shGrid%ieg,&
+                            Grid%shGrid%jsg:Grid%shGrid%jeg, 2), optional, intent(in) :: gradVMO
+            !! Optional gradVM to use in place of State's gradVM, in case you wanna do testing on gradVM calculation
         real(rp), dimension(Grid%shGrid%isg:Grid%shGrid%ieg, Grid%shGrid%jsg:Grid%shGrid%jeg, 2) :: gradPot
-
-        gradPot = State%gradPotE_cc + State%gradPotCorot_cc + Grid%alamc(k)*State%gradVM_cc
+        
+        if (present(gradVMO)) then
+            gradPot = State%gradPotE_cc + State%gradPotCorot_cc + Grid%alamc(k)*gradVMO
+        else
+            gradPot = State%gradPotE_cc + State%gradPotCorot_cc + Grid%alamc(k)*State%gradVM_cc
+        endif
 
         Vtp(:,:,RAI_TH) =      gradPot(:,:,RAI_PH) / (Grid%Brcc*1.0e-9)  ! [m/s]
         Vtp(:,:,RAI_PH) = -1.0*gradPot(:,:,RAI_TH) / (Grid%Brcc*1.0e-9)  ! [m/s]
