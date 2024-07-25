@@ -44,7 +44,7 @@ module auroralhelper
         real(rp), dimension(4), parameter :: A_D = [17.38, 1.67, 6.77, 2.37] !Diffuse
 
         !Choose mono vs. diffuse based on dE
-        if (dE > TINY) then
+        if (dE > mixeTINY) then
             SigP = SigXK(eavg,eflux,A_M)
         else
             SigP = SigXK(eavg,eflux,A_D)
@@ -58,7 +58,7 @@ module auroralhelper
         real(rp), dimension(4), parameter :: A_M = [26.65, 1.47,10.24, 1.74] !Mono
         real(rp), dimension(4), parameter :: A_D = [23.72, 1.24, 6.55, 1.45] !Diffuse
         !Choose mono vs. diffuse based on dE
-        if (dE > TINY) then
+        if (dE > mixeTINY) then
             SigH = SigXK(eavg,eflux,A_M)
         else
             SigH = SigXK(eavg,eflux,A_D)
