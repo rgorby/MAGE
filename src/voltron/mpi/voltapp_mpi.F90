@@ -318,6 +318,7 @@ module voltapp_mpi
             call vApp%gApp%FinishUpdateMhdData(vApp)
 
             vApp%time = vApp%DeepT
+            vApp%MJD = T2MJD(vApp%time,vApp%gApp%Model%MJD0)
 
             ! update the next predicted coupling interval
             vApp%DeepT = vApp%DeepT + vApp%DeepDT
@@ -335,6 +336,7 @@ module voltapp_mpi
         ! step end time is greater than, or equal to, the current DeepT
         ! advance to that partial deep step time
         vApp%time = stepEndTime
+        vApp%MJD = T2MJD(vApp%time,vApp%gApp%Model%MJD0)
 
     end subroutine stepVoltron_mpi
 
@@ -396,6 +398,14 @@ module voltapp_mpi
         ! only do imag after spinup with deep enabled
         if(vApp%doDeep .and. vApp%time >= 0) then
             call Tic("DeepUpdate", .true.)
+
+            do while(SquishBlocksRemain(vApp))
+                call Tic("Squish",.true.)
+                call DoSquishBlock(vApp)
+                call Toc("Squish",.true.)
+            enddo
+
+            vApp%deepProcessingInProgress = .false.
 
             if(vApp%useHelpers .and. vApp%doSquishHelp) then
                 call Tic("VoltHelpers", .true.)

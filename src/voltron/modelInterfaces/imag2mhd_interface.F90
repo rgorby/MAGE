@@ -31,6 +31,11 @@ module imag2mhd_interface
         !TODO: Think about what time to evaluate at
         t = gApp%Model%t*gApp%Model%Units%gT0
 
+        if(size(gApp%SrcNC,1) .ne. (vApp%chmp2mhd%iMax+1)) then
+            deallocate(gApp%SrcNC)
+            allocate(gApp%SrcNC(gApp%Grid%is:vApp%chmp2mhd%iMax+1,gApp%Grid%js:gApp%Grid%je+1,gApp%Grid%ks:gApp%Grid%ke+1,1:NVARIMAG))
+        endif
+
         associate(Gr=>gApp%Grid,chmp2mhd=>vApp%chmp2mhd,SrcNC=>gApp%SrcNC)
 
         !Create local storage for cell corner imW's

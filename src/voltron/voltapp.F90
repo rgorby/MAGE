@@ -193,6 +193,7 @@ module voltapp
             tsMJD%wID = vApp%tilt%wID
             call tsMJD%initTS("MJD",doLoudO=.false.)
             vApp%MJD = T2MJD(vApp%time,tsMJD%evalAt(0.0_rp))
+            vApp%gApp%Model%MJD0 = tsMJD%evalAt(0.0_rp)
             !Set first deep coupling (defaulting to coupling immediately)
             call xmlInp%Set_Val(vApp%DeepT, "coupling/tCouple", vApp%time)
             vApp%IO%tCon = vApp%time
@@ -322,6 +323,7 @@ module voltapp
 
             ! step complete
             vApp%time = vApp%DeepT
+            vApp%MJD = T2MJD(vApp%time,vApp%gApp%Model%MJD0)
 
             ! update the next predicted coupling interval
             vApp%DeepT = vApp%DeepT + vApp%DeepDT
@@ -330,7 +332,8 @@ module voltapp
         ! step end time is greater than, or equal to, the current DeepT
         ! advance to that partial deep step time
         vApp%time = stepEndTime
-        
+        vApp%MJD = T2MJD(vApp%time,vApp%gApp%Model%MJD0)
+
     end subroutine stepVoltron
     
     !Initialize Voltron app based on Gamera data
