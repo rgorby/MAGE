@@ -634,4 +634,18 @@ module msphutils
         pot = -GM0/rad
     end subroutine PhiGrav
       
+    !Useful for MF to distinguish thermal populations 
+    !Takes conserved vars and returns temperature [keV]
+    function Gam2keV(Model,U)
+        type(Model_T), intent(in) :: Model
+        real(rp)     , intent(in) :: U(NVAR)
+        real(rp) :: Gam2keV
+        real(rp) :: D,P,pW(NVAR)
+        
+        call CellC2P(Model,U,pW)
+        D = pW(DEN)     *Model%gamOut%dScl !=> #/cc
+        P = pW(PRESSURE)*Model%gamOut%pScl !=> nPa
+        Gam2keV = DP2kT(D,P) !Temp in keV from D (#/cc) and P (nPa)
+    end function Gam2keV
+
 end module msphutils
