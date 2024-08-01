@@ -244,11 +244,11 @@ module msphutils
 
     !Apply spherical wall boundary over all species
     !Take ghost conserved quantities and conjugate point conserved quantities
-    subroutine SphereWall(Model,gU,pU,V,Dopt)
+    subroutine SphereWall(Model,gU,pU,V,B,Dopt)
         type(Model_T), intent(in) :: Model
         real(rp), intent(inout) :: gU(NVAR,BLK:Model%nSpc)
         real(rp), intent(in)    :: pU(NVAR,BLK:Model%nSpc)
-        real(rp), intent(in) :: V(NDIM)
+        real(rp), intent(in) :: V(NDIM),B(NDIM)
         real(rp), intent(in), optional :: Dopt
 
         integer :: s,s0,sE
@@ -301,7 +301,7 @@ module msphutils
         enddo
 
         if (Model%doMultiF) then
-            call MultiF2Bulk(Model,gU)
+            call MultiF2Bulk(Model,gU,B)
         endif
 
     end subroutine SphereWall

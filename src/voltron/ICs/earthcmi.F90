@@ -384,7 +384,7 @@ module uservoltic
                         Veb = Vec2Perp(Veb,rHat)
 
                         !Now do spherical wall BC
-                        call SphereWall(Model,State%Gas(ig,j,k,:,:),State%Gas(ip,jp,kp,:,:),Veb)
+                        call SphereWall(Model,State%Gas(ig,j,k,:,:),State%Gas(ip,jp,kp,:,:),Veb,Bd)
 
                     endif !Cell-centered
 

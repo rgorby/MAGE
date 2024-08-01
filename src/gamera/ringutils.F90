@@ -67,9 +67,13 @@ module ringutils
     !Set some extra knobs
 
         !Choice of ring coordinates
-        call xmlInp%Set_Val(Model%Ring%doMassRA,"ringknobs/doMassRA",.false.)
-
-        
+        if (Model%doMultiF) then
+            !Set mass coordinates as default if doing MF
+            call xmlInp%Set_Val(Model%Ring%doMassRA,"ringknobs/doMassRA",.true.)
+        else
+            call xmlInp%Set_Val(Model%Ring%doMassRA,"ringknobs/doMassRA",.false.)
+        endif
+                
         call xmlInp%Set_Val(doCleanLoop,"ringknobs/doClean"    ,doCleanLoop)
         call xmlInp%Set_Val(doFastLoop ,"ringknobs/doFastClean",doFastLoop )
         call xmlInp%Set_Val(doShift    ,"ringknobs/doShift",doShift)
@@ -140,9 +144,15 @@ module ringutils
                     NCr = [8,16]
                 case(64)
                     !DBL res
-                    Nr = 4
-                    allocate(NCr(Nr))
-                    NCr = [8,16,32,32]
+                    if (doAggressive) then
+                        Nr = 8
+                        allocate(NCr(Nr))
+                        NCr = [8,16,32,32,32,32,32,32]
+                    else
+                        Nr = 4
+                        allocate(NCr(Nr))
+                        NCr = [8,16,32,32]
+                    endif
                 case(128)
                     !QUAD res
                     if (doAggressive) then
