@@ -72,8 +72,10 @@ module raijudefs
     logical, parameter :: def_doUseVelLRs = .false.
 
     ! Domain limits
-    real(rp), parameter :: def_maxTail = 15.0  ! [Rp]
-    real(rp), parameter :: def_maxSun  = 10.0  ! [Rp]
+    real(rp), parameter :: def_maxTail_buffer = 15.0  ! [Rp]
+    real(rp), parameter :: def_maxSun_buffer  = 10.0  ! [Rp]
+    real(rp), parameter :: def_maxTail_active = 10.0  ! [Rp]
+    real(rp), parameter :: def_maxSun_active  = 10.0  ! [Rp]
 
     ! Settings
     integer, parameter :: raiRecLen = 8

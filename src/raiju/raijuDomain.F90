@@ -73,7 +73,7 @@ module raijuDomain
 
                 xyMin = sqrt(State%xyzMin(i,j,XDIR)**2 + State%xyzMin(i,j,YDIR)**2)
                 ! Simple circle limit
-                if ( (xyMin > Model%maxTail) .or. xyMin > Model%maxSun) then
+                if ( (xyMin > Model%maxTail_buffer) .or. xyMin > Model%maxSun_buffer) then
                     isInactive(i,j) = .true.
                 endif
 
@@ -92,6 +92,8 @@ module raijuDomain
         integer, dimension(Grid%shGrid%isg:Grid%shGrid%ieg,Grid%shGrid%jsg:Grid%shGrid%jeg), optional, intent(inout) :: ocbDistO
             !! Optional array to get ocbDist out of this function if desired
 
+        integer :: i,j
+        real(rp) :: xyMin
         integer, dimension(Grid%shGrid%isg:Grid%shGrid%ieg,Grid%shGrid%jsg:Grid%shGrid%jeg) :: ocbDist
             !! Distance each cell is to open-closed boundary, up to nB + 1
         
@@ -105,6 +107,19 @@ module raijuDomain
         elsewhere
             isBuffer = .false.
         end where
+
+        ! Also limit to max allowed sun/tail extent
+        do j=Grid%shGrid%jsg,Grid%shGrid%jeg
+            do i=Grid%shGrid%isg,Grid%shGrid%ieg
+                if (ocbDist(i,j) > 0) then  !! OCBdist will be zero in inactive zone, we want to avoid editing those cells
+                    xyMin = sqrt(State%xyzMin(i,j,XDIR)**2 + State%xyzMin(i,j,YDIR)**2)
+                    ! Simple circle limit
+                    if ( (xyMin > Model%maxTail_active) .or. xyMin > Model%maxSun_active) then
+                        isBuffer(i,j) = .true.
+                    endif
+                endif
+            enddo
+        enddo
 
         if (present(ocbDistO)) then
             ocbDistO = ocbDist

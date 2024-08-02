@@ -28,7 +28,7 @@ module raijutypes
         ! These are all specified by raijuconfig.h5
         character(len=strLen) :: name
         integer :: N
-        integer :: flav
+        integer :: flav = -1
             !! Species flavor
         integer :: numNuc_p
             !! Number of protons in nucleus
@@ -176,10 +176,14 @@ module raijutypes
         real(rp) :: tiote  ! Ion temp over electron temp. In the future, should be fancier
 
         ! Active domain settings
-        real(rp) :: maxTail
-            !! Maximum tailward extend of the active AND buffer region
-        real(rp) :: maxSun
-            !! Maximum sunward extend of the active AND buffer region
+        real(rp) :: maxTail_buffer
+            !! Maximum tailward extent of the buffer region
+        real(rp) :: maxSun_buffer
+            !! Maximum sunward extent of the buffer region
+        real(rp) :: maxTail_active
+            !! Maximum tailward extent of the active region
+        real(rp) :: maxSun_active
+            !! Maximum sunward extent of the active region
 
         ! Active shell settings
         logical :: doActiveShell

@@ -3,6 +3,7 @@ module raijuIO
     use files
     use planethelper
     use kai2geo
+    use shellGridIO
     
     use raijutypes
     use raijuetautils
@@ -104,6 +105,7 @@ module raijuIO
         call AddOutVar(IOVars,"Y",lon2D,uStr="radians")
         call WriteVars(IOVars,.true.,Model%raijuH5)
         ! Grid data
+        call writeShellGrid(Grid%shGrid, Model%raijuH5, "Grid")
         call AddOutVar(IOVars,"th_surf"  ,Grid%thRp (is:ie+1),uStr="radians",dStr="(corner) Thetas mapped to 1 Rp")
         call AddOutVar(IOVars,"thcc_surf",Grid%thcRp(is:ie  ),uStr="radians",dStr="(cell) Thetas mapped to 1 Rp")
         call AddOutVar(IOVars,"Bmag",Grid%Bmag(is:ie,js:je),uStr="nT")

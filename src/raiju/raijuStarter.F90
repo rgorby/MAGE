@@ -130,11 +130,15 @@ module raijustarter
         call iXML%Set_Val(Model%nSpc, "prob/nSpc",Model%nSpc)
 
         ! Domain constraints
-        call iXML%Set_Val(Model%maxTail, "domain/maxTail", def_maxTail)
-        call iXML%Set_Val(Model%maxSun , "domain/maxSun" , def_maxSun )
+        call iXML%Set_Val(Model%maxTail_buffer, "domain/tail_buffer", def_maxTail_buffer)
+        call iXML%Set_Val(Model%maxSun_buffer , "domain/sun_buffer" , def_maxSun_buffer)
+        call iXML%Set_Val(Model%maxTail_active, "domain/tail_active", def_maxTail_active)
+        call iXML%Set_Val(Model%maxSun_active , "domain/sun_active" , def_maxSun_active)
         ! Store all distances as positive values, we'll add signs as needed later
-        Model%maxTail = abs(Model%maxTail)
-        Model%maxSun = abs(Model%maxSun)
+        Model%maxTail_buffer = abs(Model%maxTail_buffer)
+        Model%maxSun_buffer  = abs(Model%maxSun_buffer)
+        Model%maxTail_active = abs(Model%maxTail_active)
+        Model%maxSun_active  = abs(Model%maxSun_active)
 
         ! Solver params
         call iXML%Set_Val(Model%doUseVelLRs,'sim/useVelLRs',def_doUseVelLRs)

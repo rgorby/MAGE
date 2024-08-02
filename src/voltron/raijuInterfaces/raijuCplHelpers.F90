@@ -25,10 +25,21 @@ module raijuCplHelpers
 
         integer :: i,j,s
         real(rp) :: P, D
+        real(rp), dimension(Grid%shGrid%isg:Grid%shGrid%ieg+1) :: bVol_dip_corner
+        real(rp), dimension(Grid%shGrid%isg:Grid%shGrid%ieg) :: bVol_dip_cc
+        real(rp), dimension(2,2) :: dBVol
         !real(rp) :: VaMKS, Tiev, csMKS
 
 
         associate(sh=>Grid%shGrid)
+
+            ! We'll use this later
+            do i=sh%isg,sh%ieg+1
+                bVol_dip_corner(i) = DipFTV_colat(Grid%thRp(i) , Model%planet%magMoment)
+            enddo
+            do i=sh%isg,sh%ieg
+                bVol_dip_cc(i)     = DipFTV_colat(Grid%thcRp(i), Model%planet%magMoment)
+            enddo
 
             ! Copy over all the tube info we want to have available to us
 
@@ -59,7 +70,7 @@ module raijuCplHelpers
             ! Assign cell-centered quantities
             !$OMP PARALLEL DO default(shared) collapse(1) &
             !$OMP schedule(dynamic) &
-            !$OMP private(i,j,s,P,D)
+            !$OMP private(i,j,s,P,D,dBVol)
             do i=sh%isg,sh%ieg
                 do j=sh%jsg,sh%jeg
                     ! Note: we are doing this for all cells regardless of their goodness
@@ -82,7 +93,12 @@ module raijuCplHelpers
                             State%Pavg(i,j,s) = P
                             State%Davg(i,j,s) = D
 
-                            State%bvol_cc(i,j) = toCenter2D(State%bvol(i:i+1,j:j+1))
+                            !State%bvol_cc(i,j) = toCenter2D(State%bvol(i:i+1,j:j+1))
+                            ! Before we average, take dipole out so we don't get poor averaging of background
+                            dBVol = State%bvol(i:i+1,j:j+1)
+                            dBVol(:,1) = dBVol(:,1) - bVol_dip_corner(i:i+1)
+                            dBVol(:,2) = dBVol(:,2) - bVol_dip_corner(i:i+1)
+                            State%bvol_cc(i,j) = toCenter2D(dBVol) + bVol_dip_cc(i)
                         enddo
 
                         ! Do our own "wIMAG" calculation here so we ensure we use the fluid we want to (Bulk)

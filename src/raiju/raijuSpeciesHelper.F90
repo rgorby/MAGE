@@ -104,7 +104,7 @@ module raijuSpeciesHelper
         type(raijuGrid_T), intent(inout) :: Grid
         character(len=strLen), intent(in) :: configfname
 
-        integer :: i, kPos, f, ferr, psphIdx
+        integer :: i, kPos, f, ferr, psphIdx, incoming_flav
         character(len=strLen) :: gStr
         type(IOVAR_T), dimension(MAXIOVAR) :: IOVars ! Just grabbing lami and we're done
 
@@ -144,13 +144,28 @@ module raijuSpeciesHelper
             call AddInVar(IOVars, "alami"   )  ! Dataset
             call ReadVars(IOVars, .false., configfname, gStr)
 
+            ! Make sure no one's trying to add multiple of the same flavor
+            incoming_flav = GetIOInt(IOVars, "flav")
+            if (spcExists(Grid, incoming_flav)) then
+                write(*,*)"ERROR: Trying to read species with flavor ",incoming_flav
+                write(*,*)" But we already read a species with that flavor"
+                write(*,*)" No double-dipping allowed, goodbye."
+                stop
+            endif
+
             ! Assign
-            spc%flav     = IOVars(FindIO(IOVars, "flav"    ))%data(1)
-            spc%N        = IOVars(FindIO(IOVars, "N"       ))%data(1)
-            spc%numNuc_p = IOVars(FindIO(IOVars, "numNuc_p"))%data(1)
-            spc%numNuc_n = IOVars(FindIO(IOVars, "numNuc_n"))%data(1)
-            spc%q        = IOVars(FindIO(IOVars, "q"       ))%data(1)
-            spc%fudge    = IOVars(FindIO(IOVars, "fudge"   ))%data(1)
+            !spc%flav     = IOVars(FindIO(IOVars, "flav"    ))%data(1)
+            !spc%N        = IOVars(FindIO(IOVars, "N"       ))%data(1)
+            !spc%numNuc_p = IOVars(FindIO(IOVars, "numNuc_p"))%data(1)
+            !spc%numNuc_n = IOVars(FindIO(IOVars, "numNuc_n"))%data(1)
+            !spc%q        = IOVars(FindIO(IOVars, "q"       ))%data(1)
+            !spc%fudge    = IOVars(FindIO(IOVars, "fudge"   ))%data(1)
+            spc%flav     = GetIOInt(IOVars, "flav"    )
+            spc%N        = GetIOInt(IOVars, "N"       )
+            spc%numNuc_p = GetIOInt(IOVars, "numNuc_p")
+            spc%numNuc_n = GetIOInt(IOVars, "numNuc_n")
+            spc%q        = GetIOInt(IOVars, "q"       )
+            spc%fudge    = GetIOReal(IOVars, "fudge"   )
             
             spc%amu = SpcAmu(spc)
             spc%spcType = SpcType(spc)
