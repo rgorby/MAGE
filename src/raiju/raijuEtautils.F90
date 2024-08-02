@@ -35,13 +35,11 @@ module raijuetautils
         State%vAvg = 0.0
 
         associate (shG => Grid%shGrid, spc => Grid%spc)
-
-            do i=shG%isg,shG%ieg
-                do j=shG%jsg,shG%jeg
+            do j=shG%jsg,shG%jeg
+                do i=shG%isg,shG%ieg
                     do s=1,Grid%nSpc
                         ! TODO: handle isGood regions?
 
-                        ! Calc moments for this species
                         State%Den(i,j,s+1) = SpcEta2Den(spc(s), &  ! Species details
                             State%eta(i,j,spc(s)%kStart:spc(s)%kEnd), &  ! Etas for this species
                             State%bvol(i,j)) &
@@ -49,23 +47,18 @@ module raijuetautils
 
                         State%Press(i,j,s+1) = SpcEta2Press(spc(s), &  ! Species details
                             State%eta(i,j,spc(s)%kStart:spc(s)%kEnd), &  ! Etas for this species
-                            State%bvol(i,j))
-
-                        ! TODO: vBlk
-                        
+                            State%bvol(i,j))                        
                     enddo  ! s
                 enddo  ! j
             enddo  ! i
             ! Then add each species moment to the bulk
             do s=1,Grid%nSpc
                 ! Don't include electrons to total number density
-                if(Grid%spc(s)%spcType .ne. RAIJUELE) then
-                    State%Den  (:,:,1) = State%Den  (:,:,1) + State%Den  (:,:,s+1)
-                endif
+                !if(Grid%spc(s)%spcType .ne. RAIJUELE) then
+                !    State%Den  (:,:,1) = State%Den  (:,:,1) + State%Den  (:,:,s+1)
+                !endif
                 State%Press(:,:,1) = State%Press(:,:,1) + State%Press(:,:,s+1)
-                ! State%vAvg (:,:,1) = State%vAvg (:,:,1) + State%Den(:,:,s)*State%vAvg (:,:,s)
             enddo
-            ! State%vAvg (:,:,1) = State%vAvg (:,:,1) / State%Den(:,:,1)
         end associate
 
     end subroutine EvalMoments
@@ -201,13 +194,13 @@ module raijuetautils
 
 
         do k=spc%kStart,spc%kEnd
-            eta(k) = eta(k) + Model%dp2etaMap(Model,D,kT,vm,spc%alami(k),spc%alami(k+1))
+            eta(k) = eta(k) + Model%dp2etaMap(Model,D,kT,vm,abs(spc%alami(k)),abs(spc%alami(k+1)))
                 !! Model%dp2etaMap may point to one of the functions below, like Maxwell2Eta
                 !! or it may point to a user-defined mapping function
         enddo
 
         if (present(etaBelowO)) then
-            etaBelowO = Model%dp2etaMap(Model,D,kT,vm,0.0_rp,spc%alami(spc%kStart))
+            etaBelowO = Model%dp2etaMap(Model,D,kT,vm,0.0_rp,abs(spc%alami(spc%kStart)))
         endif
 
         

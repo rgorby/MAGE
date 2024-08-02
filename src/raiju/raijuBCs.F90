@@ -113,7 +113,7 @@ module raijuBCs
         real(rp) :: tmp_kti, tmp_kte
 
         psphIdx = spcIdx(Grid, F_PSPH)
-        eleIdx = spcIdx(Grid, F_HOTE)
+        eleIdx  = spcIdx(Grid, F_HOTE)
         !$OMP PARALLEL DO default(shared) collapse(1) &
         !$OMP schedule(dynamic) &
         !$OMP private(i,j,s,fIdx,fm,vm,kT,etaBelow,tmp_kti,tmp_kte)
