@@ -4,6 +4,7 @@ module gamCouple_mpi_G2V
     use gamtypes_mpi
     use volttypes_mpi
     use couplingHelpers
+    use gamapp_mpi, only: CalcDT_mpi
     use uservoltic ! required to have IonInnerBC_T defined
 
     implicit none
@@ -109,9 +110,9 @@ module gamCouple_mpi_G2V
         end if
 
         call MPI_Comm_rank(voltComm, App%myRank, ierr)
-	! identify who is voltron
-	App%voltRank = -1
-	call MPI_Allreduce(MPI_IN_PLACE, App%voltRank, 1, MPI_INTEGER, MPI_MAX, voltComm, ierr)
+        ! identify who is voltron
+        App%voltRank = -1
+        call MPI_Allreduce(MPI_IN_PLACE, App%voltRank, 1, MPI_INTEGER, MPI_MAX, voltComm, ierr)
 
         ! send my i/j/k ranks to the voltron rank
         call mpi_gather(App%Grid%Ri, 1, MPI_INTEGER, 0, 0, MPI_DATATYPE_NULL, App%voltRank, voltComm, ierr)
@@ -168,6 +169,9 @@ module gamCouple_mpi_G2V
         call mpi_bcast(App%Model%tFin, 1, MPI_MYFLOAT, App%voltRank, App%couplingComm, ierr)
         call mpi_bcast(App%Model%MJD0, 1, MPI_MYFLOAT, App%voltRank, App%couplingComm, ierr)
 
+        ! correct DT now that we now the actual tFin
+        call CalcDT_mpi(App)
+
         ! receive the initial coupling time
         call recvCplTimeMpi(App)
 
@@ -190,8 +194,8 @@ module gamCouple_mpi_G2V
             call App%WriteFileOutput(App%Model%IO%nOut)
             App%Model%IO%tOut = tIO
         else
-            ! always processing when restarted
-            App%processingData = .true.
+            ! never processing when restarted
+            App%processingData = .false.
         endif
 
     end subroutine

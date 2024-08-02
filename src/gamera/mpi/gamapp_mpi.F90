@@ -486,7 +486,7 @@ module gamapp_mpi
     ! each gamera rank calculates their own DT, and then synchronizes them to use
     ! whoever has the lowest one
     subroutine CalcDT_mpi(gamAppMpi)
-        type(gamAppMpi_T), intent(inout) :: gamAppMpi
+        class(gamAppMpi_T), intent(inout) :: gamAppMpi
         real(rp) :: tmpDT
         integer :: ierr
 
