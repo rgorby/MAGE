@@ -7,11 +7,13 @@ module raijuIO
     
     use raijutypes
     use raijuetautils
-    use raijuPreAdvancer, only : calcEffectivePotential, calcGradVM_cc, calcVelocityCC_gg
     use raijuELossWM, only : eWMOutput
     use shellGrid
     use shellInterp
     use shellGridIO
+    ! Functions/subs we borrow for debug/diagnostic output
+    use raijuPreAdvancer, only : calcEffectivePotential, calcGradVM_cc, calcVelocityCC_gg
+    use raijuDomain, only : calcMapJacNorm
 
     implicit none
 
@@ -397,7 +399,14 @@ module raijuIO
             enddo
             call AddOutVar(IOVars, "gradVM_cc_sm_nolim", outTmp3D(is:ie,js:je,:)  , uStr="V/m/lambda")
             call AddOutVar(IOVars, "cVel_sm_nolim"     , outTmp4D(is:ie,js:je,:,:), uStr="m/s")
+            deallocate(tmpGood2D)
+            deallocate(outTmp3D)
+            deallocate(outTmp4D)
 
+            ! Mapping diagnostic
+            allocate(outTmp2D(Grid%shGrid%isg:Grid%shGrid%ieg  ,Grid%shGrid%jsg:Grid%shGrid%jeg))
+            call calcMapJacNorm(Grid, State%xyzMin, outTmp2D)
+            call AddOutVar(IOVars, "mapJacNorm", outTmp2D(is:ie,js:je), dStr="L_(2,1) norm of lat/lon => xyzMin Jacobian")
             
         endif
 

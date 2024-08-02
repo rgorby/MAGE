@@ -173,5 +173,41 @@ module raijuDomain
     end subroutine CalcOCBDist
 
 
+    subroutine calcMapJacNorm(Grid, bMin, jacNorm)
+        type(raijuGrid_T), intent(in) :: Grid
+        real(rp), dimension(Grid%shGrid%isg:Grid%shGrid%ieg+1,Grid%shGrid%jsg:Grid%shGrid%jeg+1, 3), intent(in) :: bMin
+            !! xyz coordinates of bMin surface
+        real(rp), dimension(Grid%shGrid%isg:Grid%shGrid%ieg,Grid%shGrid%jsg:Grid%shGrid%jeg), intent(inout) :: jacNorm
+            !! Cell-centered jacobian norm we calculate
+
+        integer :: i,j, dim
+        real(rp) :: ddTheta, ddPhi, aij
+        jacNorm = 0.0
+
+        ! Iterate through cell centers
+        do j=Grid%shGrid%jsg,Grid%shGrid%jeg
+            do i=Grid%shGrid%isg,Grid%shGrid%ieg
+
+                ! Doing L 2,1 norm (https://en.wikipedia.org/wiki/Matrix_norm)
+                ! Derivative by mapping cell corner values to edges, gradient across cell
+                ! Deriv w.r.t. theta first:
+                ddTheta = 0.0
+                do dim = 1,3
+                    aij = 0.5*(bMin(i+1,j+1,dim) + bMin(i+1,j,dim) \
+                            - (bMin(i,j+1,dim) + bMin(i,j,dim))) /  Grid%lenFace(i,j,RAI_PH)
+                    ddTheta = ddtheta + aij**2
+                enddo
+
+                ddPhi = 0.0
+                do dim=1,3
+                    aij = 0.5*(bMin(i+1,j+1,dim) + bMin(i,j+1,dim) \
+                            - (bMin(i+1,j,dim) - bMin(i,j,dim))) / (0.5*(Grid%lenFace(i+1,j,RAI_TH) + Grid%lenFace(i,j,RAI_TH)))
+                    ddPhi = ddPhi + aij**2
+                enddo
+                
+                jacNorm(i,j) = sqrt(ddTheta) + sqrt(ddPhi)
+            enddo
+        enddo
+    end subroutine calcMapJacNorm
 
 end module raijuDomain
