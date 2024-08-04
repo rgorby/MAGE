@@ -18,7 +18,7 @@ module gamapp
         logical :: doFatIO
 
         !Output/Restart (IOCLOCK)
-        call Model%IO%init(xmlInp,Model%t,Model%ts)
+        call Model%IO%init(xmlInp,Model%t,Model%ts,Model%isRestart)
         call xmlInp%Set_Val(Model%doDivB ,'output/DivB'    ,.true. )
         call xmlInp%Set_Val(doFatIO      ,'output/doFatIO' ,.false.)
         if (doFatIO) then

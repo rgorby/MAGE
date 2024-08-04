@@ -29,13 +29,21 @@ module ioclock
     contains
 
     !Initialize IOClock from an already created XML reader
-    subroutine IOClockInit(this,iXML,time,ts)
+    subroutine IOClockInit(this,iXML,time,ts,isResO)
         class(IOClock_T), intent(inout) :: this
         type(XML_Input_T), intent(in)   :: iXML
         real(rp), intent(in) :: time
         integer, intent(in) :: ts
+        logical, intent(in), optional :: isResO
         
         logical :: slimTimers
+        logical :: isRes
+
+        if(present(isResO)) then
+            isRes = isResO
+        else
+            isRes = .false.
+        endif
 
         if(iXML%Exists("output/tsOut")) then
             write (*,*) "Please update the XML to use output/dtCon for console output"
@@ -68,7 +76,7 @@ module ioclock
             this%tOut = HUGE
         else
             this%doDataOut = .true.
-            this%tOut = time
+            if(.not. isRes) this%tOut = time
         endif
 
         if (this%dtRes<0) then
@@ -76,7 +84,7 @@ module ioclock
             this%tRes = HUGE
         else
             this%doResOut = .true.
-            this%tRes = time
+            if(.not. isRes) this%tRes = time
         endif
 
     end subroutine IOClockInit
