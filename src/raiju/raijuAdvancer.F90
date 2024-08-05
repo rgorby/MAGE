@@ -43,7 +43,9 @@ module raijuAdvancer
 
         State%dt = dtCpl
 
+        call Tic("Pre-Advance")
         call raijuPreAdvance(Model, Grid, State, isfirstCpl)
+        call Toc("Pre-Advance")
 
         ! Step
         call Tic("AdvanceState")

@@ -86,8 +86,8 @@ program raijuSAx
     endif
 
     ! Before we get started, run preAdvancer once just so that Step#0 has that information
-    call raijuPreAdvance(raiApp%Model, raiApp%Grid, raiApp%State,isfirstCplO=isfirstCpl)
-    isfirstCpl = .false.
+    ! call raijuPreAdvance(raiApp%Model, raiApp%Grid, raiApp%State,isfirstCplO=isfirstCpl)
+    !isfirstCpl = .false.
 
     ! Ready to loop
     do while ( raiApp%State%t < (raiApp%Model%tFin + 0.5) )
@@ -112,7 +112,8 @@ program raijuSAx
         if (doClawAdvance) then
             call raijuAdvance_claw(raiApp%Model,raiApp%Grid,raiApp%State, raiApp%Model%dt, doPosFixO=doPosFix)
         else
-            call raijuAdvance(raiApp%Model,raiApp%Grid,raiApp%State, raiApp%Model%dt)
+            call raijuAdvance(raiApp%Model,raiApp%Grid,raiApp%State, raiApp%Model%dt, isfirstCplO=isfirstCpl)
+            isfirstCpl = .false.
         endif
         call Toc("RAIJU Advance")
 

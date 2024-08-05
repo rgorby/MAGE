@@ -758,6 +758,7 @@ module raijuPreAdvancer
                             Grid%shGrid%jsg:Grid%shGrid%jeg, 2), optional, intent(in) :: gradVMO
             !! Optional gradVM to use in place of State's gradVM, in case you wanna do testing on gradVM calculation
         real(rp), dimension(Grid%shGrid%isg:Grid%shGrid%ieg, Grid%shGrid%jsg:Grid%shGrid%jeg, 2) :: gradPot
+        integer :: i,j
         
         if (present(gradVMO)) then
             gradPot = State%gradPotE_cc + State%gradPotCorot_cc + Grid%alamc(k)*gradVMO
@@ -767,6 +768,16 @@ module raijuPreAdvancer
 
         Vtp(:,:,RAI_TH) =      gradPot(:,:,RAI_PH) / (Grid%Brcc*1.0e-9)  ! [m/s]
         Vtp(:,:,RAI_PH) = -1.0*gradPot(:,:,RAI_TH) / (Grid%Brcc*1.0e-9)  ! [m/s]
+        !!$OMP PARALLEL DO default(shared) &
+        !!$OMP schedule(dynamic) &
+        !!$OMP private(i,j)
+        !do j=Grid%shGrid%jsg,Grid%shGrid%jeg
+        !    do i=Grid%shGrid%isg,Grid%shGrid%ieg
+        !        Vtp(i,j,RAI_TH) =      gradPot(i,j,RAI_PH) / (Grid%Brcc(i,j)*1.0e-9)  ! [m/s]
+        !        Vtp(i,j,RAI_PH) = -1.0*gradPot(i,j,RAI_TH) / (Grid%Brcc(i,j)*1.0e-9)  ! [m/s]
+        !    enddo
+        !enddo
+
     end subroutine calcVelocityCC_gg
 
 
@@ -794,10 +805,10 @@ module raijuPreAdvancer
         ! ReconFaces is gonna take one cc value and reconstruct at cell faces
         ! But phi velocity at theta edge is meaningless for us
         ! So we make two temporary arrays, and then just pack the meaningful components into iVelL and iVelR at the end
-        call ReconFaces(Model, Grid, isGCC, State%cVel(:,:,k,RAI_TH), tmpVelL, tmpVelR, doOMPO=.true.)
+        call ReconFaces(Model, Grid, isGCC, State%cVel(:,:,k,RAI_TH), tmpVelL, tmpVelR, doOMPO=.false.)
         iVelL(:,:,RAI_TH) = tmpVelL(:,:,RAI_TH)
         iVelR(:,:,RAI_TH) = tmpVelR(:,:,RAI_TH)
-        call ReconFaces(Model, Grid, isGCC, State%cVel(:,:,k,RAI_PH), tmpVelL, tmpVelR, doOMPO=.true.)
+        call ReconFaces(Model, Grid, isGCC, State%cVel(:,:,k,RAI_PH), tmpVelL, tmpVelR, doOMPO=.false.)
         iVelL(:,:,RAI_PH) = tmpVelL(:,:,RAI_PH)
         iVelR(:,:,RAI_PH) = tmpVelR(:,:,RAI_PH)
 
