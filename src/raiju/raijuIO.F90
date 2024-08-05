@@ -275,7 +275,7 @@ module raijuIO
         call AddOutVar(IOVars,"Pressure",State%Press(is:ie,js:je,:),uStr="nPa")
         
         do s=0,Grid%nFluidIn
-            write(*,*)"Davg_in ",s,maxval(State%Davg(is:ie+1,js:je+1,s))
+            write(*,*)"Davg_in ",s,maxval(State%Davg(is:ie,js:je,s))
         enddo
         ! Add density moment as #/cc instead of amu/cc
         !allocate(outDen(is:ie,js:je,Grid%nSpc+1))

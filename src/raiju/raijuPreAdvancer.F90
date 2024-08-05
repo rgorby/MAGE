@@ -53,17 +53,17 @@ module raijuPreAdvancer
         call prepEtaLast(Grid%shGrid, State, isFirstCpl)
 
         ! Calc cell velocities
-        call Tic("Calc face velocities")
-        call calcPotGrads(Model, Grid, State)
-        !$OMP PARALLEL DO default(shared) &
-        !$OMP schedule(dynamic) &
-        !$OMP private(k)
-        do k=1,Grid%Nk
-            call calcVelocity(Model, Grid, State, k, State%iVel(:,:,k,:))  ! Get velocity at cell interfaces
-            ! Calc sub-time step. Each channel will do this on its own, but this way we can output the step sizes everyone is using
-            State%dtk(k) = activeDt(Model, Grid, State, k)
-        enddo
-        call Toc("Calc face velocities")
+        !call Tic("Calc face velocities")
+        !call calcPotGrads(Model, Grid, State)
+        !!$OMP PARALLEL DO default(shared) &
+        !!$OMP schedule(dynamic) &
+        !!$OMP private(k)
+        !do k=1,Grid%Nk
+        !    call calcVelocity(Model, Grid, State, k, State%iVel(:,:,k,:))  ! Get velocity at cell interfaces
+        !    ! Calc sub-time step. Each channel will do this on its own, but this way we can output the step sizes everyone is using
+        !    State%dtk(k) = activeDt(Model, Grid, State, k)
+        !enddo
+        !call Toc("Calc face velocities")
 
         call Tic("Calc cell-centered velocities")
         call calcPotGrads_cc(Model, Grid, State)
@@ -609,6 +609,9 @@ module raijuPreAdvancer
         call calcGradIJ_cc(Rp_m, Grid, isGcorner, dV, gradVM, doLimO=doLim)
         gradVM(:,:,RAI_TH) = gradVM(:,:,RAI_TH) + dV0_dth
         
+        !$OMP PARALLEL DO default(shared) &
+        !$OMP schedule(dynamic) &
+        !$OMP private(i,j,bVolcc)
         do j=sh%jsg,sh%jeg
             do i=sh%isg,sh%ieg
                 bVolcc = toCenter2D(dV(i:i+1,j:j+1)) + DipFTV_colat(Grid%thcRp(i), B0)  ! Will include smoothing of dV if enabled
@@ -688,6 +691,9 @@ module raijuPreAdvancer
                 Vsm(ieg+1,j) = SmoothOperator33(tmpV, tmpGood)
             enddo
             ! Now everyone else
+            !$OMP PARALLEL DO default(shared) &
+            !$OMP schedule(dynamic) &
+            !$OMP private(i,j)
             do j=jsg+1,jeg
                 do i=isg+1,ieg
                     Vsm(i,j) = SmoothOperator33(V(i-1:i+1,j-1:j+1), isGc(i-1:i+1,j-1:j+1))
@@ -788,10 +794,10 @@ module raijuPreAdvancer
         ! ReconFaces is gonna take one cc value and reconstruct at cell faces
         ! But phi velocity at theta edge is meaningless for us
         ! So we make two temporary arrays, and then just pack the meaningful components into iVelL and iVelR at the end
-        call ReconFaces(Model, Grid, isGCC, State%cVel(:,:,k,RAI_TH), tmpVelL, tmpVelR)
+        call ReconFaces(Model, Grid, isGCC, State%cVel(:,:,k,RAI_TH), tmpVelL, tmpVelR, doOMPO=.true.)
         iVelL(:,:,RAI_TH) = tmpVelL(:,:,RAI_TH)
         iVelR(:,:,RAI_TH) = tmpVelR(:,:,RAI_TH)
-        call ReconFaces(Model, Grid, isGCC, State%cVel(:,:,k,RAI_PH), tmpVelL, tmpVelR)
+        call ReconFaces(Model, Grid, isGCC, State%cVel(:,:,k,RAI_PH), tmpVelL, tmpVelR, doOMPO=.true.)
         iVelL(:,:,RAI_PH) = tmpVelL(:,:,RAI_PH)
         iVelR(:,:,RAI_PH) = tmpVelR(:,:,RAI_PH)
 
@@ -819,6 +825,9 @@ module raijuPreAdvancer
 
         dtArr = HUGE
 
+        !$OMP PARALLEL DO default(shared) &
+        !$OMP schedule(dynamic) &
+        !$OMP private(i,j, velij_th, velij_ph, dl)
         do j=sh%js,sh%je+1
             do i=sh%is,sh%ie+1
                 velij_th = TINY

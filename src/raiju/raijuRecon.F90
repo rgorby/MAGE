@@ -215,6 +215,11 @@ module raijuRecon
         !! If we are given an odd max order, we assume we should use an odd order even if it must be reduced
         !! Same for even max order
 
+        QfaceL = 0.0
+        QfaceR = 0.0
+        QreconL = 0.0
+        QreconR = 0.0
+
         doUpwind = mod(maxOrder,2)==1
 
         QccA = Qcc*areaCC*BrCC  ! [Q * Rp^2 * nT]
@@ -276,7 +281,7 @@ module raijuRecon
     end subroutine ReconFaceLR
 
 
-    subroutine ReconFaces(Model, Grid, isG, Qcc, QfaceL, QfaceR, QreconLO, QreconRO)
+    subroutine ReconFaces(Model, Grid, isG, Qcc, QfaceL, QfaceR, QreconLO, QreconRO, doOMPO)
         !! Performs full face reconstruction procedure, including pdm, on Qcc for all active cells
         type(raijuModel_T), intent(in) :: Model
         type(raijuGrid_T ), intent(in) :: Grid
@@ -291,9 +296,16 @@ module raijuRecon
                            !! Left/Right face-interpolated values
         real(rp), dimension(Grid%shGrid%isg:Grid%shGrid%ieg+1, &
                            Grid%shGrid%jsg:Grid%shGrid%jeg+1, 2), optional, intent(inout) :: QreconLO, QreconRO
-        
-        integer :: i,j
+        logical, optional, intent(in) :: doOMPO
 
+        integer :: i,j
+        logical :: doOMP
+
+        if (present(doOMPO)) then
+            doOMP = doOMPO
+        else
+            doOMP = .false.
+        endif
         QfaceL = 0.0
         QfaceR = 0.0
 
@@ -307,6 +319,10 @@ module raijuRecon
         if (present(QreconLO) .and. present(QreconRO)) then
             QreconLO = 0.0
             QreconRO = 0.0
+            !$OMP PARALLEL DO default(shared) &
+            !$OMP schedule(dynamic) &
+            !$OMP private(i,j) &
+            !$OMP IF(doOMP)
             do j=Grid%shGrid%js,Grid%shGrid%je+1
                 do i=Grid%shGrid%is,Grid%shGrid%ie+1
                     ! Theta dir

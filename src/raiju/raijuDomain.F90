@@ -191,21 +191,31 @@ module raijuDomain
                 ! Doing L 2,1 norm (https://en.wikipedia.org/wiki/Matrix_norm)
                 ! Derivative by mapping cell corner values to edges, gradient across cell
                 ! Deriv w.r.t. theta first:
-                ddTheta = 0.0
-                do dim = 1,3
-                    aij = 0.5*(bMin(i+1,j+1,dim) + bMin(i+1,j,dim) \
-                            - (bMin(i,j+1,dim) + bMin(i,j,dim))) /  Grid%lenFace(i,j,RAI_PH)
-                    ddTheta = ddtheta + aij**2
+                !ddTheta = 0.0
+                !do dim = 1,3
+                !    aij = 0.5*(bMin(i+1,j+1,dim) + bMin(i+1,j,dim) \
+                !            - (bMin(i,j+1,dim) + bMin(i,j,dim))) /  Grid%lenFace(i,j,RAI_PH)
+                !    ddTheta = ddtheta + aij**2
+                !enddo
+!
+                !ddPhi = 0.0
+                !do dim=1,3
+                !    aij = 0.5*(bMin(i+1,j+1,dim) + bMin(i,j+1,dim) \
+                !            - (bMin(i+1,j,dim) - bMin(i,j,dim))) / (0.5*(Grid%lenFace(i+1,j,RAI_TH) + Grid%lenFace(i,j,RAI_TH)))
+                !    ddPhi = ddPhi + aij**2
+                !enddo
+                !jacNorm(i,j) = sqrt(ddTheta) + sqrt(ddPhi)
+                
+                
+                do dim=1,3
+                    aij = (0.5*(bMin(i+1,j+1,dim) + bMin(i+1,j,dim) \
+                                - (bMin(i,j+1,dim) + bMin(i,j,dim))) /  Grid%lenFace(i,j,RAI_PH))**2
+                    aij = aij + (0.5*(bMin(i+1,j+1,dim) + bMin(i,j+1,dim) \
+                                - (bMin(i+1,j,dim) - bMin(i,j,dim))) / (0.5*(Grid%lenFace(i+1,j,RAI_TH) + Grid%lenFace(i,j,RAI_TH))))**2
+                    jacNorm(i,j) = jacNorm(i,j) + sqrt(aij)
+                    !jacNorm(i,j) = max(jacNorm(i,j), aij)
                 enddo
 
-                ddPhi = 0.0
-                do dim=1,3
-                    aij = 0.5*(bMin(i+1,j+1,dim) + bMin(i,j+1,dim) \
-                            - (bMin(i+1,j,dim) - bMin(i,j,dim))) / (0.5*(Grid%lenFace(i+1,j,RAI_TH) + Grid%lenFace(i,j,RAI_TH)))
-                    ddPhi = ddPhi + aij**2
-                enddo
-                
-                jacNorm(i,j) = sqrt(ddTheta) + sqrt(ddPhi)
             enddo
         enddo
     end subroutine calcMapJacNorm
