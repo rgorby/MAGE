@@ -107,28 +107,38 @@ program raijuOWDx
             call Tic("Output")
             ! Output if ready
             if (raiApp%State%IO%doRestart(raiApp%State%t)) then
+                call Tic("RAIJU Restart")
                 call raijuResOutput(raiApp%Model,raiApp%Grid,raiApp%State)
+                call Toc("RAIJU Restart")
             endif
             
             if (raiApp%State%IO%doOutput(raiApp%State%t)) then
+                call Tic("RAIJU Output")
                 call raijuOutput(raiApp%Model,raiApp%Grid,raiApp%State)
+                call Toc("RAIJU Output")
 
                 if (ebModel%doEBOut) then
                     ! Write eb at the same output cadence as imag
                     write(gStr,'(A,I0)') "Step#", ebModel%nOut
+                    call Tic("CHIMP EB3D")
                     call writeEB3D(ebModel,ebState,gStr)
                     ebModel%nOut = ebModel%nOut + 1
                     ebModel%tOut = inTscl*raiApp%State%IO%tOut  ! Idk if we need to set this since chimp isn't controlling its own output
+                    call Toc("CHIMP EB3D")
                 endif
 
                 if (doFLOut) then
+                    call Tic("RCM FLs")
                     call WriteRCMFLs(raijuCplBase%fromV%magLines,raiApp%State%IO%nOut, &
                             raiApp%State%mjd,raiApp%State%t, &
                             raiApp%Grid%shGrid%Nt,raiApp%Grid%shGrid%Np)
+                    call Toc("RCM FLs")
                 endif
 
                 write(gStr,'(A,I0)') "Step#", raiApp%State%IO%nOut-1  ! nOut got advanced by raijuOutput above
+                call Tic("Remix rmReader")
                 call outputRMSG(rmReader,"rmReader.h5",.false., gStr)
+                call Toc("Remix rmReader")
             endif
             call Toc("Output")
 
@@ -158,13 +168,13 @@ program raijuOWDx
             call Toc("RAIJU Advance")
             isFirstCpl = .false.
 
-            write(*,*)raiApp%State%t
-            write(*,*)ebModel%t/inTscl
-            write(*,*)rmReader%time
-            write(*,*)"MJDs: "
-            write(*,*)raiApp%State%mjd
-            write(*,*)T2MJD((ebModel%t - ebState%ebTab%times(1))/inTscl, ebState%ebTab%MJDs(1))
-            write(*,*)T2MJD((rmReader%time - rmReader%rmTab%times(1)), rmReader%rmTab%MJDs(1))
+            !write(*,*)raiApp%State%t
+            !write(*,*)ebModel%t/inTscl
+            !write(*,*)rmReader%time
+            !write(*,*)"MJDs: "
+            !write(*,*)raiApp%State%mjd
+            !write(*,*)T2MJD((ebModel%t - ebState%ebTab%times(1))/inTscl, ebState%ebTab%MJDs(1))
+            !write(*,*)T2MJD((rmReader%time - rmReader%rmTab%times(1)), rmReader%rmTab%MJDs(1))
 
             ! Advance model times
             raiApp%State%t  = raiApp%State%t  + raiApp%Model%dt

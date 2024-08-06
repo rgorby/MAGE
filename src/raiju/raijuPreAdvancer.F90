@@ -75,6 +75,7 @@ module raijuPreAdvancer
             ! Calc sub-time step. Each channel will do this on its own, but this way we can output the step sizes everyone is using
             !State%dtk(k) = activeDt(Model, Grid, State, k)
             call reconVelocityLRs(Model, Grid, State, k, State%iVelL(:,:,k,:), State%iVelR(:,:,k,:))
+            State%dtk(k) = activeDt_LR(Model, Grid, State, k)
         enddo
         call Toc("Calc cell-centered velocities")
 
@@ -793,6 +794,7 @@ module raijuPreAdvancer
                            Grid%shGrid%jsg:Grid%shGrid%jeg) :: isGCC
         real(rp), dimension(Grid%shGrid%isg:Grid%shGrid%ieg+1,&
                            Grid%shGrid%jsg:Grid%shGrid%jeg+1,2) :: tmpVelL, tmpVelR
+        integer :: i,j
         
         iVelL = 0.0
         iVelR = 0.0
@@ -813,6 +815,25 @@ module raijuPreAdvancer
         iVelR(:,:,RAI_PH) = tmpVelR(:,:,RAI_PH)
 
 
+        ! Hax
+        !$OMP PARALLEL DO default(shared) &
+        !$OMP schedule(dynamic) &
+        !$OMP private(i,j)
+        do j = Grid%shGrid%js,Grid%shGrid%je+1
+            do i = Grid%shGrid%is,Grid%shGrid%ie+1
+                if (State%active(i,j) .ne. RAIJUACTIVE) then
+                    cycle
+                endif
+                if (State%active(i-1,j) .eq. RAIJUBUFFER) then
+                    iVelL(i,j,RAI_TH) = 0.0
+                    iVelR(i,j,RAI_TH) = 0.0
+                endif
+                if (State%active(i,j-1) .eq. RAIJUBUFFER) then
+                    iVelL(i,j,RAI_PH) = 0.0
+                    iVelR(i,j,RAI_PH) = 0.0
+                endif
+            enddo
+        enddo
     end subroutine reconVelocityLRs
 
 !------
@@ -836,9 +857,9 @@ module raijuPreAdvancer
 
         dtArr = HUGE
 
-        !$OMP PARALLEL DO default(shared) &
-        !$OMP schedule(dynamic) &
-        !$OMP private(i,j, velij_th, velij_ph, dl)
+        !!$OMP PARALLEL DO default(shared) &
+        !!$OMP schedule(dynamic) &
+        !!$OMP private(i,j, velij_th, velij_ph, dl)
         do j=sh%js,sh%je+1
             do i=sh%is,sh%ie+1
                 velij_th = TINY
@@ -888,6 +909,75 @@ module raijuPreAdvancer
             
     end function activeDt
 
+
+    function activeDt_LR(Model, Grid, State, k) result(dt)
+        !! Calculates min dt needed to safele evolve active domain for given energy invariant channel k
+        !! TODO: Consider dynamic CFL factor
+        type(raijuModel_T), intent(in) :: Model
+        type(raijuGrid_T ), intent(in) :: Grid
+        type(raijuState_T), intent(in) :: State
+        integer, intent(in) :: k
+        
+        integer :: i,j
+        real(rp) :: dl, velij_th, velij_ph
+        real(rp), dimension(Grid%shGrid%is:Grid%shGrid%ie+1,Grid%shGrid%js:Grid%shGrid%je+1) :: dtArr
+        real(rp) :: dt
+
+        associate (sh => Grid%shGrid)
+
+        dtArr = HUGE
+
+        !!$OMP PARALLEL DO default(shared) &
+        !!$OMP schedule(dynamic) &
+        !!$OMP private(i,j, velij_th, velij_ph, dl)
+        do j=sh%js,sh%je+1
+            do i=sh%is,sh%ie+1
+                velij_th = TINY
+                velij_ph = TINY
+                ! NOTE: We are only checking faces bordering non-ghost cells because those are the only ones we use for evolution
+                ! TODO: Strictly speaking, there are some faces that are included here that shouldn't be because they're never used to evolve anything
+                !  so we should make the loop js:je, is:ie, and handle the last row and column afterwards
+
+                ! We are responsible for face (i,j,TH) and (i,j,PH)
+                ! Theta faces first
+
+                ! This is a weird pattern. Basically, we can't cycle if the overall desired condition isn't met, because we are doing theta and phi directions in the same loop
+                ! At the same time, we don't want to write one massive if condition with all options covered, or a bunch of nested if statements
+                ! So instead, we break them up, such that if a single if condition is true it means we have failed the physical condition for us to calculate a valid timestep
+                ! If all if conditions fail then the physical conditions are met and we can do our calculations in the else block
+                if (Model%doActiveShell .and. ( .not. State%activeShells(i-1,k) .or. .not. State%activeShells(i,k)) ) then
+                    ! In order for a theta-dir face to be usable, we need both sides to be active
+                    continue
+                else if ( State%active(i-1,j) .ne. RAIJUACTIVE .or. State%active(i,j) .ne. RAIJUACTIVE ) then
+                    continue
+                else
+                    ! We are good lets calculate a dt for this face
+                    velij_th = max(abs(State%iVelL(i,j,k,RAI_TH)), abs(State%iVelR(i,j,k,RAI_TH)), TINY)  ! [m/s]
+                    !dtArr(i,j,RAI_TH) = ( Grid%delTh(i) * Model%planet%ri_m ) / velij  ! [s]
+                endif
+                
+                ! Phi faces
+                if (Model%doActiveShell .and. .not. State%activeShells(i,k)) then
+                    ! In order for a phi-dir face to be usable, we just need this i shell to be active
+                    continue
+                else if (State%active(i,j-1) .ne. RAIJUACTIVE  .or. State%active(i,j) .ne. RAIJUACTIVE ) then 
+                    continue
+                else
+                    velij_ph = max(abs(State%iVelL(i,j,k,RAI_PH)), abs(State%iVelR(i,j,k,RAI_PH)), TINY)
+                    !dtArr(i,j,RAI_PH) = ( Grid%delPh(j) * Model%planet%ri_m ) / velij  ! [s]
+                endif
+
+                dl = abs(min(Grid%delTh(i), Grid%delPh(j)*sin(sh%thc(i))))
+                dtArr(i,j) = (dl*Model%planet%ri_m) / sqrt(velij_th**2 + velij_ph**2)
+
+            enddo
+        enddo
+
+        dt = Model%CFL*minval(dtArr)
+
+        end associate
+            
+    end function activeDt_LR
 
 !------
 ! Extras
