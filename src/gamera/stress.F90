@@ -288,7 +288,13 @@ module stress
         if (Model%doMHD) then
             do nv=1,NDIM
                 call recLoadBlock(Model,Gr, MagB(:,:,nv),hfState%Bxyz(:,:,:,nv),iB,j,k,iMax,dN)
-                call limLoadBlock(Model,Gr,nMagB(:,:,nv), nState%Bxyz(:,:,:,nv),iB,j,k,iMax,dN)
+                if (Model%doLFMLim) then
+                    !Limit on n state
+                    call limLoadBlock(Model,Gr,nMagB(:,:,nv), nState%Bxyz(:,:,:,nv),iB,j,k,iMax,dN)
+                else
+                    !Limit on predictor state
+                    call limLoadBlock(Model,Gr,nMagB(:,:,nv),hfState%Bxyz(:,:,:,nv),iB,j,k,iMax,dN)
+                endif
             enddo
             call BlockLRs(VolB,nMagB,MagB,MagL(:,:),MagR(:,:),NDIM)
 
@@ -305,7 +311,11 @@ module stress
         do s=BLK,Model%nSpc
             do nv=1,NVAR
                 call recLoadBlock(Model,Gr, ConB(:,:,nv,s),hfState%Gas(:,:,:,nv,s),iB,j,k,iMax,dN)
-                call limLoadBlock(Model,Gr,nConB(:,:,nv,s), nState%Gas(:,:,:,nv,s),iB,j,k,iMax,dN)
+                if (Model%doLFMLim) then
+                    call limLoadBlock(Model,Gr,nConB(:,:,nv,s), nState%Gas(:,:,:,nv,s),iB,j,k,iMax,dN)
+                else
+                    call limLoadBlock(Model,Gr,nConB(:,:,nv,s),hfState%Gas(:,:,:,nv,s),iB,j,k,iMax,dN)
+                endif
             enddo !nv
         enddo !s
 
