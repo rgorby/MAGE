@@ -16,6 +16,8 @@ module voltCplTypes
             !! Average plasma beta
         real(rp), dimension(0:MAXTUBEFLUIDS) :: Pave, Nave
             !! average pressure, average density
+        real(rp), dimension(0:MAXTUBEFLUIDS) :: Pstd, Nstd
+            !! standard deviation of pressure and densiy along the field line
         real(rp) :: X_bmin(NDIM)
         integer(ip) :: topo
         real(rp) :: latc,lonc !Conjugate lat/lon
