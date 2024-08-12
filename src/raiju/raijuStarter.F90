@@ -364,6 +364,8 @@ module raijustarter
             ! Coupling input moments
             allocate( State%Pavg(sh%isg:sh%ieg  , sh%jsg:sh%jeg, 0:Grid%nFluidIn) )
             allocate( State%Davg(sh%isg:sh%ieg  , sh%jsg:sh%jeg, 0:Grid%nFluidIn) )
+            allocate( State%Pstd(sh%isg:sh%ieg  , sh%jsg:sh%jeg, 0:Grid%nFluidIn) )
+            allocate( State%Dstd(sh%isg:sh%ieg  , sh%jsg:sh%jeg, 0:Grid%nFluidIn) )
             ! Bmin surface
             allocate( State%Bmin    (sh%isg:sh%ieg+1, sh%jsg:sh%jeg+1, 3 ) )
             allocate( State%xyzMin  (sh%isg:sh%ieg+1, sh%jsg:sh%jeg+1, 3 ) )

@@ -212,8 +212,8 @@ module imagtubes
             !dvB = Flux-tube volume (Re/EB)
             !write(*,*)"FLThermo, s=",s
             call FLThermo(ebModel,ebGr,bTrc,bD,bP,dvB,bBeta,s)
-            !call FLStdev (ebModel,ebGr,bTrs,bD,bP,stdD,stdP,s)
-            call FLStdev (ebModel,ebGr,bTrs,stdD,stdP,s)
+            call FLStdev (ebModel,ebGr,bTrc,bD,bP,stdD,stdP,s)
+            !call FLStdev (ebModel,ebGr,bTrc,stdD,stdP,s)
             bP = bP*1.0e-9 !nPa=>Pa
             bD = bD*1.0e+6 !#/cc => #/m3
             ijTube%Pave(s) = bP

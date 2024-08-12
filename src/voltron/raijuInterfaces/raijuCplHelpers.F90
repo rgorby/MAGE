@@ -24,7 +24,7 @@ module raijuCplHelpers
         
 
         integer :: i,j,s
-        real(rp) :: P, D
+        real(rp) :: P, D, Pstd, Dstd
         real(rp), dimension(Grid%shGrid%isg:Grid%shGrid%ieg+1) :: bVol_dip_corner
         real(rp), dimension(Grid%shGrid%isg:Grid%shGrid%ieg) :: bVol_dip_cc
         real(rp), dimension(2,2) :: dBVol
@@ -88,18 +88,27 @@ module raijuCplHelpers
                                     + ijTubes(i+1,j)%Pave(s) + ijTubes(i+1,j+1)%Pave(s)) * 1.0D+9 ! [Pa -> nPa]
                             D = 0.25*(ijTubes(i  ,j)%Nave(s) + ijTubes(i  ,j+1)%Nave(s) &
                                     + ijTubes(i+1,j)%Nave(s) + ijTubes(i+1,j+1)%Nave(s)) * 1.0D-6 ! [#/m^3 --> #/cc]
-                                                 
-
+                            Pstd = 0.25*(ijTubes(i  ,j)%Pstd(s) + ijTubes(i  ,j+1)%Pstd(s) &
+                                       + ijTubes(i+1,j)%Pstd(s) + ijTubes(i+1,j+1)%Pstd(s)) * 1.0D+9 ! [Pa -> nPa]
+                            Dstd = 0.25*(ijTubes(i  ,j)%Nstd(s) + ijTubes(i  ,j+1)%Nstd(s) &
+                                       + ijTubes(i+1,j)%Nstd(s) + ijTubes(i+1,j+1)%Nstd(s)) * 1.0D+9 ! [Pa -> nPa]
+                         
                             State%Pavg(i,j,s) = P
                             State%Davg(i,j,s) = D
 
+                            State%Pstd(i,j,s) = Pstd / max(P, TINY)
+                            State%Dstd(i,j,s) = Dstd / max(D, TINY)
+
+
                             !State%bvol_cc(i,j) = toCenter2D(State%bvol(i:i+1,j:j+1))
                             ! Before we average, take dipole out so we don't get poor averaging of background
-                            dBVol = State%bvol(i:i+1,j:j+1)
-                            dBVol(:,1) = dBVol(:,1) - bVol_dip_corner(i:i+1)
-                            dBVol(:,2) = dBVol(:,2) - bVol_dip_corner(i:i+1)
-                            State%bvol_cc(i,j) = toCenter2D(dBVol) + bVol_dip_cc(i)
+                            
                         enddo
+
+                        dBVol = State%bvol(i:i+1,j:j+1)
+                        dBVol(:,1) = dBVol(:,1) - bVol_dip_corner(i:i+1)
+                        dBVol(:,2) = dBVol(:,2) - bVol_dip_corner(i:i+1)
+                        State%bvol_cc(i,j) = toCenter2D(dBVol) + bVol_dip_cc(i)
 
                         ! Do our own "wIMAG" calculation here so we ensure we use the fluid we want to (Bulk)
                         ! Calculate the fraction of Alfven speed to total velocity

@@ -171,8 +171,8 @@ module streamline
         if (ebTrc%OCb > 0) then
             !Get flux-tube integrals
             call FLThermo(Model,ebState%ebGr,bTrc,ebTrc%bD,ebTrc%bP,ebTrc%dvB)
-            !call FLStdev(Model, ebState%ebGr,bTrc,ebTrc%bD,ebTrc%bP,ebTrc%stdD,ebTrc%stdP)
-            call FLStdev(Model, ebState%ebGr,bTrc,ebTrc%stdD,ebTrc%stdP)
+            call FLStdev(Model, ebState%ebGr,bTrc,ebTrc%bD,ebTrc%bP,ebTrc%stdD,ebTrc%stdP)
+            !call FLStdev(Model, ebState%ebGr,bTrc,ebTrc%stdD,ebTrc%stdP)
             ebTrc%bS   = FLEntropy(Model,ebState%ebGr,bTrc)
 
             !Get magnetic equator info
@@ -276,7 +276,7 @@ module streamline
         integer , intent(in ), optional :: sOpt 
 
         integer :: k,s0
-        real(rp) :: bMag,dl,eP,eD,ePb !Edge-centered values
+        real(rp) :: dvB_active,bMag,dl,eP,eD,ePb !Edge-centered values
         real(rp) :: bPb,bBeta
 
         !Zero out accumulators
@@ -285,6 +285,7 @@ module streamline
         dvB = 0.0
         bPb = 0.0
         bBeta = 0.0
+        dvB_active = 0.0
         
         if (.not. bTrc%isGood) return
 
@@ -313,20 +314,26 @@ module streamline
             ePb = 1.0e+14*(bMag*oBScl*1.0e-9/0.501)**2.0 !Edge mag pressure in nPa
 
             !Now accumulate into flux-tube integrals
-            dvB = dvB +     dl/bMag
-            bD  = bD  +  eD*dl/bMag
-            bP  = bP  +  eP*dl/bMag
-            bPb = bPb + ePb*dl/bMag
-            bBeta = bBeta + (eP/ePb)*dl/bMag
+            ! Always accumulate total flux tube volume
+            dvB = dvB + dl/bMag
+            ! Only accumulate other quantities if in active domain, se we have more sensible flux tube averages
+            if (bTrc%ijk(k,XDIR) > ebGr%is+4 .and. bTrc%ijk(k+1,XDIR) > ebGr%is+4) then
+                bD  = bD  +  eD*dl/bMag
+                bP  = bP  +  eP*dl/bMag
+                bPb = bPb + ePb*dl/bMag
+                bBeta = bBeta + (eP/ePb)*dl/bMag
+                dvB_active = dvB_active + dl/bMag
+            endif
         enddo
 
+        dvB_active = max(dvB_active, TINY)  ! Max just do prevent nans for lines that were completely under the gap+padding
         !Now turn flux-tube integrals of quantities into flux-tube averages
-        bD  = bD/dvB
-        bP  = bP/dvB
-        bPb = bPb/dvB
+        bD  = bD /dvB_active  
+        bP  = bP /dvB_active
+        bPb = bPb/dvB_active
 
         !bBeta = bP/bPb
-        bBeta = bBeta/dvB
+        bBeta = bBeta/dvB_active
 
 
         if (present(bBetaO)) then
@@ -337,13 +344,13 @@ module streamline
     end subroutine FLThermo
 
 
-    !subroutine FLStdev(Model, ebGr, bTrc, bD, bP, stdD, stdP, sOpt)
-    subroutine FLStdev(Model, ebGr, bTrc, stdD, stdP, sOpt)
+    subroutine FLStdev(Model, ebGr, bTrc, bD, bP, stdD, stdP, sOpt)
+    !subroutine FLStdev(Model, ebGr, bTrc, stdD, stdP, sOpt)
         !! Computes volume-weighted standard deviation of thermo quantities
         type(chmpModel_T), intent(in) :: Model
         type(ebGrid_T)   , intent(in) :: ebGr
         type(magLine_T  ), intent(in) :: bTrc
-        !real(rp), intent(in)  :: bD, bP
+        real(rp), intent(in)  :: bD, bP
         !    !! Field line averages calculated from FLThermo
         real(rp), intent(out) :: stdD, stdP
             !! Standard deviation of pressure and density we calculate and return
@@ -351,14 +358,11 @@ module streamline
             !! Which fluid to use
 
         integer :: k,s0
-        real(rp) :: bD, bP
         real(rp) :: bMag,dl,eP,eD !Edge-centered values
         real(rp) :: dvB
         real(rp), dimension(NDIM) :: xyzTmp
 
         !Zero out accumulators
-        bD = 0.0
-        bP = 0.0
         stdP = 0.0
         stdD = 0.0
         dvB = 0.0
@@ -374,58 +378,28 @@ module streamline
 
         associate(Np=>bTrc%Np,Nm=>bTrc%Nm)
 
-        ! Calculate our own averages based on our rules
-        do k=-Nm,Np-1
-
-            xyzTmp(1) = norm2(bTrc%xyz(k+1,:)) - 0.5  ! Small 0.5 Re buffer
-            if (inGap(xyzTmp, Model, ebGr)) then
-                cycle
-            endif
-            xyzTmp(1) = norm2(bTrc%xyz(1,:)) - 0.5  ! Small 0.5 Re buffer
-            if (inGap(xyzTmp, Model, ebGr)) then
-                cycle
-            endif
-
-            !Get edge-centered quantities
-            dl = norm2(bTrc%xyz(k+1,:) - bTrc%xyz(k,:)) !Edge length
-            eD   = 0.5*( bTrc%Gas(k+1,DEN     ,s0) + bTrc%Gas(k,DEN     ,s0) )
-            eP   = 0.5*( bTrc%Gas(k+1,PRESSURE,s0) + bTrc%Gas(k,PRESSURE,s0) )
-            bMag = 0.5* (bTrc%magB(k+1) + bTrc%magB(k))
-
-            !Now accumulate into flux-tube integrals
-            dvB = dvB +     dl/bMag
-            bD  = bD  +  eD*dl/bMag
-            bP  = bP  +  eP*dl/bMag
-        enddo
-        !Now turn flux-tube integrals of quantities into flux-tube averages
-        bD  = bD/dvB
-        bP  = bP/dvB
 
         ! Now to stdev
         !Loop over edges
         do k=-Nm,Np-1
-            xyzTmp(1) = norm2(bTrc%xyz(k+1,:)) - 0.5  ! Small 0.5 Re buffer
-            if (inGap(xyzTmp, Model, ebGr)) then
-                cycle
-            endif
-            xyzTmp(1) = norm2(bTrc%xyz(1,:)) - 0.5  ! Small 0.5 Re buffer
-            if (inGap(xyzTmp, Model, ebGr)) then
+            if ( (bTrc%ijk(k,XDIR) .le. ebGr%is+4) .or. (bTrc%ijk(k+1,XDIR) .le. ebGr%is+4) ) then
                 cycle
             endif
             !Get edge-centered quantities
             dl = norm2(bTrc%xyz(k+1,:) - bTrc%xyz(k,:)) !Edge length
 
-            eD   = 0.5*( bTrc%Gas(k+1,DEN     ,s0) + bTrc%Gas(k,DEN     ,s0) )
-            eP   = 0.5*( bTrc%Gas(k+1,PRESSURE,s0) + bTrc%Gas(k,PRESSURE,s0) )
-
+            eD = 0.5*( bTrc%Gas(k+1,DEN     ,s0) + bTrc%Gas(k,DEN     ,s0) )
+            eP = 0.5*( bTrc%Gas(k+1,PRESSURE,s0) + bTrc%Gas(k,PRESSURE,s0) )
             bMag = 0.5* (bTrc%magB(k+1) + bTrc%magB(k))
 
+            dvB = dvB + dl/bMag
             ! Perform volume-weighted summations
             stdP = stdP + (eP - bP)**2 * dl/bMag
             stdD = stdD + (eD - bD)**2 * dl/bMag
             ! Keep track of flux tube volume to normalize by later
         enddo
 
+        dvB = max(dvB, TINY)
         ! Turn summations into standard deviations
         stdP = sqrt(stdP / dvB)
         stdD = sqrt(stdD / dvB)
@@ -434,6 +408,7 @@ module streamline
 
     end subroutine FLStdev
     
+
     !Flux tube entropy (from BLK)
     function FLEntropy(Model,ebGr,bTrc,GamO) result(S)
         type(chmpModel_T), intent(in) :: Model

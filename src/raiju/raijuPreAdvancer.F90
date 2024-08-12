@@ -816,24 +816,24 @@ module raijuPreAdvancer
 
 
         ! Hax
-        !$OMP PARALLEL DO default(shared) &
-        !$OMP schedule(dynamic) &
-        !$OMP private(i,j)
-        do j = Grid%shGrid%js,Grid%shGrid%je+1
-            do i = Grid%shGrid%is,Grid%shGrid%ie+1
-                if (State%active(i,j) .ne. RAIJUACTIVE) then
-                    cycle
-                endif
-                if (State%active(i-1,j) .eq. RAIJUBUFFER) then
-                    iVelL(i,j,RAI_TH) = 0.0
-                    iVelR(i,j,RAI_TH) = 0.0
-                endif
-                if (State%active(i,j-1) .eq. RAIJUBUFFER) then
-                    iVelL(i,j,RAI_PH) = 0.0
-                    iVelR(i,j,RAI_PH) = 0.0
-                endif
-            enddo
-        enddo
+        !!$OMP PARALLEL DO default(shared) &
+        !!$OMP schedule(dynamic) &
+        !!$OMP private(i,j)
+        !do j = Grid%shGrid%js,Grid%shGrid%je+1
+        !    do i = Grid%shGrid%is,Grid%shGrid%ie+1
+        !        if (State%active(i,j) .ne. RAIJUACTIVE) then
+        !            cycle
+        !        endif
+        !        if (State%active(i-1,j) .eq. RAIJUBUFFER) then
+        !            iVelL(i,j,RAI_TH) = 0.0
+        !            iVelR(i,j,RAI_TH) = 0.0
+        !        endif
+        !        if (State%active(i,j-1) .eq. RAIJUBUFFER) then
+        !            iVelL(i,j,RAI_PH) = 0.0
+        !            iVelR(i,j,RAI_PH) = 0.0
+        !        endif
+        !    enddo
+        !enddo
     end subroutine reconVelocityLRs
 
 !------

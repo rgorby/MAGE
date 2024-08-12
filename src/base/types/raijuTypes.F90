@@ -331,6 +331,10 @@ module raijutypes
             !! (Ngi, Ngj, Ns) [nPa] Average pressure along flux tube
         real(rp), dimension(:,:,:), allocatable :: Davg
             !! (Ngi, Ngj, Ns) [#/cc] Average density along flux tube
+        real(rp), dimension(:,:,:), allocatable :: Pstd
+            !! (Ngi, Ngj, Ns) Normalized standard deviation of the species pressure along the field line
+        real(rp), dimension(:,:,:), allocatable :: Dstd
+            !! (Ngi, Ngj, Ns) Normalized standard deviation of the species density along the field line
         real(rp), dimension(:,:,:), allocatable :: Bmin
             !! (Ngi+1, Ngj+1, NDIM) [nT] Bmin vector
         real(rp), dimension(:,:,:), allocatable :: xyzMin
