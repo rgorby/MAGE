@@ -2,7 +2,7 @@
 <!-- Gamera Magnetosphere -->
 <Kaiju>
   <voltron>
-    <time tFin="20.0"/>
+    <time tFin="21.0"/>
     <spinup doSpin="T" tSpin="20.0" tIO="0.0"/>
     <coupling dtCouple="5.0" rTrc="40.0" imType="RCM" doQkSquish="F" doDynDT="F" doAsyncCoupling="T"/>
     <restart dtRes="1800.0"/>
