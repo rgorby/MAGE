@@ -370,10 +370,15 @@ module raijuDomain
                 crosses(2,:) = cross(v3, v2)
                 crosses(3,:) = cross(v4, v3)
                 crosses(4,:) = cross(v1, v4)
+                crosses(1,:) = crosses(1,:)/max(norm2(crosses(1,:)), TINY)
+                crosses(2,:) = crosses(2,:)/max(norm2(crosses(2,:)), TINY)
+                crosses(3,:) = crosses(3,:)/max(norm2(crosses(3,:)), TINY)
+                crosses(4,:) = crosses(4,:)/max(norm2(crosses(4,:)), TINY)
 
                 ! Calculate min
                 do u=1,3
                     do v=u+1,4
+                        ! We are doing dot product, so 1 = zero angle and -1 means 180 deg angle
                         normAngle(i,j) = min(normAngle(i,j), dot_product(crosses(u,:), crosses(v,:)))
                     enddo
                 enddo
