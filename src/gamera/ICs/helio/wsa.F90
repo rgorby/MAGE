@@ -468,8 +468,8 @@ module usergamic
     !> Writing Modified Julian Date at the center of WSA map to the root of h5 file
     !> MJDc is required to set the GAMERA Helio coordinate system
     subroutine writeMJDcH5Root(Model,Grid,IOVars)
-        type(Model_T), intent(in)    :: Model
-        type(Grid_T) , intent(in)    :: Grid
+        class(Model_T), intent(in)    :: Model
+        class(Grid_T) , intent(in)    :: Grid
         type(IOVAR_T), dimension(:), intent(inout) :: IOVars
 
         call AddOutVar(IOVars,"MJDc", MJD_c)

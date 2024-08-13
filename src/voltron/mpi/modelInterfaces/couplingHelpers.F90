@@ -25,12 +25,12 @@ module couplingHelpers
             if(currentApp == appId) then
                 ! it's my turn, split with volt and then skip making the second comm
                 call MPI_comm_split(currentPool, appId, key, voltCoupledComm, ierr)
-		! key is never used when making the exclusion pool, 0 is used to preserve order
+                ! key is never used when making the exclusion pool, 0 is used to preserve order
                 call MPI_comm_split(currentPool, MPI_UNDEFINED, 0, currentPool, ierr)
             else
                 ! it's not my turn, don't split with volt, and then join the second comm
                 call MPI_comm_split(currentPool, MPI_UNDEFINED, key, voltCoupledComm, ierr)
-		! key is never used when making the exclusion pool, 0 is used to preserve order
+                ! key is never used when making the exclusion pool, 0 is used to preserve order
                 call MPI_comm_split(currentPool, voltId, 0, currentPool, ierr)
             endif
         enddo
@@ -44,16 +44,17 @@ module couplingHelpers
         integer, intent(in) :: appId, key
         type(MPI_Comm), intent(inout) :: coupledComm
 
-        integer :: ierr, myRank
+        integer :: ierr, myRank, appIdCpy
+        appIdCpy = appId ! mpi_bcast doesn't interact well with intent(in)
 
         ! tell everyone I'm the broadcasting root
         ! broadcast which app I'm creating a communicator with, split with it, and then
         ! create a smaller pool that excludes that app
         call MPI_comm_rank(couplingPool, myRank, ierr)
         call MPI_Allreduce(MPI_IN_PLACE, myRank, 1, MPI_INTEGER, MPI_MAX, couplingPool, ierr)
-        call MPI_Bcast(appId, 1, MPI_INTEGER, myRank, couplingPool, ierr)
-        call MPI_comm_split(couplingPool, appId, key, coupledComm, ierr)
-	! key is never used when making the exclusion pool, 0 is used to preserve order
+        call MPI_Bcast(appIdCpy, 1, MPI_INTEGER, myRank, couplingPool, ierr)
+        call MPI_comm_split(couplingPool, appIdCpy, key, coupledComm, ierr)
+        ! key is never used when making the exclusion pool, 0 is used to preserve order
         call MPI_comm_split(couplingPool, voltId, 0, couplingPool, ierr)
 
     end subroutine
