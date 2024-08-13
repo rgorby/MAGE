@@ -236,8 +236,12 @@ module raijustarter
 
 
         ! Domain determination
-        call iXML%Set_Val(Model%vaFracThresh, "cpl/vaFracThresh", def_vaFracThresh)
-        call iXML%Set_Val(Model%bminThresh, "cpl/bminThresh", def_bminThresh)
+        call iXML%Set_Val(Model%vaFracThresh , "cpl/vaFracThresh" , def_vaFracThresh)
+        call iXML%Set_Val(Model%bminThresh   , "cpl/bminThresh"   , def_bminThresh)
+        call iXML%Set_Val(Model%PstdThresh   , "cpl/Pstd"         , def_PstdThresh)
+        call iXML%Set_Val(Model%normAngThresh, "cpl/normAngThresh", def_normAngle)
+        ! Convert degrees to dot product value
+        Model%normAngThresh = cos(Model%normAngThresh*PI/180.0)
 
         ! Fluid mapping
         call iXML%Set_Val(nFluids, "cpl/nFluidsIn",0)
@@ -378,6 +382,8 @@ module raijustarter
             allocate( State%bvol   (sh%isg:sh%ieg+1, sh%jsg:sh%jeg+1) )
             allocate( State%bvol_cc(sh%isg:sh%ieg  , sh%jsg:sh%jeg  ) )
             allocate( State%vaFrac(sh%isg:sh%ieg+1, sh%jsg:sh%jeg+1) )
+            ! 1D cell-centered quantities
+            allocate( State%bndLoc(sh%jsg:sh%jeg) )
             ! 2D cell-centered quantities
             allocate( State%active      (sh%isg:sh%ieg, sh%jsg:sh%jeg) )
             allocate( State%active_last (sh%isg:sh%ieg, sh%jsg:sh%jeg) )
