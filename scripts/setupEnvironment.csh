@@ -9,14 +9,11 @@
  
 set rootdir = `dirname $0`
 set SCRIPT_DIR = `cd $rootdir && pwd`
-echo "SCRIPT_DIR=$SCRIPT_DIR"
- 
  
 # strip off the "/scripts" folder to get to the root of the repository
 set ROOT_DIR = `cd $rootdir/.. && pwd`
-echo "ROOT_DIR=$ROOT_DIR"
   
 setenv KAIJUHOME $ROOT_DIR
   
-setenv PATH ${PATH}:${KAIJUHOME}/scripts:${KAIJUHOME}/scripts/preproc:$KAIJUHOME/scripts/makeitso:$KAIJUHOME/scripts/makeitso-gamhelio
+setenv PATH ${PATH}:${KAIJUHOME}/scripts:${KAIJUHOME}/scripts/preproc:${KAIJUHOME}/scripts/makeitso:${KAIJUHOME}/scripts/makeitso-gamhelio
  
