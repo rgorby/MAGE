@@ -36,30 +36,30 @@ module mhd2mix_interface
         
         ! allocate remix arrays (adding allocation checks as some of these are now coming from restart file)
         if (.not. allocated(mhd2Mix%gJ)) then
-            allocate(mhd2Mix%gJ   (1:mhd2Mix%JShells, gameraApp%Grid%js:gameraApp%Grid%je, gameraApp%Grid%ks:GameraApp%Grid%ke, 1:NDIM))
+            allocate(mhd2Mix%gJ   (1:JpSh, gameraApp%Grid%js:gameraApp%Grid%je, gameraApp%Grid%ks:GameraApp%Grid%ke, 1:NDIM))
         endif
         
         if (.not. allocated(mhd2Mix%gBAvg)) then
-            allocate(mhd2Mix%gBAvg(1:mhd2Mix%JShells, gameraApp%Grid%js:gameraApp%Grid%je, gameraApp%Grid%ks:GameraApp%Grid%ke, 1:NDIM))
+            allocate(mhd2Mix%gBAvg(1:JpSh, gameraApp%Grid%js:gameraApp%Grid%je, gameraApp%Grid%ks:GameraApp%Grid%ke, 1:NDIM))
         endif
         
         if (.not. allocated(mhdJGrid)) then
-            allocate(mhdJGrid(1:mhd2Mix%JShells, gameraApp%Grid%js:gameraApp%Grid%je, gameraApp%Grid%ks:gameraApp%Grid%ke/2, 1:3, 1:2))
+            allocate(mhdJGrid(1:JpSh, gameraApp%Grid%js:gameraApp%Grid%je, gameraApp%Grid%ks:gameraApp%Grid%ke/2, 1:3, 1:2))
         endif
         
         if (.not. allocated(mhd2Mix%mixInput)) then
-            allocate(mhd2Mix%mixInput(1:mhd2Mix%JShells, gameraApp%Grid%js:gameraApp%Grid%je, gameraApp%Grid%ks:gameraApp%Grid%ke/2, 1:mhd2mix_varn, 1:2))
+            allocate(mhd2Mix%mixInput(1:JpSh, gameraApp%Grid%js:gameraApp%Grid%je, gameraApp%Grid%ks:gameraApp%Grid%ke/2, 1:mhd2mix_varn, 1:2))
         endif
         
         if (.not. allocated(mhd2Mix%JMaps)) then
-            allocate(mhd2Mix%JMaps(mhd2Mix%JShells,size(remixApp%ion)))
+            allocate(mhd2Mix%JMaps(JpSh,size(remixApp%ion)))
         endif
         
         ! get those grid coordinates (cell centers for Jp)
         do k=gameraApp%Grid%ks,gameraApp%Grid%ke
             do j=gameraApp%Grid%js,gameraApp%Grid%je
-                do i=1,mhd2mix%JShells
-                    iG = mhd2mix%JStart+i-1
+                do i=1,JpSh
+                    iG = JpSt+i-1
                     call cellCenter(gameraApp%Grid,iG,j,k,xc,yc,zc)
                     mhd2Mix%gBAvg(i,j,k,:) = gameraApp%Grid%B0(iG,j,k,:)
                     ! note conversion to Rion units which are expected on the remix
@@ -75,7 +75,7 @@ module mhd2mix_interface
 
         do h=1,size(remixApp%ion)
            ! set up interpolation map(s) for mhd2mix
-           do l=1,mhd2mix%JShells
+           do l=1,JpSh
                call mix_mhd_grid(mhdJGrid(l,:,:,:,h),mhdt,mhdp,mhdtFpd,mhdpFpd,mhd_Rin)
                call init_grid_fromTP(mhdGfpd,mhdtFpd,mhdpFpd,isSolverGrid=.false.,isPeriodic=.false.)
                call flip_grid(remixApp%ion(h)%G,remixApp%ion(h)%mixGfpd,mhd_Rin) ! storing flipped
@@ -97,7 +97,7 @@ module mhd2mix_interface
     subroutine convertGameraToRemix(mhd2mix, gameraApp, remixApp)
         type(mhd2Mix_T), intent(inout) :: mhd2mix
         type(mixApp_T), intent(inout) :: remixApp
-        type(gamApp_T), intent(in) :: gameraApp
+        class(gamApp_T), intent(in) :: gameraApp
 
         ! convert incoming gamera data to the "remixInputs" variable
         real(rp) ::  Bi2m
@@ -121,8 +121,8 @@ module mhd2mix_interface
         !$OMP private(i,iG,j,k,Bi2m,xc,yc,zc,Con,J11,B0,Cs)
         do k=gameraApp%Grid%ks,gameraApp%Grid%ke
             do j=gameraApp%Grid%js,gameraApp%Grid%je
-                do i=1,mhd2mix%JShells
-                    iG = mhd2mix%JStart+i-1
+                do i=1,JpSh
+                    iG = JpSt+i-1
 
                     !Get new bAvg
                     B0 = gameraApp%State%Bxyz(iG,j,k,:) + gameraApp%Grid%B0(iG,j,k,:)
@@ -184,7 +184,7 @@ module mhd2mix_interface
     do h=1,size(remixApp%ion)
        Nth = remixApp%ion(h)%G%Nt !Theta cells
        do v=1,size(mhd2mix%mixInput,4)
-          do l=1,mhd2mix%JShells ! here we loop over Jshells but always use the last one (F)
+          do l=1,JpSh ! here we loop over Jshells but always use the last one (F)
              ! note the transpose to conform to the MIX layout (phi,theta)
              call mix_map_grids(mhd2mix%JMaps(l,h),transpose(mhd2mix%mixInput(l,:,:,v,h)),F)
 

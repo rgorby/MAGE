@@ -70,9 +70,9 @@ module wind
 
     subroutine InitWind(bc,Model,Grid,State,xmlInp)
         class(WindBC_T), intent(inout) :: bc
-        type(Model_T), intent(inout) :: Model
-        type(Grid_T), intent(in) :: Grid
-        type(State_T), intent(in) :: State
+        class(Model_T), intent(inout) :: Model
+        class(Grid_T), intent(in) :: Grid
+        class(State_T), intent(in) :: State
         type(XML_Input_T), intent(in) :: xmlInp
 
         real(rp) :: tSpin
@@ -205,9 +205,9 @@ module wind
     !Do outer I BC for solar wind
     subroutine WindBC(bc,Model,Grid,State)
         class(WindBC_T), intent(inout) :: bc
-        type(Model_T), intent(in) :: Model
-        type(Grid_T), intent(in) :: Grid
-        type(State_T), intent(inout) :: State
+        class(Model_T), intent(in) :: Model
+        class(Grid_T), intent(in) :: Grid
+        class(State_T), intent(inout) :: State
 
         real(rp) :: t,D,P,wSW,wMHD,swFlx,inFlx,Cx
         integer :: i,j,k,n,ip,jp,kp,ig,jg,kg,s

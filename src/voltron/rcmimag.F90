@@ -24,7 +24,7 @@ module rcmimag
     
     implicit none
 
-    logical, private, parameter :: doFakeTube=.false. !Only for testing
+    logical, private :: doFakeTube=.false. !Only for testing
     integer, parameter, private :: MHDPad = 0 !Number of padding cells between RCM domain and MHD ingestion
     logical , private :: doTrickyTubes = .true.  !Whether to poison bad flux tubes
     real(rp), private :: imagScl = 1.5 !Safety factor for RCM=>ebsquish
@@ -113,6 +113,8 @@ module rcmimag
         call iXML%Set_Val(imagScl ,"imag/safeScl",imagScl)
         call iXML%Set_Val(bMin_C  ,"imag/bMin_C" ,bMin_C )
         call iXML%Set_Val(wImag_C ,"imag/wImag_C",wImag_C)
+
+        call iXML%Set_Val(doFakeTube, "imag/doFakeTube",.false.)
 
         if (isRestart) then
 

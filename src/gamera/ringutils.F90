@@ -302,11 +302,9 @@ module ringutils
                         Gr%dj(ig,jg,kg) = Gr%dj(ip,jp,kp)
                         Gr%dk(ig,jg,kg) = Gr%dk(ip,jp,kp)
                         
-                        if (.not. Gr%lowMem) then
-                            Gr%Tf(ig,jg,kg,NORMX:NORMZ,IDIR) = -Gr%Tf(ip+1,jp,kp,NORMX:NORMZ,IDIR)
-                            Gr%Tf(ig,jg,kg,NORMX:NORMZ,JDIR) = -Gr%Tf(ip  ,jp,kp,NORMX:NORMZ,JDIR)
-                            Gr%Tf(ig,jg,kg,NORMX:NORMZ,KDIR) =  Gr%Tf(ip  ,jp,kp,NORMX:NORMZ,KDIR)
-                        endif
+                        Gr%Tf(ig,jg,kg,NORMX:NORMZ,IDIR) = -Gr%Tf(ip+1,jp,kp,NORMX:NORMZ,IDIR)
+                        Gr%Tf(ig,jg,kg,NORMX:NORMZ,JDIR) = -Gr%Tf(ip  ,jp,kp,NORMX:NORMZ,JDIR)
+                        Gr%Tf(ig,jg,kg,NORMX:NORMZ,KDIR) =  Gr%Tf(ip  ,jp,kp,NORMX:NORMZ,KDIR)
 
                         ! Gr%face(ig,jg,kg,IDIR) = Gr%face(ip+1,jp,kp,IDIR)
                         ! Gr%face(ig,jg,kg,JDIR) = Gr%face(ip  ,jp,kp,JDIR)
@@ -338,16 +336,16 @@ module ringutils
                             !Do faces
                             !I face (+ signature)
                             call lfmIJKfc(Model,Gr,IDIR,ig,jg,kg,ip,jp,kp)
-                            if (.not. Gr%lowMem) Gr%Tf  (ig,jg,kg,NORMX:NORMZ,IDIR) = Gr%Tf  (ip,jp,kp,NORMX:NORMZ,IDIR)
+                            Gr%Tf  (ig,jg,kg,NORMX:NORMZ,IDIR) = Gr%Tf  (ip,jp,kp,NORMX:NORMZ,IDIR)
                             Gr%face(ig,jg,kg,            IDIR) = Gr%face(ip,jp,kp,            IDIR)
                             !J face (- signature)
                             call lfmIJKfc(Model,Gr,JDIR,ig,jg,kg,ip,jp,kp)
-                            if (.not. Gr%lowMem) Gr%Tf  (ig,jg,kg,NORMX:NORMZ,JDIR) = -Gr%Tf  (ip,jp,kp,NORMX:NORMZ,JDIR)
+                            Gr%Tf  (ig,jg,kg,NORMX:NORMZ,JDIR) = -Gr%Tf  (ip,jp,kp,NORMX:NORMZ,JDIR)
                             Gr%face(ig,jg,kg,            JDIR) =  Gr%face(ip,jp,kp,            JDIR)
 
                             !K face (- signature)
                             call lfmIJKfc(Model,Gr,KDIR,ig,jg,kg,ip,jp,kp)
-                            if (.not. Gr%lowMem) Gr%Tf  (ig,jg,kg,NORMX:NORMZ,KDIR) = -Gr%Tf  (ip,jp,kp,NORMX:NORMZ,KDIR)
+                            Gr%Tf  (ig,jg,kg,NORMX:NORMZ,KDIR) = -Gr%Tf  (ip,jp,kp,NORMX:NORMZ,KDIR)
                             Gr%face(ig,jg,kg,            KDIR) =  Gr%face(ip,jp,kp,            KDIR)
 
                         endif !doS
@@ -369,17 +367,17 @@ module ringutils
                             !Do faces
                             !I face (+ signature)
                             call lfmIJKfc(Model,Gr,IDIR,ig,jg,kg,ip,jp,kp)
-                            if (.not. Gr%lowMem) Gr%Tf  (ig,jg,kg,NORMX:NORMZ,IDIR) = Gr%Tf  (ip,jp,kp,NORMX:NORMZ,IDIR)
+                            Gr%Tf  (ig,jg,kg,NORMX:NORMZ,IDIR) = Gr%Tf  (ip,jp,kp,NORMX:NORMZ,IDIR)
                             Gr%face(ig,jg,kg,            IDIR) = Gr%face(ip,jp,kp,            IDIR)
 
                             !J face (- signature), first active is je+1+1
                             call lfmIJKfc(Model,Gr,JDIR,ig,jg+1,kg,ip,jp,kp)
-                            if (.not. Gr%lowMem) Gr%Tf  (ig,jg+1,kg,NORMX:NORMZ,JDIR) = -Gr%Tf  (ip,jp,kp,NORMX:NORMZ,JDIR)
+                            Gr%Tf  (ig,jg+1,kg,NORMX:NORMZ,JDIR) = -Gr%Tf  (ip,jp,kp,NORMX:NORMZ,JDIR)
                             Gr%face(ig,jg+1,kg,            JDIR) =  Gr%face(ip,jp,kp,            JDIR)
 
                             !K face (- signature)
                             call lfmIJKfc(Model,Gr,KDIR,ig,jg,kg,ip,jp,kp)
-                            if (.not. Gr%lowMem) Gr%Tf  (ig,jg,kg,NORMX:NORMZ,KDIR) = -Gr%Tf  (ip,jp,kp,NORMX:NORMZ,KDIR)
+                            Gr%Tf  (ig,jg,kg,NORMX:NORMZ,KDIR) = -Gr%Tf  (ip,jp,kp,NORMX:NORMZ,KDIR)
                             Gr%face(ig,jg,kg,            KDIR) =  Gr%face(ip,jp,kp,            KDIR)
                         endif !doE
 

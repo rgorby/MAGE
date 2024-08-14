@@ -99,6 +99,21 @@ VOLTRON_OUTPUT_FILE_DEVELOPMENT = os.path.join(
     REFERENCE_RESULTS_DIRECTORY_DEVELOPMENT, VOLTRON_OUTPUT_FILE
 )
 
+# Name of remix output file.
+REMIX_OUTPUT_FILE = 'msphere.mix.h5'
+
+# Compute the path to the remix output file for the master branch reference
+# results.
+REMIX_OUTPUT_FILE_MASTER = os.path.join(
+    REFERENCE_RESULTS_DIRECTORY_MASTER, REMIX_OUTPUT_FILE
+)
+
+# Compute the path to the remix output file for the development branch
+# reference results.
+REMIX_OUTPUT_FILE_DEVELOPMENT = os.path.join(
+    REFERENCE_RESULTS_DIRECTORY_DEVELOPMENT, REMIX_OUTPUT_FILE
+)
+
 # Compute the paths to the quicklook plots for the master branch.
 MAGNETOSPHERE_QUICKLOOK_MASTER = os.path.join(
     REFERENCE_RESULTS_DIRECTORY_MASTER, 'qkmsphpic.png'
@@ -768,13 +783,13 @@ def main():
     # results.
     if verbose:
         print('Reading reference CPCP (north and south) for master branch '
-              f"from {VOLTRON_OUTPUT_FILE_MASTER}.")
+              f"from {REMIX_OUTPUT_FILE_MASTER}.")
 
     # Read the CPCP values from the voltron output file.
-    CPCP_north_master = kh5.getTs(VOLTRON_OUTPUT_FILE_MASTER, step_IDs_master,
-                                  'cpcpN')
-    CPCP_south_master = kh5.getTs(VOLTRON_OUTPUT_FILE_MASTER, step_IDs_master,
-                                  'cpcpS')
+    CPCP_north_master = kh5.getTs(REMIX_OUTPUT_FILE_MASTER, step_IDs_master,
+                                  'nCPCP')
+    CPCP_south_master = kh5.getTs(REMIX_OUTPUT_FILE_MASTER, step_IDs_master,
+                                  'sCPCP')
     if debug:
         print(f"CPCP_north_master = {CPCP_north_master}")
         print(f"CPCP_south_master = {CPCP_south_master}")
@@ -785,13 +800,13 @@ def main():
     # results.
     if verbose:
         print('Reading reference CPCP (north and south) for development '
-              f"branch from {VOLTRON_OUTPUT_FILE_DEVELOPMENT}.")
+              f"branch from {REMIX_OUTPUT_FILE_DEVELOPMENT}.")
 
     # Read the CPCP values from the voltron output file.
-    CPCP_north_development = kh5.getTs(VOLTRON_OUTPUT_FILE_DEVELOPMENT,
-                                       step_IDs_development, 'cpcpN')
-    CPCP_south_development = kh5.getTs(VOLTRON_OUTPUT_FILE_DEVELOPMENT,
-                                       step_IDs_development, 'cpcpS')
+    CPCP_north_development = kh5.getTs(REMIX_OUTPUT_FILE_DEVELOPMENT,
+                                       step_IDs_development, 'nCPCP')
+    CPCP_south_development = kh5.getTs(remix_OUTPUT_FILE_DEVELOPMENT,
+                                       step_IDs_development, 'sCPCP')
     if debug:
         print(f"CPCP_north_development = {CPCP_north_development}")
         print(f"CPCP_south_development = {CPCP_south_development}")
@@ -801,13 +816,13 @@ def main():
     # Read CPCP (north and south) data from the latest run.
     if verbose:
         print('Reading CPCP (north and south) for latest run'
-              f" from {VOLTRON_OUTPUT_FILE}.")
+              f" from {REMIX_OUTPUT_FILE}.")
 
     # Read the CPCP values from the voltron output file.
-    CPCP_north_latest = kh5.getTs(VOLTRON_OUTPUT_FILE,
-                                  step_IDs_latest, 'cpcpN')
-    CPCP_south_latest = kh5.getTs(VOLTRON_OUTPUT_FILE,
-                                  step_IDs_latest, 'cpcpS')
+    CPCP_north_latest = kh5.getTs(REMIX_OUTPUT_FILE,
+                                  step_IDs_latest, 'nCPCP')
+    CPCP_south_latest = kh5.getTs(REMIX_OUTPUT_FILE,
+                                  step_IDs_latest, 'sCPCP')
     if debug:
         print(f"CPCP_north_latest = {CPCP_north_latest}")
         print(f"CPCP_south_latest = {CPCP_south_latest}")
