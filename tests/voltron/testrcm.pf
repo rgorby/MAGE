@@ -1,0 +1,52 @@
+module testrcm
+    use testHelper
+    use voltapp
+    use gamapp
+    use uservoltic
+
+    implicit none
+
+contains
+
+@before
+  subroutine firstSerial()
+  end subroutine firstSerial
+
+  @after
+  subroutine lastSerial()
+  end subroutine lastSerial
+
+  @test
+  subroutine testRcmFakeTubes()
+    ! testing that rcm produces expected output when debug tubes is enabled
+    type(voltApp_T) :: voltronApp
+
+    character(len=strLen) :: caseInput = 'cmriD.xml'
+    real(rp) testValue
+    type(XML_Input_T) :: xmlInp
+
+    voltronApp%vOptions%gamUserInitFunc => initUser
+    call initVoltron(voltronApp, caseInput)
+
+    ! enable debug tubes for testing
+    select type(rcmApp=>voltronApp%imagApp)
+        type is (rcmIMAG_T)
+            rcmApp%doFakeTube = .true.
+        class default
+            @assertTrue(.false., 'IMAG type must be RCM for the RCM test')
+    end select
+
+    ! advance to T=0seconds and perform an rcm update
+    voltronApp%time = 0
+    call DoImag(voltronApp)
+
+    select type(rcmApp=>voltronApp%imagApp)
+        type is (rcmIMAG_T)
+            @assertEqual(SUM(rcmApp%rcmCpl%latc),-59211.16753853473_rp,1e-7_rp,'RCM Fake Tubes Latitude value is wrong. Check RCM Processing and Output.')
+            @assertEqual(SUM(rcmApp%rcmCpl%Lonc),203009.7172749693_rp,1e-6_rp,'RCM Fake Tubes Longitude value is wrong. Check RCM Processing and Output.')
+    end select
+
+  end subroutine
+
+end module testrcm
+
