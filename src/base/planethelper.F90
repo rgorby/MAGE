@@ -215,15 +215,21 @@ module planethelper
 
     !Turn density [#/cc] and pressure [nPa] to sound speed [km/s]
     !Assuming protons/gamma=5/3
-    function DP2Cs(D,P) result(Cs)
+    function DP2Cs(D,P,GamO) result(Cs)
         real(rp), intent(in) :: D,P
+        real(rp), intent(in), optional :: GamO
         real(rp) :: Cs
         real(rp) :: TiEV
         
+        if (present(GamO)) then
+            Gam = GamO
+        else
+            Gam = 5.0/3
+        endif
         !From NRL plasma formulary,
         !CsMKS = 9.79 x sqrt(5/3 * Ti) km/s, Ti eV
         TiEV = (1.0e+3)*DP2kT(D,P) !Temp in eV
-        Cs = 9.79*sqrt( (5.0/3)*TieV )
+        Cs = 9.79*sqrt( Gam*TieV )
     end function DP2Cs
     
 ! Helpful dipole and FTV functions

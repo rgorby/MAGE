@@ -308,7 +308,7 @@ module gioH5
 
         dVacFloors(BLK) = 0.0
         if (Model%doMultiF) then
-            dVacFloors(1:Model%nSpc) = Spcs(:)%dVac
+            dVacFloors(1:Model%nSpc) = Spcs(:)%dVac+TINY !For zeroing out mass output in degenerate fluids
         endif
 
         do s=0,Model%nSpc

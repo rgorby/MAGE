@@ -18,7 +18,7 @@ module stress
     !Signs for left/right going fluxes @ interfaces
     integer, parameter, dimension(2), private :: SgnLR=[-1,1]
     logical, parameter, private :: doNuke = .true. !Do nuclear option
-    logical, parameter, private :: doHogsMF = .true. !Whether to MF-scale hogs term
+    logical, parameter, private :: doHogsMF = .false. !Whether to MF-scale hogs term
 
     !cLim: Vile magic number, when to apply nuclear option (v>cLim*Ca)
     !LFM uses 1.5
