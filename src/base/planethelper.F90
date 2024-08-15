@@ -219,7 +219,7 @@ module planethelper
         real(rp), intent(in) :: D,P
         real(rp), intent(in), optional :: GamO
         real(rp) :: Cs
-        real(rp) :: TiEV
+        real(rp) :: TiEV,Gam
         
         if (present(GamO)) then
             Gam = GamO
