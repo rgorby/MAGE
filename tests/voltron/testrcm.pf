@@ -24,6 +24,8 @@ contains
     character(len=strLen) :: caseInput = 'cmriD.xml'
     real(rp) testValue
     type(XML_Input_T) :: xmlInp
+    integer :: i,j
+    character(len=strLen) :: checkMessage
 
     voltronApp%vOptions%gamUserInitFunc => initUser
     call initVoltron(voltronApp, caseInput)
@@ -42,8 +44,14 @@ contains
 
     select type(rcmApp=>voltronApp%imagApp)
         type is (rcmIMAG_T)
-            @assertEqual(SUM(rcmApp%rcmCpl%latc),-59211.16753853473_rp,1e-7_rp,'RCM Fake Tubes Latitude value is wrong. Check RCM Processing and Output.')
-            @assertEqual(SUM(rcmApp%rcmCpl%Lonc),203009.7172749693_rp,1e-6_rp,'RCM Fake Tubes Longitude value is wrong. Check RCM Processing and Output.')
+            do j=1,rcmApp%rcmCpl%nLon_ion
+                do i=1,rcmApp%rcmCpl%nLat_ion
+                    write (checkMessage,'(A,I0,A,I0,A)'), 'RCM Fake Tubes Latitude is wrong at (', i, ', ', j, '). Check RCM Processing and Output.'
+                    @assertEqual(rcmApp%rcmCpl%latc(i,j),-(PI/2.0_rp - rcmApp%rcmCpl%gcolat(i)),1e-17_rp,trim(checkMessage))
+                    write (checkMessage,'(A,I0,A,I0,A)'), 'RCM Fake Tubes Longitude is wrong at (', i, ', ', j, '). Check RCM Processing and Output.'
+                    @assertEqual(rcmApp%rcmCpl%lonc(i,j),rcmapp%rcmCpl%glong(j),1e-17_rp,trim(checkMessage))
+                enddo
+            enddo
     end select
 
   end subroutine
