@@ -308,11 +308,6 @@ def main():
 
     # ------------------------------------------------------------------------
 
-    # <HACK>
-    # For -s testing
-    test_passed[-1][-1] = False
-    # </HACK>
-
     # Detail the test results
     test_report_details_string = ''
     test_report_details_string += (
