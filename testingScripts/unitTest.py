@@ -144,6 +144,9 @@ RUN_NON_CASE_TESTS_1_PBS_SCRIPT = 'runNonCaseTests1.pbs'
 RUN_NON_CASE_TESTS_2_PBS_SCRIPT = 'runNonCaseTests2.pbs'
 UNIT_TEST_REPORT_PBS_SCRIPT = 'unitTestReport.pbs'
 
+# Branch or commit (or tag) used for testing.
+BRANCH_OR_COMMIT = os.environ['BRANCH_OR_COMMIT']
+
 # Name of file to hold job list.
 JOB_LIST_FILE = 'jobs.txt'
 
@@ -388,6 +391,7 @@ def main():
         pbs_options['job_priority'] = os.environ['DERECHO_TESTING_PRIORITY']
         pbs_options['modules'] = module_names
         pbs_options['kaijuhome'] = KAIJUHOME
+        pbs_options['branch_or_commit'] = BRANCH_OR_COMMIT
 
         # Go to the bin directory for testing.
         os.chdir(BUILD_BIN_DIR)
@@ -612,7 +616,7 @@ def main():
     # Detail the test results
     test_report_details_string = ''
     test_report_details_string += (
-        f"Test results are in `{UNIT_TEST_DIRECTORY}`.\n"
+        f"Test results are on `derecho` in `{UNIT_TEST_DIRECTORY}`.\n"
     )
     for (i_module_set, module_list_file) in enumerate(module_list_files):
         if not submit_ok[i_module_set]:
@@ -647,14 +651,13 @@ def main():
         )
 
     # Summarize the test results
+    test_report_summary_string = (
+        f"Unit test submission for `{os.environ['BRANCH_OR_COMMIT']}`: "
+    )
     if 'FAILED' in test_report_details_string:
-        test_report_summary_string = (
-            'Fortran unit test submission: *FAILED*'
-        )
+        test_report_summary_string += '*FAILED*'
     else:
-        test_report_summary_string = (
-            'Fortran unit test submission: *PASSED*'
-        )
+        test_report_summary_string += '*PASSED*'
 
     # Print the test results summary and details.
     print(test_report_summary_string)

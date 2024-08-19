@@ -415,9 +415,9 @@ def main():
 
     # Summarize the test results.
     if 'FAILED' in test_report_details_string:
-        test_report_summary_string = 'Weekly dash submission: *FAILED*\n'
+        test_report_summary_string = 'Weekly dash submission: *FAILED*'
     else:
-        test_report_summary_string = 'Weekly dash submission: *PASSED*\n'
+        test_report_summary_string = 'Weekly dash submission: *PASSED*'
 
     # Print the test results summary and details.
     print(test_report_summary_string)

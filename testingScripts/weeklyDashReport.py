@@ -2,7 +2,8 @@
 
 """Create the MAGE weekly dash test report.
 
-This script creates the MAGE weekly dash test report.
+This script creates the MAGE weekly dash test report. This script assumes the
+result files are in the current directory.
 
 Authors
 -------
@@ -74,9 +75,6 @@ REFERENCE_RESULTS_DIRECTORY_DEVELOPMENT = os.path.join(
 REFERENCE_LOG_DEVELOPMENT = os.path.join(
     REFERENCE_RESULTS_DIRECTORY_DEVELOPMENT, 'voltron_mpi.out'
 )
-
-# Name of subdirectory containing binaries and test results.
-BIN_DIR = 'bin'
 
 # Name of file containg PBS job IDs.
 JOB_LIST_FILE = 'jobs.txt'
@@ -180,23 +178,6 @@ def main():
         print(f"Starting {sys.argv[0]} at {datetime.datetime.now()}"
               f" on {platform.node()}")
         print(f"Current directory is {os.getcwd()}")
-
-    # ------------------------------------------------------------------------
-
-    # Move to the top-level weekly dash directory.
-    os.chdir(WEEKLY_DASH_DIRECTORY)
-
-    # ------------------------------------------------------------------------
-
-    # Get list of weekly dash directories.
-    weekly_dash_directories = glob.glob(WEEKLY_DASH_DIRECTORY_GLOB_PATTERN)
-    if debug:
-        print(f"weekly_dash_directories = {weekly_dash_directories}")
-
-    # <HACK>
-    # Use only the first mdirectory for now.
-    weekly_dash_directory = weekly_dash_directories[0]
-    # </HACK>
 
     # ------------------------------------------------------------------------
 
@@ -411,13 +392,7 @@ def main():
 
     # Read results from the latest run.
     if verbose:
-        print(f"Reading results for latest run in {weekly_dash_directory}.")
-
-    # Go to weekly dash folder
-    os.chdir(weekly_dash_directory)
-
-    # Move down to the directory containing the dash results.
-    os.chdir(BIN_DIR)
+        print(f"Reading results for latest run in {os.getcwd()}.")
 
     # Read in the jobs.txt file to get the job number.
     try:
@@ -805,7 +780,7 @@ def main():
     # Read the CPCP values from the voltron output file.
     CPCP_north_development = kh5.getTs(REMIX_OUTPUT_FILE_DEVELOPMENT,
                                        step_IDs_development, 'nCPCP')
-    CPCP_south_development = kh5.getTs(remix_OUTPUT_FILE_DEVELOPMENT,
+    CPCP_south_development = kh5.getTs(REMIX_OUTPUT_FILE_DEVELOPMENT,
                                        step_IDs_development, 'sCPCP')
     if debug:
         print(f"CPCP_north_development = {CPCP_north_development}")
@@ -894,7 +869,7 @@ def main():
     # Make the magnetosphere quick-look plot.
     if verbose:
         print('Creating magnetosphere quicklook plot for '
-              f"{weekly_dash_directory}.")
+              f"{os.getcwd()}.")
 
     # Create the plot.
     cmd = 'msphpic.py'
@@ -915,7 +890,7 @@ def main():
 
     # Make the REMIX quick-look plots.
     if verbose:
-        print(f"Creating REMIX quicklook plots for {weekly_dash_directory}.")
+        print(f"Creating REMIX quicklook plots for {os.getcwd()}.")
 
     # Create the plot.
     cmd = 'mixpic.py'
@@ -936,7 +911,7 @@ def main():
 
     # Make the RCM quick-look plot.
     if verbose:
-        print(f"Creating RCM quicklook plot for {weekly_dash_directory}.")
+        print(f"Creating RCM quicklook plot for {os.getcwd()}.")
 
     # Create the plot.
     cmd = 'rcmpic.py'
