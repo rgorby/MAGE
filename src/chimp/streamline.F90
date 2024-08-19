@@ -9,7 +9,7 @@ module streamline
 
     implicit none
 
-    real(rp), private :: ShueScl = 1.5  !Safety factor for Shue MP
+    real(rp), private :: ShueScl = 2.0  !Safety factor for Shue MP
     real(rp), private :: rShue   = 6.0  !Radius to start checking Shue
     integer , private :: NpChk   = 10   !Cadence for Shue checking
 
