@@ -44,6 +44,7 @@ echo 'Setting environment variables.'
 export TMPDIR={{ tmpdir }}
 export SLACK_BOT_TOKEN={{ slack_bot_token }}
 export DERECHO_TESTING_ACCOUNT={{ account }}
+export BRANCH_OR_COMMIT={{ branch_or_commit }}
 echo 'The active environment variables are:'
 printenv
 
