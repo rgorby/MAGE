@@ -9,11 +9,11 @@ module rcmimag
     use volttypes
     use files
     use earthhelper
-    use imagtubes
     use imaghelper
     use planethelper
     use rcm_mhd_interfaces
     use rcm_mix_interface
+    use rcmtubes
     use clocks
     use kronos
     use rcm_mhd_mod, ONLY : rcm_mhd
@@ -44,7 +44,7 @@ module rcmimag
         type(rcm_mhd_T) :: rcmCpl
 
         ! Holder for field line data
-        type(fLine_T), dimension(:,:), allocatable :: rcmFLs
+        type(magLine_T), dimension(:,:), allocatable :: rcmFLs
 
         logical :: doFakeTube=.false. !Only for testing
 
@@ -167,7 +167,6 @@ module rcmimag
         if (RCMICs%doIC) then
             !Want initial dst0
             RCMICs%dst0 = GetSWVal("symh",vApp%tilt%wID,t0)
-            call iXML%Set_Val(RCMICs%ktRC,"imag/ktRC",30.0)
             RCMICs%vSW = abs(GetSWVal("Vx",vApp%tilt%wID,t0))
             RCMICs%dSW = GetSWVal("D",vApp%tilt%wID,t0)
 
@@ -243,7 +242,7 @@ module rcmimag
        !$OMP private(i,j,colat,lat,lon,isLL,ijTube)
         do j=1,RCMApp%nLon_ion
             do i=1,RCMApp%nLat_ion
-                call CleanStream(imag%rcmFLs(i,j)) !Wipe old field line info
+                call CleanLine(imag%rcmFLs(i,j)) !Wipe old field line info
 
                 colat = RCMApp%gcolat(i)
                 lat = PI/2 - colat

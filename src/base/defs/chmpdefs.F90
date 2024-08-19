@@ -50,6 +50,7 @@ module chmpdefs
         logical :: isMAGE = .false.
         logical :: doDip = .false.
 
+        integer :: nSpc = 0 !Number of plasma species if doMHD=.true.
         !Output info
         type (IOClock_T) :: IO
 

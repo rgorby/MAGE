@@ -13,7 +13,7 @@ module chopio
     implicit none
 
     character(len=strLen) :: eb3DOutF
-    integer, parameter :: MAXEBVS = 30
+    integer, parameter :: MAXEBVS = 50
     
     integer  :: Nx1 = 64, Nx2 = 64, Nx3 = 64
 
@@ -154,9 +154,9 @@ module chopio
                 enddo
             enddo
 
-            case default
-                write(*,*) 'Unknown chop type, exiting ...'
-                stop
+        case default
+            write(*,*) 'Unknown chop type, exiting ...'
+            stop
 
         end select
         !Calculate cell centers (just simple 8 point average)
@@ -198,12 +198,14 @@ module chopio
 
         type(IOVAR_T), dimension(MAXEBVS) :: IOVars
 
-        real(rp), dimension(:,:,:,:), allocatable :: B,Q,E,J3
-        real(rp), dimension(NVARMHD) :: Qijk
+        real(rp), dimension(:,:,:,:)  , allocatable :: B,E,J3
+        real(rp), dimension(:,:,:,:,:), allocatable :: Q
+        real(rp), dimension(NVARMHD,0:Model%nSpc) :: Qijk
         real(rp), dimension(NDIM) :: Bijk,Eijk,xyz
         type(gcFields_T) :: gcFields
         real(rp), dimension(NDIM,NDIM) :: jB
-        integer :: i,j,k
+        integer :: i,j,k,s
+        character(len=strLen) :: dID,pID,vxID,vyID,vzID
 
         real(rp) :: oJScl
 
@@ -213,7 +215,7 @@ module chopio
         allocate(B (Nx1,Nx2,Nx3,NDIM))
         allocate(E (Nx1,Nx2,Nx3,NDIM))
         allocate(J3(Nx1,Nx2,Nx3,NDIM))
-        allocate(Q (Nx1,Nx2,Nx3,NVARMHD))
+        allocate(Q (Nx1,Nx2,Nx3,NVARMHD,0:Model%nSpc))
 
         if (Model%doTrc) then
             !Create an ebTrc for each point on slice
@@ -241,8 +243,8 @@ module chopio
                     J3(i,j,k,:) = Jac2Curl(jB)
 
                     if (Model%doMHD) then
-                        Qijk = mhdInterp(xyz,Model%t,Model,ebState)
-                        Q(i,j,k,:) = Qijk
+                        Qijk = mhdInterpMF(xyz,Model%t,Model,ebState)
+                        Q(i,j,k,:,:) = Qijk
                     endif
 
                     if (Model%doTrc) then
@@ -267,29 +269,48 @@ module chopio
         !Variables to always output
         call AddOutVar(IOVars,"time",oTScl*Model%t)
         call AddOutVar(IOVars,"MJD",ioTabMJD(ebState%ebTab,Model%t))
-        call AddOutVar(IOVars,"Bx"  ,oBScl*B(:,:,:,XDIR))
-        call AddOutVar(IOVars,"By"  ,oBScl*B(:,:,:,YDIR))
-        call AddOutVar(IOVars,"Bz"  ,oBScl*B(:,:,:,ZDIR))
+        call AddOutVar(IOVars,"Bx"  ,oBScl*B(:,:,:,XDIR),uStr="nT")
+        call AddOutVar(IOVars,"By"  ,oBScl*B(:,:,:,YDIR),uStr="nT")
+        call AddOutVar(IOVars,"Bz"  ,oBScl*B(:,:,:,ZDIR),uStr="nT")
 
-        call AddOutVar(IOVars,"Ex"  ,oEScl*E(:,:,:,XDIR))
-        call AddOutVar(IOVars,"Ey"  ,oEScl*E(:,:,:,YDIR))
-        call AddOutVar(IOVars,"Ez"  ,oEScl*E(:,:,:,ZDIR))
+        call AddOutVar(IOVars,"Ex"  ,oEScl*E(:,:,:,XDIR),uStr="mV/m")
+        call AddOutVar(IOVars,"Ey"  ,oEScl*E(:,:,:,YDIR),uStr="mV/m")
+        call AddOutVar(IOVars,"Ez"  ,oEScl*E(:,:,:,ZDIR),uStr="mV/m")
 
-        call AddOutVar(IOVars,"Jx"  ,oJScl*J3(:,:,:,XDIR))
-        call AddOutVar(IOVars,"Jy"  ,oJScl*J3(:,:,:,YDIR))
-        call AddOutVar(IOVars,"Jz"  ,oJScl*J3(:,:,:,ZDIR))
+        call AddOutVar(IOVars,"Jx"  ,oJScl*J3(:,:,:,XDIR),uStr="A/m2")
+        call AddOutVar(IOVars,"Jy"  ,oJScl*J3(:,:,:,YDIR),uStr="A/m2")
+        call AddOutVar(IOVars,"Jz"  ,oJScl*J3(:,:,:,ZDIR),uStr="A/m2")
 
         if (Model%doMHD) then
-            call AddOutVar(IOVars,"Vx"  ,oVScl*Q(:,:,:,VELX    ))
-            call AddOutVar(IOVars,"Vy"  ,oVScl*Q(:,:,:,VELY    ))
-            call AddOutVar(IOVars,"Vz"  ,oVScl*Q(:,:,:,VELZ    ))
-            call AddOutVar(IOVars,"D"   ,      Q(:,:,:,DEN     ))
-            call AddOutVar(IOVars,"P"   ,      Q(:,:,:,PRESSURE))
+            call AddOutVar(IOVars,"Vx"  ,oVScl*Q(:,:,:,VELX    ,BLK),uStr="km/s")
+            call AddOutVar(IOVars,"Vy"  ,oVScl*Q(:,:,:,VELY    ,BLK),uStr="km/s")
+            call AddOutVar(IOVars,"Vz"  ,oVScl*Q(:,:,:,VELZ    ,BLK),uStr="km/s")
+            call AddOutVar(IOVars,"D"   ,      Q(:,:,:,DEN     ,BLK),uStr="#/cc")
+            call AddOutVar(IOVars,"P"   ,      Q(:,:,:,PRESSURE,BLK),uStr="nPa" )
+            if (Model%nSpc > 0) then
+                do s=1,Model%nSpc
+                    write(dID  ,'(A,I0)') "D"  , s
+                    write(pID  ,'(A,I0)') "P"  , s
+                    write(vxID ,'(A,I0)') "Vx" , s
+                    write(vyID ,'(A,I0)') "Vy" , s
+                    write(vzID ,'(A,I0)') "Vz" , s
+                    call AddOutVar(IOVars,vxID , oVScl*Q(:,:,:,VELX    ,s),uStr="km/s")
+                    call AddOutVar(IOVars,vyID , oVScl*Q(:,:,:,VELY    ,s),uStr="km/s")
+                    call AddOutVar(IOVars,vzID , oVScl*Q(:,:,:,VELZ    ,s),uStr="km/s")
+                    call AddOutVar(IOVars,dID  ,       Q(:,:,:,DEN     ,s),uStr="#/cc")
+                    call AddOutVar(IOVars,pID  ,       Q(:,:,:,PRESSURE,s),uStr="nPa" )
+                enddo
+            endif
         endif
 
         if (Model%doTrc) then
             !Field line tracing metrics
             call AddOutVar(IOVars,"OCb" ,ebTrcIJK(:,:,:)%OCb )
+            call AddOutVar(IOVars,"dvB" ,ebTrcIJK(:,:,:)%dvB/oBScl,uStr="Rx/nT")
+            call AddOutVar(IOVars,"bD"  ,ebTrcIJK(:,:,:)%bD,uStr="#/cc")
+            call AddOutVar(IOVars,"bP"  ,ebTrcIJK(:,:,:)%bP,uStr="nPa")
+            call AddOutVar(IOVars,"bS"  ,ebTrcIJK(:,:,:)%bS,uStr="Wolf^(1/gamma)")
+            call AddOutVar(IOVars,"bMin",ebTrcIJK(:,:,:)%bMin*oBScl,uStr="nT")
 
             !Equator and end-points
             call AddOutVar(IOVars,"xBEQ",ebTrcIJK(:,:,:)%MagEQ(XDIR))
