@@ -194,7 +194,10 @@ module rcmtubes
             call FLThermo(ebModel,ebGr,bTrc,bD,bP,dvB,bBeta)
             bD0 = 0.0
         endif
-        ijTube%TioTe0 = TioTe_Empirical(bEq/Rp_m) !Rescaling to Re
+        !Use empirical tiote or not
+
+        !ijTube%TioTe0 = TioTe_Empirical(bEq/Rp_m) !Rescaling to Re
+        ijTube%TioTe0 = tiote_RCM
         
         !Converts Re/EB => Re/T
         dvB = dvB/(oBScl*1.0e-9)
