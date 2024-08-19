@@ -96,6 +96,9 @@ TEST_INPUT_FILES = [
     'threadSuppress.sup',
 ]
 
+# Branch or commit (or tag) used for testing.
+BRANCH_OR_COMMIT = os.environ['BRANCH_OR_COMMIT']
+
 
 def main():
     """Begin main program.
@@ -303,6 +306,7 @@ def main():
         pbs_options['tmpdir'] = os.environ['TMPDIR']
         pbs_options['slack_bot_token'] = os.environ['SLACK_BOT_TOKEN']
         pbs_options['mage_test_root'] = os.environ['MAGE_TEST_ROOT']
+        pbs_options['branch_or_commit'] = BRANCH_OR_COMMIT
 
         # Set options specific to the memory check, then render the template.
         pbs_options['job_name'] = 'mage_intelCheckSubmitMem'
@@ -421,36 +425,30 @@ def main():
         f"Test results are on `derecho` in `{INTEL_CHECKS_DIRECTORY}`.\n"
     )
     for (i_module_set, module_list_file) in enumerate(module_list_files):
-        if not submit_ok[i_module_set]:
-            test_report_details_string += (
-                f"Module set `{module_list_file}`: *FAILED*"
-            )
-            continue
-        test_report_details_string += (
-            f"`{MEM_CHECK_PBS_FILENAME}` for module set `{module_list_file}` "
-            f"submitted as PBS job {job_ids[i_module_set][0]}.\n"
+        test_report_details_string = (
+            "Submit Intel Inspector tests for module set "
+            f"`{module_list_file}`: "
         )
-        test_report_details_string += (
-            f"`{THREAD_CHECK_PBS_FILENAME}` for module set "
-            f"`{module_list_file}` submitted as PBS job "
-            f"{job_ids[i_module_set][1]}.\n"
-        )
-        test_report_details_string += (
-            f"`{REPORT_PBS_FILENAME}` for module set `{module_list_file}` "
-            f"submitted as PBS job {job_ids[i_module_set][2]}.\n"
-        )
+        if submit_ok[i_module_set]:
+            test_report_details_string += "*PASSED*"
+        else:
+            test_report_details_string += "*FAILED*"
 
     # Summarize the test results
     test_report_summary_string = (
-        'Intel Inspector tests submitted (`intelChecks.py`).'
+        f"Intel Inspector test submission for `{BRANCH_OR_COMMIT}`: "
     )
+    if 'FAILED' in test_report_details_string:
+        test_report_summary_string += '*FAILED*'
+    else:
+        test_report_summary_string += '*PASSED*'
 
     # Print the test results summary and details.
     print(test_report_summary_string)
     print(test_report_details_string)
 
     # If a test failed, or loud mode is on, post report to Slack.
-    if (slack_on_fail and 'FAILED' in test_report_details_string) or be_loud:
+    if (slack_on_fail and 'FAILED' in test_report_summary_string) or be_loud:
         slack_client = common.slack_create_client()
         if debug:
             print(f"slack_client = {slack_client}")
