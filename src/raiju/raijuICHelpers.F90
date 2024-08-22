@@ -3,6 +3,7 @@ module raijuICHelpers
     use XML_Input
     use planethelper
     use math
+    use earthhelper
 
     use raijudefs
     use raijutypes
@@ -152,7 +153,7 @@ module raijuICHelpers
             !! Internal quantities
         real(rp) :: a0, a1, a2, a3
             !! For bell
-        integer :: i,j,sIdx
+        integer :: i,j,sIdx,kPsph
         
         
         call iXML%Set_Val(epType,"prob/etaPreset" , "RING")
@@ -262,7 +263,10 @@ module raijuICHelpers
 
          ! TODO: Implement psphere IC
         if (Model%doPlasmasphere .and. spcExists(Grid, F_PSPH)) then
-            write(*,*) "RAIJU Warning: plasmasphere on but no IC is implemented in initRaijuIC_DIP."
+            sIdx = spcIdx(Grid, F_PSPH)
+            !kPsph = Grid%spc(sIdx)%kStart
+            State%eta(:,:,Grid%spc(sIdx)%kStart) = getInitPsphere(Grid, State, Model%psphInitKp)
+            State%eta_last(:,:,Grid%spc(sIdx)%kStart) = State%eta(:,:,Grid%spc(sIdx)%kStart)
         endif
 
         contains
@@ -374,5 +378,36 @@ module raijuICHelpers
 
     end subroutine espot_BT
 
+
+!------
+! Plasmasphere initialization
+!------
+
+    function getInitPsphere(Grid, State, Kp) result(etaPsph)
+        type(raijuGrid_T) , intent(in) :: Grid
+        type(raijuState_T), intent(in) :: State
+        real(rp) :: Kp
+
+        integer :: i,j
+        real(rp) :: den, vm
+        real(rp), dimension(Grid%shGrid%isg:Grid%shGrid%ieg,&
+                            Grid%shGrid%jsg:Grid%shGrid%jeg) :: etaPsph
+
+        write(*,*) "RAIJU initializing plasmasphere with Kp =",Kp
+
+        etaPsph = 0.0
+
+        ! !$OMP PARALLEL DO default(shared) &
+        ! !$OMP schedule(dynamic) &
+        ! !$OMP private(i,j,r,phi)
+        do j=Grid%shGrid%jsg,Grid%shGrid%jeg
+            do i=Grid%shGrid%isg,Grid%shGrid%ieg
+                den = GallagherXY(State%xyzMincc(i,j,XDIR), State%xyzMincc(i,j,YDIR), Kp)  ! [#/cc]
+                vm = State%bvol_cc(i,j)**(-2./3.)
+                etaPsph(i,j) = den/(vm**1.5)*sclEta
+            enddo
+        enddo
+
+    end function getInitPsphere
 
 end module raijuICHelpers

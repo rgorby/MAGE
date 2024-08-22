@@ -1,4 +1,5 @@
 module raijuLoss_CX
+    !! Charge exchange losses for RAIJU
 
     use raijudefs
     use raijutypes
@@ -7,11 +8,13 @@ module raijuLoss_CX
     implicit none
 
     type, extends(baseRaijuLoss_T) :: raiLoss_CX_T
-        
+        logical :: reqsGood = .false.
+        real(rp), dimension(2) :: kevBnd_H = [0.005_rp, 250.0_rp]
+        real(rp), dimension(2) :: kevBnd_O = [0.025_rp, 600.0_rp]
         contains
 
-        !procedure :: doInit => CXLossInit
-        !procedure :: doPAUpdate
+        procedure :: doInit => CXLossInit
+        !procedure :: doUpdate
         procedure :: isValidSpc => CXLossValidSpc
         procedure :: calcTau => CXLossCalcTau
 
@@ -19,15 +22,19 @@ module raijuLoss_CX
 
     contains
 
-!    subroutine CXLossInit(lp, Model, Grid, xmlInp)
-!        class(raiLoss_CX_T), intent(inout) :: lp
-!        type(raijuModel_T), intent(in) :: Model
-!        type(raijuGrid_T) , intent(in) :: Grid
-!        type(XML_Input_T) , intent(in) :: xmlInp
-!
-!        ! Say which species we know how to do losses for
-!        !call setCXValidSpecies(lp, Model, Grid)
-!    end subroutine
+    subroutine CXLossInit(this, Model, Grid, xmlInp)
+        class(raiLoss_CX_T), intent(inout) :: this
+        type(raijuModel_T), intent(in) :: Model
+        type(raijuGrid_T) , intent(in) :: Grid
+        type(XML_Input_T) , intent(in) :: xmlInp
+
+        if (trim(toUpper(Model%planet%name)) .ne. "EARTH") then
+            write(*,*)"WARNING in raijuLoss_CX: Not simulating EARTH, idk what neutrals you want me to use"
+            write(*,*)"No CX happening"
+        else
+            this%reqsGood = .true.
+        endif
+    end subroutine
 
 
     function CXLossValidSpc(this, spc) result(isValid)
@@ -37,10 +44,13 @@ module raijuLoss_CX
 
         isValid = .false.
 
+        if (spc%flav == F_PSPH) return
+
         if ( (spc%spcType .eq. RAIJUHPLUS) &
         .or. (spc%spcType .eq. RAIJUOPLUS) ) then
             isValid = .true.
         endif
+
     end function
 
 
@@ -57,12 +67,22 @@ module raijuLoss_CX
 
         associate(spc => Grid%spc(Grid%k2spc(k)))
 
+        tau = HUGE
+        if (.not. this%reqsGood) then
+            return
+        endif
+
         ! Neutral
         rLoc = norm2(State%xyzMincc(i,j,:))  ! [Rp]
         Ngeo = OstgaardGeocorona(rLoc)  ! [#/cc]
 
         ! Ion
         energy = abs(Grid%alamc(k))*State%bvol_cc(i,j)**(-2./3.) * 1D-3  ! keV
+        if (spc%spcType .eq. RAIJUHPLUS) then
+            call ClampValue(energy,this%kevBnd_H(1),this%kevBnd_H(2))
+        elseif (spc%spcType .eq. RAIJUOPLUS) then
+            call ClampValue(energy,this%kevBnd_O(1),this%kevBnd_O(2))
+        endif
         cxSig = CXSigma(energy, spc%spcType)
         M = spc%amu * dalton  ! [kg]
         V = sqrt(2*(energy*kev2J)/M)*100.0  ! [m/s -> cm/s]
@@ -74,7 +94,7 @@ module raijuLoss_CX
         ! Also, angle is mirror lat, not pitch angle. So 45 deg is probably a bad estimate
         tauBA = tauEq * cos(45*PI/180.0)**3.5
 
-        tau = tauBA
+        tau = max(tauBA, TINY)
 
         end associate
 
@@ -84,29 +104,6 @@ module raijuLoss_CX
 !------
 ! Helpers
 !------
-!    subroutine setCXValidSpecies(this, Model, Grid)
-!        class(raiLoss_CX_T), intent(inout) :: this
-!        type(raijuModel_T), intent(in) :: Model
-!        type(raijuGrid_T) , intent(in) :: Grid
-!
-!        integer :: s
-!
-!        allocate(lp%isValidSpc(Grid%nSpc))
-!        this%isValidSpc = .false.
-!
-!        if (trim(toUpper(Model%planet%name)) .ne. "EARTH") then
-!            return
-!        endif
-!
-!        do s=1,Grid%nSpc
-!            if ( (SpcType(Grid%spc(s)) .eq. RAIJUHPLUS) &
-!            .or. (SpcType(Grid%spc(s)) .eq. RAIJUOPLUS) ) then
-!                this%isValidSpc(s) = .true.
-!            endif
-!        enddo
-!
-!    end subroutine setCXValidSpecies
-
 
     function OstgaardGeocorona(L) result(Ngeo)
         !! Geocoronal density afa L [#/cc], Taken from Ostgaard 2003 
@@ -164,5 +161,29 @@ module raijuLoss_CX
         end select
 
     END FUNCTION CXSigma
+
+
+!    subroutine setCXValidSpecies(this, Model, Grid)
+!        class(raiLoss_CX_T), intent(inout) :: this
+!        type(raijuModel_T), intent(in) :: Model
+!        type(raijuGrid_T) , intent(in) :: Grid
+!
+!        integer :: s
+!
+!        allocate(lp%isValidSpc(Grid%nSpc))
+!        this%isValidSpc = .false.
+!
+!        if (trim(toUpper(Model%planet%name)) .ne. "EARTH") then
+!            return
+!        endif
+!
+!        do s=1,Grid%nSpc
+!            if ( (SpcType(Grid%spc(s)) .eq. RAIJUHPLUS) &
+!            .or. (SpcType(Grid%spc(s)) .eq. RAIJUOPLUS) ) then
+!                this%isValidSpc(s) = .true.
+!            endif
+!        enddo
+!
+!    end subroutine setCXValidSpecies
 
 end module raijuLoss_CX

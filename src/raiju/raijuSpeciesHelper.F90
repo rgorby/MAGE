@@ -71,7 +71,7 @@ module raijuSpeciesHelper
     end function SpcAmu
 
 
-    function SpcType(spc) result(sType)
+    function GetSpcType(spc) result(sType)
         !! Determine the species type (e-, H+, O+, etc.)
         type(raijuSpecies_T), intent(in) :: spc
 
@@ -90,7 +90,7 @@ module raijuSpeciesHelper
         end select
 
 
-    end function SpcType
+    end function GetSpcType
 
     !------
     ! Do-stuff helpers
@@ -168,7 +168,7 @@ module raijuSpeciesHelper
             spc%fudge    = GetIOReal(IOVars, "fudge"   )
             
             spc%amu = SpcAmu(spc)
-            spc%spcType = SpcType(spc)
+            spc%spcType = GetSpcType(spc)
 
             !! If species is H+ but not plasmasphere, we can map etas below its lambda bounds to plasmasphere
             !if (spc%spcType .eq. RAIJUHPLUS .and. spc%flav .ne. F_PSPH) then

@@ -8,6 +8,7 @@ module raijulosses
     use raijuspecieshelper, only : spcIdx
 
     use raijuLoss_CX
+    use raijuLoss_CC
 
     implicit none
 
@@ -46,8 +47,10 @@ module raijulosses
                 if (allocated(State%lps(iLP)%p)) deallocate(State%lps(iLP)%p)
                 allocate( raiLoss_CX_T :: State%lps(iLP)%p )
                 initCX = 0
-            elseif(.false.) then
-                continue
+            elseif(initCC==1) then
+                if (allocated(State%lps(iLP)%p)) deallocate(State%lps(iLP)%p)
+                allocate( raiLoss_CC_T :: State%lps(iLP)%p )
+                initCC = 0
             endif
 
             ! Init newly-allocated LP
@@ -99,7 +102,6 @@ module raijulosses
         endif
 
         ! Otherwise, do default loss behavior
-
         State%lossRates(:,:,k)       = 0.0  ! 1/s, so 0 means we lose nothing no matter the dt
         State%lossRatesPrecip(:,:,k) = 0.0
 
@@ -123,6 +125,9 @@ module raijulosses
                     endif
 
                     rate = 1.0_rp/lps(l)%p%calcTau(Model, Grid, State, i,j,k)
+                    if (rate .le. TINY) then
+                        rate = 0.0
+                    endif
                     
                     State%lossRates(i,j,k) = State%lossRates(i,j,k) + rate
                     if (lps(l)%p%isPrecip) then

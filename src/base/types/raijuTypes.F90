@@ -201,6 +201,7 @@ module raijutypes
         logical :: doPlasmasphere
             !! Use for now to determine if we should be doing plasmasphere stuff
             !! Likely, in the future, we will determine automatically by the presence of a flavor 0
+        real(rp) :: psphInitKp
         ! TODO: Extra params for refilling rate, determining initial profile, etc.
 
         ! Some constants

@@ -79,7 +79,7 @@ module raijuPreAdvancer
         enddo
         call Toc("Calc cell-centered velocities")
 
-        ! Loss rate calc depends on up-to-date densities, so we should run EvalMoments first
+        ! Some loss processes depends on up-to-date densities, so we should run EvalMoments first
         call Tic("Moments Eval PreAdvance")
         call EvalMoments(Grid, State)
         call Toc("Moments Eval PreAdvance")

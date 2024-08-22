@@ -119,6 +119,7 @@ module raijustarter
         ! Determine number of species. First set default, then read from xml to overwrite if present
         if (Model%doPlasmasphere) then
             Model%nSpc = 3
+            call iXML%Set_Val(Model%psphInitKp, "plasmasphere/initKp",5.0)
         else
             Model%nSpc = 2
         endif
