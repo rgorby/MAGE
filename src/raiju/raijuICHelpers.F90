@@ -124,6 +124,8 @@ module raijuICHelpers
                 xyzIono(3) = Model%planet%ri_m/Model%planet%rp_m * cos(Grid%shGrid%thc(i))
 
                 L = DipoleL(xyzIono)
+                State%xyzMincc(i,j,XDIR) = L*cos(Grid%shGrid%phc(j))
+                State%xyzMincc(i,j,YDIR) = L*sin(Grid%shGrid%phc(j))
                 State%bvol_cc(i,j) = DipFTV_L(L, Model%planet%magMoment) ! [Rp/nT]
             enddo
         enddo

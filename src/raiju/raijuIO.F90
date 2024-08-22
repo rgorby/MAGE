@@ -315,30 +315,35 @@ module raijuIO
         call AddOutVar(IOVars,"FTEntropy",outTmp2D,uStr="nPa*(Rp/nT)^(5/3)")
         deallocate(outTmp2D)
 
-    ! Precipitation
+        if (Model%doLossOutput) then
 
-        ! Calculate accumulated precipitation for each species
-        allocate(outPrecipN   (is:ie,js:je,Grid%nSpc))
-        allocate(outPrecipE   (is:ie,js:je,Grid%nSpc))
-        allocate(outPrecipAvgE(is:ie,js:je,Grid%nSpc))
-        do s=1,Grid%nSpc
-            ks = Grid%spc(s)%kStart
-            ke = Grid%spc(s)%kEnd
-            outPrecipN(:,:,s) = sum(State%precipNFlux(is:ie,js:je,kS:kE), dim=3)
-            outPrecipE(:,:,s) = sum(State%precipEFlux(is:ie,js:je,kS:kE), dim=3)
+            call AddOutVar(IOVars, "lossRate", State%lossRates(is:ie,js:je,:), uStr="1/s")
+            call AddOutVar(IOVars, "lossRatePrecip", State%lossRatesPrecip(is:ie,js:je,:), uStr="1/s")
 
-            where (outPrecipN(:,:,s) > TINY)
-                outPrecipAvgE(:,:,s) = outPrecipE(:,:,s)/outPrecipN(:,:,s) * erg2kev  ! Avg E [keV]
-            elsewhere
-                outPrecipAvgE(:,:,s) = 0.0
-            end where
-        enddo
-        call AddOutVar(IOVars, "precipNFlux", outPrecipN   , uStr="#/cm^2/s")
-        call AddOutVar(IOVars, "precipEFlux", outPrecipE   , uStr="erg/cm^2/s")
-        call AddOutVar(IOVars, "precipAvgE" , outPrecipAvgE, uStr="keV")
-        deallocate(outPrecipN)
-        deallocate(outPrecipE)
-        deallocate(outPrecipAvgE)
+            
+            ! Calculate accumulated precipitation for each species
+            allocate(outPrecipN   (is:ie,js:je,Grid%nSpc))
+            allocate(outPrecipE   (is:ie,js:je,Grid%nSpc))
+            allocate(outPrecipAvgE(is:ie,js:je,Grid%nSpc))
+            do s=1,Grid%nSpc
+                ks = Grid%spc(s)%kStart
+                ke = Grid%spc(s)%kEnd
+                outPrecipN(:,:,s) = sum(State%precipNFlux(is:ie,js:je,kS:kE), dim=3)
+                outPrecipE(:,:,s) = sum(State%precipEFlux(is:ie,js:je,kS:kE), dim=3)
+
+                where (outPrecipN(:,:,s) > TINY)
+                    outPrecipAvgE(:,:,s) = outPrecipE(:,:,s)/outPrecipN(:,:,s) * erg2kev  ! Avg E [keV]
+                elsewhere
+                    outPrecipAvgE(:,:,s) = 0.0
+                end where
+            enddo
+            call AddOutVar(IOVars, "precipNFlux", outPrecipN   , uStr="#/cm^2/s")
+            call AddOutVar(IOVars, "precipEFlux", outPrecipE   , uStr="erg/cm^2/s")
+            call AddOutVar(IOVars, "precipAvgE" , outPrecipAvgE, uStr="keV")
+            deallocate(outPrecipN)
+            deallocate(outPrecipE)
+            deallocate(outPrecipAvgE)
+        endif
 
         
         if (Model%doFatOutput) then

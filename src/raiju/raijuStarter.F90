@@ -197,7 +197,7 @@ module raijustarter
         call iXML%Set_Val(Model%doCC    , "losses/doCC" ,.true. )
         call iXML%Set_Val(Model%doCX    , "losses/doCX" ,.false.)
         call iXML%Set_Val(Model%doFLC   , "losses/doFLC",.false.)
-        !call iXML%Set_Val(Model%doEWM   , "losses/doELoss",.false.)
+        call iXML%Set_Val(Model%doLossOutput, "losses/doOutput",.false.)
 
         ! Electron loss model
         !call iXML%Set_Val(tmpStr, "losses/eLossModel","WM")

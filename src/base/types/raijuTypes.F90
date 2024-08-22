@@ -189,6 +189,8 @@ module raijutypes
             !! Output extra 3D arrays
         logical :: doDebugOutput
             !! Dump lots of otherwise unnecessary stuff
+        logical :: doLossOutput
+            !! Dump 3D loss variables like Tau
         logical :: doGeoCorot
             !! If true, calc corotation potential from Geopack
             !! If false, calc corotation potential assuming dipole and rotational axes are aligned

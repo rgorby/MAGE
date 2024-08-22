@@ -119,6 +119,9 @@ module raijuBCs
         !$OMP private(i,j,s,fIdx,fm,vm,kT,etaBelow,tmp_kti,tmp_kte)
         do j=Grid%shGrid%jsg,Grid%shGrid%jeg
             do i=Grid%shGrid%isg,Grid%shGrid%ieg
+                if (State%active(i,j) .eq. RAIJUINACTIVE) then
+                    State%eta(i,j,:) = 0.0
+                endif
                 if(.not. doMomentIngest(i,j)) then
                     cycle  ! This cycle should be okay because its inside the second loop
                 endif
