@@ -1,36 +1,166 @@
 module raijulosses
     
     use kdefs
+    use XML_Input
 
     use raijudefs
     use raijutypes
     use raijuspecieshelper, only : spcIdx
 
+    use raijuLoss_CX
+
     implicit none
 
     contains
+
+
+    subroutine initRaiLosses(Model, Grid, State, xmlInp)
+        type(raijuModel_T), intent(in) :: Model
+        type(raijuGrid_T), intent(in) :: Grid
+        type(raijuState_T), intent(inout) :: State
+        type(XML_Input_T), intent(in) :: xmlInp
+
+        integer :: iLP
+            !! iterator
+        integer :: numLPs
+            !! number of loss proccces we're gonna have
+        integer :: initCX, initCC, initSS, initFLC = 0
+            !! Flag for if we need to allocate and init this LP
+
+        State%lossRates = 0.0
+        State%lossRatesPrecip = 0.0
+
+        numLPs = 0
+
+        if (Model%doCX ) initCX  = 1
+        if (Model%doCC ) initCC  = 1
+        if (Model%doSS ) initSS  = 1
+        if (Model%doFLC) initFLC = 1
+        numLPs = initCX + initCC + initSS + initFLC
+        
+        allocate(State%lps(numLPs))
+
+        do iLP=1,numLPs
+            ! Determine which loss process is next in line for initting
+            if (initCX==1) then
+                if (allocated(State%lps(iLP)%p)) deallocate(State%lps(iLP)%p)
+                allocate( raiLoss_CX_T :: State%lps(iLP)%p )
+                initCX = 0
+            elseif(.false.) then
+                continue
+            endif
+
+            ! Init newly-allocated LP
+            call State%lps(iLP)%p%doInit(Model, Grid, xmlInp)
+        enddo
+
+    end subroutine initRaiLosses
+
+
+    subroutine updateRaiLosses(Model, Grid, State)
+        !! Update loss processes with step-specific information
+        type(raijuModel_T), intent(in) :: Model
+        type(raijuGrid_T) , intent(in) :: Grid
+        type(raijuState_T), intent(inout) :: State
+
+        integer :: nLP, iLP
+
+        if (allocated(State%lps)) then
+            nLP = size(State%lps)
+        else
+            nLP = 0.0
+            return
+        endif
+
+        do iLP=1,nLP
+            call State%lps(iLP)%p%doUpdate(Model, Grid, State)
+        enddo
+    end subroutine updateRaiLosses
+
+
+    subroutine calcChannelLossRates(Model, Grid, State, k)
+        !! Calculate 2D loss rates for channel k
+        !! Usually this will stay constant over a coupling period, so it can be called during pre-advance and not touched afterwards
+        type(raijuModel_T), intent(in) :: Model
+        type(raijuGrid_T) , intent(in) :: Grid
+        type(raijuState_T), intent(inout) :: State
+        integer, intent(in) :: k
+
+        integer :: i,j,l
+        real(rp) :: rate, rateSS, ratePrecip
+        logical, dimension(Grid%shGrid%isg:Grid%shGrid%ieg, &
+                           Grid%shGrid%jsg:Grid%shGrid%jeg) :: isG
+
+
+        ! Electrons are special, handle them on their own
+        if (Grid%spc(Grid%k2spc(k))%spcType .eq. RAIJUELE) then
+            !call calcElectronLossRate(Model, Grid, State, k)
+            return
+        endif
+
+        ! Otherwise, do default loss behavior
+
+        State%lossRates(:,:,k)       = 0.0  ! 1/s, so 0 means we lose nothing no matter the dt
+        State%lossRatesPrecip(:,:,k) = 0.0
+
+        ! Mask inactive, go ahead and calc losses in buffer just in case anyone wants it
+        where (State%active .ne. RAIJUINACTIVE)
+            isG = .true.
+        elsewhere
+            isG = .false.
+        end where
+
+        associate(spc=>Grid%spc(Grid%k2spc(k)), lps=>State%lps)
+
+        do j=Grid%shGrid%jsg,Grid%shGrid%jeg
+            do i=Grid%shGrid%isg,Grid%shGrid%ieg
+                do l=1,size(lps)
+                    if (.not. isG(i,j)) then
+                        cycle
+                    endif
+                    if ( .not. lps(l)%p%isValidSpc(spc) ) then
+                        cycle
+                    endif
+
+                    rate = 1.0_rp/lps(l)%p%calcTau(Model, Grid, State, i,j,k)
+                    
+                    State%lossRates(i,j,k) = State%lossRates(i,j,k) + rate
+                    if (lps(l)%p%isPrecip) then
+                        State%lossRatesPrecip(i,j,k) = State%lossRatesPrecip(i,j,k) + rate
+                    endif
+                enddo
+            enddo
+        enddo
+
+        end associate
+
+
+    end subroutine calcChannelLossRates
+
+! ----- OLD -----
+
 
 !------
 ! High-level calc
 !------
 
-    subroutine calcChannelLossRates(Model, Grid, State, k)
-        !! Calculate 2D loss rates for channel k
-        !! Usually this will stay constant over a coupling period, so it can be called during pre-advance and not touched afterwards
-        type(raijuModel_T), intent(inout) :: Model
-        type(raijuGrid_T), intent(in) :: Grid
-        type(raijuState_T), intent(inout) :: State
-        integer, intent(in) :: k
-        
-        if (Grid%spc(Grid%k2spc(k))%spcType .eq. RAIJUHPLUS) then
-            call calcProtonLossRate(Model, Grid, State, k)
-        endif
-
-        if (Grid%spc(Grid%k2spc(k))%spcType .eq. RAIJUELE) then
-            call calcElectronLossRate(Model, Grid, State, k)
-        endif
-
-    end subroutine calcChannelLossRates
+    !subroutine calcChannelLossRates(Model, Grid, State, k)
+    !    !! Calculate 2D loss rates for channel k
+    !    !! Usually this will stay constant over a coupling period, so it can be called during pre-advance and not touched afterwards
+    !    type(raijuModel_T), intent(inout) :: Model
+    !    type(raijuGrid_T), intent(in) :: Grid
+    !    type(raijuState_T), intent(inout) :: State
+    !    integer, intent(in) :: k
+    !    
+    !    if (Grid%spc(Grid%k2spc(k))%spcType .eq. RAIJUHPLUS) then
+    !        call calcProtonLossRate(Model, Grid, State, k)
+    !    endif
+!
+    !    if (Grid%spc(Grid%k2spc(k))%spcType .eq. RAIJUELE) then
+    !        call calcElectronLossRate(Model, Grid, State, k)
+    !    endif
+!
+    !end subroutine calcChannelLossRates
 
 
     subroutine calcProtonLossRate(Model, Grid, State, k)

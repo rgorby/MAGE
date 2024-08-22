@@ -54,6 +54,35 @@ module raijutypes
         
     end type raijuSpecies_T
 
+
+!------
+! Losses
+!------
+
+    type :: baseRaijuLoss_T
+        !! Base loss process type for specific loss implementations to extend
+        logical :: isPrecip = .false.
+
+        contains
+        
+        ! Default do-nothing placeholders
+        procedure baseLossInit, baseLossUpdate, baseLossCalcTau, baseLossValidSpc
+
+        procedure :: doInit   => baseLossInit
+            !! Initialize any arrays and params that persist throughout run
+        procedure :: doUpdate => baseLossUpdate
+            !! Update any variables based on current raijuState
+        procedure :: isValidSpc => baseLossValidSpc
+            !! Tell someone if this loss process applies to given species
+        procedure :: calcTau  => baseLossCalcTau
+            !! Report instantaneous loss rate for a given energy and lat/lon
+    end type baseRaijuLoss_T
+
+    type :: raijuLPHolder_T
+        !! Container for collection of loss processes
+        class(baseRaijuLoss_T), allocatable :: p
+    end type raijuLPHolder_T
+
 !------
 ! Precipitation models
 !------
@@ -363,6 +392,10 @@ module raijutypes
         integer , dimension(:,:), allocatable :: OCBDist
             !! (Ngi, Ngj) Cell distance from open-closed boundary
 
+        ! Loss-related things
+        type(raijuLPHolder_T), dimension(:), allocatable :: lps
+        !class(baseRaijuLoss_T), dimension(:), allocatable :: lps
+            !! Collection of loss processes
         ! (Ngi, Ngj, Nk) Varibles coming from RAIJU
         real(rp), dimension(:,:,:), allocatable :: lossRates
             !! (Ngi, Ngj, Nk) [1/s] Loss rates for each grid and lambda point. Generally stays the same over coupling time so we store them all here
@@ -441,9 +474,44 @@ module raijutypes
             integer, intent(in) :: i,j,k
             real(rp), dimension(2) :: lossRate2
         end function raijuELossRate_T
+
     end interface
 
+    contains
 
+    ! New loss stuff
+    subroutine baseLossInit(this, Model, Grid, xmlInp)
+        !Import :: baseRaijuLoss_T, raijuModel_T, raijuGrid_T, XML_Input_T
+        class(baseRaijuLoss_T), intent(inout) :: this
+        type(raijuModel_T), intent(in) :: Model
+        type(raijuGrid_T) , intent(in) :: Grid
+        type(XML_Input_T) , intent(in) :: xmlInp
+    end subroutine baseLossInit
+
+    subroutine baseLossUpdate(this, Model, Grid, State)
+        !Import :: baseRaijuLoss_T, raijuModel_T, raijuGrid_T, raijuState_T
+        class(baseRaijuLoss_T), intent(inout) :: this
+        type(raijuModel_T), intent(in) :: Model
+        type(raijuGrid_T) , intent(in) :: Grid
+        type(raijuState_T), intent(in) :: State
+    end subroutine baseLossUpdate
+
+    function baseLossValidSpc(this, spc) result(isValid)
+        !Import :: baseRaijuLoss_T, raijuModel_T, raijuGrid_T, raijuState_T
+        class(baseRaijuLoss_T), intent(in) :: this
+        type(raijuSpecies_T), intent(in) :: spc
+        logical :: isValid
+    end function baseLossValidSpc
+
+    function baseLossCalcTau(this, Model, Grid, State, i, j, k) result(tau)
+        !Import :: baseRaijuLoss_T, raijuModel_T, raijuGrid_T, raijuState_T, rp
+        class(baseRaijuLoss_T), intent(in) :: this
+        type(raijuModel_T), intent(in) :: Model
+        type(raijuGrid_T) , intent(in) :: Grid
+        type(raijuState_T), intent(in) :: State
+        integer, intent(in) :: i, j, k
+        real(rp) :: tau
+    end function baseLossCalcTau
 
 
 

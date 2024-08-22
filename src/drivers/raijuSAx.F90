@@ -69,6 +69,7 @@ program raijuSAx
 
     ! Init RAIJU
     call raijuInit(raiApp, inpXML)
+    isFirstCpl = .false.
     if (raiApp%Model%isRestart) then
         isFirstCpl = .false.
     endif

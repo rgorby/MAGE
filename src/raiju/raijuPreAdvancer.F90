@@ -83,16 +83,22 @@ module raijuPreAdvancer
         call EvalMoments(Grid, State)
         call Toc("Moments Eval PreAdvance")
 
-        call Tic("Calc loss rates")
+        call Tic("Losses")
         if (Model%doLosses) then
+            call Tic("Update loss states")
+            call updateRaiLosses(Model, Grid, State)
+            call Toc("Update loss states")
+            
+            call Tic("Calc loss rates")
             !$OMP PARALLEL DO default(shared) &
             !$OMP schedule(dynamic) &
             !$OMP private(k)
             do k=1,Grid%Nk
                 call calcChannelLossRates(Model, Grid, State, k)
             enddo
+            call Toc("Calc loss rates")
         endif
-        call Toc("Calc loss rates")
+        call Toc("Losses")
 
     end subroutine raijuPreAdvance
 

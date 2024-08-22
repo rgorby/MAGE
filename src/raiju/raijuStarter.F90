@@ -15,6 +15,7 @@ module raijustarter
     use raijuout
     use raijuICHelpers
     use raijuELossWM
+    use raijulosses, only : initRaiLosses
 
     ! Cmake points to this
     use raijuuseric
@@ -196,19 +197,20 @@ module raijustarter
         call iXML%Set_Val(Model%doCC    , "losses/doCC" ,.true. )
         call iXML%Set_Val(Model%doCX    , "losses/doCX" ,.false.)
         call iXML%Set_Val(Model%doFLC   , "losses/doFLC",.false.)
+        !call iXML%Set_Val(Model%doEWM   , "losses/doELoss",.false.)
 
         ! Electron loss model
-        call iXML%Set_Val(tmpStr, "losses/eLossModel","WM")
-        select case (tmpStr)
-            case ("WM")
-                write(*,*) "(RAIJU) Using Wang-Bao electron wave model"
-                Model%eLossModel = RaiELOSS_WM
-                Model%eLossRateFn => calcELossRate_WM
-                ! We init later now, up in raijuInit, since initEWM needs Grid info for diagnostic output
-            case default
-                write(*,*) "(RAIJU) Did not get a valid electron loss model, goodbye"
-                stop
-        end select
+        !call iXML%Set_Val(tmpStr, "losses/eLossModel","WM")
+        !select case (tmpStr)
+        !    case ("WM")
+        !        write(*,*) "(RAIJU) Using Wang-Bao electron wave model"
+        !        Model%eLossModel = RaiELOSS_WM
+        !        Model%eLossRateFn => calcELossRate_WM
+        !        ! We init later now, up in raijuInit, since initEWM needs Grid info for diagnostic output
+        !    case default
+        !        write(*,*) "(RAIJU) Did not get a valid electron loss model, goodbye"
+        !        stop
+        !end select
 
         call iXML%Set_Val(Model%doFatOutput, "output/doFat",.false.)
         ! TODO: Add flags to output certain data, like coupling information
@@ -437,6 +439,9 @@ module raijustarter
         end select
 
         call Model%initState(Model, Grid, State, iXML)
+
+        ! Do losses after everything else has been set, just in case they need something from it
+        call initRaiLosses(Model, Grid, State, iXML)
 
     end subroutine raijuInitState
 
