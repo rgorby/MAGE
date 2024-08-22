@@ -35,6 +35,9 @@ module raijuetautils
         State%vAvg = 0.0
 
         associate (shG => Grid%shGrid, spc => Grid%spc)
+            !$OMP PARALLEL DO default(shared) &
+            !$OMP schedule(dynamic) &
+            !$OMP private(i,j,s)
             do j=shG%jsg,shG%jeg
                 do i=shG%isg,shG%ieg
                     do s=1,Grid%nSpc

@@ -76,6 +76,7 @@ module ebtypes
     type ebTrc_T
         real(rp) :: OCb !Topology
         real(rp) :: dvB,bD,bP,bS !Flux-tube volume, averaged density/pressure, integrated entropy
+        real(rp) :: stdD, stdP  ! Standard deviation of density and pressure
         real(rp), dimension(NDIM) :: MagEQ, xEPm,xEPp !xyz of equator/ -/+ field endpoints
         real(rp) :: bMin !Minimum B (@ equator)
     end type ebTrc_T

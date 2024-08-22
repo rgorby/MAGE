@@ -136,7 +136,7 @@ module imagtubes
         real(rp), dimension(NDIM) :: x0, bEq, xyzIon
         real(rp), dimension(NDIM) :: xyzC,xyzIonC
         integer :: OCb
-        real(rp) :: bD,bP,dvB,bBeta,rCurv, bDRC, bPRC, bBetaRC
+        real(rp) :: bD,bP,dvB,bBeta,rCurv, bDRC, bPRC, bBetaRC, stdP, stdD
         real(rp) :: VaMKS,CsMKS,VebMKS !Speeds in km/s
         real(rp) :: TiEV !Temperature in ev
 
@@ -187,6 +187,8 @@ module imagtubes
             ijTube%Vol = -1.0
             ijTube%Pave = 0.0
             ijTube%Nave = 0.0
+            ijTube%Pstd = 0.0
+            ijTube%Nstd = 0.0
             ijTube%beta_average = 0.0
             ijTube%latc = 0.0
             ijTube%lonc = 0.0
@@ -210,11 +212,14 @@ module imagtubes
             !dvB = Flux-tube volume (Re/EB)
             !write(*,*)"FLThermo, s=",s
             call FLThermo(ebModel,ebGr,bTrc,bD,bP,dvB,bBeta,s)
+            call FLStdev (ebModel,ebGr,bTrc,bD,bP,stdD,stdP,s)
+            !call FLStdev (ebModel,ebGr,bTrc,stdD,stdP,s)
             bP = bP*1.0e-9 !nPa=>Pa
             bD = bD*1.0e+6 !#/cc => #/m3
             ijTube%Pave(s) = bP
             ijTube%Nave(s) = bD
-
+            ijTube%Pstd(s) = stdP * 1.0e-9  ! nPa=>Pa
+            ijTube%Nstd(s) = stdD * 1.0e+6  ! #/cc=>#/m3
             if (s .eq. RCFLUID) then
                 bPRC = bP
                 bDRC = bD

@@ -99,6 +99,8 @@ module raijuIO
         call AddOutVar(IOVars,"doExcesstoPsph",Model%doExcesstoPsph)  ! Attr
         call AddOutVar(IOVars,"doPlasmasphere",Model%doPlasmasphere)  ! Attr
         call AddOutVar(IOVars,"doActiveShell",Model%doActiveShell)  ! Attr
+        call AddOutVar(IOVars,"nSpcIn",Model%nSpcMHD)  ! Attr
+        call AddOutVar(IOVars,"nSpcRAIJU",Model%nSpc)  ! Attr
         call WriteVars(IOVars,.true.,Model%raijuH5)
 
         ! Root data
@@ -259,6 +261,8 @@ module raijuIO
         call AddOutVar(IOVars,"vaFrac" ,State%vaFrac (is:ie+1,js:je+1)       ,uStr="fraction",dStr="Fraction of Alfven speed over magnetofast + ExB speed")
         call AddOutVar(IOVars,"Pavg_in",State%Pavg   (is:ie,js:je, :)        ,uStr="nPa" ,dStr="Pressures from imagtubes")
         call AddOutVar(IOVars,"Davg_in",State%Davg   (is:ie,js:je, :)        ,uStr="#/cc",dStr="Densities from imagtubes")
+        call AddOutVar(IOVars,"Pstd_in",State%Pstd   (is:ie,js:je, :)        ,uStr="normalized" ,dStr="Std. dev. of species pressure from imagtubes")
+        call AddOutVar(IOVars,"Dstd_in",State%Dstd   (is:ie,js:je, :)        ,uStr="normalized" ,dStr="Std. dev. of species density from imagtubes")
 
         ! Idk about you but I did not expect true to equal -1
         !allocate(outActiveShell(is:ie, Grid%Nk))
@@ -297,12 +301,15 @@ module raijuIO
         !allocate(outEnt(is:ie,js:je))
         allocate(outTmp2D(is:ie,js:je))
         outTmp2D = -1.0
-        do i=is,ie
-            do j=js,je
-                if (all(State%bVol(i:i+1,j:j+1) > 0)) then
-                    bvol_cc = 0.25*(State%bVol(i,j) + State%bVol(i+1,j) + State%bVol(i,j+1) + State%bVol(i+1,j+1))
-                    outTmp2D(i,j) = State%Press(i,j,1)*bVol_cc**(5./3.)
-                endif
+        !$OMP PARALLEL DO default(shared) &
+        !$OMP schedule(dynamic) &
+        !$OMP private(i,j)
+        do j=js,je
+            do i=is,ie
+                !if (all(State%bVol(i:i+1,j:j+1) > 0)) then
+                !bvol_cc = 0.25*(State%bVol(i,j) + State%bVol(i+1,j) + State%bVol(i,j+1) + State%bVol(i+1,j+1))
+                outTmp2D(i,j) = State%Press(i,j,1)*State%bvol_cc(i,j)**(5./3.)
+                !endif
             enddo
         enddo
         call AddOutVar(IOVars,"FTEntropy",outTmp2D,uStr="nPa*(Rp/nT)^(5/3)")

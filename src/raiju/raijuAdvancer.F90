@@ -116,7 +116,8 @@ module raijuAdvancer
                 
 
                 ! Calc next time step
-                dt = activeDt(Model, Grid, State, k)
+                !dt = activeDt(Model, Grid, State, k)
+                dt = activeDt_LR(Model, Grid, State, k)
 
                 ! If needed, reduce dt to fit within remaining time
                 ! This way, all channels will end exactly at tEnd

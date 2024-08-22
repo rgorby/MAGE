@@ -380,6 +380,8 @@ module sliceio
             call AddOutVar(IOVars,"bP"  ,ebTrcIJ(:,:)%bP  )
             call AddOutVar(IOVars,"bS"  ,ebTrcIJ(:,:)%bS  )
             call AddOutVar(IOVars,"bMin",ebTrcIJ(:,:)%bMin)
+            call AddOutVar(IOVars,"stdD",ebTrcIJ(:,:)%stdD)
+            call AddOutVar(IOVars,"stdP",ebTrcIJ(:,:)%stdP)
 
             !Equator and end-points
             call AddOutVar(IOVars,"xBEQ",ebTrcIJ(:,:)%MagEQ(XDIR))

@@ -244,7 +244,7 @@ module raijutypes
         integer :: nFluidIn = 0
         type(mhd2raiSpcMap_T), dimension(:), allocatable :: fluidInMaps
         ! Coupling-related knobs
-        real(rp) :: vaFracThresh, bminThresh
+        real(rp) :: vaFracThresh, bminThresh, normAngThresh, PstdThresh
 
         character(len=strLen) :: icStr
         procedure(raijuStateIC_T     ), pointer, nopass :: initState => NULL()
@@ -360,6 +360,10 @@ module raijutypes
             !! (Ngi, Ngj, Ns) [nPa] Average pressure along flux tube
         real(rp), dimension(:,:,:), allocatable :: Davg
             !! (Ngi, Ngj, Ns) [#/cc] Average density along flux tube
+        real(rp), dimension(:,:,:), allocatable :: Pstd
+            !! (Ngi, Ngj, Ns) Normalized standard deviation of the species pressure along the field line
+        real(rp), dimension(:,:,:), allocatable :: Dstd
+            !! (Ngi, Ngj, Ns) Normalized standard deviation of the species density along the field line
         real(rp), dimension(:,:,:), allocatable :: Bmin
             !! (Ngi+1, Ngj+1, NDIM) [nT] Bmin vector
         real(rp), dimension(:,:,:), allocatable :: xyzMin
@@ -384,6 +388,8 @@ module raijutypes
         real(rp), dimension(:,:), allocatable :: espot
             !! (Ngi+1, Ngj+1) [kV] electro-static potential
         
+        integer, dimension(:), allocatable :: bndLoc
+            !! (Ngi) i value of boundary between inactive and buffer domain
         ! (Ngi, Ngj) cell-centered values
         integer , dimension(:,:), allocatable :: active
             !! (Ngi, Ngj) (-1=inactive, 0=buffer, 1=active)

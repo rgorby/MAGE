@@ -319,10 +319,10 @@ module raijuRecon
         if (present(QreconLO) .and. present(QreconRO)) then
             QreconLO = 0.0
             QreconRO = 0.0
-            !$OMP PARALLEL DO default(shared) &
-            !$OMP schedule(dynamic) &
-            !$OMP private(i,j) &
-            !$OMP IF(doOMP)
+            !!$OMP PARALLEL DO default(shared) &
+            !!$OMP schedule(dynamic) &
+            !!$OMP private(i,j) &
+            !!$OMP IF(doOMP)
             do j=Grid%shGrid%js,Grid%shGrid%je+1
                 do i=Grid%shGrid%is,Grid%shGrid%ie+1
                     ! Theta dir
@@ -344,6 +344,10 @@ module raijuRecon
             enddo
 
         else
+            !!$OMP PARALLEL DO default(shared) &
+            !!$OMP schedule(dynamic) &
+            !!$OMP private(i,j) &
+            !!$OMP IF(doOMP)
             do j=Grid%shGrid%js,Grid%shGrid%je+1
                 do i=Grid%shGrid%is,Grid%shGrid%ie+1
                     ! Theta dir
@@ -460,7 +464,7 @@ module raijuRecon
         if (Model%doUseVelLRs) then
             do j=Grid%shGrid%js,Grid%shGrid%je+1
                 do i=Grid%shGrid%is,Grid%shGrid%ie+1
-                    ! Only allow elocities passing through the interface
+                    ! Only allow velocities passing through the interface
                     QfluxL = QfaceL(i,j,RAI_TH)*max(0.0, State%iVelL(i,j,k,RAI_TH))
                     QfluxR = QfaceR(i,j,RAI_TH)*min(0.0, State%iVelR(i,j,k,RAI_TH))
                     Qflux(i,j,RAI_TH) = QfluxL + QfluxR

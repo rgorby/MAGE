@@ -95,7 +95,13 @@ module raijudefs
     real(rp), parameter :: def_ChorusEMin = 1.1  ! [keV]
 
     ! Coupling defaults
-    real(rp), parameter :: def_vaFracThresh = 0.10  ! min allowable fracton of Alfven to total tube velocity
-    real(rp), parameter :: def_bminThresh   = 1.0  ! [nT] default allowable bmin strencgh
+    real(rp), parameter :: def_vaFracThresh = 0.10  
+        !! min allowable fracton of Alfven to total tube velocity
+    real(rp), parameter :: def_PstdThresh = 0.10
+        !! Max allowable standard deviation of pressure along a field line
+    real(rp), parameter :: def_normAngle = 25
+        !! [deg] Max allowable angle between any two normals surrounding a cell corner
+    real(rp), parameter :: def_bminThresh   = 1.0  
+        !! [nT] default allowable bmin strencgh
 
 end module raijudefs
