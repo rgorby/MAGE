@@ -383,7 +383,7 @@ module raijulosses
             !! Time delta [s]
 
         integer :: i,j
-        real(rp) :: deleta, pNFlux, pEFlux, eta0
+        real(rp) :: deleta, eta0, pNFlux
         
         !$OMP PARALLEL DO default(shared) collapse(1) &
         !$OMP schedule(dynamic) &
@@ -397,7 +397,8 @@ module raijulosses
 
                 ! Then calculate precipitation flux using lossRatesPrecip
                 deleta = eta0*(1.0-exp(-dt*State%lossRatesPrecip(i,j,k)))
-                State%precipNFlux(i,j,k) = State%precipNFlux(i,j,k) + deleta2NFlux(deleta, Model%planet%rp_m, Grid%Bmag(i,j), dt)
+                pNFlux = deleta2NFlux(deleta, Model%planet%rp_m, Grid%Bmag(i,j), dt)
+                State%precipNFlux(i,j,k) = State%precipNFlux(i,j,k) + pNFlux
                 State%precipEFlux(i,j,k) = State%precipEFlux(i,j,k) + nFlux2EFlux(pNFlux, Grid%alamc(k), State%bVol(i,j))
             enddo
         enddo
