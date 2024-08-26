@@ -331,44 +331,6 @@ module raijulosses
     end function StrongScatterRate
 
 
-    ! Simple Coulomb collision losses, using fit to Ebihara+ 98 Fig #5
-    function CCRate(spcType,alam,vm,Dpp) result(rateCC)
-        integer, intent(in) :: spcType
-        real(rp), intent(in) :: alam,vm,Dpp !Dpp is plasmasphere density in #/cc
-        real(rp) :: rateCC
-
-        real(rp), parameter :: a3 = -0.113288
-        real(rp), parameter :: a2 = +0.659057
-        real(rp), parameter :: a1 = +0.319542
-        real(rp), parameter :: a0 = +2.16253        
-        real(rp), parameter :: day2s = 24.0*60.0*60
-
-        real(rp) :: K,x,y,nTau,Tau
-
-        K = abs( alam*vm*(1.0e-3) )!Energy [keV]
-        x = log10(K)
-        
-        rateCC = 0.0
-        if (Dpp < TINY) return
-
-        if (spcType == RAIJUHPLUS) then
-            y = a3*(x**3.0) + a2*(x**2.0) + a1*x + a0
-            nTau = 10.0**y !Normalized lifetime, days/cm3
-            Tau = nTau*day2s/Dpp !Lifetime, [s]
-            
-            if (Tau>TINY) then
-                rateCC = 1.0/Tau !1/s
-            else
-                rateCC = 0.0
-            endif
-        else
-            rateCC = 0.0
-            return
-        endif
-
-    end function CCRate
-
-
 
 !------
 ! Apply losses and calc useful info
