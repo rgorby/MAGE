@@ -24,6 +24,7 @@
     <wind tsfile="bcwind.h5"/>
     <source doSource="T" doBounceDT="T"/>
     <threading NumTh="18"/>
+    <coupling blockHalo="T"/>
   </Gamera>
 <!-- Remix -->
   <REMIX>
