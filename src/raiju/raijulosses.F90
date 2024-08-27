@@ -223,8 +223,8 @@ module raijulosses
                             write(*,*)"  goodbye"
                             stop
                         endif
-                        rateCC(i,j) = CCRate(spc%spcType, Grid%alamc(k), &
-                                        State%bVol(i,j)**(-2./3.), State%Den(i,j,1+psphIdx)) ! Add 1 cause we're grabbing from density, which has bulk as first element
+                        !rateCC(i,j) = CCRate(spc%spcType, Grid%alamc(k), &
+                        !                State%bVol(i,j)**(-2./3.), State%Den(i,j,1+psphIdx)) ! Add 1 cause we're grabbing from density, which has bulk as first element
                     endif
 
                     ! TODO: CX loss rates
