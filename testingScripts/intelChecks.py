@@ -4,11 +4,11 @@
 
 This script runs a series of tests of the MAGE software using Intel tools.
 
-The Intel Inspector memory checks run in about an hour on two derecho nodes.
+The Intel Inspector memory checks run in about 40 minutes on two derecho nodes.
 
-The Intel Inspector thread checks run in about 45 minutes on two derecho nodes.
+The Intel Inspector thread checks run in about 30 minutes on two derecho nodes.
 
-The report script runs in about 40 minutes on one derecho node.
+The report script runs in about 2 minutes on one derecho node.
 
 Authors
 -------
