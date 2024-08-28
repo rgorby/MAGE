@@ -344,14 +344,14 @@ def main():
 
         # Set options specific to the memory check, then render the template.
         pbs_options['job_name'] = 'mage_intelCheckSubmitMem'
-        pbs_options['walltime'] = '12:00:00'
+        pbs_options['walltime'] = '02:00:00'
         pbs_content = mem_check_pbs_template.render(pbs_options)
         with open(MEM_CHECK_PBS_FILENAME, 'w', encoding='utf-8') as f:
             f.write(pbs_content)
 
         # Set options specific to the thread check, then render the template.
         pbs_options['job_name'] = 'mage_intelCheckSubmitThread'
-        pbs_options['walltime'] = '12:00:00'
+        pbs_options['walltime'] = '02:00:00'
         pbs_content = thread_check_pbs_template.render(pbs_options)
         with open(THREAD_CHECK_PBS_FILENAME, 'w', encoding='utf-8') as f:
             f.write(pbs_content)
