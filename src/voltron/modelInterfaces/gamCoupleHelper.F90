@@ -117,14 +117,20 @@ module gamCoupleHelper
         character(len=*), intent(in) :: resId
         integer, intent(in) :: nRes
 
-        character(len=strLen) :: ResF
+        character(len=strLen) :: ResF,nStr
         logical :: fExist
         integer, parameter :: MAXGCIOVAR = 20
         type(IOVAR_T), dimension(MAXGCIOVAR) :: IOVars
         integer :: n0
 
         !Restart Filename
-        write (ResF, '(A,A,I0.5,A)') trim(resId), ".gamCpl.Res.", nRes, ".h5"
+        if (nRes == -1) then
+            nStr = "XXXXX"
+        else
+            write (nStr,'(I0.5)') nRes
+        endif
+
+        write (ResF, '(A,A,A,A)') trim(resID), ".gamCpl.Res.", trim(nStr), ".h5"
 
         inquire(file=ResF,exist=fExist)
         if (.not. fExist) then
