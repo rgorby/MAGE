@@ -126,7 +126,7 @@ module raijuBCs
                     cycle  ! This cycle should be okay because its inside the second loop
                 endif
 
-                vm = State%bvol(i,j)**(-2./3.)
+                vm = State%bvol_cc(i,j)**(-2./3.)
                 !do s=1,Grid%nSpc
                 !    kT = DP2kT(State%Davg(i,j,s), State%Pavg(i,j,s))  ! [keV]
                 !    call DkT2SpcEta(Model,Grid%spc(s), &

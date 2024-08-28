@@ -98,17 +98,14 @@ module raijuCplHelpers
 
                             State%Pstd(i,j,s) = Pstd / max(P, TINY)
                             State%Dstd(i,j,s) = Dstd / max(D, TINY)
-
-
-                            !State%bvol_cc(i,j) = toCenter2D(State%bvol(i:i+1,j:j+1))
-                            ! Before we average, take dipole out so we don't get poor averaging of background
-                            
                         enddo
 
-                        dBVol = State%bvol(i:i+1,j:j+1)
-                        dBVol(:,1) = dBVol(:,1) - bVol_dip_corner(i:i+1)
-                        dBVol(:,2) = dBVol(:,2) - bVol_dip_corner(i:i+1)
-                        State%bvol_cc(i,j) = toCenter2D(dBVol) + bVol_dip_cc(i)
+                        State%bvol_cc(i,j) = toCenter2D(State%bvol(i:i+1,j:j+1))
+                        ! Before we average, take dipole out so we don't get poor averaging of background
+                        !dBVol = State%bvol(i:i+1,j:j+1)
+                        !dBVol(:,1) = dBVol(:,1) - bVol_dip_corner(i:i+1)
+                        !dBVol(:,2) = dBVol(:,2) - bVol_dip_corner(i:i+1)
+                        !State%bvol_cc(i,j) = toCenter2D(dBVol) + bVol_dip_cc(i)
 
                         ! Do our own "wIMAG" calculation here so we ensure we use the fluid we want to (Bulk)
                         ! Calculate the fraction of Alfven speed to total velocity
