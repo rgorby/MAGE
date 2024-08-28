@@ -90,8 +90,6 @@ REPORT_PBS_FILENAME = 'intelCheckSubmitReport.pbs'
 TEST_INPUT_FILES = [
     'tinyCase.xml',
     'bcwind.h5',
-    'lfmD.h5',
-    'rcmconfig.h5',
     'memSuppress.sup',
     'threadSuppress.sup',
 ]
@@ -295,6 +293,42 @@ def main():
             from_path = os.path.join(TEST_SCRIPTS_DIRECTORY, filename)
             to_path = os.path.join('.', filename)
             shutil.copyfile(from_path, to_path)
+
+        # Generate the LFM grid file.
+        if verbose:
+            print('Creating LFM grid file.')
+        cmd = 'genLFM.py -gid D'
+        if debug:
+            print(f"cmd = {cmd}")
+        try:
+            _ = subprocess.run(cmd, shell=True, check=True)
+        except subprocess.CalledProcessError as e:
+            print('ERROR: Unable to create LFM grid file for module set '
+                  f"{module_set_name}.\n"
+                  f"e.cmd = {e.cmd}\n"
+                  f"e.returncode = {e.returncode}\n"
+                  'See testing log for output from genLFM.py.\n'
+                  'Skipping remaining steps for module set'
+                  f"{module_set_name}\n")
+            continue
+
+        # Generate the RCM configuration file.
+        if verbose:
+            print('Creating RCM configuration file.')
+        cmd = 'genRCM.py'
+        if debug:
+            print(f"cmd = {cmd}")
+        try:
+            _ = subprocess.run(cmd, shell=True, check=True)
+        except subprocess.CalledProcessError as e:
+            print('ERROR: Unable to create RCM configuration file'
+                  f" for module set {module_set_name}.\n"
+                  f"e.cmd = {e.cmd}\n"
+                  f"e.returncode = {e.returncode}\n"
+                  'See testing log for output from genRCM.py.\n'
+                  'Skipping remaining steps for module set '
+                  f"{module_set_name}\n")
+            continue
 
         # Assemble common data to fill in the PBS templates.
         pbs_options = {}
