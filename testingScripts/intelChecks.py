@@ -337,6 +337,7 @@ def main():
         pbs_options['job_priority'] = os.environ['DERECHO_TESTING_PRIORITY']
         pbs_options['modules'] = module_names
         pbs_options['kaijuhome'] = KAIJUHOME
+        pbs_options['kaipyhome'] = os.environ["KAIPYHOME"]
         pbs_options['tmpdir'] = os.environ['TMPDIR']
         pbs_options['slack_bot_token'] = os.environ['SLACK_BOT_TOKEN']
         pbs_options['mage_test_root'] = os.environ['MAGE_TEST_ROOT']
