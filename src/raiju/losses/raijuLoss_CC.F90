@@ -48,7 +48,7 @@ module raijuLoss_CC
         logical :: isValid
 
         isValid = .false.
-
+        if (.not. this%reqsGood) return
         if (spc%flav == F_PSPH) return
 
         if ( (spc%spcType .eq. RAIJUHPLUS) ) then

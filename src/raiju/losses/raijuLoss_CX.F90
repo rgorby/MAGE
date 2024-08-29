@@ -34,7 +34,7 @@ module raijuLoss_CX
         else
             this%reqsGood = .true.
         endif
-    end subroutine
+    end subroutine CXLossInit
 
 
     function CXLossValidSpc(this, spc) result(isValid)
@@ -43,7 +43,7 @@ module raijuLoss_CX
         logical :: isValid
 
         isValid = .false.
-
+        if (.not. this%reqsGood) return
         if (spc%flav == F_PSPH) return
 
         if ( (spc%spcType .eq. RAIJUHPLUS) &
@@ -51,8 +51,8 @@ module raijuLoss_CX
             isValid = .true.
         endif
 
-    end function
-
+    end function CXLossValidSpc
+ 
 
     function CXLossCalcTau(this, Model, Grid, State, i, j, k) result(tau)
         class(raiLoss_CX_T), intent(in) :: this
