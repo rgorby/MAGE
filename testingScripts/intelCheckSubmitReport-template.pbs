@@ -39,6 +39,7 @@ conda activate kaiju-3.8-testing
 
 echo 'Setting up MAGE environment.'
 source {{ kaijuhome }}/scripts/setupEnvironment.sh
+source {{ kaipyhome }}/kaipy/scripts/setupEnvironment.sh
 
 echo 'Setting environment variables.'
 export TMPDIR={{ tmpdir }}
