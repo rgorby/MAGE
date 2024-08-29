@@ -29,7 +29,7 @@ module raijuLoss_CX
         type(XML_Input_T) , intent(in) :: xmlInp
 
         if (trim(toUpper(Model%planet%name)) .ne. "EARTH") then
-            write(*,*)"WARNING in raijuLoss_CX: Not simulating EARTH, idk what neutrals you want me to use"
+            write(*,*)"WARNING in raijuLoss_CX: Not simulating Earth, idk what neutrals you want me to use"
             write(*,*)"No CX happening"
         else
             this%reqsGood = .true.

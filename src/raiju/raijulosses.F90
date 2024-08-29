@@ -25,18 +25,21 @@ module raijulosses
             !! iterator
         integer :: numLPs
             !! number of loss proccces we're gonna have
-        integer :: initCX, initCC, initSS, initFLC = 0
+        integer :: initCX, initCC, initSS, initFLC
             !! Flag for if we need to allocate and init this LP
 
         State%lossRates = 0.0
         State%lossRatesPrecip = 0.0
 
-        numLPs = 0
+        if (.not. Model%doLosses) then
+            return
+        endif
 
-        if (Model%doCX ) initCX  = 1
-        if (Model%doCC ) initCC  = 1
-        if (Model%doSS ) initSS  = 1
-        if (Model%doFLC) initFLC = 1
+        initCX  = merge(1, 0, Model%doCX)
+        initCC  = merge(1, 0, Model%doCC)
+        initSS  = merge(1, 0, Model%doSS)
+        initFLC = merge(1, 0, Model%doFLC)
+        
         numLPs = initCX + initCC + initSS + initFLC
         
         allocate(State%lps(numLPs))
