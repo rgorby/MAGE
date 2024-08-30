@@ -7,7 +7,6 @@ module msphingest
     use imaghelper
     use earthhelper
     use planethelper
-    use volttypes
     use gamutils
     use geopack
 
@@ -119,9 +118,9 @@ module msphingest
             do j=Gr%js,Gr%je
                 do i=Gr%is,Gr%ie
 
-            		D0 = Gr%Gas0(i,j,k,IMDEN,BLK)
-            		P0 = Gr%Gas0(i,j,k,IMPR ,BLK)
-            		Tau = Gr%Gas0(i,j,k,IMTSCL,BLK)
+            		D0  = Gr%Gas0(i,j,k,IMDEN )
+            		P0  = Gr%Gas0(i,j,k,IMPR  )
+            		Tau = Gr%Gas0(i,j,k,IMTSCL)
             		doInD = D0>dFloor
             		doinP = P0>pFloor
             		doIngestIJK = doInD .or. doInP
@@ -194,13 +193,13 @@ module msphingest
             		doinP = P0>pFloor
             		doIngestIJK = doInD .and. doInP .and. doIngestIJK
             		if (doIngestIJK) then
-            			Gr%Gas0(i,j,k,IMDEN,BLK)  = D0
-            			Gr%Gas0(i,j,k,IMPR ,BLK)  = P0
-            			Gr%Gas0(i,j,k,IMTSCL,BLK) = Tau*Gas0App%tScl
+            			Gr%Gas0(i,j,k,IMDEN ) = D0
+            			Gr%Gas0(i,j,k,IMPR  ) = P0
+            			Gr%Gas0(i,j,k,IMTSCL) = Tau*Gas0App%tScl
             		else
-            			Gr%Gas0(i,j,k,IMDEN,BLK)  = 0.0
-            			Gr%Gas0(i,j,k,IMPR ,BLK)  = 0.0
-            			Gr%Gas0(i,j,k,IMTSCL,BLK) = 0.0
+            			Gr%Gas0(i,j,k,IMDEN ) = 0.0
+            			Gr%Gas0(i,j,k,IMPR  ) = 0.0
+            			Gr%Gas0(i,j,k,IMTSCL) = 0.0
             		endif
 
                	enddo

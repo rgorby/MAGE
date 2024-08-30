@@ -462,17 +462,17 @@ module gioH5
             endif
 
             if (Model%doSource) then
-                call GameraOut("SrcD" ,gamOut%dID,gamOut%dScl,Gr%Gas0(Gr%is:Gr%ie,Gr%js:Gr%je,Gr%ks:Gr%ke,DEN     ,BLK))
-                call GameraOut("SrcP" ,gamOut%pID,gamOut%pScl,Gr%Gas0(Gr%is:Gr%ie,Gr%js:Gr%je,Gr%ks:Gr%ke,PRESSURE,BLK))
                 if (Model%isMagsphere) then
-                    call GameraOut("SrcX1","DEG",1.0_rp     ,Gr%Gas0(Gr%is:Gr%ie,Gr%js:Gr%je,Gr%ks:Gr%ke,VELX    ,BLK))
-                    call GameraOut("SrcX2","DEG",1.0_rp     ,Gr%Gas0(Gr%is:Gr%ie,Gr%js:Gr%je,Gr%ks:Gr%ke,VELY    ,BLK))
-                    call GameraOut("SrcDT","s"  ,gamOut%tScl,Gr%Gas0(Gr%is:Gr%ie,Gr%js:Gr%je,Gr%ks:Gr%ke,VELZ    ,BLK))
+                    call GameraOut("SrcD" ,gamOut%dID,gamOut%dScl,Gr%Gas0(Gr%is:Gr%ie,Gr%js:Gr%je,Gr%ks:Gr%ke,IMDEN ))
+                    call GameraOut("SrcP" ,gamOut%pID,gamOut%pScl,Gr%Gas0(Gr%is:Gr%ie,Gr%js:Gr%je,Gr%ks:Gr%ke,IMPR  ))
+                    call GameraOut("SrcX1","DEG",1.0_rp     ,Gr%Gas0(Gr%is:Gr%ie,Gr%js:Gr%je,Gr%ks:Gr%ke     ,IMX1  ))
+                    call GameraOut("SrcX2","DEG",1.0_rp     ,Gr%Gas0(Gr%is:Gr%ie,Gr%js:Gr%je,Gr%ks:Gr%ke     ,IMX2  ))
+                    call GameraOut("SrcDT","s"  ,gamOut%tScl,Gr%Gas0(Gr%is:Gr%ie,Gr%js:Gr%je,Gr%ks:Gr%ke     ,IMTSCL))
+
                 else
-                    call GameraOut("SrcVx","CODE"    ,1.0_rp     ,Gr%Gas0(Gr%is:Gr%ie,Gr%js:Gr%je,Gr%ks:Gr%ke,VELX    ,BLK))
-                    call GameraOut("SrcVy","CODE"    ,1.0_rp     ,Gr%Gas0(Gr%is:Gr%ie,Gr%js:Gr%je,Gr%ks:Gr%ke,VELY    ,BLK))
-                    call GameraOut("SrcVz","CODE"    ,1.0_rp     ,Gr%Gas0(Gr%is:Gr%ie,Gr%js:Gr%je,Gr%ks:Gr%ke,VELZ    ,BLK))
-                endif                    
+                    write(*,*) "Nothing defined for output when doSource=T and not magnetosphere"
+                endif
+                  
             endif
 
             if(Model%doResistive) then
@@ -668,7 +668,7 @@ module gioH5
 
         if (Model%doSource) then
             !Add source terms to output
-            call AddOutVar( IOVars,"Gas0",Gr%Gas0(Gr%is:Gr%ie,Gr%js:Gr%je,Gr%ks:Gr%ke,:,:) )
+            call AddOutVar( IOVars,"Gas0",Gr%Gas0(Gr%is:Gr%ie,Gr%js:Gr%je,Gr%ks:Gr%ke,:) )
         endif
 
         !Write out, force real precision
@@ -686,7 +686,7 @@ module gioH5
 
         logical :: doReset,fExist,hasSrc
         real(rp) :: tReset,dt
-        integer :: rSpc
+        integer :: rSpc,rV
 
         !Test for resetting
         if (present(doResetO)) then
@@ -812,12 +812,12 @@ module gioH5
             call AddInVar(IOVars,"Gas0")
             call ReadVars(IOVars,.false.,inH5)
 
-            rSpc = IOVars(1)%dims(5)-1
-            if (Model%nSpc == rSpc) then
-                !Restart and Gas0 species agree, do stuff
-                call IOArray5DFill(IOVars,"Gas0",Gr%Gas0(Gr%is:Gr%ie,Gr%js:Gr%je,Gr%ks:Gr%ke,:,:))
+            rV = IOVars(1)%dims(4) !Number of variables in gas0 from restart
+            if (rV /= Model%nvSrc) then
+                write(*,*) "Incompatible Gas0 sizes, bailing ..."
+                stop
             else
-                if (Model%isLoud) write(*,*) 'Gas0 is wrong size, ignoring ...'
+                call IOArray4DFill(IOVars,"Gas0",Gr%Gas0(Gr%is:Gr%ie,Gr%js:Gr%je,Gr%ks:Gr%ke,:))
             endif
         else
             if (Model%isLoud) write(*,*) 'No Gas0 found in restart, starting fresh ...'

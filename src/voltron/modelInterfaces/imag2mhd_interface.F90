@@ -109,11 +109,11 @@ module imag2mhd_interface
                     !Do scaling and store
                     !density/pressure coming back in #/cc and nPa
                     !ingestion timescale coming back in seconds
-                    Gr%Gas0(i,j,k,IMDEN ,BLK) = imW(IMDEN)
-                    Gr%Gas0(i,j,k,IMPR  ,BLK) = imW(IMPR)/gApp%Model%Units%gP0
-                    Gr%Gas0(i,j,k,IMX1  ,BLK) = imW(IMX1)
-                    Gr%Gas0(i,j,k,IMX2  ,BLK) = imW(IMX2)
-                    Gr%Gas0(i,j,k,IMTSCL,BLK) = imW(IMTSCL)/gApp%Model%Units%gT0
+                    Gr%Gas0(i,j,k,IMDEN ) = imW(IMDEN)
+                    Gr%Gas0(i,j,k,IMPR  ) = imW(IMPR)/gApp%Model%Units%gP0
+                    Gr%Gas0(i,j,k,IMX1  ) = imW(IMX1)
+                    Gr%Gas0(i,j,k,IMX2  ) = imW(IMX2)
+                    Gr%Gas0(i,j,k,IMTSCL) = imW(IMTSCL)/gApp%Model%Units%gT0
 
                 enddo !i loop
             enddo
@@ -128,22 +128,22 @@ module imag2mhd_interface
         !$OMP private(i,imW)
         do i=Gr%is,chmp2mhd%iMax
             !+X pole
-            imW(IMDEN) = AvgOverGood(Gr%Gas0(i,Gr%js,Gr%ks:Gr%ke,IMDEN,BLK),Nk)
-            imW(IMPR ) = AvgOverGood(Gr%Gas0(i,Gr%js,Gr%ks:Gr%ke,IMPR ,BLK),Nk)
-            Gr%Gas0(i,Gr%js,Gr%ks:Gr%ke,IMDEN,BLK) = imW(IMDEN)
-            Gr%Gas0(i,Gr%js,Gr%ks:Gr%ke,IMPR ,BLK) = imW(IMPR )
+            imW(IMDEN) = AvgOverGood(Gr%Gas0(i,Gr%js,Gr%ks:Gr%ke,IMDEN),Nk)
+            imW(IMPR ) = AvgOverGood(Gr%Gas0(i,Gr%js,Gr%ks:Gr%ke,IMPR ),Nk)
+            Gr%Gas0(i,Gr%js,Gr%ks:Gr%ke,IMDEN) = imW(IMDEN)
+            Gr%Gas0(i,Gr%js,Gr%ks:Gr%ke,IMPR ) = imW(IMPR )
 
             !-X pole
-            imW(IMDEN) = AvgOverGood(Gr%Gas0(i,Gr%je,Gr%ks:Gr%ke,IMDEN,BLK),Nk)
-            imW(IMPR ) = AvgOverGood(Gr%Gas0(i,Gr%js,Gr%ks:Gr%ke,IMPR ,BLK),Nk)
-            Gr%Gas0(i,Gr%js,Gr%ks:Gr%ke,IMDEN,BLK) = imW(IMDEN)
-            Gr%Gas0(i,Gr%js,Gr%ks:Gr%ke,IMPR ,BLK) = imW(IMPR )
+            imW(IMDEN) = AvgOverGood(Gr%Gas0(i,Gr%je,Gr%ks:Gr%ke,IMDEN),Nk)
+            imW(IMPR ) = AvgOverGood(Gr%Gas0(i,Gr%js,Gr%ks:Gr%ke,IMPR ),Nk)
+            Gr%Gas0(i,Gr%js,Gr%ks:Gr%ke,IMDEN) = imW(IMDEN)
+            Gr%Gas0(i,Gr%js,Gr%ks:Gr%ke,IMPR ) = imW(IMPR )
 
             !-X pole
-            imW(IMDEN) = AvgOverGood(Gr%Gas0(i,Gr%je,Gr%ks:Gr%ke,IMDEN,BLK),Nk)
-            imW(IMPR ) = AvgOverGood(Gr%Gas0(i,Gr%je,Gr%ks:Gr%ke,IMPR ,BLK),Nk)
-            Gr%Gas0(i,Gr%je,Gr%ks:Gr%ke,IMDEN,BLK) = imW(IMDEN)
-            Gr%Gas0(i,Gr%je,Gr%ks:Gr%ke,IMPR ,BLK) = imW(IMPR )
+            imW(IMDEN) = AvgOverGood(Gr%Gas0(i,Gr%je,Gr%ks:Gr%ke,IMDEN),Nk)
+            imW(IMPR ) = AvgOverGood(Gr%Gas0(i,Gr%je,Gr%ks:Gr%ke,IMPR ),Nk)
+            Gr%Gas0(i,Gr%je,Gr%ks:Gr%ke,IMDEN) = imW(IMDEN)
+            Gr%Gas0(i,Gr%je,Gr%ks:Gr%ke,IMPR ) = imW(IMPR )
         enddo
 
         end associate

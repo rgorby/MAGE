@@ -165,8 +165,8 @@ module dstutils
             do j=Gr%js,Gr%je
                 do i=Gr%is+i0,Gr%ie
                     dV  = Gr%volume(i,j,k)
-                    if (Gr%Gas0(i,j,k,IMPR ,BLK)>TINY) then
-                        KTot = KTot + dV*Gr%Gas0(i,j,k,IMPR ,BLK) !Code units
+                    if (Gr%Gas0(i,j,k,IMPR)>TINY) then
+                        KTot = KTot + dV*Gr%Gas0(i,j,k,IMPR) !Code units
                     endif
 
                 enddo ! i loop

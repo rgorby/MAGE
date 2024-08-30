@@ -416,7 +416,10 @@ module init
         endif
     !Source terms
         call xmlInp%Set_Val(Model%doSource,'source/doSource',.false.)
-
+        if (Model%doSource) then
+            call xmlInp%Set_Val(Model%nvSrc,'source/nvSrc',NVAR)
+        endif
+        
     !Get RunID
         call xmlInp%Set_Val(Model%RunID,'sim/runid',"Sim")
 
@@ -1049,7 +1052,7 @@ module init
         enddo    
 
         if (Model%doSource) then
-            allocate(Grid%Gas0(Grid%isg:Grid%ieg,Grid%jsg:Grid%jeg,Grid%ksg:Grid%keg,1:NVAR,0:Model%nSpc))
+            allocate(Grid%Gas0(Grid%isg:Grid%ieg,Grid%jsg:Grid%jeg,Grid%ksg:Grid%keg,Model%nvSrc))
             Grid%Gas0 = 0.0
         endif
         

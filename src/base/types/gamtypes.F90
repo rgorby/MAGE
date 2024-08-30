@@ -107,6 +107,7 @@ module gamtypes
         
         !Information for static source term
         logical :: doSource = .false.
+        integer :: nvSrc = NVAR !Number of variables in Gas0 array if being used
 
         !Ring average information
         logical :: doRing = .false.
@@ -233,8 +234,9 @@ module gamtypes
     !Gravitational force
         logical :: doG0Init = .true.
         real(rp), dimension(:,:,:,:), allocatable :: gxyz !Gravitational acceleration (cell-centered)
-    !Target state (Ni,Nj,Nk,1:NVAR,0:nSpc+1)
-        real(rp), dimension(:,:,:,:,:), allocatable :: Gas0
+    
+    !Source array, (Ni,Nj,Nk,Model%nvSrc)
+        real(rp), dimension(:,:,:,:), allocatable :: Gas0
 
     end type Grid_T
 

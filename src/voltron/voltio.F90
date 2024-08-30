@@ -57,7 +57,7 @@ module voltio
         integer :: nTh,curCount,countMax
         real(rp) :: clockRate
         character(len=strLen) :: utStr
-        real(rp) :: DelD,DelP,dtIM,BSDst0,AvgBSDst,DPSDst,symh,BSSMRs(4)
+        real(rp) :: BSDst0,AvgBSDst,DPSDst,symh,BSSMRs(4)
 
         dpT = vApp%tilt%evalAt(vApp%time)*180.0/PI
 
@@ -103,11 +103,6 @@ module voltio
         !Get symh from input time series
         symh = vApp%symh%evalAt(vApp%time)
 
-        !Get imag ingestion info
-        if (vApp%doDeep) then
-            call IMagDelta(gApp%Model,gApp%Grid,gApp%State,DelD,DelP,dtIM)
-        endif
-
         if (vApp%isLoud) then
             write(*,*) ANSIBLUE
             write(*,*) 'VOLTRON'
@@ -120,10 +115,6 @@ module voltio
 
             if (vApp%doDeep .and. (vApp%time>0.0)) then
                 write (*, '(a, f8.3,a)')             '   DPSDst  ~ ' , DPSDst, ' [nT]'
-                write (*, '(a)'                 )    '   IMag Ingestion'
-                write (*, '(a,1f7.2,a,1f7.2,a)' )    '       D/P = ', 100.0*DelD,'% /',100.0*DelP,'%'
-                write (*, '(a,1f7.2,a)'         )    '        dt = ', dtIM, ' [s]'
-                
                 !write (*,'(a,1f8.3,I6,a)')           '      xTrc = ', vApp%rTrc,vApp%nTrc, ' [r/n]'
             endif
             write (*, '(a,1f7.1,a)' ) '   Spent ', gamWait*100.0,   '% of time waiting for Gamera'
@@ -481,70 +472,6 @@ module voltio
         endif
 
     end subroutine InitVoltIO
-
-    !Calculate relative difference between source/MHD
-    subroutine IMagDelta(Model,Gr,State,dD,dP,dtIM)
-        type(Model_T), intent(in)  :: Model
-        type(Grid_T) , intent(in)  :: Gr
-        type(State_T), intent(in)  :: State
-        real(rp)     , intent(out) :: dD,dP,dtIM
-
-        real(rp) :: Dsrc,Dmhd,Psrc,Pmhd,dtP
-        real(rp) :: dV
-        real(rp), dimension(NVAR) :: pCon,pW
-        logical :: doInD,doInP,doIngest
-        integer :: i,j,k
-
-        dD = 0.0
-        dP = 0.0
-        if (.not. Model%doSource) return
-
-        !Zero out accumulators
-        Dsrc = 0.0
-        Dmhd = 0.0
-        Psrc = 0.0
-        Pmhd = 0.0
-        dtP  = 0.0
-
-        !$OMP PARALLEL DO default(shared) collapse(2) &
-        !$OMP private(i,j,k,dV,doInD,doInP,doIngest) &
-        !$OMP private(pCon,pW) &
-        !$OMP reduction(+:Dsrc,Dmhd,Psrc,Pmhd,dtP)
-        do k=Gr%ks,Gr%ke
-            do j=Gr%js,Gr%je
-                do i=Gr%is,Gr%ie
-                    dV  = Gr%volume(i,j,k)
-                    doInD = (Gr%Gas0(i,j,k,IMDEN,BLK)>TINY)
-                    doInP = (Gr%Gas0(i,j,k,IMPR ,BLK)>TINY)
-                    doIngest = doInD .or. doInP
-                    
-                    if (.not. doIngest) cycle
-                    pCon = State%Gas(i,j,k,:,BLK)
-                    call CellC2P(Model,pCon,pW)
-
-                    if (doInD) then
-                        Dsrc = Dsrc + dV*Gr%Gas0(i,j,k,IMDEN,BLK)
-                        Dmhd = Dmhd + dV*pW(DEN)
-                    endif
-
-                    if (doInP) then
-                        Psrc = Psrc + dV*Gr%Gas0(i,j,k,IMPR,BLK)
-                        Pmhd = Pmhd + dV*pW(PRESSURE)
-                        dtP  = dtP  + dV*pW(PRESSURE)*Gr%Gas0(i,j,k,IMTSCL,BLK)
-                    endif
-                    
-                enddo
-            enddo
-        enddo
-        if (Dsrc>TINY) dD = Dmhd/Dsrc
-        if (Psrc>TINY) dP = Pmhd/Psrc
-        if (Pmhd>TINY) then
-            dtIM = Model%Units%gT0*dtP/Pmhd
-        else
-            dtIM = 0.0
-        endif
-
-    end subroutine IMagDelta
 
 end module voltio
 
