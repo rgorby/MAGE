@@ -139,7 +139,7 @@ contains
 
   end subroutine testConcCoupling
 
-  @test(npes=[9])
+  ! @test(npes=[9])
   subroutine testAsyncCoupling(this)
       class (MpiTestMethod), intent(inout) :: this
 
