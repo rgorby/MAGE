@@ -227,16 +227,6 @@ contains
       else
           write (*,'(a,I0)') 'Testing Quick Squish ',this%getNumProcesses()
 
-          !adjust coupling parameters, must be MPI Gamera Coupler
-          SELECT type(cpl=>voltAppMpi%gApp)
-              TYPE IS (gamCouplerMpi_volt_T)
-                  call endVoltronWaits(voltAppMpi)
-                  voltAppMpi%doSerialMHD = .false.
-                  cpl%doAsyncCoupling = .true.
-              CLASS DEFAULT
-                  @assertTrue(.false., "Voltron Allocated non-mpi Gamera coupler for MPI Voltron Coupling Test. Failure")
-          ENDSELECT
-
           ! run case for 10 seconds past spinup
           call runApplication(11.0_rp)
 
@@ -282,16 +272,6 @@ contains
           call runApplication(611.0_rp)
       else
           write (*,'(a,I0)') 'Testing Quick Squish Storm ',this%getNumProcesses()
-
-          !adjust coupling parameters, must be MPI Gamera Coupler
-          SELECT type(cpl=>voltAppMpi%gApp)
-              TYPE IS (gamCouplerMpi_volt_T)
-                  call endVoltronWaits(voltAppMpi)
-                  voltAppMpi%doSerialMHD = .false.
-                  cpl%doAsyncCoupling = .true.
-              CLASS DEFAULT
-                  @assertTrue(.false., "Voltron Allocated non-mpi Gamera coupler for MPI Voltron Coupling Test. Failure")
-          ENDSELECT
 
           ! run case for 10 seconds past restart
           call runApplication(611.0_rp)
