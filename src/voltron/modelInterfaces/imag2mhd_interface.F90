@@ -2,7 +2,8 @@
 module imag2mhd_interface
     use volttypes
     use cmiutils
-
+    use planethelper
+    
     implicit none
 
     contains
@@ -21,8 +22,10 @@ module imag2mhd_interface
 
         integer :: i,j,k,Nk
         real(rp) :: x1,x2,t
-        real(rp) :: imW(NVARIMAG),Qs(8)
+        real(rp) :: imW(NVARIMAG),Qs(8),xyz(NDIM)
         logical :: isTasty
+        !NOTE: Using isgTasy to handle isg:is region (not covered by chimp)
+        logical , dimension(:,:,:), allocatable :: isgTasty !Embiggen-ed logical array
 
     !Proceed in two steps
     ! 1) Get ingestion values at each node (cell corner)
@@ -33,13 +36,16 @@ module imag2mhd_interface
 
         if(size(gApp%SrcNC,1) .ne. (vApp%chmp2mhd%iMax+1)) then
             deallocate(gApp%SrcNC)
-            allocate(gApp%SrcNC(gApp%Grid%is:vApp%chmp2mhd%iMax+1,gApp%Grid%js:gApp%Grid%je+1,gApp%Grid%ks:gApp%Grid%ke+1,1:NVARIMAG))
+            !NOTE: Embiggening SrcNC to include isg:is region
+            allocate(gApp%SrcNC(gApp%Grid%isg:vApp%chmp2mhd%iMax+1,gApp%Grid%js:gApp%Grid%je+1,gApp%Grid%ks:gApp%Grid%ke+1,1:NVARIMAG))
         endif
 
         associate(Gr=>gApp%Grid,chmp2mhd=>vApp%chmp2mhd,SrcNC=>gApp%SrcNC)
 
+        allocate(isgTasty(Gr%isg:chmp2mhd%iMax+1,Gr%js:Gr%je+1,Gr%ks:Gr%ke+1))
         !Create local storage for cell corner imW's
         SrcNC = 0.0
+        isgTasty = .false.
         chmp2mhd%isEdible = .false.
 
     ! 1) Cell corner ingestion
@@ -63,9 +69,31 @@ module imag2mhd_interface
                     endif !isGood
                     SrcNC(i,j,k,:) = imW
                     chmp2mhd%isEdible(i,j,k) = isTasty
+                    isgTasty(i,j,k) = isTasty !Save in embiggen-ed array
                 enddo !i loop
             enddo
         enddo
+
+        !Embiggen to include i-ghosts for certain cases
+        if ( (vApp%isEarth) .and. (vApp%prType == LLPROJ) ) then
+            !Do lat-lon (dipole) projections for gamera ghost cells
+            !$OMP PARALLEL DO default(shared) collapse(2) &
+            !$OMP schedule(dynamic) &
+            !$OMP private(i,j,k,x1,x2,xyz,imW,isTasty)
+            do k=Gr%ks,Gr%ke+1
+                do j=Gr%js,Gr%je+1
+                    do i=Gr%isg,Gr%is-1
+                        !Dipole project
+                        xyz = Gr%xyz(i,j,k,:) !Gamera grid corner
+                        x1 = InvLatitude(xyz)
+                        x2 = katan2(xyz(YDIR),xyz(XDIR)) !katan => [0,2pi] instead of [-pi,pi]
+                        call vApp%imagApp%doEval(x1,x2,t,imW,isTasty)
+                        SrcNC(i,j,k,:) = imW
+                        isgTasty(i,j,k) = isTasty
+                    enddo
+                enddo
+            enddo
+        endif
 
 
     ! 2) Corners => Centers
@@ -76,9 +104,10 @@ module imag2mhd_interface
         !$OMP private(i,j,k,imW,Qs)
         do k=Gr%ks,Gr%ke
             do j=Gr%js,Gr%je
-                do i=Gr%is,chmp2mhd%iMax
+                do i=Gr%isg,chmp2mhd%iMax
 
-                    if ( all(chmp2mhd%isEdible(i:i+1,j:j+1,k:k+1)) ) then
+
+                    if ( all(isgTasty(i:i+1,j:j+1,k:k+1)) ) then
                     !Density and pressure
                         call SquishCorners(SrcNC(i:i+1,j:j+1,k:k+1,IMDEN),Qs)
                         imW(IMDEN) = ArithMean(Qs)
