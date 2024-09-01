@@ -72,6 +72,7 @@ module raijuLoss_SS
         V = (vc_cgs*1e-2)*sqrt(1.0 - 1.0/gammar**2)/Model%planet%rp_m  ! [Rp/s]
         tau = 2.0*State%bvol_cc(i,j)*Grid%Bmag(i,j)/(1.0 - eta_scatter) / V*gammar  ! [Rp/nT * nT / (Rp/s) = s]
 
+        tau = max(tau, TINY)
         !if (i==22 .and. j==180 ) then
         !    write(*,*)"ijk=",i,j,k
         !    write(*,*)" ",KE,gammar,V,tau

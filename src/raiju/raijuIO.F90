@@ -215,6 +215,8 @@ module raijuIO
         call AddOutVar(IOVars,"rotAxisP",axP)  ! Radians
 
         ! Add State variables
+        call AddOutVar(IOVars, "dtk", State%dtk, uStr="s")
+        call AddOutVar(IOVars, "nStepk", State%nStepk*1.0_rp, uStr="#", dStr="Number of steps each channel has taken")
         call AddOutVar(IOVars,"bminX",State%Bmin(is:ie+1,js:je+1,XDIR),uStr="nT")
         call AddOutVar(IOVars,"bminY",State%Bmin(is:ie+1,js:je+1,YDIR),uStr="nT")
         call AddOutVar(IOVars,"bminZ",State%Bmin(is:ie+1,js:je+1,ZDIR),uStr="nT")
@@ -368,9 +370,6 @@ module raijuIO
 
         if (Model%doDebugOutput) then
             ! Lots of weird stuff
-            call AddOutVar(IOVars, "dtk", State%dtk, uStr="s")
-            call AddOutVar(IOVars, "nStepk", State%nStepk*1.0_rp, uStr="#", dStr="Number of steps each channel has taken")
-            ! call AddOutVar(IOVars, "nStepk", State%nStepk*1.0_rp, uStr="#") 
             call AddOutVar(IOVars, "eta_half"     , State%eta_half     (is:ie  ,js:je  ,:)  , uStr="#/cm^3 * Rx/T")
             call AddOutVar(IOVars, "iVel"         , State%iVel         (is:ie+1,js:je+1,:,:), uStr="m/s")
             call AddOutVar(IOVars, "iVelL"        , State%iVelL        (is:ie+1,js:je+1,:,:), uStr="m/s")

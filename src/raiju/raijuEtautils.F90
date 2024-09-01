@@ -307,9 +307,9 @@ module raijuetautils
         alamc   = abs(spc%alami(spc%kStart+1:)+spc%alami(spc%kStart:spc%kEnd))/2.0
         lamdiff = abs(spc%alami(spc%kStart+1:)-spc%alami(spc%kStart:spc%kEnd))
 
-        intensity =   sclIntens/sqrt(spc%amu)  &
-                    * sqrt(alamc)/lamdiff  &
-                    * bVol**(-2./3.) * eta
+        intensity = sclIntens/sqrt(spc%amu)  &
+                  * sqrt(alamc)/lamdiff  &
+                  * bVol**(-2./3.) * eta
 
     end function eta2intensity
 
