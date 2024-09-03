@@ -91,6 +91,7 @@ module ebtypes
 
     !Magnetic field line type, w/ MF plasma information
     type magLine_T
+        integer :: nMax ! Max number of steps this field line is allowed to have
         real(rp), dimension(NDIM) :: x0 !Seed point
         integer :: Nm=0,Np=0 !Length of line, -Nm:+Np w/ x0=>0
 

@@ -68,7 +68,7 @@ module streamline
         !Okay, we're still here so let's do this thing
         !Start by dealing w/ optional and defaults
         if (present(MaxStepsO)) then
-            MaxN = MaxStepsO
+            MaxN = min(MaxStepsO, MaxFL)
         else
             MaxN = MaxFL
         endif
@@ -102,7 +102,8 @@ module streamline
         endif
 
     !Now create field line and scrape values out of temp arrays
-        fl%isGood = .true.
+        fL%nMax = MaxN
+        fL%isGood = .true.
         fL%x0 = x0
         fL%Nm = N1
         fL%Np = N2
@@ -391,7 +392,8 @@ module streamline
         isCM  = isClosed(bTrc%xyz(-Nm,:),Model)
 
         
-        isFin = (Np<MaxFL-1) .and. (Nm<MaxFL-1) !Check if finished
+        !isFin = (Np<MaxFL-1) .and. (Nm<MaxFL-1) !Check if finished
+        isFin = (Np<bTrc%nMax-1) .and. (Nm<bTrc%nMax-1) !Check if finished
         isStart = (Np>0) .and. (Nm>0) !Check if both sides went somewhere
 
         OCb = 0
