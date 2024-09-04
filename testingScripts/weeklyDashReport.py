@@ -1044,19 +1044,14 @@ def main():
         if debug:
             print(f"slack_client = {slack_client}")
         message = (
-            'Weekly dash result plots complete on branch '
-            f"{BRANCH_OR_COMMIT}.\n"
-            ' Latest comparative results attached as replies to this '
-            'message.\n'
-        )
-        message += (
-            f"Test results are in {os.getcwd()}.\n"
+            f"Weekly dash result plots complete for `{BRANCH_OR_COMMIT}`.\n"
         )
         slack_response = common.slack_send_message(
             slack_client, message, is_test=is_test)
         if slack_response['ok']:
             parent_ts = slack_response['ts']
-            message = (
+            message = f"Test results are in {os.getcwd()}.\n"
+            message += (
                 'This was a 4x4x1 (IxJxK) decomposed Quad Resolution Run using'
                 ' 8 nodes for Gamera, 1 for Voltron, and 2 Squish Helper nodes'
                 ' (11 nodes total).'
