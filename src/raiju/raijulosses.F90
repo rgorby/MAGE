@@ -31,6 +31,7 @@ module raijulosses
 
         State%lossRates = 0.0
         State%lossRatesPrecip = 0.0
+        State%dEta_dt = 0.0
 
         if (.not. Model%doLosses) then
             return
@@ -86,6 +87,9 @@ module raijulosses
         do iLP=1,nLP
             call State%lps(iLP)%p%doUpdate(Model, Grid, State)
         enddo
+
+        ! Prep for accumulation this coupling step
+        State%dEta_dt = 0.0
     end subroutine updateRaiLosses
 
 
@@ -133,6 +137,10 @@ module raijulosses
                     endif
 
                     rate = 1.0_rp/lps(l)%p%calcTau(Model, Grid, State, i,j,k)
+                    if (rate < 0.0) then
+                        write(*,*)"ERROR in raijulosses: lossRate<0 for i,j,k=",i,j,k
+                        stop
+                    endif
                     if (rate .le. TINY) then
                         rate = 0.0
                     endif
@@ -142,15 +150,13 @@ module raijulosses
                         State%lossRatesPrecip(i,j,k) = State%lossRatesPrecip(i,j,k) + rate
                     endif
                 enddo
+                
             enddo
         enddo
 
         end associate
 
-
     end subroutine calcChannelLossRates
-
-! ----- OLD -----
 
 
 !------
@@ -180,21 +186,25 @@ module raijulosses
         integer :: i,j
         real(rp) :: deleta, eta0, pNFlux
         
-        !$OMP PARALLEL DO default(shared) collapse(1) &
-        !$OMP schedule(dynamic) &
-        !$OMP private(j,i,eta0, deleta)
+        ! ! !$OMP PARALLEL DO default(shared) collapse(1) &
+        ! ! !$OMP schedule(dynamic) &
+        ! ! !$OMP private(j,i,eta0, deleta)
         do j=Grid%shGrid%jsg,Grid%shGrid%jeg
             do i=Grid%shGrid%isg,Grid%shGrid%ieg
                 eta0 = State%eta(i,j,k)
                 ! First update eta using total lossRates over dt
                 deleta = eta0*(1.0-exp(-dt*State%lossRates(i,j,k)))
                 State%eta(i,j,k) = max(0.0, eta0 - deleta)
+                ! Note: Not dividing by dt here, we are accumulating over 
+                ! coupling step and dividing by step dt at the end
+                State%dEta_dt(i,j,k) = State%dEta_dt(i,j,k) + deleta
+
 
                 ! Then calculate precipitation flux using lossRatesPrecip
                 deleta = eta0*(1.0-exp(-dt*State%lossRatesPrecip(i,j,k)))
-                pNFlux = deleta2NFlux(deleta, Model%planet%rp_m, Grid%Bmag(i,j), dt)
+                pNFlux = deleta2NFlux(deleta, Model%planet%rp_m, Grid%Brcc(i,j), dt)
                 State%precipNFlux(i,j,k) = State%precipNFlux(i,j,k) + pNFlux
-                State%precipEFlux(i,j,k) = State%precipEFlux(i,j,k) + nFlux2EFlux(pNFlux, Grid%alamc(k), State%bVol(i,j))
+                State%precipEFlux(i,j,k) = State%precipEFlux(i,j,k) + nFlux2EFlux(pNFlux, Grid%alamc(k), State%bVol_cc(i,j))
             enddo
         enddo
 

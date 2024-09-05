@@ -146,9 +146,10 @@ module raijuAdvancer
             ! Post-advance bookkeeping for this specific eta channel
 
             if (Model%doLosses) then
-                ! Divide precip fluxes by big dt to turn them into proper rates
+                ! Divide losses and precip fluxes by big dt to turn them into proper rates
                 State%precipNFlux(:,:,k) = State%precipNFlux(:,:,k)/State%dt
                 State%precipEFlux(:,:,k) = State%precipEFlux(:,:,k)/State%dt
+                State%dEta_dt(:,:,k) = State%dEta_dt(:,:,k)/State%dt
             endif
 
             State%nStepk(k) = State%nStepk(k) + n

@@ -416,6 +416,8 @@ module raijutypes
             !! (Ngi, Ngj, Nk) [#/cm^2/s] Precipitation number fluxes
         real(rp), dimension(:,:,:), allocatable :: precipEFlux
             !! (Ngi, Ngj, Nk) [erg/cm^2/s] Precipitation energy fluxes
+        real(rp), dimension(:,:,:), allocatable :: dEta_dt
+            !! (Ngi, Ngj, Ngk) [eta units/s] Average 
         
         ! (Ngi, Ngj, Nspc+1) (First Nspc index is bulk) Moments
         ! Last dimension will be D/P of different populations (not necessarily same as species)

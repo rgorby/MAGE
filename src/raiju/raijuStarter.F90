@@ -43,6 +43,9 @@ module raijustarter
 
         call raijuInitState(app%Model,app%Grid,app%State,iXML)
 
+        ! Do losses after everything else has been set, just in case they need something from it
+        call initRaiLosses(app%Model, app%Grid, app%State, iXML)
+
         ! Initialize IOCLOCK
         call app%State%IO%init(iXML,app%State%t,app%State%ts)
 
@@ -392,12 +395,14 @@ module raijustarter
             allocate( State%active_last (sh%isg:sh%ieg, sh%jsg:sh%jeg) )
             allocate( State%OCBDist(sh%isg:sh%ieg, sh%jsg:sh%jeg) )
 
-            ! Coupling output data
+            
             allocate( State%lossRates      (sh%isg:sh%ieg, sh%jsg:sh%jeg, Grid%Nk) )
             allocate( State%precipType_ele (sh%isg:sh%ieg, sh%jsg:sh%jeg, Grid%Nk) )
             allocate( State%lossRatesPrecip(sh%isg:sh%ieg, sh%jsg:sh%jeg, Grid%Nk) )
             allocate( State%precipNFlux    (sh%isg:sh%ieg, sh%jsg:sh%jeg, Grid%Nk) )
             allocate( State%precipEFlux    (sh%isg:sh%ieg, sh%jsg:sh%jeg, Grid%Nk) )
+            allocate( State%dEta_dt        (sh%isg:sh%ieg, sh%jsg:sh%jeg, Grid%Nk) )
+            ! Coupling output data
             allocate( State%Den  (sh%isg:sh%ieg, sh%jsg:sh%jeg, Grid%nSpc+1) )
             allocate( State%Press(sh%isg:sh%ieg, sh%jsg:sh%jeg, Grid%nSpc+1) )
             allocate( State%vAvg (sh%isg:sh%ieg, sh%jsg:sh%jeg, Grid%nSpc+1) )
@@ -448,9 +453,6 @@ module raijustarter
         end select
 
         call Model%initState(Model, Grid, State, iXML)
-
-        ! Do losses after everything else has been set, just in case they need something from it
-        call initRaiLosses(Model, Grid, State, iXML)
 
     end subroutine raijuInitState
 

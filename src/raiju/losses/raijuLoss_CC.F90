@@ -27,7 +27,8 @@ module raijuLoss_CC
         type(raijuGrid_T) , intent(in) :: Grid
         type(XML_Input_T) , intent(in) :: xmlInp
 
-        this%isPrecip = .true.
+        ! Technically yes, but actually no
+        !this%isPrecip = .true.
 
         ! Nothing to initialize, just make sure plasmasphere actually exists
         if (.not. Model%doPlasmasphere) then

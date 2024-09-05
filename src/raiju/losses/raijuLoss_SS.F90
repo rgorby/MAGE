@@ -29,6 +29,8 @@ module raijuLoss_SS
 
         ! Idk what planet you are, electrons gonna scatter
         this%reqsGood = .true.
+        ! And they gonna precipitate
+        this%isPrecip = .true.
 
     end subroutine SSLossInit
 
