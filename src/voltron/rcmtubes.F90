@@ -397,7 +397,7 @@ module rcmtubes
 
         real(rp) :: Pmhd,Dmhd,P0_rc,N0_rc,N0_ps,P0_ps,N,P,L
         real(rp) :: xyzSM(NDIM)
-        real(rp) :: x0_TM,y0_TM,B0_TM,T0_TM,ktRC,ijB0,ktMax,ktCap
+        real(rp) :: x0_TM,y0_TM,Bvol0_TM,T0_TM,ktRC,ijBvol0,ktMax,ktCap
 
         logical :: isInTM03,isLL,isOut
 
@@ -416,8 +416,9 @@ module rcmtubes
         ij_TM = minloc( sqrt( (RCMApp%X_bmin(:,:,XDIR) - x0_TM)**2.0 + (RCMApp%X_bmin(:,:,YDIR) - y0_TM)**2.0 ), &
                          mask=.not. (RCMApp%iopen == RCMTOPOPEN) )
 
-        !Now get temperature and B at location
-        B0_TM = RCMApp%Bmin(ij_TM(IDIR),ij_TM(JDIR))
+        !Now get temperature and FTV at location
+        !B0_TM = RCMApp%Bmin(ij_TM(IDIR),ij_TM(JDIR))
+        Bvol0_TM = RCMApp%Vol(ij_TM(IDIR),ij_TM(JDIR))
         call EvalTM03([x0_TM,y0_TM,0.0_rp]/Rp_m,N0_ps,P0_ps,isInTM03)
         T0_TM = DP2kT(N0_ps,P0_ps)
 
@@ -446,9 +447,11 @@ module rcmtubes
 
             !Quiet-time ring current
                 P0_rc = P_QTRC(L)
-                !Get target temperature from adiabatic scaling of TM plasma sheet
-                ijB0 = RCMApp%Bmin(i,j)
-                ktRC = (T0_TM)*ijB0/B0_TM
+                ! Get target temperature from adiabatic scaling of TM plasma sheet
+                ! From RCM approximation, KE = lambda*bVol^(-2/3)
+                ! KE_ij = KE_10*(bVol_10/bVol_ij)^(2/3)
+                ijBvol0 = RCMApp%Vol(i,j)
+                ktRC = (T0_TM)*(Bvol0_TM/ijBvol0)**(2./3.)
                 ktRC = min(ktRC,ktCap*T0_TM)
 
                 N0_rc = PkT2Den(P0_rc,ktRC)
