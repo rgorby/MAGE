@@ -752,6 +752,7 @@ module streamutils
     subroutine cleanLine(fL)
         type(magLine_T), intent(inout) :: fL
 
+        fL%nMax = MaxFL
         fL%x0 = 0.0
         fL%Nm = 0
         fL%Np = 0
@@ -779,6 +780,7 @@ module streamutils
 
         call cleanLine(flOut)
 
+        flOut%nMax = flIn%nMax
         flOut%x0 = flIn%x0
         flOut%Nm = flIn%Nm
         flOut%Np = flIn%Np
