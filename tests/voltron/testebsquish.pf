@@ -153,18 +153,20 @@ contains
     call Squish(voltronApp)
     call SquishEnd(voltronApp)
 
-    @assertEqual(COUNT(voltronApp%chmp2mhd%isGood),112344,'Squish Fake Projection Good Count is wrong. Check Squish Processing and Output.')
+    @assertEqual(COUNT(norm2(ebGr%xyz(ebGr%is:voltronApp%iDeep+1,ebGr%js:ebGr%je+1,ebGr%ks:ebGr%ke+1,:),4) <= voltronApp%rTrc),COUNT(voltronApp%chmp2mhd%isGood),'Squish Fake Projection Good Count is wrong. Check Squish Processing and Output.')
 
-    do k=ebGr%ks,ebGr%ke
-      do j=ebGr%js,ebGr%je
-        do i=ebGr%is,ebGr%ie
-          xyz = ebGr%xyz(i,j,k,XDIR:ZDIR)
-          invlat = InvLatitude(xyz)
-          invlon = katan2(xyz(YDIR),xyz(XDIR))
-          write (checkMessage,'(A,I0,A,I0,A,I0,A)'), 'Squish Fake Projection Latitude is wrong at (',i,',',j,',',k,'). Check Squish Processing and Output.'
-          @assertEqual(voltronApp%chmp2mhd%xyzSquish(i,j,k,1),invlat,1e-17_rp,trim(checkMessage))
-          write (checkMessage,'(A,I0,A,I0,A,I0,A)'), 'Squish Fake Projection Longitude is wrong at (',i,',',j,',',k,'). Check Squish Processing and Output.'
-          @assertEqual(voltronApp%chmp2mhd%xyzSquish(i,j,k,2),invlon,1e-17_rp,trim(checkMessage))
+    do k=ebGr%ks,ebGr%ke+1
+      do j=ebGr%js+1,ebGr%je ! js and je+1 are smoothed singularities, not checked
+        do i=ebGr%is,voltronApp%iDeep+1
+          if(voltronApp%chmp2mhd%isGood(i,j,k)) then
+            xyz = ebGr%xyz(i,j,k,XDIR:ZDIR)
+            invlat = InvLatitude(xyz)
+            invlon = katan2(xyz(YDIR),xyz(XDIR))
+            write (checkMessage,'(A,I0,A,I0,A,I0,A)'), 'Squish Fake Projection Latitude is wrong at (',i,',',j,',',k,'). Check Squish Processing and Output.'
+            @assertEqual(invlat,voltronApp%chmp2mhd%xyzSquish(i,j,k,1),1e-17_rp,trim(checkMessage))
+            write (checkMessage,'(A,I0,A,I0,A,I0,A)'), 'Squish Fake Projection Longitude is wrong at (',i,',',j,',',k,'). Check Squish Processing and Output.'
+            @assertEqual(invlon,voltronApp%chmp2mhd%xyzSquish(i,j,k,2),1e-17_rp,trim(checkMessage))
+          endif
         enddo
       enddo
     enddo
