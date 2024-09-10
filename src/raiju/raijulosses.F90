@@ -32,6 +32,7 @@ module raijulosses
         State%lossRates = 0.0
         State%lossRatesPrecip = 0.0
         State%dEta_dt = 0.0
+        State%CCHeatFlux = 0.0
 
         if (.not. Model%doLosses) then
             return
@@ -56,6 +57,7 @@ module raijulosses
                 if (allocated(State%lps(iLP)%p)) deallocate(State%lps(iLP)%p)
                 allocate( raiLoss_CC_T :: State%lps(iLP)%p )
                 initCC = 0
+                State%lp_cc_idx = iLP
             elseif(initSS==1) then
                 if (allocated(State%lps(iLP)%p)) deallocate(State%lps(iLP)%p)
                 allocate( raiLoss_SS_T :: State%lps(iLP)%p )
@@ -184,7 +186,8 @@ module raijulosses
             !! Time delta [s]
 
         integer :: i,j
-        real(rp) :: deleta, eta0, pNFlux
+        real(rp) :: deleta, eta0, pNFlux, tau
+
         
         ! ! !$OMP PARALLEL DO default(shared) collapse(1) &
         ! ! !$OMP schedule(dynamic) &
@@ -205,8 +208,21 @@ module raijulosses
                 pNFlux = deleta2NFlux(deleta, Model%planet%rp_m, Grid%Brcc(i,j), dt)
                 State%precipNFlux(i,j,k) = State%precipNFlux(i,j,k) + pNFlux
                 State%precipEFlux(i,j,k) = State%precipEFlux(i,j,k) + nFlux2EFlux(pNFlux, Grid%alamc(k), State%bVol_cc(i,j))
+
+                ! Do special stuff for Coulomb collision effects
+                if (Model%doCC) then
+                    ! We can estimate heat transfer to plasmasphere electrons by energy lost from RC species to CC
+                    ! So we can follow same prodecure as above, by using just CC tau and dividing later by coupling dt to get average heat flux
+                    ! Treating this separately from precipication since its not actually precipitating ions
+                    tau = max(TINY, State%lps(State%lp_cc_idx)%p%calcTau(Model, Grid, State, i,j,k))
+                    deleta = eta0*(1.0 - exp(-dt/tau))
+                    pNFlux = deleta2NFlux(deleta, Model%planet%rp_m, Grid%Brcc(i,j), dt)
+                    State%CCHeatFlux(i,j,k) = State%CCHeatFlux(i,j,k) + nFlux2EFlux(pNFlux, Grid%alamc(k), State%bvol_cc(i,j))
+                endif
             enddo
         enddo
+
+        
 
     end subroutine applyLosses
 

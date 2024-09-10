@@ -403,8 +403,10 @@ module raijutypes
 
         ! Loss-related things
         type(raijuLPHolder_T), dimension(:), allocatable :: lps
-        !class(baseRaijuLoss_T), dimension(:), allocatable :: lps
-            !! Collection of loss processes
+            !! Array of loss processes
+        integer :: lp_cc_idx = -1
+            !! If CC active, this is the index of CC object within lps array
+        
         ! (Ngi, Ngj, Nk) Varibles coming from RAIJU
         real(rp), dimension(:,:,:), allocatable :: lossRates
             !! (Ngi, Ngj, Nk) [1/s] Loss rates for each grid and lambda point. Generally stays the same over coupling time so we store them all here
@@ -417,7 +419,9 @@ module raijutypes
         real(rp), dimension(:,:,:), allocatable :: precipEFlux
             !! (Ngi, Ngj, Nk) [erg/cm^2/s] Precipitation energy fluxes
         real(rp), dimension(:,:,:), allocatable :: dEta_dt
-            !! (Ngi, Ngj, Ngk) [eta units/s] Average 
+            !! (Ngi, Ngj, Nk) [eta units/s] Average 
+        real(rp), dimension(:,:,:), allocatable :: CCHeatFlux
+            !! (Ngi, Ngj, Nk) [erg/cm^2/s] Heat flux from RC ions to plasmasphere electrons due to Coulumb collisions
         
         ! (Ngi, Ngj, Nspc+1) (First Nspc index is bulk) Moments
         ! Last dimension will be D/P of different populations (not necessarily same as species)

@@ -171,7 +171,7 @@ module raijuIO
         logical , dimension(:,:,:), allocatable :: tmpGood3D
         !real(rp), dimension(:,:), allocatable :: outActiveShell, outEnt
         !real(rp), dimension(:,:,:), allocatable :: outDen, outIntensity
-        real(rp), dimension(:,:,:), allocatable :: outPrecipN, outPrecipE, outPrecipAvgE
+        real(rp), dimension(:,:,:), allocatable :: outPrecipN, outPrecipE, outPrecipAvgE, outCCHeatFlux
         !real(rp), dimension(:,:,:), allocatable :: outPEff  ! effective Potential
 
         if (present(doGhostsO)) then
@@ -328,11 +328,14 @@ module raijuIO
             allocate(outPrecipN   (is:ie,js:je,Grid%nSpc))
             allocate(outPrecipE   (is:ie,js:je,Grid%nSpc))
             allocate(outPrecipAvgE(is:ie,js:je,Grid%nSpc))
+            allocate(outCCHeatFlux(is:ie,js:je,Grid%nSpc))
+            
             do s=1,Grid%nSpc
                 ks = Grid%spc(s)%kStart
                 ke = Grid%spc(s)%kEnd
-                outPrecipN(:,:,s) = sum(State%precipNFlux(is:ie,js:je,kS:kE), dim=3)
-                outPrecipE(:,:,s) = sum(State%precipEFlux(is:ie,js:je,kS:kE), dim=3)
+                outPrecipN(:,:,s)    = sum(State%precipNFlux(is:ie,js:je,kS:kE), dim=3)
+                outPrecipE(:,:,s)    = sum(State%precipEFlux(is:ie,js:je,kS:kE), dim=3)
+                outCCHeatFlux(:,:,s) = sum(State%CCHeatFlux (is:ie,js:je,kS:kE), dim=3)
 
                 where (outPrecipN(:,:,s) > TINY)
                     outPrecipAvgE(:,:,s) = outPrecipE(:,:,s)/outPrecipN(:,:,s) * erg2kev  ! Avg E [keV]
@@ -343,9 +346,11 @@ module raijuIO
             call AddOutVar(IOVars, "precipNFlux", outPrecipN   , uStr="#/cm^2/s")
             call AddOutVar(IOVars, "precipEFlux", outPrecipE   , uStr="erg/cm^2/s")
             call AddOutVar(IOVars, "precipAvgE" , outPrecipAvgE, uStr="keV")
+            call AddOutVar(IOVars, "CCHeatFlux" , outCCHeatFlux, uStr="erg/cm^2/s")
             deallocate(outPrecipN)
             deallocate(outPrecipE)
             deallocate(outPrecipAvgE)
+            deallocate(outCCHeatFlux)
         endif
 
         

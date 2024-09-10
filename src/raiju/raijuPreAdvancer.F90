@@ -43,6 +43,7 @@ module raijuPreAdvancer
         State%precipType_ele = 0.0
         State%precipNFlux = 0.0
         State%precipEFlux = 0.0
+        State%CCHeatFlux = 0.0
 
         ! Moments to etas, initial active shell calculation
         call Tic("BCs")
