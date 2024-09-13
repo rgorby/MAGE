@@ -389,7 +389,7 @@ module gamCouple_mpi_G2V
         integer :: ierr, dataSize, sendDataOffset, recvDataOffset
         type(MPI_Datatype) :: iPSI, iPSI1, Eijk2, EIjk3, Eijk4, Exyz2, Exyz3, Exyz4
         type(MPI_Datatype) :: iP,iPjP,iPjPkP,iPjPkP4Gas,iPjPkP4Bxyz,iPjPkP5Gas
-        type(MPI_Datatype) :: iPG2,iPG2jPG2,iPG2jPG2kPG2,iPG2jPG2kPG24Gas,iPG2jPG2kPG25Gas
+        type(MPI_Datatype) :: iPG2,iPG2jPG2,iPG2jPG2kPG2,iPG2jPG2kPG24Gas0
 
         associate(Grid=>gCplApp%Grid,Model=>gCplApp%Model)
 
@@ -446,12 +446,10 @@ module gamCouple_mpi_G2V
         call mpi_type_hvector(NDIM, 1, (PsiSh+1)*(Grid%Nj+1)*(Grid%Nk+1)*dataSize, Eijk3, Eijk4, ierr)
         call mpi_type_hvector(NVAR, 1, Grid%Ni*Grid%Nj*Grid%Nk*datasize, iPjPkP, iPjPkP4Gas, ierr)
         call mpi_type_hvector(NDIM, 1, Grid%Ni*Grid%Nj*Grid%Nk*datasize, iPjPkP, iPjPkP4Bxyz, ierr)
-        call mpi_type_hvector(NVAR, 1, Grid%Ni*Grid%Nj*Grid%Nk*datasize, iPG2jPG2kPG2, iPG2jPG2kPG24Gas, ierr)
+        call mpi_type_hvector(Model%nvSrc, 1, Grid%Ni*Grid%Nj*Grid%Nk*datasize, iPG2jPG2kPG2, iPG2jPG2kPG24Gas0, ierr)
 
         ! 5th dimension
         call mpi_type_hvector(Model%nSpc+1,1,NVAR*Grid%Ni*Grid%Nj*Grid%Nk*dataSize,iPjPkP4Gas,iPjPkP5Gas,ierr)
-        call mpi_type_hvector(Model%nSpc+1,1,NVAR*Grid%Ni*Grid%Nj*Grid%Nk*dataSize,iPG2jPG2kPG24Gas, &
-                              iPG2jPG2kPG25Gas,ierr)
 
         ! create appropriate MPI Datatypes
         if(.not. Grid%hasLowerBC(IDIR)) then
@@ -485,7 +483,7 @@ module gamCouple_mpi_G2V
         if(gCplApp%doDeep) then
             ! Gas0
             recvDataOffset = 0
-            call mpi_type_hindexed(1,(/1/),recvDataOffset*dataSize,iPG2jPG2kPG25Gas, &
+            call mpi_type_hindexed(1,(/1/),recvDataOffset*dataSize,iPG2jPG2kPG24Gas0, &
                                    gCplApp%recvVTypesGas0(1),ierr)
         endif
 
