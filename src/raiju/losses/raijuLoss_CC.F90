@@ -9,6 +9,12 @@ module raijuLoss_CC
 
     type, extends(baseRaijuLoss_T) :: raiLoss_CC_T
         logical :: reqsGood = .false.
+
+        ! Idea: Have a local 3D copy of our taus and heat fluxes
+        ! On step update, zero out locals and populate tau array. calcTau just returns already calculated value for this time step
+        ! Additiona subroutine "AccumHeatFlux" will accum in local head flux array
+        ! Then IO can reach in here for these outputs if desired
+
         contains
 
         procedure :: doInit => CCLossInit
@@ -76,7 +82,7 @@ module raijuLoss_CC
         associate(spc => Grid%spc(Grid%k2spc(k)))
         psphIdx = spcIdx(Grid, F_PSPH)
         tau = CCTau(spc%spcType, Grid%alamc(k), &
-                    State%bVol(i,j)**(-2./3.), State%Den(i,j,1+psphIdx)) ! Add 1 cause we're grabbing from density, which has bulk as first element
+                    State%bvol_cc(i,j)**(-2./3.), State%Den(i,j,1+psphIdx)) ! Add 1 cause we're grabbing from density, which has bulk as first element
         end associate
 
     end function CCLossCalcTau

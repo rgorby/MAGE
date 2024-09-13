@@ -206,7 +206,8 @@ module raijulosses
                 ! Then calculate precipitation flux using lossRatesPrecip
                 deleta = eta0*(1.0-exp(-dt*State%lossRatesPrecip(i,j,k)))
                 pNFlux = deleta2NFlux(deleta, Model%planet%rp_m, Grid%Brcc(i,j), dt)
-                State%precipNFlux(i,j,k) = State%precipNFlux(i,j,k) + pNFlux
+                ! Just accumulate total #/cm2 and erg/cm2, we divide by coupling dt at the end of advance
+                State%precipNFlux(i,j,k) = State%precipNFlux(i,j,k) + pNFlux*dt
                 State%precipEFlux(i,j,k) = State%precipEFlux(i,j,k) + nFlux2EFlux(pNFlux, Grid%alamc(k), State%bVol_cc(i,j))
 
                 ! Do special stuff for Coulomb collision effects
@@ -216,8 +217,10 @@ module raijulosses
                     ! Treating this separately from precipication since its not actually precipitating ions
                     tau = max(TINY, State%lps(State%lp_cc_idx)%p%calcTau(Model, Grid, State, i,j,k))
                     deleta = eta0*(1.0 - exp(-dt/tau))
-                    pNFlux = deleta2NFlux(deleta, Model%planet%rp_m, Grid%Brcc(i,j), dt)
-                    State%CCHeatFlux(i,j,k) = State%CCHeatFlux(i,j,k) + nFlux2EFlux(pNFlux, Grid%alamc(k), State%bvol_cc(i,j))
+                    pNFlux = deleta2NFlux(deleta, Model%planet%rp_m, Grid%Brcc(i,j), dt)*dt
+                    ! Just accumulate total #/cm2 and erg/cm2, we divide by coupling dt at the end of advance
+                    !State%CCHeatFlux(i,j,k) = State%CCHeatFlux(i,j,k) + nFlux2EFlux(pNFlux, Grid%alamc(k), State%bvol_cc(i,j))
+                    State%CCHeatFlux(i,j,k) = State%CCHeatFlux(i,j,k) + pNFlux*abs(Grid%alamc(k))*State%bVol_cc(i,j)**(-2./3.)  ! [eV/cm2]
                 endif
             enddo
         enddo
@@ -235,7 +238,7 @@ module raijulosses
         real(rp) :: deleta2NFlux
 
         deleta2NFlux = (eta/sclEta) * (Rp_m*1.e2) * Bmag / dt
-            !! (#/cm^3 * Rp/T * T/nT) * cm * nT / s  = #/cm^2/s
+            !! ((#/cm^3 * Rp/T) * T/nT) * cm * nT / s  = #/cm^2/s
         
     end function deleta2NFlux
 
