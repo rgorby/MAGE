@@ -258,10 +258,8 @@ module math
         real(rp), intent(in) :: a,b
         real(rp) :: c
 
-        c = atan2(a,b)
-        if (c<0) then
-            c = c + 2*PI
-        endif
+        !Ensure arctan is between 0,2pi
+        c = modulo(atan2(a,b) + 2*PI,2*PI)
     end function katan2
 
     function cross(a, b)

@@ -244,13 +244,14 @@ module sliceio
         real(rp), dimension(:,:), allocatable :: Lb,LbXY,dLpp,rCurv
 
         integer :: i,j,s
-        real(rp), dimension(NDIM) :: xp,xm,dB,Ep,Em,Bp,Bm,B
+        real(rp), dimension(NDIM) :: xp,xm,dB,Ep,Em,Bp,Bm,Eeq,Beq,B
         real(rp) :: MagB,MagJ,oVGScl
         real(rp), dimension(NVARMHD,0:Model%nSpc) :: Qij
-        type(gcFields_T) :: gcFieldsP,gcFieldsM
+        type(gcFields_T) :: gcFieldsP,gcFieldsM,gcFieldsEq
         real(rp), dimension(NDIM,NDIM) :: jB
         character(len=strLen) :: dID,pID,vxID,vyID,vzID,vrID
 
+        real(rp) :: oJScl
         !Data for tracing
         type(ebTrc_T), dimension(:,:), allocatable :: ebTrcIJ
 
@@ -315,7 +316,7 @@ module sliceio
                 MagJ = oBScl*sqrt(sum(jB**2.0))
 
                 ! radius of curvature
-                rCurv(i,j) = getRCurv(B/oBScl,jB)
+                !rCurv(i,j) = getRCurv(B/oBScl,jB)
 
                 !Get MHD vars if requested
                 if (Model%doMHD) then
@@ -345,6 +346,10 @@ module sliceio
                     !Get field line topology stuff
                     call SliceFL(Model,ebState,0.5*(xp+xm),Model%t,ebTrcIJ(i,j))
 
+                    call ebFields(ebTrcIJ(i,j)%MagEQ,Model%t,Model,ebState,Eeq,Beq,gcFields=gcFieldsEq)
+                    ! radius of curvature
+                    rCurv(i,j) = getRCurv(Beq,gcFieldsEq%JacB)
+
                 endif
 
                 if (Model%doPP) then
@@ -353,6 +358,12 @@ module sliceio
                 endif
             enddo
         enddo
+
+        !Calculate output J (current) scaling
+        !Mu0 [Tm/A] 
+        ! Curl(B) * oBScl/L0 => nT/cm x (1.0e-9)/(1.0e-2) => T/m
+        !oJScl => A/m^2
+        oJScl = ( (1.0e-7)*oBScl/L0 )/Mu0
 
         call ClearIO(IOVars)
 
@@ -375,11 +386,11 @@ module sliceio
         if (Model%doTrc) then
             !Field line tracing metrics
             call AddOutVar(IOVars,"OCb" ,ebTrcIJ(:,:)%OCb )
-            call AddOutVar(IOVars,"dvB" ,ebTrcIJ(:,:)%dvB )
-            call AddOutVar(IOVars,"bD"  ,ebTrcIJ(:,:)%bD  )
-            call AddOutVar(IOVars,"bP"  ,ebTrcIJ(:,:)%bP  )
-            call AddOutVar(IOVars,"bS"  ,ebTrcIJ(:,:)%bS  )
-            call AddOutVar(IOVars,"bMin",ebTrcIJ(:,:)%bMin)
+            call AddOutVar(IOVars,"dvB" ,ebTrcIJ(:,:)%dvB/oBScl,uStr="Rx/nT")
+            call AddOutVar(IOVars,"bD"  ,ebTrcIJ(:,:)%bD,uStr="#/cc")
+            call AddOutVar(IOVars,"bP"  ,ebTrcIJ(:,:)%bP,uStr="nPa")
+            call AddOutVar(IOVars,"bS"  ,ebTrcIJ(:,:)%bS,uStr="Wolf^(1/gamma)")
+            call AddOutVar(IOVars,"bMin",ebTrcIJ(:,:)%bMin*oBScl,uStr="nT")
             call AddOutVar(IOVars,"stdD",ebTrcIJ(:,:)%stdD)
             call AddOutVar(IOVars,"stdP",ebTrcIJ(:,:)%stdP)
 
@@ -399,21 +410,21 @@ module sliceio
         endif
 
         if (.not. Model%doSlim) then
-            call AddOutVar(IOVars,"Ex" , E2D(:,:,XDIR))
-            call AddOutVar(IOVars,"Ey" , E2D(:,:,YDIR))
-            call AddOutVar(IOVars,"Ez" , E2D(:,:,ZDIR))
-            call AddOutVar(IOVars,"Jx" , J2D(:,:,XDIR))
-            call AddOutVar(IOVars,"Jy" , J2D(:,:,YDIR))
-            call AddOutVar(IOVars,"Jz" , J2D(:,:,ZDIR))
+            call AddOutVar(IOVars,"Ex" , E2D(:,:,XDIR),uStr="mV/m")
+            call AddOutVar(IOVars,"Ey" , E2D(:,:,YDIR),uStr="mV/m")
+            call AddOutVar(IOVars,"Ez" , E2D(:,:,ZDIR),uStr="mV/m")
+            call AddOutVar(IOVars,"Jx" , oJScl*J2D(:,:,XDIR),uStr="A/m2")
+            call AddOutVar(IOVars,"Jy" , oJScl*J2D(:,:,YDIR),uStr="A/m2")
+            call AddOutVar(IOVars,"Jz" , oJScl*J2D(:,:,ZDIR),uStr="A/m2")
         endif        
 
         if (Model%doMHD) then
-            call AddOutVar(IOVars,"Vx" , oVScl*Q(:,:,VELX,BLK))
-            call AddOutVar(IOVars,"Vy" , oVScl*Q(:,:,VELY,BLK))
-            call AddOutVar(IOVars,"Vz" , oVScl*Q(:,:,VELZ,BLK))
-            call AddOutVar(IOVars,"Vr" , oVScl*Vr(:,:,BLK))
-            call AddOutVar(IOVars,"D"  ,       Q(:,:,DEN,BLK))
-            call AddOutVar(IOVars,"P"  ,       Q(:,:,PRESSURE,BLK))
+            call AddOutVar(IOVars,"Vx" , oVScl*Q(:,:,VELX,BLK)    ,uStr="km/s")
+            call AddOutVar(IOVars,"Vy" , oVScl*Q(:,:,VELY,BLK)    ,uStr="km/s")
+            call AddOutVar(IOVars,"Vz" , oVScl*Q(:,:,VELZ,BLK)    ,uStr="km/s")
+            call AddOutVar(IOVars,"Vr" , oVScl*Vr(:,:,BLK)        ,uStr="km/s")
+            call AddOutVar(IOVars,"D"  ,       Q(:,:,DEN,BLK)     ,uStr="#/cc")
+            call AddOutVar(IOVars,"P"  ,       Q(:,:,PRESSURE,BLK),uStr="nPa" )
         endif
 
         if (Model%nSpc > 0) then
@@ -424,12 +435,12 @@ module sliceio
                 write(vyID ,'(A,I0)') "Vy" , s
                 write(vzID ,'(A,I0)') "Vz" , s
                 write(vrID ,'(A,I0)') "Vr" , s
-                call AddOutVar(IOVars,vxID , oVScl*Q(:,:,VELX,s))
-                call AddOutVar(IOVars,vyID , oVScl*Q(:,:,VELY,s))
-                call AddOutVar(IOVars,vzID , oVScl*Q(:,:,VELZ,s))
-                call AddOutVar(IOVars,vrID , oVScl*Vr(:,:,s))
-                call AddOutVar(IOVars,dID  ,       Q(:,:,DEN,s))
-                call AddOutVar(IOVars,pID  ,       Q(:,:,PRESSURE,s))
+                call AddOutVar(IOVars,vxID , oVScl*Q(:,:,VELX,s)    ,uStr="km/s")
+                call AddOutVar(IOVars,vyID , oVScl*Q(:,:,VELY,s)    ,uStr="km/s")
+                call AddOutVar(IOVars,vzID , oVScl*Q(:,:,VELZ,s)    ,uStr="km/s")
+                call AddOutVar(IOVars,vrID , oVScl*Vr(:,:,s)        ,uStr="km/s")
+                call AddOutVar(IOVars,dID  ,       Q(:,:,DEN,s)     ,uStr="#/cc")
+                call AddOutVar(IOVars,pID  ,       Q(:,:,PRESSURE,s),uStr="nPa" )
             enddo
         endif
 

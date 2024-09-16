@@ -585,6 +585,7 @@ module ebinterp
         end associate
     end function jInterp
 
+
     !Get time weights for time t (assuming proper bracketing)
     subroutine GetTWgts(Model,ebState,t,w1,w2)
         type(chmpModel_T), intent(in) :: Model

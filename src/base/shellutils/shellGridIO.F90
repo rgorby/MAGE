@@ -18,7 +18,7 @@ module shellGridIO
             !! Shell Grid object to write
         character(len=strLen), intent(in) :: outH5
             !! Output file name
-        character(len=*), optional, intent(in) :: gStrO
+        character(len=strLen), optional, intent(in) :: gStrO
             !! Optional group to write to, default = /ShellGrid
 
         type(IOVAR_T), dimension(MAXIOVAR) :: IOVars
@@ -35,9 +35,9 @@ module shellGridIO
         call AddOutVar(IOVars, "nGhosts_e", sg%Nge)
         call AddOutVar(IOVars, "nGhosts_w", sg%Ngw)
         if (sg%isChild) then
-            call AddOutVar(IOVars, "isChild", 1.0_rp)
+            call AddOutVar(IOVars, "isChild", 1)
         else
-            call AddOutVar(IOVars, "isChild", 0.0_rp)
+            call AddOutVar(IOVars, "isChild", 0)
         endif
         call AddOutVar(IOVars, "parentName", trim(sg%parentName))
         call AddOutVar(IOVars, "bndis", sg%bndis)
@@ -51,7 +51,7 @@ module shellGridIO
 
 
         if (present(gStrO)) then
-            call WriteVars(IOVars, .false., outH5, trim(gStrO))
+            call WriteVars(IOVars, .false., outH5, gStrO)
         else
             call WriteVars(IOVars, .false., outH5, '/ShellGrid')
         endif
@@ -109,7 +109,7 @@ module shellGridIO
         endif
 
         
-        isChild = IOVars(FindIO(IOVars, "radius"))%data(1) .eq. 1.0_rp
+        isChild = GetIOInt(IOVars, 'isChild') .eq. 1
         if (isChild) then
             write(*,*) "ERROR: Reading child ShellGrid from file currently not supported."
             write(*,*) "  Gotta make some decisions regarding how this should be handled."

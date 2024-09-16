@@ -44,7 +44,6 @@ module streamutils
     contains
 
     subroutine setStreamlineKnobs(Model,inpXML)
-        USE rcmdefs, ONLY : bMin_C_DEF
         type(chmpModel_T), intent(inout) :: Model
         type(XML_Input_T), intent(inout) :: inpXML
 
@@ -65,7 +64,7 @@ module streamutils
         end select
 
         if (Model%isMAGE) then
-            call inpXML%Set_Val(bMin_nT,"/Kaiju/voltron/imag/bMin_C",bMin_C_DEF)
+            call inpXML%Set_Val(bMin_nT,"streamline/bMin_C",TINY)
         else
             bMin_nT = 0.0 !Don't do this for non-mage case
         endif
@@ -753,6 +752,7 @@ module streamutils
     subroutine cleanLine(fL)
         type(magLine_T), intent(inout) :: fL
 
+        fL%nMax = MaxFL
         fL%x0 = 0.0
         fL%Nm = 0
         fL%Np = 0
@@ -780,6 +780,7 @@ module streamutils
 
         call cleanLine(flOut)
 
+        flOut%nMax = flIn%nMax
         flOut%x0 = flIn%x0
         flOut%Nm = flIn%Nm
         flOut%Np = flIn%Np

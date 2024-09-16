@@ -9,7 +9,7 @@ module streamline
 
     implicit none
 
-    real(rp), private :: ShueScl = 1.5  !Safety factor for Shue MP
+    real(rp), private :: ShueScl = 2.0  !Safety factor for Shue MP
     real(rp), private :: rShue   = 6.0  !Radius to start checking Shue
     integer , private :: NpChk   = 10   !Cadence for Shue checking
 
@@ -68,7 +68,7 @@ module streamline
         !Okay, we're still here so let's do this thing
         !Start by dealing w/ optional and defaults
         if (present(MaxStepsO)) then
-            MaxN = MaxStepsO
+            MaxN = min(MaxStepsO, MaxFL)
         else
             MaxN = MaxFL
         endif
@@ -102,7 +102,8 @@ module streamline
         endif
 
     !Now create field line and scrape values out of temp arrays
-        fl%isGood = .true.
+        fL%nMax = MaxN
+        fL%isGood = .true.
         fL%x0 = x0
         fL%Nm = N1
         fL%Np = N2
@@ -275,6 +276,8 @@ module streamline
         real(rp), intent(out), optional :: bBetaO
         integer , intent(in ), optional :: sOpt 
 
+        integer :: k,s0
+        real(rp) :: bMag,dl,eP,eD,ePb !Edge-centered values
         integer :: k,s0
         real(rp) :: dvB_active,bMag,dl,eP,eD,ePb !Edge-centered values
         real(rp) :: bPb,bBeta
@@ -468,7 +471,8 @@ module streamline
         isCM  = isClosed(bTrc%xyz(-Nm,:),Model)
 
         
-        isFin = (Np<MaxFL-1) .and. (Nm<MaxFL-1) !Check if finished
+        !isFin = (Np<MaxFL-1) .and. (Nm<MaxFL-1) !Check if finished
+        isFin = (Np<bTrc%nMax-1) .and. (Nm<bTrc%nMax-1) !Check if finished
         isStart = (Np>0) .and. (Nm>0) !Check if both sides went somewhere
 
         OCb = 0
@@ -721,7 +725,7 @@ module streamline
         logical :: inDom,doShue
         
         if (present(MaxStepsO)) then
-            MaxSteps = MaxStepsO
+            MaxSteps = min(MaxStepsO,MaxFL)
         else
             MaxSteps = MaxFL
         endif
@@ -790,15 +794,16 @@ module streamline
         enddo
 
         ! check if exceeded tube bounds
-        if(Np > MaxFL) then
-            Np = MaxFL
-            !$OMP CRITICAL
-            write(*,*) ANSIRED
-            write(*,*) "<WARNING! genTrace hit max tube size!>"
-            write(*,*) "Seed: ", x0
-            write(*,*) "End : ", xyzn(Np,:)
-            write(*,'(a)',advance="no") ANSIRESET, ''
-            !$OMP END CRITICAL
+        if(Np > MaxSteps) then
+            Np = MaxSteps
+            !Removing warning that is triggered too often and probably not beneficial
+            !!$OMP CRITICAL
+            !write(*,*) ANSIRED
+            !write(*,*) "<WARNING! genTrace hit max tube size!>"
+            !write(*,*) "Seed: ", x0
+            !write(*,*) "End : ", xyzn(Np,:)
+            !write(*,'(a)',advance="no") ANSIRESET, ''
+            !!$OMP END CRITICAL
         endif                            
     end subroutine genTrace
 

@@ -241,11 +241,11 @@ module msphutils
 
     !Apply spherical wall boundary over all species
     !Take ghost conserved quantities and conjugate point conserved quantities
-    subroutine SphereWall(Model,gU,pU,V,Dopt)
+    subroutine SphereWall(Model,gU,pU,V,B,Dopt)
         type(Model_T), intent(in) :: Model
         real(rp), intent(inout) :: gU(NVAR,BLK:Model%nSpc)
         real(rp), intent(in)    :: pU(NVAR,BLK:Model%nSpc)
-        real(rp), intent(in) :: V(NDIM)
+        real(rp), intent(in) :: V(NDIM),B(NDIM)
         real(rp), intent(in), optional :: Dopt
 
         integer :: s,s0,sE
@@ -298,7 +298,7 @@ module msphutils
         enddo
 
         if (Model%doMultiF) then
-            call MultiF2Bulk(Model,gU)
+            call MultiF2Bulk(Model,gU,B)
         endif
 
     end subroutine SphereWall
@@ -631,4 +631,18 @@ module msphutils
         pot = -GM0/rad
     end subroutine PhiGrav
       
+    !Useful for MF to distinguish thermal populations 
+    !Takes conserved vars and returns temperature [keV]
+    function Gam2keV(Model,U)
+        type(Model_T), intent(in) :: Model
+        real(rp)     , intent(in) :: U(NVAR)
+        real(rp) :: Gam2keV
+        real(rp) :: D,P,pW(NVAR)
+        
+        call CellC2P(Model,U,pW)
+        D = pW(DEN)     *Model%gamOut%dScl !=> #/cc
+        P = pW(PRESSURE)*Model%gamOut%pScl !=> nPa
+        Gam2keV = DP2kT(D,P) !Temp in keV from D (#/cc) and P (nPa)
+    end function Gam2keV
+
 end module msphutils

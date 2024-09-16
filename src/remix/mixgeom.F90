@@ -305,7 +305,7 @@ module mixgeom
 !      GFpd%p  = modulo(atan2(sqrt(1.-G%x**2-G%y**2),G%y),2*pi)
 
       GFpd%t = acos(xout)
-      GFpd%p  = modulo(atan2(sqrt(1.-xout**2-yout**2),yout),2*pi)
+      GFpd%p = modulo(atan2(sqrt(1.-xout**2-yout**2),yout),2*pi)
     end subroutine flip_grid
 
 end module mixgeom

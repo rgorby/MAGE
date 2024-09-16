@@ -1,0 +1,51 @@
+#!/bin/bash
+#PBS -N unitTestReport
+#PBS -A P28100045
+#PBS -l walltime=00:10:00
+#PBS -q main
+#PBS -l select=1:ncpus=128
+#PBS -j oe
+#PBS -m abe
+
+echo "Job $PBS_JOBID started at `date` on `hostname` in directory `pwd`."
+
+echo 'Setting up MAGE environment.'
+source $KAIJUROOTDIR/scripts/setupEnvironment.sh
+
+echo 'Loading modules.'
+module --force purge
+module load $MODULE_LIST
+echo 'The following modules are loaded:'
+module list
+
+# Set up conda.
+export MAGE_TEST_ROOT='/glade/work/ewinter/mage_testing/derecho'
+# MAGE_TEST_SET_ROOT, DERECHO_TESTING_ACCOUNT, and SLACK_BOT_TOKEN must be
+# passed in on command line as environment variables.
+export CONDARC="${MAGE_TEST_ROOT}/condarc"
+export CONDA_ENVS_PATH="${MAGE_TEST_ROOT}/conda"
+mage_miniconda3="${MAGE_TEST_ROOT}/miniconda3"
+mage_conda="${mage_miniconda3}/bin/conda"
+__conda_setup="$($mage_conda 'shell.bash' 'hook' 2> /dev/null)"
+if [ $? -eq 0 ]; then
+    eval "$__conda_setup"
+else
+    if [ -f "$mage_miniconda3/etc/profile.d/conda.sh" ]; then
+        . "$mage_miniconda3/etc/profile.d/conda.sh"
+    else
+        export PATH="$mage_miniconda3/bin:$PATH"
+    fi
+fi
+unset __conda_setup
+conda_testing_environment='kaiju-3.8-testing'
+conda activate $conda_testing_environment
+export PYTHONUNBUFFERED=TRUE
+
+echo 'Setting environment variables.'
+echo 'The active environment variables are:'
+printenv
+
+echo 'Generating unit test report.'
+python $KAIJUHOME/testingScripts/unitTestReport.py -lv
+
+echo "Job $PBS_JOBID ended at `date` on `hostname` in directory `pwd`."

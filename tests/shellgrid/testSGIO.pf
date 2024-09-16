@@ -19,7 +19,7 @@ module testSGIO
     subroutine setup()
         real(rp), dimension(Npnt) :: thetas, phis
         real(rp) :: dth, dph
-        real(rp) :: thetaL = 0.0 *PI/180.0
+        real(rp) :: thetaL = 0.0*PI/180.0
         integer :: i,j
 
         dth = (0.5*PI - thetaL) / (Npnt-1)

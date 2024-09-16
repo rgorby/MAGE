@@ -20,11 +20,11 @@ module mixdefs
   end enum
 
   enum, bind(C)
-     enumerator :: AMIE=1,MOEN_BREKKE,LOMPE
+     enumerator :: LOMPE=1
   end enum
 
   enum, bind(C)
-     enumerator :: FEDDER=1,ZHANG,LINMRG
+     enumerator :: FEDDER=1,LINMRG,SUNNY
   end enum
 
   enum, bind(C)
@@ -32,7 +32,7 @@ module mixdefs
   end enum
 
   enum, bind(C)
-     enumerator :: AT_NoPre=0,AT_MHD,AT_RCM,AT_RMnoE,AT_RMfnE,AT_RMono
+     enumerator :: AT_NoPre=0,AT_RMnoE,AT_RMfnE,AT_RMono
   end enum
 
   ! enumerator for transform variables
@@ -40,5 +40,6 @@ module mixdefs
     enumerator :: iSMtoGEO,iGEOtoSM,iSMtoGSM,iGSMtoSM,iGEOtoGSM,iGSMtoGEO
   end enum
 
+  real(rp), parameter :: mixeTINY = 1.D-8 ! Floor of average energy [keV]
 
 end module mixdefs

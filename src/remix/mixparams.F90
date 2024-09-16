@@ -82,10 +82,6 @@ module mixparams
         !NOTE: Changing default EUV to LOMPE, it's 2021 ffs
         call xmlInp%Set_Val(tmpStr,"conductance/euv_model_type","LOMPE")
         select case (tmpSTR)
-           case ("AMIE")
-              Params%euv_model_type = AMIE
-           case ("MOEN_BREKKE")
-              Params%euv_model_type = MOEN_BREKKE
             case ("LOMPE")
               Params%euv_model_type = LOMPE
            case default 
@@ -110,12 +106,12 @@ module mixparams
         select case (tmpSTR)
            case ("FEDDER")
               Params%aurora_model_type = FEDDER
-           case ("ZHANG")
-              Params%aurora_model_type = ZHANG
+           case ("SUNNY")
+              Params%aurora_model_type = SUNNY
            case ("LINMRG")
               Params%aurora_model_type = LINMRG
            case default 
-              stop "The auroral model type entered is not supported (Available options: FEDDER, ZHANG, LINMRG)."
+              stop "The auroral model type entered is not supported (Available options: FEDDER, SUNNY, LINMRG)."
         end select
 
         ! =========== CONDUCTANCE MODEL PARAMETERS =================== !
