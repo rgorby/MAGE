@@ -277,8 +277,6 @@ module streamline
         integer , intent(in ), optional :: sOpt 
 
         integer :: k,s0
-        real(rp) :: bMag,dl,eP,eD,ePb !Edge-centered values
-        integer :: k,s0
         real(rp) :: dvB_active,bMag,dl,eP,eD,ePb !Edge-centered values
         real(rp) :: bPb,bBeta
 

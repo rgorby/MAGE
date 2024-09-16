@@ -1,3 +1,3 @@
-file(GLOB volt_srcs *.F90 modelInterfaces/*.F90)
+file(GLOB volt_srcs *.F90 modelInterfaces/*.F90 raijuInterfaces/*.F90)
 add_library(voltlib ${volt_srcs} ${VOLTIC})
 target_link_libraries(voltlib remixlib chimplib gamlib rcmlib raijulib baselib)
