@@ -103,11 +103,11 @@ module raijuOut
         write(*,'(a,a)')        '      Time = ', trim(tStr)
         call timeStrFmt(State%dt, tStr)
         write(*,'(a,a)')        '     dtCpl = ', trim(tStr)
-        call timeStrFmt(State%dtk(minDtLoc), tStr )
-        call timeStrFmt(State%dtk(maxDtLoc), tStr2)
-        write(*,'(a)'  )        ' min/max dt @ k:'
-        write(*,'(a,a,a,I0.5)')   'Min', trim(tStr) , ' @ ', minDtLoc
-        write(*,'(a,a,a,I0.5)')   'Max', trim(tStr2), ' @ ', maxDtLoc
+        call timeStrFmt(State%dtk(maxDtLoc), tStr )
+        call timeStrFmt(State%dtk(minDtLoc), tStr2)
+        write(*,'(a)'  )        '     Max/Min dt @ k:'
+        write(*,'(a,a,a,I0.5)') '        Max', trim(tStr2), ' @ ', maxDtLoc
+        write(*,'(a,a,a,I0.5)') '        Min', trim(tStr) , ' @ ', minDtLoc
         write(*,'(a)',advance="no") ANSIRESET
 
         State%IO%tCon = State%IO%tCon + State%IO%dtCon

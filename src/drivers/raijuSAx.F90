@@ -97,7 +97,7 @@ program raijuSAx
     ! Output if ready
         if (raiApp%State%IO%doRestart(raiApp%State%t)) then
             call raiApp%WriteRestart(raiApp%State%IO%nRes)
-            call raijuResOutput(raiApp%Model,raiApp%Grid,raiApp%State)
+            !call raijuResOutput(raiApp%Model,raiApp%Grid,raiApp%State)
             !call raijuResInput(raiApp%Model,raiApp%Grid,raiApp%State)
         endif
 
@@ -119,7 +119,7 @@ program raijuSAx
         if (doClawAdvance) then
             call raijuAdvance_claw(raiApp%Model,raiApp%Grid,raiApp%State, raiApp%Model%dt, doPosFixO=doPosFix)
         else
-            call raiApp%AdvanceModel(raiApp%State%dt)
+            call raiApp%AdvanceModel(raiApp%Model%dt)
             !call raijuAdvance(raiApp%Model,raiApp%Grid,raiApp%State, raiApp%Model%dt, isfirstCplO=isfirstCpl)
         endif
         call Toc("RAIJU Advance")

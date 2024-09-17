@@ -18,7 +18,7 @@ module shellGridIO
             !! Shell Grid object to write
         character(len=strLen), intent(in) :: outH5
             !! Output file name
-        character(len=strLen), optional, intent(in) :: gStrO
+        character(len=*), optional, intent(in) :: gStrO
             !! Optional group to write to, default = /ShellGrid
 
         type(IOVAR_T), dimension(MAXIOVAR) :: IOVars
@@ -51,7 +51,7 @@ module shellGridIO
 
 
         if (present(gStrO)) then
-            call WriteVars(IOVars, .false., outH5, gStrO)
+            call WriteVars(IOVars, .false., outH5, trim(gStrO))
         else
             call WriteVars(IOVars, .false., outH5, '/ShellGrid')
         endif
