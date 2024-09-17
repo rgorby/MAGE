@@ -69,8 +69,8 @@ module raijuOut
 
         if (Model%isLoud) then
             call timeStrFmt(State%t, tStr)
-            !write (*, '(a,a,a,a,a)') ANSIGREEN, '<Reading RAIJU HDF5 RESTART @ t = ', trim(tStr), ' >', ANSIRESET
-            write (*, '(a,a,a)') ANSIGREEN, '<Reading RAIJU HDF5 RESTART >', ANSIRESET
+            write (*, '(a,a,I0,a,a)') ANSIGREEN, '<Reading RAIJU HDF5 RESTART @ nRes = ', Model%nResIn, ' >', ANSIRESET
+            !write (*, '(a,a,a)') ANSIGREEN, '<Reading RAIJU HDF5 RESTART >', ANSIRESET
         endif
 
         call ReadRaijuResState(Model, Grid, State, Model%ResF)
@@ -99,6 +99,7 @@ module raijuOut
 
         write(*,*) ANSIPURPLE
         write(*,*) 'RAIJU'
+        write(*,'(a,a)')        '      UT   = ', trim(utStr)
         call timeStrFmt(State%t, tStr)
         write(*,'(a,a)')        '      Time = ', trim(tStr)
         call timeStrFmt(State%dt, tStr)
@@ -106,8 +107,8 @@ module raijuOut
         call timeStrFmt(State%dtk(maxDtLoc), tStr )
         call timeStrFmt(State%dtk(minDtLoc), tStr2)
         write(*,'(a)'  )        '     Max/Min dt @ k:'
-        write(*,'(a,a,a,I0.5)') '        Max', trim(tStr2), ' @ ', maxDtLoc
-        write(*,'(a,a,a,I0.5)') '        Min', trim(tStr) , ' @ ', minDtLoc
+        write(*,'(a,a,a,I0)') '        Max', trim(tStr2), ' @ ', maxDtLoc
+        write(*,'(a,a,a,I0)') '        Min', trim(tStr) , ' @ ', minDtLoc
         write(*,'(a)',advance="no") ANSIRESET
 
         State%IO%tCon = State%IO%tCon + State%IO%dtCon

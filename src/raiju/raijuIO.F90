@@ -109,7 +109,6 @@ module raijuIO
         call AddOutVar(IOVars,"Y",lon2D,uStr="radians")
         call WriteVars(IOVars,.true.,Model%raijuH5)
         ! Grid data
-        call writeShellGrid(Grid%shGrid, Model%raijuH5, "Grid")
         call AddOutVar(IOVars,"th_surf"  ,Grid%thRp (is:ie+1),uStr="radians",dStr="(corner) Thetas mapped to 1 Rp")
         call AddOutVar(IOVars,"thcc_surf",Grid%thcRp(is:ie  ),uStr="radians",dStr="(cell) Thetas mapped to 1 Rp")
         call AddOutVar(IOVars,"Bmag",Grid%Bmag(is:ie,js:je),uStr="nT")
@@ -122,6 +121,7 @@ module raijuIO
             call AddOutVar(IOVars,"lenFace" ,Grid%lenFace (is:ie+1,js:je+1,:),uStr="Ri")
         endif
         call WriteVars(IOVars,.true.,Model%raijuH5,"Grid")
+        call writeShellGrid(Grid%shGrid, Model%raijuH5, "Grid/ShellGrid")
 
         ! Output detailed lambda grid info
         do i=1,Grid%nSpc
