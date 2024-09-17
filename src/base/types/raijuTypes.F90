@@ -6,6 +6,8 @@ module raijutypes
     use ioclock
     use kronos
 
+    use basetypes
+
     use raijudefs
 
     implicit none
@@ -317,6 +319,8 @@ module raijutypes
 
 
     type raijuState_T
+        logical :: isFirstCpl = .true.
+
         real(rp) :: t, dt
             !! Current time and last coupling dt made
         real(rp), dimension(:), allocatable :: dtk
@@ -448,15 +452,82 @@ module raijutypes
 ! Higher-level types, using above types
 !------
 
-    type raijuApp_T
+    type, extends(BaseOptions_T) :: raiOptions_T
+
+        contains
+    end type raiOptions_T
+
+    type, extends(BaseApp_T) :: raijuApp_T
         type(raijuModel_T) :: Model
         type(raijuGrid_T ) :: Grid
         type(raijuState_T) :: State
+        
+        type(raiOptions_T) :: raiOptions
+
+        contains
+
+        procedure :: InitModel           => raiInitModel
+        procedure :: InitIO              => raiInitIO
+        procedure :: WriteRestart        => raiWriteRestart
+        procedure :: ReadRestart         => raiReadRestart
+        procedure :: WriteConsoleOutput  => raiWriteConsoleOutput
+        procedure :: WriteFileOutput     => raiWriteFileOutput
+        procedure :: WriteSlimFileOutput => raiWriteSlimFileOutput
+        procedure :: AdvanceModel        => raiAdvanceModel
+        procedure :: Cleanup             => raiCleanup
     end type raijuApp_T
 
 !------
 ! Interfaces
 !------
+
+    !raijuapp function placeholders, bodies are in src/raiju/raijutypessub.F90 to prevent circular dependency
+    interface
+        module subroutine raiInitModel(App, Xml)
+            class(raijuApp_T), intent(inout) :: App
+            type(XML_Input_T), intent(inout) :: Xml
+        end subroutine raiInitModel
+
+        module subroutine raiInitIO(App, Xml)
+            class(raijuApp_T), intent(inout) :: App
+            type(XML_Input_T), intent(inout) :: Xml
+        end subroutine raiInitIO
+
+        module subroutine raiWriteRestart(App, nRes)
+            class(raijuApp_T), intent(inout) :: App
+            integer, intent(in) :: nRes
+        end subroutine raiWriteRestart
+
+        module subroutine raiReadRestart(App, resId, nRes)
+            class(raijuApp_T), intent(inout) :: App
+            character(len=*), intent(in) :: resId
+            integer, intent(in) :: nRes
+        end subroutine raiReadRestart
+
+        module subroutine raiWriteConsoleOutput(App)
+            class(raijuApp_T), intent(inout) :: App
+        end subroutine raiWriteConsoleOutput
+
+        module subroutine raiWriteFileOutput(App, nStep)
+            class(raijuApp_T), intent(inout) :: App
+            integer, intent(in) :: nStep
+        end subroutine raiWriteFileOutput
+
+        module subroutine raiWriteSlimFileOutput(App, nStep)
+            class(raijuApp_T), intent(inout) :: App
+            integer, intent(in) :: nStep
+        end subroutine raiWriteSlimFileOutput
+
+        module subroutine raiAdvanceModel(App, dt)
+            class(raijuApp_T), intent(inout) :: App
+            real(rp), intent(in) :: dt
+        end subroutine raiAdvanceModel
+
+        module subroutine raiCleanup(App)
+            class(raijuApp_T), intent(inout) :: App
+        end subroutine raiCleanup
+
+    end interface
 
     abstract interface
         subroutine raijuStateIC_T(Model,Grid,State,inpXML)

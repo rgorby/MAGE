@@ -16,12 +16,11 @@ module raijuAdvancer
 
     contains
 
-
 !------
 ! Advance entry point
 !------
 
-    subroutine raijuAdvance(Model, Grid, State, dtCpl, isFirstCplO)
+    subroutine raijuAdvance(Model, Grid, State, dtCpl)
         !! Controls entirety of eta evolution over time dtCpl
         !! Assumes that any coupling setup has been completed
         !! Calculates velocities and dt, evolves all etas over 
@@ -30,22 +29,15 @@ module raijuAdvancer
         type(raijuGrid_T) , intent(in) :: Grid
         type(raijuState_T), intent(inout) :: State
         real(rp), intent(in) :: dtCpl
-        logical, optional, intent(in) :: isFirstCplO
 
-        logical :: isFirstCpl
         integer :: k
-
-        if (present(isFirstCplO)) then
-            isFirstCpl = isFirstCplO
-        else
-            isFirstCpl = .false.
-        endif
 
         State%dt = dtCpl
 
         call Tic("Pre-Advance")
-        call raijuPreAdvance(Model, Grid, State, isfirstCpl)
+        call raijuPreAdvance(Model, Grid, State)
         call Toc("Pre-Advance")
+        State%isFirstCpl = .false.
 
         ! Step
         call Tic("AdvanceState")

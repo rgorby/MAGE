@@ -39,8 +39,9 @@ program raijuOWDx
     !Holder for remix data
     type(rmReader_T) :: rmReader
 
-    type(raijuApp_T   ) :: raiApp
-    type(raiju_cplBase_T) :: raijuCplBase
+    !type(raijuApp_T   ) :: raiApp
+    !type(raiju_cplBase_T) :: raijuCplBase
+    type(raijuCoupler_T) :: raiCplApp
 
     character(len=strLen) :: XMLStr, gStr, ftag
     type(XML_Input_T) :: inpXML    
@@ -48,7 +49,6 @@ program raijuOWDx
     character(len=strLen) :: FLH5
     
     logical :: doChmpOut,doFLOut
-    logical :: isFirstCpl = .true.
 
     real(rp) :: mjd0
 

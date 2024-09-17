@@ -31,9 +31,7 @@ program raijuSAx
     
     logical :: doChmpOut,doFLOut
     logical :: doClawAdvance = .false.
-    logical :: doPosFix = .false.
-    logical :: isfirstCpl = .true.
-    
+    logical :: doPosFix = .false.    
 
     real(rp) :: mjd0
 
@@ -68,10 +66,12 @@ program raijuSAx
     call inpXML%Set_Val(doPosFix     ,'hax/doPosFix',doPosFix     )
 
     ! Init RAIJU
-    call raijuInit(raiApp, inpXML)
-    isFirstCpl = .false.
+    call raiApp%InitModel(inpXML)
+    call raiApp%InitIO(inpXML)
+    raiApp%State%isFirstCpl = .false.
     if (raiApp%Model%isRestart) then
-        isFirstCpl = .false.
+        call raiApp%ReadRestart(raiApp%Model%RunID, raiApp%Model%nResIn)
+        raiApp%State%isFirstCpl = .false.
     endif
     
 
@@ -96,12 +96,18 @@ program raijuSAx
         call Tic("Output")
     ! Output if ready
         if (raiApp%State%IO%doRestart(raiApp%State%t)) then
+            call raiApp%WriteRestart(raiApp%State%IO%nRes)
             call raijuResOutput(raiApp%Model,raiApp%Grid,raiApp%State)
             !call raijuResInput(raiApp%Model,raiApp%Grid,raiApp%State)
         endif
 
         if (raiApp%State%IO%doOutput(raiApp%State%t)) then
-            call raijuOutput(raiApp%Model,raiApp%Grid,raiApp%State)
+            call raiApp%WriteFileOutput(raiApp%State%IO%nOut)
+            !call raijuOutput(raiApp%Model,raiApp%Grid,raiApp%State)
+        endif
+
+        if (raiApp%State%IO%doConsole(raiApp%State%t)) then
+            call raiApp%WriteConsoleOutput()
         endif
         call Toc("Output")
 
@@ -113,8 +119,8 @@ program raijuSAx
         if (doClawAdvance) then
             call raijuAdvance_claw(raiApp%Model,raiApp%Grid,raiApp%State, raiApp%Model%dt, doPosFixO=doPosFix)
         else
-            call raijuAdvance(raiApp%Model,raiApp%Grid,raiApp%State, raiApp%Model%dt, isfirstCplO=isfirstCpl)
-            isfirstCpl = .false.
+            call raiApp%AdvanceModel(raiApp%State%dt)
+            !call raijuAdvance(raiApp%Model,raiApp%Grid,raiApp%State, raiApp%Model%dt, isfirstCplO=isfirstCpl)
         endif
         call Toc("RAIJU Advance")
 

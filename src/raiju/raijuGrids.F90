@@ -416,6 +416,30 @@ module raijugrids
 
 
 !------
+! Grid helpers
+!------
+
+    function checkResGrid(sh, shR) result(isSame)
+        type(ShellGrid_T), intent(in) :: sh
+            !! Raiju's currently loaded grid
+        type(ShellGrid_T), intent(in) :: shR
+            !! ShellGrid read from restart file
+        logical :: isSame
+            !! Whether or not we things these are equivalent
+
+        if ( (sh%Nt .ne. shR%Nt) &
+        .or. (sh%Np .ne. shR%Np) &
+        .or. (sh%minGTheta .ne. shR%minGTheta) &
+        .or. (sh%maxGTheta .ne. shR%maxGTheta) ) then
+                isSame = .false.
+        else
+            isSame = .true.
+        endif
+
+    end function checkResGrid
+
+
+!------
 ! Spatial grid operations
 !------
     subroutine wrapJcc(sh, Q)

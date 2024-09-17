@@ -22,21 +22,13 @@ module raijuPreAdvancer
 ! Main high-level functions
 !------
 
-    subroutine raijuPreAdvance(Model, Grid, State, isFirstCplO)
+    subroutine raijuPreAdvance(Model, Grid, State)
         !! Takes a state and calculates what is needed in order to advance
         type(raijuModel_T), intent(inout) :: Model
         type(raijuGrid_T ), intent(in) :: Grid
         type(raijuState_T), intent(inout) :: State
-        logical, optional, intent(in) :: isFirstCplO
 
-        logical :: isFirstCpl
         integer :: k
-
-        if (present(isFirstCplO)) then
-            isFirstCpl = isFirstCplO
-        else
-            isFirstCpl = .false.
-        endif
 
         ! Clear things that will be accumulated over the advance
         State%dEta_dt = 0.0
@@ -47,12 +39,12 @@ module raijuPreAdvancer
 
         ! Moments to etas, initial active shell calculation
         call Tic("BCs")
-        call applyRaijuBCs(Model, Grid, State, doWholeDomainO=isFirstCpl) ! If fullEtaMap=True, mom2eta map is applied to the whole domain
+        call applyRaijuBCs(Model, Grid, State, doWholeDomainO=State%isFirstCpl) ! If fullEtaMap=True, mom2eta map is applied to the whole domain
         call Toc("BCs")
 
         ! Handle edge cases that may effect the validity of information carried over from last coupling period
         ! TODO: do this in predictor function
-        call prepEtaLast(Grid%shGrid, State, isFirstCpl)
+        call prepEtaLast(Grid%shGrid, State, State%isFirstCpl)
 
         ! Calc cell velocities
         !call Tic("Calc face velocities")

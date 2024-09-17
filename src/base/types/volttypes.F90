@@ -11,6 +11,9 @@ module volttypes
     use helpertypes
     use basetypes
     use gamtypes
+    use raijutypes
+    use shellGrid
+    use voltCplTypes
 
     implicit none
 
@@ -103,6 +106,33 @@ module volttypes
         procedure :: doRestart => baseRestart
 
     end type innerMagBase_T
+
+    type, extends(raijuApp_T) :: raijuCoupler_T
+
+        real(rp) :: tLastUpdate
+        !! Time of last update, according to voltron
+        type(ShellGrid_T) :: shGr
+            !! Copy of raijuModel's shellGrid
+        integer :: n_MHDfluids
+            !! Number of MHD fluids to expect
+
+        type(magLine_T), dimension(:,:), allocatable :: magLines
+        type(IMAGTube_T), dimension(:,:), allocatable :: ijTubes
+        type(ShellGridVar_T) :: pot
+            !! electrostatic potential from ionosphere [kV]
+
+        contains
+        
+        procedure :: InitModel           => raiCplInitModel
+        procedure :: InitIO              => raiCplInitIO
+        !procedure :: WriteRestart        =>
+        !procedure :: ReadRestart         =>
+        !procedure :: WriteConsoleOutput  =>
+        !procedure :: WriteFileOutput     =>
+        !procedure :: WriteSlimFileOutput =>
+        !procedure :: AdvanceModel => 
+
+    end type raijuCoupler_T
 
 
     integer, parameter :: mix2mhd_varn = 1  ! for now just the potential is sent back
@@ -272,6 +302,18 @@ module volttypes
             class(gamCoupler_T), intent(inout) :: App
             class(voltApp_T), intent(inout) :: voltApp
         end subroutine
+
+        ! RAIJU
+        module subroutine raiCplInitModel(App, xml)
+            class(raijuCoupler_T), intent(inout) :: App
+            type(XML_Input_T), intent(inout) :: Xml
+        end subroutine raiCplInitModel
+
+
+        module subroutine raiCplInitIO(App, xml)
+            class(raijuCoupler_T), intent(inout) :: App
+            type(XML_Input_T), intent(inout) :: Xml
+        end subroutine raiCplInitIO
 
     end interface
 

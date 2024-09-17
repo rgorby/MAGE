@@ -509,12 +509,12 @@ module shellGrid
         !! Deallocates any allocated memory
         type(ShellGrid_T), intent(inout) :: sh
 
-        deallocate(sh%th)
-        deallocate(sh%ph)
-        deallocate(sh%thc)
-        deallocate(sh%phc)
-        deallocate(sh%lat)
-        deallocate(sh%latc)
+        if (allocated(sh%th)  ) deallocate(sh%th)
+        if (allocated(sh%ph)  ) deallocate(sh%ph)
+        if (allocated(sh%thc) ) deallocate(sh%thc)
+        if (allocated(sh%phc) ) deallocate(sh%phc)
+        if (allocated(sh%lat) ) deallocate(sh%lat)
+        if (allocated(sh%latc)) deallocate(sh%latc)
 
     end subroutine deallocShellGrid
 

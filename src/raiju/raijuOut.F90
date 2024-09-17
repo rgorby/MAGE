@@ -1,6 +1,7 @@
 module raijuOut
     use raijuIO
     use timeHelpers
+    use dates
 
     implicit none
 
@@ -82,26 +83,63 @@ module raijuOut
     end subroutine raijuResInput
 
 
+    subroutine raijuConsoleOut(Model, Grid, State)
+        type(raijuModel_T), intent(in) :: Model
+        type(raijuGrid_T) , intent(in) :: Grid
+        type(raijuState_T), intent(inout) :: State
+
+        character(len=strLen) :: utStr, tStr, tStr2
+        integer :: minDtLoc, maxDtLoc
+        real(rp) :: minDt, maxDt
+
+        call mjd2utstr(State%mjd,utStr)
+        minDtLoc = minloc(State%dtk,dim=1)
+        maxDtLoc = maxloc(State%dtk,dim=1)
+
+
+        write(*,*) ANSIPURPLE
+        write(*,*) 'RAIJU'
+        call timeStrFmt(State%t, tStr)
+        write(*,'(a,a)')        '      Time = ', trim(tStr)
+        call timeStrFmt(State%dt, tStr)
+        write(*,'(a,a)')        '     dtCpl = ', trim(tStr)
+        call timeStrFmt(State%dtk(minDtLoc), tStr )
+        call timeStrFmt(State%dtk(maxDtLoc), tStr2)
+        write(*,'(a)'  )        ' min/max dt @ k:'
+        write(*,'(a,a,a,I0.5)')   'Min', trim(tStr) , ' @ ', minDtLoc
+        write(*,'(a,a,a,I0.5)')   'Max', trim(tStr2), ' @ ', maxDtLoc
+        write(*,'(a)',advance="no") ANSIRESET
+
+        State%IO%tCon = State%IO%tCon + State%IO%dtCon
+
+    end subroutine raijuConsoleOut
 
 !------
 ! Helpers
 !------
 
-    subroutine genResInFname(Model, ResF)
+    subroutine genResInFname(Model, ResF, runIdO)
         !!! Using Model mambers, defermine the restart name to read from
         type(raijuModel_T), intent(in) :: Model
         character(len=strLen), intent(out) :: ResF
+        character(len=*), optional, intent(in) :: runIdO
 
+        character(len=strLen) :: runId
         character(len=strLen) :: nStr
 
+        if (present(runIdO)) then
+            runId = trim(runIdO)
+        else
+            runId = Model%RunID
+        endif
+
         if (Model%nResIn == -1) then
-            
             nStr = "XXXXX"
         else
             write (nStr,'(I0.5)') Model%nResIn
         endif
 
-        write (ResF, '(A,A,A,A)') trim(Model%RunID), ".raiju.Res.", trim(nStr), ".h5"
+        write (ResF, '(A,A,A,A)') trim(runId), ".raiju.Res.", trim(nStr), ".h5"
     end subroutine genResInFname
 
 end module raijuOut

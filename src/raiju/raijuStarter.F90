@@ -36,11 +36,6 @@ module raijustarter
         call raijuInitModel(app%Model, iXML)
         call raijuInitGrid(app%Model, app%Grid, iXML)
 
-        ! TODO: Handle restart here. For now, assuming no restart
-
-        ! Init output file
-        call raijuInitIO(app%Model, app%Grid, app%Model%writeGhosts)
-
         call raijuInitState(app%Model,app%Grid,app%State,iXML)
 
         ! Do losses after everything else has been set, just in case they need something from it
@@ -282,7 +277,7 @@ module raijustarter
         call iXML%Set_Val(Grid%nB, "grid/Nbnd", 4      )  ! Number of cells between open boundary and active domain
         call iXML%Set_Val(tmpStr, "grid/gType","UNISPH")
 
-        if (.not. Model%isRestart) then
+        !if (.not. Model%isRestart) then
             ! Fill out Grid object depending on chosen method
             select case(tmpStr)
                 case("UNISPH")
@@ -308,9 +303,9 @@ module raijustarter
                     write(*,*) " Dying."
                     stop
             end select
-        else
-            call GenShellGridFromFile(Grid%shGrid, RAI_SG_NAME, Model%ResF)
-        endif
+        !else
+        !    call GenShellGridFromFile(Grid%shGrid, RAI_SG_NAME, Model%ResF)
+        !endif
 
         ! Finalize the spatial part of the grid
         call finalizeLLGrid(Grid, Model%planet)
@@ -420,8 +415,9 @@ module raijustarter
         end associate
         
         if (Model%isRestart) then
-            call raijuResInput(Model, Grid, State)
-            return
+            !call raijuResInput(Model, Grid, State)
+            !return
+            continue
         endif
         
         ! For now, just set t to tStart and ts to 0
