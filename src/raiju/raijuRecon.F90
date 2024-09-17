@@ -445,6 +445,9 @@ module raijuRecon
         
         QfaceL = 0.0
         QfaceR = 0.0
+        QfluxL = 0.0
+        QfluxR = 0.0
+        Qflux  = 0.0
 
         where (State%active .ne. RAIJUINACTIVE)
             isG = .true.
