@@ -62,50 +62,6 @@ JOB_LIST_FILE = 'jobs.txt'
 # String naming branch or commit used in this test.
 BRANCH_OR_COMMIT = os.environ['BRANCH_OR_COMMIT']
 
-# List of basic test videos to generate
-BASIC_TESTS = [
-    {
-        'case1':'relSerialRelease',
-        'case2':'relMpi44Release',
-        'ts':-60,
-        'te':120,
-        'videoName':'serialVsMpi',
-        'postMessage':'Comparing Non-MPI case to Mpi4x4 Case\n\n'
-    },
-    {
-        'case1':'relMpi44Release',
-        'case2':'relMpi44ResRelease',
-        'ts':-60,
-        'te':120,
-        'videoName':'MpiRestart',
-        'postMessage':'Comparing Mpi4x4 Case to a Similar Case Restarted at 60 Minutes\n\n'
-    }
-]
-
-# List of additional videos to generate if performing full test suite
-EXPANDED_TESTS = [
-]
-
-def processCases(testDict):
-    if verbose:
-        print(f"Creating video comparing case {testDict['case1']} to {testDict['case2'}")
-    
-    # Create the video
-    cmd = f"gamerrVid.py -d1 {testDict['case1']} -d2 {testDict['case2']} -o {testDict['videoName']} "
-        f" -ts {testDict['ts']} -te {testDict['te']} -dt 60 -Nth 36"
-    if debug:
-        print(f"cmd = {cmd}")
-    try:
-        _ = subprocess.run(cmd, shell=True, check=True)
-    except subprocess.CalledProcessError as e:
-        print(
-            'ERROR: Unable to create comparative video.\n'
-            f"e.cmd = {e.cmd}\n"
-            f"e.returncode = {e.returncode}\n"
-            f'See log for output.\n',
-            file=sys.stderr
-        )
-
 
 def main():
     """Begin main program.
@@ -130,8 +86,9 @@ def main():
 
     # Add additional arguments
     parser.add_argument(
-        '--allTests', '-a', action='store_true',
-        help='Perform all comparative tests (default: %(default)s).'
+        '-d1', type=str, help='Folder for the first case'
+        '-d2', type=str, help ='Folder for the second case'
+        '-cn', type=str, help ='Name of this post process case'
     )
 
     # Parse the command-line arguments.
@@ -143,7 +100,9 @@ def main():
     # slack_on_fail = args.slack_on_fail
     is_test = args.test
     verbose = args.verbose
-    allTests = args.allTests
+    d1 = args.d1
+    d2 = args.d2
+    cn = args.cn
 
     # ------------------------------------------------------------------------
 
@@ -181,17 +140,6 @@ def main():
     # Move down to the build directory
     os.chdir(BIN_DIR)
 
-    # ------------------------------------------------------------------------
-
-    # Generate the comparative videos
-
-    for case in BASIC_TESTS:
-        processCases(case)
-
-    if allTests:
-        for case in EXPANDED_TESTS:
-            processCases(case)
-
     # -----------------------------------------------------------------------
 
     # If loud mode is on, post results to Slack.
@@ -202,7 +150,7 @@ def main():
         message = (
             'Comparative test result plots complete on branch '
             f"{BRANCH_OR_COMMIT}.\n"
-            ' Latest  results attached as replies to this '
+            'Results attached as replies to this '
             'message.\n'
         )
         message += (
@@ -216,19 +164,15 @@ def main():
                 'All results are from a Quad Resolution Run using'
                 ' various Gamera and Voltron settings.'
             )
+            message += (
+                f'This result compared {d1} and {d2}.'
+            )
             slack_response = common.slack_send_message(
                 slack_client, message, thread_ts=parent_ts, is_test=is_test)
-            for case in BASIC_TESTS:
-                slack_response = common.slack_send_image(
-                    slack_client, case['videoName']+'.mp4', initial_comment=case['postMessage'],
-                    thread_ts=parent_ts, is_test=is_test
-                )
-            if allTests:
-                for case in EXPANDED_TESTS:
-                    slack_response = common.slack_send_image(
-                        slack_client, case['videoName']+'.mp4', initial_comment=case['postMessage'],
-                        thread_ts=parent_ts, is_test=is_test
-                    )
+            slack_response = common.slack_send_image(
+                slack_client, f"{cn}.mp4", initial_comment=cn,
+                thread_ts=parent_ts, is_test=is_test
+            )
 
         else:
             print('Failed to post parent message and images to Slack.')

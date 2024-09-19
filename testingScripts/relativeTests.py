@@ -63,6 +63,13 @@ PBS_TEMPLATE = os.path.join(
 # Name of rendered PBS script.
 PBS_SCRIPT = 'relativeCase.pbs'
 
+
+# Path to jinja2 template file for PBS script.
+POSTPROC_TEMPLATE = os.path.join(
+    TEST_SCRIPTS_DIRECTORY, 'relCasePost-template.pbs'
+)
+
+
 # Path to jinja2 template file for XML file
 XML_TEMPLATE = os.path.join(
     TEST_SCRIPTS_DIRECTORY, 'relativeCaseGo-template.xml'
@@ -70,6 +77,32 @@ XML_TEMPLATE = os.path.join(
 
 # Name of rendered XML file
 XML_FILE = 'relativeCaseGo.xml'
+
+def processComparativeResults(case1_jobid, case2_jobid, caseName, pbsTemplate, pbs_options):
+    # Render the job template.
+    pbs_content = pbsTemplate.render(pbs_options)
+    pbsFilename = f"{caseName}.pbs"
+    with open(pbsFilename, 'w', encoding='utf-8') as f:
+        f.write(pbs_content)
+    # Submit the job
+    if verbose:
+        print('Submitting comparative tests model post processing.')
+    cmd = f"qsub -W depend=afterok:{case1_jobid}:{case2_jobid} {pbsFilename}"
+    if debug:
+        print(f"cmd = {cmd}")
+    try:
+        cproc = subprocess.run(cmd, shell=True, check=True,
+                               text=True, capture_output=True)
+    except subprocess.CalledProcessError as e:
+        print('ERROR: qsub failed.\n'
+              f"e.cmd = {e.cmd}\n"
+              f"e.returncode = {e.returncode}\n"
+              'See test log for output.\n',
+              file=sys.stderr)
+        continue
+    job_id = cproc.stdout.split('.')[0]
+    if debug:
+        print(f"job_id = {job_id}")
 
 def generateAndRunCase(caseName,pbsTemplate,pbs_options,xmlTemplate,xml_options,wait_job_id=None):
 	os.mkdir(caseName)
@@ -259,6 +292,16 @@ def main():
 
     # ------------------------------------------------------------------------
 
+    # Read the template for the PBS script used for the test data post processing
+    with open(POSTPROC_TEMPLATE, 'r', encoding='utf-8') as f:
+        template_content = f.read()
+    postproc_template = Template(template_content)
+    if debug:
+        print(f"comp_test_postproc_template = {postproc_template}")
+
+    # ------------------------------------------------------------------------
+
+
     # Read the template for the XML file used for the test data generation.
     with open(XML_FILE, 'r', encoding='utf-8') as f:
         xml_content = f.read()
@@ -329,6 +372,7 @@ def main():
             print(f"build_directory = {build_directory}")
         os.mkdir(build_directory)
         os.chdir(build_directory)
+        ok.mkdir('vidData')
 
         # Run cmake to build the Makefile.
         if verbose:
@@ -487,7 +531,26 @@ def main():
         job_id_m44r_r = generateMpi44Release(pbs_template,xml_template,base_bps_options,job_id_M44_r)
         job_ids[i_module_set].append(job_id_m44r_r)
         submit_ok[i_module_set].append(True)
-
+        
+        # Submit post-processing for these runs
+        postProcOpts = base_pbs_options
+        postProcOpts['caseName'] = 'SerialToMpi'
+        postProcOpts['frameFolder'] = 'vidData'
+        postProcOpts['case1Loc'] = 'relSerialRelease/msphere_S_R'
+        postProcOpts['case2Loc'] = 'relMpi44Release/msphere_M44_R'
+        postProcOpts['ts'] = '0'
+        postProcOpts['te'] = '120'
+        postProcOpts['dt'] = '60'
+        processComparativeResults(job_id_s_r, job_id_m44_r, postProcOpts['caseName'], postproc_template, postProcOpts)
+        postProcOpts = base_pbs_options
+        postProcOpts['caseName'] = 'MpiReleaseComp'
+        postProcOpts['frameFolder'] = 'vidData'
+        postProcOpts['case1Loc'] = 'relMpi44Release/msphere_M44_R'
+        postProcOpts['case2Loc'] = 'relMpi44ResRelease/msphere_M44_R'
+        postProcOpts['ts'] = '50'
+        postProcOpts['te'] = '120'
+        postProcOpts['dt'] = '60'
+        processComparativeResults(job_id_m44_r, job_id_m44r_r, postProcOpts['caseName'], postproc_template, postProcOpts)
 
         # If doing full test suite, perform additional runs
         if allTests:
@@ -534,7 +597,7 @@ def main():
 
     # If a test failed, or loud mode is on, post report to Slack.
     if (slack_on_fail and 'FAILED' in test_report_details_string) or be_loud:
-        slack_response_summary = common.slack_send_message(
+        srelMpi44ResReleaselack_response_summary = common.slack_send_message(
             slack_client, test_report_summary_string, is_test=is_test
         )
         if debug:
