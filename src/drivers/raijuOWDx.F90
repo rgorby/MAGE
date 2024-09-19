@@ -54,18 +54,24 @@ program raijuOWDx
     call initClocks()
     call Tic("Omega")
 
-    !allocate(raijuCoupler_T :: raiCplApp)
+    ! Init xml
+    call getIDeckStr(XMLStr)
+
+    ! Personal xml flags
+    inpXML = New_XML_Input(trim(XMLStr),"Kaiju/RAIJU",.true.)
+
+    call raiCplApp%InitModel(inpXML)
+    call raiCplApp%InitIO(inpXML)
 
     associate(raiApp=>raiCplApp%raiApp, ebModel=>vApp%ebTrcApp%ebModel, ebState=>vApp%ebTrcApp%ebState)
-            
-        ! Init xml
-        call getIDeckStr(XMLStr)
 
-        ! Personal xml flags
-        inpXML = New_XML_Input(trim(XMLStr),"Kaiju/RAIJU",.true.)
+        if (raiApp%Model%isRestart) then
+            call raiCplApp%ReadRestart(raiApp%Model%RunID, raiApp%Model%nResIn)
+            raiApp%State%isFirstCpl = .false.
+        endif
+            
         call inpXML%Set_Val(doChmpOut,'driver/doChmpOut',.false.)
         call inpXML%Set_Val(doFLOut,'driver/doFLOut',.false.)
-        call inpXML%Set_Val(raiApp%Model%doClockConsoleOut,'driver/doClockOut',.false.)
 
         ! Init RAIJU
         !call raijuInit(raiApp, inpXML)
@@ -73,12 +79,8 @@ program raijuOWDx
         !if (raiApp%Model%isRestart) then
         !    isFirstCpl = .false.
         !endif
-        call raiCplApp%InitModel(inpXML)
-        call raiCplApp%InitIO(inpXML)
-        if (raiApp%Model%isRestart) then
-            call raiCplApp%ReadRestart(raiApp%Model%RunID, raiApp%Model%nResIn)
-            raiApp%State%isFirstCpl = .false.
-        endif
+        
+        call inpXML%Set_Val(raiApp%Model%doClockConsoleOut,'driver/doClockOut',.false.)
         
         ! Init CHIMP
         inpXML = New_XML_Input(trim(XMLStr),"Kaiju/Chimp",.true.)

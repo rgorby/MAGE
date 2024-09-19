@@ -139,7 +139,7 @@ module volttypes
         class(raijuApp_T), allocatable :: raiApp
 
         real(rp) :: tLastUpdate
-        !! Time of last update, according to voltron
+            !! Time of last update, according to voltron
         type(ShellGrid_T) :: shGr
             !! Copy of raijuModel's shellGrid
         integer :: n_MHDfluids

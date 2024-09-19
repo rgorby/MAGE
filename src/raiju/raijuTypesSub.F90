@@ -54,7 +54,6 @@ submodule (raijutypes) raijuTypesSub
         ! Build restart filename
         App%Model%nResIn = nRes
         call genResInFname(App%Model, App%Model%ResF, runIdO=resId)
-
         ! Handle grid reading first
         call GenShellGridFromFile(shRes, RAI_SG_NAME, App%Model%ResF)
         if(.not. checkResGrid(App%Grid%shGrid, shRes)) then

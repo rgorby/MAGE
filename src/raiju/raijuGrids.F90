@@ -484,11 +484,12 @@ module raijugrids
         character(len=strLen), intent(in) :: configfname
 
         ! First read in species information from config file
-        if (.not. Model%isRestart) then
-            call populateSpeciesFromConfig(Model, Grid, configfname)
-        else
-            call populateSpeciesFromConfig(Model, Grid, Model%ResF)
-        endif
+        !if (.not. Model%isRestart) then
+        !    call populateSpeciesFromConfig(Model, Grid, configfname)
+        !else
+        !    call populateSpeciesFromConfig(Model, Grid, Model%ResF)
+        !endif
+        call populateSpeciesFromConfig(Model, Grid, configfname)
 
         ! Now prepare our alamc grid, tell each Species what its range is in alamc array
         call initAlamc(Grid)

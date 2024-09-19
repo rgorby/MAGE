@@ -38,6 +38,9 @@ submodule (volttypes) raijuCplTypesSub
         real(rp), intent(in) :: x1,x2,t
         real(rp), intent(out) :: imW(NVARIMAG)
         logical, intent(out) :: isEdible
+
+        imW = 0.0
+        isEdible = .false.
     end subroutine evalRAIJU
 
 

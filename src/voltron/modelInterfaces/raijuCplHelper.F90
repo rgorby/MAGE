@@ -17,23 +17,21 @@ module raijuCplHelper
 
         integer, dimension(4) :: shGhosts
 
-        !SELECT type(raiApp=>raiCpl%modelApp)
-        !    TYPE IS (raijuApp_T)
-            associate(sh=>raiCpl%raiApp%Grid%shGrid, nFluidIn=>raiCpl%raiApp%Model%nFluidIn)
 
-                ! Allocations
-                allocate(raiCpl%magLines (sh%isg:sh%ieg+1, sh%jsg:sh%jeg+1))
-                allocate(raiCpl%ijTubes( sh%isg:sh%ieg+1, sh%jsg:sh%jeg+1))
-    
-                ! Shell Grid inits
-                shGhosts(NORTH) = sh%Ngn
-                shGhosts(SOUTH) = sh%Ngs
-                shGhosts(EAST) = sh%Nge
-                shGhosts(WEST) = sh%Ngw
-                call GenChildShellGrid(sh, raiCpl%shGr, "raijuCpl", nGhosts=shGhosts)
-                call initShellVar(raiCpl%shGr, SHGR_CORNER, raiCpl%pot)
-            end associate
-        !END SELECT
+        associate(sh=>raiCpl%raiApp%Grid%shGrid, nFluidIn=>raiCpl%raiApp%Model%nFluidIn)
+
+            ! Allocations
+            allocate(raiCpl%magLines (sh%isg:sh%ieg+1, sh%jsg:sh%jeg+1))
+            allocate(raiCpl%ijTubes( sh%isg:sh%ieg+1, sh%jsg:sh%jeg+1))
+
+            ! Shell Grid inits
+            shGhosts(NORTH) = sh%Ngn
+            shGhosts(SOUTH) = sh%Ngs
+            shGhosts(EAST) = sh%Nge
+            shGhosts(WEST) = sh%Ngw
+            call GenChildShellGrid(sh, raiCpl%shGr, "raijuCpl", nGhosts=shGhosts)
+            call initShellVar(raiCpl%shGr, SHGR_CORNER, raiCpl%pot)
+        end associate
         
             ! Initial values
             raiCpl%tLastUpdate = -1.0*HUGE
@@ -165,7 +163,7 @@ module raijuCplHelper
 
 
 !------
-! One-way driving helpers
+! One-way driving from file helpers
 !------
 
     !> This function takes updated model states and does the operations
