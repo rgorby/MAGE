@@ -18,7 +18,7 @@ module volttypes
     implicit none
 
     enum, bind(C)
-        enumerator :: IMAGRCM=1,IMAGRCMX,IMAGSST
+        enumerator :: IMAGRCM=1,IMAGRCMX,IMAGSST,IMAGRAIJU
     endenum
 
     !Projection types
@@ -91,14 +91,14 @@ module volttypes
     type innerMagBase_T
         contains
 
-        procedure baseInitImag
+        procedure baseInit_Imag
         procedure baseAdvance
         procedure baseEval
         procedure baseIO
         procedure baseRestart
 
         ! functions to be over-written by specific inner magnetosphere implementations
-        procedure :: doInit => baseInitImag
+        procedure :: doInit => baseInit_Imag
         procedure :: doAdvance => baseAdvance
         procedure :: doEval => baseEval
         procedure :: doIO => baseIO
@@ -107,7 +107,36 @@ module volttypes
 
     end type innerMagBase_T
 
-    type, extends(raijuApp_T) :: raijuCoupler_T
+    type, extends(BaseOptions_T) :: imagOptions_T
+        character(len=strLen) :: swF
+
+        contains
+    end type imagOptions_T
+
+    type, abstract, extends(BaseApp_T) :: imagCoupler_T
+
+        class(imagOptions_T), allocatable :: opt
+
+        contains
+
+        procedure(toIMAG_T)  , deferred :: toIMAG
+        procedure(evalIMAG_T), deferred :: doEval
+        
+        !procedure :: InitModel           => baseInitImag
+        !procedure :: InitIO              => baseInitIOImag
+        !procedure :: WriteRestart        => baseWriteRestartImag
+        !procedure :: ReadRestart         => baseReadRestartImag
+        !procedure :: WriteConsoleOutput  => baseWriteConsoleOutputImag
+        !procedure :: WriteFileOutput     => baseWriteFileOutputImag
+        !procedure :: WriteSlimFileOutput => baseWriteFileOutputImag
+        !procedure :: AdvanceModel        => baseAdvanceModelImag
+        !procedure :: Cleanup             => baseCleanupImag
+
+    end type imagCoupler_T
+
+    type, extends(imagCoupler_T) :: raijuCoupler_T
+
+        class(raijuApp_T), allocatable :: raiApp
 
         real(rp) :: tLastUpdate
         !! Time of last update, according to voltron
@@ -122,15 +151,19 @@ module volttypes
             !! electrostatic potential from ionosphere [kV]
 
         contains
+
+        procedure :: toIMAG => volt2RAIJU
+        procedure :: doEval => evalRAIJU
         
         procedure :: InitModel           => raiCplInitModel
         procedure :: InitIO              => raiCplInitIO
-        !procedure :: WriteRestart        =>
-        !procedure :: ReadRestart         =>
-        !procedure :: WriteConsoleOutput  =>
-        !procedure :: WriteFileOutput     =>
-        !procedure :: WriteSlimFileOutput =>
-        !procedure :: AdvanceModel => 
+        procedure :: WriteRestart        => raiCplWriteRestart
+        procedure :: ReadRestart         => raiCplReadRestart
+        procedure :: WriteConsoleOutput  => raiCplWriteConsoleOutput
+        procedure :: WriteFileOutput     => raiCplWriteFileOutput
+        procedure :: WriteSlimFileOutput => raiCplWriteSlimFileOutput
+        procedure :: AdvanceModel        => raiCplAdvanceModel
+        procedure :: Cleanup             => raiCplCleanup
 
     end type raijuCoupler_T
 
@@ -225,7 +258,8 @@ module volttypes
 
         type(gcm_T) :: gcm
 
-        class(innerMagBase_T), allocatable :: imagApp
+        !class(innerMagBase_T), allocatable :: imagApp
+        class(imagCoupler_T), allocatable :: imagApp
 
         !Deep coupling information
         real(rp) :: DeepT ! Time of next deep coupling
@@ -255,6 +289,26 @@ module volttypes
         type(VoltOptions_T) :: vOptions
 
     end type voltApp_T
+
+
+    abstract interface
+        subroutine toIMAG_T(App, vApp)
+            import imagCoupler_T
+            import voltApp_T
+            class(imagCoupler_T), intent(inout) :: App
+            class(voltApp_T), intent(inout) :: vApp
+        end subroutine toIMAG_T
+
+        subroutine evalIMAG_T(App,x1,x2,t,imW,isEdible)
+            import imagCoupler_T
+            import rp, NVARIMAG
+            class(imagCoupler_T), intent(inout) :: App
+            real(rp), intent(in) :: x1,x2,t
+            real(rp), intent(out) :: imW(NVARIMAG)
+            logical, intent(out) :: isEdible
+        end subroutine evalIMAG_T
+    end interface
+
 
     ! interface for coupling functions
     interface
@@ -302,18 +356,6 @@ module volttypes
             class(gamCoupler_T), intent(inout) :: App
             class(voltApp_T), intent(inout) :: voltApp
         end subroutine
-
-        ! RAIJU
-        module subroutine raiCplInitModel(App, xml)
-            class(raijuCoupler_T), intent(inout) :: App
-            type(XML_Input_T), intent(inout) :: Xml
-        end subroutine raiCplInitModel
-
-
-        module subroutine raiCplInitIO(App, xml)
-            class(raijuCoupler_T), intent(inout) :: App
-            type(XML_Input_T), intent(inout) :: Xml
-        end subroutine raiCplInitIO
 
     end interface
 
@@ -380,10 +422,122 @@ module volttypes
 
     end interface
 
+    ! raijuCoupler_T
+    interface
+        module subroutine volt2RAIJU(App, vApp)
+            class(raijuCoupler_T), intent(inout) :: App
+            class(voltApp_T), intent(inout) :: vApp
+        end subroutine
+
+        module subroutine evalRAIJU(App,x1,x2,t,imW,isEdible)
+            class(raijuCoupler_T), intent(inout) :: App
+            real(rp), intent(in) :: x1,x2,t
+            real(rp), intent(out) :: imW(NVARIMAG)
+            logical, intent(out) :: isEdible
+        end subroutine evalRAIJU
+
+        module subroutine raiCplInitModel(App, xml)
+            class(raijuCoupler_T), intent(inout) :: App
+            type(XML_Input_T), intent(inout) :: Xml
+        end subroutine 
+
+        module subroutine raiCplInitIO(App, Xml)
+            class(raijuCoupler_T), intent(inout) :: App
+            type(XML_Input_T), intent(inout) :: Xml
+        end subroutine
+
+        module subroutine raiCplWriteRestart(App, nRes)
+            class(raijuCoupler_T), intent(inout) :: App
+            integer, intent(in) :: nRes
+        end subroutine
+
+        module subroutine raiCplReadRestart(App, resId, nRes)
+            class(raijuCoupler_T), intent(inout) :: App
+            character(len=*), intent(in) :: resId
+            integer, intent(in) :: nRes
+        end subroutine
+
+        module subroutine raiCplWriteConsoleOutput(App)
+            class(raijuCoupler_T), intent(inout) :: App
+        end subroutine
+
+        module subroutine raiCplWriteFileOutput(App, nStep)
+            class(raijuCoupler_T), intent(inout) :: App
+            integer, intent(in) :: nStep
+        end subroutine
+
+        module subroutine raiCplWriteSlimFileOutput(App, nStep)
+            class(raijuCoupler_T), intent(inout) :: App
+            integer, intent(in) :: nStep
+        end subroutine
+
+        module subroutine raiCplAdvanceModel(App, dt)
+            class(raijuCoupler_T), intent(inout) :: App
+            real(rp), intent(in) :: dt
+        end subroutine
+
+        module subroutine raiCplCleanup(App)
+            class(raijuCoupler_T), intent(inout) :: App
+        end subroutine
+        
+
+    end interface
+
     contains
 
-    ! null default subroutines for inner mag base type
-    subroutine baseInitImag(imag,iXML,isRestart,vApp)
+!    subroutine baseEvalIMAG(App,x1,x2,t,imW,isEdible)
+!        class(imagCoupler_T), intent(inout) :: App
+!        real(rp), intent(in) :: x1,x2,t
+!        real(rp), intent(out) :: imW(NVARIMAG)
+!        logical, intent(out) :: isEdible
+!
+!        imW = 0.0_rp
+!        isEdible = .false.
+!    end subroutine baseEvalIMAG
+!
+!    ! null default subroutines for inner mag base type
+!    subroutine baseInitImag(App,xml)
+!        class(imagCoupler_T), intent(inout) :: App
+!        type(XML_Input_T), intent(inout) :: xml
+!    end subroutine
+!
+!    subroutine baseInitIOImag(App,xml)
+!        class(imagCoupler_T), intent(inout) :: App
+!        type(XML_Input_T), intent(inout) :: xml
+!    end subroutine
+!
+!    subroutine baseWriteRestartImag(App,nRes)
+!        class(imagCoupler_T), intent(inout) :: App
+!        integer, intent(in) :: nRes
+!    end subroutine
+!
+!    subroutine baseReadRestartImag(App,resId,nRes)
+!        class(imagCoupler_T), intent(inout) :: App
+!        character(len=*), intent(in) :: resId
+!        integer, intent(in) :: nRes
+!    end subroutine
+!
+!    subroutine baseWriteConsoleOutputImag(App)
+!        class(imagCoupler_T), intent(inout) :: App
+!    end subroutine
+!
+!    subroutine baseWriteFileOutputImag(App, nStep)
+!        class(imagCoupler_T), intent(inout) :: App
+!        integer, intent(in) :: nStep
+!    end subroutine
+!
+!    subroutine baseAdvanceModelImag(App,dt)
+!        class(imagCoupler_T), intent(inout) :: App
+!        real(rp), intent(in) :: dt
+!    end subroutine
+!
+!    subroutine baseCleanupImag(App)
+!        class(imagCoupler_T), intent(inout) :: App
+!    end subroutine
+
+
+    ! Old innermagbase stuff
+    subroutine baseInit_Imag(imag,iXML,isRestart,vApp)
         class(innerMagBase_T), intent(inout) :: imag
         type(XML_Input_T), intent(in) :: iXML
         logical, intent(in) :: isRestart
@@ -422,6 +576,5 @@ module volttypes
         integer, intent(in) :: nRes
         real(rp), intent(in) :: MJD, time
     end subroutine
-
+    
 end module volttypes
-

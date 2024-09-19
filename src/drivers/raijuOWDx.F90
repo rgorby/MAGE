@@ -28,9 +28,7 @@ program raijuOWDx
     ! Voltron stuff
     use volttypes
     use raijuuseric
-    use raijuCplTypes
-    use raijuCpl
-    use raijuowdcpl
+    use raijuCplHelper
 
     implicit none
 
@@ -41,6 +39,7 @@ program raijuOWDx
 
     !type(raijuApp_T   ) :: raiApp
     !type(raiju_cplBase_T) :: raijuCplBase
+    !class(raijuCoupler_T), allocatable :: raiCplApp
     type(raijuCoupler_T) :: raiCplApp
 
     character(len=strLen) :: XMLStr, gStr, ftag
@@ -55,7 +54,9 @@ program raijuOWDx
     call initClocks()
     call Tic("Omega")
 
-    associate(ebModel=>vApp%ebTrcApp%ebModel, ebState=>vApp%ebTrcApp%ebState)
+    !allocate(raijuCoupler_T :: raiCplApp)
+
+    associate(raiApp=>raiCplApp%raiApp, ebModel=>vApp%ebTrcApp%ebModel, ebState=>vApp%ebTrcApp%ebState)
             
         ! Init xml
         call getIDeckStr(XMLStr)
@@ -67,13 +68,18 @@ program raijuOWDx
         call inpXML%Set_Val(raiApp%Model%doClockConsoleOut,'driver/doClockOut',.false.)
 
         ! Init RAIJU
-        call raijuInit(raiApp, inpXML)
-        call raijuCpl_init(vApp, raiApp, raijuCplBase)
+        !call raijuInit(raiApp, inpXML)
+        !call raijuCpl_init(vApp, raiApp, raijuCplBase)
+        !if (raiApp%Model%isRestart) then
+        !    isFirstCpl = .false.
+        !endif
+        call raiCplApp%InitModel(inpXML)
+        call raiCplApp%InitIO(inpXML)
         if (raiApp%Model%isRestart) then
-            isFirstCpl = .false.
+            call raiCplApp%ReadRestart(raiApp%Model%RunID, raiApp%Model%nResIn)
+            raiApp%State%isFirstCpl = .false.
         endif
         
-
         ! Init CHIMP
         inpXML = New_XML_Input(trim(XMLStr),"Kaiju/Chimp",.true.)
         call goApe(ebModel,ebState,iXML=inpXML)
@@ -106,15 +112,21 @@ program raijuOWDx
 
             call Tic("Output")
             ! Output if ready
+            if (raiApp%State%IO%doConsole(raiApp%State%t)) then
+                call raiCplApp%WriteConsoleOutput()
+            endif
+
             if (raiApp%State%IO%doRestart(raiApp%State%t)) then
                 call Tic("RAIJU Restart")
-                call raijuResOutput(raiApp%Model,raiApp%Grid,raiApp%State)
+                !call raijuResOutput(raiApp%Model,raiApp%Grid,raiApp%State)
+                call raiCplApp%WriteRestart(raiApp%State%IO%nRes)
                 call Toc("RAIJU Restart")
             endif
             
             if (raiApp%State%IO%doOutput(raiApp%State%t)) then
                 call Tic("RAIJU Output")
-                call raijuOutput(raiApp%Model,raiApp%Grid,raiApp%State)
+                !call raijuOutput(raiApp%Model,raiApp%Grid,raiApp%State)
+                call raiCplApp%WriteFileOutput(raiApp%State%IO%nOut)
                 call Toc("RAIJU Output")
 
                 if (ebModel%doEBOut) then
@@ -129,7 +141,7 @@ program raijuOWDx
 
                 if (doFLOut) then
                     call Tic("RCM FLs")
-                    call WriteRCMFLs(raijuCplBase%fromV%magLines,raiApp%State%IO%nOut, &
+                    call WriteRCMFLs(raiCplApp%magLines,raiApp%State%IO%nOut, &
                             raiApp%State%mjd,raiApp%State%t, &
                             raiApp%Grid%shGrid%Nt,raiApp%Grid%shGrid%Np)
                     call Toc("RCM FLs")
@@ -153,20 +165,22 @@ program raijuOWDx
 
             ! Populate RAIJU's fromV object with updated model info
             call Tic("fromV packing")
-            call packFromV(raijuCplBase%fromV, vApp, rmReader, raiApp)
+            !call packFromV(raijuCplBase%fromV, vApp, rmReader, raiApp)
+            call packRaijuCoupler(raiCplApp, vApp, rmReader)
             call Toc("fromV packing")
 
             call Tic("fromV to State")
             ! Now put fomV info into RAIJU's State
             !call raijuCpl_Volt2RAIJU(raijuCplBase, vApp, raiApp)
-            call raijuCplBase%convertToRAIJU(raijuCplBase, vApp, raiApp)
+            !call raijuCplApp%toIMAG(raijuCplBase, vApp, raiApp)
+            call raiCplApp%toIMAG(vApp)
             call Toc("fromV to State")
 
             ! Step RAIJU
             call Tic("RAIJU Advance")
-            call raijuAdvance(raiApp%Model,raiApp%Grid,raiApp%State, raiApp%Model%dt, isFirstCpl)
+            call raiCplApp%AdvanceModel(raiApp%Model%dt)
+            !call raijuAdvance(raiApp%Model,raiApp%Grid,raiApp%State, raiApp%Model%dt, isFirstCpl)
             call Toc("RAIJU Advance")
-            isFirstCpl = .false.
 
             !write(*,*)raiApp%State%t
             !write(*,*)ebModel%t/inTscl

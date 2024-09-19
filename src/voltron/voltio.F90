@@ -140,7 +140,8 @@ module voltio
 
         !Write inner mag console IO if needed
         if (vApp%doDeep) then
-            call vApp%imagApp%doConIO(vApp%MJD,vApp%time)
+            !call vApp%imagApp%doConIO(vApp%MJD,vApp%time)
+            call vApp%imagApp%WriteConsoleOutput()
         endif
 
         !Setup for next output
@@ -192,7 +193,8 @@ module voltio
             call writeMIXRestart(vApp%remixApp%ion,vApp%IO%nRes,mjd=vApp%MJD,time=vApp%time)
             !Write inner mag restart
             if (vApp%doDeep) then
-                call vApp%imagApp%doRestart(vApp%IO%nRes,vApp%MJD,vApp%time)
+                !call vApp%imagApp%doRestart(vApp%IO%nRes,vApp%MJD,vApp%time)
+                call vApp%imagApp%WriteRestart(vApp%IO%nRes)
             endif
             call writeVoltRestart(vApp,gApp)
         endif
@@ -327,7 +329,8 @@ module voltio
 
             !Write inner mag IO if needed
             if (vApp%doDeep) then
-                call vApp%imagApp%doIO(vApp%IO%nOut,vApp%MJD,vApp%time)
+                !call vApp%imagApp%doIO(vApp%IO%nOut,vApp%MJD,vApp%time)
+                call vApp%imagApp%WriteFileOutput(vApp%IO%nOut)
             endif
 
             call WriteVolt(vApp,gApp,vApp%IO%nOut)

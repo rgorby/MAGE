@@ -30,7 +30,7 @@ module raijustarter
 !------
 
     subroutine raijuInit(app, iXML)
-        type(raijuApp_T), intent(inout) :: app
+        class(raijuApp_T), intent(inout) :: app
         type(XML_Input_T), intent(in) :: iXML
         ! Init model, grid, state
         call raijuInitModel(app%Model, iXML)
@@ -74,6 +74,8 @@ module raijustarter
         ! If we are in SA mode, need to set it ourselves
         if (Model%isSA) then
             call iXML%Set_Val(Model%RunID, "prob/RunID","raijuSA")  ! raiju stand-alone
+        else
+            call iXML%Set_Val(Model%RunID, "/Kaiju/Gamera/sim/runid","msphere") 
         endif
 
         ! Timing info, if provided

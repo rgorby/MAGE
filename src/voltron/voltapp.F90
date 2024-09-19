@@ -227,17 +227,18 @@ module voltapp
             call InitInnerMag(vApp,gApp,xmlInp)
 
             if(gApp%Model%isRestart) then
-                select type(rcmApp=>vApp%imagApp)
-                    type is (rcmIMAG_T)
-                        !Check if Voltron and RCM have the same restart number
-                        if (vApp%IO%nRes /= rcmApp%rcmCpl%rcm_nRes) then
-                            write(*,*) "Gamera and RCM disagree on restart number, you should sort that out."
-                            write(*,*) "Error code: A house divided cannot stand"
-                            write(*,*) "   Voltron nRes = ", vApp%IO%nRes
-                            write(*,*) "   RCM     nRes = ", rcmApp%rcmCpl%rcm_nRes
-                            stop
-                        endif
-                end select
+                call vApp%imagApp%ReadRestart(gApp%Model%RunID, vApp%IO%nRes)
+                !select type(rcmApp=>vApp%imagApp)
+                !    type is (rcmIMAG_T)
+                !        !Check if Voltron and RCM have the same restart number
+                !        if (vApp%IO%nRes /= rcmApp%rcmCpl%rcm_nRes) then
+                !            write(*,*) "Gamera and RCM disagree on restart number, you should sort that out."
+                !            write(*,*) "Error code: A house divided cannot stand"
+                !            write(*,*) "   Voltron nRes = ", vApp%IO%nRes
+                !            write(*,*) "   RCM     nRes = ", rcmApp%rcmCpl%rcm_nRes
+                !            stop
+                !        endif
+                !end select
             endif
 
         endif
@@ -531,7 +532,8 @@ module voltapp
 
         !Advance inner magnetosphere model to tAdv
         call Tic("InnerMag", .true.)
-        call vApp%imagApp%doAdvance(vApp,vApp%DeepT)
+        !call vApp%imagApp%doAdvance(vApp,vApp%DeepT)
+        call vApp%imagApp%AdvanceModel(vApp%DeepDT)
         call Toc("InnerMag", .true.)
 
     end subroutine

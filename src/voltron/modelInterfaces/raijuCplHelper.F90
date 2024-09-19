@@ -1,26 +1,74 @@
-module raijuCplHelpers
+module raijuCplHelper
 
-    ! Base
-    use voltCplTypes
-    use planethelper
-
-    ! Raiju
+    use volttypes
     use raijutypes
-    use raijuCplTypes
-    use raijuSpeciesHelper
+    use remixReader
+    use shellinterp
+    use ebtypes
+
+    use imagtubes
 
     implicit none
 
     contains
 
-    subroutine imagTubes2RAIJU(Model, Grid, State, ijTubes, f_MHD2SpcMap)
+    subroutine raijuCpl_init(raiCpl)
+        class(raijuCoupler_T), intent(inout) :: raiCpl
+
+        integer, dimension(4) :: shGhosts
+
+        !SELECT type(raiApp=>raiCpl%modelApp)
+        !    TYPE IS (raijuApp_T)
+            associate(sh=>raiCpl%raiApp%Grid%shGrid, nFluidIn=>raiCpl%raiApp%Model%nFluidIn)
+
+                ! Allocations
+                allocate(raiCpl%magLines (sh%isg:sh%ieg+1, sh%jsg:sh%jeg+1))
+                allocate(raiCpl%ijTubes( sh%isg:sh%ieg+1, sh%jsg:sh%jeg+1))
+    
+                ! Shell Grid inits
+                shGhosts(NORTH) = sh%Ngn
+                shGhosts(SOUTH) = sh%Ngs
+                shGhosts(EAST) = sh%Nge
+                shGhosts(WEST) = sh%Ngw
+                call GenChildShellGrid(sh, raiCpl%shGr, "raijuCpl", nGhosts=shGhosts)
+                call initShellVar(raiCpl%shGr, SHGR_CORNER, raiCpl%pot)
+            end associate
+        !END SELECT
+        
+            ! Initial values
+            raiCpl%tLastUpdate = -1.0*HUGE
+            raiCpl%pot%data = 0.0
+            raiCpl%pot%mask = .true.
+
+            ! Allocations
+            !Initial values
+            raiCpl%tLastUpdate = -1.0*HUGE
+
+        ! If using user IC, let user determine coupling
+        !  (this assumes icStr was already set by raijuInitState)
+        !if (trim(raiApp%Model%icStr) .eq. "USER") then
+        !    ! Set defaults, let user override if they want to
+        !    cplBase%convertToRAIJU => raijuCpl_Volt2RAIJU
+        !    cplBase%convertToVoltron => raijuCpl_RAIJU2Volt
+        !    cplBase%fromV%mhd2spcMap => defaultMHD2SpcMap
+        !    call raijuCpl_init_useric(vApp, raiApp, cplBase)
+        !else
+        !    ! Point to default coupling functions
+        !    cplBase%convertToRAIJU => raijuCpl_Volt2RAIJU
+        !    cplBase%convertToVoltron => raijuCpl_RAIJU2Volt
+        !    cplBase%fromV%mhd2spcMap => defaultMHD2SpcMap
+        !endif
+
+    end subroutine raijuCpl_init
+
+
+    subroutine imagTubes2RAIJU(Model, Grid, State, ijTubes)
         !! Map 2D array of IMAGTubes to RAIJU State
         type(raijuModel_T), intent(in) :: Model
         type(raijuGrid_T ), intent(in) :: Grid
         type(raijuState_T), intent(inout) :: State
         type(IMAGTube_T), dimension(Grid%shGrid%isg:Grid%shGrid%ieg+1,&
                                     Grid%shGrid%jsg:Grid%shGrid%jeg+1), intent(in) :: ijTubes
-        procedure(raijuMHD2SpcMap_T), pointer, intent(in) :: f_MHD2SpcMap
         
 
         integer :: i,j,s
@@ -106,69 +154,74 @@ module raijuCplHelpers
                         !dBVol(:,1) = dBVol(:,1) - bVol_dip_corner(i:i+1)
                         !dBVol(:,2) = dBVol(:,2) - bVol_dip_corner(i:i+1)
                         !State%bvol_cc(i,j) = toCenter2D(dBVol) + bVol_dip_cc(i)
-
-                        ! Do our own "wIMAG" calculation here so we ensure we use the fluid we want to (Bulk)
-                        ! Calculate the fraction of Alfven speed to total velocity
-                        !VaMKS = flux tube arc length [km] / Alfven crossing time [s]
-                        !VaMKS = (ijTube%Lb*planet%rp_m*1.0e-3)/ijTube%Tb 
-                        !!CsMKS = 9.79 x sqrt(5/3 * Ti) km/s, Ti eV
-                        !TiEV = (1.0e+3)*DP2kT(State%Davg(i,j,0),State%Pavg(i,j,0)) !Temp in eV
-                        !CsMKS = 9.79*sqrt((5.0/3)*TiEV)
-                        !State%vaFrac(i,j) = VaMKS/( sqrt(VaMKS**2.0 + CsMKS**2.0) + VebMKS)
-
-                        ! Never mind, we should let MHD decide since its more aware of what the right sound speed should be
-                        
                     endif
                 enddo
             enddo
-
-            ! Use provided definition to map moments
-            !call f_MHD2SpcMap(Model, Grid, State, ijTubes)
 
         end associate
         
     end subroutine imagTubes2RAIJU
 
 
-    subroutine defaultMHD2SpcMap(Model, Grid, State, ijTubes)
-        !! Sort of out of date
-        !! Keeping it here in case we do eventually want to map some non-trivial way
-        !! to our Pave, Dave. But I don't think we will
-        type(raijuModel_T), intent(in) :: Model
-        type(raijuGrid_T) , intent(in) :: Grid
-        type(raijuState_T), intent(inout) :: State
-        type(IMAGTube_T),  dimension(Grid%shGrid%isg:Grid%shGrid%ieg+1,&
-                                     Grid%shGrid%jsg:Grid%shGrid%jeg+1), intent(in) :: ijTubes
 
-        integer :: i, j, k, s, sIdx
-        real(rp) :: P, D
+!------
+! One-way driving helpers
+!------
 
-        ! First clear out our previous moments input state
-        State%Pavg = 0.0
-        State%Davg = 0.0
+    !> This function takes updated model states and does the operations
+    !> necessary to update the cplBase%fromV object
+    subroutine packRaijuCoupler(raiCpl, vApp, rmReader)
+        class(raijuCoupler_T), intent(inout) :: raiCpl
+        type(voltApp_T), intent(inout) :: vApp
+        type(rmReader_T) :: rmReader
 
-        associate(sh=>Grid%shGrid)
-            do i=sh%isg,sh%ieg
-                do j=sh%jsg,sh%jeg
-                    if (all(State%topo(i:i+1,j:j+1) .eq. RAIJUCLOSED)) then
+        integer :: i,j
+        real(rp), dimension(:,:), allocatable :: tmpPot
 
-                        do s=0,Model%nFluidIn
-                            ! This means all 4 corners are good, can do cell centered stuff
-                            P = 0.25*(ijTubes(i  ,j)%Pave(s) + ijTubes(i  ,j+1)%Pave(s) &
-                                    + ijTubes(i+1,j)%Pave(s) + ijTubes(i+1,j+1)%Pave(s)) * 1.0D+9 ! [Pa -> nPa]
-                            D = 0.25*(ijTubes(i  ,j)%Nave(s) + ijTubes(i  ,j+1)%Nave(s) &
-                                    + ijTubes(i+1,j)%Nave(s) + ijTubes(i+1,j+1)%Nave(s)) * 1.0D-6 ! [#/m^3 --> #/cc]
-                                                 
+        ! Update coupling time
+        raiCpl%tLastUpdate = raiCpl%raiApp%State%t
 
-                            State%Pavg(i,j,s) = P
-                            State%Davg(i,j,s) = D
-                        enddo
+        ! Using chimp, populate imagTubes
+        call genImagTubes(raiCpl, vApp)
 
-                    endif
+        ! Set potential
+        call InterpShellVar_TSC_SG(rmReader%shGr, rmReader%nsPot(1), raiCpl%shGr, raiCpl%pot)
+
+    end subroutine packRaijuCoupler
+
+
+    subroutine genImagTubes(raiCpl, vApp)
+        class(raijuCoupler_T), intent(inout) :: raiCpl
+        type(voltApp_T), intent(in   ) :: vApp
+
+        integer :: i,j
+        real(rp) :: seedR
+        type(magLine_T) :: magLine
+        ! Get field line info and potential from voltron
+        ! And put the data into RAIJU's fromV coupling object
+
+        associate(sh=>raiCpl%raiApp%Grid%shGrid , &
+            planet=>raiCpl%raiApp%Model%planet, &
+            ebApp =>vApp%ebTrcApp)
+
+            seedR =  planet%ri_m/planet%rp_m + TINY
+            ! Do field line tracing, populate fromV%ijTubes
+            !$OMP PARALLEL DO default(shared) collapse(2) &
+            !$OMP schedule(dynamic) &
+            !$OMP private(i,j)
+            do i=sh%isg,sh%ieg+1
+                do j=sh%jsg,sh%jeg+1
+                    call CleanLine(raiCpl%magLines(i,j))
+
+                    call MHDTube(ebApp, planet,   & !ebTrcApp, planet
+                        sh%th(i), sh%ph(j), seedR, &  ! colat, lon, r
+                        raiCpl%ijTubes(i,j), raiCpl%magLines(i,j), &  ! IMAGTube_T, magLine_T
+                        doShiftO=.true.)
                 enddo
             enddo
         end associate
 
-    end subroutine defaultMHD2SpcMap
+    end subroutine genImagTubes
 
-end module raijuCplHelpers
+
+end module raijuCplHelper

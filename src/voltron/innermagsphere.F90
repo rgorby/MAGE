@@ -8,7 +8,7 @@ module innermagsphere
     use gamapp
 !    use sstimag
     use sstLLimag
-    use rcmimag
+    !use rcmimag
     use msphutils, only : RadIonosphere
     use rcmXimag
     use cmiutils, only : SquishCorners
@@ -33,27 +33,40 @@ module innermagsphere
         !NOTE: Using the fact that x2 is longitude and 2P periodic for both inner mag models
         select case (trim(toUpper(imStr)))
         case("SST","TS07")
-            vApp%imType = IMAGSST
-            vApp%prType = LPPROJ !R-phi
-            allocate(empData_T :: vApp%imagApp)
+            write(*,*)"ERROR: SST not updated for new imag plumbing."
+            stop
+            !vApp%imType = IMAGSST
+            !vApp%prType = LPPROJ !R-phi
+            !allocate(empData_T :: vApp%imagApp)
         ! case("SSTLL")  ! on lon-lat grid in the ionosphere -- like RCM
         !     vApp%imType = IMAGSSTLL
         !     vApp%prType = LLPROJ !R-phi
         !     allocate(empData_T :: vApp%imagApp)
         case("RCM")
-            vApp%imType = IMAGRCM
-            vApp%prType = LLPROJ !Lat-lon
-            allocate(rcmIMAG_T :: vApp%imagApp)
+            write(*,*)"ERROR: RCM not updated for new imag plumbing."
+            stop
+            !vApp%imType = IMAGRCM
+            !vApp%prType = LLPROJ !Lat-lon
+            !allocate(rcmIMAG_T :: vApp%imagApp)
         case("RCMX")
-            vApp%imType = IMAGRCMX
-            vApp%prType = LLPROJ !Lat-lon
-            allocate(rcmXIMAG_T :: vApp%imagApp)
+            write(*,*)"ERROR: RCMX not updated for new imag plumbing."
+            stop
+            !vApp%imType = IMAGRCMX
+            !vApp%prType = LLPROJ !Lat-lon
+            !allocate(rcmXIMAG_T :: vApp%imagApp)
+        case("RAIJU")
+            vApp%imType = IMAGRAIJU
+            vApp%prType = LLPROJ
+            allocate(raijuCoupler_T :: vApp%imagApp)
+            allocate(imagOptions_T :: vApp%imagApp%opt)
+            vApp%imagApp%opt%swF = vApp%symh%wID
         case DEFAULT
             write(*,*) 'Unkown imType, bailing ...'
             stop
         end select
 
-        call vApp%imagApp%doInit(iXML,gApp%Model%isRestart,vApp)
+        !call vApp%imagApp%doInit(iXML,gApp%Model%isRestart,vApp)
+        call vApp%imagApp%InitModel(iXML)
 
     end subroutine InitInnerMag
 
