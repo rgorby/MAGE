@@ -768,7 +768,7 @@ def compare_mage_runs(args):
             slack_client, message, is_test=test)
         if slack_response["ok"]:
             parent_ts = slack_response["ts"]
-            message = f"Test results are in {os.getcwd()}.\n"
+            message = f"Test results are in `{os.getcwd()}`.\n"
             message += (
                 "This was a 4x4x1 (IxJxK) decomposed Quad Resolution Run using"
                 " 8 nodes for Gamera, 1 for Voltron, and 2 Squish Helper nodes"
