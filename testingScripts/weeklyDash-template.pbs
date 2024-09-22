@@ -49,6 +49,10 @@ export KMP_STACKSIZE=128M
 export MAGE_TEST_ROOT=$mage_test_root
 export MAGE_TEST_SET_ROOT={{ mage_test_set_root }}
 export BRANCH_OR_COMMIT={{ branch_or_commit }}
+
+echo 'Setting up kaipy environment.'
+source $MAGE_TEST_ROOT/kaipy-private/kaipy/scripts/setupEnvironment.sh
+
 echo 'The active environment variables are:'
 printenv
 
@@ -57,6 +61,6 @@ MPICOMMAND="mpiexec $KAIJUHOME/scripts/preproc/pinCpuCores.sh"
 $MPICOMMAND ./voltron_mpi.x weeklyDashGo.xml >& weeklyDashGo.out
 
 # Generate the report.
-python $KAIJUHOME/testingScripts/weeklyDashReport.py {{ report_options }} >& weeklyDashReport.out
+python $KAIJUHOME/testingScripts/compare_mage_runs.py {{ report_options }} --run_xml_list_file="${MAGE_TEST_ROOT}/test_runs/reference_runs.txt" "`pwd`/weeklyDashGo.xml" >& compare_mage_runs.out
 
 echo "Job $PBS_JOBID ended at `date` on `hostname` in directory `pwd`."

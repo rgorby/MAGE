@@ -376,12 +376,19 @@ def create_magnetosphere_quicklook_plots(xml_files: list):
         # Extract the run ID.
         runid = common.extract_runid(xml_file)
 
-        # Compute the path to the results directory.
+        # Save the current directory.
+        cwd = os.getcwd()
+
+        # Compute the path to the results directory, and go there.
         results_dir = os.path.split(xml_file)[0]
+        os.chdir(results_dir)
 
         # Create the quicklook plot.
-        cmd = f"msphpic.py -d {results_dir} -id {runid}"
+        cmd = f"msphpic.py -id {runid}"
         _ = subprocess.run(cmd, shell=True, check=True)
+
+        # Move back to the starting directory.
+        os.chdir(cwd)
 
         # Add the plot to the list.
         path = os.path.join(results_dir, "qkmsphpic.png")
@@ -646,11 +653,11 @@ def compare_mage_runs(args):
 
     # If running in the testing environment, move  to a directory to save the
     # results. Otherwise, create plots in the current directory.
-    if "MAGE_TEST_SET_ROOT" in os.environ:
-        path = os.path.join(os.environ["MAGE_TEST_SET_ROOT"],
-                            "compare_mage_runs")
-        os.mkdir(path)
-        os.chdir(path)
+    # if "MAGE_TEST_SET_ROOT" in os.environ:
+    #     path = os.path.join(os.environ["MAGE_TEST_SET_ROOT"],
+    #                         "compare_mage_runs")
+    #     os.mkdir(path)
+    #     os.chdir(path)
 
     # ------------------------------------------------------------------------
 

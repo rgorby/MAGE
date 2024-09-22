@@ -400,7 +400,7 @@ def main():
     # Detail the test results
     test_report_details_string = ''
     test_report_details_string += (
-        f"Test results are in {WEEKLY_DASH_DIRECTORY}.\n"
+        f"Test results are in `{WEEKLY_DASH_DIRECTORY}`.\n"
     )
     for (i_module_set, module_list_file) in enumerate(module_list_files):
         if not submit_ok[i_module_set]:
@@ -410,7 +410,7 @@ def main():
             continue
         test_report_details_string += (
             f"Weekly dash for module set `{module_list_file}` submitted as "
-            f"job {job_ids[i_module_set]}.\n"
+            f"job `{job_ids[i_module_set]}`.\n"
         )
 
 
