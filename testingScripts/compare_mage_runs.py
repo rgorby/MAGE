@@ -762,7 +762,7 @@ def compare_mage_runs(args):
             print(f"slack_client = {slack_client}")
         message = (
             "Weekly dash result plots complete for "
-            f"`{os.environ['KAIJU_VERSION']}`.\n"
+            f"`{os.environ['BRANCH_OR_COMMIT']}`.\n"
         )
         slack_response = common.slack_send_message(
             slack_client, message, is_test=test)
