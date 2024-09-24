@@ -215,7 +215,7 @@ def read_build_module_list_file(list_file):
         lines.pop(0)  # Remove cmake options line.
 
     # Save the remaining lines as a module or file list.
-    module_or_file_names = lines
+    module_or_file_names = [line.rstrip() for line in lines]
 
     # Return the file contents.
     return module_or_file_names, cmake_environment, cmake_options

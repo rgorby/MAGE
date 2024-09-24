@@ -19,9 +19,8 @@ module load {{ module }}
 module list
 
 echo 'Loading python environment.'
-mage_test_root='{{ mage_test_root }}'
-export CONDARC="${mage_test_root}/.condarc"
-export CONDA_ENVS_PATH="${mage_test_root}/.conda"
+export CONDARC="{{ condarc }}"
+export CONDA_ENVS_PATH="{{ conda_envs_path }}"
 mage_miniconda3="${mage_test_root}/miniconda3"
 mage_conda="${mage_miniconda3}/bin/conda"
 __conda_setup="$($mage_conda 'shell.bash' 'hook' 2> /dev/null)"
@@ -35,10 +34,13 @@ else
     fi
 fi
 unset __conda_setup
-conda activate kaiju-3.8-testing
+conda activate {{ conda_testing_environment }}
 
 echo 'Setting up MAGE environment.'
 source {{ kaijuhome }}/scripts/setupEnvironment.sh
+
+echo 'Setting up kaipy environment.'
+source {{ kaipy_private_root }}/kaipy/scripts/setupEnvironment.sh
 
 echo 'Setting environment variables.'
 export TMPDIR={{ tmpdir }}
@@ -46,21 +48,38 @@ export SLACK_BOT_TOKEN={{ slack_bot_token }}
 export OMP_NUM_THREADS=128
 export MPI_TYPE_DEPTH=32
 export KMP_STACKSIZE=128M
-export MAGE_TEST_ROOT=$mage_test_root
+export MAGE_TEST_ROOT="{{ mage_test_root }}"
 export MAGE_TEST_SET_ROOT={{ mage_test_set_root }}
 export BRANCH_OR_COMMIT={{ branch_or_commit }}
-
-echo 'Setting up kaipy environment.'
-source $MAGE_TEST_ROOT/kaipy-private/kaipy/scripts/setupEnvironment.sh
 
 echo 'The active environment variables are:'
 printenv
 
-# Run the model.
-MPICOMMAND="mpiexec $KAIJUHOME/scripts/preproc/pinCpuCores.sh"
-$MPICOMMAND ./voltron_mpi.x weeklyDashGo.xml >& weeklyDashGo.out
+# Build the code.
+cmd="{{ cmake_cmd }}"
+echo $cmd
+eval $cmd
+cmd="{{ make_cmd }}"
+echo $cmd
+eval $cmd
 
-# Generate the report.
-python $KAIJUHOME/testingScripts/compare_mage_runs.py {{ report_options }} --run_xml_list_file="${MAGE_TEST_ROOT}/test_runs/reference_runs.txt" "`pwd`/weeklyDashGo.xml" >& compare_mage_runs.out
+# Move to the bin directory.
+cd bin
+
+# Generate the LFM grid file.
+echo 'Generating LFM grid file.'
+{{ genLFM_cmd }}
+
+# Generate the solar wind boundary condition file.
+echo 'Generating the solar wind boundary condition file.'
+{{ cda2wind_cmd }}
+
+# Generate the RCM configuration file.
+echo 'Generating the RCM configuration file.'
+{{ genRCM_cmd }}
+
+# Run the model.
+MPICOMMAND={{ mpiexec_cmd }}
+$MPICOMMAND {{ voltron_cmd }} >& weeklyDashGo.out
 
 echo "Job $PBS_JOBID ended at `date` on `hostname` in directory `pwd`."
