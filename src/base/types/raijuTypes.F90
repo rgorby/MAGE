@@ -587,6 +587,7 @@ module raijutypes
         class(baseRaijuLoss_T), intent(in) :: this
         type(raijuSpecies_T), intent(in) :: spc
         logical :: isValid
+        isValid = .false.
     end function baseLossValidSpc
 
     function baseLossCalcTau(this, Model, Grid, State, i, j, k) result(tau)
@@ -597,6 +598,7 @@ module raijutypes
         type(raijuState_T), intent(in) :: State
         integer, intent(in) :: i, j, k
         real(rp) :: tau
+        tau = HUGE
     end function baseLossCalcTau
 
 
