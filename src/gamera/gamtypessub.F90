@@ -85,6 +85,7 @@ submodule (gamtypes) gamtypessub
 
         do while(App%model%t < targetSimT)
             call stepGamera(App)
+            write(*,*)App%model%t
         enddo
 
     end subroutine gamAdvanceModel

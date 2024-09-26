@@ -246,9 +246,16 @@ module raijuCplHelper
         class(raijuCoupler_T), intent(inout) :: raiCpl
         class(mixApp_T), intent(inout) :: rmApp
 
-        associate(rmHemi=>rmApp%ion(NORTH))
+        real(rp), dimension(rmApp%ion(NORTH)%shGr%Nt,rmApp%ion(NORTH)%shGr%Np) :: tmpPot
 
-            rmHemi%St%pot_shGr%data = rmHemi%St%Vars(:,:,POT)
+        associate(rmHemi=>rmApp%ion(NORTH), Nt=>rmApp%ion(NORTH)%shGr%Nt, Np=>rmApp%ion(NORTH)%shGr%Np)
+
+            write(*,*)"asdfasdfasfasflkashd as-------"
+            write(*,*)shape(rmHemi%St%Vars(:,:,POT))
+            write(*,*)shape(tmpPot)
+            !rmHemi%St%pot_shGr%data = rmHemi%St%Vars(:,:,POT)
+            tmpPot(:,1:Np-1) = rmHemi%St%Vars(:,:,POT)
+            tmpPot(:,Np) = tmpPot(:,1)
             call InterpShellVar_TSC_SG(rmHemi%shGr, rmHemi%St%pot_shGr, raiCpl%shGr, raiCpl%pot)
 
         end associate

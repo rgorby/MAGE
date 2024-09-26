@@ -24,9 +24,10 @@ program voltronx
     do while (vApp%time < vApp%tFin)
         !Start root timer
         call Tic("Omega")
-        
         !Advance voltron models one coupling step
         nextDT = min(vApp%tFin-vApp%time, vApp%IO%nextIOTime()-vApp%time)
+        write(*,*)'------',vApp%time,'------'
+        write(*,*)'------..',nextDT,'..------'
         call Tic("StepVoltron")
         call stepVoltron(vApp, nextDT)
         call Toc("StepVoltron")
