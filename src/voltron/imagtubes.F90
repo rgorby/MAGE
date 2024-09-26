@@ -121,6 +121,45 @@ module imagtubes
 !
     !end subroutine populateTubeShell
 
+    ! Dipole flux tube info
+    subroutine DipoleTube(vApp,lat,lon,ijTube,bTrc)
+        type(voltApp_T), intent(in) :: vApp
+        real(rp), intent(in) :: lat,lon
+        type(IMAGTube_T), intent(out)   :: ijTube
+        type(magLine_T), intent(inout) :: bTrc
+        
+        real(rp) :: L,colat
+        real(rp) :: mdipole
+
+        mdipole = ABS(vapp%planet%magMoment)*G2T ! dipole moment in T
+        colat = PI/2 - lat
+        L = 1.0/(sin(colat)**2.0)
+        !ijTube%Vol = 32./35.*L**4.0/mdipole
+        !Use full dipole FTV formula, convert Rx/nT => Rx/T
+        ijTube%Vol = DipFTV_L(L,vapp%planet%magMoment)*1.0e+9
+        
+        ijTube%X_bmin(XDIR) = L*cos(lon)*vApp%planet%rp_m !Rp=>meters
+        ijTube%X_bmin(YDIR) = L*sin(lon)*vApp%planet%rp_m !Rp=>meters
+        ijTube%X_bmin(ZDIR) = 0.0
+        ijTube%bmin = mdipole/L**3.0
+
+        ijTube%topo = 2
+        
+        ijTube%beta_average = 0.0
+        ijTube%Pave = 0.0
+        ijTube%Nave = 0.0
+
+        ijTube%latc = -lat
+        ijTube%lonc = lon
+        ijTube%Lb   = L !Just lazily using L shell
+        ijTube%Tb   = 0.0
+        ijTube%losscone = 0.0
+        ijTube%rCurv = L/3.0
+
+        ijTube%wIMAG = 1.0 !Much imag
+        ijTube%TioTe0 = tiote_RCM
+    end subroutine DipoleTube
+
 
     subroutine MHDTube(ebTrcApp,planet,colat,lon,r,ijTube,bTrc,nTrcO,doShiftO)
         type(ebTrcApp_T), intent(in) :: ebTrcApp

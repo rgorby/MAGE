@@ -45,7 +45,7 @@ program raijuOWDx
     character(len=strLen) :: XMLStr, gStr, ftag
     type(XML_Input_T) :: inpXML    
     
-    character(len=strLen) :: FLH5
+    character(len=strLen) :: FLH5, resId
     
     logical :: doChmpOut,doFLOut
 
@@ -66,7 +66,8 @@ program raijuOWDx
     associate(raiApp=>raiCplApp%raiApp, ebModel=>vApp%ebTrcApp%ebModel, ebState=>vApp%ebTrcApp%ebState)
 
         if (raiApp%Model%isRestart) then
-            call raiCplApp%ReadRestart(raiApp%Model%RunID, raiApp%Model%nResIn)
+            call inpXML%Set_Val(resId,'restart/resId',raiApp%Model%RunID)
+            call raiCplApp%ReadRestart(resId, raiApp%Model%nResIn)
             raiApp%State%isFirstCpl = .false.
         endif
             
@@ -168,7 +169,7 @@ program raijuOWDx
             ! Populate RAIJU's fromV object with updated model info
             call Tic("fromV packing")
             !call packFromV(raijuCplBase%fromV, vApp, rmReader, raiApp)
-            call packRaijuCoupler(raiCplApp, vApp, rmReader)
+            call packRaijuCoupler_OWD(raiCplApp, vApp, rmReader)
             call Toc("fromV packing")
 
             call Tic("fromV to State")

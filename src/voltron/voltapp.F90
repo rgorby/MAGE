@@ -532,6 +532,8 @@ module voltapp
 
         !Advance inner magnetosphere model to tAdv
         call Tic("InnerMag", .true.)
+        ! Do field line tracing using chmpApp and packinto  vApp%imagApp%ijTubes here
+        call vApp%imagApp%toIMAG(vApp)
         !call vApp%imagApp%doAdvance(vApp,vApp%DeepT)
         call vApp%imagApp%AdvanceModel(vApp%DeepDT)
         call Toc("InnerMag", .true.)

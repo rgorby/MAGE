@@ -109,6 +109,9 @@ module volttypes
 
     type, extends(BaseOptions_T) :: imagOptions_T
         character(len=strLen) :: swF
+            !! Solar wind filename
+        real(rp) :: lowLatBC
+            !! GAMERA low latitude boundary
 
         contains
     end type imagOptions_T

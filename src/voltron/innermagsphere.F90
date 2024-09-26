@@ -60,6 +60,7 @@ module innermagsphere
             allocate(raijuCoupler_T :: vApp%imagApp)
             allocate(imagOptions_T :: vApp%imagApp%opt)
             vApp%imagApp%opt%swF = vApp%symh%wID
+            vapp%imagApp%opt%lowLatBC = vApp%mhd2chmp%lowlatBC
         case DEFAULT
             write(*,*) 'Unkown imType, bailing ...'
             stop

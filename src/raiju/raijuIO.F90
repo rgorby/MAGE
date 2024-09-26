@@ -536,7 +536,7 @@ module raijuIO
         call AddOutVar(IOVars, "gradVM"      , State%gradVM       (:,:,:), uStr="V/m/lambda")
         ! More solver stuff
         call AddOutVar(IOVars, "dtk"   , State%dtk(:), uStr="s")
-        call AddOutVar(IOVars, "nStepk", State%nStepk(:), uStr="#", dStr="Number of steps each channel has taken")
+        call AddOutVar(IOVars, "nStepk", State%nStepk(:)*1.0_rp, uStr="#", dStr="Number of steps each channel has taken")
         !call AddOutVar(IOVars, "nStepk" , State%nStepk(:), uStr="#", dStr="Number of steps each channel has taken")
         call AddOutVar(IOVars, "iVel"   , State%iVel  (:,:,:,:)     , uStr="m/s")
         call AddOutVar(IOVars, "cVel"   , State%cVel  (:,:,:,:), uStr="m/s")
@@ -650,7 +650,6 @@ module raijuIO
         call IOArray3DFill(IOVars, "gradVM"      , State%gradVM      (:,:,:))
         
         call IOArray1DFill(IOVars, "dtk", State%dtk(:))
-        call IOArray1DFill(IOVars, "nStepk", State%nStepk(:))
 
         call IOArray4DFill(IOVars, "iVel", State%iVel(:,:,:,:))
         call IOArray4DFill(IOVars, "cVel", State%cVel(:,:,:,:))

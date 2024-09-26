@@ -8,6 +8,8 @@ module raijuCplHelper
 
     use imagtubes
 
+    use mixdefs
+
     implicit none
 
     contains
@@ -160,21 +162,16 @@ module raijuCplHelper
         
     end subroutine imagTubes2RAIJU
 
-
-
 !------
 ! One-way driving from file helpers
 !------
 
     !> This function takes updated model states and does the operations
     !> necessary to update the cplBase%fromV object
-    subroutine packRaijuCoupler(raiCpl, vApp, rmReader)
+    subroutine packRaijuCoupler_OWD(raiCpl, vApp, rmReader)
         class(raijuCoupler_T), intent(inout) :: raiCpl
         type(voltApp_T), intent(inout) :: vApp
         type(rmReader_T) :: rmReader
-
-        integer :: i,j
-        real(rp), dimension(:,:), allocatable :: tmpPot
 
         ! Update coupling time
         raiCpl%tLastUpdate = raiCpl%raiApp%State%t
@@ -185,7 +182,7 @@ module raijuCplHelper
         ! Set potential
         call InterpShellVar_TSC_SG(rmReader%shGr, rmReader%nsPot(1), raiCpl%shGr, raiCpl%pot)
 
-    end subroutine packRaijuCoupler
+    end subroutine packRaijuCoupler_OWD
 
 
     subroutine genImagTubes(raiCpl, vApp)
@@ -211,15 +208,52 @@ module raijuCplHelper
                 do j=sh%jsg,sh%jeg+1
                     call CleanLine(raiCpl%magLines(i,j))
 
-                    call MHDTube(ebApp, planet,   & !ebTrcApp, planet
-                        sh%th(i), sh%ph(j), seedR, &  ! colat, lon, r
-                        raiCpl%ijTubes(i,j), raiCpl%magLines(i,j), &  ! IMAGTube_T, magLine_T
-                        doShiftO=.true.)
+                    if ((PI/2. - sh%th(i)) < raiCpl%opt%lowLatBC) then
+                        call DipoleTube(vApp, sh%th(i), sh%ph(j), raiCpl%ijTubes(i,j), raiCpl%magLines(i,j))
+                    else
+                        call MHDTube(ebApp, planet,   & !ebTrcApp, planet
+                            sh%th(i), sh%ph(j), seedR, &  ! colat, lon, r
+                            raiCpl%ijTubes(i,j), raiCpl%magLines(i,j), &  ! IMAGTube_T, magLine_T
+                            doShiftO=.true.)
+                    endif
+
                 enddo
             enddo
         end associate
 
     end subroutine genImagTubes
+
+
+
+!------
+! Placeholder real-time coupling stuff
+!------
+
+    ! Temporary imagTube generator for realtime coupling
+    subroutine packRaijuCoupler_RT(raiCpl, vApp)
+        class(raijuCoupler_T), intent(inout) :: raiCpl
+        class(voltApp_T), intent(inout) :: vApp
+
+        raiCpl%tLastUpdate = vApp%time
+
+        call genImagTubes(raiCpl, vApp)
+        call mixPot2Raiju_RT(raiCpl, vApp%remixApp)
+        
+    end subroutine
+
+
+    subroutine mixPot2Raiju_RT(raiCpl, rmApp)
+        class(raijuCoupler_T), intent(inout) :: raiCpl
+        class(mixApp_T), intent(inout) :: rmApp
+
+        associate(rmHemi=>rmApp%ion(NORTH))
+
+            rmHemi%St%pot_shGr%data = rmHemi%St%Vars(:,:,POT)
+            call InterpShellVar_TSC_SG(rmHemi%shGr, rmHemi%St%pot_shGr, raiCpl%shGr, raiCpl%pot)
+
+        end associate
+
+    end subroutine mixPot2Raiju_RT
 
 
 end module raijuCplHelper

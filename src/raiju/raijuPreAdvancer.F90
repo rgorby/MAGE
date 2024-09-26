@@ -119,6 +119,12 @@ module raijuPreAdvancer
             return
         endif
 
+        !!TEST
+        write(*,*)"Setting last state to current indiscriminately"
+        State%active_last = State%active
+        State%eta_last    = State%eta
+        return
+
         ! For a given cell, if it is currently active, but wasn't active last step, 
         !   we need to set its eta_last to something usable in the first eta_half calculation
         ! We do this in the buffer region as well, because this was freshly populated with MHD moments and any existing eta_last is stale

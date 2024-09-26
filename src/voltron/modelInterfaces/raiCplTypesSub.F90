@@ -26,6 +26,12 @@ submodule (volttypes) raijuCplTypesSub
         class(voltApp_T), intent(inout) :: vApp
 
         associate(raiApp=>App%raiApp)
+
+            ! If we are running realtime, its our job to do tracing and get all other stuff from vApp into raiCpl
+            if (App%raiApp%Model%isSA .eq. .false.) then
+                call packRaijuCoupler_RT(App, vApp)
+            endif
+
             call imagTubes2RAIJU(raiApp%Model, raiApp%Grid, raiApp%State, App%ijTubes)
             ! Potential
             raiApp%State%espot(:,:) = App%pot%data(:,:)
