@@ -68,6 +68,7 @@ module innermagsphere
 
         !call vApp%imagApp%doInit(iXML,gApp%Model%isRestart,vApp)
         call vApp%imagApp%InitModel(iXML)
+        call vApp%imagApp%InitIO(iXML)
 
     end subroutine InitInnerMag
 

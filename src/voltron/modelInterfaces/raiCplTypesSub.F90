@@ -28,7 +28,7 @@ submodule (volttypes) raijuCplTypesSub
         associate(raiApp=>App%raiApp)
 
             ! If we are running realtime, its our job to do tracing and get all other stuff from vApp into raiCpl
-            if (App%raiApp%Model%isSA .eq. .false.) then
+            if (.not. App%raiApp%Model%isSA) then
                 call packRaijuCoupler_RT(App, vApp)
             endif
 

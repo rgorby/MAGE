@@ -275,6 +275,7 @@ module shellGrid
         if ( (.not.shGr%isPeriodic) )  then
             write(*,*) "Inside shell grid generator (GenShellGrid)."
             write(*,*) "Non-periodic grids are not implemented. Quitting..."
+            write(*,*) Phi
             stop
         endif
 

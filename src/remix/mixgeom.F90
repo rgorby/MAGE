@@ -95,11 +95,15 @@ module mixgeom
       logical, intent(in) :: isSolverGrid
       type(ShellGrid_T), intent(inout), optional :: shGrO
       real(rp), dimension(:,:), allocatable :: t,p
+      real(rp), dimension(:), allocatable :: p_periodic
 
       call generate_uniformTP(Np,Nt,LowLatBoundary,HighLatBoundary,t,p)
       call init_grid_fromTP(G,t,p,isSolverGrid)
       if (present(shGrO)) then
-         call GenShellGrid(shGrO, t(1,:), p(:,1), "REMIX",nGhosts=(/0,0,0,0/))
+         allocate(p_periodic(Np+1))
+         p_periodic(1:Np) = p(:,1)
+         p_periodic(Np+1) = 2*p(Np,1) - p(Np-1,1)
+         call GenShellGrid(shGrO, t(1,:), p_periodic, "REMIX", nGhosts=(/0,0,0,0/))
       endif
     end subroutine init_uniform
 

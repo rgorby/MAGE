@@ -29,9 +29,18 @@ module raijustarter
 ! Main Initialization Routines
 !------
 
-    subroutine raijuInit(app, iXML)
+    subroutine raijuInit(app, inpXML)
         class(raijuApp_T), intent(inout) :: app
-        type(XML_Input_T), intent(in) :: iXML
+        type(XML_Input_T), intent(in) :: inpXML
+
+        type(XML_Input_T) :: iXML
+        character(len=strLen) :: tmpStr
+
+        ! Make sure root is Kaiju/raiju
+        call inpXML%GetFileStr(tmpStr)
+        ! Create new XML reader w/ RAIJU as root
+        iXML = New_XML_Input(trim(tmpStr),'Kaiju/RAIJU',.true.)
+
         ! Init model, grid, state
         call raijuInitModel(app%Model, iXML)
         call raijuInitGrid(app%Model, app%Grid, iXML)
@@ -58,19 +67,12 @@ module raijustarter
 
 
     ! Sets up Model; Grid and State must be set up separately
-    subroutine raijuInitModel(Model, inpXml)
+    subroutine raijuInitModel(Model, iXML)
         type(raijuModel_T), intent(inout) :: Model
-        type(XML_Input_T) , intent(in)    :: inpXml
+        type(XML_Input_T) , intent(in)    :: iXML
          
         character(len=strLen) :: tmpStr
-        type(XML_Input_T) :: iXML
         real(rp) :: cfl0
-
-        ! Make sure root is Kaiju/raiju
-        call inpXml%GetFileStr(tmpStr)
-  
-        ! Create new XML reader w/ RCM as root
-        iXML = New_XML_Input(trim(tmpStr),'Kaiju/RAIJU',.true.)
 
         write(*,*) "raijuInitModel is starting"
 
