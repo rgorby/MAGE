@@ -48,10 +48,10 @@ module mixmain
 
          if (present(mixIOobj)) then
             call init_grid(I(h),mixIOobj)
-            call init_state(I(h)%G,I(h)%St,mixIOobj%vars(:,:,:,h)) ! passing only the hemisphere variables            
+            call init_state(I(h)%G,I(h)%St,mixIOobj%vars(:,:,:,h), shGrO=I(h)%shGr) ! passing only the hemisphere variables            
          else
             call init_grid(I(h))
-            call init_state(I(h)%G,I(h)%St)            
+            call init_state(I(h)%G,I(h)%St, shGrO=I(h)%shGr)            
          end if
          
          call conductance_init(I(h)%conductance,I(h)%P,I(h)%G)

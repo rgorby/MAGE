@@ -109,11 +109,8 @@ module raijuDomain
 
         bndL = bndLoc
         bndR = bndLoc
-        bndRateLim = 0.45  ! del(theta) / del(phi)
-        n_bndLim = 3
-        !!NOTE: FIXME!!
-        !! Just hard-setting number of cells for testing purposed
-        write(*,*)"Bad hard-coded cell num for bndLoc smooth"
+        n_bndLim = Model%n_bndLim
+
         ! Right sweep
         do j=sh%js,sh%je
             bndR(j) = max(bndR(j), bndR(j-1)-n_bndLim)

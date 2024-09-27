@@ -110,8 +110,10 @@ module volttypes
     type, extends(BaseOptions_T) :: imagOptions_T
         character(len=strLen) :: swF
             !! Solar wind filename
-        real(rp) :: lowLatBC
-            !! GAMERA low latitude boundary
+        real(rp) :: mhd_Rin
+            !! GAMERA near-Earth boundary
+        real(rp) :: mjd0
+            !! MJD at sim t=0
 
         contains
     end type imagOptions_T

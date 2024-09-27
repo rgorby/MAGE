@@ -317,8 +317,9 @@ module streamline
             !Now accumulate into flux-tube integrals
             ! Always accumulate total flux tube volume
             dvB = dvB + dl/bMag
-            ! Only accumulate other quantities if in active domain, se we have more sensible flux tube averages
-            if (bTrc%ijk(k,XDIR) > ebGr%is+4 .and. bTrc%ijk(k+1,XDIR) > ebGr%is+4) then
+            ! Only accumulate other quantities if in active domain, so we have more sensible flux tube averages
+            !if (bTrc%ijk(k,XDIR) > ebGr%is+4 .and. bTrc%ijk(k+1,XDIR) > ebGr%is+4) then
+            if (bTrc%ijk(k,XDIR) > ebGr%is+1 .and. bTrc%ijk(k+1,XDIR) > ebGr%is+1) then
                 bD  = bD  +  eD*dl/bMag
                 bP  = bP  +  eP*dl/bMag
                 bPb = bPb + ePb*dl/bMag

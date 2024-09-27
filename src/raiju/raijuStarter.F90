@@ -106,14 +106,14 @@ module raijustarter
         if (Model%isSA) then
             tmpStr = "restart/doRes"
         else
-            tmpStr = "Kaiju/Gamera/restart/doRes"
+            tmpStr = "/Kaiju/Gamera/restart/doRes"
         endif
         call iXML%Set_Val(Model%isRestart, trim(tmpStr),.false.)
         if (Model%isRestart) then
             if (Model%isSA) then
                 tmpStr = "restart/nRes"
             else
-                tmpStr = "Kaiju/Gamera/restart/nRes"
+                tmpStr = "/Kaiju/Gamera/restart/nRes"
             endif
             call iXML%Set_Val(Model%nResIn, trim(tmpStr), Model%nResIn)
             call genResInFname(Model, Model%ResF)  ! Determine filename to read from
@@ -141,6 +141,7 @@ module raijustarter
         call iXML%Set_Val(Model%nSpc, "prob/nSpc",Model%nSpc)
 
         ! Domain constraints
+        call iXML%Set_Val(Model%n_bndLim      , "domain/bndLim"     , 3)
         call iXML%Set_Val(Model%maxTail_buffer, "domain/tail_buffer", def_maxTail_buffer)
         call iXML%Set_Val(Model%maxSun_buffer , "domain/sun_buffer" , def_maxSun_buffer)
         call iXML%Set_Val(Model%maxTail_active, "domain/tail_active", def_maxTail_active)

@@ -15,6 +15,10 @@ submodule (volttypes) raijuCplTypesSub
         allocate(raijuApp_T :: App%raiApp)
         ! Init raiju app itself
         call App%raiApp%InitModel(xml)
+        ! Update MJD with whatever voltron handed us
+        ! If we are restarting, this will get replaced with whatever's in file later
+        App%raiApp%State%mjd = App%opt%mjd0
+        write(*,*)"MJD0=",App%opt%mjd0
         ! Then allocate and initialize coupling variables based on raiju app
         call raijuCpl_init(App)
 
@@ -33,7 +37,7 @@ submodule (volttypes) raijuCplTypesSub
             endif
 
             call imagTubes2RAIJU(raiApp%Model, raiApp%Grid, raiApp%State, App%ijTubes)
-            ! Potential
+            ! Our App%pot should have been updated by someone. We can plug it straight into our State's copy because they live on the same grid
             raiApp%State%espot(:,:) = App%pot%data(:,:)
         end associate
     end subroutine volt2RAIJU
@@ -110,6 +114,9 @@ submodule (volttypes) raijuCplTypesSub
         real(rp), intent(in) :: dt
 
         call App%raiApp%AdvanceModel(dt)
+        App%raiApp%State%t = App%raiApp%State%t + dt
+        App%raiApp%State%ts = App%raiApp%State%ts + 1
+        App%raiApp%State%mjd = T2MJD(dt,App%raiApp%State%mjd)
 
     end subroutine
 

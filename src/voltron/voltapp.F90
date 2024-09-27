@@ -227,7 +227,7 @@ module voltapp
             call InitInnerMag(vApp,gApp,xmlInp)
 
             if(gApp%Model%isRestart) then
-                call vApp%imagApp%ReadRestart(gApp%Model%RunID, vApp%IO%nRes)
+                call vApp%imagApp%ReadRestart(gApp%Model%RunID, nRes)
                 !select type(rcmApp=>vApp%imagApp)
                 !    type is (rcmIMAG_T)
                 !        !Check if Voltron and RCM have the same restart number

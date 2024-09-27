@@ -244,7 +244,6 @@ module raijuIO
         enddo
         call AddOutVar(IOVars,"intensity",outTmp3D(is:ie,js:je, :),uStr="1/(s*sr*keV*cm^2)")
         deallocate(outTmp3D)
-        
 
         ! Coupling things
         call AddOutVar(IOVars,"dtCpl"  ,State%dt)  ! Attr
@@ -278,17 +277,16 @@ module raijuIO
     ! Moments
         call AddOutVar(IOVars,"Pressure",State%Press(is:ie,js:je,:),uStr="nPa")
         
-        do s=0,Grid%nFluidIn
-            write(*,*)"Davg_in ",s,maxval(State%Davg(is:ie,js:je,s))
-        enddo
+        !do s=0,Grid%nFluidIn
+        !    write(*,*)"Davg_in ",s,maxval(State%Davg(is:ie,js:je,s))
+        !enddo
         ! Add density moment as #/cc instead of amu/cc
-        !allocate(outDen(is:ie,js:je,Grid%nSpc+1))
         allocate(outTmp3D(is:ie,js:je,Grid%nSpc+1))
         outTmp3D = 0.0
         do s=1, Grid%nSpc
             ! Convert amu/cc to #/cc
             outTmp3D(:,:,s+1) = State%Den(is:ie,js:je,s+1)/Grid%spc(s)%amu
-            write(*,*)"Den out ",s,maxval(outTmp3D(:,:,s+1))
+            !write(*,*)"Den out ",s,maxval(outTmp3D(:,:,s+1))
             ! Don't include electrons to total number density
             if(Grid%spc(s)%spcType .ne. RAIJUELE) then
                 outTmp3D(:,:,1) = outTmp3D(:,:,1) + outTmp3D(:,:,s+1)
@@ -298,7 +296,6 @@ module raijuIO
         deallocate(outTmp3D)
 
         ! Calculate flux tube entropy using bulk pressure
-        !allocate(outEnt(is:ie,js:je))
         allocate(outTmp2D(is:ie,js:je))
         outTmp2D = -1.0
         !$OMP PARALLEL DO default(shared) &
@@ -422,7 +419,6 @@ module raijuIO
             allocate(outTmp2D(Grid%shGrid%isg:Grid%shGrid%ieg  ,Grid%shGrid%jsg:Grid%shGrid%jeg))
             call calcMapJacNorm(Grid, State%xyzMin, outTmp2D)
             call AddOutVar(IOVars, "mapJacNorm", outTmp2D(is:ie,js:je), dStr="L_(2,1) norm of lat/lon => xyzMin Jacobian")
-            
         endif
 
         call WriteVars(IOVars,.true.,Model%raijuH5, gStr)

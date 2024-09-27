@@ -20,7 +20,6 @@ module raijuOut
             call timeStrFmt(State%t, tStr)
             write (*, '(a,a,a,a,a)') ANSIGREEN, '<Writing RAIJU HDF5 DATA @ t = ', trim(tStr), ' >', ANSIRESET
         endif
-
         call WriteRAIJU(Model, Grid, State, gStr, Model%writeGhosts)
 
         !Setup for next output
@@ -91,6 +90,9 @@ module raijuOut
         character(len=strLen) :: utStr, tStr, tStr2
         integer :: minDtLoc, maxDtLoc
         real(rp) :: minDt, maxDt
+        integer :: s, sIdx
+        integer, dimension(2) ::mpLoc
+        real(rp) :: maxPress, maxDen, maxP_Xmin, maxP_Ymin
 
         call mjd2utstr(State%mjd,utStr)
         minDtLoc = minloc(State%dtk,dim=1)
@@ -107,8 +109,24 @@ module raijuOut
         call timeStrFmt(State%dtk(maxDtLoc), tStr )
         call timeStrFmt(State%dtk(minDtLoc), tStr2)
         write(*,'(a)'  )        '     Max/Min dt @ k:'
-        write(*,'(a,a,a,I0)') '        Max', trim(tStr2), ' @ ', maxDtLoc
-        write(*,'(a,a,a,I0)') '        Min', trim(tStr) , ' @ ', minDtLoc
+        write(*,'(a,a,a,I0)') '        Max', trim(tStr), ' @ ', maxDtLoc
+        write(*,'(a,a,a,I0)') '        Min', trim(tStr2) , ' @ ', minDtLoc
+        write(*,'(a)'  )        '     Flav : max Press/Den @ Xmin,Ymin:'
+        do s=1, Model%nSpc
+            sIdx = spcIdx(Grid, Grid%spc(s)%flav)
+            if (Grid%spc(s)%flav == F_PSPH) then
+                mPLoc = maxloc(State%Den(:,:,1+sIdx))
+            else
+                mPLoc = maxloc(State%Press(:,:,1+sIdx))
+            endif
+            maxPress = State%Press(mPLoc(1), mpLoc(2), 1+sIdx)
+            maxDen   = State%Den  (mPLoc(1), mpLoc(2), 1+sIdx)
+            maxP_Xmin = State%xyzMincc(mPLoc(1), mpLoc(2),XDIR)
+            maxP_Ymin = State%xyzMincc(mPLoc(1), mpLoc(2),YDIR)
+            write(*,'(a,I0,a,f5.2,a,f5.2,a,f5.2,a,f5.2,a)') '        ', Grid%spc(s)%flav, ': P=', maxPress,',D=',maxDen,' @',maxP_Xmin,',',maxP_Ymin,' [Rp]'
+
+
+        enddo
         write(*,'(a)',advance="no") ANSIRESET
 
         State%IO%tCon = State%IO%tCon + State%IO%dtCon

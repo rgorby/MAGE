@@ -120,7 +120,7 @@ module raijuPreAdvancer
         endif
 
         !!TEST
-        write(*,*)"Setting last state to current indiscriminately"
+        !write(*,*)"Setting last state to current indiscriminately"
         State%active_last = State%active
         State%eta_last    = State%eta
         return
@@ -129,14 +129,14 @@ module raijuPreAdvancer
         !   we need to set its eta_last to something usable in the first eta_half calculation
         ! We do this in the buffer region as well, because this was freshly populated with MHD moments and any existing eta_last is stale
         ! After the first dt, eta_last will be set with valid information and no further adjustments are necessay
-        do j=sh%jsg,sh%jeg
-            do i=sh%isg,sh%ieg
-                if ( (State%active(i,j) .eq. RAIJUACTIVE .and. State%active_last(i,j) .ne. RAIJUACTIVE) &
-                .or. (State%active(i,j) .eq. RAIJUBUFFER) ) then
-                    State%eta_last(i,j,:) = State%eta(i,j,:)
-                endif
-            enddo
-        enddo
+        !do j=sh%jsg,sh%jeg
+        !    do i=sh%isg,sh%ieg
+        !        if ( (State%active(i,j) .eq. RAIJUACTIVE .and. State%active_last(i,j) .ne. RAIJUACTIVE) &
+        !        .or. (State%active(i,j) .eq. RAIJUBUFFER) ) then
+        !            State%eta_last(i,j,:) = State%eta(i,j,:)
+        !        endif
+        !    enddo
+        !enddo
 
         ! NOTE: Any case not addressed here should mean that eta_last and active_last are valid in those cases
 

@@ -73,13 +73,6 @@ program raijuOWDx
             
         call inpXML%Set_Val(doChmpOut,'driver/doChmpOut',.false.)
         call inpXML%Set_Val(doFLOut,'driver/doFLOut',.false.)
-
-        ! Init RAIJU
-        !call raijuInit(raiApp, inpXML)
-        !call raijuCpl_init(vApp, raiApp, raijuCplBase)
-        !if (raiApp%Model%isRestart) then
-        !    isFirstCpl = .false.
-        !endif
         
         call inpXML%Set_Val(raiApp%Model%doClockConsoleOut,'driver/doClockOut',.false.)
         
@@ -121,14 +114,12 @@ program raijuOWDx
 
             if (raiApp%State%IO%doRestart(raiApp%State%t)) then
                 call Tic("RAIJU Restart")
-                !call raijuResOutput(raiApp%Model,raiApp%Grid,raiApp%State)
                 call raiCplApp%WriteRestart(raiApp%State%IO%nRes)
                 call Toc("RAIJU Restart")
             endif
             
             if (raiApp%State%IO%doOutput(raiApp%State%t)) then
                 call Tic("RAIJU Output")
-                !call raijuOutput(raiApp%Model,raiApp%Grid,raiApp%State)
                 call raiCplApp%WriteFileOutput(raiApp%State%IO%nOut)
                 call Toc("RAIJU Output")
 
@@ -166,32 +157,21 @@ program raijuOWDx
             call updateRM(rmReader, rmReader%time)
             call Toc("REMIX update")
 
-            ! Populate RAIJU's fromV object with updated model info
+            ! Populate RAIJU's coupling variables with updated model info
             call Tic("fromV packing")
-            !call packFromV(raijuCplBase%fromV, vApp, rmReader, raiApp)
             call packRaijuCoupler_OWD(raiCplApp, vApp, rmReader)
             call Toc("fromV packing")
 
             call Tic("fromV to State")
-            ! Now put fomV info into RAIJU's State
-            !call raijuCpl_Volt2RAIJU(raijuCplBase, vApp, raiApp)
-            !call raijuCplApp%toIMAG(raijuCplBase, vApp, raiApp)
+            ! Now put coupler info into RAIJU's State
             call raiCplApp%toIMAG(vApp)
             call Toc("fromV to State")
 
             ! Step RAIJU
             call Tic("RAIJU Advance")
             call raiCplApp%AdvanceModel(raiApp%Model%dt)
-            !call raijuAdvance(raiApp%Model,raiApp%Grid,raiApp%State, raiApp%Model%dt, isFirstCpl)
             call Toc("RAIJU Advance")
 
-            !write(*,*)raiApp%State%t
-            !write(*,*)ebModel%t/inTscl
-            !write(*,*)rmReader%time
-            !write(*,*)"MJDs: "
-            !write(*,*)raiApp%State%mjd
-            !write(*,*)T2MJD((ebModel%t - ebState%ebTab%times(1))/inTscl, ebState%ebTab%MJDs(1))
-            !write(*,*)T2MJD((rmReader%time - rmReader%rmTab%times(1)), rmReader%rmTab%MJDs(1))
 
             ! Advance model times
             raiApp%State%t  = raiApp%State%t  + raiApp%Model%dt

@@ -173,9 +173,9 @@ module raijuICHelpers
                 call iXML%Set_Val(L_peak,"prob/L" , 4.0  )  ! [Re]
                 call iXML%Set_Val(dL,"prob/dL", 0.625    )  ! [Re]
         
-                !$OMP PARALLEL DO default(shared) &
-                !$OMP schedule(dynamic) &
-                !$OMP private(i,j,L,bVol,vm,D)
+                ! ! $OMP PARALLEL DO default(shared) &
+                ! ! $OMP schedule(dynamic) &
+                ! ! $OMP private(i,j,L,bVol,vm,D)
                 do i=Grid%shGrid%isg,Grid%shGrid%ieg
                     ! Fully symmetric, so only need to set certain things per i
                     L = DipColat2L(Grid%shGrid%thc(i))

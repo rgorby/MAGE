@@ -190,7 +190,7 @@ module raijuCplHelper
         type(voltApp_T), intent(in   ) :: vApp
 
         integer :: i,j
-        real(rp) :: seedR
+        real(rp) :: seedR, eqR
         type(magLine_T) :: magLine
         ! Get field line info and potential from voltron
         ! And put the data into RAIJU's fromV coupling object
@@ -199,16 +199,17 @@ module raijuCplHelper
             planet=>raiCpl%raiApp%Model%planet, &
             ebApp =>vApp%ebTrcApp)
 
-            seedR =  planet%ri_m/planet%rp_m + TINY
+            seedR =  planet%ri_m/planet%rp_m
             ! Do field line tracing, populate fromV%ijTubes
-            !$OMP PARALLEL DO default(shared) collapse(2) &
+            !$OMP PARALLEL DO default(shared) &
             !$OMP schedule(dynamic) &
-            !$OMP private(i,j)
+            !$OMP private(i,j,eqR)
             do i=sh%isg,sh%ieg+1
                 do j=sh%jsg,sh%jeg+1
                     call CleanLine(raiCpl%magLines(i,j))
 
-                    if ((PI/2. - sh%th(i)) < raiCpl%opt%lowLatBC) then
+                    eqR = DipColat2L(raiCpl%raiApp%Grid%thRp(i))  ! Function assumes colat coming from 1 Rp, make sure we use the right theta value
+                    if (eqR < 0.5*raiCpl%opt%mhd_Rin) then
                         call DipoleTube(vApp, sh%th(i), sh%ph(j), raiCpl%ijTubes(i,j), raiCpl%magLines(i,j))
                     else
                         call MHDTube(ebApp, planet,   & !ebTrcApp, planet
@@ -229,8 +230,9 @@ module raijuCplHelper
 ! Placeholder real-time coupling stuff
 !------
 
-    ! Temporary imagTube generator for realtime coupling
     subroutine packRaijuCoupler_RT(raiCpl, vApp)
+        !! Temporary imagTube generator for realtime coupling
+        !! Eventually, someone else should probably be packing raiCpl objects for us
         class(raijuCoupler_T), intent(inout) :: raiCpl
         class(voltApp_T), intent(inout) :: vApp
 
@@ -243,19 +245,17 @@ module raijuCplHelper
 
 
     subroutine mixPot2Raiju_RT(raiCpl, rmApp)
+        !! Take remix's potential, shove it into a remix ShellGrid, use InterpShellVar to get it onto raiju's ShellGrid
         class(raijuCoupler_T), intent(inout) :: raiCpl
         class(mixApp_T), intent(inout) :: rmApp
 
         real(rp), dimension(rmApp%ion(NORTH)%shGr%Nt,rmApp%ion(NORTH)%shGr%Np) :: tmpPot
 
         associate(rmHemi=>rmApp%ion(NORTH), Nt=>rmApp%ion(NORTH)%shGr%Nt, Np=>rmApp%ion(NORTH)%shGr%Np)
-
-            write(*,*)"asdfasdfasfasflkashd as-------"
-            write(*,*)shape(rmHemi%St%Vars(:,:,POT))
-            write(*,*)shape(tmpPot)
-            !rmHemi%St%pot_shGr%data = rmHemi%St%Vars(:,:,POT)
-            tmpPot(:,1:Np-1) = rmHemi%St%Vars(:,:,POT)
-            tmpPot(:,Np) = tmpPot(:,1)
+            
+            rmHemi%St%pot_shGr%data(:,1:Np) = transpose(rmHemi%St%Vars(:,:,POT))
+            rmHemi%St%pot_shGr%data(:,Np+1) = rmHemi%St%pot_shGr%data(:,1)
+            rmHemi%St%pot_shGr%mask = .true.
             call InterpShellVar_TSC_SG(rmHemi%shGr, rmHemi%St%pot_shGr, raiCpl%shGr, raiCpl%pot)
 
         end associate

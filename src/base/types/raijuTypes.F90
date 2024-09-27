@@ -210,6 +210,8 @@ module raijutypes
         real(rp) :: tiote  ! Ion temp over electron temp. In the future, should be fancier
 
         ! Active domain settings
+        integer :: n_bndLim
+            !! cell dt/dp slope
         real(rp) :: maxTail_buffer
             !! Maximum tailward extent of the buffer region
         real(rp) :: maxSun_buffer

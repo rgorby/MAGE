@@ -26,6 +26,8 @@ module innermagsphere
         type(XML_Input_T), intent(inout) :: iXML
         character(len=strLen) :: imStr
 
+        real(rp) :: mhd_Rin = 2.0
+
         if (.not. vApp%doDeep) return !Why are you even here?
 
         call iXML%Set_Val(imStr,"coupling/imType","SST")
@@ -60,7 +62,14 @@ module innermagsphere
             allocate(raijuCoupler_T :: vApp%imagApp)
             allocate(imagOptions_T :: vApp%imagApp%opt)
             vApp%imagApp%opt%swF = vApp%symh%wID
-            vapp%imagApp%opt%lowLatBC = vApp%mhd2chmp%lowlatBC
+            !vapp%imagApp%opt%lowLatBC = vApp%mhd2chmp%lowlatBC
+            vApp%imagApp%opt%mjd0 = vApp%MJD
+
+            ! Calc lowlat BC from Gamera
+            associate(Gr=>gApp%Grid)
+            vApp%imagApp%opt%mhd_Rin = norm2(Gr%xyz(Gr%is,Gr%js,Gr%ks,:))
+            end associate
+            
         case DEFAULT
             write(*,*) 'Unkown imType, bailing ...'
             stop
