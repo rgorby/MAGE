@@ -14,9 +14,6 @@ program voltronx
 
     call initClocks()
 
-    allocate(gamCoupler_T :: vApp%gApp)
-
-    vApp%gApp%Model%isLoud = .true.
     vApp%vOptions%gamUserInitFunc => initUser
 
     call initVoltron(vApp)
