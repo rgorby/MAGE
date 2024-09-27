@@ -5,15 +5,14 @@
     <time tFin="7201.0"/>
     <spinup doSpin="T" tSpin="3600.0"/>
     <output dtOut="60.0" tsOut="100"/>
-    <coupling dtCouple="5.0" imType="RCM" doQkSquish="T" qkSquishStride="2" doAsyncCoupling="F" doSerial="{{ serial_coupling }}"/>
+    <coupling dtCouple="5.0" imType="RCM" doQkSquish="F" qkSquishStride="2" doAsyncCoupling="F" doSerial="{{ serial_coupling }}"/>
     <restart dtRes="3600.0"/>
     <imag doInit="T"/>
-    <threading NumTh="64"/>
-    <!-- without quick squish, estimated 13 helpers required -->
+    <threading NumTh="128"/>
     <helpers numHelpers="2" useHelpers="T" doSquishHelp="T"/>
   </VOLTRON>
   <Gamera>
-    <sim runid="{{ runid }}" doH5g="T" H5Grid="lfmQ.h5" icType="user" pdmb="1.0" rmeth="7UP"/>
+    <sim runid="{{ runid }}" doH5g="T" H5Grid="lfmD.h5" icType="user" pdmb="1.0" rmeth="7UP"/>
     <floors dFloor="1.0e-4" pFloor="1.0e-6"/>
     <timestep doCPR="T" limCPR="0.25"/>
     <restart doRes="{{ do_restart }}" resID="{{ restart_runid }}" nRes="{{ restart_number }}"/>
@@ -25,7 +24,7 @@
     <iPdir N="{{ num_i_ranks }}" bcPeriodic="F"/>
     <jPdir N="{{ num_j_ranks }}" bcPeriodic="F"/>
     <kPdir N="1" bcPeriodic="T"/>
-    <threading NumTh="64"/>
+    <threading NumTh="{{ num_g_th }}"/>
     <coupling blockHalo="T" />
   </Gamera>
   <CHIMP>

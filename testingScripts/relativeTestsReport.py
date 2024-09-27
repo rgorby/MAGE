@@ -87,8 +87,12 @@ def main():
     # Add additional arguments
     parser.add_argument(
         '-d1', type=str, help='Folder for the first case'
-        '-d2', type=str, help ='Folder for the second case'
-        '-cn', type=str, help ='Name of this post process case'
+    )
+    parser.add_argument(
+        '-d2', type=str, help='Folder for the second case'
+    )
+    parser.add_argument(
+        '-cn', type=str, help='Name of this post process case'
     )
 
     # Parse the command-line arguments.

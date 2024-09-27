@@ -39,6 +39,9 @@ TEST_DIRECTORY = os.path.join(MAGE_TEST_SET_ROOT, 'compTest')
 # Home directory of kaiju installation
 KAIJUHOME = os.environ['KAIJUHOME']
 
+# Home directory of kaipy installation
+KAIPYHOME = os.environ['KAIPYHOME']
+
 # Path to directory containing the test scripts
 TEST_SCRIPTS_DIRECTORY = os.path.join(KAIJUHOME, 'testingScripts')
 
@@ -78,6 +81,10 @@ XML_TEMPLATE = os.path.join(
 # Name of rendered XML file
 XML_FILE = 'relativeCaseGo.xml'
 
+# debug and verbose globals
+debug = False
+verbose = False
+
 def processComparativeResults(case1_jobid, case2_jobid, caseName, pbsTemplate, pbs_options):
     # Render the job template.
     pbs_content = pbsTemplate.render(pbs_options)
@@ -99,33 +106,32 @@ def processComparativeResults(case1_jobid, case2_jobid, caseName, pbsTemplate, p
               f"e.returncode = {e.returncode}\n"
               'See test log for output.\n',
               file=sys.stderr)
-        continue
     job_id = cproc.stdout.split('.')[0]
     if debug:
         print(f"job_id = {job_id}")
 
 def generateAndRunCase(caseName,pbsTemplate,pbs_options,xmlTemplate,xml_options,wait_job_id=None):
-	os.mkdir(caseName)
-	os.chdir(caseName)
+    os.mkdir(caseName)
+    os.chdir(caseName)
     # Render the job template.
     pbs_content = pbsTemplate.render(pbs_options)
     with open(PBS_SCRIPT, 'w', encoding='utf-8') as f:
         f.write(pbs_content)
-	# Render the xml file.
-	xml_content = xmlTemplate.render(xml_options)
-	with open(XML_FILE, 'w', encoding='utf-8') as f:
-		f.write(xml_content)
-    shutil.copyfile('../voltron.x' './voltron.x')
-	shutil.copyfile('../voltron_mpi.x' './voltron_mpi.x')
-	shutil.copyfile('../lfmD.h5' './lfmD.h5')
-	shutil.copyfile('../rcmconfig.h5' './rcmconfig.h5')
-	shutil.copyfile('../bcwind.h5' './bcwind.h5')
-	# Submit the job
+    # Render the xml file.
+    xml_content = xmlTemplate.render(xml_options)
+    with open(XML_FILE, 'w', encoding='utf-8') as f:
+        f.write(xml_content)
+    shutil.copy2('../voltron.x', './voltron.x')
+    shutil.copy2('../voltron_mpi.x', './voltron_mpi.x')
+    shutil.copy2('../lfmD.h5', './lfmD.h5')
+    shutil.copy2('../rcmconfig.h5', './rcmconfig.h5')
+    shutil.copy2('../bcwind.h5', './bcwind.h5')
+    # Submit the job
     if verbose:
         print('Submitting comparative tests model run.')
     cmd = f"qsub {PBS_SCRIPT}"
-	if wait_job_id is not None:
-		cmd = f"qsub -W depend=afterok:{wait_job_id} {PBS_SCRIPT}"
+    if wait_job_id is not None:
+        cmd = f"qsub -W depend=afterok:{wait_job_id} {PBS_SCRIPT}"
     if debug:
         print(f"cmd = {cmd}")
     try:
@@ -137,76 +143,78 @@ def generateAndRunCase(caseName,pbsTemplate,pbs_options,xmlTemplate,xml_options,
               f"e.returncode = {e.returncode}\n"
               'See test log for output.\n',
               file=sys.stderr)
-        continue
     job_id = cproc.stdout.split('.')[0]
     if debug:
         print(f"job_id = {job_id}")
-	os.chdir('..')
-	return job_id
+    os.chdir('..')
+    return job_id
 
-def generateMpi44RestartRelease(pbsTemplate,xmlTemplate,base_bps_options,wait_job_id):
-    caseName = "relMpi44ResRelease"
+def generateMpi32RestartRelease(pbsTemplate,xmlTemplate,base_pbs_options,wait_job_id):
+    caseName = "relMpi32ResRelease"
 
     pbs_options = base_pbs_options
-    pbs_options['job_name'] = dir_name
+    pbs_options['job_name'] = caseName
     pbs_options['walltime'] = '08:00:00'
     pbs_options['is_mpi'] = 'True' #Jinja considers this 'Truthy'
-    pbs_options['gamera_ranks'] = '8'
-    pbs_options['copy_case_folder'] = 'relMpi44Release' # Jinja considers this 'Truthy'
-    pbs_options['copy_case_runid'] = 'msphere_M44_R' #Jinja considers this 'Truthy'
+    pbs_options['gamera_ranks'] = '3'
+    pbs_options['copy_case_folder'] = 'relMpi32Release' # Jinja considers this 'Truthy'
+    pbs_options['copy_case_runid'] = 'msphere_M32_R' #Jinja considers this 'Truthy'
 
     xml_options = {}
     xml_options['serial_coupling'] = 'F'
-    xml_options['runid'] = 'msphere_M44_R'
+    xml_options['runid'] = 'msphere_M32_R'
     xml_options['do_restart'] = 'T'
     xml_options['restart_runid'] = xml_options['runid']
     xml_options['restart_number'] = '1'
-    xml_options['num_i_ranks'] = '4'
-    xml_options['num_j_ranks'] = '4'
+    xml_options['num_i_ranks'] = '3'
+    xml_options['num_j_ranks'] = '2'
+    xml_options['num_g_th'] = '64'
 
     return generateAndRunCase(caseName, pbsTemplate, pbs_options, xmlTemplate, xml_options, wait_job_id)
 
-def generateMpi44Release(pbsTemplate,xmlTemplate,base_bps_options):
-    caseName = "relMpi44Release"
+def generateMpi32Release(pbsTemplate,xmlTemplate,base_pbs_options):
+    caseName = "relMpi32Release"
 
     pbs_options = base_pbs_options
-    pbs_options['job_name'] = dir_name
+    pbs_options['job_name'] = caseName
     pbs_options['walltime'] = '08:00:00'
     pbs_options['is_mpi'] = 'True' #Jinja considers this 'Truthy'
-    pbs_options['gamera_ranks'] = '8'
+    pbs_options['gamera_ranks'] = '3'
     pbs_options['copy_case_folder'] = '' # Jinja considers this 'Falsy'
     pbs_options['copy_case_runid'] = '' #Jinja considers this 'Falsy'
 
     xml_options = {}
     xml_options['serial_coupling'] = 'F'
-    xml_options['runid'] = 'msphere_M44_R'
+    xml_options['runid'] = 'msphere_M32_R'
     xml_options['do_restart'] = 'F'
     xml_options['restart_runid'] = xml_options['runid']
     xml_options['restart_number'] = '-1'
-    xml_options['num_i_ranks'] = '4'
-    xml_options['num_j_ranks'] = '4'
+    xml_options['num_i_ranks'] = '3'
+    xml_options['num_j_ranks'] = '2'
+    xml_options['num_g_th'] = '64'
 
     return generateAndRunCase(caseName, pbsTemplate, pbs_options, xmlTemplate, xml_options)
 
-def generateSerialRelease(pbsTemplate,xmlTemplate,base_bps_options):
+def generateSerialRelease(pbsTemplate,xmlTemplate,base_pbs_options):
     caseName = "relSerialRelease"
     
     pbs_options = base_pbs_options
-	pbs_options['job_name'] = dir_name
-	pbs_options['walltime'] = '08:00:00'
+    pbs_options['job_name'] = caseName
+    pbs_options['walltime'] = '12:00:00'
     pbs_options['is_mpi'] = '' #Jinja considers this 'Falsy'
-	pbs_options['gamera_ranks'] = '1'
-	pbs_options['copy_case_folder'] = '' # Jinja considers this 'Falsy'
-	pbs_options['copy_case_runid'] = '' #Jinja considers this 'Falsy'
+    pbs_options['gamera_ranks'] = '1'
+    pbs_options['copy_case_folder'] = '' # Jinja considers this 'Falsy'
+    pbs_options['copy_case_runid'] = '' #Jinja considers this 'Falsy'
     
-	xml_options = {}
-	xml_options['serial_coupling'] = 'F'
-	xml_options['runid'] = 'msphere_S_R'
-	xml_options['do_restart'] = 'F'
-	xml_options['restart_runid'] = xml_options['runid']
-	xml_options['restart_number'] = '-1'
-	xml_options['num_i_ranks'] = '1'
-	xml_options['num_j_ranks'] = '1'
+    xml_options = {}
+    xml_options['serial_coupling'] = 'F'
+    xml_options['runid'] = 'msphere_S_R'
+    xml_options['do_restart'] = 'F'
+    xml_options['restart_runid'] = xml_options['runid']
+    xml_options['restart_number'] = '-1'
+    xml_options['num_i_ranks'] = '1'
+    xml_options['num_j_ranks'] = '1'
+    xml_options['num_g_th'] = '128'
     
     return generateAndRunCase(caseName, pbsTemplate, pbs_options, xmlTemplate, xml_options)
 
@@ -228,6 +236,9 @@ def main():
     subprocess.CalledProcessError
         If an exception occurs in subprocess.run()
     """
+    # set up global verbose and debug variables
+    global debug,verbose
+
     # Set up the command-line parser.
     parser = common.create_command_line_parser(DESCRIPTION)
 
@@ -303,7 +314,7 @@ def main():
 
 
     # Read the template for the XML file used for the test data generation.
-    with open(XML_FILE, 'r', encoding='utf-8') as f:
+    with open(XML_TEMPLATE, 'r', encoding='utf-8') as f:
         xml_content = f.read()
     xml_template = Template(xml_content)
     if debug:
@@ -372,7 +383,6 @@ def main():
             print(f"build_directory = {build_directory}")
         os.mkdir(build_directory)
         os.chdir(build_directory)
-        ok.mkdir('vidData')
 
         # Run cmake to build the Makefile.
         if verbose:
@@ -427,11 +437,12 @@ def main():
 
         # Move into the bin directory to run the tests.
         os.chdir(BIN_DIR)
+        os.mkdir('vidData')
 
         # Generate the LFM grid file.
         if verbose:
             print('Creating LFM grid file.')
-        cmd = 'genLFM.py -gid Q'
+        cmd = 'genLFM.py -gid D'
         if debug:
             print(f"cmd = {cmd}")
         try:
@@ -489,6 +500,7 @@ def main():
         base_pbs_options['job_priority'] = os.environ['DERECHO_TESTING_PRIORITY']
         base_pbs_options['modules'] = module_names
         base_pbs_options['kaijuhome'] = KAIJUHOME
+        base_pbs_options['kaipyhome'] = KAIPYHOME
         base_pbs_options['tmpdir'] = os.environ['TMPDIR']
         base_pbs_options['slack_bot_token'] = os.environ['SLACK_BOT_TOKEN']
         base_pbs_options['mage_test_root'] = os.environ['MAGE_TEST_ROOT']
@@ -507,14 +519,14 @@ def main():
         if allTests:
             base_pbs_options['report_options'] += ' -a'
 
-		# Create space to store job ids and submit OKs
-		job_ids.append([])
-		submit_ok.append([])
+        # Create space to store job ids and submit OKs
+        job_ids.append([])
+        submit_ok.append([])
 
         # Perform basic set of runs
         
         # Serial Run
-		job_id_s_r = generateSerialRelease(pbs_template,xml_template,base_bps_options)
+        job_id_s_r = generateSerialRelease(pbs_template,xml_template,base_pbs_options)
 
         # Record the job ID.
         job_ids[i_module_set].append(job_id_s_r)
@@ -522,35 +534,39 @@ def main():
         # Record successful submission.
         submit_ok[i_module_set].append(True)
 
-        # MPI 4x4 Run
-        job_id_m44_r = generateMpi44Release(pbs_template,xml_template,base_bps_options)
-        job_ids[i_module_set].append(job_id_m44_r)
+        # MPI 3x2 Run
+        job_id_m32_r = generateMpi32Release(pbs_template,xml_template,base_pbs_options)
+        job_ids[i_module_set].append(job_id_m32_r)
         submit_ok[i_module_set].append(True)
 
-        # Restarted MPI 4x Run
-        job_id_m44r_r = generateMpi44Release(pbs_template,xml_template,base_bps_options,job_id_M44_r)
-        job_ids[i_module_set].append(job_id_m44r_r)
+        # Restarted MPI 3x2 Run
+        job_id_m32r_r = generateMpi32RestartRelease(pbs_template,xml_template,base_pbs_options,job_id_m32_r)
+        job_ids[i_module_set].append(job_id_m32r_r)
         submit_ok[i_module_set].append(True)
         
         # Submit post-processing for these runs
         postProcOpts = base_pbs_options
         postProcOpts['caseName'] = 'SerialToMpi'
         postProcOpts['frameFolder'] = 'vidData'
-        postProcOpts['case1Loc'] = 'relSerialRelease/msphere_S_R'
-        postProcOpts['case2Loc'] = 'relMpi44Release/msphere_M44_R'
+        postProcOpts['case1F'] = 'relSerialRelease'
+        postProcOpts['case1id'] = 'msphere_S_R'
+        postProcOpts['case2F'] = 'relMpi32Release'
+        postProcOpts['case2id'] = 'msphere_M32_R'
         postProcOpts['ts'] = '0'
         postProcOpts['te'] = '120'
         postProcOpts['dt'] = '60'
-        processComparativeResults(job_id_s_r, job_id_m44_r, postProcOpts['caseName'], postproc_template, postProcOpts)
+        processComparativeResults(job_id_s_r, job_id_m32_r, postProcOpts['caseName'], postproc_template, postProcOpts)
         postProcOpts = base_pbs_options
         postProcOpts['caseName'] = 'MpiReleaseComp'
         postProcOpts['frameFolder'] = 'vidData'
-        postProcOpts['case1Loc'] = 'relMpi44Release/msphere_M44_R'
-        postProcOpts['case2Loc'] = 'relMpi44ResRelease/msphere_M44_R'
+        postProcOpts['case1F'] = 'relMpi32Release'
+        postProcOpts['case1id'] = 'msphere_M32_R'
+        postProcOpts['case2F'] = 'relMpi32ResRelease'
+        postProcOpts['case2id'] = 'msphere_M32_R'
         postProcOpts['ts'] = '50'
         postProcOpts['te'] = '120'
         postProcOpts['dt'] = '60'
-        processComparativeResults(job_id_m44_r, job_id_m44r_r, postProcOpts['caseName'], postproc_template, postProcOpts)
+        processComparativeResults(job_id_m32_r, job_id_m32r_r, postProcOpts['caseName'], postproc_template, postProcOpts)
 
         # If doing full test suite, perform additional runs
         if allTests:
@@ -597,7 +613,7 @@ def main():
 
     # If a test failed, or loud mode is on, post report to Slack.
     if (slack_on_fail and 'FAILED' in test_report_details_string) or be_loud:
-        srelMpi44ResReleaselack_response_summary = common.slack_send_message(
+        slack_response_summary = common.slack_send_message(
             slack_client, test_report_summary_string, is_test=is_test
         )
         if debug:

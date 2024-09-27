@@ -7,7 +7,7 @@
 {% if is_mpi %}
 #PBS -l select={{ gamera_ranks }}:ncpus=128:mpiprocs=2:ompthreads=64+3:ncpus=128:mpiprocs=1:ompthreads=128
 {% else %}
-#PBS -l select={{ gamera_ranks }}:ncpus=128:ompthreads=64
+#PBS -l select=1:ncpus=128:ompthreads=128
 {% endif %}
 #PBS -l walltime={{ walltime }}
 #PBS -j oe
@@ -53,7 +53,7 @@ export KMP_STACKSIZE=128M
 export MAGE_TEST_ROOT=$mage_test_root
 export MAGE_TEST_SET_ROOT={{ mage_test_set_root }}
 export BRANCH_OR_COMMIT={{ branch_or_commit }}
-export JOBNAME={{ jobname }}
+export JOBNAME={{ job_name }}
 echo 'The active environment variables are:'
 printenv
 
@@ -65,12 +65,9 @@ cp ../{{ copy_case_folder }}/{{ copy_case_runid }}*.h5 .
 # Run the model.
 {% if is_mpi %}
 MPICOMMAND="mpiexec $KAIJUHOME/scripts/preproc/pinCpuCores.sh"
-$MPICOMMAND ./voltron_mpi.x $JOBNAME.xml >& $JOBNAME.out
+$MPICOMMAND ./voltron_mpi.x relativeCaseGo.xml >& $JOBNAME.out
 {% else %}
-./voltron.x $JOBNAME.xml >& $JOBNAME.out
+./voltron.x relativeCaseGo.xml >& $JOBNAME.out
 {% endif %}
-
-# Generate the report.
-python $KAIJUHOME/testingScripts/relativeTestsReport.py {{ report_options }} >& relativeTestsReport.out
 
 echo "Job $PBS_JOBID ended at `date` on `hostname` in directory `pwd`."
