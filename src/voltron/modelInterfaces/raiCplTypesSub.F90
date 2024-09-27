@@ -81,6 +81,10 @@ submodule (volttypes) raijuCplTypesSub
     module subroutine raiCplWriteConsoleOutput(App)
         class(raijuCoupler_T), intent(inout) :: App
 
+        if (App%tLastUpdate < 0) then
+            ! We haven't even started yet, nothing to report
+            return
+        endif
         call App%raiApp%WriteConsoleOutput()
 
     end subroutine

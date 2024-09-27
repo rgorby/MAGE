@@ -319,10 +319,8 @@ module voltapp
             call Toc("DeepUpdate")
 
             ! this will step coupled Gamera
-            write(*,*)"Step gam start"
             call vApp%gApp%StartUpdateMhdData(vApp)
             call vApp%gApp%FinishUpdateMhdData(vApp)
-            write(*,*)"Step gam end"
 
             ! step complete
             vApp%time = vApp%DeepT
@@ -485,7 +483,7 @@ module voltapp
     subroutine DeepUpdate(vApp, gApp)
         class(gamApp_T) , intent(inout) :: gApp
         class(voltApp_T), intent(inout) :: vApp
-        write(*,*)"DeepUpdate start"
+
         !Remix code moved from old shallow coupling
         ! convert gamera data to mixInput
         call Tic("G2R")
@@ -512,7 +510,6 @@ module voltapp
         elseif(vApp%doDeep) then
             gApp%Grid%Gas0 = 0
         endif
-        write(*,*)"DeepUpdate end"
 
     end subroutine DeepUpdate
 
