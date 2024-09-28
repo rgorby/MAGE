@@ -157,6 +157,7 @@ def generateMpi32RestartRelease(pbsTemplate,xmlTemplate,base_pbs_options,wait_jo
     pbs_options['walltime'] = '08:00:00'
     pbs_options['is_mpi'] = 'True' #Jinja considers this 'Truthy'
     pbs_options['gamera_ranks'] = '3'
+    pbs_options['gamera_per_node'] = '2'
     pbs_options['copy_case_folder'] = 'relMpi32Release' # Jinja considers this 'Truthy'
     pbs_options['copy_case_runid'] = 'msphere_M32_R' #Jinja considers this 'Truthy'
 
@@ -180,6 +181,7 @@ def generateMpi32Release(pbsTemplate,xmlTemplate,base_pbs_options):
     pbs_options['walltime'] = '08:00:00'
     pbs_options['is_mpi'] = 'True' #Jinja considers this 'Truthy'
     pbs_options['gamera_ranks'] = '3'
+    pbs_options['gamera_per_node'] = '2'
     pbs_options['copy_case_folder'] = '' # Jinja considers this 'Falsy'
     pbs_options['copy_case_runid'] = '' #Jinja considers this 'Falsy'
 
@@ -195,6 +197,126 @@ def generateMpi32Release(pbsTemplate,xmlTemplate,base_pbs_options):
 
     return generateAndRunCase(caseName, pbsTemplate, pbs_options, xmlTemplate, xml_options)
 
+def generateMpi31Release(pbsTemplate,xmlTemplate,base_pbs_options):
+    caseName = "relMpi31Release"
+
+    pbs_options = base_pbs_options
+    pbs_options['job_name'] = caseName
+    pbs_options['walltime'] = '08:00:00'
+    pbs_options['is_mpi'] = 'True' #Jinja considers this 'Truthy'
+    pbs_options['gamera_ranks'] = '3'
+    pbs_options['gamera_per_node'] = '1'
+    pbs_options['copy_case_folder'] = '' # Jinja considers this 'Falsy'
+    pbs_options['copy_case_runid'] = '' #Jinja considers this 'Falsy'
+
+    xml_options = {}
+    xml_options['serial_coupling'] = 'F'
+    xml_options['runid'] = 'msphere_M31_R'
+    xml_options['do_restart'] = 'F'
+    xml_options['restart_runid'] = xml_options['runid']
+    xml_options['restart_number'] = '-1'
+    xml_options['num_i_ranks'] = '3'
+    xml_options['num_j_ranks'] = '1'
+    xml_options['num_g_th'] = '128'
+
+    return generateAndRunCase(caseName, pbsTemplate, pbs_options, xmlTemplate, xml_options)
+
+def generateMpi12Release(pbsTemplate,xmlTemplate,base_pbs_options):
+    caseName = "relMpi12Release"
+
+    pbs_options = base_pbs_options
+    pbs_options['job_name'] = caseName
+    pbs_options['walltime'] = '08:00:00'
+    pbs_options['is_mpi'] = 'True' #Jinja considers this 'Truthy'
+    pbs_options['gamera_ranks'] = '1'
+    pbs_options['gamera_per_node'] = '2'
+    pbs_options['copy_case_folder'] = '' # Jinja considers this 'Falsy'
+    pbs_options['copy_case_runid'] = '' #Jinja considers this 'Falsy'
+
+    xml_options = {}
+    xml_options['serial_coupling'] = 'F'
+    xml_options['runid'] = 'msphere_M12_R'
+    xml_options['do_restart'] = 'F'
+    xml_options['restart_runid'] = xml_options['runid']
+    xml_options['restart_number'] = '-1'
+    xml_options['num_i_ranks'] = '1'
+    xml_options['num_j_ranks'] = '2'
+    xml_options['num_g_th'] = '64'
+
+    return generateAndRunCase(caseName, pbsTemplate, pbs_options, xmlTemplate, xml_options)
+
+def generateMpi11SynchRelease(pbsTemplate,xmlTemplate,base_pbs_options):
+    caseName = "relMpi11SynchRelease"
+
+    pbs_options = base_pbs_options
+    pbs_options['job_name'] = caseName
+    pbs_options['walltime'] = '08:00:00'
+    pbs_options['is_mpi'] = 'True' #Jinja considers this 'Truthy'
+    pbs_options['gamera_ranks'] = '1'
+    pbs_options['gamera_per_node'] = '1'
+    pbs_options['copy_case_folder'] = '' # Jinja considers this 'Falsy'
+    pbs_options['copy_case_runid'] = '' #Jinja considers this 'Falsy'
+
+    xml_options = {}
+    xml_options['serial_coupling'] = 'T'
+    xml_options['runid'] = 'msphere_M11S_R'
+    xml_options['do_restart'] = 'F'
+    xml_options['restart_runid'] = xml_options['runid']
+    xml_options['restart_number'] = '-1'
+    xml_options['num_i_ranks'] = '1'
+    xml_options['num_j_ranks'] = '1'
+    xml_options['num_g_th'] = '128'
+
+    return generateAndRunCase(caseName, pbsTemplate, pbs_options, xmlTemplate, xml_options)
+
+def generateMpi11Release(pbsTemplate,xmlTemplate,base_pbs_options):
+    caseName = "relMpi11Release"
+
+    pbs_options = base_pbs_options
+    pbs_options['job_name'] = caseName
+    pbs_options['walltime'] = '08:00:00'
+    pbs_options['is_mpi'] = 'True' #Jinja considers this 'Truthy'
+    pbs_options['gamera_ranks'] = '1'
+    pbs_options['gamera_per_node'] = '1'
+    pbs_options['copy_case_folder'] = '' # Jinja considers this 'Falsy'
+    pbs_options['copy_case_runid'] = '' #Jinja considers this 'Falsy'
+
+    xml_options = {}
+    xml_options['serial_coupling'] = 'F'
+    xml_options['runid'] = 'msphere_M11_R'
+    xml_options['do_restart'] = 'F'
+    xml_options['restart_runid'] = xml_options['runid']
+    xml_options['restart_number'] = '-1'
+    xml_options['num_i_ranks'] = '1'
+    xml_options['num_j_ranks'] = '1'
+    xml_options['num_g_th'] = '128'
+
+    return generateAndRunCase(caseName, pbsTemplate, pbs_options, xmlTemplate, xml_options)
+
+def generateSerialRestartRelease(pbsTemplate,xmlTemplate,base_pbs_options,wait_job_id):
+    caseName = "relSerialResRelease"
+
+    pbs_options = base_pbs_options
+    pbs_options['job_name'] = caseName
+    pbs_options['walltime'] = '12:00:00'
+    pbs_options['is_mpi'] = '' #Jinja considers this 'Falsy'
+    pbs_options['gamera_ranks'] = '1'
+    pbs_options['gamera_per_node'] = '1'
+    pbs_options['copy_case_folder'] = 'relSerialRelease' # Jinja considers this 'Truthy'
+    pbs_options['copy_case_runid'] = 'msphere_S_R' #Jinja considers this 'Truthy'
+
+    xml_options = {}
+    xml_options['serial_coupling'] = 'F'
+    xml_options['runid'] = 'msphere_S_R'
+    xml_options['do_restart'] = 'T'
+    xml_options['restart_runid'] = xml_options['runid']
+    xml_options['restart_number'] = '1'
+    xml_options['num_i_ranks'] = '1'
+    xml_options['num_j_ranks'] = '1'
+    xml_options['num_g_th'] = '128'
+
+    return generateAndRunCase(caseName, pbsTemplate, pbs_options, xmlTemplate, xml_options, wait_job_id)
+
 def generateSerialRelease(pbsTemplate,xmlTemplate,base_pbs_options):
     caseName = "relSerialRelease"
     
@@ -203,6 +325,7 @@ def generateSerialRelease(pbsTemplate,xmlTemplate,base_pbs_options):
     pbs_options['walltime'] = '12:00:00'
     pbs_options['is_mpi'] = '' #Jinja considers this 'Falsy'
     pbs_options['gamera_ranks'] = '1'
+    pbs_options['gamera_per_node'] = '1'
     pbs_options['copy_case_folder'] = '' # Jinja considers this 'Falsy'
     pbs_options['copy_case_runid'] = '' #Jinja considers this 'Falsy'
     
@@ -523,56 +646,185 @@ def main():
         job_ids.append([])
         submit_ok.append([])
 
-        # Perform basic set of runs
+        if not allTests:
+            if debug:
+                print("Performing basic tests")
+            # Serial Run
+            job_id_s_r = generateSerialRelease(pbs_template,xml_template,base_pbs_options)
+            
+            # Record the job ID.
+            job_ids[i_module_set].append(job_id_s_r)
         
-        # Serial Run
-        job_id_s_r = generateSerialRelease(pbs_template,xml_template,base_pbs_options)
-
-        # Record the job ID.
-        job_ids[i_module_set].append(job_id_s_r)
-
-        # Record successful submission.
-        submit_ok[i_module_set].append(True)
-
-        # MPI 3x2 Run
-        job_id_m32_r = generateMpi32Release(pbs_template,xml_template,base_pbs_options)
-        job_ids[i_module_set].append(job_id_m32_r)
-        submit_ok[i_module_set].append(True)
-
-        # Restarted MPI 3x2 Run
-        job_id_m32r_r = generateMpi32RestartRelease(pbs_template,xml_template,base_pbs_options,job_id_m32_r)
-        job_ids[i_module_set].append(job_id_m32r_r)
-        submit_ok[i_module_set].append(True)
-        
-        # Submit post-processing for these runs
-        postProcOpts = base_pbs_options
-        postProcOpts['caseName'] = 'SerialToMpi'
-        postProcOpts['frameFolder'] = 'vidData'
-        postProcOpts['case1F'] = 'relSerialRelease'
-        postProcOpts['case1id'] = 'msphere_S_R'
-        postProcOpts['case2F'] = 'relMpi32Release'
-        postProcOpts['case2id'] = 'msphere_M32_R'
-        postProcOpts['ts'] = '0'
-        postProcOpts['te'] = '120'
-        postProcOpts['dt'] = '60'
-        processComparativeResults(job_id_s_r, job_id_m32_r, postProcOpts['caseName'], postproc_template, postProcOpts)
-        postProcOpts = base_pbs_options
-        postProcOpts['caseName'] = 'MpiReleaseComp'
-        postProcOpts['frameFolder'] = 'vidData'
-        postProcOpts['case1F'] = 'relMpi32Release'
-        postProcOpts['case1id'] = 'msphere_M32_R'
-        postProcOpts['case2F'] = 'relMpi32ResRelease'
-        postProcOpts['case2id'] = 'msphere_M32_R'
-        postProcOpts['ts'] = '50'
-        postProcOpts['te'] = '120'
-        postProcOpts['dt'] = '60'
-        processComparativeResults(job_id_m32_r, job_id_m32r_r, postProcOpts['caseName'], postproc_template, postProcOpts)
-
-        # If doing full test suite, perform additional runs
-        if allTests:
+            # Record successful submission.
+            submit_ok[i_module_set].append(True)
+            
+            # MPI 3x2 Run
+            job_id_m32_r = generateMpi32Release(pbs_template,xml_template,base_pbs_options)
+            job_ids[i_module_set].append(job_id_m32_r)
+            submit_ok[i_module_set].append(True)
+            
+            # Restarted MPI 3x2 Run
+            job_id_m32r_r = generateMpi32RestartRelease(pbs_template,xml_template,base_pbs_options,job_id_m32_r)
+            job_ids[i_module_set].append(job_id_m32r_r)
+            submit_ok[i_module_set].append(True)
+            
+            # Submit post-processing for these runs
+            postProcOpts = base_pbs_options
+            postProcOpts['caseName'] = 'SerialMpiComp'
+            postProcOpts['frameFolder'] = 'vidData'
+            postProcOpts['case1F'] = 'relSerialRelease'
+            postProcOpts['case1id'] = 'msphere_S_R'
+            postProcOpts['case2F'] = 'relMpi32Release'
+            postProcOpts['case2id'] = 'msphere_M32_R'
+            postProcOpts['ts'] = '0'
+            postProcOpts['te'] = '120'
+            postProcOpts['dt'] = '60'
+            processComparativeResults(job_id_s_r, job_id_m32_r, postProcOpts['caseName'], postproc_template, postProcOpts)
+            
+            postProcOpts = base_pbs_options
+            postProcOpts['caseName'] = 'MpiRestartComp'
+            postProcOpts['frameFolder'] = 'vidData'
+            postProcOpts['case1F'] = 'relMpi32Release'
+            postProcOpts['case1id'] = 'msphere_M32_R'
+            postProcOpts['case2F'] = 'relMpi32ResRelease'
+            postProcOpts['case2id'] = 'msphere_M32_R'
+            postProcOpts['ts'] = '50'
+            postProcOpts['te'] = '120'
+            postProcOpts['dt'] = '60'
+            processComparativeResults(job_id_m32_r, job_id_m32r_r, postProcOpts['caseName'], postproc_template, postProcOpts)
+            
+        else:
             if debug:
                 print("Performing full test suite")
-
+             # Serial Run
+            job_id_s_r = generateSerialRelease(pbs_template,xml_template,base_pbs_options)
+            
+            # Record the job ID.
+            job_ids[i_module_set].append(job_id_s_r)
+            
+            # Record successful submission.
+            submit_ok[i_module_set].append(True)
+            
+            # Restarted Serial Run
+            job_id_sr_r = generateSerialRestartRelease(pbs_template,xml_template,base_pbs_options,job_id_s_r)
+            job_ids[i_module_set].append(job_id_sr_r)
+            submit_ok[i_module_set].append(True)
+            
+            # Synchronous MPI 1x1 Run
+            job_id_m11s_r = generateMpi11SynchRelease(pbs_template,xml_template,base_pbs_options)
+            job_ids[i_module_set].append(job_id_m11s_r)
+            submit_ok[i_module_set].append(True)
+            
+            # MPI 1x1 Run
+            job_id_m11_r = generateMpi11Release(pbs_template,xml_template,base_pbs_options)
+            job_ids[i_module_set].append(job_id_m11_r)
+            submit_ok[i_module_set].append(True)
+            
+            # MPI 1x2 Run
+            job_id_m12_r = generateMpi12Release(pbs_template,xml_template,base_pbs_options)
+            job_ids[i_module_set].append(job_id_m12_r)
+            submit_ok[i_module_set].append(True)
+            
+            # MPI 3x1 Run
+            job_id_m31_r = generateMpi31Release(pbs_template,xml_template,base_pbs_options)
+            job_ids[i_module_set].append(job_id_m31_r)
+            submit_ok[i_module_set].append(True)
+            
+            # MPI 3x2 Run
+            job_id_m32_r = generateMpi32Release(pbs_template,xml_template,base_pbs_options)
+            job_ids[i_module_set].append(job_id_m32_r)
+            submit_ok[i_module_set].append(True)
+            
+            # Restarted MPI 3x2 Run
+            job_id_m32r_r = generateMpi32RestartRelease(pbs_template,xml_template,base_pbs_options,job_id_m32_r)
+            job_ids[i_module_set].append(job_id_m32r_r)
+            submit_ok[i_module_set].append(True)
+            
+            # Submit post-processing for these runs
+            postProcOpts = base_pbs_options
+            postProcOpts['caseName'] = 'SerialRestartComp'
+            postProcOpts['frameFolder'] = 'vidData'
+            postProcOpts['case1F'] = 'relSerialRelease'
+            postProcOpts['case1id'] = 'msphere_S_R'
+            postProcOpts['case2F'] = 'relSerialResRelease'
+            postProcOpts['case2id'] = 'msphere_S_R'
+            postProcOpts['ts'] = '50'
+            postProcOpts['te'] = '120'
+            postProcOpts['dt'] = '60'
+            processComparativeResults(job_id_s_r, job_id_sr_r, postProcOpts['caseName'], postproc_template, postProcOpts)
+            
+            postProcOpts = base_pbs_options
+            postProcOpts['caseName'] = 'SerialToMpiComp'
+            postProcOpts['frameFolder'] = 'vidData'
+            postProcOpts['case1F'] = 'relSerialRelease'
+            postProcOpts['case1id'] = 'msphere_S_R'
+            postProcOpts['case2F'] = 'relMpi11SynchRelease'
+            postProcOpts['case2id'] = 'msphere_M11S_R'
+            postProcOpts['ts'] = '0'
+            postProcOpts['te'] = '120'
+            postProcOpts['dt'] = '60'
+            processComparativeResults(job_id_s_r, job_id_m11s_r, postProcOpts['caseName'], postproc_template, postProcOpts)
+            
+            postProcOpts = base_pbs_options
+            postProcOpts['caseName'] = 'AsynchComp'
+            postProcOpts['frameFolder'] = 'vidData'
+            postProcOpts['case1F'] = 'relMpi11SynchRelease'
+            postProcOpts['case1id'] = 'msphere_M11S_R'
+            postProcOpts['case2F'] = 'relMpi11Release'
+            postProcOpts['case2id'] = 'msphere_M11_R'
+            postProcOpts['ts'] = '0'
+            postProcOpts['te'] = '120'
+            postProcOpts['dt'] = '60'
+            processComparativeResults(job_id_m11s_r, job_id_m11_r, postProcOpts['caseName'], postproc_template, postProcOpts)
+            
+            postProcOpts = base_pbs_options
+            postProcOpts['caseName'] = 'JDecompComp'
+            postProcOpts['frameFolder'] = 'vidData'
+            postProcOpts['case1F'] = 'relMpi11Release'
+            postProcOpts['case1id'] = 'msphere_M11_R'
+            postProcOpts['case2F'] = 'relMpi12Release'
+            postProcOpts['case2id'] = 'msphere_M12_R'
+            postProcOpts['ts'] = '0'
+            postProcOpts['te'] = '120'
+            postProcOpts['dt'] = '60'
+            processComparativeResults(job_id_m11_r, job_id_m12_r, postProcOpts['caseName'], postproc_template, postProcOpts)
+            
+            postProcOpts = base_pbs_options
+            postProcOpts['caseName'] = 'IDecompComp'
+            postProcOpts['frameFolder'] = 'vidData'
+            postProcOpts['case1F'] = 'relMpi11Release'
+            postProcOpts['case1id'] = 'msphere_M11_R'
+            postProcOpts['case2F'] = 'relMpi31Release'
+            postProcOpts['case2id'] = 'msphere_M31_R'
+            postProcOpts['ts'] = '0'
+            postProcOpts['te'] = '120'
+            postProcOpts['dt'] = '60'
+            processComparativeResults(job_id_m11_r, job_id_m31_r, postProcOpts['caseName'], postproc_template, postProcOpts)
+            
+            postProcOpts = base_pbs_options
+            postProcOpts['caseName'] = 'MPIDecompComp'
+            postProcOpts['frameFolder'] = 'vidData'
+            postProcOpts['case1F'] = 'relMpi11Release'
+            postProcOpts['case1id'] = 'msphere_M11_R'
+            postProcOpts['case2F'] = 'relMpi32Release'
+            postProcOpts['case2id'] = 'msphere_M32_R'
+            postProcOpts['ts'] = '0'
+            postProcOpts['te'] = '120'
+            postProcOpts['dt'] = '60'
+            processComparativeResults(job_id_m11_r, job_id_m32_r, postProcOpts['caseName'], postproc_template, postProcOpts)
+            
+            postProcOpts = base_pbs_options
+            postProcOpts['caseName'] = 'MpiRestartComp'
+            postProcOpts['frameFolder'] = 'vidData'
+            postProcOpts['case1F'] = 'relMpi32Release'
+            postProcOpts['case1id'] = 'msphere_M32_R'
+            postProcOpts['case2F'] = 'relMpi32ResRelease'
+            postProcOpts['case2id'] = 'msphere_M32_R'
+            postProcOpts['ts'] = '50'
+            postProcOpts['te'] = '120'
+            postProcOpts['dt'] = '60'
+            processComparativeResults(job_id_m32_r, job_id_m32r_r, postProcOpts['caseName'], postproc_template, postProcOpts)
+            
         # Save the job number in a file.
         with open('jobs.txt', 'w', encoding='utf-8') as f:
             f.write(f"{job_ids[i_module_set]}\n")

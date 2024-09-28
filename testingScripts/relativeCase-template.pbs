@@ -5,7 +5,7 @@
 #PBS -q {{ queue }}
 #PBS -l job_priority={{ job_priority }}
 {% if is_mpi %}
-#PBS -l select={{ gamera_ranks }}:ncpus=128:mpiprocs=2:ompthreads=64+3:ncpus=128:mpiprocs=1:ompthreads=128
+#PBS -l select={{ gamera_ranks }}:ncpus=128:mpiprocs={{ gamera_per_node }}:ompthreads=64+3:ncpus=128:mpiprocs=1:ompthreads=128
 {% else %}
 #PBS -l select=1:ncpus=128:ompthreads=128
 {% endif %}
