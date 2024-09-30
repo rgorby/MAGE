@@ -150,6 +150,8 @@ module raijutypes
             !! Filename of the .h5 config that holds lambda grid, wavemodel values, etc.
         character(len=strLen) :: raijuH5
             !! Filename of the h5 file we output to
+        character(len=strLen) :: tsF
+            !! Filename for timeseries information like mjd, solar wind (bcwind.h5)
 
         ! Restart info
         logical :: isRestart
@@ -182,9 +184,13 @@ module raijutypes
         logical :: fixedTimestep
             !! Fixed or dynamic timestep
         logical :: isMPI
-        logical :: doLosses  ! Whether or not to calculate eta losses during advance
-        logical :: isLoud       ! For debug
-        logical :: writeGhosts  ! For debug
+            !! Are we in MPI mode (does not exist yet so better be no)
+        logical :: doLosses
+            !! Whether or not to calculate eta losses during advance
+        logical :: isLoud
+            !! For debug
+        logical :: writeGhosts
+            !! For debug
         logical :: doClockConsoleOut
             !! If we are driving, output clock info
         logical :: doFatOutput
@@ -204,6 +210,8 @@ module raijutypes
             !! Use for now to determine if we should be doing plasmasphere stuff
             !! Likely, in the future, we will determine automatically by the presence of a flavor 0
         real(rp) :: psphInitKp
+        logical :: doPsphEvol
+            !! Whether or not to actually evolve the plasmasphere
         ! TODO: Extra params for refilling rate, determining initial profile, etc.
 
         ! Some constants

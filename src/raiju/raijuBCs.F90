@@ -183,7 +183,7 @@ module raijuBCs
 
                     ! etaBelow has the amount of eta that is below the lowest lambda channel bound
                     !! TODO: Check to see if we are missing too much pressure
-                    if (Model%doExcesstoPsph .and. Model%fluidInMaps(fm)%doExcessToPsph) then
+                    if (Model%doPsphEvol .and. Model%doExcesstoPsph .and. Model%fluidInMaps(fm)%doExcessToPsph) then
                         State%eta(i,j,Grid%spc(psphIdx)%kStart) = State%eta(i,j,Grid%spc(psphIdx)%kStart) + etaBelow
                     endif
                     

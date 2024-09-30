@@ -264,13 +264,7 @@ module raijuICHelpers
        
         end select
 
-         ! TODO: Implement psphere IC
-        if (Model%doPlasmasphere .and. spcExists(Grid, F_PSPH)) then
-            sIdx = spcIdx(Grid, F_PSPH)
-            !kPsph = Grid%spc(sIdx)%kStart
-            State%eta(:,:,Grid%spc(sIdx)%kStart) = getInitPsphere(Grid, State, Model%psphInitKp)
-            State%eta_last(:,:,Grid%spc(sIdx)%kStart) = State%eta(:,:,Grid%spc(sIdx)%kStart)
-        endif
+        call setRaijuInitPsphere(Model, Grid, State, Model%psphInitKp)
 
         contains
 
@@ -386,6 +380,23 @@ module raijuICHelpers
 ! Plasmasphere initialization
 !------
 
+    subroutine setRaijuInitPsphere(Model, Grid, State, Kp)
+        type(raijuModel_T) , intent(in) :: Model
+        type(raijuGrid_T) , intent(in) :: Grid
+        type(raijuState_T), intent(inout) :: State
+        real(rp) :: Kp
+
+        integer :: psphIdx
+
+        if (Model%doPlasmasphere .and. spcExists(Grid, F_PSPH)) then
+            psphIdx = spcIdx(Grid, F_PSPH)
+            State%eta     (:,:,Grid%spc(psphIdx)%kStart) = getInitPsphere(Grid, State, Kp)
+            State%eta_last(:,:,Grid%spc(psphIdx)%kStart) = State%eta(:,:,Grid%spc(psphIdx)%kStart)
+        endif
+    
+    end subroutine
+
+
     function getInitPsphere(Grid, State, Kp) result(etaPsph)
         type(raijuGrid_T) , intent(in) :: Grid
         type(raijuState_T), intent(in) :: State
@@ -400,9 +411,9 @@ module raijuICHelpers
 
         etaPsph = 0.0
 
-        ! !$OMP PARALLEL DO default(shared) &
-        ! !$OMP schedule(dynamic) &
-        ! !$OMP private(i,j,r,phi)
+        !$OMP PARALLEL DO default(shared) &
+        !$OMP schedule(dynamic) &
+        !$OMP private(i,j,den,vm)
         do j=Grid%shGrid%jsg,Grid%shGrid%jeg
             do i=Grid%shGrid%isg,Grid%shGrid%ieg
                 den = GallagherXY(State%xyzMincc(i,j,XDIR), State%xyzMincc(i,j,YDIR), Kp)  ! [#/cc]

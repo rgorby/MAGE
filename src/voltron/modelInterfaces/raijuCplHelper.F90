@@ -44,21 +44,6 @@ module raijuCplHelper
             !Initial values
             raiCpl%tLastUpdate = -1.0*HUGE
 
-        ! If using user IC, let user determine coupling
-        !  (this assumes icStr was already set by raijuInitState)
-        !if (trim(raiApp%Model%icStr) .eq. "USER") then
-        !    ! Set defaults, let user override if they want to
-        !    cplBase%convertToRAIJU => raijuCpl_Volt2RAIJU
-        !    cplBase%convertToVoltron => raijuCpl_RAIJU2Volt
-        !    cplBase%fromV%mhd2spcMap => defaultMHD2SpcMap
-        !    call raijuCpl_init_useric(vApp, raiApp, cplBase)
-        !else
-        !    ! Point to default coupling functions
-        !    cplBase%convertToRAIJU => raijuCpl_Volt2RAIJU
-        !    cplBase%convertToVoltron => raijuCpl_RAIJU2Volt
-        !    cplBase%fromV%mhd2spcMap => defaultMHD2SpcMap
-        !endif
-
     end subroutine raijuCpl_init
 
 
@@ -251,16 +236,13 @@ module raijuCplHelper
 
         real(rp), dimension(rmApp%ion(NORTH)%shGr%Nt,rmApp%ion(NORTH)%shGr%Np) :: tmpPot
 
-        associate(rmHemi=>rmApp%ion(NORTH), Nt=>rmApp%ion(NORTH)%shGr%Nt, Np=>rmApp%ion(NORTH)%shGr%Np)
-            
+        associate(rmHemi=>rmApp%ion(NORTH), Nt=>rmApp%ion(NORTH)%shGr%Nt, Np=>rmApp%ion(NORTH)%shGr%Np)       
             rmHemi%St%pot_shGr%data(:,1:Np) = transpose(rmHemi%St%Vars(:,:,POT))
             rmHemi%St%pot_shGr%data(:,Np+1) = rmHemi%St%pot_shGr%data(:,1)
             rmHemi%St%pot_shGr%mask = .true.
             call InterpShellVar_TSC_SG(rmHemi%shGr, rmHemi%St%pot_shGr, raiCpl%shGr, raiCpl%pot)
-
         end associate
 
     end subroutine mixPot2Raiju_RT
-
 
 end module raijuCplHelper

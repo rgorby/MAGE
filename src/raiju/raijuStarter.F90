@@ -96,6 +96,9 @@ module raijustarter
         call iXML%Set_Val(Model%configFName, "config/fname","raijuconfig.h5")
         call CheckFileOrDie(Model%configFName,"RAIJU unable to open config file")
 
+        ! Solar wind filename
+        call iXML%Set_Val(Model%tsF, '/Kaiju/Gamera/wind/tsFile', 'bcwind.h5')
+
         call iXML%Set_Val(Model%isMPI, "mpi/isMPI",.false.)
         if (Model%isMPI) then
             write(*,*) "(RAIJU) MPI not implemented yet, dying."
@@ -125,6 +128,7 @@ module raijustarter
         
         ! Plasmasphere settings
         call iXML%Set_Val(Model%doPlasmasphere, "plasmasphere/doPsphere",.false.)
+        call iXML%Set_Val(Model%doPsphEvol, 'plasmasphere/doEvol',.true.)
         ! Determine number of species. First set default, then read from xml to overwrite if present
         if (Model%doPlasmasphere) then
             Model%nSpc = 3
@@ -206,9 +210,9 @@ module raijustarter
         call iXML%Set_Val(Model%doLosses, "losses/doLosses",.true.)
         call iXML%Set_Val(Model%doSS    , "losses/doSS" ,.true. )
         call iXML%Set_Val(Model%doCC    , "losses/doCC" ,.true. )
-        call iXML%Set_Val(Model%doCX    , "losses/doCX" ,.false.)
+        call iXML%Set_Val(Model%doCX    , "losses/doCX" ,.true.)
         call iXML%Set_Val(Model%doFLC   , "losses/doFLC",.false.)
-        call iXML%Set_Val(Model%doLossOutput, "losses/doOutput",.false.)
+        call iXML%Set_Val(Model%doLossOutput, "losses/doOutput",.false.)  ! Several (Ni,Nj,Nk) arrays
 
         ! Electron loss model
         !call iXML%Set_Val(tmpStr, "losses/eLossModel","WM")

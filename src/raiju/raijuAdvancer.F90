@@ -88,6 +88,11 @@ module raijuAdvancer
             !! t, dt = Current time and delta-t for this channel
             !! tEnd = Time we stop at
 
+        ! If we are plasmasphere channel and are not evolving plasmasphere, nothing to do
+        if (.not. Model%doPsphEvol .and. Grid%spc(Grid%k2spc(k))%flav==F_PSPH) then
+            return
+        endif
+
         ! Initial settings
         s = Grid%k2spc(k)
         t = State%t

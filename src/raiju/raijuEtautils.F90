@@ -163,6 +163,7 @@ module raijuetautils
         real(rp), optional, intent(out) :: etaBelowO
             !! If provided, we will return the eta that's below the lowest channel of this species
         logical, optional, intent(in) :: doAccumulateO
+            !! Whether or not to zero out etas before putting in new stuff
 
         
         integer :: k

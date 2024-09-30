@@ -2,6 +2,7 @@ submodule (volttypes) raijuCplTypesSub
 
     use raijutypes
     use raijuCplHelper
+    use raijuColdStartHelper
 
     implicit none
 
@@ -29,16 +30,33 @@ submodule (volttypes) raijuCplTypesSub
         class(raijuCoupler_T), intent(inout) :: App
         class(voltApp_T), intent(inout) :: vApp
 
+        logical :: doColdStart = .false.
+
         associate(raiApp=>App%raiApp)
 
             ! If we are running realtime, its our job to do tracing and get all other stuff from vApp into raiCpl
             if (.not. App%raiApp%Model%isSA) then
+                ! Determine if we should cold start
+                ! e.g. Completely reset raiju's eta's to match some target conditions
+                ! Determine if we should cold start before packing coupler because it will set tLastUpdate to vApp%time and then we can't do the check we want
+                ! But actually do cold start after normal coupling completes so we can use real field line info
+                if (App%opt%doColdStart .and. App%tLastUpdate < 0.0 .and. vApp%time >= 0.0) then
+                    doColdStart = .true.
+                endif
+
                 call packRaijuCoupler_RT(App, vApp)
             endif
 
+            ! Someone updated raiCpl's coupling variables by now, stuff it into RAIJU proper
             call imagTubes2RAIJU(raiApp%Model, raiApp%Grid, raiApp%State, App%ijTubes)
-            ! Our App%pot should have been updated by someone. We can plug it straight into our State's copy because they live on the same grid
-            raiApp%State%espot(:,:) = App%pot%data(:,:)
+            raiApp%State%espot(:,:) = App%pot%data(:,:) ! They live on the same grid so this is okay
+
+            
+            if (doColdStart) then
+                ! Its happening, everybody stay calm
+                write(*,*) "RAIJU Cold starting..."
+                call raijuGeoColdStart(App%raiApp, vApp%time, vApp%BSDst)
+            endif
         end associate
     end subroutine volt2RAIJU
 

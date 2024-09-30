@@ -114,6 +114,8 @@ module volttypes
             !! GAMERA near-Earth boundary
         real(rp) :: mjd0
             !! MJD at sim t=0
+        logical :: doColdStart
+            !! Whether IMAG model should cold start itself at volt%t = 0
 
         contains
     end type imagOptions_T
