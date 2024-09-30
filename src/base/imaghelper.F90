@@ -226,7 +226,6 @@ module imaghelper
 
 		isIn = inShueMP(xyz) .and. (rho>10) .and. (xyz(XDIR)<=0) &
 			   .and. (xyz(XDIR)>-50)
-
 		if (.not. isIn) return
 
 		!----

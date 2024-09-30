@@ -451,21 +451,23 @@ module raijustarter
         select case(trim(Model%icStr))
             case("DIP")
                 !! Simple Maxwellian in a dipole field
-                Model%initState => initRaijuIC_DIP
+                !Model%initState => initRaijuIC_DIP
+                call initRaijuIC_DIP(Model, Grid, State, iXML)
             case("TTA")
                 !! Test Theta Advection
-                Model%initState => initRaijuIC_testThetaAdvection
+                !Model%initState => initRaijuIC_testThetaAdvection
+                call initRaijuIC_testThetaAdvection(Model, Grid, State, iXML)
             case("USER")
                 ! Call the IC in the module raijuuseric
                 ! This module is set in cmake via the RAIJUIC variable
                 !Model%initState => userInitStateFunc
-                call raijuInitState_useric(Model, Grid, State, iXML)
+                call raijuInitState_useric(Model, Grid, State, iXML)       
             case DEFAULT
                 write(*,*)"Invalid IC name to RAIJU, see raijuStarter.F90:raijuInitState. Bye."
                 stop
         end select
 
-        call Model%initState(Model, Grid, State, iXML)
+        !call Model%initState(Model, Grid, State, iXML)
 
     end subroutine raijuInitState
 

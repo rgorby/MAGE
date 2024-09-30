@@ -1,6 +1,7 @@
 module raijuetautils
 
     use planethelper
+    use earthhelper
 
     use raijudefs
     use raijutypes
@@ -313,5 +314,55 @@ module raijuetautils
                   * bVol**(-2./3.) * eta
 
     end function eta2intensity
+
+
+
+!------
+! Plasmasphere initialization
+!------
+
+    subroutine setRaijuInitPsphere(Model, Grid, State, Kp)
+        type(raijuModel_T) , intent(in) :: Model
+        type(raijuGrid_T) , intent(in) :: Grid
+        type(raijuState_T), intent(inout) :: State
+        real(rp) :: Kp
+
+        integer :: psphIdx
+
+        if (Model%doPlasmasphere .and. spcExists(Grid, F_PSPH)) then
+            psphIdx = spcIdx(Grid, F_PSPH)
+            State%eta     (:,:,Grid%spc(psphIdx)%kStart) = getInitPsphere(Grid, State, Kp)
+            State%eta_last(:,:,Grid%spc(psphIdx)%kStart) = State%eta(:,:,Grid%spc(psphIdx)%kStart)
+        endif
+    
+    end subroutine
+
+
+    function getInitPsphere(Grid, State, Kp) result(etaPsph)
+        type(raijuGrid_T) , intent(in) :: Grid
+        type(raijuState_T), intent(in) :: State
+        real(rp) :: Kp
+
+        integer :: i,j
+        real(rp) :: den, vm
+        real(rp), dimension(Grid%shGrid%isg:Grid%shGrid%ieg,&
+                            Grid%shGrid%jsg:Grid%shGrid%jeg) :: etaPsph
+
+        write(*,*) "RAIJU initializing plasmasphere with Kp =",Kp
+
+        etaPsph = 0.0
+
+        !$OMP PARALLEL DO default(shared) &
+        !$OMP schedule(dynamic) &
+        !$OMP private(i,j,den,vm)
+        do j=Grid%shGrid%jsg,Grid%shGrid%jeg
+            do i=Grid%shGrid%isg,Grid%shGrid%ieg
+                den = GallagherXY(State%xyzMincc(i,j,XDIR), State%xyzMincc(i,j,YDIR), Kp)  ! [#/cc]
+                vm = State%bvol_cc(i,j)**(-2./3.)
+                etaPsph(i,j) = den/(vm**1.5)*sclEta
+            enddo
+        enddo
+
+    end function getInitPsphere
 
 end module raijuetautils

@@ -6,16 +6,17 @@ module raijuColdStartHelper
     use earthhelper
 
     use raijuetautils
-    use raijuICHelpers
     use raijuloss_CX
 
     implicit none
 
     contains
 
-    subroutine raijuGeoColdStart(rApp, t0, dstModel)
+    subroutine raijuGeoColdStart(Model, Grid, State, t0, dstModel)
         !! Cold start RAIJU assuming we are at Earth sometime around 21st century
-        class(raijuApp_T), intent(inout) :: rApp
+        type(raijuModel_T), intent(in) :: Model
+        type(raijuGrid_T), intent(in) :: Grid
+        type(raijuState_T), intent(inout) :: State
         real(rp), intent(in) :: t0
             !! Target time to pull SW values from
         real(rp), intent(in) :: dstModel
@@ -26,17 +27,17 @@ module raijuColdStartHelper
 
         ! Calc our target RC dst
         write(*,*) "WARNING: Setting QTRC from raijuColdStart, idk if we should be in charge of this"
-        dstReal = GetSWVal('symh', rApp%Model%tsF, t0)
+        dstReal = GetSWVal('symh', Model%tsF, t0)
         dstTarget = dstReal - dstModel
 
         ! Start by nuking all etas, we will set it all up ourselves
-        rApp%State%eta = 0.0
+        State%eta = 0.0
 
         ! Init psphere
-        call setRaijuInitPsphere(rApp%Model, rApp%Grid, rApp%State, rApp%Model%psphInitKp)
+        call setRaijuInitPsphere(Model, Grid, State, Model%psphInitKp)
 
         ! Init hot protons
-        call raiColdStart_initHOTP(rApp, t0, dstTarget)
+        call raiColdStart_initHOTP(Model, Grid, State, t0, dstTarget)
         ! CX RC
         ! Rescale RC to target dst
         ! EvalMoments, set electrons based using Maxwellian temperature
@@ -44,8 +45,11 @@ module raijuColdStartHelper
     end subroutine raijuGeoColdStart
 
 
-    subroutine raiColdStart_initHOTP(rApp, t0, dstTarget)
-        class(raijuApp_T), intent(inout) :: rApp
+    subroutine raiColdStart_initHOTP(Model, Grid, State, t0, dstTarget)
+        type(raijuModel_T), intent(in) :: Model
+        type(raijuGrid_T), intent(in) :: Grid
+        type(raijuState_T), intent(inout) :: State
+
         real(rp), intent(in) :: t0
             !! Target time to pull SW values from
         real(rp), intent(in) :: dstTarget
@@ -56,9 +60,12 @@ module raijuColdStartHelper
         real(rp) :: vSW, dSW, dPS_emp, pPS_emp, ktPS_emp
         real(rp) :: x0_TM, y0_TM, T0_TM, Bvol0_TM, P0_ps, N0_ps
         real(rp) :: L, vm, P_rc, D_rc, kt_rc, P_final, D_final
-        
-        sIdx = spcIdx(rApp%Grid, F_HOTP)
-        associate(Model=>rApp%Model, Grid=>rApp%Grid, State=>rApp%State, sh=>rApp%Grid%shGrid, spc=>Grid%spc(sIdx))
+
+        P_final = 0.0
+        D_final = 0.0
+        sIdx = spcIdx(Grid, F_HOTP)
+
+        associate(sh=>Grid%shGrid, spc=>Grid%spc(sIdx))
 
         ! Initialize TM03
         call InitTM03(Model%tsF,t0)
@@ -77,13 +84,14 @@ module raijuColdStartHelper
         x0_TM = -10.0-TINY
         y0_TM = 0.0
         ! Empirical temperature
-        call EvalTM03_SM([x0_TM,y0_TM,0.0_rp],N0_ps,P0_ps,isInTM03)
+        call EvalTM03([x0_TM,y0_TM,0.0_rp],N0_ps,P0_ps,isInTM03)
         T0_TM = DP2kT(N0_ps, P0_ps)
         ! Model FTV
         ij_TM = minloc( sqrt( (State%xyzMincc(:,:,XDIR)-x0_TM)**2 + (State%xyzMincc(:,:,YDIR)**2) ) )
         Bvol0_TM = State%bvol_cc(ij_TM(IDIR), ij_TM(JDIR))
         if (.not. isInTM03) then
             write(*,*) "This should not happen w/ TM03, you should figure this out ..."
+            stop
         endif
 
         ! Now set our initial density and pressure profile
