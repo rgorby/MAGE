@@ -165,7 +165,7 @@ def main():
         if slack_response['ok']:
             parent_ts = slack_response['ts']
             message = (
-                'All results are from a Quad Resolution Run using'
+                'All results are from a Double Resolution Run using'
                 ' various Gamera and Voltron settings.'
             )
             message += (

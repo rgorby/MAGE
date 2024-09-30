@@ -1,11 +1,11 @@
 #!/bin/bash
 
-#PBS -N {{ job_name }}
+#PBS -N postProcessComp
 #PBS -A {{ account }}
 #PBS -q casper@casper-pbs
 #PBS -l job_priority={{ job_priority }}
-#PBS -l select=1:ncpus=18:ompthreads=18:mem=192GB
-#PBS -l walltime=4:00:00
+#PBS -l select=1:ncpus=9:ompthreads=9:mem=96GB
+#PBS -l walltime=1:00:00
 #PBS -j oe
 #PBS -m abe
 
@@ -37,7 +37,7 @@ source {{ kaipyhome }}/kaipy/scripts/setupEnvironment.sh
 echo 'Setting environment variables.'
 export TMPDIR={{ tmpdir }}
 export SLACK_BOT_TOKEN={{ slack_bot_token }}
-export OMP_NUM_THREADS=18
+export OMP_NUM_THREADS=9
 #export MPI_TYPE_DEPTH=32
 export KMP_STACKSIZE=128M
 export MAGE_TEST_ROOT=$mage_test_root
@@ -48,7 +48,7 @@ echo 'The active environment variables are:'
 printenv
 
 # Process the data and generate the output video
-python $KAIPYHOME/kaipy/scripts/quicklook/gamerrVid.py -d1 {{ case1F }} -id1 {{ case1id }} -d2 {{ case2F }} -id2 {{ case2id }} -o {{ frameFolder }}/{{ caseName }} -ts {{ ts }} -te {{ te }} -dt {{ dt }} -Nth 18 >& {{ caseName }}.out
+python $KAIPYHOME/kaipy/scripts/quicklook/gamerrVid.py -d1 {{ case1F }} -id1 {{ case1id }} -d2 {{ case2F }} -id2 {{ case2id }} -o {{ frameFolder }}/{{ caseName }} -ts {{ ts }} -te {{ te }} -dt {{ dt }} -Nth 9 >& {{ caseName }}.out
 
 # Generate the report.
 python $KAIJUHOME/testingScripts/relativeTestsReport.py {{ report_options }} -d1 {{ case1F }} -d2 {{ case2F }} -cn {{ caseName }} >& {{ job_name }}_report.out

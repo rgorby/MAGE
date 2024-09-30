@@ -154,7 +154,7 @@ def generateMpi32RestartRelease(pbsTemplate,xmlTemplate,base_pbs_options,wait_jo
 
     pbs_options = base_pbs_options
     pbs_options['job_name'] = caseName
-    pbs_options['walltime'] = '08:00:00'
+    pbs_options['walltime'] = '02:00:00'
     pbs_options['is_mpi'] = 'True' #Jinja considers this 'Truthy'
     pbs_options['gamera_ranks'] = '3'
     pbs_options['gamera_per_node'] = '2'
@@ -178,7 +178,7 @@ def generateMpi32Release(pbsTemplate,xmlTemplate,base_pbs_options):
 
     pbs_options = base_pbs_options
     pbs_options['job_name'] = caseName
-    pbs_options['walltime'] = '08:00:00'
+    pbs_options['walltime'] = '02:00:00'
     pbs_options['is_mpi'] = 'True' #Jinja considers this 'Truthy'
     pbs_options['gamera_ranks'] = '3'
     pbs_options['gamera_per_node'] = '2'
@@ -202,7 +202,7 @@ def generateMpi31Release(pbsTemplate,xmlTemplate,base_pbs_options):
 
     pbs_options = base_pbs_options
     pbs_options['job_name'] = caseName
-    pbs_options['walltime'] = '08:00:00'
+    pbs_options['walltime'] = '02:00:00'
     pbs_options['is_mpi'] = 'True' #Jinja considers this 'Truthy'
     pbs_options['gamera_ranks'] = '3'
     pbs_options['gamera_per_node'] = '1'
@@ -226,7 +226,7 @@ def generateMpi12Release(pbsTemplate,xmlTemplate,base_pbs_options):
 
     pbs_options = base_pbs_options
     pbs_options['job_name'] = caseName
-    pbs_options['walltime'] = '08:00:00'
+    pbs_options['walltime'] = '02:00:00'
     pbs_options['is_mpi'] = 'True' #Jinja considers this 'Truthy'
     pbs_options['gamera_ranks'] = '1'
     pbs_options['gamera_per_node'] = '2'
@@ -250,7 +250,7 @@ def generateMpi11SynchRelease(pbsTemplate,xmlTemplate,base_pbs_options):
 
     pbs_options = base_pbs_options
     pbs_options['job_name'] = caseName
-    pbs_options['walltime'] = '08:00:00'
+    pbs_options['walltime'] = '04:00:00'
     pbs_options['is_mpi'] = 'True' #Jinja considers this 'Truthy'
     pbs_options['gamera_ranks'] = '1'
     pbs_options['gamera_per_node'] = '1'
@@ -274,7 +274,7 @@ def generateMpi11Release(pbsTemplate,xmlTemplate,base_pbs_options):
 
     pbs_options = base_pbs_options
     pbs_options['job_name'] = caseName
-    pbs_options['walltime'] = '08:00:00'
+    pbs_options['walltime'] = '04:00:00'
     pbs_options['is_mpi'] = 'True' #Jinja considers this 'Truthy'
     pbs_options['gamera_ranks'] = '1'
     pbs_options['gamera_per_node'] = '1'
@@ -298,7 +298,7 @@ def generateSerialRestartRelease(pbsTemplate,xmlTemplate,base_pbs_options,wait_j
 
     pbs_options = base_pbs_options
     pbs_options['job_name'] = caseName
-    pbs_options['walltime'] = '12:00:00'
+    pbs_options['walltime'] = '04:00:00'
     pbs_options['is_mpi'] = '' #Jinja considers this 'Falsy'
     pbs_options['gamera_ranks'] = '1'
     pbs_options['gamera_per_node'] = '1'
@@ -322,7 +322,7 @@ def generateSerialRelease(pbsTemplate,xmlTemplate,base_pbs_options):
     
     pbs_options = base_pbs_options
     pbs_options['job_name'] = caseName
-    pbs_options['walltime'] = '12:00:00'
+    pbs_options['walltime'] = '04:00:00'
     pbs_options['is_mpi'] = '' #Jinja considers this 'Falsy'
     pbs_options['gamera_ranks'] = '1'
     pbs_options['gamera_per_node'] = '1'
