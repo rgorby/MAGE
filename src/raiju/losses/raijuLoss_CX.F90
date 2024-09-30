@@ -88,7 +88,7 @@ module raijuLoss_CX
         V = sqrt(2*(energy*kev2J)/M)*100.0  ! [m/s -> cm/s]
         
         ! Timescale
-        tauEq = 1.0/(Ngeo*V*cxSig)
+        tauEq = 1.0/(Ngeo*V*cxSig)  ! [s]
         ! Bounce-averaged approximation from Smith & Bewtra 1976
         ! NOTE: Technically, not derived from Ostgaard distribution. Fix me soon
         ! Also, angle is mirror lat, not pitch angle. So 45 deg is probably a bad estimate

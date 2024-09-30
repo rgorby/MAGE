@@ -111,7 +111,7 @@ module raijuOut
         write(*,'(a)'  )        '     Max/Min dt @ k:'
         write(*,'(a,a,a,I0)') '        Max', trim(tStr), ' @ ', maxDtLoc
         write(*,'(a,a,a,I0)') '        Min', trim(tStr2) , ' @ ', minDtLoc
-        write(*,'(a)'  )        '     Flav : max Press/Den @ L,MLT:'
+        write(*,'(a)'  )        '     Flav : max Press/Den @ L,MLT; DPS-dst'
         do s=1, Model%nSpc
             sIdx = spcIdx(Grid, Grid%spc(s)%flav)
             if (Grid%spc(s)%flav == F_PSPH) then
@@ -120,16 +120,16 @@ module raijuOut
                 mPLoc = maxloc(State%Press(:,:,1+sIdx))
             endif
             maxPress = State%Press(mPLoc(1), mpLoc(2), 1+sIdx)
-            maxDen   = State%Den  (mPLoc(1), mpLoc(2), 1+sIdx)
+            maxDen   = State%Den  (mPLoc(1), mpLoc(2), 1+sIdx)/Grid%spc(sIdx)%amu
             maxP_Xmin = State%xyzMincc(mPLoc(1), mpLoc(2),XDIR)
             maxP_Ymin = State%xyzMincc(mPLoc(1), mpLoc(2),YDIR)
 
             maxP_L = sqrt(maxP_Xmin**2 + maxP_Ymin**2)
             maxP_MLT = atan2(maxP_Ymin, maxP_Xmin)/PI*12D0 + 12D0
             if (maxP_MLT > 24) maxP_MLT = maxP_MLT - 24D0
-            write(*,'(a,I0,a,f6.2,a,f6.2,a,f5.2,a,f5.2,a)') '        ', &
-                Grid%spc(s)%flav, ': P =', maxPress,', D =',maxDen,' @ ',maxP_L,',',maxP_MLT,' [Rp]'
-
+            write(*,'(a,I0,a,f6.2,a,f6.2,a,f5.2,a,f5.2,a,a,f7.2)') '        ', &
+                Grid%spc(s)%flav, ': P =', maxPress,', D =',maxDen,' @ ',maxP_L,',',maxP_MLT,' [Rp]', &
+                ";  DPS:",spcEta2DPS(Model, Grid, State, Grid%spc(sIdx), State%active .eq. RAIJUACTIVE)
 
         enddo
         write(*,'(a)',advance="no") ANSIRESET

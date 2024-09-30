@@ -22,8 +22,12 @@ module raijuColdStartHelper
         real(rp), intent(in) :: dstModel
             !! Current dst of global model
 
-        type(raiLoss_CX_T) :: lossCX
+        integer :: sIdx_p, sIdx_e
         real(rp) :: dstReal, dstTarget
+        real(rp) :: dps_preCX, dps_postCX, dps_ele
+
+        sIdx_p = spcIdx(Grid, F_HOTP)
+        sIdx_e = spcIdx(Grid, F_HOTE)
 
         ! Calc our target RC dst
         write(*,*) "WARNING: Setting QTRC from raijuColdStart, idk if we should be in charge of this"
@@ -38,9 +42,26 @@ module raijuColdStartHelper
 
         ! Init hot protons
         call raiColdStart_initHOTP(Model, Grid, State, t0, dstTarget)
-        ! CX RC
-        ! Rescale RC to target dst
-        ! EvalMoments, set electrons based using Maxwellian temperature
+        dps_preCX  = spcEta2DPS(Model, Grid, State, Grid%spc(sIdx_p), State%active .ne. RAIJUINACTIVE)  ! Note: final argument is making a logical mask for isGood
+        ! Hit it with some charge exchange
+        call raiColdStart_applyCX(Model, Grid, State, Grid%spc(sIdx_p))
+        dps_postCX = spcEta2DPS(Model, Grid, State, Grid%spc(sIdx_p), State%active .ne. RAIJUINACTIVE)
+        
+
+        !write(*,*)"Lazy raijuGeoColdStart: not rescaling proton eta to target dst, just adding electrons"
+
+        ! Calc moments to update pressure and density
+        call EvalMoments(Grid, State)
+
+        ! Use HOTP moments to set electrons
+        call raiColdStart_initHOTE(Model, Grid, State)
+        dps_ele = spcEta2DPS(Model, Grid, State, Grid%spc(sIdx_e), State%active .ne. RAIJUINACTIVE)
+
+        write(*,'(a,f7.2)') "  Target DPS-Dst       : ",dstTarget
+        write(*,'(a,f7.2)') "  Hot proton pre-loss  : ",dps_preCX
+        write(*,'(a,f7.2)') "            post-loss  : ",dps_postCX
+        write(*,'(a,f7.2)') "  Hot electron DPS-Dst :",dps_ele
+        !write(*,*)" Hot electron DPS-Dst:",dps_ele
 
     end subroutine raijuGeoColdStart
 
@@ -49,11 +70,11 @@ module raijuColdStartHelper
         type(raijuModel_T), intent(in) :: Model
         type(raijuGrid_T), intent(in) :: Grid
         type(raijuState_T), intent(inout) :: State
-
         real(rp), intent(in) :: t0
             !! Target time to pull SW values from
         real(rp), intent(in) :: dstTarget
 
+        real(rp) :: dstTarget_p
         logical :: isInTM03
         integer :: i,j,sIdx
         integer, dimension(2) :: ij_TM
@@ -70,7 +91,9 @@ module raijuColdStartHelper
         ! Initialize TM03
         call InitTM03(Model%tsF,t0)
 
-        call SetQTRC(dstTarget) ! This sets a global QTRC_P0 inside earthhelper.F90
+        ! Scale target Dst down to account for electrons contributing stuff later
+        dstTarget_p = dstTarget / (1.0 + 1.0/Model%tiote)
+        call SetQTRC(dstTarget_p) ! This sets a global QTRC_P0 inside earthhelper.F90
 
         ! Get Borovsky statistical values
         vSW = abs(GetSWVal("Vx",Model%tsF,t0))
@@ -104,6 +127,7 @@ module raijuColdStartHelper
                 vm = State%bvol_cc(i,j)**(-2./3.)
 
                 kt_rc = T0_TM*(Bvol0_TM/State%bvol_cc(i,j))**(2./3.)
+                kt_rc = min(kt_rc, 4.0*T0_TM)  ! Limit cap. Not a big fan, but without cap we get stuff that's too energetic and won't go away (until FLC maybe)
 
                 call EvalTM03_SM(State%xyzMincc(i,j,:),N0_ps,P0_ps,isInTM03)
 
@@ -128,12 +152,73 @@ module raijuColdStartHelper
             enddo
         enddo
 
-
         end associate
 
-        contains
-
     end subroutine raiColdStart_initHOTP
+
+
+    subroutine raiColdStart_applyCX(Model, Grid, State, spc)
+        type(raijuModel_T), intent(in) :: Model
+        type(raijuGrid_T), intent(in) :: Grid
+        type(raijuState_T), intent(inout) :: State
+        type(raijuSpecies_T), intent(in) :: spc
+
+        integer :: i,j,k
+        type(raiLoss_CX_T) :: lossCX
+        type(XML_Input_T) :: nullXML  ! Needed for raiLoss inits, but CX doesn't actually need it, so make a dummy one
+        real(rp) :: tCX = 12*3600  ! [s] Amount of time to apply CX for
+        !real(rp), dimension(Grid%shGrid%isg:Grid%shGrid%ieg,&
+        !                    Grid%shGrid%jsg:Grid%shGrid%jeg,&
+        !                    spc%kStart:spc%kEnd) :: taus, delEtas
+        real(rp) :: tau
+
+        call lossCX%doInit(Model, Grid, nullXML)
+        
+        !$OMP PARALLEL DO default(shared) &
+        !$OMP schedule(dynamic) &
+        !$OMP private(i,j,tau)
+        do i=Grid%shGrid%isg,Grid%shGrid%ieg
+            do j=Grid%shGrid%jsg,Grid%shGrid%jeg
+                do k = spc%kStart,spc%kEnd
+                    tau = lossCX%calcTau(Model, Grid, State, i, j, k)
+                    State%eta(i,j,k) = State%eta(i,j,k)*exp(-tCX/tau)
+                enddo
+            enddo
+        enddo
+
+    end subroutine raiColdStart_applyCX
+
+
+    subroutine raiColdStart_initHOTE(Model, Grid, State)
+        type(raijuModel_T), intent(in) :: Model
+        type(raijuGrid_T), intent(in) :: Grid
+        type(raijuState_T), intent(inout) :: State
+
+        integer :: sIdx_e, sIdx_p
+        integer :: i,j
+        real(rp) :: kt_p, kt_e, den, vm
+
+        sIdx_p = spcIdx(Grid, F_HOTP)
+        sIdx_e = spcIdx(Grid, F_HOTE)
+
+        !$OMP PARALLEL DO default(shared) &
+        !$OMP schedule(dynamic) &
+        !$OMP private(i,j,vm,den,kt_p,kt_e)
+        do j=Grid%shGrid%jsg,Grid%shGrid%jeg
+            do i=Grid%shGrid%isg,Grid%shGrid%ieg
+                if (State%active(i,j) .eq. RAIJUINACTIVE) cycle
+
+                vm = State%bvol_cc(i,j)**(-2./3.)
+                den = State%Den(i,j,sIdx_p+1)
+                kt_p = DP2kT(den, State%Press(i,j,sIdx_p+1))
+                kt_e = kt_p / Model%tiote
+                call DkT2SpcEta(Model, Grid%spc(sIdx_e), &
+                                State%eta(i,j,Grid%spc(sIdx_e)%kStart:Grid%spc(sIdx_e)%kEnd), &
+                                den, kt_e, vm)
+            enddo
+        enddo
+
+    end subroutine raiColdStart_initHOTE
 
 
     function GetSWVal(vID,fID,t) result(qSW)

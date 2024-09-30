@@ -152,6 +152,32 @@ module raijuetautils
     end function SpcEta2Press
 
 
+    function spcEta2DPS(Model, Grid, State, spc, isGood) result(dpsdst)
+        type(raijuModel_T), intent(in) :: Model
+        type(raijuGrid_T), intent(in) :: Grid
+        type(raijuState_T), intent(in) :: State
+        type(raijuSpecies_T), intent(in) :: spc
+        logical, dimension(Grid%shGrid%isg:Grid%shGrid%ieg, Grid%shGrid%jsg:Grid%shGrid%jeg) :: isGood
+
+        real(rp) :: dpsdst
+        integer :: i,j,k
+        real(rp) :: press, bVol, energyDen, energy
+
+        dpsdst = 0.0
+
+        do j=Grid%shGrid%jsg,Grid%shGrid%jeg
+            do i=Grid%shGrid%isg,Grid%shGrid%ieg
+                if (.not. isGood(i,j)) cycle
+                bVol = State%bvol_cc(i,j)
+                press = SpcEta2Press(spc, State%eta(i,j,spc%kStart:spc%kEnd), bVol)  ! [nPa]
+                energyDen = (press*1.0D-9) * (bVol*Model%planet%ri_m*1.0D9) * (Grid%Brcc(i,j)*1.0D-9)/kev2J  ! p[J/m^3] * bVol[m/T] * B[T]  = [J/m^2] * keV/J = [keV/m^2]
+                energy = energyDen*(Grid%areaCC(i,j)*Model%planet%ri_m**2) !  [keV/m^2]* Re^2[m^2] = [keV]
+                dpsdst = dpsdst - 4.2*(1.0D-30)*energy  ! [nT]
+            enddo
+        enddo
+    end function spcEta2DPS
+
+
     subroutine DkT2SpcEta(Model, spc, eta, D, kT, vm, doAccumulateO, etaBelowO)
         !! Take a density and pressure, and map it to RAIJU eta channels for given species
         type(raijuModel_T), intent(in) :: Model

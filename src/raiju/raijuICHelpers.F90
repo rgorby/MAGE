@@ -189,6 +189,7 @@ module raijuICHelpers
                     enddo
                 enddo
                 State%eta_last = State%eta
+                call setRaijuInitPsphere(Model, Grid, State, Model%psphInitKp)
             
             case("BELL")  ! Bell-like density pulse at L0 along midnight
 
@@ -223,6 +224,7 @@ module raijuICHelpers
                     enddo
                 enddo
                 State%eta_last = State%eta
+                call setRaijuInitPsphere(Model, Grid, State, Model%psphInitKp)
             
             case("WEDGE")  ! Small wedge of constant eta for all channels
 
@@ -245,6 +247,7 @@ module raijuICHelpers
                 enddo
                 
                 State%eta_last = State%eta
+                call setRaijuInitPsphere(Model, Grid, State, Model%psphInitKp)
 
             case("YLINE")  ! Line in the tail along Y-SM direction
 
@@ -258,6 +261,7 @@ module raijuICHelpers
                     enddo
                 enddo
                 State%eta_last = State%eta
+                call setRaijuInitPsphere(Model, Grid, State, Model%psphInitKp)
 
             case("COLDSTART")
                 call iXML%Set_Val(dst0,'prob/dst0',30.0)
@@ -268,8 +272,6 @@ module raijuICHelpers
                 stop
        
         end select
-
-        call setRaijuInitPsphere(Model, Grid, State, Model%psphInitKp)
 
         contains
 
