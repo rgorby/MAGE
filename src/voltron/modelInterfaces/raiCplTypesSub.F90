@@ -55,7 +55,7 @@ submodule (volttypes) raijuCplTypesSub
             if (doColdStart) then
                 ! Its happening, everybody stay calm
                 write(*,*) "RAIJU Cold starting..."
-                call raijuGeoColdStart(App%raiApp, vApp%time, vApp%BSDst)
+                call raijuGeoColdStart(raiApp%Model, raiApp%Grid, raiApp%State, vApp%time, vApp%BSDst)
             endif
         end associate
     end subroutine volt2RAIJU

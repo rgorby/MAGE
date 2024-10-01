@@ -146,7 +146,6 @@ module voltapp
             write (*,*) "Increasing the ending time by a fraction of a second to create a buffer"
             vApp%tFin = vApp%tFin + 0.25_rp
         endif
-
         !Coupling is unified, so adding a separate XML option to control "deep" parts
         call xmlInp%Set_Val(vApp%doDeep, "coupling/doDeep", .true.)
 
