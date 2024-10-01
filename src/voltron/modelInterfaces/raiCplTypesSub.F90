@@ -30,7 +30,8 @@ submodule (volttypes) raijuCplTypesSub
         class(raijuCoupler_T), intent(inout) :: App
         class(voltApp_T), intent(inout) :: vApp
 
-        logical :: doColdStart = .false.
+        logical :: doColdStart
+        doColdStart = .false.
 
         associate(raiApp=>App%raiApp)
 
@@ -51,7 +52,6 @@ submodule (volttypes) raijuCplTypesSub
             call imagTubes2RAIJU(raiApp%Model, raiApp%Grid, raiApp%State, App%ijTubes)
             raiApp%State%espot(:,:) = App%pot%data(:,:) ! They live on the same grid so this is okay
 
-            
             if (doColdStart) then
                 ! Its happening, everybody stay calm
                 write(*,*) "RAIJU Cold starting..."
