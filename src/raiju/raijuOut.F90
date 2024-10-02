@@ -91,7 +91,7 @@ module raijuOut
         integer :: minDtLoc, maxDtLoc
         real(rp) :: minDt, maxDt
         integer :: s, sIdx
-        integer, dimension(2) ::mpLoc
+        integer, dimension(2) :: mpLoc
         real(rp) :: maxPress, maxDen, maxP_Xmin, maxP_Ymin, maxP_L, maxP_MLT
 
         call mjd2utstr(State%mjd,utStr)
@@ -115,21 +115,24 @@ module raijuOut
         do s=1, Model%nSpc
             sIdx = spcIdx(Grid, Grid%spc(s)%flav)
             if (Grid%spc(s)%flav == F_PSPH) then
-                mPLoc = maxloc(State%Den(:,:,1+sIdx))
+                mPLoc = maxloc(State%Den(:,:,1+sIdx))  ! First element = 1, need to account for index offset after
             else
-                mPLoc = maxloc(State%Press(:,:,1+sIdx))
+                mPLoc = maxloc(State%Press(:,:,1+sIdx))  ! First element = 1, need to account for index offset after
             endif
+            mpLoc(1) = mpLoc(1) + Grid%shGrid%isg - 1
+            mpLoc(2) = mpLoc(2) + Grid%shGrid%jsg - 1
+
             maxPress = State%Press(mPLoc(1), mpLoc(2), 1+sIdx)
-            maxDen   = State%Den  (mPLoc(1), mpLoc(2), 1+sIdx)/Grid%spc(sIdx)%amu
+            maxDen   = State%Den  (mPLoc(1), mpLoc(2), 1+sIdx)!/Grid%spc(sIdx)%amu
             maxP_Xmin = State%xyzMincc(mPLoc(1), mpLoc(2),XDIR)
             maxP_Ymin = State%xyzMincc(mPLoc(1), mpLoc(2),YDIR)
 
             maxP_L = sqrt(maxP_Xmin**2 + maxP_Ymin**2)
             maxP_MLT = atan2(maxP_Ymin, maxP_Xmin)/PI*12D0 + 12D0
             if (maxP_MLT > 24) maxP_MLT = maxP_MLT - 24D0
-            write(*,'(a,I0,a,f6.2,a,f6.2,a,f5.2,a,f5.2,a,a,f7.2)') '        ', &
-                Grid%spc(s)%flav, ': P =', maxPress,', D =',maxDen,' @ ',maxP_L,',',maxP_MLT,' [Rp]', &
-                ";  DPS:",spcEta2DPS(Model, Grid, State, Grid%spc(sIdx), State%active .eq. RAIJUACTIVE)
+            write(*,'(a,I0,a,f6.2,a,f6.2,a,f5.2,a,f5.2,a,f7.2)') '        ', &
+                Grid%spc(s)%flav, ': P =', maxPress,', D =',maxDen,' @ ',maxP_L,' Rp,',maxP_MLT, &
+                " MLT; DPS:",spcEta2DPS(Model, Grid, State, Grid%spc(sIdx), State%active .eq. RAIJUACTIVE)
 
         enddo
         write(*,'(a)',advance="no") ANSIRESET
