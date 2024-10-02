@@ -103,7 +103,7 @@ module raijuCplHelper
             ! Assign cell-centered quantities
             !$OMP PARALLEL DO default(shared) collapse(1) &
             !$OMP schedule(dynamic) &
-            !$OMP private(i,j,s,P,D,dBVol)
+            !$OMP private(i,j,s,P,D,Pstd,Dstd,dBVol)
             do i=sh%isg,sh%ieg
                 do j=sh%jsg,sh%jeg
                     ! Note: we are doing this for all cells regardless of their goodness

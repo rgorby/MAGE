@@ -20,6 +20,10 @@ submodule (volttypes) raijuCplTypesSub
         ! If we are restarting, this will get replaced with whatever's in file later
         App%raiApp%State%mjd = App%opt%mjd0
         write(*,*)"MJD0=",App%opt%mjd0
+        if (App%opt%doColdStart) then
+            ! We are gonna cold start, so ignore plasma ingestion rules for first coupling
+            Ap%raiApp%State%isFirstCpl = .false.
+        endif
         ! Then allocate and initialize coupling variables based on raiju app
         call raijuCpl_init(App)
 

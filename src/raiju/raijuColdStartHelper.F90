@@ -48,7 +48,7 @@ module raijuColdStartHelper
         dps_postCX = spcEta2DPS(Model, Grid, State, Grid%spc(sIdx_p), State%active .ne. RAIJUINACTIVE)
         
 
-        !write(*,*)"Lazy raijuGeoColdStart: not rescaling proton eta to target dst, just adding electrons"
+        write(*,*)"Lazy raijuGeoColdStart: not rescaling proton eta to target dst, just adding electrons"
 
         ! Calc moments to update pressure and density
         call EvalMoments(Grid, State)
@@ -167,9 +167,6 @@ module raijuColdStartHelper
         type(raiLoss_CX_T) :: lossCX
         type(XML_Input_T) :: nullXML  ! Needed for raiLoss inits, but CX doesn't actually need it, so make a dummy one
         real(rp) :: tCX = 12*3600  ! [s] Amount of time to apply CX for
-        !real(rp), dimension(Grid%shGrid%isg:Grid%shGrid%ieg,&
-        !                    Grid%shGrid%jsg:Grid%shGrid%jeg,&
-        !                    spc%kStart:spc%kEnd) :: taus, delEtas
         real(rp) :: tau
 
         call lossCX%doInit(Model, Grid, nullXML)
@@ -177,8 +174,8 @@ module raijuColdStartHelper
         !$OMP PARALLEL DO default(shared) &
         !$OMP schedule(dynamic) &
         !$OMP private(i,j,tau)
-        do i=Grid%shGrid%isg,Grid%shGrid%ieg
-            do j=Grid%shGrid%jsg,Grid%shGrid%jeg
+        do j=Grid%shGrid%jsg,Grid%shGrid%jeg
+            do i=Grid%shGrid%isg,Grid%shGrid%ieg
                 do k = spc%kStart,spc%kEnd
                     tau = lossCX%calcTau(Model, Grid, State, i, j, k)
                     State%eta(i,j,k) = State%eta(i,j,k)*exp(-tCX/tau)

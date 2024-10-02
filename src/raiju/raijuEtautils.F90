@@ -153,11 +153,13 @@ module raijuetautils
 
 
     function spcEta2DPS(Model, Grid, State, spc, isGood) result(dpsdst)
+        !! Calculate total DPS-Dst for given species within the defined isGood domain
         type(raijuModel_T), intent(in) :: Model
         type(raijuGrid_T), intent(in) :: Grid
         type(raijuState_T), intent(in) :: State
         type(raijuSpecies_T), intent(in) :: spc
         logical, dimension(Grid%shGrid%isg:Grid%shGrid%ieg, Grid%shGrid%jsg:Grid%shGrid%jeg) :: isGood
+            !! Eval mask, true = point is included in calculation
 
         real(rp) :: dpsdst
         integer :: i,j,k

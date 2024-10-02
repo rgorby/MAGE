@@ -478,6 +478,11 @@ module raijuIO
         call AddOutVar(IOVars,"time",State%t)
         call AddOutVar(IOVars,"ts"  ,State%ts)
         call AddOutVar(IOVars,"MJD" ,State%mjd)
+        if (State%isFirstCpl) then
+            call AddOutVar(IOVars,"isFirstCpl", 1)
+        else
+            call AddOutVar(IOVars,"isFirstCpl", 0)
+        endif
         ! IOClock data
         call AddOutVar(IOVars,"nOut" ,State%IO%nOut)
         call AddOutVar(IOVars,"nRes" ,State%IO%nRes)
@@ -551,6 +556,7 @@ module raijuIO
         type(IOVAR_T), dimension(MAXIOVAR) :: IOVars
         integer :: Ntg, Npg
             !! Number of theta and phi cells, including ghosts
+        integer :: tmpInt
         real(rp), dimension(:)  , allocatable :: tmpReal1D
         real(rp), dimension(:,:), allocatable :: tmpReal2D
 
@@ -562,6 +568,7 @@ module raijuIO
         call AddInVar(IOVars,"MJD" )
         call AddInVar(IOVars,"nOut")
         call AddInVar(IOVars,"nRes")
+        call AddInVar(IOVars,"isFirstCpl")
 
         call AddInVar(IOVars,"dtCpl"  )
         call AddInVar(IOVars,"xmin"   )
@@ -611,6 +618,10 @@ module raijuIO
         State%dt      = GetIOReal(IOVars, "dtCpl")
         State%IO%nOut = GetIOInt (IOVars, "nOut" )
         State%IO%nRes = GetIOInt (IOVars, "nRes" )
+        
+        ! Handle boolean attributes
+        tmpInt = GetIOInt(IOVars, "isFirstCpl")
+        State%isFirstCpl = tmpInt .eq. 1
 
         call IOArray2DFill(IOVars, "xmin" , State%xyzMin(:,:,XDIR))
         call IOArray2DFill(IOVars, "ymin" , State%xyzMin(:,:,YDIR))
