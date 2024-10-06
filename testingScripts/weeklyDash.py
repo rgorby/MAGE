@@ -160,7 +160,7 @@ def weekly_dash(args: dict):
 
     # ------------------------------------------------------------------------
 
-    # Copy the input files for the weekly dash job.
+    # Copy the input files for the weekly dash job to the build directory.
     if verbose:
         print("Copying XML files needed for weekly dash.")
     for filename in WEEKLY_DASH_TEST_FILES:
@@ -231,7 +231,7 @@ def weekly_dash(args: dict):
     # Summarize the test results.
     test_summary = (
         f"Weekly dash for `{os.environ['BRANCH_OR_COMMIT']}` using module "
-        f"set {module_set_file} submitted as job {jobid}."
+        f"set `{module_set_file}` submitted as job {jobid}."
     )
 
     # Print the test results summary and details.
