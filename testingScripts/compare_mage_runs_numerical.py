@@ -386,8 +386,9 @@ def compare_mage_runs_numerical(args: dict):
     """
     # Local convenience variables.
     debug = args.get("debug", False)
-    # loud = args.get("loud", False)
-    # test = args.get("test", False)
+    loud = args.get("loud", False)
+    slack_on_fail = args.get("slack_on_fail", False)
+    test = args.get("test", False)
     verbose = args.get("verbose", False)
     runxml1 = args["runxml1"]
     runxml2 = args["runxml2"]
@@ -444,11 +445,40 @@ def compare_mage_runs_numerical(args: dict):
         print(f"comparison_result = {comparison_result}")
     comparison_results.append(comparison_result)
 
-    print(f"comparison_results = {comparison_results}")
-
     # ------------------------------------------------------------------------
 
-    # Post report to Slack.
+    # Detail the test results
+    test_report_details_string = ''
+    test_report_details_string += f"GAMERA: *{comparison_results[0]}*\n"
+    test_report_details_string += f"MHD RCM: *{comparison_results[1]}*\n"
+    test_report_details_string += f"REMIX: *{comparison_results[2]}*\n"
+    test_report_details_string += f"RCM: *{comparison_results[3]}*\n"
+    test_report_details_string += f"VOLTRON: *{comparison_results[4]}*\n"
+
+    # Summarize the test results.
+    test_report_summary_string = (
+        f"Numerical comparison results for `{runxml1}` and `{runxml2}`: "
+    )
+    if "FAIL" in test_report_details_string:
+        test_report_summary_string += "*FAILED*"
+    else:
+        test_report_summary_string += "*PASS*"
+
+    # Print the test results summary and details.
+    print(test_report_summary_string)
+    print(test_report_details_string)
+
+    # If a test failed, or loud mode is on, post report to Slack.
+    if (slack_on_fail and "FAIL" in test_report_summary_string) or loud:
+        slack_client = common.slack_create_client()
+        slack_response_summary = common.slack_send_message(
+            slack_client, test_report_summary_string, is_test=test
+        )
+        thread_ts = slack_response_summary["ts"]
+        slack_response_summary = common.slack_send_message(
+            slack_client, test_report_details_string, thread_ts=thread_ts,
+            is_test=test
+        )
 
     # ------------------------------------------------------------------------
 
