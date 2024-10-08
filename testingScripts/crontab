@@ -17,3 +17,6 @@
 # compare to reference master and development runs listed in
 # reference_runs.txt.
 25 00 * * 1 ssh derecho "/glade/u/home/ewinter/scratch/mage_testing/kaiju-private/ewinter-derecho_testing/kaiju-private/testingScripts/run_mage_tests.sh -v -b development 'weeklyDash.py -sv'" >> /glade/u/home/ewinter/scratch/mage_testing/logs/weeklyDash-1-development.out 2>&1
+
+# Run the weekly derecho configuration check.
+30 00 * * 1 ssh derecho "/glade/u/home/ewinter/scratch/mage_testing/kaiju-private/ewinter-derecho_testing/kaiju-private/testingScripts/run_mage_tests.sh -v -b master 'derecho_configuration_check.py -sv'" >> /glade/u/home/ewinter/scratch/mage_testing/logs/derecho_configuration_check.out 2>&1
