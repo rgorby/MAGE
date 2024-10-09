@@ -616,6 +616,7 @@ def compare_mage_runs(args):
     # Local convenience variables.
     debug = args.get("debug", False)
     loud = args.get("loud", False)
+    run_description = args.get("run_description", None)
     test = args.get("test", False)
     verbose = args.get("verbose", False)
 
@@ -638,6 +639,8 @@ def compare_mage_runs(args):
         with open(args["run_xml_list_file"], "r", encoding="utf-8") as f:
             lines = f.readlines()
         run_xml_files += [line.strip() for line in lines]
+    if debug:
+        print(f"run_xml_files = {run_xml_files}")
 
     # Append any run XML files listed on the command line.
     if len(args["run_xml_to_compare"]) > 0:
@@ -648,16 +651,6 @@ def compare_mage_runs(args):
     # run_xml_files is now a list which contains the full path to the XML
     # files which describes each run to compare. The directory containing each
     # XML file is assumed to contain all of the result files for that run.
-
-    # ------------------------------------------------------------------------
-
-    # If running in the testing environment, move  to a directory to save the
-    # results. Otherwise, create plots in the current directory.
-    # if "MAGE_TEST_SET_ROOT" in os.environ:
-    #     path = os.path.join(os.environ["MAGE_TEST_SET_ROOT"],
-    #                         "compare_mage_runs")
-    #     os.mkdir(path)
-    #     os.chdir(path)
 
     # ------------------------------------------------------------------------
 
@@ -758,22 +751,15 @@ def compare_mage_runs(args):
     # If loud mode is on, post results to Slack.
     if loud:
         slack_client = common.slack_create_client()
-        if debug:
-            print(f"slack_client = {slack_client}")
-        message = (
-            "Weekly dash result plots complete for "
-            f"`{os.environ['BRANCH_OR_COMMIT']}`.\n"
-        )
+        if run_description is not None:
+            message = run_description
+        else:
+            message = "Comparison plots"
         slack_response = common.slack_send_message(
             slack_client, message, is_test=test)
         if slack_response["ok"]:
             parent_ts = slack_response["ts"]
             message = f"Test results are in `{os.getcwd()}`.\n"
-            message += (
-                "This was a 4x4x1 (IxJxK) decomposed Quad Resolution Run using"
-                " 8 nodes for Gamera, 1 for Voltron, and 2 Squish Helper nodes"
-                " (11 nodes total)."
-            )
             slack_response = common.slack_send_message(
                 slack_client, message, thread_ts=parent_ts, is_test=test)
             for (f, c) in zip(images_to_post, comments_to_post):
@@ -799,6 +785,13 @@ def main():
     parser = common.create_command_line_parser(DESCRIPTION)
 
     # Add additional arguments specific to this script.
+    parser.add_argument(
+        "--run_description", default=None,
+        help=(
+            "Descriptive string to use in messages from script "
+            "(default: %(default)s)"
+        )
+    )
     parser.add_argument(
         "--run_xml_list_file", "-f", default=None,
         help=(
