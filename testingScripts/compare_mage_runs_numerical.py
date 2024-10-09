@@ -387,6 +387,7 @@ def compare_mage_runs_numerical(args: dict):
     # Local convenience variables.
     debug = args.get("debug", False)
     loud = args.get("loud", False)
+    run_description = args.get("run_description", None)
     slack_on_fail = args.get("slack_on_fail", False)
     test = args.get("test", False)
     verbose = args.get("verbose", False)
@@ -447,8 +448,8 @@ def compare_mage_runs_numerical(args: dict):
 
     # ------------------------------------------------------------------------
 
-    # Detail the test results
-    test_report_details_string = ''
+    # Detail the test results.
+    test_report_details_string = ""
     test_report_details_string += f"GAMERA: *{comparison_results[0]}*\n"
     test_report_details_string += f"MHD RCM: *{comparison_results[1]}*\n"
     test_report_details_string += f"REMIX: *{comparison_results[2]}*\n"
@@ -456,11 +457,13 @@ def compare_mage_runs_numerical(args: dict):
     test_report_details_string += f"VOLTRON: *{comparison_results[4]}*\n"
 
     # Summarize the test results.
-    test_report_summary_string = (
-        f"Numerical comparison results for `{runxml1}` and `{runxml2}`: "
-    )
+    if run_description is not None:
+        test_report_summary_string = run_description
+    else:
+        test_report_summary_string = "Numerical comparison results"
+    test_report_summary_string += "\n"
     if "FAIL" in test_report_details_string:
-        test_report_summary_string += "*FAILED*"
+        test_report_summary_string += "*FAIL*"
     else:
         test_report_summary_string += "*PASS*"
 
@@ -493,6 +496,13 @@ def main():
     parser = common.create_command_line_parser(DESCRIPTION)
 
     # Add additional arguments specific to this script.
+    parser.add_argument(
+        "--run_description", default=None,
+        help=(
+            "Descriptive string to use in messages from script "
+            "(default: %(default)s)"
+        )
+    )
     parser.add_argument(
         "runxml1", help="Path to XML file describing 1st run."
     )
