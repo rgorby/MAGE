@@ -60,7 +60,7 @@ echo 'The active environment variables are:'
 printenv
 
 # Run the comparison.
-cmd="python $KAIJUHOME/testingScripts/compare_mage_runs_numerical.py -ltv {{ xml1 }} {{ xml2 }} >& compare_mage_runs_numerical.out"
+cmd="python $KAIJUHOME/testingScripts/compare_mage_runs_numerical.py -sv --run_description='MAGE reproducibility check' {{ xml1 }} {{ xml2 }} >& compare_mage_runs_numerical.out"
 echo "Run comparison command is:"
 echo $cmd
 eval $cmd
