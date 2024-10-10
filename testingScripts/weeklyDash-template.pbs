@@ -95,8 +95,8 @@ echo "Model run command is:"
 echo $cmd
 eval $cmd
 
-# Run the comparison.
-cmd="python $KAIJUHOME/testingScripts/compare_mage_runs.py -lv --run_xml_list_file=/glade/u/home/ewinter/mage_testing/test_runs/reference_runs.txt `pwd`/weeklyDashGo.xml >& compare_mage_runs.out"
+# Run the comparison. Always post results to Slack.
+cmd="python $KAIJUHOME/testingScripts/compare_mage_runs.py -lv --run_xml_list_file=/glade/u/home/ewinter/mage_testing/test_runs/reference_runs.txt --run_description='Weekly dash results' `pwd`/weeklyDashGo.xml >& compare_mage_runs.out"
 echo "Run comparison command is:"
 echo $cmd
 eval $cmd
