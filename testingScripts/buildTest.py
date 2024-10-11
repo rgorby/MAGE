@@ -333,10 +333,6 @@ def main():
 
     # End of loop over module sets.
 
-    # <HACK>
-    test_passed[-1] = False
-    # </HACK>
-
     # ------------------------------------------------------------------------
 
     # Detail the test results
