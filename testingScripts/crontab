@@ -4,6 +4,13 @@
 # Run build, initial condition, and Intel Inspector tests every morning on the
 # development and master branches. These tests do not require PBS jobs and do
 # not modify the source tree.
+# The buildTest.py and ICtest.py scripts are run in loud (-l) mode, so their
+# results are always posted to Slack.
+# The intelChecks.py script is run in slack-on-fail (-s) mode, so that the
+# job submission is reported to Slack onlky if there is a problem. The report
+# generated for the Intel checks is run in loud mode, so the results are
+# always reported to Slack.
+# 49 * * * * ssh derecho "/glade/u/home/ewinter/scratch/mage_testing/kaiju-private/ewinter-derecho_testing/kaiju-private/testingScripts/run_mage_tests.sh -v -b development 'buildTest.py -stv,ICtest.py -stv,intelChecks.py -stv'" >> /glade/u/home/ewinter/scratch/mage_testing/logs/nightly_tests-development.out 2>&1
 05 00 * * * ssh derecho "/glade/u/home/ewinter/scratch/mage_testing/kaiju-private/ewinter-derecho_testing/kaiju-private/testingScripts/run_mage_tests.sh -v -b development 'buildTest.py -lv,ICtest.py -lv,intelChecks.py -sv'" >> /glade/u/home/ewinter/scratch/mage_testing/logs/nightly-tests-1-development.out 2>&1
 10 00 * * * ssh derecho "/glade/u/home/ewinter/scratch/mage_testing/kaiju-private/ewinter-derecho_testing/kaiju-private/testingScripts/run_mage_tests.sh -v -b master      'buildTest.py -lv,ICtest.py -lv,intelChecks.py -sv'" >> /glade/u/home/ewinter/scratch/mage_testing/logs/nightly-tests-1-master.out      2>&1
 
@@ -20,3 +27,6 @@
 
 # Run the weekly derecho configuration check.
 30 00 * * 1 ssh derecho "/glade/u/home/ewinter/scratch/mage_testing/kaiju-private/ewinter-derecho_testing/kaiju-private/testingScripts/run_mage_tests.sh -v -b master 'derecho_configuration_check.py -sv'" >> /glade/u/home/ewinter/scratch/mage_testing/logs/derecho_configuration_check.out 2>&1
+
+# Run the weekly MAGE reproducibility check.
+35 00 * * 1 ssh derecho "/glade/u/home/ewinter/scratch/mage_testing/kaiju-private/ewinter-derecho_testing/kaiju-private/testingScripts/run_mage_tests.sh -v -b master 'mage_reproducibility_check.py -sv'" >> /glade/u/home/ewinter/scratch/mage_testing/logs/mage_reproducibility_check.out 2>&1
