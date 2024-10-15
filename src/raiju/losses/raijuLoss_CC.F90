@@ -90,6 +90,7 @@ module raijuLoss_CC
 
 
     ! Simple Coulomb collision losses, using fit to Ebihara+ 98 Fig #5
+    !  Note: assumes psph e- temp is 1 eV. Derived from Fok+ 1991
     function CCTau(spcType,alam,vm,Dpp) result(tau)
         integer, intent(in) :: spcType
         real(rp), intent(in) :: alam,vm,Dpp !Dpp is plasmasphere density in #/cc
