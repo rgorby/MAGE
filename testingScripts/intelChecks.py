@@ -381,7 +381,8 @@ def intelChecks(args: dict):
         pbs_options["report_options"] = ""
         if debug:
             pbs_options["report_options"] += " -d"
-        pbs_options["report_options"] += " -l"  # Always post report
+        if slack_on_fail:
+            pbs_options["report_options"] += " -s"
         if is_test:
             pbs_options["report_options"] += " -t"
         if verbose:
