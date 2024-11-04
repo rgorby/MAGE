@@ -30,5 +30,6 @@
 # sent to Slack on failure.
 30 00 * * 0 ssh derecho "/glade/u/home/ewinter/scratch/mage_testing/kaiju-private/ewinter-derecho_testing/kaiju-private/testingScripts/run_mage_tests.sh -v -b master 'derecho_configuration_check.py -sv'" >> /glade/u/home/ewinter/scratch/mage_testing/logs/derecho_configuration_check.out 2>&1
 
-# Run the weekly MAGE reproducibility check check on Sunday morning.
-35 00 * * 0 ssh derecho "/glade/u/home/ewinter/scratch/mage_testing/kaiju-private/ewinter-derecho_testing/kaiju-private/testingScripts/run_mage_tests.sh -v -b master 'mage_reproducibility_check.py -sv'" >> /glade/u/home/ewinter/scratch/mage_testing/logs/mage_reproducibility_check.out 2>&1
+# Run the weekly MAGE reproducibility check check on Sunday morning. Report
+# only sent to Slack on failure.
+35 00 * * 0 ssh derecho "/glade/u/home/ewinter/scratch/mage_testing/kaiju-private/ewinter-derecho_testing/kaiju-private/testingScripts/run_mage_tests.sh -v -b development 'mage_reproducibility_check.py -sv'" >> /glade/u/home/ewinter/scratch/mage_testing/logs/mage_reproducibility_check.out 2>&1
