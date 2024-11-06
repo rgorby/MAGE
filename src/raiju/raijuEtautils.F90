@@ -215,7 +215,7 @@ module raijuetautils
         
         if (size(eta) .eq. 1) then
             ! Just throw all the density into the one channel
-            eta(spc%kStart) = eta(spc%kStart) + D/(vm**1.5)*sclEta ! #/cc * Rx/nT * 1/nT -> 1/T
+            eta(spc%kStart) = eta(spc%kStart) + D/(vm**1.5)*sclEta ! #/cc * Rx/nT * nT/T -> #/cc*Rx/T
             return
         endif
 
@@ -298,7 +298,7 @@ module raijuetautils
             !! Eta in units of [#/cc * Rx/T]
         etaK = 0.0
 
-        A0 = D/(vm**1.5)*sclEta ! #/cc * Rx/nT * 1/nT -> 1/T
+        A0 = D/(vm**1.5)*sclEta ! #/cc * Rx/nT * nT/T -> #/cc*Rx/T
         xp = sqrt(abs(amax)*vm / (kT*1.e3))  ! [eV/eV]
         xm = sqrt(abs(amin)*vm / (kT*1.e3))
 
@@ -386,8 +386,8 @@ module raijuetautils
         do j=Grid%shGrid%jsg,Grid%shGrid%jeg
             do i=Grid%shGrid%isg,Grid%shGrid%ieg
                 den = GallagherXY(State%xyzMincc(i,j,XDIR), State%xyzMincc(i,j,YDIR), Kp)  ! [#/cc]
-                vm = State%bvol_cc(i,j)**(-2./3.)
-                etaPsph(i,j) = den/(vm**1.5)*sclEta
+                !vm = State%bvol_cc(i,j)**(-2./3.)
+                etaPsph(i,j) = den*State%bvol_cc(i,j)*sclEta
             enddo
         enddo
 

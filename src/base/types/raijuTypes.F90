@@ -346,11 +346,11 @@ module raijutypes
 
         ! -- Solver values -- !
         real(rp), dimension(:,:,:), allocatable :: eta
-            !! (Ngi, Ngj, Nk) [#/cc * Rp/nT] etas
+            !! (Ngi, Ngj, Nk) [#/cc * Rp/T] etas
         real(rp), dimension(:,:,:), allocatable :: eta_half
-            !! (Ngi, Ngj, Nk) [#/cc * Rp/nT] etas  0.5*dt forward from t
+            !! (Ngi, Ngj, Nk) [#/cc * Rp/T] etas  0.5*dt forward from t
         real(rp), dimension(:,:,:), allocatable :: eta_last
-            !! (Ngi, Ngj, Nk) [#/cc * Rp/nT] etas from previous time step, used for halt-time calculation
+            !! (Ngi, Ngj, Nk) [#/cc * Rp/T] etas from previous time step, used for halt-time calculation
         logical, dimension(:,:), allocatable :: activeShells
             !! (Ngi, Nk) i shells that should be evolved for a given lambda
         real(rp), dimension(:,:,:), allocatable :: pEff

@@ -341,11 +341,13 @@ module raijuIO
             call AddOutVar(IOVars, "precipNFlux", outPrecipN   , uStr="#/cm^2/s")
             call AddOutVar(IOVars, "precipEFlux", outPrecipE   , uStr="erg/cm^2/s")
             call AddOutVar(IOVars, "precipAvgE" , outPrecipAvgE, uStr="keV")
-            call AddOutVar(IOVars, "CCHeatFlux" , outCCHeatFlux, uStr="erg/cm^2/s")
+            call AddOutVar(IOVars, "CCHeatFlux" , outCCHeatFlux, uStr="eV/cm^2/s")
             deallocate(outPrecipN)
             deallocate(outPrecipE)
             deallocate(outPrecipAvgE)
             deallocate(outCCHeatFlux)
+
+            call AddOutVar(IOVars, "CCHeatFlux_Nk" , State%CCHeatFlux (is:ie,js:je,:), uStr="eV/cm^2/s")
         endif
 
         
