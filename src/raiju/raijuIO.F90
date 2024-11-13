@@ -108,18 +108,17 @@ module raijuIO
         call AddOutVar(IOVars,"Y",lon2D,uStr="radians")
         call WriteVars(IOVars,.true.,Model%raijuH5)
         ! Grid data
-        call AddOutVar(IOVars,"th_surf"  ,Grid%thRp (is:ie+1),uStr="radians",dStr="(corner) Thetas mapped to 1 Rp")
-        call AddOutVar(IOVars,"thcc_surf",Grid%thcRp(is:ie  ),uStr="radians",dStr="(cell) Thetas mapped to 1 Rp")
-        call AddOutVar(IOVars,"Bmag",Grid%Bmag(is:ie,js:je),uStr="nT")
-        call AddOutVar(IOVars,"BrFace",Grid%BrFace(is:ie+1,js:je+1,:),uStr="nT")
-        call AddOutVar(IOVars,"BrCC",Grid%BrCC(is:ie,js:je),uStr="nT")
-        call AddOutVar(IOVars,"areaCC",Grid%areaCC  (is:ie,js:je),uStr="Ri^2")
-        call AddOutVar(IOVars,"alamc",Grid%alamc,uStr="eV * (Rx/nT)^(2/3)")
-        if (Model%doDebugOutput) then
-            call AddOutVar(IOVars,"areaFace",Grid%areaFace(is:ie+1,js:je+1,:),uStr="Ri^2")
-            call AddOutVar(IOVars,"lenFace" ,Grid%lenFace (is:ie+1,js:je+1,:),uStr="Ri")
-        endif
+        call AddOutVar(IOVars,"th_surf"  ,Grid%thRp  (is:ie+1),uStr="radians",dStr="(corner) Thetas mapped to 1 Rp")
+        call AddOutVar(IOVars,"thcc_surf",Grid%thcRp (is:ie  ),uStr="radians",dStr="(cell) Thetas mapped to 1 Rp"  )
+        call AddOutVar(IOVars,"Bmag"     ,Grid%Bmag  (is:ie,js:je),uStr="nT")
+        call AddOutVar(IOVars,"BrCC"     ,Grid%BrCC  (is:ie,js:je),uStr="nT")
+        call AddOutVar(IOVars,"areaCC"   ,Grid%areaCC(is:ie,js:je),uStr="Ri^2")
+        call AddOutVar(IOVars,"BrFace"   ,Grid%BrFace(is:ie+1,js:je+1,:),uStr="nT")
+        call AddOutVar(IOVars,"alamc"    ,Grid%alamc,uStr="eV * (Rx/nT)^(2/3)")
+        call AddOutVar(IOVars,"areaFace",Grid%areaFace(is:ie+1,js:je+1,:),uStr="Ri^2")
+        call AddOutVar(IOVars,"lenFace" ,Grid%lenFace (is:ie+1,js:je+1,:),uStr="Ri")
         call WriteVars(IOVars,.true.,Model%raijuH5,"Grid")
+
         call writeShellGrid(Grid%shGrid, Model%raijuH5, "Grid/ShellGrid")
 
         ! Output detailed lambda grid info
@@ -167,10 +166,7 @@ module raijuIO
         real(rp), dimension(:,:,:), allocatable :: outTmp3D
         real(rp), dimension(:,:,:,:), allocatable :: outTmp4D
         logical , dimension(:,:,:), allocatable :: tmpGood3D
-        !real(rp), dimension(:,:), allocatable :: outActiveShell, outEnt
-        !real(rp), dimension(:,:,:), allocatable :: outDen, outIntensity
         real(rp), dimension(:,:,:), allocatable :: outPrecipN, outPrecipE, outPrecipAvgE, outCCHeatFlux
-        !real(rp), dimension(:,:,:), allocatable :: outPEff  ! effective Potential
 
         if (present(doGhostsO)) then
             doGhosts = doGhostsO
@@ -223,22 +219,24 @@ module raijuIO
 
         ! Calc intensity
         allocate(outTmp3D(is:ie,js:je,Grid%Nk))
-        !allocate(outIntensity(is:ie,js:je,Grid%Nk))
-        !outIntensity = 0.0
         outTmp3D = 0.0
-        do s=1,Grid%nSpc
-            if (Grid%spc(s)%flav==F_PSPH) then
-                cycle  ! Skip plasmasphere since it has zero energy
-            endif
+        !$OMP PARALLEL DO default(shared) &
+        !$OMP schedule(dynamic) &
+        !$OMP private(i,j,s,bVol_cc)
+        do j=js,je
             do i=is,ie
-                do j=js,je
-                    if (all(State%bVol(i:i+1,j:j+1) > 0)) then
-                        bVol_cc = 0.25*(State%bVol(i,j) + State%bVol(i+1,j) + State%bVol(i,j+1) + State%bVol(i+1,j+1))
-                        outTmp3D(i,j,Grid%spc(s)%kStart:Grid%spc(s)%kEnd) = &
-                            eta2intensity(Grid%spc(s),   &
-                            bVol_cc,   &
-                            State%eta (i,j,Grid%spc(s)%kStart:Grid%spc(s)%kEnd))
+                if (State%active(i,j) .eq. RAIJUINACTIVE) then
+                    cycle
+                endif
+                do s=1,Grid%nSpc
+                    if (Grid%spc(s)%flav==F_PSPH) then
+                        cycle  ! Skip plasmasphere since it has zero energy
                     endif
+                    
+                    outTmp3D(i,j,Grid%spc(s)%kStart:Grid%spc(s)%kEnd) = &
+                        eta2intensity(Grid%spc(s),   &
+                        State%bvol_cc(i,j),   &
+                        State%eta (i,j,Grid%spc(s)%kStart:Grid%spc(s)%kEnd))
                 enddo
             enddo
         enddo
@@ -264,7 +262,6 @@ module raijuIO
         call AddOutVar(IOVars,"Dstd_in",State%Dstd   (is:ie,js:je, :)        ,uStr="normalized" ,dStr="Std. dev. of species density from imagtubes")
 
         ! Idk about you but I did not expect true to equal -1
-        !allocate(outActiveShell(is:ie, Grid%Nk))
         allocate(outTmp2D(is:ie, Grid%Nk))
         where (State%activeShells)
             outTmp2D = 1.0
@@ -276,17 +273,13 @@ module raijuIO
 
     ! Moments
         call AddOutVar(IOVars,"Pressure",State%Press(is:ie,js:je,:),uStr="nPa")
-        
-        !do s=0,Grid%nFluidIn
-        !    write(*,*)"Davg_in ",s,maxval(State%Davg(is:ie,js:je,s))
-        !enddo
+
         ! Add density moment as #/cc instead of amu/cc
         allocate(outTmp3D(is:ie,js:je,Grid%nSpc+1))
         outTmp3D = 0.0
         do s=1, Grid%nSpc
             ! Convert amu/cc to #/cc
             outTmp3D(:,:,s+1) = State%Den(is:ie,js:je,s+1)/Grid%spc(s)%amu
-            !write(*,*)"Den out ",s,maxval(outTmp3D(:,:,s+1))
             ! Don't include electrons to total number density
             if(Grid%spc(s)%spcType .ne. RAIJUELE) then
                 outTmp3D(:,:,1) = outTmp3D(:,:,1) + outTmp3D(:,:,s+1)
@@ -303,10 +296,10 @@ module raijuIO
         !$OMP private(i,j)
         do j=js,je
             do i=is,ie
-                !if (all(State%bVol(i:i+1,j:j+1) > 0)) then
-                !bvol_cc = 0.25*(State%bVol(i,j) + State%bVol(i+1,j) + State%bVol(i,j+1) + State%bVol(i+1,j+1))
+                if (State%active(i,j) .eq. RAIJUINACTIVE) then
+                    cycle
+                endif
                 outTmp2D(i,j) = State%Press(i,j,1)*State%bvol_cc(i,j)**(5./3.)
-                !endif
             enddo
         enddo
         call AddOutVar(IOVars,"FTEntropy",outTmp2D,uStr="nPa*(Rp/nT)^(5/3)")
@@ -346,25 +339,24 @@ module raijuIO
             deallocate(outPrecipE)
             deallocate(outPrecipAvgE)
             deallocate(outCCHeatFlux)
-
-            call AddOutVar(IOVars, "CCHeatFlux_Nk" , State%CCHeatFlux (is:ie,js:je,:), uStr="eV/cm^2/s")
         endif
 
         
         if (Model%doFatOutput) then
-            call AddOutVar(IOVars, "gradPotE"    , State%gradPotE    (is:ie+1,js:je+1,:), uStr="V/m")
-            call AddOutVar(IOVars, "gradPotCorot", State%gradPotCorot(is:ie+1,js:je+1,:), uStr="V/m")
-            call AddOutVar(IOVars, "gradVM"      , State%gradVM      (is:ie+1,js:je+1,:), uStr="V/m/lambda")
-            call AddOutVar(IOVars, "gradPotE_cc"    , State%gradPotE_cc    (is:ie,js:je,:), uStr="V/m")
-            call AddOutVar(IOVars, "gradPotCorot_cc", State%gradPotCorot_cc(is:ie,js:je,:), uStr="V/m")
-            call AddOutVar(IOVars, "gradVM_cc"      , State%gradVM_cc      (is:ie,js:je,:), uStr="V/m/lambda")
-            call AddOutVar(IOVars, "preciplossRates_Nk", State%lossRates  (is:ie,js:je,:), uStr="1/s")
+            ! (Ni, Nj, 2)
+            call AddOutVar(IOVars, "gradPotE"       , State%gradPotE    (is:ie+1,js:je+1,:), uStr="V/m")
+            call AddOutVar(IOVars, "gradPotCorot"   , State%gradPotCorot(is:ie+1,js:je+1,:), uStr="V/m")
+            call AddOutVar(IOVars, "gradVM"         , State%gradVM      (is:ie+1,js:je+1,:), uStr="V/m/lambda")
+            call AddOutVar(IOVars, "gradPotE_cc"    , State%gradPotE_cc    (is:ie,js:je,:) , uStr="V/m")
+            call AddOutVar(IOVars, "gradPotCorot_cc", State%gradPotCorot_cc(is:ie,js:je,:) , uStr="V/m")
+            call AddOutVar(IOVars, "gradVM_cc"      , State%gradVM_cc      (is:ie,js:je,:) , uStr="V/m/lambda")
+            ! (Ni, Nj, Nk)
             call AddOutVar(IOVars, "precipNFlux_Nk"    , State%precipNFlux(is:ie,js:je,:), uStr="#/cm^2/s")
             call AddOutVar(IOVars, "precipEFlux_Nk"    , State%precipEFlux(is:ie,js:je,:), uStr="erg/cm^2/s")
+            call AddOutVar(IOVars, "CCHeatFlux_Nk" , State%CCHeatFlux (is:ie,js:je,:), uStr="eV/cm^2/s")
 
             ! Calc pEffective based on current state
             ! Make full ghost size since that's what the subroutine expects
-            !allocate(outPEff   (Grid%shGrid%isg:Grid%shGrid%ieg+1,Grid%shGrid%jsg:Grid%shGrid%jeg+1,Grid%Nk))
             allocate(outTmp3D(Grid%shGrid%isg:Grid%shGrid%ieg+1,Grid%shGrid%jsg:Grid%shGrid%jeg+1,Grid%Nk))
             call calcEffectivePotential(Model, Grid, State, outTmp3D)
             call AddOutVar(IOVars, "pEffective", outTmp3D(is:ie+1,js:je+1,:)*1e-3, uStr="kV")
@@ -372,7 +364,6 @@ module raijuIO
         endif
 
         if (Model%doDebugOutput) then
-            ! Lots of weird stuff
             call AddOutVar(IOVars, "eta_half"     , State%eta_half     (is:ie  ,js:je  ,:)  , uStr="#/cm^3 * Rx/T")
             call AddOutVar(IOVars, "iVel"         , State%iVel         (is:ie+1,js:je+1,:,:), uStr="m/s")
             call AddOutVar(IOVars, "iVelL"        , State%iVelL        (is:ie+1,js:je+1,:,:), uStr="m/s")
@@ -388,10 +379,9 @@ module raijuIO
             allocate(tmpGood2D(Grid%shGrid%isg:Grid%shGrid%ieg+1,Grid%shGrid%jsg:Grid%shGrid%jeg+1   ))
             allocate(outTmp3D (Grid%shGrid%isg:Grid%shGrid%ieg  ,Grid%shGrid%jsg:Grid%shGrid%jeg  ,2))
             allocate(outTmp4D (Grid%shGrid%isg:Grid%shGrid%ieg  ,Grid%shGrid%jsg:Grid%shGrid%jeg,Grid%Nk ,2))
+            tmpGood2D = .false.
             where (State%topo .eq. RAIJUCLOSED)
-                tmpGood2D = .true.
-            elsewhere
-                tmpGood2D = .false.
+                tmpGood2D = .true.                
             end where
             call calcGradVM_cc(Model%planet%rp_m, Model%planet%ri_m, Model%planet%magMoment, &
                                 Grid, tmpGood2D, State%bvol, outTmp3D, doSmoothO=.false., doLimO=.false.)

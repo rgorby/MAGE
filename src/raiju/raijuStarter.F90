@@ -132,7 +132,7 @@ module raijustarter
         ! Determine number of species. First set default, then read from xml to overwrite if present
         if (Model%doPlasmasphere) then
             Model%nSpc = 3
-            call iXML%Set_Val(Model%psphInitKp, "plasmasphere/initKp",5.0)
+            call iXML%Set_Val(Model%psphInitKp, "plasmasphere/initKp",3.0)
         else
             Model%nSpc = 2
         endif
@@ -213,19 +213,6 @@ module raijustarter
         call iXML%Set_Val(Model%doCX    , "losses/doCX" ,.true.)
         call iXML%Set_Val(Model%doFLC   , "losses/doFLC",.false.)
         call iXML%Set_Val(Model%doLossOutput, "losses/doOutput",.false.)  ! Several (Ni,Nj,Nk) arrays
-
-        ! Electron loss model
-        !call iXML%Set_Val(tmpStr, "losses/eLossModel","WM")
-        !select case (tmpStr)
-        !    case ("WM")
-        !        write(*,*) "(RAIJU) Using Wang-Bao electron wave model"
-        !        Model%eLossModel = RaiELOSS_WM
-        !        Model%eLossRateFn => calcELossRate_WM
-        !        ! We init later now, up in raijuInit, since initEWM needs Grid info for diagnostic output
-        !    case default
-        !        write(*,*) "(RAIJU) Did not get a valid electron loss model, goodbye"
-        !        stop
-        !end select
 
         call iXML%Set_Val(Model%doFatOutput, "output/doFat",.false.)
         ! TODO: Add flags to output certain data, like coupling information
