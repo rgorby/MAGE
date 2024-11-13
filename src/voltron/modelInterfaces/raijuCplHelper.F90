@@ -40,10 +40,6 @@ module raijuCplHelper
             raiCpl%pot%data = 0.0
             raiCpl%pot%mask = .true.
 
-            ! Allocations
-            !Initial values
-            raiCpl%tLastUpdate = -1.0*HUGE
-
     end subroutine raijuCpl_init
 
 

@@ -36,10 +36,6 @@ program raijuOWDx
         !! Kinda hacky, just create a voltApp object and initialize only the parts we're gonna use ourselves
     !Holder for remix data
     type(rmReader_T) :: rmReader
-
-    !type(raijuApp_T   ) :: raiApp
-    !type(raiju_cplBase_T) :: raijuCplBase
-    !class(raijuCoupler_T), allocatable :: raiCplApp
     type(raijuCoupler_T) :: raiCplApp
 
     character(len=strLen) :: XMLStr, gStr, ftag

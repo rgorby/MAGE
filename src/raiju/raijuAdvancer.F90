@@ -144,10 +144,11 @@ module raijuAdvancer
 
             if (Model%doLosses) then
                 ! Divide losses and precip fluxes by big dt to turn them into proper rates
-                State%precipNFlux(:,:,k) = State%precipNFlux(:,:,k)/State%dt
-                State%precipEFlux(:,:,k) = State%precipEFlux(:,:,k)/State%dt
+                ! Quantities going into the ionosphere divided by 2 for per-hemisphere output
+                State%precipNFlux(:,:,k) = State%precipNFlux(:,:,k)/State%dt/2.0_rp
+                State%precipEFlux(:,:,k) = State%precipEFlux(:,:,k)/State%dt/2.0_rp
+                State%CCHeatFlux(:,:,k)  = State%CCHeatFlux (:,:,k)/State%dt/2.0_rp
                 State%dEta_dt(:,:,k)     = State%dEta_dt    (:,:,k)/State%dt
-                State%CCHeatFlux(:,:,k)  = State%CCHeatFlux (:,:,k)/State%dt
             endif
 
             State%nStepk(k) = State%nStepk(k) + n
