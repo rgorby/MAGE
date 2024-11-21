@@ -115,15 +115,15 @@ module raijuOut
         do s=1, Model%nSpc
             sIdx = spcIdx(Grid, Grid%spc(s)%flav)
             if (Grid%spc(s)%flav == F_PSPH) then
-                mPLoc = maxloc(State%Den(:,:,1+sIdx))  ! First element = 1, need to account for index offset after
+                mPLoc = maxloc(State%Den(sIdx)%data)  ! First element = 1, need to account for index offset after
             else
-                mPLoc = maxloc(State%Press(:,:,1+sIdx))  ! First element = 1, need to account for index offset after
+                mPLoc = maxloc(State%Press(sIdx)%data)  ! First element = 1, need to account for index offset after
             endif
             mpLoc(1) = mpLoc(1) + Grid%shGrid%isg - 1
             mpLoc(2) = mpLoc(2) + Grid%shGrid%jsg - 1
 
-            maxPress = State%Press(mPLoc(1), mpLoc(2), 1+sIdx)
-            maxDen   = State%Den  (mPLoc(1), mpLoc(2), 1+sIdx)!/Grid%spc(sIdx)%amu
+            maxPress = State%Press(sIdx)%data(mPLoc(1), mpLoc(2))
+            maxDen   = State%Den  (sIdx)%data(mPLoc(1), mpLoc(2))!/Grid%spc(sIdx)%amu
             maxP_Xmin = State%xyzMincc(mPLoc(1), mpLoc(2),XDIR)
             maxP_Ymin = State%xyzMincc(mPLoc(1), mpLoc(2),YDIR)
 

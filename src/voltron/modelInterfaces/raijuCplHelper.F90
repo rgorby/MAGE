@@ -20,7 +20,7 @@ module raijuCplHelper
         integer, dimension(4) :: shGhosts
 
 
-        associate(sh=>raiCpl%raiApp%Grid%shGrid, nFluidIn=>raiCpl%raiApp%Model%nFluidIn)
+        associate(sh => raiCpl%raiApp%Grid%shGrid, nFluidIn => raiCpl%raiApp%Model%nFluidIn)
 
             ! Allocations
             allocate(raiCpl%magLines (sh%isg:sh%ieg+1, sh%jsg:sh%jeg+1))

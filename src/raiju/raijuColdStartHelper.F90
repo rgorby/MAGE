@@ -206,8 +206,8 @@ module raijuColdStartHelper
                 if (State%active(i,j) .eq. RAIJUINACTIVE) cycle
 
                 vm = State%bvol_cc(i,j)**(-2./3.)
-                den = State%Den(i,j,sIdx_p+1)
-                kt_p = DP2kT(den, State%Press(i,j,sIdx_p+1))
+                den = State%Den(sIdx_p)%data(i,j)
+                kt_p = DP2kT(den, State%Press(sIdx_p)%data(i,j))
                 kt_e = kt_p / Model%tiote
                 call DkT2SpcEta(Model, Grid%spc(sIdx_e), &
                                 State%eta(i,j,Grid%spc(sIdx_e)%kStart:Grid%spc(sIdx_e)%kEnd), &

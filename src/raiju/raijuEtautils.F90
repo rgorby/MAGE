@@ -31,9 +31,14 @@ module raijuetautils
 
         integer :: i,j,s  ! i,j,species iterators
 
-        State%Den = 0.0
-        State%Press = 0.0
-        State%vAvg = 0.0
+        do s=0,Grid%nSpc
+            State%Den  (s)%data = 0.0
+            State%Press(s)%data = 0.0
+            State%vAvg (s)%data = 0.0
+            State%Den  (s)%mask = .true.
+            State%Press(s)%mask = .true.
+            State%vAvg (s)%mask = .false.
+        enddo
 
         associate (shG => Grid%shGrid, spc => Grid%spc)
             !$OMP PARALLEL DO default(shared) &
@@ -42,14 +47,21 @@ module raijuetautils
             do j=shG%jsg,shG%jeg
                 do i=shG%isg,shG%ieg
                     do s=1,Grid%nSpc
-                        ! TODO: handle isGood regions?
 
-                        State%Den(i,j,s+1) = SpcEta2Den(spc(s), &  ! Species details
+                        ! isGood determination
+                        if (State%active(i,j) .eq. RAIJUINACTIVE) then
+                            State%Den  (s)%mask(i,j) = .false.
+                            State%Press(s)%mask(i,j) = .false.
+                            State%vAvg (s)%mask(i,j) = .false.
+                            cycle
+                        endif
+
+                        State%Den(s)%data(i,j) = SpcEta2Den(spc(s), &  ! Species details
                             State%eta(i,j,spc(s)%kStart:spc(s)%kEnd), &  ! Etas for this species
                             State%bvol_cc(i,j)) &
                             * spc(s)%amu  ! [#/cc -> amu/cc]
 
-                        State%Press(i,j,s+1) = SpcEta2Press(spc(s), &  ! Species details
+                        State%Press(s)%data(i,j) = SpcEta2Press(spc(s), &  ! Species details
                             State%eta(i,j,spc(s)%kStart:spc(s)%kEnd), &  ! Etas for this species
                             State%bvol_cc(i,j))                        
                     enddo  ! s
@@ -58,10 +70,10 @@ module raijuetautils
             ! Then add each species moment to the bulk
             do s=1,Grid%nSpc
                 ! Don't include electrons to total number density
-                !if(Grid%spc(s)%spcType .ne. RAIJUELE) then
-                !    State%Den  (:,:,1) = State%Den  (:,:,1) + State%Den  (:,:,s+1)
-                !endif
-                State%Press(:,:,1) = State%Press(:,:,1) + State%Press(:,:,s+1)
+                if(Grid%spc(s)%spcType .ne. RAIJUELE) then
+                    State%Den(0)%data = State%Den(0)%data + State%Den(s)%data
+                endif
+                State%Press(0)%data = State%Press(0)%data + State%Press(s)%data
             enddo
         end associate
 

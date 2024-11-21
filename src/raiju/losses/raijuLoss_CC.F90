@@ -82,7 +82,7 @@ module raijuLoss_CC
         associate(spc => Grid%spc(Grid%k2spc(k)))
         psphIdx = spcIdx(Grid, F_PSPH)
         tau = CCTau(spc%spcType, Grid%alamc(k), &
-                    State%bvol_cc(i,j)**(-2./3.), State%Den(i,j,1+psphIdx)) ! Add 1 cause we're grabbing from density, which has bulk as first element
+                    State%bvol_cc(i,j)**(-2./3.), State%Den(psphIdx)%data(i,j))
         end associate
 
     end function CCLossCalcTau

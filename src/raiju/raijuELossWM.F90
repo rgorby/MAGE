@@ -144,7 +144,7 @@ module raijuELossWM
             Kp = eWM%KpTS%evalAt(State%t)
 
             psphIdx = spcIdx(Grid, F_PSPH)
-            NpsphPnt = State%Den(i,j,psphIdx+1)  ! Add 1 cause we're grabbing from density, which has bulk as first element
+            NpsphPnt = State%Den(psphIdx)%data(i,j)
             
             ! Calculate blending
             wNBlend = dlog(NpsphPnt/eWM%NpsphLow) / dlog(eWM%NpsphHigh/eWM%NpsphLow)

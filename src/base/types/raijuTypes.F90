@@ -440,12 +440,16 @@ module raijutypes
         ! (Ngi, Ngj, Nspc+1) (First Nspc index is bulk) Moments
         ! Last dimension will be D/P of different populations (not necessarily same as species)
         ! Example: Total, hot protons, cold protons, electrons, other species
-        real(rp), dimension(:,:,:), allocatable :: Den    
+        !real(rp), dimension(:,:,:), allocatable :: Den
+        !real(rp), dimension(:,:,:), allocatable :: vAvg
+        !real(rp), dimension(:,:,:), allocatable :: Press
+        type(ShellGridVar_T), dimension(:), allocatable :: Den
             !! (Ngi, Ngj, Nspc+1) Density  [amu/cc]
-        real(rp), dimension(:,:,:), allocatable :: Press
+        type(ShellGridVar_T), dimension(:), allocatable :: Press
             !! (Ngi, Ngj, Nspc+1) Pressure [nPa]
-        real(rp), dimension(:,:,:), allocatable :: vAvg
+        type(ShellGridVar_T), dimension(:), allocatable :: vAvg
             !! (Ngi, Ngj, Nspc+1) Average cell velocity [km/s]
+        
 
 
         !> Only used when debugging

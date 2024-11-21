@@ -152,6 +152,7 @@ module volttypes
         integer :: n_MHDfluids
             !! Number of MHD fluids to expect
 
+        ! Stuff going into raiju
         type(magLine_T), dimension(:,:), allocatable :: magLines
         type(IMAGTube_T), dimension(:,:), allocatable :: ijTubes
         type(ShellGridVar_T) :: pot

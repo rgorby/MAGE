@@ -336,6 +336,8 @@ module raijustarter
         type(raijuState_T), intent(inout) :: State
         type(XML_Input_T), intent(in)   :: iXML
 
+        integer :: s
+
         ! Allocate arrays
 
         associate(sh=>Grid%shGrid)
@@ -402,9 +404,22 @@ module raijustarter
             allocate( State%dEta_dt        (sh%isg:sh%ieg, sh%jsg:sh%jeg, Grid%Nk) )
             allocate( State%CCHeatFlux     (sh%isg:sh%ieg, sh%jsg:sh%jeg, Grid%Nk) )
             ! Coupling output data
-            allocate( State%Den  (sh%isg:sh%ieg, sh%jsg:sh%jeg, Grid%nSpc+1) )
-            allocate( State%Press(sh%isg:sh%ieg, sh%jsg:sh%jeg, Grid%nSpc+1) )
-            allocate( State%vAvg (sh%isg:sh%ieg, sh%jsg:sh%jeg, Grid%nSpc+1) )
+            !allocate( State%Den  (sh%isg:sh%ieg, sh%jsg:sh%jeg, Grid%nSpc+1) )
+            !allocate( State%Press(sh%isg:sh%ieg, sh%jsg:sh%jeg, Grid%nSpc+1) )
+            !allocate( State%vAvg (sh%isg:sh%ieg, sh%jsg:sh%jeg, Grid%nSpc+1) )
+            allocate(State%Den  (0:Model%nSpc))
+            allocate(State%Press(0:Model%nSpc))
+            allocate(State%vAvg (0:Model%nSpc))
+            do s=0,Model%nSpc
+                call initShellVar(Grid%shGrid, SHGR_CC, State%Den  (s))
+                call initShellVar(Grid%shGrid, SHGR_CC, State%Press(s))
+                State%Den  (s)%data = 0.0
+                State%Press(s)%data = 0.0
+                State%vAvg (s)%data = 0.0
+                State%Den  (s)%mask = .false.
+                State%Press(s)%mask = .false.
+                State%vAvg (s)%mask = .false.
+            enddo
 
             ! Only bother allocating persistent versions of debug stuff if we ned them
             if (Model%doDebugOutput) then
