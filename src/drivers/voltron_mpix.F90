@@ -214,13 +214,14 @@ program voltron_mpix
                 call cleanClocks()
             endif
 
-            !Restart output
-            if (vApp%IO%doRestart(vApp%time)) then
-                call resOutputV(vApp,vApp%gApp)
-            endif
             !Data output
             if (vApp%IO%doOutput(vApp%time)) then
                 call fOutputV(vApp,vApp%gApp)
+            endif
+
+            !Restart output
+            if (vApp%IO%doRestart(vApp%time)) then
+                call resOutputV(vApp,vApp%gApp)
             endif
 
             call Toc("IO", .true.)
