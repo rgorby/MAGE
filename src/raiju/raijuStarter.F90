@@ -413,6 +413,7 @@ module raijustarter
             do s=0,Model%nSpc
                 call initShellVar(Grid%shGrid, SHGR_CC, State%Den  (s))
                 call initShellVar(Grid%shGrid, SHGR_CC, State%Press(s))
+                call initShellVar(Grid%shGrid, SHGR_CC, State%vAvg (s))
                 State%Den  (s)%data = 0.0
                 State%Press(s)%data = 0.0
                 State%vAvg (s)%data = 0.0

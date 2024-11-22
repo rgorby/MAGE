@@ -130,8 +130,8 @@ module raijuDomain
         ! Finally, kick out any stumpy regions
         n_contig=4
         isInactive_tmp = isInactive
-        do i=sh%isg, sh%ieg
-            do j=sh%js, sh%je
+        do i=sh%isg, sh%ieg-n_contig
+            do j=sh%js, sh%je-n_contig
                 if (isInactive(i,j) .and. isInactive(i+n_contig,j)) then
                     isInactive_tmp(i:i+n_contig, j) = .true.
                 endif
