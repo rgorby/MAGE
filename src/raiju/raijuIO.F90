@@ -539,8 +539,8 @@ module raijuIO
         !enddo
         !call AddOutVar(IOVars,"Density",tmpOut3D(:,:,:),uStr="amu/cc")
         !deallocate(tmpOut3D)
-        call AddOutSGV_1D(IOVars, "Pressure", State%Press, doWriteMaskO=.true., uStr="nPa")
-        call AddOutSGV_1D(IOVars, "Density" , State%Den  , doWriteMaskO=.true., uStr="#/cc")
+        call AddOutSGV(IOVars, "Pressure", State%Press, doWriteMaskO=.true., uStr="nPa")
+        call AddOutSGV(IOVars, "Density" , State%Den  , doWriteMaskO=.true., uStr="#/cc")
         ! Precip
         call AddOutVar(IOVars,"precipNFlux",State%precipNFlux(:,:,:),uStr="#/cm^2/s")
         call AddOutVar(IOVars,"precipEFlux",State%precipEFlux(:,:,:),uStr="erg/cm^2/s")
