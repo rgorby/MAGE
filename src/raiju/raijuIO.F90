@@ -726,9 +726,6 @@ module raijuIO
         ! ShellGridVars
         call ReadInSGV(State%Press, inH5, "Pressure", "State", doIOpO=.false.)
         call ReadInSGV(State%Den  , inH5, "Density" , "State", doIOpO=.false.)
-        do s=0,Grid%nSpc
-            write(*,*)State%Press(s)%data
-        enddo
 
         end associate
 

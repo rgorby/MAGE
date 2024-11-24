@@ -169,7 +169,7 @@ module shellGridIO
         real(rp), dimension(:,:), allocatable :: Q_mask
 
         if(present(outBndsO)) then
-            is = outBnds(1); ie = outBnds(2); js = outBnds(3); je = outBnds(4)
+            is = outBndsO(1); ie = outBndsO(2); js = outBndsO(3); je = outBndsO(4)
         else
             is = sgv%isv   ; ie = sgv%iev   ; js = sgv%jsv   ; je = sgv%jev
         endif
@@ -268,14 +268,13 @@ module shellGridIO
         if (ioExist(baseStr, idStr_mask, gStrO)) then
             doReadMask = .true.
             call AddInVar(IOVars, idStr_mask)
+        else
+            write(*,*)"ReadInSGV_0D: Did not find mask variable for id=",trim(idStr)
         endif
         call ReadVars(IOVars, doIOp, baseStr, gStrO)
 
-        !call IOArray2DFill(IOVars, idStr, Q)
         call IOArray2DFill(IOVars, idStr, sgv%data)
-        sgv%data = Q
         if (doReadMask) then
-            !allocate(Q_mask(sgv%isv:sgv%iev, sgv%jsv:sgv%jev))
             call IOArray2DFill(IOVars, idStr_mask, Q)
             sgv%mask = merge(.true., .false., Q > 0.5)
         endif
