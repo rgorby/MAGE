@@ -327,7 +327,8 @@ module shellGrid
 
 
     subroutine initShellVar(shGr, loc, shellVar, maskO)
-        !! Inits a ShellGridVar that associated with provided and initialized ShellGrid
+        !! Inits a ShellGridVar thats associated with provided and initialized ShellGrid
+        !! TODO: Maybe make mask alloc optional, in case we have an array of ShellGridVars with the same mask
         type(ShellGrid_T), intent(in) :: shGr
             !! ShellGrid that this variable is related to
         integer, intent(in) :: loc
