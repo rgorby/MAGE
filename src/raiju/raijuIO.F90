@@ -158,6 +158,7 @@ module raijuIO
         type(IOVAR_T), dimension(MAXIOVAR) :: IOVars
         integer :: i,j,k,s
         integer :: is, ie, js, je, ks, ke
+        integer, dimension(4) :: outBnds2D
         logical :: doGhosts
         real(rp) :: axT, axP
         real(rp) :: bVol_cc
@@ -185,6 +186,7 @@ module raijuIO
             js = Grid%shGrid%js
             je = Grid%shGrid%je
         endif
+        outBnds2D = (/is,ie,js,je/)
 
         ! First, make sure root variables are there
         if (doRoot) then
@@ -272,25 +274,28 @@ module raijuIO
         deallocate(outTmp2D)
 
     ! Moments
-        allocate(outTmp3D(is:ie,js:je,0:Grid%nSpc))
-        outTmp3D = 0.0
-        do s=0,Grid%nSpc
-            outTmp3D(:,:,s) = State%Press(s)%data(is:ie,js:je)
-        enddo
-        call AddOutVar(IOVars,"Pressure",outTmp3D(:,:,:),uStr="nPa")
+        !allocate(outTmp3D(is:ie,js:je,0:Grid%nSpc))
+        !outTmp3D = 0.0
+        !do s=0,Grid%nSpc
+        !    outTmp3D(:,:,s) = State%Press(s)%data(is:ie,js:je)
+        !enddo
+        !call AddOutVar(IOVars,"Pressure",outTmp3D(:,:,:),uStr="nPa")
 
-        ! Add density moment as #/cc instead of amu/cc
-        outTmp3D = 0.0
-        do s=1, Grid%nSpc
-            ! Convert amu/cc to #/cc
-            outTmp3D(:,:,s) = State%Den(s)%data(is:ie,js:je)/Grid%spc(s)%amu
-            ! Don't include electrons to total number density
-            if(Grid%spc(s)%spcType .ne. RAIJUELE) then
-                outTmp3D(:,:,0) = outTmp3D(:,:,0) + outTmp3D(:,:,s)
-            endif
-        enddo
-        call AddOutVar(IOVars,"Density",outTmp3D(:,:,:),uStr="#/cc")
-        deallocate(outTmp3D)
+        ! Add density moment as #/cc
+        !outTmp3D = 0.0
+        !do s=1, Grid%nSpc
+        !    ! Convert amu/cc to #/cc
+        !    outTmp3D(:,:,s) = State%Den(s)%data(is:ie,js:je)/Grid%spc(s)%amu
+        !    ! Don't include electrons to total number density
+        !    if(Grid%spc(s)%spcType .ne. RAIJUELE) then
+        !        outTmp3D(:,:,0) = outTmp3D(:,:,0) + outTmp3D(:,:,s)
+        !    endif
+        !enddo
+        !call AddOutVar(IOVars,"Density",outTmp3D(:,:,:),uStr="#/cc")
+        !deallocate(outTmp3D)
+        call AddOutSGV(IOVars, "Pressure", State%Press, outBndsO=outBnds2D, doWriteMaskO=.false.)
+        call AddOutSGV(IOVars, "Density" , State%Den  , outBndsO=outBnds2D, doWriteMaskO=.false.)
+        
 
         ! Calculate flux tube entropy using bulk pressure
         allocate(outTmp2D(is:ie,js:je))
@@ -482,6 +487,7 @@ module raijuIO
         ! IOClock data
         call AddOutVar(IOVars,"nOut" ,State%IO%nOut)
         call AddOutVar(IOVars,"nRes" ,State%IO%nRes)
+        call AddOutVar(IOVars,"tRes" ,State%IO%tRes)
 
         ! Add State variables
 
@@ -521,20 +527,20 @@ module raijuIO
         end where
         call AddOutVar(IOVars,"activeShells",outActiveShell,uStr="[Ni, Nk]")
         ! Moments
-        allocate(tmpOut3D(is:ie,js:je,0:Grid%nSpc))
-        tmpOut3D = 0.0
-        do s=0,Grid%nSpc
-            tmpOut3D(:,:,s) = State%Press(s)%data(is:ie,js:je)
-        enddo
-        call AddOutVar(IOVars,"Pressure",tmpOut3D(:,:,:),uStr="nPa")
-        !call AddOutVar(IOVars,"Pressure",State%Press(:,:,:),uStr="nPa")
-        tmpOut3D = 0.0
-        do s=0,Grid%nSpc
-            tmpOut3D(:,:,s) = State%Den(s)%data(is:ie,js:je)
-        enddo
-        call AddOutVar(IOVars,"Density",tmpOut3D(:,:,:),uStr="amu/cc")
-        deallocate(tmpOut3D)
-        !call AddOutVar(IOVars,"Density" ,State%Den  (:,:,:),uStr="amu/cc")
+        !allocate(tmpOut3D(is:ie,js:je,0:Grid%nSpc))
+        !tmpOut3D = 0.0
+        !do s=0,Grid%nSpc
+        !    tmpOut3D(:,:,s) = State%Press(s)%data(is:ie,js:je)
+        !enddo
+        !call AddOutVar(IOVars,"Pressure",tmpOut3D(:,:,:),uStr="nPa")
+        !tmpOut3D = 0.0
+        !do s=0,Grid%nSpc
+        !    tmpOut3D(:,:,s) = State%Den(s)%data(is:ie,js:je)
+        !enddo
+        !call AddOutVar(IOVars,"Density",tmpOut3D(:,:,:),uStr="amu/cc")
+        !deallocate(tmpOut3D)
+        call AddOutSGV_1D(IOVars, "Pressure", State%Press, doWriteMaskO=.true., uStr="nPa")
+        call AddOutSGV_1D(IOVars, "Density" , State%Den  , doWriteMaskO=.true., uStr="#/cc")
         ! Precip
         call AddOutVar(IOVars,"precipNFlux",State%precipNFlux(:,:,:),uStr="#/cm^2/s")
         call AddOutVar(IOVars,"precipEFlux",State%precipEFlux(:,:,:),uStr="erg/cm^2/s")
@@ -583,6 +589,7 @@ module raijuIO
         call AddInVar(IOVars,"MJD" )
         call AddInVar(IOVars,"nOut")
         call AddInVar(IOVars,"nRes")
+        call AddInVar(IOVars,"tRes")
         call AddInVar(IOVars,"isFirstCpl")
 
         call AddInVar(IOVars,"dtCpl"  )
@@ -609,8 +616,8 @@ module raijuIO
         call AddInVar(IOVars,"OCBDist"    )
         call AddInVar(IOVars,"activeShells")
 
-        call AddInVar(IOVars,"Pressure")
-        call AddInVar(IOVars,"Density")
+        !call AddInVar(IOVars,"Pressure")
+        !call AddInVar(IOVars,"Density")
 
         call AddInVar(IOVars,"precipNFlux")
         call AddInVar(IOVars,"precipEFlux")
@@ -633,6 +640,7 @@ module raijuIO
         State%dt      = GetIOReal(IOVars, "dtCpl")
         State%IO%nOut = GetIOInt (IOVars, "nOut" )
         State%IO%nRes = GetIOInt (IOVars, "nRes" )
+        State%IO%tRes = GetIOReal(IOVars, "tRes" )
         
         ! Handle boolean attributes
         tmpInt = GetIOInt(IOVars, "isFirstCpl")
@@ -700,20 +708,27 @@ module raijuIO
         State%activeShells = merge(.true., .false., tmpReal2D .eq. 1.0)
 
         ! Moments
-        allocate(tmpReal3D(is:ie,js:je,0:Grid%nSpc))
-        call IOArray3DFill(IOVars, "Pressure", tmpReal3D)
-        do s=0,Grid%nSpc
-            State%Press(s)%data = tmpReal3D(:,:,s)
-        enddo
-        call IOArray3DFill(IOVars, "Density", tmpReal3D)
-        do s=0,Grid%nSpc
-            State%Den(s)%data = tmpReal3D(:,:,s)
-        enddo
+        !allocate(tmpReal3D(is:ie,js:je,0:Grid%nSpc))
+        !call IOArray3DFill(IOVars, "Pressure", tmpReal3D)
+        !do s=0,Grid%nSpc
+        !    State%Press(s)%data = tmpReal3D(:,:,s)
+        !enddo
+        !call IOArray3DFill(IOVars, "Density", tmpReal3D)
+        !do s=0,Grid%nSpc
+        !    State%Den(s)%data = tmpReal3D(:,:,s)
+        !enddo
 
         ! 1D Nk
         allocate(tmpReal1D(Grid%Nk))
         call IOArray1DFill(IOVars, "nStepk", tmpReal1D)
         State%nStepk = INT(tmpReal1D)
+
+        ! ShellGridVars
+        call ReadInSGV(State%Press, inH5, "Pressure", "State", doIOpO=.false.)
+        call ReadInSGV(State%Den  , inH5, "Density" , "State", doIOpO=.false.)
+        do s=0,Grid%nSpc
+            write(*,*)State%Press(s)%data
+        enddo
 
         end associate
 

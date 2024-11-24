@@ -58,8 +58,7 @@ module raijuetautils
 
                         State%Den(s)%data(i,j) = SpcEta2Den(spc(s), &  ! Species details
                             State%eta(i,j,spc(s)%kStart:spc(s)%kEnd), &  ! Etas for this species
-                            State%bvol_cc(i,j)) &
-                            * spc(s)%amu  ! [#/cc -> amu/cc]
+                            State%bvol_cc(i,j)) ! [#/cc]
 
                         State%Press(s)%data(i,j) = SpcEta2Press(spc(s), &  ! Species details
                             State%eta(i,j,spc(s)%kStart:spc(s)%kEnd), &  ! Etas for this species

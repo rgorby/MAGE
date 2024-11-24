@@ -444,7 +444,7 @@ module raijutypes
         !real(rp), dimension(:,:,:), allocatable :: vAvg
         !real(rp), dimension(:,:,:), allocatable :: Press
         type(ShellGridVar_T), dimension(:), allocatable :: Den
-            !! (Ngi, Ngj, Nspc+1) Density  [amu/cc]
+            !! (Ngi, Ngj, Nspc+1) Density  [#/cc]
         type(ShellGridVar_T), dimension(:), allocatable :: Press
             !! (Ngi, Ngj, Nspc+1) Pressure [nPa]
         type(ShellGridVar_T), dimension(:), allocatable :: vAvg
