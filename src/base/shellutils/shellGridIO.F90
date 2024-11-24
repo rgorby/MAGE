@@ -162,7 +162,6 @@ module shellGridIO
         logical, intent(in), optional :: doWriteMaskO
 
         integer :: is, ie, js, je
-        integer, dimension(4) :: outBnds
         character(len=strLen) :: idStr_mask
         character(len=strLen) :: mask_desc
         logical :: doWriteMask
@@ -171,7 +170,7 @@ module shellGridIO
         if(present(outBndsO)) then
             is = outBndsO(1); ie = outBndsO(2); js = outBndsO(3); je = outBndsO(4)
         else
-            is = sgv%isv   ; ie = sgv%iev   ; js = sgv%jsv   ; je = sgv%jev
+            is = sgv%isv    ; ie = sgv%iev    ; js = sgv%jsv    ; je = sgv%jev
         endif
 
         if(present(doWriteMaskO)) then
@@ -201,7 +200,6 @@ module shellGridIO
         logical, intent(in), optional :: doWriteMaskO
 
         integer :: is, ie, js, je, k
-        integer, dimension(4) :: outBnds
         integer, dimension(1) :: sgv_shape
         character(len=strLen) :: idStr_mask
         character(len=strLen) :: mask_desc
@@ -218,7 +216,7 @@ module shellGridIO
         if(present(outBndsO)) then
             is = outBndsO(1); ie = outBndsO(2); js = outBndsO(3); je = outBndsO(4)
         else
-            is = sgv(1)%isv; ie = sgv(1)%iev; js = sgv(1)%jsv; je = sgv(1)%jev
+            is = sgv(1)%isv ; ie = sgv(1)%iev ; js = sgv(1)%jsv ; je = sgv(1)%jev
         endif
 
         sgv_shape = shape(sgv)
