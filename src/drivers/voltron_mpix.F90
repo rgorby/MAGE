@@ -243,7 +243,7 @@ program voltron_mpix
         call gApp%InitIO(xmlInp)
 
         do while (gApp%Model%t < gApp%Model%tFin)
-            call Tic("Omega") !Start root timer
+            call Tic("Omega", .true.) !Start root timer
 
             !Step model
             nextDT = min(gApp%Model%tFin-gApp%Model%t, gApp%Model%IO%nextIOTime()-gApp%Model%t)
@@ -273,7 +273,7 @@ program voltron_mpix
             endif
 
             call Toc("IO")
-            call Toc("Omega")
+            call Toc("Omega", .true.)
         end do
     else
         write (*,*) "Unrecognized appId in voltron_mpi.x"
