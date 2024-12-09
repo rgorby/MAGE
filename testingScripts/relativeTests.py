@@ -639,8 +639,8 @@ def main():
             base_pbs_options['report_options'] += ' -t'
         if verbose:
             base_pbs_options['report_options'] += ' -v'
-        if allTests:
-            base_pbs_options['report_options'] += ' -a'
+        # if allTests:
+        #     base_pbs_options['report_options'] += ' -a'
 
         # Create space to store job ids and submit OKs
         job_ids.append([])
