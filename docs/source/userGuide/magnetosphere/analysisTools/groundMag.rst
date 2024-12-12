@@ -5,19 +5,9 @@ Ground Magnetometer Calculations
 Introduction
 ------------
 
-Comparison of magnetosphere model results to ground magnetometer measurements
-is a common technique for validating simulations and analyzing the results.
-in the MAGE software, the ``calcdb.x`` program is used to calculate the
-magnetic field perturbations on a grid on the ground using the
-`Biot-Savart Law <https://en.wikipedia.org/wiki/Biot%E2%80%93Savart_law>`_,
-and the ionospheric, field-aligned, and magnetospheric current systems
-extracted from the MAGE simulation results.
+Comparison of magnetosphere model results to ground magnetometer measurements is a common technique for validating simulations and analyzing the results. In the MAGE software, the ``calcdb.x`` program is used to calculate the magnetic field perturbations on a grid on the Earth's surface using the `Biot-Savart Law <https://en.wikipedia.org/wiki/Biot%E2%80%93Savart_law>`_, and the ionospheric, field-aligned, and magnetospheric current systems extracted from the MAGE simulation results.
 
-This page provides an overview of how to set up and run these calculations.
-The :doc:`SuperMage Tools <superMAGE>` page provides instructions for
-conducting comparisons between these model results and data obtained from the
-`SuperMAG <https://supermag.jhuapl.edu/>`_ collection of ground magnetometer
-data.
+This page provides an overview of how to set up and run these calculations. The :doc:`SuperMage Tools <superMAGE>` page provides instructions for conducting comparisons between these model results and data obtained from the `SuperMAG <https://supermag.jhuapl.edu/>`_ collection of ground magnetometer data.
 
 A simple example
 ----------------
@@ -34,11 +24,7 @@ command-line argument.
 Preparing the XML file
 ~~~~~~~~~~~~~~~~~~~~~~
 
-Assume we have completed a simulation of the magnetosphere using the serial
-version of the MAGE code, and all results are in the current directory. The
-simulation results are in the HDF5 file ``msphere.gam.h5``. We now want to
-compute the ground magnetic field perturbations corresponding to this model
-output. Use the following specifications for the calculation:
+Assume we have completed a simulation of the magnetosphere using the MPI MAGE code, and all results are in the current directory. The run ID is ``msphere``. The simulation results are in the HDF5 files ``msphere_*.gam.h5``. We now want to compute the ground magnetic field perturbations corresponding to this model output. Use the following specifications for the calculation:
 
 * Start the computation at 0 simulated seconds after the start of the
   simulation results, end at 3600 simulated seconds (1 simulated hour) after
@@ -57,9 +43,10 @@ XML elements.
     <?xml version="1.0"?>
     <Kaiju>
         <Chimp>
-            <sim runid="storm1"/>
-            <time T0="0.0" dt="60.0" tFin="3600.0"/>
-            <fields ebfile="msphere" grType="LFM" doJ="T"/>
+            <sim runid="msphere"/>
+            <time T0="0.0" dt="60.0" tFin="7200.0"/>
+            <fields ebfile="msphere" grType="LFM" doJ="T" isMPI="T"/>
+            <parallel Ri="{{ Ri }}" Rj="{{ Rj }}" Rk="{{ Rk }}"/>
         </Chimp>
     </Kaiju>
 
