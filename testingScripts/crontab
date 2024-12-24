@@ -35,7 +35,3 @@
 # Run the weekly relative comparison check on Sunday morning. Report only
 # sent to Slack on failure.
 40 00 * * 0 ssh derecho "/glade/u/home/ewinter/scratch/mage_testing/kaiju-private/ewinter-derecho_testing/kaiju-private/testingScripts/run_mage_tests.sh -v -b development 'relativeTests.py -sv'" >> /glade/u/home/ewinter/scratch/mage_testing/logs/derecho_relativeTests.out 2>&1
-
-# <HACK>
-# 57 08 * * * ssh derecho "/glade/u/home/ewinter/scratch/mage_testing/kaiju-private/ewinter-derecho_testing/kaiju-private/testingScripts/run_mage_tests.sh -v -b development 'mage_reproducibility_check.py -sv'" >> /glade/u/home/ewinter/scratch/mage_testing/logs/mage_reproducibility_check.out 2>&1
-# </HACK>
