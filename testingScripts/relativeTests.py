@@ -633,8 +633,8 @@ def main():
         if debug:
             base_pbs_options['report_options'] += ' -d'
         base_pbs_options['report_options'] += ' -l'  # Always report.
-        if slack_on_fail:
-            base_pbs_options['report_options'] += ' -s'
+        # if slack_on_fail:
+        #     base_pbs_options['report_options'] += ' -s'
         if is_test:
             base_pbs_options['report_options'] += ' -t'
         if verbose:
