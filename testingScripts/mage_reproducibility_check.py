@@ -37,7 +37,7 @@ KAIJUHOME = os.environ["KAIJUHOME"]
 
 # Default module set file
 DEFAULT_MODULE_SET_FILE = os.path.join(
-    KAIJUHOME, "testingScripts", "mage_build_test_modules", "NO_MKL.lst"
+    KAIJUHOME, "testingScripts", "mage_build_test_modules", "intel_mpich.lst"
 )
 
 # Root of directory tree for this set of tests.
