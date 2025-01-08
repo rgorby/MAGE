@@ -427,6 +427,7 @@ module raijuPreAdvancer
         enddo
 
         if (doLim) then
+            !write(*,*)"--- Hacky MCLim in calcGradIJ_cc ---"
             allocate(gradQtmp(sh%isg:sh%ieg,sh%jsg:sh%jeg, 2))
             gradQtmp = gradQ    
             !$OMP PARALLEL DO default(shared) &
@@ -438,6 +439,7 @@ module raijuPreAdvancer
                     gradQ(i,j,RAI_PH) = MCLim(gradQtmp(i      ,j-1:j+1,RAI_PH), isG(i      ,j-1:j+1))
                 enddo
             enddo
+            !deallocate(gradQtmp)
         endif
 
         gradQ = gradQ / Rp_m  ! [Q/m]
@@ -482,6 +484,34 @@ module raijuPreAdvancer
                 endif
             endif
         end function MCLim
+
+        function MCLim_hack(dq, isG_3) result(dqbar)
+            real(rp), dimension(3), intent(in) :: dq
+            logical, dimension(3), intent(in) :: isG_3
+            real(rp) :: dqbar
+            real(rp), dimension(2) :: dqmask
+            real(rp) :: magdq
+            
+            dqbar = 0.0
+
+            if (all(isG_3)) then
+                ! Standard MCLim
+                magdq = min(2*abs(dq(1)),2*abs(dq(3)),abs(dq(2)))
+                !SIGN(A,B) returns the value of A with the sign of B
+                dqbar = sign(magdq,dq(2))
+            else
+                ! Trying one-sided lim
+                dqmask(2) = dq(2)
+                if (isG_3(1) .and. isG_3(2)) then
+                    dqmask(1) = dq(1)
+                else if (isG_3(3) .and. isG_3(2)) then
+                    dqmask(1) = dq(3)
+                endif
+
+                magdq = min(2*abs(dqmask(1)), abs(dqmask(2)))
+                dqbar = sign(magdq, dqmask(2))
+            endif
+        end function MCLim_hack
     end subroutine calcGradIJ_cc
 
 
@@ -799,7 +829,7 @@ module raijuPreAdvancer
         logical, dimension(Grid%shGrid%isg:Grid%shGrid%ieg,&
                            Grid%shGrid%jsg:Grid%shGrid%jeg) :: isGCC
         real(rp), dimension(Grid%shGrid%isg:Grid%shGrid%ieg+1,&
-                           Grid%shGrid%jsg:Grid%shGrid%jeg+1,2) :: tmpVelL, tmpVelR
+                            Grid%shGrid%jsg:Grid%shGrid%jeg+1,2) :: tmpVelL, tmpVelR
         integer :: i,j
         
         iVelL = 0.0

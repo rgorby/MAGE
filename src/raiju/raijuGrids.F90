@@ -429,9 +429,9 @@ module raijugrids
 
         if ( (sh%Nt .ne. shR%Nt) &
         .or. (sh%Np .ne. shR%Np) &
-        .or. (sh%minGTheta .ne. shR%minGTheta) &
-        .or. (sh%maxGTheta .ne. shR%maxGTheta) ) then
-                isSame = .false.
+        .or. (abs(sh%minGTheta - shR%minGTheta) > TINY) &
+        .or. (abs(sh%maxGTheta - shR%maxGTheta) > TINY) ) then
+            isSame = .false.
         else
             isSame = .true.
         endif

@@ -72,6 +72,7 @@ module raijustarter
         type(XML_Input_T) , intent(in)    :: iXML
          
         character(len=strLen) :: tmpStr
+        character(len=strLen) :: tmpResId
         real(rp) :: cfl0
 
         write(*,*) "raijuInitModel is starting"
@@ -113,13 +114,21 @@ module raijustarter
         endif
         call iXML%Set_Val(Model%isRestart, trim(tmpStr),.false.)
         if (Model%isRestart) then
+            ! Restart number
             if (Model%isSA) then
                 tmpStr = "restart/nRes"
             else
                 tmpStr = "/Kaiju/Gamera/restart/nRes"
             endif
             call iXML%Set_Val(Model%nResIn, trim(tmpStr), Model%nResIn)
-            call genResInFname(Model, Model%ResF)  ! Determine filename to read from
+            ! Restart id (allows it to be different from our current runId)
+            if (Model%isSA) then
+                tmpStr = "restart/resId"
+            else
+                tmpStr = "/Kaiju/Gamera/restart/resId"
+            endif
+            call iXML%Set_Val(tmpResId, trim(tmpStr), Model%RunID)
+            call genResInFname(Model, Model%ResF, runIdO=tmpResId)  ! Determine filename to read from
         endif
 
         call iXML%Set_Val(Model%isLoud, "debug/isLoud",.false.)
