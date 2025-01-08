@@ -127,7 +127,9 @@ submodule (volttypes) gamCplTypessub
         ! update to DeepT time
         stepDT = (voltApp%DeepT / App%Model%Units%gT0) - App%model%t
 
+        call Tic("GameraSync", .true.)
         call App%AdvanceModel(stepDT)
+        call Toc("GameraSync", .true.)
 
     end subroutine
 
