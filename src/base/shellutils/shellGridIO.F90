@@ -12,7 +12,7 @@ module shellGridIO
     interface AddOutSGV
         module procedure AddOutSGV_1D, AddOutSGV_0D
     end interface
-
+    ! Overloader to read a shellGrid var to file
     interface ReadInSGV
         module procedure ReadInSGV_1D, ReadInSGV_0D
     end interface
@@ -25,7 +25,7 @@ module shellGridIO
         !!  just ones needed for restarts and generally useful output
         type(ShellGrid_T), intent(in) :: sg
             !! Shell Grid object to write
-        character(len=strLen), intent(in) :: outH5
+        character(len=*), intent(in) :: outH5
             !! Output file name
         character(len=*), optional, intent(in) :: gStrO
             !! Optional group to write to, default = /ShellGrid
@@ -35,7 +35,7 @@ module shellGridIO
         call ClearIO(IOVars)
 
         ! Attrs
-        call AddOutVar(IOVars, "name", sg%name)
+        call AddOutVar(IOVars, "name", trim(sg%name))
         call AddOutVar(IOVars, "radius", sg%radius,uStr="Rp")
         call AddOutVar(IOVars, "Nt", sg%Nt)
         call AddOutVar(IOVars, "Np", sg%Np)
@@ -74,9 +74,9 @@ module shellGridIO
             !! Shell Grid object to write
         character(len=*), intent(in) :: sgName
             !! Name to assign to generated ShellGrid since we can't get strings from h5 files
-        character(len=strLen), intent(in) :: inH5
+        character(len=*), intent(in) :: inH5
             !! Output file name
-        character(len=strLen), optional, intent(in) :: gStrO
+        character(len=*), optional, intent(in) :: gStrO
             !! Optional group to read from, default = /ShellGrid
 
         type(IOVAR_T), dimension(MAXIOVAR) :: IOVars
@@ -112,7 +112,7 @@ module shellGridIO
         call AddInVar(IOVars, "bndje")
 
         if (present(gStrO)) then
-            call ReadVars(IOVars, .false., inH5, gStrO)
+            call ReadVars(IOVars, .false., inH5, trim(gStrO))
         else
             call ReadVars(IOVars, .false., inH5, '/ShellGrid')
         endif
@@ -144,7 +144,7 @@ module shellGridIO
         theta_active(:) = theta(1 + nGhosts(NORTH) : Nt + nGhosts(NORTH) + 1)
         phi_active(:)   = phi  (1 + nGhosts(WEST)  : Np + nGhosts(WEST)  + 1)
 
-        call GenShellGrid(sg, theta_active, phi_active, sgName, nGhosts=nGhosts, radO=radius)
+        call GenShellGrid(sg, theta_active, phi_active, trim(sgName), nGhosts=nGhosts, radO=radius)
 
     end subroutine GenShellGridFromFile
 
@@ -162,7 +162,6 @@ module shellGridIO
         logical, intent(in), optional :: doWriteMaskO
 
         integer :: is, ie, js, je
-        integer, dimension(4) :: outBnds
         character(len=strLen) :: idStr_mask
         character(len=strLen) :: mask_desc
         logical :: doWriteMask
@@ -171,7 +170,7 @@ module shellGridIO
         if(present(outBndsO)) then
             is = outBndsO(1); ie = outBndsO(2); js = outBndsO(3); je = outBndsO(4)
         else
-            is = sgv%isv   ; ie = sgv%iev   ; js = sgv%jsv   ; je = sgv%jev
+            is = sgv%isv    ; ie = sgv%iev    ; js = sgv%jsv    ; je = sgv%jev
         endif
 
         if(present(doWriteMaskO)) then
@@ -201,7 +200,6 @@ module shellGridIO
         logical, intent(in), optional :: doWriteMaskO
 
         integer :: is, ie, js, je, k
-        integer, dimension(4) :: outBnds
         integer, dimension(1) :: sgv_shape
         character(len=strLen) :: idStr_mask
         character(len=strLen) :: mask_desc
@@ -218,7 +216,7 @@ module shellGridIO
         if(present(outBndsO)) then
             is = outBndsO(1); ie = outBndsO(2); js = outBndsO(3); je = outBndsO(4)
         else
-            is = sgv(1)%isv; ie = sgv(1)%iev; js = sgv(1)%jsv; je = sgv(1)%jev
+            is = sgv(1)%isv ; ie = sgv(1)%iev ; js = sgv(1)%jsv ; je = sgv(1)%jev
         endif
 
         sgv_shape = shape(sgv)
