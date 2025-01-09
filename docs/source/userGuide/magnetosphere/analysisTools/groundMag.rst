@@ -1,6 +1,6 @@
 
-Ground Magnetometer Calculations
-================================
+SuperMAG: Ground Magnetometer Calculations
+==========================================
 
 Introduction
 ------------
@@ -215,3 +215,39 @@ The elements and attributes of the XML file are described below.
 * ``<units>`` (optional): Describe units system used in the model run.
 
     * ``uID`` (optional, default ``Earth``\ ): Valid values (case-insensitive) are ``EARTH``, ``EARTHCODE``, ``JUPITER``, ``JUPITERCODE``, ``SATURN``, ``SATURNCODE``, ``HELIO"``, ``LFM``, ``LFMJUPITER``.
+
+Plotting the ground magnetic field perturbations
+------------------------------------------------
+
+Once you have your results in a single file, such as ``geospace.deltab.h5``, you can plot the results. A script (``supermag_comparison.py``) has been provided as part of the ``kaipy`` package to make standard plots of delta-B results and compare them to data in the SuperMAG database.
+
+.. code-block:: bash
+
+    usage: supermag_comparison.py [-h] [--debug] [--smuser SMUSER] [--verbose] calcdb_results_path
+
+    Create MAGE-SuperMag comparison plots.
+
+    positional arguments:
+      calcdb_results_path  Path to a (possibly merged) result file from calcdb.x.
+
+    optional arguments:
+    -h, --help           show this help message and exit
+    --debug, -d          Print debugging output (default: False).
+    --smuser SMUSER      SuperMag user ID to use for SuperMag queries (default: ).
+    --verbose, -v        Print verbose output (default: False).
+
+As an example, assuming your delta-B results are in the current directory as ``geospace.deltab.h5``, you can generate the standard plots with the command:
+
+.. code-block:: bash
+
+    $KAIPYHOME/kaipy/scripts/postproc/supermag_comparison.py --verbose --smuser=ewinter /PATH/TO/geospace.deltab.h5
+
+The ``smuser`` argument is the name of the account (which must already exist) that you use to fetch data from SuperMAG. Note also that the local SuperMAG cache directory (usually ``$HOME/supermag``) must already exist. You should find in your current directory a pair of plots (``contours.png`` and ``indices.png``) that compare the results of your MAGE simulation with the data saved in the SuperMAG database. Sample plots are provided below.
+
+``contours.png``
+
+.. image:: contours.png
+
+``indices.png``
+
+.. image:: indices.png

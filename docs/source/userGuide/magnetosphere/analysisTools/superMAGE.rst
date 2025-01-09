@@ -1,8 +1,8 @@
 
-SuperMAGE
-=========
+SuperMAGE: SuperMAG indices
+===========================
 
-The Python module ``supermage.py`` (SuperMAGE) is part of the ``kaipy`` package. SuperMAGE is a collection of Python functions to compare simulated ground magnetic field data generated from a MAGE magnetosphere run (using ``calcdb.x``\ ), with `SuperMAG <https://supermag.jhuapl.edu/>`_ indices (auroral SME/U/L and SMR). SuperMAGE provides functions to create index plots and contour plots. Also included is a crude 1D E-Field calculator.
+The Python module ``supermage.py`` (SuperMAGE) is part of the ``kaipy`` package. SuperMAGE is a collection of Python functions to compare simulated ground magnetic field data generated from a MAGE magnetosphere run (using ``calcdb.x``), with `SuperMAG <https://supermag.jhuapl.edu/>`_ indices (auroral SME/U/L and SMR). SuperMAGE provides functions to create index plots and contour plots. Also included is a crude 1D E-Field calculator.
 
 Requirements
 ------------
@@ -18,16 +18,16 @@ Reading simulated ground magnetic field perturbations from a MAGE run
 
 This step assumes you have run ``calcdb.x`` to compute simulated ground magnetic field perturbations from your MAGE magnetosphere simulation results. Instructions are provided `here <./groundMag>`_.
 
-Assume you have the file ``storm1.deltab.h5``\ , created using ``calcdb.x``. The data required for the comparison with SuperMAG measurements can be read in as follows:
+Assume you have the file ``geospace.deltab.h5``, created using ``calcdb.x``. The data required for the comparison with SuperMAG measurements can be read in as follows:
 
 .. code-block:: python
 
-   simulated_data = sm.ReadSimData('storm1.deltab.h5')
+   simulated_data = sm.ReadSimData("geospace.deltab.h5")
 
 ``simulated_data`` is a Python dictionary which contains the simulated data as NumPy arrays. The following dictionary keys are available:
 
 
-* ``td`` (\ ``datetime.datetime``\ ): Timestamps for the individual simulated data points.
+* ``td`` (``datetime.datetime``): Timestamps for the individual simulated data points.
 * ``glon`` (degrees): Geographic longitude
 * ``glat`` (degrees): Geographic latitude
 * ``mlat`` (degrees): Magnetic latitude
@@ -90,7 +90,6 @@ Calculating magnetic indices for MAGE simulation results
 --------------------------------------------------------
 
 We can calculate a set of magnetic indices (SMR, SMU, SML, SMR) from our simulation data using ``InterpolateSimData()``. This function performs several operations:
-
 
 #. Reject any simulated data which does not overlap with SuperMAG data.
 #. Interpolate (in time) the simulated B data to the datetimes for the SuperMAG indices already retrieved.
