@@ -308,3 +308,16 @@ To submit all of the PBS jobs to perform all steps in the analysis, just run the
 .. code-block:: bash
 
     bash submit-geospace.sh
+
+If desired, the individual PBS scripts can be run manually. They have been design (as much as possible) to be runnable as either PBS job scripts or standard ``bash`` shell scripts. For example, to run the ``calcdb.x`` job array on ``derecho``, followed by merging and plot generation on ``casper`` you could use the commands:
+
+.. code-block:: bash
+
+    # On derecho
+    qsub -J 1-4 calcdb-geospace.pbs
+
+    # On casper (edit PBS scripts appropriately)
+    qsub pitmerge-geospace.pbs
+    qsub ground_deltab_analysis-geospace.pbs
+
+A similar procedure can be used if you wish to perform the merge and plotting steps on a non-HPC system, such as your laptop. In that case, slight system-dependent modifications to the individual PBS scripts may be required.
