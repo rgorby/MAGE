@@ -375,7 +375,7 @@ multiple PBS jobs.
       --debug, -d           Print debugging output (default: False).
       --dt DT               Time interval for delta-B computation (seconds) (default: 60.0).
       --hpc {derecho,pleiades}
-                            HPC system to run analysis (derecho|pleiades) (default: pleiades).
+                            HPC system to run analysis (default: pleiades).
       --parintime PARINTIME
                             Split the calculation into this many parallel chunks of MAGE simulation steps, one chunk per node (default: 1).
       --pbs_account PBS_ACCOUNT
