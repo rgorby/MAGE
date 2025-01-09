@@ -251,3 +251,60 @@ The ``smuser`` argument is the name of the account (which must already exist) th
 ``indices.png``
 
 .. image:: indices.png
+
+Putting it all together
+-----------------------
+
+The ``kaipy`` distribution provides a wrapper script (``$KAIPYHOME/kaipy/scripts/postproc/run_ground_deltaB_analysis.py``) which encapsulates all of these steps, including splitting the calculation across multiple PBS jobs.
+
+.. code-block:: bash
+
+    usage: run_ground_deltaB_analysis.py [-h] [--calcdb CALCDB] [--debug] [--dt DT] [--hpc {derecho,pleiades}] [--parintime PARINTIME] [--pbs_account PBS_ACCOUNT] [--smuser SMUSER] [--verbose]
+                                     mage_results_path
+
+    Compare MAGE ground delta-B to SuperMag measurements, and create SuperMAGE analysis maps.
+
+    positional arguments:
+    mage_results_path     Path to a result file for a MAGE magnetosphere run.
+
+    optional arguments:
+    -h, --help            show this help message and exit
+    --calcdb CALCDB       Path to calcdb.x binary (default: calcdb.x).
+    --debug, -d           Print debugging output (default: False).
+    --dt DT               Time interval for delta-B computation (seconds) (default: 60.0).
+    --hpc {derecho,pleiades}
+                            HPC system to run analysis (derecho|pleiades) (default: pleiades).
+    --parintime PARINTIME
+                            Split the calculation into this many parallel chunks of MAGE simulation steps, one chunk per node (default: 1).
+    --pbs_account PBS_ACCOUNT
+                            PBS account to use for job accounting (default: None).
+    --smuser SMUSER       Account name for SuperMag database access (default: None).
+    --verbose, -v         Print verbose output (default: False).
+
+This script generates a set of PBS scripts which perform each stage of the process:
+
+* Running ``calcdb.x`` to compute ground delta-B values.
+* Running ``pitmerge.py`` if needed to combine results.
+* Running ``supermag_comparison.py`` to generate the plots.
+
+A ``bash`` script (``submit-RUNID.sh``) is also created which can be run to submit all of the PBS jobs with the proper dependencies. Continuing the earlier example, this wrapper script can be run in your MAGE result directory on ``derecho`` with the command:
+
+.. code-block:: bash
+
+    run_ground_deltaB_analysis.py --calcdb=/PATH/TO/calcdb.x --dt=60.0 --hpc=derecho --parintime=4 --pbs_account=YOUR_DERECHO_ACCOUNT --smuser=YOUR_SUPERMAG_ACCOUNT --verbose /PATH/TO_MAGE_HDF5_FILE
+
+For the runid of ``geospace`` used in the above examples, your MAGE output directory will now contain several new files:
+
+.. code-block:: bash
+
+    calcdb-geospace.pbs
+    calcdb-geospace.xml
+    ground_deltab_analysis-geospace.pbs
+    pitmerge-geospace.pbs
+    submit-geospace.sh
+
+To submit all of the PBS jobs to perform all steps in the analysis, just run the ``bash`` script:
+
+.. code-block:: bash
+
+    bash submit-geospace.sh
