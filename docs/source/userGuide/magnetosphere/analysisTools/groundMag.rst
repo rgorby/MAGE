@@ -131,7 +131,7 @@ This job array can be submitted with the command
 
    qsub -J 1-4 calcdb-geospace.pbs
 
-The ``-J 1-4`` arguments indicates that a PBS *job array* will be used. Note that the value of the ``-J`` option must be ``1-NumB``, where ``NumB`` must match the value of the ``NumB`` attribute of the ``<parintime/>`` element from the XML file. When this job array completes, files of the form ``calcdb.out.#`` which will contain the terminal output from ``calcdb.x`` during the run for each batch ``#`` in the job array.
+The ``-J 1-4`` arguments indicates that a PBS *job array* will be used. Note that the value of the ``-J`` option must be ``1-NumB``, where ``NumB`` must match the value of the ``NumB`` attribute of the ``<parintime/>`` element from the XML file. When this job array completes, the result directory will contain files of the form ``calcdb.out.#`` which will contain the terminal output from ``calcdb.x`` during the run for each batch ``#`` in the job array.
 
 After your job array completes, you'll need to do one more step before you can use your results. The parallel processing results in multiple output HDF5 files (``geospace.0001.deltab.h5``, ``geospace.0002.deltab.h5``, ...). The script ``$KAIPYHOME/kaipy/scripts/postproc/pitmerge.py`` will concatenate the individual HDF5 files into one file called ``geospace.deltab.h5``.
 
