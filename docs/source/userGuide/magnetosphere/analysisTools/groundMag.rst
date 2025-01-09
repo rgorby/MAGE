@@ -194,7 +194,7 @@ The elements and attributes of the XML file are described below.
     * ``dzGG`` (optional, default ``10.0``):  Height spacing (kilometers)) of grid.
     * ``z0`` (optional, default ``0.0``):  Starting height above ground (kilometers) for grid calculation.
 
-* ``<calcdb>`` (optional): Optional settings for ``calcdb.x`.
+* ``<calcdb>`` (optional): Optional settings for ``calcdb.x``.
 
     * ``rMax`` (optional, default ``30``): Radius (as a multiple of the Earth radius) to perform integration over.
     * ``doCorot`` (optional, default ``false``):  Set to ``true`` to use the corotation potential in the calculation.
