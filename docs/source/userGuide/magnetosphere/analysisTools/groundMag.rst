@@ -242,7 +242,7 @@ As an example, assuming your delta-B results are in the current directory as ``g
 
     $KAIPYHOME/kaipy/scripts/postproc/supermag_comparison.py --verbose --smuser=ewinter /PATH/TO/geospace.deltab.h5
 
-The ``smuser`` argument is the name of the account (which must already exist) that you use to fetch data from SuperMAG. Note also that the local SuperMAG cache directory (usually ``$HOME/supermag``) must already exist. You should find in your current directory a pair of plots (``contours.png`` and ``indices.png``) that compare the results of your MAGE simulation with the data saved in the SuperMAG database. Sample plots are provided below.
+The ``smuser`` argument is the name of the account (which must already exist) that you use to fetch data from SuperMAG. Note also that the local SuperMAG cache directory (usually ``$HOME/supermag``) must already exist. You should find in your current directory a pair of plots (``contours.png`` and ``indices.png``) that compare various computed and measured geomagnetic indices. Sample plots are provided below.
 
 ``contours.png``
 
