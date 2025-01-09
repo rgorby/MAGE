@@ -7,7 +7,7 @@ Introduction
 
 Comparison of magnetosphere model results to ground magnetometer measurements is a common technique for validating simulations. In the MAGE software, the program ``calcdb.x`` is used to calculate magnetic field perturbations on a grid on the Earth's surface using the `Biot-Savart Law <https://en.wikipedia.org/wiki/Biot%E2%80%93Savart_law>`_, and the ionospheric, field-aligned, and magnetospheric current systems extracted from the MAGE simulation results.
 
-This page provides an overview of how to perform these calculations using results from a MAGE simulation. The :doc:`superMAGE` page provides instructions for performing comparisons between these model results and data obtained from the `SuperMAG <https://supermag.jhuapl.edu/>`_ collection of ground magnetometer data.
+This page provides an overview of how to perform these calculations using results from a MAGE simulation. The :doc:`superMAGE` page provides instructions for performing more detailed comparisons between these model results and data obtained from the `SuperMAG <https://supermag.jhuapl.edu/>`_ collection of ground magnetometer data.
 
 A simple example
 ----------------
