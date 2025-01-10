@@ -40,6 +40,10 @@ module volttypes
     endenum
     integer, parameter :: NVARIMAG = 5
 
+    enum, bind(C)
+        enumerator :: V_GRID_UNIFORM=1, V_GRID_WARP
+    endenum
+
     ! data for imag => remix for conductance
     type imag2Mix_T
         !Assuming IMag data is coming on northern hemisphere
@@ -243,6 +247,11 @@ module volttypes
 
         !Planet information
         type(planet_T) :: planet
+
+        ! Voltron ShellGrid information
+        type(ShellGrid_T) :: shGrid
+        integer :: gridType
+            !! Populated with enum (e.g. V_GRID_UNIFORM)
 
         !Voltron state information
         type(TimeSeries_T) :: tilt,symh

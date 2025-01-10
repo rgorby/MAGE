@@ -21,6 +21,8 @@ module voltapp
     use gcminterp
     use gcmtypes
     use planethelper
+    use shellGrid
+    use shellGridGen
     
     implicit none
 
@@ -349,7 +351,7 @@ module voltapp
     subroutine initializeFromGamera(vApp, gApp, xmlInp, optFilename)
         type(voltApp_T), intent(inout) :: vApp
         class(gamApp_T), intent(inout) :: gApp
-	type(XML_Input_T), intent(inout) :: xmlInp
+	    type(XML_Input_T), intent(inout) :: xmlInp
         character(len=*), optional, intent(in) :: optFilename
 
         character(len=strLen) :: RunID, resID
@@ -707,6 +709,68 @@ module voltapp
         end associate
 
     end subroutine init_volt2Chmp
+
+
+    subroutine genVoltShellGrid(vApp, xmlInp)
+        class(voltApp_T) , intent(inout) :: vApp
+        type(XML_Input_T), intent(in) :: xmlInp
+
+        character(len=strLen) :: gType
+        integer :: Nt, Np
+            !! Number of active cells in theta and phi
+        integer :: Ng
+            !! Number of ghosts in every direction
+        integer, dimension(4) :: nGhosts
+            !! Number of ghosts in N, S, E, W directions
+        real(rp), dimension(:), allocatable :: phi
+            !! Active cell array in phi direction
+        real(rp), dimension(:), allocatable :: theta_hemi
+            !! Active cell array in theta direction for 1 hemisphere
+        real(rp), dimension(:), allocatable :: theta_global
+            !! Active cell array in theta direction for both hemispheres
+        real(rp) :: sh_radius
+            !! ShellGrid radius in Re
+        integer :: i
+
+        ! Note: Nt is for a single hemisphere, we will manually double it in a minute
+        ! TODO: This means we will always have even number of total cells, and a cell interfce right on the equator
+        !  Can upgrade to allow for odd number later
+        call xmlInp%Set_Val(Nt, "grid/Nt", 90 )  ! 1 deg res default for uniform grid
+        call xmlInp%Set_Val(Np, "grid/Np", 360)  ! 1 deg res default
+        ! Ghost cells
+        call xmlInp%Set_Val(Ng, "grid/Ng", 4)  ! # of ghosts in every direction
+        nGhosts = 0
+        nGhosts(EAST) = Ng
+        nGhosts(WEST) = Ng
+        !call xmlInp%Set_Val(nGhosts(NORTH), "grid/NgN", Ng)  ! # of ghosts in NORTH direction
+        !call xmlInp%Set_Val(nGhosts(SOUTH), "grid/NgS", Ng)  ! # of ghosts in SOUTH direction
+        !call xmlInp%Set_Val(nGhosts(EAST ), "grid/NgE", Ng)  ! # of ghosts in EAST  direction
+        !call xmlInp%Set_Val(nGhosts(WEST ), "grid/NgW", Ng)  ! # of ghosts in WEST  direction
+
+        ! Allocate arrays
+        allocate(theta_global(Nt*2+1))
+        allocate(theta_hemi(Nt+1))
+        allocate(phi(Np+1))
+
+        call xmlInp%Set_Val(gType, "grid/gType","UNISPH")
+        select case(gType)
+            case("UNISPH")
+                vApp%gridType = V_GRID_UNIFORM
+                call genThetaPhi_uniform(Nt, Np, 0.0_rp, 90.0_rp, theta_hemi, phi)
+        end select
+
+        theta_global(1:Nt+1) = theta_hemi
+        theta_global(Nt+1:2*Nt+1) = PI - theta_hemi(Nt+1:1:-1)  ! Reverse theta_hemi to mirror into Southern hemisphere
+        !write(*,*)theta_hemi
+        !write(*,*)'---'
+        !write(*,*)theta_global
+        !stop
+        sh_radius = vApp%planet%ri_m/vApp%planet%rp_m
+
+        ! Now we can make our global ShellGrid
+        call GenShellGrid(vApp%shGrid, theta_global, phi, "VOLTRON", nGhosts, sh_radius)
+
+    end subroutine genVoltShellGrid
 
 end module voltapp
 

@@ -120,12 +120,14 @@ module shellGrid
         if (.not.(isAscending(Theta))) then 
             write(*,*) "Inside shell grid generator (GenShellGrid)."
             write(*,*) "Theta array must be ascending. Quitting..."
+            write(*,*) Theta
             stop
         end if
 
         if (.not.(isAscending(Phi))) then 
             write(*,*) "Inside shell grid generator (GenShellGrid)."
             write(*,*) "Phi array must be ascending. Quitting..."
+            write(*,*) Phi
             stop
         end if
 

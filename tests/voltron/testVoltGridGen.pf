@@ -1,0 +1,66 @@
+module testVoltGridGen
+    use testHelper
+    use kdefs
+    use XML_Input
+    use volttypes
+    use voltapp, only : genVoltShellGrid
+    use shellGrid
+
+    implicit none
+
+    contains
+
+    @before
+	subroutine setup()
+	end subroutine setup
+
+	@after
+	subroutine teardown()
+	end subroutine teardown
+
+    @test
+    subroutine testGenVoltGrid_uniform()
+        type(voltApp_T) :: vApp
+        character(len=strLen) :: xmlName = 'cmriD_Earth.xml'
+        type(XML_Input_T) :: xmlInp
+
+        integer :: Nt, Np
+        integer :: i
+        integer :: i_mirror
+        real(rp) :: mirror_th
+
+        real(rp) :: OKerr = 1e-8_rp
+        real(rp) :: err_sum
+        character(len=strLen) :: checkMessage
+
+        xmlInp = New_XML_Input(trim(xmlName),'Kaiju/Voltron',.true.)
+
+        ! Get some xml info ourselves first
+        call xmlInp%Set_Val(Nt, "grid/Nt", -1) ! -1 so things blow up if xml isn't set properly
+        call xmlInp%Set_Val(Np, "grid/Np", -1) ! -1 so things blow up if xml isn't set properly
+
+        call genVoltShellGrid(vApp, xmlInp)
+
+        @assertEqual(vApp%shGrid%Nt, 2*Nt, "Wrong amount of theta cells")
+        @assertEqual(vApp%shGrid%Np, Np  , "Wrong amount of phi cells")
+
+        ! Cell center check
+        err_sum = 0
+        do i=1,Nt
+            i_mirror = 2*Nt+1-i
+            mirror_th = PI - vApp%shGrid%thc(i_mirror)
+            err_sum = err_sum + abs(vApp%shGrid%thc(i) - mirror_th)
+        enddo
+        @assertLessThanOrEqual(err_sum, 1E-8_rp, "Theta grid error, cells not mirrored properly")
+        
+        ! Cell corner check
+        err_sum = 0
+        do i=1,Nt
+            i_mirror = 2*Nt+2-i
+            mirror_th = PI - vApp%shGrid%th(i_mirror)
+            err_sum = err_sum + abs(vApp%shGrid%th(i) - mirror_th)
+        enddo
+        @assertLessThanOrEqual(err_sum, 1E-8_rp, "Theta grid error, corners not mirrored properly")
+
+    end subroutine testGenVoltGrid_uniform
+end module testVoltGridGen
