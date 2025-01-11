@@ -10,6 +10,7 @@ module voltio
     use dyncoupling
     use dstutils
     use planethelper
+    use shellGridIO
     
     implicit none
 
@@ -228,6 +229,10 @@ module voltio
         call AddOutVar(IOVars,"gBAvg",   vApp%mhd2Mix%gBAvg)
         
         call WriteVars(IOVars,.false.,ResF)
+
+        ! Save shellGrid
+        call writeShellGrid(vApp%shGrid, ResF)
+
         !Create link to latest restart
         write (lnResF, '(A,A,A,A)') trim(gApp%Model%RunID), ".volt.Res.", "XXXXX", ".h5"
         call MapSymLink(ResF,lnResF)
@@ -303,6 +308,9 @@ module voltio
         else
             write(*,*) "gBAvg not found in Voltron restart, assuming dipole ..."
         endif
+
+        ! Re-init our shellGrid from file
+        call GenShellGridFromFile(vApp%shGrid, "VOLTRON", ResF)
 
     end subroutine readVoltronRestart
 

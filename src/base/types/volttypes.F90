@@ -41,7 +41,7 @@ module volttypes
     integer, parameter :: NVARIMAG = 5
 
     enum, bind(C)
-        enumerator :: V_GRID_UNIFORM=1, V_GRID_WARP
+        enumerator :: V_GRID_UNIFORM=1, V_GRID_SHAFEE
     endenum
 
     ! data for imag => remix for conductance

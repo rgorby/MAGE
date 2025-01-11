@@ -170,6 +170,7 @@ module voltapp
             call xmlInp%Set_Val(resID,"/Kaiju/gamera/restart/resID","msphere")
             call xmlInp%Set_Val(nRes,"/Kaiju/gamera/restart/nRes" ,-1)
             call readVoltronRestart(vApp, resID, nRes)
+            !! TODO: ^^ This is where we should init shellGrid if restarting
             vApp%IO%tOut = floor(vApp%time/vApp%IO%dtOut)*vApp%IO%dtOut + vApp%IO%dtOut
             vApp%IO%tRes = floor(vApp%time/vApp%IO%dtRes)*vApp%IO%dtRes + vApp%IO%dtRes
 
@@ -202,6 +203,8 @@ module voltapp
 
             ! correct Gamera start time
             gApp%Model%t = vApp%time / gApp%Model%Units%gT0
+
+            call genVoltShellGrid(vApp, xmlInp)
 
         endif
 
@@ -730,22 +733,26 @@ module voltapp
             !! Active cell array in theta direction for both hemispheres
         real(rp) :: sh_radius
             !! ShellGrid radius in Re
+        ! Stuff for warp grid
+        integer :: nPow
+            !! Power applied to non-linear scaling term
+        real(rp) :: hWgt
+            !! Weight between linear and non-linear term. 1=linear, 0=non-linear
+        real(rp) :: xLow, xHigh
+            !! Bounds for generating x values between 0 and 1
+            !! FIXME: replace with theta_center and x_scale, and calculate our x_low and x_high from that
         integer :: i
 
         ! Note: Nt is for a single hemisphere, we will manually double it in a minute
         ! TODO: This means we will always have even number of total cells, and a cell interfce right on the equator
         !  Can upgrade to allow for odd number later
-        call xmlInp%Set_Val(Nt, "grid/Nt", 90 )  ! 1 deg res default for uniform grid
+        call xmlInp%Set_Val(Nt, "grid/Nt", 180 )  ! 1 deg res default for uniform grid
         call xmlInp%Set_Val(Np, "grid/Np", 360)  ! 1 deg res default
         ! Ghost cells
         call xmlInp%Set_Val(Ng, "grid/Ng", 4)  ! # of ghosts in every direction
         nGhosts = 0
         nGhosts(EAST) = Ng
         nGhosts(WEST) = Ng
-        !call xmlInp%Set_Val(nGhosts(NORTH), "grid/NgN", Ng)  ! # of ghosts in NORTH direction
-        !call xmlInp%Set_Val(nGhosts(SOUTH), "grid/NgS", Ng)  ! # of ghosts in SOUTH direction
-        !call xmlInp%Set_Val(nGhosts(EAST ), "grid/NgE", Ng)  ! # of ghosts in EAST  direction
-        !call xmlInp%Set_Val(nGhosts(WEST ), "grid/NgW", Ng)  ! # of ghosts in WEST  direction
 
         ! Allocate arrays
         allocate(theta_global(Nt*2+1))
@@ -757,6 +764,13 @@ module voltapp
             case("UNISPH")
                 vApp%gridType = V_GRID_UNIFORM
                 call genThetaPhi_uniform(Nt, Np, 0.0_rp, 90.0_rp, theta_hemi, phi)
+            case ("WARPSPH")
+                vApp%gridType = V_GRID_SHAFEE
+                call xmlInp%Set_Val(nPow , "grid/nPow" , 5   )  ! Controls sharpness/bluntness. Must be odd. 5 or 7 are good
+                call xmlInp%Set_Val(hWgt , "grid/h"    , 0.2 )  ! Controls width of high-res region
+                call xmlInp%Set_Val(xLow , "grid/xLow" , 0.2 )  ! Controls zoom / shift towards pole
+                call xmlInp%Set_Val(xHigh, "grid/xHigh", 0.90)  ! Controls zoom / shift towards equator
+                call genThetaPhi_Shafee2008(Nt, Np, 0.0_rp, 90.0_rp, nPow,hWgt,xLow,xHigh,theta_hemi,phi)
         end select
 
         theta_global(1:Nt+1) = theta_hemi

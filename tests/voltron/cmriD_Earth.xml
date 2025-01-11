@@ -9,7 +9,6 @@
     <imag doInit="T"/>
     <ebsquish epsSquish="0.05"/>
     <threading NumTh="36"/>
-    <grid Nt="90" Np="180" gType="UNISPH"/>
   </VOLTRON>
   <Gamera>
     <sim runid="msphere" doH5g="T" H5Grid="lfmD.h5" icType="user" pdmb="0.75" rmeth="7UP"/>

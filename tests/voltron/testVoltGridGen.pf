@@ -8,6 +8,8 @@ module testVoltGridGen
 
     implicit none
 
+    character(len=strLen) :: xmlName = 'voltGridTests.xml'
+
     contains
 
     @before
@@ -21,19 +23,14 @@ module testVoltGridGen
     @test
     subroutine testGenVoltGrid_uniform()
         type(voltApp_T) :: vApp
-        character(len=strLen) :: xmlName = 'cmriD_Earth.xml'
         type(XML_Input_T) :: xmlInp
-
         integer :: Nt, Np
-        integer :: i
-        integer :: i_mirror
-        real(rp) :: mirror_th
 
         real(rp) :: OKerr = 1e-8_rp
         real(rp) :: err_sum
         character(len=strLen) :: checkMessage
 
-        xmlInp = New_XML_Input(trim(xmlName),'Kaiju/Voltron',.true.)
+        xmlInp = New_XML_Input(trim(xmlName),'Kaiju/Uniform',.true.)
 
         ! Get some xml info ourselves first
         call xmlInp%Set_Val(Nt, "grid/Nt", -1) ! -1 so things blow up if xml isn't set properly
@@ -43,6 +40,49 @@ module testVoltGridGen
 
         @assertEqual(vApp%shGrid%Nt, 2*Nt, "Wrong amount of theta cells")
         @assertEqual(vApp%shGrid%Np, Np  , "Wrong amount of phi cells")
+
+        call mirrorCheck(vApp, Nt, OKerr)
+
+    end subroutine testGenVoltGrid_uniform
+
+
+    @test
+    subroutine testGenVoltGrid_warped()
+        type(voltApp_T) :: vApp
+        type(XML_Input_T) :: xmlInp
+        integer :: Nt, Np
+
+        real(rp) :: OKerr = 1e-8_rp
+        real(rp) :: err_sum
+        character(len=strLen) :: checkMessage
+
+        xmlInp = New_XML_Input(trim(xmlName),'Kaiju/Warped',.true.)
+
+        ! Get some xml info ourselves first
+        call xmlInp%Set_Val(Nt, "grid/Nt", -1) ! -1 so things blow up if xml isn't set properly
+        call xmlInp%Set_Val(Np, "grid/Np", -1) ! -1 so things blow up if xml isn't set properly
+
+        call genVoltShellGrid(vApp, xmlInp)
+
+        @assertEqual(2*Nt, vApp%shGrid%Nt, "Wrong amount of theta cells")
+        @assertEqual(  Np, vApp%shGrid%Np, "Wrong amount of phi cells")
+
+        call mirrorCheck(vApp, Nt, OKerr)
+
+        write(*,*)vApp%shGrid%th
+
+    end subroutine testGenVoltGrid_warped
+
+
+
+    subroutine mirrorCheck(vApp, Nt, Okerr)
+        type(voltApp_T), intent(in) :: vApp
+        integer, intent(in) :: Nt
+        real(rp), intent(in) :: OKerr
+
+        logical :: isMirror
+        real(rp) :: err_sum, mirror_th
+        integer :: i, i_mirror
 
         ! Cell center check
         err_sum = 0
@@ -61,6 +101,5 @@ module testVoltGridGen
             err_sum = err_sum + abs(vApp%shGrid%th(i) - mirror_th)
         enddo
         @assertLessThanOrEqual(err_sum, 1E-8_rp, "Theta grid error, corners not mirrored properly")
-
-    end subroutine testGenVoltGrid_uniform
+    end subroutine mirrorCheck
 end module testVoltGridGen
