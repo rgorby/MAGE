@@ -29,9 +29,11 @@ module raijustarter
 ! Main Initialization Routines
 !------
 
-    subroutine raijuInit(app, inpXML)
+    subroutine raijuInit(app, inpXML, shGridO)
         class(raijuApp_T), intent(inout) :: app
         type(XML_Input_T), intent(in) :: inpXML
+        type(ShellGrid_T), intent(in), optional :: shGridO 
+            !! If provided, and xml arg is set, we make a child grid for ourselves off of this one
 
         type(XML_Input_T) :: iXML
         character(len=strLen) :: tmpStr
@@ -43,7 +45,12 @@ module raijustarter
 
         ! Init model, grid, state
         call raijuInitModel(app%Model, iXML)
-        call raijuInitGrid(app%Model, app%Grid, iXML)
+
+        if(present(shGridO)) then
+            call raijuInitGrid(app%Model, app%Grid, iXML, shGridO)
+        else
+            call raijuInitGrid(app%Model, app%Grid, iXML)
+        endif
 
         call raijuInitState(app%Model,app%Grid,app%State,iXML)
 
@@ -306,7 +313,7 @@ module raijustarter
                     ! Then we should be receiving a predefined ShellGrid that Voltron has set up
                     if(present(shGridO)) then
                         shGrid = shGridO
-                        call raijuGenGridFromShGrid(Grid, shGrid)
+                        call raijuGenGridFromShGrid(Grid, shGrid, iXML)
                     else
                         write(*,*) "RAIJU expecting a ShellGrid_T but didn't receive one. Dying."
                     endif

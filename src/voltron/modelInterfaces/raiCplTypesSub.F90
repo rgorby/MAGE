@@ -1,6 +1,7 @@
 submodule (volttypes) raijuCplTypesSub
 
     use raijutypes
+    use raijustarter
     use raijuCplHelper
     use raijuColdStartHelper
 
@@ -15,7 +16,9 @@ submodule (volttypes) raijuCplTypesSub
         ! Allocate our contained raiju app
         allocate(raijuApp_T :: App%raiApp)
         ! Init raiju app itself
-        call App%raiApp%InitModel(xml)
+        !call App%raiApp%InitModel(xml)
+        ! Note: we are bypassing raiApp%InitModel because we can't pass the voltron grid as an argument
+        call raijuInit(App%raiApp, xml, App%opt%voltGrid)
         ! Update MJD with whatever voltron handed us
         ! If we are restarting, this will get replaced with whatever's in file later
         App%raiApp%State%mjd = App%opt%mjd0

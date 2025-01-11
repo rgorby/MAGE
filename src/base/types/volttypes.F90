@@ -120,6 +120,7 @@ module volttypes
             !! MJD at sim t=0
         logical :: doColdStart
             !! Whether IMAG model should cold start itself at volt%t = 0
+        type(ShellGrid_T) :: voltGrid
 
         contains
     end type imagOptions_T

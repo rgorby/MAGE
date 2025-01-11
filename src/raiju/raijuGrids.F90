@@ -254,13 +254,60 @@ module raijugrids
     end subroutine raijuGenWarpSphGrid_Shafee2008
 
 
-    subroutine raijuGenGridFromShGrid(Grid, shGrid)
+    subroutine raijuGenGridFromShGrid(Grid, shGrid, iXML)
         type(raijuGrid_T)  , intent(inout) :: Grid
         type(ShellGrid_T), intent(in) :: shGrid
+        type(XML_Input_T), intent(in) :: iXML
 
-        !!TODO
-        write(*,*) "You never should have come here"
-        stop
+        real(rp) :: thetaL, thetaU
+        integer :: Ng
+        integer, dimension(4) :: nGhosts
+        integer :: iStart, iEnd
+
+        call iXML%Set_Val(thetaL , "grid/ThetaL", 15.0)
+            !! Lower colat boundary [deg], ~15 Re in dipole
+        call iXML%Set_Val(thetaU , "grid/ThetaU", 45.0)
+            !! Upper colat boundary [deg], 2 Re in dipole
+        call iXML%Set_Val(Ng, "grid/Ng", 4  )  ! Number of ghosts, in every direction for now
+
+        nGhosts = Ng
+        
+        ! Convert to radians
+        thetaL = thetaL*deg2rad
+        thetaU = thetaU*deg2rad
+
+        associate (Nt=>shGrid%Nt, Np=>shGrid%Np)
+        ! Do some checks first
+        if (thetaL < shGrid%th(1)) then
+            write(*,*)"Error in raijuGenGridFromShGrid: lower theta bound outside of parent grid"
+            write(*,*)"thetaL = ",thetaL,", min theta from parent = ",shGrid%th(1)
+            stop
+        endif
+        if (thetaU > shGrid%th(Nt+1)) then
+            write(*,*)"Error in raijuGenGridFromShGrid: upper theta bound outside of parent grid"
+            write(*,*)"thetaU = ",thetaU,", max theta from parent = ",shGrid%th(Nt+1)
+            stop
+        endif
+
+        ! Determine what our start and end i bounds should be within parent grid
+        iStart = 1
+        do while (shGrid%th(iStart + 1) < thetaL)
+            iStart = iStart + 1
+        enddo
+        iEnd = Nt + 1
+        do while(shGrid%th(iEnd-1) > thetaU)
+            iEnd = iEnd - 1
+        enddo
+        if (iStart >= iEnd) then
+            write(*,*) "idk how you did this"
+            stop
+        endif
+
+        ! Now we can make our grid
+        call GenChildShellGrid(shGrid, Grid%shGrid, RAI_SG_NAME, nGhosts, sub_is=iStart, sub_ie=iEnd)
+
+        end associate
+
     end subroutine raijuGenGridFromShGrid
 
 

@@ -775,10 +775,6 @@ module voltapp
 
         theta_global(1:Nt+1) = theta_hemi
         theta_global(Nt+1:2*Nt+1) = PI - theta_hemi(Nt+1:1:-1)  ! Reverse theta_hemi to mirror into Southern hemisphere
-        !write(*,*)theta_hemi
-        !write(*,*)'---'
-        !write(*,*)theta_global
-        !stop
         sh_radius = vApp%planet%ri_m/vApp%planet%rp_m
 
         ! Now we can make our global ShellGrid
