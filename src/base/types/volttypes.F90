@@ -36,7 +36,7 @@ module volttypes
     !! WILL BE OBSOLETE SOON
     ! keeping here for intermediate compatability
     enum, bind(C)
-        enumerator :: IMDEN=1,IMX1,IMX2,IMTSCL,IMPR
+        enumerator :: IMDEN=1,IMX1,IMX2,IMPR,IMTSCL
     endenum
     integer, parameter :: NVARIMAG = 5
 
