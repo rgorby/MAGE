@@ -85,7 +85,8 @@ module gamtypes
         integer :: ts
         real(rp) :: kzcsMHD = 0.0, kzcsTOT = 0.0 !Performance information: MHD and total, kilo zone-cycles per second
         logical :: doHall=.false., doMultiF=.false., &
-                   doBackground=.false. , doMHD=.false.
+                   doBackground=.false. , doMHD=.false., &
+                   doAB3 = .false.
         logical :: do25D =.false., doGrav = .false., doSphGrav = .false.
         
         logical :: isRestart=.false.

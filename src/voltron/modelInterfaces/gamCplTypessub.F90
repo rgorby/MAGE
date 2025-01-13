@@ -144,7 +144,8 @@ submodule (volttypes) gamCplTypessub
         call SetRings(App%Model,App%Grid,Xml)
         call Corners2Grid(App%Model,App%Grid)
         call DefaultBCs(App%Model,App%Grid)
-        call PrepState(App%Model,App%Grid,App%oState,App%State,Xml,App%gOptions%userInitFunc)
+        call PrepState(App%Model,App%Grid,App%State,App%oState,App%ooState,Xml,App%gOptions%userInitFunc)
+
 
     end subroutine
 

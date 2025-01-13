@@ -108,7 +108,7 @@ module gamCouple_mpi_V2G
         call Corners2Grid(App%Model,App%Grid)
         call DefaultBCs(App%Model,App%Grid)
         call PrepState(App%Model,App%Grid,&
-            App%oState,App%State,Xml,App%gOptions%userInitFunc)
+            App%State,App%oState,App%ooState,Xml,App%gOptions%userInitFunc)
 
         ! split couplingPoolComm into a communicator with only the non-helper voltron rank and Gamera ranks
         call voltronSplitWithApp(App%gOptionsCplMpiV%couplingPoolComm, gamId, 0, voltComm)
