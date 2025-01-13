@@ -662,7 +662,7 @@ module gioH5
 
         if (Model%doSource) then
             !Add source terms to output
-            call AddOutVar( IOVars,"Gas0",Gr%Gas0(:,:,:,:,:) )
+            call AddOutVar( IOVars,"Gas0",Gr%Gas0(:,:,:,:) )
         endif
 
         !Write out, force real precision
@@ -797,9 +797,9 @@ module gioH5
         !Handle gas0
         if (Model%doSource .and. hasSrc) then
             if(skipGhosts) then
-                call IOArray5DFill(IOVars,"Gas0",Gr%Gas0(Gr%is:Gr%ie,Gr%js:Gr%je,Gr%ks:Gr%ke,:,:))
+                call IOArray4DFill(IOVars,"Gas0",Gr%Gas0(Gr%is:Gr%ie,Gr%js:Gr%je,Gr%ks:Gr%ke,:))
             else
-                call IOArray5DFill(IOVars,"Gas0",Gr%Gas0(:,:,:,:,:))
+                call IOArray4DFill(IOVars,"Gas0",Gr%Gas0(:,:,:,:))
             endif
         endif
 

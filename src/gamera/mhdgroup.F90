@@ -580,11 +580,10 @@ module mhdgroup
 
     !Updates plasma state using static gravitational potential
     !Use time-averaged density from n,n+1 and update momentum
-    subroutine applyGrav(Model,Gr,State,oState,dt)
+    subroutine applyGrav(Model,Gr,State,oState,ooState,dt)
         type(Model_T), intent(inout) :: Model
         type(Grid_T), intent(in) :: Gr
-        type(State_T), intent(inout) :: State
-        type(State_T), intent(inout) :: oState
+        type(State_T), intent(inout) :: State, oState, ooState
         real(rp), intent(in) :: dt
 
         integer :: i,j,k,s,s0,sE

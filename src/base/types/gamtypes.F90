@@ -291,7 +291,7 @@ module gamtypes
     type, extends(BaseApp_T) :: gamApp_T
         type(Model_T)     :: Model
         type(Grid_T)      :: Grid
-        type(State_T)     :: State, oState
+        type(State_T)     :: State, oState, ooState
         type(gamSolver_T) :: Solver
 
         type(gamOptions_T) :: gOptions
