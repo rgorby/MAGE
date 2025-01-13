@@ -68,7 +68,39 @@ submodule (volttypes) raijuCplTypesSub
     end subroutine volt2RAIJU
 
 
-    module subroutine evalRAIJU(App,x1,x2,t,imW,isEdible)
+    module subroutine getMomentsRAIJU(App,th,ph,t,imW,isEdible)
+        class(raijuCoupler_T), intent(inout) :: App
+        real(rp), intent(in) :: th
+            !! Theta [rad]
+        real(rp), intent(in) :: ph
+            !! Phi [rad]
+        real(rp), intent(in) :: t
+            !! Time since run start [s]
+        real(rp), intent(out) :: imW(NVARIMAG)
+        logical, intent(out) :: isEdible
+
+        real(rp) :: active_interp
+
+        ! IM_D_RING=1,IM_P_RING,IM_D_COLD, IM_P_COLD, IM_TSCL
+        associate(rai=>App%raiApp, sh=>App%raiApp%Grid%shGrid)
+
+        ! Default
+        imW = 0.0
+        isEdible = .false.
+
+        ! Is this a good point?
+        if (th < sh%minTheta .or. th > sh%maxTheta) then
+            return ! Off grid, return default
+        endif
+
+        
+
+        
+
+        end associate
+    end subroutine getMomentsRAIJU
+
+    module subroutine getMomentsPrecipRAIJU(App,x1,x2,t,imW,isEdible)
         class(raijuCoupler_T), intent(inout) :: App
         real(rp), intent(in) :: x1,x2,t
         real(rp), intent(out) :: imW(NVARIMAG)
@@ -76,7 +108,7 @@ submodule (volttypes) raijuCplTypesSub
 
         imW = 0.0
         isEdible = .false.
-    end subroutine evalRAIJU
+    end subroutine getMomentsPrecipRAIJU
 
 
 !------

@@ -131,8 +131,11 @@ module volttypes
 
         contains
 
+        ! voltApp to IMAG
         procedure(toIMAG_T)  , deferred :: toIMAG
-        procedure(evalIMAG_T), deferred :: doEval
+        ! Routines to help get stuff out of IMAG
+        procedure(getMomentsIMAG_T), deferred :: getMoments
+        procedure(getMomentsPrecipIMAG_T), deferred :: getMomentsPrecip
         
         !procedure :: InitModel           => baseInitImag
         !procedure :: InitIO              => baseInitIOImag
@@ -166,7 +169,8 @@ module volttypes
         contains
 
         procedure :: toIMAG => volt2RAIJU
-        procedure :: doEval => evalRAIJU
+        procedure :: getMoments => getMomentsRAIJU
+        procedure :: getMomentsPrecip => getMomentsPrecipRAIJU
         
         procedure :: InitModel           => raiCplInitModel
         procedure :: InitIO              => raiCplInitIO
@@ -318,14 +322,24 @@ module volttypes
             class(voltApp_T), intent(inout) :: vApp
         end subroutine toIMAG_T
 
-        subroutine evalIMAG_T(App,x1,x2,t,imW,isEdible)
+        subroutine getMomentsIMAG_T(App,x1,x2,t,imW,isEdible)
             import imagCoupler_T
             import rp, NVARIMAG
             class(imagCoupler_T), intent(inout) :: App
             real(rp), intent(in) :: x1,x2,t
             real(rp), intent(out) :: imW(NVARIMAG)
             logical, intent(out) :: isEdible
-        end subroutine evalIMAG_T
+        end subroutine getMomentsIMAG_T
+
+
+        subroutine getMomentsPrecipIMAG_T(App,x1,x2,t,imW,isEdible)
+            import imagCoupler_T
+            import rp, NVARIMAG
+            class(imagCoupler_T), intent(inout) :: App
+            real(rp), intent(in) :: x1,x2,t
+            real(rp), intent(out) :: imW(NVARIMAG)
+            logical, intent(out) :: isEdible
+        end subroutine getMomentsPrecipIMAG_T
     end interface
 
 
@@ -448,12 +462,19 @@ module volttypes
             class(voltApp_T), intent(inout) :: vApp
         end subroutine
 
-        module subroutine evalRAIJU(App,x1,x2,t,imW,isEdible)
+        module subroutine getMomentsRAIJU(App,x1,x2,t,imW,isEdible)
             class(raijuCoupler_T), intent(inout) :: App
             real(rp), intent(in) :: x1,x2,t
             real(rp), intent(out) :: imW(NVARIMAG)
             logical, intent(out) :: isEdible
-        end subroutine evalRAIJU
+        end subroutine getMomentsRAIJU
+
+        module subroutine getMomentsPrecipRAIJU(App,x1,x2,t,imW,isEdible)
+            class(raijuCoupler_T), intent(inout) :: App
+            real(rp), intent(in) :: x1,x2,t
+            real(rp), intent(out) :: imW(NVARIMAG)
+            logical, intent(out) :: isEdible
+        end subroutine getMomentsPrecipRAIJU
 
         module subroutine raiCplInitModel(App, xml)
             class(raijuCoupler_T), intent(inout) :: App
