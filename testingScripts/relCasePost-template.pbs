@@ -1,26 +1,19 @@
 #!/bin/bash
 
-#PBS -N {{ job_name }}
+#PBS -N postProcessComp
 #PBS -A {{ account }}
-#PBS -q {{ queue }}
+#PBS -q casper@casper-pbs
 #PBS -l job_priority={{ job_priority }}
-#PBS -l walltime={{ walltime }}
-#PBS -l select=1:ncpus=128:ompthreads=128
+#PBS -l select=1:ncpus=9:ompthreads=9:mem=96GB
+#PBS -l walltime=1:00:00
 #PBS -j oe
 #PBS -m abe
 
 echo "Job $PBS_JOBID started at `date` on `hostname` in directory `pwd`."
 
-echo 'Loading modules.'
-module --force purge
-{%- for module in modules %}
-module load {{ module }}
-{%- endfor %}
-module list
-
 echo 'Loading python environment.'
 mage_test_root='{{ mage_test_root }}'
-export CONDARC="${mage_test_root}/condarc"
+export CONDARC="${mage_test_root}/.condarc"
 export CONDA_ENVS_PATH="${mage_test_root}/.conda"
 mage_miniconda3="${mage_test_root}/miniconda3"
 mage_conda="${mage_miniconda3}/bin/conda"
@@ -37,19 +30,28 @@ fi
 unset __conda_setup
 conda activate kaiju-3.8-testing
 
-echo 'Setting up MAGE environment.'
+#echo 'Setting up MAGE environment.'
 source {{ kaijuhome }}/scripts/setupEnvironment.sh
 source {{ kaipyhome }}/kaipy/scripts/setupEnvironment.sh
 
 echo 'Setting environment variables.'
 export TMPDIR={{ tmpdir }}
 export SLACK_BOT_TOKEN={{ slack_bot_token }}
-export DERECHO_TESTING_ACCOUNT={{ account }}
+export OMP_NUM_THREADS=9
+#export MPI_TYPE_DEPTH=32
+export KMP_STACKSIZE=128M
+export MAGE_TEST_ROOT=$mage_test_root
+export MAGE_TEST_SET_ROOT={{ mage_test_set_root }}
 export BRANCH_OR_COMMIT={{ branch_or_commit }}
+export JOBNAME={{ job_name }}
 echo 'The active environment variables are:'
 printenv
 
-# Create the report.
-python ${KAIJUHOME}/testingScripts/intelChecksReport.py {{ report_options }}
+# Process the data and generate the output video
+python $KAIPYHOME/kaipy/scripts/quicklook/gamerrVid.py -d1 {{ case1F }} -id1 {{ case1id }} -d2 {{ case2F }} -id2 {{ case2id }} -o {{ frameFolder }}/{{ caseName }} -ts {{ ts }} -te {{ te }} -dt {{ dt }} -Nth 9 >& {{ caseName }}.out
+
+# Generate the report.
+python $KAIJUHOME/testingScripts/relativeTestsReport.py {{ report_options }} -d1 {{ case1F }} -d2 {{ case2F }} -cn {{ caseName }} >& {{ job_name }}_report.out
 
 echo "Job $PBS_JOBID ended at `date` on `hostname` in directory `pwd`."
+

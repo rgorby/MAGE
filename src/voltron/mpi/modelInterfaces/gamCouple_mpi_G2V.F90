@@ -20,7 +20,6 @@ module gamCouple_mpi_G2V
 
         type(MPI_Comm) :: couplingComm
         integer :: myRank, voltRank
-        logical :: doSerialVoltron = .false., doAsyncCoupling = .true.
         logical :: processingData = .false.
 
         real(rp) :: DeepT
@@ -93,13 +92,7 @@ module gamCouple_mpi_G2V
         ! split couplingPoolComm into a communicator with only the non-helper voltron rank
         call appWaitForVoltronSplit(App%gOptionsCplMpiG%couplingPoolComm, gamId, 0, voltComm)
 
-        call Xml%Set_Val(App%doSerialVoltron,"/kaiju/voltron/coupling/doSerial",.false.)
-        call Xml%Set_Val(App%doAsyncCoupling,"/kaiju/voltron/coupling/doAsyncCoupling",.true.)
         call Xml%Set_Val(App%doDeep, "/kaiju/voltron/coupling/doDeep", .true.)
-        if(App%doSerialVoltron) then
-            ! don't do asynchronous coupling if comms are serial
-            App%doAsyncCoupling = .false.
-        endif
 
         ! create a new communicator using MPI Topology
         call MPI_Comm_Size(voltComm, commSize, ierr)
@@ -165,7 +158,10 @@ module gamCouple_mpi_G2V
         call createG2VDataTypes(App)
 
         ! over-ride some of the initial voltron parameters on the gamera ranks
-        call mpi_bcast(App%Model%t, 1, MPI_MYFLOAT, App%voltRank, App%couplingComm, ierr)
+        if(.not. App%Model%isRestart) then
+            ! don't over-ride restart time
+            call mpi_bcast(App%Model%t, 1, MPI_MYFLOAT, App%voltRank, App%couplingComm, ierr)
+        endif
         call mpi_bcast(App%Model%tFin, 1, MPI_MYFLOAT, App%voltRank, App%couplingComm, ierr)
         call mpi_bcast(App%Model%MJD0, 1, MPI_MYFLOAT, App%voltRank, App%couplingComm, ierr)
 
