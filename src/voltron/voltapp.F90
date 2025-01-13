@@ -677,6 +677,11 @@ module voltapp
         call inpXML%Set_Val(Model%doDip,'tracer/doDip',.false.)
 
     !Initialize ebState
+        if (gApp%Model%doMultiF) then
+            write(*,*) "Initializing MF-Chimp ..."
+            !Set proper number of species for chimp
+            Model%nSpc = gApp%Model%nSpc        
+        endif
         !CHIMP grid is initialized from Gamera's active corners
         call ebInit_fromMHDGrid(Model,ebState,inpXML,Gr%xyz(Gr%is:Gr%ie+1,Gr%js:Gr%je+1,Gr%ks:Gr%ke+1,1:NDIM))
         !Replace CHIMP 8-point average centers w/ more accurate Gamera quadrature centers        

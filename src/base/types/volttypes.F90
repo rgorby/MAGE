@@ -24,6 +24,19 @@ module volttypes
         enumerator :: LPPROJ=1,LLPROJ
     endenum
 
+    ! Data for inner mag => gamera variables
+    enum, bind(C)
+        enumerator :: IM_D_RING=1,IM_P_RING,IM_D_COLD, IM_P_COLD, IM_TSCL
+    endenum
+    integer, parameter :: RCFLUID=1,COLDFLUID=2
+
+    !! WILL BE OBSOLETE SOON
+    ! keeping here for intermediate compatability
+    enum, bind(C)
+        enumerator :: IMDEN=1,IMX1,IMX2,IMTSCL,IMPR
+    endenum
+    integer, parameter :: NVARIMAG = 5
+    
     ! data for imag => remix for conductance
     type imag2Mix_T
         !Assuming IMag data is coming on northern hemisphere

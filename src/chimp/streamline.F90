@@ -9,7 +9,7 @@ module streamline
 
     implicit none
 
-    real(rp), private :: ShueScl = 2.0 !Safety factor for Shue MP
+    real(rp), private :: ShueScl = 2.0  !Safety factor for Shue MP
     real(rp), private :: rShue   = 6.0  !Radius to start checking Shue
     integer , private :: NpChk   = 10   !Cadence for Shue checking
 
@@ -18,6 +18,7 @@ module streamline
     subroutine setShue(Model,inpXML)
         type(chmpModel_T), intent(inout) :: Model
         type(XML_Input_T), intent(inout) :: inpXML
+
         if (Model%isMAGE .and. (trim(toUpper(Model%uID)) == "EARTHCODE")) then
             !This is for Earth and we're running in tandem w/ mage
             !Setup shue for short-circuiting
@@ -30,49 +31,44 @@ module streamline
             rShue = HUGE
         endif
     end subroutine setShue
-    
+
+    !Trace field line w/ seed point x0 (both directions)
+    !doShueO = Use Shue MP model (w/ safety factor) for short circuiting
+
     !doNHO = T, assume doing RCM coupling
-    subroutine genStream(Model,ebState,x0,t,fL,MaxStepsO,doShueO,doNHO)
+    subroutine genLine(Model,ebState,x0,t,fL,MaxStepsO,doShueO,doNHO)
         real(rp), intent(in) :: x0(NDIM),t
-        type(chmpModel_T), intent(in) :: Model
-        type(ebState_T), intent(in)   :: ebState
-        type(fLine_T), intent(inout) :: fL
+        type(chmpModel_T), intent(in)    :: Model
+        type(ebState_T)  , intent(in)    :: ebState
+        type(magLine_T)  , intent(inout) :: fL
         integer , intent(in), optional :: MaxStepsO
         logical , intent(in), optional :: doShueO,doNHO
 
-        integer :: N1,N2,i,Np,Nm,n,MaxN
-        real(rp) :: dx(NDIM)
-        real(rp) :: Xn(0:MaxFL,NDIM,2),Vn(0:MaxFL,0:NumVFL,2)
-        integer :: ijkn(0:MaxFL,NDIM,2)
-        logical :: inDom,doShue,doNH
+        real(rp), allocatable :: xyzn(:,:,:), nBxyz(:,:,:), nGas(:,:,:,:)
+        integer , allocatable :: ijkn(:,:,:)
 
-        !Start by emptying line
-        call cleanStream(fL)
+        logical :: inDom,doShue,doNH
+        integer :: N1,N2,i,MaxN
+
+        !Start by empting line
+        call cleanLine(fL)
+
+        !Do some pre-checking
         fL%x0 = x0
         inDom = inDomain(x0,Model,ebState%ebGr)
-        
         if (.not. inDom) then
             !Bad tube, seed point isn't in domain
             fL%isGood = .false.
             allocate(fL%xyz(0:0,NDIM))
             fL%xyz(0,:) = x0
             return
-        endif
-        
-        !Get traced line
-        fl%lnVars(0)%idStr = "B"
 
-        if (Model%doMHD) then
-            !Create holders for all MHD variables
-            fl%lnVars(DEN)%idStr = "D"
-            fl%lnVars(VELX)%idStr = "Vx"
-            fl%lnVars(VELY)%idStr = "Vy"
-            fl%lnVars(VELZ)%idStr = "Vz"
-            fl%lnVars(PRESSURE)%idStr = "P"
         endif
 
+        !Okay, we're still here so let's do this thing
+        !Start by dealing w/ optional and defaults
         if (present(MaxStepsO)) then
-            MaxN = MaxStepsO
+            MaxN = min(MaxStepsO, MaxFL)
         else
             MaxN = MaxFL
         endif
@@ -88,61 +84,71 @@ module streamline
             doShue = .false.
         endif
 
-        call genTrace(Model,ebState,x0,t,Xn(:,:,1),ijkn(:,:,1),Vn(:,:,1),N1,-1,MaxN,doShue)
+        !Allocate temp arrays to hold information along each direction
+        !Trailing dimension (1-2) represents -/+ directions
+        allocate(xyzn (0:MaxFL,NDIM,2))
+        allocate(ijkn (0:MaxFL,NDIM,2))
+        allocate(nBxyz(0:MaxFL,NDIM,2))
+        allocate(nGas (0:MaxFL,NVARMHD,0:Model%nSpc,2))
+
+    !Get traces and store in temp arrays
+        !Gen trace in negative direction
+        call genTrace(Model,ebState,x0,t,xyzn(:,:,1),ijkn(:,:,1),nBxyz(:,:,1),nGas(:,:,:,1),N1,-1,MaxN,doShue)
         if (doNH) then
+            !We're starting at northern hemisphere so don't need to go in positive direction
             N2 = 0
         else
-            call genTrace(Model,ebState,x0,t,Xn(:,:,2),ijkn(:,:,2),Vn(:,:,2),N2,+1,MaxN,doShue)
+            call genTrace(Model,ebState,x0,t,xyzn(:,:,2),ijkn(:,:,2),nBxyz(:,:,2),nGas(:,:,:,2),N2,+1,MaxN,doShue)
         endif
 
-        !Create field line
+    !Now create field line and scrape values out of temp arrays
+        fL%nMax = MaxN
         fL%isGood = .true.
+        fL%x0 = x0
         fL%Nm = N1
         fL%Np = N2
-        fL%Nmax = MaxN
+    
+        !Do allocations
+        allocate(fL%xyz (-N1:+N2,NDIM))
+        allocate(fL%ijk (-N1:+N2,NDIM))
+        allocate(fL%Bxyz(-N1:+N2,NDIM))
+        allocate(fL%magB(-N1:+N2))
+        allocate(fL%Gas (-N1:+N2,NVARMHD,0:Model%nSpc) ) !0 = BULK
 
-        !Do allocations/set seed point value
-        allocate(fL%xyz(-N1:N2,NDIM))
-        allocate(fL%ijk(-N1:N2,NDIM))
-        fL%xyz(0,:) = x0
-        fL%ijk(0,:) = ijkn(0,1,1)
-        do n=0,NumVFL
-            allocate(fL%lnVars(n)%V(-N1:N2))
-            !fL%lnVars(n)%V(0) = Vn(n,1,1)
-            fL%lnVars(n)%V(0) = Vn(0,n,1)
-            fL%lnVars(n)%V0   = Vn(0,n,1)
-        enddo
-        
-        !Now load field line, positive dir then negative
-        do i=1,N1 !Negative
-            fL%xyz(-i,:)       = Xn(i,:,1)
-            fL%ijk(-i,:)     = ijkn(i,:,1)
-            !fL%lnVars(:)%V(-i) = Vn(i,:,1)
-            do n=0,NumVFL
-                fL%lnVars(n)%V(-i) = Vn(i,n,1)
-            enddo
-        enddo
-        
-        do i=1,N2 !Positive
-            fL%xyz(i,:)       = Xn(i,:,2)
-            fL%ijk(i,:)     = ijkn(i,:,2)
-            !fL%lnVars(:)%V(i) = Vn(i,:,2)
-            do n=0,NumVFL
-                fL%lnVars(n)%V(i) = Vn(i,n,2)
-            enddo
+        !Load field lines
+        fL%xyz (0,:)   = x0
+        fL%ijk (0,:)   = ijkn (0,:,1)
+        fL%Bxyz(0,:)   = nBxyz(0,:,1)
+        fL%magB(0)     = norm2(fL%Bxyz(0,:))
+        fL%Gas (0,:,:) = nGas (0,:,:,1)
 
+        do i=1,N1 !Negative direction
+            fL%xyz (-i,:)   = xyzn (i,:,1)
+            fL%ijk (-i,:)   = ijkn (i,:,1)
+            fL%Bxyz(-i,:)   = nBxyz(i,:,1)
+            fL%magB(-i)     = norm2(fL%Bxyz(-i,:))
+            fL%Gas (-i,:,:) = nGas(i,:,:,1)
         enddo
-        
-    end subroutine genStream
 
-    !!Gathers field line topology information
+        do i=1,N2 !positive direction
+            fL%xyz (+i,:)   = xyzn (i,:,2)
+            fL%ijk (+i,:)   = ijkn (i,:,2)
+            fL%Bxyz(+i,:)   = nBxyz(i,:,2)
+            fL%magB(+i)     = norm2(fL%Bxyz(+i,:))
+            fL%Gas (+i,:,:) = nGas(i,:,:,2)
+        enddo
+
+    end subroutine genLine
+
+    !Gathers field line topology information
     subroutine SliceFL(Model,ebState,x0,t,ebTrc)
         real(rp), intent(in) :: x0(NDIM),t
-        type(chmpModel_T), intent(in) :: Model
-        type(ebState_T), intent(in)   :: ebState
-        type(ebTrc_T), intent(inout) :: ebTrc
+        type(chmpModel_T), intent(in)    :: Model
+        type(ebState_T)  , intent(in)    :: ebState
+        type(ebTrc_T)    , intent(inout) :: ebTrc
 
-        type(fLine_T) :: bTrc
+        type(magLine_T) :: bTrc
+
         !Initialize the values
         ebTrc%OCb = 0.0
         ebTrc%dvB = 0.0
@@ -157,7 +163,7 @@ module streamline
 
         if (.not. inDomain(x0,Model,ebState%ebGr)) return
         !Trace field line
-        call genStream(Model,ebState,x0,t,bTrc)
+        call genLine(Model,ebState,x0,t,bTrc)
 
         !Get diagnostics
         ebTrc%OCb = 1.0*FLTop(Model,ebState%ebGr,bTrc)
@@ -177,16 +183,15 @@ module streamline
 
         endif
 
-        !write(*,*) 'FL size = ', bTrc%Nm+bTrc%Np+1
     end subroutine SliceFL
 
 !---------------------------------
 !Field line diagnostics
     !Flux tube volume
     function FLVol(Model,ebGr,bTrc) result(dvB)
-        type(chmpModel_T), intent(in) :: Model
-        type(ebGrid_T), intent(in) :: ebGr
-        type(fLine_T), intent(in) :: bTrc
+        type(chmpModel_T)  , intent(in) :: Model
+        type(ebGrid_T)     , intent(in) :: ebGr
+        type(magLine_T)    , intent(in) :: bTrc
         real(rp) :: dvB
 
         integer :: OCb,k
@@ -200,19 +205,22 @@ module streamline
         
         associate(Np=>bTrc%Np,Nm=>bTrc%Nm)
         do k=-Nm,Np-1
-            dl = norm2(bTrc%xyz(k+1,:)-bTrc%xyz(k,:))
-            bAvg = 0.5*(bTrc%lnVars(0)%V(k+1) + bTrc%lnVars(0)%V(k))
+            dl   = norm2(bTrc%xyz (k+1,:)-bTrc%xyz (k,:))
+            bAvg = 0.5* (bTrc%magB(k+1) + bTrc%magB(k))
+
             dA = Phi0/bAvg
             dvB = dvB + dA*dl
         enddo
+
         end associate
+
     end function FLVol
 
     !Calculate arc length of field line
     function FLArc(Model,ebGr,bTrc) result(L)
         type(chmpModel_T), intent(in) :: Model
-        type(ebGrid_T), intent(in) :: ebGr
-        type(fLine_T), intent(in) :: bTrc
+        type(ebGrid_T)   , intent(in) :: ebGr
+        type(magLine_T  ), intent(in) :: bTrc
         real(rp) :: L
         real(rp) :: dL
         integer :: k
@@ -230,8 +238,8 @@ module streamline
     !Calculate Alfven crossing time on line
     function FLAlfvenX(Model,ebGr,bTrc) result(dtX)
         type(chmpModel_T), intent(in) :: Model
-        type(ebGrid_T), intent(in) :: ebGr
-        type(fLine_T), intent(in) :: bTrc
+        type(ebGrid_T)   , intent(in) :: ebGr
+        type(magLine_T  ), intent(in) :: bTrc
         real(rp) :: dtX
 
         integer :: k
@@ -239,85 +247,61 @@ module streamline
 
         dtX = 0.0
         if (.not. bTrc%isGood) return
+
         do k=-bTrc%Nm,bTrc%Np-1
             dL = norm2(bTrc%xyz(k+1,:)-bTrc%xyz(k,:))
             dL = dL*L0*1.0e-5 !Corner units to km
-            !Get egde-centered quantities
-            eD = 0.5*(bTrc%lnVars(DEN)%V(k+1) + bTrc%lnVars(DEN)%V(k))
-            bMag = 0.5*(bTrc%lnVars(0)%V(k+1) + bTrc%lnVars(0)%V(k))
+            !Get egde-centered quantities, use BULK
+            eD   = 0.5*( bTrc%Gas(k+1,DEN,BLK) + bTrc%Gas(k,DEN,BLK) )
+            bMag = 0.5* (bTrc%magB(k+1) + bTrc%magB(k))
+
             !Convert B to nT, eD in #/cc
             bMag = oBScl*bMag
-            if (eD > TINY) then
-                Va = 22.0*bMag/sqrt(eD) !Alfven speed in km/s, NRL formulary
-                dtX = dtX + dL/Va
-            endif
+            Va = 22.0*bMag/sqrt(eD) !Alfven speed in km/s, NRL formulary
+            dtX = dtX + dL/Va
         enddo
 
     end function FLAlfvenX
 
-    !Calculate Alfven+Sound crossing time on line
-    function FLFastX(Model,ebGr,bTrc) result(dtX)
+    !Averaged density/pressure (of species sOpt or BLK)
+    subroutine FLThermo(Model,ebGr,bTrc,bD,bP,dvB,bBetaO,sOpt)
         type(chmpModel_T), intent(in) :: Model
-        type(ebGrid_T), intent(in) :: ebGr
-        type(fLine_T), intent(in) :: bTrc
-        real(rp) :: dtX
-
-        integer :: k
-        real(rp) :: dL,eD,eP,TiEV,bMag,Va,Cs
-
-        dtX = 0.0
-        if (.not. bTrc%isGood) return
-        do k=-bTrc%Nm,bTrc%Np-1
-            dL = norm2(bTrc%xyz(k+1,:)-bTrc%xyz(k,:))
-            dL = dL*L0*1.0e-5 !Corner units to km
-            !Get egde-centered quantities
-            eD   = 0.5*(bTrc%lnVars(DEN)     %V(k+1) + bTrc%lnVars(DEN)     %V(k))
-            eP   = 0.5*(bTrc%lnVars(PRESSURE)%V(k+1) + bTrc%lnVars(PRESSURE)%V(k))
-            bMag = 0.5*(bTrc%lnVars(0)       %V(k+1) + bTrc%lnVars(0)       %V(k))
-
-            !Convert B to nT, eD in #/cc, eP in nPa
-            bMag = oBScl*bMag
-            if (eD > TINY) then
-                Va = 22.0*bMag/sqrt(eD) !Alfven speed in km/s, NRL formulary
-                !CsMKS = 9.79 x sqrt(5/3 * Ti) km/s, Ti eV
-                TiEV = (1.0e+3)*DP2kT(eD,eP) !Temp in eV
-                Cs = 9.79*sqrt((5.0/3)*TiEV)
-                dtX = dtX + dL/(Va+Cs)
-            endif
-        enddo
-
-    end function FLFastX
-
-    !Averaged density/pressure
-    subroutine FLThermo(Model,ebGr,bTrc,bD,bP,dvB,bBetaO)
-        type(chmpModel_T), intent(in) :: Model
-        type(ebGrid_T), intent(in) :: ebGr
-        type(fLine_T), intent(in) :: bTrc
+        type(ebGrid_T)   , intent(in) :: ebGr
+        type(magLine_T  ), intent(in) :: bTrc
         real(rp), intent(out) :: bD,bP,dvB
         real(rp), intent(out), optional :: bBetaO
+        integer , intent(in ), optional :: sOpt 
 
-        integer :: k
+        integer :: k,s0
         real(rp) :: bMag,dl,eP,eD,ePb !Edge-centered values
         real(rp) :: bPb,bBeta
-        
-        if (.not. bTrc%isGood) return
 
-        associate(Np=>bTrc%Np,Nm=>bTrc%Nm)
         !Zero out accumulators
         bD = 0.0
         bP = 0.0
         dvB = 0.0
         bPb = 0.0
         bBeta = 0.0
+        
+        if (.not. bTrc%isGood) return
+
+        if (present(sOpt)) then
+            s0 = min(sOpt,Model%nSpc)
+        else
+            s0 = BLK
+        endif
+
+        associate(Np=>bTrc%Np,Nm=>bTrc%Nm)
 
         !Loop over edges
         do k=-Nm,Np-1
             !Get edge-centered quantities
             dl = norm2(bTrc%xyz(k+1,:) - bTrc%xyz(k,:)) !Edge length
-            bMag = 0.5*(bTrc%lnVars(0)%V(k+1) + bTrc%lnVars(0)%V(k))
 
-            eD = 0.5*(bTrc%lnVars(DEN)%V(k+1) + bTrc%lnVars(DEN)%V(k))
-            eP = 0.5*(bTrc%lnVars(PRESSURE)%V(k+1) + bTrc%lnVars(PRESSURE)%V(k))
+            eD   = 0.5*( bTrc%Gas(k+1,DEN     ,s0) + bTrc%Gas(k,DEN     ,s0) )
+            eP   = 0.5*( bTrc%Gas(k+1,PRESSURE,s0) + bTrc%Gas(k,PRESSURE,s0) )
+
+            bMag = 0.5* (bTrc%magB(k+1) + bTrc%magB(k))
 
             !Get edge mag pressure, bmag=>nT(oBScl)=>T
             !(NRL Plasma formulary):
@@ -349,17 +333,18 @@ module streamline
         end associate
     end subroutine FLThermo
     
-    !Flux tube entropy
+    !Flux tube entropy (from BLK)
     function FLEntropy(Model,ebGr,bTrc,GamO) result(S)
         type(chmpModel_T), intent(in) :: Model
-        type(ebGrid_T), intent(in) :: ebGr
-        type(fLine_T), intent(in) :: bTrc
+        type(ebGrid_T)   , intent(in) :: ebGr
+        type(magLine_T  ), intent(in) :: bTrc
         real(rp), optional :: GamO
 
         real(rp) :: S
 
         integer :: OCb,k
         real(rp) :: Phi0,dl,bAvg,pAvg,dV,Gam
+
         if (present(GamO)) then
             Gam = GamO
         else
@@ -375,12 +360,10 @@ module streamline
         associate(Np=>bTrc%Np,Nm=>bTrc%Nm)
         do k=-Nm,Np-1
             dl = norm2(bTrc%xyz(k+1,:)-bTrc%xyz(k,:))
-            bAvg = 0.5*(bTrc%lnVars(0)%V(k+1) + bTrc%lnVars(0)%V(k))
+            bAvg = 0.5* (bTrc%magB(k+1) + bTrc%magB(k))
             dV = dl*Phi0/bAvg
-            pAvg = 0.5*(bTrc%lnVars(PRESSURE)%V(k+1) + bTrc%lnVars(PRESSURE)%V(k))
-            if (pAvg > TINY) then
-                S = S + dV*(pAvg**(1.0/Gam))
-            endif
+            pAvg = 0.5*( bTrc%Gas(k+1,PRESSURE,BLK) + bTrc%Gas(k,PRESSURE,BLK) )
+            S = S + dV*(pAvg**(1.0/Gam))
         enddo
 
         end associate
@@ -389,8 +372,8 @@ module streamline
 
     function FLTop(Model,ebGr,bTrc) result(OCb)
         type(chmpModel_T), intent(in) :: Model
-        type(ebGrid_T), intent(in) :: ebGr
-        type(fLine_T), intent(in) :: bTrc
+        type(ebGrid_T)   , intent(in) :: ebGr
+        type(magLine_T  ), intent(in) :: bTrc
         integer :: OCb
 
         logical :: isCP,isCM,isFin,isStart
@@ -409,7 +392,8 @@ module streamline
         isCM  = isClosed(bTrc%xyz(-Nm,:),Model)
 
         
-        isFin = (Np<bTrc%Nmax-1) .and. (Nm<bTrc%Nmax-1) !Check if finished
+        !isFin = (Np<MaxFL-1) .and. (Nm<MaxFL-1) !Check if finished
+        isFin = (Np<bTrc%nMax-1) .and. (Nm<bTrc%nMax-1) !Check if finished
         isStart = (Np>0) .and. (Nm>0) !Check if both sides went somewhere
 
         OCb = 0
@@ -440,8 +424,8 @@ module streamline
     !Get conjugate point from field line, assuming looking for southern hemisphere
     subroutine FLConj(Model,ebGr,bTrc,xyzC)
         type(chmpModel_T), intent(in) :: Model
-        type(ebGrid_T), intent(in) :: ebGr
-        type(fLine_T), intent(in) :: bTrc
+        type(ebGrid_T)   , intent(in) :: ebGr
+        type(magLine_T  ), intent(in) :: bTrc
         real(rp), intent(out) :: xyzC(NDIM)
 
         real(rp), dimension(NDIM) :: xP,xM
@@ -471,7 +455,7 @@ module streamline
     !Get minimum field strength and location
     subroutine FLEq(Model,bTrc,xeq,Beq)
         type(chmpModel_T), intent(in) :: Model
-        type(fLine_T), intent(in) :: bTrc
+        type(magLine_T  ), intent(in) :: bTrc
         real(rp), intent(out) :: xeq(NDIM),Beq
 
         integer :: i0,iMin,OCb
@@ -485,8 +469,8 @@ module streamline
         endif
 
         !Find minimum field and where it occurs
-        Beq = minval(bTrc%lnVars(0)%V) !Min field strength
-        i0  = minloc(bTrc%lnVars(0)%V,dim=1) !Note this is between 1:N
+        Beq = minval(bTrc%magB) !Min field strength
+        i0  = minloc(bTrc%magB,dim=1) !Note this is between 1:N b/c fortran
         !Need to offset i0, iMin = i0-Nm-1
         iMin = i0-Nm-1
         xeq = bTrc%xyz(iMin,:)
@@ -499,7 +483,7 @@ module streamline
         type(chmpModel_T), intent(in)  :: Model
         type(ebGrid_T)   , intent(in)  :: ebGr
         type(ebState_T)  , intent(in)  :: ebState
-        type(fLine_T)    , intent(in)  :: bTrc
+        type(magLine_T)  , intent(in)  :: bTrc
         real(rp)         , intent(out) :: rCurv
         real(rp)         , intent(out) :: vEB
 
@@ -526,8 +510,8 @@ module streamline
     !Project to SM EQ (Z=0)
     subroutine getEquatorProjection(Model,ebState,x0,t,xe)
         real(rp), intent(in) :: x0(NDIM),t
-        type(chmpModel_T), intent(in) :: Model
-        type(ebState_T), intent(in)   :: ebState
+        type(chmpModel_T), intent(in)   :: Model
+        type(ebState_T)  , intent(in)   :: ebState
         real(rp), intent(out) :: xe(NDIM) ! end point
         logical :: failEquator
 
@@ -565,7 +549,7 @@ module streamline
         real(rp), intent(out) :: xeq(NDIM),Beq
         integer, intent(out), optional :: tOpt
 
-        type(fLine_T) :: bTrc
+        type(magLine_T) :: bTrc
         integer :: OCb
         
         !Initialize output
@@ -576,7 +560,7 @@ module streamline
         if (.not. inDomain(x0,Model,ebState%ebGr)) return
 
         !Trace field line
-        call genStream(Model,ebState,x0,t,bTrc)
+        call genLine(Model,ebState,x0,t,bTrc)
 
         !Get diagnostics
         call FLEq(Model,bTrc,xeq,Beq)
@@ -641,13 +625,13 @@ module streamline
 
 !---------------------------------
 !Tracing routines
-    
+
     !Calculate one-sided trace (in sgn direction)
-    subroutine genTrace(Model,ebState,x0,t,xyzn,ijkn,vM,Np,sgn,MaxStepsO,doShueO)
+    subroutine genTrace(Model,ebState,x0,t,xyzn,ijkn,bxyzn,gasn,Np,sgn,MaxStepsO,doShueO)
         type(chmpModel_T), intent(in) :: Model
         type(ebState_T), intent(in)   :: ebState
         real(rp), intent(in) :: x0(NDIM),t
-        real(rp), intent(inout) :: xyzn(0:MaxFL,NDIM),vM(0:MaxFL,0:NumVFL)
+        real(rp), intent(inout) :: xyzn(0:MaxFL,NDIM),bxyzn(0:MaxFL,NDIM),gasn(0:MaxFL,NVARMHD,0:Model%nSpc)
         integer , intent(inout) :: ijkn(0:MaxFL,NDIM)
         integer , intent(out) :: Np
         integer , intent(in) :: sgn
@@ -658,9 +642,9 @@ module streamline
         type(GridPoint_T) :: gPt
         real(rp) :: h
         real(rp), dimension(NDIM) :: B,oB,dx
-        real(rp), dimension(NVARMHD) :: Q
+        real(rp), dimension(NVARMHD,0:Model%nSpc) :: Q
         logical :: inDom,doShue
-
+        
         if (present(MaxStepsO)) then
             MaxSteps = min(MaxStepsO,MaxFL)
         else
@@ -676,6 +660,12 @@ module streamline
         gPt%xyz = x0
         gPt%t   = t
         Np = 0
+
+        xyzn  = 0.0
+        gasn  = 0.0
+        bxyzn = 0.0
+        ijkn  = 0
+        
         inDom = inDomain(gPt%xyz,Model,ebState%ebGr)
 
     !Start main loop
@@ -694,16 +684,17 @@ module streamline
                 !NOTE: Don't need to re-locate b/c last ijkG is correct from FSAL
                 gPt%dl = getDiag(ebState%ebGr,gPt%ijkG)
             endif
-            
+
         !Get values at this point on the tube
             !Already have B field from FSAL (first same as last) of previous iteration
             !B = fldInterp(gPt%xyz,gPt%t,Model,ebState,BFLD,inDom,gPt%ijkG)
-            xyzn(Np,:) = gPt%xyz
-            ijkn(Np,:) = gPt%ijkG
-            vM  (Np,0) = norm2(B)
+            xyzn (Np,:) = gPt%xyz
+            ijkn (Np,:) = gPt%ijkG
+            bxyzn(Np,:) = B
+
             if (Model%doMHD) then
-                Q = mhdInterp(gPt%xyz,gPt%t,Model,ebState,gPt%ijkG)
-                vM(Np,1:NVARMHD) = Q
+                Q = mhdInterpMF(gPt%xyz,gPt%t,Model,ebState,gPt%ijkG)
+                gasn(Np,1:NVARMHD,0:Model%nSpc) = Q
             endif
 
         !Now do step
@@ -734,8 +725,7 @@ module streamline
             !write(*,*) "End : ", xyzn(Np,:)
             !write(*,'(a)',advance="no") ANSIRESET, ''
             !!$OMP END CRITICAL
-        endif
-
+        endif                            
     end subroutine genTrace
 
     !Slimmed down projection to northern hemisphere for MAGE
@@ -744,10 +734,10 @@ module streamline
     subroutine mageproject(Model,ebState,x0,t,xyz,Np,isG,epsO,MaxStepsO)
         type(chmpModel_T), intent(in) :: Model
         type(ebState_T), intent(in)   :: ebState
-        real(rp), intent(in) :: x0(NDIM),t
+        real(rp), intent(in)  :: x0(NDIM),t
         real(rp), intent(out) :: xyz(NDIM)
-        integer, intent(out) :: Np
-        logical, intent(out) :: isG
+        integer , intent(out) :: Np
+        logical,  intent(out) :: isG
         real(rp), intent(in), optional :: epsO
         integer , intent(in), optional :: MaxStepsO
 
