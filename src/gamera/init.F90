@@ -39,7 +39,7 @@ module init
         type(Model_T), intent(inout) :: Model
         type(Grid_T), intent(inout) :: Grid
         type(State_T), intent(inout) :: State,oState
-        type(Solver_T), intent(inout) :: Solver
+        type(gamSolver_T), intent(inout) :: Solver
         !OMEGA can overrule what GAMERA has
         type(XML_Input_T), intent(inout) :: xmlInp
         procedure(StateIC_T), pointer, intent(in) :: userInitFunc
@@ -148,10 +148,10 @@ module init
     end subroutine getRestart
 
     subroutine CalcGridInfo(Model,Grid,State,oState,Solver,xmlInp,userInitFunc)
-        type(Model_T), intent(inout) :: Model
-        type(Grid_T), intent(inout) :: Grid
-        type(State_T), intent(inout) :: State,oState
-        type(Solver_T), intent(inout) :: Solver
+        type(Model_T)    , intent(inout) :: Model
+        type(Grid_T)     , intent(inout) :: Grid
+        type(State_T)    , intent(inout) :: State,oState
+        type(gamSolver_T), intent(inout) :: Solver
         type(XML_Input_T), intent(inout) :: xmlInp
         procedure(StateIC_T), pointer, intent(in) :: userInitFunc
 
@@ -471,9 +471,9 @@ module init
     end subroutine initModel
 
     subroutine initSolver(Solver, Model, Grid)
-        type(Solver_T), intent(inout) :: Solver
-        type(Model_T), intent(in)     :: Model
-        type(Grid_T), intent(in)      :: Grid
+        type(gamSolver_T), intent(inout) :: Solver
+        type(Model_T)    , intent(in)    :: Model
+        type(Grid_T)     , intent(in)    :: Grid
 
         ! initialize stress variables
         allocate(Solver%gFlx(Grid%isg:Grid%ieg,Grid%jsg:Grid%jeg,Grid%ksg:Grid%keg,1:NVAR,1:NDIM,BLK:Model%nSpc))

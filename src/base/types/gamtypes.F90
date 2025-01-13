@@ -260,7 +260,7 @@ module gamtypes
     end type State_T
 
     ! Variables used by the solver for timestep update
-    type Solver_T
+    type gamSolver_T
 
         !Big local work areas to calculate fluxes
         !gFlux = Ni x Nj x Nk x Nv x Nd x Ns
@@ -279,7 +279,7 @@ module gamtypes
         !Ensure these arrays are aligned properly
         !DIR$ ATTRIBUTES align : ALIGN :: gFlx, mFlx, Vf, dGasH, dGasM
 
-    end type Solver_T
+    end type gamSolver_T
 
     type, extends(BaseOptions_T) :: gamOptions_T
         procedure(StateIC_T), pointer, nopass :: userInitFunc
@@ -288,10 +288,10 @@ module gamtypes
     end type gamOptions_T
 
     type, extends(BaseApp_T) :: gamApp_T
-        type(Model_T)  :: Model
-        type(Grid_T)   :: Grid
-        type(State_T)  :: State, oState
-        type(Solver_T) :: Solver
+        type(Model_T)     :: Model
+        type(Grid_T)      :: Grid
+        type(State_T)     :: State, oState
+        type(gamSolver_T) :: Solver
 
         type(gamOptions_T) :: gOptions
 

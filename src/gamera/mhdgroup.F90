@@ -14,10 +14,10 @@ module mhdgroup
     contains
 
     subroutine AdvanceMHD(Model,Grid,State,oState,Solver,dt)
-        type(Model_T), intent(inout) :: Model
-        type(Grid_T), intent(inout) :: Grid
-        type(State_T), intent(inout) :: State,oState
-        type(Solver_T), intent(inout) :: Solver
+        type(Model_T)    , intent(inout) :: Model
+        type(Grid_T)     , intent(inout) :: Grid
+        type(State_T)    , intent(inout) :: State,oState
+        type(gamSolver_T), intent(inout) :: Solver
         real(rp), intent(in) :: dt
 
         integer :: n
