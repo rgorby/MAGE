@@ -260,6 +260,8 @@ module raijustarter
         call iXML%Set_Val(Model%bminThresh   , "cpl/bminThresh"   , def_bminThresh)
         call iXML%Set_Val(Model%PstdThresh   , "cpl/Pstd"         , def_PstdThresh)
         call iXML%Set_Val(Model%normAngThresh, "cpl/normAngThresh", def_normAngle)
+        ! Note: Not used now within raiju, just passing through. But should probably include as a constraint
+        call iXML%Set_Val(Model%nBounce, "cpl/nBounce", def_nBounce)
         ! Convert degrees to dot product value
         Model%normAngThresh = cos(Model%normAngThresh*PI/180.0)
 
@@ -392,6 +394,7 @@ module raijustarter
             allocate( State%Davg(sh%isg:sh%ieg  , sh%jsg:sh%jeg, 0:Grid%nFluidIn) )
             allocate( State%Pstd(sh%isg:sh%ieg  , sh%jsg:sh%jeg, 0:Grid%nFluidIn) )
             allocate( State%Dstd(sh%isg:sh%ieg  , sh%jsg:sh%jeg, 0:Grid%nFluidIn) )
+            call initShellVar(Grid%shGrid, SHGR_CC, State%Tb)
             ! Bmin surface
             allocate( State%Bmin    (sh%isg:sh%ieg+1, sh%jsg:sh%jeg+1, 3 ) )
             allocate( State%xyzMin  (sh%isg:sh%ieg+1, sh%jsg:sh%jeg+1, 3 ) )

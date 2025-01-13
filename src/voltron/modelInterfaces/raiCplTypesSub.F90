@@ -5,6 +5,9 @@ submodule (volttypes) raijuCplTypesSub
     use raijuCplHelper
     use raijuColdStartHelper
 
+    use shellInterp
+    use imaghelper
+
     implicit none
 
     contains
@@ -69,6 +72,7 @@ submodule (volttypes) raijuCplTypesSub
 
 
     module subroutine getMomentsRAIJU(App,th,ph,t,imW,isEdible)
+        !! Get fluid moments from RAIJU, formatted by enum in volttypes.F90 for a given theta,phi location within the RAIJU domain
         class(raijuCoupler_T), intent(inout) :: App
         real(rp), intent(in) :: th
             !! Theta [rad]
@@ -79,30 +83,66 @@ submodule (volttypes) raijuCplTypesSub
         real(rp), intent(out) :: imW(NVARIMAG)
         logical, intent(out) :: isEdible
 
+        integer :: s  ! Iterators
+        integer :: i0, j0  ! i,j cell that provided th,ph are in
         real(rp) :: active_interp
+        real(rp) :: d_cold, t_cold, d_hot, p_hot
 
         ! IM_D_RING=1,IM_P_RING,IM_D_COLD, IM_P_COLD, IM_TSCL
-        associate(rai=>App%raiApp, sh=>App%raiApp%Grid%shGrid)
+        associate(Model=>App%raiApp%Model, State=>App%raiApp%State, sh=>App%raiApp%Grid%shGrid, spcList=>App%raiApp%Grid%spc)
 
         ! Default
         imW = 0.0
         isEdible = .false.
+
+        d_cold = 0
+        t_cold = TINY
+        d_hot = 0
+        p_hot = 0
 
         ! Is this a good point?
         if (th < sh%minTheta .or. th > sh%maxTheta) then
             return ! Off grid, return default
         endif
 
-        
+        ! Active check
+        call getSGCellILoc(sh, th, i0)
+        call getSGCellILoc(sh, ph, j0)
+        if (State%active(i0,j0) .ne. RAIJUACTIVE) then
+            return
+        endif
 
-        
+        ! Otherwise we are good, gonna return stuff
+        isEdible = .true.
+
+        do s=1, Model%nSpc
+            if (spcList(s)%flav == F_PSPH) then
+                call InterpShellVar_TSC_pnt(sh, State%Den(s), th, ph, d_cold)
+                imW(IM_D_COLD) = d_cold  ! [#/cc]
+                t_cold = PsphTemp_Genestreti(d_cold)  ! [keV]
+                imW(IM_P_COLD) = DkT2P(d_cold, t_cold)  ! [nPa]
+            elseif (spcList(s)%spcType == RAIJUHPLUS) then
+                call InterpShellVar_TSC_pnt(sh, State%Den(s)  , th, ph, d_hot)
+                call InterpShellVar_TSC_pnt(sh, State%Press(s), th, ph, p_hot)
+                imW(IM_D_RING) = imW(IM_D_RING) + d_hot  ! [nPa]
+                imW(IM_P_RING) = imW(IM_P_RING) + p_hot  ! [#/cc]
+            elseif (spcList(s)%spcType == RAIJUELE) then
+                ! Don't add number density
+                call InterpShellVar_TSC_pnt(sh, State%Press(s), th, ph, p_hot)
+                imW(IM_P_RING) = imW(IM_P_RING) + p_hot  ! [#/cc]
+            endif
+        enddo
+
+        call InterpShellVar_TSC_pnt(sh, State%Tb, th, ph, imW(IM_TSCL))
+        imW(IM_TSCL) = Model%nBounce*imW(IM_TSCL)  ! [s]
 
         end associate
     end subroutine getMomentsRAIJU
 
-    module subroutine getMomentsPrecipRAIJU(App,x1,x2,t,imW,isEdible)
+
+    module subroutine getMomentsPrecipRAIJU(App,th,ph,t,imW,isEdible)
         class(raijuCoupler_T), intent(inout) :: App
-        real(rp), intent(in) :: x1,x2,t
+        real(rp), intent(in) :: th,ph,t
         real(rp), intent(out) :: imW(NVARIMAG)
         logical, intent(out) :: isEdible
 

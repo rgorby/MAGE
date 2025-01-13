@@ -260,6 +260,7 @@ module raijutypes
         type(mhd2raiSpcMap_T), dimension(:), allocatable :: fluidInMaps
         ! Coupling-related knobs
         real(rp) :: vaFracThresh, bminThresh, normAngThresh, PstdThresh
+        real(rp) :: nBounce
 
         character(len=strLen) :: icStr
         procedure(raijuStateIC_T     ), pointer, nopass :: initState => NULL()
@@ -449,6 +450,8 @@ module raijutypes
             !! (Ngi, Ngj, Nspc+1) Pressure [nPa]
         type(ShellGridVar_T), dimension(:), allocatable :: vAvg
             !! (Ngi, Ngj, Nspc+1) Average cell velocity [km/s]
+        type(ShellGridVar_T) :: Tb
+            !! (Ngi, Ngj) [s] Bounce timescale (Alfven crossing time)
         
 
 

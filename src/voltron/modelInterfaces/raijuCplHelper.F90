@@ -127,8 +127,11 @@ module raijuCplHelper
 
                             State%Pstd(i,j,s) = Pstd / max(P, TINY)
                             State%Dstd(i,j,s) = Dstd / max(D, TINY)
+
                         enddo
 
+                        State%Tb%data(i,j) = 0.25*(ijTubes(i  ,j)%Tb + ijTubes(i  ,j+1)%Tb &
+                                                 + ijTubes(i+1,j)%Tb + ijTubes(i+1,j+1)%Tb)
                         State%bvol_cc(i,j) = toCenter2D(State%bvol(i:i+1,j:j+1))
                         ! Before we average, take dipole out so we don't get poor averaging of background
                         !dBVol = State%bvol(i:i+1,j:j+1)

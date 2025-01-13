@@ -322,21 +322,21 @@ module volttypes
             class(voltApp_T), intent(inout) :: vApp
         end subroutine toIMAG_T
 
-        subroutine getMomentsIMAG_T(App,x1,x2,t,imW,isEdible)
+        subroutine getMomentsIMAG_T(App,th,ph,t,imW,isEdible)
             import imagCoupler_T
             import rp, NVARIMAG
             class(imagCoupler_T), intent(inout) :: App
-            real(rp), intent(in) :: x1,x2,t
+            real(rp), intent(in) :: th,ph,t
             real(rp), intent(out) :: imW(NVARIMAG)
             logical, intent(out) :: isEdible
         end subroutine getMomentsIMAG_T
 
 
-        subroutine getMomentsPrecipIMAG_T(App,x1,x2,t,imW,isEdible)
+        subroutine getMomentsPrecipIMAG_T(App,th,ph,t,imW,isEdible)
             import imagCoupler_T
             import rp, NVARIMAG
             class(imagCoupler_T), intent(inout) :: App
-            real(rp), intent(in) :: x1,x2,t
+            real(rp), intent(in) :: th,ph,t
             real(rp), intent(out) :: imW(NVARIMAG)
             logical, intent(out) :: isEdible
         end subroutine getMomentsPrecipIMAG_T
@@ -462,16 +462,16 @@ module volttypes
             class(voltApp_T), intent(inout) :: vApp
         end subroutine
 
-        module subroutine getMomentsRAIJU(App,x1,x2,t,imW,isEdible)
+        module subroutine getMomentsRAIJU(App,th,ph,t,imW,isEdible)
             class(raijuCoupler_T), intent(inout) :: App
-            real(rp), intent(in) :: x1,x2,t
+            real(rp), intent(in) :: th,ph,t
             real(rp), intent(out) :: imW(NVARIMAG)
             logical, intent(out) :: isEdible
         end subroutine getMomentsRAIJU
 
-        module subroutine getMomentsPrecipRAIJU(App,x1,x2,t,imW,isEdible)
+        module subroutine getMomentsPrecipRAIJU(App,th,ph,t,imW,isEdible)
             class(raijuCoupler_T), intent(inout) :: App
-            real(rp), intent(in) :: x1,x2,t
+            real(rp), intent(in) :: th,ph,t
             real(rp), intent(out) :: imW(NVARIMAG)
             logical, intent(out) :: isEdible
         end subroutine getMomentsPrecipRAIJU

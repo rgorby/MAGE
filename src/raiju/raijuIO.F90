@@ -262,6 +262,7 @@ module raijuIO
         call AddOutVar(IOVars,"Davg_in",State%Davg   (is:ie,js:je, :)        ,uStr="#/cc",dStr="Densities from imagtubes")
         call AddOutVar(IOVars,"Pstd_in",State%Pstd   (is:ie,js:je, :)        ,uStr="normalized" ,dStr="Std. dev. of species pressure from imagtubes")
         call AddOutVar(IOVars,"Dstd_in",State%Dstd   (is:ie,js:je, :)        ,uStr="normalized" ,dStr="Std. dev. of species density from imagtubes")
+        call AddOutSGV(IOVars,"Tbounce",State%Tb, outBndsO=outBnds2D, uStr="[s]", dStr="Bounce timescale along field line (Alfven crossing time)", doWriteMaskO=.false.)
 
         ! Idk about you but I did not expect true to equal -1
         allocate(outTmp2D(is:ie, Grid%Nk))
@@ -293,8 +294,8 @@ module raijuIO
         !enddo
         !call AddOutVar(IOVars,"Density",outTmp3D(:,:,:),uStr="#/cc")
         !deallocate(outTmp3D)
-        call AddOutSGV(IOVars, "Pressure", State%Press, outBndsO=outBnds2D, doWriteMaskO=.false.)
-        call AddOutSGV(IOVars, "Density" , State%Den  , outBndsO=outBnds2D, doWriteMaskO=.false.)
+        call AddOutSGV(IOVars, "Pressure", State%Press, outBndsO=outBnds2D, uStr="nPa" , dStr="Pressure from RAIJU flavors", doWriteMaskO=.false.)
+        call AddOutSGV(IOVars, "Density" , State%Den  , outBndsO=outBnds2D, uStr="#/cc", dStr="Density from RAIJU flavors", doWriteMaskO=.false.)
         
 
         ! Calculate flux tube entropy using bulk pressure

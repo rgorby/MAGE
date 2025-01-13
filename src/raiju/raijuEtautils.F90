@@ -84,7 +84,7 @@ module raijuetautils
 ! Species-level control
 !------
     function etak2Den(etak, bVol) result (Dk)
-        !! Takes a single eta value and converts to density
+        !! Takes a single eta value and converts to number density
         real(rp), intent(in) :: etak
         real(rp), intent(in) ::  bVol
             !! Flux tube volume [Rx/nT]
