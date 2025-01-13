@@ -5,7 +5,6 @@ module raijuuseric
 
     use raijuTypes
     use raijuICHelpers
-    use raijuCplTypes
 
     implicit none
 
@@ -22,15 +21,5 @@ module raijuuseric
         write(*,*) "raijuInitState_useric called from raijuOwdIC but I'm just using default DIP settings"
         Model%initState => initRaijuIC_DIP
     end subroutine raijuInitState_useric
-
-
-    subroutine raijuCpl_init_useric(vApp, raiApp, cplBase)
-        type(voltApp_T), intent(in) :: vApp
-        type(raijuApp_T), intent(in) :: raiApp
-        type(raiju_cplBase_T), intent(inout) :: cplBase
-
-        write(*,*) "raijuCpl_init_useric called from raijuOwdIC but I don't do anything yet"
-
-    end subroutine raijuCpl_init_useric
 
 end module raijuuseric

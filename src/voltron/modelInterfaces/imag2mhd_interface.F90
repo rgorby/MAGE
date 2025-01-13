@@ -58,7 +58,7 @@ module imag2mhd_interface
 
                     if (chmp2mhd%isGood(i,j,k)) then
                         !Good projection, let's get some values
-                        x1 = chmp2mhd%xyzSquish(i,j,k,1)
+                        x1 = PI/2 - chmp2mhd%xyzSquish(i,j,k,1)  ! Colat
                         x2 = chmp2mhd%xyzSquish(i,j,k,2)
                         call vApp%imagApp%getMoments(x1,x2,t,imW,isTasty)
                     else
@@ -85,9 +85,9 @@ module imag2mhd_interface
                     do i=Gr%isg,Gr%is-1
                         !Dipole project
                         xyz = Gr%xyz(i,j,k,:) !Gamera grid corner
-                        x1 = InvLatitude(xyz)
+                        x1 = PI/2 - InvLatitude(xyz)  ! Colat
                         x2 = katan2(xyz(YDIR),xyz(XDIR)) !katan => [0,2pi] instead of [-pi,pi]
-                        call vApp%imagApp%doEval(x1,x2,t,imW,isTasty)
+                        call vApp%imagApp%getMoments(x1,x2,t,imW,isTasty)
                         SrcNC(i,j,k,:) = imW
                         isgTasty(i,j,k) = isTasty
                     enddo
