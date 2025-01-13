@@ -289,7 +289,7 @@ module sliceio
         endif
         !$OMP PARALLEL DO default(shared) collapse(2) &
         !$OMP schedule(dynamic) &
-        !$OMP private(i,j,xp,xm,Bp,Bm,Ep,Em,dB,Qij,gcFieldsP,gcFieldsM,jB,MagB,MagJ,B,Eeq,Beq,gcFieldsEq)
+        !$OMP private(i,j,xp,xm,Bp,Bm,Ep,Em,dB,Qij,gcFieldsP,gcFieldsM,jB,MagB,MagJ,B)
         do j=1,Nx2
             do i=1,Nx1
                 !Straddle slice plane
@@ -391,6 +391,8 @@ module sliceio
             call AddOutVar(IOVars,"bP"  ,ebTrcIJ(:,:)%bP,uStr="nPa")
             call AddOutVar(IOVars,"bS"  ,ebTrcIJ(:,:)%bS,uStr="Wolf^(1/gamma)")
             call AddOutVar(IOVars,"bMin",ebTrcIJ(:,:)%bMin*oBScl,uStr="nT")
+            call AddOutVar(IOVars,"stdD",ebTrcIJ(:,:)%stdD)
+            call AddOutVar(IOVars,"stdP",ebTrcIJ(:,:)%stdP)
 
             !Equator and end-points
             call AddOutVar(IOVars,"xBEQ",ebTrcIJ(:,:)%MagEQ(XDIR))

@@ -2228,7 +2228,7 @@
 !Advance eeta by dt nstep times, dtcpl=dt x nstep
 
 SUBROUTINE Move_plasma_grid_MHD (dt,nstep)
-    use rice_housekeeping_module, ONLY : LowLatMHD,doNewCX,ELOSSMETHOD,doFLCLoss,dp_on,doPPRefill,doSmoothDDV,staticR,NowKp
+    use rice_housekeeping_module, ONLY : LowLatMHD,doNewCX,ELOSSMETHOD,dozeroLoss,doFLCLoss,dp_on,doPPRefill,doSmoothDDV,staticR,NowKp
     use math, ONLY : SmoothOpTSC,SmoothOperator33
     use lossutils, ONLY : CXKaiju,FLCRat
     use planethelper, ONLY : DipFTV_colat,DerivDipFTV
@@ -2449,47 +2449,50 @@ SUBROUTINE Move_plasma_grid_MHD (dt,nstep)
         !---
         !Calculate loss terms on clawpack grid
         !Start w/ loss term on RCM grid
-        do j=1,jsize
-            do i=1,isize
-                !Do some init
-                lossCX  = 0.0
-                lossFLC = 0.0
-                lossFT  = 0.0
-                lossratep(i,j,kc) = 0.0
-                lossmodel(i,j,kc) = -1.0 ! -1: undefined; 0: C05; 1: chorus; 2: hiss; 3: C+H; 4: strong diffusion; 5: fudge; 10: ion FLC.
-                rate(i,j) = 0.0
+        if (.not. doZeroLoss) then
+          do j=1,jsize
+              do i=1,isize
+                  !Do some init
+                  lossCX  = 0.0
+                  lossFLC = 0.0
+                  lossFT  = 0.0
+                  lossratep(i,j,kc) = 0.0
+                  lossmodel(i,j,kc) = -1.0 ! -1: undefined; 0: C05; 1: chorus; 2: hiss; 3: C+H; 4: strong diffusion; 5: fudge; 10: ion FLC.
+                  rate(i,j) = 0.0
 
-                if (isOpen(i,j)) then
-                    rate(i,j) = -TINY !Set negative value to signal clawpack source term
-                    cycle
-                endif
+                  if (isOpen(i,j)) then
+                      rate(i,j) = -TINY !Set negative value to signal clawpack source term
+                      cycle
+                  endif
 
-                !Calculate losses and keep track of total losses/precip losses
-                if ( (ie == RCMELECTRON) .and. (kc /= 1) ) then
-                    !Do electron losses
-                    lossFT = Ratefn(xmin(i,j),ymin(i,j),alamc(kc),vm(i,j),bmin(i,j),losscone(i,j),Dpp(i,j),NowKp,fudgec(kc),sini(i,j),bir(i,j),mass_factor,ELOSSMETHOD)
-                    lossratep(i,j,kc) = lossratep(i,j,kc) + lossFT(1)
-                    lossmodel(i,j,kc) = lossFT(2)
-                    rate(i,j) = rate(i,j) + lossFT(1)
-                endif
+                  !Calculate losses and keep track of total losses/precip losses
+                  if ( (ie == RCMELECTRON) .and. (kc /= 1) ) then
+                      !Do electron losses
+                      lossFT = Ratefn(xmin(i,j),ymin(i,j),alamc(kc),vm(i,j),bmin(i,j),losscone(i,j),Dpp(i,j),NowKp,fudgec(kc),sini(i,j),bir(i,j),mass_factor,ELOSSMETHOD)
+                      lossratep(i,j,kc) = lossratep(i,j,kc) + lossFT(1)
+                      lossmodel(i,j,kc) = lossFT(2)
+                      rate(i,j) = rate(i,j) + lossFT(1)
+                  endif
 
-                if (ie == RCMPROTON) then
-                !Do ion losses
-                    r_dist = sqrt(xmin(i,j)**2+ymin(i,j)**2)
-                    if ( L_dktime ) then
-                        lossCX = CXKaiju(ie,abs(alamc(kc))*vm(i,j),r_dist)
-                    endif
-                    if (doFLCLoss) then
-                        lossFLC = FLCRat(ie,alamc(kc),vm(i,j),bmin(i,j),radcurv(i,j),losscone(i,j))
-                    endif
-                    lossratep(i,j,kc) = lossratep(i,j,kc) + lossFLC
-                    lossmodel(i,j,kc) = 10.0
-                    rate(i,j) = rate(i,j) + lossFLC + lossCX
-                endif
+                  if (ie == RCMPROTON) then
+                  !Do ion losses
+                      r_dist = sqrt(xmin(i,j)**2+ymin(i,j)**2)
+                      if ( L_dktime ) then
+                          lossCX = CXKaiju(ie,abs(alamc(kc))*vm(i,j),r_dist)
+                      endif
+                      if (doFLCLoss) then
+                          lossFLC = FLCRat(ie,alamc(kc),vm(i,j),bmin(i,j),radcurv(i,j),losscone(i,j))
+                      endif
+                      lossratep(i,j,kc) = lossratep(i,j,kc) + lossFLC
+                      lossmodel(i,j,kc) = 10.0
+                      rate(i,j) = rate(i,j) + lossFLC + lossCX
+                  endif
 
-            enddo !i loop
-        enddo !j loop
-
+              enddo !i loop
+          enddo !j loop
+        else
+          rate = 0.0
+        endif
         !Have loss on RCM grid, now get claw grid
         call rcm2claw(rate,rateC(:,:,kc))
     ENDDO !kc loop

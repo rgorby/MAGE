@@ -109,8 +109,7 @@ module chmpfields
                         call AddInVar(ebIOs,"Jx")
                         call AddInVar(ebIOs,"Jy")
                         call AddInVar(ebIOs,"Jz")
-                    endif    
-                    !call AddInVar(ebIOs,"time",vTypeO=IOREAL)                        
+                    endif                            
                     call ReadVars(ebIOs,.true.,ebFile,gStr)
 
                     !Push piece to grid

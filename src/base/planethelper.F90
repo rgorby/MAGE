@@ -169,6 +169,24 @@ module planethelper
     end subroutine writePlanetParams
 
 
+    subroutine copyPlanetParams(inP, outP)
+        !! "Deep" copies one planet_T object into another
+        !! Doesn't strictly need its own function right now,
+        !! but putting it here for use in case things needing deep copy are added later
+        type(planet_T), intent(in) :: inP
+        type(planet_T), intent(out) :: outP
+
+        outP%name      = inP%name
+        outP%rp_m      = inP%rp_m
+        outP%ri_m      = inP%ri_m
+        outP%grav      = inP%grav
+        outP%magMoment = inP%magMoment
+        outP%psiCorot  = inP%psiCorot
+        outP%doGrav    = inP%doGrav
+
+    end subroutine copyPlanetParams
+
+
     function CorotPotential(Rp_m, period, Bmag) result(cPot)
         !! Calculates corotation potential, assuming dipole and rotational axes are aligned
         real(rp), intent(in) :: Rp_m  

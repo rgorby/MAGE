@@ -269,6 +269,7 @@ module ebinterp
     !Do star fields if necessary
         if (doJacob) then
         !Do Jacobians and time derivatives
+            associate( JacB=>gcFields%JacB, JacE=>gcFields%JacE )
 
             if (isAxis) then
                 !If on axis then do some trickery
@@ -304,10 +305,10 @@ module ebinterp
                 
                 !Interpolate dJac across the axis
                 !Add JacB0 at true point
-                gcFields%JacE = wAx*gcFieldsAxP%JacE + (1-wAx)*gcFieldsAxM%JacE
-                gcFields%JacB =     wAx *( gcFieldsAxP%JacB - Model%JacB0(Xp) ) + &
-                                 (1-wAx)*( gcFieldsAxM%JacB - Model%JacB0(Xm) ) + &
-                                           Model%JacB0(xyz)
+                JacE = wAx*gcFieldsAxP%JacE + (1-wAx)*gcFieldsAxM%JacE
+                JacB =     wAx *( gcFieldsAxP%JacB - Model%JacB0(Xp) ) + &
+                        (1-wAx)*( gcFieldsAxM%JacB - Model%JacB0(Xm) ) + &
+                                  Model%JacB0(xyz)
             else
                 !Otherwise do standard thing
 
@@ -340,25 +341,26 @@ module ebinterp
                 !Do main calculation
                 do m=1,NDIM !Derivative direction (x,y,z)
                     do n=1,NDIM !Vector component
-                        gcFields%JacB(n,m) = wT1*( Tix(IDIR,m)*sum(eW*dB1(:,:,:,n))   &
-                                                  +Tix(JDIR,m)*sum(zW*dB1(:,:,:,n))   &
-                                                  +Tix(KDIR,m)*sum(pW*dB1(:,:,:,n)) ) &
-                                           + wT2*( Tix(IDIR,m)*sum(eW*dB2(:,:,:,n))   & 
-                                                  +Tix(JDIR,m)*sum(zW*dB2(:,:,:,n))   &
-                                                  +Tix(KDIR,m)*sum(pW*dB2(:,:,:,n)) )
+                        JacB(n,m) = wT1*( Tix(IDIR,m)*sum(eW*dB1(:,:,:,n))   &
+                                         +Tix(JDIR,m)*sum(zW*dB1(:,:,:,n))   &
+                                         +Tix(KDIR,m)*sum(pW*dB1(:,:,:,n)) ) &
+                                  + wT2*( Tix(IDIR,m)*sum(eW*dB2(:,:,:,n))   & 
+                                         +Tix(JDIR,m)*sum(zW*dB2(:,:,:,n))   &
+                                         +Tix(KDIR,m)*sum(pW*dB2(:,:,:,n)) )
 
-                        gcFields%JacE(n,m) = wT1*( Tix(IDIR,m)*sum(eW* E1(:,:,:,n))   &
-                                                  +Tix(JDIR,m)*sum(zW* E1(:,:,:,n))   &
-                                                  +Tix(KDIR,m)*sum(pW* E1(:,:,:,n)) ) &
-                                           + wT2*( Tix(IDIR,m)*sum(eW* E2(:,:,:,n))   & 
-                                                  +Tix(JDIR,m)*sum(zW* E2(:,:,:,n))   &
-                                                  +Tix(KDIR,m)*sum(pW* E2(:,:,:,n)) )
+                        JacE(n,m) = wT1*( Tix(IDIR,m)*sum(eW* E1(:,:,:,n))   &
+                                         +Tix(JDIR,m)*sum(zW* E1(:,:,:,n))   &
+                                         +Tix(KDIR,m)*sum(pW* E1(:,:,:,n)) ) &
+                                  + wT2*( Tix(IDIR,m)*sum(eW* E2(:,:,:,n))   & 
+                                         +Tix(JDIR,m)*sum(zW* E2(:,:,:,n))   &
+                                         +Tix(KDIR,m)*sum(pW* E2(:,:,:,n)) )
 
 
                     enddo
                 enddo
                 !Add background to dJacB
-                gcFields%JacB = gcFields%JacB + Model%JacB0(xyz)
+                JacB = Div0Jac(JacB) + Div0Jac(Model%JacB0(xyz))
+                
             endif !isAxis
 
             !Time derivatives
@@ -376,22 +378,23 @@ module ebinterp
                 enddo
                 !Replace with CurlE if option says to
                 if (doCurldbdt) then
-                    gcFields%DotB = -Jac2Curl(gcFields%JacE)
+                    gcFields%DotB = -Jac2Curl(JacE)
                 endif
             endif
             
+            end associate !Jacobians
         endif !doJacob
     
         end associate !Main associate
         
     end subroutine ebFields
 
-    !Interpolate all MHD variables @ (xyz,t) and return
+    !Interpolate all bulk MHD variables @ (xyz,t) and return
     !Optionally accepts guess for ijk localization
     function mhdInterp(xyz,t,Model,ebState,ijkO) result(iQ)
-        real(rp), intent(in) :: xyz(NDIM),t
+        real(rp)         , intent(in) :: xyz(NDIM),t
         type(chmpModel_T), intent(in) :: Model
-        type(ebState_T), intent(in)   :: ebState
+        type(ebState_T)  , intent(in) :: ebState
         integer, intent(in) , optional :: ijkO(NDIM)
         
         real(rp) :: iQ(NVARMHD)

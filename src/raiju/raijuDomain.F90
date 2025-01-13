@@ -1,0 +1,388 @@
+module raijuDomain
+
+    use raijudefs
+    use raijuTypes
+    use raijugrids
+    use math
+
+    implicit none
+
+    contains
+
+
+    subroutine setActiveDomain(Model, Grid, State)
+        !! Sets State%active array
+        !! Determines Inactive -> buffer -> active cells
+        type(raijuModel_T), intent(in   ) :: Model
+        type(raijuGrid_T ), intent(in   ) :: Grid
+        type(raijuState_T), intent(inout) :: State
+
+        logical, dimension(Grid%shGrid%isg:Grid%shGrid%ieg,Grid%shGrid%jsg:Grid%shGrid%jeg) :: isInactive
+        logical, dimension(Grid%shGrid%isg:Grid%shGrid%ieg,Grid%shGrid%jsg:Grid%shGrid%jeg) :: isBuffer
+
+
+        call getInactiveCells(Model, Grid, State, isInactive)
+        call getBufferCells  (Model, Grid, State, isInactive, isBuffer, State%OCBDist)
+
+        ! Set zones
+        where (isInactive)
+            State%active = RAIJUINACTIVE
+        else where (isBuffer)
+            State%active = RAIJUBUFFER
+        elsewhere
+            State%active = RAIJUACTIVE
+        end where
+
+    end subroutine setActiveDomain
+
+
+    subroutine getInactiveCells(Model, Grid, State, isInactive, isCoreInactiveO)
+        !! Applies series of criteria to determine which cells should be marked as inactive
+        type(raijuModel_T), intent(in) :: Model
+        type(raijuGrid_T ), intent(in) :: Grid
+        type(raijuState_T), intent(in) :: State
+        logical, dimension(Grid%shGrid%isg:Grid%shGrid%ieg,Grid%shGrid%jsg:Grid%shGrid%jeg), intent(inout) :: isInactive
+            !! The ultimate domain we want to call inactive, don't trust at all
+        logical, dimension(Grid%shGrid%isg:Grid%shGrid%ieg,Grid%shGrid%jsg:Grid%shGrid%jeg), &
+                optional, intent(inout) :: isCoreInactiveO
+            !! Debug option: Contians the inactive region according to only core physical constraints, no extra trimming
+
+        integer :: i,j
+        logical :: iShellHasCheck
+        real(rp) :: bndRateLim
+        integer :: n_bndLim, n_contig
+        integer, dimension(Grid%shGrid%jsg:Grid%shGrid%jeg) :: bndLoc, bndR, bndL
+        real(rp), dimension(Grid%shGrid%isg:Grid%shGrid%ieg+1,Grid%shGrid%jsg:Grid%shGrid%jeg+1) :: cornerNormAngle
+        integer, dimension(Grid%shGrid%isg:Grid%shGrid%ieg,Grid%shGrid%jsg:Grid%shGrid%jeg) :: ocbDist
+        logical, dimension(Grid%shGrid%isg:Grid%shGrid%ieg,Grid%shGrid%jsg:Grid%shGrid%jeg) :: isCoreInactive, checkMask, isInactive_tmp
+
+        isInactive = .false.
+        checkMask = .false.
+        bndLoc = Grid%shGrid%isg
+        call calcCoreConstraints(Model, Grid, State, isCoreInactive)
+        isInactive = isCoreInactive
+
+        ! Prep trim criteria
+        call calcCornerNormAngles(Model, Grid, State, cornerNormAngle)
+
+        ! Now do trimming
+        associate(sh=>Grid%shGrid)
+        
+        ! Get dist from OCb
+        call CalcOCBDist(sh, isCoreInactive, 4, ocbDist)
+        ! Highlight areas to start checking for extra constraints
+        where(ocbDist > 0 .and. ocbDist < 5)
+            checkMask = .true.
+        end where
+        
+        do i=sh%isg, sh%ie ! NOTE: Not touching upper theta ghosts, we shouldn't reach there anyways. If we do then we have bigger problems
+            iShellHasCheck = .false.
+            if ( all(State%active(i,:) == RAIJUINACTIVE) ) then
+                cycle
+            endif
+            do j=sh%js, sh%je  ! NOTE: Not touching j ghosts
+                if (checkMask(i,j)) then
+                    iShellHasCheck = .true.
+                    ! Criteria check
+                    if ( any(State%Pstd(i:i+1,j:j+1,0) > Model%PstdThresh) .or. any(cornerNormAngle(i:i+1,j:j+1) < Model%normAngThresh)) then
+                        isInactive(i,j) = .true.
+                        if (i > bndLoc(j)) then
+                            bndLoc(j) = i
+                        endif
+                        ! Flag points a little depper into the domain as places to check for criteria pass
+                        checkMask(i+1,j-2:j+2) = .true.
+                        checkMask(i+2,j-1:j+1) = .true.
+                        checkMask(i+3,j      ) = .true.
+                    endif
+                endif
+            enddo
+            if (.not. iShellHasCheck) then
+                exit
+            endif
+        enddo
+        ! Wrap in J
+        !call wrapJcc(sh, isInactive)
+        isInactive(:, sh%jsg:sh%js-1) = isInactive(:, sh%je-sh%Ngw+1:sh%je)
+        isInactive(:, sh%je+1:sh%jeg) = isInactive(:, sh%js:sh%js+sh%Nge-1)
+        bndLoc(sh%jsg:sh%js-1) = bndLoc(sh%je-sh%Ngw+1:sh%je)
+        bndLoc(sh%je+1:sh%jeg) = bndLoc(sh%js:sh%js+sh%Nge-1)
+
+        bndL = bndLoc
+        bndR = bndLoc
+        n_bndLim = Model%n_bndLim
+
+        ! Right sweep
+        do j=sh%js,sh%je
+            bndR(j) = max(bndR(j), bndR(j-1)-n_bndLim)
+        enddo
+        bndR(sh%je+1:sh%jeg) = bndR(sh%je)  ! Extend final right sweep result into j ghosts
+        ! Left sweep
+        do j=sh%je,sh%js, -1
+            bndL(j) = max(bndL(j), bndL(j+1)-n_bndLim)
+        enddo
+        bndL(sh%isg:sh%is-1) = bndL(sh%is)  ! Extend final left sweep into ghosts
+        ! Now combine back into bndLoc
+        do j=sh%jsg,sh%jeg
+            bndLoc(j) = max(bndL(j), bndR(j))
+            isInactive(sh%isg:bndLoc(j), j) = .true.
+        enddo
+
+        ! Finally, kick out any stumpy regions
+        n_contig=4
+        isInactive_tmp = isInactive
+        do i=sh%isg, sh%ieg-n_contig
+            do j=sh%js, sh%je-n_contig
+                if (isInactive(i,j) .and. isInactive(i+n_contig,j)) then
+                    isInactive_tmp(i:i+n_contig, j) = .true.
+                endif
+                if (isInactive(i,j) .and. isInactive(i,j+n_contig)) then
+                    isInactive_tmp(i,j:j+n_contig) = .true.
+                endif
+            enddo
+        enddo
+        isInactive = isInactive_tmp
+
+        end associate
+
+        contains
+
+        subroutine calcCoreConstraints(Model, Grid, State, isCoreInactive)
+            type(raijuModel_T), intent(in) :: Model
+            type(raijuGrid_T ), intent(in) :: Grid
+            type(raijuState_T), intent(in) :: State
+            logical, dimension(Grid%shGrid%isg:Grid%shGrid%ieg,Grid%shGrid%jsg:Grid%shGrid%jeg), intent(inout) :: isCoreInactive
+
+            integer :: i,j
+            real(rp) :: xyMin
+            real(rp), dimension(2,2) :: bminSquare
+
+            isCoreInactive = .false.
+            do j=Grid%shGrid%jsg, Grid%shGrid%jeg
+                do i=Grid%shGrid%isg, Grid%shGrid%ieg
+                    
+
+                    ! Any cell with an open corner is bad
+                    if (any(State%topo(i:i+1,j:j+1) .eq. RAIJUOPEN)) then
+                        isCoreInactive(i,j) = .true.
+                    endif
+
+                    if (any(State%vaFrac(i:i+1,j:j+1) .le. Model%vaFracThresh)) then
+                        isCoreInactive(i,j) = .true.
+                    endif
+
+                    bminSquare(1,1) = norm2(State%Bmin(i  ,j  ,:))
+                    bminSquare(2,1) = norm2(State%Bmin(i+1,j  ,:))
+                    bminSquare(1,2) = norm2(State%Bmin(i  ,j+1,:))
+                    bminSquare(2,2) = norm2(State%Bmin(i+1,j+1,:))
+                    if (any( bminSquare .le. Model%bminThresh) ) then
+                    !if (any( norm2(State%Bmin(i:i+1,j:j+1,:),dim=3) .le. Model%bminThresh) ) then
+                        isCoreInactive(i,j) = .true.
+                    endif
+
+                    xyMin = sqrt(State%xyzMin(i,j,XDIR)**2 + State%xyzMin(i,j,YDIR)**2)
+                    ! Simple circle limit
+                    if ( (xyMin > Model%maxTail_buffer) .or. xyMin > Model%maxSun_buffer) then
+                        isCoreInactive(i,j) = .true.
+                    endif
+                enddo
+            enddo
+        end subroutine calcCoreConstraints
+    end subroutine getInactiveCells
+
+
+    subroutine getBufferCells(Model, Grid, State, isInactive, isBuffer, ocbDistO)
+        !! Determines which cells should be marked as inactive
+        type(raijuModel_T), intent(in) :: Model
+        type(raijuGrid_T ), intent(in) :: Grid
+        type(raijuState_T), intent(in) :: State
+        logical, dimension(Grid%shGrid%isg:Grid%shGrid%ieg,Grid%shGrid%jsg:Grid%shGrid%jeg), intent(in) :: isInactive
+        logical, dimension(Grid%shGrid%isg:Grid%shGrid%ieg,Grid%shGrid%jsg:Grid%shGrid%jeg), intent(inout) :: isBuffer
+        integer, dimension(Grid%shGrid%isg:Grid%shGrid%ieg,Grid%shGrid%jsg:Grid%shGrid%jeg), optional, intent(inout) :: ocbDistO
+            !! Optional array to get ocbDist out of this function if desired
+
+        integer :: i,j
+        real(rp) :: xyMin
+        integer, dimension(Grid%shGrid%isg:Grid%shGrid%ieg,Grid%shGrid%jsg:Grid%shGrid%jeg) :: ocbDist
+            !! Distance each cell is to open-closed boundary, up to nB + 1
+        
+        ! As a first pass, we will blanket enforce that there must always be nB buffer between any inactive and active cells
+        ! We can do more complex stuff later
+
+        call CalcOCBDist(Grid%shGrid, isInactive, Grid%nB, ocbDist)
+
+        where (ocbDist > 0 .and. ocbDist .le. Grid%nB)
+            isBuffer = .true.
+        elsewhere
+            isBuffer = .false.
+        end where
+
+        ! Also limit to max allowed sun/tail extent
+        do j=Grid%shGrid%jsg,Grid%shGrid%jeg
+            do i=Grid%shGrid%isg,Grid%shGrid%ieg
+                if (ocbDist(i,j) > 0) then  !! OCBdist will be zero in inactive zone, we want to avoid editing those cells
+                    xyMin = sqrt(State%xyzMin(i,j,XDIR)**2 + State%xyzMin(i,j,YDIR)**2)
+                    ! Simple circle limit
+                    if ( (xyMin > Model%maxTail_active) .or. xyMin > Model%maxSun_active) then
+                        isBuffer(i,j) = .true.
+                    endif
+                endif
+            enddo
+        enddo
+
+        if (present(ocbDistO)) then
+            ocbDistO = ocbDist
+        endif
+
+    end subroutine getBufferCells
+
+
+    subroutine CalcOCBDist(sh, isInactive, nBnd, ocbDist)
+        !! Calculates distance each cell is from open/closed boundary, up to nBnd cells away
+        type(ShellGrid_T), intent(in) :: sh
+            !! RAIJU shell grid
+        logical, dimension(sh%isg:sh%ieg,sh%jsg:sh%jeg), intent(in) :: isInactive
+            !! Whether cell centers are inactive
+        integer, intent(in) :: nBnd
+            !! Number of desired layers between open/closed boundary and active domain
+        integer, dimension(sh%isg:sh%ieg,sh%jsg:sh%jeg), intent(out) :: ocbDist
+
+
+        integer :: iLayer, i, j, iL, iU, jL, jU
+
+
+        where ( isInactive )
+            ocbDist = 0
+        elsewhere
+            ocbDist = nBnd + 1
+        end where
+
+
+        ! Grow out from open/closed boundary, set proper distance for closed points
+        do iLayer=1,nBnd
+            !! Note: We can safely parallelize within eah iLayer loop if needed. But this isn't a bottleneck right now
+            do i=sh%isg, sh%ieg
+                do j=sh%jsg, sh%jeg
+                    iL = max(i-1, sh%isg)
+                    iU = min(i+1, sh%ieg)
+                    jL = max(j-1, sh%jsg)
+                    jU = min(j+1, sh%jeg)
+
+                    if (isInactive(i,j)) then
+                        cycle
+                    !else if ( (ocbDist(i,j) .eq. nBnd+1) .and. any(ocbDist(iL:iU,jL:jU) .eq. iLayer-1) ) then  ! This version includes the diagonal cells, which are technically not adjacent to our cell
+                    else if ( (ocbDist(i,j) .eq. nBnd+1) .and. ( any(ocbDist(iL:iU,j) .eq. iLayer-1) .or. any(ocbDist(i,jL:jU) .eq. iLayer-1) ) ) then  ! Doesn't include diagonals
+                        !! If current point's distance hasn't been decided and its bordering cell with iL-1, this point is distance iL from ocb
+                        ocbDist(i,j) = iLayer
+                    endif
+                enddo
+            enddo
+        enddo
+        
+    end subroutine CalcOCBDist
+
+
+    subroutine calcMapJacNorm(Grid, bMin, jacNorm)
+        type(raijuGrid_T), intent(in) :: Grid
+        real(rp), dimension(Grid%shGrid%isg:Grid%shGrid%ieg+1,Grid%shGrid%jsg:Grid%shGrid%jeg+1, 3), intent(in) :: bMin
+            !! xyz coordinates of bMin surface
+        real(rp), dimension(Grid%shGrid%isg:Grid%shGrid%ieg,Grid%shGrid%jsg:Grid%shGrid%jeg), intent(inout) :: jacNorm
+            !! Cell-centered jacobian norm we calculate
+
+        integer :: i,j, dim
+        real(rp) :: ddTheta, ddPhi, aij
+        jacNorm = 0.0
+
+        ! Iterate through cell centers
+        do j=Grid%shGrid%jsg,Grid%shGrid%jeg
+            do i=Grid%shGrid%isg,Grid%shGrid%ieg
+
+                ! Doing L 2,1 norm (https://en.wikipedia.org/wiki/Matrix_norm)
+                ! Derivative by mapping cell corner values to edges, gradient across cell
+                ! Deriv w.r.t. theta first:
+                !ddTheta = 0.0
+                !do dim = 1,3
+                !    aij = 0.5*(bMin(i+1,j+1,dim) + bMin(i+1,j,dim) \
+                !            - (bMin(i,j+1,dim) + bMin(i,j,dim))) /  Grid%lenFace(i,j,RAI_PH)
+                !    ddTheta = ddtheta + aij**2
+                !enddo
+!
+                !ddPhi = 0.0
+                !do dim=1,3
+                !    aij = 0.5*(bMin(i+1,j+1,dim) + bMin(i,j+1,dim) \
+                !            - (bMin(i+1,j,dim) - bMin(i,j,dim))) / (0.5*(Grid%lenFace(i+1,j,RAI_TH) + Grid%lenFace(i,j,RAI_TH)))
+                !    ddPhi = ddPhi + aij**2
+                !enddo
+                !jacNorm(i,j) = sqrt(ddTheta) + sqrt(ddPhi)
+                
+                
+                do dim=1,3
+                    aij = (0.5*(bMin(i+1,j+1,dim) + bMin(i+1,j,dim) \
+                                - (bMin(i,j+1,dim) + bMin(i,j,dim))) /  Grid%lenFace(i,j,RAI_PH))**2
+                    aij = aij + (0.5*(bMin(i+1,j+1,dim) + bMin(i,j+1,dim) \
+                                - (bMin(i+1,j,dim) - bMin(i,j,dim))) / (0.5*(Grid%lenFace(i+1,j,RAI_TH) + Grid%lenFace(i,j,RAI_TH))))**2
+                    jacNorm(i,j) = jacNorm(i,j) + sqrt(aij)
+                    !jacNorm(i,j) = max(jacNorm(i,j), aij)
+                enddo
+
+            enddo
+        enddo
+    end subroutine calcMapJacNorm
+
+
+    subroutine calcCornerNormAngles(Model, Grid, State, normAngle)
+        !! For each cell corner, calculate the maximum angle between the normals of the 4 triangles its a part of
+        type(raijuModel_T), intent(in) :: Model
+        type(raijuGrid_T ), intent(in) :: Grid
+        type(raijuState_T), intent(in) :: State
+        real(rp), dimension(Grid%shGrid%isg:Grid%shGrid%ieg+1,Grid%shGrid%jsg:Grid%shGrid%jeg+1), intent(inout) :: normAngle
+
+        integer :: i,j,d,u,v
+        real(rp), dimension(3) :: v1, v2, v3, v4
+        real(rp), dimension(4,3) :: crosses
+        real(rp), dimension(Grid%shGrid%isg:Grid%shGrid%ieg+1,Grid%shGrid%jsg:Grid%shGrid%jeg+1,3) :: xyz_sm
+
+        normAngle = 1.0
+
+        ! First, smooth xyzmins
+        xyz_sm = State%xyzMin(:,:,:)
+        do i=Grid%shGrid%isg+1,Grid%shGrid%ieg  ! Ignore last row and column, no smoothing for you
+            do j=Grid%shGrid%jsg+1,Grid%shGrid%jeg
+                do d=XDIR,ZDIR
+                    xyz_sm(i,j,d) = SmoothOperator33(State%xyzMin(i-1:i+1,j-1:j+1,d))
+                enddo
+            enddo
+        enddo
+        do i=Grid%shGrid%isg+1,Grid%shGrid%ieg
+            do j=Grid%shGrid%jsg+1,Grid%shGrid%jeg
+                ! Build vectors from corner i,j
+                do d=XDIR,ZDIR
+                    v1(d) = xyz_sm(i,j,d) - xyz_sm(i  ,j-1,d)
+                    v2(d) = xyz_sm(i,j,d) - xyz_sm(i-1,j  ,d)
+                    v3(d) = xyz_sm(i,j,d) - xyz_sm(i  ,j+1,d)
+                    v4(d) = xyz_sm(i,j,d) - xyz_sm(i+1,j  ,d)
+                enddo
+
+                ! Do cross products
+                crosses(1,:) = cross(v2, v1)
+                crosses(2,:) = cross(v3, v2)
+                crosses(3,:) = cross(v4, v3)
+                crosses(4,:) = cross(v1, v4)
+                crosses(1,:) = crosses(1,:)/max(norm2(crosses(1,:)), TINY)
+                crosses(2,:) = crosses(2,:)/max(norm2(crosses(2,:)), TINY)
+                crosses(3,:) = crosses(3,:)/max(norm2(crosses(3,:)), TINY)
+                crosses(4,:) = crosses(4,:)/max(norm2(crosses(4,:)), TINY)
+
+                ! Calculate min
+                do u=1,3
+                    do v=u+1,4
+                        ! We are doing dot product, so 1 = zero angle and -1 means 180 deg angle
+                        normAngle(i,j) = min(normAngle(i,j), dot_product(crosses(u,:), crosses(v,:)))
+                    enddo
+                enddo
+
+            enddo
+        enddo
+
+    end subroutine calcCornerNormAngles
+
+end module raijuDomain

@@ -207,7 +207,7 @@ module shellInterp
         
         real(rp) :: ph
             !! Cleaned-up phi location we actually use
-        integer :: i0, j0
+        integer :: i0, j0, i0_tmp, j0_tmp
             !! i and j locations of point t,p
             !! Whether they are respect to corner, center, or a face depends on sgVar%loc
         real(rp) :: dTh, dPh
@@ -346,8 +346,8 @@ module shellInterp
                 if (jpnt>sgSource%Np) jpnt = 1
 
                 ! Do zero-grad for theta
-                if (ipnt<1)           ipnt = 1
-                if (ipnt>sgSource%Nt) ipnt = sgSource%Nt
+                if (ipnt<sgVar%isv)   ipnt = sgVar%isv
+                if (ipnt>sgVar%iev)   ipnt = sgVar%iev
 
                 Qs(n) = sgVar%data(ipnt,jpnt)
                 Ws(n) = wE(di)*wZ(dj)

@@ -226,7 +226,6 @@ module imaghelper
 
 		isIn = inShueMP(xyz) .and. (rho>10) .and. (xyz(XDIR)<=0) &
 			   .and. (xyz(XDIR)>-50)
-
 		if (.not. isIn) return
 
 		!----
@@ -379,5 +378,18 @@ module imaghelper
  		endif
  			
  	end function TioTe_Empirical
+
+	!> Plasmasphere temperature, use Genestreti+ 2016 linear fit
+    !> Density [#/cc] => Temperature [keV]
+	function PsphTemp_Genestreti(npsph) result(Tkev)
+		real(rp), intent(in) :: npsph
+			!! Density [#/cc]
+		real(rp) :: Tkev
+			!! Temperature [keV]
+		real(rp), parameter :: A = -0.15,B=1.4
+		!T [eV] = B* n^A, n [#/cc], A = -0.15, B = 1.4
+		!Floor at 0.01/cc
+		Tkev = (1.0e-3)*B*(max(npsph,0.01)**A)
+	end function PsphTemp_Genestreti
 
  end module imaghelper

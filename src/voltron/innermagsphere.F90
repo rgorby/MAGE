@@ -8,7 +8,7 @@ module innermagsphere
     use gamapp
 !    use sstimag
     use sstLLimag
-    use rcmimag
+    !use rcmimag
     use msphutils, only : RadIonosphere
     use rcmXimag
     use cmiutils, only : SquishCorners
@@ -26,6 +26,8 @@ module innermagsphere
         type(XML_Input_T), intent(inout) :: iXML
         character(len=strLen) :: imStr
 
+        real(rp) :: mhd_Rin = 2.0
+
         if (.not. vApp%doDeep) return !Why are you even here?
 
         call iXML%Set_Val(imStr,"coupling/imType","SST")
@@ -33,27 +35,51 @@ module innermagsphere
         !NOTE: Using the fact that x2 is longitude and 2P periodic for both inner mag models
         select case (trim(toUpper(imStr)))
         case("SST","TS07")
-            vApp%imType = IMAGSST
-            vApp%prType = LPPROJ !R-phi
-            allocate(empData_T :: vApp%imagApp)
+            write(*,*)"ERROR: SST not updated for new imag plumbing."
+            stop
+            !vApp%imType = IMAGSST
+            !vApp%prType = LPPROJ !R-phi
+            !allocate(empData_T :: vApp%imagApp)
         ! case("SSTLL")  ! on lon-lat grid in the ionosphere -- like RCM
         !     vApp%imType = IMAGSSTLL
         !     vApp%prType = LLPROJ !R-phi
         !     allocate(empData_T :: vApp%imagApp)
         case("RCM")
-            vApp%imType = IMAGRCM
-            vApp%prType = LLPROJ !Lat-lon
-            allocate(rcmIMAG_T :: vApp%imagApp)
+            write(*,*)"ERROR: RCM not updated for new imag plumbing."
+            stop
+            !vApp%imType = IMAGRCM
+            !vApp%prType = LLPROJ !Lat-lon
+            !allocate(rcmIMAG_T :: vApp%imagApp)
         case("RCMX")
-            vApp%imType = IMAGRCMX
-            vApp%prType = LLPROJ !Lat-lon
-            allocate(rcmXIMAG_T :: vApp%imagApp)
+            write(*,*)"ERROR: RCMX not updated for new imag plumbing."
+            stop
+            !vApp%imType = IMAGRCMX
+            !vApp%prType = LLPROJ !Lat-lon
+            !allocate(rcmXIMAG_T :: vApp%imagApp)
+        case("RAIJU")
+            vApp%imType = IMAGRAIJU
+            vApp%prType = LLPROJ
+            allocate(raijuCoupler_T :: vApp%imagApp)
+            allocate(imagOptions_T :: vApp%imagApp%opt)
         case DEFAULT
             write(*,*) 'Unkown imType, bailing ...'
             stop
         end select
 
-        call vApp%imagApp%doInit(iXML,gApp%Model%isRestart,vApp)
+        ! Set options
+        associate(opt=>vApp%imagApp%opt, Gr=>gApp%Grid)
+        opt%swF  = vApp%symh%wID
+        opt%mjd0 = gApp%Model%MJD0
+        opt%mhd_Rin = norm2(Gr%xyz(Gr%is,Gr%js,Gr%ks,:)) ! Calc lowlat BC from Gamera
+        write(*,*)"Idk if this is a good idea"
+        opt%voltGrid = vApp%shGrid
+        write(*,*)"maybe ok"
+        call iXML%Set_Val(opt%doColdStart,"/Kaiju/voltron/imag/doInit",.false.) ! Whether or not IMAG should coldStart at volt%t = 0
+        end associate
+
+        !call vApp%imagApp%doInit(iXML,gApp%Model%isRestart,vApp)
+        call vApp%imagApp%InitModel(iXML)
+        call vApp%imagApp%InitIO(iXML)
 
     end subroutine InitInnerMag
 

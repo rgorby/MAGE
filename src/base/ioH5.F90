@@ -24,7 +24,7 @@ module ioH5
 
     !Overloader to add data (array or scalar/string) to output chain
     interface AddOutVar
-        module procedure AddOut_5D,AddOut_4D,AddOut_3D,AddOut_2D,AddOut_1D,AddOut_Int,AddOut_DP,AddOut_SP,AddOut_Str
+        module procedure AddOut_5D,AddOut_4D,AddOut_3D,AddOut_2D,AddOut_1D,AddOut_Int,AddOut_DP,AddOut_SP,AddOut_Str,AddOut_Bool
     end interface
 
     !Overloader to fill array from already read IO chain
@@ -886,34 +886,36 @@ contains
                 call h5gopen_f(h5fId,trim(gStrO),gId,herr)
             endif
 
-            if(trim(toUpper(gStrO(1:5))) == "STEP#") then
-                writeCache = .true.
-                !Check if cache group exists
-                call h5lexists_f(h5fId,trim(attrGrpName),cacheExist,herr)
-                if (.not. cacheExist) then
-                    if(.not. createdThisFile) then
-                        write(*,*) "Attempt to create the timeAttributeCache in an existing h5 file", &
-                                   " that does not have the cache group."
-                        write(*,*) "Perform restart in a different directory, or create the timeAttributeCache", &
-                                   " and populate it in the exisitng h5 file."
-                        stop
-                    endif
-                    !Create cache group
-                    call h5gcreate_f(h5fId,trim(attrGrpName),cacheId,herr)     
-                    cacheCreate = .true.    
-                endif 
-                ! Open attribute cache group
-                call h5gopen_f(h5fId,trim(attrGrpName),cacheId,herr)  
+            if(len(trim(gStrO)) >= 5) then
+                if(trim(toUpper(gStrO(1:5))) == "STEP#") then
+                    writeCache = .true.
+                    !Check if cache group exists
+                    call h5lexists_f(h5fId,trim(attrGrpName),cacheExist,herr)
+                    if (.not. cacheExist) then
+                        if(.not. createdThisFile) then
+                            write(*,*) "Attempt to create the timeAttributeCache in an existing h5 file", &
+                                    " that does not have the cache group."
+                            write(*,*) "Perform restart in a different directory, or create the timeAttributeCache", &
+                                    " and populate it in the exisitng h5 file."
+                            stop
+                        endif
+                        !Create cache group
+                        call h5gcreate_f(h5fId,trim(attrGrpName),cacheId,herr)     
+                        cacheCreate = .true.    
+                    endif 
+                    ! Open attribute cache group
+                    call h5gopen_f(h5fId,trim(attrGrpName),cacheId,herr)  
 
-                ! Check attribute cache size and resize
-                call CheckAttCacheSize(trim(gStrO), cacheId, cacheExist, cacheCreate)
-                ! Write Step# to cache
-                stepVar%Nr = 0
-                stepVar%idStr = "step"
-                stepVar%vType = IOINT
-                stepVar%data = [GetStepInt(trim(gStrO))]
-                call WriteCacheAtt(stepVar,cacheId)
-            endif 
+                    ! Check attribute cache size and resize
+                    call CheckAttCacheSize(trim(gStrO), cacheId, cacheExist, cacheCreate)
+                    ! Write Step# to cache
+                    stepVar%Nr = 0
+                    stepVar%idStr = "step"
+                    stepVar%vType = IOINT
+                    stepVar%data = [GetStepInt(trim(gStrO))]
+                    call WriteCacheAtt(stepVar,cacheId)
+                endif 
+            endif
 
             if (present(gStrOO)) then
                 !Create subgroup

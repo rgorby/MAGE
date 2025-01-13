@@ -7,6 +7,15 @@ module shellGridIO
     implicit none
 
     integer, parameter, private :: MAXIOVAR = 50
+
+    ! Overloader to write a shellGrid var to file
+    interface AddOutSGV
+        module procedure AddOutSGV_1D, AddOutSGV_0D
+    end interface
+    ! Overloader to read a shellGrid var to file
+    interface ReadInSGV
+        module procedure ReadInSGV_1D, ReadInSGV_0D
+    end interface
     
     contains
 
@@ -16,9 +25,9 @@ module shellGridIO
         !!  just ones needed for restarts and generally useful output
         type(ShellGrid_T), intent(in) :: sg
             !! Shell Grid object to write
-        character(len=strLen), intent(in) :: outH5
+        character(len=*), intent(in) :: outH5
             !! Output file name
-        character(len=strLen), optional, intent(in) :: gStrO
+        character(len=*), optional, intent(in) :: gStrO
             !! Optional group to write to, default = /ShellGrid
 
         type(IOVAR_T), dimension(MAXIOVAR) :: IOVars
@@ -26,7 +35,7 @@ module shellGridIO
         call ClearIO(IOVars)
 
         ! Attrs
-        call AddOutVar(IOVars, "name", sg%name)
+        call AddOutVar(IOVars, "name", trim(sg%name))
         call AddOutVar(IOVars, "radius", sg%radius,uStr="Rp")
         call AddOutVar(IOVars, "Nt", sg%Nt)
         call AddOutVar(IOVars, "Np", sg%Np)
@@ -51,7 +60,7 @@ module shellGridIO
 
 
         if (present(gStrO)) then
-            call WriteVars(IOVars, .false., outH5, gStrO)
+            call WriteVars(IOVars, .false., outH5, trim(gStrO))
         else
             call WriteVars(IOVars, .false., outH5, '/ShellGrid')
         endif
@@ -65,9 +74,9 @@ module shellGridIO
             !! Shell Grid object to write
         character(len=*), intent(in) :: sgName
             !! Name to assign to generated ShellGrid since we can't get strings from h5 files
-        character(len=strLen), intent(in) :: inH5
+        character(len=*), intent(in) :: inH5
             !! Output file name
-        character(len=strLen), optional, intent(in) :: gStrO
+        character(len=*), optional, intent(in) :: gStrO
             !! Optional group to read from, default = /ShellGrid
 
         type(IOVAR_T), dimension(MAXIOVAR) :: IOVars
@@ -103,7 +112,7 @@ module shellGridIO
         call AddInVar(IOVars, "bndje")
 
         if (present(gStrO)) then
-            call ReadVars(IOVars, .false., inH5, gStrO)
+            call ReadVars(IOVars, .false., inH5, trim(gStrO))
         else
             call ReadVars(IOVars, .false., inH5, '/ShellGrid')
         endif
@@ -135,8 +144,191 @@ module shellGridIO
         theta_active(:) = theta(1 + nGhosts(NORTH) : Nt + nGhosts(NORTH) + 1)
         phi_active(:)   = phi  (1 + nGhosts(WEST)  : Np + nGhosts(WEST)  + 1)
 
-        call GenShellGrid(sg, theta_active, phi_active, sgName, nGhosts=nGhosts, radO=radius)
+        call GenShellGrid(sg, theta_active, phi_active, trim(sgName), nGhosts=nGhosts, radO=radius)
 
     end subroutine GenShellGridFromFile
+
+
+!------
+! ShellGridVar write overloads
+!------
+
+    subroutine AddOutSGV_0D(IOVars, idStr, sgv, uStr, dStr, outBndsO, doWriteMaskO)
+        type(IOVar_T), dimension(:), intent(inout) :: IOVars
+        character(len=*), intent(in) :: idStr
+        type(ShellGridVar_T), intent(in) :: sgv
+        character(len=*), intent(in), optional :: uStr,dStr
+        integer, dimension(4), intent(in), optional :: outBndsO
+        logical, intent(in), optional :: doWriteMaskO
+
+        integer :: is, ie, js, je
+        character(len=strLen) :: idStr_mask
+        character(len=strLen) :: mask_desc
+        logical :: doWriteMask
+        real(rp), dimension(:,:), allocatable :: Q_mask
+
+        if(present(outBndsO)) then
+            is = outBndsO(1); ie = outBndsO(2); js = outBndsO(3); je = outBndsO(4)
+        else
+            is = sgv%isv    ; ie = sgv%iev    ; js = sgv%jsv    ; je = sgv%jev
+        endif
+
+        if(present(doWriteMaskO)) then
+            doWriteMask = doWriteMaskO
+        else
+            doWriteMask = .false.
+        endif
+
+        call AddOutVar(IOVars, idStr, sgv%data(is:ie,js:je), uStr=uStr, dStr=dStr)
+        if(doWriteMask) then
+            write(idStr_mask, "(A,A)") trim(idStr), "_mask"
+            write(mask_desc , "(A,A)") "Mask array for variable ",trim(idStr)
+            allocate( Q_mask(sgv%isv:sgv%iev, sgv%jsv:sgv%jev) )
+            Q_mask = merge(1_rp, 0_rp, sgv%mask)
+            call AddOutVar(IOVars, idStr_mask, Q_mask(is:ie,js:je), dStr=mask_desc)
+        endif
+        
+    end subroutine AddOutSGV_0D
+
+
+    subroutine AddOutSGV_1D(IOVars, idStr, sgv, uStr, dStr, outBndsO, doWriteMaskO)
+        type(IOVar_T), dimension(:), intent(inout) :: IOVars
+        character(len=*), intent(in) :: idStr
+        type(ShellGridVar_T), dimension(:), intent(in) :: sgv
+        character(len=*), intent(in), optional :: uStr,dStr
+        integer, dimension(4), intent(in), optional :: outBndsO
+        logical, intent(in), optional :: doWriteMaskO
+
+        integer :: is, ie, js, je, k
+        integer, dimension(1) :: sgv_shape
+        character(len=strLen) :: idStr_mask
+        character(len=strLen) :: mask_desc
+        logical :: doWriteMask
+        real(rp), dimension(:,:,:), allocatable :: Q
+        real(rp), dimension(:,:,:), allocatable :: Q_mask
+
+        if(present(doWriteMaskO)) then
+            doWriteMask = doWriteMaskO
+        else
+            doWriteMask = .false.
+        endif
+
+        if(present(outBndsO)) then
+            is = outBndsO(1); ie = outBndsO(2); js = outBndsO(3); je = outBndsO(4)
+        else
+            is = sgv(1)%isv ; ie = sgv(1)%iev ; js = sgv(1)%jsv ; je = sgv(1)%jev
+        endif
+
+        sgv_shape = shape(sgv)
+        allocate(Q(sgv(1)%isv:sgv(1)%iev, sgv(1)%jsv:sgv(1)%jev, sgv_shape(1)))
+        do k=1,sgv_shape(1)
+            ! We are assuming all sgv's in array have identical bounds. Make sure that's true
+            if ((sgv(k)%isv .ne. sgv(1)%isv) .or. (sgv(k)%iev .ne. sgv(1)%iev) .or. (sgv(k)%jsv .ne. sgv(1)%jsv) .or. (sgv(k)%jev .ne. sgv(1)%jev)) then
+                write(*,*) "ERROR writing SGV_1D with id=",trim(idStr)
+                write(*,*) "Dims not equal, dying..."
+                stop
+            endif
+            Q(:,:,k) = sgv(k)%data
+        enddo
+        call AddOutVar(IOVars, idStr, Q(is:ie,js:je,:), uStr=uStr, dStr=dStr)
+
+        if (doWriteMask) then
+            write(idStr_mask, "(A,A)") trim(idStr), "_mask"
+            write(mask_desc , "(A,A)") "Mask array for variable ",trim(idStr)
+            allocate( Q_mask(sgv(1)%isv:sgv(1)%iev, sgv(1)%jsv:sgv(1)%jev, sgv_shape(1)) )
+            do k=1,sgv_shape(1)
+                Q_mask(:,:,k) = merge(1_rp, 0_rp, sgv(k)%mask)
+            enddo
+            call AddOutVar(IOVars, idStr_mask, Q_mask(is:ie,js:je,:), dStr=mask_desc)
+        endif
+        
+    end subroutine AddOutSGV_1D
+
+    subroutine ReadInSGV_0D(sgv, baseStr, idStr, gStrO, doIOpO)
+        type(ShellGridVar_T), intent(inout) :: sgv
+        character(len=*), intent(in) :: baseStr
+        character(len=*), intent(in) :: idStr
+        character(len=*), intent(in) :: gStrO
+        logical, intent(in), optional :: doIOpO
+        
+        type(IOVAR_T), dimension(5) :: IOVars
+        logical :: doIOp = .false.
+        character(len=strLen) :: idStr_mask
+        logical :: doReadMask = .false.
+        real(rp), dimension(:,:), allocatable :: Q
+
+        if (present(doIOpO)) doIOp = doIOpO
+        allocate(Q(sgv%isv:sgv%iev, sgv%jsv:sgv%jev))
+        write(idStr_mask, "(A,A)") trim(idStr), "_mask"
+
+        call ClearIO(IOVars)
+        call AddInVar(IOVars, idStr)
+        if (ioExist(baseStr, idStr_mask, gStrO)) then
+            doReadMask = .true.
+            call AddInVar(IOVars, idStr_mask)
+        else
+            write(*,*)"ReadInSGV_0D: Did not find mask variable for id=",trim(idStr)
+        endif
+        call ReadVars(IOVars, doIOp, baseStr, gStrO)
+
+        call IOArray2DFill(IOVars, idStr, sgv%data)
+        if (doReadMask) then
+            call IOArray2DFill(IOVars, idStr_mask, Q)
+            sgv%mask = merge(.true., .false., Q > 0.5)
+        endif
+    end subroutine ReadInSGV_0D
+
+
+    subroutine ReadInSGV_1D(sgv, baseStr, idStr, gStrO, doIOpO)
+        type(ShellGridVar_T), dimension(:), intent(inout) :: sgv
+        character(len=*), intent(in) :: baseStr
+        character(len=*), intent(in) :: idStr
+        character(len=*), intent(in) :: gStrO
+        logical, intent(in), optional :: doIOpO
+        
+        integer :: k
+        type(IOVAR_T), dimension(5) :: IOVars
+        logical :: doIOp = .false.
+        character(len=strLen) :: idStr_mask
+        integer, dimension(1) :: sgv_shape
+        logical :: doReadMask = .false.
+        real(rp), dimension(:,:,:), allocatable :: Q
+
+        if (present(doIOpO)) doIOp = doIOpO
+        sgv_shape = shape(sgv)
+
+        allocate(Q(sgv(1)%isv:sgv(1)%iev, sgv(1)%jsv:sgv(1)%jev, sgv_shape(1)))
+        write(idStr_mask, "(A,A)") trim(idStr), "_mask"
+
+        call ClearIO(IOVars)
+        call AddInVar(IOVars, idStr)
+        if (ioExist(baseStr, idStr_mask, gStrO)) then
+            doReadMask = .true.
+            call AddInVar(IOVars, idStr_mask)
+        else
+            write(*,*)"ReadInSGV_1D: Did not find mask variable for id=",trim(idStr)
+        endif
+        call ReadVars(IOVars, doIOp, baseStr, gStrO)
+
+        call IOArray3DFill(IOVars, idStr, Q)
+        do k=1,sgv_shape(1)
+            ! We are assuming all sgv's in array have identical bounds. Make sure that's true
+            if ((sgv(k)%isv .ne. sgv(1)%isv) .or. (sgv(k)%iev .ne. sgv(1)%iev) .or. (sgv(k)%jsv .ne. sgv(1)%jsv) .or. (sgv(k)%jev .ne. sgv(1)%jev)) then
+                write(*,*) "ERROR reading SGV_1D with id=",trim(idStr)
+                write(*,*) "Dims not equal, dying..."
+                stop
+            endif
+            sgv(k)%data = Q(:,:,k)
+        enddo
+        
+        if (doReadMask) then
+            !allocate(Q_mask(sgv%isv:sgv%iev, sgv%jsv:sgv%jev))
+            call IOArray3DFill(IOVars, idStr_mask, Q)
+            do k=1,sgv_shape(1)
+                sgv(k)%mask = merge(.true., .false., Q(:,:,k) > 0.5)
+            enddo
+        endif
+    end subroutine ReadInSGV_1D
+
 
 end module shellGridIO

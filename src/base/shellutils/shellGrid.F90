@@ -120,12 +120,14 @@ module shellGrid
         if (.not.(isAscending(Theta))) then 
             write(*,*) "Inside shell grid generator (GenShellGrid)."
             write(*,*) "Theta array must be ascending. Quitting..."
+            write(*,*) Theta
             stop
         end if
 
         if (.not.(isAscending(Phi))) then 
             write(*,*) "Inside shell grid generator (GenShellGrid)."
             write(*,*) "Phi array must be ascending. Quitting..."
+            write(*,*) Phi
             stop
         end if
 
@@ -275,6 +277,7 @@ module shellGrid
         if ( (.not.shGr%isPeriodic) )  then
             write(*,*) "Inside shell grid generator (GenShellGrid)."
             write(*,*) "Non-periodic grids are not implemented. Quitting..."
+            write(*,*) Phi
             stop
         endif
 
@@ -326,7 +329,8 @@ module shellGrid
 
 
     subroutine initShellVar(shGr, loc, shellVar, maskO)
-        !! Inits a ShellGridVar that associated with provided and initialized ShellGrid
+        !! Inits a ShellGridVar thats associated with provided and initialized ShellGrid
+        !! TODO: Maybe make mask alloc optional, in case we have an array of ShellGridVars with the same mask
         type(ShellGrid_T), intent(in) :: shGr
             !! ShellGrid that this variable is related to
         integer, intent(in) :: loc
@@ -509,12 +513,12 @@ module shellGrid
         !! Deallocates any allocated memory
         type(ShellGrid_T), intent(inout) :: sh
 
-        deallocate(sh%th)
-        deallocate(sh%ph)
-        deallocate(sh%thc)
-        deallocate(sh%phc)
-        deallocate(sh%lat)
-        deallocate(sh%latc)
+        if (allocated(sh%th)  ) deallocate(sh%th)
+        if (allocated(sh%ph)  ) deallocate(sh%ph)
+        if (allocated(sh%thc) ) deallocate(sh%thc)
+        if (allocated(sh%phc) ) deallocate(sh%phc)
+        if (allocated(sh%lat) ) deallocate(sh%lat)
+        if (allocated(sh%latc)) deallocate(sh%latc)
 
     end subroutine deallocShellGrid
 

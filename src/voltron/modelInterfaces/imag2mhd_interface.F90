@@ -60,7 +60,7 @@ module imag2mhd_interface
                         !Good projection, let's get some values
                         x1 = chmp2mhd%xyzSquish(i,j,k,1)
                         x2 = chmp2mhd%xyzSquish(i,j,k,2)
-                        call vApp%imagApp%doEval(x1,x2,t,imW,isTasty)
+                        call vApp%imagApp%getMoments(x1,x2,t,imW,isTasty)
                     else
                         !Projection wasn't good, nothing good to eat
                         imW = 0.0
