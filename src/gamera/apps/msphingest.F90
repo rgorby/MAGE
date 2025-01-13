@@ -9,7 +9,8 @@ module msphingest
     use planethelper
     use gamutils
     use geopack
-
+    use volttypes
+    
 	implicit none
 
     !Ingestion switch

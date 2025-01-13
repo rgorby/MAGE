@@ -21,11 +21,4 @@ module cmidefs
     real(rp), parameter :: defB0 = sqrt(Mu0*defD0)*defV0*1.0D+9 !T->nT
     real(rp), parameter :: defP0 = defD0*defV0*defV0*1.0D+9 !P->nPa
 
-    !TODO: Rename NVARIMAG to something more appropriate for volt<=>gamera coupling
-    !Data for inner mag => gamera variables
-    enum, bind(C)
-        enumerator :: IMDEN=1,IMX1,IMX2,IMTSCL,IMPR
-    endenum
-    integer, parameter :: NVARIMAG = 5
-
 end module cmidefs

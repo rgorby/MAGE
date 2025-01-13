@@ -9,7 +9,8 @@ module gioH5
     use planethelper
     use dates
     use files
-    
+    use volttypes
+
     implicit none
 
     integer, parameter, private :: MAXIOVAR = 50
