@@ -80,7 +80,7 @@ module raijuCplHelper
             end where
 
             ! Assign corner quantities
-            !$OMP PARALLEL DO default(shared) collapse(1) &
+            !$OMP PARALLEL DO default(shared) &
             !$OMP schedule(dynamic) &
             !$OMP private(i,j)
             do i=sh%isg,sh%ieg+1
@@ -97,7 +97,7 @@ module raijuCplHelper
 
             State%bvol_cc = 0.0
             ! Assign cell-centered quantities
-            !$OMP PARALLEL DO default(shared) collapse(1) &
+            !$OMP PARALLEL DO default(shared) &
             !$OMP schedule(dynamic) &
             !$OMP private(i,j,s,P,D,Pstd,Dstd,dBVol)
             do i=sh%isg,sh%ieg

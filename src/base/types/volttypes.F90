@@ -259,6 +259,7 @@ module volttypes
         real(rp) :: time, MJD,tFin
         real(rp) :: BSDst=0.0 !Most recent bsdst calculated
         integer :: ts
+        type(IMAGTubeShell_T) :: imagTubes
 
         !Voltron output/restart info
         type (IOClock_T) :: IO

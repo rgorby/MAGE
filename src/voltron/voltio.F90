@@ -5,7 +5,6 @@ module voltio
     use cmiutils
     use mixio
     use clocks
-    use innermagsphere
     use wind
     use dyncoupling
     use dstutils
