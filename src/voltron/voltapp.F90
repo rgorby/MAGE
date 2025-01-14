@@ -12,6 +12,7 @@ module voltapp
     use chmp2mhd_interface
     use mix2mhd_interface
     use imag2mhd_interface
+    use mixinterfaceutils, only : mixToVoltron
     use ebsquish
     use innermagsphere
     use dates
@@ -478,6 +479,9 @@ module voltapp
             call mapIMagToRemix(vApp%imag2mix,vApp%remixApp)
         endif
         call mapGameraToRemix(vApp%mhd2mix, vApp%remixApp)
+        write(*,*)"mixToVoltron start"
+        call mixToVoltron(vApp%remixApp, vApp%shGrid, vApp%State)
+        write(*,*)"mixToVoltron done"
 
         ! determining the current dipole tilt
         call vApp%tilt%getValue(vApp%time,curTilt)

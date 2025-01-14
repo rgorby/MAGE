@@ -67,8 +67,6 @@ module voltCplTypes
 
 
     type IMAGTubeShell_T
-        type(ShellGrid_T) :: sh
-            !! Home grid
 
         type(magLine_T), dimension(:,:), allocatable :: bTrc2D
 

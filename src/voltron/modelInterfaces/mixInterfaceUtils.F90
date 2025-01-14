@@ -2,6 +2,8 @@
 
 module mixinterfaceutils
     use mixdefs
+    use volttypes
+    use shellInterp
 
     implicit none
 
@@ -67,6 +69,34 @@ module mixinterfaceutils
        p = modulo(atan2(-mhdg(:,:,YDIR),mhdg(:,:,XDIR)),2*pi)
     end if
   end subroutine mix_mhd_grid
+
+
+   subroutine mixToVoltron(mixApp, voltGrid, voltState)
+      !! Convert certain remix quantities to Voltron State variables
+      class(mixApp_T  ), intent(inout)    :: mixApp
+      type(ShellGrid_T), intent(in)    :: voltGrid
+      type(voltState_t), intent(inout) :: voltState
+
+      real(rp), dimension(mixApp%ion(NORTH)%shGr%Nt,mixApp%ion(NORTH)%shGr%Np) :: tmpPot
+      integer :: iLat
+
+      ! Right now, just doing potential
+      voltState%potential%data = 0.0
+      voltState%potential%mask = .false.
+      associate(rmHemi=>mixApp%ion(NORTH), Nt=>mixApp%ion(NORTH)%shGr%Nt, Np=>mixApp%ion(NORTH)%shGr%Np)       
+         rmHemi%St%pot_shGr%data(:,1:Np) = transpose(rmHemi%St%Vars(:,:,POT))
+         rmHemi%St%pot_shGr%data(:,Np+1) = rmHemi%St%pot_shGr%data(:,1)
+         rmHemi%St%pot_shGr%mask = .true.
+         call InterpShellVar_TSC_SG(rmHemi%shGr, rmHemi%St%pot_shGr, voltGrid, voltState%potential)
+         ! Hacky version for now. Not needed if mix's sg is child of voltron's
+         iLat = voltGrid%is
+         do while (voltGrid%th(iLat+1) > rmHemi%shGr%maxTheta)
+            iLat = iLat + 1
+         enddo
+         voltState%potential%mask(voltGrid%is:iLat,:) = .true.
+      end associate
+
+   end subroutine mixToVoltron
 
 end module mixinterfaceutils
 

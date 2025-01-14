@@ -13,9 +13,9 @@ module imagtubes
 
     contains
 
-    subroutine init_IMAGTubeShell(shParent, tubeShell, maskO, TioteO)
-        type(ShellGrid_T), intent(in) :: shParent
-            !! Parent shellgrid to copy into tubeShell
+    subroutine init_IMAGTubeShell(sh, tubeShell, maskO, TioteO)
+        type(ShellGrid_T), intent(in) :: sh
+            !! Voltron shellgrid
         type(IMAGTubeShell_T), intent(inout) :: tubeShell
             !! IMAGTubeShell object we are initializing
         logical, dimension(:,:), intent(in), optional :: maskO
@@ -23,24 +23,20 @@ module imagtubes
             !! Default Ti/Te ratio
 
         integer :: i
-        real(rp) :: tiote = 4.0
+        real(rp) :: tiote
         character(len=strLen) :: shName
 
         if (present(TioteO)) then
             tiote = TioteO
+        else 
+            tiote = 4.0
         endif
 
-        associate(sh=>tubeShell%sh, mask=>tubeShell%vol%mask)
+        associate(mask=>tubeShell%vol%mask)
 
-        write(shName,'(A,A)')"IMAGTubeShell_",trim(shParent%name)
+        !write(shName,'(A,A)')"IMAGTubeShell_",trim(shParent%name)
 
-        ! Make our own personal shell grid
-        ! TODO: At some point, we could just make a subset of parent grid, but for now just use whole thing
-        call GenChildShellGrid(shParent, sh, shName)
-        ! Initialize our full lines
-        allocate(tubeshell%bTrc2D(sh%isg:sh%ieg+1,sh%jsg:sh%jeg+1))
-
-        call initShellVar(tubeShell%sh, SHGR_CORNER, tubeShell%vol)
+        call initShellVar(sh, SHGR_CORNER, tubeShell%vol)
         
         ! Set mask
         if (present(maskO)) then
@@ -55,32 +51,35 @@ module imagtubes
             ! If no mask provided, turn on full grid mask (including ghosts!)
             mask = .true.
         endif
+        tubeShell%vol%mask = mask
         
-        call initShellVar(tubeShell%sh, SHGR_CORNER, tubeShell%bmin    , maskO=mask)
-        call initShellVar(tubeShell%sh, SHGR_CORNER, tubeShell%beta_ave, maskO=mask)
-        call initShellVar(tubeShell%sh, SHGR_CORNER, tubeShell%latc    , maskO=mask)
-        call initShellVar(tubeShell%sh, SHGR_CORNER, tubeShell%lonc    , maskO=mask)
-        call initShellVar(tubeShell%sh, SHGR_CORNER, tubeShell%Lb      , maskO=mask)
-        call initShellVar(tubeShell%sh, SHGR_CORNER, tubeShell%Tb      , maskO=mask)
-        call initShellVar(tubeShell%sh, SHGR_CORNER, tubeShell%losscone, maskO=mask)
-        call initShellVar(tubeShell%sh, SHGR_CORNER, tubeShell%rCurv   , maskO=mask)
-        call initShellVar(tubeShell%sh, SHGR_CORNER, tubeShell%wIMAG   , maskO=mask)
-        call initShellVar(tubeShell%sh, SHGR_CORNER, tubeShell%Tiote   , maskO=mask)
-        call initShellVar(tubeShell%sh, SHGR_CORNER, tubeShell%Veb(1)  , maskO=mask)
-        call initShellVar(tubeShell%sh, SHGR_CORNER, tubeShell%Veb(2)  , maskO=mask)
+        call initShellVar(sh, SHGR_CORNER, tubeShell%bmin    , maskO=mask)
+        call initShellVar(sh, SHGR_CORNER, tubeShell%beta_ave, maskO=mask)
+        call initShellVar(sh, SHGR_CORNER, tubeShell%latc    , maskO=mask)
+        call initShellVar(sh, SHGR_CORNER, tubeShell%lonc    , maskO=mask)
+        call initShellVar(sh, SHGR_CORNER, tubeShell%Lb      , maskO=mask)
+        call initShellVar(sh, SHGR_CORNER, tubeShell%Tb      , maskO=mask)
+        call initShellVar(sh, SHGR_CORNER, tubeShell%losscone, maskO=mask)
+        call initShellVar(sh, SHGR_CORNER, tubeShell%rCurv   , maskO=mask)
+        call initShellVar(sh, SHGR_CORNER, tubeShell%wIMAG   , maskO=mask)
+        call initShellVar(sh, SHGR_CORNER, tubeShell%Tiote   , maskO=mask)
+        call initShellVar(sh, SHGR_CORNER, tubeShell%Veb(1)  , maskO=mask)
+        call initShellVar(sh, SHGR_CORNER, tubeShell%Veb(2)  , maskO=mask)
         tubeShell%TioTe%data = tiote
 
         do i=1,NDIM
-            call initShellVar(tubeShell%sh, SHGR_CORNER, tubeShell%X_bmin(i), maskO=mask)
+            call initShellVar(sh, SHGR_CORNER, tubeShell%X_bmin(i), maskO=mask)
         enddo
 
         !allocate(tubeShell%Pave(0:MAXTUBEFLUIDS))
         !allocate(tubeShell%Nave(0:MAXTUBEFLUIDS))
+        !allocate(tubeShell%Pstd(0:MAXTUBEFLUIDS))
+        !allocate(tubeShell%Nstd(0:MAXTUBEFLUIDS))
         do i=0,MAXTUBEFLUIDS
-            call initShellVar(tubeShell%sh, SHGR_CORNER, tubeShell%Pave(i), maskO=mask)
-            call initShellVar(tubeShell%sh, SHGR_CORNER, tubeShell%Nave(i), maskO=mask)
-            call initShellVar(tubeShell%sh, SHGR_CORNER, tubeShell%Pstd(i), maskO=mask)
-            call initShellVar(tubeShell%sh, SHGR_CORNER, tubeShell%Nstd(i), maskO=mask)
+            call initShellVar(sh, SHGR_CORNER, tubeShell%Pave(i), maskO=mask)
+            call initShellVar(sh, SHGR_CORNER, tubeShell%Nave(i), maskO=mask)
+            call initShellVar(sh, SHGR_CORNER, tubeShell%Pstd(i), maskO=mask)
+            call initShellVar(sh, SHGR_CORNER, tubeShell%Nstd(i), maskO=mask)
         enddo
 
         end associate
