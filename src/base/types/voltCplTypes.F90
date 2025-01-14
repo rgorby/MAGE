@@ -17,6 +17,8 @@ module voltCplTypes
 
     !New tube type for global Voltron grid
     type Tube_T
+        real(rp) :: xyz0(NDIM)
+        !! XYZ of seed point [Rx]
         real(rp) :: lat0,lon0,invlat
         !! Lat/lon of tube footpoint and invariant latitude [rad]
         real(rp) :: latc,lonc
