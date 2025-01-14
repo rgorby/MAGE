@@ -10,6 +10,45 @@ module voltCplTypes
     implicit none
 
     integer, parameter :: MAXTUBEFLUIDS = 5
+
+    enum, bind(C)
+        enumerator :: TUBE_CLOSED=0, TUBE_OPEN, TUBE_UNDEF
+    endenum
+
+    !New tube type for global Voltron grid
+    type Tube_T
+        real(rp) :: lat0,lon0,invlat
+        !! Lat/lon of tube footpoint and invariant latitude [rad]
+        real(rp) :: latc,lonc
+        !! Lat/lon of conjugate point [rad] if topo=TUBE_CLOSED
+        integer :: topo 
+        !! topo = TUBE_CLOSED,OPEN,UNDEF
+        real(rp) :: bmin, X_bmin(NDIM)
+        !! Minimum B along field line [nT] and coordinates [Rx]
+        real(rp) :: bVol
+        !! Flux-tube volume [Rx/nT]
+        real(rp) :: Lb
+        !! Length of field line [Rx]
+        real(rp) :: Tb
+        !! Alfven bounce time [s] if CLOSED
+        real(rp) :: pot,crpot,potc
+        !! Electrostatic potential (TOTAL and corotation only), and conjugate potential [kV]
+        real(rp) :: wMAG
+        !! Energy partition, Mag E / (Kin + Mag + Thermal). 0 <= wMAG <= 1
+        !! wMAG = 1 => magnetically dominated, wMAG << 1 => not strongly magnetized
+        real(rp) :: rCurv
+        !!Curvature radius [Rx] @ bmin if CLOSED
+        real(rp) :: avgBeta
+        !! Flux-tube volume-weighted average beta
+        real(rp), dimension(0:MAXTUBEFLUIDS) :: avgP,avgN,stdP,stdN
+        !! Average and standard deviation of pressure [nPa] and number density [#/cc] on field line
+        real(rp) :: losscone,lossconec
+        !! Size of losscone [RAD] at footpoint and conjugate (if CLOSED)
+        real(rp) :: TioTe0
+        !! Empirical Ti/Te estimate if it exists
+        
+    end type Tube_T
+
     type IMAGTube_T
         real(rp) :: Vol,bmin,beta_average
             !! Flux tube volume, minimum b along FL
