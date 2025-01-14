@@ -363,9 +363,7 @@ module voltio
         !Get symh from input time series
         symh = vApp%symh%evalAt(vApp%time)
 
-        write(*,*)"outSGVBnds start"
         outSGVBnds = (/vApp%shGrid%is,vApp%shGrid%ie,vApp%shGrid%js,vApp%shGrid%je/)
-        write(*,*)"outSGVBnds end"
 
         associate(Gr => gApp%Grid)
         !Cell-centers w/ ghosts
@@ -446,11 +444,9 @@ module voltio
 
 
         ! voltState stuff
-        write(*,*)"addOutSGV pot start"
         call AddOutSGV(IOVars, "Potential", vApp%State%potential, &
                        uStr="kV", dStr="Ionospheric electrostatic potential (no corotation)", &
                        outBndsO=outSGVBnds, doWriteMaskO=.false.)
-        write(*,*)"addOutSGV pot end"
 
         call WriteVars(IOVars,.true.,vh5File,gStr)
 

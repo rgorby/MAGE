@@ -250,8 +250,8 @@ module volttypes
 
     type :: voltState_t
 
-        type(IMAGTube_T), dimension(:,:), allocatable :: ijTubes
-        type(IMAGTubeShell_T) :: tubeShell
+        type(Tube_T), dimension(:,:), allocatable :: ijTubes
+        type(TubeShell_T)    :: tubeShell
         type(ShellGridVar_T) :: potential  ! [kV]
 
     end type voltState_t

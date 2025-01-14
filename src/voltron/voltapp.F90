@@ -479,9 +479,6 @@ module voltapp
             call mapIMagToRemix(vApp%imag2mix,vApp%remixApp)
         endif
         call mapGameraToRemix(vApp%mhd2mix, vApp%remixApp)
-        write(*,*)"mixToVoltron start"
-        call mixToVoltron(vApp%remixApp, vApp%shGrid, vApp%State)
-        write(*,*)"mixToVoltron done"
 
         ! determining the current dipole tilt
         call vApp%tilt%getValue(vApp%time,curTilt)
@@ -494,6 +491,8 @@ module voltapp
         else
             call run_mix(vApp%remixApp%ion,curTilt,doModelOpt=.true.,mjd=vApp%MJD)
         endif
+
+        call mixToVoltron(vApp%remixApp, vApp%shGrid, vApp%State)
 
     end subroutine runRemix
 
