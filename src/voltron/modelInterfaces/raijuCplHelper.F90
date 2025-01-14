@@ -194,7 +194,7 @@ module raijuCplHelper
 
                     eqR = DipColat2L(raiCpl%raiApp%Grid%thRp(i))  ! Function assumes colat coming from 1 Rp, make sure we use the right theta value
                     if (eqR < 0.5*raiCpl%opt%mhd_Rin) then
-                        call DipoleTube(vApp, sh%th(i), sh%ph(j), raiCpl%ijTubes(i,j), raiCpl%magLines(i,j))
+                        call DipoleTube(vApp, sh%th(i), sh%ph(j), raiCpl%ijTubes(i,j))
                     else
                         call MHDTube(ebApp, planet,   & !ebTrcApp, planet
                             sh%th(i), sh%ph(j), seedR, &  ! colat, lon, r

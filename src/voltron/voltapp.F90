@@ -23,6 +23,8 @@ module voltapp
     use planethelper
     use shellGrid
     use shellGridGen
+    use voltappHelper
+    use voltCplHelper
     
     implicit none
 
@@ -170,7 +172,6 @@ module voltapp
             call xmlInp%Set_Val(resID,"/Kaiju/gamera/restart/resID","msphere")
             call xmlInp%Set_Val(nRes,"/Kaiju/gamera/restart/nRes" ,-1)
             call readVoltronRestart(vApp, resID, nRes)
-            !! TODO: ^^ This is where we should init shellGrid if restarting
             vApp%IO%tOut = floor(vApp%time/vApp%IO%dtOut)*vApp%IO%dtOut + vApp%IO%dtOut
             vApp%IO%tRes = floor(vApp%time/vApp%IO%dtRes)*vApp%IO%dtRes + vApp%IO%dtRes
 
@@ -205,6 +206,7 @@ module voltapp
             gApp%Model%t = vApp%time / gApp%Model%Units%gT0
 
             call genVoltShellGrid(vApp, xmlInp)
+            call initVoltState(vApp)
 
         endif
 
@@ -514,6 +516,9 @@ module voltapp
 
         ! only do imag after spinup with deep enabled
         if(vApp%doDeep .and. vApp%time >= 0) then
+            ! DoImag needs PreDeep
+            ! DoImag can be in || with squish
+            ! PostDeep needs everything
             call PreDeep(vApp, gApp)
               call DoImag(vApp)
               call SquishStart(vApp)
@@ -537,6 +542,9 @@ module voltapp
         call Tic("G2C")
         call convertGameraToChimp(vApp%mhd2chmp,gApp,vApp%ebTrcApp)
         call Toc("G2C")
+        call Tic("VoltTubes")
+        call genVoltTubes(vApp)
+        call toc("VoltTubes")
 
     end subroutine
 

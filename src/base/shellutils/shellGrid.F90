@@ -2,6 +2,7 @@
 module shellGrid
     use kdefs
     use math
+    use planethelper
 
     implicit none
 
@@ -29,6 +30,10 @@ module shellGrid
             !! Assuming lat in -pi/2,pi/2 and lon in [0,2pi]
         real(rp), dimension(:), allocatable :: thc, phc, latc  
             !! (Nt or Np) [radians] grid centers
+        real(rp), dimension(:), allocatable :: thRp
+            !! (Nt+1) [rad] theta corners projected to 1 Rp assuming dipole
+        real(rp), dimension(:), allocatable :: thcRp
+            !! (Nt) [rad] theta corners projected to 1 Rp assuming dipole
         logical :: doSP = .false., doNP = .false. 
             !! Whether active grid contains south/north pole, no ghosts in this case
         logical :: ghostSP = .false., ghostNP = .false. 
@@ -105,8 +110,9 @@ module shellGrid
             !! WARNING: Will default to 1 if not provided! That should rarely be the case
         
         integer :: i,j
-        real(rp) :: delta
+        real(rp) :: delta, L
         real(rp), dimension(:), allocatable :: dphi
+        real(rp), dimension(3) :: xyz
 
         ! Parse optional parameters
         if (present(nGhosts)) then
@@ -219,13 +225,17 @@ module shellGrid
         if (allocated(shGr%thc))  deallocate(shGr%thc)
         if (allocated(shGr%phc))  deallocate(shGr%phc)
         if (allocated(shGr%latc)) deallocate(shGr%latc)
+        if (allocated(shGr%thRp)) deallocate(shGr%thRp)
+        if (allocated(shGr%thcRp)) deallocate(shGr%thcRp)
         ! Create new arrays
-        allocate(shGr%th  (isg:ieg+1))
-        allocate(shGr%thc (isg:ieg  ))
-        allocate(shGr%ph  (jsg:jeg+1))
-        allocate(shGr%phc (jsg:jeg  ))
-        allocate(shGr%lat (isg:ieg+1))
-        allocate(shGr%latc(isg:ieg  ))
+        allocate(shGr%th   (isg:ieg+1))
+        allocate(shGr%thc  (isg:ieg  ))
+        allocate(shGr%ph   (jsg:jeg+1))
+        allocate(shGr%phc  (jsg:jeg  ))
+        allocate(shGr%lat  (isg:ieg+1))
+        allocate(shGr%latc (isg:ieg  ))
+        allocate(shGr%thRp (isg:ieg  ))
+        allocate(shGr%thcRp(isg:ieg+1))
 
         ! Set grid coordinates
         shGr%th(is:ie+1) = Theta  ! note the arrays are conformable because of the index definitions above
@@ -295,6 +305,36 @@ module shellGrid
         shGr%lat  = PI/2.0_rp - shGr%th
         shGr%latc = PI/2.0_rp - shGr%thc
 
+        if (present(radO)) then
+            ! Try to trap for people thinking units are meters or km
+            if (radO > 10) then
+                write(*,*) "WARNING for ShellGrid with name: ",name
+                write(*,*) "Radius being set to ",radO," planetary radii. That seems kinda big."
+            endif
+            shGr%radius = radO
+        else
+            write(*,*) "WARNING for ShellGrid with name: ",name
+            write(*,*) "No radius provided, assuming Earth's ionosphere according to kdefs:"
+            shGr%radius = RIonE*1.0e6/REarth
+            write(*,*) shGr%radius," Rp"
+        endif
+
+        ! Project to planet surface
+        xyz = 0.0
+        do i=shGr%isg, shGr%ieg+1
+            ! Don't need longitude information so just assume we are at Y=0
+            xyz(1) = shGr%radius*sin(shGr%th(i))
+            xyz(3) = shGr%radius*cos(shGr%th(i))
+            L = DipoleL(xyz)
+            shGr%thRp(i) = abs(asin(sqrt(1.0_rp/L)))
+        enddo
+        do i=shGr%isg, shGr%ieg
+            xyz(1) = shGr%radius*sin(shGr%thc(i))
+            xyz(3) = shGr%radius*cos(shGr%thc(i))
+            L = DipoleL(xyz)
+            shGr%thcRp(i) = abs(asin(sqrt(1.0_rp/L)))
+        enddo
+
         ! Note, the bounds below only include the active cells
         shGr%minTheta = minval(shGr%th(is:ie+1))
         shGr%maxTheta = maxval(shGr%th(is:ie+1))
@@ -311,19 +351,6 @@ module shellGrid
 
         shGr%name = name
 
-        if (present(radO)) then
-            ! Try to trap for people thinking units are meters or km
-            if (radO > 10) then
-                write(*,*) "WARNING for ShellGrid with name: ",name
-                write(*,*) "Radius being set to ",radO," planetary radii. That seems kinda big."
-            endif
-            shGr%radius = radO
-        else
-            write(*,*) "WARNING for ShellGrid with name: ",name
-            write(*,*) "No radius provided, assuming Earth's ionosphere according to kdefs:"
-            shGr%radius = RIonE*1.0e6/REarth
-            write(*,*) shGr%radius," Rp"
-        endif
 
     end subroutine GenShellGrid
 

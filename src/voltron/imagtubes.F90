@@ -123,11 +123,10 @@ module imagtubes
 !    end subroutine populateTubeShell
 
     ! Dipole flux tube info
-    subroutine DipoleTube(vApp,lat,lon,ijTube,bTrc)
+    subroutine DipoleTube(vApp,lat,lon,ijTube)
         type(voltApp_T), intent(in) :: vApp
         real(rp), intent(in) :: lat,lon
         type(IMAGTube_T), intent(out)   :: ijTube
-        type(magLine_T), intent(inout) :: bTrc
         
         real(rp) :: L,colat
         real(rp) :: mdipole

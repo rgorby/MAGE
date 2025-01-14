@@ -10,6 +10,7 @@ module voltio
     use dstutils
     use planethelper
     use shellGridIO
+    use voltappHelper
     
     implicit none
 
@@ -301,6 +302,8 @@ module voltio
 
         ! Re-init our shellGrid from file
         call GenShellGridFromFile(vApp%shGrid, "VOLTRON", ResF)
+        ! Init our state now that we have grid info back
+        call initVoltState(vApp)
 
     end subroutine readVoltronRestart
 

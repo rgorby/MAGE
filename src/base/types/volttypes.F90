@@ -248,6 +248,12 @@ module volttypes
         contains
     end type VoltOptions_T
 
+    type :: voltState_t
+
+        type(IMAGTube_T), dimension(:,:), allocatable :: ijTubes
+        type(IMAGTubeShell_T) :: tubeShell
+        
+    end type voltState_t
     type :: voltApp_T
 
         !Planet information
@@ -263,7 +269,7 @@ module volttypes
         real(rp) :: time, MJD,tFin
         real(rp) :: BSDst=0.0 !Most recent bsdst calculated
         integer :: ts
-        type(IMAGTubeShell_T) :: imagTubes
+        type(voltState_t) :: State
 
         !Voltron output/restart info
         type (IOClock_T) :: IO
