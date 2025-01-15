@@ -252,7 +252,10 @@ module volttypes
 
         type(Tube_T), dimension(:,:), allocatable :: ijTubes
         type(TubeShell_T)    :: tubeShell
-        type(ShellGridVar_T) :: potential  ! [kV]
+        type(ShellGridVar_T) :: potential_total
+            !! (Corners) [kV] Ionospheric ExB and corotation potential
+        type(ShellGridVar_T) :: potential_corot  ! [kV]
+            !! (Corners) [kV] Corotation potential
 
     end type voltState_t
     type :: voltApp_T
@@ -310,6 +313,10 @@ module volttypes
 
         !Have special flag to indicate this is Earth, which is special
         logical :: isEarth = .false.
+
+        ! Model flags
+        logical :: doGeoCorot = .false.
+            !! Whether or not to use geopack/kai2geo corotation potential, or simple axis-aligned potential
 
         !Local gamera object to couple to
         class(gamCoupler_T), allocatable :: gApp

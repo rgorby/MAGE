@@ -104,6 +104,7 @@ module voltapp
         if (vApp%isLoud) then
             call printPlanetParams(vApp%planet)
         endif
+        call xmlInp%Set_Val(vApp%doGeoCorot,"/Kaiju/Gamera/prob/doGeoCorot",vApp%doGeoCorot)
 
         !Initialize state information
         !Check for Earth to decide what things need to happen
@@ -492,8 +493,6 @@ module voltapp
             call run_mix(vApp%remixApp%ion,curTilt,doModelOpt=.true.,mjd=vApp%MJD)
         endif
 
-        call mixToVoltron(vApp%remixApp, vApp%shGrid, vApp%State)
-
     end subroutine runRemix
 
 !----------
@@ -512,6 +511,10 @@ module voltapp
         call Tic("ReMIX", .true.)
         call runRemix(vApp)
         call Toc("ReMIX", .true.)
+
+        ! Update potential on voltron's grid
+        call updateVoltPotential(vApp)
+
 
         call Tic("R2G")
         call CouplePotentialToMhd(vApp)

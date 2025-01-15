@@ -343,62 +343,44 @@ module voltio
     end subroutine fOutputVOnly
 
     !Output voltron data
-    subroutine WriteVolt(vApp,gApp,nOut)
+    subroutine WriteVolt(vApp,gApp,nOut,doGhostsO)
         class(voltApp_T), intent(inout) :: vApp
         type(gamApp_T)  , intent(inout) :: gApp
         integer, intent(in) :: nOut
+        logical, intent(in), optional :: doGhostsO
 
-        integer :: Ni,Nj,Nk,Njp,Nkp
-        integer :: i,j,k
         character(len=strLen) :: gStr
         type(IOVAR_T), dimension(MAXVOLTIOVAR) :: IOVars
         real(rp) :: symh
 
-        real(rp), dimension(:,:,:,:), allocatable :: gJ,gB
-        real(rp), dimension(:,:,:), allocatable :: D,Cs
+        integer :: is,ie,js,je
         real(rp) :: Csijk,Con(NVAR)
         real(rp) :: BSDst0,AvgBSDst,DPSDst,BSSMRs(4)
-        integer, dimension(4) :: outSGVBnds
+        integer, dimension(4) :: outSGVBnds_corner
+        logical :: doGhosts
+
+        if (present(doGhostsO)) then
+            doGhosts = doGhostsO
+        else
+            doGhosts = .false.
+        endif
+
+        if (doGhosts) then
+            is = vApp%shGrid%isg
+            ie = vApp%shGrid%ieg
+            js = vApp%shGrid%jsg
+            je = vApp%shGrid%jeg
+        else
+            is = vApp%shGrid%is
+            ie = vApp%shGrid%ie
+            js = vApp%shGrid%js
+            je = vApp%shGrid%je
+        endif
 
         !Get symh from input time series
         symh = vApp%symh%evalAt(vApp%time)
 
-        outSGVBnds = (/vApp%shGrid%is,vApp%shGrid%ie,vApp%shGrid%js,vApp%shGrid%je/)
-
-        associate(Gr => gApp%Grid)
-        !Cell-centers w/ ghosts
-        Nj = gApp%Grid%Nj
-        Nk = gApp%Grid%Nk
-        Ni = PsiSh
-
-        !Cell centers
-        Njp = gApp%Grid%Njp
-        Nkp = gApp%Grid%Nkp
-
-        !Active cell centers
-        allocate(gJ (Ni,Gr%js:Gr%je,Gr%ks:Gr%ke,1:NDIM))
-        allocate(gB (Ni,Gr%js:Gr%je,Gr%ks:Gr%ke,1:NDIM))
-        allocate(D  (Ni,Gr%js:Gr%je,Gr%ks:Gr%ke))
-        allocate(Cs (Ni,Gr%js:Gr%je,Gr%ks:Gr%ke))
-
-        D  = 0.0
-        Cs = 0.0
-
-        !Subtract dipole before calculating current
-        !$OMP PARALLEL DO default(shared) collapse(2) &
-        !$OMP private(i,j,k,Con,Csijk)
-        do k=Gr%ks,Gr%ke
-            do j=Gr%js,Gr%je
-                do i=1,Ni
-                    if (i == Ni) then
-                        Con = gApp%State%Gas(JpSt,j,k,:,BLK)
-                        D (i,j,k) = Con(DEN)
-                        call CellPress2Cs(gApp%Model,Con,Csijk)
-                        Cs(i,j,k) = Csijk
-                    endif
-                enddo
-            enddo
-        enddo
+        outSGVBnds_corner = (/is,ie+1,js,je+1/)
 
         !Get Dst estimate: DPS, center of earth, MLT avg of equatorial stations
         call EstDST(gApp%Model,gApp%Grid,gApp%State,BSDst0,AvgBSDst,BSSMRs,DPSDst)
@@ -408,22 +390,6 @@ module voltio
 
         !Reset IO chain
         call ClearIO(IOVars)
-
-        !Add inner currents
-        gJ = 0.0
-        gJ(Ni,:,:,XDIR:ZDIR) =  vApp%mhd2mix%gJ(1,:,:,XDIR:ZDIR) !Just assuming 1 shell
-        call AddOutVar(IOVars,"Jx",gJ(:,:,:,XDIR))
-        call AddOutVar(IOVars,"Jy",gJ(:,:,:,YDIR))
-        call AddOutVar(IOVars,"Jz",gJ(:,:,:,ZDIR))
-
-        gB = 0.0
-        gB(Ni,:,:,XDIR:ZDIR) = gApp%State%Bxyz(JpSt,Gr%js:Gr%je,Gr%ks:Gr%ke,XDIR:ZDIR)
-        call AddOutVar(IOVars,"dBx",gB(:,:,:,XDIR))
-        call AddOutVar(IOVars,"dBy",gB(:,:,:,YDIR))
-        call AddOutVar(IOVars,"dBz",gB(:,:,:,ZDIR))
-
-        call AddOutVar(IOVars,"D" ,D (:,:,:))
-        call AddOutVar(IOVars,"Cs",Cs(:,:,:))
 
         !---------------------
         !Do attributes
@@ -444,27 +410,51 @@ module voltio
 
 
         ! voltState stuff
-        call AddOutSGV(IOVars, "Potential", vApp%State%potential, &
+        call AddOutSGV(IOVars, "Potential_total", vApp%State%potential_total, &
+                       uStr="kV", dStr="Ionospheric electrostatic potential (ExB + corotation)", &
+                       outBndsO=outSGVBnds_corner, doWriteMaskO=.false.)
+        call AddOutSGV(IOVars, "Potential_corot", vApp%State%potential_corot, &
                        uStr="kV", dStr="Ionospheric electrostatic potential (no corotation)", &
-                       outBndsO=outSGVBnds, doWriteMaskO=.false.)
+                       outBndsO=outSGVBnds_corner, doWriteMaskO=.false.)
 
         call WriteVars(IOVars,.true.,vh5File,gStr)
 
-        
 
-        end associate
     end subroutine WriteVolt
 
+
     !Initialize Voltron-unique IO
-    subroutine InitVoltIO(vApp,gApp)
+    subroutine InitVoltIO(vApp,gApp,doGhostsO)
         class(voltApp_T), intent(inout) :: vApp
         type(gamApp_T)  , intent(inout) :: gApp
+        logical, intent(in), optional :: doGhostsO
 
         character(len=strLen) :: RunID
         type(IOVAR_T), dimension(MAXVOLTIOVAR) :: IOVars
+        real(rp), dimension(:,:), allocatable :: colat2D, lon2D
+        real(rp), dimension(:,:), allocatable :: X2D, Y2D, Z2D
+        real(rp), dimension(:,:), allocatable :: dLat, areaCC, bMag, bRad
         logical :: fExist, isRestart
+        integer :: i,j,is,ie,js,je
+        logical :: doGhosts
 
-        integer :: Ni,Nj,Nk,Ng
+        if (present(doGhostsO)) then
+            doGhosts = doGhostsO
+        else
+            doGhosts = .false.
+        endif
+
+        if (doGhosts) then
+            is = vApp%shGrid%isg
+            ie = vApp%shGrid%ieg
+            js = vApp%shGrid%jsg
+            je = vApp%shGrid%jeg
+        else
+            is = vApp%shGrid%is
+            ie = vApp%shGrid%ie
+            js = vApp%shGrid%js
+            je = vApp%shGrid%je
+        endif
 
         isRestart = gApp%Model%isRestart
         RunID = trim(gApp%Model%RunID)
@@ -481,18 +471,58 @@ module voltio
             !Reset IO chain
             call ClearIO(IOVars)
 
-            !Identify part of grid that we want
-            Nj = gApp%Grid%Njp+1
-            Nk = gApp%Grid%Nkp+1
-            Ni = PsiSh+1
-            Ng = 4 !Number of ghosts
+            ! Add shell grid as spatial array
+            allocate(colat2D(is:ie+1,js:je+1))  ! +1 because we're doing corners
+            allocate(lon2D(is:ie+1,js:je+1))
+            allocate(X2D(is:ie+1,js:je+1))
+            allocate(Y2D(is:ie+1,js:je+1))
+            allocate(Z2D(is:ie+1,js:je+1))
+            do i=js,je+1
+                colat2D(:,i) = vApp%shGrid%th(is:ie+1)
+            enddo
+            do i=is,ie+1
+                lon2D(i,:) = vApp%shGrid%ph(js:je+1)
+            enddo
+            !call AddOutVar(IOVars,"X",colat2D,uStr="radians")
+            !call AddOutVar(IOVars,"Y",  lon2D,uStr="radians")
 
-            call AddOutVar(IOVars,"X",gApp%Grid%xyz(1-Ng:Ni-Ng,1:Nj,1:Nk,XDIR))
-            call AddOutVar(IOVars,"Y",gApp%Grid%xyz(1-Ng:Ni-Ng,1:Nj,1:Nk,YDIR))
-            call AddOutVar(IOVars,"Z",gApp%Grid%xyz(1-Ng:Ni-Ng,1:Nj,1:Nk,ZDIR))
+            X2D = vApp%shGrid%radius*sin(colat2D)*cos(lon2D)
+            Y2D = vApp%shGrid%radius*sin(colat2D)*sin(lon2D)
+            Z2D = vApp%shGrid%radius*cos(colat2D)
+            call AddOutVar(IOVars,"X",X2D,uStr="Rp")
+            call AddOutVar(IOVars,"Y",Y2D,uStr="Rp")
+            call AddOutVar(IOVars,"Z",Z2D,uStr="Rp")
+
+
+            ! Some derived cell-centered stuff
+            associate(shGr=>vApp%shGrid)
+
+            allocate(dLat(is:ie,js:je))
+            allocate(areaCC(is:ie,js:je))
+            allocate(bMag(is:ie,js:je))
+            allocate(bRad(is:ie,js:je))
+
+            do i=is,ie
+                dLat(i,:) = vApp%shGrid%th(i+1) - vApp%shGrid%th(i)
+            enddo
+            do i=is,shGr%ie
+                do j=js,je
+                    ! r^2 * sin(th) * dTh * dPh
+                    areaCC(i,j) = (shGr%radius)**2 &
+                                    * sin(shGr%thc(i)) &
+                                    * (shGr%th(i+1) - shGr%th(i)) &
+                                    * (shGr%ph(j+1) - shGr%ph(j))
+                enddo
+            enddo
+            call AddOutVar(IOVars,'dLat',dLat,uStr="rad")
+            call AddOutVar(IOVars,'areaCC',areaCC,uStr="Rp^2")
+            
+            end associate
 
             call AddOutVar(IOVars,"UnitsID","VOLTRON")
             call WriteVars(IOVars,.true.,vh5File)
+
+            call writeShellGrid(vApp%shGrid, vh5File, "/ShellGrid")
         endif
 
     end subroutine InitVoltIO
