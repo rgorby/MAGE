@@ -3,7 +3,7 @@ module voltCplHelper
     use kdefs
     use voltTypes
     use voltCplTypes
-    use imagtubes
+    use tubehelper
 
     implicit none
 
@@ -15,6 +15,8 @@ module voltCplHelper
 
         integer :: i,j
         real(rp) :: seedR, eqR, mhd_Rin
+        real(rp), dimension(NDIM) :: xyz0
+        logical :: doSH,doNH
         type(magLine_T) :: magLine
 
         associate(sh=>vApp%shGrid, ebApp=>vApp%ebTrcApp, Gr=>vApp%gApp%Grid)
@@ -23,19 +25,32 @@ module voltCplHelper
             ! Do field line tracing, populate fromV%ijTubes
             !$OMP PARALLEL DO default(shared) &
             !$OMP schedule(dynamic) &
-            !$OMP private(i,j,eqR,magLine)
+            !$OMP private(i,j,eqR,magLine,doSH,doNH,xyz0)
             do i=sh%isg,sh%ieg+1
                 do j=sh%jsg,sh%jeg+1
-                    call CleanLine(magLine)
+                    !Calculate seed point
 
+                    xyz0 = seedR*[sin(sh%th(i))*cos(sh%ph(j)), &
+                                  sin(sh%th(i))*sin(sh%ph(j)), &
+                                  cos(sh%th(i))]
                     eqR = DipColat2L(sh%thRp(i))  ! Function assumes colat coming from 1 Rp, make sure we use the right theta value
                     if (eqR < mhd_Rin) then
-                        !call DipoleTube(vApp, sh%th(i), sh%ph(j), vApp%State%ijTubes(i,j))
+                        !No MHD to tube from
+                        call DipoleTube(vApp%planet,xyz0,vApp%State%ijTubes(i,j))
                     else
-                        !call MHDTube(ebApp, vApp%planet,   & !ebTrcApp, planet
-                        !    sh%th(i), sh%ph(j), seedR, &  ! colat, lon, r
-                        !    vApp%State%ijTubes(i,j), magLine, &  ! IMAGTube_T, magLine_T
-                        !    doShiftO=.true.)
+                        if (xyz0(ZDIR) < 0) then
+                            doNH = .false.
+                            doSH = .true.
+                        else
+                            doNH = .true.
+                            doSH = .false.
+                        endif
+
+                        call CleanLine(magLine)
+                        !Note: Not using volt time b/c chimp wants time in its units
+                        call genLine(ebApp%ebModel,ebApp%ebState,xyz0,ebApp%ebState%eb1%time, magLine,&
+                                     doShueO=.false.,doNHO=doNH,doSHO=doSH)
+                        call Line2Tube(ebApp,vApp%planet,magLine,vApp%State%ijTubes(i,j))
                     endif
 
                 enddo
