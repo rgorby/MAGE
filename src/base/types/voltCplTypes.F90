@@ -12,7 +12,7 @@ module voltCplTypes
     integer, parameter :: MAXTUBEFLUIDS = 5
 
     enum, bind(C)
-        enumerator :: TUBE_CLOSED=0, TUBE_OPEN, TUBE_UNDEF
+        enumerator :: TUBE_CLOSED=0, TUBE_OPEN, TUBE_UNDEF, TUBE_DISASTER
     endenum
 
     !New tube type for global Voltron grid
@@ -23,7 +23,7 @@ module voltCplTypes
         !! Lat/lon of tube footpoint and invariant latitude [rad]
         real(rp) :: latc,lonc
         !! Lat/lon of conjugate point [rad] if topo=TUBE_CLOSED
-        integer :: topo 
+        integer :: topo
         !! topo = TUBE_CLOSED,OPEN,UNDEF
         real(rp) :: bmin, X_bmin(NDIM)
         !! Minimum B along field line [nT] and coordinates [Rx]
