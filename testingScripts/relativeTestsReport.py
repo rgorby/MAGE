@@ -157,13 +157,13 @@ def main():
             'Results attached as replies to this '
             'message.\n'
         )
-        message += (
-            f"Test results are in {os.getcwd()}.\n"
-        )
         slack_response = common.slack_send_message(
             slack_client, message, is_test=is_test)
         if slack_response['ok']:
             parent_ts = slack_response['ts']
+            message += (
+                f"Test results are in {os.getcwd()}.\n"
+            )
             message = (
                 'All results are from a Double Resolution Run using'
                 ' various Gamera and Voltron settings.'
