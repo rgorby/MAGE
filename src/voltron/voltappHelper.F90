@@ -4,6 +4,7 @@ module voltappHelper
     use voltTypes
     use imagtubes
     use kai2geo
+    use mixinterfaceutils
 
     implicit none
 
@@ -26,8 +27,8 @@ module voltappHelper
         ! TODO: Eventually we will populate potential_total first with ExB, and then add corotation ourselves
         !  But for now we are just using corotation potential
         call calcCorotPotential(vApp%planet, vApp%shGrid, vApp%State%potential_corot,doGeoCorotO=vApp%doGeoCorot)
-        !call mixToVoltron(vApp%remixApp, vApp%shGrid, vApp%State)
-        vApp%State%potential_total%data = vApp%State%potential_corot%data
+        call mixToVoltron(vApp%remixApp, vApp%shGrid, vApp%State)
+        vApp%State%potential_total%data = vApp%State%potential_total%data + vApp%State%potential_corot%data
         vApp%State%potential_total%mask = vApp%State%potential_corot%mask
     end subroutine updateVoltPotential
 

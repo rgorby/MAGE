@@ -91,16 +91,15 @@ module mixinterfaceutils
          rmHemi%St%pot_shGr%data(:,1:Np) = transpose(rmHemi%St%Vars(:,:,POT))
          rmHemi%St%pot_shGr%data(:,Np+1) = rmHemi%St%pot_shGr%data(:,1)
          rmHemi%St%pot_shGr%mask = .true.
-         write(*,*)'interp'
          call InterpShellVar_TSC_SG(rmHemi%shGr, rmHemi%St%pot_shGr, voltGrid, voltState%potential_total)
+         
          ! Hacky version for now. Not needed if mix's sg is child of voltron's
          iLat = voltGrid%is
-         do while (voltGrid%th(iLat+1) > rmHemi%shGr%maxTheta)
+         do while (voltGrid%th(iLat+1) < rmHemi%shGr%maxTheta)
             iLat = iLat + 1
          enddo
-         write(*,*)'iLat=',iLat
          voltState%potential_total%mask(voltGrid%is:iLat,:) = .true.
-         write(*,*)'done'
+
       end associate
 
       
