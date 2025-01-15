@@ -30,12 +30,12 @@ module voltCplHelper
 
                     eqR = DipColat2L(sh%thRp(i))  ! Function assumes colat coming from 1 Rp, make sure we use the right theta value
                     if (eqR < mhd_Rin) then
-                        call DipoleTube(vApp, sh%th(i), sh%ph(j), vApp%State%ijTubes(i,j))
+                        !call DipoleTube(vApp, sh%th(i), sh%ph(j), vApp%State%ijTubes(i,j))
                     else
-                        call MHDTube(ebApp, vApp%planet,   & !ebTrcApp, planet
-                            sh%th(i), sh%ph(j), seedR, &  ! colat, lon, r
-                            vApp%State%ijTubes(i,j), magLine, &  ! IMAGTube_T, magLine_T
-                            doShiftO=.true.)
+                        !call MHDTube(ebApp, vApp%planet,   & !ebTrcApp, planet
+                        !    sh%th(i), sh%ph(j), seedR, &  ! colat, lon, r
+                        !    vApp%State%ijTubes(i,j), magLine, &  ! IMAGTube_T, magLine_T
+                        !    doShiftO=.true.)
                     endif
 
                 enddo

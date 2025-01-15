@@ -219,13 +219,13 @@ module shellGrid
             isg=>shGr%isg, ieg=>shGr%ieg, jsg=>shGr%jsg, jeg=>shGr%jeg)
 
         ! Nuke arrays if already allocated
-        if (allocated(shGr%th))   deallocate(shGr%th)
-        if (allocated(shGr%ph))   deallocate(shGr%ph)
-        if (allocated(shGr%lat))  deallocate(shGr%lat)
-        if (allocated(shGr%thc))  deallocate(shGr%thc)
-        if (allocated(shGr%phc))  deallocate(shGr%phc)
-        if (allocated(shGr%latc)) deallocate(shGr%latc)
-        if (allocated(shGr%thRp)) deallocate(shGr%thRp)
+        if (allocated(shGr%th))    deallocate(shGr%th)
+        if (allocated(shGr%ph))    deallocate(shGr%ph)
+        if (allocated(shGr%lat))   deallocate(shGr%lat)
+        if (allocated(shGr%thc))   deallocate(shGr%thc)
+        if (allocated(shGr%phc))   deallocate(shGr%phc)
+        if (allocated(shGr%latc))  deallocate(shGr%latc)
+        if (allocated(shGr%thRp))  deallocate(shGr%thRp)
         if (allocated(shGr%thcRp)) deallocate(shGr%thcRp)
         ! Create new arrays
         allocate(shGr%th   (isg:ieg+1))
@@ -234,8 +234,8 @@ module shellGrid
         allocate(shGr%phc  (jsg:jeg  ))
         allocate(shGr%lat  (isg:ieg+1))
         allocate(shGr%latc (isg:ieg  ))
-        allocate(shGr%thRp (isg:ieg  ))
-        allocate(shGr%thcRp(isg:ieg+1))
+        allocate(shGr%thRp (isg:ieg+1))
+        allocate(shGr%thcRp(isg:ieg  ))
 
         ! Set grid coordinates
         shGr%th(is:ie+1) = Theta  ! note the arrays are conformable because of the index definitions above
@@ -287,6 +287,7 @@ module shellGrid
         if ( (.not.shGr%isPeriodic) )  then
             write(*,*) "Inside shell grid generator (GenShellGrid)."
             write(*,*) "Non-periodic grids are not implemented. Quitting..."
+            write(*,*)name
             write(*,*) Phi
             stop
         endif
@@ -370,7 +371,7 @@ module shellGrid
         
         ! If you didn't want your data blown up you shouldn't have called init
         if (allocated(shellVar%data)) deallocate(shellVar%data)
-        if (allocated(shellVar%data)) deallocate(shellVar%mask)
+        if (allocated(shellVar%mask)) deallocate(shellVar%mask)
             
         shellVar%loc = loc
 
@@ -403,8 +404,7 @@ module shellGrid
         shellVar%jsv = shGr%jsg
         shellVar%jev = shGr%jeg + jExtra
 
-
-        shellVar%data = 0.  ! initialize to 0
+        shellVar%data = 0.0_rp  ! initialize to 0
 
         ! Init mask, either by maskO or defaults
         if (present(maskO)) then
@@ -417,7 +417,6 @@ module shellGrid
         else
             shellVar%mask = .false.  ! Up to user to determine which points are valid
         endif
-        
     end subroutine initShellVar
 
 
@@ -546,6 +545,8 @@ module shellGrid
         if (allocated(sh%phc) ) deallocate(sh%phc)
         if (allocated(sh%lat) ) deallocate(sh%lat)
         if (allocated(sh%latc)) deallocate(sh%latc)
+        if (allocated(sh%latc)) deallocate(sh%thRp)
+        if (allocated(sh%latc)) deallocate(sh%thcRp)
 
     end subroutine deallocShellGrid
 

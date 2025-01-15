@@ -104,6 +104,7 @@ module voltapp
         if (vApp%isLoud) then
             call printPlanetParams(vApp%planet)
         endif
+        call xmlInp%Set_Val(vApp%doGeoCorot,"/Kaiju/Gamera/prob/doGeoCorot",vApp%doGeoCorot)
 
         !Initialize state information
         !Check for Earth to decide what things need to happen
@@ -479,9 +480,6 @@ module voltapp
             call mapIMagToRemix(vApp%imag2mix,vApp%remixApp)
         endif
         call mapGameraToRemix(vApp%mhd2mix, vApp%remixApp)
-        write(*,*)"mixToVoltron start"
-        call mixToVoltron(vApp%remixApp, vApp%shGrid, vApp%State)
-        write(*,*)"mixToVoltron done"
 
         ! determining the current dipole tilt
         call vApp%tilt%getValue(vApp%time,curTilt)
@@ -513,6 +511,10 @@ module voltapp
         call Tic("ReMIX", .true.)
         call runRemix(vApp)
         call Toc("ReMIX", .true.)
+
+        ! Update potential on voltron's grid
+        call updateVoltPotential(vApp)
+
 
         call Tic("R2G")
         call CouplePotentialToMhd(vApp)
