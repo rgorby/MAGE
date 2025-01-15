@@ -426,6 +426,16 @@ module voltio
         call AddOutSGV(IOVars, "bVol", tubeShell%bVol, &
                         uStr="Rx/nT", dStr="Flux tube volume (if closed)", &
                         outBndsO=outSGVBnds_corner, doWriteMaskO=.false.)
+        call AddOutSGV(IOVars, "lat0", tubeShell%lat0, &
+                        outBndsO=outSGVBnds_corner, doWriteMaskO=.false.)
+        call AddOutSGV(IOVars, "lon0", tubeShell%lon0, &
+                        outBndsO=outSGVBnds_corner, doWriteMaskO=.false.)
+        call AddOutSGV(IOVars, "x0", tubeShell%xyz0(XDIR), &
+                        outBndsO=outSGVBnds_corner, doWriteMaskO=.false.)
+        call AddOutSGV(IOVars, "y0", tubeShell%xyz0(YDIR), &
+                        outBndsO=outSGVBnds_corner, doWriteMaskO=.false.)
+        call AddOutSGV(IOVars, "z0", tubeShell%xyz0(ZDIR), &
+                        outBndsO=outSGVBnds_corner, doWriteMaskO=.false.)
         end associate
 
         call WriteVars(IOVars,.true.,vh5File,gStr)
@@ -520,7 +530,7 @@ module voltio
                 dLat(i,:) = vApp%shGrid%th(i+1) - vApp%shGrid%th(i)
             enddo
             cosThc = cos(shGr%thc)
-            do i=is,shGr%ie
+            do i=is,ie
                 do j=js,je
                     ! r^2 * sin(th) * dTh * dPh
                     areaCC(i,j) = (shGr%radius)**2 &

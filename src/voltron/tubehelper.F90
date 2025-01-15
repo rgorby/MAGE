@@ -216,7 +216,7 @@ module tubehelper
     subroutine tubes2Shell(shGr, ijTubes, tubeShell)
         type(ShellGrid_T), intent(in) :: shGr
             !! ShellGrid that ijTubes and tubeShell live on
-        type(Tube_T), dimension(shGr%Nt,shGr%Np), intent(in) :: ijTubes
+        type(Tube_T), dimension(shGr%is:shGr%ie+1,shGr%js:shGr%je+1), intent(in) :: ijTubes
             !! Nt+1,Np+1 array of Tube_T's
         type(TubeShell_T), intent(inout) :: tubeShell
             !! ShellGridVar versions of 2D Tube_T data we are populating

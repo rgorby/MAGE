@@ -22,12 +22,12 @@ module voltCplHelper
         associate(sh=>vApp%shGrid, ebApp=>vApp%ebTrcApp, Gr=>vApp%gApp%Grid)
             mhd_Rin = norm2(Gr%xyz(Gr%is,Gr%js,Gr%ks,:))
             seedR = sh%radius  ! Ionosphere radius in Rp
-            ! Do field line tracing, populate fromV%ijTubes
+            ! Do field line tracing, populate ijTubes
             !$OMP PARALLEL DO default(shared) &
             !$OMP schedule(dynamic) &
             !$OMP private(i,j,eqR,magLine,doSH,doNH,xyz0)
-            do i=sh%isg,sh%ieg+1
-                do j=sh%jsg,sh%jeg+1
+            do i=sh%is,sh%ie+1
+                do j=sh%js,sh%je+1
                     !Calculate seed point
 
                     xyz0 = seedR*[sin(sh%th(i))*cos(sh%ph(j)), &
@@ -57,6 +57,9 @@ module voltCplHelper
             enddo
 
         end associate
+
+        ! Now pack into tubeShell
+        call tubes2Shell(vApp%shGrid, vApp%State%ijTubes, vApp%State%tubeShell)
     end subroutine genVoltTubes
 
 end module voltCplHelper
