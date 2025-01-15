@@ -38,6 +38,7 @@ module voltCplHelper
                         !No MHD to tube from
                         call DipoleTube(vApp%planet,xyz0,vApp%State%ijTubes(i,j))
                     else
+                        xyz0 = DipoleShift(xyz0, seedR + TINY)
                         if (xyz0(ZDIR) < 0) then
                             doNH = .false.
                             doSH = .true.

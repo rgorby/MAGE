@@ -436,6 +436,10 @@ module voltio
                         outBndsO=outSGVBnds_corner, doWriteMaskO=.false.)
         call AddOutSGV(IOVars, "z0", tubeShell%xyz0(ZDIR), &
                         outBndsO=outSGVBnds_corner, doWriteMaskO=.false.)
+        call AddOutSGV(IOVars, "latc", tubeShell%latc, &
+                        outBndsO=outSGVBnds_corner, doWriteMaskO=.false.)
+        call AddOutSGV(IOVars, "lonc", tubeShell%lonc, &
+                        outBndsO=outSGVBnds_corner, doWriteMaskO=.false.)
         end associate
 
         call WriteVars(IOVars,.true.,vh5File,gStr)
