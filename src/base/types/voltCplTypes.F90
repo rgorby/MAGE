@@ -52,6 +52,8 @@ module voltCplTypes
     end type Tube_T
 
     type TubeShell_T
+        type(ShellGridVar_T), dimension(NDIM) :: xyz0
+            !! XYZ of seed point [Rx]
         type(ShellGridVar_T) :: lat0, lon0, invlat
             !! Lat/lon of tube footpoint and invariant latitude [rad]
         type(ShellGridVar_T) :: latc, lonc

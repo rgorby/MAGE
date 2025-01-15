@@ -13,7 +13,7 @@ module voltappHelper
         type(voltApp_T), intent(inout) :: vApp
 
         associate(sh=>vApp%shGrid, State=>vApp%State)
-            allocate(State%ijTubes(sh%Nt+1, sh%Np+1))
+            allocate(State%ijTubes(sh%is:sh%ie+1, sh%js:sh%je+1))
             call init_TubeShell(sh, State%tubeShell)
             call initShellVar(sh, SHGR_CORNER, State%potential_total)
             call initShellVar(sh, SHGR_CORNER, State%potential_corot)

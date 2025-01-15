@@ -10,7 +10,7 @@ module imagtubes
     use shellGrid
 
     implicit none
-    ! /Users/sciolam1/Workspace/runs/local/raijudev/rtTests/twoway/test5_mgv
+
     contains
 
     subroutine init_TubeShell(sh, tubeShell, maskO, TioTeO)
@@ -47,21 +47,24 @@ module imagtubes
         endif
 
         associate(mask=>tubeShell%lat0%mask)
+            do i=1,NDIM
+                call initShellVar(sh, SHGR_CORNER, tubeShell%xyz0(i), maskO=mask)
+                call initShellVar(sh, SHGR_CORNER, tubeShell%X_bmin(i), maskO=mask)
+            enddo
             call initShellVar(sh, SHGR_CORNER, tubeShell%lat0  , maskO=mask)
             call initShellVar(sh, SHGR_CORNER, tubeShell%lon0  , maskO=mask)
+            call initShellVar(sh, SHGR_CORNER, tubeShell%latc  , maskO=mask)
+            call initShellVar(sh, SHGR_CORNER, tubeShell%lonc  , maskO=mask)
             call initShellVar(sh, SHGR_CORNER, tubeShell%invlat, maskO=mask)
             call initShellVar(sh, SHGR_CORNER, tubeShell%topo  , maskO=mask)
             call initShellVar(sh, SHGR_CORNER, tubeShell%bmin  , maskO=mask)
-            do i=1,NDIM
-                call initShellVar(sh, SHGR_CORNER, tubeShell%X_bmin(i), maskO=mask)
-            enddo
             call initShellVar(sh, SHGR_CORNER, tubeShell%bVol   , maskO=mask)
             call initShellVar(sh, SHGR_CORNER, tubeShell%Lb     , maskO=mask)
             call initShellVar(sh, SHGR_CORNER, tubeShell%Tb     , maskO=mask)
             call initShellVar(sh, SHGR_CORNER, tubeShell%wMAG   , maskO=mask)
             call initShellVar(sh, SHGR_CORNER, tubeShell%rCurv  , maskO=mask)
             call initShellVar(sh, SHGR_CORNER, tubeShell%avgBeta, maskO=mask)
-            do i=1,MAXTUBEFLUIDS
+            do i=0,MAXTUBEFLUIDS
                 call initShellVar(sh, SHGR_CORNER, tubeShell%avgP(i), maskO=mask)
                 call initShellVar(sh, SHGR_CORNER, tubeShell%avgN(i), maskO=mask)
                 call initShellVar(sh, SHGR_CORNER, tubeShell%stdP(i), maskO=mask)
@@ -76,41 +79,6 @@ module imagtubes
         end associate
 
     end subroutine init_TubeShell
-
-
-!    subroutine populateTubeShell(ebTrcApp, tubeShell, nTrcO, doShiftO, bTrcO)
-!        !! Generates
-!        type(ebTrcApp_T), intent(in) :: ebTrcApp
-!        type(IMAGTubeShell_T), intent(inout) :: tubeShell
-!        integer, intent(in), optional :: nTrcO
-!        logical, intent(in), optional :: doShiftO
-!        type(magLine_T), dimension(:,:), optional :: bTrcO
-!            !! If provided, we assume this has fresh tube information we should use instead of tracing our own
-!
-!        logical :: doTrace = .true.
-!
-!        if (present(bTrcO)) doTrace = .false.
-!
-!        associate(sh=>tubeShell%sh)
-!
-!        !$OMP PARALLEL DO default(shared) collapse(2) &
-!        !$OMP schedule(dynamic) &
-!        !$OMP private(i,j,colat,lat,lon,isLL,ijTube)
-!        do j=sh%jsg,sh%jeg+1
-!            do i=sh%isg,sh%ieg+1
-!                if (.not. doTrace) then
-!                    call deepCopyLine(bTrcO(i,j), tubeShell%bTrc2D(i,j))
-!                else
-!                    ! All the tube tracing/emulating logic here
-!                    call MHDTube(ebTrcApp, )
-!                endif
-!
-!            enddo
-!        enddo
-!                
-!        end associate
-!
-!    end subroutine populateTubeShell
 
     ! Dipole flux tube info
     subroutine DipoleTube(vApp,lat,lon,ijTube)

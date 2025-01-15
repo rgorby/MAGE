@@ -416,6 +416,14 @@ module voltio
         call AddOutSGV(IOVars, "Potential_corot", vApp%State%potential_corot, &
                        uStr="kV", dStr="Ionospheric electrostatic potential (no corotation)", &
                        outBndsO=outSGVBnds_corner, doWriteMaskO=.false.)
+        associate(tubeShell=>vApp%State%tubeShell)
+        call AddOutSGV(IOVars, "bMin", tubeShell%bmin, &
+                        uStr="nT", dStr="Field strength at magnetic equator", &
+                        outBndsO=outSGVBnds_corner, doWriteMaskO=.false.)
+        call AddOutSGV(IOVars, "topo", tubeShell%topo, &
+                        dStr="Magnetic field topology (0=closed,1=open,2=undefined)", &
+                        outBndsO=outSGVBnds_corner, doWriteMaskO=.false.)
+        end associate
 
         call WriteVars(IOVars,.true.,vh5File,gStr)
 
@@ -431,12 +439,14 @@ module voltio
 
         character(len=strLen) :: RunID
         type(IOVAR_T), dimension(MAXVOLTIOVAR) :: IOVars
-        real(rp), dimension(:,:), allocatable :: colat2D, lon2D
-        real(rp), dimension(:,:), allocatable :: X2D, Y2D, Z2D
-        real(rp), dimension(:,:), allocatable :: dLat, areaCC, bMag, bRad
         logical :: fExist, isRestart
         integer :: i,j,is,ie,js,je
         logical :: doGhosts
+
+        real(rp), dimension(:,:), allocatable :: colat2D, lon2D
+        real(rp), dimension(:,:), allocatable :: X2D, Y2D, Z2D
+        real(rp), dimension(:,:), allocatable :: dLat, areaCC, bMag, bRad
+        real(rp), dimension(:), allocatable :: cosThc
 
         if (present(doGhostsO)) then
             doGhosts = doGhostsO
@@ -499,12 +509,14 @@ module voltio
 
             allocate(dLat(is:ie,js:je))
             allocate(areaCC(is:ie,js:je))
+            allocate(cosThc(is:ie))
             allocate(bMag(is:ie,js:je))
             allocate(bRad(is:ie,js:je))
 
             do i=is,ie
                 dLat(i,:) = vApp%shGrid%th(i+1) - vApp%shGrid%th(i)
             enddo
+            cosThc = cos(shGr%thc)
             do i=is,shGr%ie
                 do j=js,je
                     ! r^2 * sin(th) * dTh * dPh
@@ -512,10 +524,18 @@ module voltio
                                     * sin(shGr%thc(i)) &
                                     * (shGr%th(i+1) - shGr%th(i)) &
                                     * (shGr%ph(j+1) - shGr%ph(j))
+                    bMag(:,j) = vApp%planet%magMoment*G2nT &
+                                /(shGr%radius)**3.0 &
+                                * sqrt(1.0+3.0*cosThc**2.0)  ! [nT]
+                    bRad(:,j) = -1*vApp%planet%magMoment*G2nT &
+                                /(shGr%radius)**3.0 &
+                                * 2*cosThc  ! [nT]
                 enddo
             enddo
             call AddOutVar(IOVars,'dLat',dLat,uStr="rad")
             call AddOutVar(IOVars,'areaCC',areaCC,uStr="Rp^2")
+            call AddOutVar(IOVars,'bMag',bMag,uStr="nT",dStr="Total magnetic field strength at cell center")
+            call AddOutVar(IOVars,'bRad',bRad,uStr="nT",dStr="Radial component of magnetic field strength at cell center")
             
             end associate
 
