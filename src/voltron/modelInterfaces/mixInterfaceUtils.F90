@@ -80,9 +80,13 @@ module mixinterfaceutils
       !real(rp), dimension(mixApp%ion(NORTH)%shGr%Nt,mixApp%ion(NORTH)%shGr%Np) :: tmpPot
       integer :: iLat
       ! South grid stuff
-      !real(rp), dimension(:), allocatable :: thS, phS
-      !type(ShellGrid_T) :: mixS
-      !type(ShellGridVar_T) :: potS
+      real(rp), dimension(:), allocatable :: thS, phS
+      type(ShellGrid_T) :: mixS
+      type(ShellGridVar_T) :: potS, tmpN, tmpS
+
+      ! Init temp arrays to map to per hemisphere
+      call initShellVar(voltGrid, SHGR_CORNER, tmpN)
+      call initShellVar(voltGrid, SHGR_CORNER, tmpS)
 
       ! Right now, just doing potential
       voltState%potential_total%data = 0.0
@@ -91,7 +95,8 @@ module mixinterfaceutils
          rmHemi%St%pot_shGr%data(:,1:Np) = transpose(rmHemi%St%Vars(:,:,POT))
          rmHemi%St%pot_shGr%data(:,Np+1) = rmHemi%St%pot_shGr%data(:,1)
          rmHemi%St%pot_shGr%mask = .true.
-         call InterpShellVar_TSC_SG(rmHemi%shGr, rmHemi%St%pot_shGr, voltGrid, voltState%potential_total)
+         !call InterpShellVar_TSC_SG(rmHemi%shGr, rmHemi%St%pot_shGr, voltGrid, voltState%potential_total)
+         call InterpShellVar_TSC_SG(rmHemi%shGr, rmHemi%St%pot_shGr, voltGrid, tmpN)
          
          ! Hacky version for now. Not needed if mix's sg is child of voltron's
          iLat = voltGrid%is
@@ -103,24 +108,30 @@ module mixinterfaceutils
       end associate
 
       
-      !associate(rmHemi=>mixApp%ion(SOUTH), shGr=>mixApp%ion(SOUTH)%shGr)       
-      !   allocate(thS(shGr%Nt+1))
-      !   allocate(phS(shGr%Np+1))
-      !   thS = PI - shGr%th(shGr%is:shGr%ie+1:-1)  ! Flip direction so we go from eq to pole in memory
-      !   phS = shGr%ph(shGr%js:shGr%je+1)  ! Positions are same values, but handedness is flipped. Handle on data mashing
-      !   write(*,*)thS
-      !   write(*,*)'---'
-      !   write(*,*)phS
-      !   write(*,*)'---'
-      !   write(*,*)(shGr%Nt == mixS%Nt), (shGr%Np == mixS%Np)
-      !   call GenShellGrid(mixS, thS,phS,"REMIX_SOUTH",nGhosts=(/0,0,0,0/))
-      !   call initShellVar(mixS, SHGR_CORNER, potS)
-      !   potS%mask=.true.
-      !   ! Now map actual mix pot onto shellgridvar
-      !   potS%data(:,1:shGr%Np) = transpose(rmHemi%St%Vars(::-1,::-1,POT))
-      !   potS%data(:,shGr%Np+1) = rmHemi%St%pot_shGr%data(:,1)
-      !   call InterpShellVar_TSC_SG(mixS, potS, voltGrid, voltState%potential)
-      !end associate
+      associate(rmHemi=>mixApp%ion(SOUTH), shGr=>mixApp%ion(SOUTH)%shGr)       
+         allocate(thS(shGr%Nt+1))
+         allocate(phS(shGr%Np+1))
+         thS = PI - shGr%th(shGr%ie+1:shGr%is:-1)  ! Flip direction so we go from eq to pole in memory
+         !thS = PI - shGr%th(shGr%is:shGr%ie+1)
+         !thS = thS(::-1)
+         phS = shGr%ph(shGr%js:shGr%je+1)  ! Positions are same values, but handedness is flipped. Handle on data mashing
+         call GenShellGrid(mixS, thS,phS,"REMIX_SOUTH",nGhosts=(/0,0,0,0/),radO=shGr%radius)
+         call initShellVar(mixS, SHGR_CORNER, potS)
+         write(*,*)'---'
+         write(*,*)thS
+         !write(*,*)'---'
+         !write(*,*)phS
+         write(*,*)'---'
+         write(*,*)(shGr%Nt == mixS%Nt), (shGr%Np == mixS%Np)
+         potS%mask=.true.
+         ! Now map actual mix pot onto shellgridvar
+         potS%data(:,1:shGr%Np) = transpose(rmHemi%St%Vars(::-1,::-1,POT))
+         potS%data(:,shGr%Np+1) = potS%data(:,1)
+         !call InterpShellVar_TSC_SG(mixS, potS, voltGrid, voltState%potential_total)
+         call InterpShellVar_TSC_SG(mixS, potS, voltGrid, tmpS)
+
+         voltState%potential_total%data = tmpN%data + tmpS%data
+      end associate
 
    end subroutine mixToVoltron
 

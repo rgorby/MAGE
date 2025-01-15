@@ -112,7 +112,7 @@ module shellInterp
                 !$OMP private(i,j)
                 do j=sgDest%jsg,sgDest%jeg
                     do i=sgDest%isg,sgDest%ieg
-                        if (.not. varOut%mask(i,j)) cycle
+                        !if (.not. varOut%mask(i,j)) cycle
                         ! NOTE/TODO: This is where we would do transformations of destination grid's theta dn phi to source grid
                         ! in the case where they have different coordinate systems
                         call InterpShellVar_TSC_pnt( \
@@ -131,7 +131,7 @@ module shellInterp
                 !$OMP private(i,j)
                 do j=sgDest%jsg,sgDest%jeg+1
                     do i=sgDest%isg,sgDest%ieg+1
-                        if (.not. varOut%mask(i,j)) cycle
+                        !if (.not. varOut%mask(i,j)) cycle
                         ! NOTE/TODO: This is where we would do transformations of destination grid's theta dn phi to source grid
                         ! in the case where they have different coordinate systems
                         call InterpShellVar_TSC_pnt( \
@@ -148,7 +148,7 @@ module shellInterp
                 !$OMP private(i,j)
                 do j=sgDest%jsg,sgDest%jeg
                     do i=sgDest%isg,sgDest%ieg+1
-                        if (.not. varOut%mask(i,j)) cycle
+                        !if (.not. varOut%mask(i,j)) cycle
                         ! NOTE/TODO: This is where we would do transformations of destination grid's theta dn phi to source grid
                         ! in the case where they have different coordinate systems
                         call InterpShellVar_TSC_pnt( \
@@ -165,7 +165,7 @@ module shellInterp
                 !$OMP private(i,j)
                 do j=sgDest%jsg,sgDest%jeg+1
                     do i=sgDest%isg,sgDest%ieg
-                        if (.not. varOut%mask(i,j)) cycle
+                        !if (.not. varOut%mask(i,j)) cycle
                         ! NOTE/TODO: This is where we would do transformations of destination grid's theta dn phi to source grid
                         ! in the case where they have different coordinate systems
                         call InterpShellVar_TSC_pnt( \

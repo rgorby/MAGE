@@ -423,6 +423,9 @@ module voltio
         call AddOutSGV(IOVars, "topo", tubeShell%topo, &
                         dStr="Magnetic field topology (0=closed,1=open,2=undefined)", &
                         outBndsO=outSGVBnds_corner, doWriteMaskO=.false.)
+        call AddOutSGV(IOVars, "bVol", tubeShell%bVol, &
+                        uStr="Rx/nT", dStr="Flux tube volume (if closed)", &
+                        outBndsO=outSGVBnds_corner, doWriteMaskO=.false.)
         end associate
 
         call WriteVars(IOVars,.true.,vh5File,gStr)
