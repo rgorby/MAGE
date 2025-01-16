@@ -134,7 +134,8 @@ module tubehelper
 
         !Minimal surface (bEq in Rp, bMin in EB)
             call FLEq(ebModel,bTrc,bEq,bmin)
-            bTube%bmin = bmin*oBScl !EB => nT
+            bmin = bmin*oBScl !EB => nT
+            bTube%bmin = bmin
             bTube%X_bmin = bEq
 
         !Line stuff
@@ -149,7 +150,7 @@ module tubehelper
             call xyz2LL(xyzIonC,bTube%latc,bTube%lonc)
         !Loss cone stuff
             bIon  = norm2(DipoleB0(bTube%xyz0))*oBScl !Ionospheric field strength [nT]
-            bIonC = norm2(DipoleB0(xyzIonC))*oBScl !Ionospheric field strength [nT]
+            bIonC = norm2(DipoleB0(xyzIonC   ))*oBScl !Ionospheric field strength [nT]
             bTube%losscone   = asin(sqrt(bmin/bIon))
             bTube%lossconec  = asin(sqrt(bmin/bIonC)) !Keeping these separate for IGRF later
 
