@@ -798,9 +798,11 @@ module raijuPreAdvancer
         integer :: i,j
         
         if (present(gradVMO)) then
-            gradPot = State%gradPotE_cc + State%gradPotCorot_cc + Grid%alamc(k)*gradVMO
+            !gradPot = State%gradPotE_cc + State%gradPotCorot_cc + Grid%alamc(k)*gradVMO
+            gradPot = State%gradPotE_cc + Grid%alamc(k)*gradVMO
         else
-            gradPot = State%gradPotE_cc + State%gradPotCorot_cc + Grid%alamc(k)*State%gradVM_cc
+            !gradPot = State%gradPotE_cc + State%gradPotCorot_cc + Grid%alamc(k)*State%gradVM_cc
+            gradPot = State%gradPotE_cc + Grid%alamc(k)*State%gradVM_cc
         endif
 
         Vtp(:,:,RAI_TH) =      gradPot(:,:,RAI_PH) / (Grid%Brcc*1.0e-9)  ! [m/s]

@@ -59,8 +59,9 @@ submodule (volttypes) raijuCplTypesSub
             endif
 
             ! Someone updated raiCpl's coupling variables by now, stuff it into RAIJU proper
-            call imagTubes2RAIJU(raiApp%Model, raiApp%Grid, raiApp%State, App%ijTubes)
-            raiApp%State%espot(:,:) = App%pot%data(:,:) ! They live on the same grid so this is okay
+            !call imagTubes2RAIJU(raiApp%Model, raiApp%Grid, raiApp%State, App%ijTubes)
+            !raiApp%State%espot(:,:) = App%pot%data(:,:) ! They live on the same grid so this is okay
+            call raiCpl2RAIJU(App)
 
             if (doColdStart) then
                 ! Its happening, everybody stay calm

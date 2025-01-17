@@ -163,6 +163,38 @@ module volttypes
         ! Stuff going into raiju
         type(magLine_T), dimension(:,:), allocatable :: magLines
         type(IMAGTube_T), dimension(:,:), allocatable :: ijTubes
+
+        type(ShellGridVar_T), dimension(:), allocatable :: Pavg
+            !! (Ngi, Ngj, Ns) [nPa] Average pressure along flux tube
+        type(ShellGridVar_T), dimension(:), allocatable :: Davg
+            !! (Ngi, Ngj, Ns) [#/cc] Average density along flux tube
+        type(ShellGridVar_T), dimension(:), allocatable :: Pstd
+            !! (Ngi, Ngj, Ns) Normalized standard deviation of the species pressure along the field line
+        type(ShellGridVar_T), dimension(:), allocatable :: Dstd
+            !! (Ngi, Ngj, Ns) Normalized standard deviation of the species density along the field line
+        type(ShellGridVar_T), dimension(NDIM) :: Bmin
+            !! (Ngi+1, Ngj+1, NDIM) [nT] Bmin vector
+        type(ShellGridVar_T), dimension(NDIM) :: xyzMin
+            !! (Ngi+1, Ngj+1, 3) [Rp] bMin xyz coordinates
+        type(ShellGridVar_T), dimension(NDIM) :: xyzMincc
+            !! (Ngi, Ngj, 3) [Rp] cell-centered bMin xyz coordinates
+        type(ShellGridVar_T) :: topo
+            !! (Ngi+1, Ngj+1) Topology (0=open, 1=closed)
+        type(ShellGridVar_T) :: thcon
+            !! (Ngi+1, Ngj+1) Co-latitude  of conjugate points
+        type(ShellGridVar_T) :: phcon
+            !! (Ngi+1, Ngj+1) Longitude of conjugate points
+        type(ShellGridVar_T) :: bvol
+            !! (Ngi+1, Ngj+1) [Rp/nT] Flux-tube volume
+        type(ShellGridVar_T) :: bvol_cc
+            !! (Ngi, Ngj) [Rp/nT] Flux-tube volume averaged from corners
+        type(ShellGridVar_T) :: vaFrac
+            !! (Ngi+1, Ngj+1) Fraction of total velocity coming from Alfven speed
+            !! Used to limit active region to tubes that can reasonably be treated as averaged and slowly-evolving
+        type(ShellGridVar_T) :: Tb
+            !! (Ngi, Ngj) Bounce timesale
+
+
         type(ShellGridVar_T) :: pot
             !! electrostatic potential from ionosphere [kV]
 
@@ -268,7 +300,7 @@ module volttypes
         integer :: gridType
             !! Populated with enum (e.g. V_GRID_UNIFORM)
 
-        !Voltron state information
+        ! Voltron state information
         type(TimeSeries_T) :: tilt,symh
         real(rp) :: time, MJD,tFin
         real(rp) :: BSDst=0.0 !Most recent bsdst calculated

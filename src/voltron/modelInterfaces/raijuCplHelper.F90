@@ -18,13 +18,14 @@ module raijuCplHelper
         class(raijuCoupler_T), intent(inout) :: raiCpl
 
         integer, dimension(4) :: shGhosts
+        integer :: i
 
 
         associate(sh => raiCpl%raiApp%Grid%shGrid, nFluidIn => raiCpl%raiApp%Model%nFluidIn)
 
             ! Allocations
-            allocate(raiCpl%magLines (sh%isg:sh%ieg+1, sh%jsg:sh%jeg+1))
-            allocate(raiCpl%ijTubes( sh%isg:sh%ieg+1, sh%jsg:sh%jeg+1))
+            !allocate(raiCpl%magLines (sh%isg:sh%ieg+1, sh%jsg:sh%jeg+1))
+            !allocate(raiCpl%ijTubes( sh%isg:sh%ieg+1, sh%jsg:sh%jeg+1))
 
             ! Shell Grid inits
             shGhosts(NORTH) = sh%Ngn
@@ -33,6 +34,30 @@ module raijuCplHelper
             shGhosts(WEST) = sh%Ngw
             call GenChildShellGrid(sh, raiCpl%shGr, "raijuCpl", nGhosts=shGhosts)
             call initShellVar(raiCpl%shGr, SHGR_CORNER, raiCpl%pot)
+
+            do i=1,NDIM
+                call initShellVar(sh, SHGR_CORNER, raiCpl%Bmin(i))
+                call initShellVar(sh, SHGR_CORNER, raiCpl%xyzMin(i))
+                call initShellVar(sh, SHGR_CC, raiCpl%xyzMincc(i))
+            enddo
+            call initShellVar(sh, SHGR_CORNER, raiCpl%thcon)
+            call initShellVar(sh, SHGR_CORNER, raiCpl%phcon)
+            call initShellVar(sh, SHGR_CORNER, raiCpl%bVol)
+            call initShellVar(sh, SHGR_CORNER, raiCpl%topo)
+            call initShellVar(sh, SHGR_CORNER, raiCpl%vaFrac)
+
+            allocate(raiCpl%Pavg(0:nFluidIn))
+            allocate(raiCpl%Davg(0:nFluidIn))
+            allocate(raiCpl%Pstd(0:nFluidIn))
+            allocate(raiCpl%Dstd(0:nFluidIn))
+            do i=0,nFluidIn
+                call initShellVar(sh, SHGR_CC, raiCpl%Pavg(i))
+                call initShellVar(sh, SHGR_CC, raiCpl%Davg(i))
+                call initShellVar(sh, SHGR_CC, raiCpl%Pstd(i))
+                call initShellVar(sh, SHGR_CC, raiCpl%Dstd(i))
+            enddo
+            call initShellVar(sh, SHGR_CC, raiCpl%bvol_cc)
+            call initShellVar(sh, SHGR_CC, raiCpl%Tb)
         end associate
         
             ! Initial values
@@ -133,11 +158,6 @@ module raijuCplHelper
                         State%Tb%data(i,j) = 0.25*(ijTubes(i  ,j)%Tb + ijTubes(i  ,j+1)%Tb &
                                                  + ijTubes(i+1,j)%Tb + ijTubes(i+1,j+1)%Tb)
                         State%bvol_cc(i,j) = toCenter2D(State%bvol(i:i+1,j:j+1))
-                        ! Before we average, take dipole out so we don't get poor averaging of background
-                        !dBVol = State%bvol(i:i+1,j:j+1)
-                        !dBVol(:,1) = dBVol(:,1) - bVol_dip_corner(i:i+1)
-                        !dBVol(:,2) = dBVol(:,2) - bVol_dip_corner(i:i+1)
-                        !State%bvol_cc(i,j) = toCenter2D(dBVol) + bVol_dip_cc(i)
                     endif
                 enddo
             enddo
@@ -145,6 +165,113 @@ module raijuCplHelper
         end associate
         
     end subroutine imagTubes2RAIJU
+
+    subroutine tubeShell2RaiCpl(voltGrid, tubeShell, raiCpl)
+        !! Takes voltron tubeShell data and stores what we need into our coupler
+        !! Using the shell interp, we are mapping some quantities from corners to centers as expected by raijuApp
+        type(ShellGrid_T), intent(in) :: voltGrid
+        type(TubeShell_T), intent(in) :: tubeShell
+        class(raijuCoupler_T), intent(inout) :: raiCpl
+
+        type(ShellGridVar_T) :: tmpTopo
+        integer :: i,s
+
+
+        call initShellVar(raiCpl%shGr, SHGR_CORNER, tmpTopo)
+        associate(Model=>raiCpl%raiApp%Model)
+
+        ! Corners
+        do i=1,NDIM
+            call InterpShellVar_TSC_SG(voltGrid, tubeShell%X_bmin(i), raiCpl%shGr, raiCpl%xyzMin(i))
+        enddo
+        call InterpShellVar_TSC_SG(voltGrid, tubeShell%bmin, raiCpl%shGr, raiCpl%Bmin(ZDIR))
+        call InterpShellVar_TSC_SG(voltGrid, tubeShell%latc, raiCpl%shGr, raiCpl%thcon)
+        raiCpl%thcon%data = PI/2 - raiCpl%thcon%data
+        call InterpShellVar_TSC_SG(voltGrid, tubeShell%lonc, raiCpl%shGr, raiCpl%phcon)
+        call InterpShellVar_TSC_SG(voltGrid, tubeShell%bVol, raiCpl%shGr, raiCpl%bvol)
+        ! Get topo and then convert to RAIJU's definition
+        call InterpShellVar_TSC_SG(voltGrid, tubeShell%topo, raiCpl%shGr, tmpTopo)
+        where (tmpTopo%data == TUBE_CLOSED)
+            raiCpl%topo%data = RAIJUCLOSED
+        elsewhere
+            raiCpl%topo%data = RAIJUOPEN
+        end where
+        call InterpShellVar_TSC_SG(voltGrid, tubeShell%wMAG, raiCpl%shGr, raiCpl%vaFrac)
+
+        ! Centers
+        
+        do s=0,Model%nFluidIn
+            call InterpShellVar_TSC_SG(voltGrid, tubeShell%avgP(s), raiCpl%shGr, raiCpl%Pavg(s))
+            call InterpShellVar_TSC_SG(voltGrid, tubeShell%avgN(s), raiCpl%shGr, raiCpl%Davg(s))
+            call InterpShellVar_TSC_SG(voltGrid, tubeShell%stdP(s), raiCpl%shGr, raiCpl%Pstd(s))
+            call InterpShellVar_TSC_SG(voltGrid, tubeShell%stdN(s), raiCpl%shGr, raiCpl%Dstd(s))
+        enddo
+        do i=1,NDIM
+            call InterpShellVar_TSC_SG(raiCpl%shGr, raiCpl%xyzMin(i), raiCpl%shGr, raiCpl%xyzMincc(i))
+        enddo
+        call InterpShellVar_TSC_SG(raiCpl%shGr, raiCpl%bVol, raiCpl%shGr, raiCpl%bvol_cc)
+        call InterpShellVar_TSC_SG(voltGrid, tubeShell%Tb, raiCpl%shGr, raiCpl%Tb)
+        
+
+        end associate
+
+    end subroutine tubeShell2RaiCpl
+
+
+    subroutine raiCpl2RAIJU(raiCpl)
+        !! Take info at raijuCoupler level and put it into RAIJU proper
+        !! raiCpl should have everything in the sizes we expect, so just need to do a bunch of copies
+        class(raijuCoupler_T), intent(inout) :: raiCpl
+
+        integer :: i,j,k
+
+        associate(Model=>raiCpl%raiApp%Model, State=>raiCpl%raiApp%State, shGr=>raiCpl%shGr)
+
+        !--- Ionosphere data ---!
+        State%espot(:,:) = raiCpl%pot%data(:,:) ! They live on the same grid so this is okay
+
+
+        !--- Mag data ---!
+
+        ! Defaults
+        State%Tb%data = HUGE
+
+        State%topo = raiCpl%topo%data
+
+        ! Copy no matter the topo value
+        do i=1,NDIM
+            State%xyzMin  (:,:,i) = raiCpl%xyzMin(i)%data
+            State%xyzMincc(:,:,i) = raiCpl%xyzMincc(i)%data
+        enddo
+        State%thcon     = raiCpl%thcon%data
+        State%phcon     = raiCpl%phcon%data
+        State%Bmin(:,:,ZDIR) = raiCpl%bmin(ZDIR)%data
+        State%bvol      = raiCpl%bvol%data
+        State%vaFrac    = raiCpl%vaFrac%data
+
+        ! Now only copy for good points
+        do j=shGr%jsg,shGr%jeg
+            do i=shGr%isg,shGr%ieg
+
+                if (all(State%topo(i:i+1,j:j+1) .eq. RAIJUOPEN)) then
+                    cycle
+                endif
+
+                do k=0,Model%nFluidIn
+                    State%Pavg(i,j,k) = raiCpl%Pavg(k)%data(i,j)
+                    State%Davg(i,j,k) = raiCpl%Davg(k)%data(i,j)
+                    State%Pstd(i,j,k) = raiCpl%Pstd(k)%data(i,j) / max(State%Pavg(i,j,k), TINY)  ! Normalize
+                    State%Dstd(i,j,k) = raiCpl%Dstd(k)%data(i,j) / max(State%Davg(i,j,k), TINY)
+                enddo
+
+                State%bvol_cc(i,j) = raiCpl%bvol_cc%data(i,j)
+                State%Tb%data(i,j) = raiCpl%Tb%data(i,j)
+            enddo
+        enddo
+
+        end associate
+
+    end subroutine
 
 !------
 ! One-way driving from file helpers
@@ -162,7 +289,6 @@ module raijuCplHelper
 
         ! Using chimp, populate imagTubes
         call genImagTubes(raiCpl, vApp)
-
         ! Set potential
         call InterpShellVar_TSC_SG(rmReader%shGr, rmReader%nsPot(1), raiCpl%shGr, raiCpl%pot)
 
@@ -209,21 +335,22 @@ module raijuCplHelper
     end subroutine genImagTubes
 
 
-
 !------
-! Placeholder real-time coupling stuff
+! Real-time coupling stuff
 !------
 
     subroutine packRaijuCoupler_RT(raiCpl, vApp)
         !! Temporary imagTube generator for realtime coupling
         !! Eventually, someone else should probably be packing raiCpl objects for us
         class(raijuCoupler_T), intent(inout) :: raiCpl
-        class(voltApp_T), intent(inout) :: vApp
+        class(voltApp_T), intent(in) :: vApp
 
         raiCpl%tLastUpdate = vApp%time
 
-        call genImagTubes(raiCpl, vApp)
-        call mixPot2Raiju_RT(raiCpl, vApp%remixApp)
+        !call genImagTubes(raiCpl, vApp)
+        call tubeShell2RaiCpl(vApp%shGrid, vApp%State%tubeShell, raiCpl)
+        !call mixPot2Raiju_RT(raiCpl, vApp%remixApp)
+        call InterpShellVar_TSC_SG(vApp%shGrid, vApp%State%potential_total, raiCpl%shGr, raiCpl%pot)
         
     end subroutine
 
