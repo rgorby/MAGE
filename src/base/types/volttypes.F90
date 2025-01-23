@@ -27,20 +27,27 @@ module volttypes
         enumerator :: LPPROJ=1,LLPROJ
     endenum
 
-    ! Data for inner mag => gamera variables
+    ! Data for voltron => gamera Gas0 variables
     enum, bind(C)
-        enumerator :: IM_D_RING=1,IM_P_RING,IM_D_COLD, IM_P_COLD, IM_TSCL
+        enumerator :: IONEX,IONEY,IONEZ !Convection E field from remix potential
     endenum
-    integer, parameter :: NVARIMAG = 5
+    integer, parameter :: NVARVOLT0 = 3
+
+    ! Data for inner mag => gamera Gas0 variables
+    enum, bind(C)
+        enumerator :: IM_D_RING=NVARVOLT0+1,IM_P_RING,IM_D_COLD, IM_P_COLD, IM_TSCL
+    endenum
+    integer, parameter :: NVARIMAG0 = 5
     integer, parameter :: RCFLUID=1,COLDFLUID=2
 
+    !Data for outflow => gamera Gas0 variables
+    enum, bind(C)
+        enumerator :: WIND_D,WIND_V,WIND_P
+    endenum
+    integer, parameter :: NVARWIND0 = 3
 
-    !! WILL BE OBSOLETE SOON
-    ! keeping here for intermediate compatability
-    ! enum, bind(C)
-    !     enumerator :: IMDEN=1,IMX1,IMX2,IMPR,IMTSCL
-    ! endenum
-
+    integer, parameter :: NVARVOLTSRC = NVARVOLT0 + NVARIMAG0
+    
     enum, bind(C)
         enumerator :: V_GRID_UNIFORM=1, V_GRID_SHAFEE
     endenum
