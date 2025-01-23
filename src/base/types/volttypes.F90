@@ -31,14 +31,15 @@ module volttypes
     enum, bind(C)
         enumerator :: IM_D_RING=1,IM_P_RING,IM_D_COLD, IM_P_COLD, IM_TSCL
     endenum
+    integer, parameter :: NVARIMAG = 5
     integer, parameter :: RCFLUID=1,COLDFLUID=2
+
 
     !! WILL BE OBSOLETE SOON
     ! keeping here for intermediate compatability
-    enum, bind(C)
-        enumerator :: IMDEN=1,IMX1,IMX2,IMPR,IMTSCL
-    endenum
-    integer, parameter :: NVARIMAG = 5
+    ! enum, bind(C)
+    !     enumerator :: IMDEN=1,IMX1,IMX2,IMPR,IMTSCL
+    ! endenum
 
     enum, bind(C)
         enumerator :: V_GRID_UNIFORM=1, V_GRID_SHAFEE
