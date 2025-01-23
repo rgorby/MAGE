@@ -475,14 +475,14 @@ module rcmimag
     subroutine EvalRCM(imag,x1,x2,t,imW,isEdible)
         class(rcmIMAG_T), intent(inout) :: imag
         real(rp), intent(in) :: x1,x2,t
-        real(rp), intent(out) :: imW(NVARIMAG)
+        real(rp), intent(out) :: imW(NVARIMAG0)
         logical, intent(out) :: isEdible
 
         !Set defaults
         imW(:) = 0.0
-        imW(IMDEN ) = 0.0
-        imW(IMPR  ) = 0.0
-        imW(IMTSCL) = 0.0
+        ! imW(IMDEN ) = 0.0
+        ! imW(IMPR  ) = 0.0
+        ! imW(IMTSCL) = 0.0
         isEdible = .false.
 
         !Do quick short circuit test

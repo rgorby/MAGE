@@ -53,74 +53,77 @@ module sstLLimag
         integer, parameter :: NIOVAR = 3
         type(IOVAR_T), dimension(NIOVAR) :: IOVars
 
-        !Get name of file holding emp data
-        call iXML%Set_Val(empFile,"empmap/empFile","ts07.h5")
-        call CheckFileOrDie(empFile,"Error opening Empirical Map data")
+        write(*,*) "SST needs to be rebuilt ..."
+        stop
 
-        imag%ebTab%bStr = empFile        
-        !Scrape info from file
-        call InitIOTab(imag%ebTab,iXML,empFile)
-        if (imag%ebTab%N>1) then
-            imag%doStatic = .false.
-        endif
+    !     !Get name of file holding emp data
+    !     call iXML%Set_Val(empFile,"empmap/empFile","ts07.h5")
+    !     call CheckFileOrDie(empFile,"Error opening Empirical Map data")
 
-        imag%Np = imag%ebTab%dNi
-        imag%Nt = imag%ebTab%dNj
+    !     imag%ebTab%bStr = empFile        
+    !     !Scrape info from file
+    !     call InitIOTab(imag%ebTab,iXML,empFile)
+    !     if (imag%ebTab%N>1) then
+    !         imag%doStatic = .false.
+    !     endif
+
+    !     imag%Np = imag%ebTab%dNi
+    !     imag%Nt = imag%ebTab%dNj
         
-        imag%rDeep = vApp%rTrc  ! probably, will remain unused
+    !     imag%rDeep = vApp%rTrc  ! probably, will remain unused
 
-        allocate(imag%X(1:imag%Np+1,1:imag%Nt+1))
-        allocate(imag%Y(1:imag%Np+1,1:imag%Nt+1))
+    !     allocate(imag%X(1:imag%Np+1,1:imag%Nt+1))
+    !     allocate(imag%Y(1:imag%Np+1,1:imag%Nt+1))
 
-        allocate(imag%empW1(1:imag%Np,1:imag%Nt,NVARIMAG))
-        allocate(imag%empW2(1:imag%Np,1:imag%Nt,NVARIMAG))
+    !     allocate(imag%empW1(1:imag%Np,1:imag%Nt,NVARIMAG))
+    !     allocate(imag%empW2(1:imag%Np,1:imag%Nt,NVARIMAG))
 
-        allocate(imag%sstP(1:imag%Np,1:imag%Nt))
-        allocate(imag%sstBvol(1:imag%Np,1:imag%Nt))        
-        allocate(imag%Iopen(1:imag%Np,1:imag%Nt))
+    !     allocate(imag%sstP(1:imag%Np,1:imag%Nt))
+    !     allocate(imag%sstBvol(1:imag%Np,1:imag%Nt))        
+    !     allocate(imag%Iopen(1:imag%Np,1:imag%Nt))
 
-    !Read grid
-        call ClearIO(IOVars)
-        call AddInVar(IOVars,"X")
-        call AddInVar(IOVars,"Y")
+    ! !Read grid
+    !     call ClearIO(IOVars)
+    !     call AddInVar(IOVars,"X")
+    !     call AddInVar(IOVars,"Y")
 
-    ! Note, X == Phi, Y == Theta from the sst2h5ion.py script
+    ! ! Note, X == Phi, Y == Theta from the sst2h5ion.py script
 
-        call ReadVars(IOVars,.false.,empFile) !Don't use io precision
-        dims = [imag%Np+1,imag%Nt+1]
+    !     call ReadVars(IOVars,.false.,empFile) !Don't use io precision
+    !     dims = [imag%Np+1,imag%Nt+1]
 
-        imag%X = reshape(IOVars(1)%data,dims)
-        imag%Y = reshape(IOVars(2)%data,dims)
+    !     imag%X = reshape(IOVars(1)%data,dims)
+    !     imag%Y = reshape(IOVars(2)%data,dims)
 
-    !Initialize data
-        ! this returns n1=1, n2=2 for t0<=0
-        ! if imag%doStatic, it returns n1=n2=1
+    ! !Initialize data
+    !     ! this returns n1=1, n2=2 for t0<=0
+    !     ! if imag%doStatic, it returns n1=n2=1
 
-        ! TODO: can we just do AdvanceSST(imag,vApp,vApp%time) here? 
-        call GetTabSlc(imag%ebTab,vApp%time,n1,n2)
+    !     ! TODO: can we just do AdvanceSST(imag,vApp,vApp%time) here? 
+    !     call GetTabSlc(imag%ebTab,vApp%time,n1,n2)
 
-        call rdEmpMap(imag,n1,imag%empW1)
-        imag%empN1 = n1
-        imag%empT1 = imag%ebTab%times(n1)
+    !     call rdEmpMap(imag,n1,imag%empW1)
+    !     imag%empN1 = n1
+    !     imag%empT1 = imag%ebTab%times(n1)
 
-        call rdEmpMap(imag,n2,imag%empW2)
-        imag%empN2 = n2
-        imag%empT2 = imag%ebTab%times(n2)
+    !     call rdEmpMap(imag,n2,imag%empW2)
+    !     imag%empN2 = n2
+    !     imag%empT2 = imag%ebTab%times(n2)
 
-    ! init pressure, set to 1 nPa arbitrarily
-        imag%sstP = 1.  ! doesn't matter
+    ! ! init pressure, set to 1 nPa arbitrarily
+    !     imag%sstP = 1.  ! doesn't matter
 
-        ! start with the first time slice
-        call EvalSST(imag,imag%empT1)
+    !     ! start with the first time slice
+    !     call EvalSST(imag,imag%empT1)
 
-        write(*,*) "SST Init BVOLS:"
-        write(*,*) imag%sstBvol
+    !     write(*,*) "SST Init BVOLS:"
+    !     write(*,*) imag%sstBvol
 
-        ! initialize the remix-style grid to interpolate to RCM
-        ! note, -1 in both dimensions 
-        ! -1 in Phi cuts off the periodic point
-        ! -1 in Theta removes the last line so we can interpolate from the cell-centered data
-        call init_grid_fromTP(imag%sstG,imag%Y(1:imag%Np,1:imag%Nt),imag%X(1:imag%Np,1:imag%Nt),isSolverGrid=.false.) 
+    !     ! initialize the remix-style grid to interpolate to RCM
+    !     ! note, -1 in both dimensions 
+    !     ! -1 in Phi cuts off the periodic point
+    !     ! -1 in Theta removes the last line so we can interpolate from the cell-centered data
+    !     call init_grid_fromTP(imag%sstG,imag%Y(1:imag%Np,1:imag%Nt),imag%X(1:imag%Np,1:imag%Nt),isSolverGrid=.false.) 
 
     end subroutine initSST
 
@@ -132,32 +135,34 @@ module sstLLimag
 
         integer :: n1,n2
 
-        !This results in EvalSST not being called, so no time interpolation happens while T1 < tAdv < T2
-        !if ( (tAdv >= imag%empT1) .and. (tAdv <= imag%empT2) ) then
-            !Nothing to do here
-        !    return
-        !endif
+        return
 
-        !If tAdv is out of range of loaded slices, need to update
-        if (tAdv < imag%empT1 .or. tAdv > imag%empT2) then
-            call GetTabSlc(imag%ebTab,tAdv,n1,n2)
-            if (imag%empN1 /= n1) then
-                !Read slice
-                call rdEmpMap(imag,n1,imag%empW1)
-                imag%empN1 = n1
-                imag%empT1 = imag%ebTab%times(n1)
-            endif
+        ! !This results in EvalSST not being called, so no time interpolation happens while T1 < tAdv < T2
+        ! !if ( (tAdv >= imag%empT1) .and. (tAdv <= imag%empT2) ) then
+        !     !Nothing to do here
+        ! !    return
+        ! !endif
 
-            if (imag%empN2 /= n2) then
-                !Read slice
-                call rdEmpMap(imag,n2,imag%empW2)
-                imag%empN2 = n2
-                imag%empT2 = imag%ebTab%times(n2)
-            endif
-        endif
+        ! !If tAdv is out of range of loaded slices, need to update
+        ! if (tAdv < imag%empT1 .or. tAdv > imag%empT2) then
+        !     call GetTabSlc(imag%ebTab,tAdv,n1,n2)
+        !     if (imag%empN1 /= n1) then
+        !         !Read slice
+        !         call rdEmpMap(imag,n1,imag%empW1)
+        !         imag%empN1 = n1
+        !         imag%empT1 = imag%ebTab%times(n1)
+        !     endif
 
-        !Always want to run this
-        call EvalSST(imag,tAdv)
+        !     if (imag%empN2 /= n2) then
+        !         !Read slice
+        !         call rdEmpMap(imag,n2,imag%empW2)
+        !         imag%empN2 = n2
+        !         imag%empT2 = imag%ebTab%times(n2)
+        !     endif
+        ! endif
+
+        ! !Always want to run this
+        ! call EvalSST(imag,tAdv)
 
     end subroutine AdvanceSST
 
@@ -168,30 +173,32 @@ module sstLLimag
         real(rp) :: t,w1,w2
         real(rp), dimension(:,:), allocatable :: P, bVol
 
-        ! first interpolate in time
-        call tWeights(empData,t,w1,w2)
-        P = w1*empData%empW1(:,:,1) + w2*empData%empW2(:,:,1)
-        bVol = w1*empData%empW1(:,:,2) + w2*empData%empW2(:,:,2)
+        return
+        
+        ! ! first interpolate in time
+        ! call tWeights(empData,t,w1,w2)
+        ! P = w1*empData%empW1(:,:,1) + w2*empData%empW2(:,:,1)
+        ! bVol = w1*empData%empW1(:,:,2) + w2*empData%empW2(:,:,2)
 
-        ! now interpolate in space (cell-centers to corners)
-        ! P is dynamically allocated above (Fortran 2003 standard) to (Np,Nt) size
+        ! ! now interpolate in space (cell-centers to corners)
+        ! ! P is dynamically allocated above (Fortran 2003 standard) to (Np,Nt) size
 
-        associate(Np=>empData%Np, Nt=>empData%Nt)
-        empData%sstP(2:Np,2:Nt) = 0.25*( P(2:Np,1:Nt-1)+P(2:Np,2:Nt)+P(1:Np-1,1:Nt-1)+P(1:Np-1,2:Nt) )
-        empData%sstBvol(2:Np,2:Nt) = 0.25*( bVol(2:Np,1:Nt-1)+bVol(2:Np,2:Nt)+bVol(1:Np-1,1:Nt-1)+bVol(1:Np-1,2:Nt) )
+        ! associate(Np=>empData%Np, Nt=>empData%Nt)
+        ! empData%sstP(2:Np,2:Nt) = 0.25*( P(2:Np,1:Nt-1)+P(2:Np,2:Nt)+P(1:Np-1,1:Nt-1)+P(1:Np-1,2:Nt) )
+        ! empData%sstBvol(2:Np,2:Nt) = 0.25*( bVol(2:Np,1:Nt-1)+bVol(2:Np,2:Nt)+bVol(1:Np-1,1:Nt-1)+bVol(1:Np-1,2:Nt) )
 
-        ! fix periodic
-        empData%sstP(1,2:Nt) = 0.25*( P(Np,1:Nt-1)+P(Np,2:Nt)+P(1,1:Nt-1)+P(1,2:Nt) )
-        empData%sstBvol(1,2:Nt) = 0.25*( bVol(Np,1:Nt-1)+bVol(Np,2:Nt)+bVol(1,1:Nt-1)+bVol(1,2:Nt) )
+        ! ! fix periodic
+        ! empData%sstP(1,2:Nt) = 0.25*( P(Np,1:Nt-1)+P(Np,2:Nt)+P(1,1:Nt-1)+P(1,2:Nt) )
+        ! empData%sstBvol(1,2:Nt) = 0.25*( bVol(Np,1:Nt-1)+bVol(Np,2:Nt)+bVol(1,1:Nt-1)+bVol(1,2:Nt) )
 
-        ! fix pole
-        empData%sstP(:,1) = empData%sstP(:,2)
-        empData%sstBvol(:,1) = empData%sstBvol(:,2)
+        ! ! fix pole
+        ! empData%sstP(:,1) = empData%sstP(:,2)
+        ! empData%sstBvol(:,1) = empData%sstBvol(:,2)
 
-        call SetSSTIOpen(empData)
+        ! call SetSSTIOpen(empData)
 
-        ! now sstP has the size (1:Np,1:Nt)
-        end associate
+        ! ! now sstP has the size (1:Np,1:Nt)
+        ! end associate
 
     end subroutine EvalSST    
 
