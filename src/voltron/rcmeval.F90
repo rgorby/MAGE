@@ -107,7 +107,7 @@ module rcmeval
     subroutine InterpRCM(RCMApp,lat,lon,t,imW,isEdible)
     	type(rcm_mhd_T), intent(in)  :: RCMApp
         real(rp)       , intent(in)  :: lat,lon,t
-        real(rp)       , intent(out) :: imW(NVARIMAG)
+        real(rp)       , intent(out) :: imW(NVARIMAG0)
         logical        , intent(out) :: isEdible
 
         integer :: n,Ni,Nj,ip,jp
@@ -117,239 +117,244 @@ module rcmeval
         logical , dimension(Np) :: isGs
         real(rp) :: colat,npp,nrcm,nmhd,prcm,pmhd,beta
 
-        Ni = RCMApp%nLat_ion
-        Nj = RCMApp%nLon_ion
-
-        !Set defaults
-        imW(:) = 0.0
-        imW(IMDEN ) = 0.0
-        imW(IMPR  ) = 0.0
-        imW(IMTSCL) = 0.0
+        imW = 0.0
         isEdible = .false.
+        
+        !Nuke all of this b/c it shouldn't get called
 
-        colat = PI/2 - lat
+!         Ni = RCMApp%nLat_ion
+!         Nj = RCMApp%nLon_ion
 
-        !Do 1st short cut tests
-        isEdible =  (colat >= RCMApp%gcolat(1)) .and. (colat <= RCMApp%gcolat(RCMApp%nLat_ion)) &
-                    .and. (lat > TINY)
+!         !Set defaults
+!         imW(:) = 0.0
+!         imW(IMDEN ) = 0.0
+!         imW(IMPR  ) = 0.0
+!         imW(IMTSCL) = 0.0
+!         isEdible = .false.
 
-        if (.not. isEdible) return
+!         colat = PI/2 - lat
 
-        !If still here, find mapping (i,j) on RCM grid of point
-        call GetRCMLoc(lat,lon,ij0)
+!         !Do 1st short cut tests
+!         isEdible =  (colat >= RCMApp%gcolat(1)) .and. (colat <= RCMApp%gcolat(RCMApp%nLat_ion)) &
+!                     .and. (lat > TINY)
 
-        !Do second short cut tests
-        isEdible = RCMApp%toMHD(ij0(1),ij0(2))
-        if (.not. isEdible) return
+!         if (.not. isEdible) return
 
-        call GetInterpTSC(lat,lon,ij0,IJs,Ws,isGs)
-        isEdible = all(isGs) !Require all points in stencil are edible
+!         !If still here, find mapping (i,j) on RCM grid of point
+!         call GetRCMLoc(lat,lon,ij0)
 
-        !Do last short cut
-        if (.not. isEdible) return
+!         !Do second short cut tests
+!         isEdible = RCMApp%toMHD(ij0(1),ij0(2))
+!         if (.not. isEdible) return
 
-    !Get limited N/P at each stencil point
-        nLims = 0.0
-        pLims = 0.0
+!         call GetInterpTSC(lat,lon,ij0,IJs,Ws,isGs)
+!         isEdible = all(isGs) !Require all points in stencil are edible
 
-        do n=1,Np
-            ip = IJs(n,1)
-            jp = IJs(n,2)
-            !Densities [#/cc]
-            npp  = rcmNScl*RCMApp%Npsph(ip,jp)
-            nrcm = rcmNScl*RCMApp%Nrcm (ip,jp)
-            nmhd = rcmNScl*RCMApp%Nave (ip,jp)
-            !Pressure [nPa]
-            prcm = rcmPScl*RCMApp%Prcm (ip,jp)
-            pmhd = rcmPScl*RCMApp%Pave (ip,jp)
+!         !Do last short cut
+!         if (.not. isEdible) return
 
-            beta = RCMApp%beta_average(ip,jp)
+!     !Get limited N/P at each stencil point
+!         nLims = 0.0
+!         pLims = 0.0
 
-            !Have input quantities, calculate local wolf-limited values
-            if (doWolfLim) then
-                call WolfLimit(nrcm,prcm,npp,nmhd,pmhd,beta,nLims(n),pLims(n))
-            else
-                !Just lazyily use same function w/ beta=0
-                call WolfLimit(nrcm,prcm,npp,nmhd,pmhd,0.0_rp,nLims(n),pLims(n))
-            endif
+!         do n=1,Np
+!             ip = IJs(n,1)
+!             jp = IJs(n,2)
+!             !Densities [#/cc]
+!             npp  = rcmNScl*RCMApp%Npsph(ip,jp)
+!             nrcm = rcmNScl*RCMApp%Nrcm (ip,jp)
+!             nmhd = rcmNScl*RCMApp%Nave (ip,jp)
+!             !Pressure [nPa]
+!             prcm = rcmPScl*RCMApp%Prcm (ip,jp)
+!             pmhd = rcmPScl*RCMApp%Pave (ip,jp)
 
-            Tbs(n) = RcMApp%Tb(ip,jp)
-        enddo
-    !Get final ingestion values
-        imW(IMDEN) = dot_product(nLims,Ws)
-        imW(IMPR ) = dot_product(pLims,Ws)
+!             beta = RCMApp%beta_average(ip,jp)
 
-        !Coordinates
-        imW(IMX1)   = rad2deg*lat
-        imW(IMX2)   = rad2deg*lon
+!             !Have input quantities, calculate local wolf-limited values
+!             if (doWolfLim) then
+!                 call WolfLimit(nrcm,prcm,npp,nmhd,pmhd,beta,nLims(n),pLims(n))
+!             else
+!                 !Just lazyily use same function w/ beta=0
+!                 call WolfLimit(nrcm,prcm,npp,nmhd,pmhd,0.0_rp,nLims(n),pLims(n))
+!             endif
 
-        if (doBounceDT) then
-            !Use Alfven bounce timescale
-            imW(IMTSCL) = nBounce*dot_product(Tbs,Ws)
-        endif
+!             Tbs(n) = RcMApp%Tb(ip,jp)
+!         enddo
+!     !Get final ingestion values
+!         imW(IMDEN) = dot_product(nLims,Ws)
+!         imW(IMPR ) = dot_product(pLims,Ws)
 
-    !--------
-    !Internal routines
-        contains
+!         !Coordinates
+!         imW(IMX1)   = rad2deg*lat
+!         imW(IMX2)   = rad2deg*lon
 
-        !Get ij's of stencil points and weights
-        subroutine GetInterpTSC(lat,lon,ij0,IJs,Ws,isGs)
-            real(rp), intent(in)  :: lat,lon
-            integer , intent(in)  :: ij0(2)
-            integer , intent(out) :: IJs(Np,2)
-            real(rp), intent(out) :: Ws(Np)
-            logical , intent(out) :: isGs(Np)
+!         if (doBounceDT) then
+!             !Use Alfven bounce timescale
+!             imW(IMTSCL) = nBounce*dot_product(Tbs,Ws)
+!         endif
 
-            integer :: i0,j0,n,di,dj,ip,jp
-            real(rp) :: colat,dcolat,dlon,eta,zeta
-            real(rp), dimension(-1:+1) :: wE,wZ
+!     !--------
+!     !Internal routines
+!         contains
 
-            !Single point
-            isGs = .true.
-            IJs(:,:) = 1
-            Ws = 0.0
-            IJs(1,:) = [ij0]
-            Ws (1  ) = 1.0
-            associate(gcolat=>RCMApp%gcolat,glong=>RCMApp%glong, &
-            	      nLat=>RCMApp%nLat_ion,nLon=>RCMApp%nLon_ion, &
-            	      toMHD=>RCMApp%toMHD)
+!         !Get ij's of stencil points and weights
+!         subroutine GetInterpTSC(lat,lon,ij0,IJs,Ws,isGs)
+!             real(rp), intent(in)  :: lat,lon
+!             integer , intent(in)  :: ij0(2)
+!             integer , intent(out) :: IJs(Np,2)
+!             real(rp), intent(out) :: Ws(Np)
+!             logical , intent(out) :: isGs(Np)
 
-            i0 = ij0(1)
-            j0 = ij0(2)
+!             integer :: i0,j0,n,di,dj,ip,jp
+!             real(rp) :: colat,dcolat,dlon,eta,zeta
+!             real(rp), dimension(-1:+1) :: wE,wZ
 
-            if ( (i0==1) .or. (i0==nLat) ) return !Don't bother if you're next to lat boundary
+!             !Single point
+!             isGs = .true.
+!             IJs(:,:) = 1
+!             Ws = 0.0
+!             IJs(1,:) = [ij0]
+!             Ws (1  ) = 1.0
+!             associate(gcolat=>RCMApp%gcolat,glong=>RCMApp%glong, &
+!             	      nLat=>RCMApp%nLat_ion,nLon=>RCMApp%nLon_ion, &
+!             	      toMHD=>RCMApp%toMHD)
+
+!             i0 = ij0(1)
+!             j0 = ij0(2)
+
+!             if ( (i0==1) .or. (i0==nLat) ) return !Don't bother if you're next to lat boundary
             
-            !Get index space mapping: eta,zeta in [-0.5,0.5]
-            colat = PI/2 - lat
-            dcolat = ( gcolat(i0+1)-gcolat(i0-1) )/2
-            dlon  = glong(2)-glong(1) !Assuming constant spacing
+!             !Get index space mapping: eta,zeta in [-0.5,0.5]
+!             colat = PI/2 - lat
+!             dcolat = ( gcolat(i0+1)-gcolat(i0-1) )/2
+!             dlon  = glong(2)-glong(1) !Assuming constant spacing
 
-            eta  = ( colat - gcolat(i0) )/ dcolat
-            zeta = ( lon - glong(j0) )/dlon
+!             eta  = ( colat - gcolat(i0) )/ dcolat
+!             zeta = ( lon - glong(j0) )/dlon
 
-            !Clamp mappings
-            call ClampMap(eta)
-            call ClampMap(zeta)
-            !Calculate weights
-            call weight1D(eta ,wE)
-            call weight1D(zeta,wZ)
+!             !Clamp mappings
+!             call ClampMap(eta)
+!             call ClampMap(zeta)
+!             !Calculate weights
+!             call weight1D(eta ,wE)
+!             call weight1D(zeta,wZ)
 
-            n = 1
-            do dj=-1,+1
-                do di=-1,+1
-                    ip = i0+di
-                    jp = j0+dj
-                    !Wrap around boundary, repeated point at 1/isize
-                    if (jp<1)    jp = nLon-1
-                    if (jp>nLon) jp = 2
-                    IJs(n,:) = [ip,jp]
-                    Ws(n) = wE(di)*wZ(dj)
-                    isGs(n) = toMHD(ip,jp)
-                    if (.not. isGs(n)) Ws(n) = 0.0
+!             n = 1
+!             do dj=-1,+1
+!                 do di=-1,+1
+!                     ip = i0+di
+!                     jp = j0+dj
+!                     !Wrap around boundary, repeated point at 1/isize
+!                     if (jp<1)    jp = nLon-1
+!                     if (jp>nLon) jp = 2
+!                     IJs(n,:) = [ip,jp]
+!                     Ws(n) = wE(di)*wZ(dj)
+!                     isGs(n) = toMHD(ip,jp)
+!                     if (.not. isGs(n)) Ws(n) = 0.0
 
-                    n = n + 1
-                enddo
-            enddo !dj
+!                     n = n + 1
+!                 enddo
+!             enddo !dj
 
-            !Renormalize
-            Ws = Ws/sum(Ws)
+!             !Renormalize
+!             Ws = Ws/sum(Ws)
 
-            end associate         
-        end subroutine GetInterpTSC
+!             end associate         
+!         end subroutine GetInterpTSC
 
-        !1D triangular shaped cloud weights
-        !1D weights for triangular shaped cloud interpolation
-        !Assuming on -1,1 reference element, dx=1
-        !Check for degenerate cases ( |eta| > 0.5 )
-        subroutine weight1D(eta,wE)
-            real(rp), intent(in)  :: eta
-            real(rp), intent(out) :: wE(-1:1)
+!         !1D triangular shaped cloud weights
+!         !1D weights for triangular shaped cloud interpolation
+!         !Assuming on -1,1 reference element, dx=1
+!         !Check for degenerate cases ( |eta| > 0.5 )
+!         subroutine weight1D(eta,wE)
+!             real(rp), intent(in)  :: eta
+!             real(rp), intent(out) :: wE(-1:1)
 
-            wE(-1) = 0.5*(0.5-eta)**2.0
-            wE( 1) = 0.5*(0.5+eta)**2.0
-            wE( 0) = 0.75 - eta**2.0
+!             wE(-1) = 0.5*(0.5-eta)**2.0
+!             wE( 1) = 0.5*(0.5+eta)**2.0
+!             wE( 0) = 0.75 - eta**2.0
 
-        end subroutine weight1D
+!         end subroutine weight1D
 
-        !Clamps mapping in [-0.5,0.5]
-        subroutine ClampMap(ez)
-          REAL(rprec), intent(inout) :: ez
-          if (ez<-0.5) ez = -0.5
-          if (ez>+0.5) ez = +0.5
-        end subroutine ClampMap
+!         !Clamps mapping in [-0.5,0.5]
+!         subroutine ClampMap(ez)
+!           REAL(rprec), intent(inout) :: ez
+!           if (ez<-0.5) ez = -0.5
+!           if (ez>+0.5) ez = +0.5
+!         end subroutine ClampMap
 
-        function AvgQ(Q,IJs,Ws,Ni,Nj) 
-            integer , intent(in) :: Ni,Nj
-            integer , intent(in) :: IJs(Np,2)
-            real(rp), intent(in) :: Ws(Np)
-            real(rp), intent(in) :: Q(Ni,Nj)
+!         function AvgQ(Q,IJs,Ws,Ni,Nj) 
+!             integer , intent(in) :: Ni,Nj
+!             integer , intent(in) :: IJs(Np,2)
+!             real(rp), intent(in) :: Ws(Np)
+!             real(rp), intent(in) :: Q(Ni,Nj)
 
-            real(rp) :: AvgQ
-            integer :: n,i0,j0
-            real(rp) :: Qs(Np)
-            AvgQ = 0.0
+!             real(rp) :: AvgQ
+!             integer :: n,i0,j0
+!             real(rp) :: Qs(Np)
+!             AvgQ = 0.0
 
-            do n=1,Np
-                i0 = IJs(n,1)
-                j0 = IJs(n,2)
-                Qs(n) = Q(i0,j0)
-            enddo
-            AvgQ = dot_product(Qs,Ws)
+!             do n=1,Np
+!                 i0 = IJs(n,1)
+!                 j0 = IJs(n,2)
+!                 Qs(n) = Q(i0,j0)
+!             enddo
+!             AvgQ = dot_product(Qs,Ws)
             
-        end function AvgQ
+!         end function AvgQ
 
-        subroutine GetRCMLoc(lat,lon,ij0)
-            real(rp), intent(in) :: lat,lon
-            integer, intent(out) :: ij0(2)
+!         subroutine GetRCMLoc(lat,lon,ij0)
+!             real(rp), intent(in) :: lat,lon
+!             integer, intent(out) :: ij0(2)
 
-            integer :: iX,jX,iC,n
-            real(rp) :: colat,dp,dcol,dI,dJ
+!             integer :: iX,jX,iC,n
+!             real(rp) :: colat,dp,dcol,dI,dJ
 
-            associate(gcolat=>RCMApp%gcolat,glong=>RCMApp%glong, &
-                      nLat=>RCMApp%nLat_ion,nLon=>RCMApp%nLon_ion)
+!             associate(gcolat=>RCMApp%gcolat,glong=>RCMApp%glong, &
+!                       nLat=>RCMApp%nLat_ion,nLon=>RCMApp%nLon_ion)
 
-            !Assuming constant lon spacing
-            dp = glong(2) - glong(1)
+!             !Assuming constant lon spacing
+!             dp = glong(2) - glong(1)
 
-            !Get colat point
-            colat = PI/2 - lat
-!Use findloc w/ intel for speed
-#if defined __INTEL_COMPILER && __INTEL_COMPILER >= 1800
-            iC = findloc(gcolat >= colat,.true.,dim=1) - 1
-#else 
-!Bypass as findloc does not work for gfortran<9    
-           !Work-around code        
-            do n=1,nLat
-                if (gcolat(n) >= colat) exit
-            enddo
-            iC = n-1
-#endif
-            dcol = gcolat(iC+1)-gcolat(iC)
-            dI = (colat-gcolat(iC))/dcol
-            if (dI <= 0.5) then
-                iX = iC
-            else
-                iX = iC+1
-            endif
+!             !Get colat point
+!             colat = PI/2 - lat
+! !Use findloc w/ intel for speed
+! #if defined __INTEL_COMPILER && __INTEL_COMPILER >= 1800
+!             iC = findloc(gcolat >= colat,.true.,dim=1) - 1
+! #else 
+! !Bypass as findloc does not work for gfortran<9    
+!            !Work-around code        
+!             do n=1,nLat
+!                 if (gcolat(n) >= colat) exit
+!             enddo
+!             iC = n-1
+! #endif
+!             dcol = gcolat(iC+1)-gcolat(iC)
+!             dI = (colat-gcolat(iC))/dcol
+!             if (dI <= 0.5) then
+!                 iX = iC
+!             else
+!                 iX = iC+1
+!             endif
 
-            !Get lon point
-            dJ = lon/dp
-            if ( (dJ-floor(dJ)) <= 0.5 ) then
-                jX = floor(dJ)+1
-            else
-                jX = floor(dJ)+2
-            endif
+!             !Get lon point
+!             dJ = lon/dp
+!             if ( (dJ-floor(dJ)) <= 0.5 ) then
+!                 jX = floor(dJ)+1
+!             else
+!                 jX = floor(dJ)+2
+!             endif
             
-            !Impose bounds just in case
-            iX = max(iX,1)
-            iX = min(iX,nLat)
-            jX = max(jX,1)
-            jX = min(jX,nLon)
+!             !Impose bounds just in case
+!             iX = max(iX,1)
+!             iX = min(iX,nLat)
+!             jX = max(jX,1)
+!             jX = min(jX,nLon)
 
-            ij0 = [iX,jX]
+!             ij0 = [iX,jX]
 
-            end associate
-        end subroutine GetRCMLoc
+!             end associate
+!         end subroutine GetRCMLoc
 
     end subroutine InterpRCM    
 end module rcmeval

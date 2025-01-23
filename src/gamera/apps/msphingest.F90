@@ -1,17 +1,19 @@
 !Routines to handle source term ingestion in magnetosphere runs
 
 module msphingest
-	
-	use kdefs
+    
+    use kdefs
     use gamtypes
     use imaghelper
     use earthhelper
     use planethelper
+    use volttypes
     use gamutils
     use geopack
-    use volttypes
-    
-	implicit none
+    use multifluid
+    use gridutils
+
+    implicit none
 
     !Ingestion switch
     logical , private :: doIngest = .true. !Whether to ignore ingestion value, ie 1-way coupling to RCM
@@ -28,7 +30,7 @@ module msphingest
 
     type(Gas0App_T), private :: Gas0App
 
-	contains
+    contains
 
     !Set ingestion parameters
     subroutine setIngestion(Model,xmlInp,pID)
@@ -46,34 +48,34 @@ module msphingest
         call xmlInp%Set_Val(doAppetizer,"/Kaiju/voltron/imag/doInit",.false.)
 
         if (doAppetizer) then
-        	call xmlInp%Set_Val(wID,"wind/tsfile","NONE")
-        	t0 = TINY !Just setting value as T=+0
-        	call xmlInp%Set_Val(Gas0App%dz ,"source0/dz" ,Gas0App%dz)
-        	call xmlInp%Set_Val(dtAppetizer,"source0/dt0",dtAppetizer)
-        	call SetTM03(Model,wID,t0)
+            call xmlInp%Set_Val(wID,"wind/tsfile","NONE")
+            t0 = TINY !Just setting value as T=+0
+            call xmlInp%Set_Val(Gas0App%dz ,"source0/dz" ,Gas0App%dz)
+            call xmlInp%Set_Val(dtAppetizer,"source0/dt0",dtAppetizer)
+            call SetTM03(Model,wID,t0)
 
         endif
 
         !------
         contains
-        	!TODO: Properly handle GSM rotation
-        	subroutine SetTM03(Model,wID,t0)
-        		type(Model_T), intent(in) :: Model
-	            character(len=*), intent(in) :: wID
-	            real(rp), intent(in) :: t0
+            !TODO: Properly handle GSM rotation
+            subroutine SetTM03(Model,wID,t0)
+                type(Model_T), intent(in) :: Model
+                character(len=*), intent(in) :: wID
+                real(rp), intent(in) :: t0
 
-	            real(rp) :: D0,P0,Tau0,xyz(NDIM)
-	            logical  :: isIn
+                real(rp) :: D0,P0,Tau0,xyz(NDIM)
+                logical  :: isIn
 
                 !Setup TM03
                 call InitTM03(wID,t0)
 
-	            !Setup ingestion timescale
-	            xyz = [-10.0_rp-TINY,0.0_rp,0.0_rp]
-	            call Appetizer_TM03(Model,xyz,D0,P0,Tau0,isIn)
-	            Gas0App%tScl = dtAppetizer/(Tau0*Model%Units%gT0)
+                !Setup ingestion timescale
+                xyz = [-10.0_rp-TINY,0.0_rp,0.0_rp]
+                call Appetizer_TM03(Model,xyz,D0,P0,Tau0,isIn)
+                Gas0App%tScl = dtAppetizer/(Tau0*Model%Units%gT0)
 
-        	end subroutine SetTM03
+            end subroutine SetTM03
 
     end subroutine setIngestion
 
@@ -87,83 +89,192 @@ module msphingest
         type(State_T), intent(inout) :: State
 
         integer :: i,j,k
-        real(rp), dimension(NVAR) :: pW, pCon
-
-        real(rp) :: Tau,dRho,dP,Pmhd,Prcm
-        real(rp), dimension(NDIM) :: Mxyz,Vxyz
-        real(rp) :: D0,P0
-        logical  :: doIngestIJK,doInD,doInP
+        real(rp), dimension(NVAR) :: pCon,pConRC,pConPS,pW
+        real(rp), dimension(NDIM) :: B
+        real(rp) :: D0,P0,Tau,rcD,rcP,psD,psP
+        logical  :: doIngestIJK,doIngestRC,doIngestCOLD
 
     !Do traps
         if (.not. doIngest) return
         if ( (Model%t<=0) .and. (.not. doAppetizer) ) return !You'll spoil your appetite
 
-    	!if ( (Model%t<0) .and. (Model%ts>1) .and. doAppetizer .and. TM03%doInit) then
+        !if ( (Model%t<0) .and. (Model%ts>1) .and. doAppetizer .and. TM03%doInit) then
         !For now redoing every 100 timesteps to make sure voltron doesn't overwrite (bit silly)
         !TODO: Remove this after overhauling source ingestion
         if ( (Model%t<0) .and. (modulo(Model%ts,100) == 0) .and. doAppetizer ) then
-    		!Load TM03 into Gas0 for ingestion during spinup
-    		call LoadSpinupGas0(Model,Gr)
-    	endif
-
-        if (Model%doMultiF) then
-            write(*,*) 'Source ingestion not implemented for multifluid, you should do that'
-            stop
+            !Load TM03 into Gas0 for ingestion during spinup
+            call LoadSpinupGas0(Model,Gr)
         endif
 
-    !Now real ingestion work
-       !$OMP PARALLEL DO default(shared) collapse(2) &
-       !$OMP private(i,j,k,doInD,doInP,doIngestIJK,pCon,pW) &
-       !$OMP private(Tau,dRho,dP,Pmhd,Prcm,Mxyz,Vxyz,D0,P0)
-        do k=Gr%ks,Gr%ke
-            do j=Gr%js,Gr%je
-                do i=Gr%is,Gr%ie
+        if (Model%doMultiF) then
+            if (Model%nSpc<COLDFLUID) then
+                write(*,*) "Not enough fluids to hold cold"
+                stop
+            endif
+           !$OMP PARALLEL DO default(shared) collapse(2) &
+           !$OMP private(i,j,k,doIngestRC,doIngestCOLD,Tau,B) &
+           !$OMP private(rcD,rcP,psD,psP,pConRC,pConPS,pW)
+            do k=Gr%ks,Gr%ke
+                do j=Gr%js,Gr%je
+                    do i=Gr%is,Gr%ie
+                        Tau = Gr%Gas0(i,j,k,IM_TSCL)
+                        if (Tau<Model%dt) Tau = Model%dt !Unlikely to happen
 
-            		D0  = Gr%Gas0(i,j,k,IMDEN )
-            		P0  = Gr%Gas0(i,j,k,IMPR  )
-            		Tau = Gr%Gas0(i,j,k,IMTSCL)
-            		doInD = D0>dFloor
-            		doinP = P0>pFloor
-            		doIngestIJK = doInD .or. doInP
+                        !Try RC ingestion
+                        rcD = Gr%Gas0(i,j,k,IM_D_RING)
+                        rcP = Gr%Gas0(i,j,k,IM_P_RING)
+                        pConRC = State%Gas(i,j,k,:,RCFLUID)
+                        call Ingest2Con(Model,pConRC,doIngestRC,rcD,rcP,Tau)
 
-                    if (.not. doIngestIJK) cycle
+                        !Try plasmasphere ingestion
+                        psD = Gr%Gas0(i,j,k,IM_D_COLD)
+                        psP = Gr%Gas0(i,j,k,IM_P_COLD)
+                        pConPS = State%Gas(i,j,k,:,COLDFLUID)
+                        call Ingest2Con(Model,pConPS,doIngestCOLD,psD,psP,Tau)
 
-                    pCon = State%Gas(i,j,k,:,BLK)
-                    call CellC2P(Model,pCon,pW)
-                    Pmhd = pW(PRESSURE)
-                    Mxyz = pCon(MOMX:MOMZ) !Classical momentum
-                    Vxyz = pW(VELX:VELZ) !Velocity pre-ingestion
+                        !K: Need to test this cooling code
+                        ! if ( (doIngestRC  .and. doIngestCOLD) .and. (rcP <= psP) ) then
+                        !     !Hot fluid can't even beat plasmasphere, check for weirdly high sound speed
+                        !     call ClampHot(Model,psD,psP,rcD,rcP)
+                        !     !Reset things IMMEDIATELY
+                        !     pConRC = State%Gas(i,j,k,:,RCFLUID)
+                        !     call Ingest2ConNOW(Model,pConRC,doIngestRC,rcD,rcP)
+                        !     State%Gas(i,j,k,:,RCFLUID) = pConRC
+                        ! endif
 
-                    if (Tau<Model%dt) Tau = Model%dt !Unlikely to happen
-
-                    if (doInD) then
-                        dRho = D0 - pW(DEN)
-                        pW(DEN) = pW(DEN) + (Model%dt/Tau)*dRho
-                        if (dRho>0) then
-                            !If we're gaining mass, conserve momentum
-                            !Don't increase speed if mass decreases
-                            Vxyz = Mxyz/pW(DEN)
+                        if (doIngestRC) then
+                            State%Gas(i,j,k,:,RCFLUID) = pConRC
                         endif
-                    endif
 
-                    if (doInP) then
-                        Prcm = P0
-                        !Assume already wolf-limited or not
-                        dP = Prcm - Pmhd
-                        pW(PRESSURE) = pW(PRESSURE) + (Model%dt/Tau)*dP
-                    endif
+                        if (doIngestCOLD) then
+                            State%Gas(i,j,k,:,COLDFLUID) = pConPS
+                        endif
 
-                    !Preserve velocity during ingestion, ie ingesting in the moving frame
-                    pW(VELX:VELZ) = Vxyz
+                        if (doIngestRC .or. doIngestCOLD) then
+                            B = State%Bxyz(i,j,k,:)
+                            if (Model%doBackground) then
+                                B = B + Gr%B0(i,j,k,:)
+                            endif
+                            call MultiF2Bulk(Model,State%Gas(i,j,k,:,:),B)
+                        endif
+                    enddo
+                enddo
+            enddo !k
+        else
+            !Single fluid
+    
+            !$OMP PARALLEL DO default(shared) collapse(2) &
+            !$OMP private(i,j,k,doIngestIJK,pCon,D0,P0,Tau)
+            do k=Gr%ks,Gr%ke
+                do j=Gr%js,Gr%je
+                    do i=Gr%is,Gr%ie
 
-                    !Now put back
-                    call CellP2C(Model,pW,pCon)
-                    State%Gas(i,j,k,:,BLK) = pCon
+                        D0 = Gr%Gas0(i,j,k,IM_D_RING) + Gr%Gas0(i,j,k,IM_D_COLD)
+                        P0 = Gr%Gas0(i,j,k,IM_P_RING) + Gr%Gas0(i,j,k,IM_P_COLD)
+                        Tau = Gr%Gas0(i,j,k,IM_TSCL)
+
+                        if (Tau<Model%dt) Tau = Model%dt !Unlikely to happen
+
+                        pCon = State%Gas(i,j,k,:,BLK)
+                        call Ingest2Con(Model,pCon,doIngestIJK,D0,P0,Tau)
+                        if (.not. doIngestIJK) cycle
+                        !If still here, put new conserved state back
+                        State%Gas(i,j,k,:,BLK) = pCon
+
+                    enddo
                 enddo
             enddo
-        enddo
-                    
+        endif !MF
+        
+        contains
+            !Do some shenanigans to keep hot sound speed low where it doesn't matter
+            subroutine ClampHot(Model,psD,psP,rcD,rcP)
+                type(Model_T), intent(in)    :: Model
+                real(rp)     , intent(in)    :: psD,psP,rcD
+                real(rp)     , intent(inout) :: rcP
+
+                real(rp) :: CsT,CsRC,rcP0,xFac
+
+                if (rcP > psP) return !There's pressure here don't bother
+                !If still here then this region can't even compete with stupid plasmasphere heat
+                !Get that nonsense outta here
+
+                rcP0 = rcP
+                xFac = rcP/psP ! < 1
+                if (Model%doBoris) then
+                    CsT = xFac*Model%Ca
+                else
+                    CsT = HUGE !Not sure what to do for not boris
+                endif
+
+                CsRC = sqrt(Model%gamma*rcP/rcD) !RC fluid sound speed
+                if (CsT < CsRC) then
+                    !Reset rcP to hit target sound speed
+                    rcP = max( rcD*(CsT**2.0)/Model%gamma,100.0*pFloor )
+                    if (rcP > rcP0) rcP=rcP0
+                endif
+                
+            end subroutine ClampHot
+
     end subroutine MagsphereIngest
+
+    !Take conserved state (pCon) and ingest in place IMMEDIATELY
+    subroutine Ingest2ConNOW(Model,pCon,doIngest,D0,P0)
+        type(Model_T), intent(in) :: Model
+        real(rp), intent(inout) :: pCon(NVAR)
+        real(rp), intent(in)    :: D0,P0
+        logical , intent(out)   :: doIngest
+
+        call Ingest2Con(Model,pCon,doIngest,D0,P0,Model%dt)
+    end subroutine Ingest2ConNOW
+
+    !Take conserved state (pCon) and ingest in place
+    subroutine Ingest2Con(Model,pCon,doIngest,D0,P0,Tau)
+        type(Model_T), intent(in) :: Model
+        real(rp), intent(inout) :: pCon(NVAR)
+        real(rp), intent(in)    :: D0,P0,Tau
+        logical , intent(out)   :: doIngest
+
+        real(rp) :: pW(NVAR)
+        real(rp) :: Pmhd,dRho,dP
+        real(rp), dimension(NDIM) :: Mxyz,Vxyz
+        logical :: doInD,doInP
+
+        !Decide if there's anything to eat
+        doInD = D0>dFloor
+        doinP = P0>pFloor
+        doIngest = doInD .or. doInP
+
+        if (.not. doIngest) return
+
+        !Now we feast
+        call CellC2P(Model,pCon,pW)
+        Pmhd = pW(PRESSURE)
+        Mxyz = pCon(MOMX:MOMZ) !Classical momentum
+        Vxyz = pW(VELX:VELZ) !Velocity pre-ingestion
+
+        if (doInD) then
+            dRho = D0 - pW(DEN)
+            pW(DEN) = pW(DEN) + (Model%dt/Tau)*dRho
+            if (dRho>0) then
+                !If we're gaining mass, conserve momentum
+                !Don't increase speed if mass decreases
+                Vxyz = Mxyz/pW(DEN)
+            endif
+        endif
+
+        if (doInP) then
+            dP = P0 - Pmhd
+            pW(PRESSURE) = pW(PRESSURE) + (Model%dt/Tau)*dP
+        endif
+
+        !Preserve velocity during ingestion, ie ingesting in the moving frame
+        pW(VELX:VELZ) = Vxyz
+
+        !Now put back
+        call CellP2C(Model,pW,pCon)
+        
+    end subroutine Ingest2Con
 
     !Loads Gas0 w/ t<0 ingestion values
     subroutine LoadSpinupGas0(Model,Gr)
@@ -176,7 +287,7 @@ module msphingest
         real(rp), dimension(NDIM) :: xyzSM,xyzGSM
 
         !Start by setting geopack for transformation
-	    call mjdRecalc( TM03_MJD() )
+        call mjdRecalc( TM03_MJD() )
 
        !$OMP PARALLEL DO default(shared) collapse(2) &
        !$OMP private(i,j,k,doInD,doInP,doIngestIJK)  &
@@ -184,26 +295,25 @@ module msphingest
         do k=Gr%ks,Gr%ke
             do j=Gr%js,Gr%je
                 do i=Gr%is,Gr%ie
-                	!Get GSM coordinates
-                	xyzSM = Gr%xyzcc(i,j,k,XDIR:ZDIR)
-                	call SM2GSW(xyzSM(XDIR),xyzSM(YDIR),xyzSM(ZDIR),xyzGSM(XDIR),xyzGSM(YDIR),xyzGSM(ZDIR))
-            		
-            		call Appetizer_TM03(Model,xyzGSM,D0,P0,Tau,doIngestIJK)
+                    !Get GSM coordinates
+                    xyzSM = Gr%xyzcc(i,j,k,XDIR:ZDIR)
+                    call SM2GSW(xyzSM(XDIR),xyzSM(YDIR),xyzSM(ZDIR),xyzGSM(XDIR),xyzGSM(YDIR),xyzGSM(ZDIR))
+                    
+                    call Appetizer_TM03(Model,xyzGSM,D0,P0,Tau,doIngestIJK)
 
-            		doInD = D0>dFloor
-            		doinP = P0>pFloor
-            		doIngestIJK = doInD .and. doInP .and. doIngestIJK
-            		if (doIngestIJK) then
-            			Gr%Gas0(i,j,k,IMDEN ) = D0
-            			Gr%Gas0(i,j,k,IMPR  ) = P0
-            			Gr%Gas0(i,j,k,IMTSCL) = Tau*Gas0App%tScl
-            		else
-            			Gr%Gas0(i,j,k,IMDEN ) = 0.0
-            			Gr%Gas0(i,j,k,IMPR  ) = 0.0
-            			Gr%Gas0(i,j,k,IMTSCL) = 0.0
-            		endif
+                    doInD = D0>dFloor
+                    doinP = P0>pFloor
+                    doIngestIJK = doInD .and. doInP .and. doIngestIJK
+                    Gr%Gas0(i,j,k,:) = 0.0
 
-               	enddo
+                    if (doIngestIJK) then
+                        Gr%Gas0(i,j,k,IM_D_RING)  = D0
+                        Gr%Gas0(i,j,k,IM_P_RING)  = P0
+                        Gr%Gas0(i,j,k,IM_TSCL  )  = Tau*Gas0App%tScl
+                        !Leave D/P_COLD 0
+                    endif
+
+                enddo
             enddo
         enddo
 
@@ -212,55 +322,55 @@ module msphingest
     end subroutine LoadSpinupGas0
 !-----
 
-	!TM03 as an appetizer, provide D/P [code units] for a given XYZ and ingestion timescale [code]
-	!isIn is whether the value is edible
-	subroutine Appetizer_TM03(Model,xyzIN,D0,P0,Tau0,isIn)
-		type(Model_T), intent(in) :: Model
-		real(rp), intent(in)    :: xyzIN(NDIM)
-		real(rp), intent(out)   :: D0,P0,Tau0
-		logical , intent(inout) :: isIn
+    !TM03 as an appetizer, provide D/P [code units] for a given XYZ and ingestion timescale [code]
+    !isIn is whether the value is edible
+    subroutine Appetizer_TM03(Model,xyzIN,D0,P0,Tau0,isIn)
+        type(Model_T), intent(in) :: Model
+        real(rp), intent(in)    :: xyzIN(NDIM)
+        real(rp), intent(out)   :: D0,P0,Tau0
+        logical , intent(inout) :: isIn
 
-		real(rp) :: R,rho
-		real(rp) :: D,P,Tau,Tev,Cs
-		real(rp) :: xyz(NDIM)
+        real(rp) :: R,rho
+        real(rp) :: D,P,Tau,Tev,Cs
+        real(rp) :: xyz(NDIM)
 
-		!Initialize
-		D0 = 0.0
-		P0 = 0.0
-		Tau0 = 0.0
+        !Initialize
+        D0 = 0.0
+        P0 = 0.0
+        Tau0 = 0.0
         isIn = .false.
 
-		if (.not. inShueMP(xyzIn)) return
+        if (.not. inShueMP(xyzIn)) return
 
-		R = norm2(xyzIN)
-		rho = norm2([xyzIN(XDIR),xyzIN(YDIR)])
+        R = norm2(xyzIN)
+        rho = norm2([xyzIN(XDIR),xyzIN(YDIR)])
 
-		if (xyzIN(XDIR)>0) then
-			!Map back to Shue MP at dusk
-			call ShueMP2Dusk(xyzIN,xyz)
-		else
-			xyz = xyzIN
-		endif
+        if (xyzIN(XDIR)>0) then
+            !Map back to Shue MP at terminator
+            call ShueMP2Terminator(xyzIN,xyz)
+        else
+            xyz = xyzIN
+        endif
 
-		isIn = inShueMP(xyz) .and. (rho>10) .and. (xyz(XDIR)<=0) &
-			   .and. (xyz(XDIR)>-50) .and. (abs(xyz(ZDIR))<Gas0App%dz)
+        isIn = inShueMP(xyz) .and. (rho>10) .and. (xyz(XDIR)<=0) &
+               .and. (xyz(XDIR)>-50) .and. (abs(xyz(ZDIR))<Gas0App%dz)
 
         call EvalTM03(xyz,D,P,isIn)
 
-		if (.not. isIn) return
+        if (.not. isIn) return
 
-		!Get timescale [s], sonic bounce
-		!CsMKS = 9.79 x sqrt(5/3 * Ti) km/s, Ti eV
-		Tev = (1.0e+3)*DP2kT(D,P) !Temp in eV
-		Cs = 9.79*sqrt((5.0/3)*TeV)
+        !Get timescale [s], sonic bounce
+        !CsMKS = 9.79 x sqrt(5/3 * Ti) km/s, Ti eV
+        Tev = (1.0e+3)*DP2kT(D,P) !Temp in eV
+        Cs = 9.79*sqrt((5.0/3)*TeV)
 
-		Tau = (DipoleL(xyz)*Model%Units%gx0*1.0e-3)/Cs
+        Tau = (DipoleL(xyz)*Model%Units%gx0*1.0e-3)/Cs
 
-		!Now have D,P,Tau in physical units. Convert back to code
-		D0   = D !Magnetosphere is already in #/cc
-		P0   = P/Model%Units%gP0
-		Tau0 = Tau/Model%Units%gT0
+        !Now have D,P,Tau in physical units. Convert back to code
+        D0   = D !Magnetosphere is already in #/cc
+        P0   = P/Model%Units%gP0
+        Tau0 = Tau/Model%Units%gT0
 
-	end subroutine Appetizer_TM03
+    end subroutine Appetizer_TM03
 
 end module msphingest

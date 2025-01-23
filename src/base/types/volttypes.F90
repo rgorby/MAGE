@@ -47,7 +47,7 @@ module volttypes
     integer, parameter :: NVARWIND0 = 3
 
     integer, parameter :: NVARVOLTSRC = NVARVOLT0 + NVARIMAG0
-    
+
     enum, bind(C)
         enumerator :: V_GRID_UNIFORM=1, V_GRID_SHAFEE
     endenum
@@ -378,20 +378,20 @@ module volttypes
 
         subroutine getMomentsIMAG_T(App,th,ph,t,imW,isEdible)
             import imagCoupler_T
-            import rp, NVARIMAG
+            import rp, NVARIMAG0
             class(imagCoupler_T), intent(inout) :: App
             real(rp), intent(in) :: th,ph,t
-            real(rp), intent(out) :: imW(NVARIMAG)
+            real(rp), intent(out) :: imW(NVARIMAG0)
             logical, intent(out) :: isEdible
         end subroutine getMomentsIMAG_T
 
 
         subroutine getMomentsPrecipIMAG_T(App,th,ph,t,imW,isEdible)
             import imagCoupler_T
-            import rp, NVARIMAG
+            import rp, NVARIMAG0
             class(imagCoupler_T), intent(inout) :: App
             real(rp), intent(in) :: th,ph,t
-            real(rp), intent(out) :: imW(NVARIMAG)
+            real(rp), intent(out) :: imW(NVARIMAG0)
             logical, intent(out) :: isEdible
         end subroutine getMomentsPrecipIMAG_T
     end interface
@@ -519,14 +519,14 @@ module volttypes
         module subroutine getMomentsRAIJU(App,th,ph,t,imW,isEdible)
             class(raijuCoupler_T), intent(inout) :: App
             real(rp), intent(in) :: th,ph,t
-            real(rp), intent(out) :: imW(NVARIMAG)
+            real(rp), intent(out) :: imW(NVARIMAG0)
             logical, intent(out) :: isEdible
         end subroutine getMomentsRAIJU
 
         module subroutine getMomentsPrecipRAIJU(App,th,ph,t,imW,isEdible)
             class(raijuCoupler_T), intent(inout) :: App
             real(rp), intent(in) :: th,ph,t
-            real(rp), intent(out) :: imW(NVARIMAG)
+            real(rp), intent(out) :: imW(NVARIMAG0)
             logical, intent(out) :: isEdible
         end subroutine getMomentsPrecipRAIJU
 
@@ -647,7 +647,7 @@ module volttypes
     subroutine baseEval(imag,x1,x2,t,imW,isEdible)
         class(innerMagBase_T), intent(inout) :: imag
         real(rp), intent(in) :: x1,x2,t
-        real(rp), intent(out) :: imW(NVARIMAG)
+        real(rp), intent(out) :: imW(NVARIMAG0)
         logical, intent(out) :: isEdible
 
         imW = 0.0_rp

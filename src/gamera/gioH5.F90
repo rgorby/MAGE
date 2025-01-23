@@ -462,18 +462,14 @@ module gioH5
 
             endif
 
-            if (Model%doSource) then
-                if (Model%isMagsphere) then
-                    call GameraOut("SrcD" ,gamOut%dID,gamOut%dScl,Gr%Gas0(Gr%is:Gr%ie,Gr%js:Gr%je,Gr%ks:Gr%ke,IMDEN ))
-                    call GameraOut("SrcP" ,gamOut%pID,gamOut%pScl,Gr%Gas0(Gr%is:Gr%ie,Gr%js:Gr%je,Gr%ks:Gr%ke,IMPR  ))
-                    call GameraOut("SrcX1","DEG",1.0_rp     ,Gr%Gas0(Gr%is:Gr%ie,Gr%js:Gr%je,Gr%ks:Gr%ke     ,IMX1  ))
-                    call GameraOut("SrcX2","DEG",1.0_rp     ,Gr%Gas0(Gr%is:Gr%ie,Gr%js:Gr%je,Gr%ks:Gr%ke     ,IMX2  ))
-                    call GameraOut("SrcDT","s"  ,gamOut%tScl,Gr%Gas0(Gr%is:Gr%ie,Gr%js:Gr%je,Gr%ks:Gr%ke     ,IMTSCL))
-
-                else
-                    write(*,*) "Nothing defined for output when doSource=T and not magnetosphere"
-                endif
-                  
+            if (Model%doSource .and. Model%isMagsphere) then
+                
+                call GameraOut("SrcD_RING" ,gamOut%dID,gamOut%dScl,Gr%Gas0(Gr%is:Gr%ie,Gr%js:Gr%je,Gr%ks:Gr%ke,IM_D_RING))
+                call GameraOut("SrcP_RING" ,gamOut%pID,gamOut%pScl,Gr%Gas0(Gr%is:Gr%ie,Gr%js:Gr%je,Gr%ks:Gr%ke,IM_P_RING))
+                call GameraOut("SrcD_COLD" ,gamOut%dID,gamOut%dScl,Gr%Gas0(Gr%is:Gr%ie,Gr%js:Gr%je,Gr%ks:Gr%ke,IM_D_COLD))
+                call GameraOut("SrcP_COLD" ,gamOut%pID,gamOut%pScl,Gr%Gas0(Gr%is:Gr%ie,Gr%js:Gr%je,Gr%ks:Gr%ke,IM_P_COLD))
+                call GameraOut("SrcDT"     ,"s"       ,gamOut%tScl,Gr%Gas0(Gr%is:Gr%ie,Gr%js:Gr%je,Gr%ks:Gr%ke,IM_TSCL  ))
+            
             endif
 
             if(Model%doResistive) then
