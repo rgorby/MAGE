@@ -236,9 +236,6 @@ module volttypes
         real(rp) :: rm2g
         real(rp) :: Rion
 
-        ! data for coupling imag to gamera
-        real(rp), dimension(:,:,:,:), allocatable :: SrcNC !Node-centered source terms
-
         ! data for coupler
         character(len=strLen) :: vh5File
 

@@ -89,8 +89,6 @@ submodule (volttypes) gamCplTypessub
         type(TimeSeries_T) :: tsMJD
         real(rp) :: tIO
 
-        allocate(App%SrcNC(App%Grid%is:voltApp%chmp2mhd%iMax+1,App%Grid%js:App%Grid%je+1,App%Grid%ks:App%Grid%ke+1,1:NVARIMAG))
-
         ! over-ride some Gamera parameters with Voltron values
         tsMJD%wID = voltApp%tilt%wID
         call tsMJD%initTS("MJD",doLoudO=.false.)

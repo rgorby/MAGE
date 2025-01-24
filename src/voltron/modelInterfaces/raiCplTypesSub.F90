@@ -81,8 +81,8 @@ submodule (volttypes) raijuCplTypesSub
             !! Phi [rad]
         real(rp), intent(in) :: t
             !! Time since run start [s]
-        real(rp), intent(out) :: imW(NVARIMAG)
-        logical, intent(out) :: isEdible
+        real(rp), intent(out) :: imW(NVARIMAG0)
+        logical , intent(out) :: isEdible
 
         integer :: s  ! Iterators
         integer :: i0, j0  ! i,j cell that provided th,ph are in
@@ -144,7 +144,7 @@ submodule (volttypes) raijuCplTypesSub
     module subroutine getMomentsPrecipRAIJU(App,th,ph,t,imW,isEdible)
         class(raijuCoupler_T), intent(inout) :: App
         real(rp), intent(in) :: th,ph,t
-        real(rp), intent(out) :: imW(NVARIMAG)
+        real(rp), intent(out) :: imW(NVARIMAG0)
         logical, intent(out) :: isEdible
 
         imW = 0.0
