@@ -111,13 +111,13 @@ def processComparativeResults(case1_jobid, case2_jobid, caseName, pbsTemplate, p
               f"e.returncode = {e.returncode}\n"
               'See test log for output.\n',
               file=sys.stderr)
-    job_id = cproc.stdout.split('.')[0]
+    job_id = cproc.stdout.rstrip()
     if debug:
         print(f"job_id = {job_id}")
     return job_id
 
 
-def create_combined_report(postproc_job_id, caseName, pbsTemplate, pbs_options):
+def create_combined_report(postproc_job_id_1, postproc_job_id_2, caseName, pbsTemplate, pbs_options):
     # Render the job template.
     pbs_content = pbsTemplate.render(pbs_options)
     pbsFilename = f"{caseName}.pbs"
@@ -126,7 +126,7 @@ def create_combined_report(postproc_job_id, caseName, pbsTemplate, pbs_options):
     # Submit the job
     if verbose:
         print('Submitting combined Slack report job.')
-    cmd = f"qsub -W depend=afterok:{postproc_job_id} {pbsFilename}"
+    cmd = f"qsub -W depend=afterok:{postproc_job_id_1}:{postproc_job_id_2} {pbsFilename}"
     if debug:
         print(f"cmd = {cmd}")
     try:
@@ -141,6 +141,9 @@ def create_combined_report(postproc_job_id, caseName, pbsTemplate, pbs_options):
     job_id = cproc.stdout.split('.')[0]
     if debug:
         print(f"job_id = {job_id}")
+
+    # Return the job ID.
+    return job_id
 
 
 def generateAndRunCase(caseName,pbsTemplate,pbs_options,xmlTemplate,xml_options,wait_job_id=None):
@@ -161,7 +164,7 @@ def generateAndRunCase(caseName,pbsTemplate,pbs_options,xmlTemplate,xml_options,
     shutil.copy2('../bcwind.h5', './bcwind.h5')
     # Submit the job
     if verbose:
-        print('Submitting comparative tests model run.')
+        print(f"Submitting comparative tests model run for case {caseName}.")
     cmd = f"qsub {PBS_SCRIPT}"
     if wait_job_id is not None:
         cmd = f"qsub -W depend=afterok:{wait_job_id} {PBS_SCRIPT}"
@@ -721,11 +724,29 @@ def main():
             postProcOpts['ts'] = '0'
             postProcOpts['te'] = '120'
             postProcOpts['dt'] = '60'
-            postproc_job_id = processComparativeResults(job_id_s_r, job_id_m32_r, postProcOpts['caseName'], postproc_template, postProcOpts)
+            postproc_job_id_1 = processComparativeResults(job_id_s_r, job_id_m32_r, postProcOpts['caseName'], postproc_template, postProcOpts)
+            job_ids[i_module_set].append(postproc_job_id_1)
+            submit_ok[i_module_set].append(True)
+
+            postProcOpts = base_pbs_options
+            postProcOpts['caseName'] = 'MpiRestartComp'
+            postProcOpts['frameFolder'] = 'vidData'
+            postProcOpts['case1F'] = 'relMpi32Release'
+            postProcOpts['case1id'] = 'msphere_M32_R'
+            postProcOpts['case2F'] = 'relMpi32ResRelease'
+            postProcOpts['case2id'] = 'msphere_M32_R'
+            postProcOpts['ts'] = '50'
+            postProcOpts['te'] = '120'
+            postProcOpts['dt'] = '60'
+            postproc_job_id_2 = processComparativeResults(job_id_m32_r, job_id_m32r_r, postProcOpts['caseName'], postproc_template, postProcOpts)
+            job_ids[i_module_set].append(postproc_job_id_2)
+            submit_ok[i_module_set].append(True)
 
             # Generate the combined report.
             postProcOpts = base_pbs_options
-            create_combined_report(postproc_job_id, "combined_report", slack_report_template, base_pbs_options)
+            report_job_id = create_combined_report(postproc_job_id_1, postproc_job_id_2, "combined_report", slack_report_template, base_pbs_options)
+            job_ids[i_module_set].append(report_job_id)
+            submit_ok[i_module_set].append(True)
 
         else:
             if debug:
