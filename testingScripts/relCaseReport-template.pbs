@@ -2,7 +2,7 @@
 
 #PBS -N relCaseReport
 #PBS -A {{ account }}
-#PBS -q casper@casper-pbs
+#PBS -q main
 #PBS -l job_priority={{ job_priority }}
 #PBS -l select=1:ncpus=128
 #PBS -l walltime=1:00:00
@@ -46,7 +46,7 @@ echo 'The active environment variables are:'
 printenv
 
 # Generate the report.
-$KAIJUHOME/testingScripts/combined_relative_tests_report.py -ltv relMpi32ResRelease relMpi32Release relSerialRelease relMpi32Release
+$KAIJUHOME/testingScripts/combined_relative_tests_report.py -lv relMpi32ResRelease relMpi32Release relSerialRelease relMpi32Release
 
 echo "Job $PBS_JOBID ended at `date` on `hostname` in directory `pwd`."
 
