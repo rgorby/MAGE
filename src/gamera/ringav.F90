@@ -570,8 +570,8 @@ module ringav
         if (doInit) then
             if(allocated(A)) deallocate(A)
             allocate(A(Gr%isg:Gr%ieg,Gr%jsg:Gr%jeg,Gr%ksg:Gr%keg,NDIM))
-            A = 0.0
         endif
+        A = 0.0 !Always wipe array
 
     end subroutine InitRAVec
 
