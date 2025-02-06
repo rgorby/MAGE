@@ -40,8 +40,7 @@ module imag2mhd_interface
         !TODO: Think about what time to evaluate at
         t = gApp%Model%t*gApp%Model%Units%gT0
 
-        write(*,*) "Finish writing convertimagtogamera"
-        stop
+        Gr%Gas0 = 0.0 !Just set it all to zero
 
     ! !Proceed in two steps
     ! ! 1) Get ingestion values at each node (cell corner)

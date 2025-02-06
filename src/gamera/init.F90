@@ -429,11 +429,8 @@ module init
     !Source terms
         call xmlInp%Set_Val(Model%doSource,'source/doSource',.false.)
         if (Model%doSource) then
-            call xmlInp%Set_Val(Model%nvSrc,'source/nvSrc',NVAR)
+            call xmlInp%Set_Val(Model%nvSrc,'source/nvSrc',NVARVOLTSRC)
         endif
-
-        write(*,*) "FIX GAS0 INIT!" !K:
-        stop
 
     !Get RunID
         call xmlInp%Set_Val(Model%RunID,'sim/runid',"Sim")
