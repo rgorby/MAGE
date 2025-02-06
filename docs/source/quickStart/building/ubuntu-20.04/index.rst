@@ -19,9 +19,8 @@ A few tools must be installed on your system before you begin building the
 ``kaiju`` software. These instructions assume you have permission to use
 ``sudo`` to install software.
 
-.. code-block::
+.. code-block:: shell
 
-   #!shell
    sudo apt-get install build-essential
    sudo apt-get install cmake
    sudo apt-get install git
@@ -44,9 +43,8 @@ Once installed, this software should be available on your system under
 Once the Intel tools are installed, you will need to make them available
 during the build process. Set up the tools as follows:
 
-.. code-block::
+.. code-block:: shell
 
-   #!shell
    source /opt/intel/oneapi/setvars.sh
 
 Step 1: Build prerequisite libraries

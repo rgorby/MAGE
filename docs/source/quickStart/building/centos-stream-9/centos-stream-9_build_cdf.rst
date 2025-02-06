@@ -7,14 +7,12 @@ Introduction
 
 This file describes how to build and install the CDF library on CentOS-Stream 9 for use with the ``kaiju`` software.
 
-*NOTE*\ : A CentOS-Stream 9-specific subdirectory of the user home directory is used for this build.
+**NOTE**: A CentOS-Stream 9-specific subdirectory of the user home directory is used for this build.
 
 Building and installing the CDF library
 ---------------------------------------
 
-.. code-block::
-
-   #!shell
+.. code-block:: shell
 
    # Specify the name for this system.
    host_system=centos-stream-9
@@ -55,7 +53,6 @@ Using the CDF library
 
 To use this software, you must run the setup script:
 
-.. code-block::
+.. code-block:: shell
 
-   #!shell
    source $build_root/bin/definitions.B

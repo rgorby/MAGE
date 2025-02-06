@@ -11,9 +11,8 @@ These instructions assume that the user is using the ``bash`` shell, and that no
 
 Like most HPC systems, ``pleiades`` uses the ``module`` system to manage the versions of software packages available to the user. A "module" is a collection of programs and libraries for a specific task, and "loading" the module adjusts the user environment (mostly by setting or updating environment variables) to make that module available to the user. When you log in to ``pleiades``\ , no modules are loaded by default (NOTE: This is new behavior in pleiades since the TOSS4 upgrade.):
 
-.. code-block::
+.. code-block:: shell
 
-   #!shell
    module list
    No Modulefiles Currently Loaded.
 
@@ -28,9 +27,8 @@ Step 1: Load the build modules
 
 Begin by loading the modules needed to build the serial version of the ``kaiju`` software on ``pleiades``\ :
 
-.. code-block::
+.. code-block:: shell
 
-   #!shell
    module purge
    module load nas
    module load pkgsrc/2022Q1-rome  # For git-lfs and cmake
@@ -41,9 +39,8 @@ Begin by loading the modules needed to build the serial version of the ``kaiju``
 
 After these commands have been run, verify your module list with ``module list``\ :
 
-.. code-block::
+.. code-block:: shell
 
-   #!shell
    module list
 
    Currently Loaded Modules:
@@ -57,9 +54,8 @@ Step 2: Create the build directory
 
 In this case, just move to your home directory.
 
-.. code-block::
+.. code-block:: shell
 
-   #!shell
    cd $HOME
 
 
@@ -70,17 +66,15 @@ NOTE: This step assumes you have been granted access to the ``kaiju`` repository
 
 Clone the ``kaiju`` repository (or "repo") from BitBucket:
 
-.. code-block::
+.. code-block:: shell
 
-   #!shell
    git clone git@bitbucket.org:aplkaiju/kaiju.git
 
 
 This process should take a minute or so. When complete, verify that the ``kaiju`` code exists in your directory (the actual directory contents may differ slightly from what is shown below):
 
-.. code-block::
+.. code-block:: shell
 
-   #!shell
    ls kaiju
    analysis        examples        kaiju.sublime-project  pytests     scripts   testingScripts
    cmake           external        kaipy                  quickstart  setup.py  tests
@@ -89,9 +83,8 @@ This process should take a minute or so. When complete, verify that the ``kaiju`
 
 Now move down into the cloned repo, and switch to the branch of the code you wish to use. By default, the cloned repository provides the ``master`` branch, but we want the ``development`` branch:
 
-.. code-block::
+.. code-block:: shell
 
-   #!shell
    cd kaiju
    git switch development
 
@@ -101,18 +94,16 @@ Step 4: Run ``cmake`` to create the ``Makefile`` needed to build the software
 
 Since the ``kaiju`` code can be built in serial and MPI forms, we first make a directory in which to build the serial version of the code (use whatever name you prefer, but ``build_serial`` is simple and unambiguous):
 
-.. code-block::
+.. code-block:: shell
 
-   #!shell
    mkdir build_serial
    cd build_serial
 
 
 Now run the ``cmake`` command. Save the ``cmake`` output, and use timestamps for each step. The options shown below direct the build process to use a recent version of the Intel Fortran compiler:
 
-.. code-block::
+.. code-block:: shell
 
-   #!shell
    date; time FC=`which ifort` cmake >& cmake.out; date
 
 
@@ -178,9 +169,8 @@ Step 5: Compile the ``kaiju`` software
 
 Now use ``make`` to build the ``kaiju`` software, time-stamping and saving the output:
 
-.. code-block::
+.. code-block:: shell
 
-   #!shell
    date; time make >& make.out; date
 
 
@@ -197,9 +187,8 @@ This command should complete in about 20 minutes. When the command is finished, 
 
 To verify that all of the ``kaiju`` programs have been built, examine the ``bin`` subdirectory of your ``build_serial`` directory (this list will evolve as more programs are added):
 
-.. code-block::
+.. code-block:: shell
 
-   #!shell
    ls bin
    calcdb.x  chop.x  gamera.x  gamhelio.x  kaitoy.x  project.x  psd.x  push.x  rcm.x  remix2rcm.x  remix2remix.x  remix.x  sctrack.x  slice.x  trace.x  voltron.x  wpicheck.x
 
@@ -214,9 +203,8 @@ Step 1: Load the build modules
 
 Begin by loading the modules needed to build the MPI version of the ``kaiju`` software on ``pleiades``\ :
 
-.. code-block::
+.. code-block:: shell
 
-   #!shell
    module load nas
    module load pkgsrc/2022Q1-rome  # For git-lfs and cmake
    module load comp-intel/2020.4.304  # Latest version
@@ -227,9 +215,8 @@ Begin by loading the modules needed to build the MPI version of the ``kaiju`` so
 
 After these commands have been run, verify your module list with ``module list``\ :
 
-.. code-block::
+.. code-block:: shell
 
-   #!shell
    module list
 
    Currently Loaded Modules:
@@ -243,9 +230,8 @@ Step 2: Create the build directory
 
 In this case, just move to your home directory.
 
-.. code-block::
+.. code-block:: shell
 
-   #!shell
    cd $HOME
 
 
@@ -256,17 +242,15 @@ NOTE: This step assumes you have been granted access to the ``kaiju`` repository
 
 Clone the ``kaiju`` repository (or "repo") from BitBucket (skip this part if you already cloned the repo):
 
-.. code-block::
+.. code-block:: shell
 
-   #!shell
    git clone git@bitbucket.org:aplkaiju/kaiju.git
 
 
 This process should take a minute or so. When complete, verify that the ``kaiju`` code exists in your directory (the actual directory contents may differ slightly from what is shown below):
 
-.. code-block::
+.. code-block:: shell
 
-   #!shell
    ls kaiju
    analysis      CMakeLists.txt  gitHookScripts         places      README.md  src             xml
    build_serial  examples        kaiju.sublime-project  pytests     scripts    testingScripts
@@ -275,9 +259,8 @@ This process should take a minute or so. When complete, verify that the ``kaiju`
 
 Now move down into the cloned repo, and switch to the branch of the code you wish to use. By default, the cloned repository provides the ``master`` branch, but we want the ``development`` branch:
 
-.. code-block::
+.. code-block:: shell
 
-   #!shell
    cd kaiju
    git switch development
 
@@ -287,18 +270,16 @@ Step 4: Run ``cmake`` to create the ``Makefile`` needed to build the software
 
 Since the ``kaiju`` code can be built in serial and MPI forms, we first make a directory in which to build the MPI version of the code (use whatever name you prefer, but ``build_mpi`` is simple and unambiguous):
 
-.. code-block::
+.. code-block:: shell
 
-   #!shell
    mkdir build_mpi
    cd build_mpi
 
 
 Now run the ``cmake`` command. Save the ``cmake`` output, and use timestamps for each step. The options shown below direct the build process to use a recent version of the Intel Fortran compiler:
 
-.. code-block::
+.. code-block:: shell
 
-   #!shell
    date; time FC=`which ifort` cmake -DENABLE_MPI=ON .. >& cmake.out; date
 
 
@@ -379,9 +360,8 @@ Step 5: Compile the ``kaiju`` software
 
 Now use ``make`` to build the ``kaiju`` software, time-stamping and saving the output:
 
-.. code-block::
+.. code-block:: shell
 
-   #!shell
    date; time make >& make.out; date
 
 
@@ -397,9 +377,8 @@ This command should complete in about 30 minutes. When the command is finished, 
 
 To verify that all of the ``kaiju`` programs have been built, examine the ``bin`` subdirectory of your ``build_mpi`` directory (this list will evolve as more programs are added):
 
-.. code-block::
+.. code-block:: shell
 
-   #!shell
    ls bin
    calcdb.x  chop.x  gamera_mpi.x  gamera.x  gamhelio_mpi.x  gamhelio.x  kaitoy_mpi.x  kaitoy.x  project.x  psd.x  push.x  rcm.x  remix2rcm.x  remix2remix.x  remix.x  sctrack.x  slice.x  trace.x  voltron_mpi.x  voltron.x  wpicheck.x
 
@@ -409,15 +388,13 @@ Using the ``kaiju`` software
 
 Once built, you must run the setup script before using the ``kaiju`` software:
 
-.. code-block::
+.. code-block:: shell
 
-   #!shell
    source $KAIJU_HOME/scripts/setupEnvironment.sh
 
 
 This script will set environment variables needed by the ``kaiju`` software, including the ``KAIJUHOME`` environment variable (not the ``KAIJU_HOME`` environment variable). However, the path to the compiled programs is not added - you will need to specify the complete path when using compiled programs. For example,  to run the serial version of ``gamera.x``\ :
 
-.. code-block::
+.. code-block:: shell
 
-   #!shell
    $KAIJUHOME/build_serial/bin/gamera.x

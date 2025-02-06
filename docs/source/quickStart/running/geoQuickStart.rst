@@ -45,7 +45,7 @@ The simplest way of generating is to use kaiju/scripts/genLFM.py to create a
 standard LFM-style grid of resolution D/Q/O/H for double/quad/oct/hex.  Note,
 you'll likely have to do this on Casper, the post-processing node.
 
-.. code-block::
+.. code-block:: shell
 
     [skareem@casper26:~/kaiju/scripts]$ genLFM.py -gid D
     Generating Double LFM-style grid ...
@@ -159,18 +159,18 @@ The restart file msphere.Res.00005.h5 would be:
 
 Specifying nRes="-1" will read the XXXXX symbolic link.
 
-:raw-html-m2r:`<physics>` domain:
+`<physics>` domain:
 
-:raw-html-m2r:`<prob>` domain:
+`<prob>` domain:
 
-:raw-html-m2r:`<ring>` domain: gid tells the model which type of grid is being
+`<ring>` domain: gid tells the model which type of grid is being
 used. It is supposed to be consistent with the input grid file. Ring average
 technique is implemented if doRing is True. The number of parameters for ring
 average is set in Nr, and each parameter is listed as Nc1, Nc2, ... Usually
 there are four parameters for double resolution grid and 8 parameters for quad
 resolution grid.
 
-:raw-html-m2r:`<wind>` domain: tsfile takes the name of the solar wind file to
+`<wind>` domain: tsfile takes the name of the solar wind file to
 be used.
 
 Under the REMIX block, the Np and Nt gives the number of grid cells in Remix

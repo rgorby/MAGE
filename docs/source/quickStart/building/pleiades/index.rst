@@ -15,12 +15,10 @@ versions of software packages available to the user. A "module" is a
 collection of programs and libraries for a specific task, and "loading" the
 module adjusts the user environment (mostly by setting or updating environment
 variables) to make that module available to the user. When you log in to
-``pleiades``, no modules are loaded by default (NOTE: This is new behavior on
-``pleiades`` since the TOSS4 upgrade.):
+``pleiades``, no modules are loaded by default:
 
-.. code-block::
+.. code-block:: shell
 
-   #!shell
    ewinter@pfe26:~> module list
    No Modulefiles Currently Loaded.
 

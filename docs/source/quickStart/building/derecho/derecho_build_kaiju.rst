@@ -7,13 +7,12 @@ Introduction
 
 These instructions will walk you through the process of building and installing the ``kaiju`` software on the ``derecho`` supercomputer.
 
-These instructions assume that the user is using the ``bash`` shell, and that no modifications have been made to the user "dotfiles" (\ ``$HOME/.bashrc``\ , ``$HOME/.bash_profile``\ ). If you have customized either of these files for your account, please carefully save and inspect the output from each command in the build process to ensure that no unexpected problems have crept in. To facilitate this practice, all of the commands shown below will illustrate how to save command output, and how to measure how long each step takes. The latter is a useful bit of information which can help identify build problems early in the process, avoiding much wasted time and effort later.
+These instructions assume that the user is using the ``bash`` shell, and that no modifications have been made to the user "dotfiles" (``$HOME/.bashrc``, ``$HOME/.bash_profile``). If you have customized either of these files for your account, please carefully save and inspect the output from each command in the build process to ensure that no unexpected problems have crept in. To facilitate this practice, all of the commands shown below will illustrate how to save command output, and how to measure how long each step takes. The latter is a useful bit of information which can help identify build problems early in the process, avoiding much wasted time and effort later.
 
-Like most HPC systems, ``derecho`` uses the ``module`` system to manage the versions of software packages available to the user. A "module" is a collection of programs and libraries for a specific task, and "loading" the module adjusts the user environment (mostly by setting or updating environment variables) to make that module available to the user. When you log in to ``derecho``\ , the following modules are loaded by default:
+Like most HPC systems, ``derecho`` uses the ``module`` system to manage the versions of software packages available to the user. A "module" is a collection of programs and libraries for a specific task, and "loading" the module adjusts the user environment (mostly by setting or updating environment variables) to make that module available to the user. When you log in to ``derecho``, the following modules are loaded by default:
 
-.. code-block::
+.. code-block:: shell
 
-   #!shell
    module list
 
    Currently Loaded Modules:
@@ -25,14 +24,14 @@ Like most HPC systems, ``derecho`` uses the ``module`` system to manage the vers
 
 This default set of modules needs a few changes in order to build the ``kaiju`` software. The correct module sets for the serial and MPI versions of ``kaiju`` will be listed in the instructions below.
 
-NOTE: In the commands shown below, the shell prompt (the strings starting with ``ewinter@derecho4:``\ ) are provided to distinguish commands from their outputs. In your session, your prompt may be different.
+NOTE: In the commands shown below, the shell prompt (the strings starting with ``ewinter@derecho4:``) are provided to distinguish commands from their outputs. In your session, your prompt may be different.
 
 WARNING
 -------
 
-The ``casper``\ , ``cheyenne`` and ``derecho`` systems share the same home directory for each user. However, these three systems contain different CPU architectures, and provide different module environments. Specifically, the default module sets differ (significantly) between the three systems, as does the selection of available modules. Therefore, you *must* make sure that you keep software compiled for the three systems separate. Failure to do this will result in unpredictable (and worse, unreproducible) behavior on *all three* systems.
+The ``casper`` and ``derecho`` systems share the same home directory for each user. However, these three systems contain different CPU architectures, and provide different module environments. Specifically, the default module sets differ (significantly) between the three systems, as does the selection of available modules. Therefore, you *must* make sure that you keep software compiled for the three systems separate. Failure to do this will result in unpredictable (and worse, unreproducible) behavior on *all three* systems.
 
-In the instructions below, all code will be built and installed in a ``derecho``\ -specific subdirectory of the user home directory, i.e. ``$HOME/derecho``. This particular organization is not required - it is intended as an example of one possible way to segregate software that has been built for the three systems.
+In the instructions below, all code will be built and installed in a ``derecho``-specific subdirectory of the user home directory, i.e. ``$HOME/derecho``. This particular organization is not required - it is intended as an example of one possible way to segregate software that has been built for the three systems.
 
 Building the serial version of the ``kaiju`` software on ``derecho``
 ----------------------------------------------------------------------------
@@ -40,11 +39,10 @@ Building the serial version of the ``kaiju`` software on ``derecho``
 Step 1: Load the build modules
 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 
-Begin by loading the modules needed to build the serial version of the ``kaiju`` software on ``derecho``\ :
+Begin by loading the modules needed to build the serial version of the ``kaiju`` software on ``derecho``:
 
-.. code-block::
+.. code-block:: shell
 
-   #!shell
    module purge
    module load ncarenv/23.06
    module load craype/2.7.20
@@ -55,11 +53,10 @@ Begin by loading the modules needed to build the serial version of the ``kaiju``
    module load geos/3.9.1  # Must come after intel/2023.0.0
    module list
 
-After these commands have been run, verify your module list with ``module list``\ :
+After these commands have been run, verify your module list with ``module list``:
 
-.. code-block::
+.. code-block:: shell
 
-   #!shell
    module list
 
    Currently Loaded Modules:
@@ -72,11 +69,10 @@ NOTE: This list of modules will evolve. The current list is the recommended modu
 Step 2: Create the build directory
 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 
-Create a ``derecho``\ -specific build directory.
+Create a ``derecho``-specific build directory.
 
-.. code-block::
+.. code-block:: shell
 
-   #!shell
    cd $HOME
    mkdir derecho
    cd derecho
@@ -84,9 +80,8 @@ Create a ``derecho``\ -specific build directory.
 
 Then make an additional subdirectory level for the branch of the code you are building (the ``development`` branch is used as an example). This arrangement is useful when you need to maintain simultaneous builds of different branches.
 
-.. code-block::
+.. code-block:: shell
 
-   #!shell
    mkdir development
    development
 
@@ -98,17 +93,15 @@ NOTE: This step assumes you have been granted access to the ``kaiju`` repository
 
 Clone the ``kaiju`` repository (or "repo") from BitBucket:
 
-.. code-block::
+.. code-block:: shell
 
-   #!shell
    git clone git@bitbucket.org:aplkaiju/kaiju.git
 
 
 This process should take a minute or so. When complete, verify that the ``kaiju`` code exists in your directory (the actual directory contents may differ slightly from what is shown below):
 
-.. code-block::
+.. code-block:: shell
 
-   #!shell
    ls kaiju
    analysis        examples        kaiju.sublime-project  pytests     scripts   testingScripts
    cmake           external        kaipy                  quickstart  setup.py  tests
@@ -117,9 +110,8 @@ This process should take a minute or so. When complete, verify that the ``kaiju`
 
 Now move down into the cloned repo, and switch to the branch of the code you wish to use. By default, the cloned repository provides the ``master`` branch, but we want the ``development`` branch:
 
-.. code-block::
+.. code-block:: shell
 
-   #!shell
    cd kaiju
    git switch development
 
@@ -129,18 +121,16 @@ Step 4: Run ``cmake`` to create the ``Makefile`` needed to build the software
 
 Since the ``kaiju`` code can be built in serial and MPI forms, we first make a directory in which to build the serial version of the code (use whatever name you prefer, but ``build_serial`` is simple and unambiguous):
 
-.. code-block::
+.. code-block:: shell
 
-   #!shell
    mkdir build_serial
    cd build_serial
 
 
 Now run the ``cmake`` command. Save the ``cmake`` output, and use timestamps for each step. The options shown below direct the build process to use a recent version of the Intel Fortran compiler:
 
-.. code-block::
+.. code-block:: shell
 
-   #!shell
    date; time FC=`which ifort` cmake -DALLOW_INVALID_COMPILERS=ON .. >& cmake.out; date
 
 
@@ -212,13 +202,12 @@ Step 5: Compile the ``kaiju`` software
 
 Now use ``make`` to build the ``kaiju`` software, time-stamping and saving the output:
 
-.. code-block::
+.. code-block:: shell
 
-   #!shell
    date; time make >& make.out; date
 
 
-This command should complete in about 6-7 minutes on ``derecho`` (yes, ``derecho`` is much faster than ``cheyenne``\ ). When the command is finished, check the output file ``make.out``. The file is long, but the last few lines should look something like this:
+This command should complete in about 6-7 minutes on ``derecho``. When the command is finished, check the output file ``make.out``. The file is long, but the last few lines should look something like this:
 
 .. code-block::
 
@@ -233,9 +222,8 @@ This command should complete in about 6-7 minutes on ``derecho`` (yes, ``derecho
 
 To verify that all of the ``kaiju`` programs have been built, examine the ``bin`` subdirectory of your ``build_serial`` directory (this list will evolve as more programs are added):
 
-.. code-block::
+.. code-block:: shell
 
-   #!shell
    ls bin
    calcdb.x  gamera.x    kaitoy.x   psd.x   rcm.x        remix2remix.x  sctrack.x  trace.x    wpicheck.x
    chop.x    gamhelio.x  project.x  push.x  remix2rcm.x  remix.x        slice.x    voltron.x
@@ -248,11 +236,10 @@ Building the MPI version of the ``kaiju`` software on ``derecho.hpc.ucar.edu``
 Step 1: Load the build modules
 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 
-Begin by loading the modules needed to build the serial version of the ``kaiju`` software on ``derecho``\ :
+Begin by loading the modules needed to build the serial version of the ``kaiju`` software on ``derecho``:
 
-.. code-block::
+.. code-block:: shell
 
-   #!shell
    module purge
    module load cmake/3.26.3
    module load craype/2.7.20
@@ -263,11 +250,10 @@ Begin by loading the modules needed to build the serial version of the ``kaiju``
    module load hdf5-mpi/1.12.2
 
 
-After these commands have been run, verify your module list with ``module list``\ :
+After these commands have been run, verify your module list with ``module list``:
 
-.. code-block::
+.. code-block:: shell
 
-   #!shell
    module list
 
    Currently Loaded Modules:
@@ -280,11 +266,10 @@ NOTE: This list of modules will evolve. The current list is the recommended modu
 Step 2: Create the build directory
 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 
-Create a ``derecho``\ -specific build directory (skip if already done).
+Create a ``derecho``-specific build directory (skip if already done).
 
-.. code-block::
+.. code-block:: shell
 
-   #!shell
    cd $HOME
    mkdir derecho
    cd derecho
@@ -292,9 +277,8 @@ Create a ``derecho``\ -specific build directory (skip if already done).
 
 Then make an additional subdirectory level for the branch of the code you are building (the ``development`` branch is used as an example). This arrangement is useful when you need to maintain simultaneous builds of different branches.
 
-.. code-block::
+.. code-block:: shell
 
-   #!shell
    mkdir development
    cd development
 
@@ -306,17 +290,15 @@ NOTE: This step assumes you have been granted access to the ``kaiju`` repository
 
 Clone the ``kaiju`` repository (or "repo") from BitBucket (skip this part if you already cloned the repo):
 
-.. code-block::
+.. code-block:: shell
 
-   #!shell
    git clone git@bitbucket.org:aplkaiju/kaiju.git
 
 
 This process should take a minute or so. When complete, verify that the ``kaiju`` code exists in your directory (the actual directory contents may differ slightly from what is shown below):
 
-.. code-block::
+.. code-block:: shell
 
-   #!shell
    ls kaiju
    analysis      CMakeLists.txt  gitHookScripts         places      README.md  src             xml
    build_serial  examples        kaiju.sublime-project  pytests     scripts    testingScripts
@@ -325,9 +307,8 @@ This process should take a minute or so. When complete, verify that the ``kaiju`
 
 Now move down into the cloned repo, and switch to the branch of the code you wish to use. By default, the cloned repository provides the ``master`` branch, but we want the ``development`` branch:
 
-.. code-block::
+.. code-block:: shell
 
-   #!shell
    cd kaiju
    git switch development
 
@@ -337,18 +318,16 @@ Step 4: Run ``cmake`` to create the ``Makefile`` needed to build the software
 
 Since the ``kaiju`` code can be built in serial and MPI forms, we first make a directory in which to build the MPI version of the code (use whatever name you prefer, but ``build_mpi`` is simple and unambiguous):
 
-.. code-block::
+.. code-block:: shell
 
-   #!shell
    mkdir build_mpi
    cd build_mpi
 
 
 Now run the ``cmake`` command. Save the ``cmake`` output, and use timestamps for each step. The options shown below direct the build process to use a recent version of the Intel Fortran compiler:
 
-.. code-block::
+.. code-block:: shell
 
-   #!shell
    date; time FC=`which ifort` cmake -DENABLE_MPI=ON -DALLOW_INVALID_COMPILERS=ON .. >& cmake.out; date
 
 
@@ -433,9 +412,8 @@ Step 5: Compile the ``kaiju`` software
 
 Now use ``make`` to build the ``kaiju`` software, time-stamping and saving the output:
 
-.. code-block::
+.. code-block:: shell
 
-   #!shell
    date; time make -j 4 >& make.out; date
 
 
@@ -454,9 +432,8 @@ This command should complete in about 10 minutes on ``derecho``. When the comman
 
 To verify that all of the ``kaiju`` programs have been built, examine the ``bin`` subdirectory of your ``build_mpi`` directory (this list will evolve as more programs are added):
 
-.. code-block::
+.. code-block:: shell
 
-   #!shell
    ls bin
    calcdb.x      gamera.x        kaitoy_mpi.x  psd.x   remix2rcm.x    sctrack.x  voltron_mpi.x
    chop.x        gamhelio_mpi.x  kaitoy.x      push.x  remix2remix.x  slice.x    voltron.x
@@ -468,15 +445,13 @@ Using the ``kaiju`` software
 
 Once built, you must run the setup script before using the ``kaiju`` software:
 
-.. code-block::
+.. code-block:: shell
 
-   #!shell
    source $KAIJU_HOME/scripts/setupEnvironment.sh
 
 
-This script will set environment variables needed by the ``kaiju`` software, including the ``KAIJUHOME`` environment variable (not the ``KAIJU_HOME`` environment variable). However, the path to the compiled programs is not added - you will need to specify the complete path when using compiled programs. For example,  to run the serial version of ``gamera.x``\ :
+This script will set environment variables needed by the ``kaiju`` software, including the ``KAIJUHOME`` environment variable (not the ``KAIJU_HOME`` environment variable). However, the path to the compiled programs is not added - you will need to specify the complete path when using compiled programs. For example,  to run the serial version of ``gamera.x``:
 
-.. code-block::
+.. code-block:: shell
 
-   #!shell
    $KAIJUHOME/build_serial/bin/gamera.x

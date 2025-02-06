@@ -11,10 +11,6 @@ steps.
 **Note:** This quick start assumes you have completed the
 :doc:`build instructions </building/index>`.
 
-**Note:** Throughout the descriptions ##$KAIJUHOME## refers to the
-base directory of the `kaiju <https://bitbucket.org/aplkaiju/kaiju>`_
-repository.
- 
 **Note:** Throughout the descriptions ``$KAIJUHOME`` refers to the
 base directory of the `kaiju <https://bitbucket.org/aplkaiju/kaiju>`_
 repository.
@@ -40,8 +36,7 @@ Using 'Makeitso' to create input and batch submission files
 Note: Supported HPC systems only - NCAR Derecho and NASA Pleiades/Electra/Aitken (default Pleiades Broadwell nodes)
 
 To run ``gamhelio-makeitso.py`` you must first ensure you have a proper
-:doc"`python environment </building/install_python.md>` with the prerequisite
-packages, add the kaipy scripts to your path by running 
+python environment with the prerequisite packages, add the kaipy scripts to your path by running 
 
 .. code-block:: shell
 

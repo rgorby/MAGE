@@ -7,7 +7,7 @@ Introduction
 
 This file describes how to build and install the CDF library on Ubuntu 20.04 for use with the ``kaiju`` software.
 
-*NOTE*\ : A Ubuntu 20.04-specific subdirectory of the user home directory is used for this build.
+**NOTE**: A Ubuntu 20.04-specific subdirectory of the user home directory is used for this build.
 
 As of this date (2023-07-11), the latest version of the CDF library is:
 
@@ -16,9 +16,7 @@ As of this date (2023-07-11), the latest version of the CDF library is:
 Building and installing the CDF library
 ---------------------------------------
 
-.. code-block::
-
-   #!shell
+.. code-block:: shell
 
    # Specify the name for this system.
    export HOST_SYSTEM=ubuntu-20.04
@@ -59,7 +57,6 @@ Using the CDF library
 
 To use this software, you must run the setup script:
 
-.. code-block::
+.. code-block:: shell
 
-   #!shell
    source $BUILD_ROOT/bin/definitions.B

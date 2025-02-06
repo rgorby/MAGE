@@ -9,14 +9,13 @@ This file describes how to set up a python 3.8-based ``conda`` environment on an
 
 These steps assume that ``pip`` (only) is used for installing additional packages, and packages are only taken from PyPI (and the default ``conda`` repository, if needed) - no other repositories are used.
 
-*A NOTE OF EXPLANATION:* These instructions install ``miniconda3`` into a ventura-specific subdirectory of the home directory, to maintain compatibility with instructions for other systems. Feel free to install ``miniconda3`` wherever is convenient.
+**NOTE**: These instructions install ``miniconda3`` into a ventura-specific subdirectory of the home directory, to maintain compatibility with instructions for other systems. Feel free to install ``miniconda3`` wherever is convenient.
 
 Building the python environment
 -------------------------------
 
-.. code-block::
+.. code-block:: shell
 
-   #!shell
    # Download the installer.
    cd $HOME
    wget https://repo.anaconda.com/miniconda/Miniconda3-latest-MacOSX-x86_64.sh
@@ -68,9 +67,8 @@ Building the python environment
 
 Where ``requirements.txt`` is a text file containing:
 
-.. code-block::
+.. code-block:: shell
 
-   #!shell
    ai.cdas
    alive_progress
    cartopy
@@ -96,7 +94,6 @@ Using the python environment
 
 Once your python environment is created, you must activate it for use with the ``kaiju`` software:
 
-.. code-block::
+.. code-block:: shell
 
-   #!shell
    conda activate kaiju-3.8   # or whatever name you used for the python environment

@@ -38,9 +38,8 @@ Install ``cmake``
 ``kaiju`` software. This tool is not provided on MacOS systems. You can
 install it with HomeBrew with the command:
 
-.. code-block::
+.. code-block:: shell
 
-   #!shell
    brew install cmake
 
 This command will install ``cmake`` and its support files under ``/usr/local``
@@ -60,9 +59,8 @@ Once installed, this software should be available on your Mac under
 Once the Intel tools are installed, you will need to make them available
 during the build process. Add the Intel tools to your command path as follows:
 
-.. code-block::
+.. code-block:: shell
 
-   #!shell
    export INTEL_HOME=/opt/intel   # Or wherever you installed it
    export PATH=$INTEL_HOME/oneapi/compiler/latest/mac/bin/intel64:$PATH
 
@@ -104,9 +102,8 @@ The `GEOS <https://libgeos.org/>`_ library is needed for certain
 geography-related coordinate transformations. It can be installed with the
 command:
 
-.. code-block::
+.. code-block:: shell
 
-   #!shell
    brew install geos
 
 
@@ -126,8 +123,7 @@ Step 3: Compile the ``kaiju`` software
 ------------------------------------------
 
 The ``kaiju`` software can be built in serial or MPI versions. The serial
-version should be used when running the code on a single computer, such as a
-Mac laptop. The MPI version should be used when running on an HPC system
+version should be used when running the code on a single computer, such as a laptop. The MPI version should be used when running on an HPC system
 (a supercomputer).
 
 Instructions for building the serial version of the ``kaiju`` software on

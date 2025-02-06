@@ -9,9 +9,8 @@ Before you begin
 
 Before proceeding, initialize your ``kaiju`` environment by loading the required modules. For the serial version of ``kaiju`` on Pleiades, these commands should work:
 
-.. code-block::
+.. code-block:: shell
 
-   ##!shell
    module purge
    module load pkgsrc/2021Q2
    module load comp-intel/2020.4.304
@@ -20,9 +19,8 @@ Before proceeding, initialize your ``kaiju`` environment by loading the required
 
 For the MPI version of ``kaiju`` on Pleiades, use:
 
-.. code-block::
+.. code-block:: shell
 
-   #!shell
    module purge
    module load pkgsrc/2021Q2
    module load comp-intel/2020.4.304
@@ -32,37 +30,33 @@ For the MPI version of ``kaiju`` on Pleiades, use:
 
 Next, you need to run the setup script for the CDF software used by the ``kaiju`` software:
 
-.. code-block::
+.. code-block:: shell
 
-   #!shell
    source CDF_INSTALL_DIR/bin/definitions.B
 
 
 where ``CDF_INSTALL_DIR`` is the installation directory for your CDF software. The ``definitions.B`` script is for the ``bash`` shell. Setup scripts for other shells are in the same directory.
 
-At this point, you should make sure your python environment is properly configured. For these examples, we assume the use of a ``conda``\ -based virtual environment for Python 3.8 called ``kaiju-python-3.8``\ , which should contain all of the required python modules described in LINK_TO_PYTHON_SECTION. Assuming this environment was already created, activate it with the command:
+At this point, you should make sure your python environment is properly configured. For these examples, we assume the use of a ``conda``-based virtual environment for Python 3.8 called ``kaiju-python-3.8``, which should contain all of the required python modules described in LINK_TO_PYTHON_SECTION. Assuming this environment was already created, activate it with the command:
 
-.. code-block::
+.. code-block:: shell
 
-   #!shell
    conda activate kaiju-python-3.8
 
 
 Next, run the ``kaiju`` setup script appropriate for your shell. For example, using the ``bash`` shell on Pleiades, run:
 
-.. code-block::
+.. code-block:: shell
 
-   #!shell
    source KAIJU_INSTALL_DIR/scripts/setupEnvironment.sh
 
 
-where ``KAIJU_INSTALL_DIR`` is the path to the directory created when you cloned the ``kaiju`` repository. This script sets the ``KAIJUHOME`` environment variable (it will be the same as ``KAIJU_INSTALL_DIR``\ ), and adds ``kaiju``\ -specific entries in the ``PATH`` and ``PYTHONPATH`` environment variables.
+where ``KAIJU_INSTALL_DIR`` is the path to the directory created when you cloned the ``kaiju`` repository. This script sets the ``KAIJUHOME`` environment variable (it will be the same as ``KAIJU_INSTALL_DIR``), and adds ``kaiju``-specific entries in the ``PATH`` and ``PYTHONPATH`` environment variables.
 
 Finally, some of the ``kaiju`` scripts require the ``geopack-2008`` compiled Python module. Add it to your Python module search path using the command:
 
-.. code-block::
+.. code-block:: shell
 
-   #!shell
    export PYTHONPATH=$KAIJUHOME/external/geopack-2008/build/lib.linux-x86_64-3.8:$PYTHONPATH
 
 
@@ -71,7 +65,7 @@ where the ``lib.XXX`` string is for Pleiades; it may differ for your machine.
 NOTE: The scripts used below are available as part of the ``kaiju`` code distribution. They were designed to illustrate the steps needed to run a simple model and examine the results. The scripts illustrate how to set up a run, and how to extract data from the result files. Feel free to use these scripts as the starting point for your own scripts using the ``kaiju`` code.
 
 NOTE: All examples below assume use of the ``bash`` shell. Modify as needed for your preferred shell. The primary differences will 
-be replacing ``export X=Y`` with ``setenv X Y`` when setting environment variables in the ``csh``\ /\ ``tcsh`` shells.
+be replacing ``export X=Y`` with ``setenv X Y`` when setting environment variables in the ``csh``/``tcsh`` shells.
 
 2-D field loop convection
 ~~~~~~~~~~~~~~~~~~~~~~~~~
@@ -80,25 +74,22 @@ The first example we will run is the ``loop2d`` model. This is a simple 2-D mode
 
 Begin by adding the directory containing the serial ``kaiju`` binaries to your ``PATH`` environment variable.
 
-.. code-block::
+.. code-block:: shell
 
-   #!shell
    export PATH=$KAIJUHOME/build/bin:$PATH
 
 
 Next, add the directory containing the the ``loop2d`` example scripts to your ``PATH`` environment variable: 
 
-.. code-block::
+.. code-block:: shell
 
-   #!shell
    export PATH=$KAIJUHOME/quickstart/loop2d:$PATH
 
 
 Now create a new directory to run the ``loop2d`` example (it can be anywhere).
 
-.. code-block::
+.. code-block:: shell
 
-   #!shell
    cd $HOME
    mkdir -p kaiju_test/loop2d
    cd kaiju_test/loop2d
@@ -106,9 +97,8 @@ Now create a new directory to run the ``loop2d`` example (it can be anywhere).
 
 The next step is to generate the configuration files for the ``loop2d`` model. This is done using the ``prepare_loop2d.py`` utility:
 
-.. code-block::
+.. code-block:: shell
 
-   #!shell
    prepare_loop2d.py -v
 
 
@@ -125,19 +115,17 @@ NOTE: The PBS script is designed for use on the Pleiades system at NASA Ames. If
 
 Next, submit the PBS job script for execution. On Pleiades, the job is submitted using the ``qsub`` command:
 
-.. code-block::
+.. code-block:: shell
 
-   #!shell
    qsub loop2d.pbs
 
 
 Once the job has been accepted in the queue, the run should take about 20-30 seconds (on Pleiades).
 
-When complete, you should see in your working directory the input files created by ``prepare_loop2d.py``\ , and the output files created by ``gamera.x``\ :
+When complete, you should see in your working directory the input files created by ``prepare_loop2d.py``, and the output files created by ``gamera.x``:
 
-.. code-block::
+.. code-block:: shell
 
-   #!shell
    bash-4.2$ ls -1
    gamera.x.loop2d.out
    loop2d.gam.Res.00000.h5
@@ -151,11 +139,10 @@ When complete, you should see in your working directory the input files created 
 
 NOTE: The ``gamera.x.loop2d.out`` contains the terminal output generated by the ``gamera.x`` executable. The file ``loop2d.o12913999`` (the digits will be different for your run) contains the PBS log for the job. The ``.h5`` files are the HDF5 output files created by ``gamera.x``.
 
-We can now analyze the results of the model run. A simple example analysis can be run using the utility ``run_loop2d_checks.py``\ :
+We can now analyze the results of the model run. A simple example analysis can be run using the utility ``run_loop2d_checks.py``:
 
-.. code-block::
+.. code-block:: shell
 
-   #!shell
    $ run_loop2d_checks.py -v
    Computing volume-integrated magnetic pressure.
    Volume-integrated magnetic pressure (SUM(Pb*dV), code units):
@@ -167,9 +154,8 @@ Your values for the volume-integrated magnetic pressure should be very close to 
 
 Finally, generate a quick-look plot illustrating the model results. For this case, the quick-look plot shows the magnetic pressure in the first and last simulation frames:
 
-.. code-block::
+.. code-block:: shell
 
-   #!shell
    $ create_loop2d_quicklook.py -v
 
 
@@ -192,17 +178,15 @@ An additional serial test case is available, in the ``geo_serial`` model. This m
 
 Begin by adding the directory containing the serial ``kaiju`` binaries to your ``PATH`` environment variable.
 
-.. code-block::
+.. code-block:: shell
 
-   #!shell
    export PATH=$KAIJUHOME/build/bin:$PATH
 
 
 To use the ``geo_serial`` test case:
 
-.. code-block::
+.. code-block:: shell
 
-   #!shell
    export PATH=$KAIJUHOME/quickstart/geo_serial:$PATH
 
 
@@ -210,9 +194,8 @@ This is a more complex example of using the serial ``kaiju`` code, as it include
 
 The next step is to generate the configuration and input files for the ``geo_serial`` model. This is done using the ``prepare_geo_serial.py`` utility:
 
-.. code-block::
+.. code-block:: shell
 
-   #!shell
    prepare_geo_serial.py -v
 
 
@@ -233,19 +216,17 @@ NOTE: The conversion from ``.ini`` to ``.xml`` is still under development, so bo
 
 The PBS script is designed for use on the Pleiades system at NASA Ames. If you are working in a non-HPC environment, the commands listed in this file can be executed manually on your command line. On Pleiades, the job is submitted using the ``qsub`` command:
 
-.. code-block::
+.. code-block:: shell
 
-   #!shell
    qsub geo_serial.pbs
 
 
 Once the job has been accepted in the queue, the run should take about an hour (on Pleiades).
 
-When complete, you should see in your working directory the output files created by ``voltron.x``\ , along with the files created by ``prepare_geo_serial.py``\ :
+When complete, you should see in your working directory the output files created by ``voltron.x``, along with the files created by ``prepare_geo_serial.py``:
 
-.. code-block::
+.. code-block:: shell
 
-   #!shell
    bash-4.2$ ls -1
    OMNI_HRO_1MIN.txt.png
    bcwind.h5
@@ -285,11 +266,10 @@ When complete, you should see in your working directory the output files created
 
 The ``voltron.x.geo_serial.out`` contains the terminal output generated by the ``voltron.x`` executable. The file ``geo_serial.o12920410`` (the digits will be different) contains the PBS log for the job.
 
-We can now analyze the results of the model run. A simple analysis can be run using the utility ``run_geo_serial_checks.py``\ :
+We can now analyze the results of the model run. A simple analysis can be run using the utility ``run_geo_serial_checks.py``:
 
-.. code-block::
+.. code-block:: shell
 
-   #!shell
    $ run_geo_serial_checks.py -v --runid=msphere
    Computing volume-integrated magnetic pressure.
    Volume-integrated magnetic pressure (SUM(Pb*dV), code units):
@@ -301,9 +281,8 @@ Your values for the volume-integrated magnetic pressure should be very close to 
 
 Finally, generate a quick-look plot illustrating the model results. For this case, the quick-look plot shows several plots of different data generated by the model:
 
-.. code-block::
+.. code-block:: shell
 
-   #!shell
    $ create_geo_serial_quicklook.py -v --runid=msphere
 
 
@@ -318,29 +297,26 @@ This script will create the file ``qkpic.png``. It should look like this:
 Heliosphere example (serial)
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
-The ``helio_serial`` example is a heliospheric model, using the heliosphere-specific build of ``gamera`` (\ ``gamhelio.x``\ ).
+The ``helio_serial`` example is a heliospheric model, using the heliosphere-specific build of ``gamera`` (``gamhelio.x``).
 
 Begin by adding the directory containing the serial ``kaiju`` binaries to your ``PATH`` environment variable.
 
-.. code-block::
+.. code-block:: shell
 
-   #!shell
    export PATH=$KAIJUHOME/build/bin:$PATH
 
 
 To use the ``helio_serial`` test case, add the model directory to your command path:
 
-.. code-block::
+.. code-block:: shell
 
-   #!shell
    export PATH=$KAIJUHOME/quickstart/helio_serial:$PATH
 
 
 The next step is to generate the configuration and input files for the ``helio_serial`` model. This is done using the ``prepare_helio_serial.py`` utility:
 
-.. code-block::
+.. code-block:: shell
 
-   #!shell
    prepare_helio_serial.py -v
 
 
@@ -348,7 +324,7 @@ This command will create several files in your current directory:
 
 
 * ``helio_serial.ini`` - An .ini-format initialization file for running ``gamhelio.x`` on the ``helio_serial`` example.
-* ``helio_serial.pbs`` - An PBS job script for running ``gamhelio.x on the``\ helio_serial` example.
+* ``helio_serial.pbs`` - An PBS job script for running ``gamhelio.x on the``helio_serial` example.
 * ``helio_serial.xml`` - An XML-format initialization file for running ``gamhelio.x`` on the ``helio_serial`` example, created from ``helio_serial.ini``.
 * heliogrid.h5 - A HDF5 file containing the grid to use for the simulation.
 * innerbc.h5 - A HDF5 file containing the inner boundary conditions derived from the the WSA (Wang-Sheeley-Arge) model used for this example.
@@ -359,19 +335,17 @@ NOTE: The conversion from ``.ini`` to ``.xml`` is still under development, so bo
 
 The PBS script is designed for use on the Pleiades system at NASA Ames. If you are working in a non-HPC environment, the commands listed in this file can be executed manually on your command line. On Pleiades, the job is submitted using the ``qsub`` command:
 
-.. code-block::
+.. code-block:: shell
 
-   #!shell
    qsub helio_serial.pbs
 
 
 Once the job has been accepted in the queue, the run should take about 30 minutes (on Pleiades).
 
-When complete, you should see in your working directory the output files created by ``gamhelio.x``\ , along with the files created by ``prepare_helio_serial.py``\ :
+When complete, you should see in your working directory the output files created by ``gamhelio.x``, along with the files created by ``prepare_helio_serial.py``:
 
-.. code-block::
+.. code-block:: shell
 
-   #!shell
    bash-4.2$ ls -1
    gamhelio.x.helio_serial.out
    helio_serial.ini
@@ -385,13 +359,12 @@ When complete, you should see in your working directory the output files created
    wsa.gam.h5
 
 
-The ``gamhelio.x.helio_serial.out`` contains the terminal output generated by the heliosphere version of the ``gamera`` executable (\ ``gamhelio.x``\ ). The file ``helio_serial.o13122765`` (the digits will be different) contains the PBS log for the job.
+The ``gamhelio.x.helio_serial.out`` contains the terminal output generated by the heliosphere version of the ``gamera`` executable (``gamhelio.x``). The file ``helio_serial.o13122765`` (the digits will be different) contains the PBS log for the job.
 
-We can now analyze the results of the model run. A simple analysis can be run using the utility ``run_helio_serial_checks.py``\ :
+We can now analyze the results of the model run. A simple analysis can be run using the utility ``run_helio_serial_checks.py``:
 
-.. code-block::
+.. code-block:: shell
 
-   #!shell
    $ run_helio_serial_checks.py -v --runid=wsa
    Computing volume-integrated magnetic pressure.
    Volume-integrated magnetic pressure (SUM(Pb*dV), code units):
@@ -403,9 +376,8 @@ Your values for the volume-integrated magnetic pressure should be very close to 
 
 Finally, generate a quick-look plot illustrating the model results. For this case, the quick-look plot shows several plots of different data generated by the model:
 
-.. code-block::
+.. code-block:: shell
 
-   #!shell
    $ create_helio_serial_quicklook.py -v --runid=wsa
 
 
@@ -427,25 +399,22 @@ The first MPI-based example is the ``bw3d`` model. This is a simple 3-D model of
 
 Begin by adding the directory containing the MPI kaiju binaries to your ``PATH`` environment variable.
 
-.. code-block::
+.. code-block:: shell
 
-   #!shell
    export PATH=$KAIJUHOME/build_mpi/bin:$PATH
 
 
 Next, add the directory containing the the ``bw3d`` example scripts to your ``PATH`` environment variable:
 
-.. code-block::
+.. code-block:: shell
 
-   #!shell
    export PATH=$KAIJUHOME/quickstart/bw3d:$PATH
 
 
 Create a new directory to run the ``bw3d`` example (it can be anywhere).
 
-.. code-block::
+.. code-block:: shell
 
-   #!shell
    cd $HOME
    mkdir -p kaiju_test/bw3d
    cd kaiju_test/bw3d
@@ -453,16 +422,15 @@ Create a new directory to run the ``bw3d`` example (it can be anywhere).
 
 The next step is to generate the configuration files for the ``bw3d`` model. This is done using the ``prepare_bw3d.py`` utility:
 
-.. code-block::
+.. code-block:: shell
 
-   #!shell
    prepare_bw3d.py -v
 
 
 This command will create 3 files in your current directory:
 
 
-* ``bw3d.ini`` - An ``.ini``\ -format initialization file for running ``gamera_mpi.x`` on the ``bw3d`` example.
+* ``bw3d.ini`` - An ``.ini``-format initialization file for running ``gamera_mpi.x`` on the ``bw3d`` example.
 * ``bw3d.pbs`` - An PBS job script for running ``gamera_mpi.x`` on the ``bw3d`` example.
 * ``bw3d.xml`` - An XML-format initialization file for running ``gamera_mpi.x`` on the ``bw3d`` example, created from ``bw3d.ini``.
 
@@ -470,19 +438,17 @@ NOTE: The conversion from ``.ini`` to ``.xml`` is still under development, so bo
 
 The PBS script is designed for use on the Pleiades system at NASA Ames. If you are working in a non-HPC environment, the commands listed in this file can be executed manually on your command line. On Pleiades, the job is submitted using the ``qsub`` command:
 
-.. code-block::
+.. code-block:: shell
 
-   #!shell
    qsub bw3d.pbs
 
 
 Once the job has been accepted in the queue, the run should take about an hour (on Pleiades).
 
-When complete, you should see in your working directory the output files created by ``gamera_mpi.x``\ :
+When complete, you should see in your working directory the output files created by ``gamera_mpi.x``:
 
-.. code-block::
+.. code-block:: shell
 
-   #!shell
    bash-4.2$ ls -1
    bw3d_0002_0002_0002_0000_0000_0000.gam.h5
    bw3d_0002_0002_0002_0000_0000_0000.gam.Res.00000.h5
@@ -517,11 +483,10 @@ When complete, you should see in your working directory the output files created
 
 The ``gamera_mpi.x.bw3d.out`` contains the terminal output generated by the ``gamera_mpi.x`` executable. The file ``bw3d.o12920469`` (the digits will be different) contains the PBS log for the job.
 
-We can now analyze the results of the model run. A simple analysis can be run using the utility ``run_bw3d_checks.py``\ :
+We can now analyze the results of the model run. A simple analysis can be run using the utility ``run_bw3d_checks.py``:
 
-.. code-block::
+.. code-block:: shell
 
-   #!shell
    $ run_bw3d_checks.py -v
    Asymmetry metric (SUM(ABS(Pb - Pb.T)*dV), code units):
    At start: 0.0
@@ -532,9 +497,8 @@ Your values for the asymmetry metric should be very close to these values.
 
 Finally, generate a quick-look plot illustrating the model results. For this case, the quick-look plot shows the magnetic pressure in the first and last simulation frames:
 
-.. code-block::
+.. code-block:: shell
 
-   #!shell
    $ create_bw3d_quicklook.py -v
 
 
@@ -553,25 +517,22 @@ The next example is an MPI version of the serial heliosphere model described abo
 
 Begin by adding the directory containing the MPI kaiju binaries to your ``PATH`` environment variable.
 
-.. code-block::
+.. code-block:: shell
 
-   #!shell
    export PATH=$KAIJUHOME/build_mpi/bin:$PATH
 
 
 Next, add the directory containing the the ``helio_mpi`` example scripts to your ``PATH`` environment variable:
 
-.. code-block::
+.. code-block:: shell
 
-   #!shell
-   export PATH=$KAIJUHOME/quickstart/helio_mpi:$PATH
+KAIJUHOME/quickstart/helio_mpi:$PATH
 
 
 The next step is to generate the configuration and input files for the ``helio_mpi`` model. This is done using the ``prepare_helio_mpi.py`` utility:
 
-.. code-block::
+.. code-block:: shell
 
-   #!shell
    prepare_helio_mpi.py -v
 
 
@@ -590,19 +551,17 @@ NOTE: The conversion from ``.ini`` to ``.xml`` is still under development, so bo
 
 The PBS script is designed for use on the Pleiades system at NASA Ames. If you are working in a non-HPC environment, the commands listed in this file can be executed manually on your command line. On Pleiades, the job is submitted using the ``qsub`` command:
 
-.. code-block::
+.. code-block:: shell
 
-   #!shell
    qsub helio_mpi.pbs
 
 
 Once the job has been accepted in the queue, the run should take about 30 minutes (on Pleiades).
 
-When complete, you should see in your working directory the output files created by ``gamera_mpi.x``\ , along with the files created by ``prepare_helio_mpi.py``\ :
+When complete, you should see in your working directory the output files created by ``gamera_mpi.x``, along with the files created by ``prepare_helio_mpi.py``:
 
-.. code-block::
+.. code-block:: shell
 
-   #!shell
    bash-4.2$ ls -1
    C02DT5CZMD6T-ML:20220328 winteel1$ ls -1 helio_mpi
    gamera_mpi.x.helio_mpi.out
@@ -713,11 +672,10 @@ When complete, you should see in your working directory the output files created
 
 The ``gamera_mpi.x.helio_mpi.out`` contains the terminal output generated by the heliosphere version of the ``gamera_mpi.x`` executable. The file ``helio_mpi.o13124130`` (the digits will be different) contains the PBS log for the job.
 
-We can now analyze the results of the model run. A simple analysis can be run using the utility ``run_helio_mpi_checks.py``\ :
+We can now analyze the results of the model run. A simple analysis can be run using the utility ``run_helio_mpi_checks.py``:
 
-.. code-block::
+.. code-block:: shell
 
-   #!shell
    $ run_helio_mpi_checks.py -v --runid=wsa
    Computing volume-integrated magnetic pressure.
    Volume-integrated magnetic pressure (SUM(Pb*dV), code units):
@@ -729,9 +687,8 @@ Your values for the volume-integrated magnetic pressure should be very close to 
 
 Finally, generate a quick-look plot illustrating the model results. For this case, the quick-look plot shows several plots of different data generated by the model:
 
-.. code-block::
+.. code-block:: shell
 
-   #!shell
    $ create_helio_mpi_quicklook.py -v --runid=wsa
 
 

@@ -7,7 +7,7 @@ Introduction
 
 This file describes how to build and install the CDF library on ``derecho`` for use with the ``kaiju`` software.
 
-*NOTE*\ : A ``cheyenne``\ -specific subdirectory of the user home directory is used for this build.
+**NOTE**: A ``derecho``-specific subdirectory of the user home directory is used for this build.
 
 As of this date (2023-06-27 15:48:52), the latest version of the CDF library is:
 
@@ -16,9 +16,8 @@ As of this date (2023-06-27 15:48:52), the latest version of the CDF library is:
 Building the CDF library
 ------------------------
 
-.. code-block::
+.. code-block:: shell
 
-   #!shell
    # USING THE DEFAULT MODULE SET ON derecho, WHICH IS:
    # 1) ncarenv/23.06
    # 2) craype/2.7.20
@@ -68,7 +67,6 @@ Using the CDF library
 
 To use this software, you must run the setup script:
 
-.. code-block::
+.. code-block:: shell
 
-   #!shell
    source $BUILD_ROOT/bin/definitions.B

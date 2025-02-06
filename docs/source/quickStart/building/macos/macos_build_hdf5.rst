@@ -12,9 +12,7 @@ These instructions assume that the Intel compiler suite has already been install
 Building and installing the HDF5 library
 ----------------------------------------
 
-.. code-block::
-
-   #!shell
+.. code-block:: shell
 
    # Use the Intel compiler.
    export INTEL_HOME=/opt/intel
@@ -68,9 +66,8 @@ Using the HDF5 library
 
 To use the HDF library, you must set environment variables:
 
-.. code-block::
+.. code-block:: shell
 
-   #!shell
    export HDF5_DIR=$HOME/ventura/local/hdf5/1.12.1
    export PATH=$HDF5_DIR/bin:$PATH
    export HDF5_INCLUDE_DIRS=$HDF5_DIR/include

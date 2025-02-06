@@ -10,9 +10,8 @@ This page describes how to build and install CDF 3.9.0 on an Intel-based Mac run
 Building and installing the CDF library
 ---------------------------------------
 
-.. code-block::
+.. code-block:: shell
 
-   #!shell
    # Specify the name for this machine.
    export HOST_SYSTEM=ventura
 
@@ -56,7 +55,6 @@ Using the CDF library
 
 To use this library, you must run the setup script:
 
-.. code-block::
+.. code-block:: shell
 
-   #!shell
    source $HOME/ventura/local/cdf/3.9.0/bin/definitions.B

@@ -11,15 +11,13 @@ MacOS
 
 These instructions describe how to build and install the HDF5 library (version 1.12.1) for use with the ``kaiju`` software on MacOS systems. These instructions were developed on a 2019 MacBook Pro with an i9 processor and 64 GB of RAM. The machine was running MacOS 11.6.5 (Big Sur), but these instructions should work with minimal changes on other versions of MacOS, or using other versions of the HDF5 source code. Several of the commands below display execution times - the times you observe may be more or less than the times shown below, depending on your hardware and software versions.
 
-**Note**\ : The HDF5 software may be available through one of several MacOS package managers (HomeBrew, MacPorts, Fink, ...). To save time, you should try to install the HDF5 software using a package manager before trying to build the HDF5 software from source code. However, HDF5 built with gfortran (i.e. from HomeBrew) will not be compatible if you want to build kaiju with Intel Fortran. You must build HDF5 from source with ifort in order to build kaiju with ifort. 
+**Note**: The HDF5 software may be available through one of several MacOS package managers (HomeBrew, MacPorts, Fink, ...). To save time, you should try to install the HDF5 software using a package manager before trying to build the HDF5 software from source code. However, HDF5 built with gfortran (i.e. from HomeBrew) will not be compatible if you want to build kaiju with Intel Fortran. You must build HDF5 from source with ifort in order to build kaiju with ifort. 
 
-**Note**\ : This procedure uses the Intel C and Fotran compilers. The code is built under ``$HOME/local/src``\ , and is installed under ``$HOME/local/hdf/1.12.1``\ , creating a user-only installation. Substitute your desired build and installation locations for these paths as appropriate.
+**Note**: This procedure uses the Intel C and Fotran compilers. The code is built under ``$HOME/local/src``, and is installed under ``$HOME/local/hdf/1.12.1``, creating a user-only installation. Substitute your desired build and installation locations for these paths as appropriate.
 
-**NOTE**\ : These instructions should work under any command shell.
+**NOTE**: These instructions should work under any command shell.
 
-.. code-block::
-
-   #!shell
+.. code-block:: shell
 
    # Make a build tree.
    cd $HOME
@@ -70,15 +68,13 @@ Linux
 
 These instructions describe how to build and install the HDF5 library (version 1.12.1) for use with the ``kaiju`` software on Linux systems. These instructions were developed on a Ubuntu virtual machine, but these instructions should work with minimal changes on other versions of Linux, or using other versions of the HDF5 source code. Several of the commands below display execution times - the times you observe may be more or less than the times shown below, depending on your hardware and software versions.
 
-**Note**\ : The HDF5 software may be available through one of several Linux package managers (\ ``yum``\ , ``dnf``\ , ``rpm``\ , ...). To save time, you should try to install the HDF5 software using a package manager before trying to build the HDF5 software from source code. You may require assistance from a system administrator to install the software using a package manager.
+**Note**: The HDF5 software may be available through one of several Linux package managers (``yum``, ``dnf``, ``rpm``, ...). To save time, you should try to install the HDF5 software using a package manager before trying to build the HDF5 software from source code. You may require assistance from a system administrator to install the software using a package manager.
 
-**Note**\ : This procedure uses the Intel C and Fotran compilers. The code is built under ``$HOME/local/src``\ , and is installed under ``$HOME/local/hdf/1.12.1``\ , creating a user-only installation. Substitute your desired build and installation locations for these paths as appropriate.
+**Note**: This procedure uses the Intel C and Fotran compilers. The code is built under ``$HOME/local/src``, and is installed under ``$HOME/local/hdf/1.12.1``, creating a user-only installation. Substitute your desired build and installation locations for these paths as appropriate.
 
-**NOTE**\ : These instructions should work under any command shell.
+**NOTE**: These instructions should work under any command shell.
 
-.. code-block::
-
-   #!shell
+.. code-block:: shell
 
    # Make a build tree.
    cd $HOME
@@ -127,7 +123,7 @@ These instructions describe how to build and install the HDF5 library (version 1
 HPC systems
 -----------
 
-HPC systems typically provide software via a user-selectable system, such as the ``module`` command. The instructions below were developed on ``pleiades``\ , and thus presume use of the ``module`` command. The ``module`` commands for ``cheyenne`` and related systems are slightly different, and will be provided here as they are documented.
+HPC systems typically provide software via a user-selectable system, such as the ``module`` command. The instructions below were developed on ``pleiades``, and thus presume use of the ``module`` command. The ``module`` commands for ``cheyenne`` and related systems are slightly different, and will be provided here as they are documented.
 
 ``pleiades``
 ^^^^^^^^^^^^^^^^
@@ -136,24 +132,16 @@ The ``pleiades`` system provides multiple versions of the HDF5 software. The des
 
 To load the Intel-compiled HDF5 library and its prerequisites for use with the serial ``kaiju`` software on ``pleiades`` (this works under any shell):
 
-.. code-block::
+.. code-block:: shell
 
-   #!shell
    module load comp-intel/2020.4.304
    module load hdf5/1.8.18_serial
 
 
 To load the Intel-compiled HDF5 library and its prerequisites for use with the MPI ``kaiju`` software on ``pleiades`` (this works under any shell):
 
-.. code-block::
+.. code-block:: shell
 
-   #!shell
    module load comp-intel/2020.4.304
    module load mpi-hpe/mpt.2.23
    module load hdf5/1.8.18_mpt
-
-
-``cheyenne``
-^^^^^^^^^^^^^^^^
-
-TBD

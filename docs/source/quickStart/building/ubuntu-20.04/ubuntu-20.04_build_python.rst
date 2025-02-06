@@ -14,9 +14,8 @@ These steps assume that ``pip`` (only) is used for installing additional package
 Building the python environment
 -------------------------------
 
-.. code-block::
+.. code-block:: shell
 
-   #!shell
    # Download the installer.
    cd $HOME
    wget https://repo.anaconda.com/miniconda/Miniconda3-latest-MacOSX-x86_64.sh
@@ -70,7 +69,6 @@ Where ``requirements.txt`` is a text file containing:
 
 .. code-block::
 
-   #!shell
    ai.cdas
    alive_progress
    cartopy
@@ -96,7 +94,6 @@ Using the python environment
 
 Once your python environment is created, you must activate it for use with the ``kaiju`` software:
 
-.. code-block::
+.. code-block:: shell
 
-   #!shell
    conda activate kaiju-3.8   # or whatever name you used for the python environment

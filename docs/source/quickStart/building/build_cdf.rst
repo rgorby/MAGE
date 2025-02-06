@@ -8,13 +8,11 @@ MacOS
 
 These instructions presume the use of MacOS Ventura. The instructions should also work for other versions of MacOS. These instructions illustrate steps required to build and insta;; version 3.9.0 of the CDF library. Modify these instructions as appropriate if you use a different version.
 
-This procedure will use the default system-provided C compiler (\ ``/usr/bin/gcc``\ ).
+This procedure will use the default system-provided C compiler (``/usr/bin/gcc``).
 
-This procedure builds and installs the code under ``$HOME/local``\ , creating a user-only installation. Substitute your desired build and installation locations for these paths as appropriate.
+This procedure builds and installs the code under ``$HOME/local``, creating a user-only installation. Substitute your desired build and installation locations for these paths as appropriate.
 
-.. code-block::
-
-   #!shell
+.. code-block:: shell
 
    # Make a build tree.
    cd $HOME
@@ -48,9 +46,7 @@ This procedure builds and installs the code under ``$HOME/local``\ , creating a 
 
 In order to use the newly-compiled library, you must set up your environment (path variables and aliases) by "sourcing" the setup script:
 
-.. code-block::
-
-   #!shell
+.. code-block:: shell
 
    # For sh/bash/compatible shells:
    source $HOME/local/cdf/3.8.1/bin/definitions.B
@@ -65,17 +61,15 @@ In order to use the newly-compiled library, you must set up your environment (pa
 Linux and HPC systems
 ---------------------
 
-These instructions should work for any Linux distribution. These instructions were tested on ``pleiades``\ , as well as an Ubuntu-based virtual machine.
+These instructions should work for any Linux distribution. These instructions were tested on ``pleiades``, as well as an Ubuntu-based virtual machine.
 
-This procedure will use the default system-provided C compiler (\ ``/usr/bin/gcc``\ ).
+This procedure will use the default system-provided C compiler (``/usr/bin/gcc``).
 
-This procedure builds the code under ``$HOME/local/src``\ , and installs the compiled files under ``$HOME/local/cdf/3.8.1``\ , creating a user-only installation. Substitute your desired build and installation locations for these paths as appropriate.
+This procedure builds the code under ``$HOME/local/src``, and installs the compiled files under ``$HOME/local/cdf/3.8.1``, creating a user-only installation. Substitute your desired build and installation locations for these paths as appropriate.
 
-**NOTE**\ : These instructions should work under any command shell.
+**NOTE**: These instructions should work under any command shell.
 
-.. code-block::
-
-   #!shell
+.. code-block:: shell
 
    # Make a build tree.
    cd $HOME
@@ -109,9 +103,7 @@ This procedure builds the code under ``$HOME/local/src``\ , and installs the com
 
 In order to use the newly-compiled library, you must set up your environment (path variables and aliases) by "sourcing" the setup script:
 
-.. code-block::
-
-   #!shell
+.. code-block:: shell
 
    # For sh/bash/compatible shells:
    source $HOME/local/cdf/3.8.1/bin/definitions.B

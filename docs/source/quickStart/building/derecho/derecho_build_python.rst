@@ -7,13 +7,12 @@ Introduction
 
 This file describes how to set up a python 3.8-based ``conda`` environment on ``derecho`` which can be used to run the ``kaiju`` code.
 
-NOTE: Since the same home directory is used for ``casper``\ , ``cheyenne``\ , and ``derecho``\ , the ``conda`` installations for each must go in separate subdirectories. However, unless otherwise directed, all of the installations will share the same ``pip`` cache, ``~/.condarc``\ , etc.. That means if you build a wheel for a compiled module on one system, that wheel will be found and used on all of the other systems. This can cause problems since the CPU architectures and default module environments on the 3 systems differ.
+NOTE: Since the same home directory is used for ``casper``, ``cheyenne``, and ``derecho``, the ``conda`` installations for each must go in separate subdirectories. However, unless otherwise directed, all of the installations will share the same ``pip`` cache, ``~/.condarc``, etc.. That means if you build a wheel for a compiled module on one system, that wheel will be found and used on all of the other systems. This can cause problems since the CPU architectures and default module environments on the 3 systems differ.
 
 These steps assume that ``pip`` (only) is used for installing additional packages, and packages are only taken from PyPI (and the default ``conda`` repository, if needed) - no other repositories are used.
 
-.. code-block::
+.. code-block:: shell
 
-   #!shell
    # Download the installer.
    cd $HOME/derecho
    wget https://repo.anaconda.com/miniconda/Miniconda3-latest-Linux-x86_64.sh
@@ -68,7 +67,6 @@ Where ``requirements.txt`` is a text file containing:
 
 .. code-block::
 
-   #!shell
    ai.cdas
    alive_progress
    cartopy
@@ -94,15 +92,14 @@ Using the python environment
 
 Once your python environment is created, you must activate it for use with the ``kaiju`` software:
 
-.. code-block::
+.. code-block:: shell
 
-   #!shell
    conda activate kaiju-3.8   # or whatever name you used for the python environment
 
 
 If you want environment to be available for Jupyter interface you need to install ipykernel into your evironment
 
-.. code-block::
+.. code-block:: shell
 
    conda activate kaiju-3.8
-   mamba install ipykernel
+   conda install ipykernel

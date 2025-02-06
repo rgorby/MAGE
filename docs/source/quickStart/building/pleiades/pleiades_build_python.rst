@@ -14,9 +14,8 @@ These instructions show how to install the ``miniconda`` python distribution int
 Building the python environment
 -------------------------------
 
-.. code-block::
+.. code-block:: shell
 
-   #!shell
    # Download the installer.
    cd $HOME
    wget https://repo.anaconda.com/miniconda/Miniconda3-latest-Linux-x86_64.sh
@@ -51,7 +50,6 @@ The file ``requirements.txt`` is a text file containing:
 
 .. code-block::
 
-   #!shell
    ai.cdas
    alive_progress
    # cartopy
@@ -74,7 +72,7 @@ The file ``requirements.txt`` is a text file containing:
 
 If you have already cloned the ``kaiju`` repository, you will find a copy of this file as:
 
-.. code-block::
+.. code-block:: shell
 
    $KAIJUHOME/kaipy/requirements.txt
 
@@ -86,7 +84,6 @@ Using the python environment
 
 Once your python environment is created, you must activate it for use with the ``kaiju`` software:
 
-.. code-block::
+.. code-block:: shell
 
-   #!shell
    conda activate kaiju-3.8   # or whatever name you used for the python environment

@@ -7,7 +7,7 @@ Introduction
 
 These instructions will walk you through the process of building and installing the ``kaiju`` software on an Intel-based Macintosh computer running the MacOS Ventura operating system.
 
-These instructions assume that the user is using the ``bash`` shell, and that no modifications have been made to the user "dotfiles" (\ ``$HOME/.bashrc``\ , ``$HOME/.bash_profile``\ ). If you have customized either of these files for your account, please carefully save and inspect the output from each command in the build process to ensure that no unexpected problems have crept in. To facilitate this practice, all of the commands shown below will illustrate how to save command output, and how to measure how long each step takes. The latter is a useful bit of information which can help identify build problems early in the process, avoiding much wasted time and effort later.
+These instructions assume that the user is using the ``bash`` shell, and that no modifications have been made to the user "dotfiles" (``$HOME/.bashrc``, ``$HOME/.bash_profile``). If you have customized either of these files for your account, please carefully save and inspect the output from each command in the build process to ensure that no unexpected problems have crept in. To facilitate this practice, all of the commands shown below will illustrate how to save command output, and how to measure how long each step takes. The latter is a useful bit of information which can help identify build problems early in the process, avoiding much wasted time and effort later.
 
 Unlike most HPC systems, a Mac does not use the ``module`` system to manage the versions of software packages available to the user. Compilers and libraries must be installed by the user before starting on building the ``kaiju`` software.
 
@@ -19,26 +19,23 @@ Step 1: Configure the required software
 
 Set environment variables for the Intel fortran compiler (adjust the path as needed for your machine):
 
-.. code-block::
+.. code-block:: shell
 
-   #!shell
    export INTEL_HOME=/opt/intel
    export PATH=$INTEL_HOME/oneapi/compiler/latest/mac/bin/intel64:$PATH
 
 
 Set environment variables for CDF (adjust the paths as needed for your machine):
 
-.. code-block::
+.. code-block:: shell
 
-   #!shell
    source $HOME/ventura/local/cdf/3.9.0/bin/definitions.B
 
 
 Set environment variables for HDF5 (adjust the paths as needed for your machine):
 
-.. code-block::
+.. code-block:: shell
 
-   #!shell
    export HDF5_DIR=$HOME/ventura/local/hdf5/1.14.1-2
    export PATH=$HDF5_DIR/bin:$PATH
    export HDF5_INCLUDE_DIRS=$HDF5_DIR/include
@@ -50,21 +47,18 @@ Set environment variables for HDF5 (adjust the paths as needed for your machine)
 Step 2: Create the build directory
 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 
-Create a ``ventura``\ -specific build directory.
+Create a ``ventura``-specific build directory.
 
-.. code-block::
+.. code-block:: shell
 
-   #!shell
    cd $HOME
    mkdir -p ventura
    cd ventura
 
-
 Then make an additional subdirectory level for the branch of the code you are building (the ``development`` branch is used as an example). This arrangement is useful when you need to maintain simultaneous builds of different branches.
 
-.. code-block::
+.. code-block:: shell
 
-   #!shell
    mkdir development
    cd development
 
@@ -77,26 +71,23 @@ NOTE: This step assumes you have been granted access to the ``kaiju`` repository
 
 Clone the ``kaiju`` repository (or "repo") from BitBucket:
 
-.. code-block::
+.. code-block:: shell
 
-   #!shell
    git clone git@bitbucket.org:aplkaiju/kaiju.git
 
 
 This process should take a minute or so. When complete, verify that the ``kaiju`` code exists in your directory (the actual directory contents may differ slightly from what is shown below):
 
-.. code-block::
+.. code-block:: shell
 
-   #!shell
    ls kaiju
    analysis  cmake  CMakeLists.txt  examples  external  gitHookScripts  kaiju.sublime-project  kaipy  places  pytests  quickstart  README.md  scripts  setup.py  src  testingScripts  tests  xml
 
 
 Now move down into the cloned repo, and switch to the branch of the code you wish to use. By default, the cloned repository provides the ``master`` branch, but we want the ``development`` branch:
 
-.. code-block::
+.. code-block:: shell
 
-   #!shell
    cd kaiju
    git switch development
 
@@ -107,24 +98,22 @@ Step 4: Run ``cmake`` to create the ``Makefile`` needed to build the software
 
 Since the ``kaiju`` code can be built in serial and MPI forms, we first make a directory in which to build the serial version of the code (use whatever name you prefer, but ``build_serial`` is simple and unambiguous):
 
-.. code-block::
+.. code-block:: shell
 
-   #!shell
    mkdir build_serial
    cd build_serial
 
 
 Now run the ``cmake`` command. Save the ``cmake`` output, and use timestamps for each step. The options shown below direct the build process to use a recent version of the Intel Fortran compiler:
 
-.. code-block::
+.. code-block:: shell
 
-   #!shell
    date; time FC=`which ifort` cmake -DALLOW_INVALID_COMPILERS=ON .. >& cmake.out; date
 
 
 This command usually takes less than 10 seconds, depending on system activity. Examine the output file ``cmake.out`` for problems. It *should* look something like this:
 
-.. code-block::
+.. code-block:: shell
 
    -- The Fortran compiler identification is Intel 2021.9.0.20230302
    -- Detecting Fortran compiler ABI info
@@ -189,15 +178,14 @@ Step 5: Compile the ``kaiju`` software
 
 Now use ``make`` to build the ``kaiju`` software, time-stamping and saving the output:
 
-.. code-block::
+.. code-block:: shell
 
-   #!shell
    date; time make >& make.out; date
 
 
 This command should complete in about 3-4 minutes on a modern Mac. When the command is finished, check the output file ``make.out``. The file is long, but the last few lines should look something like this:
 
-.. code-block::
+.. code-block:: shell
 
    [ 99%] Linking Fortran static library libvoltlib.a
    [ 99%] Built target voltlib
@@ -208,9 +196,8 @@ This command should complete in about 3-4 minutes on a modern Mac. When the comm
 
 To verify that all of the ``kaiju`` programs have been built, examine the ``bin`` subdirectory of your ``build_serial`` directory (this list will evolve as more programs are added):
 
-.. code-block::
+.. code-block:: shell
 
-   #!shell
    ls bin
    calcdb.x  chop.x  gamera.x  gamhelio.x  kaitoy.x  project.x  psd.x  push.x  rcm.x  remix2rcm.x  remix2remix.x  remix.x  sctrack.x  slice.x  trace.x  voltron.x  wpicheck.x
 
@@ -220,15 +207,13 @@ Using the ``kaiju`` software
 
 Once built, you must run the setup script before using the ``kaiju`` software:
 
-.. code-block::
+.. code-block:: shell
 
-   #!shell
    source $KAIJU_HOME/scripts/setupEnvironment.sh
 
 
-This script will set environment variables needed by the ``kaiju`` software, including the ``KAIJUHOME`` environment variable (not the ``KAIJU_HOME`` environment variable). However, the path to the compiled programs is not added - you will need to specify the complete path when using compiled programs. For example,  to run the serial version of ``gamera.x``\ :
+This script will set environment variables needed by the ``kaiju`` software, including the ``KAIJUHOME`` environment variable. However, the path to the compiled programs is not added - you will need to specify the complete path when using compiled programs. For example,  to run the serial version of ``gamera.x``:
 
-.. code-block::
+.. code-block:: shell
 
-   #!shell
    $KAIJUHOME/build_serial/bin/gamera.x

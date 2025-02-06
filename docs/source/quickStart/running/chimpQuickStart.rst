@@ -207,8 +207,8 @@ want to make sure those are consistent.
 h5part Variable Descriptions
 ----------------------------
 
-The output file from a CHIMP run will be look something like \<run
-id&gt;.000000.h5part and contain the variables:
+The output file from a CHIMP run will be look something like run
+id.000000.h5part and contain the variables:
 
 x,y,z : particle position coordinates
 

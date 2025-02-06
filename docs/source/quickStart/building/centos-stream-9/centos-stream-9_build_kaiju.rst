@@ -7,7 +7,7 @@ Introduction
 
 These instructions will walk you through the process of building and installing the ``kaiju`` software on a CentOS-Stream 9 system.
 
-These instructions assume that the user is using the ``bash`` shell, and that no modifications have been made to the user "dotfiles" (\ ``$HOME/.bashrc``\ , ``$HOME/.bash_profile``\ ). If you have customized either of these files for your account, please carefully save and inspect the output from each command in the build process to ensure that no unexpected problems have crept in. To facilitate this practice, all of the commands shown below will illustrate how to save command output, and how to measure how long each step takes. The latter is a useful bit of information which can help identify build problems early in the process, avoiding much wasted time and effort later.
+These instructions assume that the user is using the ``bash`` shell, and that no modifications have been made to the user "dotfiles" (``$HOME/.bashrc``, ``$HOME/.bash_profile``). If you have customized either of these files for your account, please carefully save and inspect the output from each command in the build process to ensure that no unexpected problems have crept in. To facilitate this practice, all of the commands shown below will illustrate how to save command output, and how to measure how long each step takes. The latter is a useful bit of information which can help identify build problems early in the process, avoiding much wasted time and effort later.
 
 In the instructions below, all code will be built and installed in a CentOS-Stream 9-specific subdirectory of the user home directory, i.e. ``$HOME/centos-stream-9``. This particular organization is not required - it is intended as an example of one possible way to segregate software that has been built for multiple systems.
 
@@ -19,9 +19,8 @@ Step 1: Configure build tools
 
 Begin by configuring tools and libraries needed for the build:
 
-.. code-block::
+.. code-block:: shell
 
-   #!shell
    # Add the Intel compilers to PATH.
    source /opt/intel/oneapi/setvars.sh
 
@@ -43,9 +42,8 @@ Step 2: Create the build directory
 
 Create a system-specific build directory.
 
-.. code-block::
+.. code-block:: shell
 
-   #!shell
    cd $HOME
    mkdir HOST_SYSTEM
    cd $HOST_SYSTEM
@@ -53,9 +51,8 @@ Create a system-specific build directory.
 
 Then make an additional subdirectory level for the branch of the code you are building (the ``development`` branch is used as an example). This arrangement is useful when you need to maintain simultaneous builds of different branches.
 
-.. code-block::
+.. code-block:: shell
 
-   #!shell
    export KAIJU_BRANCH_NAME=development
    mkdir $KAIJU_BRANCH_NAME
    cd $KAIJU_BRANCH_NAME
@@ -68,26 +65,23 @@ NOTE: This step assumes you have been granted access to the ``kaiju`` repository
 
 Clone the ``kaiju`` repository (or "repo") from BitBucket:
 
-.. code-block::
+.. code-block:: shell
 
-   #!shell
    git clone git@bitbucket.org:aplkaiju/kaiju.git
 
 
 This process should take a minute or so. When complete, verify that the ``kaiju`` code exists in your directory (the actual directory contents may differ slightly from what is shown below):
 
-.. code-block::
+.. code-block:: shell
 
-   #!shell
    ls kaiju
    analysis  cmake  CMakeLists.txt  examples  external  gitHookScripts  kaiju.sublime-project  kaipy  places  pytests  quickstart  README.md  scripts  setup.py  src  testingScripts  tests  xml
 
 
 Now move down into the cloned repo, and switch to the branch of the code you wish to use. By default, the cloned repository provides the ``master`` branch, but we want the ``development`` branch:
 
-.. code-block::
+.. code-block:: shell
 
-   #!shell
    cd kaiju
    git switch $KAIJU_BRANCH_NAME
 
@@ -97,9 +91,8 @@ Step 4: Run ``cmake`` to create the ``Makefile`` needed to build the software
 
 Since the ``kaiju`` code can be built in serial and MPI forms, we first make a directory in which to build the serial version of the code (use whatever name you prefer, but ``build_serial`` is simple and unambiguous):
 
-.. code-block::
+.. code-block:: shell
 
-   #!shell
    export KAIJU_BUILD_NAME=build_serial
    KAIJU_BUILD_PATH=$KAIJU_HOME/$KAIJU_BUILD_NAME
    mkdir -p $KAIJU_BUILD_PATH
@@ -108,9 +101,8 @@ Since the ``kaiju`` code can be built in serial and MPI forms, we first make a d
 
 Now run the ``cmake`` command. Save the ``cmake`` output, and use timestamps for each step. The options shown below direct the build process to use a recent version of the Intel Fortran compiler:
 
-.. code-block::
+.. code-block:: shell
 
-   #!shell
    date; time FC=`which ifort` cmake -DALLOW_INVALID_COMPILERS=ON .. >& cmake.out; date
 
 
@@ -183,9 +175,8 @@ Step 5: Compile the ``kaiju`` software
 
 Now use ``make`` to build the ``kaiju`` software, time-stamping and saving the output:
 
-.. code-block::
+.. code-block:: shell
 
-   #!shell
    date; time make >& make.out; date
 
 
@@ -206,9 +197,8 @@ This command should complete in about 8-9 minutes on a CentOS-Stream 9 system ru
 
 To verify that all of the ``kaiju`` programs have been built, examine the ``bin`` subdirectory of your ``build_serial`` directory (this list will evolve as more programs are added):
 
-.. code-block::
+.. code-block:: shell
 
-   #!shell
    ls bin
    calcdb.x  gamhelio.x  psd.x   remix2rcm.x    sctrack.x  voltron.x
    chop.x    kaitoy.x    push.x  remix2remix.x  slice.x    wpicheck.x
@@ -220,15 +210,13 @@ Using the ``kaiju`` software
 
 Once built, you must run the setup script before using the ``kaiju`` software:
 
-.. code-block::
+.. code-block:: shell
 
-   #!shell
    source $KAIJU_HOME/scripts/setupEnvironment.sh
 
 
-This script will set environment variables needed by the ``kaiju`` software, including the ``KAIJUHOME`` environment variable (not the ``KAIJU_HOME`` environment variable). However, the path to the compiled programs is not added - you will need to specify the complete path when using compiled programs. For example,  to run the serial version of ``gamera.x``\ :
+This script will set environment variables needed by the ``kaiju`` software, including the ``KAIJUHOME`` environment variable (not the ``KAIJU_HOME`` environment variable). However, the path to the compiled programs is not added - you will need to specify the complete path when using compiled programs. For example,  to run the serial version of ``gamera.x``:
 
-.. code-block::
+.. code-block:: shell
 
-   #!shell
    $KAIJUHOME/build_serial/bin/gamera.x

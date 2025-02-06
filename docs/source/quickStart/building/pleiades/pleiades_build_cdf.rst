@@ -9,7 +9,7 @@ This file describes how to build and install the CDF library on ``pleiades`` for
 
 These instructions describe use of CDF 3.9.0. The software will be built and installed into:
 
-.. code-block::
+.. code-block:: shell
 
    $HOME/local/cdf/3.9.0
 
@@ -17,9 +17,8 @@ These instructions describe use of CDF 3.9.0. The software will be built and ins
 Building and installing the CDF library
 ---------------------------------------
 
-.. code-block::
+.. code-block:: shell
 
-   #!shell
    # NOTE: No modules are loaded on pleiades by default.
 
    # Specify and create the root of the build tree.
@@ -58,7 +57,6 @@ Using the CDF library
 
 To use this software, you must run the setup script:
 
-.. code-block::
+.. code-block:: shell
 
-   #!shell
    source $BUILD_ROOT/bin/definitions.B
