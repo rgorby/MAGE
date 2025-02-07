@@ -38,7 +38,7 @@ module shellInterp
     end subroutine InterpShellVar
 
 
-    subroutine InterpShellVar_TSC_SG(sgSource, sgVar, sgDest, varOut, dThetaO, dPhiO)
+    subroutine InterpShellVar_TSC_SG(sgSource, sgVar, sgDest, varOut, dThetaO, dPhiO, srcMaskO)
         !! Interpolate a ShellGridVar to another ShellGrid using the Triangle-Schaped Cloud method
         type(ShellGrid_T)   , intent(in) :: sgSource
             !! Source shellGrid that sgVar lives on
@@ -52,6 +52,8 @@ module shellInterp
             !! Cell width in theta direction
         real(rp), dimension(:), optional, intent(in) :: dPhiO
             !! Width in theta direction
+        logical, dimension(sgVar%isv:sgVar%iev, sgVar%jsv:sgVar%jev), optional, intent(in) :: srcMaskO
+            !! If provided, we use this to mask the source variable instead of its mask
 
 
         integer :: extraPnt
@@ -104,23 +106,20 @@ module shellInterp
         ! Which destination grid locations we loop over depends on the destination variable location
         select case(varOut%loc)
             case(SHGR_CC)
-                !do j=varOut%jsv,varOut%jev
-                !    do i=varOut%isv,varOut%iev
-                !^^^ This indexing works just fine, but I'm not gonna do it cause its less clear what we're actually looping over
                 !$OMP PARALLEL DO default(shared) collapse(1) &
                 !$OMP schedule(dynamic) &
                 !$OMP private(i,j)
                 do j=sgDest%jsg,sgDest%jeg
                     do i=sgDest%isg,sgDest%ieg
-                        !if (.not. varOut%mask(i,j)) cycle
+                        if (.not. varOut%mask(i,j)) cycle
                         ! NOTE/TODO: This is where we would do transformations of destination grid's theta dn phi to source grid
                         ! in the case where they have different coordinate systems
                         call InterpShellVar_TSC_pnt( \
                                 sgSource, sgVar,\
                                 sgDest%thc(i), sgDest%phc(j),\
                                 varOut%data(i,j), \
-                                dTheta, dPhi,\
-                                goodInterp)
+                                dThetaO=dTheta, dPhiO=dPhi,\
+                                srcMaskO=srcMaskO, goodInterpO=goodInterp)
                         ! TODO: Handle case where goodInterp is false here
                         ! Probably will be model dependent. Maybe we return a 2D goodInterp array if an optional array is provided to us
                     enddo
@@ -131,15 +130,15 @@ module shellInterp
                 !$OMP private(i,j)
                 do j=sgDest%jsg,sgDest%jeg+1
                     do i=sgDest%isg,sgDest%ieg+1
-                        !if (.not. varOut%mask(i,j)) cycle
+                        if (.not. varOut%mask(i,j)) cycle
                         ! NOTE/TODO: This is where we would do transformations of destination grid's theta dn phi to source grid
                         ! in the case where they have different coordinate systems
                         call InterpShellVar_TSC_pnt( \
                                 sgSource, sgVar,\
                                 sgDest%th(i), sgDest%ph(j),\
                                 varOut%data(i,j), \
-                                dTheta, dPhi,\
-                                goodInterp)
+                                dThetaO=dTheta, dPhiO=dPhi,\
+                                srcMaskO=srcMaskO, goodInterpO=goodInterp)
                     enddo
                 enddo
             case(SHGR_FACE_THETA)
@@ -148,15 +147,15 @@ module shellInterp
                 !$OMP private(i,j)
                 do j=sgDest%jsg,sgDest%jeg
                     do i=sgDest%isg,sgDest%ieg+1
-                        !if (.not. varOut%mask(i,j)) cycle
+                        if (.not. varOut%mask(i,j)) cycle
                         ! NOTE/TODO: This is where we would do transformations of destination grid's theta dn phi to source grid
                         ! in the case where they have different coordinate systems
                         call InterpShellVar_TSC_pnt( \
                                 sgSource, sgVar,\
                                 sgDest%th(i), sgDest%phc(j),\
                                 varOut%data(i,j), \
-                                dTheta, dPhi,\
-                                goodInterp)
+                                dThetaO=dTheta, dPhiO=dPhi,\
+                                srcMaskO=srcMaskO, goodInterpO=goodInterp)
                     enddo
                 enddo
             case(SHGR_FACE_PHI)
@@ -165,15 +164,15 @@ module shellInterp
                 !$OMP private(i,j)
                 do j=sgDest%jsg,sgDest%jeg+1
                     do i=sgDest%isg,sgDest%ieg
-                        !if (.not. varOut%mask(i,j)) cycle
+                        if (.not. varOut%mask(i,j)) cycle
                         ! NOTE/TODO: This is where we would do transformations of destination grid's theta dn phi to source grid
                         ! in the case where they have different coordinate systems
                         call InterpShellVar_TSC_pnt( \
                                 sgSource, sgVar,\
                                 sgDest%thc(i), sgDest%ph(j),\
                                 varOut%data(i,j), \
-                                dTheta, dPhi,\
-                                goodInterp)
+                                dThetaO=dTheta, dPhiO=dPhi,\
+                                srcMaskO=srcMaskO, goodInterpO=goodInterp)
                     enddo
                 enddo
         end select
@@ -185,7 +184,7 @@ module shellInterp
     end subroutine InterpShellVar_TSC_SG
 
 
-    subroutine InterpShellVar_TSC_pnt(sgsource, sgVar, th, pin, Qinterp, dThetaO, dPhiO, goodInterpO)
+    subroutine InterpShellVar_TSC_pnt(sgsource, sgVar, th, pin, Qinterp, dThetaO, dPhiO, srcMaskO, goodInterpO)
         !! Given the source information, interpolate sgVar to point (t,pin) and return as Qout
         type(ShellGrid_T   ), intent(in) :: sgSource
             !! Source ShellGrid
@@ -201,6 +200,8 @@ module shellInterp
             !! Cell width in theta, centered at variable positions on source grid
         real(rp), dimension(sgVar%jsv:sgVar%jev), optional, intent(in) :: dPhiO
             !! Cell width in phi, centered at variable positions on source grid
+        logical, dimension(sgVar%isv:sgVar%iev, sgVar%jsv:sgVar%jev), optional, intent(in) :: srcMaskO
+            !! If provided, we use this to mask the source variable instead of its mask
         logical, optional, intent(inout) :: goodInterpO
             !! True if we are returning a meaningful interpolated value
 
@@ -351,7 +352,11 @@ module shellInterp
 
                 Qs(n) = sgVar%data(ipnt,jpnt)
                 Ws(n) = wE(di)*wZ(dj)
-                isGs(n) = sgVar%mask(ipnt,jpnt)
+                if(present(srcMaskO)) then
+                    isGs(n) = srcMaskO(ipnt,jpnt)
+                else
+                    isGs(n) = sgVar%mask(ipnt,jpnt)
+                endif
 
                 if (.not. isGs(n)) Ws(n) = 0.0
 

@@ -415,7 +415,7 @@ module shellGrid
                 stop
             endif
         else
-            shellVar%mask = .false.  ! Up to user to determine which points are valid
+            shellVar%mask = .true.
         endif
     end subroutine initShellVar
 
