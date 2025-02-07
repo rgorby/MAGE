@@ -18,6 +18,7 @@ module shellUtils
         associate(Q => sgVar%data)
 
         ! Theta faces are cell-centered w.r.t. j direction
+        !! TODO: Catch for zero ghosts in j direction
         if (sgVar%loc == SHGR_CC .or. sgVar%loc == SHGR_FACE_THETA) then
             ! Starting ghost cells
             Q(:, sh%jsg:sh%js-1) = Q(:, sh%je-sh%Ngw+1:sh%je)

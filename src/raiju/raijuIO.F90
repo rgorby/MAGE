@@ -257,6 +257,7 @@ module raijuIO
         call AddOutVar(IOVars,"OCBDist",State%OCBDist(is:ie,js:je)*1.0_rp    ,dStr="Cell distance from an open closed boundary")
         call AddOutVar(IOVars,"espot"  ,State%espot  (is:ie+1,js:je+1)       ,uStr="kV",dStr="(corners) Electrostatic potential")
         call AddOutVar(IOVars,"bVol"   ,State%bvol   (is:ie+1,js:je+1)       ,uStr="Rx/nT",dStr="(corners) Flux Tube Volume")
+        call AddOutVar(IOVars,"bVol_cc",State%bvol_cc(is:ie+1,js:je+1)       ,uStr="Rx/nT",dStr="(corners) Flux Tube Volume")
         call AddOutVar(IOVars,"vaFrac" ,State%vaFrac (is:ie+1,js:je+1)       ,uStr="fraction",dStr="Fraction of Alfven speed over magnetofast + ExB speed")
         call AddOutVar(IOVars,"Pavg_in",State%Pavg   (is:ie,js:je, :)        ,uStr="nPa" ,dStr="Pressures from imagtubes")
         call AddOutVar(IOVars,"Davg_in",State%Davg   (is:ie,js:je, :)        ,uStr="#/cc",dStr="Densities from imagtubes")
