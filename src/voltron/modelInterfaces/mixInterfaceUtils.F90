@@ -119,10 +119,24 @@ module mixinterfaceutils
          call initShellVar(mixS, SHGR_CORNER, potS)
          potS%mask=.true.
          ! Now map actual mix pot onto shellgridvar
-         potS%data(:,1:shGr%Np) = transpose(rmHemi%St%Vars(::-1,::-1,POT))
-         potS%data(:,shGr%Np+1) = potS%data(:,1)
+         !potS%data(:,1:shGr%Np) = transpose(rmHemi%St%Vars(::-1,::-1,POT))
+         potS%data(:,1:shGr%Np) = transpose(rmHemi%St%Vars(1:mixS%Np,1:mixS%Nt+1,POT))
+         !write(*,*)rmHemi%St%Vars(1,1:shGr%Nt+1,POT)
+         !potS%data(:,1:mixS%Np) = transpose(rmHemi%G%t(1:mixS%Np,1:mixS%Nt+1))
+         potS%data(:,mixS%Np+1) = potS%data(:,1)
+         !write(*,*)'-----'
+         !write(*,*)potS%data(1:mixS%Nt+1,1)
+         !write(*,*)'-----'
+         potS%data = potS%data(shGr%Nt:1:-1,shGr%Np:1:-1)
+         !potS%data = potS%data(::-1,::-1)
+         !write(*,*)potS%data(1:mixS%Nt+1,1)
+         !write(*,*)'-----'
+         
          !call InterpShellVar_TSC_SG(mixS, potS, voltGrid, voltState%potential_total)
          call InterpShellVar_TSC_SG(mixS, potS, voltGrid, tmpS)
+
+         !write(*,*)'-.-.-'
+         !write(*,*)tmpS%data(1:voltGrid%Nt+1,1)
 
          ! Hacky version for now. Not needed if mix's sg is child of voltron's
          iLat = voltGrid%ie

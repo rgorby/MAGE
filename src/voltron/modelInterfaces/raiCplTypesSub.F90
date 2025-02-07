@@ -81,7 +81,7 @@ submodule (volttypes) raijuCplTypesSub
             !! Phi [rad]
         real(rp), intent(in) :: t
             !! Time since run start [s]
-        real(rp), intent(out) :: imW(NVARIMAG0)
+        real(rp), intent(out) :: imW(IM_D_RING:IM_TSCL)
         logical , intent(out) :: isEdible
 
         integer :: s  ! Iterators
