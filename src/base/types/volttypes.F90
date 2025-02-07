@@ -29,9 +29,10 @@ module volttypes
 
     ! Data for voltron => gamera Gas0 variables
     enum, bind(C)
-        enumerator :: IONEX,IONEY,IONEZ !Convection E field from remix potential
+        enumerator :: IONEX,IONEY,IONEZ, & !Convection E field from remix potential
+                      PROJLAT,PROJLON !Projected (to NH) lat/lon
     endenum
-    integer, parameter :: NVARVOLT0 = 3
+    integer, parameter :: NVARVOLT0 = 5
 
     ! Data for inner mag => gamera Gas0 variables
     enum, bind(C)
