@@ -12,7 +12,6 @@ module voltapp
     use chmp2mhd_interface
     use mix2mhd_interface
     use imag2mhd_interface
-    use mixinterfaceutils, only : mixToVoltron
     use ebsquish
     use innermagsphere
     use dates
