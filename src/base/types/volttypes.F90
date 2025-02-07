@@ -516,7 +516,7 @@ module volttypes
         module subroutine getMomentsRAIJU(App,th,ph,t,imW,isEdible)
             class(raijuCoupler_T), intent(inout) :: App
             real(rp), intent(in) :: th,ph,t
-            real(rp), intent(out) :: imW(NVARIMAG0)
+            real(rp), intent(out) :: imW(IM_D_RING:IM_TSCL)
             logical, intent(out) :: isEdible
         end subroutine getMomentsRAIJU
 
