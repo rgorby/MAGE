@@ -256,6 +256,13 @@ module voltio
             stop
         endif
 
+        ! Re-init our shellGrid from file
+        call GenShellGridFromFile(vApp%shGrid, "VOLTRON", ResF)
+        ! Init our state now that we have grid info back
+        call initVoltState(vApp)
+
+        !! TODO: Load new voltState vars from restart file
+
         call ClearIO(IOVars)
         call AddInVar(IOVars,"gBAvg")
 
@@ -299,11 +306,6 @@ module voltio
         else
             write(*,*) "gBAvg not found in Voltron restart, assuming dipole ..."
         endif
-
-        ! Re-init our shellGrid from file
-        call GenShellGridFromFile(vApp%shGrid, "VOLTRON", ResF)
-        ! Init our state now that we have grid info back
-        call initVoltState(vApp)
 
     end subroutine readVoltronRestart
 

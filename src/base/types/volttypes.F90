@@ -295,6 +295,11 @@ module volttypes
         type(ShellGridVar_T) :: potential_corot  ! [kV]
             !! (Corners) [kV] Corotation potential
 
+        type(ShellGridVar_T) :: bIonoMag
+            !! [nT] Magnitude of the magnetic field at grid's ionosphere location
+        type(ShellGridVar_T) :: bIonoRad
+            !! [nT] Radial component of the magnetic field at grid's ionosphere location
+
     end type voltState_t
     type :: voltApp_T
 
