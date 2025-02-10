@@ -376,11 +376,10 @@ module raijugrids
             ! Calc areas at cell centers [Rp^2]
             do i=shGr%isg,shGr%ieg
                 do j=shGr%jsg,shGr%jeg
-                    ! r^2 * sin(th) * dTh * dPh
+                    ! r^2 * (sin(th1)-sin(th2)) * dPh
                     Grid%areaCC(i,j) = (planet%ri_m/planet%rp_m)**2 &
-                                        * sin(shGr%thc(i)) &
-                                        * (shGr%th(i+1) - shGr%th(i)) &
-                                        * (shGr%ph(j+1) - shGr%ph(j))
+                                     * ( sin(shGr%thc(i)) - sin(shGr%thc(i+1)) ) &
+                                     * (shGr%ph(j+1) - shGr%ph(j))
                 enddo
             enddo
 

@@ -201,7 +201,14 @@ module raijustarter
         call iXML%Set_Val(Model%doActiveShell, "activeShell/doAS",.true.)
         call iXML%Set_Val(Model%worthyFrac, "prob/worthyFrac",fracWorthyDef)
 
-        call iXML%Set_Val(Model%doGeoCorot, "prob/doGeoCorot",.false.)
+        if (Model%isSA) then
+            call iXML%Set_Val(Model%doOwnCorot, "prob/doCorot",.true.)
+        else
+            call iXML%Set_Val(Model%doOwnCorot, "prob/doCorot",.false.)
+        endif
+        if (Model%doOwnCorot) then
+            call iXML%Set_Val(Model%doGeoCorot, "prob/doGeoCorot",.false.)
+        endif
 
         ! Lambda channel settings
         call iXML%Set_Val(Model%doDynamicLambdaRanges, "lambdas/dynamicRanges",.false.)

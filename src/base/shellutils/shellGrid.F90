@@ -363,10 +363,9 @@ end type ShellGridVar_T
         ! Do some extra geom calculates for easy reference when needed
         do i=shGr%isg,shGr%ieg
             do j=shGr%jsg,shGr%jeg
-                ! r^2 * sin(th) * dTh * dPh
+                ! r^2 * (sin(th1)-sin(th2)) * dPh
                 shGr%areaCC(i,j) = shGr%radius**2 &
-                                 * sin(shGr%thc(i)) &
-                                 * (shGr%th(i+1) - shGr%th(i)) &
+                                 * ( sin(shGr%thc(i)) - sin(shGr%thc(i+1)) ) &
                                  * (shGr%ph(j+1) - shGr%ph(j))
             enddo
         enddo
