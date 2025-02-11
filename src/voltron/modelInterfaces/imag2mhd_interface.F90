@@ -4,6 +4,7 @@ module imag2mhd_interface
     use cmiutils
     use planethelper
     use gridutils
+    use shellInterp
 
     implicit none
 
@@ -18,10 +19,16 @@ module imag2mhd_interface
         logical , dimension(:,:,:)  , allocatable :: isGoodCC
 
         integer :: n,i,j,k
-        real(rp) :: x1,x2,di,dj,dk
+        real(rp) :: x1,x2,x1c,di,dj,dk,Rion,t,eScl
         real(rp), dimension(NDIM) :: xyz
         real(rp) :: Qs(8) !Squish all the corners of a single cell
-        real(rp) :: imW(NVARIMAG0)
+        real(rp) :: imW(IM_D_RING:IM_TSCL) !All imag variables
+        logical :: isTasty,isG
+
+
+        !Add projection to ion instead of invlat
+        Rion = vApp%shGrid%radius !Voltron grid radius in Rx
+        eScl = vApp%gApp%rm2g !Scaling for remix kV
 
         associate(Gr=>vApp%gApp%Grid,gModel=>vApp%gApp%Model)
             Gr%Gas0 = 0.0
@@ -30,6 +37,8 @@ module imag2mhd_interface
             gPsi = 0.0
 
             !Loop over "real" nodes and get total potential from voltron grid
+            !$OMP PARALLEL DO default(shared) collapse(2) &
+            !$OMP private(i,j,k,x1,x2,x1c,xyz,isG)
             do k=Gr%ks,Gr%ke+1
                 do j=Gr%js,Gr%je+1
                     do i=Gr%isg,Gr%ie+1
@@ -37,15 +46,19 @@ module imag2mhd_interface
                         if (i < Gr%is) then
                             !Use dipole projection
                             xyz = Gr%xyz(i,j,k,:) !Gamera grid corner
-                            x1 = InvLatitude(xyz)  ! Lat
-                            x2 = katan2(xyz(YDIR),xyz(XDIR)) !katan => [0,2pi] instead of [-pi,pi]
+                            call Proj2Rad(xyz,Rion,x1,x2)
+                            isG = .true.
                         else
-                            x1 = vApp%chmp2mhd%xyzSquish(i,j,k,1)
-                            x2 = vApp%chmp2mhd%xyzSquish(i,j,k,2)
+                            x1  = vApp%chmp2mhd%xyzSquish(i,j,k,1)
+                            x2  = vApp%chmp2mhd%xyzSquish(i,j,k,2)
+                            isG = vApp%chmp2mhd%isGood(i,j,k)
                         endif
-
-                        !TODO: Use x1,x2 to evaluate potential
-                        !!!!
+                        x1c = PI/2 - x1
+                        if (isG) then
+                            !Get potential in kV
+                            call InterpShellVar_TSC_pnt(vApp%shGrid,vApp%State%potential_total,&
+                                                        x1c,x2,gPsi(i,j,k) )
+                        endif
                     enddo
                 enddo !j
             enddo !k
@@ -54,6 +67,8 @@ module imag2mhd_interface
             allocate(Eijk(Gr%isg:Gr%ieg,Gr%jsg:Gr%jeg,Gr%ksg:Gr%keg,1:NDIM))
             Eijk = 0.0
 
+            !$OMP PARALLEL DO default(shared) collapse(2) &
+            !$OMP private(i,j,k,di,dj,dk)
             do k=Gr%ksg,Gr%keg
                 do j=Gr%jsg,Gr%jeg
                     do i=Gr%isg,Gr%ieg
@@ -64,12 +79,15 @@ module imag2mhd_interface
                         Eijk(i,j,k,JDIR) = -( gPsi(i,j+1,k) - gPsi(i,j,k) )/dj
                         Eijk(i,j,k,KDIR) = -( gPsi(i,j,k+1) - gPsi(i,j,k) )/dk
 
-                        !TODO: Think about scaling!
+                        Eijk(i,j,k,:) = Eijk(i,j,k,:)/eScl
+                        
                     enddo
                 enddo
             enddo !k
 
             !Convert edge E fields to xyz and store
+            !$OMP PARALLEL DO default(shared) collapse(2) &
+            !$OMP private(i,j,k)
             do k=Gr%ks,Gr%ke
                 do j=Gr%js,Gr%je
                     do i=Gr%isg,Gr%ieg
@@ -85,6 +103,9 @@ module imag2mhd_interface
             allocate(isGoodCC(Gr%isg:Gr%ieg,Gr%jsg:Gr%jeg,Gr%ksg:Gr%keg))
             isGoodCC = .false.
             !Get cell-centered projections
+
+            !$OMP PARALLEL DO default(shared) collapse(2) &
+            !$OMP private(i,j,k,xyz,x1,x2,Qs)
             do k=Gr%ks,Gr%ke
                 do j=Gr%js,Gr%je
                     do i=Gr%isg,Gr%ie
@@ -93,8 +114,10 @@ module imag2mhd_interface
                             !Below inner boundary, do dipole projection
                             isGoodCC(i,j,k) = .true.
                             xyz = Gr%xyzcc(i,j,k,:) !Gamera grid center
-                            Gr%Gas0(i,j,k,PROJLAT) = InvLatitude(xyz)  ! Lat
-                            Gr%Gas0(i,j,k,PROJLON) = katan2(xyz(YDIR),xyz(XDIR)) !katan => [0,2pi] instead of [-pi,pi]
+                            call Proj2Rad(xyz,Rion,x1,x2)
+                            Gr%Gas0(i,j,k,PROJLAT) = x1
+                            Gr%Gas0(i,j,k,PROJLON) = x2
+
                         else
                             !Get value from xyzsquish
 
@@ -119,7 +142,11 @@ module imag2mhd_interface
             call FillGhostsCC(gModel,Gr,Gr%Gas0(:,:,:,PROJLAT))
             call FillGhostsCC(gModel,Gr,Gr%Gas0(:,:,:,PROJLON))
 
+            t = (vApp%gApp%Model%t)*(vApp%gApp%Model%Units%gT0)
+
             !Loop over and get imag data
+            !$OMP PARALLEL DO default(shared) collapse(2) &
+            !$OMP private(i,j,k,x1c,x2,imW,isTasty)
             do k=Gr%ks,Gr%ke
                 do j=Gr%js,Gr%je
                     do i=Gr%isg,Gr%ie
@@ -130,18 +157,28 @@ module imag2mhd_interface
                         if (isGoodCC(i,j,k)) then
                             !Get imag value here
                             imW = 0.0
+                            x1c = PI/2 - Gr%Gas0(i,j,k,PROJLAT)
+                            x2  = Gr%Gas0(i,j,k,PROJLON)
 
-                            !FINISH
+                            call vApp%imagApp%getMoments(x1c,x2,t,imW,isTasty)
+                            if (isTasty) then
+                                !Density/pressure coming back in #/cc and nPa
+                                !Ingestion timescale coming back in seconds
+                                Gr%Gas0(i,j,k,IM_D_RING) = imW(IM_D_RING)
+                                Gr%Gas0(i,j,k,IM_D_COLD) = imW(IM_D_COLD)
+                                Gr%Gas0(i,j,k,IM_P_RING) = imW(IM_P_RING)/vApp%gApp%Model%Units%gP0
+                                Gr%Gas0(i,j,k,IM_P_COLD) = imW(IM_P_COLD)/vApp%gApp%Model%Units%gP0
+                                Gr%Gas0(i,j,k,IM_TSCL  ) = imW(IM_TSCL  )/vApp%gApp%Model%Units%gT0
+                            endif
+                            
                         endif
                     enddo !i
                 enddo
             enddo !k
-            call FillGhostsCC(gModel,Gr,Gr%Gas0(:,:,:,IM_D_RING))
-            call FillGhostsCC(gModel,Gr,Gr%Gas0(:,:,:,IM_P_RING))
-            call FillGhostsCC(gModel,Gr,Gr%Gas0(:,:,:,IM_D_COLD))
-            call FillGhostsCC(gModel,Gr,Gr%Gas0(:,:,:,IM_P_COLD))
-            call FillGhostsCC(gModel,Gr,Gr%Gas0(:,:,:,IM_TSCL  ))
 
+            do n=IM_D_RING,IM_TSCL
+                call FillGhostsCC(gModel,Gr,Gr%Gas0(:,:,:,n))
+            enddo
         end associate
 
 
@@ -158,6 +195,8 @@ module imag2mhd_interface
                 integer :: i,j,k,ip,jp,kp
                 logical :: isActive
 
+                !$OMP PARALLEL DO default(shared) collapse(2) &
+                !$OMP private(i,j,k,isActive,ip,jp,kp)
                 do k=Gr%ksg,Gr%keg
                     do j=Gr%jsg,Gr%jeg
                         do i=Gr%isg,Gr%ieg
@@ -172,6 +211,20 @@ module imag2mhd_interface
                 enddo !k
 
             end subroutine FillGhostsCC
+
+            !Project xyz along dipole to R0 and return lat (x1) and lon (x2)
+            subroutine Proj2Rad(xyz,R0,x1,x2)
+                real(rp), intent(in ) :: xyz(NDIM), R0
+                real(rp), intent(out) :: x1,x2
+
+                real(rp), dimension(NDIM) :: xyz0
+
+                xyz0 = DipoleShift(xyz,R0)
+                x1 = asin(xyz0(ZDIR)/R0) !Lat
+                x2 = katan2(xyz0(YDIR),xyz0(XDIR)) !katan => [0,2pi] instead of [-pi,pi]
+
+            end subroutine Proj2Rad 
+
     end subroutine
 
     ! subroutine convertImagToGamera(gApp, vApp)

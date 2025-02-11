@@ -464,6 +464,15 @@ module gioH5
 
             if (Model%doSource .and. Model%isMagsphere) then
                 
+                !Volt variables
+                call GameraOut("SrcX1" ,"deg",rad2deg,Gr%Gas0(Gr%is:Gr%ie,Gr%js:Gr%je,Gr%ks:Gr%ke,PROJLAT))
+                call GameraOut("SrcX2" ,"deg",rad2deg,Gr%Gas0(Gr%is:Gr%ie,Gr%js:Gr%je,Gr%ks:Gr%ke,PROJLON))
+
+                call GameraOut("SrcIONEx" ,gamOut%eID,gamOut%eScl,Gr%Gas0(Gr%is:Gr%ie,Gr%js:Gr%je,Gr%ks:Gr%ke,IONEX))
+                call GameraOut("SrcIONEy" ,gamOut%eID,gamOut%eScl,Gr%Gas0(Gr%is:Gr%ie,Gr%js:Gr%je,Gr%ks:Gr%ke,IONEY))
+                call GameraOut("SrcIONEz" ,gamOut%eID,gamOut%eScl,Gr%Gas0(Gr%is:Gr%ie,Gr%js:Gr%je,Gr%ks:Gr%ke,IONEZ))
+
+                !IMAG variables
                 call GameraOut("SrcD_RING" ,gamOut%dID,gamOut%dScl,Gr%Gas0(Gr%is:Gr%ie,Gr%js:Gr%je,Gr%ks:Gr%ke,IM_D_RING))
                 call GameraOut("SrcP_RING" ,gamOut%pID,gamOut%pScl,Gr%Gas0(Gr%is:Gr%ie,Gr%js:Gr%je,Gr%ks:Gr%ke,IM_P_RING))
                 call GameraOut("SrcD_COLD" ,gamOut%dID,gamOut%dScl,Gr%Gas0(Gr%is:Gr%ie,Gr%js:Gr%je,Gr%ks:Gr%ke,IM_D_COLD))
