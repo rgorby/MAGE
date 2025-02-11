@@ -265,30 +265,42 @@ module uservoltic
         real(rp) :: igFlx(NVAR), imFlx(NDIM)
 
         !This is inner-most I tile
-        if ( Gr%hasLowerBC(IDIR) .and. (.not. Model%doMultiF) ) then
+        if ( Gr%hasLowerBC(IDIR) .and. Model%doRing ) then
 
-            if (Model%doRing) then
-                if (Model%Ring%doE) then
-                    igFlx = sum(gFlx(Gr%is,Gr%je,Gr%ks:Gr%ke,1:NVAR,IDIR,BLK),dim=1)/Model%Ring%Np
-                    imFlx = sum(mFlx(Gr%is,Gr%je,Gr%ks:Gr%ke,1:NDIM,IDIR    ),dim=1)/Model%Ring%Np
+            if (Model%Ring%doE) then
+                !First do mag flux
+                imFlx = sum(mFlx(Gr%is,Gr%je,Gr%ks:Gr%ke,1:NDIM,IDIR    ),dim=1)/Model%Ring%Np
+                do k=Gr%ks,Gr%ke
+                    mFlx(Gr%is,Gr%je,k,:,IDIR    ) = imFlx
+                enddo
+
+                !Now all species
+                do s=BLK,Model%nSpc
+                    igFlx = sum(gFlx(Gr%is,Gr%je,Gr%ks:Gr%ke,1:NVAR,IDIR,s),dim=1)/Model%Ring%Np
                     do k=Gr%ks,Gr%ke
-                        gFlx(Gr%is,Gr%je,k,:,IDIR,BLK) = igFlx
-                        mFlx(Gr%is,Gr%je,k,:,IDIR    ) = imFlx
+                        gFlx(Gr%is,Gr%je,k,:,IDIR,s) = igFlx
                     enddo
-                endif !doE
+                enddo
 
-                if (Model%Ring%doS) then
-                    igFlx = sum(gFlx(Gr%is,Gr%js,Gr%ks:Gr%ke,1:NVAR,IDIR,BLK),dim=1)/Model%Ring%Np
-                    imFlx = sum(mFlx(Gr%is,Gr%js,Gr%ks:Gr%ke,1:NDIM,IDIR    ),dim=1)/Model%Ring%Np
+            endif !doE
+
+            if (Model%Ring%doS) then
+                !First do mag flux
+                imFlx = sum(mFlx(Gr%is,Gr%js,Gr%ks:Gr%ke,1:NDIM,IDIR    ),dim=1)/Model%Ring%Np
+                do k=Gr%ks,Gr%ke
+                    mFlx(Gr%is,Gr%js,k,:,IDIR    ) = imFlx
+                enddo
+
+                !Now all species
+                do s=BLK,Model%nSpc
+                    igFlx = sum(gFlx(Gr%is,Gr%js,Gr%ks:Gr%ke,1:NVAR,IDIR,s),dim=1)/Model%Ring%Np
                     do k=Gr%ks,Gr%ke
-                        gFlx(Gr%is,Gr%js,k,:,IDIR,BLK) = igFlx
-                        mFlx(Gr%is,Gr%js,k,:,IDIR    ) = imFlx
+                        gFlx(Gr%is,Gr%js,k,:,IDIR,s) = igFlx
                     enddo
-                endif !doE
+                enddo !spcs
+            endif !doS
 
-            endif !doRing
-            
-        endif !Inner i-tile and not MF
+        endif !Inner i-tile and doring
 
     end subroutine IonFlux
 
@@ -333,11 +345,12 @@ module uservoltic
         class(Grid_T), intent(in) :: Grid
         class(State_T), intent(inout) :: State
 
-        real(rp) :: Rin,llBC,dA,Rion,MagB0
+        real(rp) :: Rin,llBC,dA,Rion
         real(rp), dimension(NDIM) :: Bd,Exyz,Veb,rHat
         integer :: i,j,k,ig,jg,kg,ip,jp,kp,idip,n,np,d
         !integer :: ig,ip,idip,j,k,jp,kp,n,np,d
         integer, dimension(NDIM) :: dApm
+        real(rp), dimension(NVARVOLTSRC) :: G0
 
         
         !Are we on the inner (REMIX) boundary
@@ -350,7 +363,7 @@ module uservoltic
 
         !$OMP PARALLEL DO default(shared) &
         !$OMP private(ig,ip,idip,j,k,jp,kp,n,np,d) &
-        !$OMP private(Bd,Exyz,Veb,rHat,dA,dApm,MagB0)
+        !$OMP private(Bd,Exyz,Veb,rHat,dA,dApm,G0)
         do k=Grid%ksg,Grid%keg+1
             do j=Grid%jsg,Grid%jeg+1
 
@@ -365,26 +378,27 @@ module uservoltic
 
                     !Do cell-centered stuff
                     if (isCellCenterG(Model,Grid,ig,j,k)) then
+
                         !Map to active ip,jp,kp (i=Grid%is => ip=Grid%is)
-                        call lfmIJKcc(Model,Grid,Grid%is-1,j,k,idip,jp,kp)
+                        call lfmIJKcc(Model,Grid,ig,j,k,idip,jp,kp)
 
-                        !Get dipole value
-                        Bd = VecDipole(Grid%xyzcc(idip,jp,kp,:)) !For direction to keep stencil regular
-                        MagB0 = norm2( VecDipole(Grid%xyzcc(ig,jp,kp,:)) )
-
+                        !Get dipole value (TODO: Switch to IGRF)
+                        Bd = VecDipole(Grid%xyzcc(idip,jp,kp,:))
                         !Get remix field
                         Exyz = bc%inExyz(np,jp,kp,:)
 
                         !ExB velocity
-                        !Veb = cross(Exyz,Bd)/dot_product(Bd,Bd)
-                        Veb = cross(Exyz,normVec(Bd))/MagB0 !Use is-1 direction, but is-n field strength
-
-                        !Remove radial component of velocity
+                        Veb = cross(Exyz,Bd)/dot_product(Bd,Bd)
                         rHat = normVec(Grid%xyzcc(idip,jp,kp,:))
-                        Veb = Vec2Perp(Veb,rHat)
 
-                        !Now do spherical wall BC
-                        call SphereWall(Model,State%Gas(ig,j,k,:,:),State%Gas(ip,jp,kp,:,:),Veb,Bd)
+                        if (Model%doSource) then
+                            G0 = Grid%Gas0(ig,j,k,:)
+                        else
+                            G0 = 0.0
+                        endif
+
+                        call CellPlasmaBC(Model,State%Gas(ig,j,k,:,:),State%Gas(ip,jp,kp,:,:),&
+                                       &  G0,Veb,rHat,Bd)
 
                     endif !Cell-centered
 
@@ -401,15 +415,13 @@ module uservoltic
                     !Loop over face directions
                     do d=IDIR,KDIR
                         call lfmIJKfc(Model,Grid,d,ig,j,k,ip,jp,kp)
-                        dA = Grid%face(ig,j,k,d)/max(Grid%face(Grid%is,jp,kp,d),TINY)
 
+                        !dA = Grid%face(ig,j,k,d)/Grid%face(Grid%is,jp,kp,d)
+                        dA = 1.0 !Using dA=1 for smoother magflux stencil
                         if (isGoodFaceIJK(Model,Grid,ig,j,k,d)) then
-                            if ( isLowLat(Grid%xfc(ig,j,k,:,d),llBC) ) then
-                                State%magFlux(ig,j,k,d) = 0.0
-                            else
-                                State%magFlux(ig,j,k,d) = dApm(d)*dA*State%magFlux(Grid%is,jp,kp,d)
-                            endif
+                            State%magFlux(ig,j,k,d) = 0.0 !Force dipole at low-lat
                         endif
+
                     enddo !dir
 
                 enddo !n loop (ig)
@@ -469,25 +481,138 @@ module uservoltic
                 isLowLat = (invlat<=llBC)
             end function isLowLat
 
+            subroutine CellPlasmaBC(Model,gU,pU,Gas0,Veb,rHat,B)
+                type(Model_T), intent(in) :: Model
+                real(rp), intent(inout) :: gU(NVAR,BLK:Model%nSpc)
+                real(rp), intent(in)    :: pU(NVAR,BLK:Model%nSpc)
+                real(rp), intent(in)    :: Gas0(NVARVOLTSRC)
+                real(rp), dimension(NDIM), intent(in) :: Veb,rHat,B
+                logical :: isIMCold,isIMRing
+                real(rp), dimension(NVAR) :: pW,gW,pCon
+                real(rp) :: Vr
+
+
+                if ( (Model%t>0) .and. (Model%doSource) ) then
+                    !Test for imag information
+                    if (Model%doMultiF) then
+                        !Use vacuum thresholds
+                        isIMRing = (Gas0(IM_D_RING) >= Spcs(RCFLUID)  %dVac)
+                        isIMCold = (Gas0(IM_D_COLD) >= Spcs(COLDFLUID)%dVac)
+                    else
+                        !Not MF, just use raw floors
+                        isIMRing = (Gas0(IM_D_RING) >= dFloor) .and. (Gas0(IM_P_RING) >= pFloor)
+                        isIMCold = (Gas0(IM_D_COLD) >= dFloor) .and. (Gas0(IM_P_COLD) >= pFloor)
+                    endif
+
+                else
+                    !No useful info
+                    isIMRing = .false.
+                    isIMCold = .false.
+                endif
+
+                !General strategy: When we have informed values in ghost (ie, raiju plasmasphere) use full Veb
+                !If we have good active cell info, use diode on Vr (allow inflow but not inflow)
+                !If we got nothing, use Veb w/ Vr=0.0
+
+                Vr = dot_product(Veb,rHat)
+
+                if (Model%doMultiF) then
+
+                !Do cold fluid
+                    gW(:) = 0.0 !Ghost prim quantities
+                    call CellC2P(Model,pU(:,COLDFLUID),pW) !Active cell prim quantities
+
+                    if (isIMCold) then
+                        !Have good source info in ghost
+                        gW(DEN)       = Gas0(IM_D_COLD)
+                        gW(PRESSURE)  = Gas0(IM_P_COLD)
+                        gW(VELX:VELZ) = Veb
+                    elseif (pW(DEN) > Spcs(COLDFLUID)%dVac) then
+                        !Have good active cell info
+                        gW(DEN)       = pW(DEN)     
+                        gW(PRESSURE)  = pW(PRESSURE)
+                        gW(VELX:VELZ) = Vec2Perp(Veb,rHat) + min(Vr,0.0)*rHat
+                    else
+                        !Don't got nothing
+                        gW(DEN)       = dFloor
+                        gW(PRESSURE)  = pFloor
+                        gW(VELX:VELZ) = Vec2Perp(Veb,rHat)
+                    endif
+                    !Have ghost prim values, convert to con and store
+                    call CellP2C(Model,gW,gU(:,COLDFLUID))
+
+                !Do 'other' fluid
+                    gW(:) = 0.0 !Ghost prim quantities
+                    call CellC2P(Model,pU(:,RCFLUID),pW) !Active cell prim quantities
+
+                    if (isIMRing) then
+                        !Have good source info in ghost
+                        gW(DEN)       = Gas0(IM_D_RING)
+                        gW(PRESSURE)  = Gas0(IM_P_RING)
+                        gW(VELX:VELZ) = Veb
+                    elseif (pW(DEN) > Spcs(RCFLUID)%dVac) then
+                        !Have good active cell info
+                        gW(DEN)       = pW(DEN)     
+                        gW(PRESSURE)  = pW(PRESSURE)
+                        gW(VELX:VELZ) = Vec2Perp(Veb,rHat) + min(Vr,0.0)*rHat
+                    else
+                        !Got nothin
+                        gW(DEN)       = dFloor
+                        gW(PRESSURE)  = pFloor
+                        gW(VELX:VELZ) = Vec2Perp(Veb,rHat)
+                    endif
+                    !Have ghost prim values, convert to con and store
+                    call CellP2C(Model,gW,gU(:,RCFLUID))
+
+                !Now set BLK
+                    call MultiF2Bulk(Model,gU,B)
+                else
+                    !Single fluid
+                    gW(:) = 0.0
+                    call CellC2P(Model,pU(:,BLK),pW) !Active cell prim quantities
+                    if (isIMRing .or. isIMCold) then
+                        gW(DEN)      = Gas0(IM_D_COLD) + Gas0(IM_D_RING)
+                        gW(PRESSURE) = Gas0(IM_P_COLD) + Gas0(IM_P_RING)
+                        gW(VELX:VELZ) = Veb
+                    else
+                        !No data, just use zero grad based on active mhd info
+                        gW(DEN)      = pW(DEN)     
+                        gW(PRESSURE) = pW(PRESSURE)
+                        gW(VELX:VELZ) = Vec2Perp(Veb,rHat) + min(Vr,0.0)*rHat
+                    endif
+
+                    call CellP2C(Model,gW,gU(:,BLK))
+
+                endif !MF v single
+
+            end subroutine CellPlasmaBC
     end subroutine IonInner
 
     !Push velocity of first active cell
     subroutine PushIon(bc,Model,Grid,State)
         class(IonInnerBC_T), intent(inout) :: bc
-        class(Model_T), intent(in) :: Model
-        class(Grid_T), intent(in) :: Grid
-        class(State_T), intent(inout) :: State
+        type(Model_T), intent(in) :: Model
+        type(Grid_T), intent(in) :: Grid
+        type(State_T), intent(inout) :: State
 
-        integer :: i,j,k,PsiShells,dN
+        integer :: i,j,k,PsiShells,dN,s,s0,sE
         real(rp) :: dt
         real(rp), dimension(NVAR) :: pW,pCon
         real(rp), dimension(NDIM) :: vMHD,xcc,Bd,Exyz,rHat,Veb,dV,B
+        real(rp), dimension(0:Model%nSpc) :: RhoMin
 
         if ( (.not. bc%doIonPush) .or. (.not. Grid%hasLowerBC(IDIR)) ) return
 
+        RhoMin(BLK) = 0.0
         if (Model%doMultiF) then
-            write(*,*) 'PushIon not implemented for MF yet ...'
-            !stop
+            !Don't do bulk
+            s0 = 1
+            sE = Model%nSpc
+            RhoMin(1:Model%nSpc) = Spcs(:)%dVac
+        else
+            !Only do bulk
+            s0 = BLK
+            sE = BLK
         endif
 
         PsiShells = PsiSh !Coming from cmidefs
@@ -495,43 +620,51 @@ module uservoltic
         !Loop over active
         !$OMP PARALLEL DO default(shared) &
         !$OMP private(i,j,k,pW,pCon) &
-        !$OMP private(vMHD,xcc,Bd,Exyz,rHat,Veb,dV,dt,dN,B)
+        !$OMP private(vMHD,xcc,Bd,Exyz,rHat,Veb,B,dV,dt,dN,s)
         do k=Grid%ks,Grid%ke
             do j=Grid%js,Grid%je
                 do i=Grid%is,Grid%is+bc%nIonP-1
-                    
-                !Get MHD info
-                    pCon = State%Gas(i,j,k,:,BLK)
-                    call CellC2P(Model,pCon,pW)
-                    vMHD = pW(VELX:VELZ)
+
                 !Get EB info
                     xcc = Grid%xyzcc(i,j,k,:)
                     Bd = VecDipole(xcc)
                     Exyz = bc%inExyz(PsiShells,j,k,:)
                     rHat = normVec(xcc)
-                    if (Model%doBackground) then
-                        B = State%Bxyz(i,j,k,:) + Grid%B0(i,j,k,:)
-                    else
-                        B = State%Bxyz(i,j,k,:)
-                    endif
-        
-                    !Get ExB velocity w/o radial component
-                    Veb = cross(Exyz,B)/dot_product(B,B)
-                    Veb = Vec2Perp(Veb,rHat)
-                    
-                !Setup push and finish up
-                    dN = i - Grid%is + 1
-                    dt = Model%dt/(dN*bc%dtCpl)
-                    dt = min(dt,1.0)
-                    dV = Veb - vMHD
-                    
-                    pW(VELX:VELZ) = pW(VELX:VELZ) + dt*dV
-                    call CellP2C(Model,pW,pCon)
-                    State%Gas(i,j,k,:,BLK) = pCon
 
-                enddo
-            enddo
-        enddo
+                    !Get ExB velocity w/o radial component
+                    Veb = cross(Exyz,Bd)/dot_product(Bd,Bd)
+                    Veb = Vec2Perp(Veb,rHat)
+
+                    do s=s0,sE
+                    !Get MHD info
+                        pCon = State%Gas(i,j,k,:,s)
+                        call CellC2P(Model,pCon,pW)
+                        vMHD = pW(VELX:VELZ)
+                        if (pCon(DEN) < RhoMin(s)) cycle
+
+                        
+                    !Setup push and finish up
+                        dN = i - Grid%is + 1
+                        dt = Model%dt/(dN*bc%dtCpl)
+                        dt = min(dt,1.0)
+                        dV = Veb - vMHD
+                        
+                        pW(VELX:VELZ) = pW(VELX:VELZ) + dt*dV
+                        call CellP2C(Model,pW,pCon)
+                        State%Gas(i,j,k,:,BLK) = pCon                        
+                    enddo !species
+
+                    !Reset bulk if needed
+                    if (Model%doMultiF) then
+                        B = State%Bxyz(i,j,k,:)
+                        if (Model%doBackground) then
+                            B = B + Grid%B0(i,j,k,:)
+                        endif
+                        call MultiF2Bulk(Model,State%Gas(i,j,k,:,:),B)
+                    endif
+                enddo !i
+            enddo !j
+        enddo !k
 
     end subroutine PushIon
 
