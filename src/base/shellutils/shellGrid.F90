@@ -14,13 +14,35 @@ module shellGrid
         enumerator :: SHGR_CC,SHGR_CORNER,SHGR_FACE_THETA,SHGR_FACE_PHI
     end enum
     
+
+    type ShellGridVar_T
+
+    integer :: loc
+        !! Location of data on the shellGrid (e.g. center, corner, theta of phi face)
+        !! Corresponds to enum above (SHGR_CC, SHGR_CORNER, SHGR_FACE_THETA, SHGR_FACE_PHI)
+    integer :: Ni, Nj
+        !! Number of values in i and j direction
+    integer :: isv,iev,jsv,jev
+        !! Start and end indices for this variable
+        !! ex: if loc=SHGR_CORNER, isv = sh%isg, iev=sh%ieg+1
+        !! This is helpful for e.g. InterpShellVar_TSC_pnt determining size of dtheta and dPhi arrays
+    real(rp), dimension(:,:), allocatable :: data
+        !! The actual variable values
+    logical, dimension(:,:), allocatable :: mask
+        !! Mask indicating whether the data at a given index is valid
+        !! e.g. good for interpolation, etc.
+
+
+end type ShellGridVar_T
+
+
     !> Data type for holding 2D spherical shell grid
     type ShellGrid_T
         
         character(len=strLen) :: name
             !! Name assigned to this ShellGrid instance, determined by the model initializing it
         real(rp) :: radius
-            !! Radius that this ShellGrid lives at, in units of Rp (planetary radii)
+            !! [Rp] Radius that this ShellGrid lives at, in units of Rp (planetary radii)
         integer :: Nt,Np
             !! Number of colat/lon cells (theta, phi)
         real(rp), dimension(:), allocatable :: th, ph, lat
@@ -33,7 +55,13 @@ module shellGrid
         real(rp), dimension(:), allocatable :: thRp
             !! (Nt+1) [rad] theta corners projected to 1 Rp assuming dipole
         real(rp), dimension(:), allocatable :: thcRp
-            !! (Nt) [rad] theta corners projected to 1 Rp assuming dipole
+            !! (Nt) [rad] theta centers projected to 1 Rp assuming dipole
+        real(rp), dimension(:,:), allocatable :: areaCC
+            !! [Rp^2] Area of each cell
+        real(rp), dimension(:,:), allocatable :: lenFace_th
+            !! (Nt+1, Np) [Rp] arc length of each Theta face
+        real(rp), dimension(:,:), allocatable :: lenFace_ph
+            !! (Nt, Np+1) [Rp] arc length of each Phi face
         logical :: doSP = .false., doNP = .false. 
             !! Whether active grid contains south/north pole, no ghosts in this case
         logical :: ghostSP = .false., ghostNP = .false. 
@@ -67,30 +95,6 @@ module shellGrid
             !! Indices of parent grid that bound this grid
 
     end type ShellGrid_T
-
-    type ShellGridVar_T
-
-        integer :: loc
-            !! Location of data on the shellGrid (e.g. center, corner, theta of phi face)
-            !! Corresponds to enum above (SHGR_CC, SHGR_CORNER, SHGR_FACE_THETA, SHGR_FACE_PHI)
-        integer :: Ni, Nj
-            !! Number of values in i and j direction
-        integer :: isv,iev,jsv,jev
-            !! Start and end indices for this variable
-            !! ex: if loc=SHGR_CORNER, isv = sh%isg, iev=sh%ieg+1
-            !! This is helpful for e.g. InterpShellVar_TSC_pnt determining size of dtheta and dPhi arrays
-        real(rp), dimension(:,:), allocatable :: data
-            !! The actual variable values
-        logical, dimension(:,:), allocatable :: mask
-            !! Mask indicating whether the data at a given index is valid
-            !! e.g. good for interpolation, etc.
-
-
-        ! Commenting out for now, I think we will ultimately not use this
-        !logical, dimension(4) :: bcsApplied 
-            !! Flag indicating whether BCs were applied (ghosts filled) for [n,s,e,w] boundaries
-
-    end type ShellGridVar_T
 
 
     contains
@@ -227,6 +231,9 @@ module shellGrid
         if (allocated(shGr%latc))  deallocate(shGr%latc)
         if (allocated(shGr%thRp))  deallocate(shGr%thRp)
         if (allocated(shGr%thcRp)) deallocate(shGr%thcRp)
+        if (allocated(shGr%areaCC)) deallocate(shGr%areaCC)
+        if (allocated(shGr%lenFace_th)) deallocate(shGr%lenFace_th)
+        if (allocated(shGr%lenFace_ph)) deallocate(shGr%lenFace_ph)
         ! Create new arrays
         allocate(shGr%th   (isg:ieg+1))
         allocate(shGr%thc  (isg:ieg  ))
@@ -236,6 +243,10 @@ module shellGrid
         allocate(shGr%latc (isg:ieg  ))
         allocate(shGr%thRp (isg:ieg+1))
         allocate(shGr%thcRp(isg:ieg  ))
+        allocate(shGr%areaCC(isg:ieg,jsg:jeg))
+        allocate(shGr%lenFace_th(isg:ieg+1,jsg:jeg  ))
+        allocate(shGr%lenFace_ph(isg:ieg  ,jsg:jeg+1))
+
 
         ! Set grid coordinates
         shGr%th(is:ie+1) = Theta  ! note the arrays are conformable because of the index definitions above
@@ -347,6 +358,32 @@ module shellGrid
         shGr%maxGTheta = maxval(shGr%th)
         shGr%minGPhi   = minval(shGr%ph)
         shGr%maxGPhi   = maxval(shGr%ph)
+
+
+        ! Do some extra geom calculates for easy reference when needed
+        do i=shGr%isg,shGr%ieg
+            do j=shGr%jsg,shGr%jeg
+                ! r^2 * (sin(th1)-sin(th2)) * dPh
+                shGr%areaCC(i,j) = shGr%radius**2 &
+                                 * ( sin(shGr%thc(i)) - sin(shGr%thc(i+1)) ) &
+                                 * (shGr%ph(j+1) - shGr%ph(j))
+            enddo
+        enddo
+
+        ! Faces in theta dir are i +/- 1/2 faces, each of which spans the phi direction
+        do j=shGr%jsg,shGr%jeg
+            do i=shGr%isg,shGr%ieg+1
+                shGr%lenFace_th(i, j) = shGr%radius &
+                                      * sin(shGr%th(i)) &
+                                      * (shGr%ph(j+1) - shGr%ph(j))
+            enddo
+        enddo
+        do j=shGr%jsg,shGr%jeg+1
+            do i=shGr%isg,shGr%ieg
+                shGr%lenFace_ph(i,j) = shGr%radius &
+                                     * (shGr%th(i+1) - shGr%th(i))
+            enddo
+        enddo
 
         end associate
 

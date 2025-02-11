@@ -797,12 +797,16 @@ module raijuPreAdvancer
         real(rp), dimension(Grid%shGrid%isg:Grid%shGrid%ieg, Grid%shGrid%jsg:Grid%shGrid%jeg, 2) :: gradPot
         integer :: i,j
         
+        ! Ionospheric ExB and gradient-curvature drifts
         if (present(gradVMO)) then
-            !gradPot = State%gradPotE_cc + State%gradPotCorot_cc + Grid%alamc(k)*gradVMO
             gradPot = State%gradPotE_cc + Grid%alamc(k)*gradVMO
         else
-            !gradPot = State%gradPotE_cc + State%gradPotCorot_cc + Grid%alamc(k)*State%gradVM_cc
             gradPot = State%gradPotE_cc + Grid%alamc(k)*State%gradVM_cc
+        endif
+
+        ! If doing our own corotation, assuming ExB pot didn't include it already. Add it ourselves
+        if (Model%doOwnCorot) then
+            gradPot = gradPot + State%gradPotCorot_cc
         endif
 
         Vtp(:,:,RAI_TH) =      gradPot(:,:,RAI_PH) / (Grid%Brcc*1.0e-9)  ! [m/s]

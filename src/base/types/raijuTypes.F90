@@ -199,6 +199,9 @@ module raijutypes
             !! Dump lots of otherwise unnecessary stuff
         logical :: doLossOutput
             !! Dump 3D loss variables like Tau
+        logical :: doOwnCorot
+            !! If true, we calculate corortation potential ourselves and include it in our velocity calculation
+            !! If false, we assume its already included in whatever ionospheric potential we're using
         logical :: doGeoCorot
             !! If true, calc corotation potential from Geopack
             !! If false, calc corotation potential assuming dipole and rotational axes are aligned
