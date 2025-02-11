@@ -33,6 +33,48 @@ module imag2mhd_interface
         associate(Gr=>vApp%gApp%Grid,gModel=>vApp%gApp%Model)
             Gr%Gas0 = 0.0
 
+            allocate(isGoodCC(Gr%isg:Gr%ieg,Gr%jsg:Gr%jeg,Gr%ksg:Gr%keg))
+            isGoodCC = .false.
+            !Get cell-centered projections
+
+            !$OMP PARALLEL DO default(shared) collapse(2) &
+            !$OMP private(i,j,k,xyz,x1,x2,Qs)
+            do k=Gr%ks,Gr%ke
+                do j=Gr%js,Gr%je
+                    do i=Gr%isg,Gr%ie
+                        
+                        if (i<Gr%is) then
+                            !Below inner boundary, do dipole projection
+                            isGoodCC(i,j,k) = .true.
+                            xyz = Gr%xyzcc(i,j,k,:) !Gamera grid center
+                            call Proj2Rad(xyz,Rion,x1,x2)
+                            Gr%Gas0(i,j,k,PROJLAT) = x1
+                            Gr%Gas0(i,j,k,PROJLON) = x2
+
+                        else
+                            !Get value from xyzsquish
+
+                            if ( all(vApp%chmp2mhd%isGood(i:i+1,j:j+1,k:k+1)) ) then
+                                !All values are good, so just do this thing
+                                call SquishCorners(vApp%chmp2mhd%xyzSquish(i:i+1,j:j+1,k:k+1,1),Qs)
+                                Gr%Gas0(i,j,k,PROJLAT) = ArithMean(Qs)
+                                call SquishCorners(vApp%chmp2mhd%xyzSquish(i:i+1,j:j+1,k:k+1,2),Qs)
+                                Gr%Gas0(i,j,k,PROJLON) = CircMean(Qs)
+                                isGoodCC(i,j,k) = .true.
+                            else
+                                Gr%Gas0(i,j,k,PROJLAT) = 0.0
+                                Gr%Gas0(i,j,k,PROJLON) = 0.0
+                                isGoodCC(i,j,k) = .false.
+                            endif !corner projection => center
+                        endif !inner-i vs. not
+
+                    enddo
+                enddo !j
+            enddo !k
+
+            call FillGhostsCC(gModel,Gr,Gr%Gas0(:,:,:,PROJLAT))
+            call FillGhostsCC(gModel,Gr,Gr%Gas0(:,:,:,PROJLON))
+
             allocate(gPsi(Gr%isg:Gr%ieg+1,Gr%jsg:Gr%jeg+1,Gr%ksg:Gr%keg+1)) !All nodes
             gPsi = 0.0
 
@@ -91,7 +133,9 @@ module imag2mhd_interface
             do k=Gr%ks,Gr%ke
                 do j=Gr%js,Gr%je
                     do i=Gr%isg,Gr%ieg
-                        Gr%Gas0(i,j,k,IONEX:IONEZ) = CellExyz(gModel,Gr,Eijk,i,j,k)
+                        if (isGoodCC(i,j,k)) then
+                            Gr%Gas0(i,j,k,IONEX:IONEZ) = CellExyz(gModel,Gr,Eijk,i,j,k)
+                        endif
                     enddo
                 enddo !j
             enddo !k
@@ -100,47 +144,7 @@ module imag2mhd_interface
                 call FillGhostsCC(gModel,Gr,Gr%Gas0(:,:,:,n))
             enddo
 
-            allocate(isGoodCC(Gr%isg:Gr%ieg,Gr%jsg:Gr%jeg,Gr%ksg:Gr%keg))
-            isGoodCC = .false.
-            !Get cell-centered projections
 
-            !$OMP PARALLEL DO default(shared) collapse(2) &
-            !$OMP private(i,j,k,xyz,x1,x2,Qs)
-            do k=Gr%ks,Gr%ke
-                do j=Gr%js,Gr%je
-                    do i=Gr%isg,Gr%ie
-                        
-                        if (i<Gr%is) then
-                            !Below inner boundary, do dipole projection
-                            isGoodCC(i,j,k) = .true.
-                            xyz = Gr%xyzcc(i,j,k,:) !Gamera grid center
-                            call Proj2Rad(xyz,Rion,x1,x2)
-                            Gr%Gas0(i,j,k,PROJLAT) = x1
-                            Gr%Gas0(i,j,k,PROJLON) = x2
-
-                        else
-                            !Get value from xyzsquish
-
-                            if ( all(vApp%chmp2mhd%isGood(i:i+1,j:j+1,k:k+1)) ) then
-                                !All values are good, so just do this thing
-                                call SquishCorners(vApp%chmp2mhd%xyzSquish(i:i+1,j:j+1,k:k+1,1),Qs)
-                                Gr%Gas0(i,j,k,PROJLAT) = ArithMean(Qs)
-                                call SquishCorners(vApp%chmp2mhd%xyzSquish(i:i+1,j:j+1,k:k+1,2),Qs)
-                                Gr%Gas0(i,j,k,PROJLON) = CircMean(Qs)
-                                isGoodCC(i,j,k) = .true.
-                            else
-                                Gr%Gas0(i,j,k,PROJLAT) = 0.0
-                                Gr%Gas0(i,j,k,PROJLON) = 0.0
-                                isGoodCC(i,j,k) = .false.
-                            endif !corner projection => center
-                        endif !inner-i vs. not
-
-                    enddo
-                enddo !j
-            enddo !k
-
-            call FillGhostsCC(gModel,Gr,Gr%Gas0(:,:,:,PROJLAT))
-            call FillGhostsCC(gModel,Gr,Gr%Gas0(:,:,:,PROJLON))
 
             t = (vApp%gApp%Model%t)*(vApp%gApp%Model%Units%gT0)
 
