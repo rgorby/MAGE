@@ -17,8 +17,6 @@ module shellInterp
     ! InterpShellVar - TODO
     ! InterpShellVar_ChildToParent - TODO
     ! InterpShellVar_ParentToChild - TODO
-    ! InterpShellVar_TSC_SG
-    ! InterpShellVar_TSC_pnt
 
     subroutine InterpShellVar(sgSource, sgVar, sgDest, varOut)
         !! This is meant to be the highest-abstraction option for interpolation
@@ -184,7 +182,7 @@ module shellInterp
     end subroutine InterpShellVar_TSC_SG
 
 
-    subroutine InterpShellVar_TSC_pnt(sgsource, sgVar, th, pin, Qinterp, dThetaO, dPhiO, srcMaskO, goodInterpO)
+    subroutine InterpShellVar_TSC_pnt(sgSource, sgVar, th, pin, Qinterp, dThetaO, dPhiO, srcMaskO, goodInterpO)
         !! Given the source information, interpolate sgVar to point (t,pin) and return as Qout
         type(ShellGrid_T   ), intent(in) :: sgSource
             !! Source ShellGrid
@@ -265,7 +263,7 @@ module shellInterp
         if (present(dThetaO)) then
             ! First, make sure dTheta and dPhi are defined at sgVar locations     
             if ( size(dThetaO) .ne. sgVar%Ni ) then
-                write(*,*)"ERROR in InterpShellVar_TSC_pnt: dTheta != sgVar%Ni"
+                write(*,*)"ERROR in InterpShellVar_TSC_pnt: size(dTheta) != sgVar%Ni"
                 write(*,*) size(dThetaO), sgVar%Ni
                 stop
             endif
@@ -281,7 +279,7 @@ module shellInterp
 
         if (present(dPhiO)) then
             if ( size(dPhiO) .ne. sgVar%Nj ) then
-                write(*,*)"ERROR in InterpShellVar_TSC_pnt: dPhi != sgVar%Nj"
+                write(*,*)"ERROR in InterpShellVar_TSC_pnt: size(dPhi) != sgVar%Nj"
                 write(*,*) size(dPhiO), sgVar%Nj
                 stop
             endif
@@ -395,6 +393,45 @@ module shellInterp
         end subroutine TSCweight1D
 
     end subroutine InterpShellVar_TSC_pnt
+
+
+    subroutine InterpShellVar_ParentToChild(srcGrid, srcVar, destGrid, destVar)
+        type(ShellGrid_T   ), intent(in) :: srcGrid
+        type(ShellGridVar_T), intent(in) :: srcVar
+        type(ShellGrid_T   ), intent(in) :: destGrid
+        type(ShellGridVar_T), intent(inout) :: destVar
+
+        integer :: subis, subie, subjs, subje, iExtra, jExtra
+        type(ShellGridVar_T) :: src2destVar
+            !! srcVar chopped down to dest grid's domain 
+
+        ! Are you actually my parent or do I need to call the police?
+        if (trim(destGrid%parentName) == def_noParentName .or. trim(srcGrid%name) .ne. trim(destGrid%parentName)) then
+            write(*,*) " ERROR in InterpShellVar_ParentToChild: Src grid not parent of Dest grid"
+            write(*,*) " Src: ", trim(srcGrid%name), ", Dest: ",trim(destGrid%parentName)
+            stop
+        endif
+
+        ! Determine SGV bounds if source var that map to destination grid's bounds
+        call ijExtra_SGV(srcVar%loc, iExtra, jExtra)
+        subis = srcVar%isv + destGrid%bndis-1 - destGrid%Ngn
+        subie = srcVar%isv + destGrid%bndie-1 + destGrid%Ngs + iExtra
+        subjs = srcVar%jsv + destGrid%bndjs-1 - destGrid%Ngw
+        subje = srcVar%jsv + destGrid%bndje-1 + destGrid%Nge + jExtra
+
+        ! Now fill in destination variable
+        if (srcVar%loc == destVar%loc) then
+            destVar%data = srcVar%data(subis:subie, subjs:subje)
+            destVar%mask = srcVar%mask(subis:subie, subjs:subje)
+        else  ! Need to interpolate
+            ! Chop srcVar into destination grid size
+            call initShellVar(destGrid, srcVar%loc, src2destVar)
+            src2destVar%data = srcVar%data(subis:subie, subjs:subje)
+            src2destVar%mask = srcVar%mask(subis:subie, subjs:subje)
+            call InterpShellVar_TSC_SG(destGrid, src2destVar, destGrid, destVar)
+        endif
+
+    end subroutine InterpShellVar_ParentToChild
 
 
     subroutine interpPole(shGr,Qin,tin,pin,Qinterp)

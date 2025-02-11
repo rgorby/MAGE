@@ -5,17 +5,19 @@ module raijuCplHelper
     use remixReader
     use shellinterp
     use ebtypes
-
+    use raijugrids
+    
     use imagtubes
-
     use mixdefs
+    
 
     implicit none
 
     contains
 
-    subroutine raijuCpl_init(raiCpl)
+    subroutine raijuCpl_init(raiCpl, iXML)
         class(raijuCoupler_T), intent(inout) :: raiCpl
+        type(XML_Input_T), intent(inout) :: iXML
 
         integer, dimension(4) :: shGhosts
         integer :: i
@@ -32,10 +34,13 @@ module raijuCplHelper
             shGhosts(SOUTH) = sh%Ngs
             shGhosts(EAST) = sh%Nge
             shGhosts(WEST) = sh%Ngw
-            call GenChildShellGrid(sh, raiCpl%shGr, "raijuCpl", nGhosts=shGhosts)
-            call initShellVar(raiCpl%shGr, SHGR_CORNER, raiCpl%pot)
-            call initShellVar(sh, SHGR_CC, raiCpl%bvol_cc)
-            associate(mask_corner=>raiCpl%pot%mask, mask_cc=>raiCpl%bvol_cc%mask)
+            !call GenChildShellGrid(sh, raiCpl%shGr, "raijuCpl", nGhosts=shGhosts)
+            !call GenChildShellGrid(sh, raiCpl%opt%voltGrid, "raijuCpl", nGhosts=shGhosts)
+            call raijuGenGridFromShGrid(raiCpl%shGr, raiCpl%opt%voltGrid, iXML)
+            call initShellVar(raiCpl%shGr, SHGR_CORNER, raiCpl%pot_total)
+            call initShellVar(raiCpl%shGr, SHGR_CORNER, raiCpl%pot_corot)
+            call initShellVar(raiCpl%shGr, SHGR_CC, raiCpl%bvol_cc)
+            associate(mask_corner=>raiCpl%pot_total%mask, mask_cc=>raiCpl%bvol_cc%mask)
                 mask_corner = .true.
                 mask_cc     = .true.
 
@@ -66,8 +71,10 @@ module raijuCplHelper
         
             ! Initial values
             raiCpl%tLastUpdate = -1.0*HUGE
-            raiCpl%pot%data = 0.0
-            raiCpl%pot%mask = .true.
+            raiCpl%pot_total%data = 0.0
+            raiCpl%pot_total%mask = .true.
+            raiCpl%pot_corot%data = 0.0
+            raiCpl%pot_corot%mask = .true.
 
     end subroutine raijuCpl_init
 
@@ -245,7 +252,8 @@ module raijuCplHelper
         associate(Model=>raiCpl%raiApp%Model, State=>raiCpl%raiApp%State, shGr=>raiCpl%shGr)
 
         !--- Ionosphere data ---!
-        State%espot(:,:) = raiCpl%pot%data(:,:) ! They live on the same grid so this is okay
+        State%espot(:,:)     = raiCpl%pot_total%data(:,:) ! They live on the same grid so this is okay
+        State%pot_corot(:,:) = raiCpl%pot_corot%data(:,:)
 
 
         !--- Mag data ---!
@@ -307,7 +315,7 @@ module raijuCplHelper
         ! Using chimp, populate imagTubes
         call genImagTubes(raiCpl, vApp)
         ! Set potential
-        call InterpShellVar_TSC_SG(rmReader%shGr, rmReader%nsPot(1), raiCpl%shGr, raiCpl%pot)
+        call InterpShellVar_TSC_SG(rmReader%shGr, rmReader%nsPot(1), raiCpl%shGr, raiCpl%pot_total)
 
     end subroutine packRaijuCoupler_OWD
 
@@ -367,25 +375,27 @@ module raijuCplHelper
         !call genImagTubes(raiCpl, vApp)
         call tubeShell2RaiCpl(vApp%shGrid, vApp%State%tubeShell, raiCpl)
         !call mixPot2Raiju_RT(raiCpl, vApp%remixApp)
-        call InterpShellVar_TSC_SG(vApp%shGrid, vApp%State%potential_total, raiCpl%shGr, raiCpl%pot)
+        
+        call InterpShellVar_ParentToChild(vApp%shGrid, vApp%State%potential_total, raiCpl%shGr, raiCpl%pot_total)
+        call InterpShellVar_ParentToChild(vApp%shGrid, vApp%State%potential_corot, raiCpl%shGr, raiCpl%pot_corot)
         
     end subroutine
 
 
-    subroutine mixPot2Raiju_RT(raiCpl, rmApp)
-        !! Take remix's potential, shove it into a remix ShellGrid, use InterpShellVar to get it onto raiju's ShellGrid
-        class(raijuCoupler_T), intent(inout) :: raiCpl
-        class(mixApp_T), intent(inout) :: rmApp
-
-        real(rp), dimension(rmApp%ion(NORTH)%shGr%Nt,rmApp%ion(NORTH)%shGr%Np) :: tmpPot
-
-        associate(rmHemi=>rmApp%ion(NORTH), Nt=>rmApp%ion(NORTH)%shGr%Nt, Np=>rmApp%ion(NORTH)%shGr%Np)       
-            rmHemi%St%pot_shGr%data(:,1:Np) = transpose(rmHemi%St%Vars(:,:,POT))
-            rmHemi%St%pot_shGr%data(:,Np+1) = rmHemi%St%pot_shGr%data(:,1)
-            rmHemi%St%pot_shGr%mask = .true.
-            call InterpShellVar_TSC_SG(rmHemi%shGr, rmHemi%St%pot_shGr, raiCpl%shGr, raiCpl%pot)
-        end associate
-
-    end subroutine mixPot2Raiju_RT
+!    subroutine mixPot2Raiju_RT(raiCpl, rmApp)
+!        !! Take remix's potential, shove it into a remix ShellGrid, use InterpShellVar to get it onto raiju's ShellGrid
+!        class(raijuCoupler_T), intent(inout) :: raiCpl
+!        class(mixApp_T), intent(inout) :: rmApp
+!
+!        real(rp), dimension(rmApp%ion(NORTH)%shGr%Nt,rmApp%ion(NORTH)%shGr%Np) :: tmpPot
+!
+!        associate(rmHemi=>rmApp%ion(NORTH), Nt=>rmApp%ion(NORTH)%shGr%Nt, Np=>rmApp%ion(NORTH)%shGr%Np)       
+!            rmHemi%St%pot_shGr%data(:,1:Np) = transpose(rmHemi%St%Vars(:,:,POT))
+!            rmHemi%St%pot_shGr%data(:,Np+1) = rmHemi%St%pot_shGr%data(:,1)
+!            rmHemi%St%pot_shGr%mask = .true.
+!            call InterpShellVar_TSC_SG(rmHemi%shGr, rmHemi%St%pot_shGr, raiCpl%shGr, raiCpl%pot)
+!        end associate
+!
+!    end subroutine mixPot2Raiju_RT
 
 end module raijuCplHelper

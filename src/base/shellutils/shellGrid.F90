@@ -13,6 +13,8 @@ module shellGrid
     enum, bind(C)
         enumerator :: SHGR_CC,SHGR_CORNER,SHGR_FACE_THETA,SHGR_FACE_PHI
     end enum
+
+    character(len=strLen), parameter :: def_noParentName ="N/A"
     
 
     type ShellGridVar_T
@@ -89,8 +91,8 @@ end type ShellGridVar_T
         !> Subgrid information
         !> ShellGrids that are subgrids of other shellGrids store info about their parent grid
         logical :: isChild = .false.
-        character(len=strLen) :: parentName = "N/A"
-            !! Name of the parent grid  that this one derives from
+        character(len=strLen) :: parentName = def_noParentName
+            !! Name of the parent grid that this one derives from
         integer :: bndis,bndie,bndjs,bndje
             !! Indices of parent grid that bound this grid
 
@@ -475,10 +477,10 @@ end type ShellGridVar_T
             !! Actual bounds used
 
         ! If a bound is provided then we use that, if not we default to parent grid's bounds
-        is = whichInd(sub_is, pSG%is,   present(sub_is))
-        ie = whichInd(sub_ie, pSG%ie+1, present(sub_ie))
-        js = whichInd(sub_js, pSG%js  , present(sub_js))
-        je = whichInd(sub_je, pSG%je+1, present(sub_je))
+        is = whichInd(sub_is, pSG%is, present(sub_is))
+        ie = whichInd(sub_ie, pSG%ie, present(sub_ie))
+        js = whichInd(sub_js, pSG%js, present(sub_js))
+        je = whichInd(sub_je, pSG%je, present(sub_je))
 
         ! Check for valid bounds
         if (is < pSG%is) then
@@ -487,10 +489,10 @@ end type ShellGridVar_T
             write(*,*) "Mimumum:",pSG%is
             stop
         endif
-        if (ie > pSG%ie+1) then
+        if (ie > pSG%ie) then
             write(*,*) "ERROR GenChildShellGrid: Invalid ie bound."
             write(*,*) "Requested:",ie
-            write(*,*) "Maximum:",pSG%ie+1
+            write(*,*) "Maximum:",pSG%ie
             stop
         endif
         if (js < pSG%js) then
@@ -499,10 +501,10 @@ end type ShellGridVar_T
             write(*,*) "Mimumum:",pSG%js
             stop
         endif
-        if (je > pSG%je+1) then
+        if (je > pSG%je) then
             write(*,*) "ERROR GenChildShellGrid: Invalid je bound."
             write(*,*) "Requested:",je
-            write(*,*) "Maximum:",pSG%je+1
+            write(*,*) "Maximum:",pSG%je
             stop
         endif
         if (is > ie) then
@@ -539,11 +541,11 @@ end type ShellGridVar_T
             endif
 
             ! Otherwise, this ghost definition is okay
-            call GenShellGrid(cSG, pSG%th(is:ie), pSG%ph(js:je), name, nGhosts=nGhosts, radO=pSG%radius)
+            call GenShellGrid(cSG, pSG%th(is:ie+1), pSG%ph(js:je+1), name, nGhosts=nGhosts, radO=pSG%radius)
 
         else
             ! No ghosts defined, go with default
-            call GenShellGrid(cSG, pSG%th(is:ie), pSG%ph(js:je), name, radO=pSG%radius)
+            call GenShellGrid(cSG, pSG%th(is:ie+1), pSG%ph(js:je+1), name, radO=pSG%radius)
         endif
         
 

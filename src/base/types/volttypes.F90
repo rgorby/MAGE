@@ -204,8 +204,10 @@ module volttypes
             !! (Ngi, Ngj) Bounce timesale
 
 
-        type(ShellGridVar_T) :: pot
-            !! electrostatic potential from ionosphere [kV]
+        type(ShellGridVar_T) :: pot_total
+            !! Total electrostatic potential from (ionosphere + corot) [kV]
+        type(ShellGridVar_T) :: pot_corot
+            !! Just corotation potential, just for output purposes [kV]
 
         contains
 

@@ -31,7 +31,7 @@ submodule (volttypes) raijuCplTypesSub
             App%raiApp%State%isFirstCpl = .false.
         endif
         ! Then allocate and initialize coupling variables based on raiju app
-        call raijuCpl_init(App)
+        call raijuCpl_init(App, xml)
 
     end subroutine raiCplInitModel
 

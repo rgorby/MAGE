@@ -9,8 +9,17 @@ module testSGInterp
     implicit none
 
     integer, parameter :: Npnt = 50
+    integer, parameter :: sub_is = 13
+    integer, parameter :: sub_ie = 17
+    !integer, parameter :: sub_ie = 37
+    integer, parameter :: sub_js = 17
+    integer, parameter :: sub_je = 21
+    !integer, parameter :: sub_je = 41
     type(ShellGrid_T) :: sh
+    type(ShellGridVar_T) :: shVar_rand_corner
     character(len=strLen) :: checkMessage
+
+    integer, parameter :: rand_seed = 86456
 
     contains
 
@@ -33,6 +42,12 @@ module testSGInterp
         enddo
 
 	    call GenShellGrid(sh, thetas, phis,'shgrTest_loc', radO=1.1_rp)
+        call initShellVar(sh, SHGR_CORNER, shVar_rand_corner)
+        do j=shVar_rand_corner%jsv:shVar_rand_corner%jev
+            do i=shVar_rand_corner%isv:shVar_rand_corner%iev
+                shVar_rand_corner%data(i,j) = rand(rand_seed)
+            enddo
+        enddo
 
 	end subroutine setup
 
@@ -142,5 +157,22 @@ module testSGInterp
         @assertLessThanOrEqual(diffSum, TINY, "TSC_SG and TSC_pnt results don't match for SHCORNER dest vars")
         continue
     end subroutine testEquivDCell_Corner
+
+    @test
+    subroutine testParentToChild_sameLoc()
+        type(ShellGrid_T   ) :: destGrid
+        type(ShellGridVar_T) :: destVar  ! Contains source data
+
+        call GenChildShellGrid(sh, destGrid, "testChild", sub_is=sub_is,sub_ie=sub_ie,sub_js=sub_js,sub_je=sub_je)
+        call initShellVar(destGrid, shVar_rand_corner%loc, destVar)
+
+        call InterpShellVar_ParentToChild(sh, shVar_rand_corner, destGrid, destVar)
+
+        write(*,*)shVar_rand_corner%data(sub_is:sub_ie,sub_js:sub_je)
+        write(*,*)'-----'
+        write(*,*)destVar%data
+
+
+    end subroutine testParentToChild_sameLoc
 
 end module testSGInterp

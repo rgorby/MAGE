@@ -408,6 +408,8 @@ module raijutypes
         ! -- Coming from ionosphere solve -- !
         real(rp), dimension(:,:), allocatable :: espot
             !! (Ngi+1, Ngj+1) [kV] electro-static potential
+        real(rp), dimension(:,:), allocatable :: pot_corot
+            !! (Ngi+1, Ngj+1) [kV] corotation potential
         
         integer, dimension(:), allocatable :: bndLoc
             !! (Ngi) i value of boundary between inactive and buffer domain

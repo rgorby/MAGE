@@ -254,8 +254,8 @@ module raijugrids
     end subroutine raijuGenWarpSphGrid_Shafee2008
 
 
-    subroutine raijuGenGridFromShGrid(Grid, shGrid, iXML)
-        type(raijuGrid_T)  , intent(inout) :: Grid
+    subroutine raijuGenGridFromShGrid(raijuGrid, shGrid, iXML)
+        type(ShellGrid_T)  , intent(inout) :: raijuGrid
         type(ShellGrid_T), intent(in) :: shGrid
         type(XML_Input_T), intent(in) :: iXML
 
@@ -304,7 +304,7 @@ module raijugrids
         endif
 
         ! Now we can make our grid
-        call GenChildShellGrid(shGrid, Grid%shGrid, RAI_SG_NAME, nGhosts, sub_is=iStart, sub_ie=iEnd)
+        call GenChildShellGrid(shGrid, raijuGrid, RAI_SG_NAME, nGhosts, sub_is=iStart, sub_ie=iEnd)
 
         end associate
 

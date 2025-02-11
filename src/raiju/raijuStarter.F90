@@ -322,7 +322,7 @@ module raijustarter
                     ! Then we should be receiving a predefined ShellGrid that Voltron has set up
                     if(present(shGridO)) then
                         shGrid = shGridO
-                        call raijuGenGridFromShGrid(Grid, shGrid, iXML)
+                        call raijuGenGridFromShGrid(Grid%shGrid, shGrid, iXML)
                     else
                         write(*,*) "RAIJU expecting a ShellGrid_T but didn't receive one. Dying."
                     endif
@@ -409,11 +409,12 @@ module raijustarter
             allocate( State%thcon   (sh%isg:sh%ieg+1, sh%jsg:sh%jeg+1    ) )
             allocate( State%phcon   (sh%isg:sh%ieg+1, sh%jsg:sh%jeg+1    ) )
             ! 2D corner quantities
-            allocate( State%topo   (sh%isg:sh%ieg+1, sh%jsg:sh%jeg+1) )
-            allocate( State%espot  (sh%isg:sh%ieg+1, sh%jsg:sh%jeg+1) )
-            allocate( State%bvol   (sh%isg:sh%ieg+1, sh%jsg:sh%jeg+1) )
-            allocate( State%bvol_cc(sh%isg:sh%ieg  , sh%jsg:sh%jeg  ) )
-            allocate( State%vaFrac(sh%isg:sh%ieg+1, sh%jsg:sh%jeg+1) )
+            allocate( State%topo     (sh%isg:sh%ieg+1, sh%jsg:sh%jeg+1) )
+            allocate( State%espot    (sh%isg:sh%ieg+1, sh%jsg:sh%jeg+1) )
+            allocate( State%pot_corot(sh%isg:sh%ieg+1, sh%jsg:sh%jeg+1) )
+            allocate( State%bvol     (sh%isg:sh%ieg+1, sh%jsg:sh%jeg+1) )
+            allocate( State%bvol_cc  (sh%isg:sh%ieg  , sh%jsg:sh%jeg  ) )
+            allocate( State%vaFrac   (sh%isg:sh%ieg+1, sh%jsg:sh%jeg+1) )
             ! 1D cell-centered quantities
             allocate( State%bndLoc(sh%jsg:sh%jeg) )
             ! 2D cell-centered quantities

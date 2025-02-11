@@ -8,6 +8,31 @@ module shellUtils
     contains
 
 
+    subroutine ijExtra_SGV(loc, iExtra, jExtra)
+        !! Determine which dimensions have extra index relative to # cells based on variable's location on grid
+        integer, intent(in) :: loc
+        integer, intent(out) :: iExtra
+        integer, intent(out) :: jExtra
+        
+        select case(loc)
+            case(SHGR_CC)
+                iExtra = 0
+                jExtra = 0
+            case(SHGR_CORNER)
+                iExtra = 1
+                jExtra = 1
+            case(SHGR_FACE_THETA)
+                iExtra = 1
+                jExtra = 0
+            case(SHGR_FACE_PHI)
+                iExtra = 0
+                jExtra = 1
+            case default
+                write(*,*) "initShellGridVar got an invalid data location:",loc
+                stop
+        end select
+    end subroutine ijExtra_SGV
+
     subroutine wrapJ_SGV(sh, sgVar)
         !! Wrap a ShellGridVar around the periodic j/phi boundary
         !! Assumes all vars within active domain are valid to wrap
