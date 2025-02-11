@@ -15,13 +15,19 @@ module raijuCplHelper
 
     contains
 
-    subroutine raijuCpl_init(raiCpl, iXML)
+    subroutine raijuCpl_init(raiCpl, inpXML)
         class(raijuCoupler_T), intent(inout) :: raiCpl
-        type(XML_Input_T), intent(inout) :: iXML
+        type(XML_Input_T), intent(inout) :: inpXML
 
+        type(XML_Input_T) :: iXML
+        character(len=strLen) :: tmpStr
         integer, dimension(4) :: shGhosts
         integer :: i
 
+        ! Make sure root is Kaiju/raiju
+        call inpXML%GetFileStr(tmpStr)
+        ! Create new XML reader w/ RAIJU as root
+        iXML = New_XML_Input(trim(tmpStr),'Kaiju/RAIJU',.true.)
 
         associate(sh => raiCpl%raiApp%Grid%shGrid, nFluidIn => raiCpl%raiApp%Model%nFluidIn)
 
@@ -344,7 +350,7 @@ module raijuCplHelper
                     call CleanLine(raiCpl%magLines(i,j))
 
                     eqR = DipColat2L(raiCpl%raiApp%Grid%thRp(i))  ! Function assumes colat coming from 1 Rp, make sure we use the right theta value
-                    if (eqR < 0.5*raiCpl%opt%mhd_Rin) then
+                    if (eqR < raiCpl%opt%mhdRin) then
                         call DipoleTube(vApp, sh%th(i), sh%ph(j), raiCpl%ijTubes(i,j))
                     else
                         call MHDTube(ebApp, planet,   & !ebTrcApp, planet

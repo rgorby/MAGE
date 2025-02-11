@@ -108,7 +108,7 @@ submodule (volttypes) raijuCplTypesSub
 
         ! Active check
         call getSGCellILoc(sh, th, i0)
-        call getSGCellILoc(sh, ph, j0)
+        call getSGCellJLoc(sh, ph, j0)
         if (State%active(i0,j0) .ne. RAIJUACTIVE) then
             return
         endif

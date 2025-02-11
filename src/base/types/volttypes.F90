@@ -123,8 +123,10 @@ module volttypes
     type, extends(BaseOptions_T) :: imagOptions_T
         character(len=strLen) :: swF
             !! Solar wind filename
-        real(rp) :: mhd_Rin
-            !! GAMERA near-Earth boundary
+        real(rp) :: mhdRin
+            !! GAMERA near-Earth active cell boundary
+        real(rp) :: mhdRinG
+            !! GAMERA near-Earth ghost cell boundary
         real(rp) :: mjd0
             !! MJD at sim t=0
         logical :: doColdStart
