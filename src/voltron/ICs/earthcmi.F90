@@ -27,6 +27,8 @@ module uservoltic
 
     !Various module variables
     real(rp), private :: Rho0,P0
+    real(rp), private :: Kp0
+    logical , private :: doPP0  !Use MF starter plasmasphere
 
     ! type for remix BC
     type, extends(innerIBC_T) :: IonInnerBC_T
@@ -56,7 +58,7 @@ module uservoltic
         procedure(HackStep_T), pointer :: tsHack
 
         real(rp) :: M0g
-        integer :: s
+        integer :: s,s0
 
         !Set user hack functions
         !NOTE: Need silly double value for GNU
@@ -70,7 +72,8 @@ module uservoltic
         !Density for magnetosphere/wind
         call inpXML%Set_Val(Rho0 ,"prob/Rho0",0.2_rp)
         call inpXML%Set_Val(P0   ,"prob/P0"  ,0.001_rp)
-        
+        call inpXML%Set_Val(doPP0,"prob/doPP0",.false.)
+
         !Set magnetosphere parameters
         call setMagsphere(Model,inpXML)
         P0 = P0/Model%Units%gP0 !Scale to magsphere units
@@ -93,23 +96,37 @@ module uservoltic
         !Map IC to grid
         Wxyz => GasIC
         if (Model%doMultiF) then
+            call inpXML%Set_Val(Kp0   ,"prob/Kp0",5.0_rp) !Choice for Kp for gallagher that sets spc IC
+            if (Model%nSpc > 2) then
+                write(*,*) "This is not supported, you need to write BCs"
+                stop
+            endif
+
             !Set fluid 1
-            call GasIC2State(Model,Grid,State,Wxyz,1)
-            !Set fluid 2 to plasmasphere
-            Wxyz => PSphereIC
-            call GasIC2State(Model,Grid,State,Wxyz,2)
+            call GasIC2State(Model,Grid,State,Wxyz,RCFLUID)
+            if (doPP0) then
+                !Set fluid 2 to plasmasphere
+                Wxyz => PSphereIC
+                call GasIC2State(Model,Grid,State,Wxyz,COLDFLUID)
+                s0 = 3
+            else
+                !Just null out fluid 2
+                s0 = 2
+            endif
+            
             !Null remaining fluids
-            do s=3,Model%nSpc
+            do s=s0,Model%nSpc
                 State%Gas(:,:,:,DEN      ,s) = dFloor
                 State%Gas(:,:,:,MOMX:MOMZ,s) = 0.0
                 State%Gas(:,:,:,ENERGY   ,s) = pFloor
             enddo
+
             !Accumulate
             call State2Bulk(Model,Grid,State)
         else
             call GasIC2State(Model,Grid,State,Wxyz)
         endif
-
+        
         !Set DT bounds
         Grid%isDT = Grid%is
         Grid%ieDT = Grid%ie
@@ -164,18 +181,18 @@ module uservoltic
             subroutine PSphereIC(x,y,z,D,Vx,Vy,Vz,P)
                 real(rp), intent(in) :: x,y,z
                 real(rp), intent(out) :: D,Vx,Vy,Vz,P
-                real(rp) :: r,lambda,cL,L
 
-                r = sqrt(x**2.0+y**2.0+z**2.0)
-                lambda = asin(z/r)
-                cL = cos(lambda)
-                L = r/(cL*cL)
-                D = max(dFloor,psphD(L))
-                P = P0
+                real(rp) :: L,phi
+
+                L = DipoleL([x,y,z])
+                phi = atan2(y,x)
+
+                D = max(dFloor,GallagherRP(L,phi,Kp0))
+                P = 2*pFloor
+
                 Vx = 0.0
                 Vy = 0.0
                 Vz = 0.0
-
             end subroutine PSphereIC
 
     end subroutine initUser
@@ -481,111 +498,6 @@ module uservoltic
                 isLowLat = (invlat<=llBC)
             end function isLowLat
 
-            subroutine CellPlasmaBC(Model,gU,pU,Gas0,Veb,rHat,B)
-                type(Model_T), intent(in) :: Model
-                real(rp), intent(inout) :: gU(NVAR,BLK:Model%nSpc)
-                real(rp), intent(in)    :: pU(NVAR,BLK:Model%nSpc)
-                real(rp), intent(in)    :: Gas0(NVARVOLTSRC)
-                real(rp), dimension(NDIM), intent(in) :: Veb,rHat,B
-                logical :: isIMCold,isIMRing
-                real(rp), dimension(NVAR) :: pW,gW,pCon
-                real(rp) :: Vr
-
-
-                if ( (Model%t>0) .and. (Model%doSource) ) then
-                    !Test for imag information
-                    if (Model%doMultiF) then
-                        !Use vacuum thresholds
-                        isIMRing = (Gas0(IM_D_RING) >= Spcs(RCFLUID)  %dVac)
-                        isIMCold = (Gas0(IM_D_COLD) >= Spcs(COLDFLUID)%dVac)
-                    else
-                        !Not MF, just use raw floors
-                        isIMRing = (Gas0(IM_D_RING) >= dFloor) .and. (Gas0(IM_P_RING) >= pFloor)
-                        isIMCold = (Gas0(IM_D_COLD) >= dFloor) .and. (Gas0(IM_P_COLD) >= pFloor)
-                    endif
-
-                else
-                    !No useful info
-                    isIMRing = .false.
-                    isIMCold = .false.
-                endif
-
-                !General strategy: When we have informed values in ghost (ie, raiju plasmasphere) use full Veb
-                !If we have good active cell info, use diode on Vr (allow inflow but not inflow)
-                !If we got nothing, use Veb w/ Vr=0.0
-
-                Vr = dot_product(Veb,rHat)
-
-                if (Model%doMultiF) then
-
-                !Do cold fluid
-                    gW(:) = 0.0 !Ghost prim quantities
-                    call CellC2P(Model,pU(:,COLDFLUID),pW) !Active cell prim quantities
-
-                    if (isIMCold) then
-                        !Have good source info in ghost
-                        gW(DEN)       = Gas0(IM_D_COLD)
-                        gW(PRESSURE)  = Gas0(IM_P_COLD)
-                        gW(VELX:VELZ) = Veb
-                    elseif (pW(DEN) > Spcs(COLDFLUID)%dVac) then
-                        !Have good active cell info
-                        gW(DEN)       = pW(DEN)     
-                        gW(PRESSURE)  = pW(PRESSURE)
-                        gW(VELX:VELZ) = Vec2Perp(Veb,rHat) + min(Vr,0.0)*rHat
-                    else
-                        !Don't got nothing
-                        gW(DEN)       = dFloor
-                        gW(PRESSURE)  = pFloor
-                        gW(VELX:VELZ) = Vec2Perp(Veb,rHat)
-                    endif
-                    !Have ghost prim values, convert to con and store
-                    call CellP2C(Model,gW,gU(:,COLDFLUID))
-
-                !Do 'other' fluid
-                    gW(:) = 0.0 !Ghost prim quantities
-                    call CellC2P(Model,pU(:,RCFLUID),pW) !Active cell prim quantities
-
-                    if (isIMRing) then
-                        !Have good source info in ghost
-                        gW(DEN)       = Gas0(IM_D_RING)
-                        gW(PRESSURE)  = Gas0(IM_P_RING)
-                        gW(VELX:VELZ) = Veb
-                    elseif (pW(DEN) > Spcs(RCFLUID)%dVac) then
-                        !Have good active cell info
-                        gW(DEN)       = pW(DEN)     
-                        gW(PRESSURE)  = pW(PRESSURE)
-                        gW(VELX:VELZ) = Vec2Perp(Veb,rHat) + min(Vr,0.0)*rHat
-                    else
-                        !Got nothin
-                        gW(DEN)       = dFloor
-                        gW(PRESSURE)  = pFloor
-                        gW(VELX:VELZ) = Vec2Perp(Veb,rHat)
-                    endif
-                    !Have ghost prim values, convert to con and store
-                    call CellP2C(Model,gW,gU(:,RCFLUID))
-
-                !Now set BLK
-                    call MultiF2Bulk(Model,gU,B)
-                else
-                    !Single fluid
-                    gW(:) = 0.0
-                    call CellC2P(Model,pU(:,BLK),pW) !Active cell prim quantities
-                    if (isIMRing .or. isIMCold) then
-                        gW(DEN)      = Gas0(IM_D_COLD) + Gas0(IM_D_RING)
-                        gW(PRESSURE) = Gas0(IM_P_COLD) + Gas0(IM_P_RING)
-                        gW(VELX:VELZ) = Veb
-                    else
-                        !No data, just use zero grad based on active mhd info
-                        gW(DEN)      = pW(DEN)     
-                        gW(PRESSURE) = pW(PRESSURE)
-                        gW(VELX:VELZ) = Vec2Perp(Veb,rHat) + min(Vr,0.0)*rHat
-                    endif
-
-                    call CellP2C(Model,gW,gU(:,BLK))
-
-                endif !MF v single
-
-            end subroutine CellPlasmaBC
     end subroutine IonInner
 
     !Push velocity of first active cell
