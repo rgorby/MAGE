@@ -27,6 +27,8 @@ module uservoltic
 
     !Various module variables
     real(rp), private :: Rho0,P0
+    real(rp), private :: Kp0
+    logical , private :: doPP0  !Use MF starter plasmasphere
 
     ! type for remix BC
     type, extends(innerIBC_T) :: IonInnerBC_T
@@ -56,7 +58,7 @@ module uservoltic
         procedure(HackStep_T), pointer :: tsHack
 
         real(rp) :: M0g
-        integer :: s
+        integer :: s,s0
 
         !Set user hack functions
         !NOTE: Need silly double value for GNU
@@ -70,7 +72,8 @@ module uservoltic
         !Density for magnetosphere/wind
         call inpXML%Set_Val(Rho0 ,"prob/Rho0",0.2_rp)
         call inpXML%Set_Val(P0   ,"prob/P0"  ,0.001_rp)
-        
+        call inpXML%Set_Val(doPP0,"prob/doPP0",.false.)
+
         !Set magnetosphere parameters
         call setMagsphere(Model,inpXML)
         P0 = P0/Model%Units%gP0 !Scale to magsphere units
@@ -93,23 +96,37 @@ module uservoltic
         !Map IC to grid
         Wxyz => GasIC
         if (Model%doMultiF) then
+            call inpXML%Set_Val(Kp0   ,"prob/Kp0",5.0_rp) !Choice for Kp for gallagher that sets spc IC
+            if (Model%nSpc > 2) then
+                write(*,*) "This is not supported, you need to write BCs"
+                stop
+            endif
+
             !Set fluid 1
-            call GasIC2State(Model,Grid,State,Wxyz,1)
-            !Set fluid 2 to plasmasphere
-            Wxyz => PSphereIC
-            call GasIC2State(Model,Grid,State,Wxyz,2)
+            call GasIC2State(Model,Grid,State,Wxyz,RCFLUID)
+            if (doPP0) then
+                !Set fluid 2 to plasmasphere
+                Wxyz => PSphereIC
+                call GasIC2State(Model,Grid,State,Wxyz,COLDFLUID)
+                s0 = 3
+            else
+                !Just null out fluid 2
+                s0 = 2
+            endif
+            
             !Null remaining fluids
-            do s=3,Model%nSpc
+            do s=s0,Model%nSpc
                 State%Gas(:,:,:,DEN      ,s) = dFloor
                 State%Gas(:,:,:,MOMX:MOMZ,s) = 0.0
                 State%Gas(:,:,:,ENERGY   ,s) = pFloor
             enddo
+
             !Accumulate
             call State2Bulk(Model,Grid,State)
         else
             call GasIC2State(Model,Grid,State,Wxyz)
         endif
-
+        
         !Set DT bounds
         Grid%isDT = Grid%is
         Grid%ieDT = Grid%ie
@@ -164,18 +181,18 @@ module uservoltic
             subroutine PSphereIC(x,y,z,D,Vx,Vy,Vz,P)
                 real(rp), intent(in) :: x,y,z
                 real(rp), intent(out) :: D,Vx,Vy,Vz,P
-                real(rp) :: r,lambda,cL,L
 
-                r = sqrt(x**2.0+y**2.0+z**2.0)
-                lambda = asin(z/r)
-                cL = cos(lambda)
-                L = r/(cL*cL)
-                D = max(dFloor,psphD(L))
-                P = P0
+                real(rp) :: L,phi
+
+                L = DipoleL([x,y,z])
+                phi = atan2(y,x)
+
+                D = max(dFloor,GallagherRP(L,phi,Kp0))
+                P = 2*pFloor
+
                 Vx = 0.0
                 Vy = 0.0
                 Vz = 0.0
-
             end subroutine PSphereIC
 
     end subroutine initUser
