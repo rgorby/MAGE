@@ -150,13 +150,11 @@ module msphingest
                         pCon = State%Gas(i,j,k,:,BLK)
                         call Ingest2Con(Model,pCon,doIngestIJK,D0,P0,Veb,Tau)
 
-                        if (.not. doIngestIJK) cycle
-                        !If still here, put new conserved state back
-                        State%Gas(i,j,k,:,BLK) = pCon
-
+                        if (doIngestIJK) then
+                            State%Gas(i,j,k,:,BLK) = pCon
+                        endif
                 !Multi-F
                     else
-
                         !Try RC ingestion
                         rcD = Gr%Gas0(i,j,k,IM_D_RING)
                         rcP = Gr%Gas0(i,j,k,IM_P_RING)
