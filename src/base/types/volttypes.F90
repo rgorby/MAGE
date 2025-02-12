@@ -385,20 +385,20 @@ module volttypes
 
         subroutine getMomentsIMAG_T(App,th,ph,t,imW,isEdible)
             import imagCoupler_T
-            import rp, NVARIMAG0
+            import rp, IM_D_RING,IM_TSCL
             class(imagCoupler_T), intent(inout) :: App
             real(rp), intent(in) :: th,ph,t
-            real(rp), intent(out) :: imW(NVARIMAG0)
+            real(rp), intent(out) :: imW(IM_D_RING:IM_TSCL)
             logical, intent(out) :: isEdible
         end subroutine getMomentsIMAG_T
 
 
         subroutine getMomentsPrecipIMAG_T(App,th,ph,t,imW,isEdible)
             import imagCoupler_T
-            import rp, NVARIMAG0
+            import rp, IM_D_RING,IM_TSCL
             class(imagCoupler_T), intent(inout) :: App
             real(rp), intent(in) :: th,ph,t
-            real(rp), intent(out) :: imW(NVARIMAG0)
+            real(rp), intent(out) :: imW(IM_D_RING:IM_TSCL)
             logical, intent(out) :: isEdible
         end subroutine getMomentsPrecipIMAG_T
     end interface
