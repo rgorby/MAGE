@@ -412,22 +412,23 @@ module shellInterp
             stop
         endif
 
-        ! Determine SGV bounds if source var that map to destination grid's bounds
+        ! Determine SGV bounds of source var that map to destination grid's bounds
         call ijExtra_SGV(srcVar%loc, iExtra, jExtra)
-        subis = srcVar%isv + destGrid%bndis-1 - destGrid%Ngn
-        subie = srcVar%isv + destGrid%bndie-1 + destGrid%Ngs + iExtra
-        subjs = srcVar%jsv + destGrid%bndjs-1 - destGrid%Ngw
-        subje = srcVar%jsv + destGrid%bndje-1 + destGrid%Nge + jExtra
+
+        subis = destGrid%is + destGrid%bndis-1 - destGrid%Ngn
+        subie = destGrid%is + destGrid%bndie-1 + destGrid%Ngs + iExtra
+        subjs = destGrid%js + destGrid%bndjs-1 - destGrid%Ngw
+        subje = destGrid%js + destGrid%bndje-1 + destGrid%Nge + jExtra
 
         ! Now fill in destination variable
         if (srcVar%loc == destVar%loc) then
-            destVar%data = srcVar%data(subis:subie, subjs:subje)
-            destVar%mask = srcVar%mask(subis:subie, subjs:subje)
+            destVar%data(:,:) = srcVar%data(subis:subie, subjs:subje)
+            destVar%mask(:,:) = srcVar%mask(subis:subie, subjs:subje)
         else  ! Need to interpolate
             ! Chop srcVar into destination grid size
             call initShellVar(destGrid, srcVar%loc, src2destVar)
-            src2destVar%data = srcVar%data(subis:subie, subjs:subje)
-            src2destVar%mask = srcVar%mask(subis:subie, subjs:subje)
+            src2destVar%data(:,:) = srcVar%data(subis:subie, subjs:subje)
+            src2destVar%mask(:,:) = srcVar%mask(subis:subie, subjs:subje)
             call InterpShellVar_TSC_SG(destGrid, src2destVar, destGrid, destVar)
         endif
 
