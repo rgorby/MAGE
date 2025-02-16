@@ -219,6 +219,12 @@ module voltio
         call AddOutVar(IOVars,"CoupleT", vApp%DeepT)
         call AddOutVar(IOVars,"gBAvg",   vApp%mhd2Mix%gBAvg)
         
+        ! State object
+        call AddOutSGV(IOVars, "potential_total", vApp%State%potential_total)
+        call AddOutSGV(IOVars, "potential_corot", vApp%State%potential_corot)
+        call AddOutSGV(IOVars, "bIonoMag", vApp%State%bIonoMag)
+        call AddOutSGV(IOVars, "bIonoRad", vApp%State%bIonoRad)
+
         call WriteVars(IOVars,.false.,ResF)
 
         ! Save shellGrid
@@ -273,6 +279,10 @@ module voltio
         call AddInVar(IOVars,"time"    ,vTypeO=IOREAL)
         call AddInVar(IOVars,"CoupleT" ,vTypeO=IOREAL)
 
+        call AddInVar(IOVars, "potential_total")
+        call AddInVar(IOVars, "potential_corot")
+        call AddInVar(IOVars, "bIonoMag")
+        call AddInVar(IOVars, "bIonoRad")
 
         !Get data
         call ReadVars(IOVars,.false.,ResF)
@@ -306,6 +316,11 @@ module voltio
         else
             write(*,*) "gBAvg not found in Voltron restart, assuming dipole ..."
         endif
+
+        call ReadInSGV(vApp%State%potential_total, ResF, "potential_total", doIOpO=.false.)
+        call ReadInSGV(vApp%State%potential_corot, ResF, "potential_corot", doIOpO=.false.)
+        call ReadInSGV(vApp%State%bIonoMag, ResF, "bIonoMag", doIOpO=.false.)
+        call ReadInSGV(vApp%State%bIonoRad, ResF, "bIonoRad", doIOpO=.false.)
 
     end subroutine readVoltronRestart
 

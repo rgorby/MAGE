@@ -254,8 +254,16 @@ module raijuCplHelper
         class(raijuCoupler_T), intent(inout) :: raiCpl
 
         integer :: i,j,k
-
+    
         associate(Model=>raiCpl%raiApp%Model, State=>raiCpl%raiApp%State, shGr=>raiCpl%shGr)
+
+        ! Reset quantities we will only selectively write to
+        State%Pavg = 0
+        State%Davg = 0
+        State%Pstd = 0
+        State%Dstd = 0
+        State%bvol_cc = 0
+        State%Tb%data = 0
 
         !--- Ionosphere data ---!
         State%espot(:,:)     = raiCpl%pot_total%data(:,:) ! They live on the same grid so this is okay
@@ -301,7 +309,6 @@ module raijuCplHelper
         enddo
 
         end associate
-
     end subroutine
 
 !------

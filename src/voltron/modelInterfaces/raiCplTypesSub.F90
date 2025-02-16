@@ -4,6 +4,7 @@ submodule (volttypes) raijuCplTypesSub
     use raijustarter
     use raijuCplHelper
     use raijuColdStartHelper
+    use raijuDomain
 
     use shellInterp
     use imaghelper
@@ -66,6 +67,7 @@ submodule (volttypes) raijuCplTypesSub
             if (doColdStart) then
                 ! Its happening, everybody stay calm
                 write(*,*) "RAIJU Cold starting..."
+                call setActiveDomain(raiApp%Model, raiApp%Grid, raiApp%State)
                 call raijuGeoColdStart(raiApp%Model, raiApp%Grid, raiApp%State, vApp%time, vApp%BSDst)
             endif
         end associate

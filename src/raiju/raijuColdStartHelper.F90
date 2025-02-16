@@ -25,14 +25,16 @@ module raijuColdStartHelper
         integer :: sIdx_p, sIdx_e
         real(rp) :: dstReal, dstTarget
         real(rp) :: dps_preCX, dps_postCX, dps_ele
+        logical, dimension(Grid%shGrid%isg:Grid%shGrid%ieg, Grid%shGrid%jsg:Grid%shGrid%jeg) :: isGood
+
+        where (State%active .eq. RAIJUACTIVE)
+            isGood = .true.
+        elsewhere
+            isGood = .false.
+        endwhere
 
         sIdx_p = spcIdx(Grid, F_HOTP)
         sIdx_e = spcIdx(Grid, F_HOTE)
-
-        ! Calc our target RC dst
-        write(*,*) "WARNING: Setting QTRC from raijuColdStart, idk if we should be in charge of this"
-        dstReal = GetSWVal('symh', Model%tsF, t0)
-        dstTarget = dstReal - dstModel
 
         ! Start by nuking all etas, we will set it all up ourselves
         State%eta = 0.0
@@ -40,12 +42,21 @@ module raijuColdStartHelper
         ! Init psphere
         call setRaijuInitPsphere(Model, Grid, State, Model%psphInitKp)
 
+        ! Calc our target RC dst
+        write(*,*) "WARNING: Setting QTRC from raijuColdStart, idk if we should be in charge of this"
+        dstReal = GetSWVal('symh', Model%tsF, t0)
+        dstTarget = dstReal - dstModel
+
+        if (dstTarget > 0) then  ! We got nothing to contribute
+            return
+        endif
+
         ! Init hot protons
         call raiColdStart_initHOTP(Model, Grid, State, t0, dstTarget)
-        dps_preCX  = spcEta2DPS(Model, Grid, State, Grid%spc(sIdx_p), State%active .eq. RAIJUACTIVE)  ! Note: final argument is making a logical mask for isGood
+        dps_preCX  = spcEta2DPS(Model, Grid, State, Grid%spc(sIdx_p), isGood)  ! Note: final argument is making a logical mask for isGood
         ! Hit it with some charge exchange
         call raiColdStart_applyCX(Model, Grid, State, Grid%spc(sIdx_p))
-        dps_postCX = spcEta2DPS(Model, Grid, State, Grid%spc(sIdx_p), State%active .eq. RAIJUACTIVE)
+        dps_postCX = spcEta2DPS(Model, Grid, State, Grid%spc(sIdx_p), isGood)
         
 
         write(*,*)"Lazy raijuGeoColdStart: not rescaling proton eta to target dst, just adding electrons"
@@ -93,7 +104,7 @@ module raijuColdStartHelper
 
         ! Scale target Dst down to account for electrons contributing stuff later
         dstTarget_p = dstTarget / (1.0 + 1.0/Model%tiote)
-        call SetQTRC(dstTarget_p) ! This sets a global QTRC_P0 inside earthhelper.F90
+        call SetQTRC(dstTarget_p,doVerbO=.true.) ! This sets a global QTRC_P0 inside earthhelper.F90
 
         ! Get Borovsky statistical values
         vSW = abs(GetSWVal("Vx",Model%tsF,t0))

@@ -962,7 +962,8 @@ module raijuPreAdvancer
         
         integer :: i,j
         real(rp) :: dl, velij_th, velij_ph
-        real(rp), dimension(Grid%shGrid%is:Grid%shGrid%ie+1,Grid%shGrid%js:Grid%shGrid%je+1) :: dtArr
+        !real(rp), dimension(Grid%shGrid%is:Grid%shGrid%ie+1,Grid%shGrid%js:Grid%shGrid%je+1) :: dtArr
+        real(rp), dimension(Grid%shGrid%isg+1:Grid%shGrid%ieg,Grid%shGrid%jsg+1:Grid%shGrid%jeg) :: dtArr
         real(rp) :: dt
 
         associate (sh => Grid%shGrid)
@@ -972,8 +973,8 @@ module raijuPreAdvancer
         !!$OMP PARALLEL DO default(shared) &
         !!$OMP schedule(dynamic) &
         !!$OMP private(i,j, velij_th, velij_ph, dl)
-        do j=sh%js,sh%je+1
-            do i=sh%is,sh%ie+1
+        do j=sh%jsg+1,sh%jeg
+            do i=sh%isg+1,sh%ieg  ! Excluding first and last face
                 velij_th = TINY
                 velij_ph = TINY
                 ! NOTE: We are only checking faces bordering non-ghost cells because those are the only ones we use for evolution
@@ -990,7 +991,7 @@ module raijuPreAdvancer
                 if (Model%doActiveShell .and. ( .not. State%activeShells(i-1,k) .or. .not. State%activeShells(i,k)) ) then
                     ! In order for a theta-dir face to be usable, we need both sides to be active
                     continue
-                else if ( State%active(i-1,j) .ne. RAIJUACTIVE .or. State%active(i,j) .ne. RAIJUACTIVE ) then
+                else if ( State%active(i-1,j) .eq. RAIJUINACTIVE .or. State%active(i,j) .eq. RAIJUINACTIVE ) then
                     continue
                 else
                     ! We are good lets calculate a dt for this face
@@ -1002,7 +1003,7 @@ module raijuPreAdvancer
                 if (Model%doActiveShell .and. .not. State%activeShells(i,k)) then
                     ! In order for a phi-dir face to be usable, we just need this i shell to be active
                     continue
-                else if (State%active(i,j-1) .ne. RAIJUACTIVE  .or. State%active(i,j) .ne. RAIJUACTIVE ) then 
+                else if (State%active(i,j-1) .eq. RAIJUINACTIVE  .or. State%active(i,j) .eq. RAIJUINACTIVE ) then 
                     continue
                 else
                     velij_ph = max(abs(State%iVelL(i,j,k,RAI_PH)), abs(State%iVelR(i,j,k,RAI_PH)), TINY)

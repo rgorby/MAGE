@@ -264,7 +264,7 @@ module raijuICHelpers
                 call setRaijuInitPsphere(Model, Grid, State, Model%psphInitKp)
 
             case("COLDSTART")
-                call iXML%Set_Val(dst0,'prob/dst0',30.0)
+                call iXML%Set_Val(dst0,'prob/dst0',0.0)
                 call raijuGeoColdStart(Model, Grid, State, 0.0_rp, dst0)
 
             case default

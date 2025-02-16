@@ -169,12 +169,13 @@ module raijuetautils
         type(raijuGrid_T), intent(in) :: Grid
         type(raijuState_T), intent(in) :: State
         type(raijuSpecies_T), intent(in) :: spc
-        logical, dimension(Grid%shGrid%isg:Grid%shGrid%ieg, Grid%shGrid%jsg:Grid%shGrid%jeg) :: isGood
+        logical, dimension(Grid%shGrid%isg:Grid%shGrid%ieg, Grid%shGrid%jsg:Grid%shGrid%jeg), intent(in) :: isGood
             !! Eval mask, true = point is included in calculation
 
         real(rp) :: dpsdst
         integer :: i,j,k
         real(rp) :: press, bVol, energyDen, energy
+        logical :: isDead = .false.
 
         dpsdst = 0.0
 
