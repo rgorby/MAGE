@@ -26,8 +26,8 @@ module voltCplHelper
             !$OMP PARALLEL DO default(shared) &
             !$OMP schedule(dynamic) &
             !$OMP private(i,j,eqR,magLine,doSH,doNH,xyz0)
-            do i=sh%is,sh%ie+1
-                do j=sh%js,sh%je+1
+            do j=sh%js,sh%je+1
+                do i=sh%is,sh%ie+1
                     !Calculate seed point
 
                     xyz0 = seedR*[sin(sh%th(i))*cos(sh%ph(j)), &

@@ -362,12 +362,12 @@ end type ShellGridVar_T
         shGr%maxGPhi   = maxval(shGr%ph)
 
 
-        ! Do some extra geom calculates for easy reference when needed
+        ! Do some extra geom calculations for easy reference when needed
         do i=shGr%isg,shGr%ieg
             do j=shGr%jsg,shGr%jeg
                 ! r^2 * (sin(th1)-sin(th2)) * dPh
                 shGr%areaCC(i,j) = shGr%radius**2 &
-                                 * ( sin(shGr%thc(i)) - sin(shGr%thc(i+1)) ) &
+                                 * ( sin(shGr%th(i+1)) - sin(shGr%th(i)) ) &
                                  * (shGr%ph(j+1) - shGr%ph(j))
             enddo
         enddo
@@ -448,7 +448,7 @@ end type ShellGridVar_T
         ! Init mask, either by maskO or defaults
         if (present(maskO)) then
             if ( all(shape(shellVar%mask) == shape(maskO)) ) then
-                shellVar%mask = maskO
+                shellVar%mask(:,:) = maskO(:,:)
             else
                 write(*,*)"ERROR in initShellVar: maskO shape doesn't match."
                 stop

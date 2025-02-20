@@ -104,7 +104,7 @@ module shellInterp
         ! Which destination grid locations we loop over depends on the destination variable location
         select case(varOut%loc)
             case(SHGR_CC)
-                !$OMP PARALLEL DO default(shared) collapse(1) &
+                !$OMP PARALLEL DO default(shared) &
                 !$OMP schedule(dynamic) &
                 !$OMP private(i,j)
                 do j=sgDest%jsg,sgDest%jeg
@@ -123,7 +123,7 @@ module shellInterp
                     enddo
                 enddo
             case(SHGR_CORNER)
-                !$OMP PARALLEL DO default(shared) collapse(1) &
+                !$OMP PARALLEL DO default(shared) &
                 !$OMP schedule(dynamic) &
                 !$OMP private(i,j)
                 do j=sgDest%jsg,sgDest%jeg+1
@@ -140,7 +140,7 @@ module shellInterp
                     enddo
                 enddo
             case(SHGR_FACE_THETA)
-                !$OMP PARALLEL DO default(shared) collapse(1) &
+                !$OMP PARALLEL DO default(shared) &
                 !$OMP schedule(dynamic) &
                 !$OMP private(i,j)
                 do j=sgDest%jsg,sgDest%jeg
@@ -157,7 +157,7 @@ module shellInterp
                     enddo
                 enddo
             case(SHGR_FACE_PHI)
-                !$OMP PARALLEL DO default(shared) collapse(1) &
+                !$OMP PARALLEL DO default(shared) &
                 !$OMP schedule(dynamic) &
                 !$OMP private(i,j)
                 do j=sgDest%jsg,sgDest%jeg+1

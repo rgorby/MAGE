@@ -75,12 +75,12 @@ module shellUtils
             iLoc = shGr%ieg+ceiling((t-shGr%maxGTheta)/(shGr%th(shGr%ieg+1)-shGr%th(shGr%ieg)))
             dTheta = shGr%thc(shGr%ieg) - shGr%thc(shGr%ieg-1)
             tLoc = shGr%thc(shGr%ieg) + dTheta*(iLoc - shGr%ieg)
-            !write(*,*)"theta going out of bounds",t,shGr%maxGTheta
+            !write(*,*)"theta going out of max bounds",t,shGr%maxGTheta
         else if ( (t<shGr%minGTheta) ) then
             iLoc = shGr%isg-ceiling((shGr%minGTheta-t)/(shGr%th(shGr%isg+1)-shGr%th(shGr%isg)))
             dTheta = shGr%thc(shGr%isg+1) - shGr%thc(shGr%isg)
             tLoc = shGr%thc(shGr%isg) - dTheta*(shGr%isg - iLoc)
-            !write(*,*)"theta going out of bounds",t,shGr%minGTheta
+            !write(*,*)"theta going out of min bounds",t,shGr%minGTheta
         else
             ! If still here then the lat bounds are okay, find closest lat cell center
             iLoc = shGr%isg
@@ -212,5 +212,20 @@ module shellUtils
         endif
 
     end subroutine jLocCC2Corner
+
+    subroutine printShellGridInfo(shGr)
+        type(ShellGrid_T), intent(in) :: shGr
+
+        write(*,*)'------SG-------'
+        write(*,*)' Name: ',trim(shGr%name)
+        write(*,*)' Ghosts(N,S,W,E): ',shGr%Ngn,shGr%Ngs,shGr%Ngw,shGr%Nge
+        write(*,*)' Nt,Np: ',shGr%Nt, shGr%Np
+        write(*,*)' isChild:', shGr%isChild, trim(shGr%parentName)
+        write(*,*)' Theta corners:'
+        write(*,*)shGr%th*rad2deg
+        write(*,*)' Phi corners:'
+        write(*,*)shGr%ph*rad2deg
+        write(*,*)'------SG-------'
+    end subroutine printShellGridInfo
 
 end module shellUtils

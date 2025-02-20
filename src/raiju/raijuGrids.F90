@@ -378,7 +378,7 @@ module raijugrids
                 do j=shGr%jsg,shGr%jeg
                     ! r^2 * (sin(th1)-sin(th2)) * dPh
                     Grid%areaCC(i,j) = (planet%ri_m/planet%rp_m)**2 &
-                                     * ( sin(shGr%thc(i+1)) - sin(shGr%thc(i)) ) &
+                                     * ( sin(shGr%th(i+1)) - sin(shGr%th(i)) ) &
                                      * (shGr%ph(j+1) - shGr%ph(j))
                 enddo
             enddo

@@ -434,6 +434,15 @@ module voltio
                        uStr="kV", dStr="Ionospheric electrostatic potential (no corotation)", &
                        outBndsO=outSGVBnds_corner, doWriteMaskO=.false.)
         associate(tubeShell=>vApp%State%tubeShell)
+        call AddOutSGV(IOVars, "xMin", tubeShell%X_bmin(XDIR), &
+                        uStr="Rx", dStr="SM-X location of flux tube bMin", &
+                        outBndsO=outSGVBnds_corner, doWriteMaskO=.false.)
+        call AddOutSGV(IOVars, "yMin", tubeShell%X_bmin(YDIR), &
+                        uStr="Rx", dStr="SM-Y location of flux tube bMin", &
+                        outBndsO=outSGVBnds_corner, doWriteMaskO=.false.)
+        call AddOutSGV(IOVars, "zMin", tubeShell%X_bmin(ZDIR), &
+                        uStr="Rx", dStr="SM-Z location of flux tube bMin", &
+                        outBndsO=outSGVBnds_corner, doWriteMaskO=.false.)
         call AddOutSGV(IOVars, "bMin", tubeShell%bmin, &
                         uStr="nT", dStr="Field strength at magnetic equator", &
                         outBndsO=outSGVBnds_corner, doWriteMaskO=.false.)
@@ -456,6 +465,9 @@ module voltio
         call AddOutSGV(IOVars, "latc", tubeShell%latc, &
                         outBndsO=outSGVBnds_corner, doWriteMaskO=.false.)
         call AddOutSGV(IOVars, "lonc", tubeShell%lonc, &
+                        outBndsO=outSGVBnds_corner, doWriteMaskO=.false.)
+        call AddOutSGV(IOVars, "rCuravture", tubeShell%rCurv, &
+                        uStr="Rx", dStr="Radius of curvature @ bmin if this is a closed field line", &
                         outBndsO=outSGVBnds_corner, doWriteMaskO=.false.)
         end associate
 

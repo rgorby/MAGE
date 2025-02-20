@@ -224,7 +224,7 @@ module raijuIO
         outTmp3D = 0.0
         !$OMP PARALLEL DO default(shared) &
         !$OMP schedule(dynamic) &
-        !$OMP private(i,j,s,bVol_cc)
+        !$OMP private(i,j,s)
         do j=js,je
             do i=is,ie
                 if (State%active(i,j) .eq. RAIJUINACTIVE) then

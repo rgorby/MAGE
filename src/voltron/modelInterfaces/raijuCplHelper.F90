@@ -4,6 +4,7 @@ module raijuCplHelper
     use raijutypes
     use remixReader
     use shellinterp
+    use shellUtils
     use ebtypes
     use raijugrids
     
@@ -31,56 +32,47 @@ module raijuCplHelper
 
         associate(sh => raiCpl%raiApp%Grid%shGrid, nFluidIn => raiCpl%raiApp%Model%nFluidIn)
 
-            ! Allocations
-            !allocate(raiCpl%magLines (sh%isg:sh%ieg+1, sh%jsg:sh%jeg+1))
-            !allocate(raiCpl%ijTubes( sh%isg:sh%ieg+1, sh%jsg:sh%jeg+1))
 
             ! Shell Grid inits
             shGhosts(NORTH) = sh%Ngn
             shGhosts(SOUTH) = sh%Ngs
-            shGhosts(EAST) = sh%Nge
-            shGhosts(WEST) = sh%Ngw
-            !call GenChildShellGrid(sh, raiCpl%shGr, "raijuCpl", nGhosts=shGhosts)
-            !call GenChildShellGrid(sh, raiCpl%opt%voltGrid, "raijuCpl", nGhosts=shGhosts)
+            shGhosts(EAST)  = sh%Nge
+            shGhosts(WEST)  = sh%Ngw
             call raijuGenGridFromShGrid(raiCpl%shGr, raiCpl%opt%voltGrid, iXML)
             call initShellVar(raiCpl%shGr, SHGR_CORNER, raiCpl%pot_total)
             call initShellVar(raiCpl%shGr, SHGR_CORNER, raiCpl%pot_corot)
             call initShellVar(raiCpl%shGr, SHGR_CC, raiCpl%bvol_cc)
-            associate(mask_corner=>raiCpl%pot_total%mask, mask_cc=>raiCpl%bvol_cc%mask)
-                mask_corner = .true.
-                mask_cc     = .true.
 
             do i=1,NDIM
-                call initShellVar(sh, SHGR_CORNER, raiCpl%Bmin(i), maskO=mask_corner)
-                call initShellVar(sh, SHGR_CORNER, raiCpl%xyzMin(i), maskO=mask_corner)
-                call initShellVar(sh, SHGR_CC    , raiCpl%xyzMincc(i), maskO=mask_cc)
+                call initShellVar(raiCpl%shGr, SHGR_CORNER, raiCpl%Bmin(i))
+                call initShellVar(raiCpl%shGr, SHGR_CORNER, raiCpl%xyzMin(i))
+                call initShellVar(raiCpl%shGr, SHGR_CC    , raiCpl%xyzMincc(i))
             enddo
-            call initShellVar(sh, SHGR_CORNER, raiCpl%thcon, maskO=mask_corner)
-            call initShellVar(sh, SHGR_CORNER, raiCpl%phcon, maskO=mask_corner)
-            call initShellVar(sh, SHGR_CORNER, raiCpl%bVol, maskO=mask_corner)
-            call initShellVar(sh, SHGR_CORNER, raiCpl%topo, maskO=mask_corner)
-            call initShellVar(sh, SHGR_CORNER, raiCpl%vaFrac, maskO=mask_corner)
+            call initShellVar(raiCpl%shGr, SHGR_CORNER, raiCpl%thcon)
+            call initShellVar(raiCpl%shGr, SHGR_CORNER, raiCpl%phcon)
+            call initShellVar(raiCpl%shGr, SHGR_CORNER, raiCpl%bVol)
+            call initShellVar(raiCpl%shGr, SHGR_CORNER, raiCpl%topo)
+            call initShellVar(raiCpl%shGr, SHGR_CORNER, raiCpl%vaFrac)
 
             allocate(raiCpl%Pavg(0:nFluidIn))
             allocate(raiCpl%Davg(0:nFluidIn))
             allocate(raiCpl%Pstd(0:nFluidIn))
             allocate(raiCpl%Dstd(0:nFluidIn))
             do i=0,nFluidIn
-                call initShellVar(sh, SHGR_CC, raiCpl%Pavg(i), maskO=mask_cc)
-                call initShellVar(sh, SHGR_CC, raiCpl%Davg(i), maskO=mask_cc)
-                call initShellVar(sh, SHGR_CC, raiCpl%Pstd(i), maskO=mask_cc)
-                call initShellVar(sh, SHGR_CC, raiCpl%Dstd(i), maskO=mask_cc)
+                call initShellVar(raiCpl%shGr, SHGR_CC, raiCpl%Pavg(i))
+                call initShellVar(raiCpl%shGr, SHGR_CC, raiCpl%Davg(i))
+                call initShellVar(raiCpl%shGr, SHGR_CC, raiCpl%Pstd(i))
+                call initShellVar(raiCpl%shGr, SHGR_CC, raiCpl%Dstd(i))
             enddo
-            call initShellVar(sh, SHGR_CC, raiCpl%Tb, maskO=mask_cc)
-            end associate
+            call initShellVar(raiCpl%shGr, SHGR_CC, raiCpl%Tb)
         end associate
         
-            ! Initial values
-            raiCpl%tLastUpdate = -1.0*HUGE
-            raiCpl%pot_total%data = 0.0
-            raiCpl%pot_total%mask = .true.
-            raiCpl%pot_corot%data = 0.0
-            raiCpl%pot_corot%mask = .true.
+        ! Initial values
+        raiCpl%tLastUpdate = -1.0*HUGE
+        raiCpl%pot_total%data = 0.0
+        raiCpl%pot_total%mask = .true.
+        raiCpl%pot_corot%data = 0.0
+        raiCpl%pot_corot%mask = .true.
 
     end subroutine raijuCpl_init
 
@@ -194,7 +186,6 @@ module raijuCplHelper
         logical, dimension(tubeShell%topo%isv:tubeShell%topo%iev,tubeShell%topo%jsv:tubeShell%topo%jev) :: topoSrcMask
         integer :: i,j,s
 
-
         where (tubeShell%topo%data == TUBE_CLOSED)
             topoSrcMask = .true.
         elsewhere
@@ -202,7 +193,6 @@ module raijuCplHelper
         end where
 
         call initShellVar(raiCpl%shGr, SHGR_CORNER, tmpTopo)
-        associate(Model=>raiCpl%raiApp%Model)
 
         ! Corners
         do i=1,NDIM
@@ -213,13 +203,14 @@ module raijuCplHelper
         raiCpl%thcon%data = PI/2 - raiCpl%thcon%data
         call InterpShellVar_TSC_SG(voltGrid, tubeShell%lonc, raiCpl%shGr, raiCpl%phcon)
         call InterpShellVar_TSC_SG(voltGrid, tubeShell%bVol, raiCpl%shGr, raiCpl%bvol)
+        !call InterpShellVar_ParentToChild(voltGrid, tubeShell%bVol, raiCpl%shGr, raiCpl%bvol)
         !call InterpShellVar_TSC_SG(voltGrid, tubeShell%bVol, raiCpl%shGr, raiCpl%bvol_cc)
         do j=raiCpl%shGr%jsg,raiCpl%shGr%jeg
             do i=raiCpl%shGr%isg,raiCpl%shGr%ieg
                 raiCpl%bvol_cc%data(i,j) = toCenter2D(raiCpl%bvol%data(i:i+1,j:j+1))
             enddo
         enddo
-
+        
         ! Get topo and then convert to RAIJU's definition
         call InterpShellVar_TSC_SG(voltGrid, tubeShell%topo, raiCpl%shGr, tmpTopo)
         where (tmpTopo%data == TUBE_CLOSED)
@@ -230,20 +221,23 @@ module raijuCplHelper
         call InterpShellVar_TSC_SG(voltGrid, tubeShell%wMAG, raiCpl%shGr, raiCpl%vaFrac)
 
         ! Centers
-        
-        do s=0,Model%nFluidIn
+        do s=0,raiCpl%raiApp%Model%nFluidIn
             call InterpShellVar_TSC_SG(voltGrid, tubeShell%avgP(s), raiCpl%shGr, raiCpl%Pavg(s), srcMaskO=topoSrcMask)
             call InterpShellVar_TSC_SG(voltGrid, tubeShell%avgN(s), raiCpl%shGr, raiCpl%Davg(s), srcMaskO=topoSrcMask)
             call InterpShellVar_TSC_SG(voltGrid, tubeShell%stdP(s), raiCpl%shGr, raiCpl%Pstd(s), srcMaskO=topoSrcMask)
             call InterpShellVar_TSC_SG(voltGrid, tubeShell%stdN(s), raiCpl%shGr, raiCpl%Dstd(s), srcMaskO=topoSrcMask)
+            !call InterpShellVar_TSC_SG(voltGrid, tubeShell%avgP(s), raiCpl%shGr, raiCpl%Pavg(s))
+            !call InterpShellVar_TSC_SG(voltGrid, tubeShell%avgN(s), raiCpl%shGr, raiCpl%Davg(s))
+            !call InterpShellVar_TSC_SG(voltGrid, tubeShell%stdP(s), raiCpl%shGr, raiCpl%Pstd(s))
+            !call InterpShellVar_TSC_SG(voltGrid, tubeShell%stdN(s), raiCpl%shGr, raiCpl%Dstd(s))
         enddo
         do i=1,NDIM
             call InterpShellVar_TSC_SG(raiCpl%shGr, raiCpl%xyzMin(i), raiCpl%shGr, raiCpl%xyzMincc(i), srcMaskO=topoSrcMask)
+            !call InterpShellVar_TSC_SG(raiCpl%shGr, raiCpl%xyzMin(i), raiCpl%shGr, raiCpl%xyzMincc(i))
         enddo
         call InterpShellVar_TSC_SG(voltGrid, tubeShell%Tb, raiCpl%shGr, raiCpl%Tb, srcMaskO=topoSrcMask)
+        !call InterpShellVar_TSC_SG(voltGrid, tubeShell%Tb, raiCpl%shGr, raiCpl%Tb)
         
-
-        end associate
 
     end subroutine tubeShell2RaiCpl
 
@@ -282,11 +276,11 @@ module raijuCplHelper
             State%xyzMin  (:,:,i) = raiCpl%xyzMin(i)%data
             State%xyzMincc(:,:,i) = raiCpl%xyzMincc(i)%data
         enddo
-        State%thcon     = raiCpl%thcon%data
-        State%phcon     = raiCpl%phcon%data
+        State%thcon(:,:)     = raiCpl%thcon%data
+        State%phcon(:,:)     = raiCpl%phcon%data
         State%Bmin(:,:,ZDIR) = raiCpl%bmin(ZDIR)%data
-        State%bvol      = raiCpl%bvol%data
-        State%vaFrac    = raiCpl%vaFrac%data
+        State%bvol(:,:)      = raiCpl%bvol%data
+        State%vaFrac(:,:)    = raiCpl%vaFrac%data
 
         ! Now only copy for good points
         do j=shGr%jsg,shGr%jeg

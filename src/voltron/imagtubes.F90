@@ -13,12 +13,13 @@ module imagtubes
 
     contains
 
-    subroutine init_TubeShell(sh, tubeShell, maskO, TioTeO)
+    !subroutine init_TubeShell(sh, tubeShell, maskO, TioTeO)
+    subroutine init_TubeShell(sh, tubeShell, TioTeO)
         type(ShellGrid_T), intent(in) :: sh
             !! Voltron shellgrid
         type(TubeShell_T), intent(inout) :: tubeShell
             !! IMAGTubeShell object we are initializing
-        logical, dimension(:,:), intent(in), optional :: maskO
+        !logical, dimension(:,:), intent(in), optional :: maskO
         real(rp), intent(in), optional :: TioteO
             !! Default Ti/Te ratio
 
@@ -31,52 +32,36 @@ module imagtubes
             tiote = 4.0
         endif
 
-        call initShellVar(sh, SHGR_CORNER, tubeShell%lat0)        
-        ! Set mask
-        if (present(maskO)) then
-            if ( (size(maskO,dim=1) .ne. tubeShell%lat0%Ni) .or. (size(maskO,dim=2) .ne. tubeShell%lat0%Nj) ) then
-                write(*,*) "ERROR: init_IMAGTubeShell got wrong sized maskO"
-                write(*,*)"maskO = ",shape(maskO)
-                write(*,*)"tube shell vars = ",shape(tubeShell%lat0)
-                stop
-            endif
-            tubeShell%lat0%mask = maskO
-        else
-            ! If no mask provided, turn on full grid mask (including ghosts!)
-            tubeShell%lat0%mask = .true.
-        endif
 
-        associate(mask=>tubeShell%lat0%mask)
-            do i=1,NDIM
-                call initShellVar(sh, SHGR_CORNER, tubeShell%xyz0(i), maskO=mask)
-                call initShellVar(sh, SHGR_CORNER, tubeShell%X_bmin(i), maskO=mask)
-            enddo
-            call initShellVar(sh, SHGR_CORNER, tubeShell%lat0  , maskO=mask)
-            call initShellVar(sh, SHGR_CORNER, tubeShell%lon0  , maskO=mask)
-            call initShellVar(sh, SHGR_CORNER, tubeShell%latc  , maskO=mask)
-            call initShellVar(sh, SHGR_CORNER, tubeShell%lonc  , maskO=mask)
-            call initShellVar(sh, SHGR_CORNER, tubeShell%invlat, maskO=mask)
-            call initShellVar(sh, SHGR_CORNER, tubeShell%topo  , maskO=mask)
-            call initShellVar(sh, SHGR_CORNER, tubeShell%bmin  , maskO=mask)
-            call initShellVar(sh, SHGR_CORNER, tubeShell%bVol   , maskO=mask)
-            call initShellVar(sh, SHGR_CORNER, tubeShell%Lb     , maskO=mask)
-            call initShellVar(sh, SHGR_CORNER, tubeShell%Tb     , maskO=mask)
-            call initShellVar(sh, SHGR_CORNER, tubeShell%wMAG   , maskO=mask)
-            call initShellVar(sh, SHGR_CORNER, tubeShell%rCurv  , maskO=mask)
-            call initShellVar(sh, SHGR_CORNER, tubeShell%avgBeta, maskO=mask)
-            do i=0,MAXTUBEFLUIDS
-                call initShellVar(sh, SHGR_CORNER, tubeShell%avgP(i), maskO=mask)
-                call initShellVar(sh, SHGR_CORNER, tubeShell%avgN(i), maskO=mask)
-                call initShellVar(sh, SHGR_CORNER, tubeShell%stdP(i), maskO=mask)
-                call initShellVar(sh, SHGR_CORNER, tubeShell%stdN(i), maskO=mask)
-            enddo
-            call initShellVar(sh, SHGR_CORNER, tubeShell%losscone , maskO=mask)
-            call initShellVar(sh, SHGR_CORNER, tubeShell%lossconec, maskO=mask)
-            call initShellVar(sh, SHGR_CORNER, tubeShell%TioTe0   , maskO=mask)
+        do i=1,NDIM
+            call initShellVar(sh, SHGR_CORNER, tubeShell%xyz0(i))
+            call initShellVar(sh, SHGR_CORNER, tubeShell%X_bmin(i))
+        enddo
+        call initShellVar(sh, SHGR_CORNER, tubeShell%lat0   )
+        call initShellVar(sh, SHGR_CORNER, tubeShell%lon0   )
+        call initShellVar(sh, SHGR_CORNER, tubeShell%latc   )
+        call initShellVar(sh, SHGR_CORNER, tubeShell%lonc   )
+        call initShellVar(sh, SHGR_CORNER, tubeShell%invlat )
+        call initShellVar(sh, SHGR_CORNER, tubeShell%topo   )
+        call initShellVar(sh, SHGR_CORNER, tubeShell%bmin   )
+        call initShellVar(sh, SHGR_CORNER, tubeShell%bVol   )
+        call initShellVar(sh, SHGR_CORNER, tubeShell%Lb     )
+        call initShellVar(sh, SHGR_CORNER, tubeShell%Tb     )
+        call initShellVar(sh, SHGR_CORNER, tubeShell%wMAG   )
+        call initShellVar(sh, SHGR_CORNER, tubeShell%rCurv  )
+        call initShellVar(sh, SHGR_CORNER, tubeShell%avgBeta)
+        do i=0,MAXTUBEFLUIDS
+            call initShellVar(sh, SHGR_CORNER, tubeShell%avgP(i))
+            call initShellVar(sh, SHGR_CORNER, tubeShell%avgN(i))
+            call initShellVar(sh, SHGR_CORNER, tubeShell%stdP(i))
+            call initShellVar(sh, SHGR_CORNER, tubeShell%stdN(i))
+        enddo
+        call initShellVar(sh, SHGR_CORNER, tubeShell%losscone )
+        call initShellVar(sh, SHGR_CORNER, tubeShell%lossconec)
+        call initShellVar(sh, SHGR_CORNER, tubeShell%TioTe0   )
 
-            tubeShell%TioTe0%data = tiote
+        tubeShell%TioTe0%data = tiote
 
-        end associate
 
     end subroutine init_TubeShell
 
