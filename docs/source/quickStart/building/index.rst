@@ -47,4 +47,3 @@ Table of Contents
 
     buildDerecho
     buildPleiades
-    dataCompression
