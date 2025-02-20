@@ -1,13 +1,10 @@
 HIDRA
 =====
 
-Introduction
-------------
+.. Introduction
+.. ------------
 
-This page provides links to documentation for the HIDRA software.
-
-Table of Contents
------------------
+.. This page provides links to documentation for the HIDRA software.
 
 .. toctree::
     :maxdepth: 1

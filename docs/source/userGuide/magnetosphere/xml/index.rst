@@ -1,17 +1,15 @@
 XML
 ===
 
-Introduction
-------------
+.. Introduction
+.. ------------
 
-This page provides links to documentation for the XML files used by the MAGE
-software.
-
-Table of Contents
------------------
+.. This page provides links to documentation for the XML files used by the MAGE
+.. software.
 
 .. toctree::
     :maxdepth: 1
 
-    generatingXML
     gameraXML
+    generatingXML
+    voltronXML

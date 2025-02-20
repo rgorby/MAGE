@@ -1,12 +1,12 @@
 Testing
 =======
 
-Table of Contents
------------------
-
 .. toctree::
     :maxdepth: 1
 
+    buildpFUnit
     unitTesting
-    addingNewTests
+    serialTestTemplate
+    mpiTestTemplate
     tiegcmBenchmarks
+    addingNewTests

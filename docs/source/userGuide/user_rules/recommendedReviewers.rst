@@ -2,50 +2,50 @@ Recommended reviewers for topics/sections of the code (feel free to use other re
 ========================================================================================
 
 
-Voltron
--------
-* Anthony
-* Adam
+.. Voltron
+.. -------
+.. * Anthony
+.. * Adam
 
-Helio
------
+.. Helio
+.. -----
 
-Gamera/MHD
-----------
-* Kareem
-* Mike Wiltberger
+.. Gamera/MHD
+.. ----------
+.. * Kareem
+.. * Mike Wiltberger
 
-Chimp
------
-* Adam
+.. Chimp
+.. -----
+.. * Adam
 
-Tiegcm/GTR
-----------
-* Kevin
+.. Tiegcm/GTR
+.. ----------
+.. * Kevin
 
-ReMIX
------
-* Kevin
+.. ReMIX
+.. -----
+.. * Kevin
 
-RCM
----
-* Anthony
+.. RCM
+.. ---
+.. * Anthony
 
-MPI
----
-* Jeffrey Garretson
+.. MPI
+.. ---
+.. * Jeffrey Garretson
 
-OpenMP
-------
-* Jeffrey Garretson
+.. OpenMP
+.. ------
+.. * Jeffrey Garretson
 
-General Code
-------------
-* Jeffrey Garretson
-* Kareem Sorathia
-* Mike Wiltberger
+.. General Code
+.. ------------
+.. * Jeffrey Garretson
+.. * Kareem Sorathia
+.. * Mike Wiltberger
 
-Python
-------
-* Mike Wiltberger
-* Jeffrey Garretson
+.. Python
+.. ------
+.. * Mike Wiltberger
+.. * Jeffrey Garretson

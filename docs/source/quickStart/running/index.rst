@@ -1,13 +1,11 @@
-Running the Code
-================
-
-Table of Contents
------------------
+Running the ``kaiju`` code
+==========================
 
 .. toctree::
     :maxdepth: 1
 
+    simpleExample
+    chimpQuickStart
     geoQuickStart
     helioQuickStart
-    chimpQuickStart
     planetaryQuickStart

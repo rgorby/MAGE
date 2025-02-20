@@ -1,14 +1,11 @@
 Analysis Tools
 ==============
 
-Introduction
-------------
+.. Introduction
+.. ------------
 
-This page provides links to documentation for analysis tools in the MAGE
-software.
-
-Table of Contents
------------------
+.. This page provides links to documentation for analysis tools in the MAGE
+.. software.
 
 .. toctree::
     :maxdepth: 1

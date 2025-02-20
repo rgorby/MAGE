@@ -3,7 +3,7 @@
 # -- Project information
 
 project = 'kaiju'
-copyright = '2024, Center for Geospace Storms'
+copyright = '2025, Center for Geospace Storms'
 author = 'Center for Geospace Storms'
 
 release = '0.75.3'

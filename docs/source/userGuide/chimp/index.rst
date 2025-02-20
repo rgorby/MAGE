@@ -1,21 +1,18 @@
 Particle Simulations and Analysis Tools with CHIMP
 ==================================================
 
-Introduction
-------------
+.. Introduction
+.. ------------
 
-This page provides links to documentation for CHIMP.
-
-Table of Contents
------------------
+.. This page provides links to documentation for CHIMP.
 
 .. toctree::
     :maxdepth: 1
 
-    push.x
-    psd.x
-    slice.x
-    chop.x
-    trace.x
     calcdb.x
     chimpXML
+    chop.x
+    psd.x
+    push.x
+    slice.x
+    trace.x

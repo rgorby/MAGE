@@ -1,25 +1,21 @@
 User Guide
 ==========
 
-Introduction
-------------
+.. Introduction
+.. ------------
 
-This page provides links to documentation for nearly all aspects of using the
-kaiju software.
-
-Table of Contents
------------------
+.. This page provides links to documentation for nearly all aspects of using the kaiju software.
+.. -----------
 
 .. toctree::
     :maxdepth: 1
 
-    user_rules/index
-    magnetosphere/index
-    heliosphere/index
     chimp/index
+    codeInformation/index
+    heliosphere/index
+    magnetosphere/index
     rcm/index
     satComp/index
-    tools/index
-    codeInformation/index
     testing/index
-
+    tools/index
+    user_rules/index

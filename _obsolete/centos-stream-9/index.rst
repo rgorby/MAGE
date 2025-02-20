@@ -1,6 +1,5 @@
-
-Building the kaiju software on CentOS-Stream 9
-==============================================
+Building the ``kaiju`` software on CentOS-Stream 9
+==================================================
 
 .. Introduction
 .. ------------
@@ -71,3 +70,11 @@ Building the kaiju software on CentOS-Stream 9
 .. The ``kaiju`` software can be built in serial or MPI versions. The serial version should be used when running the code on a single computer. The MPI version should be used when running on an HPC system (a supercomputer).
 
 .. Instructions for building the serial version of the ``kaiju`` software on CentOS-Stream 9 are available `here <centos-stream-9_build_kaiju>`_. The MPI version of ``kaiju`` is not supported on CentOS-Stream 9 at this time.
+
+.. toctree::
+    :maxdepth: 1
+
+    centos-stream-9_build_cdf
+    centos-stream-9_build_hdf5
+    centos-stream-9_build_kaiju
+    centos-stream-9_build_python

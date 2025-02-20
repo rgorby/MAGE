@@ -1,15 +1,10 @@
 Quick Start
 ===========
 
-Introduction
-------------
-
-This is the quick start guide for the kaiju software. It should provide just
-enough information to get you started.
-
-
-Table of Contents
------------------
+.. Introduction
+.. ------------
+    
+.. This is the quick start guide for the kaiju software. It should provide just enough information to get you started.
 
 .. toctree::
     :maxdepth: 1
@@ -17,4 +12,3 @@ Table of Contents
     building/index
     running/index
     viewing/index
-    distributing/index
