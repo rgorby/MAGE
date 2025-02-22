@@ -169,7 +169,10 @@ submodule (volttypes) raijuCplTypesSub
         class(raijuCoupler_T), intent(inout) :: App
         integer, intent(in) :: nRes
 
+        ! Write raiApp info into runid.raiju.Res.h5
         call App%raiApp%WriteRestart(nRes)
+        ! And now the coupler's info
+        call writeRaiCplRes(App, nRes)
 
     end subroutine
 
@@ -178,7 +181,10 @@ submodule (volttypes) raijuCplTypesSub
         character(len=*), intent(in) :: resId
         integer, intent(in) :: nRes
 
+        ! Read runid.raiju.Res.h5 into raiApp
         call App%raiApp%ReadRestart(resId, nRes)
+        ! Now coupler
+        call readRaiCplRes(App,resId,nRes)
 
     end subroutine
 

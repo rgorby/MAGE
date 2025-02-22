@@ -168,8 +168,6 @@ module volttypes
             !! Time of last update, according to voltron
         type(ShellGrid_T) :: shGr
             !! Copy of raijuModel's shellGrid
-        integer :: n_MHDfluids
-            !! Number of MHD fluids to expect
 
         ! Stuff going into raiju
         type(magLine_T), dimension(:,:), allocatable :: magLines

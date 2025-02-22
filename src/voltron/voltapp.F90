@@ -205,6 +205,7 @@ module voltapp
 
             ! correct Gamera start time
             gApp%Model%t = vApp%time / gApp%Model%Units%gT0
+            gApp%State%time = gApp%Model%t
 
             call genVoltShellGrid(vApp, xmlInp)
             call initVoltState(vApp)
@@ -310,6 +311,13 @@ module voltapp
             tIO = vApp%IO%tOut
             call fOutputV(vApp, gApp)
             vApp%IO%tOut = tIO
+        endif
+
+        ! Do some final checks
+        if ((gApp%Model%t - gApp%State%time) > TINY) then
+            write(*,*)"GAMERA Model%t and State%time don't match, dying"
+            write(*,*)"Model: ",gApp%Model%t,", State: ",gApp%State%time
+            stop
         endif
 
         end associate
