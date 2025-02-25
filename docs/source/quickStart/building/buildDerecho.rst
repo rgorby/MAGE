@@ -29,7 +29,7 @@ in to ``derecho``, the following modules are loaded by default:
      Where:
       S:  Module is Sticky, requires --force to unload or purge
 
-This set of modules cannot be used to build the ``kaiju`` code.
+This set of modules **cannot** be used to build the ``kaiju`` code.
 
 Start by purging any currently-loaded modules, then loading the following
 modules:
@@ -62,8 +62,8 @@ open-source software.
 
 .. important::
 
-    The ``kaiju`` code has not been tested with later versions of the CDF
-    library than the version indicated below.
+    The ``kaiju`` code has not been tested with versions of the CDF library
+    more recent than the version indicated below.
 
 .. code-block:: bash
 
@@ -134,7 +134,7 @@ Step 4: Build the ``kaiju`` software
 These instructions show how to build the MPI version of the ``kaiju``
 software, since that is the version usually used on ``derecho``. These
 instructions put the build in the subdirectory ``build_mpi`` under the
-``kaiju`` source code directory, but you can place the buildm directory in any
+``kaiju`` source code directory, but you can place the build directory in any
 convenient location.
 
 .. code-block:: bash

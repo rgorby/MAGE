@@ -24,9 +24,9 @@ In general, building the ``kaiju`` software requires several steps:
     This step is required because not all of the prerequisite libraries are
     provided on all platforms. Typically, this problem is limited to the
     `NetCDF library <https://www.unidata.ucar.edu/software/netcdf/>`_ (which
-    is needed by the SpacePy module used in ``kaipy`` code which accesses
+    is needed by the `SpacePy <https://spacepy.github.io/>`_ module used in ``kaipy`` code which accesses
     satellite data from `CDAWeb <https://cdaweb.gsfc.nasa.gov/>`_). If you do
-    not plan to use this capability, then the NetCDF build steps may be
+    not plan to use this capability, then the NetCDF build step may be
     ignored.
 
     The `GEOS <https://libgeos.org/>`_ library (which is used by the CartoPy
@@ -37,14 +37,15 @@ In general, building the ``kaiju`` software requires several steps:
 
     3. **Create a python environment.**
 
-    The ``kaiju`` software, and its accompanying ``kaipy`` python package, are
+    The ``kaiju`` software, and its accompanying ``kaipy`` python package, is
     best used in a separate ``python`` virtual environment. These instructions
-    assume the use of the ``conda`` tool for creating and managing virtual
-    environments. If you use a different tool, such as the standard ``venv``
-    ``python`` module, please adjust these instructions accordingly. The only
-    significant differences will be in the commands used to create and
-    activate the virtual environments. These instructions should work with
-    personal installations of ``python`` (created with the
+    assume the use of the ``conda`` tool for creating virtual environments,
+    and the ``pip`` tool for Python package installation. If you use a
+    different tool, such as the standard ``venv`` ``python`` module, please
+    adjust these instructions accordingly. The only significant differences
+    will be in the commands used to create and activate the virtual
+    environments. These instructions should work with personal installations
+    of ``python`` (created with the
     `Miniconda <https://docs.anaconda.com/miniconda/>`_ or
     `Anaconda <https://anaconda.org/>`_ ``python`` distributions), or with a
     system-wide installation (such as a ``python`` installation made available
@@ -67,8 +68,9 @@ In general, building the ``kaiju`` software requires several steps:
     but it can also be built using the
     `GNU compiler suite <https://gcc.gnu.org/>`_.
 
-    The source code for the ``kaiju`` software is available on BitBucket. You
-    must clone the ``kaiju`` repository before building the code.
+    The source code for the ``kaiju`` software is available on
+    `BitBucket <https://bitbucket.org/aplkaiju/kaiju>`_. You must clone the
+    ``kaiju`` repository before building the code.
 
     .. important::
 
