@@ -10,6 +10,7 @@ Magnetosphere Simulations with MAGE
     hidra/index
     mage/index
     xml/index
+    Gamerasphere
     gameraRCM
     gameraRemix
     runningWithMPT
