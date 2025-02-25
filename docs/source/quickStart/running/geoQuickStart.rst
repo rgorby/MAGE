@@ -13,8 +13,7 @@ To set up your environment to run the ``kaiju`` software, the following steps
 are required.
 
     1. Load the same modules that you loaded when you built the ``kaiju``
-    software. For example, on ``derecho``, you would run the following
-    commands:
+    software. For example, on ``derecho``, you would run the following commands:
 
     .. code-block:: bash
 
@@ -91,7 +90,7 @@ Create the XML input file
 -------------------------
 
 The input deck is an XML file that specifies various parameters to be read at
-runtime.
+runtime. A typical XML file might look like this:
 
 .. code-block:: xml
 
@@ -138,57 +137,46 @@ runtime.
         </RCM>
     </Kaiju>
 
-With these parameters the run will go for 10 hours (36000 s), outputting every
-1 minute (dtOut=60.0 s) and writing restarts every 30 minutes
-(dtRes=1800.0 s). The ReMIX-Gamera coupling is done every 5 seconds (coupling
-dt=5.0). Note the coupling dt is a required input for the ionospheric
-coupling.
+Some of the important parameters are:
 
-The runid gives the name of the output mhd/mix file. H5Grid is the name of
-the grid file that has to be present in the run directory. If the job to be
-submitted with this xml file is not restarting from a previously saved state,
-set doRes as False. Otherwise, to restart, set doRes as True and make sure the
-resFile is linked to the right restarting file. As of 23 April 2020 restarts
-are specified with ID/# instead of filename. Instead of restart/resFile,
-specify restart/resID and restart/nRes.
+``tFin="7200.0"``
+    The run will proceed for 7200 simulated seconds (2 simulated hours).
 
-The restart file msphere.Res.00005.h5 would be:
+``dtOut="60.0"``
+    Screen output will be produced every 60 simulated seconds (1 simulated
+    minute
 
-.. code-block:: xml
+``dtRes="1800.0"``
+    Create restart files every 1800 simulated seconds (30 simulated minutes).
 
-    <restart resId="msphere" nRes="5"/>`
+``dtCouple="5.0"``
+    Perform REMIX-GAMERA coupling every 5 simulated seconds (). Note that
+    ``dtCouple`` is a required input for ionospheric coupling.
 
-Specifying ``nRes="-1"`` will read the XXXXX symbolic link.
+``runid="geospace"``
+    The run ID of the model resuslts.
 
-``<physics>`` domain:
+``H5Grid="lfmQ.h5"``
+    Name of the grid file created with ``genLFM.py``.
 
-``<prob>`` domain:
+``doRes="F"``
+    This job will not begin with a restart file.
 
-``<ring>`` domain: gid tells the model which type of grid is being
-used. It is supposed to be consistent with the input grid file. Ring average
-technique is implemented if doRing is True. The number of parameters for ring
-average is set in Nr, and each parameter is listed as Nc1, Nc2, ... Usually
-there are four parameters for double resolution grid and 8 parameters for quad
-resolution grid.
+``<ring>``
+    ``gid`` tells the model which type of grid is being used. It is supposed
+    to be consistent with the input grid file. Ring average technique is
+    implemented if ``doRing`` is ``T``. The number of parameters for ring
+    average is set in ``Nr``, and each parameter is listed as ``Nc1``,
+    ``Nc2``, ... Usually there are four parameters for a double resolution
+    grid and 8 parameters for a quad resolution grid.
 
-``<wind>`` domain: tsfile takes the name of the solar wind file to
-be used.
+``tsfile="bcwind.h5"``
+    Specify the name of the solar wind file to be used.
 
-Under the REMIX block, the Np and Nt gives the number of grid cells in Remix
-along longitude and latitude. The low latitude boundary is set at 45 deg
-latitude.
-
-This setup uses constant conductance, an example of using the conductance
-model would replace the conductance block with this:
-
-.. code-block:: xml
-
-   <conductance F107="100.0" pedmin="2.0" hallmin="1.0" sigma_ratio="3.0" const_sigma="False" ped0="10.0"/>
-
-Note, that starting the initial state (a pure dipole) with the conductance
-model turned on can sometimes be erratic.  It's better to spin up for a while
-using constant conductance then do a restart where the conductance model is
-turned on.  But whatever, you do you.
+.. important:: 
+    The initial state (a pure dipole) with the conductance model turned on can
+    sometimes be erratic.  It's better to spin up for a while using constant
+    conductance then do a restart where the conductance model is turned on.
 
 Create the PBS script
 ---------------------
