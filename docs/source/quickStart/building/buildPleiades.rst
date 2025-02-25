@@ -4,19 +4,26 @@ Building the ``kaiju`` software on ``pleiades``
 Introduction
 ------------
 
-This page provides instructions for building the ``kaiju`` software on the ``pleiades`` supercomputer.
+This page provides instructions for building the ``kaiju`` software on the
+``pleiades`` supercomputer.
 
 Step 1: Preparing your software environment
 -------------------------------------------
 
-Like most HPC systems, ``pleiades`` uses the ``module`` system to manage the versions of software packages available to the user. A *module* is a collection of programs and libraries for a specific task, and *loading* the module adjusts the user environment (mostly by setting or updating environment variables) to make that module available to the user. When you log in to ``pleiades``, no modules are loaded by default:
+Like most HPC systems, ``pleiades`` uses the ``module`` system to manage the
+versions of software packages available to the user. A *module* is a
+collection of programs and libraries for a specific task, and *loading* the
+module adjusts the user environment (mostly by setting or updating environment
+variables) to make that module available to the user. When you log in to
+``pleiades``, no modules are loaded by default:
 
 .. code-block:: bash
 
    $ module list
    No Modulefiles Currently Loaded.
 
-Start by purging any currently-loaded modules, then loading the following modules:
+Start by purging any currently-loaded modules, then loading the following
+modules:
 
 .. code-block:: bash
 
@@ -29,16 +36,23 @@ Start by purging any currently-loaded modules, then loading the following module
 
 .. important::
 
-    You must use these exact versions of the modules to ensure the software compiles properly. If you use different versions of any of these modules, a successful build cannot be guaranteed.
+    You must use these exact versions of the modules to ensure the software
+    compiles properly. If you use different versions of any of these modules,
+    a successful build cannot be guaranteed.
 
 Step 2: Build missing prerequisite libraries
 --------------------------------------------
 
-The `NASA CDF (Common Data Format) library <https://cdf.gsfc.nasa.gov/>`_ must be built on ``pleiades``. These instructions assume ``CDF_ROOT`` is the root of the directory tree which will contain the CDF code and libraries. The build follows the standard download/unpack/build/test/install cycle typical of most open-source software.
+The `NASA CDF (Common Data Format) library <https://cdf.gsfc.nasa.gov/>`_ must
+be built on ``pleiades``. These instructions assume ``CDF_ROOT`` is the root
+of the directory tree which will contain the CDF code and libraries. The build
+follows the standard download/unpack/build/test/install cycle typical of most
+open-source software.
 
 .. important::
 
-    The ``kaiju`` code has not been tested with later versions of the CDF library than the version indicated below.
+    The ``kaiju`` code has not been tested with later versions of the CDF
+    library than the version indicated below.
 
 .. code-block:: bash
 
@@ -74,8 +88,13 @@ The `NASA CDF (Common Data Format) library <https://cdf.gsfc.nasa.gov/>`_ must b
 Step 3: Create a ``python`` environment
 ---------------------------------------
 
-Most of the ``kaiju`` software for pre-processing, post-processing, and analysis is written in `Python <https://www.python.org/>`_. Python is available in many forms (or 'distributions'), but we recommend use of the `Miniconda distribution <https://docs.conda.io/en/latest/miniconda.html>`_ for
-simplicity and compactness. These instructions install Miniconda into the home directory. These instructions name the environment ``kaiju-3.8``, but you can use any convenient name.
+Most of the ``kaiju`` software for pre-processing, post-processing, and
+analysis is written in `Python <https://www.python.org/>`_. Python is
+available in many forms (or 'distributions'), but we recommend use of the
+`Miniconda distribution <https://docs.conda.io/en/latest/miniconda.html>`_ for
+simplicity and compactness. These instructions install Miniconda into the home
+directory. These instructions name the environment ``kaiju-3.8``, but you can
+use any convenient name.
 
 .. code-block:: bash
 
@@ -101,7 +120,11 @@ simplicity and compactness. These instructions install Miniconda into the home d
 Step 4: Build the ``kaiju`` software
 ------------------------------------
 
-These instructions show how to build the MPI version of the ``kaiju`` software, since that is the version usually used on ``pleiades``. These instructions put the build in the subdirectory ``build_mpi`` under the ``kaiju`` source code directory, but you can place the buildm directory in any convenient location.
+These instructions show how to build the MPI version of the ``kaiju``
+software, since that is the version usually used on ``pleiades``. These
+instructions put the build in the subdirectory ``build_mpi`` under the
+``kaiju`` source code directory, but you can place the buildm directory in any
+convenient location.
 
 .. code-block:: bash
 

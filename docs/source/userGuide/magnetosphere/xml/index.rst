@@ -1,11 +1,11 @@
 XML
 ===
 
-.. Introduction
-.. ------------
+Introduction
+------------
 
-.. This page provides links to documentation for the XML files used by the MAGE
-.. software.
+This page provides links to documentation for the XML files used by the MAGE
+software.
 
 .. toctree::
     :maxdepth: 1

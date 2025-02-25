@@ -1,169 +1,216 @@
 Comparison of magnetosphere simulation results with satellite data
 ==================================================================
 
-.. Introduction
-.. ------------
+Introduction
+------------
 
-.. Comparison of simulation results to observed data is a critical part of model validation. The MAGE team has developed a set of tools to facilitate comparison of the results of terrestrial magnetospheric simulations with data measured by spacecraft. The initial version of these tools supports comparison of the results from runs of ``voltron.x`` or ``voltron_mpi.x`` to data from several spacecraft. The observations for the desired time period are retrieved from `CDAWeb <https://cdaweb.gsfc.nasa.gov/>`_. Other spacecraft and data sources will be added in the future as time permits.
+Comparison of simulation results to observed data is a critical part of model
+validation. The MAGE team has developed a set of tools to facilitate
+comparison of the results of terrestrial magnetospheric simulations with data
+measured by spacecraft. The initial version of these tools supports comparison
+of the results from runs of ``voltron.x`` or ``voltron_mpi.x`` to data from
+several spacecraft. The observations for the desired time period are retrieved
+from `CDAWeb <https://cdaweb.gsfc.nasa.gov/>`_. Other spacecraft and data
+sources will be added in the future as time permits.
 
-.. The satellite comparison script
-.. -------------------------------
+The satellite comparison script
+-------------------------------
 
-.. The basic tool for terrestrial magnetospheric comparisons is the script ``msphSatComp.py``. This script is available under the ``kaiju/scripts/datamodel`` directory of your clone of the ``kaiju`` repository. Executing this script with the ``-h`` option will provide the following help text:
+The basic tool for terrestrial magnetospheric comparisons is the script
+``msphSatComp.py``. This script is available under the
+``kaiju/scripts/datamodel`` directory of your clone of the ``kaiju``
+repository. Executing this script with the ``-h`` option will provide the
+following help text:
 
-.. .. code-block::
+.. code-block:: bash
 
-..    usage: msphSatComp.py [-h] [-id runid] [-path path] [-cmd command] [-satId Satellite Id] [-numSeg Number of segments] [--keep]
+   usage: msphSatComp.py [-h] [-id runid] [-path path] [-cmd command] [-satId Satellite Id] [-numSeg Number of segments] [--keep]
 
-..    Extracts information from satellite trajectory for various
-..            spacecraft.  Space craft data is pulled from CDAWeb.  Output CDF files
-..            contain data pulled from CDAWeb along with data extracted from GAMERA.
-..            Image files of satellite comparisons are also produced.
-
-
-..    optional arguments:
-..      -h, --help            show this help message and exit
-..      -id runid             RunID of data (default: msphere)
-..      -path path            Path to directory containing REMIX files (default: .)
-..      -cmd command          Full path to sctrack.x command
-..      -satId Satellite Id   Name of Satellite to compare
-..      -numSeg Number of segments
-..                            Number of segments to simulateously process
-..      --keep                Keep intermediate files
-
-
-.. The ``-h, --help`` argument will print the help message above.
-
-.. The ``-i runid`` argument allows you to specify the run ID of the simulation results file you are using. The run ID is the identifying substring of the file name. For example, in the simulation results file ``msphere.gam.h5``\ , the run ID is ``msphere``. Set this argument as needed for the file you are using for your comparison.
-
-.. The ``-p path`` argument allows you to specify the path to a directory containing the simulation results files you wish to use for the satellite comparison. By default, the current directory is searched for the file.
-
-.. The ``-cmd command`` argument specifies the path to the Fortran program ``sctrack.x``\ , which is used to interpolate the simulation results to the times and locations for the ephemeris points for the specified satellite. If you have added ``$KAIJUHOME/build/bin`` to your ``PATH`` environment variable, you should not have to set this option.
-
-.. The ``-satId Satellite Id`` argument allows you to specify the name of the spacecraft to use for the data comparison. The currently supported spacecraft are ``GOES11``\ , ``GOES12``\ , ``GEOTAIL``\ , ``RBSPA``\ , ``RBSPB``\ , ``CLUSTER1``\ , ``CLUSTER2``\ , ``CLUSTER3``\ , ``CLUSTER4``\ , ``THEMISA``\ , ``THEMISB``\ , ``THEMISC``\ , ``THEMISD``\ , ``THEMISE``\ , ``MMS1``\ , ``MMS2``\ , ``MMS3``\ , ``MMS4``.
-
-.. The ``-numSeg Number of segments`` allows you to specify the number of segments to use when processing your simulation results. A segment is a chunk of the ephemeris that is processed in parallel with other chunks. For example, if you use the argument ``-n 2``\ , the ephemeris will be split into 2 separate portions and processed in parallel.
-
-.. The ``--keep`` argument forces the script to retain intermediate files generated during the data retrieval from CDAWeb. This is useful for debugging.
-
-.. Procedure
-.. ---------
-
-.. The basic procedure for the satellite comparison is simple:
+   Extracts information from satellite trajectory for various
+           spacecraft.  Space craft data is pulled from CDAWeb.  Output CDF files
+           contain data pulled from CDAWeb along with data extracted from GAMERA.
+           Image files of satellite comparisons are also produced.
 
 
-.. * 
-..   Run the ``msphSatComp.py`` script.
-
-.. * 
-..   Examine the resulting plots.
-
-.. You will almost always have to specify at least a few arguments to the ``msphSatComp.py`` script in order to perform the comparison with satellite data. This is best explained using an example.
-
-.. Example
-.. -------
-
-.. For this example, assume we have a directory containing a set of HDF 5 files generated by ``voltron.x``. It might look like this:
-
-.. .. code-block::
-
-..    bcwind.h5
-..    lfmD.h5
-..    msphere.RCM.Res.00000.h5
-..    msphere.RCM.Res.00001.h5
-..    msphere.RCM.Res.00002.h5
-..    msphere.RCM.Res.XXXXX.h5
-..    msphere.gam.Res.00000.h5
-..    msphere.gam.Res.00001.h5
-..    msphere.gam.Res.00002.h5
-..    msphere.gam.Res.XXXXX.h5
-..    msphere.gam.h5
-..    msphere.mhd2imag.Res.00000.h5
-..    msphere.mhd2imag.Res.00001.h5
-..    msphere.mhd2imag.Res.00002.h5
-..    msphere.mhd2imag.Res.XXXXX.h5
-..    msphere.mhdrcm.h5
-..    msphere.mix.Res.00000.h5
-..    msphere.mix.Res.00001.h5
-..    msphere.mix.Res.00002.h5
-..    msphere.mix.Res.XXXXX.h5
-..    msphere.mix.h5
-..    msphere.rcm.h5
-..    msphere.volt.Res.00000.h5
-..    msphere.volt.Res.00001.h5
-..    msphere.volt.Res.00002.h5
-..    msphere.volt.Res.XXXXX.h5
-..    msphere.volt.h5
-..    rcmconfig.h5
+   optional arguments:
+     -h, --help            show this help message and exit
+     -id runid             RunID of data (default: msphere)
+     -path path            Path to directory containing REMIX files (default: .)
+     -cmd command          Full path to sctrack.x command
+     -satId Satellite Id   Name of Satellite to compare
+     -numSeg Number of segments
+                           Number of segments to simulateously process
+     --keep                Keep intermediate files
 
 
-.. The simulation results are in the file named ``msphere.gam.h5``. To compare the simulation results in these files to data measured by the CLUSTER2 spacecraft during the same time period, you will need to specify the run ID (\ ``msphere``\ ) and the satellite ID (\ ``CLUSTER2``\ ). And for the sake of illustration, assume you have built your code in a non-standard location (\ ``$KAIJUHOME/build_serial`` rather than ``$KAIJUHOME/build``\ ). You can run the comparison with the following command:
+The ``-h, --help`` argument will print the help message above.
 
-.. .. code-block::
+The ``-i runid`` argument allows you to specify the run ID of the simulation
+results file you are using. The run ID is the identifying substring of the
+file name. For example, in the simulation results file ``msphere.gam.h5``, the
+run ID is ``msphere``. Set this argument as needed for the file you are using
+for your comparison.
 
-..    msphSatComp.py -id msphere -cmd $KAIJUHOME/build_serial/bin/sctrack.x -satId CLUSTER2
+The ``-p path`` argument allows you to specify the path to a directory
+containing the simulation results files you wish to use for the satellite
+comparison. By default, the current directory is searched for the file.
 
+The ``-cmd command`` argument specifies the path to the Fortran program
+``sctrack.x``, which is used to interpolate the simulation results to the
+times and locations for the ephemeris points for the specified satellite. If
+you have added ``$KAIJUHOME/build/bin`` to your ``PATH`` environment variable,
+you should not have to set this option.
 
-.. When this command completes, your directory will contain several new files:
+The ``-satId Satellite Id`` argument allows you to specify the name of the
+spacecraft to use for the data comparison. The currently supported spacecraft
+are ``GOES11``, ``GOES12``, ``GEOTAIL``, ``RBSPA``, ``RBSPB``, ``CLUSTER1``,
+``CLUSTER2``, ``CLUSTER3``, ``CLUSTER4``, ``THEMISA``, ``THEMISB``,
+``THEMISC``, ``THEMISD``, ``THEMISE``, ``MMS1``, ``MMS2``, ``MMS3``, ``MMS4``.
 
-.. .. code-block::
+The ``-numSeg Number of segments`` allows you to specify the number of
+segments to use when processing your simulation results. A segment is a chunk
+of the ephemeris that is processed in parallel with other chunks. For example,
+if you use the argument ``-n 2``, the ephemeris will be split into 2 separate
+portions and processed in parallel.
 
-..    CLUSTER2-error.txt
-..    CLUSTER2-traj.png
-..    CLUSTER2.comp.cdf
-..    CLUSTER2.png
+The ``--keep`` argument forces the script to retain intermediate files
+generated during the data retrieval from CDAWeb. This is useful for debugging.
 
+Procedure
+---------
 
-.. The file ``CLUSTER2-error.txt`` contains the error statistics for the variables examined in the comparison. This file looks something like this:
+The basic procedure for the satellite comparison is simple:
 
-.. .. code-block::
+Run the ``msphSatComp.py`` script.
 
-..    Errors for: MagneticField,0
-..    MAE: 1.9302265646500913
-..    MSE: 3.9882785771605453
-..    RMSE: 1.9970674943928524
-..    MAPE: 0.9822277021232483
-..    RSE: 15.696381926540374
-..    PE: -14.696381926540374
-..    Errors for: MagneticField,1
-..    MAE: 0.3233028097934419
-..    MSE: 0.18348260708329495
-..    RMSE: 0.4283486980058361
-..    MAPE: 0.16666691285364862
-..    RSE: 0.3886266092261268
-..    PE: 0.6113733907738732
-..    Errors for: MagneticField,2
-..    MAE: 0.33418238031124625
-..    MSE: 0.20086373069554195
-..    RMSE: 0.4481782354103576
-..    MAPE: 0.8533060324302149
-..    RSE: 0.3807987168111359
-..    PE: 0.619201283188864
+Examine the resulting plots.
 
+You will almost always have to specify at least a few arguments to the
+``msphSatComp.py`` script in order to perform the comparison with satellite
+data. This is best explained using an example.
 
-.. The file ``CLUSTER2-traj.png`` contains a set of plots illustrating the portion of the spacecraft trajectory used in the comparison. An example is shown below:
+Example
+-------
 
+For this example, assume we have a directory containing a set of HDF 5 files
+generated by ``voltron.x``. It might look like this:
 
-.. .. image:: https://bitbucket.org/repo/kMoBzBp/images/2466003589-CLUSTER2-traj.png
-..    :target: https://bitbucket.org/repo/kMoBzBp/images/2466003589-CLUSTER2-traj.png
-..    :alt: CLUSTER2-traj.png
+.. code-block:: bash
 
+   bcwind.h5
+   lfmD.h5
+   msphere.RCM.Res.00000.h5
+   msphere.RCM.Res.00001.h5
+   msphere.RCM.Res.00002.h5
+   msphere.RCM.Res.XXXXX.h5
+   msphere.gam.Res.00000.h5
+   msphere.gam.Res.00001.h5
+   msphere.gam.Res.00002.h5
+   msphere.gam.Res.XXXXX.h5
+   msphere.gam.h5
+   msphere.mhd2imag.Res.00000.h5
+   msphere.mhd2imag.Res.00001.h5
+   msphere.mhd2imag.Res.00002.h5
+   msphere.mhd2imag.Res.XXXXX.h5
+   msphere.mhdrcm.h5
+   msphere.mix.Res.00000.h5
+   msphere.mix.Res.00001.h5
+   msphere.mix.Res.00002.h5
+   msphere.mix.Res.XXXXX.h5
+   msphere.mix.h5
+   msphere.rcm.h5
+   msphere.volt.Res.00000.h5
+   msphere.volt.Res.00001.h5
+   msphere.volt.Res.00002.h5
+   msphere.volt.Res.XXXXX.h5
+   msphere.volt.h5
+   rcmconfig.h5
 
-.. The file ``CLUSTER2.png`` contains plots which show the comparison of the simulation and measured data. An example of this file is shown below.
+The simulation results are in the file named ``msphere.gam.h5``. To compare
+the simulation results in these files to data measured by the CLUSTER2
+spacecraft during the same time period, you will need to specify the run ID
+(``msphere``) and the satellite ID (``CLUSTER2``). And for the sake of
+illustration, assume you have built your code in a non-standard location
+(``$KAIJUHOME/build_serial`` rather than ``$KAIJUHOME/build``). You can run
+the comparison with the following command:
 
+.. code-block:: bash
 
-.. .. image:: https://bitbucket.org/repo/kMoBzBp/images/3007037072-CLUSTER2.png
-..    :target: https://bitbucket.org/repo/kMoBzBp/images/3007037072-CLUSTER2.png
-..    :alt: CLUSTER2.png
+   msphSatComp.py -id msphere -cmd $KAIJUHOME/build_serial/bin/sctrack.x -satId CLUSTER2
 
+When this command completes, your directory will contain several new files:
 
-.. The file ``RBSPA.comp.cdf`` is a `CDF file <https://cdf.gsfc.nasa.gov/>`_ containing the measured and interpolated simulated data for comparison.
+.. code-block:: bash
 
-.. Parallel processing
-.. -------------------
+   CLUSTER2-error.txt
+   CLUSTER2-traj.png
+   CLUSTER2.comp.cdf
+   CLUSTER2.png
 
-.. If you have a long simulation interval you may want to use one of parallel processing versions of magnetosphere satellite comparison scripts to speed up the process of conducting the comparison with the satellite observations.   In general, these scripts have the same options as the serial version but allow for running interactively on multiple processors or submitting a batch job on NCAR's HPC system to compute the interpolations across N time slices in parallel.  
+The file ``CLUSTER2-error.txt`` contains the error statistics for the
+variables examined in the comparison. This file looks something like this:
 
-.. The ``msphParallelComp.py`` computes interpolation in parallel in an interactive session by using the ``numSeg`` option to break the interval up into numSeg fractions of equal length and then combining the results back into a single file.  
+.. code-block:: bash
 
-.. The ``msphPBsSatComp.py`` version of the script submits jobs to NCAR's data analysis machine casper to complete parallel processing of the specified output files.  To use this script users need to supply a valid NCAR project number with the ``-acct`` option.   Users do not need to specify a number of segments as the script looks at run length and computes the number of jobs need to complete the parallel processing.
+   Errors for: MagneticField,0
+   MAE: 1.9302265646500913
+   MSE: 3.9882785771605453
+   RMSE: 1.9970674943928524
+   MAPE: 0.9822277021232483
+   RSE: 15.696381926540374
+   PE: -14.696381926540374
+   Errors for: MagneticField,1
+   MAE: 0.3233028097934419
+   MSE: 0.18348260708329495
+   RMSE: 0.4283486980058361
+   MAPE: 0.16666691285364862
+   RSE: 0.3886266092261268
+   PE: 0.6113733907738732
+   Errors for: MagneticField,2
+   MAE: 0.33418238031124625
+   MSE: 0.20086373069554195
+   RMSE: 0.4481782354103576
+   MAPE: 0.8533060324302149
+   RSE: 0.3807987168111359
+   PE: 0.619201283188864
+
+The file ``CLUSTER2-traj.png`` contains a set of plots illustrating the
+portion of the spacecraft trajectory used in the comparison. An example is
+shown below:
+
+.. image:: https://bitbucket.org/repo/kMoBzBp/images/2466003589-CLUSTER2-traj.png
+   :target: https://bitbucket.org/repo/kMoBzBp/images/2466003589-CLUSTER2-traj.png
+   :alt: CLUSTER2-traj.png
+
+The file ``CLUSTER2.png`` contains plots which show the comparison of the
+simulation and measured data. An example of this file is shown below.
+
+.. image:: https://bitbucket.org/repo/kMoBzBp/images/3007037072-CLUSTER2.png
+   :target: https://bitbucket.org/repo/kMoBzBp/images/3007037072-CLUSTER2.png
+   :alt: CLUSTER2.png
+
+The file ``RBSPA.comp.cdf`` is a `CDF file <https://cdf.gsfc.nasa.gov/>`_
+containing the measured and interpolated simulated data for comparison.
+
+Parallel processing
+-------------------
+
+If you have a long simulation interval you may want to use one of parallel
+processing versions of magnetosphere satellite comparison scripts to speed up
+the process of conducting the comparison with the satellite observations. In
+general, these scripts have the same options as the serial version but allow
+for running interactively on multiple processors or submitting a batch job on
+NCAR's HPC system to compute the interpolations across N time slices in
+parallel.
+
+The ``msphParallelComp.py`` computes interpolation in parallel in an
+interactive session by using the ``numSeg`` option to break the interval up
+into numSeg fractions of equal length and then combining the results back into
+a single file.
+
+The ``msphPBsSatComp.py`` version of the script submits jobs to NCAR's data
+analysis machine casper to complete parallel processing of the specified
+output files.  To use this script users need to supply a valid NCAR project
+number with the ``-acct`` option.   Users do not need to specify a number of
+segments as the script looks at run length and computes the number of jobs
+need to complete the parallel processing.

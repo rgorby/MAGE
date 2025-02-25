@@ -9,3 +9,4 @@ Running the ``kaiju`` code
     geoQuickStart
     helioQuickStart
     planetaryQuickStart
+    dataCompression

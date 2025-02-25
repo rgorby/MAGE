@@ -1,11 +1,11 @@
 User Guide
 ==========
 
-.. Introduction
-.. ------------
+Introduction
+------------
 
-.. This page provides links to documentation for nearly all aspects of using the kaiju software.
-.. -----------
+This page provides links to documentation for nearly all aspects of using the
+kaiju software.
 
 .. toctree::
     :maxdepth: 1

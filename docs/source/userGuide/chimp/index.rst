@@ -1,10 +1,10 @@
 Particle Simulations and Analysis Tools with CHIMP
 ==================================================
 
-.. Introduction
-.. ------------
+Introduction
+------------
 
-.. This page provides links to documentation for CHIMP.
+This page provides links to documentation for CHIMP.
 
 .. toctree::
     :maxdepth: 1
