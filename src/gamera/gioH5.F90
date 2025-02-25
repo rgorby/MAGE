@@ -733,6 +733,7 @@ module gioH5
         call AddInVar(IOVars,"ts"  ,vTypeO=IOINT)
 
         call AddInVar(IOVars,"t"   ,vTypeO=IOREAL)
+        call AddInVar(IOVars,"dt"  ,vTypeO=IOREAL)
         call AddInVar(IOVars,"Gas" )
         call AddInVar(IOVars,"magFlux")
 
@@ -783,6 +784,7 @@ module gioH5
         Model%IO%nRes = GetIOInt(IOVars,"nRes") + 1
         Model%ts      = GetIOInt(IOVars,"ts")
         Model%t       = GetIOReal(IOVars,"t")
+        Model%dt      = GetIOReal(IOVars,"dt")
 
         State %time = Model%t
         oState%time = GetIOReal(IOVars,"ot")

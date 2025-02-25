@@ -136,8 +136,11 @@ submodule (volttypes) raijuCplTypesSub
             endif
         enddo
 
-        call InterpShellVar_TSC_pnt(sh, State%Tb, th, ph, imW(IM_TSCL))
-        imW(IM_TSCL) = Model%nBounce*imW(IM_TSCL)  ! [s]
+        
+        !write(*,*)"Setting IM_TSCL to hard 10 seconds"
+        !call InterpShellVar_TSC_pnt(sh, State%Tb, th, ph, imW(IM_TSCL))
+        !imW(IM_TSCL) = Model%nBounce*imW(IM_TSCL)  ! [s]
+        imW(IM_TSCL) = 10.0_rp  ! [s]
 
         end associate
     end subroutine getMomentsRAIJU
