@@ -539,7 +539,14 @@ module voltapp
               call SquishEnd(vApp)
             call PostDeep(vApp, gApp)
         elseif(vApp%doDeep) then
+            !Doing deep but t<0, call spinup Gas0 (empirical TM plasma sheet)
+            !Will kick back w/o doing anything if there's no appetizer
+
             gApp%Grid%Gas0 = 0
+            !Load TM03 into Gas0 for ingestion during spinup
+            !Note: Using vApp%time instead of gamera time units
+            call LoadSpinupGas0(gApp%Model,gApp%Grid,vApp%time)            
+            
         endif
 
     end subroutine DeepUpdate
