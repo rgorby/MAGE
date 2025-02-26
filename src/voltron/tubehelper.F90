@@ -93,6 +93,10 @@ module tubehelper
         bTube%invlat = InvLatitude(bTube%xyz0)
         
         associate(ebModel=>ebTrcApp%ebModel,ebGr=>ebTrcApp%ebState%ebGr,ebState=>ebTrcApp%ebState)
+        
+        !Record number of points
+        bTube%nTrc = bTrc%Np - bTrc%Nm !Line array is -Nm:+Np w/ 0=seed
+
         !Figure out topology
         !OCB =  0 (solar wind), 1 (half-closed), 2 (both ends closed)
         OCb = FLTop(ebModel,ebGr,bTrc)
@@ -190,7 +194,9 @@ module tubehelper
         bTube%lat0    = 0.0
         bTube%lon0    = 0.0
         bTube%invlat  = 0.0
-
+        bTube%latc    = 0.0
+        bTube%lonc    = 0.0
+        
         bTube%topo = TUBE_UNDEF
         bTube%bmin = 0.0
         bTube%X_bmin = 0.0
@@ -211,6 +217,9 @@ module tubehelper
         bTube%lossconec = 0.0
 
         bTube%TioTe0 = 0.0
+
+        bTube%nTrc = 0
+
     end subroutine FreshenTube
 
 

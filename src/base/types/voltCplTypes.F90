@@ -48,7 +48,8 @@ module voltCplTypes
         !! Size of losscone [RAD] at footpoint and conjugate (if CLOSED)
         real(rp) :: TioTe0
         !! Empirical Ti/Te estimate if it exists
-        
+        integer :: nTrc
+        !! Number of points traced for this tube
     end type Tube_T
 
     type TubeShell_T

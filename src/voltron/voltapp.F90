@@ -471,7 +471,8 @@ module voltapp
             call init_mhd2Chmp(vApp%mhd2chmp, gApp, vApp%ebTrcApp)
             call init_chmp2Mhd(vApp%chmp2mhd, vApp%ebTrcApp, gApp)
 
-            vApp%iDeep = ShellBoundary(gApp%Model,gApp%Grid,vApp%rTrc)
+            vApp%iDeep = gApp%Grid%ie-1
+            
         endif !doDeep
 
     end subroutine initializeFromGamera
@@ -556,7 +557,7 @@ module voltapp
         class(voltApp_T), intent(inout) :: vApp
 
         !Update i-shell to trace within in case rTrc has changed
-        vApp%iDeep = ShellBoundary(gApp%Model,gApp%Grid,vApp%rTrc)
+        vApp%iDeep = gApp%Grid%ie-1
         
         !Pull in updated fields to CHIMP
         call Tic("G2C")
