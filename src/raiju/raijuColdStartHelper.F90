@@ -53,9 +53,9 @@ module raijuColdStartHelper
 
         ! Init hot protons
         call raiColdStart_initHOTP(Model, Grid, State, t0, dstTarget)
-        dps_preCX  = spcEta2DPS(Model, Grid, State, Grid%spc(sIdx_p), isGood)  ! Note: final argument is making a logical mask for isGood
+        dps_preCX  = spcEta2DPS(Model, Grid, State, Grid%spc(sIdx_p), isGood)
         ! Hit it with some charge exchange
-        call raiColdStart_applyCX(Model, Grid, State, Grid%spc(sIdx_p))
+        !call raiColdStart_applyCX(Model, Grid, State, Grid%spc(sIdx_p))
         dps_postCX = spcEta2DPS(Model, Grid, State, Grid%spc(sIdx_p), isGood)
         
 
@@ -67,11 +67,12 @@ module raijuColdStartHelper
         ! Use HOTP moments to set electrons
         call raiColdStart_initHOTE(Model, Grid, State)
         dps_ele = spcEta2DPS(Model, Grid, State, Grid%spc(sIdx_e), State%active .eq. RAIJUACTIVE)
-
+        write(*,'(a,f7.2)') "  Real Dst             : ",dstReal
+        write(*,'(a,f7.2)') "  Model Dst            : ",dstModel
         write(*,'(a,f7.2)') "  Target DPS-Dst       : ",dstTarget
         write(*,'(a,f7.2)') "  Hot proton pre-loss  : ",dps_preCX
         write(*,'(a,f7.2)') "            post-loss  : ",dps_postCX
-        write(*,'(a,f7.2)') "  Hot electron DPS-Dst :",dps_ele
+        write(*,'(a,f7.2)') "  Hot electron DPS-Dst : ",dps_ele
         !write(*,*)" Hot electron DPS-Dst:",dps_ele
 
     end subroutine raijuGeoColdStart
@@ -148,6 +149,8 @@ module raijuColdStartHelper
                     N0_ps = dPS_emp
                     P0_ps = pPS_emp
                 endif
+
+                P0_ps = 0.0
 
                 if (P0_ps > P_rc) then
                     P_final = P0_ps

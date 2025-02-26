@@ -8,6 +8,7 @@ submodule (volttypes) raijuCplTypesSub
 
     use shellInterp
     use imaghelper
+    use dstutils
 
     implicit none
 
@@ -42,6 +43,7 @@ submodule (volttypes) raijuCplTypesSub
         class(voltApp_T), intent(inout) :: vApp
 
         logical :: doColdStart
+        real(rp) :: BSDst = 0.0
         doColdStart = .false.
 
         associate(raiApp=>App%raiApp)
@@ -60,15 +62,18 @@ submodule (volttypes) raijuCplTypesSub
             endif
 
             ! Someone updated raiCpl's coupling variables by now, stuff it into RAIJU proper
-            !call imagTubes2RAIJU(raiApp%Model, raiApp%Grid, raiApp%State, App%ijTubes)
-            !raiApp%State%espot(:,:) = App%pot%data(:,:) ! They live on the same grid so this is okay
             call raiCpl2RAIJU(App)
 
             if (doColdStart) then
                 ! Its happening, everybody stay calm
                 write(*,*) "RAIJU Cold starting..."
+                ! NOTE: By this point we have put coupling info into raiju (e.g. bVol, xyzmin, MHD moments)
+                ! But haven't calculated active domain yet because that happens in preadvancer
+                ! So we jump in and do it here so we have it for cold starting
                 call setActiveDomain(raiApp%Model, raiApp%Grid, raiApp%State)
-                call raijuGeoColdStart(raiApp%Model, raiApp%Grid, raiApp%State, vApp%time, vApp%BSDst)
+                ! Calc voltron dst ourselves since vApp%BSDst is only set on console output
+                call EstDST(vApp%gApp%Model,vApp%gApp%Grid,vApp%gApp%State,BSDst0=BSDst)
+                call raijuGeoColdStart(raiApp%Model, raiApp%Grid, raiApp%State, vApp%time, BSDst)
             endif
         end associate
     end subroutine volt2RAIJU

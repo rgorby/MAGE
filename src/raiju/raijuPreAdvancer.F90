@@ -43,7 +43,6 @@ module raijuPreAdvancer
         call Toc("BCs")
 
         ! Handle edge cases that may effect the validity of information carried over from last coupling period
-        ! TODO: do this in predictor function
         call prepEtaLast(Grid%shGrid, State, State%isFirstCpl)
 
         ! Calc cell velocities

@@ -97,7 +97,7 @@ module voltio
         call mjd2utstr(cMJD,utStr)
 
         !Get Dst estimate: DPS, center of earth, MLT avg of equatorial stations
-        call EstDST(gApp%Model,gApp%Grid,gApp%State,BSDst0,AvgBSDst,BSSMRs,DPSDst)
+        call EstDST(gApp%Model,gApp%Grid,gApp%State,BSDst0=BSDst0,AvgBSDst=AvgBSDst,BSSMRs=BSSMRs,DPSDst=DPSDst)
 
         vApp%BSDst = AvgBSDst
         
