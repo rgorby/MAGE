@@ -23,7 +23,6 @@ module msphingest
     
     !Parameters for appetizer
     type Gas0App_T
-        logical  :: doInit = .true.
         real(rp) :: dz = 5.0 !Wedge around equator to use
         real(rp) :: tScl !How to scale ingestion timescale
     end type Gas0App_T
@@ -97,13 +96,6 @@ module msphingest
     !Do traps
         if (.not. doIngest) return
         if ( (Model%t<=0) .and. (.not. doAppetizer) ) return !You'll spoil your appetite
-
-        !For now redoing every 100 timesteps to make sure voltron doesn't overwrite (bit silly)
-        !TODO: Remove this after overhauling source ingestion
-        if ( (Model%t<0) .and. (modulo(Model%ts,100) == 0) .and. doAppetizer ) then
-            !Load TM03 into Gas0 for ingestion during spinup
-            call LoadSpinupGas0(Model,Gr)
-        endif
 
         if ( Model%doMultiF .and. (Model%nSpc<COLDFLUID) ) then
             write(*,*) "Not enough fluids to hold cold"
@@ -373,24 +365,29 @@ module msphingest
     end subroutine CellPlasmaBC
 
     !Loads Gas0 w/ t<0 ingestion values
-    subroutine LoadSpinupGas0(Model,Gr)
-        type(Model_T), intent(in) :: Model
-        type(Grid_T), intent(inout) :: Gr
+    !Note: tSW is seconds elapsed (not gamera time units)
+    subroutine LoadSpinupGas0(Model,Gr,tSW)
+        type(Model_T), intent(in)    :: Model
+        type(Grid_T) , intent(inout) :: Gr
+        real(rp)     , intent(in)    :: tSW
 
         integer :: i,j,k
         real(rp) :: D0,P0,Tau
         logical  :: doIngestIJK,doInD,doInP
         real(rp), dimension(NDIM) :: xyzSM,xyzGSM
 
+        if ( (Model%t<=0) .and. (.not. doAppetizer) ) return !You'll spoil your appetite
+
+        call UpdateTM03(tSW)
         !Start by setting geopack for transformation
         call mjdRecalc( TM03_MJD() )
 
        !$OMP PARALLEL DO default(shared) collapse(2) &
        !$OMP private(i,j,k,doInD,doInP,doIngestIJK)  &
        !$OMP private(D0,P0,Tau,xyzSM,xyzGSM)
-        do k=Gr%ks,Gr%ke
-            do j=Gr%js,Gr%je
-                do i=Gr%is,Gr%ie
+        do k=Gr%ksg,Gr%keg
+            do j=Gr%jsg,Gr%jeg
+                do i=Gr%isg,Gr%ieg
                     !Get GSM coordinates
                     xyzSM = Gr%xyzcc(i,j,k,XDIR:ZDIR)
                     call SM2GSW(xyzSM(XDIR),xyzSM(YDIR),xyzSM(ZDIR),xyzGSM(XDIR),xyzGSM(YDIR),xyzGSM(ZDIR))
@@ -413,8 +410,6 @@ module msphingest
             enddo
         enddo
 
-        !We're done now
-        Gas0App%doInit = .false.
     end subroutine LoadSpinupGas0
 !-----
 

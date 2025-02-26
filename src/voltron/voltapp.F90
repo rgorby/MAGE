@@ -471,7 +471,8 @@ module voltapp
             call init_mhd2Chmp(vApp%mhd2chmp, gApp, vApp%ebTrcApp)
             call init_chmp2Mhd(vApp%chmp2mhd, vApp%ebTrcApp, gApp)
 
-            vApp%iDeep = ShellBoundary(gApp%Model,gApp%Grid,vApp%rTrc)
+            vApp%iDeep = gApp%Grid%ie-1
+            
         endif !doDeep
 
     end subroutine initializeFromGamera
@@ -539,7 +540,14 @@ module voltapp
               call SquishEnd(vApp)
             call PostDeep(vApp, gApp)
         elseif(vApp%doDeep) then
+            !Doing deep but t<0, call spinup Gas0 (empirical TM plasma sheet)
+            !Will kick back w/o doing anything if there's no appetizer
+
             gApp%Grid%Gas0 = 0
+            !Load TM03 into Gas0 for ingestion during spinup
+            !Note: Using vApp%time instead of gamera time units
+            call LoadSpinupGas0(gApp%Model,gApp%Grid,vApp%time)            
+            
         endif
 
     end subroutine DeepUpdate
@@ -549,7 +557,7 @@ module voltapp
         class(voltApp_T), intent(inout) :: vApp
 
         !Update i-shell to trace within in case rTrc has changed
-        vApp%iDeep = ShellBoundary(gApp%Model,gApp%Grid,vApp%rTrc)
+        vApp%iDeep = gApp%Grid%ie-1
         
         !Pull in updated fields to CHIMP
         call Tic("G2C")
