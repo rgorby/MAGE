@@ -95,23 +95,12 @@ module tubehelper
         associate(ebModel=>ebTrcApp%ebModel,ebGr=>ebTrcApp%ebState%ebGr,ebState=>ebTrcApp%ebState)
         
         !Record number of points
-        bTube%nTrc = bTrc%Np - bTrc%Nm !Line array is -Nm:+Np w/ 0=seed
+        bTube%nTrc = bTrc%Np + bTrc%Nm !Line array is -Nm:+Np w/ 0=seed
 
         !Figure out topology
-        !OCB =  0 (solar wind), 1 (half-closed), 2 (both ends closed)
-        OCb = FLTop(ebModel,ebGr,bTrc)
+        bTube%topo = VoltTopo(ebModel,ebGr,bTrc)
+        if (bTube%topo == TUBE_DISASTER) return
 
-        if (OCb == 2) then
-            bTube%topo = TUBE_CLOSED
-        elseif (OCb == 1) then
-            bTube%topo = TUBE_OPEN
-        else
-            !What the shit?
-            bTube%topo = TUBE_DISASTER
-            !Well, we've done everything we can let's just call it a day
-            return
-
-        endif
 
     !If we're still here, let's do some stuff
         !Start w/ stuff for both closed and open
@@ -177,6 +166,78 @@ module tubehelper
         end associate !ebTrc stuff
 
     end subroutine Line2Tube
+
+    function VoltTopo(ebModel,ebGr,bTrc) result(topo)
+        type(chmpModel_T), intent(in) :: ebModel
+        type(ebGrid_T)   , intent(in) :: ebGr
+        type(magLine_T  ), intent(in) :: bTrc
+        integer :: topo
+
+        integer :: iP,iM
+        real(rp), dimension(NDIM) :: xyzP,xyzM
+        real(rp) :: zz
+        logical :: isFin,isCP,isCM,isOP,isOM
+
+        associate(Np=>bTrc%Np,Nm=>bTrc%Nm)
+            !Get end points
+            xyzP = bTrc%xyz(+Np,:)
+            xyzM = bTrc%xyz(-Nm,:)
+
+            !Check if finished
+            isFin = (Np<bTrc%nMax-1) .and. (Nm<bTrc%nMax-1) !Check if finished
+            if (.not. isFin) then
+                topo = TUBE_UNDEF !Didn't finish, dunno what's going on
+                return
+            endif
+
+            isCP  = isClosed(xyzP,ebModel)
+            isCM  = isClosed(xyzM,ebModel)
+            zz = xyzP(ZDIR)*xyzM(ZDIR)
+
+            if (isCP .and. isCM .and. (zz<=0)) then
+                topo = TUBE_CLOSED
+                return
+            endif
+
+            if ( (.not. isCP) .and. (.not. isCM) ) then
+                !what the shit?!
+                topo = TUBE_DISASTER
+                return
+            endif
+
+        !If still here, one side is closed but not the other
+            !Get i cell of last point for each side
+            iP = bTrc%ijk(+Np,IDIR)
+            iM = bTrc%ijk(-Nm,IDIR)
+
+            isOP = isOut(ebModel,ebGr,iP)
+            isOM = isOut(ebModel,ebGr,iM)
+
+            if (isCP .and. isOM) then
+                topo = TUBE_OPEN
+            elseif (isOP .and. isCM) then
+                topo = TUBE_OPEN
+            else
+                topo = TUBE_DISASTER
+            endif
+        end associate
+
+        contains
+            function isOut(ebModel,ebGr,iX)
+                type(chmpModel_T), intent(in) :: ebModel
+                type(ebGrid_T)   , intent(in) :: ebGr
+                integer          , intent(in) :: iX
+
+                logical :: isOut
+                if ( abs(iX-ebGr%ie) <= 4+1 ) then
+                    !This cell is pretty close to the outer boundary
+                    isOut = .true.
+                else
+                    !Meh, could be out-er
+                    isOut = .false.
+                endif
+            end function isOut
+    end function VoltTopo
 
     subroutine xyz2LL(xyz,lat,lon)
         real(rp), intent(in)  :: xyz(NDIM)

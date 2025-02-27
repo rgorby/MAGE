@@ -10,10 +10,7 @@ module voltCplTypes
     implicit none
 
     integer, parameter :: MAXTUBEFLUIDS = 5
-
-    enum, bind(C)
-        enumerator :: TUBE_CLOSED=0, TUBE_OPEN, TUBE_UNDEF, TUBE_DISASTER
-    endenum
+    integer, parameter :: TUBE_CLOSED=2,TUBE_OPEN=1,TUBE_UNDEF=-1,TUBE_DISASTER=-666
 
     !New tube type for global Voltron grid
     type Tube_T
