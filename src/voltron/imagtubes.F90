@@ -59,6 +59,7 @@ module imagtubes
         call initShellVar(sh, SHGR_CORNER, tubeShell%losscone )
         call initShellVar(sh, SHGR_CORNER, tubeShell%lossconec)
         call initShellVar(sh, SHGR_CORNER, tubeShell%TioTe0   )
+        call initShellVar(sh, SHGR_CORNER, tubeShell%nTrc     )
 
         tubeShell%TioTe0%data = tiote
 

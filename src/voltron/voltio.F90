@@ -465,6 +465,9 @@ module voltio
         call AddOutSGV(IOVars, "rCuravture", tubeShell%rCurv, &
                         uStr="Rx", dStr="Radius of curvature @ bmin if this is a closed field line", &
                         outBndsO=outSGVBnds_corner, doWriteMaskO=.false.)
+        call AddOutSGV(IOVars, "nTrc", tubeShell%nTrc, &
+                        dStr="Number of points along field line", &
+                        outBndsO=outSGVBnds_corner, doWriteMaskO=.false.)
         end associate
 
         call WriteVars(IOVars,.true.,vh5File,gStr)

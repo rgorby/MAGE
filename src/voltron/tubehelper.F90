@@ -265,6 +265,7 @@ module tubehelper
                 tubeShell%losscone %data(i,j) = ijTubes(i,j)%losscone
                 tubeShell%lossconec%data(i,j) = ijTubes(i,j)%lossconec
                 tubeShell%TioTe0   %data(i,j) = ijTubes(i,j)%TioTe0
+                tubeShell%nTrc     %data(i,j) = ijTubes(i,j)%nTrc
             enddo
         enddo
 
@@ -295,5 +296,6 @@ module tubehelper
         call wrapJ_SGV(shGr, tubeShell%losscone )
         call wrapJ_SGV(shGr, tubeShell%lossconec)
         call wrapJ_SGV(shGr, tubeShell%TioTe0   )
+        call wrapJ_SGV(shGr, tubeShell%nTrc     )
     end subroutine tubes2Shell
 end module tubehelper

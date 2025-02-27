@@ -93,6 +93,8 @@ module voltCplTypes
             !! Size of losscone [RAD] at conjugate footpoint (if CLOSED)
         type(ShellGridVar_T) :: TioTe0
             !! Empirical Ti/Te estimate if it exists
+        type(ShellGridVar_T) :: nTrc
+            !! Number of points traced for each tube
     end type TubeShell_T
 
     type IMAGTube_T
