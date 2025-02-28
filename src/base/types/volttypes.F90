@@ -164,10 +164,17 @@ module volttypes
 
         class(raijuApp_T), allocatable :: raiApp
 
-        real(rp) :: tLastUpdate
-            !! Time of last update, according to voltron
+        ! --- Options --- !
+        real(rp) :: startup_blendTscl = 3600.0
+            !! [s] Time scale over which we ramp up to full IM_TSCL for MHD ingestion
+
+        ! --- Grid --- !
         type(ShellGrid_T) :: shGr
             !! Copy of raijuModel's shellGrid
+        
+        ! --- State --- !
+        real(rp) :: tLastUpdate
+            !! Time of last update, according to voltron
 
         ! Stuff going into raiju
         type(magLine_T), dimension(:,:), allocatable :: magLines

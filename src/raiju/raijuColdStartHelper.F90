@@ -55,7 +55,7 @@ module raijuColdStartHelper
         call raiColdStart_initHOTP(Model, Grid, State, t0, dstTarget)
         dps_preCX  = spcEta2DPS(Model, Grid, State, Grid%spc(sIdx_p), isGood)
         ! Hit it with some charge exchange
-        !call raiColdStart_applyCX(Model, Grid, State, Grid%spc(sIdx_p))
+        call raiColdStart_applyCX(Model, Grid, State, Grid%spc(sIdx_p))
         dps_postCX = spcEta2DPS(Model, Grid, State, Grid%spc(sIdx_p), isGood)
         
 
@@ -149,8 +149,6 @@ module raijuColdStartHelper
                     N0_ps = dPS_emp
                     P0_ps = pPS_emp
                 endif
-
-                P0_ps = 0.0
 
                 if (P0_ps > P_rc) then
                     P_final = P0_ps

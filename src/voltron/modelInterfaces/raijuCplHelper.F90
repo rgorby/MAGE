@@ -35,6 +35,10 @@ module raijuCplHelper
         ! Create new XML reader w/ RAIJU as root
         iXML = New_XML_Input(trim(tmpStr),'Kaiju/RAIJU',.true.)
 
+        ! Options
+        call iXML%Set_Val(raiCpl%startup_blendTscl, "cpl/startupTscl", raiCpl%startup_blendTscl)
+
+        ! Allocations
         associate(sh => raiCpl%raiApp%Grid%shGrid, nFluidIn => raiCpl%raiApp%Model%nFluidIn)
 
 
@@ -119,6 +123,7 @@ module raijuCplHelper
         enddo
         
         ! Get topo and then convert to RAIJU's definition
+        write(*,*) "== on a real what are you doing"
         call InterpShellVar_TSC_SG(voltGrid, tubeShell%topo, raiCpl%shGr, tmpTopo)
         where (tmpTopo%data == TUBE_CLOSED)
             raiCpl%topo%data = RAIJUCLOSED

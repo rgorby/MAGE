@@ -9,6 +9,7 @@ submodule (volttypes) raijuCplTypesSub
     use shellInterp
     use imaghelper
     use dstutils
+    use math
 
     implicit none
 
@@ -95,6 +96,7 @@ submodule (volttypes) raijuCplTypesSub
         integer :: i0, j0  ! i,j cell that provided th,ph are in
         real(rp) :: active_interp
         real(rp) :: d_cold, t_cold, d_hot, p_hot
+        real(rp) :: tScl, rampC
 
         ! IM_D_RING=1,IM_P_RING,IM_D_COLD, IM_P_COLD, IM_TSCL
         associate(Model=>App%raiApp%Model, State=>App%raiApp%State, sh=>App%raiApp%Grid%shGrid, spcList=>App%raiApp%Grid%spc)
@@ -142,10 +144,18 @@ submodule (volttypes) raijuCplTypesSub
         enddo
 
         
-        !write(*,*)"Setting IM_TSCL to hard 10 seconds"
         !call InterpShellVar_TSC_pnt(sh, State%Tb, th, ph, imW(IM_TSCL))
         !imW(IM_TSCL) = Model%nBounce*imW(IM_TSCL)  ! [s]
-        imW(IM_TSCL) = 10.0_rp  ! [s]
+        tScl = 10.0_rp  ! [s]
+
+        ! Adjust IM_TSCL if we wanna ramp up over time
+        if (t < App%startup_blendTscl) then
+            rampC = RampDown(t, 0.0_rp, App%startup_blendTscl)
+            !tScl = sqrt(tScl*App%startup_blendTscl)*rampC + (1-rampC)*tScl  ! idk
+            tScl = rampC*10.0_rp*tScl + (1-rampC)*tScl
+        endif
+        
+        imW(IM_TSCL) = tScl
 
         end associate
     end subroutine getMomentsRAIJU
