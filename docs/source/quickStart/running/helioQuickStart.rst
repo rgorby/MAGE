@@ -1,285 +1,137 @@
-Heliospace Quick Start Guide
-============================
+Heliosphere Quick Start
+=======================
 
-** Notes for Updating ** Want to replace this page the instructions on
-steps to follow to do your own event simulation. Basic points, generate
-solar wind file, decide on what components Gamera, Mix, RCM, T*GCM
-you'll be using, decide on resolution, generate grid files, generate
-batch script files, run the code, refer them to the post processing
-steps.
+The instructions below walk you through the process of running a simple
+heliosphere model to test your build of the ``kaiju`` code.
 
-**Note:** This quick start assumes you have completed the build instructions.
+Preparing to run a ``kaiju`` model
+----------------------------------
 
-**Note:** Throughout the descriptions ``$KAIJUHOME`` refers to the
-base directory of the `kaiju <https://bitbucket.org/aplkaiju/kaiju>`_
-repository.
+To set up your environment to run the ``kaiju`` software, the following steps
+are required.
 
-Initial Setup
--------------
+    1. Load the same modules that you loaded when you built the ``kaiju``
+    software. For example, on `derecho`, you would run the following commands:
 
-Simple build instructions
-~~~~~~~~~~~~~~~~~~~~~~~~~
+    .. code-block:: bash
 
-To compile GAMERA Helio do the following in your ``~/kaiju/build directory``:
+        $ module load ncarenv/23.06
+        $ module load cmake/3.26.3
+        $ module load craype/2.7.20
+        $ module load intel/2023.0.0
+        $ module load ncarcompilers/1.0.0
+        $ module load cray-mpich/8.1.25
+        $ module load hdf5-mpi/1.12.2
 
-.. code-block:: bash
+    2. *Source* (not *run*) the environment setup script for the ``kaiju``
+    software. For example, if the root of your ``kaiju`` repository clone is
+    at ``$HOME/kaiju``, then you would run:
 
-    cmake  -DENABLE_MPI=ON  ..
-    make gamhelio_mpi.x
+    .. code-block:: bash
 
-Using ``makeitso`` to create input and batch submission files
-~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+        $ source $HOME/kaiju/scripts/setupEnvironment.sh
 
-Note: Supported HPC systems only - NCAR Derecho and NASA
-Pleiades/Electra/Aitken (default Pleiades Broadwell nodes)
+Running a simple heliosphere problem
+------------------------------------
 
-To run ``gamhelio-makeitso.py`` you must first ensure you have a proper
-python environment with the prerequisite packages, add the kaipy scripts to
-your path by running:
-
-.. code-block:: bash
-
-    . ~/kaiju/scripts/setupEnvironment.sh
-
-you may then run the ``gamhelio-makeitso.py`` script which will guide you
-through setting up the desired model and job parameters. This script operates
-as a command-line input program, where basic parameter prompts will be
-displayed with default settings, which may be modified.
-``gamhelio-makeitso.py`` may be run in ``BASIC``, ``INTERMEDIATE``,
-or ``EXPERT`` mode, with varying levels of customization of run parameters.
-The command modes are available as an argument to the script. The script run
-with the ``--verbose`` option will display additional status output while the
-script runs. Upon completion, the script will have generated appropriate
-input files and batch scripts, and finally print instructions on how to
-submit the generated run to your system's batch scheduler.
+The ``kaiju`` software needs several files in order to run. The detailed steps
+for creating these files have been combined into a script called
+``makeitsogamhelio.py``. The script is provided in the ``kaiju`` code
+repository. You can see the options supported my ``makeitso-gamhelio.py`` by
+running it with the ``--help`` or ``-h`` command-line option.
 
 .. code-block:: bash
 
-   gamhelio-makeitso.py --verbose --mode=(BASIC|INTERMEDIATE|EXPERT)
+   $ makeitso-gamhelio.py --help
+   usage: makeitso-gamhelio.py [-h] [--clobber] [--debug] [--mode MODE] [--options_path OPTIONS_PATH] [--verbose]
 
-Manual Run Setup
-----------------
+   Script to prepare a GAMERA heliosphere run.
 
-Set a grid and boundary conditions
-~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+   optional arguments:
+     -h, --help            show this help message and exit
+     --clobber             Overwrite existing options file (default: False).
+     --debug, -d           Print debugging output (default: False).
+     --mode MODE           User mode (BASIC|INTERMEDIATE|EXPERT) (default: BASIC).
+     --options_path OPTIONS_PATH, -o OPTIONS_PATH
+                             Path to JSON file of options (default: None)
+     --verbose, -v         Print verbose output (default: False).
 
-To create files with a spherical grid and inner boundary conditions for the
-inner heliosphere simulation run
+For this example, we will use run the code on ``derecho``, and use the default
+``BASIC`` mode, which requires the minimum amount of input from the user. At
+each prompt, you can either type in a value, or hit the ``Return`` key to
+accept the default value (shown in square brackets at the end of the prompt).
 
-.. code-block:: bash
-
-   wsa2gamera.py ~/kaiju/kaipy/gamhelio/ConfigScripts/startup.config
-
-If needed edit a config file
-~/kaiju/kaipy/gamhelio/ConfigScripts/startup.config. Ni, Nj, Nk set a number
-of cells in r, theta and phi directions, respectively. tMin and tMax set a
-range in theta counting from the North (+Z) direction corresponding to
-theta=0. Rin and Rout set a range in radius (distance unit is in solar radii).
-
-.. code-block:: bash
-
-   ;Comments and definitions:
-   ;Modify if needed paths to a grid file, output innerbc file and WSA fits file
-   ;tMin and tMax set a range for theta [tMin, tMax]*pi
-   ;Rin and Rout are inner and outer boundaries in a radial direction
-   ;Ni, Nj, Nk set number of cells in r, theta, phi directions
-   ;Nghost is a number of ghost cells
-
-   [Gamera]
-   gameraGridFile = heliogrid.h5
-   GridDir = ./
-   gameraIbcFile = innerbc.h5
-   IbcDir = ./
-
-   [Grid]
-   tMin = 0.1
-   tMax = 0.9
-   Rin = 21.5
-   Rout = 215.
-   Ni = 128
-   Nj = 64
-   Nk = 128
-
-   [WSA]
-   ;wsafile is the path to the WSA fits file relative to $KAIJUHOME
-   ;Helio test uses WSA file for Carrington Rotation 2193
-   wsafile = examples/helio/vel_201708132000R002_ahmi.fits
-   density_temperature_infile = no
-   gauss_smooth_width = 0 ; 8
-   normalized = no
-
-   [Constants]
-   gamma = 1.5
-   Nghost   = 4
-   Tsolar = 27.27
-
-   [Normalization]
-   B0 = 1.e-3  ; in [Gs] equal to 100 [nT]
-   n0 = 200.   ; in [cm-3]
-   T0 = 1.e6 ; in [K]
-
-By default a spherical grid for inner heliosphere simulation is uniform.
-Other grid options are in $KAIJUHOME/kaipy/gamera/gamGrids.py. GenKSphNonU
-creates a non-uniform grid in r-direction changing smoothly from finer grid
-near the inner boundary to coarser grid near the outer boundary; GenKSphNonUG
-creates a custom grid for a CME simulation with a fine uniform grid in the
-region 0.1-0.3 AU and a non-uniform coarser grid further out to 1 AU. If
-needed modify wsa2gamera.py to use any of these options or create your own
-grid function in $KAIJUHOME/kaipy/gamera/gamGrids.py.
-
-Check that you successfully generated heliogrid.h5 with the grid and
-innerbc.h5 with boundary conditions in a run directory.
+The ``gamhelio_mpi.x`` software requires a FITS file containing the output
+from the WSA (Wang-Sheeley-Arge) solar wind model, covering the time period of
+interest. A sample file is provided as part of the ``kaiju`` code repository.
+Copy this file into your working directory:
 
 .. code-block:: bash
 
-   HDF5 "innerbc.h5" {
-   FILE_CONTENTS {
-    group      /
-    dataset    /br
-    dataset    /br_kface
-    dataset    /et_kedge
-    dataset    /rho
-    dataset    /temp
-    dataset    /vr
-    dataset    /vr_kface
-    }
-   }
+   $ cp $KAIJUHOME/examples/helio/vel_201708132000R002_ahmi.fits wsa.fits
 
-XML input file
-~~~~~~~~~~~~~~
-
-An example wsa.xml input file for mpi gamera helio run is as follows (for
-resolution NixNjxNk = 128x64x128 or 256x128x256):
-
-.. code-block:: xml
-
-    <?xml version="1.0"?>
-    <Kaiju>
-        <Gamera>
-            <sim runid="wsa" doH5g="T" H5Grid="heliogrid.h5" icType="user" pdmb="1.0" rmeth="7UP"/>
-            <time tFin="200."/>
-            <output dtOut="50." tsOut="50" timer="F"/>
-            <physics doMHD="T" gamma="1.5"/>
-            <prob Tsolar = "25.38"/>
-            <restart resFile = "wsa.Res.00008.h5" dtRes="1000." doRes="F"/>
-            <iPdir N="4" bcPeriodic="F"/>
-            <jPdir N="2" bcPeriodic="F"/>
-            <kPdir N="4" bcPeriodic="T"/>
-        </Gamera>
-    </Kaiju>
-
-For high-resolution run 1024x512x1024 use the following de-composition
-
-.. code-block:: XML
-
-   <iPdir N="8" bcPeriodic="F"/>
-   <jPdir N="4" bcPeriodic="F"/>
-   <kPdir N="8" bcPeriodic="T"/>
-
-Have wsa.xml in a run directory.
-
-PBS script
-~~~~~~~~~~
-
-Here is an example pbs script to run mpi gamera (for resolution helio run
-128x64x128)
+To get started, run ``makeitso-gamhelio.py`` with no arguments:
 
 .. code-block:: bash
 
-   #!/bin/bash
-   #PBS -A UJHB0015
-   #PBS -N heliompi
-   #PBS -j oe
-   #PBS -q regular
-   #PBS -l walltime=02:00:00
-   #PBS -l select=16:ncpus=36:mpiprocs=2:ompthreads=36
-   #PBS -m abe
-   #PBS -M your_email_address
+   $ source ~/local/cdf/3.9.0/bin/definitions.B
+   $ makeitso-gamhelio.py
 
-   #Example usage
+   Name to use for PBS job(s) [helio]: 
+   Path to WSA boundary condition file to use [wsa.fits]: 
+   Start date for simulation (yyyy-mm-ddThh:mm:ss) [2017-07-20T05:22:47]: 
+   Stop date for simulation (yyyy-mm-ddThh:mm:ss) [2017-08-16T12:05:59]: 
+   Do you want to split your job into multiple segments? (Y|y|N|n) [N]: 
+   Name of HPC system (derecho|pleiades) [pleiades]: derecho
+   PBS account name [<YOUR_ACCOUNT_HERE>]:
+   Path to kaiju installation [<YOUR_KAIJUHOME_HERE>]:
+   Path to kaiju build directory [<YOUR_BUILD_DIRECTORY_HERE>]:
+   Run directory [.]: 
+   PBS queue name (develop|main) [main]:
+   Job priority (regular|economy) [economy]:
+   WARNING: You are responsible for ensuring that the wall time is sufficient to run a segment of your simulation!
+   Requested wall time for each PBS job segment (HH:MM:SS) [01:00:00]: 
+   Number of radial grid cells [128]: 
+   Number of polar angle grid cells [64]: 
+   Number of azimuthal angle grid cells [128]: 
 
-   export EXE="./gamera_mpi.x"
-   export RUNID="wsa"
 
-   source ~/.bashrc
+   Template creation complete!
 
-   module list
-   hostname
-   date
-   #export OMP_NUM_THREADS=36
-   export KMP_STACKSIZE=128M
-   export JNUM=${PBS_ARRAY_INDEX:-0}
-   echo "Running $EXE"
-   mpirun ${EXE} ${RUNID}.xml ${JNUM} > ${RUNID}.${JNUM}.out
-   date
+After these inputs, the script read data from the WSA FITS file, cinverts it to
+a format readable by ``gamhelio_mpi.x`` and generates the XML input file.
 
-The example above uses 16 computer nodes (2 MPI ranks per node) creating 32
-processes for 32 MPI ranks (4x2x4 = 32 in decomposition for low resolution
-run above).
-
-For high resolution run 1024x512x1024 we have 8x4x8 = 256 MPI ranks so we
-select 128 nodes (with 2 MPI ranks/node).
-
-.. code-block:: shell
-
-   #PBS -l walltime=11:59:00
-   #PBS -l select=128:ncpus=36:mpiprocs=2:ompthreads=36:mem=109GB
-
-See PBS job basics `here <https://arc.ucar.edu/docs>`_.
-
-Submitting a run
-----------------
-
-Copy or link gamera executable ~/kaiju/build/bin/gamera_mpi.x.
+You should now see the following files in your run directory:
 
 .. code-block:: bash
 
-   ln -s ~/kaiju/build/bin/gamhelio_mpi.x gamhelio_mpi.x
+   $ ls
+   helio-00.pbs  helio-00.xml  heliogrid.h5  helio.json  helio_pbs.sh  innerbc.h5  wsa2gamera.ini  wsa2gamera.log  wsa.fits
 
-Have in a run directory grid file heliogrid.h5, boundary conditions file
-innerbc.h5, pbs script gamera.pbs and input xml file wsa.xml.
-
-.. code-block:: shell
-
-   user@cheyenne5:/glade/work/user/helioRun> ls
-   gamera_mpi.x  gamera.pbs  heliogrid.h5  innerbc.h5  wsa.xml
-
-Run the job
+Finally, submit the model run using the script generated by
+``makeitso-gamhelio.py``. You will see the resulting PBS job ID.
 
 .. code-block:: bash
 
-   qsub gamera.pbs
+    $ bash helio_pbs.sh
+    8535866.desched1
 
-Check a status of your job in a queue
+Once the job is started in the queue, it should take about 20 minutes to run
+(on ``derecho``). When complete, you will see the following in your run
+directory:
 
 .. code-block:: bash
 
-    qstat -u username
+    $ ls
 
-Normalization in Gamera-Helio (!Move to Model Description!)
------------------------------------------------------------
+.. Now perform a quick visualization of the results from your model using the
+.. ``msphpic.py`` script, provided in the ``kaipy`` package.
 
-The three main normalization parameters are
+.. .. code-block:: bash
 
-#. Length L = 1R_S = 6.955e10 cm
-#. Magnetic field magnitude B0 = 100 nT = 1.e-3 Gs
-#. Number density n0 = 200 cm-3
+..     $ msphpic.py -id geospace
 
-Velocity is normalized to the Alfven velocity V0 = B0/sqrt(4 pi rho0)
-~ 150 km/s. Time is normalized to t = L/V0 = 4637 s ~ 1.29 h ~ 1 hr 17 min.
-Pressure is normalized to the magnetic pressure B0^2/(4*pi).
+.. This script will create a file called ``qkmsphpic.png``, which should look
+.. like this:
 
-Helio Test Run
---------------
-
-From Google Doc:
-
-* Take 128x64x128 as the baseline resolution. It should run at
-  50min/CR on one Cheyenne node.
-* Take CR2193 because it compares well (solar minimum). Ask Nick for
-  permission to use this file as a test. Put this file somewhere where
-  everything else binary is and use bitbucket LFS.
-* Run the script that generates the grid and BC files.
-* Make xml from ini (we provide ini file for the test).
-* Compile and run the code.
-* Compare the results with the quick-look plots.
+.. .. image:: qkmsphpic.png

@@ -11,11 +11,9 @@ kaiju software.
     :maxdepth: 1
 
     chimp/index
-    codeInformation/index
     heliosphere/index
     magnetosphere/index
     rcm/index
     satComp/index
     testing/index
     tools/index
-    user_rules/index

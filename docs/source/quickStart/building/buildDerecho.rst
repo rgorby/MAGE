@@ -49,7 +49,9 @@ modules:
 
     You must use these exact versions of the modules to ensure the software
     compiles properly. If you use different versions of any of these modules,
-    a successful build cannot be guaranteed.
+    a successful build cannot be guaranteed. This module list is current as of
+    **4 March 2025**, and is subject to change as the compute environment
+    changes.
 
 Step 2: Build missing prerequisite libraries
 --------------------------------------------
@@ -156,3 +158,15 @@ convenient location.
 
     $ # Compile the kaiju software.
     $ make
+
+When finished, your build directory will contain a ``bin`` subdirectory which
+should contain the following files (list current as of 4 March 2025):
+
+.. code-block:: shell
+
+    $ ls -w 80 bin
+    calcdb.x        gamhelio.x    push.x         sctrack.x      voltron.x
+    chop.x          kaitoy_mpi.x  rcm.x          slice.x        wpicheck.x
+    gamera_mpi.x    kaitoy.x      remix2rcm.x    testNewRMS.x
+    gamera.x        project.x     remix2remix.x  trace.x
+    gamhelio_mpi.x  psd.x         remix.x        voltron_mpi.x

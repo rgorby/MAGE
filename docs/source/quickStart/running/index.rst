@@ -4,9 +4,6 @@ Running the ``kaiju`` code
 .. toctree::
     :maxdepth: 1
 
-    simpleExample
-    chimpQuickStart
     geoQuickStart
+    chimpQuickStart
     helioQuickStart
-    planetaryQuickStart
-    dataCompression
