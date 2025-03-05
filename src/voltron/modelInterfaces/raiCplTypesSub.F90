@@ -98,7 +98,6 @@ submodule (volttypes) raijuCplTypesSub
         real(rp) :: d_cold, t_cold, d_hot, p_hot
         real(rp) :: tScl, rampC
 
-        ! IM_D_RING=1,IM_P_RING,IM_D_COLD, IM_P_COLD, IM_TSCL
         associate(Model=>App%raiApp%Model, State=>App%raiApp%State, sh=>App%raiApp%Grid%shGrid, spcList=>App%raiApp%Grid%spc)
 
         ! Default

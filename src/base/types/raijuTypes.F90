@@ -385,7 +385,7 @@ module raijutypes
             !! (Ngi, Ngj, Ns) Normalized standard deviation of the species pressure along the field line
         real(rp), dimension(:,:,:), allocatable :: Dstd
             !! (Ngi, Ngj, Ns) Normalized standard deviation of the species density along the field line
-        real(rp), dimension(:,:,:), allocatable :: tiote
+        real(rp), dimension(:,:), allocatable :: tiote
             !! (Ngi, Ngj, Ns) Ratio of ion temperature to electron temperature
         real(rp), dimension(:,:,:), allocatable :: Bmin
             !! (Ngi+1, Ngj+1, NDIM) [nT] Bmin vector
