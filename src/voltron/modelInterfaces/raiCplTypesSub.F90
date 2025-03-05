@@ -74,7 +74,7 @@ submodule (volttypes) raijuCplTypesSub
                 call setActiveDomain(raiApp%Model, raiApp%Grid, raiApp%State)
                 ! Calc voltron dst ourselves since vApp%BSDst is only set on console output
                 call EstDST(vApp%gApp%Model,vApp%gApp%Grid,vApp%gApp%State,BSDst0=BSDst)
-                call raijuGeoColdStart(raiApp%Model, raiApp%Grid, raiApp%State, vApp%time, BSDst)
+                call raijuGeoColdStart(raiApp%Model, raiApp%Grid, raiApp%State, vApp%time, BSDst, doCXO=App%doColdstartCX)
             endif
         end associate
     end subroutine volt2RAIJU
@@ -147,6 +147,7 @@ submodule (volttypes) raijuCplTypesSub
         !call InterpShellVar_TSC_pnt(sh, State%Tb, th, ph, imW(IM_TSCL))
         !imW(IM_TSCL) = Model%nBounce*imW(IM_TSCL)  ! [s]
         tScl = 10.0_rp  ! [s]
+        !tScl = 10.0_rp/App%vaFrac(i0,j0)  ! [s]
 
         ! Adjust IM_TSCL if we wanna ramp up over time
         if (t < App%startup_blendTscl) then

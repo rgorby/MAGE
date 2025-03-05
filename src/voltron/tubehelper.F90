@@ -104,7 +104,7 @@ module tubehelper
 
     !If we're still here, let's do some stuff
         !Start w/ stuff for both closed and open
-        bTube%TioTe0 = 0.0 !For now
+        bTube%TioTe0 = 4.0 !For now
 
         !Right now doing species loop for open or closed
         !TODO: Rewrite open to get near-earth average instead of field line average
