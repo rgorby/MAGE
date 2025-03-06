@@ -152,7 +152,7 @@ submodule (volttypes) raijuCplTypesSub
         if (t < App%startup_blendTscl) then
             rampC = RampDown(t, 0.0_rp, App%startup_blendTscl)
             !tScl = sqrt(tScl*App%startup_blendTscl)*rampC + (1-rampC)*tScl  ! idk
-            tScl = rampC*10.0_rp*tScl + (1-rampC)*tScl
+            tScl = rampC*50.0_rp*tScl + (1-rampC)*tScl  ! No good reason for 50 except for wanting starting tScl to be ~8-10 minutes
         endif
         
         imW(IM_TSCL) = tScl

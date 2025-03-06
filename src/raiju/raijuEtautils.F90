@@ -184,7 +184,7 @@ module raijuetautils
                 if (.not. isGood(i,j)) cycle
                 bVol = State%bvol_cc(i,j)
                 press = SpcEta2Press(spc, State%eta(i,j,spc%kStart:spc%kEnd), bVol)  ! [nPa]
-                energyDen = (press*1.0D-9) * (bVol*Model%planet%ri_m*1.0D9) * (Grid%Brcc(i,j)*1.0D-9)/kev2J  ! p[J/m^3] * bVol[m/T] * B[T]  = [J/m^2] * keV/J = [keV/m^2]
+                energyDen = (press*1.0D-9) * (bVol*Model%planet%rp_m*1.0D9) * (Grid%Brcc(i,j)*1.0D-9)/kev2J  ! p[J/m^3] * bVol[m/T] * B[T]  = [J/m^2] * keV/J = [keV/m^2]
                 energy = energyDen*(Grid%areaCC(i,j)*Model%planet%ri_m**2) !  [keV/m^2]* Re^2[m^2] = [keV]
                 dpsdst = dpsdst - 4.2*(1.0D-30)*energy  ! [nT]
             enddo
