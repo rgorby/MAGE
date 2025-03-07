@@ -146,7 +146,7 @@ module raijuOut
 !------
 
     subroutine genResInFname(Model, ResF, runIdO)
-        !!! Using Model mambers, defermine the restart name to read from
+        !!! Using Model members, determine the restart name to read from
         type(raijuModel_T), intent(in) :: Model
         character(len=strLen), intent(out) :: ResF
         character(len=*), optional, intent(in) :: runIdO

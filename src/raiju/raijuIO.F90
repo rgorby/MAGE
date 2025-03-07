@@ -224,7 +224,7 @@ module raijuIO
         outTmp3D = 0.0
         !$OMP PARALLEL DO default(shared) &
         !$OMP schedule(dynamic) &
-        !$OMP private(i,j,s,bVol_cc)
+        !$OMP private(i,j,s)
         do j=js,je
             do i=is,ie
                 if (State%active(i,j) .eq. RAIJUINACTIVE) then
@@ -255,14 +255,24 @@ module raijuIO
         call AddOutVar(IOVars,"lonc"   ,State%phcon  (is:ie+1,js:je+1)       ,uStr="radians",dStr="(corners) Congugate longitude")
         call AddOutVar(IOVars,"active" ,State%active (is:ie,js:je)*1.0_rp    ,uStr="-1=Inactive, 0=Buffer, 1=Active")
         call AddOutVar(IOVars,"OCBDist",State%OCBDist(is:ie,js:je)*1.0_rp    ,dStr="Cell distance from an open closed boundary")
-        call AddOutVar(IOVars,"espot"  ,State%espot  (is:ie+1,js:je+1)       ,uStr="kV",dStr="(corners) Electrostatic potential")
         call AddOutVar(IOVars,"bVol"   ,State%bvol   (is:ie+1,js:je+1)       ,uStr="Rx/nT",dStr="(corners) Flux Tube Volume")
+        call AddOutVar(IOVars,"bVol_cc",State%bvol_cc(is:ie,js:je)           ,uStr="Rx/nT",dStr="(corners) Flux Tube Volume")
         call AddOutVar(IOVars,"vaFrac" ,State%vaFrac (is:ie+1,js:je+1)       ,uStr="fraction",dStr="Fraction of Alfven speed over magnetofast + ExB speed")
         call AddOutVar(IOVars,"Pavg_in",State%Pavg   (is:ie,js:je, :)        ,uStr="nPa" ,dStr="Pressures from imagtubes")
         call AddOutVar(IOVars,"Davg_in",State%Davg   (is:ie,js:je, :)        ,uStr="#/cc",dStr="Densities from imagtubes")
         call AddOutVar(IOVars,"Pstd_in",State%Pstd   (is:ie,js:je, :)        ,uStr="normalized" ,dStr="Std. dev. of species pressure from imagtubes")
         call AddOutVar(IOVars,"Dstd_in",State%Dstd   (is:ie,js:je, :)        ,uStr="normalized" ,dStr="Std. dev. of species density from imagtubes")
+        call AddOutVar(IOVars,"tiote"  ,State%tiote  (is:ie,js:je)           ,uStr="normalized" ,dStr="Ratio of ion temperature over electron temperature")
         call AddOutSGV(IOVars,"Tbounce",State%Tb, outBndsO=outBnds2D, uStr="[s]", dStr="Bounce timescale along field line (Alfven crossing time)", doWriteMaskO=.false.)
+
+        if (Model%doOwnCorot) then
+            ! If we are addng our own corotation potential, then its not included in espot
+            call AddOutVar(IOVars,"pot_iono",State%espot(is:ie+1,js:je+1)                                  ,uStr="kV",dStr="(corners) Ionospheric potential")
+        else
+            ! Otherwise, its in espot, so substract it out
+            call AddOutVar(IOVars,"pot_iono",State%espot(is:ie+1,js:je+1)-State%pot_corot(is:ie+1,js:je+1) ,uStr="kV",dStr="(corners) Ionospheric potential")
+        endif
+        call AddOutVar(IOVars,"pot_corot",State%pot_corot(is:ie+1,js:je+1),uStr="kV",dStr="(corners) Corotation potential")
 
         ! Idk about you but I did not expect true to equal -1
         allocate(outTmp2D(is:ie, Grid%Nk))

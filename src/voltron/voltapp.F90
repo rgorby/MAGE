@@ -23,6 +23,8 @@ module voltapp
     use planethelper
     use shellGrid
     use shellGridGen
+    use voltappHelper
+    use voltCplHelper
     
     implicit none
 
@@ -101,6 +103,7 @@ module voltapp
         if (vApp%isLoud) then
             call printPlanetParams(vApp%planet)
         endif
+        call xmlInp%Set_Val(vApp%doGeoCorot,"/Kaiju/Gamera/prob/doGeoCorot",vApp%doGeoCorot)
 
         !Initialize state information
         !Check for Earth to decide what things need to happen
@@ -170,7 +173,6 @@ module voltapp
             call xmlInp%Set_Val(resID,"/Kaiju/gamera/restart/resID","msphere")
             call xmlInp%Set_Val(nRes,"/Kaiju/gamera/restart/nRes" ,-1)
             call readVoltronRestart(vApp, resID, nRes)
-            !! TODO: ^^ This is where we should init shellGrid if restarting
             vApp%IO%tOut = floor(vApp%time/vApp%IO%dtOut)*vApp%IO%dtOut + vApp%IO%dtOut
             vApp%IO%tRes = floor(vApp%time/vApp%IO%dtRes)*vApp%IO%dtRes + vApp%IO%dtRes
 
@@ -203,8 +205,10 @@ module voltapp
 
             ! correct Gamera start time
             gApp%Model%t = vApp%time / gApp%Model%Units%gT0
+            gApp%State%time = gApp%Model%t
 
             call genVoltShellGrid(vApp, xmlInp)
+            call initVoltState(vApp)
 
         endif
 
@@ -307,6 +311,13 @@ module voltapp
             tIO = vApp%IO%tOut
             call fOutputV(vApp, gApp)
             vApp%IO%tOut = tIO
+        endif
+
+        ! Do some final checks
+        if ((gApp%Model%t - gApp%State%time) > TINY) then
+            write(*,*)"GAMERA Model%t and State%time don't match, dying"
+            write(*,*)"Model: ",gApp%Model%t,", State: ",gApp%State%time
+            stop
         endif
 
         end associate
@@ -460,7 +471,8 @@ module voltapp
             call init_mhd2Chmp(vApp%mhd2chmp, gApp, vApp%ebTrcApp)
             call init_chmp2Mhd(vApp%chmp2mhd, vApp%ebTrcApp, gApp)
 
-            vApp%iDeep = ShellBoundary(gApp%Model,gApp%Grid,vApp%rTrc)
+            vApp%iDeep = gApp%Grid%ie-1
+            
         endif !doDeep
 
     end subroutine initializeFromGamera
@@ -508,12 +520,19 @@ module voltapp
         call runRemix(vApp)
         call Toc("ReMIX", .true.)
 
+        ! Update potential on voltron's grid
+        call updateVoltPotential(vApp)
+
+
         call Tic("R2G")
         call CouplePotentialToMhd(vApp)
         call Toc("R2G")
 
         ! only do imag after spinup with deep enabled
         if(vApp%doDeep .and. vApp%time >= 0) then
+            ! DoImag needs PreDeep
+            ! DoImag can be in || with squish
+            ! PostDeep needs everything
             call PreDeep(vApp, gApp)
               call DoImag(vApp)
               call SquishStart(vApp)
@@ -521,7 +540,14 @@ module voltapp
               call SquishEnd(vApp)
             call PostDeep(vApp, gApp)
         elseif(vApp%doDeep) then
+            !Doing deep but t<0, call spinup Gas0 (empirical TM plasma sheet)
+            !Will kick back w/o doing anything if there's no appetizer
+
             gApp%Grid%Gas0 = 0
+            !Load TM03 into Gas0 for ingestion during spinup
+            !Note: Using vApp%time instead of gamera time units
+            call LoadSpinupGas0(gApp%Model,gApp%Grid,vApp%time)            
+            
         endif
 
     end subroutine DeepUpdate
@@ -531,12 +557,15 @@ module voltapp
         class(voltApp_T), intent(inout) :: vApp
 
         !Update i-shell to trace within in case rTrc has changed
-        vApp%iDeep = ShellBoundary(gApp%Model,gApp%Grid,vApp%rTrc)
+        vApp%iDeep = gApp%Grid%ie-1
         
         !Pull in updated fields to CHIMP
         call Tic("G2C")
         call convertGameraToChimp(vApp%mhd2chmp,gApp,vApp%ebTrcApp)
         call Toc("G2C")
+        call Tic("VoltTubes")
+        call genVoltTubes(vApp)
+        call toc("VoltTubes")
 
     end subroutine
 

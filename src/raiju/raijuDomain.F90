@@ -75,6 +75,7 @@ module raijuDomain
             checkMask = .true.
         end where
         
+        write(*,*)"NOTE: turning off normAngle check"
         do i=sh%isg, sh%ie ! NOTE: Not touching upper theta ghosts, we shouldn't reach there anyways. If we do then we have bigger problems
             iShellHasCheck = .false.
             if ( all(State%active(i,:) == RAIJUINACTIVE) ) then
@@ -84,7 +85,8 @@ module raijuDomain
                 if (checkMask(i,j)) then
                     iShellHasCheck = .true.
                     ! Criteria check
-                    if ( any(State%Pstd(i:i+1,j:j+1,0) > Model%PstdThresh) .or. any(cornerNormAngle(i:i+1,j:j+1) < Model%normAngThresh)) then
+                    if ( any(State%Pstd(i:i+1,j:j+1,0) > Model%PstdThresh)) then
+                    !if ( any(State%Pstd(i:i+1,j:j+1,0) > Model%PstdThresh) .or. any(cornerNormAngle(i:i+1,j:j+1) < Model%normAngThresh)) then
                         isInactive(i,j) = .true.
                         if (i > bndLoc(j)) then
                             bndLoc(j) = i
@@ -270,7 +272,7 @@ module raijuDomain
                     if (isInactive(i,j)) then
                         cycle
                     !else if ( (ocbDist(i,j) .eq. nBnd+1) .and. any(ocbDist(iL:iU,jL:jU) .eq. iLayer-1) ) then  ! This version includes the diagonal cells, which are technically not adjacent to our cell
-                    else if ( (ocbDist(i,j) .eq. nBnd+1) .and. ( any(ocbDist(iL:iU,j) .eq. iLayer-1) .or. any(ocbDist(i,jL:jU) .eq. iLayer-1) ) ) then  ! Doesn't include diagonals
+                    else if ( (ocbDist(i,j) .eq. nBnd+1) .and. ( i .eq. sh%isg .or. i .eq. sh%ieg .or. any(ocbDist(iL:iU,j) .eq. iLayer-1) .or. any(ocbDist(i,jL:jU) .eq. iLayer-1) ) ) then  ! Doesn't include diagonals
                         !! If current point's distance hasn't been decided and its bordering cell with iL-1, this point is distance iL from ocb
                         ocbDist(i,j) = iLayer
                     endif

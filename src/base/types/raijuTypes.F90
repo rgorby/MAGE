@@ -199,6 +199,9 @@ module raijutypes
             !! Dump lots of otherwise unnecessary stuff
         logical :: doLossOutput
             !! Dump 3D loss variables like Tau
+        logical :: doOwnCorot
+            !! If true, we calculate corortation potential ourselves and include it in our velocity calculation
+            !! If false, we assume its already included in whatever ionospheric potential we're using
         logical :: doGeoCorot
             !! If true, calc corotation potential from Geopack
             !! If false, calc corotation potential assuming dipole and rotational axes are aligned
@@ -382,6 +385,8 @@ module raijutypes
             !! (Ngi, Ngj, Ns) Normalized standard deviation of the species pressure along the field line
         real(rp), dimension(:,:,:), allocatable :: Dstd
             !! (Ngi, Ngj, Ns) Normalized standard deviation of the species density along the field line
+        real(rp), dimension(:,:), allocatable :: tiote
+            !! (Ngi, Ngj, Ns) Ratio of ion temperature to electron temperature
         real(rp), dimension(:,:,:), allocatable :: Bmin
             !! (Ngi+1, Ngj+1, NDIM) [nT] Bmin vector
         real(rp), dimension(:,:,:), allocatable :: xyzMin
@@ -405,6 +410,8 @@ module raijutypes
         ! -- Coming from ionosphere solve -- !
         real(rp), dimension(:,:), allocatable :: espot
             !! (Ngi+1, Ngj+1) [kV] electro-static potential
+        real(rp), dimension(:,:), allocatable :: pot_corot
+            !! (Ngi+1, Ngj+1) [kV] corotation potential
         
         integer, dimension(:), allocatable :: bndLoc
             !! (Ngi) i value of boundary between inactive and buffer domain

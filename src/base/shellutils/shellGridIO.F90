@@ -80,6 +80,7 @@ module shellGridIO
             !! Optional group to read from, default = /ShellGrid
 
         type(IOVAR_T), dimension(MAXIOVAR) :: IOVars
+        character(len=strLen) :: gStr
         integer :: Nt, Np
         real(rp), dimension(:), allocatable :: theta, phi, theta_active, phi_active
         character(len=strLen) :: name
@@ -91,10 +92,17 @@ module shellGridIO
 
         call ClearIO(IOVars)
 
+        if(present(gStrO)) then
+            gStr = trim(gStrO)
+        else
+            gStr = "/ShellGrid"
+        endif
+        
         ! No name reads yet cause we can't read strings. 
         ! Also makes it tricky to properly do child grids, so that's not an option right now
+        
 
-        !call AddInVar(IOVars, "name")
+        call AddInVar(IOVars, "name",vTypeO=IOSTR)
         call AddInVar(IOVars, "radius")
         call AddInVar(IOVars, "Nt")
         call AddInVar(IOVars, "Np")
@@ -105,26 +113,21 @@ module shellGridIO
         call AddInVar(IOVars, "theta")
         call AddInVar(IOVars, "phi")
         call AddInVar(IOVars, "isChild")
-        !call AddInVar(IOVars, "parentName")
+        call AddInVar(IOVars, "parentName",vTypeO=IOSTR)
         call AddInVar(IOVars, "bndis")
         call AddInVar(IOVars, "bndie")
         call AddInVar(IOVars, "bndjs")
         call AddInVar(IOVars, "bndje")
 
-        if (present(gStrO)) then
-            call ReadVars(IOVars, .false., inH5, trim(gStrO))
-        else
-            call ReadVars(IOVars, .false., inH5, '/ShellGrid')
-        endif
-
+        call ReadVars(IOVars, .false., inH5, trim(gStr))
         
-        isChild = GetIOInt(IOVars, 'isChild') .eq. 1
-        if (isChild) then
-            write(*,*) "ERROR: Reading child ShellGrid from file currently not supported."
-            write(*,*) "  Gotta make some decisions regarding how this should be handled."
-            write(*,*) "  Goodbye."
-            stop
-        endif
+        !isChild = GetIOInt(IOVars, 'isChild') .eq. 1
+        !if (isChild) then
+        !    write(*,*) "ERROR: Reading child ShellGrid from file currently not supported."
+        !    write(*,*) "  Gotta make some decisions regarding how this should be handled."
+        !    write(*,*) "  Goodbye."
+        !    stop
+        !endif
 
 
         Nt = GetIOInt(IOVars, 'Nt')
@@ -146,6 +149,17 @@ module shellGridIO
 
         call GenShellGrid(sg, theta_active, phi_active, trim(sgName), nGhosts=nGhosts, radO=radius)
 
+        ! If we are actually a child grid, sneak in afterward and set that stuff up
+        isChild = GetIOInt(IOVars, 'isChild') .eq. 1
+        if (isChild) then
+            sg%isChild = .true.
+            sg%parentName = trim(GetIOStr(IOVars, 'parentName'))
+            sg%bndis = GetIOInt(IOVars, 'bndis')
+            sg%bndie = GetIOInt(IOVars, 'bndie')
+            sg%bndjs = GetIOInt(IOVars, 'bndjs')
+            sg%bndje = GetIOInt(IOVars, 'bndje')
+        endif
+        
     end subroutine GenShellGridFromFile
 
 
@@ -248,14 +262,21 @@ module shellGridIO
         type(ShellGridVar_T), intent(inout) :: sgv
         character(len=*), intent(in) :: baseStr
         character(len=*), intent(in) :: idStr
-        character(len=*), intent(in) :: gStrO
+        character(len=*), intent(in), optional :: gStrO
         logical, intent(in), optional :: doIOpO
         
         type(IOVAR_T), dimension(5) :: IOVars
+        character(len=strLen) :: gStr
         logical :: doIOp = .false.
         character(len=strLen) :: idStr_mask
         logical :: doReadMask = .false.
         real(rp), dimension(:,:), allocatable :: Q
+
+        if(present(gStrO)) then
+            gStr = trim(gStrO)
+        else
+            gStr="/"
+        endif
 
         if (present(doIOpO)) doIOp = doIOpO
         allocate(Q(sgv%isv:sgv%iev, sgv%jsv:sgv%jev))
@@ -263,13 +284,13 @@ module shellGridIO
 
         call ClearIO(IOVars)
         call AddInVar(IOVars, idStr)
-        if (ioExist(baseStr, idStr_mask, gStrO)) then
+        if (ioExist(baseStr, idStr_mask, gStr)) then
             doReadMask = .true.
             call AddInVar(IOVars, idStr_mask)
         else
             write(*,*)"ReadInSGV_0D: Did not find mask variable for id=",trim(idStr)
         endif
-        call ReadVars(IOVars, doIOp, baseStr, gStrO)
+        call ReadVars(IOVars, doIOp, baseStr, gStr)
 
         call IOArray2DFill(IOVars, idStr, sgv%data)
         if (doReadMask) then
@@ -283,16 +304,23 @@ module shellGridIO
         type(ShellGridVar_T), dimension(:), intent(inout) :: sgv
         character(len=*), intent(in) :: baseStr
         character(len=*), intent(in) :: idStr
-        character(len=*), intent(in) :: gStrO
+        character(len=*), intent(in), optional :: gStrO
         logical, intent(in), optional :: doIOpO
         
         integer :: k
         type(IOVAR_T), dimension(5) :: IOVars
+        character(len=strLen) :: gStr
         logical :: doIOp = .false.
         character(len=strLen) :: idStr_mask
         integer, dimension(1) :: sgv_shape
         logical :: doReadMask = .false.
         real(rp), dimension(:,:,:), allocatable :: Q
+
+        if(present(gStrO)) then
+            gStr = trim(gStrO)
+        else
+            gStr="/"
+        endif
 
         if (present(doIOpO)) doIOp = doIOpO
         sgv_shape = shape(sgv)

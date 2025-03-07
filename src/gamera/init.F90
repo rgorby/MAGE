@@ -35,11 +35,11 @@ module init
     
     !Hatch Gamera
     !Initialize main data structures
-    subroutine Hatch(Model,Grid,State,oState,Solver,xmlInp,userInitFunc,endTime)
+    subroutine Hatch(Model,Grid,State,oState,ooState,Solver,xmlInp,userInitFunc,endTime)
         type(Model_T), intent(inout) :: Model
         type(Grid_T), intent(inout) :: Grid
-        type(State_T), intent(inout) :: State,oState
-        type(Solver_T), intent(inout) :: Solver
+        type(State_T), intent(inout) :: State,oState,ooState
+        type(gamSolver_T), intent(inout) :: Solver
         !OMEGA can overrule what GAMERA has
         type(XML_Input_T), intent(inout) :: xmlInp
         procedure(StateIC_T), pointer, intent(in) :: userInitFunc
@@ -52,7 +52,7 @@ module init
         call ReadCorners(Model,Grid,xmlInp,endTime)
 
         ! call appropriate subroutines to calculate all appropriate grid data from the corner data
-        call CalcGridInfo(Model,Grid,State,oState,Solver,xmlInp,userInitFunc)
+        call CalcGridInfo(Model,Grid,State,oState,ooState,Solver,xmlInp,userInitFunc)
 
         !Initialization complete!
         
@@ -147,17 +147,16 @@ module init
         call CheckFileOrDie(inH5,"Restart file not found ...")
     end subroutine getRestart
 
-    subroutine CalcGridInfo(Model,Grid,State,oState,Solver,xmlInp,userInitFunc)
-        type(Model_T), intent(inout) :: Model
-        type(Grid_T), intent(inout) :: Grid
-        type(State_T), intent(inout) :: State,oState
-        type(Solver_T), intent(inout) :: Solver
+    subroutine CalcGridInfo(Model,Grid,State,oState,ooState,Solver,xmlInp,userInitFunc)
+        type(Model_T)    , intent(inout) :: Model
+        type(Grid_T)     , intent(inout) :: Grid
+        type(State_T)    , intent(inout) :: State,oState,ooState
+        type(gamSolver_T), intent(inout) :: Solver
         type(XML_Input_T), intent(inout) :: xmlInp
         procedure(StateIC_T), pointer, intent(in) :: userInitFunc
 
         character(len=strLen) :: inH5, FileCode,resId
-        logical :: fExist, doReset
-        real(rp) :: tReset
+        logical :: fExist
         integer :: dotLoc,nRes
 
         !Set default domains (needs to be done after grid generation/reading)
@@ -176,7 +175,7 @@ module init
         !Initialize state data
         !First prep state, then do restart if necessary, then finish state
 
-        call PrepState(Model,Grid,oState,State,xmlInp,userInitFunc)
+        call PrepState(Model,Grid,State,oState,ooState,xmlInp,userInitFunc)
 
         !Do background stuff
         !Incorporate background field, B0, if necessary
@@ -195,12 +194,8 @@ module init
             call xmlInp%Set_Val(nRes,"restart/nRes" ,-1)
             call getRestart(Model,Grid,resId,nRes,inH5)
 
-            !Test for resetting time
-            call xmlInp%Set_Val(doReset ,"restart/doReset" ,.false.)
-            call xmlInp%Set_Val( tReset ,"restart/tReset"   ,0.0_rp)
-
             !Read restart
-            call readH5Restart(Model,Grid,State,oState,inH5,doReset,tReset)
+            call readH5Restart(Model,Grid,State,oState,ooState,inH5)
         else
             ! set initial dt0 to 0, it will be set once the case settles
             Model%dt0 = 0
@@ -210,9 +205,16 @@ module init
             call bFlux2Fld(Model,Grid,State%magFlux,State%Bxyz)
             if (Model%isRestart) then
                 call bFlux2Fld(Model,Grid,oState%magFlux,oState%Bxyz)
+                if (Model%doAB3) then
+                    call bFlux2Fld(Model,Grid,ooState%magFlux,ooState%Bxyz)
+                endif
             else
                 oState%magFlux = State%magFlux
                 oState%Bxyz    = State%Bxyz
+                if (Model%doAB3) then
+                    ooState%magFlux = State%magFlux
+                    ooState%Bxyz    = State%Bxyz
+                endif                
             endif
         endif
 
@@ -223,8 +225,10 @@ module init
         call EnforceBCs(Model,Grid,State)
         if (Model%isRestart) then
             call EnforceBCs(Model,Grid,oState)
+            if (Model%doAB3) call EnforceBCs(Model,Grid,ooState)
         else
             oState = State
+            if (Model%doAB3) ooState = State 
         endif
         call Toc("BCs")
 
@@ -233,6 +237,9 @@ module init
         if (.not. Model%isRestart) then
             !If restart then oState%time already set by actual value
             oState%time = State%time-Model%dt !Initial old state
+            if (Model%doAB3) then
+                ooState%time = oState%time-Model%dt
+            endif            
         endif
 
         !Initialize solver data
@@ -252,10 +259,10 @@ module init
     end subroutine CalcGridInfo
 
     !Prepare state and call IC
-    subroutine PrepState(Model,Grid,oState,State,xmlInp,userInitFunc)
+    subroutine PrepState(Model,Grid,State,oState,ooState,xmlInp,userInitFunc)
         type(Model_T), intent(inout) :: Model
         type(Grid_T), intent(inout) :: Grid
-        type(State_T), intent(inout) :: oState,State
+        type(State_T), intent(inout) :: State,oState,ooState
         type(XML_Input_T), intent(in) :: xmlInp
         procedure(StateIC_T), pointer, intent(in) :: userInitFunc
 
@@ -280,11 +287,13 @@ module init
         !Alloc first
         call allocState(Model,Grid,State)
         call allocState(Model,Grid,oState)
+        if (Model%doAB3) call allocState(Model,Grid,ooState)
 
         !Call IC function
         !Call even for restart to reset BCs, background, etc ...
         call initState(Model,Grid,State,xmlInp)
         oState = State
+        if (Model%doAB3) ooState = oState
 
         !Ensure the BC objects are OK
         call ValidateBCs(Model,Grid)
@@ -363,6 +372,9 @@ module init
             Model%cHogH = 0.0
             Model%cHogM = 0.0
         endif
+
+        call xmlInp%Set_Val(Model%doAB3,'sim/doAB3',.false.) !Maybe will change this to default true
+        
     !Time options
         !Check both omega/sim/tFin & gamera/time/tFin
         call xmlInp%Set_Val(Model%tFin,'time/tFin',1.0_rp)
@@ -416,6 +428,9 @@ module init
         endif
     !Source terms
         call xmlInp%Set_Val(Model%doSource,'source/doSource',.false.)
+        if (Model%doSource) then
+            call xmlInp%Set_Val(Model%nvSrc,'source/nvSrc',NVARVOLTSRC)
+        endif
 
     !Get RunID
         call xmlInp%Set_Val(Model%RunID,'sim/runid',"Sim")
@@ -468,9 +483,9 @@ module init
     end subroutine initModel
 
     subroutine initSolver(Solver, Model, Grid)
-        type(Solver_T), intent(inout) :: Solver
-        type(Model_T), intent(in)     :: Model
-        type(Grid_T), intent(in)      :: Grid
+        type(gamSolver_T), intent(inout) :: Solver
+        type(Model_T)    , intent(in)    :: Model
+        type(Grid_T)     , intent(in)    :: Grid
 
         ! initialize stress variables
         allocate(Solver%gFlx(Grid%isg:Grid%ieg,Grid%jsg:Grid%jeg,Grid%ksg:Grid%keg,1:NVAR,1:NDIM,BLK:Model%nSpc))
@@ -1049,7 +1064,7 @@ module init
         enddo    
 
         if (Model%doSource) then
-            allocate(Grid%Gas0(Grid%isg:Grid%ieg,Grid%jsg:Grid%jeg,Grid%ksg:Grid%keg,1:NVAR,0:Model%nSpc))
+            allocate(Grid%Gas0(Grid%isg:Grid%ieg,Grid%jsg:Grid%jeg,Grid%ksg:Grid%keg,Model%nvSrc))
             Grid%Gas0 = 0.0
         endif
         

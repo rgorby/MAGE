@@ -100,9 +100,6 @@ module gamCoupleHelper
         call AddOutVar(IOVars,"mixOutput",App%mixOutput)
         call AddOutVar(IOVars,"gPsi"     ,App%gPsi)
 
-        !Imag Coupling Variables
-        call AddOutVar(IOVars,"SrcNC"    ,App%SrcNC)
-
         !Write out, force real precision
         call WriteVars(IOVars,.false.,ResF)
 
@@ -146,21 +143,11 @@ module gamCoupleHelper
         call AddInVar(IOVars,"mixOutput")
         call AddInVar(IOVars,"gPsi")
 
-        !Read Imag Coupling Variables
-        call AddInVar(IOVars,"SrcNC")
-
         !Get data
         call ReadVars(IOVars,.false.,ResF)
 
         call IOArray5DFill(IOVars,"mixOutput",App%mixOutput)
         call IOArray3DFill(IOVars,"gPsi",App%gPsi)
-        n0 = FindIO(IOVars,"SrcNC")
-        if(size(App%SrcNC,1) .ne. IOVars(n0)%dims(1)) then
-            !SrcNC size normally gets sets during runtime
-            deallocate(App%SrcNC)
-            allocate(App%SrcNC(IOVars(n0)%dims(1),IOVars(n0)%dims(2),IOVars(n0)%dims(3),IOVars(n0)%dims(4)))
-        endif
-        call IOArray4DFill(IOVars,"SrcNC",App%SrcNC)
 
     end subroutine
 

@@ -9,7 +9,8 @@ module gioH5
     use planethelper
     use dates
     use files
-    
+    use volttypes
+
     implicit none
 
     integer, parameter, private :: MAXIOVAR = 50
@@ -461,18 +462,23 @@ module gioH5
 
             endif
 
-            if (Model%doSource) then
-                call GameraOut("SrcD" ,gamOut%dID,gamOut%dScl,Gr%Gas0(Gr%is:Gr%ie,Gr%js:Gr%je,Gr%ks:Gr%ke,DEN     ,BLK))
-                call GameraOut("SrcP" ,gamOut%pID,gamOut%pScl,Gr%Gas0(Gr%is:Gr%ie,Gr%js:Gr%je,Gr%ks:Gr%ke,PRESSURE,BLK))
-                if (Model%isMagsphere) then
-                    call GameraOut("SrcX1","DEG",1.0_rp     ,Gr%Gas0(Gr%is:Gr%ie,Gr%js:Gr%je,Gr%ks:Gr%ke,VELX    ,BLK))
-                    call GameraOut("SrcX2","DEG",1.0_rp     ,Gr%Gas0(Gr%is:Gr%ie,Gr%js:Gr%je,Gr%ks:Gr%ke,VELY    ,BLK))
-                    call GameraOut("SrcDT","s"  ,gamOut%tScl,Gr%Gas0(Gr%is:Gr%ie,Gr%js:Gr%je,Gr%ks:Gr%ke,VELZ    ,BLK))
-                else
-                    call GameraOut("SrcVx","CODE"    ,1.0_rp     ,Gr%Gas0(Gr%is:Gr%ie,Gr%js:Gr%je,Gr%ks:Gr%ke,VELX    ,BLK))
-                    call GameraOut("SrcVy","CODE"    ,1.0_rp     ,Gr%Gas0(Gr%is:Gr%ie,Gr%js:Gr%je,Gr%ks:Gr%ke,VELY    ,BLK))
-                    call GameraOut("SrcVz","CODE"    ,1.0_rp     ,Gr%Gas0(Gr%is:Gr%ie,Gr%js:Gr%je,Gr%ks:Gr%ke,VELZ    ,BLK))
-                endif                    
+            if (Model%doSource .and. Model%isMagsphere) then
+                
+                !Volt variables
+                call GameraOut("SrcX1" ,"deg",rad2deg,Gr%Gas0(Gr%is:Gr%ie,Gr%js:Gr%je,Gr%ks:Gr%ke,PROJLAT))
+                call GameraOut("SrcX2" ,"deg",rad2deg,Gr%Gas0(Gr%is:Gr%ie,Gr%js:Gr%je,Gr%ks:Gr%ke,PROJLON))
+
+                call GameraOut("SrcIONEx" ,gamOut%eID,gamOut%eScl,Gr%Gas0(Gr%is:Gr%ie,Gr%js:Gr%je,Gr%ks:Gr%ke,IONEX))
+                call GameraOut("SrcIONEy" ,gamOut%eID,gamOut%eScl,Gr%Gas0(Gr%is:Gr%ie,Gr%js:Gr%je,Gr%ks:Gr%ke,IONEY))
+                call GameraOut("SrcIONEz" ,gamOut%eID,gamOut%eScl,Gr%Gas0(Gr%is:Gr%ie,Gr%js:Gr%je,Gr%ks:Gr%ke,IONEZ))
+
+                !IMAG variables
+                call GameraOut("SrcD_RING" ,gamOut%dID,gamOut%dScl,Gr%Gas0(Gr%is:Gr%ie,Gr%js:Gr%je,Gr%ks:Gr%ke,IM_D_RING))
+                call GameraOut("SrcP_RING" ,gamOut%pID,gamOut%pScl,Gr%Gas0(Gr%is:Gr%ie,Gr%js:Gr%je,Gr%ks:Gr%ke,IM_P_RING))
+                call GameraOut("SrcD_COLD" ,gamOut%dID,gamOut%dScl,Gr%Gas0(Gr%is:Gr%ie,Gr%js:Gr%je,Gr%ks:Gr%ke,IM_D_COLD))
+                call GameraOut("SrcP_COLD" ,gamOut%pID,gamOut%pScl,Gr%Gas0(Gr%is:Gr%ie,Gr%js:Gr%je,Gr%ks:Gr%ke,IM_P_COLD))
+                call GameraOut("SrcDT"     ,"s"       ,gamOut%tScl,Gr%Gas0(Gr%is:Gr%ie,Gr%js:Gr%je,Gr%ks:Gr%ke,IM_TSCL  ))
+            
             endif
 
             if(Model%doResistive) then
@@ -627,10 +633,10 @@ module gioH5
 
     !Write restart dump to "ResF" output file
     !NOTE: Rewritten to output full data structure including halos
-    subroutine writeH5Res(Model,Gr,oState,State,ResF)
+    subroutine writeH5Res(Model,Gr,State,oState,ooState,ResF)
         type(Model_T), intent(inout) :: Model
         type(Grid_T),  intent(in) :: Gr
-        type(State_T), intent(in) :: State,oState
+        type(State_T), intent(in) :: State,oState,ooState
         character(len=*), intent(in) :: ResF
 
         !Reset IO chain
@@ -640,10 +646,7 @@ module gioH5
         call AddOutVar(IOVars,"nOut",Model%IO%nOut)
         call AddOutVar(IOVars,"nRes",Model%IO%nRes)
         call AddOutVar(IOVars,"ts"  ,Model%ts)
-        call AddOutVar(IOVars,"t"   ,Model%t)
-        call AddOutVar(IOVars,"ot"  ,oState%time)
         call AddOutVar(IOVars,"dt"  ,Model%dt)
-
         if (Model%dt0 < TINY*10.0) then
             call AddOutVar(IOVars,"dt0"   ,0.0)
         else
@@ -655,177 +658,194 @@ module gioH5
         call AddOutVar(IOVars,"Y",Gr%xyz(:,:,:,YDIR))
         call AddOutVar(IOVars,"Z",Gr%xyz(:,:,:,ZDIR))
 
-        !State variable
-        call AddOutVar(IOVars, "Gas",  State%Gas(Gr%is:Gr%ie,Gr%js:Gr%je,Gr%ks:Gr%ke,:,:))        
-        call AddOutVar(IOVars,"oGas" ,oState%Gas(Gr%is:Gr%ie,Gr%js:Gr%je,Gr%ks:Gr%ke,:,:))
-
-        if (Model%doMHD) then
-            call AddOutVar(IOVars, "magFlux", State%magFlux(Gr%is:Gr%ie+1,Gr%js:Gr%je+1,Gr%ks:Gr%ke+1,:))
-            call AddOutVar(IOVars,"omagFlux",oState%magFlux(Gr%is:Gr%ie+1,Gr%js:Gr%je+1,Gr%ks:Gr%ke+1,:))
-            call AddOutVar(IOVars, "Bxyz"   , State%Bxyz(Gr%is:Gr%ie,Gr%js:Gr%je,Gr%ks:Gr%ke,:  ))
-            call AddOutVar(IOVars,"oBxyz"   ,oState%Bxyz(Gr%is:Gr%ie,Gr%js:Gr%je,Gr%ks:Gr%ke,:  ))
+        !States
+        call AddState2IO(Model,Gr, State,"")
+        call AddState2IO(Model,Gr,oState,"o")
+        if (Model%doAB3) then
+            call AddState2IO(Model,Gr,ooState,"oo")
         endif
 
         if (Model%doSource) then
             !Add source terms to output
-            call AddOutVar( IOVars,"Gas0",Gr%Gas0(Gr%is:Gr%ie,Gr%js:Gr%je,Gr%ks:Gr%ke,:,:) )
+            call AddOutVar( IOVars,"Gas0",Gr%Gas0(:,:,:,:) )
         endif
 
         !Write out, force real precision
         call WriteVars(IOVars,.false.,ResF)
 
+        contains
+            subroutine AddState2IO(Model,Gr,xState,xID)
+                type(Model_T)   , intent(in) :: Model
+                type(Grid_T)    , intent(in) :: Gr
+                type(State_T)   , intent(in) :: xState
+                character(len=*), intent(in) :: xID
+
+                call AddOutVar(IOVars, trim(xID) // "t"  , xState%time)
+                call AddOutVar(IOVars, trim(xID) // "Gas", xState%Gas(:,:,:,:,:))
+                if (Model%doMHD) then
+                    call AddOutVar(IOVars, trim(xID) // "magFlux",xState%magFlux(:,:,:,:))
+                    call AddOutVar(IOVars, trim(xID) // "Bxyz"   ,xState%Bxyz   (:,:,:,:)) 
+                endif
+
+            end subroutine AddState2IO
     end subroutine writeH5Res
     
-    subroutine readH5Restart(Model,Gr,State,oState,inH5,doResetO,tResetO)
+    !Read H5 restart
+    subroutine readH5Restart(Model,Gr,State,oState,ooState,inH5)
         type(Model_T), intent(inout) :: Model
         type(Grid_T),  intent(inout) :: Gr
-        type(State_T), intent(inout) :: State,oState
+        type(State_T), intent(inout) :: State,oState,ooState
         character(len=*), intent(in) :: inH5
-        logical , intent(in), optional :: doResetO
-        real(rp), intent(in), optional :: tResetO
 
-        logical :: doReset,fExist,hasSrc
-        real(rp) :: tReset,dt
-        integer :: rSpc
+        logical  :: hasSrc,hasO,hasOO,hasdt0,skipGhosts
+        real(rp) :: dt
+        integer  :: rSpc,n0
 
-        !Test for resetting
-        if (present(doResetO)) then
-            doReset = doResetO
-            if (present(tResetO)) then
-                tReset = tResetO
-            else
-                tReset = 0.0
-            endif
-        else
-            doReset = .false.
-            tReset = 0.0
-        endif
+        !NOTE: Removing fortran support for changing numfluids on restart, it's easier to just do that on python side
 
-        write(*,*) 'Reading restart from ', trim(inH5)
-        inquire(file=inH5,exist=fExist)
-        if (.not. fExist) then
-            !Error out and leave
-            write(*,*) 'Unable to open input restart file, exiting'
-            stop
-        endif
+        if (Model%isLoud) write(*,*) 'Reading restart from ', trim(inH5)
 
-        !Check for oState info
-        if ( (.not. ioExist(inH5,"oGas")) .or. (.not. ioExist(inH5,"omagFlux")) ) then
+        !Check file
+        call CheckFileOrDie(inH5,"Unable to open restart file")
+
+        !Okay, let's see what we got here
+        hasO   = ioExist(inH5, "oGas")
+        hasOO  = ioExist(inH5,"ooGas")
+        hasSrc = ioExist(inH5,"Gas0")
+        hasdt0 = ioExist(inH5,"dt0")
+
+        !Do some error/warning checking
+        if (.not. hasO) then
             write(*,*) "Restart file too old, does not include oState!"
             stop
         endif
+        if (Model%doSource .and. (.not. hasSrc)) then
+            if (Model%isLoud) write(*,*) 'No Gas0 found in restart, starting fresh ...'
+        endif
+        if (Model%doAB3 .and. (.not. hasOO)) then
+            if (Model%isLoud) write(*,*) "No ooState found in restart, faking it ..."
+        endif
 
-        !Reset IO chain
+        !Now setup chain
         call ClearIO(IOVars)
-
-        call AddInVar(IOVars,"Gas" )
-        call AddInVar(IOVars,"oGas")
-        call AddInVar(IOVars,"magFlux")
-        call AddInVar(IOVars,"omagFlux")
         call AddInVar(IOVars,"nOut",vTypeO=IOINT)
         call AddInVar(IOVars,"nRes",vTypeO=IOINT)
         call AddInVar(IOVars,"ts"  ,vTypeO=IOINT)
+
         call AddInVar(IOVars,"t"   ,vTypeO=IOREAL)
+        call AddInVar(IOVars,"dt"  ,vTypeO=IOREAL)
+        call AddInVar(IOVars,"Gas" )
+        call AddInVar(IOVars,"magFlux")
+
         call AddInVar(IOVars,"ot"   ,vTypeO=IOREAL)
+        call AddInVar(IOVars,"oGas")
+        call AddInVar(IOVars,"omagFlux")
+
+        if (Model%doAB3 .and. hasOO) then
+            call AddInVar(IOVars,"oot"   ,vTypeO=IOREAL)
+            call AddInVar(IOVars,"ooGas")
+            call AddInVar(IOVars,"oomagFlux")
+        endif
+        if (Model%doSource .and. hasSrc) then
+            call AddInVar(IOVars,"Gas0")
+        endif
+        if (hasdt0) call AddInVar(IOVars,"dt0")
 
         !Get data
         call ReadVars(IOVars,.false.,inH5)
 
-        !Find number of species in restart
-        rSpc = IOVars(1)%dims(5)-1
-
-        if (Model%nSpc == rSpc) then
-            !Restart and State variable agree
-            call IOArray5DFill(IOVars,"Gas" ,State %Gas(Gr%is:Gr%ie,Gr%js:Gr%je,Gr%ks:Gr%ke,:,:))
-            call IOArray5DFill(IOVars,"oGas",oState%Gas(Gr%is:Gr%ie,Gr%js:Gr%je,Gr%ks:Gr%ke,:,:))
-
-        else if (Model%nSpc > rSpc) then
-            !Not enough species in restart, fill as many as possible
-            call IOArray5DFill(IOVars,"Gas" ,State %Gas(Gr%is:Gr%ie,Gr%js:Gr%je,Gr%ks:Gr%ke,:,0:rSpc))
-            call IOArray5DFill(IOVars,"oGas",oState%Gas(Gr%is:Gr%ie,Gr%js:Gr%je,Gr%ks:Gr%ke,:,0:rSpc))
-
-            !Now initialize to empty remaining species
-            State %Gas(:,:,:,1:NVAR,rSpc+1:Model%nSpc) = 0.0
-            oState%Gas(:,:,:,1:NVAR,rSpc+1:Model%nSpc) = 0.0
-
-            !Now reaccumulate
-            call State2Bulk(Model,Gr,State )
-            call State2Bulk(Model,Gr,oState)
-        else
-            !Too many species in restart, this isn't good
-            write(*,*) 'Restart error, more species in restart than room in State!'
+        !Now process data
+        n0 = FindIO(IOVars,"Gas")
+        rSpc = IOVars(n0)%dims(5)-1 !Number of species in restart (subtract BLK)
+        if (Model%nSpc /= rSpc) then
+            write(*,*) "Restart species is inconsistent w/ MHD, bailing ..."
             stop
         endif
 
-        !Now handle magnetic fields
-        if (Model%doMHD) then
-            call IOArray4DFill(IOVars,"magFlux" ,State %magFlux(Gr%is:Gr%ie+1,Gr%js:Gr%je+1,Gr%ks:Gr%ke+1,:))
-            call IOArray4DFill(IOVars,"omagFlux",oState%magFlux(Gr%is:Gr%ie+1,Gr%js:Gr%je+1,Gr%ks:Gr%ke+1,:))
+        !n0 still Gas
+        if(IOVars(n0)%dims(1) .eq. size(State%Gas,1)) then
+            skipGhosts = .false.
+        elseif(IOVars(n0)%dims(1) .eq. (size(State%Gas,1) - 2*Model%nG)) then
+            write(*,*) "Reading older version gamera restart data without ghosts"
+            skipGhosts = .true.
+        else
+            write(*,*) "Restart data was written from a grid with a different size. Cannot read. Bailing."
+            stop
         endif
-
+        
+        !Fill state/ostate
+        call PullState(Model,Gr, State,"")
+        call PullState(Model,Gr,oState,"o")
 
         !Get main attributes
         dt = GetIOReal(IOVars,"t") - GetIOReal(IOVars,"ot") !Spacing between restart states
-        if (doReset) then
-            Model%IO%nOut = 0
-            Model%IO%nRes = GetIOInt(IOVars,"nRes") + 1
-            Model%ts      = 0
-            Model%t       = tReset      
-        else
-            Model%IO%nOut = GetIOInt(IOVars,"nOut")
-            Model%IO%nRes = GetIOInt(IOVars,"nRes") + 1
-            Model%ts      = GetIOInt(IOVars,"ts")
-            Model%t       = GetIOReal(IOVars,"t")
-        endif
         
+        Model%IO%nOut = GetIOInt(IOVars,"nOut")
+        Model%IO%nRes = GetIOInt(IOVars,"nRes") + 1
+        Model%ts      = GetIOInt(IOVars,"ts")
+        Model%t       = GetIOReal(IOVars,"t")
+        Model%dt      = GetIOReal(IOVars,"dt")
+
         State %time = Model%t
-        oState%time = State%time - dt !Handles tReset
+        oState%time = GetIOReal(IOVars,"ot")
 
-        !Set back to old dt0 if possible
-        if (ioExist(inH5,"dt0")) then
-            call ClearIO(IOVars)
-            call AddInVar(IOVars,"dt0")
-            call ReadVars(IOVars,.false.,inH5)
+        !Now handle AB3 state
+        if (Model%doAB3) then
+            if (hasOO) then
+                call PullState(Model,Gr,ooState,"oo")
+            else
+                !Fake it
+                ooState%time    = oState%time - dt
+                ooState%Gas     = oState%Gas
+                if (Model%doMHD) ooState%magFlux = oState%magFlux
+            endif
+        endif
 
+        !Handle gas0
+        if (Model%doSource .and. hasSrc) then
+            if(skipGhosts) then
+                call IOArray4DFill(IOVars,"Gas0",Gr%Gas0(Gr%is:Gr%ie,Gr%js:Gr%je,Gr%ks:Gr%ke,:))
+            else
+                call IOArray4DFill(IOVars,"Gas0",Gr%Gas0(:,:,:,:))
+            endif
+        endif
+
+        if (hasdt0) then
             Model%dt0 = GetIOReal(IOVars,"dt0")
 
-            if (Model%dt0<TINY*10) then
-                Model%dt0 = 0.0
-            else
-                if (Model%isLoud) write(*,*) 'Found dt0, setting to ', Model%dt0*Model%Units%gT0
-            endif
+            if (Model%dt0<TINY*10) Model%dt0 = 0.0
         else
-            if (Model%isLoud) then
-                write(*,*) 'No dt0 found in restart, setting to 0'
-                Model%dt0 = 0.0
-            endif
+            Model%dt0 = 0.0
         endif
 
-    !Do source term stuff if necessary
-        hasSrc = ioExist(inH5,"Gas0")
-        if (Model%doSource .and. hasSrc) then
-            if (Model%isLoud) then
-                write(*,*) 'Found MHD source term data in restart, reading ...'
-            endif
-            !We want source and it's got some, let's do this thing
-            call ClearIO(IOVars)
-            call AddInVar(IOVars,"Gas0")
-            call ReadVars(IOVars,.false.,inH5)
-
-            rSpc = IOVars(1)%dims(5)-1
-            if (Model%nSpc == rSpc) then
-                !Restart and Gas0 species agree, do stuff
-                call IOArray5DFill(IOVars,"Gas0",Gr%Gas0(Gr%is:Gr%ie,Gr%js:Gr%je,Gr%ks:Gr%ke,:,:))
-            else
-                if (Model%isLoud) write(*,*) 'Gas0 is wrong size, ignoring ...'
-            endif
-        else
-            if (Model%isLoud) write(*,*) 'No Gas0 found in restart, starting fresh ...'
-        endif !Gas0
-
-    !Do touchup to data structures
+        !Do touchup to data structures
         Model%IO%tOut = floor(Model%t/Model%IO%dtOut)*Model%IO%dtOut + Model%IO%dtOut
         Model%IO%tRes = floor(Model%t/Model%IO%dtRes)*Model%IO%dtRes + Model%IO%dtRes
+
+        contains
+            subroutine PullState(Model,Gr,xState,xID)
+                type(Model_T)   , intent(in) :: Model
+                type(Grid_T)    , intent(in) :: Gr
+                type(State_T)   , intent(inout) :: xState
+                character(len=*), intent(in) :: xID
+
+                xState%time = GetIOReal(IOVars,trim(xID) // "t")
+
+                if(skipGhosts) then
+                    call IOArray5DFill(IOVars,trim(xID) // "Gas",xState%Gas(Gr%is:Gr%ie,Gr%js:Gr%je,Gr%ks:Gr%ke,:,:))
+                else
+                    call IOArray5DFill(IOVars,trim(xID) // "Gas",xState%Gas(:,:,:,:,:))
+                endif
+
+                if (Model%doMHD) then
+                    if (skipGhosts) then
+                        call IOArray4DFill(IOVars,trim(xID) // "magFlux",xState%magFlux(Gr%is:Gr%ie+1,Gr%js:Gr%je+1,Gr%ks:Gr%ke+1,:))
+                    else
+                        call IOArray4DFill(IOVars,trim(xID) // "magFlux",xState%magFlux(:,:,:,:))
+                    endif
+                endif
+
+            end subroutine PullState
 
     end subroutine readH5Restart
 

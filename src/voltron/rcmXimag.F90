@@ -21,231 +21,231 @@ module rcmXimag
         contains
 
         ! over-ride the base functions with RCM versions
-        procedure :: doInit => initRCMX
-        procedure :: doAdvance => advanceRCMX
-        procedure :: doEval => evalRCMX
-        procedure :: doIO => doRCMXIO
-        procedure :: doRestart => doRCMXRestart
+        ! procedure :: doInit => initRCMX
+        ! procedure :: doAdvance => advanceRCMX
+        ! procedure :: doEval => evalRCMX
+        ! procedure :: doIO => doRCMXIO
+        ! procedure :: doRestart => doRCMXRestart
 
     end type
 
-    contains 
+!     contains 
 
-    subroutine initRCMX(imag,iXML,isRestart,vApp)
-        class(rcmXIMAG_T), intent(inout) :: imag
-        type(XML_Input_T), intent(in) :: iXML
-        logical, intent(in) :: isRestart
-        type(voltApp_T), intent(inout) :: vApp
+!     subroutine initRCMX(imag,iXML,isRestart,vApp)
+!         class(rcmXIMAG_T), intent(inout) :: imag
+!         type(XML_Input_T), intent(in) :: iXML
+!         logical, intent(in) :: isRestart
+!         type(voltApp_T), intent(inout) :: vApp
 
-        allocate(rcmIMAG_T :: imag%rcmApp)
-        allocate(empData_T :: imag%empApp)
+!         allocate(rcmIMAG_T :: imag%rcmApp)
+!         allocate(empData_T :: imag%empApp)
 
-        call imag%rcmApp%doInit(iXML,isRestart,vApp)
-        call imag%empApp%doInit(iXML,isRestart,vApp)
+!         call imag%rcmApp%doInit(iXML,isRestart,vApp)
+!         call imag%empApp%doInit(iXML,isRestart,vApp)
 
-        ! define rcm grid, store inside the rcmXIMAG class
-        call rcmGrid(imag)
-        ! set map (note, sstG is defined in empApp%doInit)
-        call mix_set_map(imag%empApp%sstG,imag%rcmG,imag%rcmMap)
+!         ! define rcm grid, store inside the rcmXIMAG class
+!         call rcmGrid(imag)
+!         ! set map (note, sstG is defined in empApp%doInit)
+!         call mix_set_map(imag%empApp%sstG,imag%rcmG,imag%rcmMap)
 
-        contains
+!         contains
 
-        ! note this is ugly, as it simply reuses the code from rcm_mix_interface
-        ! FIXME: consider defining RCM mix-style grid in, e.g., initRCM and reusing here and in rcm_mix_interface
-        subroutine rcmGrid(imagX) 
-            class(rcmXIMAG_T), intent(inout) :: imagX
-            integer :: i, j, Np, Nt
-            real(rp), dimension(:,:), allocatable :: rcmp, rcmt ! remix-style 2-D arrays to hold the RCM grid
+!         ! note this is ugly, as it simply reuses the code from rcm_mix_interface
+!         ! FIXME: consider defining RCM mix-style grid in, e.g., initRCM and reusing here and in rcm_mix_interface
+!         subroutine rcmGrid(imagX) 
+!             class(rcmXIMAG_T), intent(inout) :: imagX
+!             integer :: i, j, Np, Nt
+!             real(rp), dimension(:,:), allocatable :: rcmp, rcmt ! remix-style 2-D arrays to hold the RCM grid
 
-            Np = size(imagX%rcmApp%rcmCpl%glong)
-            Nt = size(imagX%rcmApp%rcmCpl%gcolat)
+!             Np = size(imagX%rcmApp%rcmCpl%glong)
+!             Nt = size(imagX%rcmApp%rcmCpl%gcolat)
                
-        !Now do remix mapping
-            if (.not.allocated(rcmp)) allocate(rcmp(Np,Nt))
-            if (.not.allocated(rcmt)) allocate(rcmt(Np,Nt))
+!         !Now do remix mapping
+!             if (.not.allocated(rcmp)) allocate(rcmp(Np,Nt))
+!             if (.not.allocated(rcmt)) allocate(rcmt(Np,Nt))
 
-        ! construct the 2-D grid
-            do j=1,Np
-               rcmt(j,:) = imagX%rcmApp%rcmCpl%gcolat
-            enddo
+!         ! construct the 2-D grid
+!             do j=1,Np
+!                rcmt(j,:) = imagX%rcmApp%rcmCpl%gcolat
+!             enddo
 
-            do i=1,Nt
-               rcmp(:,i) = imagX%rcmApp%rcmCpl%glong
-            enddo
+!             do i=1,Nt
+!                rcmp(:,i) = imagX%rcmApp%rcmCpl%glong
+!             enddo
 
-            ! call remix grid constructor
-            call init_grid_fromTP(imagX%rcmG,rcmt,rcmp,isSolverGrid=.false.)
+!             ! call remix grid constructor
+!             call init_grid_fromTP(imagX%rcmG,rcmt,rcmp,isSolverGrid=.false.)
 
-        end subroutine rcmGrid
+!         end subroutine rcmGrid
 
-    end subroutine initRCMX
+!     end subroutine initRCMX
 
-    subroutine advanceRCMX(imag,vApp,tAdv)
-        class(rcmXIMAG_T), intent(inout) :: imag
-        type(voltApp_T), intent(inout) :: vApp
-        real(rp), intent(in) :: tAdv
-        real(rp), dimension(:,:), allocatable :: empPressureOnRCMGrid
-        real(rp), dimension(:,:), allocatable :: empBvolOnRCMGrid
+!     subroutine advanceRCMX(imag,vApp,tAdv)
+!         class(rcmXIMAG_T), intent(inout) :: imag
+!         type(voltApp_T), intent(inout) :: vApp
+!         real(rp), intent(in) :: tAdv
+!         real(rp), dimension(:,:), allocatable :: empPressureOnRCMGrid
+!         real(rp), dimension(:,:), allocatable :: empBvolOnRCMGrid
 
-        call imag%rcmApp%doAdvance(vApp,tAdv)
-        call imag%empApp%doAdvance(vApp,tAdv)
+!         call imag%rcmApp%doAdvance(vApp,tAdv)
+!         call imag%empApp%doAdvance(vApp,tAdv)
 
-        ! interpolate from emp to rcm here 
-        !call mix_map_grids(imag%rcmMap,imag%empApp%sstP,empPressureOnRCMGrid)
-        !call mix_map_grids(imag%rcmMap,imag%empApp%sstBvol,empBvolOnRCMGrid)
+!         ! interpolate from emp to rcm here 
+!         !call mix_map_grids(imag%rcmMap,imag%empApp%sstP,empPressureOnRCMGrid)
+!         !call mix_map_grids(imag%rcmMap,imag%empApp%sstBvol,empBvolOnRCMGrid)
         
 
-        ! replace RCM pressure for now but think about merging like this later
-        !rcmX%Pressure = w1(x,y)*rcm%Pressure + w2(x,y)*sst%Pressure
+!         ! replace RCM pressure for now but think about merging like this later
+!         !rcmX%Pressure = w1(x,y)*rcm%Pressure + w2(x,y)*sst%Pressure
 
-        ! note, converting sst pressure (nPa) to rcm (Pa)
-        ! doEval below converts back to nPa
-        !imag%rcmApp%rcmCpl%Prcm = 1.0e-9*transpose(empPressureOnRCMGrid)
+!         ! note, converting sst pressure (nPa) to rcm (Pa)
+!         ! doEval below converts back to nPa
+!         !imag%rcmApp%rcmCpl%Prcm = 1.0e-9*transpose(empPressureOnRCMGrid)
         
-        ! Set RCM pressure via rcm(pV^gamma)=sst(pV^gamma)
+!         ! Set RCM pressure via rcm(pV^gamma)=sst(pV^gamma)
 
-        call setPressViaEntropy(imag)
-
-
-        ! Manipulate "RCM's" density to be some combination of Nmhd and Npsph
-        call setRCMXDensity(imag%rcmApp%rcmCpl, 2)
+!         call setPressViaEntropy(imag)
 
 
-    end subroutine advanceRCMX
-
-    subroutine evalRCMX(imag,x1,x2,t,imW,isEdible)
-        class(rcmXIMAG_T), intent(inout) :: imag
-        real(rp), intent(in) :: x1,x2,t
-        real(rp), intent(out) :: imW(NVARIMAG)
-        logical, intent(out) :: isEdible
-
-        call imag%rcmApp%doEval(x1,x2,t,imW,isEdible)
-
-    end subroutine evalRCMX
-
-!IO wrappers -- just do RCM things
-    subroutine doRCMXIO(imag,nOut,MJD,time)
-        class(rcmXIMAG_T), intent(inout) :: imag
-        integer, intent(in) :: nOut
-        real(rp), intent(in) :: MJD,time
-
-        call imag%rcmApp%doIO(nOut,MJD,time)
-        !Hijack mhdrcm file and include SST information
-        !call doSSTIO(imag,nOut)
-    end subroutine doRCMXIO
-
-    subroutine doRCMXRestart(imag,nRes,MJD,time)
-        class(rcmXIMAG_T), intent(inout) :: imag
-        integer, intent(in) :: nRes
-        real(rp), intent(in) :: MJD, time
-
-        call imag%rcmApp%doRestart(nRes,MJD,time)
-    end subroutine doRCMXRestart
+!         ! Manipulate "RCM's" density to be some combination of Nmhd and Npsph
+!         call setRCMXDensity(imag%rcmApp%rcmCpl, 2)
 
 
+!     end subroutine advanceRCMX
 
-    subroutine setRCMXDensity(rcmCpl,option)
-        class(rcm_mhd_T), intent(inout) :: rcmCpl
-        integer, intent(in) :: option
+!     subroutine evalRCMX(imag,x1,x2,t,imW,isEdible)
+!         class(rcmXIMAG_T), intent(inout) :: imag
+!         real(rp), intent(in) :: x1,x2,t
+!         real(rp), intent(out) :: imW(NVARIMAG)
+!         logical, intent(out) :: isEdible
 
-        integer :: i,j
+!         call imag%rcmApp%doEval(x1,x2,t,imW,isEdible)
 
-        select case (option)
-        case(1)
-            ! Use only whatever's in MHD
-            rcmCpl%Nrcm = rcmCpl%Nave
-        case(2)
-            ! Wherever Npsph>Nave, use Npsph
-            ! Else, use Nave
+!     end subroutine evalRCMX
 
-            !$OMP PARALLEL DO default(shared) collapse(2) &
-            !$OMP schedule(dynamic) &
-            !$OMP private(i,j)
-            do j=1,rcmCpl%nLon_ion
-                do i=1,rcmCpl%nLat_ion
+! !IO wrappers -- just do RCM things
+!     subroutine doRCMXIO(imag,nOut,MJD,time)
+!         class(rcmXIMAG_T), intent(inout) :: imag
+!         integer, intent(in) :: nOut
+!         real(rp), intent(in) :: MJD,time
+
+!         call imag%rcmApp%doIO(nOut,MJD,time)
+!         !Hijack mhdrcm file and include SST information
+!         !call doSSTIO(imag,nOut)
+!     end subroutine doRCMXIO
+
+!     subroutine doRCMXRestart(imag,nRes,MJD,time)
+!         class(rcmXIMAG_T), intent(inout) :: imag
+!         integer, intent(in) :: nRes
+!         real(rp), intent(in) :: MJD, time
+
+!         call imag%rcmApp%doRestart(nRes,MJD,time)
+!     end subroutine doRCMXRestart
+
+
+
+!     subroutine setRCMXDensity(rcmCpl,option)
+!         class(rcm_mhd_T), intent(inout) :: rcmCpl
+!         integer, intent(in) :: option
+
+!         integer :: i,j
+
+!         select case (option)
+!         case(1)
+!             ! Use only whatever's in MHD
+!             rcmCpl%Nrcm = rcmCpl%Nave
+!         case(2)
+!             ! Wherever Npsph>Nave, use Npsph
+!             ! Else, use Nave
+
+!             !$OMP PARALLEL DO default(shared) collapse(2) &
+!             !$OMP schedule(dynamic) &
+!             !$OMP private(i,j)
+!             do j=1,rcmCpl%nLon_ion
+!                 do i=1,rcmCpl%nLat_ion
                     
-                    if (rcmCpl%Npsph(i,j) > rcmCpl%Nave(i,j)) then
-                        rcmCpl%Nrcm(i,j) = rcmCpl%Npsph(i,j)
-                    else
-                        rcmCpl%Nrcm(i,j) = rcmCpl%Nave(i,j)
-                    endif
-                enddo
-            enddo
-        case DEFAULT
-            !Don't do anything, will use RCM's density
-        end select
+!                     if (rcmCpl%Npsph(i,j) > rcmCpl%Nave(i,j)) then
+!                         rcmCpl%Nrcm(i,j) = rcmCpl%Npsph(i,j)
+!                     else
+!                         rcmCpl%Nrcm(i,j) = rcmCpl%Nave(i,j)
+!                     endif
+!                 enddo
+!             enddo
+!         case DEFAULT
+!             !Don't do anything, will use RCM's density
+!         end select
 
-    end subroutine setRCMXDensity
+!     end subroutine setRCMXDensity
 
-    subroutine setPressViaEntropy(imag)
-        class(rcmXIMAG_T), intent(inout) :: imag
+!     subroutine setPressViaEntropy(imag)
+!         class(rcmXIMAG_T), intent(inout) :: imag
 
-        real(rp), dimension(:,:), allocatable :: empIOpenOnRCMGrid, empTpIo
-        real(rp), dimension(:,:), allocatable :: empPressureOnRCMGrid, empTpP
-        real(rp), dimension(:,:), allocatable :: empBvolOnRCMGrid, empTpBvol
-        real(rp) :: gamma = 5./3.
-        integer :: i,j
+!         real(rp), dimension(:,:), allocatable :: empIOpenOnRCMGrid, empTpIo
+!         real(rp), dimension(:,:), allocatable :: empPressureOnRCMGrid, empTpP
+!         real(rp), dimension(:,:), allocatable :: empBvolOnRCMGrid, empTpBvol
+!         real(rp) :: gamma = 5./3.
+!         integer :: i,j
 
-        call mix_map_grids(imag%rcmMap,imag%empApp%Iopen,empIOpenOnRCMGrid)
-        call mix_map_grids(imag%rcmMap,imag%empApp%sstP,empPressureOnRCMGrid)
-        call mix_map_grids(imag%rcmMap,imag%empApp%sstBvol,empBvolOnRCMGrid)
-        empTpIo = transpose(empIOpenOnRCMGrid)
-        empTpP = transpose(empPressureOnRCMGrid)
-        empTpBvol = transpose(empBvolOnRCMGrid)
+!         call mix_map_grids(imag%rcmMap,imag%empApp%Iopen,empIOpenOnRCMGrid)
+!         call mix_map_grids(imag%rcmMap,imag%empApp%sstP,empPressureOnRCMGrid)
+!         call mix_map_grids(imag%rcmMap,imag%empApp%sstBvol,empBvolOnRCMGrid)
+!         empTpIo = transpose(empIOpenOnRCMGrid)
+!         empTpP = transpose(empPressureOnRCMGrid)
+!         empTpBvol = transpose(empBvolOnRCMGrid)
 
-        DO i = 1,isize
-            DO j = 1,jsize
-
-
-                if (empTpIo(i,j) > (-0.5) .or. empTpBvol(i,j) < 0) then  ! If interpolated point is fairly influenced by an open line, kill it
-                    ! Make sure mhd won't ingest this point
-                    ! Probably only need to set one of these but idk where we are in RCMEval pipeline so set both to be safe
-                    imag%rcmApp%rcmCpl%iopen(i,j) = 1
-                    imag%rcmApp%rcmCpl%toMHD(i,j) = .false.
-                else  ! Only other option here is that its a closed line (-1) according to SST
-                    !if (imag%rcmApp%rcmCpl%iopen(i,j) /= RCMTOPOPEN) then  ! Only overwrite closed and buffer region
-                    if (imag%rcmApp%rcmCpl%Vol(i,j) > 0) then 
-                        imag%rcmApp%rcmCpl%Prcm(i,j) = 1.0e-9*empTpP(i,j)  &
-                                    *(empTpBvol(i,j)*1.0e9)**gamma   &
-                                    *imag%rcmApp%rcmCpl%Vol(i,j)**(-gamma)
-                    else
-                        imag%rcmApp%rcmCpl%Prcm(i,j) = 0
-                    end if
-                end if
-            END DO
-        END DO
-
-    end subroutine setPressViaEntropy
-
-    subroutine doSSTIO(imag,nOut)
-        class(rcmXIMAG_T), intent(in) :: imag
-        integer, intent(in) :: nOut
-        type(IOVAR_T), dimension(4) :: IOVars
-        character(len=strLen) :: h5File
-        character(len=strLen) :: gStr
-        real(rp), dimension(:,:), allocatable :: empIOpenOnRCMGrid, empTpIo
-        real(rp), dimension(:,:), allocatable :: empPressureOnRCMGrid, empTpP
-        real(rp), dimension(:,:), allocatable :: empBvolOnRCMGrid, empTpBvol
-
-        call mix_map_grids(imag%rcmMap,imag%empApp%Iopen,empIOpenOnRCMGrid)
-        call mix_map_grids(imag%rcmMap,imag%empApp%sstP,empPressureOnRCMGrid)
-        call mix_map_grids(imag%rcmMap,imag%empApp%sstBvol,empBvolOnRCMGrid)
-        empTpIo = transpose(empIOpenOnRCMGrid)
-        empTpP = transpose(empPressureOnRCMGrid)
-        empTpBvol = transpose(empBvolOnRCMGrid)
+!         DO i = 1,isize
+!             DO j = 1,jsize
 
 
-        h5File = trim(imag%rcmApp%rcmCpl%rcm_runid) // ".mhdrcm.h5" !MHD-RCM coupling data
+!                 if (empTpIo(i,j) > (-0.5) .or. empTpBvol(i,j) < 0) then  ! If interpolated point is fairly influenced by an open line, kill it
+!                     ! Make sure mhd won't ingest this point
+!                     ! Probably only need to set one of these but idk where we are in RCMEval pipeline so set both to be safe
+!                     imag%rcmApp%rcmCpl%iopen(i,j) = 1
+!                     imag%rcmApp%rcmCpl%toMHD(i,j) = .false.
+!                 else  ! Only other option here is that its a closed line (-1) according to SST
+!                     !if (imag%rcmApp%rcmCpl%iopen(i,j) /= RCMTOPOPEN) then  ! Only overwrite closed and buffer region
+!                     if (imag%rcmApp%rcmCpl%Vol(i,j) > 0) then 
+!                         imag%rcmApp%rcmCpl%Prcm(i,j) = 1.0e-9*empTpP(i,j)  &
+!                                     *(empTpBvol(i,j)*1.0e9)**gamma   &
+!                                     *imag%rcmApp%rcmCpl%Vol(i,j)**(-gamma)
+!                     else
+!                         imag%rcmApp%rcmCpl%Prcm(i,j) = 0
+!                     end if
+!                 end if
+!             END DO
+!         END DO
 
-        call ClearIO(IOVars)
+!     end subroutine setPressViaEntropy
 
-        call AddOutVar(IOVars,"SSTP",empTpP,uStr="nPa")
-        call AddOutVar(IOVars,"SSTBvol",empTpBvol,uStr="Re/nT")
-        call AddOutVar(IOVars,"SSTIopen",empTpIo)
+!     subroutine doSSTIO(imag,nOut)
+!         class(rcmXIMAG_T), intent(in) :: imag
+!         integer, intent(in) :: nOut
+!         type(IOVAR_T), dimension(4) :: IOVars
+!         character(len=strLen) :: h5File
+!         character(len=strLen) :: gStr
+!         real(rp), dimension(:,:), allocatable :: empIOpenOnRCMGrid, empTpIo
+!         real(rp), dimension(:,:), allocatable :: empPressureOnRCMGrid, empTpP
+!         real(rp), dimension(:,:), allocatable :: empBvolOnRCMGrid, empTpBvol
 
-        write(gStr,'(A,I0)') "Step#", nOut
-        call WriteVars(IOVars,.true.,h5File,gStr,"SST")
+!         call mix_map_grids(imag%rcmMap,imag%empApp%Iopen,empIOpenOnRCMGrid)
+!         call mix_map_grids(imag%rcmMap,imag%empApp%sstP,empPressureOnRCMGrid)
+!         call mix_map_grids(imag%rcmMap,imag%empApp%sstBvol,empBvolOnRCMGrid)
+!         empTpIo = transpose(empIOpenOnRCMGrid)
+!         empTpP = transpose(empPressureOnRCMGrid)
+!         empTpBvol = transpose(empBvolOnRCMGrid)
 
-    end subroutine doSSTIO
+
+!         h5File = trim(imag%rcmApp%rcmCpl%rcm_runid) // ".mhdrcm.h5" !MHD-RCM coupling data
+
+!         call ClearIO(IOVars)
+
+!         call AddOutVar(IOVars,"SSTP",empTpP,uStr="nPa")
+!         call AddOutVar(IOVars,"SSTBvol",empTpBvol,uStr="Re/nT")
+!         call AddOutVar(IOVars,"SSTIopen",empTpIo)
+
+!         write(gStr,'(A,I0)') "Step#", nOut
+!         call WriteVars(IOVars,.true.,h5File,gStr,"SST")
+
+!     end subroutine doSSTIO
 
 end module rcmXimag

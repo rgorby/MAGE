@@ -2,6 +2,7 @@
 module shellGrid
     use kdefs
     use math
+    use planethelper
 
     implicit none
 
@@ -12,14 +13,38 @@ module shellGrid
     enum, bind(C)
         enumerator :: SHGR_CC,SHGR_CORNER,SHGR_FACE_THETA,SHGR_FACE_PHI
     end enum
+
+    character(len=strLen), parameter :: def_noParentName ="N/A"
     
+
+    type ShellGridVar_T
+
+    integer :: loc
+        !! Location of data on the shellGrid (e.g. center, corner, theta of phi face)
+        !! Corresponds to enum above (SHGR_CC, SHGR_CORNER, SHGR_FACE_THETA, SHGR_FACE_PHI)
+    integer :: Ni, Nj
+        !! Number of values in i and j direction
+    integer :: isv,iev,jsv,jev
+        !! Start and end indices for this variable
+        !! ex: if loc=SHGR_CORNER, isv = sh%isg, iev=sh%ieg+1
+        !! This is helpful for e.g. InterpShellVar_TSC_pnt determining size of dtheta and dPhi arrays
+    real(rp), dimension(:,:), allocatable :: data
+        !! The actual variable values
+    logical, dimension(:,:), allocatable :: mask
+        !! Mask indicating whether the data at a given index is valid
+        !! e.g. good for interpolation, etc.
+
+
+end type ShellGridVar_T
+
+
     !> Data type for holding 2D spherical shell grid
     type ShellGrid_T
         
         character(len=strLen) :: name
             !! Name assigned to this ShellGrid instance, determined by the model initializing it
         real(rp) :: radius
-            !! Radius that this ShellGrid lives at, in units of Rp (planetary radii)
+            !! [Rp] Radius that this ShellGrid lives at, in units of Rp (planetary radii)
         integer :: Nt,Np
             !! Number of colat/lon cells (theta, phi)
         real(rp), dimension(:), allocatable :: th, ph, lat
@@ -29,6 +54,16 @@ module shellGrid
             !! Assuming lat in -pi/2,pi/2 and lon in [0,2pi]
         real(rp), dimension(:), allocatable :: thc, phc, latc  
             !! (Nt or Np) [radians] grid centers
+        real(rp), dimension(:), allocatable :: thRp
+            !! (Nt+1) [rad] theta corners projected to 1 Rp assuming dipole
+        real(rp), dimension(:), allocatable :: thcRp
+            !! (Nt) [rad] theta centers projected to 1 Rp assuming dipole
+        real(rp), dimension(:,:), allocatable :: areaCC
+            !! [Rp^2] Area of each cell
+        real(rp), dimension(:,:), allocatable :: lenFace_th
+            !! (Nt+1, Np) [Rp] arc length of each Theta face
+        real(rp), dimension(:,:), allocatable :: lenFace_ph
+            !! (Nt, Np+1) [Rp] arc length of each Phi face
         logical :: doSP = .false., doNP = .false. 
             !! Whether active grid contains south/north pole, no ghosts in this case
         logical :: ghostSP = .false., ghostNP = .false. 
@@ -56,36 +91,12 @@ module shellGrid
         !> Subgrid information
         !> ShellGrids that are subgrids of other shellGrids store info about their parent grid
         logical :: isChild = .false.
-        character(len=strLen) :: parentName = "N/A"
-            !! Name of the parent grid  that this one derives from
+        character(len=strLen) :: parentName = def_noParentName
+            !! Name of the parent grid that this one derives from
         integer :: bndis,bndie,bndjs,bndje
             !! Indices of parent grid that bound this grid
 
     end type ShellGrid_T
-
-    type ShellGridVar_T
-
-        integer :: loc
-            !! Location of data on the shellGrid (e.g. center, corner, theta of phi face)
-            !! Corresponds to enum above (SHGR_CC, SHGR_CORNER, SHGR_FACE_THETA, SHGR_FACE_PHI)
-        integer :: Ni, Nj
-            !! Number of values in i and j direction
-        integer :: isv,iev,jsv,jev
-            !! Start and end indices for this variable
-            !! ex: if loc=SHGR_CORNER, isv = sh%isg, iev=sh%ieg+1
-            !! This is helpful for e.g. InterpShellVar_TSC_pnt determining size of dtheta and dPhi arrays
-        real(rp), dimension(:,:), allocatable :: data
-            !! The actual variable values
-        logical, dimension(:,:), allocatable :: mask
-            !! Mask indicating whether the data at a given index is valid
-            !! e.g. good for interpolation, etc.
-
-
-        ! Commenting out for now, I think we will ultimately not use this
-        !logical, dimension(4) :: bcsApplied 
-            !! Flag indicating whether BCs were applied (ghosts filled) for [n,s,e,w] boundaries
-
-    end type ShellGridVar_T
 
 
     contains
@@ -105,8 +116,9 @@ module shellGrid
             !! WARNING: Will default to 1 if not provided! That should rarely be the case
         
         integer :: i,j
-        real(rp) :: delta
+        real(rp) :: delta, L
         real(rp), dimension(:), allocatable :: dphi
+        real(rp), dimension(3) :: xyz
 
         ! Parse optional parameters
         if (present(nGhosts)) then
@@ -213,19 +225,30 @@ module shellGrid
             isg=>shGr%isg, ieg=>shGr%ieg, jsg=>shGr%jsg, jeg=>shGr%jeg)
 
         ! Nuke arrays if already allocated
-        if (allocated(shGr%th))   deallocate(shGr%th)
-        if (allocated(shGr%ph))   deallocate(shGr%ph)
-        if (allocated(shGr%lat))  deallocate(shGr%lat)
-        if (allocated(shGr%thc))  deallocate(shGr%thc)
-        if (allocated(shGr%phc))  deallocate(shGr%phc)
-        if (allocated(shGr%latc)) deallocate(shGr%latc)
+        if (allocated(shGr%th))    deallocate(shGr%th)
+        if (allocated(shGr%ph))    deallocate(shGr%ph)
+        if (allocated(shGr%lat))   deallocate(shGr%lat)
+        if (allocated(shGr%thc))   deallocate(shGr%thc)
+        if (allocated(shGr%phc))   deallocate(shGr%phc)
+        if (allocated(shGr%latc))  deallocate(shGr%latc)
+        if (allocated(shGr%thRp))  deallocate(shGr%thRp)
+        if (allocated(shGr%thcRp)) deallocate(shGr%thcRp)
+        if (allocated(shGr%areaCC)) deallocate(shGr%areaCC)
+        if (allocated(shGr%lenFace_th)) deallocate(shGr%lenFace_th)
+        if (allocated(shGr%lenFace_ph)) deallocate(shGr%lenFace_ph)
         ! Create new arrays
-        allocate(shGr%th  (isg:ieg+1))
-        allocate(shGr%thc (isg:ieg  ))
-        allocate(shGr%ph  (jsg:jeg+1))
-        allocate(shGr%phc (jsg:jeg  ))
-        allocate(shGr%lat (isg:ieg+1))
-        allocate(shGr%latc(isg:ieg  ))
+        allocate(shGr%th   (isg:ieg+1))
+        allocate(shGr%thc  (isg:ieg  ))
+        allocate(shGr%ph   (jsg:jeg+1))
+        allocate(shGr%phc  (jsg:jeg  ))
+        allocate(shGr%lat  (isg:ieg+1))
+        allocate(shGr%latc (isg:ieg  ))
+        allocate(shGr%thRp (isg:ieg+1))
+        allocate(shGr%thcRp(isg:ieg  ))
+        allocate(shGr%areaCC(isg:ieg,jsg:jeg))
+        allocate(shGr%lenFace_th(isg:ieg+1,jsg:jeg  ))
+        allocate(shGr%lenFace_ph(isg:ieg  ,jsg:jeg+1))
+
 
         ! Set grid coordinates
         shGr%th(is:ie+1) = Theta  ! note the arrays are conformable because of the index definitions above
@@ -277,6 +300,7 @@ module shellGrid
         if ( (.not.shGr%isPeriodic) )  then
             write(*,*) "Inside shell grid generator (GenShellGrid)."
             write(*,*) "Non-periodic grids are not implemented. Quitting..."
+            write(*,*)name
             write(*,*) Phi
             stop
         endif
@@ -295,22 +319,6 @@ module shellGrid
         shGr%lat  = PI/2.0_rp - shGr%th
         shGr%latc = PI/2.0_rp - shGr%thc
 
-        ! Note, the bounds below only include the active cells
-        shGr%minTheta = minval(shGr%th(is:ie+1))
-        shGr%maxTheta = maxval(shGr%th(is:ie+1))
-        shGr%minPhi   = minval(shGr%ph(js:je+1))
-        shGr%maxPhi   = maxval(shGr%ph(js:je+1))
-
-        ! this includes ghosts
-        shGr%minGTheta = minval(shGr%th)
-        shGr%maxGTheta = maxval(shGr%th)
-        shGr%minGPhi   = minval(shGr%ph)
-        shGr%maxGPhi   = maxval(shGr%ph)
-
-        end associate
-
-        shGr%name = name
-
         if (present(radO)) then
             ! Try to trap for people thinking units are meters or km
             if (radO > 10) then
@@ -324,6 +332,65 @@ module shellGrid
             shGr%radius = RIonE*1.0e6/REarth
             write(*,*) shGr%radius," Rp"
         endif
+
+        ! Project to planet surface
+        xyz = 0.0
+        do i=shGr%isg, shGr%ieg+1
+            ! Don't need longitude information so just assume we are at Y=0
+            xyz(1) = shGr%radius*sin(shGr%th(i))
+            xyz(3) = shGr%radius*cos(shGr%th(i))
+            L = DipoleL(xyz)
+            shGr%thRp(i) = abs(asin(sqrt(1.0_rp/L)))
+        enddo
+        do i=shGr%isg, shGr%ieg
+            xyz(1) = shGr%radius*sin(shGr%thc(i))
+            xyz(3) = shGr%radius*cos(shGr%thc(i))
+            L = DipoleL(xyz)
+            shGr%thcRp(i) = abs(asin(sqrt(1.0_rp/L)))
+        enddo
+
+        ! Note, the bounds below only include the active cells
+        shGr%minTheta = minval(shGr%th(is:ie+1))
+        shGr%maxTheta = maxval(shGr%th(is:ie+1))
+        shGr%minPhi   = minval(shGr%ph(js:je+1))
+        shGr%maxPhi   = maxval(shGr%ph(js:je+1))
+
+        ! this includes ghosts
+        shGr%minGTheta = minval(shGr%th)
+        shGr%maxGTheta = maxval(shGr%th)
+        shGr%minGPhi   = minval(shGr%ph)
+        shGr%maxGPhi   = maxval(shGr%ph)
+
+
+        ! Do some extra geom calculations for easy reference when needed
+        do i=shGr%isg,shGr%ieg
+            do j=shGr%jsg,shGr%jeg
+                ! r^2 * (cos(th1)-cos(th2)) * dPh
+                shGr%areaCC(i,j) = shGr%radius**2 &
+                                 * ( cos(shGr%th(i)) - cos(shGr%th(i+1)) ) &
+                                 * (shGr%ph(j+1) - shGr%ph(j))
+            enddo
+        enddo
+
+        ! Faces in theta dir are i +/- 1/2 faces, each of which spans the phi direction
+        do j=shGr%jsg,shGr%jeg
+            do i=shGr%isg,shGr%ieg+1
+                shGr%lenFace_th(i, j) = shGr%radius &
+                                      * sin(shGr%th(i)) &
+                                      * (shGr%ph(j+1) - shGr%ph(j))
+            enddo
+        enddo
+        do j=shGr%jsg,shGr%jeg+1
+            do i=shGr%isg,shGr%ieg
+                shGr%lenFace_ph(i,j) = shGr%radius &
+                                     * (shGr%th(i+1) - shGr%th(i))
+            enddo
+        enddo
+
+        end associate
+
+        shGr%name = name
+
 
     end subroutine GenShellGrid
 
@@ -343,7 +410,7 @@ module shellGrid
         
         ! If you didn't want your data blown up you shouldn't have called init
         if (allocated(shellVar%data)) deallocate(shellVar%data)
-        if (allocated(shellVar%data)) deallocate(shellVar%mask)
+        if (allocated(shellVar%mask)) deallocate(shellVar%mask)
             
         shellVar%loc = loc
 
@@ -376,21 +443,19 @@ module shellGrid
         shellVar%jsv = shGr%jsg
         shellVar%jev = shGr%jeg + jExtra
 
-
-        shellVar%data = 0.  ! initialize to 0
+        shellVar%data = 0.0_rp  ! initialize to 0
 
         ! Init mask, either by maskO or defaults
         if (present(maskO)) then
             if ( all(shape(shellVar%mask) == shape(maskO)) ) then
-                shellVar%mask = maskO
+                shellVar%mask(:,:) = maskO(:,:)
             else
                 write(*,*)"ERROR in initShellVar: maskO shape doesn't match."
                 stop
             endif
         else
-            shellVar%mask = .false.  ! Up to user to determine which points are valid
+            shellVar%mask = .true.
         endif
-        
     end subroutine initShellVar
 
 
@@ -412,10 +477,10 @@ module shellGrid
             !! Actual bounds used
 
         ! If a bound is provided then we use that, if not we default to parent grid's bounds
-        is = whichInd(sub_is, pSG%is,   present(sub_is))
-        ie = whichInd(sub_ie, pSG%ie+1, present(sub_ie))
-        js = whichInd(sub_js, pSG%js  , present(sub_js))
-        je = whichInd(sub_je, pSG%je+1, present(sub_je))
+        is = whichInd(sub_is, pSG%is, present(sub_is))
+        ie = whichInd(sub_ie, pSG%ie, present(sub_ie))
+        js = whichInd(sub_js, pSG%js, present(sub_js))
+        je = whichInd(sub_je, pSG%je, present(sub_je))
 
         ! Check for valid bounds
         if (is < pSG%is) then
@@ -424,10 +489,10 @@ module shellGrid
             write(*,*) "Mimumum:",pSG%is
             stop
         endif
-        if (ie > pSG%ie+1) then
+        if (ie > pSG%ie) then
             write(*,*) "ERROR GenChildShellGrid: Invalid ie bound."
             write(*,*) "Requested:",ie
-            write(*,*) "Maximum:",pSG%ie+1
+            write(*,*) "Maximum:",pSG%ie
             stop
         endif
         if (js < pSG%js) then
@@ -436,10 +501,10 @@ module shellGrid
             write(*,*) "Mimumum:",pSG%js
             stop
         endif
-        if (je > pSG%je+1) then
+        if (je > pSG%je) then
             write(*,*) "ERROR GenChildShellGrid: Invalid je bound."
             write(*,*) "Requested:",je
-            write(*,*) "Maximum:",pSG%je+1
+            write(*,*) "Maximum:",pSG%je
             stop
         endif
         if (is > ie) then
@@ -476,11 +541,11 @@ module shellGrid
             endif
 
             ! Otherwise, this ghost definition is okay
-            call GenShellGrid(cSG, pSG%th(is:ie), pSG%ph(js:je), name, nGhosts=nGhosts, radO=pSG%radius)
+            call GenShellGrid(cSG, pSG%th(is:ie+1), pSG%ph(js:je+1), name, nGhosts=nGhosts, radO=pSG%radius)
 
         else
             ! No ghosts defined, go with default
-            call GenShellGrid(cSG, pSG%th(is:ie), pSG%ph(js:je), name, radO=pSG%radius)
+            call GenShellGrid(cSG, pSG%th(is:ie+1), pSG%ph(js:je+1), name, radO=pSG%radius)
         endif
         
 
@@ -519,6 +584,8 @@ module shellGrid
         if (allocated(sh%phc) ) deallocate(sh%phc)
         if (allocated(sh%lat) ) deallocate(sh%lat)
         if (allocated(sh%latc)) deallocate(sh%latc)
+        if (allocated(sh%latc)) deallocate(sh%thRp)
+        if (allocated(sh%latc)) deallocate(sh%thcRp)
 
     end subroutine deallocShellGrid
 

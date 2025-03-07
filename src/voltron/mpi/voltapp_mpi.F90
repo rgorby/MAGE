@@ -362,6 +362,9 @@ module voltapp_mpi
         call runRemix(vApp)
         call Toc("ReMIX", .true.)
 
+        ! Update potential on voltron's grid
+        call updateVoltPotential(vApp)
+
         call Tic("R2G")
         call CouplePotentialToMhd(vApp)
         call Toc("R2G")

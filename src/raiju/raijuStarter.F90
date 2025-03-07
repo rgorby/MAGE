@@ -201,7 +201,14 @@ module raijustarter
         call iXML%Set_Val(Model%doActiveShell, "activeShell/doAS",.true.)
         call iXML%Set_Val(Model%worthyFrac, "prob/worthyFrac",fracWorthyDef)
 
-        call iXML%Set_Val(Model%doGeoCorot, "prob/doGeoCorot",.false.)
+        if (Model%isSA) then
+            call iXML%Set_Val(Model%doOwnCorot, "prob/doCorot",.true.)
+        else
+            call iXML%Set_Val(Model%doOwnCorot, "prob/doCorot",.false.)
+        endif
+        if (Model%doOwnCorot) then
+            call iXML%Set_Val(Model%doGeoCorot, "prob/doGeoCorot",.false.)
+        endif
 
         ! Lambda channel settings
         call iXML%Set_Val(Model%doDynamicLambdaRanges, "lambdas/dynamicRanges",.false.)
@@ -315,7 +322,7 @@ module raijustarter
                     ! Then we should be receiving a predefined ShellGrid that Voltron has set up
                     if(present(shGridO)) then
                         shGrid = shGridO
-                        call raijuGenGridFromShGrid(Grid, shGrid, iXML)
+                        call raijuGenGridFromShGrid(Grid%shGrid, shGrid, iXML)
                     else
                         write(*,*) "RAIJU expecting a ShellGrid_T but didn't receive one. Dying."
                     endif
@@ -394,6 +401,7 @@ module raijustarter
             allocate( State%Davg(sh%isg:sh%ieg  , sh%jsg:sh%jeg, 0:Grid%nFluidIn) )
             allocate( State%Pstd(sh%isg:sh%ieg  , sh%jsg:sh%jeg, 0:Grid%nFluidIn) )
             allocate( State%Dstd(sh%isg:sh%ieg  , sh%jsg:sh%jeg, 0:Grid%nFluidIn) )
+            allocate( State%tiote(sh%isg:sh%ieg  , sh%jsg:sh%jeg) )
             call initShellVar(Grid%shGrid, SHGR_CC, State%Tb)
             ! Bmin surface
             allocate( State%Bmin    (sh%isg:sh%ieg+1, sh%jsg:sh%jeg+1, 3 ) )
@@ -402,11 +410,12 @@ module raijustarter
             allocate( State%thcon   (sh%isg:sh%ieg+1, sh%jsg:sh%jeg+1    ) )
             allocate( State%phcon   (sh%isg:sh%ieg+1, sh%jsg:sh%jeg+1    ) )
             ! 2D corner quantities
-            allocate( State%topo   (sh%isg:sh%ieg+1, sh%jsg:sh%jeg+1) )
-            allocate( State%espot  (sh%isg:sh%ieg+1, sh%jsg:sh%jeg+1) )
-            allocate( State%bvol   (sh%isg:sh%ieg+1, sh%jsg:sh%jeg+1) )
-            allocate( State%bvol_cc(sh%isg:sh%ieg  , sh%jsg:sh%jeg  ) )
-            allocate( State%vaFrac(sh%isg:sh%ieg+1, sh%jsg:sh%jeg+1) )
+            allocate( State%topo     (sh%isg:sh%ieg+1, sh%jsg:sh%jeg+1) )
+            allocate( State%espot    (sh%isg:sh%ieg+1, sh%jsg:sh%jeg+1) )
+            allocate( State%pot_corot(sh%isg:sh%ieg+1, sh%jsg:sh%jeg+1) )
+            allocate( State%bvol     (sh%isg:sh%ieg+1, sh%jsg:sh%jeg+1) )
+            allocate( State%bvol_cc  (sh%isg:sh%ieg  , sh%jsg:sh%jeg  ) )
+            allocate( State%vaFrac   (sh%isg:sh%ieg+1, sh%jsg:sh%jeg+1) )
             ! 1D cell-centered quantities
             allocate( State%bndLoc(sh%jsg:sh%jeg) )
             ! 2D cell-centered quantities

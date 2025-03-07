@@ -70,10 +70,9 @@ module innermagsphere
         associate(opt=>vApp%imagApp%opt, Gr=>gApp%Grid)
         opt%swF  = vApp%symh%wID
         opt%mjd0 = gApp%Model%MJD0
-        opt%mhd_Rin = norm2(Gr%xyz(Gr%is,Gr%js,Gr%ks,:)) ! Calc lowlat BC from Gamera
-        write(*,*)"Idk if this is a good idea"
+        opt%mhdRin  = norm2(Gr%xyz(Gr%is,Gr%js,Gr%ks,:))
+        opt%mhdRinG = norm2(Gr%xyz(Gr%isg,Gr%js,Gr%ks,:)) ! Calc lowlat BC from Gamera
         opt%voltGrid = vApp%shGrid
-        write(*,*)"maybe ok"
         call iXML%Set_Val(opt%doColdStart,"/Kaiju/voltron/imag/doInit",.false.) ! Whether or not IMAG should coldStart at volt%t = 0
         end associate
 

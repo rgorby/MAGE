@@ -102,7 +102,7 @@ module ebtypes
         real(rp), allocatable, dimension(:,:) :: xyz
         !xyz(-Nm:+Np,XDIR:ZDIR), w/ xyz(0,XDIR:ZDIR) = seed point
 
-        !Localization data, ie ijk of each node of field line (not set yet)
+        !Localization data, ie ijk of each node of field line
         !Same size as xyz array
         integer, allocatable, dimension(:,:) :: ijk
 

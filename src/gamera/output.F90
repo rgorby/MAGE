@@ -139,10 +139,10 @@ contains
         Model%IO%nOut = Model%IO%nOut + 1
     end subroutine fOutput
 
-    subroutine resOutput(Model,Grid,oState,State)
+    subroutine resOutput(Model,Grid,State,oState,ooState)
         type(Model_T), intent(inout) :: Model
         type(Grid_T), intent(in) :: Grid
-        type(State_T), intent(in) :: oState,State
+        type(State_T), intent(in) :: State,oState,ooState
 
         character(len=strLen) :: ResF, tStr,lnResF !Name of restart file
         logical :: fExist
@@ -156,7 +156,7 @@ contains
             write (*, '(a,a,a,a,a)') ANSIGREEN, '<Writing HDF5 RESTART @ t = ', trim(tStr), ' >', ANSIRESET
         endif
 
-        call writeH5Res(Model,Grid,oState,State,ResF)
+        call writeH5Res(Model,Grid,State,oState,ooState,ResF)
 
         !Setup for next restart
         Model%IO%tRes = Model%IO%tRes + Model%IO%dtRes

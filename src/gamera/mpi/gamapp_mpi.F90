@@ -319,7 +319,7 @@ module gamapp_mpi
         endif
 
         ! call appropriate subroutines to calculate all appropriate grid data from the corner data
-        call CalcGridInfo(Model,Grid,gamAppMpi%State,gamAppMpi%oState,gamAppMpi%Solver,xmlInp,userInitFunc)
+        call CalcGridInfo(Model,Grid,gamAppMpi%State,gamAppMpi%oState,gamappMpi%ooState,gamAppMpi%Solver,xmlInp,userInitFunc)
 
         ! All Gamera ranks compare restart numbers to ensure they're the same
         if(Model%isRestart .and. Grid%isTiled) then

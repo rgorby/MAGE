@@ -13,121 +13,64 @@ module imagtubes
 
     contains
 
-    subroutine init_IMAGTubeShell(shParent, tubeShell, maskO, TioteO)
-        type(ShellGrid_T), intent(in) :: shParent
-            !! Parent shellgrid to copy into tubeShell
-        type(IMAGTubeShell_T), intent(inout) :: tubeShell
+    !subroutine init_TubeShell(sh, tubeShell, maskO, TioTeO)
+    subroutine init_TubeShell(sh, tubeShell, TioTeO)
+        type(ShellGrid_T), intent(in) :: sh
+            !! Voltron shellgrid
+        type(TubeShell_T), intent(inout) :: tubeShell
             !! IMAGTubeShell object we are initializing
-        logical, dimension(:,:), intent(in), optional :: maskO
+        !logical, dimension(:,:), intent(in), optional :: maskO
         real(rp), intent(in), optional :: TioteO
             !! Default Ti/Te ratio
 
         integer :: i
-        real(rp) :: tiote = 4.0
-        character(len=strLen) :: shName
+        real(rp) :: tiote
 
         if (present(TioteO)) then
             tiote = TioteO
+        else 
+            tiote = 4.0
         endif
 
-        associate(sh=>tubeShell%sh, mask=>tubeShell%vol%mask)
-
-        write(shName,'(A,A)')"IMAGTubeShell_",trim(shParent%name)
-
-        ! Make our own personal shell grid
-        ! TODO: At some point, we could just make a subset of parent grid, but for now just use whole thing
-        call GenChildShellGrid(shParent, sh, shName)
-        ! Initialize our full lines
-        allocate(tubeshell%bTrc2D(sh%isg:sh%ieg+1,sh%jsg:sh%jeg+1))
-
-        call initShellVar(tubeShell%sh, SHGR_CORNER, tubeShell%vol)
-        
-        ! Set mask
-        if (present(maskO)) then
-            if ( (size(maskO,dim=1) .ne. tubeShell%vol%Ni) .or. (size(maskO,dim=2) .ne. tubeShell%vol%Nj) ) then
-                write(*,*) "ERROR: init_IMAGTubeShell got wrong sized maskO"
-                write(*,*)"maskO = ",shape(maskO)
-                write(*,*)"tube shell vars = ",shape(tubeShell%vol)
-                stop
-            endif
-            mask = maskO
-        else
-            ! If no mask provided, turn on full grid mask (including ghosts!)
-            mask = .true.
-        endif
-        
-        call initShellVar(tubeShell%sh, SHGR_CORNER, tubeShell%bmin    , maskO=mask)
-        call initShellVar(tubeShell%sh, SHGR_CORNER, tubeShell%beta_ave, maskO=mask)
-        call initShellVar(tubeShell%sh, SHGR_CORNER, tubeShell%latc    , maskO=mask)
-        call initShellVar(tubeShell%sh, SHGR_CORNER, tubeShell%lonc    , maskO=mask)
-        call initShellVar(tubeShell%sh, SHGR_CORNER, tubeShell%Lb      , maskO=mask)
-        call initShellVar(tubeShell%sh, SHGR_CORNER, tubeShell%Tb      , maskO=mask)
-        call initShellVar(tubeShell%sh, SHGR_CORNER, tubeShell%losscone, maskO=mask)
-        call initShellVar(tubeShell%sh, SHGR_CORNER, tubeShell%rCurv   , maskO=mask)
-        call initShellVar(tubeShell%sh, SHGR_CORNER, tubeShell%wIMAG   , maskO=mask)
-        call initShellVar(tubeShell%sh, SHGR_CORNER, tubeShell%Tiote   , maskO=mask)
-        call initShellVar(tubeShell%sh, SHGR_CORNER, tubeShell%Veb(1)  , maskO=mask)
-        call initShellVar(tubeShell%sh, SHGR_CORNER, tubeShell%Veb(2)  , maskO=mask)
-        tubeShell%TioTe%data = tiote
 
         do i=1,NDIM
-            call initShellVar(tubeShell%sh, SHGR_CORNER, tubeShell%X_bmin(i), maskO=mask)
+            call initShellVar(sh, SHGR_CORNER, tubeShell%xyz0(i))
+            call initShellVar(sh, SHGR_CORNER, tubeShell%X_bmin(i))
         enddo
-
-        !allocate(tubeShell%Pave(0:MAXTUBEFLUIDS))
-        !allocate(tubeShell%Nave(0:MAXTUBEFLUIDS))
+        call initShellVar(sh, SHGR_CORNER, tubeShell%lat0   )
+        call initShellVar(sh, SHGR_CORNER, tubeShell%lon0   )
+        call initShellVar(sh, SHGR_CORNER, tubeShell%latc   )
+        call initShellVar(sh, SHGR_CORNER, tubeShell%lonc   )
+        call initShellVar(sh, SHGR_CORNER, tubeShell%invlat )
+        call initShellVar(sh, SHGR_CORNER, tubeShell%topo   )
+        call initShellVar(sh, SHGR_CORNER, tubeShell%bmin   )
+        call initShellVar(sh, SHGR_CORNER, tubeShell%bVol   )
+        call initShellVar(sh, SHGR_CORNER, tubeShell%Lb     )
+        call initShellVar(sh, SHGR_CORNER, tubeShell%Tb     )
+        call initShellVar(sh, SHGR_CORNER, tubeShell%wMAG   )
+        call initShellVar(sh, SHGR_CORNER, tubeShell%rCurv  )
+        call initShellVar(sh, SHGR_CORNER, tubeShell%avgBeta)
         do i=0,MAXTUBEFLUIDS
-            call initShellVar(tubeShell%sh, SHGR_CORNER, tubeShell%Pave(i), maskO=mask)
-            call initShellVar(tubeShell%sh, SHGR_CORNER, tubeShell%Nave(i), maskO=mask)
-            call initShellVar(tubeShell%sh, SHGR_CORNER, tubeShell%Pstd(i), maskO=mask)
-            call initShellVar(tubeShell%sh, SHGR_CORNER, tubeShell%Nstd(i), maskO=mask)
+            call initShellVar(sh, SHGR_CORNER, tubeShell%avgP(i))
+            call initShellVar(sh, SHGR_CORNER, tubeShell%avgN(i))
+            call initShellVar(sh, SHGR_CORNER, tubeShell%stdP(i))
+            call initShellVar(sh, SHGR_CORNER, tubeShell%stdN(i))
         enddo
+        call initShellVar(sh, SHGR_CORNER, tubeShell%losscone )
+        call initShellVar(sh, SHGR_CORNER, tubeShell%lossconec)
+        call initShellVar(sh, SHGR_CORNER, tubeShell%TioTe0   )
+        call initShellVar(sh, SHGR_CORNER, tubeShell%nTrc     )
 
-        end associate
-
-    end subroutine
+        tubeShell%TioTe0%data = tiote
 
 
-!    subroutine populateTubeShell(ebTrcApp, tubeShell, nTrcO, doShiftO, bTrcO)
-!        !! Generates
-!        type(ebTrcApp_T), intent(in) :: ebTrcApp
-!        type(IMAGTubeShell_T), intent(inout) :: tubeShell
-!        integer, intent(in), optional :: nTrcO
-!        logical, intent(in), optional :: doShiftO
-!        type(magLine_T), dimension(:,:), optional :: bTrcO
-!            !! If provided, we assume this has fresh tube information we should use instead of tracing our own
-!
-!        logical :: doTrace = .true.
-!
-!        if (present(bTrcO)) doTrace = .false.
-!
-!        associate(sh=>tubeShell%sh)
-!
-!        !$OMP PARALLEL DO default(shared) collapse(2) &
-!        !$OMP schedule(dynamic) &
-!        !$OMP private(i,j,colat,lat,lon,isLL,ijTube)
-!        do j=sh%jsg,sh%jeg+1
-!            do i=sh%isg,sh%ieg+1
-!                if (.not. doTrace) then
-!                    call deepCopyLine(bTrcO(i,j), tubeShell%bTrc2D(i,j))
-!                else
-!                    ! All the tube tracing/emulating logic here
-!                    call MHDTube(ebTrcApp, )
-!                endif
-!
-!            enddo
-!        enddo
-!                
-!        end associate
-!
-!    end subroutine populateTubeShell
+    end subroutine init_TubeShell
 
     ! Dipole flux tube info
-    subroutine DipoleTube(vApp,lat,lon,ijTube,bTrc)
+    subroutine DipoleTube(vApp,lat,lon,ijTube)
         type(voltApp_T), intent(in) :: vApp
         real(rp), intent(in) :: lat,lon
         type(IMAGTube_T), intent(out)   :: ijTube
-        type(magLine_T), intent(inout) :: bTrc
         
         real(rp) :: L,colat
         real(rp) :: mdipole

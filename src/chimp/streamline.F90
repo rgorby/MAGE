@@ -36,18 +36,18 @@ module streamline
     !doShueO = Use Shue MP model (w/ safety factor) for short circuiting
 
     !doNHO = T, assume doing RCM coupling
-    subroutine genLine(Model,ebState,x0,t,fL,MaxStepsO,doShueO,doNHO)
+    subroutine genLine(Model,ebState,x0,t,fL,MaxStepsO,doShueO,doNHO,doSHO)
         real(rp), intent(in) :: x0(NDIM),t
         type(chmpModel_T), intent(in)    :: Model
         type(ebState_T)  , intent(in)    :: ebState
         type(magLine_T)  , intent(inout) :: fL
         integer , intent(in), optional :: MaxStepsO
-        logical , intent(in), optional :: doShueO,doNHO
+        logical , intent(in), optional :: doShueO,doNHO,doSHO
 
         real(rp), allocatable :: xyzn(:,:,:), nBxyz(:,:,:), nGas(:,:,:,:)
         integer , allocatable :: ijkn(:,:,:)
 
-        logical :: inDom,doShue,doNH
+        logical :: inDom,doShue,doNH,doSH
         integer :: N1,N2,i,MaxN
 
         !Start by empting line
@@ -78,10 +78,21 @@ module streamline
             doNH = .false.
         endif
 
+        if ((present(doSHO))) then
+            doSH = doSHO
+        else
+            doSH = .false.
+        endif
+
         if (present(doShueO)) then
             doShue = doShueO
         else
             doShue = .false.
+        endif
+
+        if ( (.not. doSH) .and. (.not. doNH) ) then
+            !What are you even asking for?
+            return
         endif
 
         !Allocate temp arrays to hold information along each direction
@@ -92,9 +103,17 @@ module streamline
         allocate(nGas (0:MaxFL,NVARMHD,0:Model%nSpc,2))
 
     !Get traces and store in temp arrays
-        !Gen trace in negative direction
-        call genTrace(Model,ebState,x0,t,xyzn(:,:,1),ijkn(:,:,1),nBxyz(:,:,1),nGas(:,:,:,1),N1,-1,MaxN,doShue)
-        if (doNH) then
+
+        !Get trace in negative direction
+        if (doSH) then
+            !Starting in southern hemisphere so don't go in negative direction
+            N1 = 0
+        else
+            call genTrace(Model,ebState,x0,t,xyzn(:,:,1),ijkn(:,:,1),nBxyz(:,:,1),nGas(:,:,:,1),N1,-1,MaxN,doShue)
+        endif
+
+        !Get trace in positive direction
+         if (doNH) then
             !We're starting at northern hemisphere so don't need to go in positive direction
             N2 = 0
         else
@@ -499,37 +518,38 @@ module streamline
         end associate
     end function FLTop
 
-    !Get conjugate point from field line, assuming looking for southern hemisphere
+    !Get conjugate point from field line
     subroutine FLConj(Model,ebGr,bTrc,xyzC)
         type(chmpModel_T), intent(in) :: Model
         type(ebGrid_T)   , intent(in) :: ebGr
         type(magLine_T  ), intent(in) :: bTrc
         real(rp), intent(out) :: xyzC(NDIM)
 
-        real(rp), dimension(NDIM) :: xP,xM
+        real(rp), dimension(NDIM) :: xP,xM,x0
 
         if (.not. bTrc%isGood) then
             xyzC = 0.0
             return
         endif
+
         associate(Np=>bTrc%Np,Nm=>bTrc%Nm)
-            
         !Get endpoints of field line
         xP = bTrc%xyz(+Np,:)
         xM = bTrc%xyz(-Nm,:)
+        x0 = bTrc%xyz(0  ,:) !Seed point
 
-        if (xP(ZDIR)<0.0) then
-            xyzC = xP
-        else if (xM(ZDIR)<0.0) then
+        !Use seed point to decide which hemisphere we're in
+        if (x0(ZDIR) > 0) then
+            !We're in NH, find SH conjgate
             xyzC = xM
         else
-            xyzC = 0.0
+            !We're in SH, find NH conjugate
+            xyzC = xP
         endif
 
         end associate
-
     end subroutine FLConj
-
+    
     !Get minimum field strength and location
     subroutine FLEq(Model,bTrc,xeq,Beq)
         type(chmpModel_T), intent(in) :: Model

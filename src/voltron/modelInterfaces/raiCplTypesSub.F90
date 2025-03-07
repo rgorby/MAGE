@@ -4,9 +4,12 @@ submodule (volttypes) raijuCplTypesSub
     use raijustarter
     use raijuCplHelper
     use raijuColdStartHelper
+    use raijuDomain
 
     use shellInterp
     use imaghelper
+    use dstutils
+    use math
 
     implicit none
 
@@ -31,7 +34,7 @@ submodule (volttypes) raijuCplTypesSub
             App%raiApp%State%isFirstCpl = .false.
         endif
         ! Then allocate and initialize coupling variables based on raiju app
-        call raijuCpl_init(App)
+        call raijuCpl_init(App, xml)
 
     end subroutine raiCplInitModel
 
@@ -41,6 +44,7 @@ submodule (volttypes) raijuCplTypesSub
         class(voltApp_T), intent(inout) :: vApp
 
         logical :: doColdStart
+        real(rp) :: BSDst = 0.0
         doColdStart = .false.
 
         associate(raiApp=>App%raiApp)
@@ -59,13 +63,18 @@ submodule (volttypes) raijuCplTypesSub
             endif
 
             ! Someone updated raiCpl's coupling variables by now, stuff it into RAIJU proper
-            call imagTubes2RAIJU(raiApp%Model, raiApp%Grid, raiApp%State, App%ijTubes)
-            raiApp%State%espot(:,:) = App%pot%data(:,:) ! They live on the same grid so this is okay
+            call raiCpl2RAIJU(App)
 
             if (doColdStart) then
                 ! Its happening, everybody stay calm
                 write(*,*) "RAIJU Cold starting..."
-                call raijuGeoColdStart(raiApp%Model, raiApp%Grid, raiApp%State, vApp%time, vApp%BSDst)
+                ! NOTE: By this point we have put coupling info into raiju (e.g. bVol, xyzmin, MHD moments)
+                ! But haven't calculated active domain yet because that happens in preadvancer
+                ! So we jump in and do it here so we have it for cold starting
+                call setActiveDomain(raiApp%Model, raiApp%Grid, raiApp%State)
+                ! Calc voltron dst ourselves since vApp%BSDst is only set on console output
+                call EstDST(vApp%gApp%Model,vApp%gApp%Grid,vApp%gApp%State,BSDst0=BSDst)
+                call raijuGeoColdStart(raiApp%Model, raiApp%Grid, raiApp%State, vApp%time, BSDst, doCXO=App%doColdstartCX)
             endif
         end associate
     end subroutine volt2RAIJU
@@ -80,15 +89,15 @@ submodule (volttypes) raijuCplTypesSub
             !! Phi [rad]
         real(rp), intent(in) :: t
             !! Time since run start [s]
-        real(rp), intent(out) :: imW(NVARIMAG)
-        logical, intent(out) :: isEdible
+        real(rp), intent(out) :: imW(IM_D_RING:IM_TSCL)
+        logical , intent(out) :: isEdible
 
         integer :: s  ! Iterators
         integer :: i0, j0  ! i,j cell that provided th,ph are in
         real(rp) :: active_interp
         real(rp) :: d_cold, t_cold, d_hot, p_hot
+        real(rp) :: tScl, rampC
 
-        ! IM_D_RING=1,IM_P_RING,IM_D_COLD, IM_P_COLD, IM_TSCL
         associate(Model=>App%raiApp%Model, State=>App%raiApp%State, sh=>App%raiApp%Grid%shGrid, spcList=>App%raiApp%Grid%spc)
 
         ! Default
@@ -107,7 +116,7 @@ submodule (volttypes) raijuCplTypesSub
 
         ! Active check
         call getSGCellILoc(sh, th, i0)
-        call getSGCellILoc(sh, ph, j0)
+        call getSGCellJLoc(sh, ph, j0)
         if (State%active(i0,j0) .ne. RAIJUACTIVE) then
             return
         endif
@@ -133,8 +142,20 @@ submodule (volttypes) raijuCplTypesSub
             endif
         enddo
 
-        call InterpShellVar_TSC_pnt(sh, State%Tb, th, ph, imW(IM_TSCL))
-        imW(IM_TSCL) = Model%nBounce*imW(IM_TSCL)  ! [s]
+        
+        !call InterpShellVar_TSC_pnt(sh, State%Tb, th, ph, imW(IM_TSCL))
+        !imW(IM_TSCL) = Model%nBounce*imW(IM_TSCL)  ! [s]
+        tScl = 10.0_rp  ! [s]
+        !tScl = 10.0_rp/App%vaFrac(i0,j0)  ! [s]
+
+        ! Adjust IM_TSCL if we wanna ramp up over time
+        if (t < App%startup_blendTscl) then
+            rampC = RampDown(t, 0.0_rp, App%startup_blendTscl)
+            !tScl = sqrt(tScl*App%startup_blendTscl)*rampC + (1-rampC)*tScl  ! idk
+            tScl = rampC*50.0_rp*tScl + (1-rampC)*tScl  ! No good reason for 50 except for wanting starting tScl to be ~8-10 minutes
+        endif
+        
+        imW(IM_TSCL) = tScl
 
         end associate
     end subroutine getMomentsRAIJU
@@ -143,7 +164,7 @@ submodule (volttypes) raijuCplTypesSub
     module subroutine getMomentsPrecipRAIJU(App,th,ph,t,imW,isEdible)
         class(raijuCoupler_T), intent(inout) :: App
         real(rp), intent(in) :: th,ph,t
-        real(rp), intent(out) :: imW(NVARIMAG)
+        real(rp), intent(out) :: imW(NVARIMAG0)
         logical, intent(out) :: isEdible
 
         imW = 0.0
@@ -166,7 +187,10 @@ submodule (volttypes) raijuCplTypesSub
         class(raijuCoupler_T), intent(inout) :: App
         integer, intent(in) :: nRes
 
+        ! Write raiApp info into runid.raiju.Res.h5
         call App%raiApp%WriteRestart(nRes)
+        ! And now the coupler's info
+        call writeRaiCplRes(App, nRes)
 
     end subroutine
 
@@ -175,7 +199,10 @@ submodule (volttypes) raijuCplTypesSub
         character(len=*), intent(in) :: resId
         integer, intent(in) :: nRes
 
+        ! Read runid.raiju.Res.h5 into raiApp
         call App%raiApp%ReadRestart(resId, nRes)
+        ! Now coupler
+        call readRaiCplRes(App,resId,nRes)
 
     end subroutine
 

@@ -381,8 +381,9 @@ module msphutils
                         doChill = Model%doBoris .and. (CsC>cLim*Model%Ca) .and. (doGAMChill)
                         if (doChill .and. Model%doSource) then
                             !If this is a pressure ingestion region, then let the pressure go wild
-                            if (Grid%Gas0(i,j,k,IMPR ,BLK)>TINY) doChill = .false.
+                            if (Grid%Gas0(i,j,k,IM_P_RING)>TINY) doChill = .false.
                         endif !doChill and doSource check
+                        
                         if (doChill) then
                             call CellC2P(Model,pCon,pW)
                             P = pW(PRESSURE) !Cell pressure

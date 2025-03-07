@@ -155,6 +155,7 @@ module raijuICHelpers
         real(rp) :: a0, a1, a2, a3
             !! For bell
         integer :: i,j,sIdx,kPsph
+        logical :: doColdstartCX = .true.
         
         
         call iXML%Set_Val(epType,"prob/etaPreset" , "RING")
@@ -264,8 +265,9 @@ module raijuICHelpers
                 call setRaijuInitPsphere(Model, Grid, State, Model%psphInitKp)
 
             case("COLDSTART")
-                call iXML%Set_Val(dst0,'prob/dst0',30.0)
-                call raijuGeoColdStart(Model, Grid, State, 0.0_rp, dst0)
+                call iXML%Set_Val(dst0,'prob/dst0',0.0)
+                call iXML%Set_Val(doColdstartCX,'prob/coldstartCX',doColdstartCX)
+                call raijuGeoColdStart(Model, Grid, State, 0.0_rp, dst0,doCXO=doColdstartCX)
 
             case default
                 write(*,*) "(RAIJU) ERROR: Pick a valid eta preset in raijuICHelpers.F90:initEtaPresets"

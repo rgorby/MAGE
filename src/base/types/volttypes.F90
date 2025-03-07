@@ -27,18 +27,27 @@ module volttypes
         enumerator :: LPPROJ=1,LLPROJ
     endenum
 
-    ! Data for inner mag => gamera variables
+    ! Data for voltron => gamera Gas0 variables
     enum, bind(C)
-        enumerator :: IM_D_RING=1,IM_P_RING,IM_D_COLD, IM_P_COLD, IM_TSCL
+        enumerator :: IONEX=1,IONEY,IONEZ, & !Convection E field from remix potential
+                      PROJLAT,PROJLON !Projected (to NH) lat/lon
     endenum
+    integer, parameter :: NVARVOLT0 = 5
+
+    ! Data for inner mag => gamera Gas0 variables
+    enum, bind(C)
+        enumerator :: IM_D_RING=NVARVOLT0+1,IM_P_RING,IM_D_COLD, IM_P_COLD, IM_TSCL
+    endenum
+    integer, parameter :: NVARIMAG0 = 5
     integer, parameter :: RCFLUID=1,COLDFLUID=2
 
-    !! WILL BE OBSOLETE SOON
-    ! keeping here for intermediate compatability
+    !Data for outflow => gamera Gas0 variables
     enum, bind(C)
-        enumerator :: IMDEN=1,IMX1,IMX2,IMTSCL,IMPR
+        enumerator :: WIND_D,WIND_V,WIND_P
     endenum
-    integer, parameter :: NVARIMAG = 5
+    integer, parameter :: NVARWIND0 = 3
+
+    integer, parameter :: NVARVOLTSRC = NVARVOLT0 + NVARIMAG0
 
     enum, bind(C)
         enumerator :: V_GRID_UNIFORM=1, V_GRID_SHAFEE
@@ -114,8 +123,10 @@ module volttypes
     type, extends(BaseOptions_T) :: imagOptions_T
         character(len=strLen) :: swF
             !! Solar wind filename
-        real(rp) :: mhd_Rin
-            !! GAMERA near-Earth boundary
+        real(rp) :: mhdRin
+            !! GAMERA near-Earth active cell boundary
+        real(rp) :: mhdRinG
+            !! GAMERA near-Earth ghost cell boundary
         real(rp) :: mjd0
             !! MJD at sim t=0
         logical :: doColdStart
@@ -153,18 +164,61 @@ module volttypes
 
         class(raijuApp_T), allocatable :: raiApp
 
-        real(rp) :: tLastUpdate
-            !! Time of last update, according to voltron
+        ! --- Options --- !
+        real(rp) :: startup_blendTscl = 3600.0
+            !! [s] Time scale over which we ramp up to full IM_TSCL for MHD ingestion
+        logical :: doColdstartCX = .true.
+            !! Whether or not we apply charge exchange to initial coldstart ion profile
+
+        ! --- Grid --- !
         type(ShellGrid_T) :: shGr
             !! Copy of raijuModel's shellGrid
-        integer :: n_MHDfluids
-            !! Number of MHD fluids to expect
+        
+        ! --- State --- !
+        real(rp) :: tLastUpdate
+            !! Time of last update, according to voltron
 
         ! Stuff going into raiju
         type(magLine_T), dimension(:,:), allocatable :: magLines
         type(IMAGTube_T), dimension(:,:), allocatable :: ijTubes
-        type(ShellGridVar_T) :: pot
-            !! electrostatic potential from ionosphere [kV]
+
+        type(ShellGridVar_T), dimension(:), allocatable :: Pavg
+            !! (Ngi, Ngj, Ns) [nPa] Average pressure along flux tube
+        type(ShellGridVar_T), dimension(:), allocatable :: Davg
+            !! (Ngi, Ngj, Ns) [#/cc] Average density along flux tube
+        type(ShellGridVar_T), dimension(:), allocatable :: Pstd
+            !! (Ngi, Ngj, Ns) Normalized standard deviation of the species pressure along the field line
+        type(ShellGridVar_T), dimension(:), allocatable :: Dstd
+            !! (Ngi, Ngj, Ns) Normalized standard deviation of the species density along the field line
+        type(ShellGridVar_T) :: tiote
+            !! (Ngi, Ngj) Ratio of ion temperature to electron temperature
+        type(ShellGridVar_T), dimension(NDIM) :: Bmin
+            !! (Ngi+1, Ngj+1, NDIM) [nT] Bmin vector
+        type(ShellGridVar_T), dimension(NDIM) :: xyzMin
+            !! (Ngi+1, Ngj+1, 3) [Rp] bMin xyz coordinates
+        type(ShellGridVar_T), dimension(NDIM) :: xyzMincc
+            !! (Ngi, Ngj, 3) [Rp] cell-centered bMin xyz coordinates
+        type(ShellGridVar_T) :: topo
+            !! (Ngi+1, Ngj+1) Topology (0=open, 1=closed)
+        type(ShellGridVar_T) :: thcon
+            !! (Ngi+1, Ngj+1) Co-latitude  of conjugate points
+        type(ShellGridVar_T) :: phcon
+            !! (Ngi+1, Ngj+1) Longitude of conjugate points
+        type(ShellGridVar_T) :: bvol
+            !! (Ngi+1, Ngj+1) [Rp/nT] Flux-tube volume
+        type(ShellGridVar_T) :: bvol_cc
+            !! (Ngi, Ngj) [Rp/nT] Flux-tube volume averaged from corners
+        type(ShellGridVar_T) :: vaFrac
+            !! (Ngi+1, Ngj+1) Fraction of total velocity coming from Alfven speed
+            !! Used to limit active region to tubes that can reasonably be treated as averaged and slowly-evolving
+        type(ShellGridVar_T) :: Tb
+            !! (Ngi, Ngj) Bounce timesale
+
+
+        type(ShellGridVar_T) :: pot_total
+            !! Total electrostatic potential from (ionosphere + corot) [kV]
+        type(ShellGridVar_T) :: pot_corot
+            !! Just corotation potential, just for output purposes [kV]
 
         contains
 
@@ -195,9 +249,6 @@ module volttypes
         type(Map_T), allocatable, dimension(:,:) :: PsiMaps
         real(rp) :: rm2g
         real(rp) :: Rion
-
-        ! data for coupling imag to gamera
-        real(rp), dimension(:,:,:,:), allocatable :: SrcNC !Node-centered source terms
 
         ! data for coupler
         character(len=strLen) :: vh5File
@@ -248,6 +299,21 @@ module volttypes
         contains
     end type VoltOptions_T
 
+    type :: voltState_t
+
+        type(Tube_T), dimension(:,:), allocatable :: ijTubes
+        type(TubeShell_T)    :: tubeShell
+        type(ShellGridVar_T) :: potential_total
+            !! (Corners) [kV] Ionospheric ExB and corotation potential
+        type(ShellGridVar_T) :: potential_corot  ! [kV]
+            !! (Corners) [kV] Corotation potential
+
+        type(ShellGridVar_T) :: bIonoMag
+            !! [nT] Magnitude of the magnetic field at grid's ionosphere location
+        type(ShellGridVar_T) :: bIonoRad
+            !! [nT] Radial component of the magnetic field at grid's ionosphere location
+
+    end type voltState_t
     type :: voltApp_T
 
         !Planet information
@@ -258,12 +324,12 @@ module volttypes
         integer :: gridType
             !! Populated with enum (e.g. V_GRID_UNIFORM)
 
-        !Voltron state information
+        ! Voltron state information
         type(TimeSeries_T) :: tilt,symh
         real(rp) :: time, MJD,tFin
         real(rp) :: BSDst=0.0 !Most recent bsdst calculated
         integer :: ts
-        type(IMAGTubeShell_T) :: imagTubes
+        type(voltState_t) :: State
 
         !Voltron output/restart info
         type (IOClock_T) :: IO
@@ -304,6 +370,10 @@ module volttypes
         !Have special flag to indicate this is Earth, which is special
         logical :: isEarth = .false.
 
+        ! Model flags
+        logical :: doGeoCorot = .false.
+            !! Whether or not to use geopack/kai2geo corotation potential, or simple axis-aligned potential
+
         !Local gamera object to couple to
         class(gamCoupler_T), allocatable :: gApp
         logical :: doSerialMHD = .true.
@@ -324,20 +394,20 @@ module volttypes
 
         subroutine getMomentsIMAG_T(App,th,ph,t,imW,isEdible)
             import imagCoupler_T
-            import rp, NVARIMAG
+            import rp, IM_D_RING,IM_TSCL
             class(imagCoupler_T), intent(inout) :: App
             real(rp), intent(in) :: th,ph,t
-            real(rp), intent(out) :: imW(NVARIMAG)
+            real(rp), intent(out) :: imW(IM_D_RING:IM_TSCL)
             logical, intent(out) :: isEdible
         end subroutine getMomentsIMAG_T
 
 
         subroutine getMomentsPrecipIMAG_T(App,th,ph,t,imW,isEdible)
             import imagCoupler_T
-            import rp, NVARIMAG
+            import rp, IM_D_RING,IM_TSCL
             class(imagCoupler_T), intent(inout) :: App
             real(rp), intent(in) :: th,ph,t
-            real(rp), intent(out) :: imW(NVARIMAG)
+            real(rp), intent(out) :: imW(IM_D_RING:IM_TSCL)
             logical, intent(out) :: isEdible
         end subroutine getMomentsPrecipIMAG_T
     end interface
@@ -465,14 +535,14 @@ module volttypes
         module subroutine getMomentsRAIJU(App,th,ph,t,imW,isEdible)
             class(raijuCoupler_T), intent(inout) :: App
             real(rp), intent(in) :: th,ph,t
-            real(rp), intent(out) :: imW(NVARIMAG)
+            real(rp), intent(out) :: imW(IM_D_RING:IM_TSCL)
             logical, intent(out) :: isEdible
         end subroutine getMomentsRAIJU
 
         module subroutine getMomentsPrecipRAIJU(App,th,ph,t,imW,isEdible)
             class(raijuCoupler_T), intent(inout) :: App
             real(rp), intent(in) :: th,ph,t
-            real(rp), intent(out) :: imW(NVARIMAG)
+            real(rp), intent(out) :: imW(NVARIMAG0)
             logical, intent(out) :: isEdible
         end subroutine getMomentsPrecipRAIJU
 
@@ -593,7 +663,7 @@ module volttypes
     subroutine baseEval(imag,x1,x2,t,imW,isEdible)
         class(innerMagBase_T), intent(inout) :: imag
         real(rp), intent(in) :: x1,x2,t
-        real(rp), intent(out) :: imW(NVARIMAG)
+        real(rp), intent(out) :: imW(NVARIMAG0)
         logical, intent(out) :: isEdible
 
         imW = 0.0_rp

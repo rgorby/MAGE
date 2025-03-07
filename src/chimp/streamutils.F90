@@ -40,7 +40,7 @@ module streamutils
     procedure(OneStep_T), pointer :: StreamStep=>Step_MAGE
 
     !Some knobs for tracing cut-off
-    real(rp), private :: bMinC !Min allowable field strength (in chimp units)
+    real(rp), private :: bMinC = 0.0_rp !Min allowable field strength (in chimp units)
     contains
 
     subroutine setStreamlineKnobs(Model,inpXML)

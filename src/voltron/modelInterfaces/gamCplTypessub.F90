@@ -89,8 +89,6 @@ submodule (volttypes) gamCplTypessub
         type(TimeSeries_T) :: tsMJD
         real(rp) :: tIO
 
-        allocate(App%SrcNC(App%Grid%is:voltApp%chmp2mhd%iMax+1,App%Grid%js:App%Grid%je+1,App%Grid%ks:App%Grid%ke+1,1:NVARIMAG))
-
         ! over-ride some Gamera parameters with Voltron values
         tsMJD%wID = voltApp%tilt%wID
         call tsMJD%initTS("MJD",doLoudO=.false.)
@@ -144,7 +142,8 @@ submodule (volttypes) gamCplTypessub
         call SetRings(App%Model,App%Grid,Xml)
         call Corners2Grid(App%Model,App%Grid)
         call DefaultBCs(App%Model,App%Grid)
-        call PrepState(App%Model,App%Grid,App%oState,App%State,Xml,App%gOptions%userInitFunc)
+        call PrepState(App%Model,App%Grid,App%State,App%oState,App%ooState,Xml,App%gOptions%userInitFunc)
+
 
     end subroutine
 
