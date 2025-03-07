@@ -189,6 +189,13 @@ target_link_libraries(gamhelio.x gamlib baselib)
 add_dependencies(gamera gamhelio.x)
 
 #-------------
+#Kaiju: Dragon King
+message("Adding dragonking module ...")
+#Add source
+add_subdirectory(src/dragonking)
+add_custom_target(dragonking ALL)
+
+#-------------
 #Kaiju: ReMIX
 message("Adding ReMIX module ...")
 #Add source
@@ -198,10 +205,10 @@ message("\tAdding executable remix.x")
 add_executable(remix.x src/drivers/remix.F90)
 add_executable(remix2remix.x src/drivers/remix2remix.F90)
 add_executable(remix2rcm.x src/drivers/remix2rcm.F90)
-target_link_libraries(remix.x       remixlib baselib)
-target_link_libraries(remix2remix.x remixlib baselib)
-target_link_libraries(remix2rcm.x   remixlib baselib)
-add_dependencies(remix remix.x remix2remix.x remix2rcm.x baselib)
+target_link_libraries(remix.x       remixlib dragonkinglib baselib)
+target_link_libraries(remix2remix.x remixlib dragonkinglib baselib)
+target_link_libraries(remix2rcm.x   remixlib dragonkinglib baselib)
+add_dependencies(remix remix.x remix2remix.x remix2rcm.x dragonkinglib baselib)
 
 #-------------
 # ShellGrid Tester
@@ -251,7 +258,7 @@ add_subdirectory(src/voltron)
 add_custom_target(voltron ALL)
 message("\tAdding executable voltron.x")
 add_executable(voltron.x src/drivers/voltronx.F90)
-target_link_libraries(voltron.x baselib voltlib gamlib remixlib chimplib rcmlib raijulib)
+target_link_libraries(voltron.x baselib voltlib gamlib dragonkinglib remixlib chimplib rcmlib raijulib)
 add_dependencies(voltron voltron.x)
 
 if(ENABLE_MPI)
@@ -282,7 +289,7 @@ if(ENABLE_MPI)
     add_custom_target(voltron_mpi ALL)
     message("\tAdding executable voltron_mpi.x")
     add_executable(voltron_mpi.x src/drivers/voltron_mpix.F90)
-    target_link_libraries(voltron_mpi.x voltmpilib voltlib gammpilib gamlib remixlib chimplib rcmlib basempilib baselib)
+    target_link_libraries(voltron_mpi.x voltmpilib voltlib gammpilib gamlib dragonkinglib remixlib chimplib rcmlib basempilib baselib)
     add_dependencies(voltron_mpi voltron_mpi.x)
 
     #-------------

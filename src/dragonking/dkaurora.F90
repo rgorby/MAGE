@@ -1,13 +1,16 @@
-module mixconductance
+module dkaurora
+  use kdefs
   use mixdefs
   use mixtypes
-  use planethelper
-  use gcmtypes
-  use gcminterp
+  use dkdefs
+  use dktypes
+!  use planethelper
+!  use gcmtypes
+!  use gcminterp
   use math
-  use euvhelper
+!  use euvhelper
   use auroralhelper
-  use kai2geo
+!  use kai2geo
   use rcmdefs, ONLY : tiote_RCM
   
   implicit none
@@ -26,52 +29,52 @@ module mixconductance
 
   contains
 
-    subroutine conductance_init(conductance,Params,G)
-      ! Initialize precipitation and conductance variables.
-      type(mixConductance_T), intent(inout) :: conductance
-      type(mixParams_T)     , intent(in)    :: Params
-      type(mixGrid_T)       , intent(in)    :: G
+    subroutine dragonking_init(aurora,Params,G)
+      ! Initialize precipitation variables. Called in mixmain.F90/subroutine init_mix.
+      type(dkParams_T) , intent(inout) :: aurora
+      type(mixParams_T), intent(in)    :: Params
+      type(mixGrid_T)  , intent(in)    :: G
 
-      ! define these module-wide variables so we don't have to pass the Params object to all the conductance functions
+      ! define these module-wide variables so we don't have to pass the Params object to all the aurora functions
       ! this is similar to how it was done in MIX
-      conductance%euv_model_type    = Params%euv_model_type
-      conductance%et_model_type     = Params%et_model_type
-      conductance%alpha             = Params%alpha
-      conductance%beta              = Params%beta
-      conductance%R                 = Params%R
-      conductance%F107              = Params%F107
-      conductance%pedmin            = Params%pedmin
-      conductance%hallmin           = Params%hallmin
-      conductance%sigma_ratio       = Params%sigma_ratio
-      conductance%ped0              = Params%ped0
-      conductance%const_sigma       = Params%const_sigma
-      conductance%doRamp            = Params%doRamp
-      conductance%doChill           = Params%doChill
-      conductance%doStarlight       = Params%doStarlight      
-      conductance%doMR              = Params%doMR      
-      conductance%doAuroralSmooth   = Params%doAuroralSmooth      
-      conductance%apply_cap         = Params%apply_cap
-      conductance%aurora_model_type = Params%aurora_model_type
-      conductance%doEMA             = Params%doEMA
+!      conductance%euv_model_type    = Params%euv_model_type
+!      conductance%et_model_type     = Params%et_model_type
+      aurora%alpha             = Params%alpha
+      aurora%beta              = Params%beta
+      aurora%R                 = Params%R
+!      conductance%F107              = Params%F107
+!      conductance%pedmin            = Params%pedmin
+!      conductance%hallmin           = Params%hallmin
+!      conductance%sigma_ratio       = Params%sigma_ratio
+!      conductance%ped0              = Params%ped0
+!      conductance%const_sigma       = Params%const_sigma
+      aurora%doRamp            = Params%doRamp
+      aurora%doChill           = Params%doChill
+!      conductance%doStarlight       = Params%doStarlight
+      aurora%doMR              = Params%doMR
+      aurora%doAuroralSmooth   = Params%doAuroralSmooth
+!      conductance%apply_cap         = Params%apply_cap
+      aurora%aurora_model_type = Params%aurora_model_type
+!      conductance%doEMA             = Params%doEMA
 
-      if (.not. allocated(conductance%zenith)) allocate(conductance%zenith(G%Np,G%Nt))
-      if (.not. allocated(conductance%coszen)) allocate(conductance%coszen(G%Np,G%Nt))
-      if (.not. allocated(conductance%euvSigmaP)) allocate(conductance%euvSigmaP(G%Np,G%Nt))
-      if (.not. allocated(conductance%euvSigmaH)) allocate(conductance%euvSigmaH(G%Np,G%Nt))
-      if (.not. allocated(conductance%deltaSigmaP)) allocate(conductance%deltaSigmaP(G%Np,G%Nt))
-      if (.not. allocated(conductance%deltaSigmaH)) allocate(conductance%deltaSigmaH(G%Np,G%Nt))
+!      if (.not. allocated(conductance%zenith)) allocate(conductance%zenith(G%Np,G%Nt))
+!      if (.not. allocated(conductance%coszen)) allocate(conductance%coszen(G%Np,G%Nt))
+!      if (.not. allocated(conductance%euvSigmaP)) allocate(conductance%euvSigmaP(G%Np,G%Nt))
+!      if (.not. allocated(conductance%euvSigmaH)) allocate(conductance%euvSigmaH(G%Np,G%Nt))
+!      if (.not. allocated(conductance%deltaSigmaP)) allocate(conductance%deltaSigmaP(G%Np,G%Nt))
+!      if (.not. allocated(conductance%deltaSigmaH)) allocate(conductance%deltaSigmaH(G%Np,G%Nt))
 
-      if (.not. allocated(conductance%rampFactor)) allocate(conductance%rampFactor(G%Np,G%Nt))
-      if (.not. allocated(conductance%ares)) allocate(conductance%ares(G%Np,G%Nt))
-      if (.not. allocated(conductance%deltaE)) allocate(conductance%deltaE(G%Np,G%Nt))
-      if (.not. allocated(conductance%E0)) allocate(conductance%E0(G%Np,G%Nt))
-      if (.not. allocated(conductance%phi0)) allocate(conductance%phi0(G%Np,G%Nt))
-      if (.not. allocated(conductance%engFlux)) allocate(conductance%engFlux(G%Np,G%Nt))
+      if (.not. allocated(aurora%rampFactor)) allocate(aurora%rampFactor(G%Np,G%Nt))
+!      if (.not. allocated(conductance%ares)) allocate(conductance%ares(G%Np,G%Nt))
+      if (.not. allocated(aurora%deltaE)) allocate(aurora%deltaE(G%Np,G%Nt))
+      if (.not. allocated(aurora%E0)) allocate(aurora%E0(G%Np,G%Nt))
+      if (.not. allocated(aurora%phi0)) allocate(aurora%phi0(G%Np,G%Nt))
+!      if (.not. allocated(conductance%engFlux)) allocate(conductance%engFlux(G%Np,G%Nt))
 
-      if (.not. allocated(conductance%avgEng)) allocate(conductance%avgEng(G%Np,G%Nt))
-      if (.not. allocated(conductance%drift)) allocate(conductance%drift(G%Np,G%Nt))      
-      if (.not. allocated(conductance%AuroraMask)) allocate(conductance%AuroraMask(G%Np,G%Nt))      
-      if (.not. allocated(conductance%PrecipMask)) allocate(conductance%PrecipMask(G%Np,G%Nt))    
+!      if (.not. allocated(conductance%avgEng)) allocate(conductance%avgEng(G%Np,G%Nt))
+!      if (.not. allocated(conductance%drift)) allocate(conductance%drift(G%Np,G%Nt))      
+!      if (.not. allocated(conductance%AuroraMask)) allocate(conductance%AuroraMask(G%Np,G%Nt))      
+      if (.not. allocated(aurora%PrecipMask)) allocate(aurora%PrecipMask(G%Np,G%Nt))    
 
       ! these arrays are global and should not be! reallocate them
       if(allocated(beta_RCM)) deallocate(beta_RCM)
@@ -88,155 +91,50 @@ module mixconductance
       ! Te/Tmhd
       alpha_RCM = 1.0/(tiote_RCM+1.0)
       ! Loss cone rate
-      beta_RCM  = conductance%beta
-      beta_inp  = conductance%beta
+      beta_RCM  = aurora%beta
+      beta_inp  = aurora%beta
       ! RCM grid weight: 1. Totally on closed RCM; 0. Totally outside RCM.
       ! if conductance_IM_GTYPE is not called, gtype_RCM has all zero, MHD values have a weight of 1.
       gtype_RCM = 0.0
 
-    end subroutine conductance_init
+    end subroutine dragonking_init
 
-    subroutine conductance_total(conductance,G,St,gcm,h)
-      ! The main subroutine in module mixconductance.
-      ! It derives auroral precipitation and conductance caused by both solar EUV and aurora.
+    subroutine dragonking_total(aurora,G,St,conductance)
+      ! The main subroutine in module dragonking.
+      ! It derives auroral precipitation.
+      type(dkParams_T), intent(inout) :: aurora
       type(mixConductance_T), intent(inout) :: conductance
       type(mixGrid_T), intent(in) :: G
       type(mixState_T), intent(inout) :: St
-      type(gcm_T),optional,intent(in) :: gcm
-      integer,optional,intent(in) :: h
-
-      real(rp), dimension(:,:), allocatable :: SigH0,SigP0 !Old values of SigH/SigP
-      real(rp) :: dT,upTau,dnTau,wAvgU,wAvgD
-      integer :: i,j
-
-      !Save old Sigs
-      allocate(SigH0(G%Np,G%Nt))
-      allocate(SigP0(G%Np,G%Nt))
-      SigP0 = St%Vars(:,:,SIGMAP)
-      SigH0 = St%Vars(:,:,SIGMAH)
 
       ! Compute EUV though because it's used in fedder
       call conductance_euv(conductance,G,St)
-      select case ( conductance%aurora_model_type )
-         case (FEDDER)
-            call conductance_fedder95(conductance,G,St)
-         case (SUNNY)
-            call conductance_sunny(conductance,G,St)
-         case (LINMRG)
-            call conductance_linmrg(conductance,G,St)
-         case default
-            stop "The auroral precipitation model type entered is not supported."
+
+      select case ( aurora%aurora_model_type )
+        case (FEDDER)
+          call dragonking_fedder95(aurora,G,St,conductance)
+        case (SUNNY)
+          call dragonking_sunny(aurora,G,St)
+        case (LINMRG)
+          call dragonking_linmrg(aurora,G,St)
+        case default
+          stop "The auroral precipitation model type entered is not supported."
       end select
 
       ! Correct for multiple reflections if you're so inclined
-      if (conductance%doMR) call conductance_mr(conductance,G,St)
+      if (aurora%doMR) call dragonking_mr(aurora,G,St)
 
       ! Smooth precipitation energy and flux before calculating conductance.
-      if (conductance%doAuroralSmooth) call conductance_auroralsmooth(St,G,conductance)
-      
-      if (present(gcm)) then
-         ! Use GCM conductance.
-         call apply_gcm2mix(gcm,St,h)
-         St%Vars(:,:,SIGMAP) = max(conductance%pedmin,St%Vars(:,:,SIGMAP))
-         St%Vars(:,:,SIGMAH) = max(conductance%hallmin,St%Vars(:,:,SIGMAH))
-      else if (conductance%const_sigma) then
-         ! Use constant conductance.
-         St%Vars(:,:,SIGMAP) = conductance%ped0
-         St%Vars(:,:,SIGMAH) = 0.D0
-      else
-         ! Use vector addition of auroral and EUV conductance.
-         call conductance_aurora(conductance,G,St)
-         St%Vars(:,:,SIGMAP) = sqrt( conductance%euvSigmaP**2 + conductance%deltaSigmaP**2) 
-         St%Vars(:,:,SIGMAH) = sqrt( conductance%euvSigmaH**2 + conductance%deltaSigmaH**2)
-      endif
+      if (aurora%doAuroralSmooth) call dragonking_auroralsmooth(St,G,aurora)
 
-      !Before applying cap, do optional exponential smoothing
-      if ( (.not. conductance%const_sigma) .and. conductance%doEMA ) then
-         !Want 95% of weight to come from last tau seconds
-         !Lazily setting values here
-         dT = 5.D0
+    end subroutine dragonking_total
 
-         dnTau = 30.D0 ![s], fall timescale (eg recombination)
-         upTau = 5.D0  ![s], increase timescale (eg state averaging)
-
-         wAvgD = 1.D0 - exp(-3.D0*dT/max(dT,dnTau))
-         wAvgU = 1.D0 - exp(-3.D0*dT/max(dT,upTau))
-         !Throttle how fast conductance drops (ie lazy recombination timescale)
-         !$OMP PARALLEL DO default(shared) &
-         !$OMP private(i,j)
-         do j=1,G%Nt
-            do i=1,G%Np
-               if(St%Vars(i,j,SIGMAP) < SigP0(i,j)) then
-                  !Local conductance dropping
-                  St%Vars(i,j,SIGMAP) = wAvgD*St%Vars(i,j,SIGMAP) + (1-wAvgD)*SigP0(i,j)
-               else
-                  !Local conductance increasing
-                  St%Vars(i,j,SIGMAP) = wAvgU*St%Vars(i,j,SIGMAP) + (1-wAvgU)*SigP0(i,j)
-               endif
-               if(St%Vars(i,j,SIGMAH) < SigH0(i,j)) then
-                  !Local conductance dropping
-                  St%Vars(i,j,SIGMAH) = wAvgD*St%Vars(i,j,SIGMAH) + (1-wAvgD)*SigH0(i,j)
-               else
-                  !Local conductance increasing
-                  St%Vars(i,j,SIGMAH) = wAvgU*St%Vars(i,j,SIGMAH) + (1-wAvgU)*SigH0(i,j)
-               endif
-            enddo
-         enddo
-
-         deallocate(SigP0)
-         deallocate(SigH0)
-      endif
-
-      ! Apply cap
-      if ((conductance%apply_cap).and.(.not. conductance%const_sigma).and.(.not. present(gcm))) then
-         St%Vars(:,:,SIGMAP) = max(conductance%pedmin,St%Vars(:,:,SIGMAP))
-         St%Vars(:,:,SIGMAH) = min(max(conductance%hallmin,St%Vars(:,:,SIGMAH)),&
-              St%Vars(:,:,SIGMAP)*conductance%sigma_ratio)
-      endif
-
-    end subroutine conductance_total
-
-    subroutine conductance_euv(conductance,G,St)
-      ! Derive solar EUV conductance: euvSigmaP, euvSigmaH.
-      type(mixConductance_T), intent(inout) :: conductance
-      type(mixGrid_T), intent(in) :: G
-      type(mixState_T), intent(inout) :: St
-
-      conductance%coszen = G%x*cos(St%tilt)+sqrt(1.-G%x**2-G%y**2)*sin(St%tilt) ! as it should be
-      conductance%zenith = acos(conductance%coszen)
-
-      select case ( conductance%euv_model_type )
-         case (LOMPE) 
-            conductance%euvSigmaP = SigP_EUV_LOMPE(conductance%zenith,conductance%f107)
-            conductance%euvSigmaH = SigH_EUV_LOMPE(conductance%zenith,conductance%f107)
-
-         case default
-            stop "The EUV model type entered is not supported."
-      end select
-
-      if (conductance%doStarlight) then ! Makes sense to turn off apply_cap if this is on
-         ! add background conductance quadratically instead of a sharp cutoff
-         ! first need to remove negative conductances resulting form AMIE for strong tilt
-         ! otherwise, the quadratic addition results in conductances growing toward nightside.
-         conductance%euvSigmaP = max(conductance%euvSigmaP,0.)
-         conductance%euvSigmaH = max(conductance%euvSigmaH,0.)
-         
-         conductance%euvSigmaP = sqrt(conductance%euvSigmaP**2 + conductance%pedmin**2)
-         conductance%euvSigmaH = sqrt(conductance%euvSigmaH**2 + conductance%hallmin**2)
-      else
-         ! otherwise, default to the standard way of applying the floor
-         ! I'll leave it as default for now (doStarlight=.false.) but we can reconsider later
-         conductance%euvSigmaP = max(conductance%euvSigmaP,conductance%pedmin)
-         conductance%euvSigmaH = max(conductance%euvSigmaH,conductance%hallmin)
-      end if
-      
-    end subroutine conductance_euv
-
-    subroutine conductance_fedder95(conductance,G,St)
+    subroutine dragonking_fedder95(aurora,G,St,conductance)
       ! Derive electron precipitation energy flux and avg energy using Fedder95 formula.
-      type(mixConductance_T), intent(inout) :: conductance
+      type(dkParams_T), intent(inout) :: aurora
       type(mixGrid_T), intent(in) :: G
       type(mixState_T), intent(inout) :: St
+      type(mixConductance_T), intent(inout) :: conductance
       
       real(rp) :: signOfJ
       real(rp) :: Rout = 6.D0, Rin = 1.2D0
@@ -254,17 +152,17 @@ module mixconductance
       endif
 
       ! fills in rampFactor
-      if (conductance%doRamp) then
-         call conductance_ramp(conductance,G,rPolarBound,rEquatBound,rLowLimit)
+      if (aurora%doRamp) then
+         call dragonking_ramp(aurora,G,rPolarBound,rEquatBound,rLowLimit)
       else 
-         conductance%rampFactor = 1.0D0
+         aurora%rampFactor = 1.0D0
       endif
       
       !$OMP PARALLEL DO default(shared) &
       !$OMP private(i,j,D,Cs,dE,phi0,E0,aRes,dEc)
       do j=1,G%Nt
          do i=1,G%Np
-            if (conductance%doChill) then
+            if (aurora%doChill) then
                ! MHD density replaced with gallagher where it's lower      
                ! and temperature changed correspondingly
                D  = max(G%D0(i,j)*Mp_cgs, St%Vars(i,j,DENSITY)) ! [g/cm^3]
@@ -274,11 +172,11 @@ module mixconductance
                Cs = St%Vars(i,j,SOUND_SPEED)
             endif
             ! Mean energy from MHD electron fluxes in [keV]. E_avg = 2*kT for Maxwellian.
-            E0 = conductance%alpha*Mp_cgs*heFrac*erg2kev*Cs**2*conductance%rampFactor(i,j)
-            conductance%E0  (i,j) = E0
+            E0 = aurora%alpha*Mp_cgs*heFrac*erg2kev*Cs**2*aurora%rampFactor(i,j)
+            aurora%E0  (i,j) = E0
             ! Thermal number flux from MHD electron fluxes in [#/cm^2/s].
-            phi0 = sqrt(kev2erg)/(heFrac*Mp_cgs)**1.5D0*conductance%beta*D*sqrt(E0)*conductance%rampFactor(i,j)
-            conductance%phi0(i,j) = phi0
+            phi0 = sqrt(kev2erg)/(heFrac*Mp_cgs)**1.5D0*aurora%beta*D*sqrt(E0)*aurora%rampFactor(i,j)
+            aurora%phi0(i,j) = phi0
             
             ! resistence out of the ionosphere is 2*rout resistence into the
             ! ionosphere is 2*rin outward current is positive
@@ -291,9 +189,9 @@ module mixconductance
             ! Density floor to limit characteristic energy.  See Wiltberger et al. 2009 for details.
             D = min(D,rhoFactor*conductance%euvSigmaP(i,j))
             ! Original form for ref: 
-            ! (heFrac*Mp_cgs)**1.5D0/eCharge*1.D-4*sqrt(erg2kev)*conductance%R*aRes*signOfJ*(St%Vars(:,:,FAC)*1.D-6)*sqrt(E0)/D
-            dE = (heFrac*Mp_cgs)**1.5D0/eCharge*1.D-4*sqrt(erg2kev)*conductance%R*aRes*signOfJ*(St%Vars(i,j,FAC)*1.D-6)*sqrt(E0)/D
-            conductance%deltaE(i,j) = dE
+            ! (heFrac*Mp_cgs)**1.5D0/eCharge*1.D-4*sqrt(erg2kev)*aurora%R*aRes*signOfJ*(St%Vars(:,:,FAC)*1.D-6)*sqrt(E0)/D
+            dE = (heFrac*Mp_cgs)**1.5D0/eCharge*1.D-4*sqrt(erg2kev)*aurora%R*aRes*signOfJ*(St%Vars(i,j,FAC)*1.D-6)*sqrt(E0)/D
+            aurora%deltaE(i,j) = dE
             dEc = min(dE,maxDrop)
 
             St%Vars(i,j,AVG_ENG) = max( E0+dEc, eTINY)
@@ -302,15 +200,15 @@ module mixconductance
             else
               St%Vars(i,j,NUM_FLUX) = phi0*exp(dEc/E0)
             endif
-            St%Vars(i,j,DELTAE) = conductance%deltaE(i,j) ! [kV]
+            St%Vars(i,j,DELTAE) = aurora%deltaE(i,j) ! [kV]
          enddo ! i
       enddo ! j
 
-    end subroutine conductance_fedder95
+    end subroutine dragonking_fedder95
 
-    subroutine conductance_sunny(conductance,G,St)
+    subroutine dragonking_sunny(aurora,G,St)
       ! Assign zero precipitation when only EUV conductance is used.
-      type(mixConductance_T), intent(inout) :: conductance
+      type(dkParams_T), intent(inout) :: aurora
       type(mixGrid_T), intent(in) :: G
       type(mixState_T), intent(inout) :: St
 
@@ -320,12 +218,12 @@ module mixconductance
       St%Vars(:,:,NUM_FLUX) = 0.D0
       St%Vars(:,:,DELTAE) = 0.D0
 
-    end subroutine conductance_sunny
+    end subroutine dragonking_sunny
 
-    subroutine conductance_linmrg(conductance,G,St)
+    subroutine dragonking_linmrg(aurora,G,St)
       ! Derive mono-diffuse electron precipitation where mono is based on linearized FL relation,
       ! and diffuse is a combination of MHD and RCM precipitation.
-      type(mixConductance_T), intent(inout) :: conductance
+      type(dkParams_T), intent(inout) :: aurora
       type(mixGrid_T), intent(in) :: G
       type(mixState_T), intent(inout) :: St
 
@@ -340,10 +238,10 @@ module mixconductance
 
       ! derive spatially varying beta and gtype 
       ! using RCM precipitation and thermal fluxes.
-      call conductance_beta_gtype(G,St)
+      call dragonking_beta_gtype(G,St)
 
       ! Derive mono using the linearized FL relation.
-      call conductance_linmono(conductance,G,St)
+      call dragonking_linmono(aurora,G,St)
 
       !$OMP PARALLEL DO default(shared) &
       !$OMP private(i,j,isMono,isPSP,wRCM,wMHD) &
@@ -416,11 +314,11 @@ module mixconductance
          enddo
       enddo
 
-    end subroutine conductance_linmrg
+    end subroutine dragonking_linmrg
 
-    subroutine conductance_linmono(conductance,G,St)
+    subroutine dragonking_linmono(aurora,G,St)
       ! Linearized Fridman-Lemaire relation for mono.
-      type(mixConductance_T), intent(inout) :: conductance
+      type(dkParams_T), intent(inout) :: aurora
       type(mixGrid_T), intent(in) :: G
       type(mixState_T), intent(inout) :: St
       
@@ -446,7 +344,7 @@ module mixconductance
       !$OMP private(wMHD, wRCM)
       do j=1,G%Nt
          do i=1,G%Np
-            if (conductance%doChill) then
+            if (aurora%doChill) then
                ! MHD density replaced with gallagher where it's lower      
                ! and temperature changed correspondingly
                D  = max(G%D0(i,j)*Mp_cgs, St%Vars(i,j,DENSITY)) ! [g/cm^3]
@@ -485,8 +383,8 @@ module mixconductance
                kT = eTINY
             endif
 
-            conductance%E0  (i,j) = 2.0*kT
-            conductance%phi0(i,j) = phi0
+            aurora%E0  (i,j) = 2.0*kT
+            aurora%phi0(i,j) = phi0
             ! Note JF0 may go inf where phi0/Pe_MHD/Ne_MHD is zero.
             J2eF0 = signOfJ*(St%Vars(i,j,FAC)*1.0D-6)/(eCharge*phi0*1.0D4)
             ! Linearize the Fridman-Lemaire relation: 
@@ -494,25 +392,25 @@ module mixconductance
             ! eV ~ kB*Te*(J/e/F0-1) when RM>>J/e/F0
             if (J2eF0>1.0 .and. Ne>Ne_floor) then
                dE = kT*(J2eF0-1.0)
-               conductance%deltaE(i,j) = dE
+               aurora%deltaE(i,j) = dE
                eV2kT = min(dE,maxDrop)/kT + 1.0
                St%Vars(i,j,Z_NFLUX) = phi0*eV2kT
                St%Vars(i,j,Z_EAVG) = kT*(eV2kT+1.0/eV2kT)
             else
                ! When there is no acceleration, MHD flux represents the diffuse precipitation.
-               conductance%deltaE(i,j) = 0.0
+               aurora%deltaE(i,j) = 0.0
                St%Vars(i,j,Z_NFLUX) = phi0
                St%Vars(i,j,Z_EAVG) = 2.0*kT
             endif
 
-            St%Vars(i,j,DELTAE)   = conductance%deltaE(i,j)
+            St%Vars(i,j,DELTAE)   = aurora%deltaE(i,j)
             St%Vars(i,j,AVG_ENG)  = max(St%Vars(i,j,Z_EAVG),eTINY)   ! [keV]
             St%Vars(i,j,NUM_FLUX) = St%Vars(i,j,Z_NFLUX)  ! [#/cm^2/s]
          enddo ! i
       enddo ! j
-    end subroutine conductance_linmono
+    end subroutine dragonking_linmono
 
-    subroutine conductance_mr(conductance,G,St)
+    subroutine dragonking_mr(aurora,G,St)
       ! George Khazanov's multiple reflection(MR) corrections
       ! Modify the diffuse precipitation energy and mean energy based on equation (5) in Khazanov et al. [2019JA026589]
       ! Kc = 3.36-exp(0.597-0.37*Eavg+0.00794*Eavg^2)
@@ -521,7 +419,7 @@ module mixconductance
       ! where Eavg is the mean energy in [keV] before MR, Eavg_c is the modified mean energy. 
       ! Kc is the ratio between modified enflux and unmodified enflux.
       ! No longer use the conductance modification factor in Khazanov et al. [2018SW001837] (eq 7).
-      type(mixConductance_T), intent(in) :: conductance
+      type(dkParams_T), intent(in) :: aurora
       type(mixGrid_T), intent(in) :: G
       type(mixState_T), intent(inout) :: St
       real(rp) :: eavg,nflx,eavgMR,nflxMR
@@ -531,7 +429,7 @@ module mixconductance
       !$OMP private(i,j,eavg,nflx,eavgMR,nflxMR)
       do j=1,G%Nt
         do i=1,G%Np
-          if(conductance%deltaE(i,j)<=0.0) then
+          if(aurora%deltaE(i,j)<=0.0) then
             ! Only modify diffuse precipitation. May modify mono precipitation when a formula is available.
             eavg = St%Vars(i,j,AVG_ENG)
             nflx = St%Vars(i,j,NUM_FLUX)
@@ -541,7 +439,7 @@ module mixconductance
           endif
         enddo
       enddo
-    end subroutine conductance_mr
+    end subroutine dragonking_mr
 
     subroutine AugmentMR(eavg,nflx,eavgMR,nflxMR)
       ! Cleaned up routine to calculate MR-augmented eavg and nflx
@@ -562,10 +460,10 @@ module mixconductance
       endif
     end subroutine AugmentMR
 
-    subroutine conductance_auroralsmooth(St,G,conductance)
+    subroutine dragonking_auroralsmooth(St,G,aurora)
       type(mixState_T), intent(inout) :: St
       type(mixGrid_T), intent(in) :: G      
-      type(mixConductance_T), intent(inout) :: conductance
+      type(dkParams_T), intent(inout) :: aurora
       integer :: i, j
       logical :: smthDEPonly = .true.
       integer :: smthE
@@ -582,10 +480,10 @@ module mixconductance
       ! Get AVG_ENG*mask and NUM_FLUX*mask for smoothing.
       ! Fill AVG_ENG and NUM_FLUX with smoothed where mask is true.
       ! this domain of conductance is never used. Here it's used for diffuse precipitation mask. Be careful if not in RCMONO mode.
-      conductance%PrecipMask = 1.D0 
+      aurora%PrecipMask = 1.D0 
       if(smthDEPonly) then
         where(St%Vars(:,:,Z_NFLUX)>=0)
-          conductance%PrecipMask = 0.D0
+          aurora%PrecipMask = 0.D0
         end where
         ! back up mono
         tmpC = St%Vars(:,:,AVG_ENG)
@@ -594,11 +492,11 @@ module mixconductance
 
       ! get expanded diffuse with margin grid (ghost cells)
       if(smthE==1) then
-        call conductance_margin(G,St%Vars(:,:,AVG_ENG)*St%Vars(:,:,NUM_FLUX)*conductance%PrecipMask, tmpE)
+        call dragonking_margin(G,St%Vars(:,:,AVG_ENG)*St%Vars(:,:,NUM_FLUX)*aurora%PrecipMask, tmpE)
       else
-        call conductance_margin(G,St%Vars(:,:,AVG_ENG)*conductance%PrecipMask, tmpE)
+        call dragonking_margin(G,St%Vars(:,:,AVG_ENG)*aurora%PrecipMask, tmpE)
       end if
-      call conductance_margin(G,St%Vars(:,:,NUM_FLUX)*conductance%PrecipMask, tmpF)
+      call dragonking_margin(G,St%Vars(:,:,NUM_FLUX)*aurora%PrecipMask, tmpF)
 
       !$OMP PARALLEL DO default(shared) collapse(2) &
       !$OMP private(i,j)
@@ -621,34 +519,23 @@ module mixconductance
           St%Vars(:,:,NUM_FLUX) = tmpD
         end where
       endif
-    end subroutine conductance_auroralsmooth
+    end subroutine dragonking_auroralsmooth
 
-    subroutine conductance_aurora(conductance,G,St)
-      ! Use Robinson formula to get Pedersen and Hall conductance from electron precipitation.
-      type(mixConductance_T), intent(inout) :: conductance
-      type(mixGrid_T), intent(in) :: G
-      type(mixState_T), intent(inout) :: St
-
-      conductance%engFlux = kev2erg*St%Vars(:,:,AVG_ENG)*St%Vars(:,:,NUM_FLUX)  ! Energy flux in ergs/cm^2/s
-      conductance%deltaSigmaP = SigmaP_Robinson(St%Vars(:,:,AVG_ENG),conductance%engFlux)
-      conductance%deltaSigmaH = SigmaH_Robinson(St%Vars(:,:,AVG_ENG),conductance%engFlux)
-    end subroutine conductance_aurora
-
-    subroutine conductance_ramp(conductance,G,rPolarBound,rEquatBound,rLowLimit)
-      type(mixConductance_T), intent(inout) :: conductance
+    subroutine dragonking_ramp(aurora,G,rPolarBound,rEquatBound,rLowLimit)
+      type(dkParams_T), intent(inout) :: aurora
       type(mixGrid_T), intent(in) :: G      
       real(rp), intent(in) :: rPolarBound,rEquatBound,rLowLimit
       
       where (G%r <= rPolarBound)
-        conductance%rampFactor = 1.0D0
+        aurora%rampFactor = 1.0D0
       elsewhere ( (G%r > rPolarBound).and.(G%r <= rEquatBound) )
-        conductance%rampFactor = 1.0D0+(rLowLimit - 1.0D0)*(G%r - rPolarBound)/(rEquatBound-rPolarBound)
+        aurora%rampFactor = 1.0D0+(rLowLimit - 1.0D0)*(G%r - rPolarBound)/(rEquatBound-rPolarBound)
       elsewhere ! G%r > rEquatBound
-        conductance%rampFactor = rLowLimit
+        aurora%rampFactor = rLowLimit
       end where
-    end subroutine conductance_ramp
+    end subroutine dragonking_ramp
 
-    subroutine conductance_beta_gtype(G,St)
+    subroutine dragonking_beta_gtype(G,St)
       ! Use RCM precipitation and source population to derive the loss cone rate beta.
       ! Assume beta is one in the polar cap and smooth across RCM boundary.
       type(mixGrid_T), intent(in) :: G
@@ -704,7 +591,7 @@ module mixconductance
             beta_RCM(i,j) = St%Vars(i,j,IM_BETA)
          enddo
       enddo
-      call conductance_smooth(G,beta_RCM,isAncB)
+      call dragonking_smooth(G,beta_RCM,isAncB)
       !$OMP PARALLEL DO default(shared) &
       !$OMP private(i,j)
       do j=1,G%Nt
@@ -723,7 +610,7 @@ module mixconductance
             gtype_RCM(i,j) = St%Vars(i,j,IM_GTYPE)
          enddo
       enddo
-      call conductance_smooth(G,gtype_RCM,isAncG)
+      call aurora_smooth(G,gtype_RCM,isAncG)
       !$OMP PARALLEL DO default(shared) &
       !$OMP private(i,j)
       do j=1,G%Nt
@@ -733,9 +620,9 @@ module mixconductance
             if(gtype_RCM(i,j)<0.D0) gtype_RCM(i,j) = 0.D0
          enddo
       enddo
-    end subroutine conductance_beta_gtype
+    end subroutine dragonking_beta_gtype
 
-    subroutine conductance_smooth(Gr,Q,isAnchor)
+    subroutine dragonking_smooth(Gr,Q,isAnchor)
       ! Do smoothing window on ReMIX grid quantity
       ! Skip anchor points
       type(mixGrid_T), intent(in) :: Gr
@@ -784,7 +671,7 @@ module mixconductance
         call FixPole(Gr,Q)
         if(mad<thres) exit
       enddo
-    end subroutine conductance_smooth
+    end subroutine dragonking_smooth
 
     !Enforce pole condition that all values at the same point are equal
     subroutine FixPole(Gr,Q)
@@ -797,7 +684,7 @@ module mixconductance
       Q(:,1) = Qavg
     end subroutine FixPole
 
-    subroutine conductance_margin(G,array,arraymar)
+    subroutine dragonking_margin(G,array,arraymar)
       ! Conductance boundary processing.
       type(mixGrid_T), intent(in) :: G      
       real(rp),dimension(G%Np,G%Nt), intent(in) :: array
@@ -811,7 +698,7 @@ module mixconductance
       ! periodic BC for lon
       arraymar(1:2,:) = arraymar(G%Np+1:G%Np+2,:)
       arraymar(G%Np+3:G%Np+4,:) = arraymar(3:4,:)
-    end subroutine conductance_margin
+    end subroutine dragonking_margin
 
     subroutine SetMIXgamma(gamma)
       !Routine to change MIX-gamma on the fly if necessary
@@ -819,4 +706,4 @@ module mixconductance
       MIXgamma = gamma
     end subroutine SetMIXgamma
 
-  end module mixconductance
+  end module dkaurora
