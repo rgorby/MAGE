@@ -208,6 +208,7 @@ add_executable(remix2rcm.x src/drivers/remix2rcm.F90)
 target_link_libraries(remix.x       remixlib dragonkinglib baselib)
 target_link_libraries(remix2remix.x remixlib dragonkinglib baselib)
 target_link_libraries(remix2rcm.x   remixlib dragonkinglib baselib)
+add_dependencies(remixlib dragonkinglib)
 add_dependencies(remix remix.x remix2remix.x remix2rcm.x dragonkinglib baselib)
 
 #-------------
