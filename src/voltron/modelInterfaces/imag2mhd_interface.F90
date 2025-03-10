@@ -106,21 +106,26 @@ module imag2mhd_interface
             enddo !k
 
             !Create edge (ijk) E and then convert to cell-centered Exyz
-            allocate(Eijk(Gr%isg:Gr%ieg,Gr%jsg:Gr%jeg,Gr%ksg:Gr%keg,1:NDIM))
+            allocate(Eijk(Gr%isg:Gr%ieg+1,Gr%jsg:Gr%jeg+1,Gr%ksg:Gr%keg+1,1:NDIM))
             Eijk = 0.0
 
             !$OMP PARALLEL DO default(shared) collapse(2) &
             !$OMP private(i,j,k,di,dj,dk)
-            do k=Gr%ksg,Gr%keg
-                do j=Gr%jsg,Gr%jeg
-                    do i=Gr%isg,Gr%ieg
-                        di = Gr%edge(i,j,k,IDIR)
-                        dj = Gr%edge(i,j,k,JDIR)
-                        dk = Gr%edge(i,j,k,KDIR)
-                        Eijk(i,j,k,IDIR) = -( gPsi(i+1,j,k) - gPsi(i,j,k) )/di
-                        Eijk(i,j,k,JDIR) = -( gPsi(i,j+1,k) - gPsi(i,j,k) )/dj
-                        Eijk(i,j,k,KDIR) = -( gPsi(i,j,k+1) - gPsi(i,j,k) )/dk
-
+            do k=Gr%ksg,Gr%keg+1
+                do j=Gr%jsg,Gr%jeg+1
+                    do i=Gr%isg,Gr%ieg+1
+                        if (i <= Gr%ieg) then
+                            di = Gr%edge(i,j,k,IDIR)
+                            Eijk(i,j,k,IDIR) = -( gPsi(i+1,j,k) - gPsi(i,j,k) )/di
+                        endif
+                        if (j <= Gr%jeg) then
+                            dj = Gr%edge(i,j,k,JDIR)
+                            Eijk(i,j,k,JDIR) = -( gPsi(i,j+1,k) - gPsi(i,j,k) )/dj
+                        endif
+                        if (k <= Gr%keg) then
+                            dk = Gr%edge(i,j,k,KDIR)
+                            Eijk(i,j,k,KDIR) = -( gPsi(i,j,k+1) - gPsi(i,j,k) )/dk
+                        endif
                         Eijk(i,j,k,:) = Eijk(i,j,k,:)/eScl
                         
                     enddo
