@@ -162,7 +162,8 @@ module mixmain
         else
           call Tic("MIX-COND")
           ! Compute auroral precipitation flux regardless of coupling mode.
-          ! Note conductance_euv is called inside dragonking_total.
+          ! Note conductance_euv is used inside dragonking_total.
+          call conductance_euv(I(h)%conductance,I(h)%G,I(h)%St)
           call dragonking_total(I(h)%aurora,I(h)%G,I(h)%St,I(h)%conductance)
 
           if (present(gcm)) then

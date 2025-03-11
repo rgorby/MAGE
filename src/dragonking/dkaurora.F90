@@ -108,7 +108,7 @@ module dkaurora
       type(mixState_T), intent(inout) :: St
 
       ! Compute EUV though because it's used in fedder
-      call conductance_euv(conductance,G,St)
+!      call conductance_euv(conductance,G,St) ! moved to mixmain
 
       select case ( aurora%aurora_model_type )
         case (FEDDER)
@@ -610,7 +610,7 @@ module dkaurora
             gtype_RCM(i,j) = St%Vars(i,j,IM_GTYPE)
          enddo
       enddo
-      call aurora_smooth(G,gtype_RCM,isAncG)
+      call dragonking_smooth(G,gtype_RCM,isAncG)
       !$OMP PARALLEL DO default(shared) &
       !$OMP private(i,j)
       do j=1,G%Nt
