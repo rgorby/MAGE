@@ -1,13 +1,13 @@
 Welcome to the ``kaiju`` documentation
 ======================================
 
+This is the documentation for version 1.0 of the MAGE software. This version
+combines GAMERA, RCM, and TIEGCM.
+
 .. important::
     Users of any code or data from this repository are expected to respect
     these :doc:`rules of the road <roadrules>`. For questions, please
     `contact us <MAGEEC@LISTSERV.JHUAPL.EDU>`_.
-
-Code improvements and contributions are welcome, and should follow the process
-outlined on :doc:`this page <userGuide/user_rules/contributingGuide>`.
 
 If you encounter issues with the ``kaiju`` software, review the
 :doc:`FAQ <FAQ>` and try `Google <https://www.google.com/>`_ before seeking

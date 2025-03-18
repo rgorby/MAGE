@@ -5,5 +5,4 @@ Running the ``kaiju`` code
     :maxdepth: 1
 
     geoQuickStart
-    chimpQuickStart
     helioQuickStart
