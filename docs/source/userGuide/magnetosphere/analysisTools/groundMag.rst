@@ -1,5 +1,5 @@
 
-SuperMAG: Ground Magnetometer Calculations
+SuperMAG: Ground Magnetometer Measurements
 ==========================================
 
 Introduction

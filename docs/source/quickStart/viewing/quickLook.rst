@@ -254,7 +254,6 @@ magnetosphere quickstart case generates the following files (``remix_n.png``,
 
 .. image:: qkrcmpic.png
 
-
 .. ``swpic.py``
 .. ----------------
 
