@@ -18,7 +18,7 @@ module imag2mhd_interface
         real(rp), dimension(:,:,:,:), allocatable :: Eijk
         logical , dimension(:,:,:)  , allocatable :: isGoodCC
 
-        integer :: n,i,j,k
+        integer :: n,i,j,k,Nk
         real(rp) :: x1,x2,x1c,di,dj,dk,Rion,t,eScl
         real(rp), dimension(NDIM) :: xyz
         real(rp) :: Qs(8) !Squish all the corners of a single cell
@@ -33,9 +33,41 @@ module imag2mhd_interface
         associate(Gr=>vApp%gApp%Grid,gModel=>vApp%gApp%Model)
             Gr%Gas0 = 0.0
 
+        !Clean up axis projections
+        !---
+            !Force agreement at k-seam
+            vApp%chmp2mhd%xyzSquish(:,:,Gr%ke+1,1:2) = vApp%chmp2mhd%xyzSquish(:,:,Gr%ks,1:2)
+            vApp%chmp2mhd%isGood   (:,:,Gr%ke+1)     = vApp%chmp2mhd%isGood   (:,:,Gr%ks)
+
+            !Clean up axis
+            !$OMP PARALLEL DO default(shared) &
+            !$OMP private(i,j,k)
+            do i=Gr%is,Gr%ie+1
+                !If any nodes around the ring are bad then poison all of them
+                !+X pole
+                if (.not. all(vApp%chmp2mhd%isGood(i,Gr%js,Gr%ks:Gr%ke+1))) then
+                    vApp%chmp2mhd%isGood(i,Gr%js,:) = .false.
+                else
+                    !All are good, define all to be average
+                    vApp%chmp2mhd%xyzSquish(i,Gr%js,:,1) = ArithMean(vApp%chmp2mhd%xyzSquish(i,Gr%js,Gr%ks:Gr%ke,1))
+                    vApp%chmp2mhd%xyzSquish(i,Gr%js,:,2) =  CircMean(vApp%chmp2mhd%xyzSquish(i,Gr%js,Gr%ks:Gr%ke,2))
+                endif
+
+                !-X pole
+                if (.not. all(vApp%chmp2mhd%isGood(i,Gr%je+1,Gr%ks:Gr%ke+1))) then
+                    vApp%chmp2mhd%isGood(i,Gr%je+1,:) = .false.
+                else
+                    !All are good, define all to be average
+                    vApp%chmp2mhd%xyzSquish(i,Gr%je+1,:,1) = ArithMean(vApp%chmp2mhd%xyzSquish(i,Gr%je+1,Gr%ks:Gr%ke,1))
+                    vApp%chmp2mhd%xyzSquish(i,Gr%je+1,:,2) =  CircMean(vApp%chmp2mhd%xyzSquish(i,Gr%je+1,Gr%ks:Gr%ke,2))
+                endif
+            enddo
+
+        !Get cell-centered projections
+        !---
             allocate(isGoodCC(Gr%isg:Gr%ieg,Gr%jsg:Gr%jeg,Gr%ksg:Gr%keg))
             isGoodCC = .false.
-            !Get cell-centered projections
+            
 
             !$OMP PARALLEL DO default(shared) collapse(2) &
             !$OMP private(i,j,k,xyz,x1,x2,Qs)
@@ -72,6 +104,9 @@ module imag2mhd_interface
                 enddo !j
             enddo !k
 
+        !Get convective E field for ingestion
+        !---
+
             call FillGhostsCC(gModel,Gr,Gr%Gas0(:,:,:,PROJLAT))
             call FillGhostsCC(gModel,Gr,Gr%Gas0(:,:,:,PROJLON))
 
@@ -106,31 +141,30 @@ module imag2mhd_interface
             enddo !k
 
             !Create edge (ijk) E and then convert to cell-centered Exyz
-            allocate(Eijk(Gr%isg:Gr%ieg+1,Gr%jsg:Gr%jeg+1,Gr%ksg:Gr%keg+1,1:NDIM))
+            allocate(Eijk(Gr%isg:Gr%ieg,Gr%jsg:Gr%jeg,Gr%ksg:Gr%keg,1:NDIM))
             Eijk = 0.0
 
             !$OMP PARALLEL DO default(shared) collapse(2) &
             !$OMP private(i,j,k,di,dj,dk)
-            do k=Gr%ksg,Gr%keg+1
-                do j=Gr%jsg,Gr%jeg+1
-                    do i=Gr%isg,Gr%ieg+1
-                        if (i <= Gr%ieg) then
-                            di = Gr%edge(i,j,k,IDIR)
-                            Eijk(i,j,k,IDIR) = -( gPsi(i+1,j,k) - gPsi(i,j,k) )/di
-                        endif
-                        if (j <= Gr%jeg) then
-                            dj = Gr%edge(i,j,k,JDIR)
-                            Eijk(i,j,k,JDIR) = -( gPsi(i,j+1,k) - gPsi(i,j,k) )/dj
-                        endif
-                        if (k <= Gr%keg) then
-                            dk = Gr%edge(i,j,k,KDIR)
-                            Eijk(i,j,k,KDIR) = -( gPsi(i,j,k+1) - gPsi(i,j,k) )/dk
-                        endif
+            do k=Gr%ks,Gr%ke+1
+                do j=Gr%js,Gr%je+1
+                    do i=Gr%isg,Gr%ie+1
+                        di = Gr%edge(i,j,k,IDIR)
+                        Eijk(i,j,k,IDIR) = -( gPsi(i+1,j,k) - gPsi(i,j,k) )/di
+
+                        dj = Gr%edge(i,j,k,JDIR)
+                        Eijk(i,j,k,JDIR) = -( gPsi(i,j+1,k) - gPsi(i,j,k) )/dj
+
+                        dk = Gr%edge(i,j,k,KDIR)
+                        Eijk(i,j,k,KDIR) = -( gPsi(i,j,k+1) - gPsi(i,j,k) )/dk
+
                         Eijk(i,j,k,:) = Eijk(i,j,k,:)/eScl
                         
                     enddo
                 enddo
             enddo !k
+
+            call FixEFieldLFM(gModel,Gr,Eijk) !Force agreement at k-seam
 
             !Convert edge E fields to xyz and store
             !$OMP PARALLEL DO default(shared) collapse(2) &
@@ -148,7 +182,6 @@ module imag2mhd_interface
             do n=IONEX,IONEZ
                 call FillGhostsCC(gModel,Gr,Gr%Gas0(:,:,:,n))
             enddo
-
 
 
             t = (vApp%gApp%Model%t)*(vApp%gApp%Model%Units%gT0)
@@ -185,15 +218,63 @@ module imag2mhd_interface
                 enddo
             enddo !k
 
+            !Do averaging for first cell next to singularity
+            Nk = Gr%ke-Gr%ks+1
+
+            !$OMP PARALLEL DO default(shared) &
+            !$OMP private(i)
+            do i=Gr%is,Gr%ie
+                !+X pole
+                call ReAverage(gModel,Gr,Gr%Gas0(i,Gr%js,Gr%ks:Gr%ke,IM_D_RING),Nk)
+                call ReAverage(gModel,Gr,Gr%Gas0(i,Gr%js,Gr%ks:Gr%ke,IM_P_RING),Nk)
+                call ReAverage(gModel,Gr,Gr%Gas0(i,Gr%js,Gr%ks:Gr%ke,IM_D_COLD),Nk)
+                call ReAverage(gModel,Gr,Gr%Gas0(i,Gr%js,Gr%ks:Gr%ke,IM_P_COLD),Nk)
+                call ReAverage(gModel,Gr,Gr%Gas0(i,Gr%js,Gr%ks:Gr%ke,IM_TSCL  ),Nk)
+
+                !-X pole
+                call ReAverage(gModel,Gr,Gr%Gas0(i,Gr%je,Gr%ks:Gr%ke,IM_D_RING),Nk)
+                call ReAverage(gModel,Gr,Gr%Gas0(i,Gr%je,Gr%ks:Gr%ke,IM_P_RING),Nk)
+                call ReAverage(gModel,Gr,Gr%Gas0(i,Gr%je,Gr%ks:Gr%ke,IM_D_COLD),Nk)
+                call ReAverage(gModel,Gr,Gr%Gas0(i,Gr%je,Gr%ks:Gr%ke,IM_P_COLD),Nk)
+                call ReAverage(gModel,Gr,Gr%Gas0(i,Gr%je,Gr%ks:Gr%ke,IM_TSCL  ),Nk)
+                
+            enddo
+
             do n=IM_D_RING,IM_TSCL
                 call FillGhostsCC(gModel,Gr,Gr%Gas0(:,:,:,n))
             enddo
         end associate
 
-
-
         !---
         contains
+
+            !Take Nk ring of cell-centered data and average
+            subroutine ReAverage(Model,Gr,GasK,Nk)
+                type(Model_T), intent(in)      :: Model
+                type(Grid_T) , intent(in)      :: Gr
+                integer      , intent(in)      :: Nk
+                real(rp)     , intent(inout)   :: GasK(Nk)
+
+                real(rp) :: Q
+                Q = AvgOverGood(GasK,Nk)
+                GasK(:) = Q
+            end subroutine 
+
+            function AvgOverGood(Q,Nk) result(Qavg)
+                real(rp), intent(in), dimension(Nk) :: Q
+                integer , intent(in) :: Nk
+
+                real(rp) :: Qavg
+                integer :: Nkg
+
+                if ( all(Q>TINY) ) then
+                    Nkg = count(Q>TINY)
+                    Qavg = sum(Q,mask=(Q>TINY))/Nkg
+                else
+                    Qavg = 0.0
+                endif
+
+            end function AvgOverGood
 
             !Take a full-sized cell-centered grid w/ active values defined and fill ghosts
             subroutine FillGhostsCC(Model,Gr,Q)
