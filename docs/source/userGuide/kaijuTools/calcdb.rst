@@ -1,5 +1,5 @@
-``calcdb.x`` - Computing ground delta B values from kaiju results
------------------------------------------------------------------
+``calcdb.x`` - Computing ground delta B values from ``kaiju`` results
+---------------------------------------------------------------------
 
 Introduction
 ============
@@ -21,7 +21,7 @@ In order to use ``calcdb.x``, you need the following:
 * A PBS job file to run ``calcdb.x``.
 
 ``kaiju`` magnetosphere result files
-------------------------------------
+====================================
 
 Any set of ``kaiju`` magnetosphere results can be used. This documentation
 assumes you used the MPI version the the ``kaiju`` software, e.g.
@@ -31,7 +31,7 @@ the model results from each MPI rank.
 Assume all result files are in the current directory.
 
 The XML file for ``calcdb.x``
------------------------------
+=============================
 
 The XML file read by ``calcdb.x`` should look something like this (file
 ``calcdb.xml``):
@@ -123,13 +123,16 @@ The elements and attributes of the XML file are described below.
 
   * ``Nz`` (optional, default ``2``): Number of altitude cells.
 
+Running ``calcdb.x``
+====================
+
 We can now run ``calcdb.x`` with the following command:
 
 .. code-block:: bash
 
   $ calcdb.x calcdb.xml
 
-For large simulations, this process can take a long time. A more time-efficient
+For large simulations, this process can take a long time. A more efficient
 approach is to use PBS to run multiple ``calcdb.x`` jobs in parallel, and
 combine the results. To do this, add the following element to the XML file. in
 the ``<Chimp>`` element:
@@ -144,8 +147,7 @@ where:
   to increase calculation speed.
 
   * ``NumB`` (optional, default ``0``): Number of batches into which the
-    calculation will be split for parallel computation. Must equal the job
-    array size ``NumB`` used in ``-J 1-NumB`` on the ``qsub`` command line.
+    calculation will be split for parallel computation.
 
 We also need a PBS script, as shown below (the example runs on ``derecho``):
 
@@ -175,6 +177,11 @@ Now submit the job to the PBS system:
 
   $ qsub -J 1-4 calcdb.pbs
 
+.. note::
+
+  The second digit in ``J 1-4`` must match the value of ``NumB`` in the XML
+  file.
+
 When the calculation has finished, your directory will contain a set of files
 named like this:
 
@@ -193,6 +200,6 @@ Now combine the results into a single file with the ``pitmerge.py`` command
 
   $ pitmerge.py -runid geospace
 
-where ``runid`` is the runid for the kaiju run being used for the calculation.
-This command will create the file ``geospace.deltab.h5``, which contains the
-ground delta B values for the simulation.
+where ``runid`` is the runid for the ``kaiju`` run being used for the
+calculation. This command will create the file ``geospace.deltab.h5``, which
+contains the ground delta B values for the simulation.
