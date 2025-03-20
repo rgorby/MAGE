@@ -35,7 +35,7 @@ module shellGrid
         !! e.g. good for interpolation, etc.
 
 
-end type ShellGridVar_T
+    end type ShellGridVar_T
 
 
     !> Data type for holding 2D spherical shell grid

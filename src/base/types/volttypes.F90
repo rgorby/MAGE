@@ -53,6 +53,12 @@ module volttypes
         enumerator :: V_GRID_UNIFORM=1, V_GRID_SHAFEE
     endenum
 
+        ! IMAG2MIX field indices
+    integer, parameter :: nVars_imag2mix = 10 ! change together with the enumerator below
+    enum, bind(C)
+        enumerator :: RAI_GTYPE=1,RAI_THCON,RAI_PHCON,RAI_EAVG,RAI_ENFLX,RAI_EFLUX,RAI_EDEN,RAI_EPRE,RAI_NPSP,RAI_CCHF
+    endenum
+
     ! data for imag => remix for conductance
     type imag2Mix_T
         !Assuming IMag data is coming on northern hemisphere
@@ -402,13 +408,12 @@ module volttypes
         end subroutine getMomentsIMAG_T
 
 
-        subroutine getMomentsPrecipIMAG_T(App,th,ph,t,imW,isEdible)
+        subroutine getMomentsPrecipIMAG_T(App,rai_fluxes,thc,phc)
             import imagCoupler_T
-            import rp, IM_D_RING,IM_TSCL
+            import rp
             class(imagCoupler_T), intent(inout) :: App
-            real(rp), intent(in) :: th,ph,t
-            real(rp), intent(out) :: imW(IM_D_RING:IM_TSCL)
-            logical, intent(out) :: isEdible
+            real(rp), dimension(:,:,:), allocatable, intent(out) :: rai_fluxes
+            real(rp), dimension(:), allocatable, intent(out) :: thc, phc
         end subroutine getMomentsPrecipIMAG_T
     end interface
 
@@ -539,11 +544,10 @@ module volttypes
             logical, intent(out) :: isEdible
         end subroutine getMomentsRAIJU
 
-        module subroutine getMomentsPrecipRAIJU(App,th,ph,t,imW,isEdible)
+        module subroutine getMomentsPrecipRAIJU(App,rai_fluxes,thc,phc)
             class(raijuCoupler_T), intent(inout) :: App
-            real(rp), intent(in) :: th,ph,t
-            real(rp), intent(out) :: imW(NVARIMAG0)
-            logical, intent(out) :: isEdible
+            real(rp), dimension(:,:,:), allocatable, intent(out) :: rai_fluxes
+            real(rp), dimension(:), allocatable, intent(out) :: thc, phc
         end subroutine getMomentsPrecipRAIJU
 
         module subroutine raiCplInitModel(App, xml)
