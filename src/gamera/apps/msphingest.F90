@@ -134,6 +134,8 @@ module msphingest
                         Veb = cross(E,B)/dot_product(B,B)
                     endif
 
+                    call ClampVeb(Model,Veb)
+
                 !Single fluid
                     if (.not. Model%doMultiF) then
                         D0 = Gr%Gas0(i,j,k,IM_D_RING) + Gr%Gas0(i,j,k,IM_D_COLD)
@@ -182,6 +184,16 @@ module msphingest
 
     !---
         contains
+            subroutine ClampVeb(Model,Veb)
+                type(Model_T), intent(in)    :: Model
+                real(rp)     , intent(inout) :: Veb(NDIM)
+
+                if (Model%doBoris .and. (norm2(Veb) >= Model%Ca)) then
+                    Veb = 0.0
+                endif
+
+            end subroutine ClampVeb
+
             !Do some shenanigans to keep hot sound speed low where it doesn't matter
             subroutine ClampHot(Model,psD,psP,rcD,rcP)
                 type(Model_T), intent(in)    :: Model
