@@ -17,25 +17,11 @@ In general, building the ``kaiju`` software requires several steps:
     This includes making sure you have the required compilers and external
     libraries, and making sure all environment variables are set properly. On
     HPC systems such as ``derecho`` and ``pleiades``, this also means running
-    the appropriate ``module`` commands.
+    the appropriate ``module`` commands. The ``module`` commands are needed to
+    provide various libraries that are needed by the ``kaiju`` software,
+    including the compiler, MPI, and HDF5.
 
-    2. **Build missing prerequisite libraries.**
-
-    This step is required because not all of the prerequisite libraries are
-    provided on all platforms. Typically, this problem is limited to the
-    `NetCDF library <https://www.unidata.ucar.edu/software/netcdf/>`_ (which
-    is needed by the `SpacePy <https://spacepy.github.io/>`_ module used in ``kaipy`` code which accesses
-    satellite data from `CDAWeb <https://cdaweb.gsfc.nasa.gov/>`_). If you do
-    not plan to use this capability, then the NetCDF build step may be
-    ignored.
-
-    The `GEOS <https://libgeos.org/>`_ library (which is used by the CartoPy
-    module in some ``kaipy`` code which requires mapping functions) is
-    available on ``derecho`` as a ``module``, but not on ``pleiades``. We do
-    not provide instructions for building the GEOS library. Therefore,
-    postprocessing code which uses CartoPy will not run on ``pleiades``.
-
-    3. **Create a python environment.**
+    2. **Create a python environment.**
 
     The ``kaiju`` software, and its accompanying ``kaipy`` python package, is
     best used in a separate ``python`` virtual environment. These instructions
@@ -59,7 +45,7 @@ In general, building the ``kaiju`` software requires several steps:
         probably encounter compatibility issues. We are working to update the
         ``kaiju`` and ``kaipy`` code to support at least ``python`` 3.10.
 
-    4. **Build the kaiju software.**
+    3. **Build the kaiju software.**
 
     This is the step where you actually compile the ``kaiju`` code, which is
     written primarily in `Fortran <https://fortran-lang.org/>`_. The ``kaiju``

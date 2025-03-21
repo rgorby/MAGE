@@ -6,3 +6,4 @@ Running the ``kaiju`` code
 
     geoQuickStart
     helioQuickStart
+    makeitso

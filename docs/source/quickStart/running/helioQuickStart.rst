@@ -158,7 +158,7 @@ Now perform a quick visualization of the results from your model using the
 
 .. code-block:: bash
 
-    $ heliopic.py -id geospace
+    $ heliopic.py -id helio
 
 This script will create a file called ``qkpic_helio_pic1_n1.png``, which
 should look like this:

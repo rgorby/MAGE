@@ -18,7 +18,7 @@ In order to use ``calcdb.x``, you need the following:
 * An XML file describing the magnetosphere results and the settings for the
   ground delta B calculation.
 
-* A PBS job file to run ``calcdb.x``.
+* (optional) A PBS job file to run ``calcdb.x``.
 
 ``kaiju`` magnetosphere result files
 ====================================
@@ -95,7 +95,7 @@ The elements and attributes of the XML file are described below.
     by the MAGE output files. Valid values are ``EGG``, ``LFM``, ``SPH``. If
     the string is not one of the supported grid types, the default value
     (``EGG``) is used, and a warning message is printed. Note that for a
-    magnetosphere simultion, the ``grType`` is nearly always ``LFM``.
+    magnetosphere simulation, the ``grType`` is nearly always ``LFM``.
 
   * ``doJ`` (required, must be ``T``): If ``T``, compute currents from the
     ``kaiju`` model results.
@@ -109,7 +109,7 @@ The elements and attributes of the XML file are described below.
     decomposition  of ``i`` dimension.
 
   * ``Rj`` (optional, default ``1``): Number of ranks used in MPI
-      decomposition  of ``j`` dimension.
+    decomposition  of ``j`` dimension.
 
   * ``Rk`` (optional, default ``1``): Number of ranks used in MPI
     decomposition of ``k`` dimension.
