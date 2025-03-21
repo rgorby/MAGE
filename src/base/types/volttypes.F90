@@ -164,10 +164,19 @@ module volttypes
 
         class(raijuApp_T), allocatable :: raiApp
 
-        real(rp) :: tLastUpdate
-            !! Time of last update, according to voltron
+        ! --- Options --- !
+        real(rp) :: startup_blendTscl = 3600.0
+            !! [s] Time scale over which we ramp up to full IM_TSCL for MHD ingestion
+        logical :: doColdstartCX = .true.
+            !! Whether or not we apply charge exchange to initial coldstart ion profile
+
+        ! --- Grid --- !
         type(ShellGrid_T) :: shGr
             !! Copy of raijuModel's shellGrid
+        
+        ! --- State --- !
+        real(rp) :: tLastUpdate
+            !! Time of last update, according to voltron
 
         ! Stuff going into raiju
         type(magLine_T), dimension(:,:), allocatable :: magLines
@@ -181,6 +190,8 @@ module volttypes
             !! (Ngi, Ngj, Ns) Normalized standard deviation of the species pressure along the field line
         type(ShellGridVar_T), dimension(:), allocatable :: Dstd
             !! (Ngi, Ngj, Ns) Normalized standard deviation of the species density along the field line
+        type(ShellGridVar_T) :: tiote
+            !! (Ngi, Ngj) Ratio of ion temperature to electron temperature
         type(ShellGridVar_T), dimension(NDIM) :: Bmin
             !! (Ngi+1, Ngj+1, NDIM) [nT] Bmin vector
         type(ShellGridVar_T), dimension(NDIM) :: xyzMin

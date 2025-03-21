@@ -206,8 +206,10 @@ module shellInterp
         
         real(rp) :: ph
             !! Cleaned-up phi location we actually use
-        integer :: i0, j0, i0_tmp, j0_tmp
-            !! i and j locations of point t,p
+        integer :: i0_cell, j0_cell
+            !! i and j locations of the cell containing point t,p, irrespective of scVar%loc
+        integer :: i0, j0
+            !! i and j locations of point closest to t,p
             !! Whether they are respect to corner, center, or a face depends on sgVar%loc
         real(rp) :: dTh, dPh
             !! dTheta and dPhi at location i0,j0 , assuming we are in domain
@@ -232,13 +234,17 @@ module shellInterp
             stop
         end if
 
-        call getSGCellILoc(sgSource, th, i0, t0)
+        call getSGCellILoc(sgSource, th, i0_cell, t0)
         if (sgVar%loc .eq. SHGR_CORNER .or. sgVar%loc .eq. SHGR_FACE_THETA) then
-            call iLocCC2Corner(sgSource, th, i0, tLocO=t0)
+            call iLocCC2Corner(sgSource, th, i0_cell, iLocCornerO=i0, tLocO=t0)
+        else
+            i0 = i0_cell
         endif
-        call getSGCellJLoc(sgSource, ph, j0, p0)
+        call getSGCellJLoc(sgSource, ph, j0_cell, p0)
         if (sgVar%loc .eq. SHGR_CORNER .or. sgVar%loc .eq. SHGR_FACE_PHI  ) then
-            call jLocCC2Corner(sgSource, ph, j0, pLocO=p0)
+            call jLocCC2Corner(sgSource, ph, j0_cell, jLocCornerO=j0, pLocO=p0)
+        else
+            j0 = j0_cell
         endif
 
         if (i0 > sgVar%iev .or. i0 < sgVar%isv) then
@@ -297,14 +303,14 @@ module shellInterp
         ! note, if the destination point is closer to the top cell boundary
         ! than the bottom (for corner centered variables), then i0 by now is 2.
         ! in other words, only the half of the cell closest to the pole will be interpolated as a pole.
-        if (sgSource%doNP .and. (i0==sgSource%is)) then
+        if (sgSource%doNP .and. (i0_cell==sgSource%is)) then
             ! Handle north pole and return
             call interpPole(sgSource,sgVar,th,ph,Qinterp)
             return
         endif
 
         ! same comment as above but for south pole
-        if (sgSource%doSP .and. (i0==sgSource%ie)) then
+        if (sgSource%doSP .and. (i0_cell==sgSource%ie)) then
             ! Handle south pole and return
             call interpPole(sgSource,sgVar,th,ph,Qinterp)
             return
@@ -456,6 +462,10 @@ module shellInterp
             iinterp = shGr%ie
         else
             write(*,*) "Attempting to call pole interpolation for a point that's not on the pole. Quitting..."
+            write(*,*)"tin=",tin
+            write(*,*)"lower cell bounds: (",shGr%th(shGr%is),",",shGr%th(shGr%is+1),")"
+            write(*,*)"upper cell bounds: (",shGr%th(shGr%ie),",",shGr%th(shGr%ie+1),")"
+            
         end if
 
         ! represent the function near pole to first order in theta as

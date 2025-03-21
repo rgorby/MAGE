@@ -12,7 +12,7 @@ module raijuColdStartHelper
 
     contains
 
-    subroutine raijuGeoColdStart(Model, Grid, State, t0, dstModel)
+    subroutine raijuGeoColdStart(Model, Grid, State, t0, dstModel,doCXO)
         !! Cold start RAIJU assuming we are at Earth sometime around 21st century
         type(raijuModel_T), intent(in) :: Model
         type(raijuGrid_T), intent(in) :: Grid
@@ -21,11 +21,19 @@ module raijuColdStartHelper
             !! Target time to pull SW values from
         real(rp), intent(in) :: dstModel
             !! Current dst of global model
+        logical, intent(in), optional :: doCXO
 
+        logical :: doCX
         integer :: sIdx_p, sIdx_e
         real(rp) :: dstReal, dstTarget
         real(rp) :: dps_preCX, dps_postCX, dps_ele
         logical, dimension(Grid%shGrid%isg:Grid%shGrid%ieg, Grid%shGrid%jsg:Grid%shGrid%jeg) :: isGood
+
+        if(present(doCXO)) then
+            doCX = doCXO
+        else
+            doCX = .true.
+        endif
 
         where (State%active .eq. RAIJUACTIVE)
             isGood = .true.
@@ -55,7 +63,9 @@ module raijuColdStartHelper
         call raiColdStart_initHOTP(Model, Grid, State, t0, dstTarget)
         dps_preCX  = spcEta2DPS(Model, Grid, State, Grid%spc(sIdx_p), isGood)
         ! Hit it with some charge exchange
-        !call raiColdStart_applyCX(Model, Grid, State, Grid%spc(sIdx_p))
+        if (doCXO) then
+            call raiColdStart_applyCX(Model, Grid, State, Grid%spc(sIdx_p))
+        endif
         dps_postCX = spcEta2DPS(Model, Grid, State, Grid%spc(sIdx_p), isGood)
         
 
@@ -149,8 +159,6 @@ module raijuColdStartHelper
                     N0_ps = dPS_emp
                     P0_ps = pPS_emp
                 endif
-
-                P0_ps = 0.0
 
                 if (P0_ps > P_rc) then
                     P_final = P0_ps

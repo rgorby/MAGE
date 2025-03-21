@@ -9,6 +9,7 @@ submodule (volttypes) raijuCplTypesSub
     use shellInterp
     use imaghelper
     use dstutils
+    use math
 
     implicit none
 
@@ -73,7 +74,7 @@ submodule (volttypes) raijuCplTypesSub
                 call setActiveDomain(raiApp%Model, raiApp%Grid, raiApp%State)
                 ! Calc voltron dst ourselves since vApp%BSDst is only set on console output
                 call EstDST(vApp%gApp%Model,vApp%gApp%Grid,vApp%gApp%State,BSDst0=BSDst)
-                call raijuGeoColdStart(raiApp%Model, raiApp%Grid, raiApp%State, vApp%time, BSDst)
+                call raijuGeoColdStart(raiApp%Model, raiApp%Grid, raiApp%State, vApp%time, BSDst, doCXO=App%doColdstartCX)
             endif
         end associate
     end subroutine volt2RAIJU
@@ -95,8 +96,8 @@ submodule (volttypes) raijuCplTypesSub
         integer :: i0, j0  ! i,j cell that provided th,ph are in
         real(rp) :: active_interp
         real(rp) :: d_cold, t_cold, d_hot, p_hot
+        real(rp) :: tScl, rampC
 
-        ! IM_D_RING=1,IM_P_RING,IM_D_COLD, IM_P_COLD, IM_TSCL
         associate(Model=>App%raiApp%Model, State=>App%raiApp%State, sh=>App%raiApp%Grid%shGrid, spcList=>App%raiApp%Grid%spc)
 
         ! Default
@@ -142,10 +143,19 @@ submodule (volttypes) raijuCplTypesSub
         enddo
 
         
-        !write(*,*)"Setting IM_TSCL to hard 10 seconds"
         !call InterpShellVar_TSC_pnt(sh, State%Tb, th, ph, imW(IM_TSCL))
         !imW(IM_TSCL) = Model%nBounce*imW(IM_TSCL)  ! [s]
-        imW(IM_TSCL) = 10.0_rp  ! [s]
+        tScl = 10.0_rp  ! [s]
+        !tScl = 10.0_rp/App%vaFrac(i0,j0)  ! [s]
+
+        ! Adjust IM_TSCL if we wanna ramp up over time
+        if (t < App%startup_blendTscl) then
+            rampC = RampDown(t, 0.0_rp, App%startup_blendTscl)
+            !tScl = sqrt(tScl*App%startup_blendTscl)*rampC + (1-rampC)*tScl  ! idk
+            tScl = rampC*50.0_rp*tScl + (1-rampC)*tScl  ! No good reason for 50 except for wanting starting tScl to be ~8-10 minutes
+        endif
+        
+        imW(IM_TSCL) = tScl
 
         end associate
     end subroutine getMomentsRAIJU

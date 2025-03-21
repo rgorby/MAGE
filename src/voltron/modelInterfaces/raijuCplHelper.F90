@@ -35,6 +35,11 @@ module raijuCplHelper
         ! Create new XML reader w/ RAIJU as root
         iXML = New_XML_Input(trim(tmpStr),'Kaiju/RAIJU',.true.)
 
+        ! Options
+        call iXML%Set_Val(raiCpl%startup_blendTscl, "cpl/startupTscl", raiCpl%startup_blendTscl)
+        call iXML%Set_Val(raiCpl%doColdstartCX,'prob/coldstartCX',raiCpl%doColdstartCX)
+
+        ! Allocations
         associate(sh => raiCpl%raiApp%Grid%shGrid, nFluidIn => raiCpl%raiApp%Model%nFluidIn)
 
 
@@ -69,6 +74,7 @@ module raijuCplHelper
                 call initShellVar(raiCpl%shGr, SHGR_CC, raiCpl%Pstd(i))
                 call initShellVar(raiCpl%shGr, SHGR_CC, raiCpl%Dstd(i))
             enddo
+            call initShellVar(raiCpl%shGr, SHGR_CC, raiCpl%tiote)
             call initShellVar(raiCpl%shGr, SHGR_CC, raiCpl%Tb)
         end associate
         
@@ -120,7 +126,7 @@ module raijuCplHelper
         
         ! Get topo and then convert to RAIJU's definition
         call InterpShellVar_TSC_SG(voltGrid, tubeShell%topo, raiCpl%shGr, tmpTopo)
-        where (tmpTopo%data == TUBE_CLOSED)
+        where (abs(tmpTopo%data - TUBE_CLOSED) < TINY)
             raiCpl%topo%data = RAIJUCLOSED
         elsewhere
             raiCpl%topo%data = RAIJUOPEN
@@ -133,17 +139,12 @@ module raijuCplHelper
             call InterpShellVar_TSC_SG(voltGrid, tubeShell%avgN(s), raiCpl%shGr, raiCpl%Davg(s), srcMaskO=topoSrcMask)
             call InterpShellVar_TSC_SG(voltGrid, tubeShell%stdP(s), raiCpl%shGr, raiCpl%Pstd(s), srcMaskO=topoSrcMask)
             call InterpShellVar_TSC_SG(voltGrid, tubeShell%stdN(s), raiCpl%shGr, raiCpl%Dstd(s), srcMaskO=topoSrcMask)
-            !call InterpShellVar_TSC_SG(voltGrid, tubeShell%avgP(s), raiCpl%shGr, raiCpl%Pavg(s))
-            !call InterpShellVar_TSC_SG(voltGrid, tubeShell%avgN(s), raiCpl%shGr, raiCpl%Davg(s))
-            !call InterpShellVar_TSC_SG(voltGrid, tubeShell%stdP(s), raiCpl%shGr, raiCpl%Pstd(s))
-            !call InterpShellVar_TSC_SG(voltGrid, tubeShell%stdN(s), raiCpl%shGr, raiCpl%Dstd(s))
         enddo
+        call InterpShellVar_TSC_SG(voltGrid, tubeShell%TioTe0, raiCpl%shGr, raiCpl%tiote)
         do i=1,NDIM
             call InterpShellVar_TSC_SG(raiCpl%shGr, raiCpl%xyzMin(i), raiCpl%shGr, raiCpl%xyzMincc(i), srcMaskO=topoSrcMask)
-            !call InterpShellVar_TSC_SG(raiCpl%shGr, raiCpl%xyzMin(i), raiCpl%shGr, raiCpl%xyzMincc(i))
         enddo
         call InterpShellVar_TSC_SG(voltGrid, tubeShell%Tb, raiCpl%shGr, raiCpl%Tb, srcMaskO=topoSrcMask)
-        !call InterpShellVar_TSC_SG(voltGrid, tubeShell%Tb, raiCpl%shGr, raiCpl%Tb)
         
 
     end subroutine tubeShell2RaiCpl
@@ -190,6 +191,9 @@ module raijuCplHelper
         State%vaFrac(:,:)    = raiCpl%vaFrac%data
 
         ! Now only copy for good points
+        !$OMP PARALLEL DO default(shared) &
+        !$OMP schedule(dynamic) &
+        !$OMP private(i,j)
         do j=shGr%jsg,shGr%jeg
             do i=shGr%isg,shGr%ieg
 
@@ -205,6 +209,7 @@ module raijuCplHelper
                 enddo
 
                 State%bvol_cc(i,j) = raiCpl%bvol_cc%data(i,j)
+                State%tiote(i,j) = raiCpl%tiote%data(i,j)
                 State%Tb%data(i,j) = raiCpl%Tb%data(i,j)
             enddo
         enddo
