@@ -329,43 +329,47 @@ module voltapp
         class(voltApp_T), intent(inout) :: vApp
         real(rp), intent(in) :: dt
 
-        real(rp) :: stepEndTime
+        real(rp) :: stepEndTime, remainingStep
 
         stepEndTime = vApp%time + dt
 
         do while(stepEndTime .ge. vApp%DeepT)
-            ! advance to next DeepT
-            ! loop always starts with updated Gamera data
-
-            ! call base update function with local data
-            call Tic("DeepUpdate")
-            call DeepUpdate(vApp, vApp%gApp)
-            call Toc("DeepUpdate")
-
-            ! this will step coupled Gamera
-            call vApp%gApp%StartUpdateMhdData(vApp)
+            ! Finish Gamera processing up to DeepT
             call vApp%gApp%FinishUpdateMhdData(vApp)
 
-            ! step complete
             vApp%time = vApp%DeepT
             vApp%MJD = T2MJD(vApp%time,vApp%gApp%Model%MJD0)
 
             ! update the next predicted coupling interval
             vApp%DeepT = vApp%DeepT + vApp%DeepDT
+
+            call Tic("DeepUpdate")
+            call DeepUpdate(vApp, vApp%gApp)
+            call Toc("DeepUpdate")
+
+            call vApp%gApp%StartUpdateMhdData(vApp)
+
         enddo
+
+        remainingStep = stepEndTime - vApp%time
+
+        if(remainingStep > TINY) then
+            ! partially step Gamera with dts less than coupling interval
+            call vApp%gApp%PartialUpdateMhdData(vApp, remainingStep)
+        endif
 
         ! step end time is greater than, or equal to, the current DeepT
         ! advance to that partial deep step time
-        vApp%time = stepEndTime
+        vApp%time = max(stepEndTime,vApp%gApp%Model%t*vApp%gApp%Model%Units%gT0)
         vApp%MJD = T2MJD(vApp%time,vApp%gApp%Model%MJD0)
 
     end subroutine stepVoltron
-    
+
     !Initialize Voltron app based on Gamera data
     subroutine initializeFromGamera(vApp, gApp, xmlInp, optFilename)
         type(voltApp_T), intent(inout) :: vApp
         class(gamApp_T), intent(inout) :: gApp
-	    type(XML_Input_T), intent(inout) :: xmlInp
+        type(XML_Input_T), intent(inout) :: xmlInp
         character(len=*), optional, intent(in) :: optFilename
 
         character(len=strLen) :: RunID, resID

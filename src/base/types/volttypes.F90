@@ -257,6 +257,7 @@ module volttypes
         ! add new coupling function which can be over-ridden by children
         procedure :: InitMhdCoupler => gamInitMhdCoupler
         procedure :: StartUpdateMhdData => gamStartUpdateMhdData
+        procedure :: PartialUpdateMhdData => gamPartialUpdateMhdData
         procedure :: FinishUpdateMhdData => gamFinishUpdateMhdData
 
     end type gamCoupler_T
@@ -278,6 +279,7 @@ module volttypes
         ! add new coupling function which can be over-ridden by children
         procedure :: InitMhdCoupler => SHgamInitMhdCoupler
         procedure :: StartUpdateMhdData => SHgamStartUpdateMhdData
+        procedure :: PartialUpdateMhdData => SHgamPartialUpdateMhdData
         procedure :: FinishUpdateMhdData => SHgamFinishUpdateMhdData
 
     end type SHgamCoupler_T
@@ -444,6 +446,12 @@ module volttypes
             class(voltApp_T), intent(inout) :: voltApp
         end subroutine
 
+        module subroutine gamPartialUpdateMhdData(App, voltApp, vDT)
+            class(gamCoupler_T), intent(inout) :: App
+            class(voltApp_T), intent(inout) :: voltApp
+            real(rp), intent(in) :: vDT
+        end subroutine
+
         module subroutine gamFinishUpdateMhdData(App, voltApp)
             class(gamCoupler_T), intent(inout) :: App
             class(voltApp_T), intent(inout) :: voltApp
@@ -505,6 +513,12 @@ module volttypes
         module subroutine SHgamStartUpdateMhdData(App, voltApp)
             class(SHgamCoupler_T), intent(inout) :: App
             class(voltApp_T), intent(inout) :: voltApp
+        end subroutine
+
+        module subroutine SHgamPartialUpdateMhdData(App, voltApp, vDT)
+            class(SHgamCoupler_T), intent(inout) :: App
+            class(voltApp_T), intent(inout) :: voltApp
+            real(rp), intent(in) :: vDT
         end subroutine
 
         module subroutine SHgamFinishUpdateMhdData(App, voltApp)
