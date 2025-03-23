@@ -1,4 +1,3 @@
-
 Building the ``kaiju`` software
 ===============================
 
@@ -10,66 +9,31 @@ supercomputers - ``derecho`` and ``pleiades``. If you are trying to build the
 ``kaiju`` software on a different system, use these instructions as a starting
 point.
 
-In general, building the ``kaiju`` software requires several steps:
+Before you begin
+----------------
 
-    1. **Preparing your software environment.**
+The ``kaiju`` software is typically built with the Intel Fortran compiler
+(although the software can also be built with the GNU Fortran compiler).
+Building the software also requires the ``cmake`` build tool, the HDF5
+library, and an MPI library. Instructions for loading these packages are
+provided in the ``module`` commands for each HPC system.
 
-    This includes making sure you have the required compilers and external
-    libraries, and making sure all environment variables are set properly. On
-    HPC systems such as ``derecho`` and ``pleiades``, this also means running
-    the appropriate ``module`` commands. The ``module`` commands are needed to
-    provide various libraries that are needed by the ``kaiju`` software,
-    including the compiler, MPI, and HDF5.
+Getting the source code
+-----------------------
 
-    2. **Create a python environment.**
+The ``kaiju`` source code can be obtained by cloning the ``kaiju`` repository
+on BitBucket:
 
-    The ``kaiju`` software, and its accompanying ``kaipy`` python package, is
-    best used in a separate ``python`` virtual environment. These instructions
-    assume the use of the ``conda`` tool for creating virtual environments,
-    and the ``pip`` tool for Python package installation. If you use a
-    different tool, such as the standard ``venv`` ``python`` module, please
-    adjust these instructions accordingly. The only significant differences
-    will be in the commands used to create and activate the virtual
-    environments. These instructions should work with personal installations
-    of ``python`` (created with the
-    `Miniconda <https://docs.anaconda.com/miniconda/>`_ or
-    `Anaconda <https://anaconda.org/>`_ ``python`` distributions), or with a
-    system-wide installation (such as a ``python`` installation made available
-    via the ``module`` command).
+.. code-block:: bash
 
-    .. important::
+    $ git clone https://ewinterapl@bitbucket.org/aplkaiju/kaiju.git
 
-        The ``kaiju`` and ``kaipy`` code were developed using ``python`` 3.8,
-        which is no longer supported. If you try to run the ``kaiju`` and
-        ``kaipy`` code using a different version of ``python``, you will
-        probably encounter compatibility issues. We are working to update the
-        ``kaiju`` and ``kaipy`` code to support at least ``python`` 3.10.
+.. important::
 
-    3. **Build the kaiju software.**
-
-    This is the step where you actually compile the ``kaiju`` code, which is
-    written primarily in `Fortran <https://fortran-lang.org/>`_. The ``kaiju``
-    code was developed primarily with the
-    `Intel Fortran compiler <https://www.intel.com/content/www/us/en/developer/tools/oneapi/fortran-compiler.html>`_,
-    but it can also be built using the
-    `GNU compiler suite <https://gcc.gnu.org/>`_.
-
-    The source code for the ``kaiju`` software is available on
-    `BitBucket <https://bitbucket.org/aplkaiju/kaiju>`_. You must clone the
-    ``kaiju`` repository before building the code.
-
-    .. important::
-
-        The ``kaiju`` repository on BitBucket uses ``git-lfs`` to support the
-        use of large binary files. You *must* make sure ``git-lfs`` is
-        available in your ``git`` installation to ensure a complete clone
-        of the ``kaiju`` repository.
-
-    The ``kaiju`` software is built using a 2-step process. In the first step,
-    the ``cmake`` tool is used to generate the ``Makefile`` for the ``kaiju``
-    software. In the second step, the ``make`` tool is used to perform the
-    actual build process. The build is *not* performed in the source code
-    directory - a separate build directory is always created for these steps.
+    The ``kaiju`` repository on BitBucket uses ``git-lfs`` to support the
+    use of large binary files. You *must* make sure ``git-lfs`` is
+    available in your ``git`` installation to ensure a complete clone
+    of the ``kaiju`` repository.
 
 Table of Contents
 -----------------

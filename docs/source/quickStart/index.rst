@@ -4,18 +4,10 @@ Quick Start
 Introduction
 ------------
 
-This is the quick start guide for the kaiju software.
+This is the quick start guide for building and running the kaiju software.
 
-.. note::
-
-    The ``kaiju`` software is primarily composed of compiled Fortran code.
-    Examination of the results of ``kaiju`` model runs is typically done
-    using the ``kaipy`` Python package. The ``kaipy`` package can be installed
-    with the command:
-    
-    .. code-block:: bash
-        
-        pip install kaipy
+Table of Contents
+-----------------
 
 .. toctree::
     :maxdepth: 1

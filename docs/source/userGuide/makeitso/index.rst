@@ -1,0 +1,15 @@
+``makeitso``
+============
+
+Introduction
+------------
+
+This page provides links to documentation for the ``makeitso.py`` and
+``makeitso-gamhelio.py`` scripts, which simplify the process of configuring
+and running a model using the ``kaiju`` software.
+
+.. toctree::
+    :maxdepth: 1
+
+    makeitso
+    makeitso-gamhelio

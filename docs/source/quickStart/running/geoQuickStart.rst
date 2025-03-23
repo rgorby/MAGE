@@ -1,35 +1,22 @@
 Geospace Quick Start
 ====================
 
-The instructions below walk you through the process of running a simple
-magnetosphere model to test your build of the ``kaiju`` code.
+These instructions illustrate the process of running a simple magnetosphere
+model to test your build of the ``kaiju`` code.
 
-Preparing to run a ``kaiju`` model
-----------------------------------
+Before you begin
+----------------
 
-To set up your environment to run the ``kaiju`` software, the following steps
-are required.
+.. note:: The ``makeitso.py`` script discussed below uses functions provided
+    by the ``kaipy`` python package.
 
-    1. Load the same modules that you loaded when you built the ``kaiju``
-    software. For example, on `derecho`, you would run the following commands:
+*Source* (not *run*) the environment setup scripts for the ``kaiju`` and
+``kaipy`` software. For example:
 
-    .. code-block:: bash
+.. code-block:: bash
 
-        $ module load ncarenv/23.06
-        $ module load cmake/3.26.3
-        $ module load craype/2.7.20
-        $ module load intel/2023.0.0
-        $ module load ncarcompilers/1.0.0
-        $ module load cray-mpich/8.1.25
-        $ module load hdf5-mpi/1.12.2
-
-    2. *Source* (not *run*) the environment setup script for the ``kaiju``
-    software. For example, if the root of your ``kaiju`` repository clone is
-    at ``$HOME/kaiju``, then you would run:
-
-    .. code-block:: bash
-
-        $ source $HOME/kaiju/scripts/setupEnvironment.sh
+    $ source /path/to/your/kaiju-clone/scripts/setupEnvironment.sh
+    $ source /path/to/your/kaipy-clone/kaipy/scripts/setupEnvironment.sh
 
 Running a simple magnetosphere problem
 --------------------------------------
@@ -37,7 +24,7 @@ Running a simple magnetosphere problem
 The ``kaiju`` software needs several files in order to run. The detailed steps
 for creating these files have been combined into a script called
 ``makeitso.py``. The script is provided in the ``kaiju`` code repository. You
-can see the options supported my ``makeitso.py`` by running it with the
+can see the options supported by ``makeitso.py`` by running it with the
 ``--help`` or ``-h`` command-line option.
 
 .. code-block:: bash
@@ -56,16 +43,18 @@ can see the options supported my ``makeitso.py`` by running it with the
                             Path to JSON file of options (default: None)
       --verbose, -v         Print verbose output (default: False).
 
-For this example, we will use run the code on ``derecho``, and use the default
+.. note:: The ``makeitso.py`` script requires the NASA CDF library. Make sure
+    this library is available on your system before proceeding.
+
+For this example, we will run the code on ``derecho``, and use the default
 ``BASIC`` mode, which requires the minimum amount of input from the user. At
-each prompt, you can either type in a value, or hit the ``Return`` key to
+each prompt, you can either type in a value, or hit the :kbd:`Return` key to
 accept the default value (shown in square brackets at the end of the prompt).
 To get started, run ``makeitso.py`` with no arguments:
 
 .. code-block:: bash
 
-    $ source ~/local/cdf/3.9.0/bin/definitions.B
-    $ makeitso.py
+    $ $KAIJUHOME/scripts/makeitso/makeitso.py
     Name to use for PBS job(s) [geospace]:
     Do you have an existing boundary condition file to use? (Y|N) [N]:
     Start date for simulation (yyyy-mm-ddThh:mm:ss) [2016-08-09T09:00:00]:
@@ -154,8 +143,8 @@ You will see the resulting PBS job ID.
     7808651.desched1
 
 Once the job is started in the queue, it should take about 80 minutes to run
-(on ``derecho``). When complete, you will see the following in your run
-directory:
+(on ``derecho``). When complete, you will see the following files in your run
+directory (the numeric job IDs will differ):
 
 .. code-block:: bash
 
