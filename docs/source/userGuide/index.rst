@@ -10,6 +10,4 @@ This page provides links to documentation for using the kaiju software.
     :maxdepth: 1
 
     makeitso/index
-    MAGE/index
     kaijuTools/index
-    gamhelio/index
