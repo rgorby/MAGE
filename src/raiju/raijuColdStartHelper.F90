@@ -12,7 +12,7 @@ module raijuColdStartHelper
 
     contains
 
-    subroutine raijuGeoColdStart(Model, Grid, State, t0, dstModel,doCXO)
+    subroutine raijuGeoColdStart(Model, Grid, State, t0, dstModel,doCXO,doPsphO)
         !! Cold start RAIJU assuming we are at Earth sometime around 21st century
         type(raijuModel_T), intent(in) :: Model
         type(raijuGrid_T), intent(in) :: Grid
@@ -22,17 +22,27 @@ module raijuColdStartHelper
         real(rp), intent(in) :: dstModel
             !! Current dst of global model
         logical, intent(in), optional :: doCXO
+            !! Whether or not we apply charge exchange to the ions
+        logical, intent(in), optional :: doPsphO
+            !! Whether or not we (re)-init plasmasphere
 
-        logical :: doCX
-        integer :: sIdx_p, sIdx_e
+        logical :: doCX, doPsph
+        integer :: s, sIdx_p, sIdx_e
         real(rp) :: dstReal, dstTarget
-        real(rp) :: dps_preCX, dps_postCX, dps_ele
+        real(rp) :: dps_init, dps_preCX, dps_postCX, dps_rescale, dps_ele
+        real(rp) :: etaScale
         logical, dimension(Grid%shGrid%isg:Grid%shGrid%ieg, Grid%shGrid%jsg:Grid%shGrid%jeg) :: isGood
 
         if(present(doCXO)) then
             doCX = doCXO
         else
             doCX = .true.
+        endif
+
+        if(present(doPsphO)) then
+            doPsph = doPsphO
+        else
+            doPsph = .true.
         endif
 
         where (State%active .eq. RAIJUACTIVE)
@@ -44,15 +54,26 @@ module raijuColdStartHelper
         sIdx_p = spcIdx(Grid, F_HOTP)
         sIdx_e = spcIdx(Grid, F_HOTE)
 
-        ! Start by nuking all etas, we will set it all up ourselves
-        State%eta = 0.0
+        !dps_init  = spcEta2DPS(Model, Grid, State, Grid%spc(sIdx_p), isGood)
+
+        ! Start by nuking all etas we will set up ourselves
+        do s=1,Grid%nSpc
+            ! If spc is plasmasphere and we are not supposed to reset it, skip over it
+            if ( Grid%spc(s)%flav == F_PSPH .and. .not. doPsph) then  
+                continue
+            endif
+            State%eta(:,:,Grid%spc(s)%kStart:Grid%spc(s)%kEnd) = 0.0
+        enddo
 
         ! Init psphere
-        call setRaijuInitPsphere(Model, Grid, State, Model%psphInitKp)
+        if (doPsph) then
+            call setRaijuInitPsphere(Model, Grid, State, Model%psphInitKp)
+        endif
 
         ! Calc our target RC dst
         write(*,*) "WARNING: Setting QTRC from raijuColdStart, idk if we should be in charge of this"
         dstReal = GetSWVal('symh', Model%tsF, t0)
+        !dstTarget = dstReal - (dstModel - dps_init)
         dstTarget = dstReal - dstModel
 
         if (dstTarget > 0) then  ! We got nothing to contribute
@@ -67,9 +88,10 @@ module raijuColdStartHelper
             call raiColdStart_applyCX(Model, Grid, State, Grid%spc(sIdx_p))
         endif
         dps_postCX = spcEta2DPS(Model, Grid, State, Grid%spc(sIdx_p), isGood)
-        
 
-        write(*,*)"Lazy raijuGeoColdStart: not rescaling proton eta to target dst, just adding electrons"
+        etaScale = abs(dstTarget / dps_postCX)
+        State%eta(:,:,Grid%spc(sIdx_p)%kStart:Grid%spc(sIdx_p)%kEnd) = etaScale*State%eta(:,:,Grid%spc(sIdx_p)%kStart:Grid%spc(sIdx_p)%kEnd)
+        dps_rescale = spcEta2DPS(Model, Grid, State, Grid%spc(sIdx_p), isGood)
 
         ! Calc moments to update pressure and density
         call EvalMoments(Grid, State)
@@ -82,8 +104,8 @@ module raijuColdStartHelper
         write(*,'(a,f7.2)') "  Target DPS-Dst       : ",dstTarget
         write(*,'(a,f7.2)') "  Hot proton pre-loss  : ",dps_preCX
         write(*,'(a,f7.2)') "            post-loss  : ",dps_postCX
+        write(*,'(a,f7.2)') "         post-rescale  : ",dps_rescale
         write(*,'(a,f7.2)') "  Hot electron DPS-Dst : ",dps_ele
-        !write(*,*)" Hot electron DPS-Dst:",dps_ele
 
     end subroutine raijuGeoColdStart
 
