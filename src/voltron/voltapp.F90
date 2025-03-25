@@ -303,7 +303,7 @@ module voltapp
         endif
 
         ! Do some final checks
-        if ((gApp%Model%t - gApp%State%time) > TINY) then
+        if (abs(gApp%Model%t - gApp%State%time) > TINY) then
             write(*,*)"GAMERA Model%t and State%time don't match, dying"
             write(*,*)"Model: ",gApp%Model%t,", State: ",gApp%State%time
             stop
