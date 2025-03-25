@@ -76,6 +76,7 @@ module gamCouple_mpi_V2G
 
         procedure :: InitMhdCoupler => gamCplMpiVInitMhdCoupler
         procedure :: StartUpdateMhdData => gamCplMpiVStartUpdateMhdData
+        procedure :: PartialUpdateMhdData => gamCplMpiVPartialUpdateMhdData
         procedure :: FinishUpdateMhdData => gamCplMpiVFinishUpdateMhdData
 
     end type
@@ -507,6 +508,16 @@ module gamCouple_mpi_V2G
         call Tic("Coupling", .true.)
         call sendGameraCplDataMpi(App, voltApp%DeepT)
         call Toc("Coupling", .true.)
+
+    end subroutine
+
+    subroutine gamCplMpiVPartialUpdateMhdData(App, voltApp, vDT)
+        class(gamCouplerMpi_volt_T), intent(inout) :: App
+        class(voltApp_T), intent(inout) :: voltApp
+        real(rp), intent(in) :: vDT
+
+        write (*,*) "Partial Updates not supported by MPI coupled Gamera"
+        stop
 
     end subroutine
 
