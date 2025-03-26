@@ -43,20 +43,28 @@ submodule (volttypes) raijuCplTypesSub
         class(raijuCoupler_T), intent(inout) :: App
         class(voltApp_T), intent(inout) :: vApp
 
-        logical :: doColdStart
-        real(rp) :: BSDst = 0.0
-        doColdStart = .false.
+        logical :: doFirstColdStart
+        logical :: doUpdateColdStart
+        real(rp) :: BSDst
+
+        doFirstColdStart = .false.
+        doUpdateColdStart = .false.
 
         associate(raiApp=>App%raiApp)
 
-            ! If we are running realtime, its our job to do tracing and get all other stuff from vApp into raiCpl
+            ! If we are running realtime, its our job to get everything we need from vApp into raiCpl
             if (.not. App%raiApp%Model%isSA) then
-                ! Determine if we should cold start
-                ! e.g. Completely reset raiju's eta's to match some target conditions
-                ! Determine if we should cold start before packing coupler because it will set tLastUpdate to vApp%time and then we can't do the check we want
-                ! But actually do cold start after normal coupling completes so we can use real field line info
+                ! First, determine if we should cold start, i.e. Completely reset raiju's eta's to match some target conditions
+                ! Determine if we should cold start before packing coupler because it will set tLastUpdate to vApp%time and then we can't do the checks we want
+                ! But actually do cold start after coupler packing completes so we can use real field line info
+
+                ! Do we do our very first coldstart ever
                 if (App%opt%doColdStart .and. App%tLastUpdate < 0.0 .and. vApp%time >= 0.0) then
-                    doColdStart = .true.
+                    doFirstColdStart = .true.
+                endif
+                ! Do we do "updates" to our coldstart during pre-conditioning period
+                if(App%opt%doColdStart .and. App%tLastUpdate > 0.0 .and. vApp%time < App%startup_blendTscl) then
+                    doUpdateColdStart = .true.
                 endif
 
                 call packRaijuCoupler_RT(App, vApp)
@@ -65,16 +73,23 @@ submodule (volttypes) raijuCplTypesSub
             ! Someone updated raiCpl's coupling variables by now, stuff it into RAIJU proper
             call raiCpl2RAIJU(App)
 
-            if (doColdStart) then
+            if (doFirstColdStart) then
                 ! Its happening, everybody stay calm
-                write(*,*) "RAIJU Cold starting..."
+                write(*,*) "RAIJU Doing first cold start..."
                 ! NOTE: By this point we have put coupling info into raiju (e.g. bVol, xyzmin, MHD moments)
                 ! But haven't calculated active domain yet because that happens in preadvancer
                 ! So we jump in and do it here so we have it for cold starting
                 call setActiveDomain(raiApp%Model, raiApp%Grid, raiApp%State)
                 ! Calc voltron dst ourselves since vApp%BSDst is only set on console output
                 call EstDST(vApp%gApp%Model,vApp%gApp%Grid,vApp%gApp%State,BSDst0=BSDst)
-                call raijuGeoColdStart(raiApp%Model, raiApp%Grid, raiApp%State, vApp%time, BSDst, doCXO=App%doColdstartCX)
+                call raijuGeoColdStart(raiApp%Model, raiApp%Grid, raiApp%State, vApp%time, BSDst, doCXO=App%doColdstartCX,doPsphO=.true.)
+            endif
+            if (doUpdateColdStart) then
+                write(*,*)"RAIJU doing update cold start at t=",vApp%time
+                write(*,*)" (calculating model BSDst,)",vApp%time
+                call setActiveDomain(raiApp%Model, raiApp%Grid, raiApp%State)
+                call EstDST(vApp%gApp%Model,vApp%gApp%Grid,vApp%gApp%State,BSDst0=BSDst)
+                call raijuGeoColdStart(raiApp%Model, raiApp%Grid, raiApp%State, vApp%time, BSDst, doCXO=App%doColdstartCX,doPsphO=.false.)
             endif
         end associate
     end subroutine volt2RAIJU

@@ -389,6 +389,9 @@ module voltapp_mpi
             call Toc("DeepUpdate", .true.)
         else
             vApp%gApp%Grid%Gas0 = 0
+            !Load TM03 into Gas0 for ingestion during spinup
+            !Note: Using vApp%time instead of gamera time units
+            call LoadSpinupGas0(vApp%gApp%Model,vApp%gApp%Grid,vApp%time)       
         endif
 
     end subroutine startDeep
