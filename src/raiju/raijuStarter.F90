@@ -16,6 +16,7 @@ module raijustarter
     use raijuICHelpers
     use raijuELossWM
     use raijulosses, only : initRaiLosses
+    use raijuColdStartHelper, only : initRaijuColdStarter
 
     ! Cmake points to this
     use raijuuseric
@@ -461,11 +462,6 @@ module raijustarter
         
         end associate
         
-        if (Model%isRestart) then
-            !call raijuResInput(Model, Grid, State)
-            !return
-            continue
-        endif
         
         ! For now, just set t to tStart and ts to 0
         State%t = Model%t0
@@ -476,6 +472,13 @@ module raijustarter
         State%activeShells = .true.
         ! Similarly, set vaFrac to safe value in case stand-alone never writes to it
         State%vaFrac = 1.0
+
+        ! Init State sub-modules
+        if (Model%isSA) then
+            ! If we are standalone, this is the place to get coldStarter settings
+            ! Otherwise, raiCpl should call it so we can use other models' info
+            call initRaijuColdStarter(Model, iXML, State%coldStarter)
+        endif
 
     ! Init state
         call iXML%Set_Val(Model%icStr, "prob/IC","DIP")

@@ -13,6 +13,7 @@ module raijuCplHelper
     
     use imagtubes
     use mixdefs
+    use raijuColdStartHelper, only : initRaijuColdStarter
     
 
     implicit none
@@ -37,7 +38,9 @@ module raijuCplHelper
 
         ! Options
         call iXML%Set_Val(raiCpl%startup_blendTscl, "cpl/startupTscl", raiCpl%startup_blendTscl)
-        call iXML%Set_Val(raiCpl%doColdstartCX,'prob/coldstartCX',raiCpl%doColdstartCX)
+        
+        ! State sub-modules that need coupler settings
+        call initRaijuColdStarter(raiCpl%raiApp%Model, iXML, raiCpl%raiApp%State%coldStarter,tEndO=raiCpl%startup_blendTscl)
 
         ! Allocations
         associate(sh => raiCpl%raiApp%Grid%shGrid, nFluidIn => raiCpl%raiApp%Model%nFluidIn)

@@ -128,6 +128,32 @@ module raijutypes
     end type eLossWM_T
 
 !------
+! General helpers
+!------
+    type raijuColdstarter_T
+        !! Hold various settings and state info to help manage raiju's cold starting
+
+        !--- Model ---!
+        real(rp) :: tEnd
+            !! [s] Sim time we stop doing cold start stuff
+        real(rp) :: evalCadence = 300
+            !! [s] How often to check target Dst and adjust raiju's etas
+        logical :: doCX = .true.
+            !! Whether or not we apply charge exchange
+        logical :: doUpdate = .false.
+            !! Whether or not we do updates after first init
+
+
+        !--- State ---!
+        real(rp) :: lastEval = -1*HUGE
+            !! [s] Last eval time
+        real(rp) :: lastTarget = 0
+            !! [nT] Last target Dst
+
+
+    end type raijuColdstarter_T
+
+!------
 ! Coupling helpers
 !------
     type mhd2raiSpcMap_T
@@ -428,6 +454,9 @@ module raijutypes
             !! Array of loss processes
         integer :: lp_cc_idx = -1
             !! If CC active, this is the index of CC object within lps array
+
+        ! Other helpers
+        type(raijuColdstarter_T) :: coldStarter
         
         ! (Ngi, Ngj, Nk) Varibles coming from RAIJU
         real(rp), dimension(:,:,:), allocatable :: lossRates

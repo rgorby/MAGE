@@ -22,7 +22,6 @@ submodule (volttypes) raijuCplTypesSub
         ! Allocate our contained raiju app
         allocate(raijuApp_T :: App%raiApp)
         ! Init raiju app itself
-        !call App%raiApp%InitModel(xml)
         ! Note: we are bypassing raiApp%InitModel because we can't pass the voltron grid as an argument
         call raijuInit(App%raiApp, xml, App%opt%voltGrid)
         ! Update MJD with whatever voltron handed us
@@ -73,24 +72,30 @@ submodule (volttypes) raijuCplTypesSub
             ! Someone updated raiCpl's coupling variables by now, stuff it into RAIJU proper
             call raiCpl2RAIJU(App)
 
-            if (doFirstColdStart) then
-                ! Its happening, everybody stay calm
-                write(*,*) "RAIJU Doing first cold start..."
-                ! NOTE: By this point we have put coupling info into raiju (e.g. bVol, xyzmin, MHD moments)
-                ! But haven't calculated active domain yet because that happens in preadvancer
-                ! So we jump in and do it here so we have it for cold starting
+            if (vApp%time < App%raiApp%State%coldStarter%tEnd) then
                 call setActiveDomain(raiApp%Model, raiApp%Grid, raiApp%State)
                 ! Calc voltron dst ourselves since vApp%BSDst is only set on console output
                 call EstDST(vApp%gApp%Model,vApp%gApp%Grid,vApp%gApp%State,BSDst0=BSDst)
-                call raijuGeoColdStart(raiApp%Model, raiApp%Grid, raiApp%State, vApp%time, BSDst, doCXO=App%doColdstartCX,doPsphO=.true.)
+                call raijuGeoColdStart(raiApp%Model, raiApp%Grid, raiApp%State, vApp%time, BSDst)
             endif
-            if (doUpdateColdStart) then
-                write(*,*)"RAIJU doing update cold start at t=",vApp%time
-                write(*,*)" (calculating model BSDst,)",vApp%time
-                call setActiveDomain(raiApp%Model, raiApp%Grid, raiApp%State)
-                call EstDST(vApp%gApp%Model,vApp%gApp%Grid,vApp%gApp%State,BSDst0=BSDst)
-                call raijuGeoColdStart(raiApp%Model, raiApp%Grid, raiApp%State, vApp%time, BSDst, doCXO=App%doColdstartCX,doPsphO=.false.)
-            endif
+            !if (doFirstColdStart) then
+            !    ! Its happening, everybody stay calm
+            !    write(*,*) "RAIJU Doing first cold start..."
+            !    ! NOTE: By this point we have put coupling info into raiju (e.g. bVol, xyzmin, MHD moments)
+            !    ! But haven't calculated active domain yet because that happens in preadvancer
+            !    ! So we jump in and do it here so we have it for cold starting
+            !    call setActiveDomain(raiApp%Model, raiApp%Grid, raiApp%State)
+            !    ! Calc voltron dst ourselves since vApp%BSDst is only set on console output
+            !    call EstDST(vApp%gApp%Model,vApp%gApp%Grid,vApp%gApp%State,BSDst0=BSDst)
+            !    call raijuGeoColdStart(raiApp%Model, raiApp%Grid, raiApp%State, vApp%time, BSDst, doCXO=App%doColdstartCX,doPsphO=.true.)
+            !endif
+            !if (doUpdateColdStart) then
+            !    write(*,*)"RAIJU doing update cold start at t=",vApp%time
+            !    write(*,*)" (calculating model BSDst,)",vApp%time
+            !    call setActiveDomain(raiApp%Model, raiApp%Grid, raiApp%State)
+            !    call EstDST(vApp%gApp%Model,vApp%gApp%Grid,vApp%gApp%State,BSDst0=BSDst)
+            !    call raijuGeoColdStart(raiApp%Model, raiApp%Grid, raiApp%State, vApp%time, BSDst, doCXO=App%doColdstartCX,doPsphO=.false.)
+            !endif
         end associate
     end subroutine volt2RAIJU
 

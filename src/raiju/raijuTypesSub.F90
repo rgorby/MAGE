@@ -15,6 +15,7 @@ submodule (raijutypes) raijuTypesSub
         type(XML_Input_T), intent(inout) :: Xml
 
         call raijuInit(App, Xml)
+        ! Note: be careful about adding anything more here, because raiCpl_T's init doesn't call raiInitModel
 
     end subroutine raiInitModel
 

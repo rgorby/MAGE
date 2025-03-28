@@ -499,6 +499,9 @@ module raijuIO
         call AddOutVar(IOVars,"nOut" ,State%IO%nOut)
         call AddOutVar(IOVars,"nRes" ,State%IO%nRes)
         call AddOutVar(IOVars,"tRes" ,State%IO%tRes)
+        ! ColdStarter state
+        call AddOutVar(IOVars, "cs_lastEval", State%coldStarter%lastEval)
+        call AddOutVar(IOVars, "cs_lastTarget", State%coldStarter%lastTarget)
 
         ! Add State variables
 
@@ -602,6 +605,8 @@ module raijuIO
         call AddInVar(IOVars,"nRes")
         call AddInVar(IOVars,"tRes")
         call AddInVar(IOVars,"isFirstCpl")
+        call AddInVar(IOVars,"cs_lastEval")
+        call AddInVar(IOVars,"cs_lastTarget")
 
         call AddInVar(IOVars,"dtCpl"  )
         call AddInVar(IOVars,"xmin"   )
@@ -652,6 +657,10 @@ module raijuIO
         State%IO%nOut = GetIOInt (IOVars, "nOut" )
         State%IO%nRes = GetIOInt (IOVars, "nRes" )
         State%IO%tRes = GetIOReal(IOVars, "tRes" )
+
+        ! Coldstarter
+        State%coldStarter%lastEval   = GetIOReal(IOVars, "cs_lastEval")
+        State%coldStarter%lastTarget = GetIOReal(IOVars, "cs_lastTarget")
         
         ! Handle boolean attributes
         tmpInt = GetIOInt(IOVars, "isFirstCpl")
