@@ -88,3 +88,13 @@ following files (list current as of 4 March 2025):
     gamera_mpi.x    kaitoy.x      remix2rcm.x    testNewRMS.x
     gamera.x        project.x     remix2remix.x  trace.x
     gamhelio_mpi.x  psd.x         remix.x        voltron_mpi.x
+
+.. note:: The compiled programs of interest in this case are ``voltron_mpi.x``
+    (used for MAGE and planetary magnetosphere models) and ``gamhelio_mpi.x``
+    (used for heliosphere models). The tool ``calcdb.x`` computes ground
+    delta-B values from the results of a MAGE model, and ``sctrack.x``
+    interpolates model results to spacecraft trajectories. These tools, and
+    most of the remaining compiled programs, are typically run by using
+    wrapper scripts found in the ``kaipy`` package. Documentation for
+    ``kaipy`` is available
+    `here <https://kaipy-docs.readthedocs.io/en/latest/index.html>`_.

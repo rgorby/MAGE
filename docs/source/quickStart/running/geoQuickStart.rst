@@ -1,14 +1,11 @@
 Geospace Quick Start
 ====================
 
-These instructions illustrate the process of running a simple magnetosphere
-model to test your build of the ``kaiju`` code.
+These instructions illustrate the process of running a magnetosphere
+simulation using the MAGE model in the ``kaiju`` code.
 
 Before you begin
 ----------------
-
-.. note:: The ``makeitso.py`` script discussed below uses functions provided
-    by the ``kaipy`` python package.
 
 *Source* (not *run*) the environment setup scripts for the ``kaiju`` and
 ``kaipy`` software. For example:
@@ -18,13 +15,16 @@ Before you begin
     $ source /path/to/your/kaiju-clone/scripts/setupEnvironment.sh
     $ source /path/to/your/kaipy-clone/kaipy/scripts/setupEnvironment.sh
 
-Running a simple magnetosphere problem
---------------------------------------
+Running a magnetosphere simulation with MAGE
+--------------------------------------------
 
-The ``kaiju`` software needs several files in order to run. The detailed steps
+The MAGE software needs several files in order to run. The detailed steps
 for creating these files have been combined into a script called
-``makeitso.py``. The script is provided in the ``kaiju`` code repository. You
-can see the options supported by ``makeitso.py`` by running it with the
+``makeitso.py``. The script is provided in the ``kaiju`` code repository. More
+information on ``makeitso.py`` is available
+:doc:`here <../../userGuide/makeitso/makeitso>`.
+
+You can see the options supported by ``makeitso.py`` by running it with the
 ``--help`` or ``-h`` command-line option.
 
 .. code-block:: bash
@@ -43,17 +43,16 @@ can see the options supported by ``makeitso.py`` by running it with the
                             Path to JSON file of options (default: None)
       --verbose, -v         Print verbose output (default: False).
 
-.. note:: The ``makeitso.py`` script requires the NASA CDF library. Make sure
-    this library is available on your system before proceeding.
-
 For this example, we will run the code on ``derecho``, and use the default
 ``BASIC`` mode, which requires the minimum amount of input from the user. At
 each prompt, you can either type in a value, or hit the :kbd:`Return` key to
 accept the default value (shown in square brackets at the end of the prompt).
-To get started, run ``makeitso.py`` with no arguments:
+To get started, load the CDF library and run ``makeitso.py`` with no
+arguments:
 
 .. code-block:: bash
 
+    $ source /path/to/your/cdf/bin/definitions.B
     $ $KAIJUHOME/scripts/makeitso/makeitso.py
     Name to use for PBS job(s) [geospace]:
     Do you have an existing boundary condition file to use? (Y|N) [N]:
@@ -143,93 +142,35 @@ You will see the resulting PBS job ID.
     7808651.desched1
 
 Once the job is started in the queue, it should take about 80 minutes to run
-(on ``derecho``). When complete, you will see the following files in your run
-directory (the numeric job IDs will differ):
+(on ``derecho``). When complete, you will see many new HDF5 files in your
+run directory, along with PBS housekeeping files and logs. The most important
+files are (repeated upper-case letters in the names represent integer
+strings):
 
-.. code-block:: bash
+* ``geospace_LLLLL_MMMMM_NNNNN_IIIII_JJJJJ_KKKKK.gam.h5``
 
-    $ ls
-    bcwind.h5                                                geospace_0004_0004_0001_0002_0003_0000.gam.Res.00002.h5
-    geospace_0004_0004_0001_0000_0000_0000.gam.h5            geospace_0004_0004_0001_0002_0003_0000.gam.Res.00003.h5
-    geospace_0004_0004_0001_0000_0000_0000.gam.Res.00000.h5  geospace_0004_0004_0001_0002_0003_0000.gam.Res.00004.h5
-    geospace_0004_0004_0001_0000_0000_0000.gam.Res.00001.h5  geospace_0004_0004_0001_0002_0003_0000.gam.Res.XXXXX.h5
-    geospace_0004_0004_0001_0000_0000_0000.gam.Res.00002.h5  geospace_0004_0004_0001_0003_0000_0000.gam.h5
-    geospace_0004_0004_0001_0000_0000_0000.gam.Res.00003.h5  geospace_0004_0004_0001_0003_0000_0000.gam.Res.00000.h5
-    geospace_0004_0004_0001_0000_0000_0000.gam.Res.00004.h5  geospace_0004_0004_0001_0003_0000_0000.gam.Res.00001.h5
-    geospace_0004_0004_0001_0000_0000_0000.gam.Res.XXXXX.h5  geospace_0004_0004_0001_0003_0000_0000.gam.Res.00002.h5
-    geospace_0004_0004_0001_0000_0001_0000.gam.h5            geospace_0004_0004_0001_0003_0000_0000.gam.Res.00003.h5
-    geospace_0004_0004_0001_0000_0001_0000.gam.Res.00000.h5  geospace_0004_0004_0001_0003_0000_0000.gam.Res.00004.h5
-    geospace_0004_0004_0001_0000_0001_0000.gam.Res.00001.h5  geospace_0004_0004_0001_0003_0000_0000.gam.Res.XXXXX.h5
-    geospace_0004_0004_0001_0000_0001_0000.gam.Res.00002.h5  geospace_0004_0004_0001_0003_0001_0000.gam.h5
-    geospace_0004_0004_0001_0000_0001_0000.gam.Res.00003.h5  geospace_0004_0004_0001_0003_0001_0000.gam.Res.00000.h5
-    geospace_0004_0004_0001_0000_0001_0000.gam.Res.00004.h5  geospace_0004_0004_0001_0003_0001_0000.gam.Res.00001.h5
-    geospace_0004_0004_0001_0000_0001_0000.gam.Res.XXXXX.h5  geospace_0004_0004_0001_0003_0001_0000.gam.Res.00002.h5
-    geospace_0004_0004_0001_0000_0002_0000.gam.h5            geospace_0004_0004_0001_0003_0001_0000.gam.Res.00003.h5
-    geospace_0004_0004_0001_0000_0002_0000.gam.Res.00000.h5  geospace_0004_0004_0001_0003_0001_0000.gam.Res.00004.h5
-    geospace_0004_0004_0001_0000_0002_0000.gam.Res.00001.h5  geospace_0004_0004_0001_0003_0001_0000.gam.Res.XXXXX.h5
-    geospace_0004_0004_0001_0000_0002_0000.gam.Res.00002.h5  geospace_0004_0004_0001_0003_0002_0000.gam.h5
-    geospace_0004_0004_0001_0000_0002_0000.gam.Res.00003.h5  geospace_0004_0004_0001_0003_0002_0000.gam.Res.00000.h5
-    geospace_0004_0004_0001_0000_0002_0000.gam.Res.00004.h5  geospace_0004_0004_0001_0003_0002_0000.gam.Res.00001.h5
-    geospace_0004_0004_0001_0000_0002_0000.gam.Res.XXXXX.h5  geospace_0004_0004_0001_0003_0002_0000.gam.Res.00002.h5
-    geospace_0004_0004_0001_0000_0003_0000.gam.h5            geospace_0004_0004_0001_0003_0002_0000.gam.Res.00003.h5
-    geospace_0004_0004_0001_0000_0003_0000.gam.Res.00000.h5  geospace_0004_0004_0001_0003_0002_0000.gam.Res.00004.h5
-    geospace_0004_0004_0001_0000_0003_0000.gam.Res.00001.h5  geospace_0004_0004_0001_0003_0002_0000.gam.Res.XXXXX.h5
-    geospace_0004_0004_0001_0000_0003_0000.gam.Res.00002.h5  geospace_0004_0004_0001_0003_0003_0000.gam.h5
-    geospace_0004_0004_0001_0000_0003_0000.gam.Res.00003.h5  geospace_0004_0004_0001_0003_0003_0000.gam.Res.00000.h5
-    geospace_0004_0004_0001_0000_0003_0000.gam.Res.00004.h5  geospace_0004_0004_0001_0003_0003_0000.gam.Res.00001.h5
-    geospace_0004_0004_0001_0000_0003_0000.gam.Res.XXXXX.h5  geospace_0004_0004_0001_0003_0003_0000.gam.Res.00002.h5
-    geospace_0004_0004_0001_0001_0000_0000.gam.h5            geospace_0004_0004_0001_0003_0003_0000.gam.Res.00003.h5
-    geospace_0004_0004_0001_0001_0000_0000.gam.Res.00000.h5  geospace_0004_0004_0001_0003_0003_0000.gam.Res.00004.h5
-    geospace_0004_0004_0001_0001_0000_0000.gam.Res.00001.h5  geospace_0004_0004_0001_0003_0003_0000.gam.Res.XXXXX.h5
-    geospace_0004_0004_0001_0001_0000_0000.gam.Res.00002.h5  geospace-00.o7808651
-    geospace_0004_0004_0001_0001_0000_0000.gam.Res.00003.h5  geospace-00.pbs
-    geospace_0004_0004_0001_0001_0000_0000.gam.Res.00004.h5  geospace-00.xml
-    geospace_0004_0004_0001_0001_0000_0000.gam.Res.XXXXX.h5  geospace.gamCpl.h5
-    geospace_0004_0004_0001_0001_0001_0000.gam.h5            geospace.gamCpl.Res.00000.h5
-    geospace_0004_0004_0001_0001_0001_0000.gam.Res.00000.h5  geospace.gamCpl.Res.00001.h5
-    geospace_0004_0004_0001_0001_0001_0000.gam.Res.00001.h5  geospace.gamCpl.Res.00002.h5
-    geospace_0004_0004_0001_0001_0001_0000.gam.Res.00002.h5  geospace.gamCpl.Res.00003.h5
-    geospace_0004_0004_0001_0001_0001_0000.gam.Res.00003.h5  geospace.gamCpl.Res.00004.h5
-    geospace_0004_0004_0001_0001_0001_0000.gam.Res.00004.h5  geospace.gamCpl.Res.XXXXX.h5
-    geospace_0004_0004_0001_0001_0001_0000.gam.Res.XXXXX.h5  geospace.json
-    geospace_0004_0004_0001_0001_0002_0000.gam.h5            geospace.mhd2imag.Res.00000.h5
-    geospace_0004_0004_0001_0001_0002_0000.gam.Res.00000.h5  geospace.mhd2imag.Res.00001.h5
-    geospace_0004_0004_0001_0001_0002_0000.gam.Res.00001.h5  geospace.mhd2imag.Res.00002.h5
-    geospace_0004_0004_0001_0001_0002_0000.gam.Res.00002.h5  geospace.mhd2imag.Res.00003.h5
-    geospace_0004_0004_0001_0001_0002_0000.gam.Res.00003.h5  geospace.mhd2imag.Res.00004.h5
-    geospace_0004_0004_0001_0001_0002_0000.gam.Res.00004.h5  geospace.mhd2imag.Res.XXXXX.h5
-    geospace_0004_0004_0001_0001_0002_0000.gam.Res.XXXXX.h5  geospace.mhdrcm.h5
-    geospace_0004_0004_0001_0001_0003_0000.gam.h5            geospace.mix.h5
-    geospace_0004_0004_0001_0001_0003_0000.gam.Res.00000.h5  geospace.mix.Res.00000.h5
-    geospace_0004_0004_0001_0001_0003_0000.gam.Res.00001.h5  geospace.mix.Res.00001.h5
-    geospace_0004_0004_0001_0001_0003_0000.gam.Res.00002.h5  geospace.mix.Res.00002.h5
-    geospace_0004_0004_0001_0001_0003_0000.gam.Res.00003.h5  geospace.mix.Res.00003.h5
-    geospace_0004_0004_0001_0001_0003_0000.gam.Res.00004.h5  geospace.mix.Res.00004.h5
-    geospace_0004_0004_0001_0001_0003_0000.gam.Res.XXXXX.h5  geospace.mix.Res.XXXXX.h5
-    geospace_0004_0004_0001_0002_0000_0000.gam.h5            geospace_pbs.sh
-    geospace_0004_0004_0001_0002_0000_0000.gam.Res.00000.h5  geospace.rcm.h5
-    geospace_0004_0004_0001_0002_0000_0000.gam.Res.00001.h5  geospace.RCM.Res.00000.h5
-    geospace_0004_0004_0001_0002_0000_0000.gam.Res.00002.h5  geospace.RCM.Res.00001.h5
-    geospace_0004_0004_0001_0002_0000_0000.gam.Res.00003.h5  geospace.RCM.Res.00002.h5
-    geospace_0004_0004_0001_0002_0000_0000.gam.Res.00004.h5  geospace.RCM.Res.00003.h5
-    geospace_0004_0004_0001_0002_0000_0000.gam.Res.XXXXX.h5  geospace.RCM.Res.00004.h5
-    geospace_0004_0004_0001_0002_0001_0000.gam.h5            geospace.RCM.Res.XXXXX.h5
-    geospace_0004_0004_0001_0002_0001_0000.gam.Res.00000.h5  geospace.volt.h5
-    geospace_0004_0004_0001_0002_0001_0000.gam.Res.00001.h5  geospace.volt.Res.00000.h5
-    geospace_0004_0004_0001_0002_0001_0000.gam.Res.00002.h5  geospace.volt.Res.00001.h5
-    geospace_0004_0004_0001_0002_0001_0000.gam.Res.00003.h5  geospace.volt.Res.00002.h5
-    geospace_0004_0004_0001_0002_0001_0000.gam.Res.00004.h5  geospace.volt.Res.00003.h5
-    geospace_0004_0004_0001_0002_0001_0000.gam.Res.XXXXX.h5  geospace.volt.Res.00004.h5
-    geospace_0004_0004_0001_0002_0002_0000.gam.h5            geospace.volt.Res.XXXXX.h5
-    geospace_0004_0004_0001_0002_0002_0000.gam.Res.00000.h5  lfmQ.h5
-    geospace_0004_0004_0001_0002_0002_0000.gam.Res.00001.h5  nodefile.7808651.desched1
-    geospace_0004_0004_0001_0002_0002_0000.gam.Res.00002.h5  OMNI_HRO_1MIN.txt_bxFit.png
-    geospace_0004_0004_0001_0002_0002_0000.gam.Res.00003.h5  OMNI_HRO_1MIN.txt.png
-    geospace_0004_0004_0001_0002_0002_0000.gam.Res.00004.h5  rcmconfig.h5
-    geospace_0004_0004_0001_0002_0002_0000.gam.Res.XXXXX.h5  tmp
-    geospace_0004_0004_0001_0002_0003_0000.gam.h5            voltron_mpi.x
-    geospace_0004_0004_0001_0002_0003_0000.gam.Res.00000.h5  voltron_mpi.x-geospace-00.out
-    geospace_0004_0004_0001_0002_0003_0000.gam.Res.00001.h5
+    These files contain the core MHD variables from the simulation, computed
+    by the `GAMERA <https://cgs.jhuapl.edu/Models/gamera.php>`_ portion of the
+    MAGE model. The strings ``LLLLL``, ``MMMMM``, and ``NNNNN`` contain the
+    number of subsections of the ``X``, ``Y``, and ``Z`` dimensions used to
+    divide the domain among MPI ranks. The strings ``IIIII``, ``JJJJJ``, and
+    ``KKKKK`` represent the MPI rank index along each dimension.
+
+* ``geospace.mix.h5``
+
+    This file contains the results from the
+    `REMIX <https://cgs.jhuapl.edu/Models/remix.php>`_ portion of the MAGE
+    model.
+
+* ``geospace.rcm.h5``
+
+    This file contains the results from the
+    `RCM <https://cgs.jhuapl.edu/Models/rcm.php>`_ portion of the MAGE model.
+
+* ``geospace_*.gam.Res.RRRRR.h5``
+
+    These are checkpoint files generated during the simulation which can be
+    used as restart points for future simulations.
 
 Now perform a quick visualization of the results from your model using the
 ``msphpic.py`` script, provided in the ``kaipy`` package.
