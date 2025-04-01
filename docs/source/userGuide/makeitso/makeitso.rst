@@ -173,5 +173,5 @@ Additional parameters in ``INTERMEDIATE`` and ``EXPERT`` mode
 -------------------------------------------------------------
 
 Many more parameters are available in ``INTERMEDIATE`` and ``EXPERT`` modes.
-These paarameters are documented in the file ``option_descriptions.json``,
+These parameters are documented in the file ``option_descriptions.json``,
 which is stored in the same directory as the ``makeitso.py`` script.
