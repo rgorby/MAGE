@@ -1,2 +1,177 @@
 ``makeitso.py``
----------------
+===============
+
+Introduction
+------------
+
+The Python script ``makeitso.py`` was developed to simplify the process of
+configuring and running a magnetosphere model with the ``kaiju`` software. It
+provides an interactive, prompt-driven interface to specify all of the
+parameters needed for a model run.
+
+The ``makeitso.py`` script can operate at one of three different modes:
+``BASIC``, ``INTERMEDIATE``, or ``EXPERT``. Each mode provides access to
+access to a subset of the ``kaiju`` parameters. The ``BASIC`` mode requires
+the user to provide the minimum set of parameters needed to specify a model
+run, such as the run ID, and the simulation time period. The ``INTERMEDIATE``
+mode allows the user to specify all of the parameters from the ``BASIC`` mode,
+as well as a wider set of run parameters, such as non-standard file
+locations and some MHD parameters. The ``EXPERT`` mode provides access to all
+of the user-adjustable parameters from the ``kaiju`` software. When finished,
+the script generates the files needed to run a magnetosphere model, and saves
+all options in a convenient JSON file so that the run can be repeated at a
+later date.
+
+Running the ``makeitso.py`` script
+----------------------------------
+
+The ``makeitso.py`` script is provided as part of the ``kaiju`` software. It
+is found at ``$KAIJUHOME/scripts/makeitso/makeitso.py``, where ``$KAIJUHOME``
+is the location of your ``kaiju`` software tree. After configuring your
+``kaiju`` software, you can get help text for the script like this:
+
+.. code-block:: bash
+
+    makeitso.py --help
+    usage: makeitso.py [-h] [--clobber] [--debug] [--mode MODE] [--options_path OPTIONS_PATH] [--verbose]
+
+    Interactive script to prepare a MAGE magnetosphere model run.
+
+    optional arguments:
+      -h, --help            show this help message and exit
+      --clobber             Overwrite existing options file (default: False).
+      --debug, -d           Print debugging output (default: False).
+      --mode MODE           User mode (BASIC|INTERMEDIATE|EXPERT) (default: BASIC).
+      --options_path OPTIONS_PATH, -o OPTIONS_PATH
+                            Path to JSON file of options (default: None)
+      --verbose, -v         Print verbose output (default: False).
+
+The ``--options_path`` option allows the user to specify an existing JSON file
+from a previous run of ``makeitso.py`` so that the entire process of model
+generation can be automated. The ``--mode`` option specifies the user mode to
+run in, with ``BASIC`` being the default.
+
+An example in ``BASIC`` mode
+----------------------------
+
+This section provdes an annotated example session of ``makeitso.py`` running
+in the default ``BASIC`` mode.
+
+.. code-block:: bash
+
+  $ makeitso.py 
+  Name to use for PBS job(s) [geospace]:
+
+Enter an identifying string to use for your model run. This name will be used
+as the basis for most of the files created by ``makeitso.py`` and the
+``kaiju`` software. The default name is ``geospace``.
+
+.. code-block:: bash
+
+  Do you have an existing boundary condition file to use? (Y|N) [N]:
+
+If you already have a file containing solar wind data to use for the inner
+boundary conditions of your simulation, enter ``Y``, and you will then be
+prompted for the path top the file. If you don't have the file, enter ``N``
+and you will be prompted for the date range to use.
+
+.. code-block:: bash
+
+  Start date for simulation (yyyy-mm-ddThh:mm:ss) [2016-08-09T09:00:00]:
+  Stop date for simulation (yyyy-mm-ddThh:mm:ss) [2016-08-09T11:00:00]:
+
+Enter the start and stop date and time for the solar wind data you want to
+use. The required data will be fetched from CDAWeb, and converted into a
+format usable by the ``kaiju`` software.
+
+.. code-block:: bash
+
+  Do you want to split your job into multiple segments? (Y|N) [N]:
+
+Enter ``Y`` here if you want to split your simulation into multiple PBS jobs.
+This will allow you to run long simulations that are chained together, with
+each using the results of the previous job as a starting point. If you enter
+``Y``, you will be prompted for segment length (in simulated time).
+
+.. code-block:: bash
+
+  GAMERA grid type (D|Q|O|H) [Q]:
+
+The codes represent double- (``D``), quad- (``Q``), oct- (``O``) and
+hex- (``H``) resolutions in the LFM grid used in the ``kaiju`` software.
+
+.. code-block:: bash
+
+  Name of HPC system (derecho|pleiades) [pleiades]:
+
+The ``makeitso.py`` script supportes the ``derecho`` and ``pleiades``
+supercomputers. The selection you make here will customize the remaining
+prompts for the selected system.
+
+.. code-block:: bash
+
+  PBS account name [your_login_name]:
+
+On ``pleiades``, your login name is usable here. On ``derecho``, you will need
+a PBS account ID.
+
+.. code-block:: bash
+
+  Run directory [.]: 
+
+Specify the directory that you wish to perform the simulation in. The
+direectory will contain all of the files generated by ``makeitso.py``.
+
+.. code-block:: bash
+
+  Path to kaiju installation [YOUR_PATH_HERE]: 
+  Path to kaiju build directory [YOUR_PATH_HERE]: 
+
+Enter the paths to the location of your ``kaiju`` code, and the location of
+your ``kaiju`` build directory.
+
+.. code-block:: bash
+
+  PBS queue name (low|normal|long|debug|devel) [normal]: 
+
+Select a PBS queue to use on the selected supercomputer.
+
+.. code-block:: bash
+
+  WARNING: You are responsible for ensuring that the wall time is sufficient to run a segment of your simulation!
+  Requested wall time for each PBS job segment (HH:MM:SS) [01:00:00]: 
+
+Specify the wall clock time to request for your job (or each segment, if you
+split your job into multiple segments).
+
+.. code-block:: bash
+
+  (GAMERA) Relative path to HDF5 file containing solar wind boundary conditions [bcwind.h5]: 
+
+This is the path to your existing solar wind file, or the path that
+``makeitso.py`` will use to create the file.
+
+.. code-block:: bash
+
+  (VOLTRON) File output cadence in simulated seconds [60.0]: 
+
+How often (in simulated seconds) the ``kaiju`` software should output results
+during the course of the simulation.
+
+The script then runs several additional tools to prepare the files needed for
+your simulation. This includes input files, as well as PBS job scripts for
+your simulation, and a bash shell script to submit the PBS jobs.
+
+When finished, the script creates the file ``runid.json``, where ``runid`` is
+the identifying string for your simulation. This file contains a record of all
+of the parameters used in your simulation. This file can be passed back to
+``makeitso.py`` in a subsequent session to repeat the simulation, and also
+provides a convenient starting point for minor tweaks to your simulation
+parameters.
+
+Additional parameters in ``INTERMEDIATE`` and ``EXPERT`` mode
+-------------------------------------------------------------
+
+Many more parameters are available in ``INTERMEDIATE`` and ``EXPERT`` modes.
+These paarameters are documented in the file ``option_descriptions.json``,
+which is stored in the same directory as the ``makeitso.py`` script.
