@@ -219,12 +219,12 @@ module raijutypes
             !! For debug
         logical :: doClockConsoleOut
             !! If we are driving, output clock info
-        logical :: doFatOutput
+        logical :: doOutput_potGrads
             !! Output extra 3D arrays
-        logical :: doDebugOutput
+        logical :: doOutput_debug
             !! Dump lots of otherwise unnecessary stuff
-        logical :: doLossOutput
-            !! Dump 3D loss variables like Tau
+        logical :: doOutput_3DLoss
+            !! Dump extra 3D loss variables
         logical :: doOwnCorot
             !! If true, we calculate corortation potential ourselves and include it in our velocity calculation
             !! If false, we assume its already included in whatever ionospheric potential we're using

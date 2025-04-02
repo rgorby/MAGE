@@ -114,7 +114,7 @@ module raijustarter
             stop
         endif
 
-        ! Restart time
+        !--- Restarts ---!
         if (Model%isSA) then
             tmpStr = "restart/doRes"
         else
@@ -138,12 +138,8 @@ module raijustarter
             call iXML%Set_Val(tmpResId, trim(tmpStr), Model%RunID)
             call genResInFname(Model, Model%ResF, runIdO=tmpResId)  ! Determine filename to read from
         endif
-
-        call iXML%Set_Val(Model%isLoud, "debug/isLoud",.false.)
-        call iXML%Set_Val(Model%writeGhosts, "debug/writeGhosts",.false.)
-        call iXML%Set_Val(Model%doDebugOutput, "debug/debugOutput",.false.)
         
-        ! Plasmasphere settings
+        !--- Plasmasphere ---!
         call iXML%Set_Val(Model%doPlasmasphere, "plasmasphere/doPsphere",.false.)
         call iXML%Set_Val(Model%doPsphEvol, 'plasmasphere/doEvol',.true.)
         ! Determine number of species. First set default, then read from xml to overwrite if present
@@ -161,7 +157,7 @@ module raijustarter
 
         call iXML%Set_Val(Model%nSpc, "prob/nSpc",Model%nSpc)
 
-        ! Domain constraints
+        !--- Domain ---!
         call iXML%Set_Val(Model%n_bndLim      , "domain/bndLim"     , 3)
         call iXML%Set_Val(Model%maxTail_buffer, "domain/tail_buffer", def_maxTail_buffer)
         call iXML%Set_Val(Model%maxSun_buffer , "domain/sun_buffer" , def_maxSun_buffer)
@@ -173,7 +169,7 @@ module raijustarter
         Model%maxTail_active = abs(Model%maxTail_active)
         Model%maxSun_active  = abs(Model%maxSun_active)
 
-        ! Solver params
+        !---Solver ---!
         call iXML%Set_Val(Model%doUseVelLRs,'sim/useVelLRs',def_doUseVelLRs)
         call iXML%Set_Val(Model%maxItersPerSec,'sim/maxIter',def_maxItersPerSec)
         call iXML%Set_Val(Model%maxOrder,'sim/maxOrder',7)
@@ -199,9 +195,10 @@ module raijustarter
         call iXML%Set_Val(Model%tiote, "prob/tiote",4.0)
 
         ! Active shell settings
-        call iXML%Set_Val(Model%doActiveShell, "activeShell/doAS",.true.)
-        call iXML%Set_Val(Model%worthyFrac, "prob/worthyFrac",fracWorthyDef)
+        call iXML%Set_Val(Model%doActiveShell, "activeShell/doAS",.false.)
+        call iXML%Set_Val(Model%worthyFrac, "activeShell/worthyFrac",fracWorthyDef)
 
+        ! Corotation
         if (Model%isSA) then
             call iXML%Set_Val(Model%doOwnCorot, "prob/doCorot",.true.)
         else
@@ -230,16 +227,19 @@ module raijustarter
         end select
 
 
-        ! Losses
+        !--- Losses ---!
         call iXML%Set_Val(Model%doLosses, "losses/doLosses",.true.)
         call iXML%Set_Val(Model%doSS    , "losses/doSS" ,.true. )
         call iXML%Set_Val(Model%doCC    , "losses/doCC" ,.true. )
         call iXML%Set_Val(Model%doCX    , "losses/doCX" ,.true.)
         call iXML%Set_Val(Model%doFLC   , "losses/doFLC",.false.)
-        call iXML%Set_Val(Model%doLossOutput, "losses/doOutput",.false.)  ! Several (Ni,Nj,Nk) arrays
 
-        call iXML%Set_Val(Model%doFatOutput, "output/doFat",.false.)
-        ! TODO: Add flags to output certain data, like coupling information
+        !--- Output ---!
+        call iXML%Set_Val(Model%isLoud           , "output/loudConsole",.false.)
+        call iXML%Set_Val(Model%writeGhosts      , "output/writeGhosts",.false.)
+        call iXML%Set_Val(Model%doOutput_potGrads, "output/doFat"      ,.false.)
+        call iXML%Set_Val(Model%doOutput_3DLoss  , "output/lossExtras" ,.false.)  ! Several (Ni,Nj,Nk) arrays
+        call iXML%Set_Val(Model%doOutput_debug   , "output/doDebug"    ,.false.)
 
         ! Model Hax?
         call iXML%Set_Val(Model%doHack_rcmEtaPush, "hax/rcmEtaPush",.false.)
@@ -452,7 +452,7 @@ module raijustarter
             enddo
 
             ! Only bother allocating persistent versions of debug stuff if we ned them
-            if (Model%doDebugOutput) then
+            if (Model%doOutput_debug) then
                 allocate( State%etaFaceReconL(sh%isg:sh%ieg+1, sh%jsg:sh%jeg+1, Grid%Nk, 2) )
                 allocate( State%etaFaceReconR(sh%isg:sh%ieg+1, sh%jsg:sh%jeg+1, Grid%Nk, 2) )
                 allocate( State%etaFacePDML  (sh%isg:sh%ieg+1, sh%jsg:sh%jeg+1, Grid%Nk, 2) )
