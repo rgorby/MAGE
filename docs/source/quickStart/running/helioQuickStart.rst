@@ -24,7 +24,7 @@ called ``makeitso-gamhelio.py``. The script is provided in the ``kaiju`` code
 repository. More information on ``makeitso-gamhelio.py`` is available
 :doc:`here <../../userGuide/makeitso/makeitso-gamhelio>`.
 
- You can see the options supported my ``makeitso-gamhelio.py`` by
+You can see the options supported my ``makeitso-gamhelio.py`` by
 running it with the ``--help`` or ``-h`` command-line option.
 
 .. code-block:: bash
