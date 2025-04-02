@@ -410,12 +410,11 @@ module volttypes
         end subroutine getMomentsIMAG_T
 
 
-        subroutine getMomentsPrecipIMAG_T(App,rai_fluxes,thc,phc)
+        subroutine getMomentsPrecipIMAG_T(App,rai_fluxes)
             import imagCoupler_T
             import rp
             class(imagCoupler_T), intent(inout) :: App
             real(rp), dimension(:,:,:), allocatable, intent(out) :: rai_fluxes
-            real(rp), dimension(:), allocatable, intent(out) :: thc, phc
         end subroutine getMomentsPrecipIMAG_T
     end interface
 
@@ -558,10 +557,9 @@ module volttypes
             logical, intent(out) :: isEdible
         end subroutine getMomentsRAIJU
 
-        module subroutine getMomentsPrecipRAIJU(App,rai_fluxes,thc,phc)
+        module subroutine getMomentsPrecipRAIJU(App,rai_fluxes)
             class(raijuCoupler_T), intent(inout) :: App
             real(rp), dimension(:,:,:), allocatable, intent(out) :: rai_fluxes
-            real(rp), dimension(:), allocatable, intent(out) :: thc, phc
         end subroutine getMomentsPrecipRAIJU
 
         module subroutine raiCplInitModel(App, xml)

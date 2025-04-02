@@ -464,7 +464,7 @@ module voltapp
 
             call init_mhd2Chmp(vApp%mhd2chmp, gApp, vApp%ebTrcApp)
             call init_chmp2Mhd(vApp%chmp2mhd, vApp%ebTrcApp, gApp)
-            call init_raiju_mix(vApp)
+            call init_raiju_mix(vApp%imagApp,vApp%remixApp)
 
             vApp%iDeep = gApp%Grid%ie-1
             

@@ -16,43 +16,53 @@ module imag2mix_interface
 
     contains
 
-    subroutine init_raiju_mix(vApp)
+    subroutine init_raiju_mix(imagApp,remixApp)
       ! called by subroutine initializeFromGamera in module voltapp
-      type(voltApp_T), intent(inout) :: vApp
-!      type(raijuCoupler_T), intent(in) :: imagApp
-!      type(mixApp_T), intent(inout) :: remixApp
+!      type(voltApp_T), intent(inout) :: vApp
+      class(imagCoupler_T), intent(in) :: imagApp
+      type(mixApp_T), intent(inout) :: remixApp
 
       real(rp), dimension(:,:), allocatable :: raijup, raijut ! Np x Nt, remix-style 2-D arrays to hold the RAIJU grid
       integer :: i, j
 
-!      associate(remixApp=>vApp%remixApp, imagApp=>vApp%imagApp )
-!      Nt_mix = remixApp%ion(NORTH)%G%Nt
-!      Np_mix = remixApp%ion(NORTH)%G%Np
-!      Np_rai = imagApp%raiApp%Grid%shGrid%Np
-!      Nt_rai = imagApp%raiApp%Grid%shGrid%Nt
-!      Nt_rai = imagApp%raiApp%Grid%shGrid%ie - imagApp%raiApp%Grid%shGrid%is+1
-!      Np_rai = imagApp%raiApp%Grid%shGrid%je - imagApp%raiApp%Grid%shGrid%js+1
+      !      associate(remixApp=>vApp%remixApp, imagApp=>vApp%imagApp )
+      Nt_mix = remixApp%ion(NORTH)%G%Nt
+      Np_mix = remixApp%ion(NORTH)%G%Np
 
-      ! Np x Nt, transposed relative to mix grid.
-!      if (.not.allocated(raijup)) allocate(raijup(Np_rai, Nt_rai))
-!      if (.not.allocated(raijut)) allocate(raijut(Np_rai, Nt_rai))
+      SELECT TYPE (imagA=>imagApp)
+         TYPE IS (raijuCoupler_T)
+         ! in here you can treat imagType as if it is type raijuCoupler_T, and it points to vApp%imagApp
+         Np_rai = imagA%raiApp%Grid%shGrid%Np
+         Nt_rai = imagA%raiApp%Grid%shGrid%Nt
+         print *,'Np_rai/Nt_rai: ',Np_rai,Nt_rai
+         Nt_rai = imagA%raiApp%Grid%shGrid%ie - imagA%raiApp%Grid%shGrid%is+1
+         Np_rai = imagA%raiApp%Grid%shGrid%je - imagA%raiApp%Grid%shGrid%js+1
+         print *,'is-ie+1/js-je+1: ',Np_rai,Nt_rai
 
-      ! construct the 2-D grid
-      !! thc/phc: (Nt or Np) [radians] grid centers
-      !! th (theta) is colatitude and runs from north pole toward south
-!      do j=1,Np_rai
-!        raijut(j,:) = imagApp%raiApp%Grid%shGrid%thc 
-!      enddo
+         ! Np x Nt, transposed relative to mix grid.
+         if (.not.allocated(raijup)) allocate(raijup(Np_rai, Nt_rai))
+         if (.not.allocated(raijut)) allocate(raijut(Np_rai, Nt_rai))
 
-      !! Phi is longitude, with zero/2pi at 12 MLT
-!      do i=1,Nt_rai
-!        raijup(:,i) = imagApp%raiApp%Grid%shGrid%phc
-!      enddo
+         ! construct the 2-D grid
+         !! thc/phc: (Nt or Np) [radians] grid centers
+         !! th (theta) is colatitude and runs from north pole toward south
+         do j=1,Np_rai
+           raijut(j,:) = imagA%raiApp%Grid%shGrid%thc
+         enddo
 
-      ! call remix grid constructor
-!      call init_grid_fromTP(rai2mixG,raijut(1:Np_rai-1,:),raijup(1:Np_rai-1,:),isSolverGrid=.false.)
-!      Npc_rai = rai2mixG%Np ! Np_rai-1
-!      Ntc_rai = rai2mixG%Nt
+         !! Phi is longitude, with zero/2pi at 12 MLT
+         do i=1,Nt_rai
+           raijup(:,i) = imagA%raiApp%Grid%shGrid%phc
+         enddo
+
+         ! call remix grid constructor
+         call init_grid_fromTP(rai2mixG,raijut(1:Np_rai-1,:),raijup(1:Np_rai-1,:),isSolverGrid=.false.)
+         Npc_rai = rai2mixG%Np ! Np_rai-1
+         Ntc_rai = rai2mixG%Nt
+      CLASS DEFAULT
+         WRITE (*,*) "Imag Coupler is an unsupported type"
+         stop
+      END SELECT
 !      end associate
 
     end subroutine init_raiju_mix
@@ -70,37 +80,14 @@ module imag2mix_interface
         integer :: Nf = nVars_imag2mix
         integer :: i,j
         type(Map_T) :: raiMap
+        integer :: i1,j1,j1p1
+        real(rp), dimension(4) :: F
+        real(rp), dimension(:,:), allocatable :: F1
+        logical :: isbad = .false.
 
         ! collect raiju fluxes.
         ! in getMomentsPrecip: allocate(rai_fluxes (is:ie,js:je,nVars_imag2mix)), (Nt_rai, Np_rai, Nf)
-        call vApp%imagApp%getMomentsPrecip(rai_fluxes,thc,phc)
-
-        if(isInit) then
-         Nt_mix = vApp%remixApp%ion(NORTH)%G%Nt
-         Np_mix = vApp%remixApp%ion(NORTH)%G%Np
-
-         Np_rai = size(phc)
-         Nt_rai = size(thc)
-
-         if (.not.allocated(raijup)) allocate(raijup(Np_rai, Nt_rai))
-         if (.not.allocated(raijut)) allocate(raijut(Np_rai, Nt_rai))
-
-         do j=1,Np_rai
-            raijut(j,:) = thc 
-         enddo
-      
-         !! Phi is longitude, with zero/2pi at 12 MLT
-         do i=1,Nt_rai
-            raijup(:,i) = phc
-         enddo
-      
-         ! call remix grid constructor
-         call init_grid_fromTP(rai2mixG,raijut(1:Np_rai-1,:),raijup(1:Np_rai-1,:),isSolverGrid=.false.)
-         Npc_rai = rai2mixG%Np ! Np_rai-1
-         Ntc_rai = rai2mixG%Nt
-         
-         isInit = .false.
-        endif
+        call vApp%imagApp%getMomentsPrecip(rai_fluxes)
 
         associate(remixApp=>vApp%remixApp ) !, imagApp=>vApp%imagApp
         allocate(mix_fluxes(Np_mix,Nt_mix,Nf))
@@ -125,6 +112,37 @@ module imag2mix_interface
         remixApp%ion(NORTH)%St%Vars(:,:,IM_EDEN ) = mix_fluxes(:,:,RAI_EDEN )      ! [#/m^3]
         remixApp%ion(NORTH)%St%Vars(:,:,IM_EPRE ) = mix_fluxes(:,:,RAI_EPRE )      ! [Pa]
         remixApp%ion(NORTH)%St%Vars(:,:,IM_NPSP ) = mix_fluxes(:,:,RAI_NPSP )      ! [#/m^3]
+
+        ! debug
+        allocate(F1(Npc_rai,Nt_rai))
+        F1 = transpose(rai_fluxes(:,1:Npc_rai,RAI_EFLUX))
+        do i=1,Np_mix
+         do j=1,Nt_mix
+            if(isnan(mix_fluxes(i,j,RAI_EFLUX))) then
+               isbad = .true.
+               i1 = raiMap%I1(i,j)
+               j1 = raiMap%J1(i,j)
+               if (j1.eq.size(F1,1)) then
+                  j1p1=1
+               else 
+                  j1p1=j1+1
+               end if
+               if (i1 == size(F1,1)) then
+                 F = (/ F1(j1,i1), F1(j1p1,i1), F1(j1,i1), F1(j1p1,i1)/)
+               elseif (i1 ==0) then
+                 F = (/ F1(j1,i1+1), F1(j1p1,i1+1), F1(j1,i1+1), F1(j1p1,i1+1)/)
+               else
+                 F = (/ F1(j1,i1), F1(j1p1,i1), F1(j1,i1+1), F1(j1p1,i1+1)/)
+               endif
+               print *,'ldong_20250325 mix_fluxes nan: i=',i,' j=',j,' mix_fluxes=',mix_fluxes(i,j,RAI_EFLUX), &
+               ' i1/j1=',i1,j1,' Map=',raiMap%M(i,j,:),' F=',F
+            endif
+         enddo
+        enddo
+        if(isbad) then
+            print *,'got NaNs in mapRaijuToRemix'
+            stop
+        endif
 
         ! SH mapping
         mix_fluxes = 0.0_rp

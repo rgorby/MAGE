@@ -10,6 +10,7 @@ submodule (volttypes) raijuCplTypesSub
     use imaghelper
     use dstutils
     use math
+    use ieee_arithmetic
 
     implicit none
 
@@ -176,10 +177,9 @@ submodule (volttypes) raijuCplTypesSub
     end subroutine getMomentsRAIJU
 
 
-    module subroutine getMomentsPrecipRAIJU(App,rai_fluxes, thc, phc)
+    module subroutine getMomentsPrecipRAIJU(App,rai_fluxes)
         class(raijuCoupler_T), intent(inout) :: App
         real(rp), dimension(:,:,:), allocatable, intent(out) :: rai_fluxes
-        real(rp), dimension(:), allocatable, intent(out) :: thc, phc
         integer :: i,j,k,s
         integer :: is, ie, js, je, ks, ke
 !        real(rp), dimension(:,:), allocatable :: gtype
@@ -189,10 +189,6 @@ submodule (volttypes) raijuCplTypesSub
         ie = sh%ie
         js = sh%js
         je = sh%je
-        allocate(thc(is:ie))
-        allocate(phc(js:je))
-        thc = sh%thc
-        phc = sh%phc
 
         ! Calculate accumulated precipitation for each species
 !        allocate(gtype        (is:ie,js:je))
@@ -211,6 +207,23 @@ submodule (volttypes) raijuCplTypesSub
             elseif (spcList(s)%spcType == RAIJUHPLUS) then
                 ! add proton precipitation later.
             elseif (spcList(s)%spcType == RAIJUELE) then
+
+        ! debug
+        do i=is,ie
+            do j=js,je
+                if(isnan(sum(State%precipEFlux(i,j,ks:ke)))) then
+                    print *,'ldong_20250326 raiCpl NaNs at i/j=',i,j,' EFlux=',State%precipEFlux(i,j,ks:ke)
+                    print *,'ldong_20250326 omitnan ',sum(pack(State%precipEFlux(i,j,ks:ke), .not. ieee_is_nan(State%precipEFlux(i,j,ks:ke))))
+                endif
+            enddo
+        enddo
+        do i=is,ie
+            do j=js,je
+                if(isnan(sum(State%precipNFlux(i,j,ks:ke)))) then
+                    print *,'ldong_20250326 raiCpl NaNs at i/j=',i,j,' NFlux=',State%precipNFlux(i,j,ks:ke)
+                endif
+            enddo
+        enddo
                 rai_fluxes(:,:,RAI_ENFLX) = rai_fluxes(:,:,RAI_ENFLX) + sum(State%precipNFlux(is:ie,js:je,ks:ke), dim=3) ! uStr="#/cm^2/s"
                 rai_fluxes(:,:,RAI_EFLUX) = rai_fluxes(:,:,RAI_EFLUX) + sum(State%precipEFlux(is:ie,js:je,ks:ke), dim=3) ! uStr="erg/cm^2/s"
                 rai_fluxes(:,:,RAI_CCHF ) = rai_fluxes(:,:,RAI_CCHF ) + sum(State%CCHeatFlux (is:ie,js:je,ks:ke), dim=3) ! uStr="erg/cm^2/s"
