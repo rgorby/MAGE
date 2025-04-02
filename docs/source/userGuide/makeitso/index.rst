@@ -13,3 +13,4 @@ and running a model using the ``kaiju`` software.
 
     makeitso
     makeitso-gamhelio
+    create_gamhelio_ensemble
