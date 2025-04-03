@@ -182,7 +182,7 @@ submodule (volttypes) raijuCplTypesSub
         real(rp), dimension(:,:,:), allocatable, intent(out) :: rai_fluxes
         integer :: i,j,k,s
         integer :: is, ie, js, je, ks, ke
-!        real(rp), dimension(:,:), allocatable :: gtype
+        real(rp) :: valPrecip  ! threshold value of grid status for accumulating precip.
 
         associate(Model=>App%raiApp%Model, State=>App%raiApp%State, sh=>App%raiApp%Grid%shGrid, spcList=>App%raiApp%Grid%spc)
         is = sh%is
@@ -197,6 +197,7 @@ submodule (volttypes) raijuCplTypesSub
         rai_fluxes = 0.0_rp
 
         rai_fluxes(:,:,RAI_GTYPE) = (State%active(is:ie,js:je)*1.0_rp+1.0)/2.0  ! "-1=Inactive, 0=Buffer, 1=Active" -> 0, 0.5, and 1.0
+        valPrecip = (RAIJUBUFFER*1.0_rp + 1.0)/2.0
         rai_fluxes(:,:,RAI_THCON) = State%thcon(is:ie,js:je) ! conjugate co-lat in radians, 0-pi
         rai_fluxes(:,:,RAI_PHCON) = State%phcon(is:ie,js:je) ! conjugate long in radians, 0-2pi
         do s=1, Model%nSpc
@@ -207,23 +208,6 @@ submodule (volttypes) raijuCplTypesSub
             elseif (spcList(s)%spcType == RAIJUHPLUS) then
                 ! add proton precipitation later.
             elseif (spcList(s)%spcType == RAIJUELE) then
-
-        ! debug
-        do i=is,ie
-            do j=js,je
-                if(isnan(sum(State%precipEFlux(i,j,ks:ke)))) then
-                    print *,'ldong_20250326 raiCpl NaNs at i/j=',i,j,' EFlux=',State%precipEFlux(i,j,ks:ke)
-                    print *,'ldong_20250326 omitnan ',sum(pack(State%precipEFlux(i,j,ks:ke), .not. ieee_is_nan(State%precipEFlux(i,j,ks:ke))))
-                endif
-            enddo
-        enddo
-        do i=is,ie
-            do j=js,je
-                if(isnan(sum(State%precipNFlux(i,j,ks:ke)))) then
-                    print *,'ldong_20250326 raiCpl NaNs at i/j=',i,j,' NFlux=',State%precipNFlux(i,j,ks:ke)
-                endif
-            enddo
-        enddo
                 rai_fluxes(:,:,RAI_ENFLX) = rai_fluxes(:,:,RAI_ENFLX) + sum(State%precipNFlux(is:ie,js:je,ks:ke), dim=3) ! uStr="#/cm^2/s"
                 rai_fluxes(:,:,RAI_EFLUX) = rai_fluxes(:,:,RAI_EFLUX) + sum(State%precipEFlux(is:ie,js:je,ks:ke), dim=3) ! uStr="erg/cm^2/s"
                 rai_fluxes(:,:,RAI_CCHF ) = rai_fluxes(:,:,RAI_CCHF ) + sum(State%CCHeatFlux (is:ie,js:je,ks:ke), dim=3) ! uStr="erg/cm^2/s"
@@ -231,10 +215,21 @@ submodule (volttypes) raijuCplTypesSub
                 rai_fluxes(:,:,RAI_EDEN ) = rai_fluxes(:,:,RAI_EDEN ) + State%Den  (s)%data*1.0e6  ! uStr="#/cc" -> /m^3 , dStr="Density from RAIJU flavors"
             endif
         enddo
+
+        where (rai_fluxes(:,:,RAI_GTYPE) < valPrecip)
+            ! zero out fluxes on Inactive grids.
+            rai_fluxes(:,:,RAI_NPSP ) = 0.0_rp
+            rai_fluxes(:,:,RAI_ENFLX) = 0.0_rp
+            rai_fluxes(:,:,RAI_EFLUX) = 0.0_rp
+            rai_fluxes(:,:,RAI_CCHF ) = 0.0_rp
+            rai_fluxes(:,:,RAI_EPRE ) = 0.0_rp
+            rai_fluxes(:,:,RAI_EDEN ) = 0.0_rp
+            rai_fluxes(:,:,RAI_EAVG ) = 0.0_rp
+        end where
+
         where (rai_fluxes(:,:,RAI_ENFLX) > TINY)
+            ! derive mean energy where nflux is non-trivial.
             rai_fluxes(:,:,RAI_EAVG) = rai_fluxes(:,:,RAI_EFLUX)/rai_fluxes(:,:,RAI_ENFLX) * erg2kev  ! Avg E [keV]
-        elsewhere
-            rai_fluxes(:,:,RAI_EAVG) = 0.0
         end where
         end associate
     end subroutine getMomentsPrecipRAIJU
