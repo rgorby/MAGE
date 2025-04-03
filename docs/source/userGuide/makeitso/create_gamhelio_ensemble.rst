@@ -75,7 +75,6 @@ An example of an ensemble description file is provided below.
   nres = 00000
   resid = helio
   t_cme = 500000.
-  tshelldur = 57.5
 
   [paths]
   rundir = /glade/u/home/ewinter/cgs/runs/test/create_gamhelio_ensemble
@@ -102,6 +101,38 @@ An example of an ensemble description file is provided below.
   kaiju_install_dir = /glade/u/home/ewinter/cgs/aplkaiju/kaiju-private/ewinter-gamhelio_ensembles/kaiju-private
   kaipy_install_dir = /glade/u/home/ewinter/cgs/aplkaiju/kaipy-private/development/kaipy-private
 
+The most important of these parameters are:
+
+:crot: Number of Carrington rotation represented in the WSA FITS file
+
+:dores: Set to ``T`` to launch the simulation from a restart file.
+
+:dtres: Cadence for creation of restart files (simulated hours).
+
+:gl_bpar: Maximum magnitude (Gauss) of the magnetic field in the Gibson-Low
+  CME model.
+
+:gl_lat: Latitude (degrees) of the CME emergence in the initial WSA map at
+  21.5 R\ :sub:`S`.
+
+:gl_lon: Longitude (degrees) of the CME emergence in the initial WSA map at
+  21.5 R\ :sub:`S`.
+
+:gl_orientation: Orientation angle (degrees) of the flux rope in the Gibson-
+  Low CME model. 0° orientation means that the flux rope is in the
+  equatorial plane.
+
+:gl_topmorph: Sets the topology parameter of the Gibson-Low CME model.
+
+:gl_vel_fh: Radial velocity of CME front (km/s).
+
+:nres: Specify index of restart file to use for restart run.
+
+:resid: Run ID of the restart file to use.
+
+:t_cme: Time of CME emergence (simulated hours relative to start of
+  simulation).
+
 The ensemble definition file is passed to ``create_gamhelio_ensemble.py`` on
 the command line:
 
@@ -124,14 +155,14 @@ process:
 
 * Create a grid of all possible parameter combinations.
 
-* Compute additionbal parameters from the ensemble parameters.
+* Compute additional parameters from the ensemble parameters.
 
 * Create a directory for each ensemble member simulation.
 
 * Create the input XML files for each ensemble member for use by
   ``gamhelio_mpi.x``.
 
-* Create the PBS cript for each ensemble member.
+* Create the PBS script for each ensemble member.
 
 * Create a bash script that submits each ensemble member as a separate PBS
   job.
