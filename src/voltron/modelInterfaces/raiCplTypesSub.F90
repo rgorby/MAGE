@@ -173,6 +173,9 @@ submodule (volttypes) raijuCplTypesSub
             rampC = RampDown(t, 0.0_rp, App%startup_blendTscl)
             !tScl = sqrt(tScl*App%startup_blendTscl)*rampC + (1-rampC)*tScl  ! idk
             tScl = rampC*50.0_rp*tScl + (1-rampC)*tScl  ! No good reason for 50 except for wanting starting tScl to be ~8-10 minutes
+            !if (th > 50*deg2rad .and. th < 55*deg2rad .and. ph > 130*deg2rad .and. ph < 150*deg2rad) then
+            !    write(*,*)"--",t,App%startup_blendTscl,rampC,tScl
+            !endif
         endif
         
         imW(IM_TSCL) = tScl

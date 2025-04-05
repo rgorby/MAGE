@@ -433,9 +433,6 @@ module raijustarter
             allocate( State%dEta_dt        (sh%isg:sh%ieg, sh%jsg:sh%jeg, Grid%Nk) )
             allocate( State%CCHeatFlux     (sh%isg:sh%ieg, sh%jsg:sh%jeg, Grid%Nk) )
             ! Coupling output data
-            !allocate( State%Den  (sh%isg:sh%ieg, sh%jsg:sh%jeg, Grid%nSpc+1) )
-            !allocate( State%Press(sh%isg:sh%ieg, sh%jsg:sh%jeg, Grid%nSpc+1) )
-            !allocate( State%vAvg (sh%isg:sh%ieg, sh%jsg:sh%jeg, Grid%nSpc+1) )
             allocate(State%Den  (0:Model%nSpc))
             allocate(State%Press(0:Model%nSpc))
             allocate(State%vAvg (0:Model%nSpc))
@@ -451,7 +448,7 @@ module raijustarter
                 State%vAvg (s)%mask = .false.
             enddo
 
-            ! Only bother allocating persistent versions of debug stuff if we ned them
+            ! Only bother allocating persistent versions of debug stuff if we need them
             if (Model%doOutput_debug) then
                 allocate( State%etaFaceReconL(sh%isg:sh%ieg+1, sh%jsg:sh%jeg+1, Grid%Nk, 2) )
                 allocate( State%etaFaceReconR(sh%isg:sh%ieg+1, sh%jsg:sh%jeg+1, Grid%Nk, 2) )

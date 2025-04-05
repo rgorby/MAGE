@@ -30,7 +30,7 @@ module innermagsphere
 
         if (.not. vApp%doDeep) return !Why are you even here?
 
-        call iXML%Set_Val(imStr,"coupling/imType","SST")
+        call iXML%Set_Val(imStr,"coupling/imType","RAIJU")
 
         !NOTE: Using the fact that x2 is longitude and 2P periodic for both inner mag models
         select case (trim(toUpper(imStr)))

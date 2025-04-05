@@ -59,13 +59,12 @@ module raijuColdStartHelper
         logical, dimension(Grid%shGrid%isg:Grid%shGrid%ieg, Grid%shGrid%jsg:Grid%shGrid%jeg) :: isGood
 
         associate(cs=>State%coldStarter)
-        write(*,*)"Coldstart running..."
+        !write(*,*)"Coldstart running..."
         if (t0 > cs%tEnd) return
 
         isFirstCS = (cs%lastEval < -0.5*HUGE)  ! Dumb way to see if we are default value or not
 
         if (.not. isFirstCS .and. .not. cs%doUpdate) then
-            write(*,*)"Already did, no updates"
             return
         endif
 

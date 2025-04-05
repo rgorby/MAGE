@@ -91,13 +91,13 @@ module raijuIO
         ! Ready for output
         ! Some model setting info
         call ClearIO(IOVars)
-        call AddOutVar(IOVars,"doFatOutput"   ,Model%doFatOutput   )  ! Attr
-        call AddOutVar(IOVars,"doDebugOutput" ,Model%doDebugOutput )  ! Attr
-        call AddOutVar(IOVars,"doWriteGhosts" ,Model%writeGhosts   )  ! Attr
-        call AddOutVar(IOVars,"doGeoCorot"    ,Model%doGeoCorot    )  ! Attr
-        call AddOutVar(IOVars,"doExcesstoPsph",Model%doExcesstoPsph)  ! Attr
-        call AddOutVar(IOVars,"doPlasmasphere",Model%doPlasmasphere)  ! Attr
-        call AddOutVar(IOVars,"doActiveShell",Model%doActiveShell)  ! Attr
+        call AddOutVar(IOVars,"doFatOutput"   ,Model%doOutput_potGrads)  ! Attr
+        call AddOutVar(IOVars,"doDebugOutput" ,Model%doOutput_debug   )  ! Attr
+        call AddOutVar(IOVars,"doWriteGhosts" ,Model%writeGhosts      )  ! Attr
+        call AddOutVar(IOVars,"doGeoCorot"    ,Model%doGeoCorot       )  ! Attr
+        call AddOutVar(IOVars,"doExcesstoPsph",Model%doExcesstoPsph   )  ! Attr
+        call AddOutVar(IOVars,"doPlasmasphere",Model%doPlasmasphere   )  ! Attr
+        call AddOutVar(IOVars,"doActiveShell",Model%doActiveShell     )  ! Attr
         call AddOutVar(IOVars,"nSpcIn",Model%nSpcMHD)  ! Attr
         call AddOutVar(IOVars,"nSpcRAIJU",Model%nSpc)  ! Attr
         call WriteVars(IOVars,.true.,Model%raijuH5)
@@ -309,43 +309,44 @@ module raijuIO
 
 
         !--- Losses ---!
-        ! Calculate accumulated precipitation for each species
-        allocate(outPrecipN   (is:ie,js:je,Grid%nSpc))
-        allocate(outPrecipE   (is:ie,js:je,Grid%nSpc))
-        allocate(outPrecipAvgE(is:ie,js:je,Grid%nSpc))
-        allocate(outCCHeatFlux(is:ie,js:je,Grid%nSpc))
-        do s=1,Grid%nSpc
-            ks = Grid%spc(s)%kStart
-            ke = Grid%spc(s)%kEnd
-            outPrecipN(:,:,s)    = sum(State%precipNFlux(is:ie,js:je,kS:kE), dim=3)
-            outPrecipE(:,:,s)    = sum(State%precipEFlux(is:ie,js:je,kS:kE), dim=3)
-            outCCHeatFlux(:,:,s) = sum(State%CCHeatFlux (is:ie,js:je,kS:kE), dim=3)
+        if (Model%doLosses) then
+            ! Calculate accumulated precipitation for each species
+            allocate(outPrecipN   (is:ie,js:je,Grid%nSpc))
+            allocate(outPrecipE   (is:ie,js:je,Grid%nSpc))
+            allocate(outPrecipAvgE(is:ie,js:je,Grid%nSpc))
+            allocate(outCCHeatFlux(is:ie,js:je,Grid%nSpc))
+            do s=1,Grid%nSpc
+                ks = Grid%spc(s)%kStart
+                ke = Grid%spc(s)%kEnd
+                outPrecipN(:,:,s)    = sum(State%precipNFlux(is:ie,js:je,kS:kE), dim=3)
+                outPrecipE(:,:,s)    = sum(State%precipEFlux(is:ie,js:je,kS:kE), dim=3)
+                outCCHeatFlux(:,:,s) = sum(State%CCHeatFlux (is:ie,js:je,kS:kE), dim=3)
 
-            where (outPrecipN(:,:,s) > TINY)
-                outPrecipAvgE(:,:,s) = outPrecipE(:,:,s)/outPrecipN(:,:,s) * erg2kev  ! Avg E [keV]
-            elsewhere
-                outPrecipAvgE(:,:,s) = 0.0
-            end where
-        enddo
-        call AddOutVar(IOVars, "precipNFlux", outPrecipN   , uStr="#/cm^2/s")
-        call AddOutVar(IOVars, "precipEFlux", outPrecipE   , uStr="erg/cm^2/s")
-        call AddOutVar(IOVars, "precipAvgE" , outPrecipAvgE, uStr="keV")
-        call AddOutVar(IOVars, "CCHeatFlux" , outCCHeatFlux, uStr="eV/cm^2/s")
-        deallocate(outPrecipN)
-        deallocate(outPrecipE)
-        deallocate(outPrecipAvgE)
-        deallocate(outCCHeatFlux)
-        ! (Ni, Nj, Nk)
-        call AddOutVar(IOVars, "lossRate", State%lossRates(is:ie,js:je,:), uStr="1/s")
-        call AddOutVar(IOVars, "lossRatePrecip", State%lossRatesPrecip(is:ie,js:je,:), uStr="1/s")
+                where (outPrecipN(:,:,s) > TINY)
+                    outPrecipAvgE(:,:,s) = outPrecipE(:,:,s)/outPrecipN(:,:,s) * erg2kev  ! Avg E [keV]
+                elsewhere
+                    outPrecipAvgE(:,:,s) = 0.0
+                end where
+            enddo
+            call AddOutVar(IOVars, "precipNFlux", outPrecipN   , uStr="#/cm^2/s")
+            call AddOutVar(IOVars, "precipEFlux", outPrecipE   , uStr="erg/cm^2/s")
+            call AddOutVar(IOVars, "precipAvgE" , outPrecipAvgE, uStr="keV")
+            call AddOutVar(IOVars, "CCHeatFlux" , outCCHeatFlux, uStr="eV/cm^2/s")
+            deallocate(outPrecipN)
+            deallocate(outPrecipE)
+            deallocate(outPrecipAvgE)
+            deallocate(outCCHeatFlux)
+            ! (Ni, Nj, Nk)
+            call AddOutVar(IOVars, "lossRate", State%lossRates(is:ie,js:je,:), uStr="1/s")
+            call AddOutVar(IOVars, "lossRatePrecip", State%lossRatesPrecip(is:ie,js:je,:), uStr="1/s")
 
-        if (Model%doOutput_3DLoss) then
-            call AddOutVar(IOVars, "dEta_dt" , State%dEta_dt(is:ie,js:je,:), uStr="eta_units/s")
-            call AddOutVar(IOVars, "precipNFlux_Nk"    , State%precipNFlux(is:ie,js:je,:), uStr="#/cm^2/s")
-            call AddOutVar(IOVars, "precipEFlux_Nk"    , State%precipEFlux(is:ie,js:je,:), uStr="erg/cm^2/s")
-            call AddOutVar(IOVars, "CCHeatFlux_Nk" , State%CCHeatFlux (is:ie,js:je,:), uStr="eV/cm^2/s")
+            if (Model%doOutput_3DLoss) then
+                call AddOutVar(IOVars, "dEta_dt" , State%dEta_dt(is:ie,js:je,:), uStr="eta_units/s")
+                call AddOutVar(IOVars, "precipNFlux_Nk"    , State%precipNFlux(is:ie,js:je,:), uStr="#/cm^2/s")
+                call AddOutVar(IOVars, "precipEFlux_Nk"    , State%precipEFlux(is:ie,js:je,:), uStr="erg/cm^2/s")
+                call AddOutVar(IOVars, "CCHeatFlux_Nk" , State%CCHeatFlux (is:ie,js:je,:), uStr="eV/cm^2/s")
+            endif
         endif
-
         
         if (Model%doOutput_potGrads) then
             ! (Ni, Nj, 2)

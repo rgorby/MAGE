@@ -287,8 +287,6 @@ module raijuCplHelper
 !------
 
     subroutine packRaijuCoupler_RT(raiCpl, vApp)
-        !! Temporary imagTube generator for realtime coupling
-        !! Eventually, someone else should probably be packing raiCpl objects for us
         class(raijuCoupler_T), intent(inout) :: raiCpl
         class(voltApp_T), intent(in) :: vApp
 
