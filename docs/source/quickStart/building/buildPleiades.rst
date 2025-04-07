@@ -1,6 +1,9 @@
 Building the ``kaiju`` software on ``pleiades``
 ===============================================
 
+.. attention::
+   Repeat the edits from the Derecho page.
+
 Introduction
 ------------
 
