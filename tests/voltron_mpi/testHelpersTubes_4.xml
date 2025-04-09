@@ -1,0 +1,64 @@
+<?xml version="1.0"?>
+<!-- Gamera Magnetosphere -->
+<Kaiju>
+  <voltron>
+    <time tFin="21.0"/>
+    <spinup doSpin="T" tSpin="20.0" tIO="0.0"/>
+    <coupling dtCouple="5.0" rTrc="40.0" imType="RAIJU" doQkSquish="F" doDynDT="F" doAsyncCoupling="F"/>
+    <restart dtRes="1800.0"/>
+    <imag doInit="T"/>
+    <ebsquish epsSquish="0.05"/>
+    <threading NumTh="36"/>
+    <Helpers numHelpers="3" useHelpers="T" doTubesHelp="T"/>
+  </voltron>
+  <Gamera>
+    <iPdir N="1" bcPeriodic="F"/>
+    <jPdir N="4" bcPeriodic="F"/>
+    <kPdir N="1" bcPeriodic="T"/>
+    <sim runid="msphere" doH5g="T" H5Grid="lfmD.h5" icType="user" pdmb="0.75" rmeth="7UP"/>
+    <floors dFloor="1.0e-6" pFloor="1.0e-6"/>
+    <timestep doCPR="T" limCPR="0.15"/>
+    <restart doRes="F" resID="msphere" nRes="-1"/>
+    <physics doMHD="T" doBoris="T" Ca="10.0"/>
+    <ring gid="lfm" doRing="T"/>
+    <ringknobs doVClean="T"/>
+    <wind tsfile="bcwind.h5"/>
+    <source doSource="T" doBounceDT="T"/>
+    <threading NumTh="18"/>
+    <coupling blockHalo="T"/>
+  </Gamera>
+<!-- Remix -->
+  <REMIX>
+    <grid Np="360" Nt="55" LowLatBoundary="55.0"/>
+    <conductance doStarlight="T" doRamp="F" doMR="T"/>
+    <precipitation aurora_model_type="LINMRG" alpha="0.2" beta="0.4" doAuroralSmooth="T"/>
+  </REMIX>
+  <CHIMP>
+    <units uid="EARTHCODE"/>
+    <fields grType="LFM"/>
+    <domain dtype="MAGE"/>
+    <tracer epsds="0.05"/>
+  </CHIMP>
+  <RCM>
+    <output debug="F" toRCM="F" toMHD="F"/>
+    <clawpack doKaiClaw="F" doOMPClaw="T"/>
+    <ellipse xSun="10.0" yDD="12.5" xTail="-15.0" isDynamic="F"/>
+    <grid LowLat="25.0" HiLat="75.0" doLatStretch="F"/>
+    <plasmasphere isDynamic="T" initKp="1"/>
+  </RCM>
+  <RAIJU>
+    <driver isSA="F"/>
+    <restart doRes="T" nRes="18"/>
+    <output doFat="F"/>
+    <debug isLoud="T" writeGhosts="F" debugOutput="T"/>
+    <grid gType="SHGRID" ThetaL="15" ThetaU="50"/>
+    <domain tail_buffer="15.0" sun_buffer="15.0" tail_active="12.0" sun_active="12.0"/>
+    <sim pdmb="0.75" useVelLRs="T"/>
+    <activeShell doAS="F"/>
+    <config fname="raijuconfig.h5" ignoreMismatch="F"/>
+    <plasmasphere doPsphere="T" doExcessMap="T"/>
+    <losses doLosses="T" doCX="T" doSS="T" doCC="T" eLossModel="WM" doOutput="T"/>
+    <cpl nFluidsIn="1" startupTscl="7200.0" vaFracThresh="0.00" bminThresh="1.0" Pstd="100.0" normAngThresh="180.0"/>
+    <fluidIn1 imhd="0" flav="2" excessToPsph="T"/>
+  </RAIJU>
+</Kaiju>

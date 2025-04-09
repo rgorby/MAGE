@@ -1,4 +1,4 @@
-module testHelpers
+module testSquishHelpers
   use testHelperMpi
   use voltapp_mpi
   use gamCouple_mpi_G2V
@@ -275,5 +275,5 @@ contains
 
   end subroutine
 
-end module testHelpers
+end module testSquishHelpers
 

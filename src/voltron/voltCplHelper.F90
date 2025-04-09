@@ -11,7 +11,19 @@ module voltCplHelper
 
     subroutine genVoltTubes(vApp)
         !! Update Tube_Ts on Voltron's grid
-        type(voltApp_T), intent(inout) :: vApp
+        class(voltApp_T), intent(inout) :: vApp
+
+        ! calculate field lines
+        call calcTubes(vApp)
+
+        ! Now pack into tubeShell
+        call tubes2Shell(vApp%shGrid, vApp%State%ijTubes, vApp%State%tubeShell)
+
+    end subroutine genVoltTubes
+
+    subroutine calcTubes(vApp)
+        !! Calculate field lines in ijTubes
+        class(voltApp_T), intent(inout) :: vApp
 
         integer :: i,j
         real(rp) :: seedR, eqR, mhd_Rin
@@ -59,8 +71,6 @@ module voltCplHelper
 
         end associate
 
-        ! Now pack into tubeShell
-        call tubes2Shell(vApp%shGrid, vApp%State%ijTubes, vApp%State%tubeShell)
-    end subroutine genVoltTubes
+    end subroutine calcTubes
 
 end module voltCplHelper
