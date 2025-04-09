@@ -20,11 +20,9 @@ environment with all prerequisites, is available on
 
 .. important:: The ``kaipy`` package requires the NASA CDF library, which
     should be available when you create your Python environment for ``kaipy``.
-    Instructions for installing the CDF library can be found
+    This requirement will be removed in a future release of the ``kaiju``
+    software. Instructions for installing the CDF library can be found
     :doc:`here <buildCDF>`.
-
-.. attention:: Make sure this is removed after we transition to a
-               later version of python.
          
 .. important::
 

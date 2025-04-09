@@ -82,11 +82,19 @@ following files (list current as of 4 March 2025):
     gamhelio_mpi.x  psd.x         remix.x        voltron_mpi.x
 
 .. note:: The compiled programs of interest in this case are ``voltron_mpi.x``
-    (used for MAGE and planetary magnetosphere models) and ``gamhelio_mpi.x``
-    (used for heliosphere models). The tool ``calcdb.x`` computes ground
+    (used for ``MAGE``) and ``gamhelio_mpi.x``
+    (used for the inner heliosphere). The tool ``calcdb.x`` computes ground
     delta-B values from the results of a MAGE model, and ``sctrack.x``
-    interpolates model results to spacecraft trajectories. These tools, and
-    most of the remaining compiled programs, are typically run by using
-    wrapper scripts found in the ``kaipy`` package. Documentation for
-    ``kaipy`` is available
+    interpolates model results to spacecraft trajectories. Documentation for
+    these tools is found :doc:`here </userGuide/kaijuTools/index>`. These
+    tools are typically run by using wrapper scripts found in the ``kaipy``
+    package. Documentation for ``kaipy`` is available
     `here <https://kaipy-docs.readthedocs.io/en/latest/index.html>`_.
+
+.. note:: You can choose to compile only specific programs from the ``kaiju``
+    package, which will speed up the compilation. For instance, to compile
+    ``MAGE``, you would do:
+          
+.. code-block::
+
+   $ make gamera_mpi.x rcm.x remix.x voltron_mpi.x
