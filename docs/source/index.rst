@@ -25,6 +25,7 @@ can try to assist you.
 .. toctree::
     :maxdepth: 1
 
+    python/index
     quickStart/index
     userGuide/index
     FAQ
