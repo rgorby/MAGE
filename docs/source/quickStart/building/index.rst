@@ -13,9 +13,10 @@ Before you begin
 ----------------
 
 The ``kaiju`` software is typically built with the Intel Fortran compiler
-(although the software can also be built with the GNU Fortran compiler).
-Building the software also requires the ``cmake`` build tool, the HDF5
-library, and an MPI library. Instructions for loading these packages are
+(although the software can also be built with any Fortran compiler,
+e.g., GNU).
+Building the software also requires the ``cmake`` build tool, the ``HDF5``
+library, and an ``MPI`` library. Instructions for loading these packages are
 provided in the ``module`` commands for each HPC system.
 
 Getting the source code

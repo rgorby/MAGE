@@ -151,7 +151,7 @@ strings):
 
     These files contain the core MHD variables from the simulation, computed
     by the `GAMERA <https://cgs.jhuapl.edu/Models/gamera.php>`_ portion of the
-    MAGE model. The strings ``LLLLL``, ``MMMMM``, and ``NNNNN`` contain the
+    `MAGE <https://cgs.jhuapl.edu/Models>`_ model. The strings ``LLLLL``, ``MMMMM``, and ``NNNNN`` contain the
     number of subsections of the ``X``, ``Y``, and ``Z`` dimensions used to
     divide the domain among MPI ranks. The strings ``IIIII``, ``JJJJJ``, and
     ``KKKKK`` represent the MPI rank index along each dimension.
@@ -159,13 +159,13 @@ strings):
 * ``geospace.mix.h5``
 
     This file contains the results from the
-    `REMIX <https://cgs.jhuapl.edu/Models/remix.php>`_ portion of the MAGE
+    `REMIX <https://cgs.jhuapl.edu/Models/remix.php>`_ portion of the `MAGE <https://cgs.jhuapl.edu/Models>`_
     model.
 
 * ``geospace.rcm.h5``
 
     This file contains the results from the
-    `RCM <https://cgs.jhuapl.edu/Models/rcm.php>`_ portion of the MAGE model.
+    `RCM <https://cgs.jhuapl.edu/Models/rcm.php>`_ portion of the `MAGE <https://cgs.jhuapl.edu/Models>`_ model.
 
 * ``geospace_*.gam.Res.RRRRR.h5``
 

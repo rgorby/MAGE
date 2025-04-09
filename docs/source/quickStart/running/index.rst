@@ -23,6 +23,9 @@ environment with all prerequisites, is available on
     Instructions for installing the CDF library can be found
     :doc:`here <buildCDF>`.
 
+.. attention:: Make sure this is removed after we transition to a
+               later version of python.
+         
 .. important::
 
     The ``kaipy`` code was developed using ``python`` 3.8, which is no longer

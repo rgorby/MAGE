@@ -1,12 +1,26 @@
 Welcome to the ``kaiju`` documentation
 ======================================
 
-This is the documentation for the ``kaiju`` software. ``kaiju`` includes the
-Multiscale Atmosphere-Geospace Environment
-(`MAGE <https://cgs.jhuapl.edu/Models/>`_) model developed by the
-`Center for Geospace Storms <https://cgs.jhuapl.edu/>`_ as well as other
-scientific software for simulation of heliospheric environments such as
-planetary magnetospheres and the solar wind.
+This is the documentation for the ``kaiju`` software. ``kaiju``
+includes the Multiscale Atmosphere-Geospace Environment (`MAGE
+<https://cgs.jhuapl.edu/Models/>`_) model developed by the `Center for
+Geospace Storms <https://cgs.jhuapl.edu/>`_ as well as other
+scientific software for simulation of heliospheric environments such
+as planetary magnetospheres and the solar wind. This documentation
+focuses on `MAGE
+<https://cgs.jhuapl.edu/Models/>`_ and `GAMERA
+<https://cgs.jhuapl.edu/Models/gamera.php>`_-helio, i.e., the geospace
+and inner heliosphere applications of the ``kaiju`` software.
+
+.. attention::
+   [VGM] After everything else is done, we will need to work the rest
+   of this page:
+   
+   * the rules of the road (is this different from contribution
+     guidelines?
+   * FAQ are currently minimal, do we even need them?
+   * and how to get to kaijuhelp)
+
 
 .. important::
     Users of any code or data from this repository are expected to respect
