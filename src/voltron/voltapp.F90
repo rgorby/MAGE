@@ -556,9 +556,9 @@ module voltapp
         call Tic("G2C")
         call convertGameraToChimp(vApp%mhd2chmp,gApp,vApp%ebTrcApp)
         call Toc("G2C")
-        call Tic("VoltTubes")
+        call Tic("VoltTubes",.true.)
         call genVoltTubes(vApp)
-        call toc("VoltTubes")
+        call Toc("VoltTubes",.true.)
 
     end subroutine
 

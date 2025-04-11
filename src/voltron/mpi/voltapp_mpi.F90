@@ -403,7 +403,7 @@ module voltapp_mpi
             call Tic("G2C")
             call convertGameraToChimp(vApp%mhd2chmp,vApp%gApp,vApp%ebTrcApp)
             call Toc("G2C")
-            call Tic("VoltTubes")
+            call Tic("VoltTubes",.true.)
             if(vApp%useHelpers .and. vApp%doTubeHelp) then
                 call VhReqTubeStart(vApp)
                 call vhReqTubeEnd(vApp)
@@ -414,7 +414,7 @@ module voltapp_mpi
             else
                 call genVoltTubes(vApp)
             endif
-            call toc("VoltTubes")
+            call Toc("VoltTubes",.true.)
 
             call SquishStart(vApp)
 

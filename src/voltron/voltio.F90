@@ -23,6 +23,8 @@ module voltio
     real(rp), private :: mixWait = 0.0
     real(rp), private :: imagWait = 0.0
     real(rp), private :: chimpWait = 0.0
+    real(rp), private :: tubesWait = 0.0
+    real(rp), private :: ioWait = 0.0
     real(rp), private :: simRate = 0.0
     character(len=strLen), private :: vh5File
 
@@ -81,6 +83,8 @@ module voltio
             chimpWait = fastWeight*chimpWait + (1.0-fastWeight)*(readClock('Squish')+readClock('VoltHelpers'))/(readClock(1)+TINY)
             imagWait  = fastWeight*imagWait  + (1.0-fastWeight)*readClock('InnerMag')/(readClock(1)+TINY)
             mixWait   = fastWeight*mixWait   + (1.0-fastWeight)*readClock('ReMIX')/(readClock(1)+TINY)
+            tubesWait = fastWeight*tubesWait + (1.0-fastWeight)*readClock('VoltTubes')/(readClock(1)+TINY)
+            ioWait    = fastWeight*ioWait    + (1.0-fastWeight)*readClock('IO')/(readClock(1)+TINY)
         else
             simRate = 0.0
             oMJD = cMJD
@@ -91,6 +95,8 @@ module voltio
             mixWait = 0.0
             imagWait = 0.0
             chimpWait = 0.0
+            tubesWait = 0.0
+            ioWait = 0.0
         endif
 
         !Get MJD info
@@ -122,6 +128,8 @@ module voltio
             write (*, '(a,1f7.1,a)' ) '         ', chimpWait*100.0, '% of time processing Chimp(Helpers)'
             write (*, '(a,1f7.1,a)' ) '         ', imagWait*100.0,  '% of time processing IMAG'
             write (*, '(a,1f7.1,a)' ) '         ', mixWait*100.0,   '% of time processing Remix'
+            write (*, '(a,1f7.1,a)' ) '         ', tubesWait*100.0, '% of time processing Tubes(Helpers)'
+            write (*, '(a,1f7.1,a)' ) '         ', ioWait*100.0,    '% of time writing files'
             if (simRate>TINY) then
                 nTh = NumOMP()
                 write (*, '(a,1f8.3,a,I0,a)')             '    Running @ ', simRate*100.0, '% of real-time (',nTh,' threads)'  
