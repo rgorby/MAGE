@@ -92,7 +92,7 @@ module voltapp_mpi
         call xmlInp%Set_Val(vApp%squishLoadBalance,"/Kaiju/Voltron/Helpers/squishLoadBalance",.true.)
 
         ! tube helper options
-        call xmlInp%Set_Val(vApp%doTubeHelp,"/Kaiju/Voltron/Helpers/doTubeHelp",.true.)
+        call xmlInp%Set_Val(vApp%doTubeHelp,"/Kaiju/Voltron/Helpers/doTubeHelp",.false.)
         call xmlInp%Set_Val(vApp%tubeLoadbalance,"/Kaiju/Voltron/Helpers/tubeLoadbalance",.true.)
 
         if(vApp%masterSquish .and. vApp%squishLoadBalance) then
@@ -269,7 +269,7 @@ module voltapp_mpi
         call xmlInp%Set_Val(vApp%squishLoadBalance,"/Kaiju/Voltron/Helpers/squishLoadBalance",.true.)
 
         ! tube helper options
-        call xmlInp%Set_Val(vApp%doTubeHelp,"/Kaiju/Voltron/Helpers/doTubeHelp",.true.)
+        call xmlInp%Set_Val(vApp%doTubeHelp,"/Kaiju/Voltron/Helpers/doTubeHelp",.false.)
         call xmlInp%Set_Val(vApp%tubeLoadbalance,"/Kaiju/Voltron/Helpers/tubeLoadbalance",.true.)
 
         call MPI_Comm_Size(allVoltComm, commSize, ierr)
