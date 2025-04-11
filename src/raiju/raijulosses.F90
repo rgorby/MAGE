@@ -92,6 +92,10 @@ module raijulosses
 
         ! Prep for accumulation this coupling step
         State%dEta_dt = 0.0
+        State%precipType_ele = 0.0
+        State%precipNFlux = 0.0
+        State%precipEFlux = 0.0
+        State%CCHeatFlux = 0.0
     end subroutine updateRaiLosses
 
 
@@ -186,14 +190,24 @@ module raijulosses
             !! Time delta [s]
 
         integer :: i,j
+        logical, dimension(Grid%shGrid%isg:Grid%shGrid%ieg, &
+                           Grid%shGrid%jsg:Grid%shGrid%jeg) :: isGood
         real(rp) :: deleta, eta0, pNFlux, tau
 
+        where (State%active .eq. RAIJUACTIVE)
+            isGood = .true.
+        elsewhere
+            isGood = .false.
+        end where
         
         ! ! !$OMP PARALLEL DO default(shared) collapse(1) &
         ! ! !$OMP schedule(dynamic) &
         ! ! !$OMP private(j,i,eta0, deleta)
         do j=Grid%shGrid%jsg,Grid%shGrid%jeg
             do i=Grid%shGrid%isg,Grid%shGrid%ieg
+                if (.not. isGood(i,j)) then
+                    cycle
+                endif
                 eta0 = State%eta(i,j,k)
                 ! First update eta using total lossRates over dt
                 deleta = eta0*(1.0-exp(-dt*State%lossRates(i,j,k)))
@@ -211,7 +225,7 @@ module raijulosses
                 State%precipEFlux(i,j,k) = State%precipEFlux(i,j,k) + nFlux2EFlux(pNFlux, Grid%alamc(k), State%bVol_cc(i,j))
 
                 ! Do special stuff for Coulomb collision effects
-                if (Model%doCC) then
+                if (Model%doCC .and. State%lps(State%lp_cc_idx)%p%isValidSpc(Grid%spc(Grid%k2spc(k)))) then
                     ! We can estimate heat transfer to plasmasphere electrons by energy lost from RC species to CC
                     ! So we can follow same prodecure as above, by using just CC tau and dividing later by coupling dt to get average heat flux
                     ! Treating this separately from precipication since its not actually precipitating ions

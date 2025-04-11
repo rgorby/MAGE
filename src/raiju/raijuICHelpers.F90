@@ -266,8 +266,7 @@ module raijuICHelpers
 
             case("COLDSTART")
                 call iXML%Set_Val(dst0,'prob/dst0',0.0)
-                call iXML%Set_Val(doColdstartCX,'prob/coldstartCX',doColdstartCX)
-                call raijuGeoColdStart(Model, Grid, State, 0.0_rp, dst0,doCXO=doColdstartCX)
+                call raijuGeoColdStart(Model, Grid, State, 0.0_rp, dst0)
 
             case default
                 write(*,*) "(RAIJU) ERROR: Pick a valid eta preset in raijuICHelpers.F90:initEtaPresets"

@@ -457,7 +457,7 @@ module raijuRecon
 
         
         ! ReconFaces(Model, Grid, isG, Qcc, QfaceL, QfaceR, QreconLO, QreconRO)
-        if (Model%doDebugOutput) then
+        if (Model%doOutput_debug) then
             call ReconFaces(Model, Grid, isG, Qcc, QfaceL, QfaceR, State%etaFaceReconL(:,:,k,:), State%etaFaceReconR(:,:,k,:))
             !call ReconFaces(Model, Grid, isG, Qcc, QfaceL, QfaceR, State%etaFaceReconL, State%etaFaceReconR)
         else
@@ -504,7 +504,7 @@ module raijuRecon
         ! Now that valid faces are decided, we can apply our invalid/buffer boundary conditions
         !call calcBoundaryFluxes(Grid%shGrid, State%active, Qflux)
 
-        if (Model%doDebugOutput) then
+        if (Model%doOutput_debug) then
             State%etaFacePDML(:,:,k,:) = QfaceL
             State%etaFacePDMR(:,:,k,:) = QfaceR
             State%etaFlux    (:,:,k,:) = Qflux

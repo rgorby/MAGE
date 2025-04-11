@@ -69,7 +69,7 @@ module raijudefs
     real(rp), parameter :: def_pdmb = 0.75
     real(rp), parameter :: def_cfl  = 0.3
     real(rp), parameter :: cflMax = 0.3
-    logical, parameter :: def_doUseVelLRs = .false.
+    logical, parameter :: def_doUseVelLRs = .true.
 
     ! Domain limits
     real(rp), parameter :: def_maxTail_buffer = 15.0  ! [Rp]

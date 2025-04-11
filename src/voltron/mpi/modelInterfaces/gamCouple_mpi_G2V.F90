@@ -161,6 +161,11 @@ module gamCouple_mpi_G2V
         if(.not. App%Model%isRestart) then
             ! don't over-ride restart time
             call mpi_bcast(App%Model%t, 1, MPI_MYFLOAT, App%voltRank, App%couplingComm, ierr)
+            App%State%time  = App%Model%t
+            App%oState%time = App%State%time-App%Model%dt !Initial old state
+            if (App%Model%doAB3) then
+                App%ooState%time = App%oState%time-App%Model%dt
+            endif
         endif
         call mpi_bcast(App%Model%tFin, 1, MPI_MYFLOAT, App%voltRank, App%couplingComm, ierr)
         call mpi_bcast(App%Model%MJD0, 1, MPI_MYFLOAT, App%voltRank, App%couplingComm, ierr)

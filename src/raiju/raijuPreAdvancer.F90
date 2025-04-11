@@ -31,11 +31,7 @@ module raijuPreAdvancer
         integer :: k
 
         ! Clear things that will be accumulated over the advance
-        State%dEta_dt = 0.0
-        State%precipType_ele = 0.0
-        State%precipNFlux = 0.0
-        State%precipEFlux = 0.0
-        State%CCHeatFlux = 0.0
+        ! (losses handled in updateRaiLosses)
 
         ! Moments to etas, initial active shell calculation
         call Tic("BCs")

@@ -245,17 +245,6 @@ module voltapp
 
             if(gApp%Model%isRestart) then
                 call vApp%imagApp%ReadRestart(gApp%Model%RunID, nRes)
-                !select type(rcmApp=>vApp%imagApp)
-                !    type is (rcmIMAG_T)
-                !        !Check if Voltron and RCM have the same restart number
-                !        if (vApp%IO%nRes /= rcmApp%rcmCpl%rcm_nRes) then
-                !            write(*,*) "Gamera and RCM disagree on restart number, you should sort that out."
-                !            write(*,*) "Error code: A house divided cannot stand"
-                !            write(*,*) "   Voltron nRes = ", vApp%IO%nRes
-                !            write(*,*) "   RCM     nRes = ", rcmApp%rcmCpl%rcm_nRes
-                !            stop
-                !        endif
-                !end select
             endif
 
         endif
@@ -314,7 +303,7 @@ module voltapp
         endif
 
         ! Do some final checks
-        if ((gApp%Model%t - gApp%State%time) > TINY) then
+        if (abs(gApp%Model%t - gApp%State%time) > TINY) then
             write(*,*)"GAMERA Model%t and State%time don't match, dying"
             write(*,*)"Model: ",gApp%Model%t,", State: ",gApp%State%time
             stop

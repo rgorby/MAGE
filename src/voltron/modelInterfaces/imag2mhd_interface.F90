@@ -184,7 +184,7 @@ module imag2mhd_interface
             enddo
 
 
-            t = (vApp%gApp%Model%t)*(vApp%gApp%Model%Units%gT0)
+            !t = (vApp%gApp%Model%t)*(vApp%gApp%Model%Units%gT0)
 
             !Loop over and get imag data
             !$OMP PARALLEL DO default(shared) collapse(2) &
@@ -202,7 +202,8 @@ module imag2mhd_interface
                             x1c = PI/2 - Gr%Gas0(i,j,k,PROJLAT)
                             x2  = Gr%Gas0(i,j,k,PROJLON)
 
-                            call vApp%imagApp%getMoments(x1c,x2,t,imW,isTasty)
+                            !call vApp%imagApp%getMoments(x1c,x2,t,imW,isTasty)
+                            call vApp%imagApp%getMoments(x1c,x2,vApp%time,imW,isTasty)
                             if (isTasty) then
                                 !Density/pressure coming back in #/cc and nPa
                                 !Ingestion timescale coming back in seconds

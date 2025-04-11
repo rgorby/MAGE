@@ -12,7 +12,36 @@ module raijuColdStartHelper
 
     contains
 
-    subroutine raijuGeoColdStart(Model, Grid, State, t0, dstModel,doCXO)
+!------
+! ColdStarter type stuff
+!------
+
+    subroutine initRaijuColdStarter(Model, iXML, coldStarter, tEndO)
+        type(raijuModel_T), intent(in) :: Model
+        type(XML_Input_T), intent(in) :: iXML
+        type(raijuColdStarter_T), intent(inout) :: coldStarter
+        real(rp), intent(in), optional :: tEndO
+
+        
+        call iXML%Set_Val(coldStarter%doCX,'coldStarter/doCX',coldStarter%doCX)
+        call iXML%Set_Val(coldStarter%doUpdate,'coldStarter/doUpdate',coldStarter%doUpdate)
+        call iXML%Set_Val(coldStarter%evalCadence,'coldStarter/evalCadence',coldStarter%evalCadence)
+        if (present(tEndO)) then
+            call iXML%Set_Val(coldStarter%tEnd,'coldStarter/tEnd',tEndO)
+        else
+            call iXML%Set_Val(coldStarter%tEnd,'coldStarter/tEnd',coldStarter%evalCadence-TINY)  ! Don't do any updates as default
+        endif
+
+    end subroutine initRaijuColdStarter
+
+
+
+
+!------
+! Worker routines
+!------
+
+    subroutine raijuGeoColdStart(Model, Grid, State, t0, dstModel)
         !! Cold start RAIJU assuming we are at Earth sometime around 21st century
         type(raijuModel_T), intent(in) :: Model
         type(raijuGrid_T), intent(in) :: Grid
@@ -21,19 +50,24 @@ module raijuColdStartHelper
             !! Target time to pull SW values from
         real(rp), intent(in) :: dstModel
             !! Current dst of global model
-        logical, intent(in), optional :: doCXO
 
-        logical :: doCX
-        integer :: sIdx_p, sIdx_e
+        logical :: isFirstCS
+        integer :: s, sIdx_p, sIdx_e
         real(rp) :: dstReal, dstTarget
-        real(rp) :: dps_preCX, dps_postCX, dps_ele
+        real(rp) :: dps_current, dps_preCX, dps_postCX, dps_rescale, dps_ele
+        real(rp) :: etaScale
         logical, dimension(Grid%shGrid%isg:Grid%shGrid%ieg, Grid%shGrid%jsg:Grid%shGrid%jeg) :: isGood
 
-        if(present(doCXO)) then
-            doCX = doCXO
-        else
-            doCX = .true.
+        associate(cs=>State%coldStarter)
+        !write(*,*)"Coldstart running..."
+        if (t0 > cs%tEnd) return
+
+        isFirstCS = (cs%lastEval < -0.5*HUGE)  ! Dumb way to see if we are default value or not
+
+        if (.not. isFirstCS .and. .not. cs%doUpdate) then
+            return
         endif
+
 
         where (State%active .eq. RAIJUACTIVE)
             isGood = .true.
@@ -43,47 +77,88 @@ module raijuColdStartHelper
 
         sIdx_p = spcIdx(Grid, F_HOTP)
         sIdx_e = spcIdx(Grid, F_HOTE)
+        
 
-        ! Start by nuking all etas, we will set it all up ourselves
-        State%eta = 0.0
+        if (isFirstCS) then
+            ! Start by nuking all etas we will set up ourselves
+            do s=1,Grid%nSpc
+                !! Skip plasmashere, let that be handled on its own
+                !if ( Grid%spc(s)%flav == F_PSPH) then  
+                !    continue
+                !endif
+                State%eta(:,:,Grid%spc(s)%kStart:Grid%spc(s)%kEnd) = 0.0
+            enddo
+        endif
 
-        ! Init psphere
-        call setRaijuInitPsphere(Model, Grid, State, Model%psphInitKp)
+        !! Init psphere
+        !if (isFirstCS .or. cs%doPsphUpdate) then
+        !    call setRaijuInitPsphere(Model, Grid, State, Model%psphInitKp)
+        !endif
 
-        ! Calc our target RC dst
-        write(*,*) "WARNING: Setting QTRC from raijuColdStart, idk if we should be in charge of this"
+        ! Update Dst target
         dstReal = GetSWVal('symh', Model%tsF, t0)
-        dstTarget = dstReal - dstModel
+        if (isFirstCS) then
+            ! On first try, we assume there is no existing ring current, and its our job to make up the entire difference
+            dstTarget = dstReal - dstModel
 
+        else if (t0 > (cs%lastEval + cs%evalCadence)) then
+            ! If we are updating, there should already be some ring current
+            ! If dstReal - dstModel is still < 0, we need to add ADDITIONAL pressure to get them to match
+            dps_current = spcEta2DPS(Model, Grid, State, Grid%spc(sIdx_p), isGood) + spcEta2DPS(Model, Grid, State, Grid%spc(sIdx_e), isGood)
+            dstTarget = dstReal - (dstModel - dps_current)
+        else
+            ! Otherwise we have nothing to do, just chill til next update time
+            return
+        endif
+        
+        cs%lastEval = t0
+        cs%lastTarget = dstTarget
+        
         if (dstTarget > 0) then  ! We got nothing to contribute
             return
         endif
 
-        ! Init hot protons
-        call raiColdStart_initHOTP(Model, Grid, State, t0, dstTarget)
-        dps_preCX  = spcEta2DPS(Model, Grid, State, Grid%spc(sIdx_p), isGood)
-        ! Hit it with some charge exchange
-        if (doCXO) then
-            call raiColdStart_applyCX(Model, Grid, State, Grid%spc(sIdx_p))
+        if (isFirstCS) then
+            ! Init psphere
+            call setRaijuInitPsphere(Model, Grid, State, Model%psphInitKp)
+            ! Init hot protons
+            call raiColdStart_initHOTP(Model, Grid, State, t0, dstTarget)
+            dps_preCX  = spcEta2DPS(Model, Grid, State, Grid%spc(sIdx_p), isGood)
+            ! Hit it with some charge exchange
+            if (cs%doCX) then
+                call raiColdStart_applyCX(Model, Grid, State, Grid%spc(sIdx_p))
+            endif
+            dps_postCX = spcEta2DPS(Model, Grid, State, Grid%spc(sIdx_p), isGood)
+            ! Calc moments to update pressure and density
+            call EvalMoments(Grid, State)
+            ! Use HOTP moments to set electrons
+            call raiColdStart_initHOTE(Model, Grid, State)
+            dps_ele = spcEta2DPS(Model, Grid, State, Grid%spc(sIdx_e), isGood)
+            dps_current = dps_postCX  ! Note: if using fudge we're gonna lose electrons immediately, don't include them in current dst for now
         endif
-        dps_postCX = spcEta2DPS(Model, Grid, State, Grid%spc(sIdx_p), isGood)
-        
 
-        write(*,*)"Lazy raijuGeoColdStart: not rescaling proton eta to target dst, just adding electrons"
+        etaScale = abs(dstTarget / dps_current)    
+        State%eta(:,:,Grid%spc(sIdx_p)%kStart:Grid%spc(sIdx_p)%kEnd) = etaScale*State%eta(:,:,Grid%spc(sIdx_p)%kStart:Grid%spc(sIdx_p)%kEnd)
+        dps_rescale = spcEta2DPS(Model, Grid, State, Grid%spc(sIdx_p), isGood)
 
-        ! Calc moments to update pressure and density
-        call EvalMoments(Grid, State)
+        if (isfirstCS) then
+            write(*,'(a,f7.2)') "  Real Dst             : ",dstReal
+            write(*,'(a,f7.2)') "  Model Dst            : ",dstModel
+            write(*,'(a,f7.2)') "  Target DPS-Dst       : ",dstTarget
+            write(*,'(a,f7.2)') "  Hot proton pre-loss  : ",dps_preCX
+            write(*,'(a,f7.2)') "            post-loss  : ",dps_postCX
+            write(*,'(a,f7.2)') "         post-rescale  : ",dps_rescale
+            write(*,'(a,f7.2)') "  Hot electron DPS-Dst : ",dps_ele
+        else
+            write(*,'(a,f7.2)') "  Real Dst             : ",dstReal
+            write(*,'(a,f7.2)') "  Model Dst            : ",dstModel
+            write(*,'(a,f7.2)') "  Current DPS-Dst      : ",dps_current
+            write(*,'(a,f7.2)') "  Target DPS-Dst       : ",dstTarget
+            write(*,'(a,f7.2)') "  post-rescale         : ",dps_rescale
+            write(*,'(a,f7.2)') "  Hot electron DPS-Dst : ",dps_ele
+        endif
 
-        ! Use HOTP moments to set electrons
-        call raiColdStart_initHOTE(Model, Grid, State)
-        dps_ele = spcEta2DPS(Model, Grid, State, Grid%spc(sIdx_e), State%active .eq. RAIJUACTIVE)
-        write(*,'(a,f7.2)') "  Real Dst             : ",dstReal
-        write(*,'(a,f7.2)') "  Model Dst            : ",dstModel
-        write(*,'(a,f7.2)') "  Target DPS-Dst       : ",dstTarget
-        write(*,'(a,f7.2)') "  Hot proton pre-loss  : ",dps_preCX
-        write(*,'(a,f7.2)') "            post-loss  : ",dps_postCX
-        write(*,'(a,f7.2)') "  Hot electron DPS-Dst : ",dps_ele
-        !write(*,*)" Hot electron DPS-Dst:",dps_ele
+        end associate
 
     end subroutine raijuGeoColdStart
 
@@ -115,7 +190,7 @@ module raijuColdStartHelper
 
         ! Scale target Dst down to account for electrons contributing stuff later
         dstTarget_p = dstTarget / (1.0 + 1.0/Model%tiote)
-        call SetQTRC(dstTarget_p,doVerbO=.true.) ! This sets a global QTRC_P0 inside earthhelper.F90
+        call SetQTRC(dstTarget_p,doVerbO=.false.) ! This sets a global QTRC_P0 inside earthhelper.F90
 
         ! Get Borovsky statistical values
         vSW = abs(GetSWVal("Vx",Model%tsF,t0))
