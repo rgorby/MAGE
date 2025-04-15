@@ -12,8 +12,10 @@ module volthelpers_mpi
     implicit none
 
     enum, bind(C)
-        enumerator :: VHSTEP=1,VHSQUISHSTART,VHSQUISHEND,VHQUIT,VHTUBESTART,VHTUBEEND
+        enumerator :: VHSTEP=1,VHQUIT,VHSQUISHSTART,VHSQUISHEND,VHTUBESTART,VHTUBEEND
     endenum
+
+    type(MPI_Datatype), private :: tubeMpiType
 
     contains
 
@@ -91,6 +93,14 @@ module volthelpers_mpi
             print *,message(1:length)
             call mpi_Abort(MPI_COMM_WORLD, 1, ierr)
         end if
+
+    end subroutine
+
+    ! one-time initialization routine to help set things up
+    subroutine voltronAndHelpersInit(vApp)
+        type(voltAppMpi_T), intent(inout) :: vApp
+
+        call createTubeMpiType()
 
     end subroutine
 
@@ -694,155 +704,37 @@ module volthelpers_mpi
 
     end subroutine
 
-    subroutine recvFieldLine(vApp, ijTube,r)
-        class(voltAppMpi_T), intent(inout) :: vApp
-        type(Tube_T), intent(inout)       :: ijTube
-        integer, intent(in)               :: r
-        integer                           :: ierr
-
-        call mpi_recv(ijTube%xyz0, NDIM, MPI_MYFLOAT, r, 88111, vApp%vHelpComm, MPI_STATUS_IGNORE, ierr)
-        call checkAndHandleMpiErrorCode(ierr)
-        call mpi_recv(ijTube%lat0, 1, MPI_MYFLOAT, r, 88112, vApp%vHelpComm, MPI_STATUS_IGNORE, ierr)
-        call checkAndHandleMpiErrorCode(ierr)
-        call mpi_recv(ijTube%lon0, 1, MPI_MYFLOAT, r, 88113, vApp%vHelpComm, MPI_STATUS_IGNORE, ierr)
-        call checkAndHandleMpiErrorCode(ierr)
-        call mpi_recv(ijTube%invlat, 1, MPI_MYFLOAT, r, 88114, vApp%vHelpComm, MPI_STATUS_IGNORE, ierr)
-        call checkAndHandleMpiErrorCode(ierr)
-        call mpi_recv(ijTube%latc, 1, MPI_MYFLOAT, r, 88115, vApp%vHelpComm, MPI_STATUS_IGNORE, ierr)
-        call checkAndHandleMpiErrorCode(ierr)
-        call mpi_recv(ijTube%lonc, 1, MPI_MYFLOAT, r, 88116, vApp%vHelpComm, MPI_STATUS_IGNORE, ierr)
-        call checkAndHandleMpiErrorCode(ierr)
-        call mpi_recv(ijTube%topo, 1, MPI_INTEGER, r, 88117, vApp%vHelpComm, MPI_STATUS_IGNORE, ierr)
-        call checkAndHandleMpiErrorCode(ierr)
-        call mpi_recv(ijTube%bmin, 1, MPI_MYFLOAT, r, 88118, vApp%vHelpComm, MPI_STATUS_IGNORE, ierr)
-        call checkAndHandleMpiErrorCode(ierr)
-        call mpi_recv(ijTube%X_bmin, NDIM, MPI_MYFLOAT, r, 88119, vApp%vHelpComm, MPI_STATUS_IGNORE, ierr)
-        call checkAndHandleMpiErrorCode(ierr)
-        call mpi_recv(ijTube%bVol, 1, MPI_MYFLOAT, r, 88120, vApp%vHelpComm, MPI_STATUS_IGNORE, ierr)
-        call checkAndHandleMpiErrorCode(ierr)
-        call mpi_recv(ijTube%Lb, 1, MPI_MYFLOAT, r, 88121, vApp%vHelpComm, MPI_STATUS_IGNORE, ierr)
-        call checkAndHandleMpiErrorCode(ierr)
-        call mpi_recv(ijTube%Tb, 1, MPI_MYFLOAT, r, 88122, vApp%vHelpComm, MPI_STATUS_IGNORE, ierr)
-        call checkAndHandleMpiErrorCode(ierr)
-        call mpi_recv(ijTube%pot, 1, MPI_MYFLOAT, r, 88123, vApp%vHelpComm, MPI_STATUS_IGNORE, ierr)
-        call checkAndHandleMpiErrorCode(ierr)
-        call mpi_recv(ijTube%crpot, 1, MPI_MYFLOAT, r, 88124, vApp%vHelpComm, MPI_STATUS_IGNORE, ierr)
-        call checkAndHandleMpiErrorCode(ierr)
-        call mpi_recv(ijTube%potc, 1, MPI_MYFLOAT, r, 88125, vApp%vHelpComm, MPI_STATUS_IGNORE, ierr)
-        call checkAndHandleMpiErrorCode(ierr)
-        call mpi_recv(ijTube%wMAG, 1, MPI_MYFLOAT, r, 88126, vApp%vHelpComm, MPI_STATUS_IGNORE, ierr)
-        call checkAndHandleMpiErrorCode(ierr)
-        call mpi_recv(ijTube%rCurv, 1, MPI_MYFLOAT, r, 88127, vApp%vHelpComm, MPI_STATUS_IGNORE, ierr)
-        call checkAndHandleMpiErrorCode(ierr)
-        call mpi_recv(ijTube%avgBeta, 1, MPI_MYFLOAT, r, 88128, vApp%vHelpComm, MPI_STATUS_IGNORE, ierr)
-        call checkAndHandleMpiErrorCode(ierr)
-        call mpi_recv(ijTube%avgP, MAXTUBEFLUIDS+1, MPI_MYFLOAT, r, 88129, vApp%vHelpComm, MPI_STATUS_IGNORE, ierr)
-        call checkAndHandleMpiErrorCode(ierr)
-        call mpi_recv(ijTube%avgN, MAXTUBEFLUIDS+1, MPI_MYFLOAT, r, 88130, vApp%vHelpComm, MPI_STATUS_IGNORE, ierr)
-        call checkAndHandleMpiErrorCode(ierr)
-        call mpi_recv(ijTube%stdP, MAXTUBEFLUIDS+1, MPI_MYFLOAT, r, 88131, vApp%vHelpComm, MPI_STATUS_IGNORE, ierr)
-        call checkAndHandleMpiErrorCode(ierr)
-        call mpi_recv(ijTube%stdN, MAXTUBEFLUIDS+1, MPI_MYFLOAT, r, 88132, vApp%vHelpComm, MPI_STATUS_IGNORE, ierr)
-        call checkAndHandleMpiErrorCode(ierr)
-        call mpi_recv(ijTube%losscone, 1, MPI_MYFLOAT, r, 88133, vApp%vHelpComm, MPI_STATUS_IGNORE, ierr)
-        call checkAndHandleMpiErrorCode(ierr)
-        call mpi_recv(ijTube%lossconec, 1, MPI_MYFLOAT, r, 88134, vApp%vHelpComm, MPI_STATUS_IGNORE, ierr)
-        call checkAndHandleMpiErrorCode(ierr)
-        call mpi_recv(ijTube%TioTe0, 1, MPI_MYFLOAT, r, 88135, vApp%vHelpComm, MPI_STATUS_IGNORE, ierr)
-        call checkAndHandleMpiErrorCode(ierr)
-        call mpi_recv(ijTube%nTrc, 1, MPI_INTEGER, r, 88136, vApp%vHelpComm, MPI_STATUS_IGNORE, ierr)
-        call checkAndHandleMpiErrorCode(ierr)
-
-    end subroutine recvFieldLine
-
-
-    subroutine sendFieldLine(vApp, ijTube)
-        class(voltAppMpi_T), intent(in) :: vApp
-        type(Tube_T), intent(in)       :: ijTube
-        integer                        :: ierr
-
-        call mpi_send(ijTube%xyz0, NDIM, MPI_MYFLOAT, 0, 88111, vApp%vHelpComm, ierr)
-        call checkAndHandleMpiErrorCode(ierr)
-        call mpi_send(ijTube%lat0, 1, MPI_MYFLOAT, 0, 88112, vApp%vHelpComm, ierr)
-        call checkAndHandleMpiErrorCode(ierr)
-        call mpi_send(ijTube%lon0, 1, MPI_MYFLOAT, 0, 88113, vApp%vHelpComm, ierr)
-        call checkAndHandleMpiErrorCode(ierr)
-        call mpi_send(ijTube%invlat, 1, MPI_MYFLOAT, 0, 88114, vApp%vHelpComm, ierr)
-        call checkAndHandleMpiErrorCode(ierr)
-        call mpi_send(ijTube%latc, 1, MPI_MYFLOAT, 0, 88115, vApp%vHelpComm, ierr)
-        call checkAndHandleMpiErrorCode(ierr)
-        call mpi_send(ijTube%lonc, 1, MPI_MYFLOAT, 0, 88116, vApp%vHelpComm, ierr)
-        call checkAndHandleMpiErrorCode(ierr)
-        call mpi_send(ijTube%topo, 1, MPI_INTEGER, 0, 88117, vApp%vHelpComm, ierr)
-        call checkAndHandleMpiErrorCode(ierr)
-        call mpi_send(ijTube%bmin, 1, MPI_MYFLOAT, 0, 88118, vApp%vHelpComm, ierr)
-        call checkAndHandleMpiErrorCode(ierr)
-        call mpi_send(ijTube%X_bmin, NDIM, MPI_MYFLOAT, 0, 88119, vApp%vHelpComm, ierr)
-        call checkAndHandleMpiErrorCode(ierr)
-        call mpi_send(ijTube%bVol, 1, MPI_MYFLOAT, 0, 88120, vApp%vHelpComm, ierr)
-        call checkAndHandleMpiErrorCode(ierr)
-        call mpi_send(ijTube%Lb, 1, MPI_MYFLOAT, 0, 88121, vApp%vHelpComm, ierr)
-        call checkAndHandleMpiErrorCode(ierr)
-        call mpi_send(ijTube%Tb, 1, MPI_MYFLOAT, 0, 88122, vApp%vHelpComm, ierr)
-        call checkAndHandleMpiErrorCode(ierr)
-        call mpi_send(ijTube%pot, 1, MPI_MYFLOAT, 0, 88123, vApp%vHelpComm, ierr)
-        call checkAndHandleMpiErrorCode(ierr)
-        call mpi_send(ijTube%crpot, 1, MPI_MYFLOAT, 0, 88124, vApp%vHelpComm, ierr)
-        call checkAndHandleMpiErrorCode(ierr)
-        call mpi_send(ijTube%potc, 1, MPI_MYFLOAT, 0, 88125, vApp%vHelpComm, ierr)
-        call checkAndHandleMpiErrorCode(ierr)
-        call mpi_send(ijTube%wMAG, 1, MPI_MYFLOAT, 0, 88126, vApp%vHelpComm, ierr)
-        call checkAndHandleMpiErrorCode(ierr)
-        call mpi_send(ijTube%rCurv, 1, MPI_MYFLOAT, 0, 88127, vApp%vHelpComm, ierr)
-        call checkAndHandleMpiErrorCode(ierr)
-        call mpi_send(ijTube%avgBeta, 1, MPI_MYFLOAT, 0, 88128, vApp%vHelpComm, ierr)
-        call checkAndHandleMpiErrorCode(ierr)
-        call mpi_send(ijTube%avgP, MAXTUBEFLUIDS+1, MPI_MYFLOAT, 0, 88129, vApp%vHelpComm, ierr)
-        call checkAndHandleMpiErrorCode(ierr)
-        call mpi_send(ijTube%avgN, MAXTUBEFLUIDS+1, MPI_MYFLOAT, 0, 88130, vApp%vHelpComm, ierr)
-        call checkAndHandleMpiErrorCode(ierr)
-        call mpi_send(ijTube%stdP, MAXTUBEFLUIDS+1, MPI_MYFLOAT, 0, 88131, vApp%vHelpComm, ierr)
-        call checkAndHandleMpiErrorCode(ierr)
-        call mpi_send(ijTube%stdN, MAXTUBEFLUIDS+1, MPI_MYFLOAT, 0, 88132, vApp%vHelpComm, ierr)
-        call checkAndHandleMpiErrorCode(ierr)
-        call mpi_send(ijTube%losscone, 1, MPI_MYFLOAT, 0, 88133, vApp%vHelpComm, ierr)
-        call checkAndHandleMpiErrorCode(ierr)
-        call mpi_send(ijTube%lossconec, 1, MPI_MYFLOAT, 0, 88134, vApp%vHelpComm, ierr)
-        call checkAndHandleMpiErrorCode(ierr)
-        call mpi_send(ijTube%TioTe0, 1, MPI_MYFLOAT, 0, 88135, vApp%vHelpComm, ierr)
-        call checkAndHandleMpiErrorCode(ierr)
-        ! synchronize the final data for each tube send to keep the helpers from getting too far ahead
-        call mpi_Ssend(ijTube%nTrc, 1, MPI_INTEGER, 0, 88136, vApp%vHelpComm, ierr)
-        call checkAndHandleMpiErrorCode(ierr)
-
-    end subroutine sendFieldLine
-
-
     subroutine vhReqTubeEnd(vApp)
         type(voltAppMpi_T), intent(inout) :: vApp
 
-        integer :: ierr,r,js,je,j,i
-        character( len = MPI_MAX_ERROR_STRING) :: message
-        real(rp), dimension(:), allocatable, save :: helperTimes, helperLoads
-        real(rp) :: targetTime
-
-        real(rp), parameter :: hAlpha = 0.8 ! rate at which helpers adjust to changing tube loads
+        integer :: ierr, r, js, je, oldSizes(2), newSizes(2), offsets(2)
+        type(MPI_Datatype) :: newtype
 
         call Tic("VHReqTubeE")
         call vhRequestType(vApp, VHTUBEEND)
 
+        oldSizes = shape(vApp%State%ijTubes)
         do r=1,vApp%tubeLb%nL
             js = vApp%shGrid%js+vApp%tubeLb%balStartInd(r)
             if (r == vApp%tubeLb%nL) then
-                je = vApp%shGrid%je+1
+                je = vApp%shGrid%je
             else
-                je = vApp%shGrid%js+vApp%tubeLb%balStartInd(r+1)-1
+                je = vApp%shGrid%js+vApp%tubeLb%balStartInd(r+1)-2
             endif
-            do j=js,je
-                do i=vApp%shGrid%is,vApp%shGrid%ie+1
-                    call recvFieldLine(vApp,vApp%State%ijTubes(i,j),r)
-                enddo
-            enddo
+
+            newSizes = (/vApp%shGrid%ie+2-vApp%shGrid%is, &
+                        je+2-js/)
+            offsets = (/0, js-1/)
+
+            ! send solved tube data
+            call mpi_type_create_subarray(2, oldSizes, newSizes, offsets, MPI_ORDER_FORTRAN, tubeMpiType, newtype, ierr)
+            call checkAndHandleMpiErrorCode(ierr)
+            call mpi_type_commit(newtype, ierr)
+            call checkAndHandleMpiErrorCode(ierr)
+            call mpi_recv(vApp%State%ijTubes, 1, newtype, r, 88131, vApp%vHelpComm, MPI_STATUS_IGNORE, ierr)
+            call checkAndHandleMpiErrorCode(ierr)
+            call mpi_type_free(newtype, ierr)
+            call checkAndHandleMpiErrorCode(ierr)
         enddo
 
         if(vApp%tubeLoadBalance) then
@@ -860,19 +752,72 @@ module volthelpers_mpi
     subroutine vhHandleTubeEnd(vApp)
         type(voltAppMpi_T), intent(inout) :: vApp
 
-        integer :: ierr,i,j
+        integer :: ierr, oldSizes(2), newSizes(2), offsets(2)
+        type(MPI_Datatype) :: newtype
+
+        oldSizes = shape(vApp%State%ijTubes)
+        newSizes = (/vApp%shGrid%ie+2-vApp%shGrid%is, &
+                     vApp%shGrid%je+2-vApp%shGrid%js/)
+        offsets = (/0, vApp%shGrid%js-1/)
 
         ! send solved tube data
-        do j=vApp%shGrid%js,vApp%shGrid%je+1
-            do i=vApp%shGrid%is,vApp%shGrid%ie+1
-                call sendFieldLine(vApp,vApp%State%ijTubes(i,j))
-            enddo
-        enddo
+        call mpi_type_create_subarray(2, oldSizes, newSizes, offsets, MPI_ORDER_FORTRAN, tubeMpiType, newtype, ierr)
+        call checkAndHandleMpiErrorCode(ierr)
+        call mpi_type_commit(newtype, ierr)
+        call checkAndHandleMpiErrorCode(ierr)
+        call mpi_send(vApp%State%ijTubes, 1, newtype, 0, 88131, vApp%vHelpComm, ierr)
+        call checkAndHandleMpiErrorCode(ierr)
+        call mpi_type_free(newtype, ierr)
+        call checkAndHandleMpiErrorCode(ierr)
 
         if(vApp%tubeLoadBalance) then
             call mpi_gather([vApp%lastTubeTime], 1, MPI_MYFLOAT, [vApp%lastTubeTime], 0, MPI_MYFLOAT, 0, vApp%vhelpComm, ierr)
             call checkAndHandleMpiErrorCode(ierr)
         endif
+
+    end subroutine
+
+    subroutine createTubeMpiType()
+
+        type(Tube_T) :: dummyTube
+        integer :: ierr
+        integer(kind=MPI_ADDRESS_KIND) :: baseLoc,endLoc,typeSize,expectedSize
+        integer :: blockLengths(4)
+        integer(kind=MPI_ADDRESS_KIND) :: blockDisps(4)
+        type(MPI_Datatype) :: blockTypes(4)
+
+        tubeMpiType = MPI_DATATYPE_NULL        
+
+        ! quick sanity check that Tube_T hasn't change since this was written
+        call MPI_GET_ADDRESS(dummyTube,baseLoc, ierr)
+        call checkAndHandleMpiErrorCode(ierr)
+        call MPI_GET_ADDRESS(dummyTube%nTrc,endLoc, ierr)
+        call checkAndHandleMpiErrorCode(ierr)
+        typeSize = MPI_Aint_diff(endLoc,baseLoc)
+        expectedSize = 392 ! determined when code was written
+        if(typeSize /= expectedSize) then
+            write (*,*) 'Tube_T object has changed, helpers cannot be used. Exitting.'
+            call mpi_Abort(MPI_COMM_WORLD, 1, ierr)
+        endif
+
+        ! now create the custom type
+        ! this, again, assumes that Tube_T is largely unchanged from when the code was written
+        blockLengths(1) = 5+NDIM
+        blockLengths(2) = 1
+        blockLengths(3) = 13+NDIM+4*(1+MAXTUBEFLUIDS)
+        blockLengths(4) = 1
+        blockDisps(1) = 0
+        blockDisps(2) = blockLengths(1)*8
+        blockDisps(3) = blockDisps(2) + blockLengths(2)*8
+        blockDisps(4) = blockDisps(3) + blockLengths(3)*8
+        blockTypes(1) = MPI_MYFLOAT
+        blockTypes(2) = MPI_INTEGER
+        blockTypes(3) = MPI_MYFLOAT
+        blockTypes(4) = MPI_INTEGER
+        call mpi_type_create_struct(4,blockLengths,blockDisps,blockTypes,tubeMpiType,ierr)
+        call checkAndHandleMpiErrorCode(ierr)
+        call mpi_type_commit(tubeMpiType, ierr)
+        call checkAndHandleMpiErrorCode(ierr)
 
     end subroutine
 

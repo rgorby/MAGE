@@ -203,6 +203,9 @@ module voltapp_mpi
                 print *,message(1:length)
                 call mpi_Abort(MPI_COMM_WORLD, 1, ierr)
             end if
+
+            call voltronAndHelpersInit(vApp)
+            
         endif
 
         if(.not. vApp%doSerialMHD) then
@@ -320,6 +323,8 @@ module voltapp_mpi
             print *,message(1:length)
             call mpi_Abort(MPI_COMM_WORLD, 1, ierr)
         end if
+
+        call voltronAndHelpersInit(vApp)
 
     end subroutine
 

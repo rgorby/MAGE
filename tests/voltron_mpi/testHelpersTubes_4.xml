@@ -9,7 +9,7 @@
     <imag doInit="T"/>
     <ebsquish epsSquish="0.05"/>
     <threading NumTh="36"/>
-    <Helpers numHelpers="3" useHelpers="T" doTubesHelp="T"/>
+    <Helpers numHelpers="3" useHelpers="T" doTubeHelp="T"/>
   </voltron>
   <Gamera>
     <iPdir N="1" bcPeriodic="F"/>
