@@ -60,7 +60,10 @@ module ioclock
         call iXML%Set_Val(this%doSlim,       'output/doSlim'    ,.false.)
         call iXML%Set_Val(slimTimers,        'output/slimTimers',.true.)
         if(this%doTimerOut) slimTimers = .false.
-        call setSlimTimers(slimTimers)
+
+        ! multiple models on the same node can conflict
+        ! slim timers enabled is the default, only over-ride to disable
+        if (.not. slimTimers) call setSlimTimers(slimTimers)
 
         if (this%dtCon<0) then
             this%doConOut = .false.

@@ -38,7 +38,7 @@ module mhd2chmp_interface
 
     subroutine convertGameraToChimp(mhd2chmp,gamApp,ebTrcApp)
         type(mhd2Chmp_T), intent(inout) :: mhd2chmp
-        type(gamApp_T)  , intent(in)    :: gamApp
+        class(gamApp_T)  , intent(in)    :: gamApp
         type(ebTrcApp_T), intent(inout) :: ebTrcApp
 
         real(rp), dimension(NVAR) :: pW, pCon

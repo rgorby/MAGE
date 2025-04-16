@@ -16,12 +16,18 @@ module volttypes_mpi
         ! voltron to helpers comms variables
         type(MPI_Comm) :: vHelpComm
         integer :: vHelpRank
-        real(rp) :: lastSquishTime
         type(MPI_Win) :: vHelpWin
         integer, dimension(:), allocatable :: vHelpIdle
         logical :: useHelpers = .false.
+
+        real(rp) :: lastSquishTime
+        type(loadBal_T) :: squishLb
         logical :: doSquishHelp = .false., masterSquish = .false.
         logical :: squishLoadBalance = .true., deepProcessingInProgress=.false.
+
+        real(rp) :: lastTubeTime
+        type(loadBal_T) :: tubeLb
+        logical :: doTubeHelp = .false., tubeLoadbalance = .true.
 
         ! coupling comms variables to be done on volt rank
         type(MPI_Comm) :: mageCplComm

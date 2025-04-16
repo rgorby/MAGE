@@ -132,6 +132,7 @@ module mixinterfaceutils
          iLat = voltGrid%ie
          do while (voltGrid%th(iLat-1) > shGr%minTheta)
             iLat = iLat - 1
+            if (ilat == 1) exit ! ** FIX THIS
          enddo
          varOut%mask(iLat:voltGrid%ie+1,:) = .true.
 

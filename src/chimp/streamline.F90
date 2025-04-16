@@ -48,7 +48,7 @@ module streamline
         integer , allocatable :: ijkn(:,:,:)
 
         logical :: inDom,doShue,doNH,doSH
-        integer :: N1,N2,i,MaxN
+        integer :: N1,N2,i,MaxN,n0
 
         !Start by empting line
         call cleanLine(fL)
@@ -103,11 +103,12 @@ module streamline
         allocate(nGas (0:MaxFL,NVARMHD,0:Model%nSpc,2))
 
     !Get traces and store in temp arrays
-
+        n0 = 1 !Default to forward side
         !Get trace in negative direction
         if (doSH) then
             !Starting in southern hemisphere so don't go in negative direction
             N1 = 0
+            n0 = 2 !Can't use forward side later
         else
             call genTrace(Model,ebState,x0,t,xyzn(:,:,1),ijkn(:,:,1),nBxyz(:,:,1),nGas(:,:,:,1),N1,-1,MaxN,doShue)
         endif
@@ -116,6 +117,7 @@ module streamline
          if (doNH) then
             !We're starting at northern hemisphere so don't need to go in positive direction
             N2 = 0
+            n0 = 1
         else
             call genTrace(Model,ebState,x0,t,xyzn(:,:,2),ijkn(:,:,2),nBxyz(:,:,2),nGas(:,:,:,2),N2,+1,MaxN,doShue)
         endif
@@ -136,10 +138,10 @@ module streamline
 
         !Load field lines
         fL%xyz (0,:)   = x0
-        fL%ijk (0,:)   = ijkn (0,:,1)
-        fL%Bxyz(0,:)   = nBxyz(0,:,1)
+        fL%ijk (0,:)   = ijkn (0,:,n0)
+        fL%Bxyz(0,:)   = nBxyz(0,:,n0)
         fL%magB(0)     = norm2(fL%Bxyz(0,:))
-        fL%Gas (0,:,:) = nGas (0,:,:,1)
+        fL%Gas (0,:,:) = nGas (0,:,:,n0)
 
         do i=1,N1 !Negative direction
             fL%xyz (-i,:)   = xyzn (i,:,1)
