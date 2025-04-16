@@ -338,7 +338,8 @@ module streamline
             dvB = dvB + dl/bMag
             ! Only accumulate other quantities if in active domain, so we have more sensible flux tube averages
             !if (bTrc%ijk(k,XDIR) > ebGr%is+4 .and. bTrc%ijk(k+1,XDIR) > ebGr%is+4) then
-            if (bTrc%ijk(k,XDIR) > ebGr%is+1 .and. bTrc%ijk(k+1,XDIR) > ebGr%is+1) then
+            !if (bTrc%ijk(k,XDIR) > ebGr%is+1 .and. bTrc%ijk(k+1,XDIR) > ebGr%is+1) then
+            if (bTrc%ijk(k,XDIR) >= ebGr%is .and. bTrc%ijk(k+1,XDIR) >= ebGr%is) then
                 bD  = bD  +  eD*dl/bMag
                 bP  = bP  +  eP*dl/bMag
                 bPb = bPb + ePb*dl/bMag
@@ -403,7 +404,7 @@ module streamline
         ! Now to stdev
         !Loop over edges
         do k=-Nm,Np-1
-            if ( (bTrc%ijk(k,XDIR) .le. ebGr%is+4) .or. (bTrc%ijk(k+1,XDIR) .le. ebGr%is+4) ) then
+            if ( (bTrc%ijk(k,XDIR) .le. ebGr%is) .or. (bTrc%ijk(k+1,XDIR) .le. ebGr%is) ) then
                 cycle
             endif
             !Get edge-centered quantities

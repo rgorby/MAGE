@@ -20,7 +20,7 @@ module voltCplHelper
         type(magLine_T) :: magLine
 
         associate(sh=>vApp%shGrid, ebApp=>vApp%ebTrcApp, Gr=>vApp%gApp%Grid)
-            mhd_Rin = norm2(Gr%xyz(Gr%is,Gr%js,Gr%ks,:))
+            mhd_Rin = norm2(Gr%xyz(Gr%is+2,Gr%js,Gr%ks,:))
             seedR = sh%radius  ! Ionosphere radius in Rp
             ! Do field line tracing, populate ijTubes
             !$OMP PARALLEL DO default(shared) &
@@ -34,7 +34,7 @@ module voltCplHelper
                                   sin(sh%th(i))*sin(sh%ph(j)), &
                                   cos(sh%th(i))]
                     eqR = DipColat2L(sh%thRp(i))  ! Function assumes colat coming from 1 Rp, make sure we use the right theta value
-                    if (eqR < mhd_Rin) then
+                    if (eqR .le. mhd_Rin) then
                         !No MHD to tube from
                         call DipoleTube(vApp%planet,xyz0,vApp%State%ijTubes(i,j))
                     else

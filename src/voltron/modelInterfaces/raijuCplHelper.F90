@@ -84,9 +84,8 @@ module raijuCplHelper
         ! Initial values
         raiCpl%tLastUpdate = -1.0*HUGE
         raiCpl%pot_total%data = 0.0
-        raiCpl%pot_total%mask = .true.
         raiCpl%pot_corot%data = 0.0
-        raiCpl%pot_corot%mask = .true.
+        raiCpl%vaFrac%data = 0.5
 
     end subroutine raijuCpl_init
 

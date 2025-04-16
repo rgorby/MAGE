@@ -165,14 +165,16 @@ submodule (volttypes) raijuCplTypesSub
         
         !call InterpShellVar_TSC_pnt(sh, State%Tb, th, ph, imW(IM_TSCL))
         !imW(IM_TSCL) = Model%nBounce*imW(IM_TSCL)  ! [s]
-        tScl = 10.0_rp  ! [s]
-        !tScl = 10.0_rp/App%vaFrac(i0,j0)  ! [s]
+        !tScl = 10.0_rp  ! [s]
+
+        ! 1/(x)^4 for x from 1 to 0.5 goes from 1 to 16. Higher exponents means stronger ramp-up
+        tScl = 15.0_rp/(App%vaFrac%data(i0,j0))**4  ! [s]
 
         ! Adjust IM_TSCL if we wanna ramp up over time
         if (t < App%startup_blendTscl) then
             rampC = RampDown(t, 0.0_rp, App%startup_blendTscl)
             !tScl = sqrt(tScl*App%startup_blendTscl)*rampC + (1-rampC)*tScl  ! idk
-            tScl = rampC*50.0_rp*tScl + (1-rampC)*tScl  ! No good reason for 50 except for wanting starting tScl to be ~8-10 minutes
+            tScl = rampC*30.0_rp*tScl + (1-rampC)*tScl  ! No good reason for 30 except for wanting starting tScl to be ~8-10 minutes
             !if (th > 50*deg2rad .and. th < 55*deg2rad .and. ph > 130*deg2rad .and. ph < 150*deg2rad) then
             !    write(*,*)"--",t,App%startup_blendTscl,rampC,tScl
             !endif

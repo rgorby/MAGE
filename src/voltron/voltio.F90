@@ -465,8 +465,17 @@ module voltio
         call AddOutSGV(IOVars, "rCuravture", tubeShell%rCurv, &
                         uStr="Rx", dStr="Radius of curvature @ bmin if this is a closed field line", &
                         outBndsO=outSGVBnds_corner, doWriteMaskO=.false.)
-        call AddOutSGV(IOVars, "nTrc", tubeShell%nTrc, &
+        call AddOutSGV(IOVars, "tube_nTrc", tubeShell%nTrc, &
                         dStr="Number of points along field line", &
+                        outBndsO=outSGVBnds_corner, doWriteMaskO=.false.)
+        call AddOutSGV(IOVars, "tube_wIMAG", tubeShell%wMAG, &
+                        dStr="'Good' weighting for IMAG model based on Alfven speed vs. magnetofast and ExB flow", &
+                        outBndsO=outSGVBnds_corner, doWriteMaskO=.false.)
+        call AddOutSGV(IOVars, "tube_avgP", tubeShell%avgP, &
+                        ustr="nPa",dStr="Flux tube averaged pressure", &
+                        outBndsO=outSGVBnds_corner, doWriteMaskO=.false.)
+        call AddOutSGV(IOVars, "tube_avgD", tubeShell%avgN, &
+                        uStr="#/cc",dStr="Flux tube averaged density", &
                         outBndsO=outSGVBnds_corner, doWriteMaskO=.false.)
         end associate
 
