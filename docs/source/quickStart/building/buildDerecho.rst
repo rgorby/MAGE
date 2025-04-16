@@ -17,7 +17,7 @@ versions of software packages available to the user. When you log in to
 
 .. code-block:: bash
 
-   $ module list
+   module list
 
    Currently Loaded Modules:
      1) ncarenv/23.09  (S)   4) ncarcompilers/1.0.0   7) netcdf/4.9.2
@@ -103,4 +103,4 @@ set of ``kaiju`` executables.
           
 .. code-block::
 
-   $ make gamera_mpi.x rcm.x remix.x voltron_mpi.x
+   make gamera_mpi.x rcm.x remix.x voltron_mpi.x

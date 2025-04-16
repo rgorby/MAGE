@@ -12,8 +12,8 @@ Before you begin
 
 .. code-block:: bash
 
-    $ source /path/to/your/kaiju-clone/scripts/setupEnvironment.sh
-    $ source /path/to/your/kaipy-clone/kaipy/scripts/setupEnvironment.sh
+    source /path/to/your/kaiju-clone/scripts/setupEnvironment.sh
+    source /path/to/your/kaipy-clone/kaipy/scripts/setupEnvironment.sh
 
 Running a magnetosphere simulation with MAGE
 --------------------------------------------
@@ -29,7 +29,7 @@ You can see the options supported by ``makeitso.py`` by running it with the
 
 .. code-block:: bash
 
-    $ makeitso.py --help
+    makeitso.py --help
     usage: makeitso.py [-h] [--clobber] [--debug] [--mode MODE] [--options_path OPTIONS_PATH] [--verbose]
 
     Interactive script to prepare a MAGE magnetosphere model run.
@@ -52,8 +52,8 @@ arguments:
 
 .. code-block:: bash
 
-    $ source /path/to/your/cdf/bin/definitions.B
-    $ $KAIJUHOME/scripts/makeitso/makeitso.py
+    source /path/to/your/cdf/bin/definitions.B
+    $KAIJUHOME/scripts/makeitso/makeitso.py
     Name to use for PBS job(s) [geospace]:
     Do you have an existing boundary condition file to use? (Y|N) [N]:
     Start date for simulation (yyyy-mm-ddThh:mm:ss) [2016-08-09T09:00:00]:
@@ -121,7 +121,7 @@ You should now see the following files in your run directory:
 
 .. code-block:: bash
 
-    $ ls
+    ls
     bcwind.h5        geospace.json    OMNI_HRO_1MIN.txt_bxFit.png
     geospace-00.pbs  geospace_pbs.sh  OMNI_HRO_1MIN.txt.png
     geospace-00.xml  lfmQ.h5          rcmconfig.h5
@@ -138,7 +138,7 @@ You will see the resulting PBS job ID.
 
 .. code-block:: bash
 
-    $ bash geospace_pbs.sh
+    bash geospace_pbs.sh
     7808651.desched1
 
 Once the job is started in the queue, it should take about 80 minutes to run
@@ -179,7 +179,7 @@ Now perform a quick visualization of the results from your model using the
 
 .. code-block:: bash
 
-    $ msphpic.py -id geospace
+    msphpic.py -id geospace
 
 This script will create a file called ``qkmsphpic.png``, which should look
 like this:

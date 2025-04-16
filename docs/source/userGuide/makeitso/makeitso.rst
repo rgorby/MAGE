@@ -59,7 +59,7 @@ in the default ``BASIC`` mode on the ``pleiades`` supercomputer.
 
 .. code-block:: bash
 
-  $ makeitso.py 
+  makeitso.py 
   Name to use for PBS job(s) [geospace]:
 
 Enter an identifying string to use for your model run. This name will be used

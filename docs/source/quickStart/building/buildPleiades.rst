@@ -70,7 +70,7 @@ set of ``kaiju`` executables.
 
 .. code-block:: shell
 
-    $ ls -w 80 bin
+    ls -w 80 bin
     calcdb.x        gamhelio.x    push.x         sctrack.x      voltron.x
     chop.x          kaitoy_mpi.x  rcm.x          slice.x        wpicheck.x
     gamera_mpi.x    kaitoy.x      remix2rcm.x    testNewRMS.x
@@ -92,4 +92,4 @@ set of ``kaiju`` executables.
           
 .. code-block::
 
-   $ make gamera_mpi.x rcm.x remix.x voltron_mpi.x
+   make gamera_mpi.x rcm.x remix.x voltron_mpi.x
