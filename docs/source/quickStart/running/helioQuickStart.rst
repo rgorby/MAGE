@@ -118,14 +118,14 @@ strings):
     These are checkpoint files generated during the simulation which can be
     used as restart points for future simulations.
 
-Now perform a quick visualization of the results from your model using the
-``heliopic.py`` script, provided in the ``kaipy`` package.
+Now perform a quick visualization of the results at time step 69 from your
+model using the ``heliopic.py`` script, provided in the ``kaipy`` package.
 
 .. code-block:: bash
 
-    heliopic.py -id helio
+    heliopic.py -id helio -v --nlist 69
 
 This script will create a file called ``qkpic_helio_pic1_n1.png``, which
 should look like this:
 
-.. image:: qkpic_helio_pic1_n1.png
+.. image:: qkpic_helio_pic1_n69.png
