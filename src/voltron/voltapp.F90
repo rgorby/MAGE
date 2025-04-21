@@ -681,6 +681,7 @@ module voltapp
         class(gamApp_T), intent(in) :: gApp
         character(len=*), intent(in), optional     :: optFilename
 
+        integer :: b
         character(len=strLen) :: xmlStr
         type(XML_Input_T) :: inpXML
         real(rp) :: xyz0(NDIM)
@@ -707,7 +708,7 @@ module voltapp
         call setBackground(Model,inpXML)
         call inpXML%Set_Val(Model%doDip,'tracer/doDip',.false.)
 
-    !Initialize ebState
+        !Initialize ebState
         if (gApp%Model%doMultiF) then
             write(*,*) "Initializing MF-Chimp ..."
             !Set proper number of species for chimp
@@ -720,8 +721,11 @@ module voltapp
 
         call InitLoc(Model,ebState%ebGr,inpXML)
 
-    !Initialize squish indices
+        !Initialize squish indices
         allocate(vApp%ebTrcApp%ebSquish%blockStartIndices(vApp%ebTrcApp%ebSquish%numSquishBlocks))
+        do b=1,vApp%ebTrcApp%ebSquish%numSquishBlocks
+            vApp%ebTrcApp%ebSquish%blockStartIndices(b) = ebGr%ks + ((b-1)*(ebGr%ke+1))/vApp%ebTrcApp%ebSquish%numSquishBlocks
+        enddo
 
         !Do simple test to make sure locator is reasonable
         xyz0 = Gr%xyz(Gr%is+1,Gr%js,Gr%ks,:)

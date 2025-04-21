@@ -40,7 +40,7 @@ module voltapp_mpi
         type(MPI_Comm) :: allVoltComm
         character(len=strLen) :: inpXML
         type(XML_Input_T) :: xmlInp
-        integer :: commSize, ierr, numCells, length, ic
+        integer :: commSize, ierr, numCells, length, ic, b
         integer, allocatable, dimension(:) :: neighborRanks, inData, outData
         integer :: nHelpers, gamNRES, commId
         character( len = MPI_MAX_ERROR_STRING) :: message
@@ -149,6 +149,10 @@ module voltapp_mpi
                     ! number of squish blocks changed
                     deallocate(vApp%ebTrcApp%ebSquish%blockStartIndices)
                     allocate(vApp%ebTrcApp%ebSquish%blockStartIndices(vApp%ebTrcApp%ebSquish%numSquishBlocks))
+                    do b=1,vApp%ebTrcApp%ebSquish%numSquishBlocks
+                        vApp%ebTrcApp%ebSquish%blockStartIndices(b) = vApp%ebTrcApp%ebState%ebGr%ks + &
+                            ((b-1)*(vApp%ebTrcApp%ebState%ebGr%ke+1))/vApp%ebTrcApp%ebSquish%numSquishBlocks
+                    enddo
                 endif
                 call createLoadBalancer(vApp%squishLb, nHelpers,&
                         vApp%ebTrcApp%ebState%ebGr%ke+1 - vApp%ebTrcApp%ebState%ebGr%ks + 1, .true.)
