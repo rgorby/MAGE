@@ -9,9 +9,5 @@ These pages document the use of a set of compiled tools that come with the
 
     calcdb
     chop
-    project
-    psd
-    push
     sctrack
     slice
-    trace
