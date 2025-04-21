@@ -1,8 +1,9 @@
 ``chop.x`` - Extract a subset of ``kaiju`` results
---------------------------------------------------
+==================================================
+
 
 Introduction
-============
+------------
 
 ``chop.x`` is a compiled tool that extracts a 3D portion of the domain from
 ``kaiju`` output on either the MAGE grid or interpolated onto a cartesian or a
@@ -10,8 +11,9 @@ spherical grid. ``chop.x`` also performs additional calculations such as field
 line tracing. Output is to an hdf5 file that can be visualized and analyzed
 similarly to ``kaiju`` output files.
 
+
 Before you start
-================
+----------------
 
 In order to use ``chop.x``, you need the following:
 
@@ -22,8 +24,9 @@ In order to use ``chop.x``, you need the following:
 
 * (optional) A PBS job file to run ``chop.x``.
 
+
 ``kaiju`` magnetosphere result files
-====================================
+------------------------------------
 
 Any set of ``kaiju`` magnetosphere results can be used. This documentation
 assumes you used the MPI version the the ``kaiju`` software, e.g.
@@ -32,8 +35,9 @@ the model results from each MPI rank.
 
 Assume all result files are in the current directory.
 
+
 The XML file for ``chop.x``
-=============================
+---------------------------
 
 The XML file read by ``calcdb.x`` should look something like this (file
 ``chop.xml``):

@@ -1,15 +1,17 @@
 ``calcdb.x`` - Computing ground delta B values from ``kaiju`` results
----------------------------------------------------------------------
+=====================================================================
+
 
 Introduction
-============
+------------
 
 The tool ``calcdb.x`` is a compiled Fortran program which uses the output from
 a ``kaiju`` magnetosphere simulation to compute the values of the ground
 magnetic field disturbance.
 
+
 Before you start
-================
+----------------
 
 In order to use ``calcdb.x``, you need the following:
 
@@ -20,8 +22,9 @@ In order to use ``calcdb.x``, you need the following:
 
 * (optional) A PBS job file to run ``calcdb.x``.
 
+
 ``kaiju`` magnetosphere result files
-====================================
+------------------------------------
 
 Any set of ``kaiju`` magnetosphere results can be used. This documentation
 assumes you used the MPI version the the ``kaiju`` software, e.g.
@@ -30,8 +33,9 @@ the model results from each MPI rank.
 
 Assume all result files are in the current directory.
 
+
 The XML file for ``calcdb.x``
-=============================
+-----------------------------
 
 The XML file read by ``calcdb.x`` should look something like this (file
 ``calcdb.xml``):
@@ -95,14 +99,14 @@ The elements and attributes of the XML file are described below.
     by the MAGE output files. Valid values are ``EGG``, ``LFM``, ``SPH``. If
     the string is not one of the supported grid types, the default value
     (``EGG``) is used, and a warning message is printed. Note that for a
-    magnetosphere simulation, the ``grType`` is nearly always ``LFM``.
+    magnetosphere simulation, the ``grType`` is always ``LFM``.
 
   * ``doJ`` (required, must be ``T``): If ``T``, compute currents from the
     ``kaiju`` model results.
 
   * ``isMPI`` (optional): If ``true``, the MAGE results are from an MPI run.
 
-* ``<parallel>`` (required): Describes the MPI decomposition of MAGE model
+* ``<parallel>`` (required): Describes the MPI decomposition of the MAGE model
   run.
 
   * ``Ri`` (optional, default ``1``): Number of ranks used in MPI
@@ -123,14 +127,15 @@ The elements and attributes of the XML file are described below.
 
   * ``Nz`` (optional, default ``2``): Number of altitude cells.
 
+
 Running ``calcdb.x``
-====================
+--------------------
 
 We can now run ``calcdb.x`` with the following command:
 
 .. code-block:: bash
 
-  $ calcdb.x calcdb.xml
+  calcdb.x calcdb.xml
 
 For large simulations, this process can take a long time. A more efficient
 approach is to use PBS to run multiple ``calcdb.x`` jobs in parallel, and
@@ -146,7 +151,7 @@ where:
 * ``<parintime>`` (optional): Options to run a PBS job array of ``calcdb.x``
   to increase calculation speed.
 
-  * ``NumB`` (optional, default ``0``): Number of batches into which the
+  * ``NumB`` (optional, default ``0``): Number of jobs into which the
     calculation will be split for parallel computation.
 
 We also need a PBS script, as shown below (the example runs on ``derecho``):
@@ -179,7 +184,7 @@ Now submit the job to the PBS system:
 
 .. note::
 
-  The second digit in ``J 1-4`` must match the value of ``NumB`` in the XML
+  The second digit in ``-J 1-4`` must match the value of ``NumB`` in the XML
   file.
 
 When the calculation has finished, your directory will contain a set of files
@@ -187,7 +192,7 @@ named like this:
 
 .. code-block:: bash
 
-  $ ls -1 *.deltab.h5
+  ls -1 *.deltab.h5
   geospace.0001.deltab.h5
   geospace.0002.deltab.h5
   geospace.0003.deltab.h5
@@ -198,7 +203,7 @@ Now combine the results into a single file with the ``pitmerge.py`` command
 
 .. code-block:: bash
 
-  $ pitmerge.py -runid geospace
+  pitmerge.py -runid geospace
 
 where ``runid`` is the runid for the ``kaiju`` run being used for the
 calculation. This command will create the file ``geospace.deltab.h5``, which
