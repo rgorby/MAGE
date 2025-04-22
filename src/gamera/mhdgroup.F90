@@ -205,17 +205,54 @@ module mhdgroup
                 type(State_T), intent(in)    :: iState
                 type(State_T), intent(inout) :: oState
                 
+                integer :: i,j,k
+                
+            !This is the code we want, but it's slow so we can't do it this way
+            !This is why we can't have nice things
 
-                oState%Gas = iState%Gas
-                if (Model%doMHD) then
-                    !Note, not bothering w/ Efld since that's only ever at half state
-                    oState%Bxyz    = iState%Bxyz
-                    oState%magFlux = iState%magFlux
-                    if (Model%doResistive) then
-                        oState%Deta = iState%Deta
-                    endif
-                endif
+                ! oState%Gas = iState%Gas
+                ! if (Model%doMHD) then
+                !     !Note, not bothering w/ Efld since that's only ever at half state
+                !     oState%Bxyz    = iState%Bxyz
+                !     oState%magFlux = iState%magFlux
+                !     if (Model%doResistive) then
+                !         oState%Deta = iState%Deta
+                !     endif
+                ! endif
+                ! oState%time = iState%time
+
+
+            !Let's goddamn do this thing w/ interleaved memory copies
+                !Open one big-ass // block
+
+                !$OMP PARALLEL default(shared)
+
+                !$OMP DO collapse(2)
+                do k=Grid%ksg,Grid%keg
+                    do j=Grid%jsg,Grid%jeg
+                        do i=Grid%isg,Grid%ieg
+                            oState%Gas(i,j,k,:,:) = iState%Gas(i,j,k,:,:)
+                            oState%Bxyz(i,j,k,:)  = iState%Bxyz(i,j,k,:)
+                            if (Model%doResistive .and. Model%doMHD) then
+                                oState%Deta(i,j,k,:) = iState%Deta(i,j,k,:)
+                            endif
+                        enddo
+                    enddo
+                enddo
+                !$OMP END DO NOWAIT !Rely on barrier at end of parallel region
+                !Oh, you're already done? Well start the next thing
+
+                !$OMP DO collapse(2)
+                do k=Grid%ksg,Grid%keg+1
+                    do j=Grid%jsg,Grid%jeg+1
+                        do i=Grid%isg,Grid%ieg+1
+                            oState%magFlux(i,j,k,:) = iState%magFlux(i,j,k,:)
+                        enddo
+                    enddo
+                enddo
+                !$OMP END PARALLEL !You're done when I say you're done ... which is now
                 oState%time = iState%time
+
             end subroutine CopyState
 
     end subroutine applyUpdate
