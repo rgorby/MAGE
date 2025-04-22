@@ -75,7 +75,7 @@ The elements and attributes of the XML file are described below.
 * ``<Chimp>`` (required): Inner element for Chimp-specific elements.
 
 * ``<sim>`` (optional): Specify identifying information for the ``kaiju``
-  results`` to use,
+  results to use,
 
   * ``runid`` (optional, default ``"Sim"``): String specifying the runid for
     the ``kaiju`` results to use as the basis for the extraction.
@@ -91,9 +91,9 @@ The elements and attributes of the XML file are described below.
   * ``tFin`` (optional, default ``"60.0"``): Stop time (simulated seconds) for
     extraction, relative to start of simulation results used as input.
 
-``<fields>`` (required): Describes the results from a MAGE model run.
+* ``<fields>`` (required): Describes the results from a MAGE model run.
 
-  * ``doMHD`` (optional, default ``"F"``): Set to ``T`` to pass the full set
+  * ``doMHD`` (optional, default ``"F"``): Set to ``"T"`` to pass the full set
     of magnetohydrodynamic variables to ``chop.x``, rather than just the
     electric and magnetic fields. Includes velocity vector, density and
     pressure in the output file. See ``ebtypes.F90``.
@@ -104,7 +104,7 @@ The elements and attributes of the XML file are described below.
 
   * ``grType`` (optional, default ``"EGG"``): String specifying grid type used
     by the MAGE output files. Valid values are ``"EGG"``, ``"LFM"``,
-    ``"SPH"``. If the string is not one of the supported grid types, the
+    and ``"SPH"``. If the string is not one of the supported grid types, the
     default value (``"EGG"``) is used, and a warning message is printed. Note
     that for a magnetosphere simulation, the ``grType`` is nearly always
     ``"LFM"``.
@@ -123,10 +123,10 @@ The elements and attributes of the XML file are described below.
   * ``Rk`` (optional, default ``"1"``): Number of ranks used in MPI
     decomposition of ``k`` dimension.
 
-``<domain>`` (optional): Options for the problem domain
+* ``<domain>`` (optional): Options for the problem domain
 
   * ``dtype`` (optional, default ``"SPH"``): Domain over which to perform
-    CHIMP calculations, separate from grid, enables the user to perform
+    CHIMP calculations, separate from grid. This enables the user to perform
     calculation on a subset of the grid to reduce computation where it is not
     needed - See ``gridloc.F90``. Valid values are ``"SPH"``, ``"LFM"``,
     ``"LFMCYL"``, ``"MAGE"``, ``"EGG"``, ``"ELL"``.
@@ -150,7 +150,7 @@ The elements and attributes of the XML file are described below.
     ``"EARTHCODE"``, ``"JUPITER"``, ``"JUPITERCODE"``, ``"SATURN"``,
     ``"SATURNCODE"``, ``"HELIO"``, ``"LFM"``, ``"LFMJUPITER"``..
 
-``<chop>`` (optional): Options specific to ``chop.x``.
+* ``<chop>`` (optional): Options specific to ``chop.x``.
 
   * ``grType`` (optional, default ``"XYZ"``): String specifying an identifier
     for the grid type for data extraction. Valid Values are ``"XYZ"``
@@ -161,83 +161,81 @@ The elements and attributes of the XML file are described below.
     ``x1Max`` is used similar to ``domain/xSun``.
 
   * ``x1Min`` (optional, default ``"-x1Max"``): Minimum value of the first
-    dimension used to initialize the extracted grid. Not used if ``grType`` is
-    set to ``"LFM"``.
+    dimension used to initialize the extracted grid.
 
   * ``x2Max`` (optional, default ``"10.0"``): Maximum value of the second
     dimension used to initialize the extracted grid.
 
-  * ``x2Min`` (optional, default ``"-x1Max"``): Minimum value of the second
-    dimension used to initialize the extracted grid. Not used if ``grType`` is
-    set to ``"LFM"``.
+  * ``x2Min`` (optional, default ``"-x2Max"``): Minimum value of the second
+    dimension used to initialize the extracted grid.
 
   * ``x3Max`` (optional, default ``"10.0"``): Maximum value of the third
     dimension used to initialize the extracted grid.
 
-  * ``x2Min`` (optional, default ``"-x1Max"``): Minimum value of the second
-    dimension used to initialize the extracted grid. Not used if ``grType`` is
-    set to ``"LFM"``.
+  * ``x3Min`` (optional, default ``"-x3Max"``): Minimum value of the second
+    dimension used to initialize the extracted grid.
 
-  * ``Nx1`` (optional, default ``"64"``): Number of cells in X or R depending on
-    grid specified. Not used if ``grType`` is set to ``"LFM"``.
+  * ``Nx1`` (optional, default ``"64"``): Number of cells in X or R depending
+    on grid specified.
 
   * ``Nx2`` (optional, default ``"64"``): Number of cells in Y or Theta
-    depending on grid specified. Not used if ``grType`` is set to ``"LFM"``.
+    depending on grid specified.
 
-  * ``Nx3`` (optional, default ``"64"``): Number of cells in Z or Phi depending
-    on grid specified. Not used if ``grType`` is set to ``"LFM"``.
+  * ``Nx3`` (optional, default ``"64"``): Number of cells in Z or Phi
+    depending on grid specified.
 
-  * ``rClosed`` (optional, default set by choice of ``units/uid``): Radial value
-    for field line endpoint to reach to be considered closed - See ``chmpunits.F90``.
+  * ``rClosed`` (optional, default set by choice of ``units/uid``): Radial
+    value for field line endpoint to reach to be considered closed. See
+    ``chmpunits.F90``.
 
-  * ``rmax`` (optional, default computed): Maximum radius of domain region -
+  * ``rmax`` (optional, default computed): Maximum radius of domain region.
     See ``gridloc.F90``.
 
-  * ``rmin`` (optional, default computed): Minimum radius of domain region -
+  * ``rmin`` (optional, default computed): Minimum radius of domain region.
     See ``gridloc.F90``.
 
-* ``<output>`` (optional): Options related to driver output
+* ``<output>`` (optional): Options related to ``chop.x```` output
 
   * ``timer`` (optional, default ``"false"``): Set to ``"true"`` to turn time
     flags on See ``starter.F90``.
 
   * ``tsOut`` (optional, default ``"10"``): Cadence to output diagnostics to
-    run-log file See ``starter.F90``.
+    run-log file. See ``starter.F90``.
 
   * ``doEQProj`` (optional, default ``"false"``): Set to ``"true"`` to include
-    equatorial variables, projected down to magnetic equator along field line from
-    cell location (i.e. Xeq, Yeq, if field line is open or closed etc) See
-    ``chmpdefs.F90``.
+    equatorial variables, projected down to magnetic equator along field line
+    from cell location (i.e. Xeq, Yeq, if field line is open or closed etc).
+    See ``chmpdefs.F90``.
 
   * ``doSlim`` (optional, default ``"false"``):  Set to ``"true"`` to remove
-    vector electric field and current data from ``chop.x`` output See
+    vector electric field and current data from ``chop.x`` output. See
     ``chmpdefs.F90``.
 
   * ``doTrc`` (optional, default ``"false"``): Similar to ``doEQProj``, used in
-    ``chop.x`` See ``chmpdefs.F90``.
+    ``chop.x``. See ``chmpdefs.F90``.
 
-* ``<parallel>`` (optional): Options if ``ebfile`` was generated using an MPI
+* ``<parallel>`` (optional): Use if ``ebfile`` was generated using an MPI
   version of the code.
 
-  * ``Ri`` (optional, default ``"1"``): Number of ranks used in decomposition of
-    the first dimension See ``iotable.F90``.
+  * ``Ri`` (optional, default ``"1"``): Number of ranks used in decomposition
+    of the first dimension See ``iotable.F90``.
 
-  * ``Rj`` (optional, default ``"1"``): Number of ranks used in decomposition of
-    the second dimension See ``iotable.F90``.
+  * ``Rj`` (optional, default ``"1"``): Number of ranks used in decomposition
+    of the second dimension See ``iotable.F90``.
 
-  * ``Rk`` (optional, default ``"1"``): Number of ranks used in decomposition of
-    the third dimension See ``iotable.F90``.
+  * ``Rk`` (optional, default ``"1"``): Number of ranks used in decomposition
+    of the third dimension See ``iotable.F90``.
 
   * ``doOldNaming`` (optional, default ``"false"``): Allow for backward
-    compatibility for MHD files generated with the now deprecated naming
-    convention See ``chmpdefs.F90``.
+    compatibility for MHD files generated with the now-deprecated naming
+    convention. See ``chmpdefs.F90``.
 
 * ``<tracer>`` (optional): Options related to field line tracing.
 
-  * ``epsds`` (optional, default ``"1.0e-2"``): Tolerance for field line tracing
-    computations See ``chmpdefs.F90``.
+  * ``epsds`` (optional, default ``"1.0e-2"``): Tolerance for field line
+    tracing computations. See ``chmpdefs.F90``.
 
-* ``<interp>`` (optional): Options related to interpolation
+* ``<interp>`` (optional): Options related to interpolation.
 
   * ``wgt`` (optional, default ``"TSC"``): Sets 1D interpolation type. Valid
     values are ``"TSC"`` (1D triangular shaped cloud), ``"LIN"`` (linear),

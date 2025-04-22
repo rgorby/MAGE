@@ -1,6 +1,7 @@
 Running the ``kaiju`` software
 ==============================
 
+
 Before you begin
 ----------------
 
@@ -30,6 +31,7 @@ environment with all prerequisites, is available on
     supported. If you try to run the ``kaipy`` code using a different version
     of ``python``, you may encounter compatibility issues. We are working to
     update the ``kaipy`` code to support more recent versions of ``python``.
+
 
 Table of Contents
 -----------------

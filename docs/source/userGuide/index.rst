@@ -1,10 +1,12 @@
 User Guide
 ==========
 
+
 Introduction
 ------------
 
 This page provides links to documentation for using the kaiju software.
+
 
 .. toctree::
     :maxdepth: 1

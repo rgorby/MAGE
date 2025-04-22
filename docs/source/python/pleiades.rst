@@ -1,6 +1,7 @@
 Creating a Python environment for ``kaiju`` on ``pleiades``
 ===========================================================
 
+
 Introduction
 ------------
 
@@ -11,6 +12,7 @@ These steps assume that ``pip`` (only) is used for installing additional
 packages, and packages are only taken from PyPI.
 
 These instructions assume you are using the ``bash`` shell.
+
 
 Building the python environment
 -------------------------------
@@ -50,6 +52,7 @@ create the environment, then populate it with the required Python packages.
     # OR
     # If you are using a clone of the kaipy repository:
     pip install -r /path/to/kaipy/requirements.txt
+
 
 Using the python environment
 ----------------------------

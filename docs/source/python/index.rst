@@ -1,6 +1,7 @@
 Creating a Python environment for ``kaiju``
 ===========================================
 
+
 .. toctree::
     :maxdepth: 1
 

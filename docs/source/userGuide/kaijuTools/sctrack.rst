@@ -67,7 +67,7 @@ The elements and attributes of the XML file are described below.
 
 * ``<Kaiju>`` (required): Outer element for all ``kaiju`` elements.
 
-* ``<Chimp>`` (required): Inner element for Chimp-specific elements.
+* ``<Chimp>`` (required): Inner element for CHIMP-specific elements.
 
 * ``<sim>`` (optional): Specify identifying information for the ``kaiju``
   results to use,
@@ -75,9 +75,9 @@ The elements and attributes of the XML file are described below.
   * ``runid`` (optional, default ``"Sim"``): String specifying the runid for
     the ``kaiju`` results to use as the basis for the extraction.
 
-``<fields>`` (required): Describes the results from a MAGE model run.
+* ``<fields>`` (required): Describes the results from a MAGE model run.
 
-  * ``doMHD`` (optional, default ``"F"``): Set to ``T`` to pass the full set
+  * ``doMHD`` (optional, default ``"F"``): Set to ``"T"`` to pass the full set
     of magnetohydrodynamic variables to ``sctrack.x``, rather than just the
     electric and magnetic fields. Includes velocity vector, density and
     pressure in the output file. See ``ebtypes.F90``.
@@ -97,7 +97,7 @@ The elements and attributes of the XML file are described below.
 
 * ``<units>`` (optional): Data on units system used in the model run.
 
-  * ``uid`` (optional, default ``"Earth"``): Name of units system used in the
+  * ``uid`` (optional, default ``"EARTH"``): Name of units system used in the
     model run. See ``chmpunits.F90``. Valid values are ``"EARTH"``,
     ``"EARTHCODE"``, ``"JUPITER"``, ``"JUPITERCODE"``, ``"SATURN"``,
     ``"SATURNCODE"``, ``"HELIO"``, ``"LFM"``, ``"LFMJUPITER"``..
@@ -107,7 +107,7 @@ The elements and attributes of the XML file are described below.
   ``H5Traj`` (required): Name of HDF5 file containing spacecraft trajectory.
   The interpolated data will be written back to this file.
 
-  ``doSmooth`` (required): Set to ``T`` to smooth the trajectory, ``F``
+  ``doSmooth`` (required): Set to ``"T"`` to smooth the trajectory, ``F``
   otherwise.
 
 

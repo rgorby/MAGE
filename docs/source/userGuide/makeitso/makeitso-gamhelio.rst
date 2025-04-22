@@ -6,7 +6,7 @@ process of configuring and running a heliosphere model with the ``kaiju``
 software. It provides an interactive, prompt-driven interface to specify all
 of the parameters needed for a model run.
 
-The ``makeitso-gamhelio.py`` script can operate at one of three different
+The ``makeitso-gamhelio.py`` script can operate in one of three different
 modes: ``BASIC``, ``INTERMEDIATE``, or ``EXPERT``. Each mode provides access
 to a subset of the ``kaiju`` parameters. The ``BASIC`` mode requires the user
 to provide the minimum set of parameters needed to specify a model run, such
@@ -18,6 +18,7 @@ of the user-adjustable parameters from the ``kaiju`` software. When finished,
 the script generates the files needed to run a helioosphere model, and saves
 all options in a convenient JSON file so that the run can be repeated at a
 later date.
+
 
 Running the ``makeitso-gamhelio.py`` script
 -------------------------------------------
@@ -71,6 +72,8 @@ the ``kaiju`` software. The default name is ``helio``.
 
 Enter the path to the FITS file that contains output from the WSA model for
 use as the inner boundary conditions.
+
+.. code-block:: bash
 
     Start date for simulation (yyyy-mm-ddThh:mm:ss) [2017-07-20T05:22:47]:
     Stop date for simulation (yyyy-mm-ddThh:mm:ss) [2017-08-16T12:05:59]:
@@ -132,12 +135,14 @@ split your job into multiple segments).
 
 .. code-block:: bash
 
-    Number of radial grid cells [128]: 
-    Number of polar angle grid cells [64]: 
-    Number of azimuthal angle grid cells [128]: 
+    Number of radial grid cells [128]:
+    Number of polar angle grid cells [64]:
+    Number of azimuthal angle grid cells [128]:
 
 Specify the number of grid cells to use in each dimension of the spherical
 coordinate system used to define the simulation.
+
+.. code-block:: bash
 
     Running preprocessing steps.
     Creating .ini file(s) for run.
@@ -163,6 +168,7 @@ of the parameters used in your simulation. This file can be passed back to
 ``makeitso-gamhelio.py`` in a subsequent session to repeat the simulation, and
 also provides a convenient starting point for minor tweaks to your simulation
 parameters.
+
 
 Additional parameters in ``INTERMEDIATE`` and ``EXPERT`` mode
 -------------------------------------------------------------

@@ -1,12 +1,14 @@
 Building the ``kaiju`` software on ``derecho``
 ==============================================
 
+
 Introduction
 ------------
 
 This page provides instructions for building the ``kaiju`` software on the
 ``derecho`` supercomputer. These instructions assume that you have cloned the
 ``kaiju`` repository.
+
 
 Prepare your software environment
 ---------------------------------
@@ -51,6 +53,7 @@ module set:
     **11 April 2025**, and is subject to change as the compute environment
     changes.
 
+
 Build the ``kaiju`` software
 ----------------------------
 
@@ -89,18 +92,15 @@ set of ``kaiju`` executables.
     gamhelio_mpi.x  psd.x         remix.x        voltron_mpi.x
 
 .. note:: The compiled programs of interest in this case are
-    ``voltron_mpi.x``, ```gamera_mpi.x``, ``rcm.x`` and ``remix.x`` (all are
+    ``voltron_mpi.x``, ``gamera_mpi.x``, ``rcm.x`` and ``remix.x`` (all are
     part of the MAGE model),  and ``gamhelio_mpi.x`` (used for the inner
-    heliosphere). Documentation for the remaining tools is found
-    :doc:`here </userGuide/kaijuTools/index>`. These tools are often run by
-    using wrapper scripts found in the ``kaipy`` package. Documentation for
-    ``kaipy`` is available
+    heliosphere). Documentation for the most useful of the remaining tools is
+    found :doc:`here </userGuide/kaijuTools/index>`. These tools are often
+    run by using wrapper scripts found in the ``kaipy`` package. Documentation
+    for ``kaipy`` is available
     `here <https://kaipy-docs.readthedocs.io/en/latest/index.html>`_.
 
 .. note:: You can choose to compile only specific programs from the ``kaiju``
     package, which will speed up the compilation. For instance, to compile
-    just the MPI components of ``MAGE``, you would use the command:
-          
-.. code-block::
-
-   make gamera_mpi.x rcm.x remix.x voltron_mpi.x
+    just the MPI components of ``MAGE``, you would use the command
+    ``make gamera_mpi.x rcm.x remix.x voltron_mpi.x``.

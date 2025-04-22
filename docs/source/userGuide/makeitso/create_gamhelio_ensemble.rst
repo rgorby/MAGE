@@ -6,6 +6,7 @@ the process of configuring and running an ensemble of heliosphere models with
 the ``kaiju`` software. It provides an interactive, prompt-driven interface to
 specify all of the parameters needed for an ensemble of model runs.
 
+
 Running the ``create_gamhelio_ensemble.py`` script
 --------------------------------------------------
 
@@ -36,12 +37,13 @@ like this:
 The ``ensemble_description_path`` option allows the user to specify an
 ``.ini``-format file which provides the parameter ranges for the ensemble.
 
+
 The ensemble description file
 -----------------------------
 
 The ensemble description file is an ``.ini``-format file which provides the
 parameter ranges for the ensemble, as well as the system-specific information
-required to run the ensemble. In this way, ``creategamhelio_ensemble.py`` is a
+required to run the ensemble. In this way, ``create_gamhelio_ensemble.py`` is a
 stripped-down, non-interactive version of ``makeitso-gamhelio.py``.
 
 The ensemble description file starts with a section called ``[glparams]``
@@ -132,6 +134,10 @@ The most important of these parameters are:
 
 :t_cme: Time of CME emergence (simulated hours relative to start of
   simulation).
+
+
+Creating the ensemble
+---------------------
 
 The ensemble definition file is passed to ``create_gamhelio_ensemble.py`` on
 the command line:

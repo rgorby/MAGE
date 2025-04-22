@@ -1,6 +1,7 @@
 Building the ``kaiju`` software
 ===============================
 
+
 Introduction
 ------------
 
@@ -9,14 +10,16 @@ supercomputers - ``derecho`` and ``pleiades``. If you are trying to build the
 ``kaiju`` software on a different system, use these instructions as a starting
 point.
 
+
 Before you begin
 ----------------
 
 The ``kaiju`` software is typically built with the Intel Fortran compiler
-(although the software can also be built with any Fortran compiler,
+(although the software can also be built with other Fortran compilers,
 e.g., GNU). Building the software also requires the ``cmake`` build tool, the
 ``HDF5`` library, and an ``MPI`` library. Instructions for loading these
 packages are provided in the ``module`` commands for each HPC system.
+
 
 Getting the source code
 -----------------------
@@ -43,6 +46,7 @@ on BitBucket:
     instructions for the single-machine serial version are essentially the
     same as for the MPI version - typically all that is required is a Fortran
     compiler and an HDF5 library.
+
 
 Table of Contents
 -----------------

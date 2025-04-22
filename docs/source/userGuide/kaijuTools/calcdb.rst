@@ -1,4 +1,4 @@
-``calcdb.x`` - Computing ground delta B values from ``kaiju`` results
+``calcdb.x`` - Computing ground delta-B values from ``kaiju`` results
 =====================================================================
 
 
@@ -67,65 +67,65 @@ The elements and attributes of the XML file are described below.
 
 * ``<Kaiju>`` (required): Outer element for all ``kaiju`` elements.
 
-* ``<Chimp>`` (required): Inner element for Chimp-specific elements.
+* ``<Chimp>`` (required): Inner element for CHIMP-specific elements.
 
 * ``<sim>`` (optional): Specify identifying information for the ``kaiju``
-  results`` to use,
+  results to use,
 
-  * ``runid`` (optional, default ``Sim``): String specifying the runid for
+  * ``runid`` (optional, default ``"Sim"``): String specifying the runid for
     the ``kaiju`` results to use in the ground delta B calculation.
 
 * ``<time>`` (optional): Specify time range and interval for magnetic field
   calculation.
 
-  * ``T0`` (optional, default ``0.0``): Start time (simulated seconds) for
+  * ``T0`` (optional, default ``"0.0"``): Start time (simulated seconds) for
     ground magnetic field calculation, relative to start of simulation
     results used as input.
 
-  * ``dt`` (optional, default ``1.0``): Time interval and output cadence
+  * ``dt`` (optional, default ``"1.0"``): Time interval and output cadence
     (simulated seconds) for ground magnetic field calculation.
 
-  * ``tFin`` (optional, default ``60.0``): Stop time (simulated seconds) for
+  * ``tFin`` (optional, default ``"60.0"``): Stop time (simulated seconds) for
     ground magnetic field calculation, relative to start of simulation
     results used as input.
 
 * ``<fields>`` (required): Describes the MAGE model results to use.
 
-  * ``ebfile`` (optional, default ``ebdata``): Root name for HDF5 files
+  * ``ebfile`` (optional, default ``"ebdata"``): Root name for HDF5 files
     containing the results produced by a MAGE model run. This is usually the
     same as the runid.
 
-  * ``grType`` (optional, default ``EGG``): String specifying grid type used
-    by the MAGE output files. Valid values are ``EGG``, ``LFM``, ``SPH``. If
-    the string is not one of the supported grid types, the default value
-    (``EGG``) is used, and a warning message is printed. Note that for a
-    magnetosphere simulation, the ``grType`` is always ``LFM``.
+  * ``grType`` (optional, default ``"EGG"``): String specifying grid type used
+    by the MAGE output files. Valid values are ``"EGG"``, ``"LFM"``, and
+    ``"SPH"``. If the string is not one of the supported grid types, the
+    default value (``"EGG"``) is used, and a warning message is printed. Note
+    that for a magnetosphere simulation, the ``grType`` is always ``"LFM"``.
 
-  * ``doJ`` (required, must be ``T``): If ``T``, compute currents from the
+  * ``doJ`` (required, must be ``"T"``): If ``"T"``, compute currents from the
     ``kaiju`` model results.
 
-  * ``isMPI`` (optional): If ``true``, the MAGE results are from an MPI run.
+  * ``isMPI`` (optional): If ``"true"``, the MAGE results are from an MPI run.
 
 * ``<parallel>`` (required): Describes the MPI decomposition of the MAGE model
   run.
 
-  * ``Ri`` (optional, default ``1``): Number of ranks used in MPI
+  * ``Ri`` (optional, default ``"1"``): Number of ranks used in MPI
     decomposition  of ``i`` dimension.
 
-  * ``Rj`` (optional, default ``1``): Number of ranks used in MPI
+  * ``Rj`` (optional, default ``"1"``): Number of ranks used in MPI
     decomposition  of ``j`` dimension.
 
-  * ``Rk`` (optional, default ``1``): Number of ranks used in MPI
+  * ``Rk`` (optional, default ``"1"``): Number of ranks used in MPI
     decomposition of ``k`` dimension.
 
 * ``<grid>`` (optional): Options to specify the grid on the ground used in
   ``calcdb.x``.
 
-  * ``Nlat`` (optional, default ``45``): Number of latitude cells.
+  * ``Nlat`` (optional, default ``"45"``): Number of latitude cells.
 
-  * ``Nlon`` (optional, default ``90``): Number of longitude cells.
+  * ``Nlon`` (optional, default ``"90"``): Number of longitude cells.
 
-  * ``Nz`` (optional, default ``2``): Number of altitude cells.
+  * ``Nz`` (optional, default ``"2"``): Number of altitude cells.
 
 
 Running ``calcdb.x``
@@ -151,7 +151,7 @@ where:
 * ``<parintime>`` (optional): Options to run a PBS job array of ``calcdb.x``
   to increase calculation speed.
 
-  * ``NumB`` (optional, default ``0``): Number of jobs into which the
+  * ``NumB`` (optional, default ``"0"``): Number of jobs into which the
     calculation will be split for parallel computation.
 
 We also need a PBS script, as shown below (the example runs on ``derecho``):

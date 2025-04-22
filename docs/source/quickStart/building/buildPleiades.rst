@@ -78,7 +78,7 @@ set of ``kaiju`` executables.
     gamhelio_mpi.x  psd.x         remix.x        voltron_mpi.x
 
 .. note:: The compiled programs of interest in this case are
-    ``voltron_mpi.x``, ```gamera_mpi.x``, ``rcm.x`` and ``remix.x`` (all are
+    ``voltron_mpi.x``, ``gamera_mpi.x``, ``rcm.x`` and ``remix.x`` (all are
     part of the MAGE model),  and ``gamhelio_mpi.x`` (used for the inner
     heliosphere). Documentation for the remaining tools is found
     :doc:`here </userGuide/kaijuTools/index>`. These tools are often run by
@@ -88,8 +88,6 @@ set of ``kaiju`` executables.
 
 .. note:: You can choose to compile only specific programs from the ``kaiju``
     package, which will speed up the compilation. For instance, to compile
-    just the MPI components of ``MAGE``, you would use the command:
-          
-.. code-block::
+    just the MPI components of ``MAGE``, you would use the command ``make
+    gamera_mpi.x rcm.x remix.x voltron_mpi.x``.
 
-   make gamera_mpi.x rcm.x remix.x voltron_mpi.x
