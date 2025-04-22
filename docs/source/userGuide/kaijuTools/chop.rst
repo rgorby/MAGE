@@ -22,8 +22,6 @@ In order to use ``chop.x``, you need the following:
 * An XML file describing the magnetosphere results and the settings for
   ``chop.x``.
 
-* (optional) A PBS job file to run ``chop.x``.
-
 
 ``kaiju`` magnetosphere result files
 ------------------------------------
@@ -39,7 +37,7 @@ Assume all result files are in the current directory.
 The XML file for ``chop.x``
 ---------------------------
 
-The XML file read by ``calcdb.x`` should look something like this (file
+The XML file read by ``chop.x`` should look something like this (file
 ``chop.xml``):
 
 .. code-block:: xml
@@ -249,7 +247,7 @@ The elements and attributes of the XML file are described below.
 Running ``chop.x``
 ------------------
 
-We can now run ``chop.x`` with the following command:
+You can now run ``chop.x`` with the following command:
 
 .. code-block:: bash
 
