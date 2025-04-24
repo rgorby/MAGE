@@ -14,6 +14,13 @@ module voltio
     
     implicit none
 
+    ! these will be assigned values during voltron console output so that the output
+    ! will be 90% of the correct value after about 1 model minute with the fast weight, and
+    ! 90% of the correct value after about 5 model minutes with the slow weight.
+    ! these are just default values
+    real(rp), private :: fastWeight = 0.8
+    real(rp), private :: slowWeight = 0.95
+
     integer , parameter, private :: MAXVOLTIOVAR = 50
     real(rp), parameter, private :: dtWallMax = 1.0 !How long between timer resets[hr]
     logical , private :: isConInit = .false.
@@ -46,12 +53,6 @@ module voltio
         class(voltApp_T), intent(inout) :: vApp
         class(gamApp_T) , intent(in) :: gApp
         real(rp), intent(in) :: MJD0
-
-        ! With a value of 0.8, the output will be 90% of the correct value after 10.3 output cycles
-        ! With a typical voltron output cadence of every coupling interval, this will take about a model minute
-        real(rp), parameter :: fastWeight = 0.8
-        ! With a value of 0.95, this will be 90% of the correct value after ~4 model minutes
-        real(rp), parameter :: slowWeight = 0.95
 
         real(rp) :: cpcp(2) = 0.0
 
@@ -86,6 +87,12 @@ module voltio
             tubesWait = fastWeight*tubesWait + (1.0-fastWeight)*readClock('VoltTubes')/(readClock(1)+TINY)
             ioWait    = fastWeight*ioWait    + (1.0-fastWeight)*readClock('IO')/(readClock(1)+TINY)
         else
+            ! calculate weights for simple exponential smoothing
+            ! halve the time constant to approximate 90% of correct value in formula
+            ! fast is 90% correct after 1 model minute
+            fastWeight = exp(-1.0*vApp%IO%dtCon/30.0_rp)
+            ! slow is 90% correct after 5 model minutes
+            slowWeight = exp(-1.0*vApp%IO%dtCon/150.0_rp)
             simRate = 0.0
             oMJD = cMJD
             call system_clock(count=oTime)

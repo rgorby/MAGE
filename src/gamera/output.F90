@@ -13,6 +13,7 @@ module output
     character(len=strLen), private :: zcsTot = "Omega" !Clock ID to use for ZCS calculation
 
     real(rp), private :: voltWait = 0.0
+    real(rp), private :: fastWeight = 0.8 ! exponential smoothing similar to voltron
     integer, private :: lastTs = -1
 
     !ConOut_T
@@ -68,8 +69,12 @@ contains
             ZCs_gam = (Model%ts-lastTs)*Grid%Nip*Grid%Njp*Grid%Nkp/wTime_gam
             ZCs_tot = (Model%ts-lastTs)*Grid%Nip*Grid%Njp*Grid%Nkp/wTime_tot
 
-            voltWait = 0.8*voltWait + 0.2*(readClock('VoltSync'))/(readClock(1)+TINY) ! Weighted average to self-correct
+            voltWait = fastWeight*voltWait + (1.0-fastWeight)*(readClock('VoltSync'))/(readClock(1)+TINY) ! Weighted average to self-correct
         else
+            ! calculate weights for simple exponential smoothing
+            ! halve the time constant to approximate 90% of correct value in formula
+            ! fast is 90% correct after 1 model minute
+            fastWeight = exp(-1.0*Model%IO%dtCon/30.0_rp)
             ZCs_gam = 0.0
             ZCs_tot = 0.0
             voltWait = 0

@@ -279,9 +279,11 @@ module gamCouple_mpi_G2V
         class(gamCouplerMpi_gam_T), intent(inout) :: gCplApp
 
 
+        call Tic("VoltSync", .true.)
         call recvShallowCplDataMpi(gCplApp)
         if(gCplApp%doDeep) call recvDeepCplDataMpi(gCplApp)
         call recvCplTimeMpi(gCplApp)
+        call Toc("VoltSync", .true.)
 
     end subroutine
 
@@ -297,13 +299,11 @@ module gamCouple_mpi_G2V
                 TYPE IS (IonInnerBC_T)
 
                     ! Recv inEijk Data
-                    call Tic("VoltSync", .true.)
                     call mpi_neighbor_alltoallw(0, gCplApp%zeroArrayCounts, &
                                                 gCplApp%zeroArrayDispls, gCplApp%zeroArrayTypes, &
                                                 iiBC%inEijk, gCplApp%recvVCountsIneijk, &
                                                 gCplApp%recvVDisplsIneijk, gCplApp%recvVTypesIneijk, &
                                                 gCplApp%couplingComm, ierr)
-                    call Toc("VoltSync", .true.)
 
                     ! Recv inExyz Data
                     call mpi_neighbor_alltoallw(0, gcplApp%zeroArrayCounts, &
@@ -318,13 +318,11 @@ module gamCouple_mpi_G2V
         else
             ! not a rank with remix BC, but still need to call mpi_neighbor_alltoallw
             ! Recv nothing step 1
-            call Tic("VoltSync", .true.)
             call mpi_neighbor_alltoallw(0, gCplApp%zeroArrayCounts, &
                                         gCplApp%zeroArrayDispls, gCplApp%zeroArrayTypes, &
                                         0, gCplApp%zeroArrayCounts, &
                                         gCplApp%zeroArrayDispls, gCplApp%zeroArrayTypes, &
                                         gCplApp%couplingComm, ierr)
-            call Toc("VoltSync", .true.)
 
             ! Recv nothing step 2
             call mpi_neighbor_alltoallw(0, gCplApp%zeroArrayCounts, &
