@@ -63,6 +63,50 @@ module imag2mix_interface
 
     end subroutine init_raiju_mix
 
+   subroutine CoupleIMagToMix(vApp)
+      class(voltApp_T), intent(inout) :: vApp
+      integer :: n,i,j,k,Nk
+      real(rp) :: x1,x2,x1c,di,dj,dk,t
+      logical :: isTasty
+      real(rp) :: imP(nVars_imag2mix)
+
+      ! G%t(G%Np,G%Nt), G%p = modulo((atan2(G%y,G%x)+2*pi),(2*pi)) 
+      ! G%x = sin(G%t)*cos(G%p)
+      ! G%y = sin(G%t)*sin(G%p)
+      associate(G=>vApp%remixApp%ion(NORTH)%G, ion=>vApp%remixApp%ion)
+         !Loop over and get imag data
+         !$OMP PARALLEL DO default(shared) collapse(2) &
+         !$OMP private(i,j,k,x1c,x2,imP,isTasty)
+            do j=1,G%Np
+               do i=1,G%Nt
+                  x1c = G%t(j,i) ! G%t is colatitude.
+                  x2  = G%p(j,i) ! need to be [0,2pi]
+                  imP = 0.0_rp
+                  call vApp%imagApp%getMomentsPrecip(x1c,x2,imP,isTasty)
+                  if (isTasty) then
+                     ion(NORTH)%St%Vars(j,i,IM_EAVG ) = imP(RAI_EAVG )      ! [keV]
+                     ion(NORTH)%St%Vars(j,i,IM_ENFLX) = imP(RAI_ENFLX)      ! [#/cm^2/s]
+                     ion(NORTH)%St%Vars(j,i,IM_EFLUX) = imP(RAI_EFLUX)      ! [ergs/cm^2/s]
+                     ion(NORTH)%St%Vars(j,i,IM_GTYPE) = imP(RAI_GTYPE)      ! [0~1]
+                     ion(NORTH)%St%Vars(j,i,IM_EDEN ) = imP(RAI_EDEN )      ! [#/m^3]
+                     ion(NORTH)%St%Vars(j,i,IM_EPRE ) = imP(RAI_EPRE )      ! [Pa]
+                     ion(NORTH)%St%Vars(j,i,IM_NPSP ) = imP(RAI_NPSP )      ! [#/m^3]
+                  endif
+               enddo !i
+            enddo !j
+            !remixApp%ion(SOUTH)%St%Vars(:,:,IM_INFLX) = rcmEnflx_mix(Np:1:-1,:)
+            ! start with mirror mapping for the SH.
+            ion(SOUTH)%St%Vars(:,:,IM_EAVG ) = ion(NORTH)%St%Vars(G%Np:1:-1,:,IM_EAVG )
+            ion(SOUTH)%St%Vars(:,:,IM_ENFLX) = ion(NORTH)%St%Vars(G%Np:1:-1,:,IM_ENFLX)
+            ion(SOUTH)%St%Vars(:,:,IM_EFLUX) = ion(NORTH)%St%Vars(G%Np:1:-1,:,IM_EFLUX)
+            ion(SOUTH)%St%Vars(:,:,IM_GTYPE) = ion(NORTH)%St%Vars(G%Np:1:-1,:,IM_GTYPE)
+            ion(SOUTH)%St%Vars(:,:,IM_EDEN ) = ion(NORTH)%St%Vars(G%Np:1:-1,:,IM_EDEN )
+            ion(SOUTH)%St%Vars(:,:,IM_EPRE ) = ion(NORTH)%St%Vars(G%Np:1:-1,:,IM_EPRE )
+            ion(SOUTH)%St%Vars(:,:,IM_NPSP ) = ion(NORTH)%St%Vars(G%Np:1:-1,:,IM_NPSP )
+      end associate
+
+   end subroutine CoupleIMagToMix
+
     subroutine mapRaijuToRemix(vApp)
       type(voltApp_T), intent(inout) :: vApp
 !        type(raijuCoupler_T), intent(inout) :: imagApp
@@ -79,7 +123,7 @@ module imag2mix_interface
 
         ! collect raiju fluxes.
         ! in getMomentsPrecip: allocate(rai_fluxes (is:ie,js:je,nVars_imag2mix)), (Nt_rai, Np_rai, Nf)
-        call vApp%imagApp%getMomentsPrecip(rai_fluxes)
+!        call vApp%imagApp%getMomentsPrecip(rai_fluxes)
 
         associate(remixApp=>vApp%remixApp ) !, imagApp=>vApp%imagApp
         allocate(mix_fluxes(Np_mix,Nt_mix,Nf))

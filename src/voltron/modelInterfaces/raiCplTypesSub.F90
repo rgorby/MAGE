@@ -177,60 +177,92 @@ submodule (volttypes) raijuCplTypesSub
     end subroutine getMomentsRAIJU
 
 
-    module subroutine getMomentsPrecipRAIJU(App,rai_fluxes)
+    module subroutine getMomentsPrecipRAIJU(App,th,ph,imP,isEdible)
+        !! Get precipitation quantities from RAIJU, formatted by enum in volttypes.F90 for a given theta,phi location within the RAIJU domain
         class(raijuCoupler_T), intent(inout) :: App
-        real(rp), dimension(:,:,:), allocatable, intent(out) :: rai_fluxes
-        integer :: i,j,k,s
+        real(rp), intent(in) :: th
+            !! Theta [rad]
+        real(rp), intent(in) :: ph
+            !! Phi [rad]
+        real(rp), intent(out) :: imP(nVars_imag2mix)
+        logical , intent(out) :: isEdible
+
+        integer :: s  ! Iterators
+        integer :: i0, j0  ! i,j cell that provided th,ph are in
+        real(rp) :: tScl, rampC
+
+        integer :: i,j,k
         integer :: is, ie, js, je, ks, ke
+        real(rp) :: d_cold, d_hot, p_hot, dn_flux, de_flux
         real(rp) :: valPrecip  ! threshold value of grid status for accumulating precip.
+        valPrecip = (RAIJUBUFFER*1.0_rp + 1.0)/2.0
 
         associate(Model=>App%raiApp%Model, State=>App%raiApp%State, sh=>App%raiApp%Grid%shGrid, spcList=>App%raiApp%Grid%spc)
-        is = sh%is
-        ie = sh%ie
-        js = sh%js
-        je = sh%je
+            ! Default
+            imP = 0.0
+            isEdible = .false.
 
-        ! Calculate accumulated precipitation for each species
-!        allocate(gtype        (is:ie,js:je))
-
-        allocate(rai_fluxes (is:ie,js:je,nVars_imag2mix))
-        rai_fluxes = 0.0_rp
-
-        rai_fluxes(:,:,RAI_GTYPE) = (State%active(is:ie,js:je)*1.0_rp+1.0)/2.0  ! "-1=Inactive, 0=Buffer, 1=Active" -> 0, 0.5, and 1.0
-        valPrecip = (RAIJUBUFFER*1.0_rp + 1.0)/2.0
-        rai_fluxes(:,:,RAI_THCON) = State%thcon(is:ie,js:je) ! conjugate co-lat in radians, 0-pi
-        rai_fluxes(:,:,RAI_PHCON) = State%phcon(is:ie,js:je) ! conjugate long in radians, 0-2pi
-        do s=1, Model%nSpc
-            ks = spcList(s)%kStart
-            ke = spcList(s)%kEnd
-            if (spcList(s)%flav == F_PSPH) then
-                rai_fluxes(:,:,RAI_NPSP ) = rai_fluxes(:,:,RAI_NPSP ) + State%Den(s)%data*1.0e6 ! uStr="#/cc" -> /m^3 , dStr="Density from RAIJU flavors"
-            elseif (spcList(s)%spcType == RAIJUHPLUS) then
-                ! add proton precipitation later.
-            elseif (spcList(s)%spcType == RAIJUELE) then
-                rai_fluxes(:,:,RAI_ENFLX) = rai_fluxes(:,:,RAI_ENFLX) + sum(State%precipNFlux(is:ie,js:je,ks:ke), dim=3) ! uStr="#/cm^2/s"
-                rai_fluxes(:,:,RAI_EFLUX) = rai_fluxes(:,:,RAI_EFLUX) + sum(State%precipEFlux(is:ie,js:je,ks:ke), dim=3) ! uStr="erg/cm^2/s"
-                rai_fluxes(:,:,RAI_CCHF ) = rai_fluxes(:,:,RAI_CCHF ) + sum(State%CCHeatFlux (is:ie,js:je,ks:ke), dim=3) ! uStr="erg/cm^2/s"
-                rai_fluxes(:,:,RAI_EPRE ) = rai_fluxes(:,:,RAI_EPRE ) + State%Press(s)%data*1.0e-9 ! uStr="nPa" -> Pa , dStr="Pressure from RAIJU flavors"
-                rai_fluxes(:,:,RAI_EDEN ) = rai_fluxes(:,:,RAI_EDEN ) + State%Den  (s)%data*1.0e6  ! uStr="#/cc" -> /m^3 , dStr="Density from RAIJU flavors"
+            d_cold = 0
+            d_hot = 0
+            p_hot = 0
+            dn_flux = 0
+            de_flux = 0
+    
+            ! Is this a good point?
+            if (th < sh%minTheta .or. th > sh%maxTheta) then
+                return ! Off grid, return default
             endif
-        enddo
+    
+            ! Active check
+            call getSGCellILoc(sh, th, i0)
+            call getSGCellJLoc(sh, ph, j0)
 
-        where (rai_fluxes(:,:,RAI_GTYPE) < valPrecip)
-            ! zero out fluxes on Inactive grids.
-            rai_fluxes(:,:,RAI_NPSP ) = 0.0_rp
-            rai_fluxes(:,:,RAI_ENFLX) = 0.0_rp
-            rai_fluxes(:,:,RAI_EFLUX) = 0.0_rp
-            rai_fluxes(:,:,RAI_CCHF ) = 0.0_rp
-            rai_fluxes(:,:,RAI_EPRE ) = 0.0_rp
-            rai_fluxes(:,:,RAI_EDEN ) = 0.0_rp
-            rai_fluxes(:,:,RAI_EAVG ) = 0.0_rp
-        end where
+            ! record the grid type info
+            imP(RAI_GTYPE) = (State%active(i0,j0)*1.0_rp+1.0)/2.0  ! "-1=Inactive, 0=Buffer, 1=Active" -> 0, 0.5, and 1.0        
+            imP(RAI_THCON) = State%thcon(i0,j0) ! conjugate co-lat in radians, 0-pi
+            imP(RAI_PHCON) = State%phcon(i0,j0) ! conjugate long in radians, 0-2pi
+            if (State%active(i0,j0) .ne. RAIJUACTIVE) then
+                return
+            endif
+    
+            ! Otherwise we are good, gonna return stuff
+            isEdible = .true.
 
-        where (rai_fluxes(:,:,RAI_ENFLX) > TINY)
+            do s=1, Model%nSpc
+                ks = spcList(s)%kStart
+                ke = spcList(s)%kEnd
+                if (spcList(s)%flav == F_PSPH) then
+                    !call InterpShellVar_TSC_pnt(sh, State%Den(s), th, ph, d_cold)
+                    !imW(IM_D_COLD) = d_cold  ! [#/cc]
+                    call InterpShellVar_TSC_pnt(sh, State%Den(s), th, ph, d_cold)
+                    imP(RAI_NPSP) = imP(RAI_NPSP) + d_cold*1.0e6 ! uStr="#/cc" -> /m^3 , dStr="Density from RAIJU flavors"
+                elseif (spcList(s)%spcType == RAIJUHPLUS) then
+                    ! add proton precipitation later.
+                elseif (spcList(s)%spcType == RAIJUELE) then
+                    !imP(RAI_EPRE ) = imP(RAI_EPRE ) + State%Press(s)%data(i0,j0)*1.0e-9 ! uStr="nPa" -> Pa , dStr="Pressure from RAIJU flavors"
+                    !imP(RAI_EDEN ) = imP(RAI_EDEN ) + State%Den  (s)%data(i0,j0)*1.0e6 ! uStr="#/cc" -> /m^3 , dStr="Density from RAIJU flavors"
+                    !imP(RAI_ENFLX) = imP(RAI_ENFLX) + sum(State%precipNFlux(i0,j0,ks:ke), dim=3) ! uStr="#/cm^2/s"
+                    !imP(RAI_EFLUX) = imP(RAI_EFLUX) + sum(State%precipEFlux(i0,j0,ks:ke), dim=3) ! uStr="erg/cm^2/s"
+                    call InterpShellVar_TSC_pnt(sh, State%Den(s)  , th, ph, d_hot)
+                    imP(RAI_EDEN ) = imP(RAI_EDEN ) + d_hot*1.0e6 ! uStr="#/cc" -> /m^3 , dStr="Density from RAIJU flavors"
+                    call InterpShellVar_TSC_pnt(sh, State%Press(s), th, ph, p_hot)
+                    imP(RAI_EPRE ) = imP(RAI_EPRE ) + p_hot*1.0e-9 ! uStr="nPa" -> Pa , dStr="Pressure from RAIJU flavors"
+                    do k=ks,ke
+                        if(.not. isnan(State%precipNFlux(i0,j0,k))) then
+                            ! need to turn precipNFlux and precipEFlux into a shell grid variable.
+                            ! now assumes nearest neighbor interpolation.
+                            !call InterpShellVar_TSC_pnt(sh, State%precipNFlux(i0,j0,k), th, ph, dn_flux)
+                            dn_flux = State%precipNFlux(i0,j0,k)
+                            imP(RAI_ENFLX) = imP(RAI_ENFLX) + dn_flux ! uStr="#/cm^2/s"
+                            !call InterpShellVar_TSC_pnt(sh, State%precipEFlux(i0,j0,k), th, ph, de_flux)
+                            de_flux = State%precipEFlux(i0,j0,k)
+                            imP(RAI_EFLUX) = imP(RAI_EFLUX) + de_flux ! uStr="erg/cm^2/s"
+                        endif
+                    enddo
+                endif
+            enddo
             ! derive mean energy where nflux is non-trivial.
-            rai_fluxes(:,:,RAI_EAVG) = rai_fluxes(:,:,RAI_EFLUX)/rai_fluxes(:,:,RAI_ENFLX) * erg2kev  ! Avg E [keV]
-        end where
+            if (imP(RAI_ENFLX) > TINY) imP(RAI_EAVG) = imP(RAI_EFLUX)/imP(RAI_ENFLX) * erg2kev  ! Avg E [keV]
         end associate
     end subroutine getMomentsPrecipRAIJU
 

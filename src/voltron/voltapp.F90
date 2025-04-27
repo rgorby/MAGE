@@ -480,8 +480,9 @@ module voltapp
         ! convert gamera inputs to remix
         call MJDRecalc(vApp%MJD)
         if (vApp%doDeep) then
-!            call mapIMagToRemix(vApp%imag2mix,vApp%remixApp)
-            call mapRaijuToRemix(vApp)
+!            call mapIMagToRemix(vApp%imag2mix,vApp%remixApp) ! rcm style
+!            call mapRaijuToRemix(vApp)
+            call CoupleIMagToMix(vApp)
         endif
         call mapGameraToRemix(vApp%mhd2mix, vApp%remixApp)
 
