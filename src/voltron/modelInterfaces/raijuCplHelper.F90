@@ -13,6 +13,7 @@ module raijuCplHelper
     
     use imagtubes
     use mixdefs
+    use raijuColdStartHelper, only : initRaijuColdStarter
     
 
     implicit none
@@ -37,7 +38,9 @@ module raijuCplHelper
 
         ! Options
         call iXML%Set_Val(raiCpl%startup_blendTscl, "cpl/startupTscl", raiCpl%startup_blendTscl)
-        call iXML%Set_Val(raiCpl%doColdstartCX,'prob/coldstartCX',raiCpl%doColdstartCX)
+        
+        ! State sub-modules that need coupler settings
+        call initRaijuColdStarter(raiCpl%raiApp%Model, iXML, raiCpl%raiApp%State%coldStarter,tEndO=raiCpl%startup_blendTscl)
 
         ! Allocations
         associate(sh => raiCpl%raiApp%Grid%shGrid, nFluidIn => raiCpl%raiApp%Model%nFluidIn)
@@ -81,9 +84,8 @@ module raijuCplHelper
         ! Initial values
         raiCpl%tLastUpdate = -1.0*HUGE
         raiCpl%pot_total%data = 0.0
-        raiCpl%pot_total%mask = .true.
         raiCpl%pot_corot%data = 0.0
-        raiCpl%pot_corot%mask = .true.
+        raiCpl%vaFrac%data = 0.5
 
     end subroutine raijuCpl_init
 
@@ -284,8 +286,6 @@ module raijuCplHelper
 !------
 
     subroutine packRaijuCoupler_RT(raiCpl, vApp)
-        !! Temporary imagTube generator for realtime coupling
-        !! Eventually, someone else should probably be packing raiCpl objects for us
         class(raijuCoupler_T), intent(inout) :: raiCpl
         class(voltApp_T), intent(in) :: vApp
 

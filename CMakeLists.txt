@@ -291,6 +291,7 @@ if(ENABLE_MPI)
     message("\tAdding executable voltron_mpi.x")
     add_executable(voltron_mpi.x src/drivers/voltron_mpix.F90)
     target_link_libraries(voltron_mpi.x voltmpilib voltlib gammpilib gamlib dragonkinglib remixlib chimplib rcmlib basempilib baselib)
+#    target_link_libraries(voltron_mpi.x baselib basempilib voltmpilib voltlib gammpilib gamlib remixlib chimplib rcmlib raijulib)
     add_dependencies(voltron_mpi voltron_mpi.x)
 
     #-------------

@@ -23,7 +23,6 @@ submodule (volttypes) raijuCplTypesSub
         ! Allocate our contained raiju app
         allocate(raijuApp_T :: App%raiApp)
         ! Init raiju app itself
-        !call App%raiApp%InitModel(xml)
         ! Note: we are bypassing raiApp%InitModel because we can't pass the voltron grid as an argument
         call raijuInit(App%raiApp, xml, App%opt%voltGrid)
         ! Update MJD with whatever voltron handed us
@@ -74,24 +73,30 @@ submodule (volttypes) raijuCplTypesSub
             ! Someone updated raiCpl's coupling variables by now, stuff it into RAIJU proper
             call raiCpl2RAIJU(App)
 
-            if (doFirstColdStart) then
-                ! Its happening, everybody stay calm
-                write(*,*) "RAIJU Doing first cold start..."
-                ! NOTE: By this point we have put coupling info into raiju (e.g. bVol, xyzmin, MHD moments)
-                ! But haven't calculated active domain yet because that happens in preadvancer
-                ! So we jump in and do it here so we have it for cold starting
+            if (vApp%time < App%raiApp%State%coldStarter%tEnd) then
                 call setActiveDomain(raiApp%Model, raiApp%Grid, raiApp%State)
                 ! Calc voltron dst ourselves since vApp%BSDst is only set on console output
                 call EstDST(vApp%gApp%Model,vApp%gApp%Grid,vApp%gApp%State,BSDst0=BSDst)
-                call raijuGeoColdStart(raiApp%Model, raiApp%Grid, raiApp%State, vApp%time, BSDst, doCXO=App%doColdstartCX,doPsphO=.true.)
+                call raijuGeoColdStart(raiApp%Model, raiApp%Grid, raiApp%State, vApp%time, BSDst)
             endif
-            if (doUpdateColdStart) then
-                write(*,*)"RAIJU doing update cold start at t=",vApp%time
-                write(*,*)" (calculating model BSDst,)",vApp%time
-                call setActiveDomain(raiApp%Model, raiApp%Grid, raiApp%State)
-                call EstDST(vApp%gApp%Model,vApp%gApp%Grid,vApp%gApp%State,BSDst0=BSDst)
-                call raijuGeoColdStart(raiApp%Model, raiApp%Grid, raiApp%State, vApp%time, BSDst, doCXO=App%doColdstartCX,doPsphO=.false.)
-            endif
+            !if (doFirstColdStart) then
+            !    ! Its happening, everybody stay calm
+            !    write(*,*) "RAIJU Doing first cold start..."
+            !    ! NOTE: By this point we have put coupling info into raiju (e.g. bVol, xyzmin, MHD moments)
+            !    ! But haven't calculated active domain yet because that happens in preadvancer
+            !    ! So we jump in and do it here so we have it for cold starting
+            !    call setActiveDomain(raiApp%Model, raiApp%Grid, raiApp%State)
+            !    ! Calc voltron dst ourselves since vApp%BSDst is only set on console output
+            !    call EstDST(vApp%gApp%Model,vApp%gApp%Grid,vApp%gApp%State,BSDst0=BSDst)
+            !    call raijuGeoColdStart(raiApp%Model, raiApp%Grid, raiApp%State, vApp%time, BSDst, doCXO=App%doColdstartCX,doPsphO=.true.)
+            !endif
+            !if (doUpdateColdStart) then
+            !    write(*,*)"RAIJU doing update cold start at t=",vApp%time
+            !    write(*,*)" (calculating model BSDst,)",vApp%time
+            !    call setActiveDomain(raiApp%Model, raiApp%Grid, raiApp%State)
+            !    call EstDST(vApp%gApp%Model,vApp%gApp%Grid,vApp%gApp%State,BSDst0=BSDst)
+            !    call raijuGeoColdStart(raiApp%Model, raiApp%Grid, raiApp%State, vApp%time, BSDst, doCXO=App%doColdstartCX,doPsphO=.false.)
+            !endif
         end associate
     end subroutine volt2RAIJU
 
@@ -161,14 +166,19 @@ submodule (volttypes) raijuCplTypesSub
         
         !call InterpShellVar_TSC_pnt(sh, State%Tb, th, ph, imW(IM_TSCL))
         !imW(IM_TSCL) = Model%nBounce*imW(IM_TSCL)  ! [s]
-        tScl = 10.0_rp  ! [s]
-        !tScl = 10.0_rp/App%vaFrac(i0,j0)  ! [s]
+        !tScl = 10.0_rp  ! [s]
+
+        ! 1/(x)^4 for x from 1 to 0.5 goes from 1 to 16. Higher exponents means stronger ramp-up
+        tScl = 15.0_rp/(App%vaFrac%data(i0,j0))**4  ! [s]
 
         ! Adjust IM_TSCL if we wanna ramp up over time
         if (t < App%startup_blendTscl) then
             rampC = RampDown(t, 0.0_rp, App%startup_blendTscl)
             !tScl = sqrt(tScl*App%startup_blendTscl)*rampC + (1-rampC)*tScl  ! idk
-            tScl = rampC*50.0_rp*tScl + (1-rampC)*tScl  ! No good reason for 50 except for wanting starting tScl to be ~8-10 minutes
+            tScl = rampC*30.0_rp*tScl + (1-rampC)*tScl  ! No good reason for 30 except for wanting starting tScl to be ~8-10 minutes
+            !if (th > 50*deg2rad .and. th < 55*deg2rad .and. ph > 130*deg2rad .and. ph < 150*deg2rad) then
+            !    write(*,*)"--",t,App%startup_blendTscl,rampC,tScl
+            !endif
         endif
         
         imW(IM_TSCL) = tScl

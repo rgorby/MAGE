@@ -427,11 +427,11 @@ module voltapp
         call init_mix2MhdCoupler(vApp%gApp, vApp%remixApp)
         ! initialize additional coupled gamera data
         call vApp%gApp%InitMhdCoupler(vApp)
-	if(isRestart) then
-	    call xmlInp%Set_Val(resID,"/Kaiju/gamera/restart/resID","msphere")
+        if(isRestart) then
+            call xmlInp%Set_Val(resID,"/Kaiju/gamera/restart/resID","msphere")
             call xmlInp%Set_Val(nRes,"/Kaiju/gamera/restart/nRes" ,-1)
-	    call vApp%gApp%ReadRestart(resID, nRes)
-	endif
+            call vApp%gApp%ReadRestart(resID, nRes)
+        endif
 
         call init_mhd2Mix(vApp%mhd2mix, gApp, vApp%remixApp)
         !vApp%mix2mhd%mixOutput = 0.0
@@ -560,9 +560,9 @@ module voltapp
         call Tic("G2C")
         call convertGameraToChimp(vApp%mhd2chmp,gApp,vApp%ebTrcApp)
         call Toc("G2C")
-        call Tic("VoltTubes")
+        call Tic("VoltTubes",.true.)
         call genVoltTubes(vApp)
-        call toc("VoltTubes")
+        call Toc("VoltTubes",.true.)
 
     end subroutine
 
@@ -685,6 +685,7 @@ module voltapp
         class(gamApp_T), intent(in) :: gApp
         character(len=*), intent(in), optional     :: optFilename
 
+        integer :: b
         character(len=strLen) :: xmlStr
         type(XML_Input_T) :: inpXML
         real(rp) :: xyz0(NDIM)
@@ -711,7 +712,7 @@ module voltapp
         call setBackground(Model,inpXML)
         call inpXML%Set_Val(Model%doDip,'tracer/doDip',.false.)
 
-    !Initialize ebState
+        !Initialize ebState
         if (gApp%Model%doMultiF) then
             write(*,*) "Initializing MF-Chimp ..."
             !Set proper number of species for chimp
@@ -724,9 +725,11 @@ module voltapp
 
         call InitLoc(Model,ebState%ebGr,inpXML)
 
-    !Initialize squish indices
+        !Initialize squish indices
         allocate(vApp%ebTrcApp%ebSquish%blockStartIndices(vApp%ebTrcApp%ebSquish%numSquishBlocks))
-        call LoadBalanceBlocks(vApp) ! start off with all blocks equal in size
+        do b=1,vApp%ebTrcApp%ebSquish%numSquishBlocks
+            vApp%ebTrcApp%ebSquish%blockStartIndices(b) = ebGr%ks + ((b-1)*(ebGr%ke+1))/vApp%ebTrcApp%ebSquish%numSquishBlocks
+        enddo
 
         !Do simple test to make sure locator is reasonable
         xyz0 = Gr%xyz(Gr%is+1,Gr%js,Gr%ks,:)

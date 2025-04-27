@@ -91,13 +91,13 @@ module raijuIO
         ! Ready for output
         ! Some model setting info
         call ClearIO(IOVars)
-        call AddOutVar(IOVars,"doFatOutput"   ,Model%doFatOutput   )  ! Attr
-        call AddOutVar(IOVars,"doDebugOutput" ,Model%doDebugOutput )  ! Attr
-        call AddOutVar(IOVars,"doWriteGhosts" ,Model%writeGhosts   )  ! Attr
-        call AddOutVar(IOVars,"doGeoCorot"    ,Model%doGeoCorot    )  ! Attr
-        call AddOutVar(IOVars,"doExcesstoPsph",Model%doExcesstoPsph)  ! Attr
-        call AddOutVar(IOVars,"doPlasmasphere",Model%doPlasmasphere)  ! Attr
-        call AddOutVar(IOVars,"doActiveShell",Model%doActiveShell)  ! Attr
+        call AddOutVar(IOVars,"doFatOutput"   ,Model%doOutput_potGrads)  ! Attr
+        call AddOutVar(IOVars,"doDebugOutput" ,Model%doOutput_debug   )  ! Attr
+        call AddOutVar(IOVars,"doWriteGhosts" ,Model%writeGhosts      )  ! Attr
+        call AddOutVar(IOVars,"doGeoCorot"    ,Model%doGeoCorot       )  ! Attr
+        call AddOutVar(IOVars,"doExcesstoPsph",Model%doExcesstoPsph   )  ! Attr
+        call AddOutVar(IOVars,"doPlasmasphere",Model%doPlasmasphere   )  ! Attr
+        call AddOutVar(IOVars,"doActiveShell",Model%doActiveShell     )  ! Attr
         call AddOutVar(IOVars,"nSpcIn",Model%nSpcMHD)  ! Attr
         call AddOutVar(IOVars,"nSpcRAIJU",Model%nSpc)  ! Attr
         call WriteVars(IOVars,.true.,Model%raijuH5)
@@ -284,26 +284,7 @@ module raijuIO
         call AddOutVar(IOVars,"activeShells",outTmp2D,uStr="[Ni, Nk]")
         deallocate(outTmp2D)
 
-    ! Moments
-        !allocate(outTmp3D(is:ie,js:je,0:Grid%nSpc))
-        !outTmp3D = 0.0
-        !do s=0,Grid%nSpc
-        !    outTmp3D(:,:,s) = State%Press(s)%data(is:ie,js:je)
-        !enddo
-        !call AddOutVar(IOVars,"Pressure",outTmp3D(:,:,:),uStr="nPa")
-
-        ! Add density moment as #/cc
-        !outTmp3D = 0.0
-        !do s=1, Grid%nSpc
-        !    ! Convert amu/cc to #/cc
-        !    outTmp3D(:,:,s) = State%Den(s)%data(is:ie,js:je)/Grid%spc(s)%amu
-        !    ! Don't include electrons to total number density
-        !    if(Grid%spc(s)%spcType .ne. RAIJUELE) then
-        !        outTmp3D(:,:,0) = outTmp3D(:,:,0) + outTmp3D(:,:,s)
-        !    endif
-        !enddo
-        !call AddOutVar(IOVars,"Density",outTmp3D(:,:,:),uStr="#/cc")
-        !deallocate(outTmp3D)
+        ! Moments
         call AddOutSGV(IOVars, "Pressure", State%Press, outBndsO=outBnds2D, uStr="nPa" , dStr="Pressure from RAIJU flavors", doWriteMaskO=.false.)
         call AddOutSGV(IOVars, "Density" , State%Den  , outBndsO=outBnds2D, uStr="#/cc", dStr="Density from RAIJU flavors", doWriteMaskO=.false.)
         
@@ -325,19 +306,15 @@ module raijuIO
         call AddOutVar(IOVars,"FTEntropy",outTmp2D,uStr="nPa*(Rp/nT)^(5/3)")
         deallocate(outTmp2D)
 
-        if (Model%doLossOutput) then
 
-            call AddOutVar(IOVars, "dEta_dt" , State%dEta_dt(is:ie,js:je,:), uStr="eta_units/s")
-            call AddOutVar(IOVars, "lossRate", State%lossRates(is:ie,js:je,:), uStr="1/s")
-            call AddOutVar(IOVars, "lossRatePrecip", State%lossRatesPrecip(is:ie,js:je,:), uStr="1/s")
 
-            
+        !--- Losses ---!
+        if (Model%doLosses) then
             ! Calculate accumulated precipitation for each species
             allocate(outPrecipN   (is:ie,js:je,Grid%nSpc))
             allocate(outPrecipE   (is:ie,js:je,Grid%nSpc))
             allocate(outPrecipAvgE(is:ie,js:je,Grid%nSpc))
             allocate(outCCHeatFlux(is:ie,js:je,Grid%nSpc))
-            
             do s=1,Grid%nSpc
                 ks = Grid%spc(s)%kStart
                 ke = Grid%spc(s)%kEnd
@@ -359,10 +336,19 @@ module raijuIO
             deallocate(outPrecipE)
             deallocate(outPrecipAvgE)
             deallocate(outCCHeatFlux)
-        endif
+            ! (Ni, Nj, Nk)
+            call AddOutVar(IOVars, "lossRate", State%lossRates(is:ie,js:je,:), uStr="1/s")
+            call AddOutVar(IOVars, "lossRatePrecip", State%lossRatesPrecip(is:ie,js:je,:), uStr="1/s")
 
+            if (Model%doOutput_3DLoss) then
+                call AddOutVar(IOVars, "dEta_dt" , State%dEta_dt(is:ie,js:je,:), uStr="eta_units/s")
+                call AddOutVar(IOVars, "precipNFlux_Nk"    , State%precipNFlux(is:ie,js:je,:), uStr="#/cm^2/s")
+                call AddOutVar(IOVars, "precipEFlux_Nk"    , State%precipEFlux(is:ie,js:je,:), uStr="erg/cm^2/s")
+                call AddOutVar(IOVars, "CCHeatFlux_Nk" , State%CCHeatFlux (is:ie,js:je,:), uStr="eV/cm^2/s")
+            endif
+        endif
         
-        if (Model%doFatOutput) then
+        if (Model%doOutput_potGrads) then
             ! (Ni, Nj, 2)
             call AddOutVar(IOVars, "gradPotE"       , State%gradPotE    (is:ie+1,js:je+1,:), uStr="V/m")
             call AddOutVar(IOVars, "gradPotCorot"   , State%gradPotCorot(is:ie+1,js:je+1,:), uStr="V/m")
@@ -370,10 +356,6 @@ module raijuIO
             call AddOutVar(IOVars, "gradPotE_cc"    , State%gradPotE_cc    (is:ie,js:je,:) , uStr="V/m")
             call AddOutVar(IOVars, "gradPotCorot_cc", State%gradPotCorot_cc(is:ie,js:je,:) , uStr="V/m")
             call AddOutVar(IOVars, "gradVM_cc"      , State%gradVM_cc      (is:ie,js:je,:) , uStr="V/m/lambda")
-            ! (Ni, Nj, Nk)
-            call AddOutVar(IOVars, "precipNFlux_Nk"    , State%precipNFlux(is:ie,js:je,:), uStr="#/cm^2/s")
-            call AddOutVar(IOVars, "precipEFlux_Nk"    , State%precipEFlux(is:ie,js:je,:), uStr="erg/cm^2/s")
-            call AddOutVar(IOVars, "CCHeatFlux_Nk" , State%CCHeatFlux (is:ie,js:je,:), uStr="eV/cm^2/s")
 
             ! Calc pEffective based on current state
             ! Make full ghost size since that's what the subroutine expects
@@ -383,7 +365,7 @@ module raijuIO
             deallocate(outTmp3D)
         endif
 
-        if (Model%doDebugOutput) then
+        if (Model%doOutput_debug) then
             call AddOutVar(IOVars, "eta_half"     , State%eta_half     (is:ie  ,js:je  ,:)  , uStr="#/cm^3 * Rx/T")
             call AddOutVar(IOVars, "iVel"         , State%iVel         (is:ie+1,js:je+1,:,:), uStr="m/s")
             call AddOutVar(IOVars, "iVelL"        , State%iVelL        (is:ie+1,js:je+1,:,:), uStr="m/s")
@@ -499,6 +481,9 @@ module raijuIO
         call AddOutVar(IOVars,"nOut" ,State%IO%nOut)
         call AddOutVar(IOVars,"nRes" ,State%IO%nRes)
         call AddOutVar(IOVars,"tRes" ,State%IO%tRes)
+        ! ColdStarter state
+        call AddOutVar(IOVars, "cs_lastEval", State%coldStarter%lastEval)
+        call AddOutVar(IOVars, "cs_lastTarget", State%coldStarter%lastTarget)
 
         ! Add State variables
 
@@ -602,6 +587,8 @@ module raijuIO
         call AddInVar(IOVars,"nRes")
         call AddInVar(IOVars,"tRes")
         call AddInVar(IOVars,"isFirstCpl")
+        call AddInVar(IOVars,"cs_lastEval")
+        call AddInVar(IOVars,"cs_lastTarget")
 
         call AddInVar(IOVars,"dtCpl"  )
         call AddInVar(IOVars,"xmin"   )
@@ -652,6 +639,10 @@ module raijuIO
         State%IO%nOut = GetIOInt (IOVars, "nOut" )
         State%IO%nRes = GetIOInt (IOVars, "nRes" )
         State%IO%tRes = GetIOReal(IOVars, "tRes" )
+
+        ! Coldstarter
+        State%coldStarter%lastEval   = GetIOReal(IOVars, "cs_lastEval")
+        State%coldStarter%lastTarget = GetIOReal(IOVars, "cs_lastTarget")
         
         ! Handle boolean attributes
         tmpInt = GetIOInt(IOVars, "isFirstCpl")

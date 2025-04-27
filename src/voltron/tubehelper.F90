@@ -78,7 +78,7 @@ module tubehelper
         type(Tube_T)    , intent(out) :: bTube
 
         integer :: OCb, s
-        real(rp) :: bD,bP,dvB,bBeta,stdD,stdP,bmin
+        real(rp) :: bD,bP,bD_rc,bP_rc,dvB,bBeta,stdD,stdP,bmin
         real(rp) :: bIon,bIonC,rCurv,VebMKS,VaMKS,TiEV,CsMKS
 
         real(rp), dimension(NDIM) :: bEq,xyzC,xyzIonC
@@ -153,12 +153,14 @@ module tubehelper
             bTube%rCurv = rCurv
             bD = bTube%avgN(BLK)
             bP = bTube%avgP(BLK)
+            bD_rc = bTube%avgN(RCFLUID)
+            bP_rc = bTube%avgP(RCFLUID)
 
             !VaMKS = flux tube arc length [km] / Alfven crossing time [s]
             VaMKS = (bTube%Lb*P%rp_m*1.0e-3)/bTube%Tb 
             !CsMKS = 9.79 x sqrt(5/3 * Ti) km/s, Ti eV
-            !TiEV = (1.0e+3)*DP2kT(bDRC*1.0e-6,bPRC*1.0e+9) !Temp in eV
             TiEV = (1.0e+3)*DP2kT(bD,bP) !Temp in eV
+            !TiEV = (1.0e+3)*DP2kT(bD_rc,bP_rc) !Temp in eV
             CsMKS = 9.79*sqrt((5.0/3)*TiEV)
             bTube%wMAG = VaMKS/( sqrt(VaMKS**2.0 + CsMKS**2.0) + VebMKS)
         endif
