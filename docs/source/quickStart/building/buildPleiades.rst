@@ -68,23 +68,11 @@ The build takes 20-30 minutes on ``pleiades``. When finished, your build
 directory will contain a ``bin`` subdirectory which will contain the complete
 set of ``kaiju`` executables.
 
-.. code-block:: shell
-
-    ls -w 80 bin
-    calcdb.x        gamhelio.x    push.x         sctrack.x      voltron.x
-    chop.x          kaitoy_mpi.x  rcm.x          slice.x        wpicheck.x
-    gamera_mpi.x    kaitoy.x      remix2rcm.x    testNewRMS.x
-    gamera.x        project.x     remix2remix.x  trace.x
-    gamhelio_mpi.x  psd.x         remix.x        voltron_mpi.x
-
 .. note:: The compiled programs of interest in this case are
-    ``voltron_mpi.x``, ``gamera_mpi.x``, ``rcm.x`` and ``remix.x`` (all are
-    part of the MAGE model),  and ``gamhelio_mpi.x`` (used for the inner
+    ``voltron_mpi.x`` (for MAGE) and ``gamhelio_mpi.x`` (for the inner
     heliosphere). Documentation for the remaining tools is found
     :doc:`here </userGuide/kaijuTools/index>`. These tools are often run by
-    using wrapper scripts found in the ``kaipy`` package. Documentation for
-    ``kaipy`` is available
-    `here <https://kaipy-docs.readthedocs.io/en/latest/index.html>`_.
+    using wrapper scripts found in the ``kaipy`` package.
 
 .. note:: You can choose to compile only specific programs from the ``kaiju``
     package, which will speed up the compilation. For instance, to compile

@@ -5,13 +5,19 @@ Creating a Python environment for ``kaiju`` on ``pleiades``
 Introduction
 ------------
 
-This file describes how to set up a python 3.8-based ``conda`` environment on
+This file describes how to set up a python ``conda`` environment on
 ``pleiades`` which can be used to run the ``kaiju`` code.
 
 These steps assume that ``pip`` (only) is used for installing additional
 packages, and packages are only taken from PyPI.
 
 These instructions assume you are using the ``bash`` shell.
+
+.. note:: These instructions are designed for novice users. If you are
+    comfortable with building and managing ``conda``-based environments, feel
+    free to build your own environment using the NAS-provided
+    `conda <https://www.nas.nasa.gov/hecc/support/kb/managing-and-installing-python-packages-in-conda-environments_627.html>`_
+    software.
 
 
 Building the python environment
