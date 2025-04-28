@@ -258,14 +258,17 @@ submodule (volttypes) raijuCplTypesSub
                     call InterpShellVar_TSC_pnt(sh, State%Press(s), th, ph, p_hot)
                     imP(RAI_EPRE ) = imP(RAI_EPRE ) + p_hot*1.0e-9 ! uStr="nPa" -> Pa , dStr="Pressure from RAIJU flavors"
                     do k=ks,ke
-                        if(.not. isnan(State%precipNFlux(i0,j0,k))) then
+                        !if(.not. isnan(State%precipNFlux(i0,j0,k))) then
+                        if(.not. isnan(State%precipNFlux(k)%data(i0,j0))) then ! use mask?
                             ! need to turn precipNFlux and precipEFlux into a shell grid variable.
                             ! now assumes nearest neighbor interpolation.
-                            !call InterpShellVar_TSC_pnt(sh, State%precipNFlux(i0,j0,k), th, ph, dn_flux)
-                            dn_flux = State%precipNFlux(i0,j0,k)
+                            ! refer to: call InterpShellVar_TSC_pnt(sh, State%Press(s), th, ph, p_hot)
+                            !dn_flux = State%precipNFlux(i0,j0,k)
+                            call InterpShellVar_TSC_pnt(sh, State%precipNFlux(k), th, ph, dn_flux)
                             imP(RAI_ENFLX) = imP(RAI_ENFLX) + dn_flux ! uStr="#/cm^2/s"
                             !call InterpShellVar_TSC_pnt(sh, State%precipEFlux(i0,j0,k), th, ph, de_flux)
-                            de_flux = State%precipEFlux(i0,j0,k)
+                            !de_flux = State%precipEFlux(i0,j0,k)
+                            call InterpShellVar_TSC_pnt(sh, State%precipEFlux(k), th, ph, de_flux)
                             imP(RAI_EFLUX) = imP(RAI_EFLUX) + de_flux ! uStr="erg/cm^2/s"
                         endif
                     enddo

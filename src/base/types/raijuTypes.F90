@@ -465,9 +465,11 @@ module raijutypes
             !! (Ngi, Ngj, Nk) [1/s] Loss rates that result in precipitation. Should be <= lossRates
         real(rp), dimension(:,:,:), allocatable :: precipType_ele
             !! (Ngi, Ngj, Nk) Prepication type used for electrons
-        real(rp), dimension(:,:,:), allocatable :: precipNFlux
+        !real(rp), dimension(:,:,:), allocatable :: precipNFlux
+        type(ShellGridVar_T), dimension(:), allocatable :: precipNFlux
             !! (Ngi, Ngj, Nk) [#/cm^2/s] Precipitation number fluxes
-        real(rp), dimension(:,:,:), allocatable :: precipEFlux
+        !real(rp), dimension(:,:,:), allocatable :: precipEFlux
+        type(ShellGridVar_T), dimension(:), allocatable :: precipEFlux
             !! (Ngi, Ngj, Nk) [erg/cm^2/s] Precipitation energy fluxes
         real(rp), dimension(:,:,:), allocatable :: dEta_dt
             !! (Ngi, Ngj, Nk) [eta units/s] Average 
