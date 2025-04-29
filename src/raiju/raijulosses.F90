@@ -78,11 +78,18 @@ module raijulosses
         type(raijuState_T), intent(inout) :: State
 
         integer :: nLP, iLP
+        integer :: k
+        logical, dimension(Grid%shGrid%isg:Grid%shGrid%ieg,Grid%shGrid%jsg:Grid%shGrid%jeg) :: isGood
+
+        where (State%active .eq. RAIJUACTIVE)
+            isGood = .true.
+        elsewhere
+            isGood = .false.
+        end where
 
         if (allocated(State%lps)) then
             nLP = size(State%lps)
         else
-            nLP = 0.0
             return
         endif
 
@@ -93,9 +100,16 @@ module raijulosses
         ! Prep for accumulation this coupling step
         State%dEta_dt = 0.0
         State%precipType_ele = 0.0
-        State%precipNFlux = 0.0
-        State%precipEFlux = 0.0
+        !State%precipNFlux = 0.0
+        !State%precipEFlux = 0.0
         State%CCHeatFlux = 0.0
+        ! initialize all precip fluxes to zero and masks to false.
+        do k=1,Grid%Nk
+            State%precipNFlux(k)%data = 0.0
+            State%precipEFlux(k)%data = 0.0
+            State%precipNFlux(k)%mask = isGood
+            State%precipEFlux(k)%mask = isGood
+        enddo
     end subroutine updateRaiLosses
 
 
@@ -134,10 +148,10 @@ module raijulosses
 
         do j=Grid%shGrid%jsg,Grid%shGrid%jeg
             do i=Grid%shGrid%isg,Grid%shGrid%ieg
+                if (.not. isG(i,j)) then
+                    cycle
+                endif
                 do l=1,size(lps)
-                    if (.not. isG(i,j)) then
-                        cycle
-                    endif
                     if ( .not. lps(l)%p%isValidSpc(spc) ) then
                         cycle
                     endif
@@ -221,8 +235,10 @@ module raijulosses
                 deleta = eta0*(1.0-exp(-dt*State%lossRatesPrecip(i,j,k)))
                 pNFlux = deleta2NFlux(deleta, Model%planet%rp_m, Grid%Brcc(i,j), dt)
                 ! Just accumulate total #/cm2 and erg/cm2, we divide by coupling dt at the end of advance
-                State%precipNFlux(i,j,k) = State%precipNFlux(i,j,k) + pNFlux*dt
-                State%precipEFlux(i,j,k) = State%precipEFlux(i,j,k) + nFlux2EFlux(pNFlux, Grid%alamc(k), State%bVol_cc(i,j))
+                !State%precipNFlux(i,j,k) = State%precipNFlux(i,j,k) + pNFlux*dt
+                !State%precipEFlux(i,j,k) = State%precipEFlux(i,j,k) + nFlux2EFlux(pNFlux, Grid%alamc(k), State%bVol_cc(i,j))
+                State%precipNFlux(k)%data(i,j) = State%precipNFlux(k)%data(i,j) + pNFlux*dt
+                State%precipEFlux(k)%data(i,j) = State%precipEFlux(k)%data(i,j) + nFlux2EFlux(pNFlux, Grid%alamc(k), State%bVol_cc(i,j))
 
                 ! Do special stuff for Coulomb collision effects
                 if (Model%doCC .and. State%lps(State%lp_cc_idx)%p%isValidSpc(Grid%spc(Grid%k2spc(k)))) then

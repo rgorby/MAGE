@@ -1,5 +1,6 @@
 module mixparams
   use mixdefs
+  use dkdefs
   use mixtypes
   use xml_input
 

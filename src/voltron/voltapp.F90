@@ -12,6 +12,7 @@ module voltapp
     use chmp2mhd_interface
     use mix2mhd_interface
     use imag2mhd_interface
+    use imag2mix_interface
     use ebsquish
     use innermagsphere
     use dates
@@ -463,6 +464,7 @@ module voltapp
 
             call init_mhd2Chmp(vApp%mhd2chmp, gApp, vApp%ebTrcApp)
             call init_chmp2Mhd(vApp%chmp2mhd, vApp%ebTrcApp, gApp)
+            call init_raiju_mix(vApp%imagApp,vApp%remixApp)
 
             vApp%iDeep = gApp%Grid%ie-1
             
@@ -478,7 +480,9 @@ module voltapp
         ! convert gamera inputs to remix
         call MJDRecalc(vApp%MJD)
         if (vApp%doDeep) then
-            call mapIMagToRemix(vApp%imag2mix,vApp%remixApp)
+!            call mapIMagToRemix(vApp%imag2mix,vApp%remixApp) ! rcm style
+!            call mapRaijuToRemix(vApp)
+            call CoupleIMagToMix(vApp)
         endif
         call mapGameraToRemix(vApp%mhd2mix, vApp%remixApp)
 

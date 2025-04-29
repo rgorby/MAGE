@@ -24,15 +24,7 @@ module mixdefs
   end enum
 
   enum, bind(C)
-     enumerator :: FEDDER=1,LINMRG,SUNNY
-  end enum
-
-  enum, bind(C)
      enumerator :: NONE=1,ADHOC,CMIT
-  end enum
-
-  enum, bind(C)
-     enumerator :: AT_NoPre=0,AT_RMnoE,AT_RMfnE,AT_RMono
   end enum
 
   ! enumerator for transform variables
