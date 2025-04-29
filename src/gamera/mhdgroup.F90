@@ -462,29 +462,28 @@ module mhdgroup
             oodt = 0.0
         endif
 
-        !Start w/ mag stuff
-        if (Model%doMHD) then
-            !TODO: Figure out if conditionals work in omp workshare
-            if (Model%doAB3) then
-                !$OMP PARALLEL WORKSHARE
-                pState%magFlux = ExtrapAB3(pdt,State%magFlux,oState%magFlux,ooState%magFlux,odt,oodt)
-                !$OMP END PARALLEL WORKSHARE
-
-                if (Model%doResistive) then
-                    !$OMP PARALLEL WORKSHARE
-                    pState%Deta = ExtrapAB3(pdt,State%Deta,oState%Deta,ooState%Deta,odt,oodt)
-                    !$OMP END PARALLEL WORKSHARE
-                endif
-            else
-                !$OMP PARALLEL WORKSHARE
-                pState%magFlux = ExtrapAB2(pdt,State%magFlux,oState%magFlux,odt)
-                !$OMP END PARALLEL WORKSHARE
-                if (Model%doResistive) then
-                    !$OMP PARALLEL WORKSHARE
-                    pState%Deta = ExtrapAB2(pdt,State%Deta,oState%Deta,odt)
-                    !$OMP END PARALLEL WORKSHARE
-                endif
-            endif
+        if(Model%doMHD) then    
+            !$OMP PARALLEL DO default(shared) collapse(2) &
+            !$OMP private(i,j,k)
+            do k=Grid%ksg,Grid%keg+1
+                do j=Grid%jsg,Grid%jeg+1
+                    do i=Grid%isg,Grid%ieg+1
+                        !Do interface fluxes
+                        if(Model%doAB3) then
+                            pState%magFlux(i,j,k,:) = ExtrapAB3(pdt,State%magFlux(i,j,k,:),oState%magFlux(i,j,k,:),ooState%magFlux(i,j,k,:),odt,oodt)
+                            if (Model%doResistive) then
+                                pState%Deta(i,j,k,:) = ExtrapAB3(pdt,State%Deta(i,j,k,:),oState%Deta(i,j,k,:),ooState%Deta(i,j,k,:),odt,oodt)
+                            endif !Resistive
+                        else
+                            !Do interface fluxes
+                            pState%magFlux(i,j,k,:) = ExtrapAB2(pdt,State%magFlux(i,j,k,:),oState%magFlux(i,j,k,:),odt)
+                            if (Model%doResistive) then
+                                pState%Deta(i,j,k,:) = ExtrapAB2(pdt,State%Deta(i,j,k,:),oState%Deta(i,j,k,:),odt)
+                            endif !Resistive
+                        endif
+                    enddo !I loop
+                enddo
+            enddo !K loop
         endif
 
         !Now finish by getting Bxyz's

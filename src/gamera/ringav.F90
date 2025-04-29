@@ -11,6 +11,7 @@ module ringav
     use ringutils
     use ringrecon
     use multifluid
+    use arrayutil
     
     implicit none
 
@@ -571,7 +572,7 @@ module ringav
             if(allocated(A)) deallocate(A)
             allocate(A(Gr%isg:Gr%ieg,Gr%jsg:Gr%jeg,Gr%ksg:Gr%keg,NDIM))
         endif
-        A = 0.0 !Always wipe array
+        call fillArray(A, 0.0_rp) ! Always wipe array
 
     end subroutine InitRAVec
 
