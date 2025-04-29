@@ -31,8 +31,10 @@ module voltCplHelper
         logical :: doSH,doNH
         type(magLine_T) :: magLine
 
-        associate(sh=>vApp%shGrid, ebApp=>vApp%ebTrcApp, Gr=>vApp%gApp%Grid)
-            mhd_Rin = norm2(Gr%xyz(Gr%is+2,Gr%js,Gr%ks,:))
+        !associate(sh=>vApp%shGrid, ebApp=>vApp%ebTrcApp, Gr=>vApp%gApp%Grid)
+            !mhd_Rin = norm2(Gr%xyz(Gr%is+2,Gr%js,Gr%ks,:))
+        associate(sh=>vApp%shGrid, ebApp=>vApp%ebTrcApp, ebGr=>vApp%ebTrcApp%ebState%ebGr)
+            mhd_Rin = norm2(ebGr%xyz(ebGr%is+2,ebGr%js,ebGr%ks,:))
             seedR = sh%radius  ! Ionosphere radius in Rp
             ! Do field line tracing, populate ijTubes
             !$OMP PARALLEL DO default(shared) &

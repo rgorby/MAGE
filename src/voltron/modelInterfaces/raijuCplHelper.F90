@@ -223,24 +223,6 @@ module raijuCplHelper
 ! One-way driving from file helpers
 !------
 
-    !> This function takes updated model states and does the operations
-    !> necessary to update the cplBase%fromV object
-    subroutine packRaijuCoupler_OWD(raiCpl, vApp, rmReader)
-        class(raijuCoupler_T), intent(inout) :: raiCpl
-        type(voltApp_T), intent(inout) :: vApp
-        type(rmReader_T) :: rmReader
-
-        ! Update coupling time
-        raiCpl%tLastUpdate = raiCpl%raiApp%State%t
-
-        ! Using chimp, populate imagTubes
-        call genImagTubes(raiCpl, vApp)
-        ! Set potential
-        call InterpShellVar_TSC_SG(rmReader%shGr, rmReader%nsPot(1), raiCpl%shGr, raiCpl%pot_total)
-
-    end subroutine packRaijuCoupler_OWD
-
-
     subroutine genImagTubes(raiCpl, vApp)
         class(raijuCoupler_T), intent(inout) :: raiCpl
         type(voltApp_T), intent(in   ) :: vApp

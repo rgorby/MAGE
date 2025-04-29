@@ -27,6 +27,8 @@ program raijuOWDx
 
     ! Voltron stuff
     use volttypes
+    use voltAppHelper, only : initVoltState, calcCorotPotential
+    use voltCplHelper, only : genVoltTubes
     use raijuuseric
     use raijuCplHelper
 
@@ -53,8 +55,9 @@ program raijuOWDx
     ! Init xml
     call getIDeckStr(XMLStr)
 
+    ! Init voltron stuff
+    call raiOWD_initVoltron(vApp, XMLStr)
 
-    
     ! Init CHIMP
     inpXML = New_XML_Input(trim(XMLStr),"Kaiju/Chimp",.true.)
     call goApe(vApp%ebTrcApp%ebModel,vApp%ebTrcApp%ebState,iXML=inpXML)
@@ -66,6 +69,7 @@ program raijuOWDx
     associate(ebGr=>vApp%ebTrcApp%ebState%ebGr, ebState=>vApp%ebTrcApp%ebState)
         raiCplApp%opt%mjd0 = T2MJD(-1.0*ebState%ebTab%times(1)/inTscl, ebState%ebTab%MJDs(1))
         raicplApp%opt%mhdRin = norm2(ebGr%xyzcc(ebGr%is,ebGr%js,ebGr%ks,:))
+        raiCplApp%opt%voltGrid = vApp%shGrid
     end associate
 
     ! Now we do raiju init
@@ -88,6 +92,7 @@ program raijuOWDx
     ! Init Remix reader
     call initRM("msphere", inpXML, rmReader)
     rmReader%time = raiApp%State%t
+    vApp%time     = raiApp%State%t
     ! Also tell chimp when we're starting
     ebModel%t = inTscl*raiApp%State%t
 
@@ -133,11 +138,7 @@ program raijuOWDx
             endif
 
             if (doFLOut) then
-                call Tic("RCM FLs")
-                call WriteRCMFLs(raiCplApp%magLines,raiApp%State%IO%nOut, &
-                        raiApp%State%mjd,raiApp%State%t, &
-                        raiApp%Grid%shGrid%Nt,raiApp%Grid%shGrid%Np)
-                call Toc("RCM FLs")
+                write(*,*)"No FL out"
             endif
 
             !write(gStr,'(A,I0)') "Step#", raiApp%State%IO%nOut-1  ! nOut got advanced by raijuOutput above
@@ -181,6 +182,7 @@ program raijuOWDx
         ebModel%ts    = ebModel%ts + 1
 
         rmReader%time  = raiApp%State%t
+        vApp%time      = raiApp%State%t
 
         if (raiApp%Model%doClockConsoleOut) then
             call printClocks()
@@ -195,80 +197,57 @@ program raijuOWDx
 
     contains
 
-    subroutine WriteRCMFLs(RCMFLs,nOut,MJD,time,Ni,Nj)
-        use ebtypes
-        use rice_housekeeping_module, only : nSkipFL
-        integer, intent(in) :: nOut,Ni,Nj
-        real(rp), intent(in) :: MJD,time
-        type(magLine_T), intent(in), dimension(Ni,Nj) :: RCMFLs
+    subroutine raiOWD_initVoltron(vApp, xmlStr, nResO)
+        type(voltApp_T), intent(inout) :: vApp
+        character(len=*), intent(in) :: xmlStr
+        integer, optional :: nResO
 
-        type(IOVAR_T), dimension(40) :: IOVars
-        character(len=strLen) :: gStr,lnStr
-        integer :: i,j,n
+        type(XML_Input_T) :: xmlInp
+        integer :: nRes
+        character(len=strLen) :: resID, nStr, ResF
+
+        if (present(nResO)) then
+            nRes = nResO
+        else
+            nRes = 0
+        endif
+
+        xmlInp = New_XML_Input(trim(XMLStr),"Kaiju/Voltron",.true.)
+
+        call xmlInp%Set_Val(resID,"/Kaiju/gamera/restart/resID","msphere")
+        call xmlInp%Set_Val(nRes,"/Kaiju/gamera/restart/nRes" ,-1)
+        !Get number string
+        if (nRes == -1) then
+            nStr = "XXXXX"
+        else
+            write (nStr,'(I0.5)') nRes
+        endif
+        write (ResF, '(A,A,A,A)') trim(resID), ".volt.Res.", trim(nStr), ".h5"
+        call GenShellGridFromFile(vApp%shGrid, "VOLTRON", ResF)
+        call getPlanetParams(vApp%planet, xmlInp)
+
+        call initVoltState(vApp)
+
+    end subroutine raiOWD_initVoltron
+
+    subroutine packRaijuCoupler_OWD(raiCpl, vApp, rmReader)
+        class(raijuCoupler_T), intent(inout) :: raiCpl
+        type(voltApp_T), intent(inout) :: vApp
+        type(rmReader_T) :: rmReader
+
+        ! Update coupling time
+        raiCpl%tLastUpdate = raiCpl%raiApp%State%t
+
+        ! Draw tubes from volt grid
+        call genVoltTubes(vApp)
+        ! Set potential
+        call calcCorotPotential(vApp%planet, vApp%shGrid, vApp%State%potential_corot,doGeoCorotO=vApp%doGeoCorot)
+        call InterpShellVar_TSC_SG(rmReader%shGr, rmReader%nsPot(1), vApp%shGrid, vApp%State%potential_total)
+        vApp%State%potential_total%data = vApp%State%potential_total%data + vApp%State%potential_corot%data
+        vApp%State%potential_total%mask = .true.
         
-        !Bail out if we're not doing this
-        if (.not. doFLOut) return
+        call packRaijuCoupler_RT(raiCpl, vApp)
 
-        !Create group and write base data
-        write(gStr,'(A,I0)') "Step#", nOut
-        call AddOutVar(IOVars,"time",time)
-        call AddOutVar(IOVars,"MJD",MJD)
-
-        
-        call WriteVars(IOVars,.true.,FLH5,gStr)
-        call ClearIO(IOVars)
-
-        !Now loop through and create subgroup for each line (w/ striding)
-        !TODO: Avoid the individual write for every line
-        n = 0
-        do i=1,Ni,nSkipFL
-            do j=1,Nj-1,nSkipFL
-                write(lnStr,'(A,I0)') "Line#", n
-                if (RCMFLs(i,j)%isGood) then
-                    call OutLine(RCMFLs(i,j),gStr,lnStr,IOVars)
-                    n = n + 1
-                endif
-            enddo
-        enddo
-    end subroutine WriteRCMFLs
-
-    ! Do our own magLine output cause original is using globals
-    !Write out individual line
-    subroutine OutLine(fL,gStr,lnStr,IOVars)
-        USE ebtypes
-        use rice_housekeeping_module, ONLY : nSkipFL
-        type(magLine_T), intent(in) :: fL
-        character(len=strLen), intent(in) :: gStr,lnStr
-        type(IOVAR_T), intent(inout), dimension(40) :: IOVars
-        integer :: i,Np,Npp,n0
-        
-        call ClearIO(IOVars)
-        Np = fL%Nm + fL%Np + 1
-        if (Np<=nSkipFL) return
-        n0 = fL%Nm
-
-        !Add scalar stuff
-        !Record seed point
-        call AddOutVar(IOVars,"x0",fL%x0(XDIR))
-        call AddOutVar(IOVars,"y0",fL%x0(YDIR))
-        call AddOutVar(IOVars,"z0",fL%x0(ZDIR))
-
-        !Do striding through field line points
-        Npp = size(fL%xyz(0:-n0:-nSkipFL,XDIR))
-
-        call AddOutVar(IOVars,"xyz",transpose(fL%xyz(0:-n0:-nSkipFL,XDIR:ZDIR)))
-        call AddOutVar(IOVars,"Np",Npp)
-        call AddOutVar(IOVars,"n0",1) !Seed point is now the first point
-
-        !Only output some of the variables
-        call AddOutVar(IOVars,"B",fL%magB(0:-n0:-nSkipFL),uStr="nT")
-        call AddOutVar(IOVars,"D",fL%Gas (0:-n0:-nSkipFL,DEN     ,BLK),uStr="#/cc")
-        call AddOutVar(IOVars,"P",fL%Gas (0:-n0:-nSkipFL,PRESSURE,BLK),uStr="nPa" )
-
-        !Write output chain
-        call WriteVars(IOVars,.true.,FLH5,gStr,lnStr)
-        call ClearIO(IOVars)
-
-    end subroutine OutLine
+    end subroutine packRaijuCoupler_OWD
 
 end program raijuOWDx

@@ -70,6 +70,13 @@ module imag2mix_interface
       logical :: isTasty
       real(rp) :: imP(nVars_imag2mix)
 
+      integer, dimension(7) :: varNames = (/IM_EAVG,IM_ENFLX,IM_EFLUX,IM_GTYPE,IM_EDEN,IM_EPRE,IM_NPSP/)
+
+      ! Zero out before conditional updates
+      do i=1,size(varNames)
+         vApp%remixApp%ion(NORTH)%St%Vars(:,:,varNames(i)) = 0.0
+         vApp%remixApp%ion(SOUTH)%St%Vars(:,:,varNames(i)) = 0.0
+      enddo
       ! G%t(G%Np,G%Nt), G%p = modulo((atan2(G%y,G%x)+2*pi),(2*pi)) 
       ! G%x = sin(G%t)*cos(G%p)
       ! G%y = sin(G%t)*sin(G%p)
