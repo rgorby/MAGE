@@ -86,13 +86,6 @@ module raijudefs
         !! Fraction that a lambda channel must contribute to total pressure or density in order to be worthy of being evolved
     real(rp), parameter :: pressFracThreshDef = 0.01
         !! If fraction of total pressure below lowest lambda bin is greater than this, we complain
-    
-    ! Wave model stuff
-    real(rp), parameter :: def_NpsphHigh = 100.0  ! [#/cc]
-    real(rp), parameter :: def_NpsphLow  = 10.0   ! [#/cc]
-    real(rp), parameter :: def_ChorusLmax = 7.0  ! [Re]
-    real(rp), parameter :: def_PsheetLmin = 8.0  ! [Re]
-    real(rp), parameter :: def_ChorusEMin = 1.1  ! [keV]
 
     ! Coupling defaults
     real(rp), parameter :: def_vaFracThresh = 0.10  

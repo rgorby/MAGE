@@ -10,6 +10,7 @@ module raijulosses
     use raijuLoss_CX
     use raijuLoss_CC
     use raijuLoss_SS
+    use raijuLoss_eWM_BW
 
     implicit none
 
@@ -26,7 +27,7 @@ module raijulosses
             !! iterator
         integer :: numLPs
             !! number of loss proccces we're gonna have
-        integer :: initCX, initCC, initSS, initFLC
+        integer :: initCX, initCC, initSS, initFLC, initEWM
             !! Flag for if we need to allocate and init this LP
 
         State%lossRates = 0.0
@@ -40,26 +41,29 @@ module raijulosses
 
         initCX  = merge(1, 0, Model%doCX)
         initCC  = merge(1, 0, Model%doCC)
-        initSS  = merge(1, 0, Model%doSS)
         initFLC = merge(1, 0, Model%doFLC)
-        
-        numLPs = initCX + initCC + initSS + initFLC
+        initEWM = merge(1, 0, Model%doEWM)
+        initSS  = merge(1, 0, Model%doSS .and. .not. Model%doEWM)  ! TODO: Kinda jank, fix later
+
+        numLPs = initCX + initCC + initEWM + initSS + initFLC
         
         allocate(State%lps(numLPs))
 
         do iLP=1,numLPs
+            if (allocated(State%lps(iLP)%p)) deallocate(State%lps(iLP)%p)
+            
             ! Determine which loss process is next in line for initting
             if (initCX==1) then
-                if (allocated(State%lps(iLP)%p)) deallocate(State%lps(iLP)%p)
                 allocate( raiLoss_CX_T :: State%lps(iLP)%p )
                 initCX = 0
             elseif(initCC==1) then
-                if (allocated(State%lps(iLP)%p)) deallocate(State%lps(iLP)%p)
                 allocate( raiLoss_CC_T :: State%lps(iLP)%p )
                 initCC = 0
                 State%lp_cc_idx = iLP
+            elseif(initEWM==1) then
+                allocate( raiLoss_eWM_BW_T :: State%lps(iLP)%p )
+                initEWM = 0
             elseif(initSS==1) then
-                if (allocated(State%lps(iLP)%p)) deallocate(State%lps(iLP)%p)
                 allocate( raiLoss_SS_T :: State%lps(iLP)%p )
                 initSS = 0
             endif
@@ -177,19 +181,6 @@ module raijulosses
         end associate
 
     end subroutine calcChannelLossRates
-
-
-!------
-! High-level calc
-!------
-
-    subroutine calcElectronLossRate(Model, Grid, State, k)
-        type(raijuModel_T), intent(inout) :: Model
-        type(raijuGrid_T), intent(in) :: Grid
-        type(raijuState_T), intent(inout) :: State
-        integer, intent(in) :: k
-
-    end subroutine calcElectronLossRate
 
 !------
 ! Apply losses and calc useful info

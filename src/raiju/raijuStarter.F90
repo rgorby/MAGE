@@ -14,7 +14,6 @@ module raijustarter
     use raijuRecon, only : maxOrderSupported
     use raijuout
     use raijuICHelpers
-    use raijuELossWM
     use raijulosses, only : initRaiLosses
     use raijuColdStartHelper, only : initRaijuColdStarter
 
@@ -235,6 +234,7 @@ module raijustarter
         call iXML%Set_Val(Model%doCC    , "losses/doCC" ,.true. )
         call iXML%Set_Val(Model%doCX    , "losses/doCX" ,.true.)
         call iXML%Set_Val(Model%doFLC   , "losses/doFLC",.false.)
+        call iXML%Set_Val(Model%doEWM   , "losses/doEWM",.false.)
 
         !--- Output ---!
         call iXML%Set_Val(Model%isLoud           , "output/loudConsole",.false.)

@@ -78,6 +78,8 @@ module raijutypes
             !! Tell someone if this loss process applies to given species
         procedure :: calcTau  => baseLossCalcTau
             !! Report instantaneous loss rate for a given energy and lat/lon
+        procedure :: doOutput  => baseLossDoOutput
+            !! Output any relevant state info to file
     end type baseRaijuLoss_T
 
     type :: raijuLPHolder_T
@@ -88,44 +90,44 @@ module raijutypes
 !------
 ! Precipitation models
 !------
-    type eLossWM_T
-        !! Parameters used in electron wave model from Dedong Wang and Shanshan Bao
-        
-        ! -- Model -- !
-        real(rp) :: NpsphHigh = def_NpsphHigh
-        real(rp) :: NpsphLow = def_NpsphLow
-        real(rp) :: ChorusLMax = def_ChorusLmax
-        real(rp) :: PsheetLMin = def_PsheetLmin
-        real(rp) :: ChorusEMin = def_ChorusEMin
-
-        logical :: doOutput = .false.
-            !! Whether or not we will be asked to provide detailed info in the output file
-        
-        
-        type(TimeSeries_T) :: KpTS
-            !! Kp data from wind file
-
-        ! -- Grid -- !
-        ! Chorus info
-        integer :: Nkp, Nmlt, Nl, Ne
-            !! Number of bins for Kp, MLT, L shell, and Energy
-        real(rp), allocatable, dimension(:) :: Kp1D
-            !! 1D array of Kp dimension for Tau4D
-        real(rp), allocatable, dimension(:) :: MLT1D
-            !! 1D array of MLT dimension for Tau4D
-        real(rp), allocatable, dimension(:) :: L1D
-            !! 1D array of L shell dimension for Tau4D [Re]
-        real(rp), allocatable, dimension(:) :: Energy1D
-            !! 1D array of energy dimension for Tau4D [MeV]
-        real(rp), allocatable, dimension(:,:,:,:) :: Tau4D
-            !! Tau(Kp, MLT, L, E) table electron scattering table [seconds]
-
-        ! -- State -- !
-        real(rp), allocatable, dimension(:,:) :: wPS
-        real(rp), allocatable, dimension(:,:) :: wHISS
-        real(rp), allocatable, dimension(:,:) :: wCHORUS
-
-    end type eLossWM_T
+!    type eLossWM_T
+!        !! Parameters used in electron wave model from Dedong Wang and Shanshan Bao
+!        
+!        ! -- Model -- !
+!        real(rp) :: NpsphHigh = def_NpsphHigh
+!        real(rp) :: NpsphLow = def_NpsphLow
+!        real(rp) :: ChorusLMax = def_ChorusLmax
+!        real(rp) :: PsheetLMin = def_PsheetLmin
+!        real(rp) :: ChorusEMin = def_ChorusEMin
+!
+!        logical :: doOutput = .false.
+!            !! Whether or not we will be asked to provide detailed info in the output file
+!        
+!        
+!        type(TimeSeries_T) :: KpTS
+!            !! Kp data from wind file
+!
+!        ! -- Grid -- !
+!        ! Chorus info
+!        integer :: Nkp, Nmlt, Nl, Ne
+!            !! Number of bins for Kp, MLT, L shell, and Energy
+!        real(rp), allocatable, dimension(:) :: Kp1D
+!            !! 1D array of Kp dimension for Tau4D
+!        real(rp), allocatable, dimension(:) :: MLT1D
+!            !! 1D array of MLT dimension for Tau4D
+!        real(rp), allocatable, dimension(:) :: L1D
+!            !! 1D array of L shell dimension for Tau4D [Re]
+!        real(rp), allocatable, dimension(:) :: Energy1D
+!            !! 1D array of energy dimension for Tau4D [MeV]
+!        real(rp), allocatable, dimension(:,:,:,:) :: Tau4D
+!            !! Tau(Kp, MLT, L, E) table electron scattering table [seconds]
+!
+!        ! -- State -- !
+!        real(rp), allocatable, dimension(:,:) :: wPS
+!        real(rp), allocatable, dimension(:,:) :: wHISS
+!        real(rp), allocatable, dimension(:,:) :: wCHORUS
+!
+!    end type eLossWM_T
 
 !------
 ! General helpers
@@ -275,14 +277,16 @@ module raijutypes
             !! Planet info like radius, mag. moment, etc.
 
         ! Losses
-        logical :: doSS, doCC, doCX, doFLC
-            !! (Ions) Do strong scattering / coulomb collisions / charge exchange / field-line curvature
-        integer :: eLossModel
-            !! Enumerator indicating active electon loss model
-        procedure(raijuELossRate_T), pointer, nopass :: eLossRateFn => NULL()
-            !! Pointer to electron loss function
-        type(eLossWM_T) :: eLossWM
-            !! Container for electron Wave Model data
+        logical :: doSS
+            !! Do strong scattering
+        logical :: doCC
+            !! Do coulomb collisions
+        logical :: doCX
+            !! Do charge exchange
+        logical :: doFLC
+            !! Do field-line curvature
+        logical :: doEWM
+            !! Do electron loss model
 
         ! Coupling info
         integer :: nFluidIn = 0
@@ -655,6 +659,16 @@ module raijutypes
         real(rp) :: tau
         tau = HUGE
     end function baseLossCalcTau
+
+    subroutine baseLossDoOutput(this, Model, Grid, State, gStr, doGhostsO)
+        !Import :: baseRaijuLoss_T, raijuModel_T, raijuGrid_T, raijuState_T, rp
+        class(baseRaijuLoss_T), intent(in) :: this
+        type(raijuModel_T), intent(in) :: Model
+        type(raijuGrid_T) , intent(in) :: Grid
+        type(raijuState_T), intent(in) :: State
+        character(len=strLen), intent(in) :: gStr
+        logical, intent(in), optional :: doGhostsO
+    end subroutine baseLossDoOutput
 
 
 

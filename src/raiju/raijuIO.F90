@@ -7,7 +7,6 @@ module raijuIO
     
     use raijutypes
     use raijuetautils
-    use raijuELossWM, only : eWMOutput
     use shellGrid
     use shellInterp
     use shellGridIO
@@ -422,11 +421,6 @@ module raijuIO
         endif
 
         call WriteVars(IOVars,.true.,Model%raijuH5, gStr)
-
-        ! Let sub-models add stuff if they want
-        if (Model%doLosses .and. Model%eLossWM%doOutput) then
-            call eWMOutput(Model, Grid, State, gStr, doGhostsO)
-        endif
 
     end subroutine WriteRaiju
 

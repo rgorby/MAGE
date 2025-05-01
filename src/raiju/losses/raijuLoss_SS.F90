@@ -27,7 +27,7 @@ module raijuLoss_SS
         type(raijuGrid_T) , intent(in) :: Grid
         type(XML_Input_T) , intent(in) :: xmlInp
 
-        ! Idk what planet you are, electrons gonna scatter
+        ! Idc what planet you are, electrons gonna scatter
         this%reqsGood = .true.
         ! And they gonna precipitate
         this%isPrecip = .true.
