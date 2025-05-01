@@ -98,7 +98,7 @@ module mixinterfaceutils
       varOut%mask = .false.
       associate(rmHemi=>mixApp%ion(NORTH), shGr=>mixApp%ion(NORTH)%shGr) !, Nt=>mixApp%ion(NORTH)%shGr%Nt, Np=>mixApp%ion(NORTH)%shGr%Np)       
          mixSGV%data(:,shGr%js:shGr%je) = transpose(rmHemi%St%Vars(:,:,mixVarID))
-         mixSGV%data(:,shGr%je+1) = mixSGV%data(:,1)
+         mixSGV%data(:,shGr%je+1) = mixSGV%data(:,shGr%js)
          mixSGV%mask = .true.
          call InterpShellVar_TSC_SG(rmHemi%shGr, mixSGV, voltGrid, tmpN)
          

@@ -36,7 +36,7 @@ module raijustarter
         type(ShellGrid_T), intent(in), optional :: shGridO 
             !! If provided, and xml arg is set, we make a child grid for ourselves off of this one
 
-        type(XML_Input_T) :: iXML
+        type(XML_Input_T) :: iXML, iXML_volt
         character(len=strLen) :: tmpStr
 
         ! Make sure root is Kaiju/raiju
@@ -59,11 +59,13 @@ module raijustarter
         call initRaiLosses(app%Model, app%Grid, app%State, iXML)
 
         ! Initialize IOCLOCK
-        call app%State%IO%init(iXML,app%State%t,app%State%ts)
-
-        ! Some sub-models need RAIJU to make up its mind before they can do their full init
-        if (app%Model%doLosses .and. app%Model%eLossModel .eq. RaiELOSS_WM) then
-            call initEWM(app%Model%eLossWM, app%Model%configFName, iXML, app%Grid%shGrid)
+        if (app%Model%isSA) then
+            ! If we are driving, we look to raiju section for IO timing
+            call app%State%IO%init(iXML,app%State%t,app%State%ts)
+        else
+            ! If we are not driving, we look to voltron section for IO timing
+            iXML_volt = New_XML_Input(trim(tmpStr),'Kaiju/VOLTRON',.true.)
+            call app%State%IO%init(iXML_volt,app%State%t,app%State%ts)
         endif
 
 
