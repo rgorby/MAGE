@@ -75,10 +75,6 @@ module raijuLoss_SS
         tau = 2.0*State%bvol_cc(i,j)*Grid%Bmag(i,j)/(1.0 - eta_scatter) / V*gammar  ! [Rp/nT * nT / (Rp/s) = s]
 
         tau = max(tau, TINY)
-        !if (i==22 .and. j==180 ) then
-        !    write(*,*)"ijk=",i,j,k
-        !    write(*,*)" ",KE,gammar,V,tau
-        !endif
 
     end function SSLossCalcTau
 

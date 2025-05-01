@@ -422,6 +422,14 @@ module raijuIO
 
         call WriteVars(IOVars,.true.,Model%raijuH5, gStr)
 
+
+        ! Any extra groups to add
+        if (Model%doLosses .and. Model%doOutput_3DLoss) then
+            do i=1,size(State%lps)
+                call State%lps(i)%p%doOutput(Model, Grid, State, gStr, doGhostso=doGhosts)
+            enddo
+        endif
+
     end subroutine WriteRaiju
 
 

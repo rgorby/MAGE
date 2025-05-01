@@ -231,9 +231,8 @@ module raijuLoss_eWM_BW
 
                     L = sqrt(State%xyzMincc(i,j,1)**2 + State%xyzMincc(i,j,2)**2)  ! [Re]
                     MLT = atan2(State%xyzMincc(i,j,2),State%xyzMincc(i,j,1))/pi*12.D0+12.D0
-                    E = abs(Grid%alamc(k) * State%bvol_cc(i,j)**(-2./3.)) * 1.0E-6  ! [MeV]
 
-                    NpsphPnt = State%Den(psphIdx)%data(i,j)
+                    NpsphPnt = State%Den(psphIdx)%data(i,j)  ! [#/cc]
                     
                     ! Calculate blending
                     wNBlend = dlog(NpsphPnt/this%NpsphLow) / dlog(this%NpsphHigh/this%NpsphLow)
@@ -253,30 +252,32 @@ module raijuLoss_eWM_BW
                     this%wPS(i,j) = (1 - wNBlend)*(1-wLBlend)
 
                     ! Now calculate loss taus and accumulate
-                    ! Energy-independent taus first
-                    if (this%wHiss(i,j) > TINY) then
-                        tauHiss = calcHissTau(MLT, L, E, Kp)
-                    else
-                        tauHiss = 0.0_rp
-                    endif
+                
+                    do k=spc%kStart,spc%kEnd        
+                        
+                        E = abs(Grid%alamc(k) * State%bvol_cc(i,j)**(-2./3.)) * 1.0E-6  ! [MeV]
 
-                    if (this%wPS(i,j) > TINY) then
-                        tauPS = this%loss_SS%calcTau(Model, Grid, State, i, j, k)
-                    else
-                        tauPS = 0.0_rp
-                    endif
+                        if (this%wHISS(i,j) > TINY) then
+                            tauHiss = calcHissTau(MLT, L, E, Kp)
+                        else
+                            tauHiss = HUGE
+                        endif
 
-                    this%tauTotal(i,j,:) = this%wHISS(i,j)*tauHiss + this%wPS(i,j)*tauPS 
+                        if (this%wPS(i,j) > TINY) then
+                            tauPS = this%loss_SS%calcTau(Model, Grid, State, i, j, k)
+                        else
+                            tauPS = HUGE
+                        endif
 
-                    if (this%wCHORUS(i,j) > TINY) then
-                        do k=spc%kStart,spc%kEnd        
-                            
+                        if (this%wCHORUS(i,j) > TINY) then
                             !! Implement chorus tau calculation here
-                            tauCHORUS = 0.0_rp
+                            continue
+                        else
+                            tauCHORUS = HUGE
+                        endif
 
-                            this%tauTotal(i,j,k) = this%tauTotal(i,j,k) + this%wCHORUS(i,j)*tauCHORUS 
-                        enddo
-                    endif
+                        this%tauTotal(i,j,k) = this%wHISS(i,j)*tauHiss + this%wPS(i,j)*tauPS  + this%wCHORUS(i,j)*tauCHORUS 
+                    enddo
                 enddo
             enddo
 

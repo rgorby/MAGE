@@ -54,17 +54,17 @@ module raijulosses
             
             ! Determine which loss process is next in line for initting
             if (initCX==1) then
-                allocate( raiLoss_CX_T :: State%lps(iLP)%p )
+                allocate( raiLoss_CX_T     :: State%lps(iLP)%p )
                 initCX = 0
             elseif(initCC==1) then
-                allocate( raiLoss_CC_T :: State%lps(iLP)%p )
+                allocate( raiLoss_CC_T     :: State%lps(iLP)%p )
                 initCC = 0
                 State%lp_cc_idx = iLP
             elseif(initEWM==1) then
                 allocate( raiLoss_eWM_BW_T :: State%lps(iLP)%p )
                 initEWM = 0
             elseif(initSS==1) then
-                allocate( raiLoss_SS_T :: State%lps(iLP)%p )
+                allocate( raiLoss_SS_T     :: State%lps(iLP)%p )
                 initSS = 0
             endif
 
