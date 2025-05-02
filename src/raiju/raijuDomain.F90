@@ -75,7 +75,7 @@ module raijuDomain
             checkMask = .true.
         end where
         
-        write(*,*)"NOTE: turning off normAngle check"
+        !write(*,*)"NOTE: turning off normAngle check"
         do i=sh%isg, sh%ie ! NOTE: Not touching upper theta ghosts, we shouldn't reach there anyways. If we do then we have bigger problems
             iShellHasCheck = .false.
             if ( all(State%active(i,:) == RAIJUINACTIVE) ) then
