@@ -422,7 +422,6 @@ module raijuPreAdvancer
         enddo
 
         if (doLim) then
-            !write(*,*)"--- Hacky MCLim in calcGradIJ_cc ---"
             allocate(gradQtmp(sh%isg:sh%ieg,sh%jsg:sh%jeg, 2))
             gradQtmp = gradQ    
             !$OMP PARALLEL DO default(shared) &
@@ -450,33 +449,54 @@ module raijuPreAdvancer
             real(rp) :: dqbar
             real(rp), dimension(2) :: dqmask
             real(rp) :: magdq
+            real(rp) :: dvL, dvR, dvC
             
+            dvC = dq(2)
+            dvL = 0.5*(dq(1)+dq(2))
+            dvR = 0.5*(dq(2)+dq(3))
+
             dqbar = 0.0
 
             if (all(isG_3)) then
                 ! Standard MCLim
-                if (dq(1)*dq(3) <= 0.0) then
+                !if (dq(1)*dq(3) <= 0.0) then
+                if (dvL*dvR <= 0.0) then
                     dqbar = 0.0
                 else
-                    magdq = min(2*abs(dq(1)),2*abs(dq(3)),abs(dq(2)))
-                    !SIGN(A,B) returns the value of A with the sign of B
-                    dqbar = sign(magdq,dq(2))
+                    magdq = min(2*abs(dvL),2*abs(dvR),abs(dvC))
+                    dqbar = sign(magdq,dvC)
+                    !magdq = min(2*abs(dq(1)),2*abs(dq(3)),abs(dq(2)))
+                    !!SIGN(A,B) returns the value of A with the sign of B
+                    !dqbar = sign(magdq,dq(2))
                 endif
             else
-                ! Trying one-sided lim
-                dqmask(2) = dq(2)
+                dqmask(2) = dvC
                 if (isG_3(1) .and. isG_3(2)) then
-                    dqmask(1) = dq(1)
+                    dqmask(1) = dvL
                 else if (isG_3(3) .and. isG_3(2)) then
-                    dqmask(1) = dq(3)
+                    dqmask(1) = dvR
                 endif
-
+!
                 if (dqmask(1)*dqmask(2) <= 0.0) then
                     dqbar = 0.0
                 else
                     magdq = min(2*abs(dqmask(1)), abs(dqmask(2)))
                     dqbar = sign(magdq, dqmask(2))
                 endif
+                ! Trying one-sided lim
+!                dqmask(2) = dq(2)
+!                if (isG_3(1) .and. isG_3(2)) then
+!                    dqmask(1) = dq(1)
+!                else if (isG_3(3) .and. isG_3(2)) then
+!                    dqmask(1) = dq(3)
+!                endif
+!
+!                if (dqmask(1)*dqmask(2) <= 0.0) then
+!                    dqbar = 0.0
+!                else
+!                    magdq = min(2*abs(dqmask(1)), abs(dqmask(2)))
+!                    dqbar = sign(magdq, dqmask(2))
+!                endif
             endif
         end function MCLim
 
