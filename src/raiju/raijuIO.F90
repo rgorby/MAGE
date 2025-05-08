@@ -11,7 +11,7 @@ module raijuIO
     use shellInterp
     use shellGridIO
     ! Functions/subs we borrow for debug/diagnostic output
-    use raijuPreAdvancer, only : calcEffectivePotential, calcGradVM_cc, calcVelocityCC_gg
+    use raijuPreAdvancer, only : calcEffectivePotential, calcGradVM_cc, calcVelocity_cc
     use raijuDomain, only : calcMapJacNorm
 
     implicit none
@@ -314,6 +314,10 @@ module raijuIO
             allocate(outPrecipE   (is:ie,js:je,Grid%nSpc))
             allocate(outPrecipAvgE(is:ie,js:je,Grid%nSpc))
             allocate(outCCHeatFlux(is:ie,js:je,Grid%nSpc))
+            outPrecipN    = 0.0_rp
+            outPrecipE    = 0.0_rp
+            outPrecipAvgE = 0.0_rp
+            outCCHeatFlux = 0.0_rp
             do s=1,Grid%nSpc
                 ks = Grid%spc(s)%kStart
                 ke = Grid%spc(s)%kEnd
@@ -396,7 +400,7 @@ module raijuIO
             !$OMP schedule(dynamic) &
             !$OMP private(k)
             do k=1,Grid%Nk
-                call calcVelocityCC_gg(Model, Grid, State, k, outTmp4D(:,:,k,:), outTmp3D)
+                call calcVelocity_cc(Model, Grid, State, k, outTmp4D(:,:,k,:), outTmp3D)
             enddo
             call AddOutVar(IOVars, "gradVM_cc_nosm", outTmp3D(is:ie,js:je,:)  , uStr="V/m/lambda")
             call AddOutVar(IOVars, "cVel_nosm"     , outTmp4D(is:ie,js:je,:,:), uStr="m/s")
@@ -406,7 +410,7 @@ module raijuIO
             !$OMP schedule(dynamic) &
             !$OMP private(k)
             do k=1,Grid%Nk
-                call calcVelocityCC_gg(Model, Grid, State, k, outTmp4D(:,:,k,:), outTmp3D)
+                call calcVelocity_cc(Model, Grid, State, k, outTmp4D(:,:,k,:), outTmp3D)
             enddo
             call AddOutVar(IOVars, "gradVM_cc_sm_nolim", outTmp3D(is:ie,js:je,:)  , uStr="V/m/lambda")
             call AddOutVar(IOVars, "cVel_sm_nolim"     , outTmp4D(is:ie,js:je,:,:), uStr="m/s")

@@ -437,17 +437,13 @@ module raijustarter
             ! Coupling output data
             allocate(State%Den  (0:Model%nSpc))
             allocate(State%Press(0:Model%nSpc))
-            allocate(State%vAvg (0:Model%nSpc))
             do s=0,Model%nSpc
                 call initShellVar(Grid%shGrid, SHGR_CC, State%Den  (s))
                 call initShellVar(Grid%shGrid, SHGR_CC, State%Press(s))
-                call initShellVar(Grid%shGrid, SHGR_CC, State%vAvg (s))
                 State%Den  (s)%data = 0.0
                 State%Press(s)%data = 0.0
-                State%vAvg (s)%data = 0.0
                 State%Den  (s)%mask = .false.
                 State%Press(s)%mask = .false.
-                State%vAvg (s)%mask = .false.
             enddo
             allocate(State%precipNFlux(Grid%Nk))
             allocate(State%precipEFlux(Grid%Nk))

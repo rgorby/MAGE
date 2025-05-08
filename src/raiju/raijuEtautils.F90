@@ -34,10 +34,8 @@ module raijuetautils
         do s=0,Grid%nSpc
             State%Den  (s)%data = 0.0
             State%Press(s)%data = 0.0
-            State%vAvg (s)%data = 0.0
             State%Den  (s)%mask = .true.
             State%Press(s)%mask = .true.
-            State%vAvg (s)%mask = .false.
         enddo
 
         associate (shG => Grid%shGrid, spc => Grid%spc)
@@ -52,7 +50,6 @@ module raijuetautils
                         if (State%active(i,j) .eq. RAIJUINACTIVE) then
                             State%Den  (s)%mask(i,j) = .false.
                             State%Press(s)%mask(i,j) = .false.
-                            State%vAvg (s)%mask(i,j) = .false.
                             cycle
                         endif
 
