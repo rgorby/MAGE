@@ -5,6 +5,7 @@ module raijuLoss_SS
     use raijudefs
     use raijutypes
     use raijuSpeciesHelper
+    use raijuEleLossHelper
 
     implicit none
 
@@ -64,19 +65,9 @@ module raijuLoss_SS
         integer, intent(in) :: i, j, k
         real(rp) :: tau
 
-        real(rp) :: KE, gammar, V
-        real(rp) :: eta_scatter = 2./3.
-
-        tau = HUGE
-
-        KE = abs(Grid%alamc(k))*State%bvol_cc(i,j)**(-2./3.) * 1.0D-3  ! Energy [keV]
-        gammar = 1.0 + (KE*1.0D-3)/mec2  ! Gamma with 1 + MeV/MeV
-        V = (vc_cgs*1e-2)*sqrt(1.0 - 1.0/gammar**2)/Model%planet%rp_m  ! [Rp/s]
-        tau = 2.0*State%bvol_cc(i,j)*Grid%Bmag(i,j)/(1.0 - eta_scatter) / V*gammar  ! [Rp/nT * nT / (Rp/s) = s]
-
-        tau = max(tau, TINY)
+        tau = CalcTau_StrongScattering(Model, Grid, State, i, j, k)
 
     end function SSLossCalcTau
-
+    
 
 end module raijuLoss_SS

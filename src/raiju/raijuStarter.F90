@@ -230,11 +230,12 @@ module raijustarter
 
         !--- Losses ---!
         call iXML%Set_Val(Model%doLosses, "losses/doLosses",.true.)
-        call iXML%Set_Val(Model%doSS    , "losses/doSS" ,.true. )
+        !call iXML%Set_Val(Model%doSS    , "losses/doSS" ,.true. )
         call iXML%Set_Val(Model%doCC    , "losses/doCC" ,.true. )
         call iXML%Set_Val(Model%doCX    , "losses/doCX" ,.true.)
-        call iXML%Set_Val(Model%doFLC   , "losses/doFLC",.false.)
-        call iXML%Set_Val(Model%doEWM   , "losses/doEWM",.false.)
+        !call iXML%Set_Val(Model%doFLC   , "losses/doFLC",.false.)
+        call iXML%Set_Val(Model%doEWM   , "losses/doEWM",.true.)
+        call iXML%Set_Val(Model%ewmType , "losses/ewmType","SS")
 
         !--- Output ---!
         call iXML%Set_Val(Model%isLoud           , "output/loudConsole",.false.)

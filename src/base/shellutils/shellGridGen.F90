@@ -81,17 +81,17 @@ module shellGridGen
         thetaU_rad = thetaU*deg2rad
 
         if (xLow < 0 ) then
-            write(*,*) "ERROR in raijuGenWarpSphGrid_Shafee2008:"
+            write(*,*) "ERROR in genThetaPhi_Shafee2008:"
             write(*,*) "xLow must be greater than zero"
             stop
         endif
         if (xHigh > 1) then
-            write(*,*) "ERROR in raijuGenWarpSphGrid_Shafee2008:"
+            write(*,*) "ERROR in genThetaPhi_Shafee2008:"
             write(*,*) "xHigh must be less than one"
             stop
         endif
         if (xLow > xHigh) then
-            write(*,*) "ERROR in raijuGenWarpSphGrid_Shafee2008:"
+            write(*,*) "ERROR in genThetaPhi_Shafee2008:"
             write(*,*) "xLow must be less than xHigh"
             stop
         endif

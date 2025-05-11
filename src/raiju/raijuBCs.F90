@@ -111,6 +111,7 @@ module raijuBCs
         real(rp) :: etaBelow
             !! Amount of eta below lowest lambda bound (every i,j gets a copy)
         real(rp) :: tmp_kti, tmp_kte
+        real(rp) :: eMin
 
         psphIdx = spcIdx(Grid, F_PSPH)
         eleIdx  = spcIdx(Grid, F_HOTE)
@@ -127,18 +128,6 @@ module raijuBCs
                 endif
 
                 vm = State%bvol_cc(i,j)**(-2./3.)
-                !do s=1,Grid%nSpc
-                !    kT = DP2kT(State%Davg(i,j,s), State%Pavg(i,j,s))  ! [keV]
-                !    call DkT2SpcEta(Model,Grid%spc(s), &
-                !        State%eta(i,j,Grid%spc(s)%kStart:Grid%spc(s)%kEnd),&
-                !        State%Davg(i,j,s), kT, vm, etaBelow)
-                !    
-                !    ! etaBelow has the amount of eta that is below the lowest lambda channel bound
-                !    !! TODO: Check to see if we are missing too much pressure
-                !    ! Maybe we want to put it in plasmasphere channel cause its cold H+
-                !    if (Model%doExcesstoPsph .and. Grid%spc(s)%mapExtraToPsph) then
-                !        State%eta(i,j,Grid%spc(psphIdx)%kStart) = State%eta(i,j,Grid%spc(psphIdx)%kStart) + etaBelow
-                !    endif
 
                 ! Before we map to any RAIJU species, zero them out in case we want to accumulate
                 do s=1,Model%nSpc
@@ -166,14 +155,24 @@ module raijuBCs
                         tmp_kti = kT / (1.0 + 1.0/Model%tiote)
                         tmp_kte = kT / (1.0 + Model%tiote)
 
-                        call DkT2SpcEta(Model,Grid%spc(s), &
-                            State%eta(i,j,Grid%spc(s)%kStart:Grid%spc(s)%kEnd), &
-                            State%Davg(i,j,fIdx), tmp_kti, &
-                            vm, doAccumulateO=.true., etaBelowO=etaBelow)
-                        call DkT2SpcEta(Model,Grid%spc(eleIdx), &
-                            State%eta(i,j,Grid%spc(eleIdx)%kStart:Grid%spc(eleIdx)%kEnd), &
-                            State%Davg(i,j,fIdx), tmp_kte, &
-                            vm, doAccumulateO=.true.)
+                        eMin = Grid%spc(s)%alami(Grid%spc(s)%kStart)*vm*1e-3  ! [kev] Lowest energy for this channel
+
+                        if (tmp_kti < eMin) then
+                            ! Probably plasmasphere, dump it all into there and don't map to hot channels
+                            etaBelow = State%Davg(i,j,fIdx)*State%bvol_cc(i,j)*sclEta  ! Basically the inverse of etak2Den in raijuEtautils
+                        else
+
+                            call DkT2SpcEta(Model,Grid%spc(s), &
+                                State%eta(i,j,Grid%spc(s)%kStart:Grid%spc(s)%kEnd), &
+                                State%Davg(i,j,fIdx), tmp_kti, &
+                                vm, doAccumulateO=.true., etaBelowO=etaBelow)
+                            call DkT2SpcEta(Model,Grid%spc(eleIdx), &
+                                State%eta(i,j,Grid%spc(eleIdx)%kStart:Grid%spc(eleIdx)%kEnd), &
+                                State%Davg(i,j,fIdx), tmp_kte, &
+                                vm, doAccumulateO=.true.)
+                        endif
+
+
                     else
                         call DkT2SpcEta(Model,Grid%spc(s), &
                             State%eta(i,j,Grid%spc(s)%kStart:Grid%spc(s)%kEnd), &

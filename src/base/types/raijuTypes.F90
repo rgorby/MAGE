@@ -277,16 +277,21 @@ module raijutypes
             !! Planet info like radius, mag. moment, etc.
 
         ! Losses
-        logical :: doSS
+        !logical :: doSS
             !! Do strong scattering
         logical :: doCC
             !! Do coulomb collisions
         logical :: doCX
             !! Do charge exchange
-        logical :: doFLC
+        !logical :: doFLC
             !! Do field-line curvature
         logical :: doEWM
             !! Do electron loss model
+        character(len=strLen) :: ewmType
+            !! Type of electron loss model to use
+            !! C05 = Chen05 blended with Hiss
+            !! BW = Bao-Wang empirical wave model with Hiss, Chorus, and Plasma sheet strong scattering
+            !! SS = Schulz strong scattering only, we hate electrons
 
         ! Coupling info
         integer :: nFluidIn = 0
