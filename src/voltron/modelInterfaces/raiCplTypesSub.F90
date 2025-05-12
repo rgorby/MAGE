@@ -204,8 +204,6 @@ submodule (volttypes) raijuCplTypesSub
         integer :: i,j,k
         integer :: is, ie, js, je, ks, ke
         real(rp) :: d_cold, d_hot, p_hot, dn_flux, de_flux
-        real(rp) :: valPrecip  ! threshold value of grid status for accumulating precip.
-        valPrecip = (RAIJUBUFFER*1.0_rp + 1.0)/2.0
 
         associate(Model=>App%raiApp%Model, State=>App%raiApp%State, sh=>App%raiApp%Grid%shGrid, spcList=>App%raiApp%Grid%spc)
             ! Default
@@ -246,6 +244,16 @@ submodule (volttypes) raijuCplTypesSub
                     !imW(IM_D_COLD) = d_cold  ! [#/cc]
                     call InterpShellVar_TSC_pnt(sh, State%Den(s), th, ph, d_cold)
                     imP(RAI_NPSP) = imP(RAI_NPSP) + d_cold*1.0e6 ! uStr="#/cc" -> /m^3 , dStr="Density from RAIJU flavors"
+
+                    ! debug, print Npsp>10/cc
+                    if(th<25.0_rp*PI/180.0_rp .and. imP(RAI_NPSP )>10.0_rp*1.0e6 .and. imP(RAI_GTYPE)<0.5) then
+                       write(*,"(2(a,i4),5(a,f8.1),3(a,e12.4))") 'ldong_20250510 i0=',i0,' j0=',j0, &
+                       ' th=',th*180.0_rp/PI,' ph=',ph*180.0_rp/PI, &
+                       ' thcon=',(imP(RAI_THCON))*180.0_rp/PI,' phcon=',(imP(RAI_PHCON))*180.0_rp/PI, &
+                       ' gtype=',imP(RAI_GTYPE),' npsp=',imP(RAI_NPSP),' d_cold=',d_cold*1.0e6, &
+                       ' State%Den=',State%Den(s)%data(i0,j0)*1.0e6
+                    endif
+
                 elseif (spcList(s)%spcType == RAIJUHPLUS) then
                     ! add proton precipitation later.
                 elseif (spcList(s)%spcType == RAIJUELE) then

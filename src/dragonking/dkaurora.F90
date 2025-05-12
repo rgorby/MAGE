@@ -311,6 +311,11 @@ module dkaurora
                   St%Vars(i,j,AUR_TYPE)= AT_NoPre
                endif
             endif
+            ! debug, print Npsp>10/cc
+            if(j<25 .and. St%Vars(i,j,IM_NPSP)>10.0_rp*1.0e6 .and. gtype_RCM(i,j)<0.5) then
+               write(*,"(2(a,i4),1(a,f8.1),1(a,e12.4))") 'ldong_20250511 i=',i,' j=',j, &
+               ' gtype=',gtype_RCM(i,j),' IM_NPSP=',St%Vars(i,j,IM_NPSP)
+            endif
          enddo
       enddo
 
