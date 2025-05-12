@@ -3,10 +3,13 @@ module raijuLoss_eWM_Chen05
     !! Based on Chen et al. 2005 and Orlova et al. 2016
 
     use kdefs
+    use math  ! good idea
+    
     use raijudefs
     use raijutypes
     use raijuSpeciesHelper
     use raijuEleLossHelper
+
 
     implicit none
 
@@ -85,18 +88,24 @@ module raijuLoss_eWM_Chen05
 
         psphIdx = spcIdx(Grid, F_PSPH)
         NpsphPnt = State%Den(psphIdx)%data(i,j)
-        wgtHiss = dlog(NpsphPnt/this%NpsphLow) / dlog(this%NpsphHigh/this%NpsphLow)
+        wgtHiss = log(NpsphPnt/this%NpsphLow) / log(this%NpsphHigh/this%NpsphLow)
         call ClampValue(wgtHiss, 0.0_rp, 1.0_rp)
             !! 1 => Psphere Hiss, 0 => Chen
 
         L = sqrt(State%xyzMincc(i,j,XDIR)**2 + State%xyzMincc(i,j,YDIR)**2)  ! [Re]
         MLT = atan2(State%xyzMincc(i,j,YDIR),State%xyzMincc(i,j,XDIR))/pi*12.D0+12.D0
-        E = abs(Grid%alamc(k) * State%bvol_cc(i,j)**(-2./3.)) * 1.0D-6  ! [MeV]
+        E = abs(Grid%alamc(k)) * State%bvol_cc(i,j)**(-2./3.) * 1.0D-6  ! [MeV]
         Kp = this%KpTS%evalAt(State%t)
         tauHiss = CalcTau_Hiss(MLT, L, E, Kp)  ! [s]
 
         tauChen = CalcTau_WeakScattering(Model, Grid, State, i, j, k)  ! [s]
-        tau = wgtHiss*tauHiss + (1.0_rp - wgtHiss)*tauChen  ! [s]
+        
+        !! 1/tau = w_h/tau_h + (1-w_h)/tau_c
+        !tau = tauHiss*tauChen / (wgtHiss*tauChen + (1.0_rp - wgtHiss)*tauHiss)  ! [s]
+
+        tau = tauChen  ! test
+        call ClampValue(tau, TINY, HUGE)  ! [s]
+            !! Clamp to avoid division by zero
 
     end function eWM_C05_LossCalcTau
 

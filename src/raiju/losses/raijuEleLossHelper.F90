@@ -2,9 +2,12 @@ module raijuEleLossHelper
     !! Helper functions for common electron loss calculations
 
     use kdefs
+    use math
 
     use raijudefs
     use raijutypes
+
+    
 
     implicit none
 
@@ -35,7 +38,7 @@ module raijuEleLossHelper
         V = (vc_cgs*1e-2)*sqrt(1.0 - 1.0/gammar**2)/Model%planet%rp_m  ! [Rp/s]
         tau = 2.0*State%bvol_cc(i,j)*Grid%Bmag(i,j)/(1.0 - eta_scatter) / V*gammar  ! [Rp/nT * nT / (Rp/s) = s]
 
-        tau = max(tau, TINY)
+        call ClampValue(tau, TINY, HUGE)
 
     end function CalcTau_StrongScattering
 
@@ -65,7 +68,7 @@ module raijuEleLossHelper
         ! Smooth transition between weak and strong scattering
         tau = (1.0_rp + l_0*tau_SS) / l_0  ! [days]
         tau = tau*86400.0_rp  ! [s]
-        tau = max(tau, TINY)  ! Just in case something weird happened
+        call ClampValue(tau, TINY, HUGE)  ! Just in case something weird happened
 
     end function CalcTau_WeakScattering
 
@@ -141,6 +144,7 @@ module raijuEleLossHelper
 
         tau_av = 10.0**(dot_product(a1_20,le_pol))*86400.D0 ! seconds
         tau = tau_av/g_MLT/h_Kp
+        call ClampValue(tau, TINY, HUGE)
         !rateK = 1.0/tau
 
         !write(*,*) Ein, L, fL, E, tau, rateK, '--'
