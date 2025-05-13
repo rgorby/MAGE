@@ -59,8 +59,7 @@ module raijuDomain
         isInactive = .false.
         checkMask = .false.
         bndLoc = Grid%shGrid%isg
-        call calcCoreConstraints(Model, Grid, State, isCoreInactive)
-        isInactive = isCoreInactive
+        call calcCoreConstraints(Model, Grid, State, isInactive, bndLoc)
 
         ! Prep trim criteria
         call calcCornerNormAngles(Model, Grid, State, cornerNormAngle)
@@ -148,11 +147,12 @@ module raijuDomain
 
         contains
 
-        subroutine calcCoreConstraints(Model, Grid, State, isCoreInactive)
+        subroutine calcCoreConstraints(Model, Grid, State, isCoreInactive, bndLoc)
             type(raijuModel_T), intent(in) :: Model
             type(raijuGrid_T ), intent(in) :: Grid
             type(raijuState_T), intent(in) :: State
             logical, dimension(Grid%shGrid%isg:Grid%shGrid%ieg,Grid%shGrid%jsg:Grid%shGrid%jeg), intent(inout) :: isCoreInactive
+            integer, dimension(Grid%shGrid%jsg:Grid%shGrid%jeg), intent(inout) :: bndLoc
 
             integer :: i,j
             real(rp) :: xyMin
@@ -185,6 +185,11 @@ module raijuDomain
                     ! Simple circle limit
                     if ( (xyMin > Model%maxTail_buffer) .or. xyMin > Model%maxSun_buffer) then
                         isCoreInactive(i,j) = .true.
+                    endif
+
+                    ! Now that we applied all criteria, update bndLoc
+                    if (isCoreInactive(i,j) .and. (i > bndLoc(j))) then
+                        bndLoc(j) = i
                     endif
                 enddo
             enddo
