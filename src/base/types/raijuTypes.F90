@@ -147,6 +147,8 @@ module raijutypes
 
 
         !--- State ---!
+        logical :: doneFirstCS = .false.
+            !! Have we executed once already?
         real(rp) :: lastEval = -1*HUGE
             !! [s] Last eval time
         real(rp) :: lastTarget = 0

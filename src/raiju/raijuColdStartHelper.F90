@@ -60,9 +60,9 @@ module raijuColdStartHelper
 
         associate(cs=>State%coldStarter)
         !write(*,*)"Coldstart running..."
-        if (t0 > cs%tEnd) return
+        
 
-        isFirstCS = (cs%lastEval < -0.5*HUGE)  ! Dumb way to see if we are default value or not
+        isFirstCS = .not. State%coldStarter%doneFirstCS
 
         if (.not. isFirstCS .and. .not. cs%doUpdate) then
             return
@@ -142,6 +142,7 @@ module raijuColdStartHelper
         dps_rescale = spcEta2DPS(Model, Grid, State, Grid%spc(sIdx_p), isGood)
 
         if (isfirstCS) then
+            write(*,*)          "RAIJU Cold starting..."
             write(*,'(a,f7.2)') "  Real Dst             : ",dstReal
             write(*,'(a,f7.2)') "  Model Dst            : ",dstModel
             write(*,'(a,f7.2)') "  Target DPS-Dst       : ",dstTarget
@@ -159,6 +160,8 @@ module raijuColdStartHelper
         endif
 
         end associate
+
+        State%coldStarter%doneFirstCS = .true.
 
     end subroutine raijuGeoColdStart
 

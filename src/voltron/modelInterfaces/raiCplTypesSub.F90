@@ -73,7 +73,8 @@ submodule (volttypes) raijuCplTypesSub
             ! Someone updated raiCpl's coupling variables by now, stuff it into RAIJU proper
             call raiCpl2RAIJU(App)
 
-            if (vApp%time < App%raiApp%State%coldStarter%tEnd) then
+            if (.not. raiApp%State%coldStarter%doneFirstCS .or. vApp%time < raiApp%State%coldStarter%tEnd) then
+                !! Make sure we run at least once
                 call setActiveDomain(raiApp%Model, raiApp%Grid, raiApp%State)
                 ! Calc voltron dst ourselves since vApp%BSDst is only set on console output
                 call EstDST(vApp%gApp%Model,vApp%gApp%Grid,vApp%gApp%State,BSDst0=BSDst)
