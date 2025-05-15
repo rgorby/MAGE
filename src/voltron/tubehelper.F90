@@ -295,6 +295,7 @@ module tubehelper
             !! ShellGridVar versions of 2D Tube_T data we are populating
 
         integer :: i,j,k
+        logical, dimension(shGr%isg:shGr%ieg+1,shGr%jsg:shGr%jeg+1) :: topoMask
 
         ! Copy tubes to active tubeShell domain
         !$OMP PARALLEL DO default(shared) &
@@ -360,5 +361,36 @@ module tubehelper
         call wrapJ_SGV(shGr, tubeShell%lossconec)
         call wrapJ_SGV(shGr, tubeShell%TioTe0   )
         call wrapJ_SGV(shGr, tubeShell%nTrc     )
+
+
+        ! Then apply topo mask to vars that only make sense for closed tubes
+        where (tubeShell%topo%data == TUBE_CLOSED)
+            topoMask = .true.
+        elsewhere
+            topoMask = .false.
+        end where
+
+        do k=1,NDIM
+            ! xyz0 is good
+            tubeShell%X_bmin(k)%mask(:,:) = topoMask
+        enddo
+        ! lat0,lon0,invlat are good
+        tubeShell%latc   %mask(:,:) = topoMask
+        tubeShell%lonc   %mask(:,:) = topoMask
+        tubeShell%bmin   %mask(:,:) = topoMask
+        tubeShell%bVol   %mask(:,:) = topoMask
+        tubeShell%Lb     %mask(:,:) = topoMask
+        tubeShell%Tb     %mask(:,:) = topoMask
+        tubeShell%wMAG   %mask(:,:) = topoMask
+        tubeShell%rCurv  %mask(:,:) = topoMask
+        tubeShell%avgBeta%mask(:,:) = topoMask
+        do k=0,MAXTUBEFLUIDS
+            tubeShell%avgP(k)%mask(:,:) = topoMask
+            tubeShell%stdP(k)%mask(:,:) = topoMask
+            tubeShell%avgN(k)%mask(:,:) = topoMask
+            tubeShell%stdN(k)%mask(:,:) = topoMask
+        enddo
+        ! idk about losscone, lossconec, TioTe0
+        ! nTrc is good
     end subroutine tubes2Shell
 end module tubehelper

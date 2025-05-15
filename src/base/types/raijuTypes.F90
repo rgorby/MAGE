@@ -147,6 +147,8 @@ module raijutypes
 
 
         !--- State ---!
+        logical :: doneFirstCS = .false.
+            !! Have we executed once already?
         real(rp) :: lastEval = -1*HUGE
             !! [s] Last eval time
         real(rp) :: lastTarget = 0
@@ -277,16 +279,21 @@ module raijutypes
             !! Planet info like radius, mag. moment, etc.
 
         ! Losses
-        logical :: doSS
+        !logical :: doSS
             !! Do strong scattering
         logical :: doCC
             !! Do coulomb collisions
         logical :: doCX
             !! Do charge exchange
-        logical :: doFLC
+        !logical :: doFLC
             !! Do field-line curvature
         logical :: doEWM
             !! Do electron loss model
+        character(len=strLen) :: ewmType
+            !! Type of electron loss model to use
+            !! C05 = Chen05 blended with Hiss
+            !! BW = Bao-Wang empirical wave model with Hiss, Chorus, and Plasma sheet strong scattering
+            !! SS = Schulz strong scattering only, we hate electrons
 
         ! Coupling info
         integer :: nFluidIn = 0
@@ -490,8 +497,6 @@ module raijutypes
             !! (Ngi, Ngj, Nspc+1) Density  [#/cc]
         type(ShellGridVar_T), dimension(:), allocatable :: Press
             !! (Ngi, Ngj, Nspc+1) Pressure [nPa]
-        type(ShellGridVar_T), dimension(:), allocatable :: vAvg
-            !! (Ngi, Ngj, Nspc+1) Average cell velocity [km/s]
         type(ShellGridVar_T) :: Tb
             !! (Ngi, Ngj) [s] Bounce timescale (Alfven crossing time)
         

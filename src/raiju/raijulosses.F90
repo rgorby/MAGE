@@ -11,6 +11,7 @@ module raijulosses
     use raijuLoss_CC
     use raijuLoss_SS
     use raijuLoss_eWM_BW
+    use raijuLoss_eWM_Chen05
 
     implicit none
 
@@ -27,7 +28,7 @@ module raijulosses
             !! iterator
         integer :: numLPs
             !! number of loss proccces we're gonna have
-        integer :: initCX, initCC, initSS, initFLC, initEWM
+        integer :: initCX, initCC, initEWM
             !! Flag for if we need to allocate and init this LP
 
         State%lossRates = 0.0
@@ -41,11 +42,11 @@ module raijulosses
 
         initCX  = merge(1, 0, Model%doCX)
         initCC  = merge(1, 0, Model%doCC)
-        initFLC = merge(1, 0, Model%doFLC)
+        !initFLC = merge(1, 0, Model%doFLC)
         initEWM = merge(1, 0, Model%doEWM)
-        initSS  = merge(1, 0, Model%doSS .and. .not. Model%doEWM)  ! TODO: Kinda jank, fix later
+        !initSS  = merge(1, 0, Model%doSS .and. .not. Model%doEWM)  ! TODO: Kinda jank, fix later
 
-        numLPs = initCX + initCC + initEWM + initSS + initFLC
+        numLPs = initCX + initCC + initEWM
         
         allocate(State%lps(numLPs))
 
@@ -54,18 +55,25 @@ module raijulosses
             
             ! Determine which loss process is next in line for initting
             if (initCX==1) then
-                allocate( raiLoss_CX_T     :: State%lps(iLP)%p )
+                allocate( raiLoss_CX_T :: State%lps(iLP)%p )
                 initCX = 0
             elseif(initCC==1) then
-                allocate( raiLoss_CC_T     :: State%lps(iLP)%p )
+                allocate( raiLoss_CC_T :: State%lps(iLP)%p )
                 initCC = 0
                 State%lp_cc_idx = iLP
             elseif(initEWM==1) then
-                allocate( raiLoss_eWM_BW_T :: State%lps(iLP)%p )
                 initEWM = 0
-            elseif(initSS==1) then
-                allocate( raiLoss_SS_T     :: State%lps(iLP)%p )
-                initSS = 0
+                select case(trim(Model%ewmType))
+                case("C05")
+                    allocate( raiLoss_eWM_C05_T :: State%lps(iLP)%p )
+                case("BW")
+                    allocate( raiLoss_eWM_BW_T :: State%lps(iLP)%p )
+                case ("SS")
+                    allocate( raiLoss_SS_T :: State%lps(iLP)%p )
+                case default
+                    write(*,*)"ERROR in raijulosses: Unknown EWM type"
+                    stop
+                end select
             endif
 
             ! Init newly-allocated LP
@@ -150,16 +158,16 @@ module raijulosses
 
         associate(spc=>Grid%spc(Grid%k2spc(k)), lps=>State%lps)
 
-        do j=Grid%shGrid%jsg,Grid%shGrid%jeg
-            do i=Grid%shGrid%isg,Grid%shGrid%ieg
-                if (.not. isG(i,j)) then
-                    cycle
-                endif
-                do l=1,size(lps)
-                    if ( .not. lps(l)%p%isValidSpc(spc) ) then
+        do l=1,size(lps)
+            if ( .not. lps(l)%p%isValidSpc(spc) ) then
+                cycle
+            endif
+            do j=Grid%shGrid%jsg,Grid%shGrid%jeg
+                do i=Grid%shGrid%isg,Grid%shGrid%ieg
+                    if (.not. isG(i,j)) then
                         cycle
                     endif
-
+                    
                     rate = 1.0_rp/lps(l)%p%calcTau(Model, Grid, State, i,j,k)
                     if (rate < 0.0) then
                         write(*,*)"ERROR in raijulosses: lossRate<0 for i,j,k=",i,j,k
@@ -173,10 +181,9 @@ module raijulosses
                     if (lps(l)%p%isPrecip) then
                         State%lossRatesPrecip(i,j,k) = State%lossRatesPrecip(i,j,k) + rate
                     endif
-                enddo
-                
-            enddo
-        enddo
+                enddo  ! i
+            enddo  ! j
+        enddo  ! l
 
         end associate
 
