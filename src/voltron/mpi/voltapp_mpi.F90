@@ -434,6 +434,7 @@ module voltapp_mpi
             endif
 
             ! moving this to after voltron helpers are started
+            call calcPotDrop(vApp)
             call DoImag(vApp)
 
             vApp%deepProcessingInProgress = .true.

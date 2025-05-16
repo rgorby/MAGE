@@ -564,6 +564,10 @@ module voltapp
         call genVoltTubes(vApp)
         call Toc("VoltTubes",.true.)
 
+        ! Diagnostics that need fresh voltron information
+        call calcPotDrop(vApp)
+
+
     end subroutine
 
     subroutine DoImag(vApp)
