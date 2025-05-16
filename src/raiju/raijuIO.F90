@@ -494,6 +494,11 @@ module raijuIO
         call AddOutVar(IOVars,"nRes" ,State%IO%nRes)
         call AddOutVar(IOVars,"tRes" ,State%IO%tRes)
         ! ColdStarter state
+        if (State%coldStarter%doneFirstCS) then
+            call AddOutVar(IOVars,"cs_doneFirstCS", 1)
+        else
+            call AddOutVar(IOVars,"cs_doneFirstCS", 0)
+        endif
         call AddOutVar(IOVars, "cs_lastEval", State%coldStarter%lastEval)
         call AddOutVar(IOVars, "cs_lastTarget", State%coldStarter%lastTarget)
 
@@ -601,6 +606,7 @@ module raijuIO
         call AddInVar(IOVars,"nRes")
         call AddInVar(IOVars,"tRes")
         call AddInVar(IOVars,"isFirstCpl")
+        call AddInVar(IOVars,"cs_doneFirstCS")
         call AddInVar(IOVars,"cs_lastEval")
         call AddInVar(IOVars,"cs_lastTarget")
 
@@ -661,6 +667,8 @@ module raijuIO
         ! Handle boolean attributes
         tmpInt = GetIOInt(IOVars, "isFirstCpl")
         State%isFirstCpl = tmpInt .eq. 1
+        tmpInt = GetIOInt(IOVars, "cs_doneFirstCS")
+        State%coldStarter%doneFirstCS = tmpInt .eq. 1
 
         call IOArray2DFill(IOVars, "xmin" , State%xyzMin(:,:,XDIR))
         call IOArray2DFill(IOVars, "ymin" , State%xyzMin(:,:,YDIR))
