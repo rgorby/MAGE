@@ -56,6 +56,8 @@ module uservoltic
         procedure(VectorField_T), pointer :: Axyz
         procedure(HackE_T), pointer :: eHack
         procedure(HackStep_T), pointer :: tsHack
+        procedure(HackSaveRestart_T), pointer :: saveResHack
+        procedure(HackLoadRestart_T), pointer :: loadResHack
 
         real(rp) :: M0g
         integer :: s,s0
@@ -64,8 +66,12 @@ module uservoltic
         !NOTE: Need silly double value for GNU
         eHack  => NULL()
         tsHack => NULL()
+        saveResHack => NULL()
+        loadResHack => NULL()
         Model%HackE => eHack
         Model%HackStep => tsHack
+        Model%HackSaveRestart => saveResHack
+        Model%HackLoadRestart => loadResHack
 
         !Get defaults from input deck
 
@@ -149,6 +155,10 @@ module uservoltic
         Model%HackE => eHack
         tsHack => PerStep
         Model%HackStep => tsHack
+        loadResHack => LoadUserRes
+        Model%HackLoadRestart => loadResHack
+        saveResHack => SaveUserRes
+        Model%HackSaveRestart => saveResHack
 
         !Local functions
         !NOTE: Don't put BCs here as they won't be visible after the initialization call
@@ -579,5 +589,54 @@ module uservoltic
         enddo !k
 
     end subroutine PushIon
+
+    subroutine LoadUserRes(Model,Grid,State,inH5)
+        class(Model_T), intent(inout)    :: Model
+        class(Grid_T) , intent(inout)    :: Grid
+        class(State_T), intent(inout)    :: State
+        character(len=*), intent(in) :: inH5
+
+        integer :: nbc
+        type(IOVAR_T), dimension(50):: IOVars
+
+        if ( Grid%hasLowerBC(IDIR) ) then
+            nbc = FindBC(Model,Grid,INI)
+                SELECT type(iiBC=>Grid%externalBCs(nbc)%p)
+                    TYPE IS (IonInnerBC_T)
+                        call ClearIO(IOVars)
+                        call AddInVar(IOVars,"inEijk")
+                        call AddInVar(IOVars,"inExyz")
+                        call ReadVars(IOVars,.false.,inH5)
+                        call IOArray4DFill(IOVars, "inEijk", iiBC%inEijk(:,:,:,:) )
+                        call IOArray4DFill(IOVars, "inExyz", iiBC%inExyz(:,:,:,:) )
+                CLASS DEFAULT
+                    ! do nothing on gamera ranks without this BC
+            END SELECT
+        endif
+
+
+    end subroutine LoadUserRes
+
+    subroutine SaveUserRes(Model,Grid,State,IOVars)
+        class(Model_T), intent(in)    :: Model
+        class(Grid_T) , intent(in)    :: Grid
+        class(State_T), intent(in)    :: State
+        type(IOVAR_T), dimension(:), intent(inout) :: IOVars
+ 
+        integer :: nbc
+
+        if ( Grid%hasLowerBC(IDIR) ) then
+            nbc = FindBC(Model,Grid,INI)
+                SELECT type(iiBC=>Grid%externalBCs(nbc)%p)
+                    TYPE IS (IonInnerBC_T)
+                        call AddOutVar(IOVars, "inEijk", iiBC%inEijk(:,:,:,:) )
+                        call AddOutVar(IOVars, "inExyz", iiBC%inExyz(:,:,:,:) )
+                CLASS DEFAULT
+                    ! do nothing on gamera ranks without this BC
+            END SELECT
+        endif
+
+    end subroutine SaveUserRes
+
 
 end module uservoltic
