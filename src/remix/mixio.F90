@@ -75,6 +75,10 @@ contains
     mixUnitNames(DELTAE)       = "kV"
     mixVarNames(IM_NPSP)       = "RCM plasmasphere density"
     mixUnitNames(IM_NPSP)      = "#/m^3"
+    mixVarNames(IM_THCON)      = "Conjugate Colatitude"
+    mixUnitNames(IM_THCON)     = "radians"
+    mixVarNames(IM_PHCON)      = "Conjugate Longitude"
+    mixUnitNames(IM_PHCON)     = "radians"
   end subroutine initMIXNames
 
   subroutine initMIXIO(I,RunID,isRestart,nRes)
@@ -216,6 +220,10 @@ contains
           case (DELTAE)
              doDump = .true.
           case (IM_NPSP)
+             doDump = .true.
+          case (IM_THCON)
+             doDump = .true.
+          case (IM_PHCON)
              doDump = .true.
           case DEFAULT
              doDump = .false. ! only dump the variables explicitely set to be dumped above
@@ -588,6 +596,10 @@ contains
           case (DELTAE)
              doDump = .true.
           case (IM_NPSP)
+             doDump = .true.
+          case (IM_THCON)
+             doDump = .true.
+          case (IM_PHCON)
              doDump = .true.
           case (NEUTRAL_WIND) 
              doDump = .false.

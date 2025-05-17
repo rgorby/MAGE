@@ -123,13 +123,13 @@ submodule (volttypes) raijuCplTypesSub
         associate(Model=>App%raiApp%Model, State=>App%raiApp%State, sh=>App%raiApp%Grid%shGrid, spcList=>App%raiApp%Grid%spc)
 
         ! Default
-        imW = 0.0
+        imW = 0.0_rp
         isEdible = .false.
 
-        d_cold = 0
+        d_cold = 0.0_rp
         t_cold = TINY
-        d_hot = 0
-        p_hot = 0
+        d_hot = 0.0_rp
+        p_hot = 0.0_rp
 
         ! Is this a good point?
         if (th < sh%minTheta .or. th > sh%maxTheta) then
@@ -208,14 +208,14 @@ submodule (volttypes) raijuCplTypesSub
 
         associate(Model=>App%raiApp%Model, State=>App%raiApp%State, sh=>App%raiApp%Grid%shGrid, spcList=>App%raiApp%Grid%spc)
             ! Default
-            imP = 0.0
+            imP = 0.0_rp
             isEdible = .false.
 
-            d_cold = 0
-            d_hot = 0
-            p_hot = 0
-            dn_flux = 0
-            de_flux = 0
+            d_cold = 0.0_rp
+            d_hot = 0.0_rp
+            p_hot = 0.0_rp
+            dn_flux = 0.0_rp
+            de_flux = 0.0_rp
     
             ! Is this a good point?
             if (th < sh%minTheta .or. th > sh%maxTheta) then
@@ -227,6 +227,7 @@ submodule (volttypes) raijuCplTypesSub
             call getSGCellJLoc(sh, ph, j0)
 
             ! record the grid type info
+            ! gtype is a proxy of raiju active, buffer, inactive
             imP(RAI_GTYPE) = (State%active(i0,j0)*1.0_rp+1.0)/2.0  ! "-1=Inactive, 0=Buffer, 1=Active" -> 0, 0.5, and 1.0        
             imP(RAI_THCON) = State%thcon(i0,j0) ! conjugate co-lat in radians, 0-pi
             imP(RAI_PHCON) = State%phcon(i0,j0) ! conjugate long in radians, 0-2pi
@@ -245,16 +246,6 @@ submodule (volttypes) raijuCplTypesSub
                     !imW(IM_D_COLD) = d_cold  ! [#/cc]
                     call InterpShellVar_TSC_pnt(sh, State%Den(s), th, ph, d_cold)
                     imP(RAI_NPSP) = imP(RAI_NPSP) + d_cold*1.0e6 ! uStr="#/cc" -> /m^3 , dStr="Density from RAIJU flavors"
-
-                    ! debug, print Npsp>10/cc
-                    if(th<25.0_rp*PI/180.0_rp .and. imP(RAI_NPSP )>10.0_rp*1.0e6 .and. imP(RAI_GTYPE)<0.5) then
-                       write(*,"(2(a,i4),5(a,f8.1),3(a,e12.4))") 'ldong_20250510 i0=',i0,' j0=',j0, &
-                       ' th=',th*180.0_rp/PI,' ph=',ph*180.0_rp/PI, &
-                       ' thcon=',(imP(RAI_THCON))*180.0_rp/PI,' phcon=',(imP(RAI_PHCON))*180.0_rp/PI, &
-                       ' gtype=',imP(RAI_GTYPE),' npsp=',imP(RAI_NPSP),' d_cold=',d_cold*1.0e6, &
-                       ' State%Den=',State%Den(s)%data(i0,j0)*1.0e6
-                    endif
-
                 elseif (spcList(s)%spcType == RAIJUHPLUS) then
                     ! add proton precipitation later.
                 elseif (spcList(s)%spcType == RAIJUELE) then
