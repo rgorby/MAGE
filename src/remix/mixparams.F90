@@ -134,7 +134,7 @@ module mixparams
         call xmlInp%Set_Val(Params%F107,"conductance/F107",120._rp)
         call xmlInp%Set_Val(Params%pedmin,"conductance/pedmin",2.0_rp)
         call xmlInp%Set_Val(Params%hallmin,"conductance/hallmin",1.0_rp)
-        call xmlInp%Set_Val(Params%sigma_ratio,"conductance/sigma_ratio",3.0_rp)
+        call xmlInp%Set_Val(Params%sigma_ratio,"conductance/sigma_ratio",6.0_rp)
         call xmlInp%Set_Val(Params%ped0,"conductance/ped0",10.0_rp)
         call xmlInp%Set_Val(Params%const_sigma,"conductance/const_sigma",.false.)
         call xmlInp%Set_Val(Params%doRamp,"conductance/doRamp",.true.)
