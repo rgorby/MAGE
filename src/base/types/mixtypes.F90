@@ -12,6 +12,7 @@ module mixtypes
      integer  :: euv_model_type
      integer  :: et_model_type
      integer  :: aurora_model_type
+     integer  :: sigma_model_type
      real(rp) :: alphaZ
      real(rp) :: betaZ
      real(rp) :: alpha
@@ -104,7 +105,7 @@ module mixtypes
   end type Solver_T
 
   type mixConductance_T
-    integer :: euv_model_type, et_model_type!, aurora_model_type
+    integer :: euv_model_type, et_model_type, sigma_model_type!, aurora_model_type
 !    real(rp) :: alpha, beta, R, F107,pedmin,hallmin,sigma_ratio,ped0, alphaZ, betaZ
     real(rp) :: F107, pedmin, hallmin, sigma_ratio, ped0
 !    logical :: const_sigma, doRamp, doChill, doStarlight, apply_cap, doMR, doAuroralSmooth, doEMA

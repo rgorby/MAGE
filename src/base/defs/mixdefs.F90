@@ -28,6 +28,10 @@ module mixdefs
      enumerator :: NONE=1,ADHOC,CMIT
   end enum
 
+  enum, bind(C)
+     enumerator :: KAE23=1,ROB87
+  end enum
+
   ! enumerator for transform variables
   enum, bind(C)
     enumerator :: iSMtoGEO,iGEOtoSM,iSMtoGSM,iGSMtoSM,iGEOtoGSM,iGSMtoGEO
