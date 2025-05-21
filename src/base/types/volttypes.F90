@@ -313,8 +313,10 @@ module volttypes
         type(TubeShell_T)    :: tubeShell
         type(ShellGridVar_T) :: potential_total
             !! (Corners) [kV] Ionospheric ExB and corotation potential
-        type(ShellGridVar_T) :: potential_corot  ! [kV]
+        type(ShellGridVar_T) :: potential_corot
             !! (Corners) [kV] Corotation potential
+        type(ShellGridVar_T) :: pot_drop
+            !! (Corners) [kV] potential drop along field line
 
         type(ShellGridVar_T) :: bIonoMag
             !! [nT] Magnitude of the magnetic field at grid's ionosphere location
