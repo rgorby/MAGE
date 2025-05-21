@@ -262,6 +262,7 @@ module raijuIO
         call AddOutVar(IOVars,"Pstd_in",State%Pstd   (is:ie,js:je, :)        ,uStr="normalized" ,dStr="Std. dev. of species pressure from imagtubes")
         call AddOutVar(IOVars,"Dstd_in",State%Dstd   (is:ie,js:je, :)        ,uStr="normalized" ,dStr="Std. dev. of species density from imagtubes")
         call AddOutVar(IOVars,"tiote"  ,State%tiote  (is:ie,js:je)           ,uStr="normalized" ,dStr="Ratio of ion temperature over electron temperature")
+        call AddOutVar(IOVars,"domWeights",State%domWeights(is:ie,js:je)     ,                   dStr="Weights used for smoothing moments for questionable cells along boundary")
         call AddOutSGV(IOVars,"Tbounce",State%Tb, outBndsO=outBnds2D, uStr="[s]", dStr="Bounce timescale along field line (Alfven crossing time)", doWriteMaskO=.false.)
 
         if (Model%doOwnCorot) then

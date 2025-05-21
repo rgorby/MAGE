@@ -299,8 +299,13 @@ module raijutypes
         integer :: nFluidIn = 0
         type(mhd2raiSpcMap_T), dimension(:), allocatable :: fluidInMaps
         ! Coupling-related knobs
-        real(rp) :: vaFracThresh, bminThresh, normAngThresh, PstdThresh
+        !real(rp) :: vaFracThresh, bminThresh, normAngThresh, PstdThresh
         real(rp) :: nBounce
+        ! Domain determination knobs
+        real(rp) :: lim_vaFrac_soft, lim_vaFrac_hard
+            !! soft/hard limit for flux tube energy partition
+        real(rp) :: lim_bmin_soft, lim_bmin_hard
+            !! [nT] soft/hard limit for minimum allowable magnetic field strength at bmin point
 
         character(len=strLen) :: icStr
         procedure(raijuStateIC_T     ), pointer, nopass :: initState => NULL()
@@ -443,6 +448,9 @@ module raijutypes
         real(rp), dimension(:,:), allocatable :: vaFrac
             !! (Ngi+1, Ngj+1) Fraction of total velocity coming from Alfven speed
             !! Used to limit active region to tubes that can reasonably be treated as averaged and slowly-evolving
+
+        real(rp), dimension(:,:), allocatable :: domWeights
+            !! (Ngi,Ngj) weights for incoming moments based on domain constraints
 
         ! -- Coming from ionosphere solve -- !
         real(rp), dimension(:,:), allocatable :: espot
