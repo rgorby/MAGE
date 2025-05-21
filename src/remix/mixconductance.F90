@@ -1,4 +1,5 @@
 module mixconductance
+  use dkdefs
   use mixdefs
   use mixtypes
   use planethelper
@@ -36,6 +37,7 @@ module mixconductance
       ! this is similar to how it was done in MIX
       conductance%euv_model_type    = Params%euv_model_type
       conductance%et_model_type     = Params%et_model_type
+      conductance%sigma_model_type  = Params%sigma_model_type
 !      conductance%alpha             = Params%alpha
 !      conductance%beta              = Params%beta
 !      conductance%R                 = Params%R
@@ -225,12 +227,39 @@ module mixconductance
       type(mixGrid_T), intent(in) :: G
       type(mixState_T), intent(inout) :: St
 
-      real(rp), dimension(:,:), allocatable :: engFlux
-      allocate(engFlux(G%Np,G%Nt))
+      integer :: i,j
+      real(rp) :: eavg,eflux,dE
+!      real(rp), dimension(:,:), allocatable :: engFlux
+!      allocate(engFlux(G%Np,G%Nt))
+!      engFlux = kev2erg*St%Vars(:,:,AVG_ENG)*St%Vars(:,:,NUM_FLUX)  ! Energy flux in ergs/cm^2/s
 
-      engFlux = kev2erg*St%Vars(:,:,AVG_ENG)*St%Vars(:,:,NUM_FLUX)  ! Energy flux in ergs/cm^2/s
-      conductance%deltaSigmaP = SigmaP_Robinson(St%Vars(:,:,AVG_ENG),engFlux)
-      conductance%deltaSigmaH = SigmaH_Robinson(St%Vars(:,:,AVG_ENG),engFlux)
+      !$OMP PARALLEL DO default(shared) &
+      !$OMP private(i,j,eflux,eavg,dE)
+      do j=1,G%Nt
+         do i=1,G%Np
+            eflux = kev2erg*St%Vars(i,j,AVG_ENG)*St%Vars(i,j,NUM_FLUX)  ! Energy flux in ergs/cm^2/s
+            eavg  = St%Vars(i,j,AVG_ENG) ! Average energy in keV
+            if (St%Vars(i,j,AUR_TYPE) == AT_RMono) then
+               dE = St%Vars(i,j,DELTAE) ! Energy width in keV
+            else
+               dE = 0.0_rp
+            endif
+
+            select case ( conductance%sigma_model_type )
+               case (KAE23)
+                  ! Kaeppler et al. [2023] model, mono/diffuse specific parameters.
+                  conductance%deltaSigmaP(i,j) = SigmaP_Kaep23(eavg,eflux,dE)
+                  conductance%deltaSigmaH(i,j) = SigmaH_Kaep23(eavg,eflux,dE)
+               case (ROB87)
+                  ! Robinson formula
+                  conductance%deltaSigmaP(i,j) = SigmaP_Robinson(eavg,eflux)
+                  conductance%deltaSigmaH(i,j) = SigmaH_Robinson(eavg,eflux)
+               case default
+                  stop "The SIGMA model type entered is not supported."
+            end select
+         enddo
+      enddo
+
     end subroutine conductance_aurora
 
   end module mixconductance
