@@ -45,7 +45,8 @@ module raijuDomain
         real(rp), dimension(Grid%shGrid%isg:Grid%shGrid%ieg,Grid%shGrid%jsg:Grid%shGrid%jeg), intent(inout) :: domWeights
 
         integer :: i,j
-        real(rp) :: xyMin
+        !real(rp) :: xyMin
+        real(rp), dimension(2,2) :: rMin22
         real(rp), dimension(Grid%shGrid%isg:Grid%shGrid%ieg,Grid%shGrid%jsg:Grid%shGrid%jeg) :: vaFrac_cc, bmin_cc
         real(rp), dimension(Grid%shGrid%isg:Grid%shGrid%ieg,Grid%shGrid%jsg:Grid%shGrid%jeg) :: tmpWeights
         logical, dimension(Grid%shGrid%isg:Grid%shGrid%ieg,Grid%shGrid%jsg:Grid%shGrid%jeg) :: tmpPass
@@ -55,16 +56,16 @@ module raijuDomain
 
         isInactive = .false.
         domWeights = 1.0_rp
-        bndLoc = Grid%shGrid%isg
-        vaFrac_cc = 0.0_rp
-        bmin_cc = 0.0_rp
+        bndLoc     = Grid%shGrid%isg
+        vaFrac_cc  = 0.0_rp
+        bmin_cc    = 0.0_rp
 
         associate(sh=>Grid%shGrid)
 
         ! Start with hard requirement of closed field line
-        !$OMP PARALLEL DO default(shared) collapse(1) &
+        !$OMP PARALLEL DO default(shared) &
         !$OMP schedule(dynamic) &
-        !$OMP private(i,j,xyMin)
+        !$OMP private(i,j,rMin22)
         do j=sh%jsg, sh%jeg
             do i=sh%isg, sh%ieg
                 if (any(State%topo(i:i+1,j:j+1) .eq. RAIJUOPEN)) then
@@ -76,17 +77,14 @@ module raijuDomain
                 bmin_cc(i,j)   = 0.25*(sum(State%Bmin  (i:i+1,j:j+1,ZDIR)))
                 vaFrac_cc(i,j) = 0.25*(sum(State%vaFrac(i:i+1,j:j+1)))
                 
-                ! Also, apply buffer outer boudnary constraint
-                xyMin = sqrt(State%xyzMin(i,j,XDIR)**2 + State%xyzMin(i,j,YDIR)**2)
+                ! Also, apply buffer outer boundary constraint
+                !xyMin = sqrt(State%xyzMin(i,j,XDIR)**2 + State%xyzMin(i,j,YDIR)**2)
                 ! Simple circle limit
-                if ( (xyMin > Model%maxTail_buffer) .or. xyMin > Model%maxSun_buffer) then
+                !if ( (xyMin > Model%maxTail_buffer) .or. xyMin > Model%maxSun_buffer) then
+                rMin22 = sqrt(State%xyzMin(i:i+1,j:j+1,XDIR)**2 + State%xyzMin(i:i+1,j:j+1,YDIR)**2)
+                if ( any(rMin22 > Model%maxTail_buffer) .or. any(rMin22 > Model%maxSun_buffer) ) then
                     isInactive(i,j) = .true.
                     domWeights(i,j) = 0.0_rp
-                endif
-
-                ! Now that we applied all criteria, update bndLoc
-                if (isInactive(i,j) .and. (i > bndLoc(j))) then
-                    bndLoc(j) = i
                 endif
             enddo
         enddo
@@ -101,6 +99,16 @@ module raijuDomain
                            .not. isInactive, weights2D=tmpWeights, pass2D=tmpPass)
         isInactive = isInactive .or. (.not. tmpPass)
         domWeights = domWeights*tmpWeights
+
+
+        ! Now that we applied all criteria, update bndLoc
+        do j=sh%jsg, sh%jeg
+            do i=sh%isg, sh%ieg
+                if (isInactive(i,j) .and. (i > bndLoc(j))) then
+                    bndLoc(j) = i
+                endif
+            enddo
+        enddo
 
         ! Handle periodic boundary in j direction
         isInactive(:, sh%jsg:sh%js-1) = isInactive(:, sh%je-sh%Ngw+1:sh%je)
@@ -153,7 +161,7 @@ module raijuDomain
             real(rp), dimension(Grid%shGrid%isg:Grid%shGrid%ieg,Grid%shGrid%jsg:Grid%shGrid%jeg), intent(in) :: var
             real(rp), intent(in) :: softLim
             real(rp), intent(in) :: hardLim
-            logical, dimension(Grid%shGrid%isg:Grid%shGrid%ieg,Grid%shGrid%jsg:Grid%shGrid%jeg), intent(in) :: isGood
+            logical , dimension(Grid%shGrid%isg:Grid%shGrid%ieg,Grid%shGrid%jsg:Grid%shGrid%jeg), intent(in) :: isGood
             real(rp), dimension(Grid%shGrid%isg:Grid%shGrid%ieg,Grid%shGrid%jsg:Grid%shGrid%jeg), intent(out) :: weights2D
             logical , dimension(Grid%shGrid%isg:Grid%shGrid%ieg,Grid%shGrid%jsg:Grid%shGrid%jeg), intent(out) :: pass2D
 
@@ -179,14 +187,14 @@ module raijuDomain
             pass2D = .false.
             do j=Grid%shGrid%jsg, Grid%shGrid%jeg
                 do i=Grid%shGrid%isg, Grid%shGrid%ieg
-                    if (weights2D(i,j) >= 1.0_rp) then
+                    if (abs(weights2D(i,j) - 1.0_rp) < TINY) then
                         pass2D(i,j) = .true.
                     else if (weights2D(i,j) > 0.0_rp .and. notGhost(i,j)) then
                         ! Give it a second chance based on how good surrounding points are
                         ! (Ghosts don't get second chance, they are full pass or full fail)
                         varSm_pnt = SmoothOperator55(var(i-2:i+2,j-2:j+2), weights2D(i-2:i+2,j-2:j+2) > 0.0_rp)
                         wgt_pnt = (varSm_pnt - hardLim)/(softLim - hardLim)
-                        if (wgt_pnt >= 1.0_rp) then
+                        if (abs(wgt_pnt - 1.0_rp) < TINY) then
                             pass2D(i,j) = .true.
                         endif
                     endif

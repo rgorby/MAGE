@@ -205,7 +205,7 @@ module raijuBCs
             real(rp), dimension(5,5) :: den2D, press2D, wgt2D
             logical, dimension(5,5) :: isG2D
 
-            if (State%domWeights(i,j) >= 1.0_rp) then
+            if (abs(State%domWeights(i,j) - 1.0_rp) < TINY) then
                 D = State%Davg(i, j, fIdx)
                 P = State%Pavg(i, j, fIdx)
             else
