@@ -42,7 +42,7 @@ module raijustarter
         call inpXML%GetFileStr(tmpStr)
         ! Create new XML reader w/ RAIJU as root
         iXML = New_XML_Input(trim(tmpStr),'Kaiju/RAIJU',.true.)
-
+        
         ! Init model, grid, state
         call raijuInitModel(app%Model, iXML)
 
@@ -234,7 +234,7 @@ module raijustarter
         call iXML%Set_Val(Model%doCC    , "losses/doCC" ,.true. )
         call iXML%Set_Val(Model%doCX    , "losses/doCX" ,.true.)
         call iXML%Set_Val(Model%doFLC   , "losses/doFLC",.false.)
-        call iXML%Set_Val(Model%doEWM   , "losses/doEWM",.false.)
+        call iXML%Set_Val(Model%doEWM   , "losses/doEWM",.true.)
 
         !--- Output ---!
         call iXML%Set_Val(Model%isLoud           , "output/loudConsole",.false.)
