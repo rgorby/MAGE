@@ -65,12 +65,11 @@ module imag2mix_interface
 
    subroutine CoupleIMagToMix(vApp)
       class(voltApp_T), intent(inout) :: vApp
-      integer :: n,i,j,k,Nk
-      real(rp) :: x1,x2,x1c,di,dj,dk,t
+      integer :: i,j
+      real(rp) :: x1,x2,x1c,x2c
       logical :: isTasty
       real(rp) :: imP(nVars_imag2mix)
-
-      integer, dimension(7) :: varNames = (/IM_EAVG,IM_ENFLX,IM_EFLUX,IM_GTYPE,IM_EDEN,IM_EPRE,IM_NPSP/)
+      integer, dimension(9) :: varNames = (/IM_EAVG,IM_ENFLX,IM_EFLUX,IM_GTYPE,IM_EDEN,IM_EPRE,IM_NPSP,IM_THCON,IM_PHCON/)
 
       ! Zero out before conditional updates
       do i=1,size(varNames)
@@ -83,33 +82,60 @@ module imag2mix_interface
       associate(G=>vApp%remixApp%ion(NORTH)%G, ion=>vApp%remixApp%ion)
          !Loop over and get imag data
          !$OMP PARALLEL DO default(shared) collapse(2) &
-         !$OMP private(i,j,k,x1c,x2,imP,isTasty)
+         !$OMP private(i,j,x1,x2,x1c,x2c,imP,isTasty)
             do j=1,G%Np
                do i=1,G%Nt
-                  x1c = G%t(j,i) ! G%t is colatitude.
-                  x2  = G%p(j,i) ! need to be [0,2pi]
+                  ! NH mapping
+                  x1 = G%t(j,i) ! G%t is colatitude.
+                  x2 = G%p(j,i) ! need to be [0,2pi]
                   imP = 0.0_rp
-                  call vApp%imagApp%getMomentsPrecip(x1c,x2,imP,isTasty)
+                  ! Here we use the global voltron grid to first find the conjugate point in the SH.
+                  call InterpShellVar_TSC_pnt(vApp%shGrid, vApp%State%tubeShell%latc, x1, x2, x1c)
+                  call InterpShellVar_TSC_pnt(vApp%shGrid, vApp%State%tubeShell%lonc, x1, x2, x2c)
+                  ion(NORTH)%St%Vars(j,i,IM_THCON) = PI/2.0_rp - x1c ! conjugate co-lat in radians, 0-pi ! State%thcon(i0,j0)
+                  ion(NORTH)%St%Vars(j,i,IM_PHCON) = x2c ! conjugate long in radians, 0-2pi ! State%phcon(i0,j0)
+                  call vApp%imagApp%getMomentsPrecip(x1,x2,imP,isTasty)
+                  ! gtype is 1 when isTasty is true, but can be 0 or 0.5 when isTasty is false.
+                  ion(NORTH)%St%Vars(j,i,IM_GTYPE) = imP(RAI_GTYPE)      ! [0~1]
                   if (isTasty) then
                      ion(NORTH)%St%Vars(j,i,IM_EAVG ) = imP(RAI_EAVG )      ! [keV]
                      ion(NORTH)%St%Vars(j,i,IM_ENFLX) = imP(RAI_ENFLX)      ! [#/cm^2/s]
                      ion(NORTH)%St%Vars(j,i,IM_EFLUX) = imP(RAI_EFLUX)      ! [ergs/cm^2/s]
-                     ion(NORTH)%St%Vars(j,i,IM_GTYPE) = imP(RAI_GTYPE)      ! [0~1]
                      ion(NORTH)%St%Vars(j,i,IM_EDEN ) = imP(RAI_EDEN )      ! [#/m^3]
                      ion(NORTH)%St%Vars(j,i,IM_EPRE ) = imP(RAI_EPRE )      ! [Pa]
                      ion(NORTH)%St%Vars(j,i,IM_NPSP ) = imP(RAI_NPSP )      ! [#/m^3]
                   endif
+
+                  ! SH mapping
+                  ! Earlier we used a simple mirro mapping, i.e.:
+                  ! ion(SOUTH)%St%Vars(j,i,IM_EAVG ) = ion(NORTH)%St%Vars(G%Np:1:-1,j,i,IM_EAVG )
+                  x1 = PI-G%t(G%Np+1-j,i)     ! G%t is colatitude. SH colat should be 0.75pi-pi if remix llb is 0.25pi (45 deg).
+                  x2 = G%p(G%Np+1-j,i)        ! need to be [0,2pi]
+                  imP = 0.0_rp
+                  ! Here we use the global voltron grid to first find the conjugate point in the NH.
+                  call InterpShellVar_TSC_pnt(vApp%shGrid, vApp%State%tubeShell%latc, x1, x2, x1c)
+                  call InterpShellVar_TSC_pnt(vApp%shGrid, vApp%State%tubeShell%lonc, x1, x2, x2c)
+                  ion(SOUTH)%St%Vars(j,i,IM_THCON) = PI/2.0_rp - x1c ! conjugate co-lat in radians, 0-pi ! State%thcon(i0,j0)
+                  ion(SOUTH)%St%Vars(j,i,IM_PHCON) = x2c ! conjugate long in radians, 0-2pi ! State%phcon(i0,j0)
+
+                  ! Note x1c is the conjugate lat in the NH (rather than colat). 
+                  ! x1c is returned as 0 for open field lines. 
+                  ! Only interpolate if x1c is within the remix grid.
+                  if (x1c>=PI/2.0_rp - G%t(1,G%Nt)) then
+                     call vApp%imagApp%getMomentsPrecip(PI/2.0_rp-x1c,x2c,imP,isTasty)
+                     ! gtype is 1 when isTasty is true, but can be 0 or 0.5 when isTasty is false.
+                     ion(SOUTH)%St%Vars(j,i,IM_GTYPE) = imP(RAI_GTYPE)      ! [0~1]
+                     if (isTasty) then
+                        ion(SOUTH)%St%Vars(j,i,IM_EAVG ) = imP(RAI_EAVG )      ! [keV]
+                        ion(SOUTH)%St%Vars(j,i,IM_ENFLX) = imP(RAI_ENFLX)      ! [#/cm^2/s]
+                        ion(SOUTH)%St%Vars(j,i,IM_EFLUX) = imP(RAI_EFLUX)      ! [ergs/cm^2/s]
+                        ion(SOUTH)%St%Vars(j,i,IM_EDEN ) = imP(RAI_EDEN )      ! [#/m^3]
+                        ion(SOUTH)%St%Vars(j,i,IM_EPRE ) = imP(RAI_EPRE )      ! [Pa]
+                        ion(SOUTH)%St%Vars(j,i,IM_NPSP ) = imP(RAI_NPSP )      ! [#/m^3]
+                     endif
+                  endif
                enddo !i
             enddo !j
-            !remixApp%ion(SOUTH)%St%Vars(:,:,IM_INFLX) = rcmEnflx_mix(Np:1:-1,:)
-            ! start with mirror mapping for the SH.
-            ion(SOUTH)%St%Vars(:,:,IM_EAVG ) = ion(NORTH)%St%Vars(G%Np:1:-1,:,IM_EAVG )
-            ion(SOUTH)%St%Vars(:,:,IM_ENFLX) = ion(NORTH)%St%Vars(G%Np:1:-1,:,IM_ENFLX)
-            ion(SOUTH)%St%Vars(:,:,IM_EFLUX) = ion(NORTH)%St%Vars(G%Np:1:-1,:,IM_EFLUX)
-            ion(SOUTH)%St%Vars(:,:,IM_GTYPE) = ion(NORTH)%St%Vars(G%Np:1:-1,:,IM_GTYPE)
-            ion(SOUTH)%St%Vars(:,:,IM_EDEN ) = ion(NORTH)%St%Vars(G%Np:1:-1,:,IM_EDEN )
-            ion(SOUTH)%St%Vars(:,:,IM_EPRE ) = ion(NORTH)%St%Vars(G%Np:1:-1,:,IM_EPRE )
-            ion(SOUTH)%St%Vars(:,:,IM_NPSP ) = ion(NORTH)%St%Vars(G%Np:1:-1,:,IM_NPSP )
       end associate
 
    end subroutine CoupleIMagToMix

@@ -99,4 +99,11 @@ module raijudefs
     real(rp), parameter :: def_nBounce   = 1.0
         !! Number of Alfven bounces (Tb) required to be considered a "good" flux tube for coupling
 
+
+    real(rp), parameter :: def_lim_vaFrac_soft = 0.6_rp
+    real(rp), parameter :: def_lim_vaFrac_hard = 0.4_rp
+    real(rp), parameter :: def_lim_bmin_soft  = 5.0_rp
+        ! [nT]
+    real(rp), parameter :: def_lim_bmin_hard  = 2.0_rp
+
 end module raijudefs
