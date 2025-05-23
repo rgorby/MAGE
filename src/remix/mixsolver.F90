@@ -213,7 +213,7 @@ module mixsolver
       ! this computes the matrix coefs and RHS
       call set_solver_matrix_and_rhs(P,G,St,S)
 
-      write (*,*) "remix solution average before reset = ", sum(S%solution)/size(S%solution)
+      ! reset initial solution guess to 0 each time
       S%solution = 0.0_rp
 
       ! actual solve

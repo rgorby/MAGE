@@ -472,10 +472,17 @@ module gamapp_mpi
             if(Model%isRestart) then
                 !Update the ghost cells in the old state
                 call updateMpiBCs(gamAppMpi, gamAppMpi%oState)
+                if(Model%doAB3) then
+                    call updateMpiBCs(gamAppMpi, gamAppMpi%ooState)
+                endif
             else
                 !Manufacture an old state
                 gamAppMpi%oState = gamAppMpi%State
                 gamAppMpi%oState%time = gamAppMpi%State%time-Model%dt !Initial old state
+                if(Model%doAB3) then
+                    gamAppMpi%ooState = gamAppMpi%oState
+                    gamAppMpi%ooState%time = gamAppMpi%oState%time-Model%dt
+                endif
             endif
 
         endif
