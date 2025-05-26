@@ -23,10 +23,16 @@ module raijuLoss_eWM_Chen05
         type(TimeSeries_T) :: KpTS
             !! Kp data from wind file
 
+        real(rp) :: nowT
+            !! Current time as of most recent update
+        real(rp) :: nowKp
+            !! Current kp as of most recent update
+
         contains
 
         procedure :: doInit     => eWM_C05_LossInit
         procedure :: isValidSpc => eWM_C05_LossValidSpc
+        procedure :: doUpdate   => eWM_C05_LossUpdate
         procedure :: calcTau    => eWM_C05_LossCalcTau
 
     end type raiLoss_eWM_C05_T
@@ -70,6 +76,17 @@ module raijuLoss_eWM_Chen05
     end function eWM_C05_LossValidSpc
 
 
+    subroutine eWM_C05_LossUpdate(this, Model, Grid, State)
+        class(raiLoss_eWM_C05_T), intent(inout) :: this
+        type(raijuModel_T ), intent(in) :: Model
+        type(raijuGrid_T  ), intent(in) :: Grid
+        type(raijuState_T ), intent(in) :: State
+
+        this%nowT = State%t
+        this%nowKp = this%KpTS%evalAt(this%nowT)
+    end subroutine eWM_C05_LossUpdate
+
+
     function eWM_C05_LossCalcTau(this, Model, Grid, State, i, j, k) result(tau)
         class(raiLoss_eWM_C05_T), intent(in) :: this
         type(raijuModel_T ), intent(in) :: Model
@@ -86,17 +103,16 @@ module raijuLoss_eWM_Chen05
         real(rp) :: L, MLT, E, Kp
         real(rp) :: tauHiss, tauChen
 
-        psphIdx = spcIdx(Grid, F_PSPH)
-        NpsphPnt = State%Den(psphIdx)%data(i,j)
-        wgtHiss = log(NpsphPnt/this%NpsphLow) / log(this%NpsphHigh/this%NpsphLow)
-        call ClampValue(wgtHiss, 0.0_rp, 1.0_rp)
+        !psphIdx = spcIdx(Grid, F_PSPH)
+        !NpsphPnt = State%Den(psphIdx)%data(i,j)
+        !wgtHiss = log(NpsphPnt/this%NpsphLow) / log(this%NpsphHigh/this%NpsphLow)
+        !call ClampValue(wgtHiss, 0.0_rp, 1.0_rp)
             !! 1 => Psphere Hiss, 0 => Chen
 
-        L = sqrt(State%xyzMincc(i,j,XDIR)**2 + State%xyzMincc(i,j,YDIR)**2)  ! [Re]
-        MLT = atan2(State%xyzMincc(i,j,YDIR),State%xyzMincc(i,j,XDIR))/pi*12.D0+12.D0
-        E = abs(Grid%alamc(k)) * State%bvol_cc(i,j)**(-2./3.) * 1.0D-6  ! [MeV]
-        Kp = this%KpTS%evalAt(State%t)
-        tauHiss = CalcTau_Hiss(MLT, L, E, Kp)  ! [s]
+        !L = sqrt(State%xyzMincc(i,j,XDIR)**2 + State%xyzMincc(i,j,YDIR)**2)  ! [Re]
+        !MLT = atan2(State%xyzMincc(i,j,YDIR),State%xyzMincc(i,j,XDIR))/pi*12.D0+12.D0
+        !E = abs(Grid%alamc(k)) * State%bvol_cc(i,j)**(-2./3.) * 1.0D-6  ! [MeV]
+        !tauHiss = CalcTau_Hiss(MLT, L, E, this%nowKp)  ! [s]
 
         tauChen = CalcTau_WeakScattering(Model, Grid, State, i, j, k)  ! [s]
         

@@ -465,7 +465,7 @@ module dkaurora
       type(mixGrid_T), intent(in) :: G      
       type(dkParams_T), intent(inout) :: aurora
       integer :: i, j
-      logical :: smthDEPonly = .true.
+      logical :: smthDEPonly = .false.
       integer :: smthE
       real(rp) :: tmpC(G%Np,G%Nt),tmpD(G%Np,G%Nt),tmpE(G%Np+4,G%Nt+4),tmpF(G%Np+4,G%Nt+4)
       smthE = 1 ! 1. smooth EFLUX; 2. smooth EAVG
