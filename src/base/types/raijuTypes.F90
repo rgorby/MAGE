@@ -523,18 +523,32 @@ module raijutypes
 !------
 ! Higher-level types, using above types
 !------
-
-    type, extends(BaseOptions_T) :: raiOptions_T
+    type raiAppOverride_T
+        !! Individual values that, if set, are meant to override otherwise default raiju behavior
+        logical, private :: isValSet = .false.
+        real(rp), private :: val
 
         contains
-    end type raiOptions_T
+
+        procedure :: isSet => raiAppOverride_isSet
+        procedure :: set   => raiAppOverride_setVal
+        procedure :: get   => raiAppOverride_getVal
+    end type raiAppOverride_T
+
+    type, extends(BaseOptions_T) :: raijuOptions_T
+        ! If set, will use the set value instead of default or xml setting
+        type(raiAppOverride_T) :: thetaL
+            !! [deg] lower theta (poleward) boundary location
+        type(raiAppOverride_T) :: thetaU
+            !! [deg] upper theta (equatorward) boundary location
+    end type raijuOptions_T
 
     type, extends(BaseApp_T) :: raijuApp_T
         type(raijuModel_T) :: Model
         type(raijuGrid_T ) :: Grid
         type(raijuState_T) :: State
         
-        type(raiOptions_T) :: raiOptions
+        type(raijuOptions_T) :: opt
 
         contains
 
@@ -684,7 +698,25 @@ module raijutypes
     end subroutine baseLossDoOutput
 
 
+    ! Options
+    function raiAppOverride_isSet(this) result(isSet)
+        class(raiAppOverride_T), intent(in) :: this
+        logical :: isSet
+        isSet = this%isValSet
+    end function raiAppOverride_isSet
 
+    function raiAppOverride_getVal(this) result(val)
+        class(raiAppOverride_T), intent(in) :: this
+        real(rp) :: val
+        val = this%val
+    end function raiAppOverride_getVal
+
+    subroutine raiAppOverride_setVal(this, val)
+        class(raiAppOverride_T), intent(inout) :: this
+        real(rp), intent(in) :: val
+        this%val = val
+        this%isValSet = .true.
+    end subroutine raiAppOverride_setVal
 
 end module raijutypes
 

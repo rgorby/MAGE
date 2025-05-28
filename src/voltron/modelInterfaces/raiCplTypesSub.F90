@@ -20,8 +20,21 @@ submodule (volttypes) raijuCplTypesSub
         class(raijuCoupler_T), intent(inout) :: App
         type(XML_Input_T), intent(inout) :: Xml
 
+        real(rp), dimension(NDIM) :: rxyz
+        real(rp) :: lowLatBnd, thetaU
+
         ! Allocate our contained raiju app
         allocate(raijuApp_T :: App%raiApp)
+
+
+        ! Set option overrides
+        !  ThetaU - calculate where the upper theta boundary should be such that the active domain covers all of the gamera ghost cells
+        rxyz(XDIR) = max(App%opt%mhdRin - 0.25, 1.0_rp)
+        rxyz(YDIR) = 0.0_rp
+        rxyz(ZDIR) = 0.0_rp
+        lowLatBnd = InvLatitude(rxyz)*rad2deg
+        thetaU = (90 - lowLatBnd)
+        call App%raiApp%opt%thetaU%set(thetaU)
         ! Init raiju app itself
         ! Note: we are bypassing raiApp%InitModel because we can't pass the voltron grid as an argument
         call raijuInit(App%raiApp, xml, App%opt%voltGrid)
