@@ -217,9 +217,12 @@ module raijuColdStartHelper
             stop
         endif
 
+        ! Set everything to zero to start
+        State%eta(:,:,spc%kStart:spc%kEnd) = 0.0_rp
+
         ! Now set our initial density and pressure profile
         do j=sh%jsg,sh%jeg
-            do i=sh%isg,sh%ieg
+            do i=sh%isg,sh%ie  ! Note: Not setting low lat ghosts, we want them to be zero
                 
                 if (State%active(i,j) .eq. RAIJUINACTIVE) cycle
 
@@ -298,11 +301,14 @@ module raijuColdStartHelper
         sIdx_p = spcIdx(Grid, F_HOTP)
         sIdx_e = spcIdx(Grid, F_HOTE)
 
+        ! Set everything to zero to start
+        State%eta(:,:,Grid%spc(sIdx_e)%kStart:Grid%spc(sIdx_e)%kEnd) = 0.0_rp
+
         !$OMP PARALLEL DO default(shared) &
         !$OMP schedule(dynamic) &
         !$OMP private(i,j,vm,den,kt_p,kt_e)
         do j=Grid%shGrid%jsg,Grid%shGrid%jeg
-            do i=Grid%shGrid%isg,Grid%shGrid%ieg
+            do i=Grid%shGrid%isg,Grid%shGrid%ie  ! Note: Not setting low lat ghosts, we want them to be zero
                 if (State%active(i,j) .eq. RAIJUINACTIVE) cycle
 
                 vm = State%bvol_cc(i,j)**(-2./3.)

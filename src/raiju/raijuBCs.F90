@@ -72,7 +72,7 @@ module raijuBCs
             associate(sh=>Grid%shGrid)
 
             do j=sh%jsg,sh%jeg
-                do i=sh%isg,sh%ieg
+                do i=sh%isg,sh%ie  ! Note: not evaluating low lat ghost cells, we don't wanna reset them with incoming plasma for now
                     
                     ! All buffer cells get set to moments
                     if (State%active(i,j) .eq. RAIJUBUFFER) then
@@ -81,7 +81,8 @@ module raijuBCs
                     elseif (State%active(i,j) .eq. RAIJUACTIVE .and. State%active_last(i,j) .ne. RAIJUACTIVE) then
                         doMomentIngest(i,j) = .true.
                     ! If we are a not-invalid i-dir ghost cell we get reset no matter what
-                    elseif ((State%active(i,j) .ne. RAIJUINACTIVE) .and. (i < sh%is .or. i > sh%ie) ) then
+                    ! Note: This is only for high-lat boundary. Low lat does not get reset for now
+                    elseif ((State%active(i,j) .ne. RAIJUINACTIVE) .and. (i < sh%is ) ) then
                         doMomentIngest(i,j) = .true.
                     endif
 
