@@ -1,6 +1,6 @@
 module raijuLoss_eWM_BW
     ! Bao-Wang electron Wave Model - based loss and precipitation model
-
+    use, intrinsic :: ieee_arithmetic
     use kdefs, only : mec2, vc_cgs
     use raijudefs
     use raijutypes
@@ -146,7 +146,6 @@ module raijuLoss_eWM_BW
         call IOArray4DFill(IOVars,"Tau", this%Tau4D   )
 
         call ClearIO(IOVars)
-
         !Array order check: array is in acsending order
            !Chorus
         if(this%Kp1D(1) > this%Kp1D(this%Nkp)) then
@@ -224,7 +223,7 @@ module raijuLoss_eWM_BW
             !$OMP private(i,j,k,isGood,L,MLT,E,NpsphPnt,wNBlend,wLBlend,tauPS,tauHiss,tauChorus)
             do j=sh%jsg,sh%jeg
                 do i=sh%isg,sh%ieg
-                    isGood = State%active(i,j)
+                    isGood = State%active(i,j) == RAIJUACTIVE
                     if (.not. isGood) then
                         cycle
                     endif
@@ -256,7 +255,7 @@ module raijuLoss_eWM_BW
                     do k=spc%kStart,spc%kEnd        
                         
                         E = abs(Grid%alamc(k) * State%bvol_cc(i,j)**(-2./3.)) * 1.0E-6  ! [MeV]
-
+                        
                         if (this%wHISS(i,j) > TINY) then
                             tauHiss = calcHissTau(MLT, L, E, Kp)
                         else
@@ -271,9 +270,7 @@ module raijuLoss_eWM_BW
 
                         if (this%wCHORUS(i,j) > TINY) then
                             !! Implement chorus tau calculation here
-                            !write(*,*) "before calcChorusTau: checkpoint 1"
                             tauChorus = calcChorusTau(this, MLT, L, E, Kp)
-                            !write(*,*) "after calcChorusTau: checkpoint 2"
                         else
                             tauChorus = HUGE
                         endif
@@ -387,14 +384,9 @@ module raijuLoss_eWM_BW
         real(rp) :: dK,wK,dM,wM,dL,wL,dE,wE
         integer :: kL,kU,mL,mU,lL,lU,eL,eU
 
-
-        !associate(Nm=>EWMTauInput%ChorusTauInput%Nm,Nl=>EWMTauInput%ChorusTauInput%Nl,Nk=>EWMTauInput%ChorusTauInput%Nk,Ne=>EWMTauInput%ChorusTauInput%Ne,&
-        !          Kpi=>EWMTauInput%ChorusTauInput%Kpi,MLTi=>EWMTauInput%ChorusTauInput%MLTi,Li=>EWMTauInput%ChorusTauInput%Li,Eki=>EWMTauInput%ChorusTauInput%Eki,&
-        !          taui=>EWMTauInput%ChorusTauInput%taui)
         associate(Nm=>this%Nmlt,Nl=>this%Nl,Nk=>this%Nkp,Ne=>this%Ne,&
                   Kpi=>this%Kp1D,MLTi=>this%MLT1D,Li=>this%L1D,Eki=>this%Energy1D,&
                   taui=>this%Tau4D)
-
         ! Find the nearest neighbors in Kp
         if (Kpin >= maxval(Kpi)) then
             kL = Nk !use Kp maximum 
@@ -406,7 +398,6 @@ module raijuLoss_eWM_BW
             kL = maxloc(Kpi,dim=1,mask=(Kpi<Kpin))
             kU = kL+1
         endif
-        
         ! Find the nearest neighbours in MLT
         if ((MLTin >= maxval(MLTi)) .or. (MLTin <= minval(MLTi)))  then ! maxval of MLT is 24, minval of MLT is 0
             mL = 1 !use MLT = 0
@@ -415,7 +406,6 @@ module raijuLoss_eWM_BW
             mL = maxloc(MLTi,dim=1,mask=(MLTi<MLTin))
             mU = mL+1
         endif
-
         ! Find the nearest neighbours in L
         if (Lin >= maxval(Li)) then
             lL = Nl !use L maximum
@@ -427,10 +417,10 @@ module raijuLoss_eWM_BW
             lL = maxloc(Li,dim=1,mask=(Li<Lin))
             lU = lL+1
         endif
-
          ! Find the nearest neighbours in Ek
         if (Ekin < minval(Eki)) then
             tau = HUGE ! For low energies, assign a huge lifetime.
+            return
         else if (Ekin >= maxval(Eki)) then
             eL = Ne !use Ek maximum
             eU = Ne
@@ -438,7 +428,6 @@ module raijuLoss_eWM_BW
             eL = maxloc(Eki,dim=1,mask=(Eki<Ekin))
             eU = eL + 1
         endif
-
         !linear interpolation in Kp
         if (kL == kU) then
             tauMLE(1,1,1) = log10(taui(kL,mL,lL,eL))!Interpolation in log10(taui) space
@@ -477,7 +466,6 @@ module raijuLoss_eWM_BW
             tauKMLE(2,2,2,2) = log10(taui(kU,mU,lU,eU))
             tauMLE(2,2,2) = tauKMLE(1,2,2,2) + wK*(tauKMLE(2,2,2,2)-tauKMLE(1,2,2,2))
         end if
-
         ! linear interpolation in mlt
         if (mL == mU) then
             tauLE(1,1) = tauMLE(2,1,1)
@@ -492,7 +480,6 @@ module raijuLoss_eWM_BW
             tauLE(2,1) = tauMLE(1,2,1) + wM*(tauMLE(2,2,1)-tauMLE(1,2,1))
             tauLE(2,2) = tauMLE(1,2,2) + wM*(tauMLE(2,2,2)-tauMLE(1,2,2))
         end if
-
         ! linear interpolation in L
         if (lL == lU) then
             tauE(1) = tauLE(2,1)
@@ -503,7 +490,6 @@ module raijuLoss_eWM_BW
             tauE(1) = tauLE(1,1)+ wL*(tauLE(2,1)-tauLE(1,1))
             tauE(2) = tauLE(1,2)+ wL*(tauLE(2,2)-tauLE(1,2))
         end if
-
         ! linear interpolation in Ek
         if (eL == eU) then
             tau = tauE(1)
@@ -512,9 +498,7 @@ module raijuLoss_eWM_BW
             wE = (Ekin-Eki(eL))/dE
             tau = tauE(1) + wE*(tauE(2)-tauE(1))
         end if
-
         tau = 10.0**tau !convert back to tau in seconds
-
         end associate
 
     END FUNCTION calcChorusTau
