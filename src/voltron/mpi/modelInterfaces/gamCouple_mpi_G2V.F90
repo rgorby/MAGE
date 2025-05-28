@@ -195,8 +195,8 @@ module gamCouple_mpi_G2V
             call App%WriteFileOutput(App%Model%IO%nOut)
             App%Model%IO%tOut = tIO
         else
-            ! never processing when restarted
-            App%processingData = .false.
+            ! always processing when restarted
+            App%processingData = .true.
         endif
 
     end subroutine

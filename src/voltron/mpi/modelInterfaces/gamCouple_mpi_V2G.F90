@@ -405,8 +405,8 @@ module gamCouple_mpi_V2G
         ! read only my own restart data
         call readGamCouplerRestart(App, resId, nRes)
 
-        ! we are never in progress after a restart
-        App%inProgress = .false.
+        ! we are always in progress after a restart
+        App%inProgress = .true.
 
     end subroutine
 

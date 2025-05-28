@@ -670,6 +670,11 @@ module gioH5
             call AddOutVar( IOVars,"Gas0",Gr%Gas0(:,:,:,:) )
         endif
 
+        if(associated(Model%HackSaveRestart)) then
+            ! Add optional variables from IC
+            call Model%HackSaveRestart(Model,Gr,State,IOVars)
+        endif
+
         !Write out, force real precision
         call WriteVars(IOVars,.false.,ResF)
 
@@ -698,7 +703,6 @@ module gioH5
         character(len=*), intent(in) :: inH5
 
         logical  :: hasSrc,hasO,hasOO,hasdt0,skipGhosts
-        real(rp) :: dt
         integer  :: rSpc,n0
 
         !NOTE: Removing fortran support for changing numfluids on restart, it's easier to just do that on python side
@@ -778,8 +782,6 @@ module gioH5
         call PullState(Model,Gr,oState,"o")
 
         !Get main attributes
-        dt = GetIOReal(IOVars,"t") - GetIOReal(IOVars,"ot") !Spacing between restart states
-        
         Model%IO%nOut = GetIOInt(IOVars,"nOut")
         Model%IO%nRes = GetIOInt(IOVars,"nRes") + 1
         Model%ts      = GetIOInt(IOVars,"ts")
@@ -795,7 +797,7 @@ module gioH5
                 call PullState(Model,Gr,ooState,"oo")
             else
                 !Fake it
-                ooState%time    = oState%time - dt
+                ooState%time    = oState%time - Model%dt
                 ooState%Gas     = oState%Gas
                 if (Model%doMHD) ooState%magFlux = oState%magFlux
             endif
@@ -821,6 +823,12 @@ module gioH5
         !Do touchup to data structures
         Model%IO%tOut = floor(Model%t/Model%IO%dtOut)*Model%IO%dtOut + Model%IO%dtOut
         Model%IO%tRes = floor(Model%t/Model%IO%dtRes)*Model%IO%dtRes + Model%IO%dtRes
+
+        if(associated(Model%HackLoadRestart)) then
+            ! Load optional variables from IC
+            call Model%HackLoadRestart(Model,Gr,State,inH5)
+        endif
+
 
         contains
             subroutine PullState(Model,Gr,xState,xID)

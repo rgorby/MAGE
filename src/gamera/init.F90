@@ -222,11 +222,12 @@ module init
     !Finalize setup
         !Enforce initial BC's
         call Tic("BCs")
-        call EnforceBCs(Model,Grid,State)
+        !call EnforceBCs(Model,Grid,State)
         if (Model%isRestart) then
-            call EnforceBCs(Model,Grid,oState)
-            if (Model%doAB3) call EnforceBCs(Model,Grid,ooState)
+            !call EnforceBCs(Model,Grid,oState)
+            !if (Model%doAB3) call EnforceBCs(Model,Grid,ooState)
         else
+            call EnforceBCs(Model,Grid,State)
             oState = State
             if (Model%doAB3) ooState = State 
         endif
