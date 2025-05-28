@@ -439,11 +439,14 @@ module voltio
 
         ! voltState stuff
         call AddOutSGV(IOVars, "Potential_total", vApp%State%potential_total, &
-                       uStr="kV", dStr="Ionospheric electrostatic potential (ExB + corotation)", &
-                       outBndsO=outSGVBnds_corner, doWriteMaskO=.false.)
+                        uStr="kV", dStr="Ionospheric electrostatic potential (ExB + corotation)", &
+                        outBndsO=outSGVBnds_corner, doWriteMaskO=.false.)
         call AddOutSGV(IOVars, "Potential_corot", vApp%State%potential_corot, &
-                       uStr="kV", dStr="Ionospheric electrostatic potential (no corotation)", &
-                       outBndsO=outSGVBnds_corner, doWriteMaskO=.false.)
+                        uStr="kV", dStr="Corotation potential", &
+                        outBndsO=outSGVBnds_corner, doWriteMaskO=.false.)
+        call AddOutSGV(IOVars, "Potential_drop", vApp%State%pot_drop, &
+                        uStr='"kV', dStr="Potential drop between given location and its conjugate footpoint", &
+                        outBndsO=outSGVBnds_corner, doWriteMaskO=.true.)
         associate(tubeShell=>vApp%State%tubeShell)
         call AddOutSGV(IOVars, "xMin", tubeShell%X_bmin(XDIR), &
                         uStr="Rx", dStr="SM-X location of flux tube bMin", &
@@ -474,9 +477,9 @@ module voltio
         call AddOutSGV(IOVars, "z0", tubeShell%xyz0(ZDIR), &
                         outBndsO=outSGVBnds_corner, doWriteMaskO=.false.)
         call AddOutSGV(IOVars, "latc", tubeShell%latc, &
-                        outBndsO=outSGVBnds_corner, doWriteMaskO=.false.)
+                        outBndsO=outSGVBnds_corner, doWriteMaskO=.true.)
         call AddOutSGV(IOVars, "lonc", tubeShell%lonc, &
-                        outBndsO=outSGVBnds_corner, doWriteMaskO=.false.)
+                        outBndsO=outSGVBnds_corner, doWriteMaskO=.true.)
         call AddOutSGV(IOVars, "rCuravture", tubeShell%rCurv, &
                         uStr="Rx", dStr="Radius of curvature @ bmin if this is a closed field line", &
                         outBndsO=outSGVBnds_corner, doWriteMaskO=.false.)

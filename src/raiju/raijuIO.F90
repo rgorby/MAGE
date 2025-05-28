@@ -11,7 +11,7 @@ module raijuIO
     use shellInterp
     use shellGridIO
     ! Functions/subs we borrow for debug/diagnostic output
-    use raijuPreAdvancer, only : calcEffectivePotential, calcGradVM_cc, calcVelocityCC_gg
+    use raijuPreAdvancer, only : calcEffectivePotential, calcGradVM_cc, calcVelocity_cc
     use raijuDomain, only : calcMapJacNorm
 
     implicit none
@@ -262,6 +262,7 @@ module raijuIO
         call AddOutVar(IOVars,"Pstd_in",State%Pstd   (is:ie,js:je, :)        ,uStr="normalized" ,dStr="Std. dev. of species pressure from imagtubes")
         call AddOutVar(IOVars,"Dstd_in",State%Dstd   (is:ie,js:je, :)        ,uStr="normalized" ,dStr="Std. dev. of species density from imagtubes")
         call AddOutVar(IOVars,"tiote"  ,State%tiote  (is:ie,js:je)           ,uStr="normalized" ,dStr="Ratio of ion temperature over electron temperature")
+        call AddOutVar(IOVars,"domWeights",State%domWeights(is:ie,js:je)     ,                   dStr="Weights used for smoothing moments for questionable cells along boundary")
         call AddOutSGV(IOVars,"Tbounce",State%Tb, outBndsO=outBnds2D, uStr="[s]", dStr="Bounce timescale along field line (Alfven crossing time)", doWriteMaskO=.false.)
 
         if (Model%doOwnCorot) then
@@ -314,6 +315,10 @@ module raijuIO
             allocate(outPrecipE   (is:ie,js:je,Grid%nSpc))
             allocate(outPrecipAvgE(is:ie,js:je,Grid%nSpc))
             allocate(outCCHeatFlux(is:ie,js:je,Grid%nSpc))
+            outPrecipN    = 0.0_rp
+            outPrecipE    = 0.0_rp
+            outPrecipAvgE = 0.0_rp
+            outCCHeatFlux = 0.0_rp
             do s=1,Grid%nSpc
                 ks = Grid%spc(s)%kStart
                 ke = Grid%spc(s)%kEnd
@@ -396,7 +401,7 @@ module raijuIO
             !$OMP schedule(dynamic) &
             !$OMP private(k)
             do k=1,Grid%Nk
-                call calcVelocityCC_gg(Model, Grid, State, k, outTmp4D(:,:,k,:), outTmp3D)
+                call calcVelocity_cc(Model, Grid, State, k, outTmp4D(:,:,k,:), outTmp3D)
             enddo
             call AddOutVar(IOVars, "gradVM_cc_nosm", outTmp3D(is:ie,js:je,:)  , uStr="V/m/lambda")
             call AddOutVar(IOVars, "cVel_nosm"     , outTmp4D(is:ie,js:je,:,:), uStr="m/s")
@@ -406,7 +411,7 @@ module raijuIO
             !$OMP schedule(dynamic) &
             !$OMP private(k)
             do k=1,Grid%Nk
-                call calcVelocityCC_gg(Model, Grid, State, k, outTmp4D(:,:,k,:), outTmp3D)
+                call calcVelocity_cc(Model, Grid, State, k, outTmp4D(:,:,k,:), outTmp3D)
             enddo
             call AddOutVar(IOVars, "gradVM_cc_sm_nolim", outTmp3D(is:ie,js:je,:)  , uStr="V/m/lambda")
             call AddOutVar(IOVars, "cVel_sm_nolim"     , outTmp4D(is:ie,js:je,:,:), uStr="m/s")
@@ -490,6 +495,11 @@ module raijuIO
         call AddOutVar(IOVars,"nRes" ,State%IO%nRes)
         call AddOutVar(IOVars,"tRes" ,State%IO%tRes)
         ! ColdStarter state
+        if (State%coldStarter%doneFirstCS) then
+            call AddOutVar(IOVars,"cs_doneFirstCS", 1)
+        else
+            call AddOutVar(IOVars,"cs_doneFirstCS", 0)
+        endif
         call AddOutVar(IOVars, "cs_lastEval", State%coldStarter%lastEval)
         call AddOutVar(IOVars, "cs_lastTarget", State%coldStarter%lastTarget)
 
@@ -597,6 +607,7 @@ module raijuIO
         call AddInVar(IOVars,"nRes")
         call AddInVar(IOVars,"tRes")
         call AddInVar(IOVars,"isFirstCpl")
+        call AddInVar(IOVars,"cs_doneFirstCS")
         call AddInVar(IOVars,"cs_lastEval")
         call AddInVar(IOVars,"cs_lastTarget")
 
@@ -657,6 +668,8 @@ module raijuIO
         ! Handle boolean attributes
         tmpInt = GetIOInt(IOVars, "isFirstCpl")
         State%isFirstCpl = tmpInt .eq. 1
+        tmpInt = GetIOInt(IOVars, "cs_doneFirstCS")
+        State%coldStarter%doneFirstCS = tmpInt .eq. 1
 
         call IOArray2DFill(IOVars, "xmin" , State%xyzMin(:,:,XDIR))
         call IOArray2DFill(IOVars, "ymin" , State%xyzMin(:,:,YDIR))

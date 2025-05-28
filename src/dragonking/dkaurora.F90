@@ -465,7 +465,7 @@ module dkaurora
       type(mixGrid_T), intent(in) :: G      
       type(dkParams_T), intent(inout) :: aurora
       integer :: i, j
-      logical :: smthDEPonly = .true.
+      logical :: smthDEPonly = .false.
       integer :: smthE
       real(rp) :: tmpC(G%Np,G%Nt),tmpD(G%Np,G%Nt),tmpE(G%Np+4,G%Nt+4),tmpF(G%Np+4,G%Nt+4)
       smthE = 1 ! 1. smooth EFLUX; 2. smooth EAVG
@@ -482,7 +482,7 @@ module dkaurora
       ! this domain of conductance is never used. Here it's used for diffuse precipitation mask. Be careful if not in RCMONO mode.
       aurora%PrecipMask = 1.D0 
       if(smthDEPonly) then
-        where(St%Vars(:,:,Z_NFLUX)>=0)
+        where(St%Vars(:,:,DELTAE)>0)
           aurora%PrecipMask = 0.D0
         end where
         ! back up mono
@@ -514,7 +514,7 @@ module dkaurora
 
       if(smthDEPonly) then
         ! combine smoothed diffuse and unsmoothed mono
-        where(St%Vars(:,:,Z_NFLUX)>=0)
+        where(St%Vars(:,:,DELTAE)>0)
           St%Vars(:,:,AVG_ENG)  = tmpC
           St%Vars(:,:,NUM_FLUX) = tmpD
         end where

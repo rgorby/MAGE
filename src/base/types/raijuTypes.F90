@@ -147,6 +147,8 @@ module raijutypes
 
 
         !--- State ---!
+        logical :: doneFirstCS = .false.
+            !! Have we executed once already?
         real(rp) :: lastEval = -1*HUGE
             !! [s] Last eval time
         real(rp) :: lastTarget = 0
@@ -277,23 +279,33 @@ module raijutypes
             !! Planet info like radius, mag. moment, etc.
 
         ! Losses
-        logical :: doSS
+        !logical :: doSS
             !! Do strong scattering
         logical :: doCC
             !! Do coulomb collisions
         logical :: doCX
             !! Do charge exchange
-        logical :: doFLC
+        !logical :: doFLC
             !! Do field-line curvature
         logical :: doEWM
             !! Do electron loss model
+        character(len=strLen) :: ewmType
+            !! Type of electron loss model to use
+            !! C05 = Chen05 blended with Hiss
+            !! BW = Bao-Wang empirical wave model with Hiss, Chorus, and Plasma sheet strong scattering
+            !! SS = Schulz strong scattering only, we hate electrons
 
         ! Coupling info
         integer :: nFluidIn = 0
         type(mhd2raiSpcMap_T), dimension(:), allocatable :: fluidInMaps
         ! Coupling-related knobs
-        real(rp) :: vaFracThresh, bminThresh, normAngThresh, PstdThresh
+        !real(rp) :: vaFracThresh, bminThresh, normAngThresh, PstdThresh
         real(rp) :: nBounce
+        ! Domain determination knobs
+        real(rp) :: lim_vaFrac_soft, lim_vaFrac_hard
+            !! soft/hard limit for flux tube energy partition
+        real(rp) :: lim_bmin_soft, lim_bmin_hard
+            !! [nT] soft/hard limit for minimum allowable magnetic field strength at bmin point
 
         character(len=strLen) :: icStr
         procedure(raijuStateIC_T     ), pointer, nopass :: initState => NULL()
@@ -437,6 +449,9 @@ module raijutypes
             !! (Ngi+1, Ngj+1) Fraction of total velocity coming from Alfven speed
             !! Used to limit active region to tubes that can reasonably be treated as averaged and slowly-evolving
 
+        real(rp), dimension(:,:), allocatable :: domWeights
+            !! (Ngi,Ngj) weights for incoming moments based on domain constraints
+
         ! -- Coming from ionosphere solve -- !
         real(rp), dimension(:,:), allocatable :: espot
             !! (Ngi+1, Ngj+1) [kV] electro-static potential
@@ -490,8 +505,6 @@ module raijutypes
             !! (Ngi, Ngj, Nspc+1) Density  [#/cc]
         type(ShellGridVar_T), dimension(:), allocatable :: Press
             !! (Ngi, Ngj, Nspc+1) Pressure [nPa]
-        type(ShellGridVar_T), dimension(:), allocatable :: vAvg
-            !! (Ngi, Ngj, Nspc+1) Average cell velocity [km/s]
         type(ShellGridVar_T) :: Tb
             !! (Ngi, Ngj) [s] Bounce timescale (Alfven crossing time)
         

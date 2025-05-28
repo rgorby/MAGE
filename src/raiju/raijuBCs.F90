@@ -110,13 +110,15 @@ module raijuBCs
         real(rp) :: kT,vm
         real(rp) :: etaBelow
             !! Amount of eta below lowest lambda bound (every i,j gets a copy)
+        real(rp) :: tmp_D, tmp_P
         real(rp) :: tmp_kti, tmp_kte
+        real(rp) :: eMin
 
         psphIdx = spcIdx(Grid, F_PSPH)
         eleIdx  = spcIdx(Grid, F_HOTE)
-        !$OMP PARALLEL DO default(shared) collapse(1) &
+        !$OMP PARALLEL DO default(shared) &
         !$OMP schedule(dynamic) &
-        !$OMP private(i,j,s,fIdx,fm,vm,kT,etaBelow,tmp_kti,tmp_kte)
+        !$OMP private(i,j,s,fIdx,fm,vm,kT,etaBelow,tmp_kti,tmp_kte,tmp_D,tmp_P)
         do j=Grid%shGrid%jsg,Grid%shGrid%jeg
             do i=Grid%shGrid%isg,Grid%shGrid%ieg
                 if (State%active(i,j) .eq. RAIJUINACTIVE) then
@@ -127,18 +129,6 @@ module raijuBCs
                 endif
 
                 vm = State%bvol_cc(i,j)**(-2./3.)
-                !do s=1,Grid%nSpc
-                !    kT = DP2kT(State%Davg(i,j,s), State%Pavg(i,j,s))  ! [keV]
-                !    call DkT2SpcEta(Model,Grid%spc(s), &
-                !        State%eta(i,j,Grid%spc(s)%kStart:Grid%spc(s)%kEnd),&
-                !        State%Davg(i,j,s), kT, vm, etaBelow)
-                !    
-                !    ! etaBelow has the amount of eta that is below the lowest lambda channel bound
-                !    !! TODO: Check to see if we are missing too much pressure
-                !    ! Maybe we want to put it in plasmasphere channel cause its cold H+
-                !    if (Model%doExcesstoPsph .and. Grid%spc(s)%mapExtraToPsph) then
-                !        State%eta(i,j,Grid%spc(psphIdx)%kStart) = State%eta(i,j,Grid%spc(psphIdx)%kStart) + etaBelow
-                !    endif
 
                 ! Before we map to any RAIJU species, zero them out in case we want to accumulate
                 do s=1,Model%nSpc
@@ -158,7 +148,11 @@ module raijuBCs
                 do fm=1,Model%nFluidIn
                     fIdx = Model%fluidInMaps(fm)%idx_mhd
                     s = spcIdx(Grid, Model%fluidInMaps(fm)%flav)
-                    kT = DP2kT(State%Davg(i,j,fIdx), State%Pavg(i,j,fIdx))  ! [keV]
+                    
+                    ! Calculate moment we want to use for this point
+                    call getDomWeightedMoments(i, j, fIdx, tmp_D, tmp_P)
+
+                    kT = DP2kT(tmp_D, tmp_P)  ! [keV]
                     !!!!!!!!!!!!!
                     !! TODO: Implement proper Te map calculation
                     !!!!!!!!!!!!!
@@ -166,18 +160,28 @@ module raijuBCs
                         tmp_kti = kT / (1.0 + 1.0/Model%tiote)
                         tmp_kte = kT / (1.0 + Model%tiote)
 
-                        call DkT2SpcEta(Model,Grid%spc(s), &
-                            State%eta(i,j,Grid%spc(s)%kStart:Grid%spc(s)%kEnd), &
-                            State%Davg(i,j,fIdx), tmp_kti, &
-                            vm, doAccumulateO=.true., etaBelowO=etaBelow)
-                        call DkT2SpcEta(Model,Grid%spc(eleIdx), &
-                            State%eta(i,j,Grid%spc(eleIdx)%kStart:Grid%spc(eleIdx)%kEnd), &
-                            State%Davg(i,j,fIdx), tmp_kte, &
-                            vm, doAccumulateO=.true.)
+                        eMin = Grid%spc(s)%alami(Grid%spc(s)%kStart)*vm*1e-3  ! [kev] Lowest energy for this channel
+
+                        if (tmp_kti < eMin) then
+                            ! Probably plasmasphere, dump it all into there and don't map to hot channels
+                            etaBelow = tmp_D*State%bvol_cc(i,j)*sclEta  ! Basically the inverse of etak2Den in raijuEtautils
+                        else
+
+                            call DkT2SpcEta(Model,Grid%spc(s), &
+                                State%eta(i,j,Grid%spc(s)%kStart:Grid%spc(s)%kEnd), &
+                                tmp_D, tmp_kti, &
+                                vm, doAccumulateO=.true., etaBelowO=etaBelow)
+                            call DkT2SpcEta(Model,Grid%spc(eleIdx), &
+                                State%eta(i,j,Grid%spc(eleIdx)%kStart:Grid%spc(eleIdx)%kEnd), &
+                                tmp_D, tmp_kte, &
+                                vm, doAccumulateO=.true.)
+                        endif
+
+
                     else
                         call DkT2SpcEta(Model,Grid%spc(s), &
                             State%eta(i,j,Grid%spc(s)%kStart:Grid%spc(s)%kEnd), &
-                            State%Davg(i,j,fIdx), kT, &
+                            tmp_D, kT, &
                             vm, doAccumulateO=.true., etaBelowO=etaBelow)
                     endif
 
@@ -190,6 +194,30 @@ module raijuBCs
                 enddo  ! f
             enddo  ! j
         enddo  ! i
+
+
+        contains
+
+        subroutine getDomWeightedMoments(i, j, fIdx, D, P)
+            integer, intent(in) :: i, j, fIdx
+            real(rp), intent(out) :: D, P
+
+            real(rp), dimension(5,5) :: den2D, press2D, wgt2D
+            logical, dimension(5,5) :: isG2D
+
+            if (abs(State%domWeights(i,j) - 1.0_rp) < TINY) then
+                D = State%Davg(i, j, fIdx)
+                P = State%Pavg(i, j, fIdx)
+            else
+                ! Do weighted average by neighbors
+                den2D   = State%Davg      (i-2:i+2, j-2:j+2, fIdx)
+                press2D = State%Pavg      (i-2:i+2, j-2:j+2, fIdx)
+                wgt2D   = State%domWeights(i-2:i+2, j-2:j+2)
+                isG2D   = State%active    (i-2:i+2, j-2:j+2) .ne. RAIJUINACTIVE
+                D = sum(den2D  * wgt2D, mask=isG2D)/sum(wgt2D, mask=isG2D)
+                P = sum(press2D* wgt2D, mask=isG2D)/sum(wgt2D, mask=isG2D)
+            endif
+        end subroutine getDomWeightedMoments
 
     end subroutine applyMomentIngestion
 

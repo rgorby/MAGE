@@ -20,6 +20,7 @@ module voltappHelper
             call init_TubeShell(sh, State%tubeShell)
             call initShellVar(sh, SHGR_CORNER, State%potential_total)
             call initShellVar(sh, SHGR_CORNER, State%potential_corot)
+            call initShellVar(sh, SHGR_CORNER, State%pot_drop)
 
             call initShellVar(sh, SHGR_CC, State%bIonoMag)
             call initShellVar(sh, SHGR_CC, State%bIonoRad)
@@ -73,6 +74,9 @@ module voltappHelper
         vApp%State%potential_total%data = iono_var%data + vApp%State%potential_corot%data
         vApp%State%potential_total%mask = .true.
 
+        ! Diagnostics
+        !call calcPotDrop(vApp)
+
     end subroutine updateVoltPotential
 
     subroutine calcCorotPotential(planet, sh, pCorot,doGeoCorotO)
@@ -114,5 +118,49 @@ module voltappHelper
         enddo
 
     end subroutine calcCorotPotential
+
+
+    subroutine calcPotDrop(vApp)
+        !! Calculate as a diagnostic quantity the potential drop along field lines by comparing potentail at either end of field line
+        class(voltApp_T), intent(inout) :: vApp
+
+        integer :: i,j
+        real(rp) :: latc, colatc, lonc, potc
+            !! Conjugate latitude, colatitude, longitude, and potential
+        logical, dimension(vApp%shGrid%isg:vApp%shGrid%ieg+1,vApp%shGrid%jsg:vApp%shGrid%jeg+1) :: isGood
+
+        associate(sh=>vApp%shGrid, State=>vApp%State)
+
+        where (State%tubeShell%topo%data == TUBE_CLOSED)
+            isGood = .true.
+        elsewhere
+            isGood = .false.
+        end where
+
+        State%pot_drop%data = 0.0_rp
+        State%pot_drop%mask = .false.  ! We will turn on valid points in our loop
+
+        !$OMP PARALLEL DO default(shared) &
+        !$OMP schedule(dynamic) &
+        !$OMP private(i, j, colatc, lonc, potc)
+        do j=sh%jsg,sh%jeg+1
+            do i=sh%isg,sh%ieg+1
+                if (.not. isGood(i,j)) then
+                    cycle
+                endif
+
+                ! Get conjugate points in the right coordinates
+                colatc = PI/2.0_rp - State%tubeShell%latc%data(i,j)
+                lonc = State%tubeShell%lonc%data(i,j)
+                call InterpShellVar_TSC_pnt(sh, State%potential_total, colatc, lonc, potc, srcMaskO=isGood)
+                State%pot_drop%data(i,j) = State%potential_total%data(i,j) - potc
+                State%pot_drop%mask(i,j) = .true.
+
+            enddo
+        enddo
+
+        end associate
+
+    end subroutine
 
 end module voltappHelper

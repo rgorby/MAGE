@@ -141,7 +141,7 @@ module raijustarter
         endif
         
         !--- Plasmasphere ---!
-        call iXML%Set_Val(Model%doPlasmasphere, "plasmasphere/doPsphere",.false.)
+        call iXML%Set_Val(Model%doPlasmasphere, "plasmasphere/doPsphere",.true.)
         call iXML%Set_Val(Model%doPsphEvol, 'plasmasphere/doEvol',.true.)
         ! Determine number of species. First set default, then read from xml to overwrite if present
         if (Model%doPlasmasphere) then
@@ -230,11 +230,12 @@ module raijustarter
 
         !--- Losses ---!
         call iXML%Set_Val(Model%doLosses, "losses/doLosses",.true.)
-        call iXML%Set_Val(Model%doSS    , "losses/doSS" ,.true. )
+        !call iXML%Set_Val(Model%doSS    , "losses/doSS" ,.true. )
         call iXML%Set_Val(Model%doCC    , "losses/doCC" ,.true. )
         call iXML%Set_Val(Model%doCX    , "losses/doCX" ,.true.)
         call iXML%Set_Val(Model%doFLC   , "losses/doFLC",.false.)
         call iXML%Set_Val(Model%doEWM   , "losses/doEWM",.true.)
+        call iXML%Set_Val(Model%ewmType , "losses/ewmType","SS")
 
         !--- Output ---!
         call iXML%Set_Val(Model%isLoud           , "output/loudConsole",.false.)
@@ -266,14 +267,18 @@ module raijustarter
 
 
         ! Domain determination
-        call iXML%Set_Val(Model%vaFracThresh , "cpl/vaFracThresh" , def_vaFracThresh)
-        call iXML%Set_Val(Model%bminThresh   , "cpl/bminThresh"   , def_bminThresh)
-        call iXML%Set_Val(Model%PstdThresh   , "cpl/Pstd"         , def_PstdThresh)
-        call iXML%Set_Val(Model%normAngThresh, "cpl/normAngThresh", def_normAngle)
+        call iXML%Set_Val(Model%lim_vaFrac_soft, "domain/vaFrac_soft", def_lim_vaFrac_soft)
+        call iXML%Set_Val(Model%lim_vaFrac_hard, "domain/vaFrac_hard", def_lim_vaFrac_hard)
+        call iXML%Set_Val(Model%lim_bmin_soft  , "domain/bmin_soft"  , def_lim_bmin_soft  )
+        call iXML%Set_Val(Model%lim_bmin_hard  , "domain/bmin_hard"  , def_lim_bmin_hard  )
+        !call iXML%Set_Val(Model%vaFracThresh , "cpl/vaFracThresh" , def_vaFracThresh)
+        !call iXML%Set_Val(Model%bminThresh   , "cpl/bminThresh"   , def_bminThresh)
+        !call iXML%Set_Val(Model%PstdThresh   , "cpl/Pstd"         , def_PstdThresh)
+        !call iXML%Set_Val(Model%normAngThresh, "cpl/normAngThresh", def_normAngle)
         ! Note: Not used now within raiju, just passing through. But should probably include as a constraint
         call iXML%Set_Val(Model%nBounce, "cpl/nBounce", def_nBounce)
         ! Convert degrees to dot product value
-        Model%normAngThresh = cos(Model%normAngThresh*PI/180.0)
+        !Model%normAngThresh = cos(Model%normAngThresh*PI/180.0)
 
         ! Fluid mapping
         call iXML%Set_Val(nFluids, "cpl/nFluidsIn",0)
@@ -404,6 +409,7 @@ module raijustarter
             allocate( State%Davg(sh%isg:sh%ieg  , sh%jsg:sh%jeg, 0:Grid%nFluidIn) )
             allocate( State%Pstd(sh%isg:sh%ieg  , sh%jsg:sh%jeg, 0:Grid%nFluidIn) )
             allocate( State%Dstd(sh%isg:sh%ieg  , sh%jsg:sh%jeg, 0:Grid%nFluidIn) )
+            allocate( State%domWeights(sh%isg:sh%ieg  , sh%jsg:sh%jeg) )
             allocate( State%tiote(sh%isg:sh%ieg  , sh%jsg:sh%jeg) )
             call initShellVar(Grid%shGrid, SHGR_CC, State%Tb)
             ! Bmin surface
@@ -437,17 +443,13 @@ module raijustarter
             ! Coupling output data
             allocate(State%Den  (0:Model%nSpc))
             allocate(State%Press(0:Model%nSpc))
-            allocate(State%vAvg (0:Model%nSpc))
             do s=0,Model%nSpc
                 call initShellVar(Grid%shGrid, SHGR_CC, State%Den  (s))
                 call initShellVar(Grid%shGrid, SHGR_CC, State%Press(s))
-                call initShellVar(Grid%shGrid, SHGR_CC, State%vAvg (s))
                 State%Den  (s)%data = 0.0
                 State%Press(s)%data = 0.0
-                State%vAvg (s)%data = 0.0
                 State%Den  (s)%mask = .false.
                 State%Press(s)%mask = .false.
-                State%vAvg (s)%mask = .false.
             enddo
             allocate(State%precipNFlux(Grid%Nk))
             allocate(State%precipEFlux(Grid%Nk))
