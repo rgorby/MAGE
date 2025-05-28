@@ -250,7 +250,7 @@ def prompt_user_for_run_options(args):
     for on in ["job_name"]:
         o[on] = get_run_option(on, od[on], mode)
 
-    # Ask the user if a boundary condition file is available. If not, offer to
+    # Ask the user if a solar wind file is available. If not, offer to
     # generate one from the start and end date.
     for on in ["bcwind_available"]:
         o[on] = get_run_option(on, od[on], mode)
@@ -263,7 +263,7 @@ def prompt_user_for_run_options(args):
         o["stop_date"] = stop_date
     else:
         # Prompt for the start and stop date of the run. This will also be
-        # used as the start and stop date of the data in the boundary condition
+        # used as the start and stop date of the data in the solar wind
         # file, which will be created using CDAWeb data.
         for on in ["start_date", "stop_date"]:
             o[on] = get_run_option(on, od[on], mode)
