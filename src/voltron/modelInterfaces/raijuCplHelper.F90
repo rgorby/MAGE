@@ -51,7 +51,7 @@ module raijuCplHelper
             shGhosts(SOUTH) = sh%Ngs
             shGhosts(EAST)  = sh%Nge
             shGhosts(WEST)  = sh%Ngw
-            call raijuGenGridFromShGrid(raiCpl%shGr, raiCpl%opt%voltGrid, iXML)
+            call raijuGenGridFromShGrid(raiCpl%shGr, raiCpl%opt%voltGrid, iXML, raiCpl%raiApp%opt)
             call initShellVar(raiCpl%shGr, SHGR_CORNER, raiCpl%pot_total)
             call initShellVar(raiCpl%shGr, SHGR_CORNER, raiCpl%pot_corot)
             call initShellVar(raiCpl%shGr, SHGR_CC, raiCpl%bvol_cc)

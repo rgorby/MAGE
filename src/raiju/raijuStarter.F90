@@ -47,9 +47,9 @@ module raijustarter
         call raijuInitModel(app%Model, iXML)
 
         if(present(shGridO)) then
-            call raijuInitGrid(app%Model, app%Grid, iXML, shGridO)
+            call raijuInitGrid(app%Model, app%Grid, app%opt, iXML, shGridO)
         else
-            call raijuInitGrid(app%Model, app%Grid, iXML)
+            call raijuInitGrid(app%Model, app%Grid, app%opt, iXML)
         endif
 
         call raijuInitState(app%Model,app%Grid,app%State,iXML)
@@ -299,9 +299,10 @@ module raijustarter
     end subroutine setMHD2RaiInfo
 
 
-    subroutine raijuInitGrid(Model, Grid, iXML, shGridO)
+    subroutine raijuInitGrid(Model, Grid, opts, iXML, shGridO)
         type(raijuModel_T) , intent(inout) :: Model
         type(raijuGrid_T)  , intent(inout) :: Grid
+        type(raijuOptions_T), intent(in) :: opts
         type(XML_Input_T), intent(in)   :: iXML
         type(ShellGrid_T), optional, intent(in)    :: shGridO
 
@@ -313,35 +314,36 @@ module raijustarter
         call iXML%Set_Val(Grid%nB, "grid/Nbnd", 4      )  ! Number of cells between open boundary and active domain
         call iXML%Set_Val(tmpStr, "grid/gType","UNISPH")
 
-        !if (.not. Model%isRestart) then
-            ! Fill out Grid object depending on chosen method
-            select case(tmpStr)
-                case("UNISPH")
-                    Grid%gType = RAI_G_UNISPH
-                    ! Generate our own grid from scratch
-                    call raijuGenUniSphGrid(Model, Grid, iXML)
-                case("WARPSPH")
-                    Grid%gType = RAI_G_WARPSPH
-                    ! Generate our own grid from scratch
-                    !call raijuGenWarpSphGrid_Fok2021(Model, Grid, iXML)
-                    call raijuGenWarpSphGrid_Shafee2008(Model, Grid, iXML)
-                case("SHGRID")
-                    Grid%gType = RAI_G_SHGRID
-                    ! Then we should be receiving a predefined ShellGrid that Voltron has set up
-                    if(present(shGridO)) then
-                        shGrid = shGridO
-                        call raijuGenGridFromShGrid(Grid%shGrid, shGrid, iXML)
-                    else
-                        write(*,*) "RAIJU expecting a ShellGrid_T but didn't receive one. Dying."
-                    endif
-                case DEFAULT
-                    write(*,*) "RAIJU Received invalid grid definition: ",Grid%gType
-                    write(*,*) " Dying."
-                    stop
-            end select
-        !else
-        !    call GenShellGridFromFile(Grid%shGrid, RAI_SG_NAME, Model%ResF)
-        !endif
+        ! Fill out Grid object depending on chosen method
+        select case(tmpStr)
+            case("UNISPH")
+                Grid%gType = RAI_G_UNISPH
+                ! Generate our own grid from scratch
+                call raijuGenUniSphGrid(Model, Grid, iXML)
+            case("WARPSPH")
+                Grid%gType = RAI_G_WARPSPH
+                ! Generate our own grid from scratch
+                !call raijuGenWarpSphGrid_Fok2021(Model, Grid, iXML)
+                call raijuGenWarpSphGrid_Shafee2008(Model, Grid, iXML)
+            case("SHGRID")
+                Grid%gType = RAI_G_SHGRID
+                ! Then we should be receiving a predefined ShellGrid that Voltron has set up
+                if(present(shGridO)) then
+                    shGrid = shGridO
+                    call raijuGenGridFromShGrid(Grid%shGrid, shGrid, iXML, opts)
+                else
+                    write(*,*) "RAIJU expecting a ShellGrid_T but didn't receive one. Dying."
+                endif
+            case DEFAULT
+                write(*,*) "RAIJU Received invalid grid definition: ",Grid%gType
+                write(*,*) " Dying."
+                stop
+        end select
+        ! Make sure we aren't going beyond the equator with our ghost cells, that wouldn't make sense
+        if (any(Grid%shGrid%th(Grid%shGrid%ie+1:) > PI/2.0_rp)) then
+            write(*,*)"ERROR: RAIJU ghosts going beyond 0 deg lat. Probably you are pushing it in too close to planet's surface"
+            stop
+        endif
 
         ! Finalize the spatial part of the grid
         call finalizeLLGrid(Grid, Model%planet)

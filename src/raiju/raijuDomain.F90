@@ -189,10 +189,10 @@ module raijuDomain
                 do i=Grid%shGrid%isg, Grid%shGrid%ieg
                     if (abs(weights2D(i,j) - 1.0_rp) < TINY) then
                         pass2D(i,j) = .true.
-                    else if (weights2D(i,j) > 0.0_rp .and. notGhost(i,j)) then
+                    else if (weights2D(i,j) > TINY .and. notGhost(i,j)) then
                         ! Give it a second chance based on how good surrounding points are
                         ! (Ghosts don't get second chance, they are full pass or full fail)
-                        varSm_pnt = SmoothOperator55(var(i-2:i+2,j-2:j+2), weights2D(i-2:i+2,j-2:j+2) > 0.0_rp)
+                        varSm_pnt = SmoothOperator55(var(i-2:i+2,j-2:j+2), weights2D(i-2:i+2,j-2:j+2) > TINY)
                         wgt_pnt = (varSm_pnt - hardLim)/(softLim - hardLim)
                         if (abs(wgt_pnt - 1.0_rp) < TINY) then
                             pass2D(i,j) = .true.

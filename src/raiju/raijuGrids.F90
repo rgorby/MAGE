@@ -254,22 +254,32 @@ module raijugrids
     end subroutine raijuGenWarpSphGrid_Shafee2008
 
 
-    subroutine raijuGenGridFromShGrid(raijuGrid, shGrid, iXML)
+    subroutine raijuGenGridFromShGrid(raijuGrid, shGrid, iXML, opts)
         type(ShellGrid_T)  , intent(inout) :: raijuGrid
         type(ShellGrid_T), intent(in) :: shGrid
         type(XML_Input_T), intent(in) :: iXML
-
+        type(raijuOptions_T), intent(in) :: opts
+        
         real(rp) :: thetaL, thetaU
         integer :: Ng
         integer, dimension(4) :: nGhosts
         integer :: iStart, iEnd
 
-        call iXML%Set_Val(thetaL , "grid/ThetaL", 15.0)
-            !! Lower colat boundary [deg], ~15 Re in dipole
+        if(opts%thetaL%isSet()) then
+            thetaL = opts%thetaL%get()
+        else
+            call iXML%Set_Val(thetaL , "grid/ThetaL", 15.0)
+                !! Lower colat boundary [deg], ~15 Re in dipole
+        endif
+        if(opts%thetaU%isSet()) then
+            thetaU = opts%thetaU%get()
+        else
         call iXML%Set_Val(thetaU , "grid/ThetaU", 45.0)
             !! Upper colat boundary [deg], 2 Re in dipole
-        call iXML%Set_Val(Ng, "grid/Ng", 4  )  ! Number of ghosts, in every direction for now
+        endif
+        write(*,*)"RAIJU theta range = ",thetaL,thetaU
 
+        call iXML%Set_Val(Ng, "grid/Ng", 4  )  ! Number of ghosts, in every direction for now
         nGhosts = Ng
         
         ! Convert to radians
