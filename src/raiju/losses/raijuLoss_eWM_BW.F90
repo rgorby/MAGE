@@ -270,7 +270,7 @@ module raijuLoss_eWM_BW
 
                         if (this%wCHORUS(i,j) > TINY) then
                             !! Implement chorus tau calculation here
-                            tauChorus = calcChorusTau(this, MLT, L, E, Kp)
+                            tauChorus = CalcTau_Chorus(this, MLT, L, E, Kp)
                         else
                             tauChorus = HUGE
                         endif
@@ -375,7 +375,7 @@ module raijuLoss_eWM_BW
         end associate
     end subroutine eWM_BW_DoOutput
 
-    function calcChorusTau(this,MLTin,Lin,Ekin,Kpin) result(tau)
+    function CalcTau_Chorus(this,MLTin,Lin,Ekin,Kpin) result(tau)
     ! linearly interpolate tau from EWMTauInput to current MLT,L,Kp,Ek value
         class(raiLoss_eWM_BW_T), intent(in) :: this        
         real(rp), intent(in) :: MLTin,Lin,Ekin,Kpin
@@ -501,6 +501,6 @@ module raijuLoss_eWM_BW
         tau = 10.0**tau !convert back to tau in seconds
         end associate
 
-    END FUNCTION calcChorusTau
+    END FUNCTION CalcTau_Chorus
 
 end module raijuLoss_eWM_BW
