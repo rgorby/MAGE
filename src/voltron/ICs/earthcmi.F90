@@ -603,12 +603,14 @@ module uservoltic
             nbc = FindBC(Model,Grid,INI)
                 SELECT type(iiBC=>Grid%externalBCs(nbc)%p)
                     TYPE IS (IonInnerBC_T)
-                        call ClearIO(IOVars)
-                        call AddInVar(IOVars,"inEijk")
-                        call AddInVar(IOVars,"inExyz")
-                        call ReadVars(IOVars,.false.,inH5)
-                        call IOArray4DFill(IOVars, "inEijk", iiBC%inEijk(:,:,:,:) )
-                        call IOArray4DFill(IOVars, "inExyz", iiBC%inExyz(:,:,:,:) )
+                        if(ioExist(inH5,"inEijk")) then
+                            call ClearIO(IOVars)
+                            call AddInVar(IOVars,"inEijk")
+                            call AddInVar(IOVars,"inExyz")
+                            call ReadVars(IOVars,.false.,inH5)
+                            call IOArray4DFill(IOVars, "inEijk", iiBC%inEijk(:,:,:,:) )
+                            call IOArray4DFill(IOVars, "inExyz", iiBC%inExyz(:,:,:,:) )
+                        endif
                 CLASS DEFAULT
                     ! do nothing on gamera ranks without this BC
             END SELECT
