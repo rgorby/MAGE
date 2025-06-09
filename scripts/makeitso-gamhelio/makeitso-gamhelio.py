@@ -143,8 +143,8 @@ def update_loaded_options(options):
     # If the tsOut attribute is found, rename it to dtCon.
     DEFAULT_HELIO_DTCON = "5"  # Hours
     if "tsOut" in options["gamera"]["output"]:
-        print("REPLACING obsolete parameter tsOut with default dtCon value"
-              f" of {DEFAULT_HELIO_DTCON} hours!")
+        print("WARNING: Replacing obsolete parameter tsOut with default dtCon"
+              f" value of {DEFAULT_HELIO_DTCON} hours!")
         options["gamera"]["output"]["dtCon"] = DEFAULT_HELIO_DTCON
         del options["gamera"]["output"]["tsOut"]
     # </HACK>

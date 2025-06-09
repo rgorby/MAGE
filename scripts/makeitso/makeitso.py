@@ -127,8 +127,8 @@ def update_loaded_options(options):
     # If the tsOut attribute is found, rename it to dtCon.
     DEFAULT_GEO_DTCON = "300"  # Seconds
     if "tsOut" in options["voltron"]["output"]:
-        print("REPLACING obsolete parameter tsOut with default dtCon value"
-              f" of {DEFAULT_GEO_DTCON} seconds!")
+        print("WARNING: Replacing obsolete parameter tsOut with default dtCon"
+              f" value of {DEFAULT_GEO_DTCON} seconds!")
         options["voltron"]["output"]["dtCon"] = DEFAULT_GEO_DTCON
         del options["voltron"]["output"]["tsOut"]
     # </HACK>
