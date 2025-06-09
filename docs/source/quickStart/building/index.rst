@@ -29,7 +29,7 @@ on BitBucket:
 
 .. code-block:: bash
 
-    git clone https://bitbucket.org/aplkaiju/kaiju.git
+    git clone https://github.com/JHUAPL/kaiju.git
 
 .. important::
 
