@@ -27,10 +27,9 @@ environment with all prerequisites, is available on
          
 .. important::
 
-    The ``kaipy`` code was developed using ``python`` 3.8, which is no longer
-    supported. If you try to run the ``kaipy`` code using a different version
-    of ``python``, you may encounter compatibility issues. We are working to
-    update the ``kaipy`` code to support more recent versions of ``python``.
+    The ``kaipy`` code requires python version 3.10 or later. If you try to
+    run the ``kaipy`` code using a different version of ``python``, you may
+    encounter compatibility issues.
 
 
 Table of Contents
