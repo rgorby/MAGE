@@ -47,10 +47,10 @@ create the environment, then populate it with the required Python packages.
 
     # Now create the environment for kaiju, specifying only the python
     # version.
-    conda create -n kaiju-3.8 python=3.8
+    conda create -n kaiju-3.12 python=3.12
 
     # Activate the new environment.
-    conda activate kaiju-3.8
+    conda activate kaiju-3.12
 
     # Install the kaipy software.
     # If you are using kaipy via pip:
@@ -68,6 +68,6 @@ Once your python environment is created, you must activate it for use with the
 
 .. code-block:: bash
 
-    conda activate kaiju-3.8
+    conda activate kaiju-3.12
     source /path/to/kaipy/kaipy/scripts/setupEnvironment.sh
     # or setupEnvironment.csh if using tcsh or a similar shell.

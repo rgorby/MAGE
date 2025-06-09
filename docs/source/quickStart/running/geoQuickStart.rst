@@ -96,7 +96,7 @@ You should see output similar to this:
     <ring gid="lfm" doRing="T" Nr="8" Nc1="8" Nc2="16" Nc3="32" Nc4="32" Nc5="64" Nc6="64" Nc7="64" Nc8="64"/>
 
     Writing to lfmQ.h5
-    /glade/u/home/ewinter/miniconda3/envs/kaiju-3.8/lib/python3.8/site-packages/spacepy/time.py:2367: UserWarning: Leapseconds may be out of date. Use spacepy.toolbox.update(leapsecs=True)
+    /glade/u/home/ewinter/miniconda3/envs/kaiju-3.12/lib/python3.12/site-packages/spacepy/time.py:2367: UserWarning: Leapseconds may be out of date. Use spacepy.toolbox.update(leapsecs=True)
     warnings.warn('Leapseconds may be out of date.'
     Retrieving f10.7 data from CDAWeb
     Retrieving solar wind data from CDAWeb
