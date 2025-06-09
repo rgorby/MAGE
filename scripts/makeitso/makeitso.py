@@ -125,11 +125,11 @@ def update_loaded_options(options):
     """
     # <HACK>
     # If the tsOut attribute is found, rename it to dtCon.
+    DEFAULT_GEO_DTCON = "300"  # Seconds
     if "tsOut" in options["voltron"]["output"]:
-        print("REPLACING tsOut WITH dtCon!")
-        options["voltron"]["output"]["dtCon"] = copy.deepcopy(
-            options["voltron"]["output"]["tsOut"]
-        )
+        print("REPLACING obsolete parameter tsOut with default dtCon value"
+              f" of {DEFAULT_GEO_DTCON} seconds!")
+        options["voltron"]["output"]["dtCon"] = DEFAULT_GEO_DTCON
         del options["voltron"]["output"]["tsOut"]
     # </HACK>
 
@@ -950,7 +950,7 @@ def main():
         # Read the run options from a JSON file.
         with open(options_path, "r", encoding="utf-8") as f:
             options = json.load(f)
-            options = update_loaded_options(options)
+        options = update_loaded_options(options)
     else:
         # Prompt the user for the run options.
         options = prompt_user_for_run_options(args)
