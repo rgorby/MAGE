@@ -36,6 +36,9 @@ set -e
 # for the outputs from the individual test runs.
 export MAGE_TEST_ROOT='/glade/campaign/hao/msphere/automated_kaiju_tests'
 
+# Path to directory containing patches to apply to the code before building.
+export PATCH_DIR="${MAGE_TEST_ROOT}/patch"
+
 # Root of kaiju test results tree.
 export KAIJU_TEST_RESULTS_ROOT='/glade/derecho/scratch/ewinter/mage_testing'
 
@@ -62,17 +65,7 @@ export DERECHO_TESTING_PRIORITY='economy'
 export SLACK_BOT_TOKEN=`cat $HOME/.ssh/slack.txt`
 
 # conda environment for testing
-export CONDA_ENVIRONMENT='kaiju-3.8-testing'
-
-# Use a custom .condarc and .conda directory for testing.
-# export CONDARC="${MAGE_TEST_ROOT}/.condarc"
-# export CONDA_ENVS_PATH="${MAGE_TEST_ROOT}/.conda"
-
-# Use a custom pip configuration and cache for testing.
-# NOTE: Not needed when actually running tests. This should be set when
-# manually updating the conda environments used for testing.
-# export PIP_CONFIG_FILE="${MAGE_TEST_ROOT}/.pip_config"
-# export PIP_CACHE_DIR="${MAGE_TEST_ROOT}/pip_cache"
+export CONDA_ENVIRONMENT='kaiju-3.10-testing'
 
 # IMPORTANT: Set this environment variable to force the python print()
 # function to automatically flush its output in all of the testing scripts.
@@ -231,12 +224,9 @@ fi
 if $verbose; then
     echo "Setting up conda environment for MAGE testing ${CONDA_ENVIRONMENT}."
 fi
-# mage_miniconda3="${MAGE_TEST_ROOT}/miniconda3"
 mage_miniconda3="${HOME}/miniconda3"
 mage_conda="${mage_miniconda3}/bin/conda"
 if $debug; then
-    # echo "CONDARC=${CONDARC}"
-    # echo "CONDA_ENVS_PATH=${CONDA_ENVS_PATH}"
     echo "mage_miniconda3=${mage_miniconda3}"
     echo "mage_conda=${mage_conda}"
 fi
@@ -352,12 +342,16 @@ cp -rp tests TEST_CODE_BACKUP/
 new_test_code_root="${MAGE_TEST_ROOT}/kaiju-private"
 if $verbose; then
     echo "Copying updated test files from ${new_test_code_root}."
+    echo "Copying required patches from ${PATCH_DIR}."
 fi
 cp -p $new_test_code_root/testingScripts/*.py ./testingScripts/
 cp -p $new_test_code_root/testingScripts/*-template.pbs ./testingScripts/
 cp -p $new_test_code_root/testingScripts/weeklyDashGo.xml ./testingScripts/
 cp -p $new_test_code_root/testingScripts/mage_build_test_modules/* ./testingScripts/mage_build_test_modules/
 cp -p $new_test_code_root/tests/*-template.pbs ./tests/
+# src/rcm/claw.F was removed by the repository surgery in June 2025.
+# We need to add it back as a patch until we remove src/rcm from the code.
+cp -p $PATCH_DIR/claw.F ./src/rcm/
 # </HACK>
 
 # ############################################################################
