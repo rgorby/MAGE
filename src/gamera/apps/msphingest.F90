@@ -89,7 +89,7 @@ module msphingest
 
         integer :: i,j,k
         real(rp), dimension(NVAR) :: pCon,pConRC,pConPS,pW
-        real(rp), dimension(NDIM) :: E,B,Veb
+        real(rp), dimension(NDIM) :: E,B,ionV,mhdV,Veb,bhat
         real(rp) :: D0,P0,Tau,rcD,rcP,psD,psP
         logical  :: doIngestIJK,doIngestRC,doIngestCOLD
 
@@ -103,8 +103,8 @@ module msphingest
         endif
 
         !$OMP PARALLEL DO default(shared) collapse(2) &
-        !$OMP private(i,j,k,E,B,Veb,Tau)     &
-        !$OMP private(D0,P0,rcD,rcP,psD,psP) &
+        !$OMP private(i,j,k,E,B,ionV,mhdV,Veb,bhat,Tau) &
+        !$OMP private(D0,P0,rcD,rcP,psD,psP)   &
         !$OMP private(doIngestIJK,doIngestRC,doIngestCOLD) &
         !$OMP private(pCon,pConRC,pConPS,pW)
         do k=Gr%ks,Gr%ke
@@ -117,24 +117,29 @@ module msphingest
                     if (Model%doBackground) then
                         B = B + Gr%B0(i,j,k,:)
                     endif
+                    bhat = normVec(B)
 
                     !Get ingestion timescale
                     Tau = Gr%Gas0(i,j,k,IM_TSCL)
                     if (Tau<Model%dt) Tau = Model%dt !Unlikely to happen
 
-                    !Get ingestion frame
+                    pCon = State%Gas(i,j,k,:,BLK)
+                    call CellC2P(Model,pCon,pW)
+                    Veb = pW(VELX:VELZ)
+
+                    !Get frames (MHD frame and ionospheric con)
                     if (Model%t < 0) then
-                        !Use current fluid frame
-                        pCon = State%Gas(i,j,k,:,BLK)
-                        call CellC2P(Model,pCon,pW)
-                        Veb = pW(VELX:VELZ)
+                        !During spinup, only use MHD frame
+                        mhdV = Vec2Perp(Veb,bhat)
+                        ionV = mhdV
                     else
-                        !Use ExB
                         E = Gr%Gas0(i,j,k,IONEX:IONEZ) !Ionospheric E field
-                        Veb = cross(E,B)/dot_product(B,B)
+                        ionV = cross(E,B)/dot_product(B,B)
+                        mhdV = Vec2Perp(Veb,bhat)
                     endif
 
-                    call ClampVeb(Model,Veb)
+                    call ClampVeb(Model,ionV)
+                    call ClampVeb(Model,mhdV)
 
                 !Single fluid
                     if (.not. Model%doMultiF) then
@@ -142,7 +147,7 @@ module msphingest
                         P0 = Gr%Gas0(i,j,k,IM_P_RING) + Gr%Gas0(i,j,k,IM_P_COLD)
 
                         pCon = State%Gas(i,j,k,:,BLK)
-                        call Ingest2Con(Model,pCon,doIngestIJK,D0,P0,Veb,Tau)
+                        call Ingest2Con(Model,pCon,doIngestIJK,D0,P0,mhdV,Tau)
 
                         if (doIngestIJK) then
                             State%Gas(i,j,k,:,BLK) = pCon
@@ -153,13 +158,13 @@ module msphingest
                         rcD = Gr%Gas0(i,j,k,IM_D_RING)
                         rcP = Gr%Gas0(i,j,k,IM_P_RING)
                         pConRC = State%Gas(i,j,k,:,RCFLUID)
-                        call Ingest2Con(Model,pConRC,doIngestRC,rcD,rcP,Veb,Tau)
+                        call Ingest2Con(Model,pConRC,doIngestRC,rcD,rcP,mhdV,Tau)
 
                         !Try plasmasphere ingestion
                         psD = Gr%Gas0(i,j,k,IM_D_COLD)
                         psP = Gr%Gas0(i,j,k,IM_P_COLD)
                         pConPS = State%Gas(i,j,k,:,COLDFLUID)
-                        call Ingest2Con(Model,pConPS,doIngestCOLD,psD,psP,Veb,Tau)
+                        call Ingest2Con(Model,pConPS,doIngestCOLD,psD,psP,ionV,Tau)
 
                         !Finish up
                         if (doIngestRC) then
@@ -180,7 +185,6 @@ module msphingest
                 enddo
             enddo
         enddo !k
-
 
     !---
         contains
@@ -234,8 +238,8 @@ module msphingest
         logical , intent(out)   :: doIngest
 
         real(rp) :: pW(NVAR)
-        real(rp) :: Dmhd,Pmhd,dRho,dP
-        real(rp), dimension(NDIM) :: Mxyz,Vmhd,dMom
+        real(rp) :: Dmhd,Pmhd,dRho,dP,IntE,KinE
+        real(rp), dimension(NDIM) :: Mxyz
 
         !Decide if there's anything to eat
         doIngest = (D0>dFloor) .and. (P0>pFloor)
@@ -246,28 +250,19 @@ module msphingest
 
         Dmhd = pW(DEN)
         Pmhd = pW(PRESSURE)
-        Mxyz = pCon(MOMX:MOMZ) !Momentum
-        Vmhd = pW(VELX:VELZ)
 
         dRho = (D0-Dmhd)*(Model%dt/Tau)
         dP   = (P0-Pmhd)*(Model%dt/Tau)
-        !Calculate change in momentum
-        if (dRho > 0) then
-            !If gaining mass do it in the ionospheric convection frame
-            dMom = dRho*V0 !Change in momentum
-        else
-            !Lose mass in MHD frame
-            dMom = dRho*Vmhd
-        endif
 
-        !Now calculate new primitive values
-        pW(DEN) = pW(DEN) + dRho
-        pW(VELX:VELZ) = ( Mxyz + dMom )/(pW(DEN)) !New M / new D
-        pW(PRESSURE) = pW(PRESSURE) + dP
+        !Construct new conserved state
+        pCon(DEN) = Dmhd + dRho
+        Mxyz = pCon(MOMX:MOMZ) + dRho*V0
+        IntE = max(Pmhd + dP,pFloor)/(Model%gamma-1)
+        KinE = dot_product(Mxyz,Mxyz)/(2*pCon(DEN))
 
-        !Now put back
-        call CellP2C(Model,pW,pCon)
-        
+        pCon(MOMX:MOMZ) = Mxyz
+        pCon(ENERGY) = IntE + KinE
+
     end subroutine Ingest2Con
 
     subroutine CellPlasmaBC(Model,gU,pU,Gas0,Veb,rHat,B)
