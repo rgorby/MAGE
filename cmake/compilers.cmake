@@ -144,7 +144,13 @@ elseif(CMAKE_Fortran_COMPILER_ID MATCHES GNU)
     endif()
 	#Now do machine-dep options
 	if (CMAKE_SYSTEM_NAME MATCHES Darwin)
-		string(APPEND CMAKE_Fortran_FLAGS " -Wl,-stack_size,0x40000000,-stack_addr,0xf0000000")
+		if (CMAKE_HOST_SYSTEM_PROCESSOR MATCHES arm64)
+			#Apple silicon
+			message("OSX Arch: ${CMAKE_HOST_SYSTEM_PROCESSOR}")
+		else()
+			#Older stuff, add big stack
+			string(APPEND CMAKE_Fortran_FLAGS " -Wl,-stack_size,0x40000000,-stack_addr,0xf0000000")
+		endif()
 	endif()
 endif()
 

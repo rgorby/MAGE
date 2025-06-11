@@ -161,18 +161,18 @@ submodule (volttypes) raijuCplTypesSub
 
         do s=1, Model%nSpc
             if (spcList(s)%flav == F_PSPH) then
-                call InterpShellVar_TSC_pnt(sh, State%Den(s), th, ph, d_cold)
+                call InterpShellVar_TSC_pnt(sh, State%Den_avg(s), th, ph, d_cold)
                 imW(IM_D_COLD) = d_cold  ! [#/cc]
                 t_cold = PsphTemp_Genestreti(d_cold)  ! [keV]
                 imW(IM_P_COLD) = DkT2P(d_cold, t_cold)  ! [nPa]
             elseif (spcList(s)%spcType == RAIJUHPLUS) then
-                call InterpShellVar_TSC_pnt(sh, State%Den(s)  , th, ph, d_hot)
-                call InterpShellVar_TSC_pnt(sh, State%Press(s), th, ph, p_hot)
+                call InterpShellVar_TSC_pnt(sh, State%Den_avg(s)  , th, ph, d_hot)
+                call InterpShellVar_TSC_pnt(sh, State%Press_avg(s), th, ph, p_hot)
                 imW(IM_D_RING) = imW(IM_D_RING) + d_hot  ! [nPa]
                 imW(IM_P_RING) = imW(IM_P_RING) + p_hot  ! [#/cc]
             elseif (spcList(s)%spcType == RAIJUELE) then
                 ! Don't add number density
-                call InterpShellVar_TSC_pnt(sh, State%Press(s), th, ph, p_hot)
+                call InterpShellVar_TSC_pnt(sh, State%Press_avg(s), th, ph, p_hot)
                 imW(IM_P_RING) = imW(IM_P_RING) + p_hot  ! [#/cc]
             endif
         enddo
@@ -257,7 +257,7 @@ submodule (volttypes) raijuCplTypesSub
                 if (spcList(s)%flav == F_PSPH) then
                     !call InterpShellVar_TSC_pnt(sh, State%Den(s), th, ph, d_cold)
                     !imW(IM_D_COLD) = d_cold  ! [#/cc]
-                    call InterpShellVar_TSC_pnt(sh, State%Den(s), th, ph, d_cold)
+                    call InterpShellVar_TSC_pnt(sh, State%Den_avg(s), th, ph, d_cold)
                     imP(RAI_NPSP) = imP(RAI_NPSP) + d_cold*1.0e6 ! uStr="#/cc" -> /m^3 , dStr="Density from RAIJU flavors"
                 elseif (spcList(s)%spcType == RAIJUHPLUS) then
                     ! add proton precipitation later.
@@ -266,9 +266,9 @@ submodule (volttypes) raijuCplTypesSub
                     !imP(RAI_EDEN ) = imP(RAI_EDEN ) + State%Den  (s)%data(i0,j0)*1.0e6 ! uStr="#/cc" -> /m^3 , dStr="Density from RAIJU flavors"
                     !imP(RAI_ENFLX) = imP(RAI_ENFLX) + sum(State%precipNFlux(i0,j0,ks:ke), dim=3) ! uStr="#/cm^2/s"
                     !imP(RAI_EFLUX) = imP(RAI_EFLUX) + sum(State%precipEFlux(i0,j0,ks:ke), dim=3) ! uStr="erg/cm^2/s"
-                    call InterpShellVar_TSC_pnt(sh, State%Den(s)  , th, ph, d_hot)
+                    call InterpShellVar_TSC_pnt(sh, State%Den_avg(s)  , th, ph, d_hot)
                     imP(RAI_EDEN ) = imP(RAI_EDEN ) + d_hot*1.0e6 ! uStr="#/cc" -> /m^3 , dStr="Density from RAIJU flavors"
-                    call InterpShellVar_TSC_pnt(sh, State%Press(s), th, ph, p_hot)
+                    call InterpShellVar_TSC_pnt(sh, State%Press_avg(s), th, ph, p_hot)
                     imP(RAI_EPRE ) = imP(RAI_EPRE ) + p_hot*1.0e-9 ! uStr="nPa" -> Pa , dStr="Pressure from RAIJU flavors"
                     do k=ks,ke
                         !if(.not. isnan(State%precipNFlux(i0,j0,k))) then
