@@ -1965,7 +1965,7 @@ subroutine cofrm(date)
   !real,save :: g1f(n1,ncn1), g2f(n2,ncn2)
   real(rp),parameter :: alt = 0.
   real(rp), allocatable :: matrix(:,:) ! Support for reading IGRF coeffs from file
-  logical :: igrf14coeffs_read = .true.
+  logical :: igrf14coeffs_read = .false.
 
   if (date < 1900._rp .or. date > 2035._rp) then ! Update with each IGRF update
     write(6,"('>>> cofrm: date=',f8.2,' Date must be >= 1900 and <= 2035')") date
