@@ -1,0 +1,5 @@
+This folder contains 3rd party software used by the Kaiju software.
+
+All source files included contain a header indicating the source, whether the source was modified and the license under which it is distributed.
+
+The igrf14coeffs.txt accompanies the apex.f90 code and was obtained from the same source (https://github.com/NCAR/apex_fortran). This file is included in the repository for ease of use, but the data are provided by the US Government, are in the public domain and not covered by the license or copyright in this folder or the rest of the Kaiju repository.
