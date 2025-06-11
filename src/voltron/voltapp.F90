@@ -26,6 +26,7 @@ module voltapp
     use shellGridGen
     use voltappHelper
     use voltCplHelper
+    use apex, only : init_apex
     
     implicit none
 
@@ -383,6 +384,9 @@ module voltapp
             !Hex or above
             call DisableSymLinks()
         endif
+
+        ! Setting apex reference altitude
+        call init_apex(vApp%MJD,vApp%gcm%altmax)
 
         if(present(optFilename)) then
             ! read from the prescribed file
