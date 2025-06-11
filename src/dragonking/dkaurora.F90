@@ -11,7 +11,7 @@ module dkaurora
 !  use euvhelper
   use auroralhelper
 !  use kai2geo
-  use rcmdefs, ONLY : tiote_RCM
+  use raijudefs, ONLY : def_tiote
   
   implicit none
 
@@ -89,7 +89,7 @@ module dkaurora
       ! MHD inner boundary, used to calc mirror ratio.
       RinMHD = Params%RinMHD
       ! Te/Tmhd
-      alpha_RCM = 1.0/(tiote_RCM+1.0)
+      alpha_RCM = 1.0/(def_tiote+1.0)
       ! Loss cone rate
       beta_RCM  = aurora%beta
       beta_inp  = aurora%beta
