@@ -127,13 +127,26 @@ module raijuPreAdvancer
 ! Cell Potentials and their gradients
 !------
     !! Potential variables come in pre-allocated, since they may be subsets of larger arrays
-    subroutine potExB(sh, State, pExB)
-        ! Trivial, but putting it here in case we need extra options for it later
+    subroutine potExB(sh, State, pExB, doSmoothO, isGCornerO)
         type(ShellGrid_T), intent(in) :: sh
         type(raijuState_T), intent(in) :: State
         real(rp), dimension(sh%isg:sh%ieg+1,sh%jsg:sh%jeg+1), intent(inout) :: pExB
+        logical, intent(in), optional :: doSmoothO
+        logical, dimension(sh%isg:sh%ieg+1,sh%jsg:sh%jeg+1), intent(in), optional :: isGCornerO
+
+        logical :: doSmooth
+
+        if(present(doSmoothO)) then
+            doSmooth = doSmoothO
+        else
+            doSmooth = .false.
+        endif
         
         pExB = State%espot * 1.e3  ! [kV -> V]
+
+        if (doSmooth .and. present(isGCornerO)) then 
+            call smoothCornerVar(sh, isGcornerO, pExB)
+        endif
 
     end subroutine potExB
 
@@ -242,7 +255,7 @@ module raijuPreAdvancer
 
         associate(sh=>Grid%shGrid)
         ! Gauss-Green calculation of cell-averaged gradients
-        call potExB(Grid%shGrid, State, pExB)  ! [V]
+        call potExB(Grid%shGrid, State, pExB, doSmoothO=.true., isGCornerO=isGCorner)  ! [V]
         call potCorot(Model%planet, Grid%shGrid, pCorot, Model%doGeoCorot)  ! [V]
         call calcGradIJ_cc(Model%planet%rp_m, Grid, isGCorner, pExB  , State%gradPotE_cc    , doLimO=.true. )  ! [V/m]
         call calcGradIJ_cc(Model%planet%rp_m, Grid, isGCorner, pCorot, State%gradPotCorot_cc, doLimO=.false.)  ! [V/m]
@@ -451,7 +464,7 @@ module raijuPreAdvancer
 
         ! Gradient of perturbation
         if (doSmooth) then
-            call smoothV(Grid%shGrid, isGcorner, dV)
+            call smoothCornerVar(Grid%shGrid, isGcorner, dV)
         endif
 
         ! Building gradVM term by term
@@ -473,91 +486,88 @@ module raijuPreAdvancer
 
         end associate
 
-
-        contains
-
-        subroutine smoothV(sh, isGc, V)
-            type(ShellGrid_T), intent(in) :: sh
-            logical , dimension(sh%isg:sh%ieg+1,sh%jsg:sh%jeg+1), intent(in) :: isGc
-            real(rp), dimension(sh%isg:sh%ieg+1,sh%jsg:sh%jeg+1), intent(inout) :: V
-            
-            real(rp), dimension(sh%isg:sh%ieg+1,sh%jsg:sh%jeg+1) :: Vsm
-            real(rp), dimension(3,3) :: tmpV
-            logical , dimension(3,3) :: tmpGood
-            integer :: i,j
-
-            Vsm = 0.0
-            associate (isg=>sh%isg, ieg=>sh%ieg, jsg=>sh%jsg, jeg=>sh%jeg)
-            ! Handle cells along grid extents first
-            ! isg,jsg corner
-            tmpV = 0.0
-            tmpGood = .false.
-            tmpV   (2:3,2:3) = V   (isg:isg+1,jsg:jsg+1)
-            tmpGood(2:3,2:3) = isGc(isg:isg+1,jsg:jsg+1)
-            Vsm(isg,jsg) = SmoothOperator33(tmpV, tmpGood)
-            ! ieg,jsg corner
-            tmpV = 0.0
-            tmpGood = .false.
-            tmpV   (1:2,2:3) = V   (ieg:ieg+1,jsg:jsg+1)
-            tmpGood(1:2,2:3) = isGc(ieg:ieg+1,jsg:jsg+1)
-            Vsm(ieg+1,jsg) = SmoothOperator33(tmpV, tmpGood)
-            ! isg,jeg corner
-            tmpV = 0.0
-            tmpGood = .false.
-            tmpV   (2:3,1:2) = V   (isg:isg+1,jeg:jeg+1)
-            tmpGood(2:3,1:2) = isGc(isg:isg+1,jeg:jeg+1)
-            Vsm(isg,jeg+1) = SmoothOperator33(tmpV, tmpGood)
-            ! ieg,jeg corner
-            tmpV = 0.0
-            tmpGood = .false.
-            tmpV   (1:2,1:2) = V   (ieg:ieg+1,jeg:jeg+1)
-            tmpGood(1:2,1:2) = isGc(ieg:ieg+1,jeg:jeg+1)
-            Vsm(ieg+1,jeg+1) = SmoothOperator33(tmpV, tmpGood)
-            ! jsg, jeg edges
-            do i=isg+1,ieg
-                tmpV = 0.0
-                tmpGood = .false.
-                tmpV   (:,2:3) = V   (i-1:i+1,jsg:jsg+1)
-                tmpGood(:,2:3) = isGc(i-1:i+1,jsg:jsg+1)
-                Vsm(i,jsg) = SmoothOperator33(tmpV, tmpGood)
-
-                tmpV = 0.0
-                tmpGood = .false.
-                tmpV   (:,1:2) = V   (i-1:i+1,jeg:jeg+1)
-                tmpGood(:,1:2) = isGc(i-1:i+1,jeg:jeg+1)
-                Vsm(i,jeg+1) = SmoothOperator33(tmpV, tmpGood)
-            enddo
-            ! isg,ieg edges
-            do j=jsg+1,jeg
-                tmpV = 0.0
-                tmpGood = .false.
-                tmpV   (2:3,:) = V   (isg:isg+1,j-1:j+1)
-                tmpGood(2:3,:) = isGc(isg:isg+1,j-1:j+1)
-                Vsm(isg,j) = SmoothOperator33(tmpV, tmpGood)
-
-                tmpV = 0.0
-                tmpGood = .false.
-                tmpV   (1:2,:) = V   (ieg:ieg+1,j-1:j+1)
-                tmpGood(1:2,:) = isGc(ieg:ieg+1,j-1:j+1)
-                Vsm(ieg+1,j) = SmoothOperator33(tmpV, tmpGood)
-            enddo
-            ! Now everyone else
-            !$OMP PARALLEL DO default(shared) &
-            !$OMP schedule(dynamic) &
-            !$OMP private(i,j)
-            do j=jsg+1,jeg
-                do i=isg+1,ieg
-                    Vsm(i,j) = SmoothOperator33(V(i-1:i+1,j-1:j+1), isGc(i-1:i+1,j-1:j+1))
-                enddo
-            enddo
-
-            ! Write back to provided array
-            V = Vsm
-            end associate
-
-        end subroutine smoothV
-
     end subroutine calcGradVM_cc
+
+    subroutine smoothCornerVar(sh, isGc, V)
+        type(ShellGrid_T), intent(in) :: sh
+        logical , dimension(sh%isg:sh%ieg+1,sh%jsg:sh%jeg+1), intent(in) :: isGc
+        real(rp), dimension(sh%isg:sh%ieg+1,sh%jsg:sh%jeg+1), intent(inout) :: V
+        
+        real(rp), dimension(sh%isg:sh%ieg+1,sh%jsg:sh%jeg+1) :: Vsm
+        real(rp), dimension(3,3) :: tmpV
+        logical , dimension(3,3) :: tmpGood
+        integer :: i,j
+
+        Vsm = 0.0
+        associate (isg=>sh%isg, ieg=>sh%ieg, jsg=>sh%jsg, jeg=>sh%jeg)
+        ! Handle cells along grid extents first
+        ! isg,jsg corner
+        tmpV = 0.0
+        tmpGood = .false.
+        tmpV   (2:3,2:3) = V   (isg:isg+1,jsg:jsg+1)
+        tmpGood(2:3,2:3) = isGc(isg:isg+1,jsg:jsg+1)
+        Vsm(isg,jsg) = SmoothOperator33(tmpV, tmpGood)
+        ! ieg,jsg corner
+        tmpV = 0.0
+        tmpGood = .false.
+        tmpV   (1:2,2:3) = V   (ieg:ieg+1,jsg:jsg+1)
+        tmpGood(1:2,2:3) = isGc(ieg:ieg+1,jsg:jsg+1)
+        Vsm(ieg+1,jsg) = SmoothOperator33(tmpV, tmpGood)
+        ! isg,jeg corner
+        tmpV = 0.0
+        tmpGood = .false.
+        tmpV   (2:3,1:2) = V   (isg:isg+1,jeg:jeg+1)
+        tmpGood(2:3,1:2) = isGc(isg:isg+1,jeg:jeg+1)
+        Vsm(isg,jeg+1) = SmoothOperator33(tmpV, tmpGood)
+        ! ieg,jeg corner
+        tmpV = 0.0
+        tmpGood = .false.
+        tmpV   (1:2,1:2) = V   (ieg:ieg+1,jeg:jeg+1)
+        tmpGood(1:2,1:2) = isGc(ieg:ieg+1,jeg:jeg+1)
+        Vsm(ieg+1,jeg+1) = SmoothOperator33(tmpV, tmpGood)
+        ! jsg, jeg edges
+        do i=isg+1,ieg
+            tmpV = 0.0
+            tmpGood = .false.
+            tmpV   (:,2:3) = V   (i-1:i+1,jsg:jsg+1)
+            tmpGood(:,2:3) = isGc(i-1:i+1,jsg:jsg+1)
+            Vsm(i,jsg) = SmoothOperator33(tmpV, tmpGood)
+
+            tmpV = 0.0
+            tmpGood = .false.
+            tmpV   (:,1:2) = V   (i-1:i+1,jeg:jeg+1)
+            tmpGood(:,1:2) = isGc(i-1:i+1,jeg:jeg+1)
+            Vsm(i,jeg+1) = SmoothOperator33(tmpV, tmpGood)
+        enddo
+        ! isg,ieg edges
+        do j=jsg+1,jeg
+            tmpV = 0.0
+            tmpGood = .false.
+            tmpV   (2:3,:) = V   (isg:isg+1,j-1:j+1)
+            tmpGood(2:3,:) = isGc(isg:isg+1,j-1:j+1)
+            Vsm(isg,j) = SmoothOperator33(tmpV, tmpGood)
+
+            tmpV = 0.0
+            tmpGood = .false.
+            tmpV   (1:2,:) = V   (ieg:ieg+1,j-1:j+1)
+            tmpGood(1:2,:) = isGc(ieg:ieg+1,j-1:j+1)
+            Vsm(ieg+1,j) = SmoothOperator33(tmpV, tmpGood)
+        enddo
+        ! Now everyone else
+        !$OMP PARALLEL DO default(shared) &
+        !$OMP schedule(dynamic) &
+        !$OMP private(i,j)
+        do j=jsg+1,jeg
+            do i=isg+1,ieg
+                Vsm(i,j) = SmoothOperator33(V(i-1:i+1,j-1:j+1), isGc(i-1:i+1,j-1:j+1))
+            enddo
+        enddo
+
+        ! Write back to provided array
+        V = Vsm
+        end associate
+
+    end subroutine smoothCornerVar
 
 !------
 ! Velocity calculations
