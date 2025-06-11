@@ -24,7 +24,7 @@ module raijuLoss_eWM_BW
         real(rp) :: NpsphLow   = 10.0   ! [#/cc]
         real(rp) :: ChorusLMax = 7.0  ! [Re]
         real(rp) :: PsheetLMin = 8.0  ! [Re]
-        real(rp) :: ChorusEMin = 1.1  ! [keV]
+        real(rp) :: ChorusEMin = 1.0  ! [keV]
         
         type(TimeSeries_T) :: KpTS
             !! Kp data from wind file
@@ -199,9 +199,10 @@ module raijuLoss_eWM_BW
             !! Density [#/cc] of plasmasphere at point i,j
         real(rp) :: L, MLT, E, Kp
             !! L shell and MLT of given point, channel energy in MeV, current Kp
-        real(rp) :: wLBlend, wNBlend
+        real(rp) :: wLBlend, wNBlend, sclE
             !! L-weighting of blending between IMAG and PS. 0=PS
             !! Density-weighting between Chorus and Hiss
+            !! Scale factor in lifetime between sub-1keV and 1keV+ energy
         real(rp) :: tauPS, tauHiss, tauChorus
 
         ! Zero everyone out in prep for new values
@@ -233,7 +234,7 @@ module raijuLoss_eWM_BW
 
                     NpsphPnt = State%Den(psphIdx)%data(i,j)  ! [#/cc]
                     
-                    ! Calculate blending
+                    ! Calculate blending  
                     wNBlend = dlog(NpsphPnt/this%NpsphLow) / dlog(this%NpsphHigh/this%NpsphLow)
                     call ClampValue(wNBlend, 0.0_rp, 1.0_rp)
                         !! 1 => Psphere Hiss, 0 => Other
@@ -255,9 +256,12 @@ module raijuLoss_eWM_BW
                     do k=spc%kStart,spc%kEnd        
                         
                         E = abs(Grid%alamc(k) * State%bvol_cc(i,j)**(-2./3.)) * 1.0E-6  ! [MeV]
-                        
+                        ! Scale up lifetime for sub-1keV energy in Hiss and Chorus
+                        sclE = sqrt(this%ChorusEMin*1.0e-3/E) 
+                        sclE = max(sclE, 1.0_rp)
+                        !! sclE > 1 => sub-1keV, sclE = 1 => 1keV+ 
                         if (this%wHISS(i,j) > TINY) then
-                            tauHiss = CalcTau_Hiss(MLT, L, E, Kp)
+                            tauHiss = CalcTau_Hiss(MLT, L, E, Kp) * sclE
                         else
                             tauHiss = HUGE
                         endif
@@ -270,7 +274,7 @@ module raijuLoss_eWM_BW
 
                         if (this%wCHORUS(i,j) > TINY) then
                             !! Implement chorus tau calculation here
-                            tauChorus = CalcTau_Chorus(this, MLT, L, E, Kp)
+                            tauChorus = CalcTau_Chorus(this, MLT, L, E, Kp) * sclE
                         else
                             tauChorus = HUGE
                         endif
