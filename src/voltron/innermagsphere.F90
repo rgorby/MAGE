@@ -6,11 +6,7 @@ module innermagsphere
     use ebtypes
     use volttypes
     use gamapp
-!    use sstimag
-    use sstLLimag
-    !use rcmimag
     use msphutils, only : RadIonosphere
-    use rcmXimag
     use cmiutils, only : SquishCorners
     
     implicit none

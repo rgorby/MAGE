@@ -47,6 +47,7 @@ module raijuAdvancer
         ! etas back to moments
         call Tic("Moments Eval")
         call EvalMoments(Grid, State)
+        call EvalMoments(Grid, State, doAvgO=.true.)
         call Toc("Moments Eval")
 
     end subroutine raijuAdvance
@@ -84,9 +85,18 @@ module raijuAdvancer
         integer :: n, s , Nmax
             !! n = step counter
             !! s = species index
-        real(rp) :: t, dt, tEnd
+        integer :: i,j
+            !! theta, phi loop indices
+        real(rp) :: t, dt, odt, tEnd
             !! t, dt = Current time and delta-t for this channel
+            !! odt = previous time step
             !! tEnd = Time we stop at
+        logical, dimension(Grid%shGrid%isg:Grid%shGrid%ieg, &
+                            Grid%shGrid%jsg:Grid%shGrid%jeg) :: isGoodEvol
+            !! Flag for whether we should be evolving certain cells
+        logical, dimension(Grid%shGrid%isg:Grid%shGrid%ieg, &
+                            Grid%shGrid%jsg:Grid%shGrid%jeg) :: isGoodRecon
+            !! Flag for whether certain cells should be used for reconstruction
 
         ! If we are plasmasphere channel and are not evolving plasmasphere, nothing to do
         if (.not. Model%doPsphEvol .and. Grid%spc(Grid%k2spc(k))%flav==F_PSPH) then
@@ -97,6 +107,20 @@ module raijuAdvancer
         s = Grid%k2spc(k)
         t = State%t
         tEnd = State%t + State%dt
+        dt  = State%dtk(k)
+        odt = State%dtk(k)
+
+        ! NOTE: When we actually implement activeShells these will need to be updated within time loop
+        where (State%active .eq. RAIJUACTIVE)
+            isGoodEvol = .true.
+        elsewhere
+            isGoodEvol = .false.
+        end where
+        where (State%active .ne. RAIJUINACTIVE)
+            isGoodRecon = .true.
+        elsewhere
+            isGoodRecon = .false.
+        end where
 
 
         associate(sh=>Grid%shGrid, spc=>Grid%spc(s))
@@ -123,15 +147,25 @@ module raijuAdvancer
                 endif
 
                 ! Advection
-                call stepLambda(Model, Grid, State, k, dt)
+                call stepLambda(Model, Grid, State, k, dt, odt, isGoodEvol, isGoodRecon)
                 
                 ! Losses
                 if (Model%doLosses) then
                     call applyLosses(Model, Grid, State, k, dt)
                 endif
 
+                ! Accumulate eta_avg
+                ! Explicitly do loop here to help with speed
+                do j=Grid%shGrid%jsg,Grid%shGrid%jeg
+                    do i=Grid%shGrid%isg,Grid%shGrid%ieg
+                        ! Weighted by this step's dt to handle variable step sizes
+                        State%eta_avg(i,j,k) = State%eta_avg(i,j,k) + dt*State%eta(i,j,k)
+                    enddo
+                enddo
+
                 t = t + dt
                 n = n+1
+                odt = dt
 
                 if (n/State%dt > Model%maxItersPerSec) then
                     write(*,*)"ERROR: Too many advance steps. Dying"
@@ -150,6 +184,7 @@ module raijuAdvancer
                 State%CCHeatFlux(:,:,k)  = State%CCHeatFlux (:,:,k)/State%dt/2.0_rp
                 State%dEta_dt(:,:,k)     = State%dEta_dt    (:,:,k)/State%dt
             endif
+            State%eta_avg(:,:,k) = State%eta_avg(:,:,k)/State%dt
 
             State%nStepk(k) = State%nStepk(k) + n
             State%eta_last(:,:,k) = State%eta(:,:,k)
@@ -159,38 +194,33 @@ module raijuAdvancer
     end subroutine AdvanceLambda
 
 
-    subroutine stepLambda(Model, Grid, State, k, dt)
+    subroutine stepLambda(Model, Grid, State, k, dt, odt, isGoodEvol, isGoodRecon)
         !! Advances a single lambda channel a single time step
         type(raijuModel_T), intent(in) :: Model
         type(raijuGrid_T), intent(in) :: Grid
         type(raijuState_T), intent(inout) :: State
         integer, intent(in) :: k
         real(rp), intent(in) :: dt
+        real(rp), intent(in) :: odt
+        logical, dimension(Grid%shGrid%isg:Grid%shGrid%ieg, &
+                           Grid%shGrid%jsg:Grid%shGrid%jeg), intent(in) :: isGoodEvol
+        logical, dimension(Grid%shGrid%isg:Grid%shGrid%ieg, &
+                           Grid%shGrid%jsg:Grid%shGrid%jeg), intent(in) :: isGoodRecon
 
         real(rp), dimension(Grid%shGrid%isg:Grid%shGrid%ieg+1, &
                             Grid%shGrid%jsg:Grid%shGrid%jeg+1, 2) :: Qflux
-        logical, dimension(Grid%shGrid%isg:Grid%shGrid%ieg, &
-                            Grid%shGrid%jsg:Grid%shGrid%jeg) :: isGoodEvol
-            !! TODO: May not want to keep these at this scope
-
         integer :: i,j
 
         ! Calculate eta at half-step
-        ! For now, just implement simple AB sub-stepping
-        State%eta_half(:,:,k) = 1.5_rp*State%eta(:,:,k) - 0.5_rp*State%eta_last(:,:,k)
+        call calcEtaHalf(Grid, State, k, dt, odt)
         ! Save eta to eta_last
         State%eta_last(:,:,k) = State%eta(:,:,k)
 
         ! Calculate eta face fluxes
-        call calcFluxes(Model, Grid, State, k, State%eta_half(:,:,k), Qflux)  ! [eta * Rp/s]
+        call calcFluxes(Model, Grid, State, k, isGoodRecon, State%eta_half(:,:,k), Qflux)  ! [eta * Rp/s]
 
         !! This probably doesn't need to be at this scope. 
         !! Same with isG inside calcFluxes; can be pushed at least 1 level up
-        where (State%active .eq. RAIJUACTIVE)
-            isGoodEvol = .true.
-        elsewhere
-            isGoodEvol = .false.
-        end where
 
         ! Calc new eta
         do j=Grid%shGrid%js,Grid%shGrid%je
@@ -233,5 +263,25 @@ module raijuAdvancer
 
     end subroutine stepLambda
 
+
+    subroutine calcEtaHalf(Grid, State, k, dt, odt)
+        !! Estimate eta half step, currently using AB2
+        type(raijuGrid_T), intent(in) :: Grid
+        type(raijuState_T), intent(inout) :: State
+        integer, intent(in) :: k
+        real(rp), intent(in) :: dt
+        real(rp), intent(in) :: odt
+
+        integer :: i,j
+        real(rp) :: dQ
+
+        do j=Grid%shGrid%jsg,Grid%shGrid%jeg
+            do i=Grid%shGrid%isg,Grid%shGrid%ieg
+                dQ = (State%eta(i,j,k) - State%eta_last(i,j,k))/odt
+                State%eta_half(i,j,k) = State%eta(i,j,k) + 0.5_rp*dt*dQ
+            enddo
+        enddo
+
+    end subroutine calcEtaHalf
 
 end module raijuAdvancer

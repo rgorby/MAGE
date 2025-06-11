@@ -24,18 +24,36 @@ module raijuetautils
 !------
 ! High-level control
 !------
-    subroutine EvalMoments(Grid, State)
+    subroutine EvalMoments(Grid, State, doAvgO)
         !! Calculate D,P, and vAvg for all species across entire grid
         type(raijuGrid_T) , intent(in)    :: Grid
-        type(raijuState_T), intent(inout) :: State
+        type(raijuState_T), intent(inout), target :: State
+        logical, optional, intent(in) :: doAvgO
+            !! If true, will calculate moments for eta_avg instead of eta
 
+        logical :: doAvg
+        real(rp), pointer :: p_eta(:,:,:)
+        type(ShellGridVar_T), pointer :: p_Press(:), p_Den(:)
         integer :: i,j,s  ! i,j,species iterators
 
+        doAvg = .false.
+        if(present(doAvgO)) doAvg = doAvgO
+
+        if (doAvg) then
+            p_eta   => State%eta_avg
+            p_Den   => State%Den_avg
+            p_Press => State%Press_avg
+        else
+            p_eta   => State%eta
+            p_Den   => State%Den
+            p_Press => State%Press
+        endif
+
         do s=0,Grid%nSpc
-            State%Den  (s)%data = 0.0
-            State%Press(s)%data = 0.0
-            State%Den  (s)%mask = .true.
-            State%Press(s)%mask = .true.
+            p_Den  (s)%data = 0.0
+            p_Press(s)%data = 0.0
+            p_Den  (s)%mask = .true.
+            p_Press(s)%mask = .true.
         enddo
 
         associate (shG => Grid%shGrid, spc => Grid%spc)
@@ -48,17 +66,17 @@ module raijuetautils
 
                         ! isGood determination
                         if (State%active(i,j) .eq. RAIJUINACTIVE) then
-                            State%Den  (s)%mask(i,j) = .false.
-                            State%Press(s)%mask(i,j) = .false.
+                            p_Den  (s)%mask(i,j) = .false.
+                            p_Press(s)%mask(i,j) = .false.
                             cycle
                         endif
 
-                        State%Den(s)%data(i,j) = SpcEta2Den(spc(s), &  ! Species details
-                            State%eta(i,j,spc(s)%kStart:spc(s)%kEnd), &  ! Etas for this species
+                        p_Den(s)%data(i,j) = SpcEta2Den(spc(s), &  ! Species details
+                            p_eta(i,j,spc(s)%kStart:spc(s)%kEnd), &  ! Etas for this species
                             State%bvol_cc(i,j)) ! [#/cc]
 
-                        State%Press(s)%data(i,j) = SpcEta2Press(spc(s), &  ! Species details
-                            State%eta(i,j,spc(s)%kStart:spc(s)%kEnd), &  ! Etas for this species
+                        p_Press(s)%data(i,j) = SpcEta2Press(spc(s), &  ! Species details
+                            p_eta(i,j,spc(s)%kStart:spc(s)%kEnd), &  ! Etas for this species
                             State%bvol_cc(i,j))                        
                     enddo  ! s
                 enddo  ! j
@@ -67,9 +85,9 @@ module raijuetautils
             do s=1,Grid%nSpc
                 ! Don't include electrons to total number density
                 if(Grid%spc(s)%spcType .ne. RAIJUELE) then
-                    State%Den(0)%data = State%Den(0)%data + State%Den(s)%data
+                    p_Den(0)%data = p_Den(0)%data + p_Den(s)%data
                 endif
-                State%Press(0)%data = State%Press(0)%data + State%Press(s)%data
+                p_Press(0)%data = p_Press(0)%data + p_Press(s)%data
             enddo
         end associate
 

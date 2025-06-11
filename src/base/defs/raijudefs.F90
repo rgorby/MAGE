@@ -86,6 +86,7 @@ module raijudefs
         !! Fraction that a lambda channel must contribute to total pressure or density in order to be worthy of being evolved
     real(rp), parameter :: pressFracThreshDef = 0.01
         !! If fraction of total pressure below lowest lambda bin is greater than this, we complain
+    real(rp), parameter :: def_tiote = 4.0
 
     ! Coupling defaults
     real(rp), parameter :: def_vaFracThresh = 0.10  

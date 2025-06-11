@@ -101,7 +101,7 @@ module imagtubes
         ijTube%rCurv = L/3.0
 
         ijTube%wIMAG = 1.0 !Much imag
-        ijTube%TioTe0 = tiote_RCM
+        ijTube%TioTe0 = def_tiote
     end subroutine DipoleTube
 
 

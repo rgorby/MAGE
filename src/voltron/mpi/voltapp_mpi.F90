@@ -339,7 +339,7 @@ module voltapp_mpi
 
         real(rp) :: stepEndTime
 
-        stepEndTime = vApp%time + dt
+        stepEndTime = vApp%time + dt + (dt*1e-14) ! add small offset to avoid floating point errors
 
         do while(stepEndTime .ge. vApp%DeepT)
             ! if Gamera is processing data, finish it
