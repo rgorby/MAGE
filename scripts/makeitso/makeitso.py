@@ -546,40 +546,6 @@ def prompt_user_for_run_options(args):
 
     #-------------------------------------------------------------------------
 
-    # RCM options
-    options["rcm"] = {}
-
-    # <conductance> options
-    options["rcm"]["rcmdomain"] = {}
-    o = options["rcm"]["rcmdomain"]
-    od = option_descriptions["rcm"]["rcmdomain"]
-    for on in od:
-        o[on] = get_run_option(on, od[on], mode)
-
-    # <ellipse> options
-    # Only use if domType == "ELLIPSE"?
-    options["rcm"]["ellipse"] = {}
-    o = options["rcm"]["ellipse"]
-    od = option_descriptions["rcm"]["ellipse"]
-    for on in od:
-        o[on] = get_run_option(on, od[on], mode)
-
-    # <grid> options
-    options["rcm"]["grid"] = {}
-    o = options["rcm"]["grid"]
-    od = option_descriptions["rcm"]["grid"]
-    for on in od:
-        o[on] = get_run_option(on, od[on], mode)
-
-    # <plasmasphere> options
-    options["rcm"]["plasmasphere"] = {}
-    o = options["rcm"]["plasmasphere"]
-    od = option_descriptions["rcm"]["plasmasphere"]
-    for on in od:
-        o[on] = get_run_option(on, od[on], mode)
-
-    #-------------------------------------------------------------------------
-
     # Return the options dictionary.
     return options
 
@@ -619,9 +585,9 @@ def run_preprocessing_steps(options):
                 "-f107", "100", "-kp", "3"]
         subprocess.run(args, check=True)
 
-    # Create the RCM configuration file.
-    # NOTE: Assumes genRCM.py is in PATH.
-    cmd = "genRCM.py"
+    # Create the RAIJU configuration file.
+    # NOTE: Assumes genRAIJU.py is in PATH.
+    cmd = "genRAIJU.py"
     args = [cmd]
     subprocess.run(args, check=True)
 
