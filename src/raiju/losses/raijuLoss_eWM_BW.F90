@@ -269,7 +269,7 @@ module raijuLoss_eWM_BW
                         endif
 
                         if (this%wHISS(i,j) > TINY) then
-                            tauHiss = CalcTau_Hiss(MLT, L, E, Kp)
+                            tauHiss = CalcTau_Hiss(MLT, L, E, Kp) * tScl
                         else
                             tauHiss = HUGE
                         endif
