@@ -96,6 +96,10 @@ if(CMAKE_Fortran_COMPILER_ID MATCHES Intel)
                 string(APPEND DEBUG " -warn interfaces")
         endif()
 
+    if(PRINT_OPT_INFO)
+        string(APPEND CMAKE_Fortran_FLAGS " -check arg_temp_created -qopt-report-phase=vec -qopt-report=2")
+    endif()
+
 	#Now do OS-dep options
 	if (CMAKE_SYSTEM_NAME MATCHES Darwin)
 		string(APPEND CMAKE_Fortran_FLAGS " -Wl,-stack_size,0x40000000,-stack_addr,0xf0000000 -xHost")

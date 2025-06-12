@@ -265,6 +265,9 @@ module gamCouple_mpi_G2V
                 else
                     ! advance to next coupling time
                     call gamMpiAdvanceModel(App, App%DeepT-App%Model%t)
+                endif
+                if(App%Model%t >= App%DeepT) then
+                    ! either way could pass coupling time
                     ! send results and get new data
                     call sendVoltronCplDataMpi(App)
                     call recvVoltronCplDataMpi(App)
