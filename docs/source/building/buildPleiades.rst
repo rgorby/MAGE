@@ -61,16 +61,16 @@ build directory in any convenient location.
     # NOTE: The FC definition is *required* for proper cmake operation.
     FC=`which ifort` cmake -DENABLE_MPI=ON .. >& cmake.out
 
-    $ # You can pick one compile target below or compile all of them, if you'd like
+    # You can pick one compile target below or compile all of them, if you'd like
 
-    $ # Compile the MAGE model for geospace simulations
-    $ make voltron_mpi.x >& make-voltron.out
+    # Compile the MAGE model for geospace simulations
+    make voltron_mpi.x >& make-voltron.out
 
-    $ # Compile the GAMERA-helio model for inner heliosphere simulations
-    $ make gamhelio_mpi.x >& make-gamhelio.out
+    # Compile the GAMERA-helio model for inner heliosphere simulations
+    make gamhelio_mpi.x >& make-gamhelio.out
 
-    $ # Compile analysis tools
-    $ make calcdb.x chop.x sctrack.x slice.x >& make-analysis.out
+    # Compile analysis tools
+    make calcdb.x chop.x sctrack.x slice.x >& make-analysis.out
 
     
 When finished, your build directory will contain a ``bin``
