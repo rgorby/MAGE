@@ -532,6 +532,7 @@ module raijuIO
         ! Core variables
         call AddOutVar(IOVars,"eta"        ,State%eta         (:,:,:)     ,uStr="#/cm^3 * Rx/T")
         call AddOutVar(IOVars,"eta_last"   ,State%eta_last    (:,:,:)     ,uStr="#/cm^3 * Rx/T")
+        call AddOutVar(IOVars,"eta_avg"    ,State%eta_avg     (:,:,:)     ,uStr="#/cm^3 * Rx/T")
         call AddOutVar(IOVars,"active"     ,State%active      (:,:)*1.0_rp,uStr="-1=Inactive, 0=Buffer, 1=Active")
         call AddOutVar(IOVars,"active_last",State%active_last (:,:)*1.0_rp,uStr="-1=Inactive, 0=Buffer, 1=Active")
         call AddOutVar(IOVars,"OCBDist"    ,State%OCBDist     (:,:)*1.0_rp,dStr="Cell distance from an open closed boundary")
@@ -546,6 +547,8 @@ module raijuIO
         ! Moments
         call AddOutSGV(IOVars, "Pressure", State%Press, doWriteMaskO=.true., uStr="nPa")
         call AddOutSGV(IOVars, "Density" , State%Den  , doWriteMaskO=.true., uStr="#/cc")
+        call AddOutSGV(IOVars, "Pressure_avg", State%Press_avg, doWriteMaskO=.true., uStr="nPa")
+        call AddOutSGV(IOVars, "Density_avg" , State%Den_avg  , doWriteMaskO=.true., uStr="#/cc")
         ! Precip
         call AddOutSGV(IOVars, "precipNFlux_Nk", State%precipNFlux, doWriteMaskO=.true., uStr="#/cm^2/s")
         call AddOutSGV(IOVars, "precipEFlux_Nk", State%precipEFlux, doWriteMaskO=.true., uStr="erg/cm^2/s")
@@ -618,6 +621,7 @@ module raijuIO
 
         call AddInVar(IOVars,"eta"        )
         call AddInVar(IOVars,"eta_last"   )
+        call AddInVar(IOVars,"eta_avg"    )
         call AddInVar(IOVars,"active"     )
         call AddInVar(IOVars,"active_last")
         call AddInVar(IOVars,"OCBDist"    )
@@ -675,6 +679,7 @@ module raijuIO
 
         call IOArray3DFill(IOVars, "eta"     , State%eta     (:,:,:))
         call IOArray3DFill(IOVars, "eta_last", State%eta_last(:,:,:))
+        call IOArray3DFill(IOVars, "eta_avg" , State%eta_avg (:,:,:))
 
         !call IOArray3DFill(IOVars, "Pressure", State%Press(:,:,:))
         !call IOArray3DFill(IOVars, "Density" , State%Den  (:,:,:))
@@ -723,6 +728,8 @@ module raijuIO
         ! ShellGridVars
         call ReadInSGV(State%Press, inH5, "Pressure", "State", doIOpO=.false.)
         call ReadInSGV(State%Den  , inH5, "Density" , "State", doIOpO=.false.)
+        call ReadInSGV(State%Press_avg, inH5, "Pressure_avg", "State", doIOpO=.false.)
+        call ReadInSGV(State%Den_avg  , inH5, "Density_avg" , "State", doIOpO=.false.)
         call ReadInSGV(State%precipNFlux, inH5, "precipNFlux_Nk", "State", doIOpO=.false.)
         call ReadInSGV(State%precipEFlux, inH5, "precipEFlux_Nk", "State", doIOpO=.false.)
 
