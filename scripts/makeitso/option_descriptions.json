@@ -545,8 +545,8 @@
             "imType": {
                 "LEVEL": "EXPERT",
                 "prompt": "(VOLTRON) Inner magnetosphere model to use",
-                "default": "RCM",
-                "valids": ["RCM", "SST", "TS07", "RCMX"]
+                "default": "RAIJU",
+                "valids": ["RAIJU"]
             },
             "doAsyncCoupling": {
                 "LEVEL": "EXPERT",
