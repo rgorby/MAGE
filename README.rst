@@ -7,6 +7,6 @@ Multiscale Atmosphere-Geospace Environment (`MAGE
 Geospace Storms <https://cgs.jhuapl.edu/>`_ as well as other scientific
 software for simulation of heliospheric environments such as planetary
 magnetospheres and the solar wind. This documentation focuses on
-`MAGE <https://cgs.jhuapl.edu/Models/>`_ and ``gamhelio``, i.e., the geospace
+`MAGE <https://cgs.jhuapl.edu/Models/>`_ and `GAMERA-helio <https://cgs.jhuapl.edu/Models/gamera.php>`_, i.e., the geospace
 and inner heliosphere applications of the ``kaiju`` software.
 
