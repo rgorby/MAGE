@@ -19,7 +19,8 @@ The documentation for ``kaipy``, including instructions for building a Python
 environment with all prerequisites, is available on
 `Read the Docs <https://kaipy-docs.readthedocs.io/en/latest/index.html>`_.
 
-.. important:: The ``kaipy`` package requires the NASA CDF library, which
+.. important:: **Building the NASA CDF (Common Data Format) library.**
+    The ``kaipy`` package requires the NASA CDF library, which
     should be available when you create your Python environment for ``kaipy``.
     This requirement will be removed in a future release of the ``kaiju``
     software. Instructions for installing the CDF library can be found
@@ -40,4 +41,3 @@ Table of Contents
 
     geoQuickStart
     helioQuickStart
-    buildCDF

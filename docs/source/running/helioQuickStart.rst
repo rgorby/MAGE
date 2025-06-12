@@ -25,7 +25,7 @@ The ``gamhelio_mpi.x`` software needs several files in order to run. The
 detailed steps for creating these files have been combined into a script
 called ``makeitso-gamhelio.py``. The script is provided in the ``kaiju`` code
 repository. More information on ``makeitso-gamhelio.py`` is available
-:doc:`here <../../userGuide/makeitso/makeitso-gamhelio>`.
+:doc:`here </makeitso/makeitso-gamhelio>`.
 
 You can see the options supported my ``makeitso-gamhelio.py`` by
 running it with the ``--help`` or ``-h`` command-line option.

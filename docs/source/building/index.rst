@@ -25,7 +25,7 @@ Getting the source code
 -----------------------
 
 The ``kaiju`` source code can be obtained by cloning the ``kaiju`` repository
-on BitBucket:
+on GitHub:
 
 .. code-block:: bash
 

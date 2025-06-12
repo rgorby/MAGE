@@ -7,26 +7,29 @@ Multiscale Atmosphere-Geospace Environment (`MAGE
 Geospace Storms <https://cgs.jhuapl.edu/>`_ as well as other scientific
 software for simulation of heliospheric environments such as planetary
 magnetospheres and the solar wind. This documentation focuses on
-`MAGE <https://cgs.jhuapl.edu/Models/>`_ and ``gamhelio``, i.e., the geospace
+`MAGE <https://cgs.jhuapl.edu/Models/>`_ and `GAMERA-helio <https://cgs.jhuapl.edu/Models/gamera.php>`_, i.e., the geospace
 and inner heliosphere applications of the ``kaiju`` software.
 
 .. important::
     Users of any code or data from this repository are expected to respect
-    these :doc:`rules of the road <roadrules>`. For questions, please
-    `contact us <MAGEEC@LISTSERV.JHUAPL.EDU>`_.
+    these :doc:`rules of the road <roadrules>`.
 
-If you encounter issues with the ``kaiju`` software, contact the
-``kaiju`` team `here <https://cgs.jhuapl.edu/feedback/>`_ and request access
-to our Slack workspace. Then post a detailed description of your problem in
-the `#kaijuhelp <https://nasa-drive-cgs.slack.com/archives/C011V6V7YSJ>`_
-Slack channel on the CGS Slack workspace, where the developers and other users
-can try to assist you.
+If you encounter any issues or have questions, first read the
+:doc:`rules of the road <roadrules>` above and then consider joining
+the Slack channel we set up for the Kaiju user community. If you want
+to join, send us a message with your
+request `here <https://cgs.jhuapl.edu/feedback/>`_.
 
-
+====================
+Table of contents
+====================
 .. toctree::
     :maxdepth: 1
 
+    self
     python/index
-    quickStart/index
-    userGuide/index
+    building/index
+    running/index
+    makeitso/index
+    tools/index
     roadrules

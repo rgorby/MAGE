@@ -1,4 +1,4 @@
-``kaiju`` Tools
+Analysis tools
 ===============
 
 These pages document the use of a set of compiled tools that come with the

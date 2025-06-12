@@ -1,4 +1,4 @@
-``makeitso.py``
+Makeitso
 ===============
 
 
@@ -6,7 +6,7 @@ Introduction
 ------------
 
 The Python script ``makeitso.py`` was developed to simplify the process of
-configuring and running a magnetosphere model with the ``kaiju`` software. It
+configuring and running MAGE (that is, the geospace application  of the ``kaiju`` software.) It
 provides an interactive, prompt-driven interface to specify all of the
 parameters needed for a model run.
 

@@ -25,7 +25,7 @@ The MAGE software needs several files in order to run. The detailed steps
 for creating these files have been combined into a script called
 ``makeitso.py``. The script is provided in the ``kaiju`` code repository. More
 information on ``makeitso.py`` is available
-:doc:`here <../../userGuide/makeitso/makeitso>`.
+:doc:`here </makeitso/makeitso>`.
 
 You can see the options supported by ``makeitso.py`` by running it with the
 ``--help`` or ``-h`` command-line option.
