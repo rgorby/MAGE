@@ -546,6 +546,67 @@ def prompt_user_for_run_options(args):
 
     #-------------------------------------------------------------------------
 
+    # RAIJU options
+    options["raiju"] = {}
+
+    # <output> options
+    options["raiju"]["output"] = {}
+    o = options["raiju"]["output"]
+    od = option_descriptions["raiju"]["output"]
+    for on in od:
+        o[on] = get_run_option(on, od[on], mode)
+
+    # <grid> options
+    options["raiju"]["grid"] = {}
+    o = options["raiju"]["grid"]
+    od = option_descriptions["raiju"]["grid"]
+    for on in od:
+        o[on] = get_run_option(on, od[on], mode)
+
+    # <domain> options
+    options["raiju"]["domain"] = {}
+    o = options["raiju"]["domain"]
+    od = option_descriptions["raiju"]["domain"]
+    for on in od:
+        o[on] = get_run_option(on, od[on], mode)
+
+    # <config> options
+    options["raiju"]["config"] = {}
+    o = options["raiju"]["config"]
+    od = option_descriptions["raiju"]["config"]
+    for on in od:
+        o[on] = get_run_option(on, od[on], mode)
+
+    # <plasmasphere> options
+    options["raiju"]["plasmasphere"] = {}
+    o = options["raiju"]["plasmasphere"]
+    od = option_descriptions["raiju"]["plasmasphere"]
+    for on in od:
+        o[on] = get_run_option(on, od[on], mode)
+
+    # <losses> options
+    options["raiju"]["losses"] = {}
+    o = options["raiju"]["losses"]
+    od = option_descriptions["raiju"]["losses"]
+    for on in od:
+        o[on] = get_run_option(on, od[on], mode)
+
+    # <cpl> options
+    options["raiju"]["cpl"] = {}
+    o = options["raiju"]["cpl"]
+    od = option_descriptions["raiju"]["cpl"]
+    for on in od:
+        o[on] = get_run_option(on, od[on], mode)
+
+    # <fluidIn1> options
+    options["raiju"]["fluidIn1"] = {}
+    o = options["raiju"]["fluidIn1"]
+    od = option_descriptions["raiju"]["fluidIn1"]
+    for on in od:
+        o[on] = get_run_option(on, od[on], mode)
+
+    #-------------------------------------------------------------------------
+
     # Return the options dictionary.
     return options
 

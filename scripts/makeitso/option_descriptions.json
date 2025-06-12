@@ -671,5 +671,163 @@
                 "valids": ["T", "F"]
             }
         }
+    },
+
+    "raiju": {
+        "output": {
+            "loudConsole": {
+                "LEVEL": "EXPERT",
+                "prompt": "(RAIJU) loudConsole",
+                "default": "T",
+                "valids": ["T", "F"]
+            },
+            "doLossExtras": {
+                "LEVEL": "EXPERT",
+                "prompt": "(RAIJU) doLossExtras",
+                "default": "T",
+                "valids": ["T", "F"]
+            },
+            "writeGhosts": {
+                "LEVEL": "EXPERT",
+                "prompt": "(RAIJU) writeGhosts",
+                "default": "F",
+                "valids": ["T", "F"]
+            }
+        },
+        "grid": {
+            "gType": {
+                "LEVEL": "EXPERT",
+                "prompt": "(RAIJU) gType",
+                "default": "SHGRID",
+                "valids": ["SHGRID"]
+            },
+            "ThetaL": {
+                "LEVEL": "EXPERT",
+                "prompt": "(RAIJU) ThetaL",
+                "default": "15",
+                "valids": ["15"]
+            },
+            "ThetaU": {
+                "LEVEL": "EXPERT",
+                "prompt": "(RAIJU) ThetaU",
+                "default": "50",
+                "valids": ["50"]
+            }
+        },
+        "domain": {
+            "tail_buffer": {
+                "LEVEL": "EXPERT",
+                "prompt": "(RAIJU) tail_buffer",
+                "default": "15.0",
+                "valids": ["15.0"]
+            },
+            "sun_buffer": {
+                "LEVEL": "EXPERT",
+                "prompt": "(RAIJU) sun_buffer",
+                "default": "15.0",
+                "valids": ["15.0"]
+            },
+            "tail_active": {
+                "LEVEL": "EXPERT",
+                "prompt": "(RAIJU) tail_active",
+                "default": "12.0",
+                "valids": ["12.0"]
+            },
+            "sun_active": {
+                "LEVEL": "EXPERT",
+                "prompt": "(RAIJU) sun_active",
+                "default": "12.0",
+                "valids": ["12.0"]
+            }
+        },
+        "config": {
+            "fname": {
+                "LEVEL": "EXPERT",
+                "prompt": "(RAIJU) fname",
+                "default": "raijuconfig.h5",
+                "valids": ["raijuconfig.h5"]
+            }
+        },
+        "plasmasphere": {
+            "doPsphere": {
+                "LEVEL": "EXPERT",
+                "prompt": "(RAIJU) doPsphere",
+                "default": "T",
+                "valids": ["T", "F"]
+            },
+            "doExcessMap": {
+                "LEVEL": "EXPERT",
+                "prompt": "(RAIJU) doExcessMap",
+                "default": "T",
+                "valids": ["T", "F"]
+            }
+        },
+        "losses": {
+            "doLosses": {
+                "LEVEL": "EXPERT",
+                "prompt": "(RAIJU) doLosses",
+                "default": "T",
+                "valids": ["T", "F"]
+            },
+            "doCX": {
+                "LEVEL": "EXPERT",
+                "prompt": "(RAIJU) doCX",
+                "default": "T",
+                "valids": ["T", "F"]
+            },
+            "doCC": {
+                "LEVEL": "EXPERT",
+                "prompt": "(RAIJU) doCC",
+                "default": "T",
+                "valids": ["T", "F"]
+            },
+            "doEWM": {
+                "LEVEL": "EXPERT",
+                "prompt": "(RAIJU) doEWM",
+                "default": "T",
+                "valids": ["T", "F"]
+            },
+            "ewmType": {
+                "LEVEL": "EXPERT",
+                "prompt": "(RAIJU) ewmType",
+                "default": "C05",
+                "valids": ["C05"]
+            }
+        },
+        "cpl": {
+            "nFluidsIn": {
+                "LEVEL": "EXPERT",
+                "prompt": "(RAIJU) nFluidsIn",
+                "default": "1",
+                "valids": ["1"]
+            },
+            "startupTscl": {
+                "LEVEL": "EXPERT",
+                "prompt": "(RAIJU) startupTscl",
+                "default": "7200.0",
+                "valids": ["7200.0"]
+            }
+        },
+        "fluidIn1": {
+            "imhd": {
+                "LEVEL": "EXPERT",
+                "prompt": "(RAIJU) imhd",
+                "default": "0",
+                "valids": ["0"]
+            },
+            "flav": {
+                "LEVEL": "EXPERT",
+                "prompt": "(RAIJU) flav",
+                "default": "2",
+                "valids": ["2"]
+            },
+            "excessToPsph": {
+                "LEVEL": "EXPERT",
+                "prompt": "(RAIJU) excessToPsph",
+                "default": "T",
+                "valids": ["T", "F"]
+            }
+        }
     }
+
 }
