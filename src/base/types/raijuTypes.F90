@@ -431,7 +431,7 @@ module raijutypes
         real(rp), dimension(:,:,:), allocatable :: Dstd
             !! (Ngi, Ngj, Ns) Normalized standard deviation of the species density along the field line
         real(rp), dimension(:,:), allocatable :: tiote
-            !! (Ngi, Ngj, Ns) Ratio of ion temperature to electron temperature
+            !! (Ngi, Ngj) Ratio of ion temperature to electron temperature
         real(rp), dimension(:,:,:), allocatable :: Bmin
             !! (Ngi+1, Ngj+1, NDIM) [nT] Bmin vector
         real(rp), dimension(:,:,:), allocatable :: xyzMin

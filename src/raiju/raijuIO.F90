@@ -544,23 +544,9 @@ module raijuIO
         end where
         call AddOutVar(IOVars,"activeShells",outActiveShell,uStr="[Ni, Nk]")
         ! Moments
-        !allocate(tmpOut3D(is:ie,js:je,0:Grid%nSpc))
-        !tmpOut3D = 0.0
-        !do s=0,Grid%nSpc
-        !    tmpOut3D(:,:,s) = State%Press(s)%data(is:ie,js:je)
-        !enddo
-        !call AddOutVar(IOVars,"Pressure",tmpOut3D(:,:,:),uStr="nPa")
-        !tmpOut3D = 0.0
-        !do s=0,Grid%nSpc
-        !    tmpOut3D(:,:,s) = State%Den(s)%data(is:ie,js:je)
-        !enddo
-        !call AddOutVar(IOVars,"Density",tmpOut3D(:,:,:),uStr="amu/cc")
-        !deallocate(tmpOut3D)
         call AddOutSGV(IOVars, "Pressure", State%Press, doWriteMaskO=.true., uStr="nPa")
         call AddOutSGV(IOVars, "Density" , State%Den  , doWriteMaskO=.true., uStr="#/cc")
         ! Precip
-        !call AddOutVar(IOVars,"precipNFlux",State%precipNFlux(:,:,:),uStr="#/cm^2/s")
-        !call AddOutVar(IOVars,"precipEFlux",State%precipEFlux(:,:,:),uStr="erg/cm^2/s")
         call AddOutSGV(IOVars, "precipNFlux_Nk", State%precipNFlux, doWriteMaskO=.true., uStr="#/cm^2/s")
         call AddOutSGV(IOVars, "precipEFlux_Nk", State%precipEFlux, doWriteMaskO=.true., uStr="erg/cm^2/s")
         call AddOutVar(IOVars,"precipLossRates_Nk", State%lossRates(:,:,:), uStr="1/s")
@@ -571,7 +557,6 @@ module raijuIO
         ! More solver stuff
         call AddOutVar(IOVars, "dtk"   , State%dtk(:), uStr="s")
         call AddOutVar(IOVars, "nStepk", State%nStepk(:)*1.0_rp, uStr="#", dStr="Number of steps each channel has taken")
-        !call AddOutVar(IOVars, "nStepk" , State%nStepk(:), uStr="#", dStr="Number of steps each channel has taken")
         call AddOutVar(IOVars, "iVel"   , State%iVel  (:,:,:,:)     , uStr="m/s")
         call AddOutVar(IOVars, "cVel"   , State%cVel  (:,:,:,:), uStr="m/s")
 
@@ -638,11 +623,6 @@ module raijuIO
         call AddInVar(IOVars,"OCBDist"    )
         call AddInVar(IOVars,"activeShells")
 
-        !call AddInVar(IOVars,"Pressure")
-        !call AddInVar(IOVars,"Density")
-
-        !call AddInVar(IOVars,"precipNFlux")
-        !call AddInVar(IOVars,"precipEFlux")
         call AddInVar(IOVars,"precipLossRates_Nk")
 
         call AddInVar(IOVars, "gradPotE"    )
@@ -734,17 +714,6 @@ module raijuIO
         allocate(tmpReal2D(Ntg, Grid%Nk))
         call IOArray2DFill(IOVars, "activeShells",tmpReal2D)
         State%activeShells = merge(.true., .false., tmpReal2D .eq. 1.0)
-
-        ! Moments
-        !allocate(tmpReal3D(is:ie,js:je,0:Grid%nSpc))
-        !call IOArray3DFill(IOVars, "Pressure", tmpReal3D)
-        !do s=0,Grid%nSpc
-        !    State%Press(s)%data = tmpReal3D(:,:,s)
-        !enddo
-        !call IOArray3DFill(IOVars, "Density", tmpReal3D)
-        !do s=0,Grid%nSpc
-        !    State%Den(s)%data = tmpReal3D(:,:,s)
-        !enddo
 
         ! 1D Nk
         allocate(tmpReal1D(Grid%Nk))
