@@ -6,6 +6,7 @@ module tubehelper
     use streamline
     use chmpdbz
     use shellUtils
+    use shellGridIO
 
     implicit none
 
@@ -364,7 +365,7 @@ module tubehelper
 
 
         ! Then apply topo mask to vars that only make sense for closed tubes
-        where (tubeShell%topo%data == TUBE_CLOSED)
+        where (abs(tubeShell%topo%data - TUBE_CLOSED) < TINY)
             topoMask = .true.
         elsewhere
             topoMask = .false.
@@ -390,7 +391,88 @@ module tubehelper
             tubeShell%avgN(k)%mask(:,:) = topoMask
             tubeShell%stdN(k)%mask(:,:) = topoMask
         enddo
-        ! idk about losscone, lossconec, TioTe0
+        tubeShell%TioTe0%mask(:,:) = topoMask
+        ! idk about losscone, lossconec
         ! nTrc is good
     end subroutine tubes2Shell
+
+
+    subroutine writeTubeShellRestart(tubeShell, ResF, gStrO)
+        type(TubeShell_T), intent(in) :: tubeShell
+        character(len=strLen), intent(in) :: ResF
+        character(len=strLen), intent(in), optional :: gStrO
+            !! Group name to use instead of 'TubeShell' at root level
+
+        type(IOVAR_T), dimension(50) :: IOVars
+        
+        call AddOutSGV(IOVars,"xyz0"     ,tubeShell%xyz0     , doWriteMaskO=.true., uStr="Rp")
+        call AddOutSGV(IOVars,"X_bmin"   ,tubeShell%X_bmin   , doWriteMaskO=.true., uStr="Rp")
+        call AddOutSGV(IOVars,"lat0"     ,tubeShell%lat0     , doWriteMaskO=.true., uStr="deg")
+        call AddOutSGV(IOVars,"lon0"     ,tubeShell%lon0     , doWriteMaskO=.true., uStr="deg")
+        call AddOutSGV(IOVars,"latc"     ,tubeShell%latc     , doWriteMaskO=.true., uStr="deg")
+        call AddOutSGV(IOVars,"lonc"     ,tubeShell%lonc     , doWriteMaskO=.true., uStr="deg")
+        call AddOutSGV(IOVars,"invlat"   ,tubeShell%invlat   , doWriteMaskO=.true., uStr="deg")
+        call AddOutSGV(IOVars,"topo"     ,tubeShell%topo     , doWriteMaskO=.true., uStr="enum")
+        call AddOutSGV(IOVars,"bmin"     ,tubeShell%bmin     , doWriteMaskO=.true., uStr="nT")
+        call AddOutSGV(IOVars,"bVol"     ,tubeShell%bVol     , doWriteMaskO=.true., uStr="Rp/nT")
+        call AddOutSGV(IOVars,"Lb"       ,tubeShell%Lb       , doWriteMaskO=.true., uStr="Rp")
+        call AddOutSGV(IOVars,"Tb"       ,tubeShell%Tb       , doWriteMaskO=.true., uStr="s")
+        call AddOutSGV(IOVars,"wMAG"     ,tubeShell%wMAG     , doWriteMaskO=.true., uStr="normalized")
+        call AddOutSGV(IOVars,"rCurv"    ,tubeShell%rCurv    , doWriteMaskO=.true., uStr="Rp")
+        call AddOutSGV(IOVars,"avgBeta"  ,tubeShell%avgBeta  , doWriteMaskO=.true., uStr="normalized")
+        call AddOutSGV(IOVars,"avgP"     ,tubeShell%avgP     , doWriteMaskO=.true., uStr="nPa")
+        call AddOutSGV(IOVars,"avgN"     ,tubeShell%avgN     , doWriteMaskO=.true., uStr="#/cc")
+        call AddOutSGV(IOVars,"stdP"     ,tubeShell%stdP     , doWriteMaskO=.true., uStr="nPa")
+        call AddOutSGV(IOVars,"stdN"     ,tubeShell%stdN     , doWriteMaskO=.true., uStr="#/cc")
+        call AddOutSGV(IOVars,"losscone" ,tubeShell%losscone , doWriteMaskO=.true., uStr="rad")
+        call AddOutSGV(IOVars,"lossconec",tubeShell%lossconec, doWriteMaskO=.true., uStr="rad")
+        call AddOutSGV(IOVars,"Tiote0"   ,tubeShell%TioTe0   , doWriteMaskO=.true., uStr="normalized")
+        call AddOutSGV(IOVars,"nTrc"     ,tubeShell%nTrc     , doWriteMaskO=.true., uStr="counts")
+        
+        
+        if (present(gStrO)) then
+            call WriteVars(IOVars, .false., ResF, trim(gStrO))
+        else
+            call WriteVars(IOVars, .false., ResF, '/TubeShell')
+        endif
+
+    end subroutine writeTubeShellRestart
+
+    subroutine readTubeShellRestart(tubeShell, ResF, gStrO)
+        type(TubeShell_T), intent(inout) :: tubeShell
+        character(len=strLen), intent(in) :: ResF
+        character(len=strLen), intent(in), optional :: gStrO
+
+        character(len=strLen) :: gStr
+        
+        if (present(gStrO)) then
+            gStr = gStrO
+        else
+            gStr = "/TubeShell"
+        endif
+
+        call ReadInSGV(tubeShell%xyz0     , ResF, "xyz0"     , gStrO=gStr, doIOpO=.false.)
+        call ReadInSGV(tubeShell%X_bmin   , ResF, "X_bmin"   , gStrO=gStr, doIOpO=.false.)
+        call ReadInSGV(tubeShell%lat0     , ResF, "lat0"     , gStrO=gStr, doIOpO=.false.)
+        call ReadInSGV(tubeShell%lon0     , ResF, "lon0"     , gStrO=gStr, doIOpO=.false.)
+        call ReadInSGV(tubeShell%latc     , ResF, "latc"     , gStrO=gStr, doIOpO=.false.)
+        call ReadInSGV(tubeShell%lonc     , ResF, "lonc"     , gStrO=gStr, doIOpO=.false.)
+        call ReadInSGV(tubeShell%invlat   , ResF, "invlat"   , gStrO=gStr, doIOpO=.false.)
+        call ReadInSGV(tubeShell%topo     , ResF, "topo"     , gStrO=gStr, doIOpO=.false.)
+        call ReadInSGV(tubeShell%bmin     , ResF, "bmin"     , gStrO=gStr, doIOpO=.false.)
+        call ReadInSGV(tubeShell%bVol     , ResF, "bVol"     , gStrO=gStr, doIOpO=.false.)
+        call ReadInSGV(tubeShell%Lb       , ResF, "Lb"       , gStrO=gStr, doIOpO=.false.)
+        call ReadInSGV(tubeShell%Tb       , ResF, "Tb"       , gStrO=gStr, doIOpO=.false.)
+        call ReadInSGV(tubeShell%wMAG     , ResF, "wMAG"     , gStrO=gStr, doIOpO=.false.)
+        call ReadInSGV(tubeShell%rCurv    , ResF, "rCurv"    , gStrO=gStr, doIOpO=.false.)
+        call ReadInSGV(tubeShell%avgBeta  , ResF, "avgBeta"  , gStrO=gStr, doIOpO=.false.)
+        call ReadInSGV(tubeShell%avgP     , ResF, "avgP"     , gStrO=gStr, doIOpO=.false.)
+        call ReadInSGV(tubeShell%avgN     , ResF, "avgN"     , gStrO=gStr, doIOpO=.false.)
+        call ReadInSGV(tubeShell%stdP     , ResF, "stdP"     , gStrO=gStr, doIOpO=.false.)
+        call ReadInSGV(tubeShell%stdN     , ResF, "stdN"     , gStrO=gStr, doIOpO=.false.)
+        call ReadInSGV(tubeShell%losscone , ResF, "losscone" , gStrO=gStr, doIOpO=.false.)
+        call ReadInSGV(tubeShell%lossconec, ResF, "lossconec", gStrO=gStr, doIOpO=.false.)
+        call ReadInSGV(tubeShell%TioTe0   , ResF, "Tiote0"   , gStrO=gStr, doIOpO=.false.)
+        call ReadInSGV(tubeShell%nTrc     , ResF, "nTrc"     , gStrO=gStr, doIOpO=.false.)
+    end subroutine readTubeShellRestart
 end module tubehelper

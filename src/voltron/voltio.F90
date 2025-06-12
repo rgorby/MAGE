@@ -11,6 +11,8 @@ module voltio
     use planethelper
     use shellGridIO
     use voltappHelper
+
+    use tubehelper, only : writeTubeShellRestart, readTubeShellRestart
     
     implicit none
 
@@ -245,6 +247,9 @@ module voltio
         ! Save shellGrid
         call writeShellGrid(vApp%shGrid, ResF)
 
+        ! And all TubeShell vars
+        call writeTubeShellRestart(vApp%State%tubeShell, ResF)
+
         !Create link to latest restart
         write (lnResF, '(A,A,A,A)') trim(gApp%Model%RunID), ".volt.Res.", "XXXXX", ".h5"
         call MapSymLink(ResF,lnResF)
@@ -332,6 +337,9 @@ module voltio
         call ReadInSGV(vApp%State%potential_corot, ResF, "potential_corot", doIOpO=.false.)
         call ReadInSGV(vApp%State%bIonoMag, ResF, "bIonoMag", doIOpO=.false.)
         call ReadInSGV(vApp%State%bIonoRad, ResF, "bIonoRad", doIOpO=.false.)
+
+        ! And all of tubeShell
+        call readTubeShellRestart(vApp%State%tubeShell, ResF)
 
     end subroutine readVoltronRestart
 
