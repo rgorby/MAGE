@@ -254,7 +254,7 @@ def prompt_user_for_run_options(args):
     # generate one from the start and end date.
     for on in ["bcwind_available"]:
         o[on] = get_run_option(on, od[on], mode)
-    if o["bcwind_available"] == "Y":
+    if o["bcwind_available"].upper() == "Y":
         for on in ["bcwind_file"]:
             o[on] = get_run_option(on, od[on], mode)
         # Fetch the start and stop date from the bcwind file.
@@ -283,7 +283,7 @@ def prompt_user_for_run_options(args):
     # for the segment duration (which is the simulation duration).
     for on in ["use_segments"]:
         o[on] = get_run_option(on, od[on], mode)
-    if o["use_segments"] == "Y":
+    if o["use_segments"].upper() == "Y":
         for on in ["segment_duration"]:
             o[on] = get_run_option(on, od[on], mode)
     else:
@@ -292,7 +292,7 @@ def prompt_user_for_run_options(args):
     # Compute the number of segments based on the simulation duration and
     # segment duration, with 1 additional segment just for spinup. Add 1 if
     # there is a remainder.
-    if o["use_segments"] == "Y":
+    if o["use_segments"].upper() == "Y":
         num_segments = simulation_duration/float(o["segment_duration"])
         if num_segments > int(num_segments):
             num_segments += 1
