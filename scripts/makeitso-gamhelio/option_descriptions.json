@@ -15,12 +15,12 @@
         "start_date": {
             "LEVEL": "BASIC",
             "prompt": "Start date for simulation (yyyy-mm-ddThh:mm:ss)",
-            "default": "2017-08-02T19:44:23"
+            "default": "2001-06-01T23:00:00"
         },
         "stop_date": {
             "LEVEL": "BASIC",
             "prompt": "Stop date for simulation (yyyy-mm-ddThh:mm:ss)",
-            "default": "2017-08-02T21:44:23"
+            "default": "2001-06-02T01:00:00"
         },
         "use_segments": {
             "LEVEL": "BASIC",
