@@ -255,17 +255,17 @@ module raijuLoss_eWM_BW
                 
                     do k=spc%kStart,spc%kEnd        
                         
-                        Etemp = abs(Grid%alamc(k) * State%bvol_cc(i,j)**(-2.0_rp/3.0_rp)) * 1.0E-3_rp  ! [KeV]
+                        Etemp = abs(Grid%alamc(k) * State%bvol_cc(i,j)**(-2.0/3.0)) * 1.0E-3  ! [KeV]
                          !Scale up lifetime for sub-1keV energy in Chorus
                          !Calculate E [MeV] to evaluate wave model
-                        if (Etemp >= 1.0_rp) then !this%ChorusEMin) then ! [KeV]
-                            !Define a scaling factor to multiply tau (lifetime)
-                            !Lower energy particles are slower which increases lifetime
+                        if (Etemp >= this%ChorusEMin) then  ! [KeV]
                             E = Etemp*1.0E-3_rp !Energy [MeV] 
                             tScl = 1.0_rp !No change needed 
                         else
-                            E = 1.0E-3_rp !Energy [MeV]
-                            tScl = sqrt(1.0_rp/Etemp)
+                            !Define a scaling factor to multiply tau (lifetime)
+                            !Lower energy particles are slower which increases lifetime
+                            E = this%ChorusEmin*1.0E-3_rp !Energy [MeV]
+                            tScl = sqrt(this%ChorusEmin/Etemp)
                         endif
 
                         if (this%wHISS(i,j) > TINY) then
