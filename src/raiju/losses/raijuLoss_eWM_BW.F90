@@ -221,7 +221,7 @@ module raijuLoss_eWM_BW
         associate(sh=>Grid%shGrid, spc=>Grid%spc(eleIdx))
 
             !$OMP PARALLEL DO default(shared) &
-            !$OMP private(i,j,k,isGood,L,MLT,E,NpsphPnt,wNBlend,wLBlend,tauPS,tauHiss,tauChorus)
+            !$OMP private(i,j,k,isGood,L,MLT,E,Etemp,tScl,NpsphPnt,wNBlend,wLBlend,tauPS,tauHiss,tauChorus)
             do j=sh%jsg,sh%jeg
                 do i=sh%isg,sh%ieg
                     isGood = State%active(i,j) == RAIJUACTIVE
@@ -255,17 +255,17 @@ module raijuLoss_eWM_BW
                 
                     do k=spc%kStart,spc%kEnd        
                         
-                        Etemp = abs(Grid%alamc(k) * State%bvol_cc(i,j)**(-2./3.)) * 1.0E-3  ! [KeV]
-                        ! Scale up lifetime for sub-1keV energy in Chorus
+                        Etemp = abs(Grid%alamc(k) * State%bvol_cc(i,j)**(-2.0_rp/3.0_rp)) * 1.0E-3_rp  ! [KeV]
+                         !Scale up lifetime for sub-1keV energy in Chorus
                          !Calculate E [MeV] to evaluate wave model
-                        if (Etemp <= this%ChorusEMin) then ! [KeV]
+                        if (Etemp >= 1.0_rp) then !this%ChorusEMin) then ! [KeV]
                             !Define a scaling factor to multiply tau (lifetime)
                             !Lower energy particles are slower which increases lifetime
-                            tScl = sqrt(this%ChorusEMin/Etemp)
-                            E = this%ChorusEMin*1.0E-3 !Energy [MeV]
+                            E = Etemp*1.0E-3_rp !Energy [MeV] 
+                            tScl = 1.0_rp !No change needed 
                         else
-                            E = Etemp*1.0E-3 !Energy [MeV] 
-                            tScl = 1.0 !No change needed
+                            E = 1.0E-3_rp !Energy [MeV]
+                            tScl = sqrt(1.0_rp/Etemp)
                         endif
 
                         if (this%wHISS(i,j) > TINY) then
