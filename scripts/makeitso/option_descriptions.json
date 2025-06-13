@@ -678,18 +678,6 @@
             "loudConsole": {
                 "LEVEL": "EXPERT",
                 "prompt": "(RAIJU) loudConsole",
-                "default": "T",
-                "valids": ["T", "F"]
-            },
-            "doLossExtras": {
-                "LEVEL": "EXPERT",
-                "prompt": "(RAIJU) doLossExtras",
-                "default": "T",
-                "valids": ["T", "F"]
-            },
-            "writeGhosts": {
-                "LEVEL": "EXPERT",
-                "prompt": "(RAIJU) writeGhosts",
                 "default": "F",
                 "valids": ["T", "F"]
             }
@@ -706,12 +694,6 @@
                 "prompt": "(RAIJU) ThetaL",
                 "default": "15",
                 "valids": ["15"]
-            },
-            "ThetaU": {
-                "LEVEL": "EXPERT",
-                "prompt": "(RAIJU) ThetaU",
-                "default": "50",
-                "valids": ["50"]
             }
         },
         "domain": {
@@ -790,8 +772,8 @@
             "ewmType": {
                 "LEVEL": "EXPERT",
                 "prompt": "(RAIJU) ewmType",
-                "default": "C05",
-                "valids": ["C05"]
+                "default": "SS",
+                "valids": ["SS"]
             }
         },
         "cpl": {
