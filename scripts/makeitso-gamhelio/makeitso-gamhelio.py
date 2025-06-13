@@ -31,6 +31,7 @@ import datetime
 import json
 import os
 import subprocess
+import sys
 
 # Import 3rd-party modules.
 from astropy.io import fits
@@ -524,10 +525,10 @@ def run_preprocessing_steps(options):
     cmd = "wsa2gamera.py"
     args = [cmd, "wsa2gamera.ini"]
     with open("wsa2gamera.log", "w", encoding="utf-8") as fl:
-        subprocess.run(
-            args, check=True,
-            stdout=fl, stderr=fl
-        )
+        status = subprocess.run(args, stdout=fl, stderr=fl)
+        if status.returncode == 1:
+            print("Error in wsa2gamera! See wsa2gamera.log for details.")
+            sys.exit(1)
 
 
 def create_ini_files(options):
