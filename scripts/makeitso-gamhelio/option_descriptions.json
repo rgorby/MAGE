@@ -9,7 +9,7 @@
         },
         "wsa_file": {
             "LEVEL": "BASIC",
-            "prompt": "Path to WSA boundary condition file to use",
+            "prompt": "Path to WSA solar wind file to use",
             "default": "wsa.fits"
         },
         "start_date": {
