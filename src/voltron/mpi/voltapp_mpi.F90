@@ -212,7 +212,7 @@ module voltapp_mpi
             
         endif
 
-        if(.not. vApp%doSerialMHD .and. .not. vApp%gApp%Model%isRestart) then
+        if(.not. vApp%doSerialMHD) then
             !initial coupling
             call Tic("DeepUpdate")
             call DeepUpdate_mpi(vApp)
