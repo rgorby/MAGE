@@ -32,7 +32,7 @@ from jinja2 import Template
 import common
 
 
-# # Program constants
+# Program constants
 
 # Program description.
 DESCRIPTION = "Script for MAGE checks with Intel Inspector tools"
@@ -48,6 +48,11 @@ INTEL_CHECKS_DIRECTORY = os.path.join(MAGE_TEST_SET_ROOT, "intelChecks")
 
 # Path to directory containing the test scripts
 TEST_SCRIPTS_DIRECTORY = os.path.join(KAIJUHOME, "testingScripts")
+
+# Path to directory containing the input data
+TEST_INPUTS_DIRECTORY = os.path.join(
+    os.environ["MAGE_TEST_ROOT"], "intel_checks_inputs"
+)
 
 # Path to directory containing module lists
 MODULE_LIST_DIRECTORY = os.path.join(TEST_SCRIPTS_DIRECTORY,
@@ -80,10 +85,12 @@ BUILD_BIN_DIR = "bin"
 
 # Data and configuration files used by the Intel Inspector tests.
 TEST_INPUT_FILES = [
-    "tinyCase.xml",
     "bcwind.h5",
+    "lfmD.h5",
     "memSuppress.sup",
+    "rcmconfig.h5",
     "threadSuppress.sup",
+    "tinyCase.xml",
 ]
 
 # Name of PBS file for memory checks.
@@ -299,49 +306,9 @@ def intelChecks(args: dict):
         if verbose:
             print("Copying files needed for Intel checks.")
         for filename in TEST_INPUT_FILES:
-            from_path = os.path.join(TEST_SCRIPTS_DIRECTORY, filename)
+            from_path = os.path.join(TEST_INPUTS_DIRECTORY, filename)
             to_path = os.path.join(".", filename)
             shutil.copyfile(from_path, to_path)
-
-        # Generate the LFM grid file.
-        if verbose:
-            print("Creating LFM grid file.")
-        cmd = "genLFM.py -gid D"
-        if debug:
-            print(f"cmd = {cmd}")
-        try:
-            cproc = subprocess.run(cmd, shell=True, check=True)
-        except subprocess.CalledProcessError as e:
-            print("ERROR: Unable to create LFM grid file for module set "
-                  f"{module_set_name}.\n"
-                  f"e.cmd = {e.cmd}\n"
-                  f"e.returncode = {e.returncode}\n"
-                  "See testing log for output from genLFM.py.\n"
-                  "Skipping remaining steps for module set"
-                  f"{module_set_name}\n")
-            continue
-        if debug:
-            print(f"cproc = {cproc}")
-
-        # Generate the RCM configuration file.
-        if verbose:
-            print("Creating RCM configuration file.")
-        cmd = "genRCM.py"
-        if debug:
-            print(f"cmd = {cmd}")
-        try:
-            cproc = subprocess.run(cmd, shell=True, check=True)
-        except subprocess.CalledProcessError as e:
-            print("ERROR: Unable to create RCM configuration file"
-                  f" for module set {module_set_name}.\n"
-                  f"e.cmd = {e.cmd}\n"
-                  f"e.returncode = {e.returncode}\n"
-                  "See testing log for output from genRCM.py.\n"
-                  "Skipping remaining steps for module set "
-                  f"{module_set_name}\n")
-            continue
-        if debug:
-            print(f"cproc = {cproc}")
 
         # --------------------------------------------------------------------
 
