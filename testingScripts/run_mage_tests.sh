@@ -43,7 +43,7 @@ export PATCH_DIR="${MAGE_TEST_ROOT}/patch"
 export KAIJU_TEST_RESULTS_ROOT='/glade/derecho/scratch/ewinter/mage_testing'
 
 # Location of clone of kaipy-private repository.
-export KAIPY_PRIVATE_ROOT="${MAGE_TEST_ROOT}/kaipy-private"
+export KAIPY_PRIVATE_ROOT="${MAGE_TEST_ROOT}/kaipy-private-backup"
 
 # Path to directory containing the dateime-stamped directories for individual
 # sets of test runs.
@@ -65,7 +65,7 @@ export DERECHO_TESTING_PRIORITY='economy'
 export SLACK_BOT_TOKEN=`cat $HOME/.ssh/slack.txt`
 
 # conda environment for testing
-export CONDA_ENVIRONMENT='kaiju-3.10-testing'
+export CONDA_ENVIRONMENT='kaiju-3.12-testing'
 
 # IMPORTANT: Set this environment variable to force the python print()
 # function to automatically flush its output in all of the testing scripts.
