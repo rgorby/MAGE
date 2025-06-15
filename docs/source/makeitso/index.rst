@@ -10,4 +10,5 @@ and running MAGE and GAMERA-helio applications.
     :maxdepth: 1
 
     makeitso
+    engage
     makeitso-gamhelio

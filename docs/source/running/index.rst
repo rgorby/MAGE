@@ -39,5 +39,6 @@ Table of Contents
 .. toctree::
     :maxdepth: 1
 
-    geoQuickStart
+    geoGRQuickStart
+    geoGTRQuickStart
     helioQuickStart

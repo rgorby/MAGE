@@ -1,4 +1,4 @@
-Geospace Quick Start
+Geospace - Gamera Raiju (GR) Quick Start
 ====================
 
 
@@ -14,7 +14,7 @@ Before you begin
 
 .. code-block:: bash
 
-    source /path/to/your/kaiju-clone/scripts/setupEnvironment.sh
+    source /path/to/your/kaiju/scripts/setupEnvironment.sh
     source /path/to/your/kaipy/scripts/setupEnvironment.sh
 
 

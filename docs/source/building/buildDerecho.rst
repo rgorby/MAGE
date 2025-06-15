@@ -37,13 +37,33 @@ module set:
 .. code-block:: bash
 
     module --force purge
-    module load ncarenv/23.06
+    module load ncarenv/23.09
     module load cmake/3.26.3
     module load craype/2.7.20
     module load intel/2023.0.0
     module load ncarcompilers/1.0.0
     module load cray-mpich/8.1.25
     module load hdf5-mpi/1.12.2
+    module load conda/latest
+
+.. note::
+
+    For Geospace runs coupled with TIE-GCM (GTR), use the following modules:
+
+    .. code-block:: bash
+
+        module --force purge
+        module load ncarenv/23.09
+        module load cmake/3.26.3
+        module load craype/2.7.31
+        module load intel-classic/2023.2.1
+        module load cray-mpich/8.1.27
+        module load ncarcompilers/1.0.0
+        module load mkl/2023.2.0
+        module load hdf5-mpi/1.12.2
+        module load netcdf-mpi/4.9.2
+        module load esmf/8.6.0
+        module load conda/latest
 
 .. important::
 
@@ -52,7 +72,6 @@ module set:
     a successful build cannot be guaranteed. This module list is current as of
     **11 April 2025**, and is subject to change as the compute environment
     changes.
-
 
 Build the ``kaiju`` software
 ----------------------------
@@ -78,13 +97,13 @@ build directory in any convenient location.
     # You can pick one compile target below or compile all of them, if you'd like
 
     # Compile the MAGE model for geospace simulations
-    make voltron_mpi.x >& make-voltron.out
+    make -j4 voltron_mpi.x >& make-voltron.out
 
     # Compile the GAMERA-helio model for inner heliosphere simulations
-    make gamhelio_mpi.x >& make-gamhelio.out
+    make -j4 gamhelio_mpi.x >& make-gamhelio.out
 
     # Compile analysis tools
-    make calcdb.x chop.x sctrack.x slice.x >& make-analysis.out
+    make -j4 calcdb.x chop.x sctrack.x slice.x >& make-analysis.out
 
     
 When finished, your build directory will contain a ``bin``
