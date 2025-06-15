@@ -31,7 +31,7 @@ else
 fi
 unset __conda_setup
 
-conda activate kaiju-3.10-testing
+conda activate kaiju-3.12-testing
 
 echo 'Setting up MAGE environment.'
 source {{ kaijuhome }}/scripts/setupEnvironment.sh
