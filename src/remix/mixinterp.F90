@@ -109,7 +109,7 @@ module mixinterp
       integer, intent(out) :: i,j
 
       ! NOTE: we don't trap for cases outside the boundary here
-      ! and fix it on a case by case basis outside of this funciton.
+      ! and fix it on a case by case basis outside of this function.
       j = minloc(abs(G%p(:,1)-p),1)
       i = minloc(abs(G%t(1,:)-t),1)
 
