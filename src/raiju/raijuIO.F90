@@ -17,7 +17,6 @@ module raijuIO
     implicit none
 
     integer, parameter, private :: MAXIOVAR = 70
-    !type(IOVAR_T), dimension(MAXIOVAR), private :: IOVars
     logical, private :: doRoot = .true. !Whether root variables need to be written
     logical, private :: doFat = .false. !Whether to output lots of extra datalogical, private :: doRoot = .true. !Whether root variables need to be written
 
@@ -329,8 +328,6 @@ module raijuIO
                     outPrecipN(:,:,s) = outPrecipN(:,:,s) + State%precipNFlux(k)%data(is:ie,js:je)
                     outPrecipE(:,:,s) = outPrecipE(:,:,s) + State%precipEFlux(k)%data(is:ie,js:je)
                 enddo
-                !outPrecipN(:,:,s)    = sum(State%precipNFlux(is:ie,js:je,kS:kE), dim=3)
-                !outPrecipE(:,:,s)    = sum(State%precipEFlux(is:ie,js:je,kS:kE), dim=3)
                 outCCHeatFlux(:,:,s) = sum(State%CCHeatFlux (is:ie,js:je,kS:kE), dim=3)
 
                 where (outPrecipN(:,:,s) > TINY)
@@ -353,8 +350,6 @@ module raijuIO
 
             if (Model%doOutput_3DLoss) then
                 call AddOutVar(IOVars, "dEta_dt" , State%dEta_dt(is:ie,js:je,:), uStr="eta_units/s")
-                !call AddOutVar(IOVars, "precipNFlux_Nk"    , State%precipNFlux(is:ie,js:je,:), uStr="#/cm^2/s")
-                !call AddOutVar(IOVars, "precipEFlux_Nk"    , State%precipEFlux(is:ie,js:je,:), uStr="erg/cm^2/s")
                 call AddOutVar(IOVars, "CCHeatFlux_Nk" , State%CCHeatFlux (is:ie,js:je,:), uStr="eV/cm^2/s")
                 call AddOutSGV(IOVars, "precipNFlux_Nk", State%precipNFlux, outBndsO=outBnds2D, uStr="#/cm^2/s" , dStr="precipNFlux from RAIJU flavors", doWriteMaskO=.false.)
                 call AddOutSGV(IOVars, "precipEFlux_Nk", State%precipEFlux, outBndsO=outBnds2D, uStr="erg/cm^2/s" , dStr="precipEFlux from RAIJU flavors", doWriteMaskO=.false.)
@@ -474,9 +469,7 @@ module raijuIO
         real(rp), dimension(:,:), allocatable :: outActiveShell
         real(rp), dimension(:,:,:), allocatable :: tmpOut3D
 
-        ! As a first pass, be very liberal with what we save. If its too much we can be smarter
         ! Always do ghosts
-
         is = Grid%shGrid%isg
         ie = Grid%shGrid%ieg
         js = Grid%shGrid%jsg
@@ -681,11 +674,6 @@ module raijuIO
         call IOArray3DFill(IOVars, "eta_last", State%eta_last(:,:,:))
         call IOArray3DFill(IOVars, "eta_avg" , State%eta_avg (:,:,:))
 
-        !call IOArray3DFill(IOVars, "Pressure", State%Press(:,:,:))
-        !call IOArray3DFill(IOVars, "Density" , State%Den  (:,:,:))
-
-        !call IOArray3DFill(IOVars, "precipNFlux", State%precipNFlux(:,:,:))
-        !call IOArray3DFill(IOVars, "precipEFlux", State%precipEFlux(:,:,:))
         call IOArray3DFill(IOVars, "precipLossRates_Nk", State%lossRates(:,:,:))
 
         call IOArray3DFill(IOVars, "gradPotE"    , State%gradPotE    (:,:,:))

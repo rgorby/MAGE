@@ -202,31 +202,37 @@ module raijulosses
             !! Time delta [s]
 
         integer :: i,j
-        logical, dimension(Grid%shGrid%isg:Grid%shGrid%ieg, &
-                           Grid%shGrid%jsg:Grid%shGrid%jeg) :: isGood
+        !logical, dimension(Grid%shGrid%isg:Grid%shGrid%ieg, &
+        !                   Grid%shGrid%jsg:Grid%shGrid%jeg) :: isGood
         real(rp) :: deleta, eta0, pNFlux, tau
 
-        where (State%active .eq. RAIJUACTIVE)
-            isGood = .true.
-        elsewhere
-            isGood = .false.
-        end where
+        !where (State%active .eq. RAIJUACTIVE)
+        !    isGood = .true.
+        !elsewhere
+        !    isGood = .false.
+        !end where
         
         ! ! !$OMP PARALLEL DO default(shared) collapse(1) &
         ! ! !$OMP schedule(dynamic) &
         ! ! !$OMP private(j,i,eta0, deleta)
         do j=Grid%shGrid%jsg,Grid%shGrid%jeg
             do i=Grid%shGrid%isg,Grid%shGrid%ieg
-                if (.not. isGood(i,j)) then
+                !if (.not. isGood(i,j)) then
+                !    cycle
+                !endif
+                if (State%active(i,j) .eq. RAIJUINACTIVE) then
                     cycle
                 endif
                 eta0 = State%eta(i,j,k)
                 ! First update eta using total lossRates over dt
-                deleta = eta0*(1.0-exp(-dt*State%lossRates(i,j,k)))
-                State%eta(i,j,k) = max(0.0, eta0 - deleta)
-                ! Note: Not dividing by dt here, we are accumulating over 
-                ! coupling step and dividing by step dt at the end
-                State%dEta_dt(i,j,k) = State%dEta_dt(i,j,k) + deleta
+
+                if(State%active(i,j) .eq. RAIJUACTIVE) then
+                    deleta = eta0*(1.0-exp(-dt*State%lossRates(i,j,k)))
+                    State%eta(i,j,k) = max(0.0, eta0 - deleta)
+                    ! Note: Not dividing by dt here, we are accumulating over 
+                    ! coupling step and dividing by step dt at the end
+                    State%dEta_dt(i,j,k) = State%dEta_dt(i,j,k) + deleta
+                endif
 
 
                 ! Then calculate precipitation flux using lossRatesPrecip

@@ -178,12 +178,12 @@ submodule (volttypes) raijuCplTypesSub
         enddo
 
         
-        !call InterpShellVar_TSC_pnt(sh, State%Tb, th, ph, imW(IM_TSCL))
-        !imW(IM_TSCL) = Model%nBounce*imW(IM_TSCL)  ! [s]
+        call InterpShellVar_TSC_pnt(sh, State%Tb, th, ph, tScl)
+        tScl = Model%nBounce*tScl  ! [s]
         !tScl = 10.0_rp  ! [s]
 
         ! 1/(x)^4 for x from 1 to 0.5 goes from 1 to 16. Higher exponents means stronger ramp-up
-        tScl = 15.0_rp/(App%vaFrac%data(i0,j0))**4  ! [s]
+        !tScl = 15.0_rp/(App%vaFrac%data(i0,j0))**4  ! [s]
 
         ! Adjust IM_TSCL if we wanna ramp up over time
         if (t < App%startup_blendTscl) then
@@ -244,7 +244,7 @@ submodule (volttypes) raijuCplTypesSub
             imP(RAI_GTYPE) = (State%active(i0,j0)*1.0_rp+1.0)/2.0  ! "-1=Inactive, 0=Buffer, 1=Active" -> 0, 0.5, and 1.0        
             imP(RAI_THCON) = State%thcon(i0,j0) ! conjugate co-lat in radians, 0-pi
             imP(RAI_PHCON) = State%phcon(i0,j0) ! conjugate long in radians, 0-2pi
-            if (State%active(i0,j0) .ne. RAIJUACTIVE) then
+            if (State%active(i0,j0) .eq. RAIJUINACTIVE) then
                 return
             endif
     
