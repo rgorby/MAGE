@@ -43,7 +43,7 @@ export PATCH_DIR="${MAGE_TEST_ROOT}/patch"
 export KAIJU_TEST_RESULTS_ROOT='/glade/derecho/scratch/ewinter/mage_testing'
 
 # Location of clone of kaipy-private repository.
-export KAIPY_PRIVATE_ROOT="${MAGE_TEST_ROOT}/kaipy-private-backup"
+export KAIPY_PRIVATE_ROOT="${MAGE_TEST_ROOT}/kaipy-private"
 
 # Path to directory containing the dateime-stamped directories for individual
 # sets of test runs.
