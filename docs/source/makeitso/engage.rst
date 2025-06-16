@@ -21,18 +21,18 @@ The ``engage.py`` script can operate in one of three different modes:
 ``BASIC``, ``INTERMEDIATE``, or ``EXPERT``. Each mode provides access to
 a subset of the ``kaiju`` and ``tiegcm`` parameters. 
 
-* The ``BASIC`` mode 
-Requires the user to provide the minimum set of parameters needed to specify a model
-run, such as the run ID, and the simulation time periods. 
+  * The ``BASIC`` mode 
+    Requires the user to provide the minimum set of parameters needed to specify a model
+    run, such as the run ID, and the simulation time periods. 
 
-* The ``INTERMEDIATE`` mode 
-Allows the user to specify all of the 
-parameters from the ``BASIC`` mode, as well as a wider set of run parameters, 
-such as non-standard file locations and some MHD parameters and TIE-GCM parameters.
+  * The ``INTERMEDIATE`` mode 
+    Allows the user to specify all of the 
+    parameters from the ``BASIC`` mode, as well as a wider set of run parameters, 
+    such as non-standard file locations and some MHD parameters and TIE-GCM parameters.
 
-* The ``EXPERT`` mode 
-Provides access to all of the user-adjustable 
-parameters from the ``kaiju`` and ``TIE-GCM`` software. 
+  * The ``EXPERT`` mode 
+    Provides access to all of the user-adjustable 
+    parameters from the ``kaiju`` and ``TIE-GCM`` software. 
 
 When finished, the script generates the files needed to run a magnetosphere model, and saves
 all options in a convenient JSON file so that the run can be repeated at a
@@ -294,6 +294,7 @@ your simulation.
 
   Directory of model [<YOUR_TIEGCMHOME_HERE>]:
   Directory of Tiegcm Data Files [<YOUR_TIEGCMDATA_HERE>]: 
+
 This is the path to your TIE-GCM repository and TIE-GCM data directory. This is automatically set to 
 to the TIEGCMHOME and TIEGCMDATA environment variables
 
@@ -428,22 +429,22 @@ These parameters are documented in the file ``option_descriptions.json``,
 which is stored in the same directory as the ``engage.py`` script.
 
 Using JSON files for ``engage.py``
----------------------------------
+-------------------------------------------------------------
 The ``engage.py`` script can also be run in a non-interactive mode, where it
 reads a JSON file containing the parameters for the simulation. This allows
 you to automate the process of running the simulation, and to easily repeat
 the simulation with the same parameters.
 
 The ``engage.py`` script requires three JSON files to be specified:
-* ``engage_options_path``
+  * ``engage_options_path``
     This is the path to the JSON file containing the parameters for the
     ``engage.py`` script. It contains the parameters that are specific to the
     ``engage.py`` script, such as the run ID, start and stop dates, and so on.
-* ``makeitso_options_path``
+  * ``makeitso_options_path``
     This is the path to the JSON file containing the parameters for the
     ``makeitso.py`` script. It contains the parameters that are specific to the
     ``makeitso.py`` script, such as the GAMERA grid type, segment length, and so on.
-* ``tiegcm_options_path``
+  * ``tiegcm_options_path``
     This is the path to the JSON file containing the parameters for the
     ``tiegcmrun`` script. It contains the parameters that are specific to the
     TIE-GCM simulation, such as the source file, F10.7 flux level, and so on.

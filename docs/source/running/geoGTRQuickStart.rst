@@ -1,5 +1,5 @@
 Geospace - Gamera TIE-GCM Raiju (GTR) Quick Start
-====================
+=================================================
 
 
 These instructions illustrate the process of running a magnetosphere
@@ -7,7 +7,7 @@ simulation using the MAGE model in the ``kaiju`` code.
 
 
 Before you begin
-----------------
+------------------------------------------------
 
 *Source* (not *run*) the environment setup scripts for the ``kaiju`` and
 ``kaipy`` software. For example:
@@ -30,15 +30,18 @@ Before you begin
         - On ``pleiades``: ``/nobackup/nrao3/tiegcm/tiegcm3.0/data``
 
 Build guide for TIE-GCM
-***********************
+************************************************
 `TIE-GCM <https://tiegcm-docs.readthedocs.io/>`_. is a comprehensive, first-principles, three-dimensional, 
 non-linear representation of the coupled thermosphere and ionosphere system that includes a self-consistent solution 
 of the middle and low-latitude dynamo field. 
 
 Two TIE-GCM executables are required for running the GTR model:
-    - TIEGCM Standalone: This is the TIE-GCM code that runs independently and is used for initialization of the model.
-    - TIEGCM Coupled: This is the TIE-GCM code that runs in a coupled mode with the GR model, providing 
-    real-time updates to the thermosphere and ionosphere conditions during the simulation.
+
+    - TIEGCM Standalone
+        This is the TIE-GCM code that runs independently and is used for initialization of the model.
+    - TIEGCM Coupled
+        This is the TIE-GCM code that runs in a coupled mode with the GR model, providing 
+        real-time updates to the thermosphere and ionosphere conditions during the simulation.
 
 Depending on the Gamera resolution you will need to compile different TIEGCM resolution executables:
     - For a ``D`` run
@@ -62,7 +65,8 @@ in the `TIEGCM Quick Start Guide <https://tiegcm-docs.readthedocs.io/en/latest/t
     before running the ``tiegcmrun`` script. (:doc:`Derecho </building/buildDerecho>` or :doc:`Pleiades </building/buildPleiades>`)
 
 Lets take an example of building the TIE-GCM code for a ``Q`` run on ``derecho``:
-####################
+#########################################################################################
+
 1. First we will create a directory for the TIE-GCM build
 
 .. code-block:: bash
@@ -210,6 +214,7 @@ Copy the executables you built in the previous steps to your run directory.
 To get started, run ``engage.py`` with no arguments:
 
 .. code-block:: bash
+
     $KAIJUHOME/scripts/makeitso/engage.py 
     
     tiegcmrum from /glade/u/home/nikhilr/kaiju_engage/tiegcm/tiegcmrun/tiegcmrun.py

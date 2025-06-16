@@ -1,5 +1,5 @@
 Geospace - Gamera Raiju (GR) Quick Start
-====================
+==========================================
 
 
 These instructions illustrate the process of running a magnetosphere
@@ -7,7 +7,7 @@ simulation using the MAGE model in the ``kaiju`` code.
 
 
 Before you begin
-----------------
+--------------------------------------------
 
 *Source* (not *run*) the environment setup scripts for the ``kaiju`` and
 ``kaipy`` software. For example:
