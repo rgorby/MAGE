@@ -1,9 +1,9 @@
-Geospace - Gamera TIE-GCM Raiju (GTR) Quick Start
-=================================================
+MAGE - With TIEGCM (GTR) Quick Start
+===================================================
 
-
-These instructions illustrate the process of running a magnetosphere
-simulation using the MAGE model in the ``kaiju`` code.
+These instructions illustrate the process of running a geospace
+simulation using the MAGE model coupled with TIEGCM. We call
+this version of the model "GTR" ("GAMERA-TIEGCM-RAIJU") for brevity.
 
 
 Before you begin
@@ -22,25 +22,25 @@ Before you begin
 .. note::
 
     The ``TIEGCMHOME`` and ``TIEGCMDATA`` environment variables are required
-    for running the GTR model. They should point to the TIE-GCM source code
-    directory and the TIE-GCM data directory, respectively.
+    for running the GTR model. They should point to the TIEGCM source code
+    directory and the TIEGCM data directory, respectively.
 
     The TIEGCMDATA directory is located in the following locations:
         - On ``derecho``: ``/glade/campaign/hao/itmodel/tiegcm3.0/new_data``
         - On ``pleiades``: ``/nobackup/nrao3/tiegcm/tiegcm3.0/data``
 
-Build guide for TIE-GCM
+Build guide for TIEGCM
 ************************************************
-`TIE-GCM <https://tiegcm-docs.readthedocs.io/>`_. is a comprehensive, first-principles, three-dimensional, 
+`TIEGCM <https://tiegcm-docs.readthedocs.io/>`_ is a comprehensive, first-principles, three-dimensional, 
 non-linear representation of the coupled thermosphere and ionosphere system that includes a self-consistent solution 
 of the middle and low-latitude dynamo field. 
 
-Two TIE-GCM executables are required for running the GTR model:
+Two TIEGCM executables are required for running the GTR model:
 
     - TIEGCM Standalone
-        This is the TIE-GCM code that runs independently and is used for initialization of the model.
+        This is the TIEGCM code that runs independently and is used for initialization of the model.
     - TIEGCM Coupled
-        This is the TIE-GCM code that runs in a coupled mode with the GR model, providing 
+        This is the TIEGCM code that runs in a coupled mode with the GR model, providing 
         real-time updates to the thermosphere and ionosphere conditions during the simulation.
 
 Depending on the Gamera resolution you will need to compile different TIEGCM resolution executables:
@@ -55,7 +55,7 @@ Depending on the Gamera resolution you will need to compile different TIEGCM res
         - TIEGCM Coupled: horires = 0.625, vertres = 0.0625(1/16), mres = 0.5
 
 
-The TIE-GCM code is built using the ``tiegcmrun`` script, which is provided in
+The TIEGCM code is built using the ``tiegcmrun`` script, which is provided in
 the ``tiegcm`` code repository. The script is provided in the
 ``tiegcm/tiegcmrun`` directory. More information on ``tiegcmrun.py`` can be found
 in the `TIEGCM Quick Start Guide <https://tiegcm-docs.readthedocs.io/en/latest/tiegcm/quickstart.html>`_.
@@ -64,21 +64,21 @@ in the `TIEGCM Quick Start Guide <https://tiegcm-docs.readthedocs.io/en/latest/t
     Make sure to load the modules lised in the ``kaiju`` build instructions
     before running the ``tiegcmrun`` script. (:doc:`Derecho </building/buildDerecho>` or :doc:`Pleiades </building/buildPleiades>`)
 
-Lets take an example of building the TIE-GCM code for a ``Q`` run on ``derecho``:
+Lets take an example of building the TIEGCM code for a ``Q`` run on ``derecho``:
 #########################################################################################
 
-1. First we will create a directory for the TIE-GCM build
+1. First we will create a directory for the TIEGCM build
 
 .. code-block:: bash
 
     mkdir tiegcm_build
     cd tiegcm_build
 
-2. Next, we will build the standalone TIE-GCM executable by running the ``tiegcmrun.py`` script with the ``-oc``.
+2. Next, we will build the standalone TIEGCM executable by running the ``tiegcmrun.py`` script with the ``-oc``.
 
 .. note::
     The ``-oc`` option stands for "only compile", which means that the script will only compile the code and not run it.
-    Since the Gamera resolution is ``Q``, we will set the horizontal resolution for the standalone TIE-GCM to 2.5 degrees,
+    Since the Gamera resolution is ``Q``, we will set the horizontal resolution for the standalone TIEGCM to 2.5 degrees,
     vertical resolution to 0.25 degrees, and the top altitude to 7.0 RE.
 
 .. code-block:: bash
@@ -105,7 +105,7 @@ Lets take an example of building the TIE-GCM code for a ``Q`` run on ``derecho``
     Vertical Resolution (Scale Height) (1/2|1/4|1/8|1/16) [1/4]: 
     Magnetic grid resolution (Degree) (2|1|0.5) [2]: 
 
-After these inputs, the script will compile the TIE-GCM code and create the standalone executable and should output something like this:
+After these inputs, the script will compile the TIEGCM code and create the standalone executable and should output something like this:
 
 .. code-block:: bash
 
@@ -114,11 +114,11 @@ After these inputs, the script will compile the TIE-GCM code and create the stan
     gmake[1]: Leaving directory '/glade/derecho/scratch/nikhilr/tiegcm_build/exec'    
     Executable copied from /glade/derecho/scratch/nikhilr/tiegcm_build/exec/tiegcm.exe to /glade/derecho/scratch/nikhilr/tiegcm_build/stdout
 
-3. Next, we will build the coupled TIE-GCM executable by running the ``tiegcmrun.py`` script with the ``-oc`` and ``-co`` options.
+3. Next, we will build the coupled TIEGCM executable by running the ``tiegcmrun.py`` script with the ``-oc`` and ``-co`` options.
 
 .. note::
-    The ``-co`` option stands for "coupled", which means that the script will compile the code for the coupled TIE-GCM executable.
-    Since the Gamera resolution is ``Q``, we will set the horizontal resolution for the coupled TIE-GCM to 1.25 degrees,
+    The ``-co`` option stands for "coupled", which means that the script will compile the code for the coupled TIEGCM executable.
+    Since the Gamera resolution is ``Q``, we will set the horizontal resolution for the coupled TIEGCM to 1.25 degrees,
     vertical resolution to 0.125 degree.
 
 .. code-block:: bash
@@ -143,7 +143,7 @@ After these inputs, the script will compile the TIE-GCM code and create the stan
     Vertical Resolution (Scale Height) (1/2|1/4|1/8|1/16) [1/8]: 
     Magnetic grid resolution (Degree) (2|1|0.5) [1]: 
 
-After these inputs, the script will compile the TIE-GCM code and create the coupled executable and should output something like this:
+After these inputs, the script will compile the TIEGCM code and create the coupled executable and should output something like this:
 
 .. code-block:: bash
 
@@ -166,7 +166,7 @@ The executables are located in the ``stdout`` directory, and the stdout files
     ls stdout
     defs.h  tiegcm.exe  tiegcm.x
 
-Running a magnetosphere simulation with MAGE
+Running a geospace simulation with MAGE
 --------------------------------------------
 The MAGE software needs several files in order to run. The detailed steps
 for creating these files have been combined into a script called
@@ -182,7 +182,7 @@ You can see the options supported by ``engage.py`` by running it with the
     engage.py --help
     usage: engage.py [-h] [--clobber] [--debug] [--mode MODE] [--engage_options_path ENGAGE_OPTIONS_PATH] [--makeitso_options_path MAKEITSO_OPTIONS_PATH] [--tiegcm_options_path TIEGCM_OPTIONS_PATH] [--verbose]
 
-    Interactive script to prepare a MAGE magnetosphere model run.
+    Interactive script to prepare a MAGE geospace model run.
 
     options:
     -h, --help            show this help message and exit
@@ -367,7 +367,7 @@ There are several types files created for each of the jobs, including:
     These are the XML files that contain the parameters for GAMERA and RAIJU of the
     segment. 
 * ``*.inp``
-    These are the namelist files that contain parameters for TIE-GCM of the segment.
+    These are the namelist files that contain parameters for TIEGCM of the segment.
 * ``*.json``
     These are the JSON files that contain the parameters for the simulation. They
     are generated by the ``engage.py`` script with all the parameters required to run the
@@ -383,7 +383,7 @@ The run is divided into segments:
     The ``-01``, ``-02``, etc. suffixes indicate the segment number, and the
     segments are run in order.
 * ``tiegcm_standalone-**.*``
-    This segment runs the TIE-GCM model to create the initial conditions for the coupled model.
+    This segment runs the TIEGCM model to create the initial conditions for the coupled model.
     The ``-01`` to ``-08``. suffixes indicate the segment number, and the
     segments are run in order.
 * ``geospace-**.*``
@@ -455,7 +455,7 @@ strings):
 * ``geospace_sech_*.nc``
 
     These are secondary output files that contain the results from the 
-    `TIEGCM <https://tiegcm-docs.readthedocs.io/en/latest>`_ portion of the
+    `TIEGCM <https://tiegcm-docs.readthedocs.io/>`_ portion of the
     `MAGE <https://cgs.jhuapl.edu/Models>`_ model.
 
 * ``geospace_*.gam.Res.RRRRR.h5``
@@ -465,12 +465,12 @@ strings):
 
 * ``geospace_prim_*.nc``
 
-    These are the primary output files from the TIE-GCM portion of the model
+    These are the primary output files from the TIEGCM portion of the model
     that are designed as checkpoint files.
 
 * ``geospace_temp_*.nc``
 
-    These are temporary output files from the TIE-GCM portion of the model
+    These are temporary output files from the TIEGCM portion of the model
     
 Visualizing the results
 -----------------------

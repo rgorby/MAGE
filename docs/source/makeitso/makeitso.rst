@@ -1,12 +1,13 @@
-Makeitso
-===============
+Makeitso -- Use for MAGE without TIEGCM
+=============================================
 
 
 Introduction
 ------------
 
 The Python script ``makeitso.py`` was developed to simplify the process of
-configuring and running MAGE (that is, the geospace application  of the ``kaiju`` software.) It
+configuring and running GR MAGE (that is, the geospace application  of
+the ``kaiju`` software without TIEGCM.) It
 provides an interactive, prompt-driven interface to specify all of the
 parameters needed for a model run.
 

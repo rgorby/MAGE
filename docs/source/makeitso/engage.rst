@@ -1,12 +1,13 @@
-Engage
-===============
+Engage -- Use for MAGE with TIEGCM
+=============================================
 
 
 Introduction
 ------------
 
 The Python script ``engage.py`` was developed to simplify the process of
-configuring and running GTR MAGE (that is, the geospace application  of the ``kaiju`` software.) It
+configuring and running GTR MAGE (that is, the geospace application
+of the ``kaiju`` software with TIEGCM.) It
 provides an interactive, prompt-driven interface to specify all of the
 parameters needed for a model run.
 

@@ -48,7 +48,7 @@ module set:
 
 .. note::
 
-    For Geospace runs coupled with TIE-GCM (GTR), use the following modules:
+    For MAGE runs coupled with TIEGCM (known as "GTR"), use the following modules:
 
     .. code-block:: bash
 

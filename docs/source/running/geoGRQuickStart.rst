@@ -1,9 +1,9 @@
-Geospace - Gamera Raiju (GR) Quick Start
+MAGE - Without TIEGCM (GR) Quick Start
 ==========================================
 
-
-These instructions illustrate the process of running a magnetosphere
-simulation using the MAGE model in the ``kaiju`` code.
+These instructions illustrate the process of running a geospace
+simulation using the MAGE model without coupling with TIEGCM. We call
+this version of the model "GR" ("GAMERA-RAIJU") for brevity.
 
 
 Before you begin
@@ -18,7 +18,7 @@ Before you begin
     source /path/to/your/kaipy/scripts/setupEnvironment.sh
 
 
-Running a magnetosphere simulation with MAGE
+Running a geospace simulation with MAGE
 --------------------------------------------
 
 The MAGE software needs several files in order to run. The detailed steps
@@ -35,7 +35,7 @@ You can see the options supported by ``makeitso.py`` by running it with the
     makeitso.py --help
     usage: makeitso.py [-h] [--clobber] [--debug] [--mode MODE] [--options_path OPTIONS_PATH] [--verbose]
 
-    Interactive script to prepare a MAGE magnetosphere model run.
+    Interactive script to prepare a MAGE geospace model run.
 
     optional arguments:
       -h, --help            show this help message and exit

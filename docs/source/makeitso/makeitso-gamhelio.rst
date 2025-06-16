@@ -1,5 +1,5 @@
-Makeitso-gamhelio
-========================
+Makeitso-gamhelio -- Use for GAMERA-Helio
+========================================================================
 
 The Python script ``makeits-gamhelio.py`` was developed to simplify the
 process of configuring and running GAMERA-helio (that is, the inner

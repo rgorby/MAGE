@@ -38,7 +38,7 @@ module set:
 
 .. note::
 
-    For Geospace runs coupled with TIE-GCM (GTR), use the following modules:
+    For MAGE runs coupled with TIEGCM (known as "GTR"), use the following modules:
 
     .. warning::
 
@@ -107,13 +107,13 @@ build directory in any convenient location.
     # You can pick one compile target below or compile all of them, if you'd like
 
     # Compile the MAGE model for geospace simulations
-    make voltron_mpi.x >& make-voltron.out
+    make -j4 voltron_mpi.x >& make-voltron.out
 
     # Compile the GAMERA-helio model for inner heliosphere simulations
-    make gamhelio_mpi.x >& make-gamhelio.out
+    make -j4 gamhelio_mpi.x >& make-gamhelio.out
 
     # Compile analysis tools
-    make calcdb.x chop.x sctrack.x slice.x >& make-analysis.out
+    make -j4 calcdb.x chop.x sctrack.x slice.x >& make-analysis.out
 
     
 When finished, your build directory will contain a ``bin``

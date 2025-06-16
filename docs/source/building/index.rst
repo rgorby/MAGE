@@ -33,7 +33,7 @@ on GitHub:
 
 .. important::
 
-    The ``kaiju`` repository on BitBucket uses ``git-lfs`` to support the
+    The ``kaiju`` repository on GitHub uses ``git-lfs`` to support the
     use of large binary files. You *must* make sure ``git-lfs`` is
     available in your ``git`` installation to ensure a complete clone
     of the ``kaiju`` repository.

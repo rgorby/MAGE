@@ -5,7 +5,9 @@ Running the ``kaiju`` software
 Before you begin
 ----------------
 
-These instructions use the ``makeitso.py`` and ``makeitso-gamhelio.py`` tools
+These instructions use the ``makeitso.py``, ``engage.py`` and
+``makeitso-gamhelio.py`` tools, all belonging to the family of scripts
+we call ``makeitso``,
 to simplify the process of configuring and running the ``kaiju`` code. These
 scripts are provided as part of the ``kaiju`` package, but also require the
 ``kaipy`` Python package, which can be installed into your Python environment

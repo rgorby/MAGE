@@ -2,8 +2,8 @@ Heliosphere Quick Start
 =======================
 
 
-These instructions illustrate the process of running a simple heliosphere
-model to test your build of the ``kaiju`` code.
+These instructions illustrate the process of running a heliosphere
+simulation to test your build of the ``kaiju`` code.
 
 
 Before you begin
