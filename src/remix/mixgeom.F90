@@ -8,7 +8,8 @@ module mixgeom
   implicit none
   
   contains
-    real(rp) function cosDipAngle(t)   ! FIXME: modify to allow both hemispheres
+      real(rp) function cosDipAngle(t)
+          ! NOTE: sign needs to be flipped for the south. It's done in init_mix.
       real(rp),intent(in) :: t
       cosDipAngle = -2._rp*cos(t)/sqrt(1._rp+3._rp*cos(t)**2)
     end function cosDipAngle
@@ -248,7 +249,6 @@ module mixgeom
 
       ! cyllindrical radius
       G%r = sqrt(G%x**2+G%y**2)
-      ! FIXME: use fortran shift/merge functions to treat periodic boundaries
 
       ! note, keep explicit size on the LHS to avoid compiler-dependent
       ! problems down the road
@@ -257,7 +257,7 @@ module mixgeom
       G%dp(G%Np,:) = modulo(G%p(1,:)-G%p(G%Np,:),2*pi)      ! fix up periodic
 
       ! note, unlike dp and dt above that are edge-centered, the things
-      ! below are vortex centered; we just don't define them on the ends
+      ! below are vertex centered; we just don't define them on the ends
       ! (e.g., ft(1,:) where we don't need them)
       G%ft(:,2:G%Nt) = 1.0D0/(G%dt(:,2:G%Nt)+G%dt(:,1:G%Nt-1))/sin(G%t(:,2:G%Nt))
       G%fp(2:G%Np,:) = 1.0D0/(G%dp(2:G%Np,:)+G%dp(1:G%Np-1,:)) ! note, dp(Np) defined above
@@ -307,11 +307,8 @@ module mixgeom
       end where
 
       ! note, the grid G that was created from gamera coordinates assumed R=1
-      ! this doesn't matter as the interpolation happens in the coordinate space
-      ! FIXME: map mix grid out along dipole -- DO NOT FORGET TO ADD THIS DISTORTION
-      ! THAT IS RADIUS DEPENDENT!
-!      GFpd%t  = acos(G%x)
-!      GFpd%p  = modulo(atan2(sqrt(1.-G%x**2-G%y**2),G%y),2*pi)
+      ! this doesn't matter as the interpolation happens in the (t,p) coordinate space
+      ! and we've mapped xout,yout along dipole already above
 
       GFpd%t = acos(xout)
       GFpd%p = modulo(atan2(sqrt(1.-xout**2-yout**2),yout),2*pi)
