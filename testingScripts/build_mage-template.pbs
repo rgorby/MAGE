@@ -4,10 +4,12 @@
 #PBS -A {{ account }}
 #PBS -q {{ queue }}
 #PBS -l job_priority={{ job_priority }}
-#PBS -l walltime=08:00:00
-#PBS -l select=2:ncpus=128:mpiprocs=1:ompthreads=128
+#PBS -l select=1:ncpus=128
+#PBS -l walltime={{ walltime }}
 #PBS -j oe
 #PBS -m abe
+
+# This script just builds the MAGE software.
 
 echo "Job $PBS_JOBID started at `date` on `hostname` in directory `pwd`."
 
@@ -16,21 +18,19 @@ module --force purge
 {%- for module in modules %}
 module load {{ module }}
 {%- endfor %}
+echo 'The currently loaded modules are:'
 module list
 
-echo 'Setting up MAGE environment.'
-source {{ kaijuhome }}/scripts/setupEnvironment.sh
-
 echo 'Setting environment variables.'
-export TMPDIR={{ tmpdir }}
-export OMP_NUM_THREADS=128
-export MPI_TYPE_DEPTH=32
-export KMP_STACKSIZE=128M
 echo 'The active environment variables are:'
 printenv
 
-# Run the Intel memory checks checks.
-MPICOMMAND="mpiexec $KAIJUHOME/scripts/preproc/pinCpuCores.sh"
-${MPICOMMAND} inspxe-cl -collect=mi3 -r memResults -- ./voltron_mpi.x tinyCase.xml
+# Build the code.
+cmd="{{ cmake_cmd }}"
+echo $cmd
+eval $cmd
+cmd="{{ make_cmd }}"
+echo $cmd
+eval $cmd
 
 echo "Job $PBS_JOBID ended at `date` on `hostname` in directory `pwd`."
