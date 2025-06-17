@@ -9,13 +9,13 @@
         },
         "bcwind_available": {
             "LEVEL": "BASIC",
-            "prompt": "Do you have an existing boundary condition file to use?",
+            "prompt": "Do you have an existing solar wind file to use?",
             "default": "N",
-            "valids": ["Y", "N"]
+            "valids": ["Y", "y", "N", "n"]
         },
         "bcwind_file": {
             "LEVEL": "BASIC",
-            "prompt": "Name of boundary condition file to use",
+            "prompt": "Name of solar wind file to use",
             "default": "bcwind.h5"
         },
         "start_date": {
@@ -32,7 +32,7 @@
             "LEVEL": "BASIC",
             "prompt": "Do you want to split your job into multiple segments?",
             "default": "N",
-            "valids": ["Y", "N"]
+            "valids": ["Y", "y", "N", "n"]
         },
         "segment_duration": {
             "LEVEL": "BASIC",
@@ -381,7 +381,7 @@
         "wind": {
             "tsfile": {
                 "LEVEL": "BASIC",
-                "prompt": "(GAMERA) Relative path to HDF5 file containing solar wind boundary conditions",
+                "prompt": "(GAMERA) Relative path to HDF5 file containing solar wind data",
                 "default": "bcwind.h5"
             }
         },
@@ -512,7 +512,7 @@
                 "prompt": "(VOLTRON) File output cadence in simulated seconds",
                 "default": "60.0"
             },
-            "tsOut": {
+            "dtCon": {
                 "LEVEL": "INTERMEDIATE",
                 "prompt": "(VOLTRON) Cadence for status updates on screen in simulated seconds",
                 "default": "300.0"
@@ -643,6 +643,12 @@
                 "LEVEL": "INTERMEDIATE",
                 "prompt": "(REMIX) Apply cap to Hall conductance based on Pedersen conductance",
                 "default": "T",
+                "valids": ["T", "F"]
+            },
+            "const_sigma": {
+                "LEVEL": "INTERMEDIATE",
+                "prompt": "(REMIX) Use constant conductance",
+                "default": "F",
                 "valids": ["T", "F"]
             }
         },

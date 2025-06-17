@@ -12,13 +12,12 @@ module mhdgroup
     logical, parameter, private :: doBorisGrav = .false.
     
     contains
-    
 
-    subroutine AdvanceMHD(Model,Grid,State,oState,Solver,dt)
-        type(Model_T), intent(inout) :: Model
-        type(Grid_T), intent(inout) :: Grid
-        type(State_T), intent(inout) :: State,oState
-        type(Solver_T), intent(inout) :: Solver
+    subroutine AdvanceMHD(Model,Grid,State,oState,ooState,Solver,dt)
+        type(Model_T)    , intent(inout) :: Model
+        type(Grid_T)     , intent(inout) :: Grid
+        type(State_T)    , intent(inout) :: State,oState,ooState
+        type(gamSolver_T), intent(inout) :: Solver
         real(rp), intent(in) :: dt
 
         integer :: n
@@ -29,7 +28,7 @@ module mhdgroup
         endif
         !Use predictor to create half state
         call Tic("Predictor")
-        call Predictor(Model,Grid,oState,State,Solver%StateHf,0.5*dt)
+        call Predictor(Model,Grid,State,oState,ooState,Solver%StateHf,0.5*dt)
         call Toc("Predictor")
 
         !Get electric field for MHD case
@@ -56,13 +55,13 @@ module mhdgroup
 
         !Finalize, apply stresses and save State->oState for next predictor step
         call Tic("Update")
-        call applyUpdate(Model,Grid,State,oState,dt,Solver%dGasH,Solver%dGasM,State%Efld)
+        call applyUpdate(Model,Grid,State,oState,ooState,dt,Solver%dGasH,Solver%dGasM,State%Efld)
         call Toc("Update")
 
         !Apply gravity if necessary (before ring avg)
         if (Model%doGrav) then
             call Tic("Gravity")
-            call applyGrav(Model,Grid,State,oState,dt)
+            call applyGrav(Model,Grid,State,oState,ooState,dt)
             call Toc("Gravity")
         endif
 
@@ -77,11 +76,10 @@ module mhdgroup
     end subroutine AdvanceMHD
     
     !Updates plasma state using plasma deltas and electric field
-    subroutine applyUpdate(Model,Grid,State,oState,dt,dGasH,dGasM,E)
+    subroutine applyUpdate(Model,Grid,State,oState,ooState,dt,dGasH,dGasM,E)
         type(Model_T), intent(inout) :: Model
         type(Grid_T), intent(in) :: Grid
-        type(State_T), intent(inout) :: State
-        type(State_T), intent(inout) :: oState
+        type(State_T), intent(inout) :: State,oState,ooState
         real(rp), intent(in) :: dt
         real(rp), intent(in) :: dGasH(Grid%isg:Grid%ieg,Grid%jsg:Grid%jeg,Grid%ksg:Grid%keg,NVAR,BLK:Model%nSpc)
         real(rp), optional, intent(in) :: dGasM(Grid%isg:Grid%ieg,Grid%jsg:Grid%jeg,Grid%ksg:Grid%keg,1:NDIM)
@@ -98,38 +96,12 @@ module mhdgroup
     !--------------------
     !Copy current->old
         call Tic("Copy2Old")
-        !Start by saving State->oState for predictor on next step
-        !Only need magFlux/State
+        !Shift states backwards
+        if (Model%doAB3) then
+            call CopyState(Model,Grid,oState,ooState)
+        endif
 
-        !NOTE, doing this with threads to avoid poor scaling
-        !$OMP PARALLEL default(shared)
-
-        !$OMP DO collapse(2)
-        do k=Grid%ksg,Grid%keg
-            do j=Grid%jsg,Grid%jeg
-                do i=Grid%isg,Grid%ieg
-                    oState%Gas(i,j,k,:,:) = State%Gas(i,j,k,:,:)
-                    oState%Bxyz(i,j,k,:)  = State%Bxyz(i,j,k,:)
-           	        if (Model%doResistive .and. Model%doMHD) then
-                        oState%Deta(i,j,k,:) = State%Deta(i,j,k,:)
-                    endif
-                enddo
-            enddo
-        enddo
-        !$OMP END DO NOWAIT !Rely on barrier at end of parallel region
-
-        
-        !$OMP DO collapse(2)
-        do k=Grid%ksg,Grid%keg+1
-            do j=Grid%jsg,Grid%jeg+1
-                do i=Grid%isg,Grid%ieg+1
-                    oState%magFlux(i,j,k,:) = State%magFlux(i,j,k,:)
-                enddo
-            enddo
-        enddo
-        !$OMP END PARALLEL
-
-        oState%time = State%time
+        call CopyState(Model,Grid,State,oState)
         State%time = State%time + dt
 
         call Toc("Copy2Old")
@@ -224,6 +196,65 @@ module mhdgroup
 
         call Toc("Maxwell")
 
+        contains
+
+            !Copies iState => oState
+            subroutine CopyState(Model,Grid,iState,oState)
+                type(Model_T), intent(in)    :: Model
+                type(Grid_T ), intent(in)    :: Grid
+                type(State_T), intent(in)    :: iState
+                type(State_T), intent(inout) :: oState
+                
+                integer :: i,j,k
+                
+            !This is the code we want, but it's slow so we can't do it this way
+            !This is why we can't have nice things
+
+                ! oState%Gas = iState%Gas
+                ! if (Model%doMHD) then
+                !     !Note, not bothering w/ Efld since that's only ever at half state
+                !     oState%Bxyz    = iState%Bxyz
+                !     oState%magFlux = iState%magFlux
+                !     if (Model%doResistive) then
+                !         oState%Deta = iState%Deta
+                !     endif
+                ! endif
+                ! oState%time = iState%time
+
+
+            !Let's goddamn do this thing w/ interleaved memory copies
+                !Open one big-ass // block
+
+                !$OMP PARALLEL default(shared)
+
+                !$OMP DO collapse(2)
+                do k=Grid%ksg,Grid%keg
+                    do j=Grid%jsg,Grid%jeg
+                        do i=Grid%isg,Grid%ieg
+                            oState%Gas(i,j,k,:,:) = iState%Gas(i,j,k,:,:)
+                            oState%Bxyz(i,j,k,:)  = iState%Bxyz(i,j,k,:)
+                            if (Model%doResistive .and. Model%doMHD) then
+                                oState%Deta(i,j,k,:) = iState%Deta(i,j,k,:)
+                            endif
+                        enddo
+                    enddo
+                enddo
+                !$OMP END DO NOWAIT !Rely on barrier at end of parallel region
+                !Oh, you're already done? Well start the next thing
+
+                !$OMP DO collapse(2)
+                do k=Grid%ksg,Grid%keg+1
+                    do j=Grid%jsg,Grid%jeg+1
+                        do i=Grid%isg,Grid%ieg+1
+                            oState%magFlux(i,j,k,:) = iState%magFlux(i,j,k,:)
+                        enddo
+                    enddo
+                enddo
+                !$OMP END PARALLEL !You're done when I say you're done ... which is now
+                oState%time = iState%time
+
+            end subroutine CopyState
+
     end subroutine applyUpdate
 
     !Apply reynolds update to cell over all species
@@ -235,7 +266,8 @@ module mhdgroup
         real(rp), intent(in) :: dt
 
         integer :: s,n
-        logical, dimension(Model%nSpc) :: isGood
+        logical , dimension(Model%nSpc) :: isGood
+        real(rp), dimension(NDIM) :: oB
 
         if (Model%doMultiF) then
             isGood = ( U(DEN,1:Model%nSpc) >= Spcs(:)%dVac )
@@ -250,7 +282,8 @@ module mhdgroup
                     U(DEN,s) = U(DEN,s) + dt*dGasH(DEN,s)
                 endif
             enddo
-            call MultiF2Bulk(Model,U)
+            oB = 0.0
+            call MultiF2Bulk(Model,U,oB)
             !Reset bulk delta to sum of component species
             do n=1,NVAR
                 dGasH(n,BLK) = sum(dGasH(n,1:Model%nSpc),mask=isGood)
@@ -323,7 +356,8 @@ module mhdgroup
 
         !Get old D/V
         D0 = U0(DEN      ,BLK)
-        V0 = U0(MOMX:MOMZ,BLK)/max(D0,dFloor)
+        D0 = max(D0,dFloor)
+        V0 = U0(MOMX:MOMZ,BLK)/D0
 
         !B0 = n, B1 = n+1/2, B2 = B
         B1 = 0.5*(B2+B0) !Half-step field
@@ -367,7 +401,8 @@ module mhdgroup
                 
                 !Get old D/V
                 D0s = U0(DEN      ,s)
-                V0s = U0(MOMX:MOMZ,s)/max(D0s,dFloor)
+                D0s = max(D0s,dFloor)
+                V0s = U0(MOMX:MOMZ,s)/D0s
 
                 if (D2s >= Spcs(s)%dVac) then
                     alphaS = alpha*0.5*(D2s+D0s)/D2s
@@ -384,121 +419,102 @@ module mhdgroup
                          + Vec2Para(dPGasS,bhat1)
                          
                     Vtmp = (D0s*V0s + dMom)/D2s
+                    W2(DEN      ) = D2s
+                    W2(VELX:VELZ) = Vperp + Vec2Para(Vtmp,bhat2)
+                    W2(PRESSURE ) = P2s                    
                 else 
-                    !Not a good species, just use bulk flow
+                    !Not a good species
                     Vtmp = V2
+                    W2(DEN      ) = D2s
+                    W2(VELX:VELZ) = 0.0
+                    W2(PRESSURE ) = pFloor
                 endif
-                W2(DEN      ) = D2s
-                W2(VELX:VELZ) = Vperp + Vec2Para(Vtmp,bhat2)
-                W2(PRESSURE ) = P2s
+                
                 call CellP2C(Model,W2,U2(:,s))
             enddo
 
             !Done calculating species conserved quantities, recalculate bulk
-            call MultiF2Bulk(Model,U2)
+            call MultiF2Bulk(Model,U2,bhat2)
 
         endif !Multifluid
 
     end subroutine CellBoris
 
-    !Predictor on single cell, [oU,U] -> pU
-    subroutine CellPredictor(Model,ht,oU,U,pU)
-        type(Model_T), intent(in) :: Model
-        real(rp), intent(in) :: ht
-        real(rp), dimension(NVAR,BLK:Model%nSpc), intent(in)  :: oU,U
-        real(rp), dimension(NVAR,BLK:Model%nSpc), intent(out) :: pU
-
-        real(rp), dimension(NVAR) :: oW,W,pW
-        integer :: s,s0,sE
-        logical, dimension(0:Model%nSpc) :: isGood,isGood1,isGood2
-
-        isGood  = .true.
-        isGood1 = .false.
-        isGood2 = .false.
-
-        !Figure out which fluids/times are good
-        if (Model%doMultiF) then
-            isGood1(1:Model%nSpc) = ( oU(DEN,1:Model%nSpc) >= Spcs(:)%dVac )
-            isGood2(1:Model%nSpc) = (  U(DEN,1:Model%nSpc) >= Spcs(:)%dVac )
-            isGood (1:Model%nSpc) = isGood1(1:Model%nSpc) .and. isGood2(1:Model%nSpc)
-            s0 = 1
-            sE = Model%nSpc            
-        else
-            s0 = BLK
-            sE = BLK
-        endif
-
-        do s=s0,sE
-            if ( isGood(s) ) then
-                !Both states are good, do standard predictor
-                !Convert both states to primitive
-                call CellC2P(Model,oU(:,s),oW)
-                call CellC2P(Model, U(:,s), W)
-                !Do predictor on primitives
-                pW = W + ht*(W - oW)
-
-                !Apply global (not species) clamps
-                pW(DEN) = max(pW(DEN),dFloor)
-                pW(PRESSURE) = max(pW(PRESSURE),pFloor)
-
-                !Return to conserved for final predicted state
-                call CellP2C(Model,pW,pU(:,s))
-            !Otherwise at least 1 state is bad, just use most recent
-            else
-                pU(:,s) = U(:,s)
-            endif
-            
-        enddo
-
-        if (Model%doMultiF) then
-            !Accumulate to bulk
-            call MultiF2Bulk(Model,pU)
-        endif
-
-    end subroutine CellPredictor
-
-    subroutine Predictor(Model,Grid,oState,State,pState,pdt)
+    !Extrapolate forward in time by pdt using current (State) and 1-2 old states (oState/ooState)
+    subroutine Predictor(Model,Grid,State,oState,ooState,pState,pdt)
         type(Model_T), intent(in) :: Model
         type(Grid_T), intent(inout) :: Grid
-        type(State_T), intent(in) :: State, oState
+        type(State_T), intent(in) :: State, oState, ooState
         type(State_T), intent(inout) :: pState
         real(rp), intent(in) :: pdt
 
         integer :: i,j,k
-        real(rp) :: odt,ht
+        real(rp) :: odt,oodt
         logical :: isCC
+        real(rp), dimension(NVAR,BLK:Model%nSpc) :: pQ,Q,oQ,ooQ
+        real(rp), dimension(NDIM) :: Bxyz
 
         !Do timing stuff
         odt = State%time-oState%time !Sep. between states
-        pState%time = State%time + pdt
-        ht = pdt/odt
+        if (Model%doAB3) then
+            oodt = oState%time-ooState%time
+        else
+            oodt = 0.0
+        endif
 
-        !Loop over grid and perform predictor on each cell of fluid/s
-        !XYZ fields and interface fluxes
-        !$OMP PARALLEL DO default(shared) collapse(2) &
-        !$OMP private(i,j,k,isCC)        
-        do k=Grid%ksg,Grid%keg+1
-            do j=Grid%jsg,Grid%jeg+1
-                do i=Grid%isg,Grid%ieg+1
-                    !Check if loop iteration is in interior
-                    isCC = (k<=Grid%keg) .and. (j<=Grid%jeg) .and. (i<=Grid%ieg)
-                    if (isCC) then
-                        call CellPredictor(Model,ht,oState%Gas(i,j,k,:,:),State%Gas(i,j,k,:,:),pState%Gas(i,j,k,:,:))
-                    endif
-                    if (Model%doMHD) then
+        if(Model%doMHD) then    
+            !$OMP PARALLEL DO default(shared) collapse(2) &
+            !$OMP private(i,j,k)
+            do k=Grid%ksg,Grid%keg+1
+                do j=Grid%jsg,Grid%jeg+1
+                    do i=Grid%isg,Grid%ieg+1
                         !Do interface fluxes
-                        pState%magFlux(i,j,k,:) = State%magFlux(i,j,k,:) + (pdt/odt)*(State%magFlux(i,j,k,:) - oState%magFlux(i,j,k,:))
-                        if (Model%doResistive) then
-                            pState%Deta(i,j,k,:) = State%Deta(i,j,k,:) + (pdt/odt)*(State%Deta(i,j,k,:) - oState%Deta(i,j,k,:))
-                        endif !Resistive
-                    endif !MHD
-                enddo !I loop
-            enddo
-        enddo !K loop
+                        if(Model%doAB3) then
+                            pState%magFlux(i,j,k,:) = ExtrapAB3(pdt,State%magFlux(i,j,k,:),oState%magFlux(i,j,k,:),ooState%magFlux(i,j,k,:),odt,oodt)
+                            if (Model%doResistive) then
+                                pState%Deta(i,j,k,:) = ExtrapAB3(pdt,State%Deta(i,j,k,:),oState%Deta(i,j,k,:),ooState%Deta(i,j,k,:),odt,oodt)
+                            endif !Resistive
+                        else
+                            !Do interface fluxes
+                            pState%magFlux(i,j,k,:) = ExtrapAB2(pdt,State%magFlux(i,j,k,:),oState%magFlux(i,j,k,:),odt)
+                            if (Model%doResistive) then
+                                pState%Deta(i,j,k,:) = ExtrapAB2(pdt,State%Deta(i,j,k,:),oState%Deta(i,j,k,:),odt)
+                            endif !Resistive
+                        endif
+                    enddo !I loop
+                enddo
+            enddo !K loop
+        endif
 
         !Now finish by getting Bxyz's
         !bflux2fld will call ring/singularity fixes
         call bFlux2Fld(Model,Grid,pState%magFlux,pState%Bxyz)
+
+        !Loop over cell centers and do predictor on each cell of fluid/s
+        !$OMP PARALLEL DO default(shared) collapse(2) &
+        !$OMP private(i,j,k,ooQ,oQ,Q,pQ,Bxyz)
+        do k=Grid%ksg,Grid%keg
+            do j=Grid%jsg,Grid%jeg
+                do i=Grid%isg,Grid%ieg
+                    !Grab NVAR,BLK:nSpc fluid info from this cell across time
+                    Q  =  State%Gas(i,j,k,:,:)
+                    oQ = oState%Gas(i,j,k,:,:)
+                    if (Model%doAB3) then
+                        ooQ = oState%Gas(i,j,k,:,:)
+                    else
+                        ooQ = 0.0
+                    endif
+                    if (Model%doMHD) then
+                        Bxyz = pState%Bxyz(i,j,k,:)
+                    else
+                        Bxyz = 0.0
+                    endif
+
+                    call PredictCell(Model,Bxyz,pdt,odt,oodt,Q,oQ,ooQ,pQ)
+                    pState%Gas(i,j,k,:,:) = pQ
+                enddo !i
+            enddo !j
+        enddo !k
 
         !TODO: Remove hackpredictor nonsense
         if (associated(Model%HackPredictor)) then
@@ -507,13 +523,103 @@ module mhdgroup
 
     end subroutine Predictor
 
+    !Predict single cell of fluid/s forward in time by pdt into conserved state pQ
+    !using current/older conserved states Q,oQ,ooQ separated by odt and oodt in time
+    subroutine PredictCell(Model,Bxyz,pdt,odt,oodt,Q,oQ,ooQ,pQ)
+        type(Model_T), intent(in) :: Model
+        real(rp)     , intent(in) :: pdt,odt,oodt,Bxyz(NDIM)
+        real(rp), dimension(NVAR,BLK:Model%nSpc), intent(in)  :: Q,oQ,ooQ
+        real(rp), dimension(NVAR,BLK:Model%nSpc), intent(out) :: pQ
+
+        logical, dimension(1:Model%nSpc) :: isGoodX,isGood1,isGood2
+        integer :: s,s0,sE
+        real(rp), dimension(NVAR) :: pW,W,oW,ooW
+
+        !Q = conserved, W = primitive
+        pQ = 0.0
+        
+        !If not MF, just do BLK and get the hell outta here
+        if (.not. Model%doMultiF) then
+            !Start by converting states to primitive
+            call CellC2P(Model,oQ(:,BLK),oW)
+            call CellC2P(Model, Q(:,BLK), W)
+
+            if (Model%doAB3) then
+               call CellC2P(Model,ooQ(:,BLK),ooW) 
+               pW = ExtrapAB3(pdt,W,oW,ooW,odt,oodt)
+            else
+                !AB2, so just do it already
+                pW = ExtrapAB2(pdt,W,oW,odt)
+            endif
+
+            !Apply global clamps
+            pW(DEN)      = max(pW(DEN)     ,dFloor)
+            pW(PRESSURE) = max(pW(PRESSURE),pFloor)
+
+            !Return to conserved for final predicted state
+            call CellP2C(Model,pW,pQ(:,BLK))
+            return
+        endif
+
+    !If still here, we're doing multifluid
+
+        !Start by testing states
+        !X = current state, 1 = oState, 2 = ooState
+        isGoodX = (  Q(DEN,1:Model%nSpc) >= Spcs(:)%dVac )
+        isGood1 = ( oQ(DEN,1:Model%nSpc) >= Spcs(:)%dVac )
+        if (Model%doAB3) then
+            isGood2 = (ooQ(DEN,1:Model%nSpc) >= Spcs(:)%dVac )
+        else
+            isGood2 = .false. !Treat ooState as bad always if doing AB2
+        endif
+
+        s0 = 1
+        sE = Model%nSpc
+
+        !Logic:
+        !Either of X,1 is bad => most recent
+        !Both of X,1 are good =>
+        !    ifAB3 => Test 2
+        !    ifAB2 => Do AB2
+        do s=s0,sE
+            if ( (.not. isGoodX(s0)) .or. (.not. isGood1(s0)) ) then
+                !at least 1 state is bad, just use most recent
+                pQ(:,s) = Q(:,s)
+            else
+                !Both current/oState are good, convert these states
+                call CellC2P(Model,oQ(:,s),oW)
+                call CellC2P(Model, Q(:,s), W)
+
+                if (isGood2(s)) then
+                    !We're doing AB3 and ooState is good, so do ab3
+                    call CellC2P(Model,ooQ(:,s),ooW) 
+                    pW = ExtrapAB3(pdt,W,oW,ooW,odt,oodt)
+                else
+                    !Just do AB2
+                    pW = ExtrapAB2(pdt,W,oW,odt)
+                endif
+
+                !Now treat state
+                !Apply global clamps
+                pW(DEN)      = max(pW(DEN)     ,dFloor)
+                pW(PRESSURE) = max(pW(PRESSURE),pFloor)
+
+                !Return to conserved for final predicted state
+                call CellP2C(Model,pW,pQ(:,s))
+            endif 
+        enddo
+        
+        !Finally, accumulate MF to bulk
+        call MultiF2Bulk(Model,pQ,Bxyz)
+
+    end subroutine PredictCell
+
     !Updates plasma state using static gravitational potential
     !Use time-averaged density from n,n+1 and update momentum
-    subroutine applyGrav(Model,Gr,State,oState,dt)
+    subroutine applyGrav(Model,Gr,State,oState,ooState,dt)
         type(Model_T), intent(inout) :: Model
         type(Grid_T), intent(in) :: Gr
-        type(State_T), intent(inout) :: State
-        type(State_T), intent(inout) :: oState
+        type(State_T), intent(inout) :: State, oState, ooState
         real(rp), intent(in) :: dt
 
         integer :: i,j,k,s,s0,sE
@@ -597,4 +703,31 @@ module mhdgroup
 
     end subroutine applyGrav
 
+!=====
+!Adams Bashforth helper routines
+    !Extrapolate forward in time by dt given Q(t) and oQ(t-odt)
+    elemental function ExtrapAB2(dt,Q,oQ,odt) result(nQ)
+        real(rp), intent(in) :: dt,Q,oQ,odt
+        real(rp) :: nQ
+
+        real(rp) :: dQ
+
+        dQ = (Q-oQ)/odt
+        nQ = Q + dt*dQ
+    end function ExtrapAB2
+
+    !Extrapolate forward in time by dt given:
+    !Q(t),oQ(t-odt),ooQ(t-odt-oodt)
+    elemental function ExtrapAB3(dt,Q,oQ,ooQ,odt,oodt) result(nQ)
+        real(rp), intent(in) :: dt,Q,oQ,ooQ,odt,oodt
+        real(rp) :: nQ
+
+        real(rp) :: dQ,odQ,tScl
+        
+        dQ = (Q-oQ)/odt
+        odQ = (oQ-ooQ)/oodt
+        tScl = (dt + odt)/(odt + oodt)
+        nQ = Q + dt*dQ + dt*tScl*(dQ - odQ)
+    end function ExtrapAB3
+    
 end module mhdgroup

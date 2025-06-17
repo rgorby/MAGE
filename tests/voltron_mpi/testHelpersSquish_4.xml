@@ -2,9 +2,9 @@
 <!-- Gamera Magnetosphere -->
 <Kaiju>
   <voltron>
-    <time tFin="20.0"/>
+    <time tFin="21.0"/>
     <spinup doSpin="T" tSpin="20.0" tIO="0.0"/>
-    <coupling dtCouple="5.0" rTrc="40.0" imType="RCM" doQkSquish="F" doDynDT="F" doAsyncCoupling="T"/>
+    <coupling dtCouple="5.0" rTrc="40.0" imType="RAIJU" doQkSquish="F" doDynDT="F" doAsyncCoupling="F"/>
     <restart dtRes="1800.0"/>
     <imag doInit="T"/>
     <ebsquish epsSquish="0.05"/>
@@ -25,12 +25,13 @@
     <wind tsfile="bcwind.h5"/>
     <source doSource="T" doBounceDT="T"/>
     <threading NumTh="18"/>
+    <coupling blockHalo="T"/>
   </Gamera>
 <!-- Remix -->
   <REMIX>
     <grid Np="360" Nt="55" LowLatBoundary="55.0"/>
     <conductance doStarlight="T" doRamp="F" doMR="T"/>
-    <precipitation aurora_model_type="RCMONO" alpha="0.2" beta="0.4" doAuroralSmooth="T"/>
+    <precipitation aurora_model_type="LINMRG" alpha="0.2" beta="0.4" doAuroralSmooth="T"/>
   </REMIX>
   <CHIMP>
     <units uid="EARTHCODE"/>
@@ -45,4 +46,19 @@
     <grid LowLat="25.0" HiLat="75.0" doLatStretch="F"/>
     <plasmasphere isDynamic="T" initKp="1"/>
   </RCM>
+  <RAIJU>
+    <driver isSA="F"/>
+    <restart doRes="T" nRes="18"/>
+    <output doFat="F"/>
+    <debug isLoud="T" writeGhosts="F" debugOutput="T"/>
+    <grid gType="SHGRID" ThetaL="15" ThetaU="50"/>
+    <domain tail_buffer="15.0" sun_buffer="15.0" tail_active="12.0" sun_active="12.0"/>
+    <sim pdmb="0.75" useVelLRs="T"/>
+    <activeShell doAS="F"/>
+    <config fname="raijuconfig.h5" ignoreMismatch="F"/>
+    <plasmasphere doPsphere="T" doExcessMap="T"/>
+    <losses doLosses="T" doCX="T" doSS="T" doCC="T" eLossModel="WM" doOutput="T"/>
+    <cpl nFluidsIn="1" startupTscl="7200.0" vaFracThresh="0.00" bminThresh="1.0" Pstd="100.0" normAngThresh="180.0"/>
+    <fluidIn1 imhd="0" flav="2" excessToPsph="T"/>
+  </RAIJU>
 </Kaiju>

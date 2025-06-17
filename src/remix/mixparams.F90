@@ -1,5 +1,6 @@
 module mixparams
   use mixdefs
+  use dkdefs
   use mixtypes
   use xml_input
 
@@ -101,6 +102,17 @@ module mixparams
               stop "The ET model type entered is not supported."              
         end select
 
+        ! SIGMA_MODEL_TYPE
+        call xmlInp%Set_Val(tmpStr,"conductance/sigma_model_type","KAE23")
+        select case (tmpSTR)
+           case ("KAE23")
+              Params%sigma_model_type = KAE23
+           case ("ROB87")
+              Params%sigma_model_type = ROB87
+           case default
+              stop "The SIGMA model type entered is not supported."
+        end select
+
         ! AURORA_MODEL_TYPE
         call xmlInp%Set_Val(tmpStr,"precipitation/aurora_model_type","FEDDER")
         select case (tmpSTR)
@@ -122,7 +134,7 @@ module mixparams
         call xmlInp%Set_Val(Params%F107,"conductance/F107",120._rp)
         call xmlInp%Set_Val(Params%pedmin,"conductance/pedmin",2.0_rp)
         call xmlInp%Set_Val(Params%hallmin,"conductance/hallmin",1.0_rp)
-        call xmlInp%Set_Val(Params%sigma_ratio,"conductance/sigma_ratio",3.0_rp)
+        call xmlInp%Set_Val(Params%sigma_ratio,"conductance/sigma_ratio",6.0_rp)
         call xmlInp%Set_Val(Params%ped0,"conductance/ped0",10.0_rp)
         call xmlInp%Set_Val(Params%const_sigma,"conductance/const_sigma",.false.)
         call xmlInp%Set_Val(Params%doRamp,"conductance/doRamp",.true.)

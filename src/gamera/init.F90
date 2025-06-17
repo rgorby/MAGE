@@ -35,11 +35,11 @@ module init
     
     !Hatch Gamera
     !Initialize main data structures
-    subroutine Hatch(Model,Grid,State,oState,Solver,xmlInp,userInitFunc,endTime)
+    subroutine Hatch(Model,Grid,State,oState,ooState,Solver,xmlInp,userInitFunc,endTime)
         type(Model_T), intent(inout) :: Model
         type(Grid_T), intent(inout) :: Grid
-        type(State_T), intent(inout) :: State,oState
-        type(Solver_T), intent(inout) :: Solver
+        type(State_T), intent(inout) :: State,oState,ooState
+        type(gamSolver_T), intent(inout) :: Solver
         !OMEGA can overrule what GAMERA has
         type(XML_Input_T), intent(inout) :: xmlInp
         procedure(StateIC_T), pointer, intent(in) :: userInitFunc
@@ -52,7 +52,7 @@ module init
         call ReadCorners(Model,Grid,xmlInp,endTime)
 
         ! call appropriate subroutines to calculate all appropriate grid data from the corner data
-        call CalcGridInfo(Model,Grid,State,oState,Solver,xmlInp,userInitFunc)
+        call CalcGridInfo(Model,Grid,State,oState,ooState,Solver,xmlInp,userInitFunc)
 
         !Initialization complete!
         
@@ -67,8 +67,8 @@ module init
         logical, optional, intent(in) ::childGameraOpt
 
         logical :: doH5g
-        character(len=strLen) :: inH5
-        integer :: dotLoc
+        character(len=strLen) :: inH5,resId
+        integer :: dotLoc,nRes
         logical :: childGamera
 
         if(present(childGameraOpt)) then
@@ -101,7 +101,9 @@ module init
         if (doH5g) call xmlInp%Set_Val(inH5,"sim/H5Grid","gMesh.h5")
         if (Model%isRestart .and. .not. childGamera) then
             !Get restart file information
-            call getRestart(Model,Grid,xmlInp,inH5)
+            call xmlInp%Set_Val(resID,"restart/resID","msphere")
+            call xmlInp%Set_Val(nRes,"restart/nRes" ,-1)
+            call getRestart(Model,Grid,resId,nRes,inH5)
 
         endif
 
@@ -117,34 +119,14 @@ module init
     end subroutine ReadCorners
 
     !Get name of restart file
-    subroutine getRestart(Model,Grid,xmlInp,inH5)
+    subroutine getRestart(Model,Grid,resId,nRes,inH5)
         type(Model_T)    , intent(inout)   :: Model
         type(Grid_T)     , intent(in)      :: Grid
-        type(XML_Input_T), intent(inout)   :: xmlInp
+        character(len=*) , intent(in)      :: resId
+        integer          , intent(in)      :: nRes
         character(len=strLen), intent(out) :: inH5
 
-        integer :: nRes
-        character(len=strLen) :: resID,bStr,nStr
-
-        if (xmlInp%Exists("restart/resFile")) then
-            if (Model%isLoud) then
-                write(*,*) ''
-                write(*,*) 'As of 23 April 2020 restarts are specified with ID/# instead of filename.'
-                write(*,*) 'Instead of restart/resFile, specify restart/resID and restart/nRes.'
-                write(*,*) 'The restart file msphere.Res.00005.h5 would be: '
-                write(*,*) '   <restart resId="msphere" nRes="5"/>'
-                write(*,*) 'Specifying nRes="-1" will read the XXXXX symbolic link.'
-                write(*,*) ''
-                write(*,*) "If you're seeing this and the info is not on the wiki"
-                write(*,*) "you should add it because obviously I didn't."
-                write(*,*) ''
-            endif
-            write(*,*) "Quitting ..."
-            stop
-        endif
-
-        call xmlInp%Set_Val(resID,"restart/resID","msphere")
-        call xmlInp%Set_Val(nRes,"restart/nRes" ,-1)
+        character(len=strLen) :: bStr,nStr
 
         !Get filename base
         if (Grid%isTiled) then
@@ -165,18 +147,17 @@ module init
         call CheckFileOrDie(inH5,"Restart file not found ...")
     end subroutine getRestart
 
-    subroutine CalcGridInfo(Model,Grid,State,oState,Solver,xmlInp,userInitFunc)
-        type(Model_T), intent(inout) :: Model
-        type(Grid_T), intent(inout) :: Grid
-        type(State_T), intent(inout) :: State,oState
-        type(Solver_T), intent(inout) :: Solver
+    subroutine CalcGridInfo(Model,Grid,State,oState,ooState,Solver,xmlInp,userInitFunc)
+        type(Model_T)    , intent(inout) :: Model
+        type(Grid_T)     , intent(inout) :: Grid
+        type(State_T)    , intent(inout) :: State,oState,ooState
+        type(gamSolver_T), intent(inout) :: Solver
         type(XML_Input_T), intent(inout) :: xmlInp
         procedure(StateIC_T), pointer, intent(in) :: userInitFunc
 
-        character(len=strLen) :: inH5, FileCode
-        logical :: fExist, doReset
-        real(rp) :: tReset
-        integer :: dotLoc
+        character(len=strLen) :: inH5, FileCode,resId
+        logical :: fExist
+        integer :: dotLoc,nRes
 
         !Set default domains (needs to be done after grid generation/reading)
         call SetDomain(Model,Grid)
@@ -194,7 +175,7 @@ module init
         !Initialize state data
         !First prep state, then do restart if necessary, then finish state
 
-        call PrepState(Model,Grid,oState,State,xmlInp,userInitFunc)
+        call PrepState(Model,Grid,State,oState,ooState,xmlInp,userInitFunc)
 
         !Do background stuff
         !Incorporate background field, B0, if necessary
@@ -209,14 +190,12 @@ module init
         if (Model%isRestart) then
             !If restart replace State variable w/ restart file
             !Make sure inH5 is set to restart
-            call getRestart(Model,Grid,xmlInp,inH5)
-
-            !Test for resetting time
-            call xmlInp%Set_Val(doReset ,"restart/doReset" ,.false.)
-            call xmlInp%Set_Val( tReset ,"restart/tReset"   ,0.0_rp)
+            call xmlInp%Set_Val(resID,"restart/resID","msphere")
+            call xmlInp%Set_Val(nRes,"restart/nRes" ,-1)
+            call getRestart(Model,Grid,resId,nRes,inH5)
 
             !Read restart
-            call readH5Restart(Model,Grid,State,oState,inH5,doReset,tReset)
+            call readH5Restart(Model,Grid,State,oState,ooState,inH5)
         else
             ! set initial dt0 to 0, it will be set once the case settles
             Model%dt0 = 0
@@ -226,9 +205,16 @@ module init
             call bFlux2Fld(Model,Grid,State%magFlux,State%Bxyz)
             if (Model%isRestart) then
                 call bFlux2Fld(Model,Grid,oState%magFlux,oState%Bxyz)
+                if (Model%doAB3) then
+                    call bFlux2Fld(Model,Grid,ooState%magFlux,ooState%Bxyz)
+                endif
             else
                 oState%magFlux = State%magFlux
                 oState%Bxyz    = State%Bxyz
+                if (Model%doAB3) then
+                    ooState%magFlux = State%magFlux
+                    ooState%Bxyz    = State%Bxyz
+                endif                
             endif
         endif
 
@@ -236,11 +222,14 @@ module init
     !Finalize setup
         !Enforce initial BC's
         call Tic("BCs")
-        call EnforceBCs(Model,Grid,State)
+        !call EnforceBCs(Model,Grid,State)
         if (Model%isRestart) then
-            call EnforceBCs(Model,Grid,oState)
+            !call EnforceBCs(Model,Grid,oState)
+            !if (Model%doAB3) call EnforceBCs(Model,Grid,ooState)
         else
+            call EnforceBCs(Model,Grid,State)
             oState = State
+            if (Model%doAB3) ooState = State 
         endif
         call Toc("BCs")
 
@@ -249,6 +238,9 @@ module init
         if (.not. Model%isRestart) then
             !If restart then oState%time already set by actual value
             oState%time = State%time-Model%dt !Initial old state
+            if (Model%doAB3) then
+                ooState%time = oState%time-Model%dt
+            endif            
         endif
 
         !Initialize solver data
@@ -268,10 +260,10 @@ module init
     end subroutine CalcGridInfo
 
     !Prepare state and call IC
-    subroutine PrepState(Model,Grid,oState,State,xmlInp,userInitFunc)
+    subroutine PrepState(Model,Grid,State,oState,ooState,xmlInp,userInitFunc)
         type(Model_T), intent(inout) :: Model
         type(Grid_T), intent(inout) :: Grid
-        type(State_T), intent(inout) :: oState,State
+        type(State_T), intent(inout) :: State,oState,ooState
         type(XML_Input_T), intent(in) :: xmlInp
         procedure(StateIC_T), pointer, intent(in) :: userInitFunc
 
@@ -296,11 +288,13 @@ module init
         !Alloc first
         call allocState(Model,Grid,State)
         call allocState(Model,Grid,oState)
+        if (Model%doAB3) call allocState(Model,Grid,ooState)
 
         !Call IC function
         !Call even for restart to reset BCs, background, etc ...
         call initState(Model,Grid,State,xmlInp)
         oState = State
+        if (Model%doAB3) ooState = oState
 
         !Ensure the BC objects are OK
         call ValidateBCs(Model,Grid)
@@ -379,6 +373,9 @@ module init
             Model%cHogH = 0.0
             Model%cHogM = 0.0
         endif
+
+        call xmlInp%Set_Val(Model%doAB3,'sim/doAB3',.false.) !Maybe will change this to default true
+        
     !Time options
         !Check both omega/sim/tFin & gamera/time/tFin
         call xmlInp%Set_Val(Model%tFin,'time/tFin',1.0_rp)
@@ -432,6 +429,9 @@ module init
         endif
     !Source terms
         call xmlInp%Set_Val(Model%doSource,'source/doSource',.false.)
+        if (Model%doSource) then
+            call xmlInp%Set_Val(Model%nvSrc,'source/nvSrc',NVARVOLTSRC)
+        endif
 
     !Get RunID
         call xmlInp%Set_Val(Model%RunID,'sim/runid',"Sim")
@@ -484,9 +484,9 @@ module init
     end subroutine initModel
 
     subroutine initSolver(Solver, Model, Grid)
-        type(Solver_T), intent(inout) :: Solver
-        type(Model_T), intent(in)     :: Model
-        type(Grid_T), intent(in)      :: Grid
+        type(gamSolver_T), intent(inout) :: Solver
+        type(Model_T)    , intent(in)    :: Model
+        type(Grid_T)     , intent(in)    :: Grid
 
         ! initialize stress variables
         allocate(Solver%gFlx(Grid%isg:Grid%ieg,Grid%jsg:Grid%jeg,Grid%ksg:Grid%keg,1:NVAR,1:NDIM,BLK:Model%nSpc))
@@ -838,10 +838,8 @@ module init
         Grid%face = 1.0
         Grid%xfc = 0.0
 
-        if(.not. Grid%lowMem) then
-            allocate(Grid%Tf(Grid%isg:Grid%ieg+1,Grid%jsg:Grid%jeg+1,Grid%ksg:Grid%keg+1,NDIM*NDIM,NDIM))
-            Grid%Tf = 0.0
-        endif
+        allocate(Grid%Tf(Grid%isg:Grid%ieg+1,Grid%jsg:Grid%jeg+1,Grid%ksg:Grid%keg+1,NDIM*NDIM,NDIM))
+        Grid%Tf = 0.0
 
         do d=1,NDIM
             DelI = ijkD(d,IDIR)
@@ -864,42 +862,40 @@ module init
                         Grid%xfc(i,j,k,:,d) = fInt/fA
                         Grid%face(i,j,k,d) = fA
 
-                        if(.not. Grid%lowMem) then
-                            !Get face coordinate system
-                            if (doQuadFT) then
-                                call GaussianFaceSystem(f0,f1,f2,f3,eN,eT1,eT2)
-                            else
-                                select case(d)
-                                case(IDIR)
-                                    !N,T1,T2 = i,j,k
-                                    dT1 = 0.5*( Grid%xyz(i  ,j+1,k+1,:) - Grid%xyz(i  ,j  ,k+1,:) ) + &
-                                          0.5*( Grid%xyz(i  ,j+1,k  ,:) - Grid%xyz(i  ,j  ,k  ,:) )
-                                    dT2 = 0.5*( Grid%xyz(i  ,j+1,k+1,:) - Grid%xyz(i  ,j+1,k  ,:) ) + &
-                                          0.5*( Grid%xyz(i  ,j  ,k+1,:) - Grid%xyz(i  ,j  ,k  ,:) )
-                                case(JDIR)
-                                    !N,T1,T2 = j,k,i
-                                    dT1 = 0.5*( Grid%xyz(i+1,j  ,k+1,:) - Grid%xyz(i+1,j  ,k  ,:) ) + &
-                                          0.5*( Grid%xyz(i  ,j  ,k+1,:) - Grid%xyz(i  ,j  ,k  ,:) )
-                                    dT2 = 0.5*( Grid%xyz(i+1,j  ,k+1,:) - Grid%xyz(i  ,j  ,k+1,:) ) + &
-                                          0.5*( Grid%xyz(i+1,j  ,k  ,:) - Grid%xyz(i  ,j  ,k  ,:) )
-                                case(KDIR)
-                                    !N,T1,T2 = k,i,j
-                                    dT1 = 0.5*( Grid%xyz(i+1,j+1,k  ,:) - Grid%xyz(i  ,j+1,k  ,:) ) + &
-                                          0.5*( Grid%xyz(i+1,j  ,k  ,:) - Grid%xyz(i  ,j  ,k  ,:) )
-                                    dT2 = 0.5*( Grid%xyz(i+1,j+1,k  ,:) - Grid%xyz(i+1,j  ,k  ,:) ) + &
-                                          0.5*( Grid%xyz(i  ,j+1,k  ,:) - Grid%xyz(i  ,j  ,k  ,:) )
-                                end select
-                                !Face normal
-                                eN = cross(dT1,dT2)/norm2(cross(dT1,dT2))
-                                eT2 = dT2/norm2(dT2)
-                                eT1 = cross(eT2,eN)/norm2(cross(eT2,eN))
+                        !Get face coordinate system
+                        if (doQuadFT) then
+                            call GaussianFaceSystem(f0,f1,f2,f3,eN,eT1,eT2)
+                        else
+                            select case(d)
+                            case(IDIR)
+                                !N,T1,T2 = i,j,k
+                                dT1 = 0.5*( Grid%xyz(i  ,j+1,k+1,:) - Grid%xyz(i  ,j  ,k+1,:) ) + &
+                                      0.5*( Grid%xyz(i  ,j+1,k  ,:) - Grid%xyz(i  ,j  ,k  ,:) )
+                                dT2 = 0.5*( Grid%xyz(i  ,j+1,k+1,:) - Grid%xyz(i  ,j+1,k  ,:) ) + &
+                                      0.5*( Grid%xyz(i  ,j  ,k+1,:) - Grid%xyz(i  ,j  ,k  ,:) )
+                            case(JDIR)
+                                !N,T1,T2 = j,k,i
+                                dT1 = 0.5*( Grid%xyz(i+1,j  ,k+1,:) - Grid%xyz(i+1,j  ,k  ,:) ) + &
+                                      0.5*( Grid%xyz(i  ,j  ,k+1,:) - Grid%xyz(i  ,j  ,k  ,:) )
+                                dT2 = 0.5*( Grid%xyz(i+1,j  ,k+1,:) - Grid%xyz(i  ,j  ,k+1,:) ) + &
+                                      0.5*( Grid%xyz(i+1,j  ,k  ,:) - Grid%xyz(i  ,j  ,k  ,:) )
+                            case(KDIR)
+                                !N,T1,T2 = k,i,j
+                                dT1 = 0.5*( Grid%xyz(i+1,j+1,k  ,:) - Grid%xyz(i  ,j+1,k  ,:) ) + &
+                                      0.5*( Grid%xyz(i+1,j  ,k  ,:) - Grid%xyz(i  ,j  ,k  ,:) )
+                                dT2 = 0.5*( Grid%xyz(i+1,j+1,k  ,:) - Grid%xyz(i+1,j  ,k  ,:) ) + &
+                                      0.5*( Grid%xyz(i  ,j+1,k  ,:) - Grid%xyz(i  ,j  ,k  ,:) )
+                            end select
+                            !Face normal
+                            eN = cross(dT1,dT2)/norm2(cross(dT1,dT2))
+                            eT2 = dT2/norm2(dT2)
+                            eT1 = cross(eT2,eN)/norm2(cross(eT2,eN))
 
-                            endif
-                            !Use whichever system you calculated
-                            Grid%Tf(i,j,k,NORMX:NORMZ,d) = eN
-                            Grid%Tf(i,j,k,TAN1X:TAN1Z,d) = eT1
-                            Grid%Tf(i,j,k,TAN2X:TAN2Z,d) = eT2
                         endif
+                        !Use whichever system you calculated
+                        Grid%Tf(i,j,k,NORMX:NORMZ,d) = eN
+                        Grid%Tf(i,j,k,TAN1X:TAN1Z,d) = eT1
+                        Grid%Tf(i,j,k,TAN2X:TAN2Z,d) = eT2
 
                     enddo
                 enddo
@@ -968,10 +964,8 @@ module init
         call allocGridVec(Model,Grid,Grid%edge,doP1=.true.)
         Grid%edge = 1.0
         
-        if(.not. Grid%lowMem) then
-            allocate(Grid%Te(Grid%isg:Grid%ieg+1,Grid%jsg:Grid%jeg+1,Grid%ksg:Grid%keg+1,NDIM*NDIM,NDIM))
-            Grid%Te = 0.0
-        endif
+        allocate(Grid%Te(Grid%isg:Grid%ieg+1,Grid%jsg:Grid%jeg+1,Grid%ksg:Grid%keg+1,NDIM*NDIM,NDIM))
+        Grid%Te = 0.0
 
         do d=1,NDIM
             !Use maximal bounds
@@ -1036,11 +1030,9 @@ module init
 
                         !Save edge lengths and transform
                         Grid%edge(i,j,k,d) = norm2(dEdge)
-                        if(.not. Grid%lowMem) then
-                            Grid%Te(i,j,k,NORMX:NORMZ,d) = eN
-                            Grid%Te(i,j,k,TAN1X:TAN1Z,d) = eT1
-                            Grid%Te(i,j,k,TAN2X:TAN2Z,d) = eT2
-                        endif
+                        Grid%Te(i,j,k,NORMX:NORMZ,d) = eN
+                        Grid%Te(i,j,k,TAN1X:TAN1Z,d) = eT1
+                        Grid%Te(i,j,k,TAN2X:TAN2Z,d) = eT2
 
                     enddo
                 enddo
@@ -1050,32 +1042,30 @@ module init
         
         !------------------------------------------------
         !Calculate coordinate systems at edges for magnetic field updates (magnetic field)
-        if(.not. Grid%lowMem) then
-            allocate(Grid%Teb(Grid%isg:Grid%ieg+1,Grid%jsg:Grid%jeg+1,Grid%ksg:Grid%keg+1,4,NDIM))
-            Grid%Teb = 0.0
-            !Loop over normal direction, and get edge system for plane w/ that normal
-            do dNorm=1,NDIM
-                !Get local triad
-                select case(dNorm)
-                    !TODO Replace this with Levi-Cevita?
-                    case(IDIR)
-                        T1 = JDIR; T2 = KDIR
-                    case(JDIR)
-                        T1 = KDIR; T2 = IDIR
-                    case(KDIR)
-                        T1 = IDIR; T2 = JDIR
-                end select  
-                !xnqi,ynqi <- (dNorm,dT1,dT2)
-                !xnqj,ynqj <- (dNorm,dT2,dT1)
+        allocate(Grid%Teb(Grid%isg:Grid%ieg+1,Grid%jsg:Grid%jeg+1,Grid%ksg:Grid%keg+1,4,NDIM))
+        Grid%Teb = 0.0
+        !Loop over normal direction, and get edge system for plane w/ that normal
+        do dNorm=1,NDIM
+            !Get local triad
+            select case(dNorm)
+                !TODO Replace this with Levi-Cevita?
+                case(IDIR)
+                    T1 = JDIR; T2 = KDIR
+                case(JDIR)
+                    T1 = KDIR; T2 = IDIR
+                case(KDIR)
+                    T1 = IDIR; T2 = JDIR
+            end select  
+            !xnqi,ynqi <- (dNorm,dT1,dT2)
+            !xnqj,ynqj <- (dNorm,dT2,dT1)
 
-                call ebGeom(Model,Grid,Grid%Teb(:,:,:,XNQI:YNQI,dNorm),dNorm,T1,T2)
-                call ebGeom(Model,Grid,Grid%Teb(:,:,:,XNQJ:YNQJ,dNorm),dNorm,T2,T1)
+            call ebGeom(Model,Grid,Grid%Teb(:,:,:,XNQI:YNQI,dNorm),dNorm,T1,T2)
+            call ebGeom(Model,Grid,Grid%Teb(:,:,:,XNQJ:YNQJ,dNorm),dNorm,T2,T1)
 
-            enddo    
-        endif
+        enddo    
 
         if (Model%doSource) then
-            allocate(Grid%Gas0(Grid%isg:Grid%ieg,Grid%jsg:Grid%jeg,Grid%ksg:Grid%keg,1:NVAR,0:Model%nSpc))
+            allocate(Grid%Gas0(Grid%isg:Grid%ieg,Grid%jsg:Grid%jeg,Grid%ksg:Grid%keg,Model%nvSrc))
             Grid%Gas0 = 0.0
         endif
         
