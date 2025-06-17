@@ -61,9 +61,12 @@ module mixconductance
       type(gcm_T),optional,intent(in) :: gcm
       integer,optional,intent(in) :: h
 
-      real(rp), dimension(:,:), allocatable :: SigH0,SigP0 !Old values of SigH/SigP
+      real(rp), dimension(:,:), allocatable :: SigH0,SigP0,MagE !Old values of SigH/SigP
       real(rp) :: dT,upTau,dnTau,wAvgU,wAvgD
       integer :: i,j
+      logical :: doET
+
+      doET = .false. !Just setting this here for testing instead of doing the full xml option (don't tell Jeff)
 
       !Save old Sigs
       allocate(SigH0(G%Np,G%Nt))
@@ -89,8 +92,22 @@ module mixconductance
       else
          ! Use vector addition of auroral and EUV conductance.
          call conductance_aurora(conductance,G,St)
+
+         if (doET) then
+            !Add ET enhancement to embiggen auroral conductance
+            allocate(MagE(G%Np,G%Nt))
+            MagE = 0.0
+            call CalcMagE(G,St%Vars(:,:,POT),MagE) !Get magnitude of E field [mV/m]
+            !Apply ET in diffuse regions where auroral conductance is above floor
+            where ( (conductance%deltaSigmaP > conductance%pedmin + TINY) .and. (St%Vars(:,:,DELTAE) < TINY) )
+               conductance%deltaSigmaP(:,:) = SigET_P(MagE(:,:))*conductance%deltaSigmaP(:,:)
+               conductance%deltaSigmaH(:,:) = SigET_H(MagE(:,:))*conductance%deltaSigmaH(:,:)
+            endwhere
+         endif
+
          St%Vars(:,:,SIGMAP) = sqrt( conductance%euvSigmaP**2 + conductance%deltaSigmaP**2) 
          St%Vars(:,:,SIGMAH) = sqrt( conductance%euvSigmaH**2 + conductance%deltaSigmaH**2)
+         
       endif
 
       !Before applying cap, do optional exponential smoothing
