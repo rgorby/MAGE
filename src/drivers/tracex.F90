@@ -23,7 +23,7 @@ program tracex
     integer :: n,NumP
 
     real(rp), allocatable :: Xs(:,:)
-    type(fLine_T), allocatable :: fLs(:)
+    type(magLine_T), allocatable :: fLs(:)
     real(rp) :: wT
 
     !write(*,*) "Num threads=",omp_get_max_threads()
@@ -65,7 +65,7 @@ program tracex
         !$OMP PARALLEL DO default(shared) &
         !$OMP schedule(dynamic)
         do n=1,NumP
-            call genStream(Model,ebState,Xs(n,:),Model%t,fLs(n))
+            call genLine(Model,ebState,Xs(n,:),Model%t,fLs(n))
         enddo
         call Toc("Tracer")
 

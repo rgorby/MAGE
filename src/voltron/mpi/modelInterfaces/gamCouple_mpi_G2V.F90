@@ -161,6 +161,11 @@ module gamCouple_mpi_G2V
         if(.not. App%Model%isRestart) then
             ! don't over-ride restart time
             call mpi_bcast(App%Model%t, 1, MPI_MYFLOAT, App%voltRank, App%couplingComm, ierr)
+            App%State%time  = App%Model%t
+            App%oState%time = App%State%time-App%Model%dt !Initial old state
+            if (App%Model%doAB3) then
+                App%ooState%time = App%oState%time-App%Model%dt
+            endif
         endif
         call mpi_bcast(App%Model%tFin, 1, MPI_MYFLOAT, App%voltRank, App%couplingComm, ierr)
         call mpi_bcast(App%Model%MJD0, 1, MPI_MYFLOAT, App%voltRank, App%couplingComm, ierr)
@@ -190,8 +195,8 @@ module gamCouple_mpi_G2V
             call App%WriteFileOutput(App%Model%IO%nOut)
             App%Model%IO%tOut = tIO
         else
-            ! never processing when restarted
-            App%processingData = .false.
+            ! always processing when restarted
+            App%processingData = .true.
         endif
 
     end subroutine
@@ -260,6 +265,9 @@ module gamCouple_mpi_G2V
                 else
                     ! advance to next coupling time
                     call gamMpiAdvanceModel(App, App%DeepT-App%Model%t)
+                endif
+                if(App%Model%t >= App%DeepT) then
+                    ! either way could pass coupling time
                     ! send results and get new data
                     call sendVoltronCplDataMpi(App)
                     call recvVoltronCplDataMpi(App)
@@ -274,9 +282,11 @@ module gamCouple_mpi_G2V
         class(gamCouplerMpi_gam_T), intent(inout) :: gCplApp
 
 
+        call Tic("VoltSync", .true.)
         call recvShallowCplDataMpi(gCplApp)
         if(gCplApp%doDeep) call recvDeepCplDataMpi(gCplApp)
         call recvCplTimeMpi(gCplApp)
+        call Toc("VoltSync", .true.)
 
     end subroutine
 
@@ -292,13 +302,11 @@ module gamCouple_mpi_G2V
                 TYPE IS (IonInnerBC_T)
 
                     ! Recv inEijk Data
-                    call Tic("VoltSync", .true.)
                     call mpi_neighbor_alltoallw(0, gCplApp%zeroArrayCounts, &
                                                 gCplApp%zeroArrayDispls, gCplApp%zeroArrayTypes, &
                                                 iiBC%inEijk, gCplApp%recvVCountsIneijk, &
                                                 gCplApp%recvVDisplsIneijk, gCplApp%recvVTypesIneijk, &
                                                 gCplApp%couplingComm, ierr)
-                    call Toc("VoltSync", .true.)
 
                     ! Recv inExyz Data
                     call mpi_neighbor_alltoallw(0, gcplApp%zeroArrayCounts, &
@@ -313,13 +321,11 @@ module gamCouple_mpi_G2V
         else
             ! not a rank with remix BC, but still need to call mpi_neighbor_alltoallw
             ! Recv nothing step 1
-            call Tic("VoltSync", .true.)
             call mpi_neighbor_alltoallw(0, gCplApp%zeroArrayCounts, &
                                         gCplApp%zeroArrayDispls, gCplApp%zeroArrayTypes, &
                                         0, gCplApp%zeroArrayCounts, &
                                         gCplApp%zeroArrayDispls, gCplApp%zeroArrayTypes, &
                                         gCplApp%couplingComm, ierr)
-            call Toc("VoltSync", .true.)
 
             ! Recv nothing step 2
             call mpi_neighbor_alltoallw(0, gCplApp%zeroArrayCounts, &
@@ -385,7 +391,7 @@ module gamCouple_mpi_G2V
         integer :: ierr, dataSize, sendDataOffset, recvDataOffset
         type(MPI_Datatype) :: iPSI, iPSI1, Eijk2, EIjk3, Eijk4, Exyz2, Exyz3, Exyz4
         type(MPI_Datatype) :: iP,iPjP,iPjPkP,iPjPkP4Gas,iPjPkP4Bxyz,iPjPkP5Gas
-        type(MPI_Datatype) :: iPG2,iPG2jPG2,iPG2jPG2kPG2,iPG2jPG2kPG24Gas,iPG2jPG2kPG25Gas
+        type(MPI_Datatype) :: iPG2,iPG2jPG2,iPG2jPG2kPG2,iPG2jPG2kPG24Gas0
 
         associate(Grid=>gCplApp%Grid,Model=>gCplApp%Model)
 
@@ -442,12 +448,10 @@ module gamCouple_mpi_G2V
         call mpi_type_hvector(NDIM, 1, (PsiSh+1)*(Grid%Nj+1)*(Grid%Nk+1)*dataSize, Eijk3, Eijk4, ierr)
         call mpi_type_hvector(NVAR, 1, Grid%Ni*Grid%Nj*Grid%Nk*datasize, iPjPkP, iPjPkP4Gas, ierr)
         call mpi_type_hvector(NDIM, 1, Grid%Ni*Grid%Nj*Grid%Nk*datasize, iPjPkP, iPjPkP4Bxyz, ierr)
-        call mpi_type_hvector(NVAR, 1, Grid%Ni*Grid%Nj*Grid%Nk*datasize, iPG2jPG2kPG2, iPG2jPG2kPG24Gas, ierr)
+        call mpi_type_hvector(Model%nvSrc, 1, Grid%Ni*Grid%Nj*Grid%Nk*datasize, iPG2jPG2kPG2, iPG2jPG2kPG24Gas0, ierr)
 
         ! 5th dimension
         call mpi_type_hvector(Model%nSpc+1,1,NVAR*Grid%Ni*Grid%Nj*Grid%Nk*dataSize,iPjPkP4Gas,iPjPkP5Gas,ierr)
-        call mpi_type_hvector(Model%nSpc+1,1,NVAR*Grid%Ni*Grid%Nj*Grid%Nk*dataSize,iPG2jPG2kPG24Gas, &
-                              iPG2jPG2kPG25Gas,ierr)
 
         ! create appropriate MPI Datatypes
         if(.not. Grid%hasLowerBC(IDIR)) then
@@ -481,7 +485,7 @@ module gamCouple_mpi_G2V
         if(gCplApp%doDeep) then
             ! Gas0
             recvDataOffset = 0
-            call mpi_type_hindexed(1,(/1/),recvDataOffset*dataSize,iPG2jPG2kPG25Gas, &
+            call mpi_type_hindexed(1,(/1/),recvDataOffset*dataSize,iPG2jPG2kPG24Gas0, &
                                    gCplApp%recvVTypesGas0(1),ierr)
         endif
 

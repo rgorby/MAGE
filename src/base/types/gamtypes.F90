@@ -85,7 +85,8 @@ module gamtypes
         integer :: ts
         real(rp) :: kzcsMHD = 0.0, kzcsTOT = 0.0 !Performance information: MHD and total, kilo zone-cycles per second
         logical :: doHall=.false., doMultiF=.false., &
-                   doBackground=.false. , doMHD=.false.
+                   doBackground=.false. , doMHD=.false., &
+                   doAB3 = .false.
         logical :: do25D =.false., doGrav = .false., doSphGrav = .false.
         
         logical :: isRestart=.false.
@@ -107,6 +108,7 @@ module gamtypes
         
         !Information for static source term
         logical :: doSource = .false.
+        integer :: nvSrc = NVAR !Number of variables in Gas0 array if being used
 
         !Ring average information
         logical :: doRing = .false.
@@ -131,12 +133,14 @@ module gamtypes
         procedure(ScalarFun_T), pointer, nopass :: Phi => NULL()
 
         !User hack function pointers
-        procedure(HackFlux_T)     , pointer, nopass :: HackFlux      => NULL()
-        procedure(HackE_T)        , pointer, nopass :: HackE         => NULL()
-        procedure(HackStep_T)     , pointer, nopass :: HackStep      => NULL()
-        procedure(HackPredictor_T), pointer, nopass :: HackPredictor => NULL()
-        procedure(HackIO_0_T)     , pointer, nopass :: HackIO_0      => NULL()
-        procedure(HackIO_T)       , pointer, nopass :: HackIO        => NULL()
+        procedure(HackFlux_T)       , pointer, nopass :: HackFlux        => NULL()
+        procedure(HackE_T)          , pointer, nopass :: HackE           => NULL()
+        procedure(HackStep_T)       , pointer, nopass :: HackStep        => NULL()
+        procedure(HackPredictor_T)  , pointer, nopass :: HackPredictor   => NULL()
+        procedure(HackIO_0_T)       , pointer, nopass :: HackIO_0        => NULL()
+        procedure(HackIO_T)         , pointer, nopass :: HackIO          => NULL()
+        procedure(HackLoadRestart_T), pointer, nopass :: HackLoadRestart => NULL()
+        procedure(HackSaveRestart_T), pointer, nopass :: HackSaveRestart => NULL()
 
     end type Model_T
 
@@ -233,8 +237,9 @@ module gamtypes
     !Gravitational force
         logical :: doG0Init = .true.
         real(rp), dimension(:,:,:,:), allocatable :: gxyz !Gravitational acceleration (cell-centered)
-    !Target state (Ni,Nj,Nk,1:NVAR,0:nSpc+1)
-        real(rp), dimension(:,:,:,:,:), allocatable :: Gas0
+    
+    !Source array, (Ni,Nj,Nk,Model%nvSrc)
+        real(rp), dimension(:,:,:,:), allocatable :: Gas0
 
     end type Grid_T
 
@@ -258,7 +263,7 @@ module gamtypes
     end type State_T
 
     ! Variables used by the solver for timestep update
-    type Solver_T
+    type gamSolver_T
 
         !Big local work areas to calculate fluxes
         !gFlux = Ni x Nj x Nk x Nv x Nd x Ns
@@ -277,7 +282,7 @@ module gamtypes
         !Ensure these arrays are aligned properly
         !DIR$ ATTRIBUTES align : ALIGN :: gFlx, mFlx, Vf, dGasH, dGasM
 
-    end type Solver_T
+    end type gamSolver_T
 
     type, extends(BaseOptions_T) :: gamOptions_T
         procedure(StateIC_T), pointer, nopass :: userInitFunc
@@ -286,10 +291,10 @@ module gamtypes
     end type gamOptions_T
 
     type, extends(BaseApp_T) :: gamApp_T
-        type(Model_T)  :: Model
-        type(Grid_T)   :: Grid
-        type(State_T)  :: State, oState
-        type(Solver_T) :: Solver
+        type(Model_T)     :: Model
+        type(Grid_T)      :: Grid
+        type(State_T)     :: State, oState, ooState
+        type(gamSolver_T) :: Solver
 
         type(gamOptions_T) :: gOptions
 
@@ -460,6 +465,29 @@ module gamtypes
             type(IOVAR_T), dimension(:), intent(inout) :: IOVars
 
         end subroutine HackIO_T
+
+    !HackLoadRestart_T
+    !User-defined function to be called when loading data from restart files
+    !Called after normal gamera data is loaded from restart file
+        subroutine HackLoadRestart_T(Model,Grid,State,inH5)
+            Import :: Model_T, Grid_T, State_T, IOVAR_T
+            class(Model_T), intent(inout)    :: Model
+            class(Grid_T) , intent(inout)    :: Grid
+            class(State_T), intent(inout)    :: State
+            character(len=*), intent(in) :: inH5
+        end subroutine HackLoadRestart_T
+
+    !HackSaveRestart_T
+    !User-defined function to be called when saving data to restart files
+    !Called after normal gamera data is added to restart file
+        subroutine HackSaveRestart_T(Model,Grid,State,IOVars)
+            Import :: Model_T, Grid_T, State_T, IOVAR_T
+            class(Model_T), intent(in)    :: Model
+            class(Grid_T) , intent(in)    :: Grid
+            class(State_T), intent(in)    :: State
+            type(IOVAR_T), dimension(:), intent(inout) :: IOVars
+        end subroutine HackSaveRestart_T
+
     end interface
 
     contains

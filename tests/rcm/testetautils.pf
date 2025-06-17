@@ -5,6 +5,7 @@ module testetautils
 	use conversion_module, only : almmax,almmin
 	use RCM_mod_subs
 	use torcm_mod
+	use xml_input
 	use etautils
 
 	implicit none

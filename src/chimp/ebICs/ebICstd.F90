@@ -58,6 +58,9 @@ module userebic
         !Get time series/individual grid data from H5 file
         call InitIOTab(ebTab,inpXML,ebFile,inTScl,oTScl)
 
+        ! Get number of MHD fluids
+        call setNSpc(Model, ebTab)
+
         !Start by getting grid from H5 file
         call rdGrid(Model,ebGr,ebTab,inpXML)
 
@@ -183,5 +186,25 @@ module userebic
         end associate
 
     end subroutine updateFields
+
+
+    subroutine setNSpc(Model, ebTab)
+        !! Set the number of species based on value in gamera h5 files
+        !! Steps have the nSpc attribute we can read from
+        type(chmpModel_T), intent(inout) :: Model
+        type(ioTab_T), intent(in) :: ebTab
+        
+        character(len=strLen) :: ebFile
+        type(IOVAR_T), dimension(2) :: IOVars
+
+        ebFile = genName(ebTab%bStr,ebTab%Ri,ebTab%Rj,ebTab%Rk,1,1,1,Model%doOldNaming)
+
+        call ClearIO(IOVars)
+        call AddInVar(IOVars, 'nSpc', vTypeO=IOINT) 
+        call ReadVars(IOVars, .false., ebFile,gStrO=ebTab%gStrs(1))
+        
+        Model%nSpc = GetIOInt(IOVars, 'nSpc')
+        
+    end subroutine setNSpc
 
 end module userebic

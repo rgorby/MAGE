@@ -103,8 +103,8 @@ contains
         do j=jMin,jMax ! singularities get averaged, don't test them
             do i=Gr%isg,Gr%ieg
                 !Define cell center value to be appropriate 8-point of corners
-                if(Gr%Gas0(i,j,k,IMDEN,BLK) /= 0 .or. Gr%Gas0(i,j,k,IMX1,BLK) /= 0 .or. &
-                   Gr%Gas0(i,j,k,IMX2,BLK) /= 0  .or. Gr%Gas0(i,j,k,IMPR,BLK) /= 0) then
+                if(Gr%Gas0(i,j,k,IM_D_COLD) /= 0 .or. Gr%Gas0(i,j,k,PROJLON) /= 0 .or. &
+                   Gr%Gas0(i,j,k,PROJLAT) /= 0  .or. Gr%Gas0(i,j,k,IM_P_COLD) /= 0) then
                     !Gas0 data is tasty/valid
                     call SquishCorners(SrcX12(i:i+1,j:j+1,k:k+1,1),Qs)
                     X1cc = ArithMean(Qs)
@@ -112,9 +112,9 @@ contains
                     X2cc = CircMeanDeg(Qs)
 
                     write (checkMessage,'(A,A,A,I0,A,I0,A,I0,A)'), 'Gas0 Latitude is wrong on ',trim(locStr),' at  (',i,',',j,',',k,')'
-                    @assertEqual(X1cc,Gr%Gas0(i,j,k,IMX1,BLK),1e-17_rp,trim(checkMessage))
+                    @assertEqual(X1cc,Gr%Gas0(i,j,k,PROJLAT),1e-17_rp,trim(checkMessage))
                     write (checkMessage,'(A,A,A,I0,A,I0,A,I0,A)'), 'Gas0 Longitude is wrong on ',trim(locStr),' at  (',i,',',j,',',k,')'
-                    @assertEqual(X2cc,Gr%Gas0(i,j,k,IMX2,BLK),1e-17_rp,trim(checkMessage))
+                    @assertEqual(X2cc,Gr%Gas0(i,j,k,PROJLON),1e-17_rp,trim(checkMessage))
                 endif
             enddo
         enddo
@@ -145,8 +145,8 @@ contains
           ! enable debug projection and tubes for testing
           voltAppMpi%ebTrcApp%ebModel%doDip = .true.
           select type(rcmApp=>voltAppMpi%imagApp)
-              type is (rcmIMAG_T)
-                  rcmApp%doFakeTube = .true.
+              !type is (rcmIMAG_T)
+              !    rcmApp%doFakeTube = .true.
               class default
                   @assertTrue(.false., 'IMAG type must be RCM for the MPI squish test')
           end select

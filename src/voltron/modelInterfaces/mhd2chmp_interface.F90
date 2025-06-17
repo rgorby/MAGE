@@ -38,43 +38,57 @@ module mhd2chmp_interface
 
     subroutine convertGameraToChimp(mhd2chmp,gamApp,ebTrcApp)
         type(mhd2Chmp_T), intent(inout) :: mhd2chmp
-        type(gamApp_T)  , intent(in)    :: gamApp
+        class(gamApp_T)  , intent(in)    :: gamApp
         type(ebTrcApp_T), intent(inout) :: ebTrcApp
 
         real(rp), dimension(NVAR) :: pW, pCon
         real(rp), dimension(NDIM) :: Bxyz,Vxyz
-        integer :: i,j,k
+        integer :: i,j,k,n
 
         associate(Gr=>gamApp%Grid,State=>gamApp%State,ebGr=>ebTrcApp%ebState%ebGr,ebF=>ebTrcApp%ebState%eb1)
-        
+                
+        if (ebTrcApp%ebModel%nSpc /= gamApp%Model%nSpc) then
+            write(*,*) "CHIMP/GAMERA num species mismatch!"
+            stop
+        endif
+
         !Scrape Gamera MHD data into CHIMP structure
         !NOTE: Chimp and Gamera both have background fields that are not equal
         !Gamera uses a cutdipole background, CHIMP uses a pure dipole background
         !$OMP PARALLEL DO default(shared) collapse(2) &
-        !$OMP private(i,j,k,pW,pCon,Bxyz,Vxyz)
+        !$OMP private(i,j,k,pW,pCon,Bxyz,Vxyz,n)
         do k=Gr%ks,Gr%ke
             do j=Gr%js,Gr%je
                 do i=Gr%is,Gr%ie
-                    !Get conserved state from Gamera, convert to prim, scale and load into Chimp
+                    
+                !Add Gamera field + Gamera background, scale to CHIMP
+                    !Use bulk velocity to get E field
                     pCon = State%Gas(i,j,k,:,BLK)
                     call CellC2P(gamApp%Model,pCon,pW)
-                    !Add Gamera field + Gamera background, scale to CHIMP
+                    Vxyz = inVScl*pW(VELX:VELZ)
+
                     Bxyz = inBScl*State%Bxyz(i,j,k,:)
                     if (gamApp%Model%doBackground) then
                         Bxyz = Bxyz + inBScl*Gr%B0(i,j,k,:)
                     endif
-                    Vxyz = inVScl*pW(VELX:VELZ)
                     
                     !Now store data, subtract CHIMP background
                     ebF%dB(i,j,k,:) = Bxyz - ebGr%B0cc(i,j,k,:)
                     ebF%E(i,j,k,:)  = -cross(Vxyz,Bxyz)
 
-                    if (ebTrcApp%ebModel%doMHD) then
-                        ebF%W(i,j,k,DEN)       = inDScl*pW(DEN)
-                        ebF%W(i,j,k,PRESSURE)  = inPScl*pW(PRESSURE)
-                        ebF%W(i,j,k,VELX:VELZ) = Vxyz !Already scaled
-                    endif
-                enddo
+                    if (.not. ebTrcApp%ebModel%doMHD) cycle
+
+                    do n=0,gamApp%Model%nSpc
+                        !Get conserved state from Gamera, convert to prim, scale and load into Chimp
+                        pCon = State%Gas(i,j,k,:,n)
+                        call CellC2P(gamApp%Model,pCon,pW)
+
+                        ebF%W(i,j,k,DEN      ,n) = inDScl*pW(DEN)
+                        ebF%W(i,j,k,PRESSURE ,n) = inPScl*pW(PRESSURE)
+                        ebF%W(i,j,k,VELX:VELZ,n) = inVScl*pW(VELX:VELZ)
+
+                    enddo !species/n
+                enddo !i
             enddo
         enddo
 

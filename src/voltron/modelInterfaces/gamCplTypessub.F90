@@ -89,8 +89,6 @@ submodule (volttypes) gamCplTypessub
         type(TimeSeries_T) :: tsMJD
         real(rp) :: tIO
 
-        allocate(App%SrcNC(App%Grid%is:voltApp%chmp2mhd%iMax+1,App%Grid%js:App%Grid%je+1,App%Grid%ks:App%Grid%ke+1,1:NVARIMAG))
-
         ! over-ride some Gamera parameters with Voltron values
         tsMJD%wID = voltApp%tilt%wID
         call tsMJD%initTS("MJD",doLoudO=.false.)
@@ -118,6 +116,28 @@ submodule (volttypes) gamCplTypessub
 
     end subroutine
 
+    module subroutine gamPartialUpdateMhdData(App, voltApp, vDT)
+        class(gamCoupler_T), intent(inout) :: App
+        class(voltApp_T), intent(inout) :: voltApp
+        real(rp), intent(in) :: vDT
+
+        real(rp) :: gDT
+
+        gDT = vDT / App%Model%Units%gT0
+
+        ! don't advance past next DeepT with partial steps
+        if((App%model%t + gDT) > (voltApp%DeepT / App%Model%Units%gT0)) then
+            gDT = (voltApp%DeepT / App%Model%Units%gT0) - App%model%t
+        endif
+
+        if(gDT > 0.0_rp) then
+            call Tic("GameraSync", .true.)
+            call App%AdvanceModel(gDT)
+            call Toc("GameraSync", .true.)
+        endif
+
+    end subroutine
+
     module subroutine gamFinishUpdateMhdData(App, voltApp)
         class(gamCoupler_T), intent(inout) :: App
         class(voltApp_T), intent(inout) :: voltApp
@@ -127,9 +147,11 @@ submodule (volttypes) gamCplTypessub
         ! update to DeepT time
         stepDT = (voltApp%DeepT / App%Model%Units%gT0) - App%model%t
 
-        call Tic("GameraSync", .true.)
-        call App%AdvanceModel(stepDT)
-        call Toc("GameraSync", .true.)
+        if(stepDT > 0.0_rp) then
+            call Tic("GameraSync", .true.)
+            call App%AdvanceModel(stepDT)
+            call Toc("GameraSync", .true.)
+        endif
 
     end subroutine
 
@@ -144,7 +166,8 @@ submodule (volttypes) gamCplTypessub
         call SetRings(App%Model,App%Grid,Xml)
         call Corners2Grid(App%Model,App%Grid)
         call DefaultBCs(App%Model,App%Grid)
-        call PrepState(App%Model,App%Grid,App%oState,App%State,Xml,App%gOptions%userInitFunc)
+        call PrepState(App%Model,App%Grid,App%State,App%oState,App%ooState,Xml,App%gOptions%userInitFunc)
+
 
     end subroutine
 
@@ -204,6 +227,13 @@ submodule (volttypes) gamCplTypessub
     module subroutine SHgamStartUpdateMhdData(App, voltApp)
         class(SHgamCoupler_T), intent(inout) :: App
         class(voltApp_T), intent(inout) :: voltApp
+        ! do nothing
+    end subroutine
+
+    module subroutine SHgamPartialUpdateMhdData(App, voltApp, vDT)
+        class(SHgamCoupler_T), intent(inout) :: App
+        class(voltApp_T), intent(inout) :: voltApp
+        real(rp), intent(in) :: vDT
         ! do nothing
     end subroutine
 

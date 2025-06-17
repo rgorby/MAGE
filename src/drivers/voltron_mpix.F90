@@ -265,7 +265,9 @@ program voltron_mpix
             endif
 
             if (gApp%Model%IO%doOutput(gApp%Model%t)) then
-                call gApp%WriteFileOutput(gApp%Model%IO%nOut)
+                do while(gApp%Model%IO%doOutput(gApp%Model%t))
+                    call gApp%WriteFileOutput(gApp%Model%IO%nOut)
+                end do
             endif
 
             if (gApp%Model%IO%doRestart(gApp%Model%t)) then

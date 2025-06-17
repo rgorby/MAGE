@@ -2,6 +2,8 @@
 
 module mixinterfaceutils
     use mixdefs
+    use volttypes
+    use shellInterp
 
     implicit none
 
@@ -67,6 +69,79 @@ module mixinterfaceutils
        p = modulo(atan2(-mhdg(:,:,YDIR),mhdg(:,:,XDIR)),2*pi)
     end if
   end subroutine mix_mhd_grid
+
+
+   subroutine mixVarToVoltron(mixApp, mixvarID, voltGrid, varOut)
+      !! Map a given remix variable onto the voltron grid
+      !! Convert certain remix quantities to Voltron State variables
+      class(mixApp_T  )   , intent(inout) :: mixApp
+      integer             , intent(in)    :: mixvarID
+      type(ShellGrid_T)   , intent(in)    :: voltGrid
+      type(ShellGridVar_T), intent(inout) :: varOut
+         !! (w.r.t. voltGrid) Potential we write to 
+
+      !real(rp), dimension(mixApp%ion(NORTH)%shGr%Nt,mixApp%ion(NORTH)%shGr%Np) :: tmpPot
+      integer :: iLat
+      ! South grid stuff
+      real(rp), dimension(:), allocatable :: thS, phS
+      type(ShellGrid_T) :: mixS
+      type(ShellGridVar_T) :: mixSGV, tmpN, tmpS
+
+      ! Init a ShellGridVar w.r.t. remix's ShellGrid to map its variables onto
+      call initShellVar(mixApp%ion(NORTH)%shGr, SHGR_CORNER, mixSGV)
+
+      ! Init temp arrays to map to per hemisphere
+      call initShellVar(voltGrid, SHGR_CORNER, tmpN)
+      call initShellVar(voltGrid, SHGR_CORNER, tmpS)
+
+      varOut%data = 0.0
+      varOut%mask = .false.
+      associate(rmHemi=>mixApp%ion(NORTH), shGr=>mixApp%ion(NORTH)%shGr) !, Nt=>mixApp%ion(NORTH)%shGr%Nt, Np=>mixApp%ion(NORTH)%shGr%Np)       
+         mixSGV%data(:,shGr%js:shGr%je) = transpose(rmHemi%St%Vars(:,:,mixVarID))
+         mixSGV%data(:,shGr%je+1) = mixSGV%data(:,shGr%js)
+         mixSGV%mask = .true.
+         call InterpShellVar_TSC_SG(rmHemi%shGr, mixSGV, voltGrid, tmpN)
+         
+         ! Hacky version for now. Not needed if mix's sg is child of voltron's
+         iLat = voltGrid%is
+         do while (voltGrid%th(iLat+1) < rmHemi%shGr%maxTheta)
+            iLat = iLat + 1
+         enddo
+         varOut%mask(voltGrid%is:iLat,:) = .true.
+
+      end associate
+
+
+      associate(rmHemi=>mixApp%ion(SOUTH), shGr=>mixApp%ion(SOUTH)%shGr)       
+         ! Set up a proper ShellGrid for Southern hemisphere in SM coordinates
+         allocate(thS(shGr%Nt+1))
+         allocate(phS(shGr%Np+1))
+         thS = PI - shGr%th(shGr%ie+1:shGr%is:-1)  ! Flip direction so we go from eq to pole in memory
+         phS = shGr%ph(shGr%js:shGr%je+1)  ! Positions are same values, but handedness is flipped. Handle on data mashing
+         call GenShellGrid(mixS, thS,phS,"REMIX_SOUTH",nGhosts=(/0,0,0,0/),radO=shGr%radius)
+         call initShellVar(mixS, SHGR_CORNER, mixSGV)  ! blow up old mixSGV and use new southern grid (even thouth they should be the same)
+         mixSGV%mask = .true.
+         ! Now map Southern hemi mix var onto a SM shellgridvar
+         mixSGV%data(:,mixS%js:mixS%je) = transpose(rmHemi%St%Vars(1:shGr%Np,:,mixvarID))
+         mixSGV%data(:,mixS%js:mixS%je) = mixSGV%data(mixS%ie+1:mixS%is:-1,mixS%je:mixS%js:-1)
+         mixSGV%data(:,mixS%je+1) = mixSGV%data(:,mixS%js)
+         ! Ready to interp onto the voltron grid
+         call InterpShellVar_TSC_SG(mixS, mixSGV, voltGrid, tmpS)
+         
+         ! Hacky version for now. Not needed if mix's sg is child of voltron's
+         iLat = voltGrid%ie
+         do while (voltGrid%th(iLat-1) > shGr%minTheta)
+            iLat = iLat - 1
+            if (ilat == 1) exit ! ** FIX THIS
+         enddo
+         varOut%mask(iLat:voltGrid%ie+1,:) = .true.
+
+      end associate
+
+      ! Add both hemis together to get final global potential
+      varOut%data = tmpN%data + tmpS%data
+
+   end subroutine mixVarToVoltron
 
 end module mixinterfaceutils
 
