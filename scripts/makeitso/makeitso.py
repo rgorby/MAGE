@@ -104,6 +104,39 @@ def create_command_line_parser():
     return parser
 
 
+def update_loaded_options(options):
+    """Update a loaded set of run options to account for format changes.
+
+    Update a loaded set of run options to account for format changes.
+
+    Parameters
+    ----------
+    options : dict
+        Dictionary of program options, each entry maps str to str.
+
+    Returns
+    -------
+    options : dict
+        Updated dictionary of program options.
+
+    Raises
+    ------
+    None
+    """
+    # <HACK>
+    # If the tsOut attribute is found, rename it to dtCon.
+    DEFAULT_GEO_DTCON = "300"  # Seconds
+    if "tsOut" in options["voltron"]["output"]:
+        print("WARNING: Replacing obsolete parameter tsOut with default dtCon"
+              f" value of {DEFAULT_GEO_DTCON} seconds!")
+        options["voltron"]["output"]["dtCon"] = DEFAULT_GEO_DTCON
+        del options["voltron"]["output"]["tsOut"]
+    # </HACK>
+
+    # Return the updated options.
+    return options
+
+
 def get_run_option(name, description, mode="BASIC"):
     """Prompt the user for a single run option.
 
@@ -917,6 +950,7 @@ def main():
         # Read the run options from a JSON file.
         with open(options_path, "r", encoding="utf-8") as f:
             options = json.load(f)
+        options = update_loaded_options(options)
     else:
         # Prompt the user for the run options.
         options = prompt_user_for_run_options(args)
