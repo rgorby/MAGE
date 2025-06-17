@@ -340,6 +340,9 @@ module raijuPreAdvancer
             !deallocate(gradQtmp)
         endif
 
+        call wrapJcc(Grid%shGrid, gradQ(:,:,RAI_TH))
+        call wrapJcc(Grid%shGrid, gradQ(:,:,RAI_PH))
+
         gradQ = gradQ / Rp_m  ! [Q/m]
 
         end associate

@@ -66,7 +66,7 @@ module mixconductance
       integer :: i,j
       logical :: doET
 
-      doET = .false. !Just setting this here for testing instead of doing the full xml option (don't tell Jeff)
+      doET = .true. !Just setting this here for testing instead of doing the full xml option (don't tell Jeff)
 
       !Save old Sigs
       allocate(SigH0(G%Np,G%Nt))
@@ -117,7 +117,7 @@ module mixconductance
          dT = 5.D0
 
          dnTau = 30.D0 ![s], fall timescale (eg recombination)
-         upTau = 5.D0  ![s], increase timescale (eg state averaging)
+         upTau = 30.D0  ![s], increase timescale (eg state averaging)
 
          wAvgD = 1.D0 - exp(-3.D0*dT/max(dT,dnTau))
          wAvgU = 1.D0 - exp(-3.D0*dT/max(dT,upTau))
