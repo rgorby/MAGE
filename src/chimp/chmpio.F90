@@ -100,9 +100,9 @@ module chmpio
 
     subroutine fOutput(Model,ebState,tpState,fLines)
         type(chmpModel_T), intent(inout) :: Model
-        type(ebState_T), intent(in), optional   :: ebState
-        type(tpState_T), intent(inout), optional   :: tpState
-        type(fLine_T),   intent(in), optional   :: fLines(:)
+        type(ebState_T)  , intent(in)   , optional   :: ebState
+        type(tpState_T)  , intent(inout), optional   :: tpState
+        type(magLine_T)  , intent(in)   , optional   :: fLines(:)
 
         character(len=strLen) :: gStr
         integer :: Nfl

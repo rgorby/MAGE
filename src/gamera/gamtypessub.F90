@@ -29,7 +29,7 @@ submodule (gamtypes) gamtypessub
         ! synchronize restart output number
         App%Model%IO%nRes = nRes
 
-        call resOutput(App%Model, App%Grid, App%oState, App%State)
+        call resOutput(App%Model, App%Grid, App%State, App%oState, App%ooState)
 
     end subroutine gamWriteRestart
 
@@ -41,7 +41,7 @@ submodule (gamtypes) gamtypessub
         character(len=strLen) :: inH5
 
         call getRestart(App%Model,App%Grid,resId,nRes,inH5)
-        call readH5Restart(App%Model, App%Grid, App%State, App%oState,inH5)
+        call readH5Restart(App%Model, App%Grid, App%State, App%oState, App%ooState, inH5)
 
     end subroutine gamReadRestart
 

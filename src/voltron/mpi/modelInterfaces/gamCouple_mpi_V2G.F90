@@ -76,6 +76,7 @@ module gamCouple_mpi_V2G
 
         procedure :: InitMhdCoupler => gamCplMpiVInitMhdCoupler
         procedure :: StartUpdateMhdData => gamCplMpiVStartUpdateMhdData
+        procedure :: PartialUpdateMhdData => gamCplMpiVPartialUpdateMhdData
         procedure :: FinishUpdateMhdData => gamCplMpiVFinishUpdateMhdData
 
     end type
@@ -108,7 +109,7 @@ module gamCouple_mpi_V2G
         call Corners2Grid(App%Model,App%Grid)
         call DefaultBCs(App%Model,App%Grid)
         call PrepState(App%Model,App%Grid,&
-            App%oState,App%State,Xml,App%gOptions%userInitFunc)
+            App%State,App%oState,App%ooState,Xml,App%gOptions%userInitFunc)
 
         ! split couplingPoolComm into a communicator with only the non-helper voltron rank and Gamera ranks
         call voltronSplitWithApp(App%gOptionsCplMpiV%couplingPoolComm, gamId, 0, voltComm)
@@ -222,7 +223,7 @@ module gamCouple_mpi_V2G
         type(MPI_Datatype) :: recvDatatype
         type(MPI_Datatype) :: iPSI,iPSI1,Exyz2,Eijk2,Exyz3,Eijk3,Exyz4,Eijk4
         type(MPI_Datatype) :: iP,iPjP,iPjPkP,iPjPkP4Bxyz,iPjPkP4Gas,iPjPkP5Gas
-        type(MPI_Datatype) :: iPG2,iPG2jPG2,iPG2jPG2kPG2,iPG2jPG2kPG24Gas,iPG2jPG2kPG25Gas
+        type(MPI_Datatype) :: iPG2,iPG2jPG2,iPG2jPG2kPG2,iPG2jPG2kPG24Gas0
 
         associate(Grid=>vApp%Grid,Model=>vApp%Model)
 
@@ -303,12 +304,10 @@ module gamCouple_mpi_V2G
         call mpi_type_hvector(NDIM, 1, (PsiSh+1)*(Grid%Nj+1)*(Grid%Nk+1)*dataSize, Eijk3, Eijk4, ierr)
         call mpi_type_hvector(NDIM, 1, Grid%Ni*Grid%Nj*Grid%Nk*dataSize, iPjPkP, iPjPkP4Bxyz, ierr)
         call mpi_type_hvector(NVAR, 1, Grid%Ni*Grid%Nj*Grid%Nk*dataSize, iPjPkP, iPjPkP4Gas, ierr)
-        call mpi_type_hvector(NVAR, 1, Grid%Ni*Grid%Nj*Grid%Nk*dataSize, iPG2jPG2kPG2, iPG2jPG2kPG24Gas, ierr)
+        call mpi_type_hvector(Model%nvSrc, 1, Grid%Ni*Grid%Nj*Grid%Nk*dataSize, iPG2jPG2kPG2, iPG2jPG2kPG24Gas0, ierr)
 
         ! 5th dimension
         call mpi_type_hvector(Model%nSpc+1,1,NVAR*Grid%Ni*Grid%Nj*Grid%Nk*dataSize,iPjPkP4Gas,iPjPkP5Gas,ierr)
-        call mpi_type_hvector(Model%nSpc+1,1,NVAR*Grid%Ni*Grid%Nj*Grid%Nk*dataSize, &
-                              iPG2jPG2kPG24Gas, iPG2jPG2kPG25Gas, ierr)
 
         ! figure out exactly what data needs to be sent to (and received from) each gamera rank
         ! create custom MPI datatypes to perform these transfers
@@ -359,7 +358,7 @@ module gamCouple_mpi_V2G
                 sendDataOffset = kRanks(sRank)*NkpT*Grid%Nj*Grid%Ni + &
                                  jRanks(sRank)*NjpT*Grid%Ni + &
                                  iRanks(sRank)*NipT
-                call mpi_type_hindexed(1, (/1/), sendDataOffset*dataSize, iPG2jPG2kPG25Gas, &
+                call mpi_type_hindexed(1, (/1/), sendDataOffset*dataSize, iPG2jPG2kPG24Gas0, &
                                        vApp%sendGTypesGas0(r), ierr)
             endif
         enddo
@@ -406,8 +405,8 @@ module gamCouple_mpi_V2G
         ! read only my own restart data
         call readGamCouplerRestart(App, resId, nRes)
 
-        ! we are never in progress after a restart
-        App%inProgress = .false.
+        ! we are always in progress after a restart
+        App%inProgress = .true.
 
     end subroutine
 
@@ -509,6 +508,16 @@ module gamCouple_mpi_V2G
         call Tic("Coupling", .true.)
         call sendGameraCplDataMpi(App, voltApp%DeepT)
         call Toc("Coupling", .true.)
+
+    end subroutine
+
+    subroutine gamCplMpiVPartialUpdateMhdData(App, voltApp, vDT)
+        class(gamCouplerMpi_volt_T), intent(inout) :: App
+        class(voltApp_T), intent(inout) :: voltApp
+        real(rp), intent(in) :: vDT
+
+        write (*,*) "Partial Updates not supported by MPI coupled Gamera"
+        stop
 
     end subroutine
 

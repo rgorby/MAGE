@@ -24,6 +24,7 @@ program voltronx
         
         !Advance voltron models one coupling step
         nextDT = min(vApp%tFin-vApp%time, vApp%IO%nextIOTime()-vApp%time)
+
         call Tic("StepVoltron")
         call stepVoltron(vApp, nextDT)
         call Toc("StepVoltron")

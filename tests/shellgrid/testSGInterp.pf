@@ -9,8 +9,16 @@ module testSGInterp
     implicit none
 
     integer, parameter :: Npnt = 50
+    integer, parameter :: sub_is = 13
+    integer, parameter :: sub_ie = 17
+    !integer, parameter :: sub_ie = 37
+    integer, parameter :: sub_js = 17
+    integer, parameter :: sub_je = 21
+    !integer, parameter :: sub_je = 41
     type(ShellGrid_T) :: sh
+    type(ShellGridVar_T) :: shVar_rand_corner
     character(len=strLen) :: checkMessage
+
 
     contains
 
@@ -33,6 +41,12 @@ module testSGInterp
         enddo
 
 	    call GenShellGrid(sh, thetas, phis,'shgrTest_loc', radO=1.1_rp)
+        call initShellVar(sh, SHGR_CORNER, shVar_rand_corner)
+        do j=shVar_rand_corner%jsv,shVar_rand_corner%jev
+            do i=shVar_rand_corner%isv,shVar_rand_corner%iev
+                shVar_rand_corner%data(i,j) = rand()
+            enddo
+        enddo
 
 	end subroutine setup
 
@@ -142,5 +156,30 @@ module testSGInterp
         @assertLessThanOrEqual(diffSum, TINY, "TSC_SG and TSC_pnt results don't match for SHCORNER dest vars")
         continue
     end subroutine testEquivDCell_Corner
+
+    @test
+    subroutine testParentToChild_sameLoc()
+        type(ShellGrid_T   ) :: destGrid
+        type(ShellGridVar_T) :: destVar  ! Contains source data
+
+        integer :: iExtra = 0, jExtra=0
+        integer, dimension(4) :: nGhosts
+
+        if(shVar_rand_corner%loc==SHGR_CORNER .or. shVar_rand_corner%loc==SHGR_FACE_THETA) then
+            iExtra = 1
+        endif
+        if(shVar_rand_corner%loc==SHGR_CORNER .or. shVar_rand_corner%loc==SHGR_FACE_PHI) then
+            jExtra = 1
+        endif
+
+        nGhosts = (/sh%Ngn, sh%Ngs, sh%Ngw, sh%Nge/)
+
+        call GenChildShellGrid(sh, destGrid, "testChild", nGhosts=nGhosts, sub_is=sub_is,sub_ie=sub_ie)
+        call initShellVar(destGrid, shVar_rand_corner%loc, destVar)
+        call InterpShellVar_ParentToChild(sh, shVar_rand_corner, destGrid, destVar)
+        
+        @assertEqual(shVar_rand_corner%data(sub_is:sub_ie+iExtra,:), destVar%data(destGrid%is:destGrid%ie+iExtra,:), "Sameloc case for InterpShellVar_Parent2child not copying properly.")
+
+    end subroutine testParentToChild_sameLoc
 
 end module testSGInterp

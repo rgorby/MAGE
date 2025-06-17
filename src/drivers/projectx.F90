@@ -24,7 +24,7 @@ program projectx
 
     real(rp), allocatable :: Xs(:,:), Xe(:,:)
     real(rp) :: xout(NDIM)
-    type(fLine_T), allocatable :: fLs(:)
+    type(magLine_T), allocatable :: fLs(:)
     real(rp) :: wT
 
 !    write(*,*) "Num threads=",omp_get_max_threads()

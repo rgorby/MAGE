@@ -183,6 +183,9 @@ module gridloc
         call inpXML%Set_Val(DomR(2),'domain/rmax',DomR(2))
         DomE = [DomR(2),-100.0_rp,40.0_rp]        
         call inpXML%Set_Val(domStr,'domain/dtype',"SPH")
+
+        if (Model%isMAGE) domStr = "MAGE"
+
         select case (trim(toUpper(domStr)))
             case("SPH")
                 write(*,*) 'Using spherical inDomain'
@@ -196,12 +199,12 @@ module gridloc
                 call inpXML%Set_Val(DomE(3),'domain/yzMax',40.0_rp)
             case("MAGE")
                 write(*,*) 'Using MAGE inDomain'
-                inDomain=>inDomain_LFM
-                !Set bounds for yz-cylinder grid
-                !Choose appropriate for RCM coupling
+                inDomain=>inDomain_MAGE
+
                 call inpXML%Set_Val(DomE(1),'domain/xSun' ,  20.0_rp)
                 call inpXML%Set_Val(DomE(2),'domain/xTail', -50.0_rp)
                 call inpXML%Set_Val(DomE(3),'domain/yzMax',  40.0_rp)
+
             case("EGG")
                 write(*,*) 'Using EGG inDomain'
                 inDomain=>inDomain_Egg
@@ -457,6 +460,64 @@ module gridloc
         endif
 
     end function inDomain_Sph
+
+    function inDomain_MAGE(xyz,Model,ebGr) result(inDom)
+        real(rp), intent(in) :: xyz(NDIM)
+        type(chmpModel_T), intent(in) :: Model
+        type(ebGrid_T), intent(in) :: ebGr
+
+        real(rp) :: r,xs,ys,xSun
+        integer :: ij(2), ix
+        integer :: i1,i2,j1,j2
+
+        logical :: inDom
+
+        xSun = ebGr%xyz(ebGr%ie,ebGr%js,ebGr%ks,XDIR) !Sunward line
+
+        !Start w/ some silly short circuits
+        r = norm2(xyz)
+        if (r <= DomR(1)) then
+            !Inner boundary
+            inDom = .false.
+            return
+        endif
+
+        if (r <= xSun) then
+            !Within sphere bounded by dayside, you're good
+            inDom = .true.
+            return
+        endif
+
+        !Do some more short circuits but work in upper half plane coords
+        xs = xyz(XDIR)
+        ys = sqrt(xyz(YDIR)**2.0 + xyz(ZDIR)**2.0)
+
+        !Use a nice rectangular bound
+        if ( (xs <=0) .and. (xs >= -225) .and. (ys <= 80) ) then
+            inDom = .true.
+            return
+        endif
+
+        !All right, we've had a good time but if you're still here we're gonna have to do this the hard way
+        
+        !Cut out obviously incorrect 2D indices
+        call lfmChop(Model,ebGr,[xs,ys],i1,i2,j1,j2)
+
+        !If still here, just pick the closest one
+
+        ij = minloc( (locAux%xxC(i1:i2,j1:j2)-xs)**2.0 + (locAux%yyC(i1:i2,j1:j2)-ys)**2.0 )
+        ij = ij + [i1-1,j1-1] !Correct for offset
+        ix = ij(IDIR)
+        if ( abs(ix - ebGr%ie) <= 4 ) then
+            !Closest point is pretty damn close to the outer boundary, bag that
+            inDom = .false.
+            return
+        else
+            inDom = .true.
+            return
+        endif
+
+    end function inDomain_MAGE
 
     function inDomain_LFM(xyz,Model,ebGr) result(inDom)
         real(rp), intent(in) :: xyz(NDIM)

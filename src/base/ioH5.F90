@@ -24,7 +24,7 @@ module ioH5
 
     !Overloader to add data (array or scalar/string) to output chain
     interface AddOutVar
-        module procedure AddOut_5D,AddOut_4D,AddOut_3D,AddOut_2D,AddOut_1D,AddOut_Int,AddOut_DP,AddOut_SP,AddOut_Str
+        module procedure AddOut_5D,AddOut_4D,AddOut_3D,AddOut_2D,AddOut_1D,AddOut_Int,AddOut_DP,AddOut_SP,AddOut_Str,AddOut_Bool
     end interface
 
     !Overloader to fill array from already read IO chain
@@ -91,6 +91,17 @@ contains
         nvar = FindIO(IOVars,vID,.true.)
         vOut = IOVars(nvar)%data(1)
     end function GetIOReal
+
+    !> Helper funciton to pull STR from an IOVar data
+    function GetIOStr(IOVars,vID) result(vOut)
+        type(IOVAR_T), dimension(:), intent(in) :: IOVars
+        character(len=*), intent(in) :: vID
+        integer :: nvar
+
+        character(len=strLen) :: vOut
+        nvar = FindIO(IOVars,vID,.true.)
+        vOut = IOVars(nvar)%dStr
+    end function GetIOStr
 
     !-------------------------------------------   
     !Various routines to get information about step structure of H5 file
@@ -348,6 +359,7 @@ contains
         integer :: herr, dsTest
         integer(HID_T) :: h5fId, gId, inId
         character(len=strLen) :: h5File
+        character(len=strLen) :: gStr
 
         !Set filename to baseStr
         !FIXME: Correct to add .h5 to baseStr
@@ -373,10 +385,11 @@ contains
             !Open group
             call h5gopen_f(h5fId,trim(gStrO),gId,herr)
             inId = gId
-            
+            gStr = trim(gStrO)
         else
             !Read from root
             inId = h5fId
+            gStr = "/"
         endif !gStrO
 
         Nv = size(IOVars)
@@ -401,7 +414,7 @@ contains
                         write(*,*) 'Unable to read attribute "',trim(IOVars(n)%idStr),'" as a hyperslab'
                         stop
                     else
-                        call ReadHDFAtt(IOVars(n),inId)
+                        call ReadHDFAtt(IOVars(n),inId,gStr)
                     endif
                 endif
 
@@ -547,9 +560,10 @@ contains
 
     !FIXME: Add scaling to attributes
     !> Read an HDF attribute from a group
-    subroutine ReadHDFAtt(IOVar,gId)
+    subroutine ReadHDFAtt(IOVar,gId,gStr)
         type(IOVAR_T), intent(inout) :: IOVar
         integer(HID_T), intent(in) :: gId
+        character(len=*) :: gStr
 
         integer :: herr
         real(rp) :: X
@@ -567,8 +581,9 @@ contains
         case(IOINT)
             IOVar%data(1) = 1.0*readIntHDF(gId,trim(IOVar%idStr))
         case(IOSTR)
-            write(*,*) 'Read HDF string not implemented'
-            stop
+            IOVar%dStr = readStrHDF(gid,trim(gStr),trim(IOVar%idStr))
+            !write(*,*) 'Read HDF string not implemented'
+            !stop
         case default
             write(*,*) 'Unknown HDF data type, bailing ...'
             stop
@@ -886,34 +901,36 @@ contains
                 call h5gopen_f(h5fId,trim(gStrO),gId,herr)
             endif
 
-            if(trim(toUpper(gStrO(1:5))) == "STEP#") then
-                writeCache = .true.
-                !Check if cache group exists
-                call h5lexists_f(h5fId,trim(attrGrpName),cacheExist,herr)
-                if (.not. cacheExist) then
-                    if(.not. createdThisFile) then
-                        write(*,*) "Attempt to create the timeAttributeCache in an existing h5 file", &
-                                   " that does not have the cache group."
-                        write(*,*) "Perform restart in a different directory, or create the timeAttributeCache", &
-                                   " and populate it in the exisitng h5 file."
-                        stop
-                    endif
-                    !Create cache group
-                    call h5gcreate_f(h5fId,trim(attrGrpName),cacheId,herr)     
-                    cacheCreate = .true.    
-                endif 
-                ! Open attribute cache group
-                call h5gopen_f(h5fId,trim(attrGrpName),cacheId,herr)  
+            if(len(trim(gStrO)) >= 5) then
+                if(trim(toUpper(gStrO(1:5))) == "STEP#") then
+                    writeCache = .true.
+                    !Check if cache group exists
+                    call h5lexists_f(h5fId,trim(attrGrpName),cacheExist,herr)
+                    if (.not. cacheExist) then
+                        if(.not. createdThisFile) then
+                            write(*,*) "Attempt to create the timeAttributeCache in an existing h5 file", &
+                                    " that does not have the cache group."
+                            write(*,*) "Perform restart in a different directory, or create the timeAttributeCache", &
+                                    " and populate it in the exisitng h5 file."
+                            stop
+                        endif
+                        !Create cache group
+                        call h5gcreate_f(h5fId,trim(attrGrpName),cacheId,herr)     
+                        cacheCreate = .true.    
+                    endif 
+                    ! Open attribute cache group
+                    call h5gopen_f(h5fId,trim(attrGrpName),cacheId,herr)  
 
-                ! Check attribute cache size and resize
-                call CheckAttCacheSize(trim(gStrO), cacheId, cacheExist, cacheCreate)
-                ! Write Step# to cache
-                stepVar%Nr = 0
-                stepVar%idStr = "step"
-                stepVar%vType = IOINT
-                stepVar%data = [GetStepInt(trim(gStrO))]
-                call WriteCacheAtt(stepVar,cacheId)
-            endif 
+                    ! Check attribute cache size and resize
+                    call CheckAttCacheSize(trim(gStrO), cacheId, cacheExist, cacheCreate)
+                    ! Write Step# to cache
+                    stepVar%Nr = 0
+                    stepVar%idStr = "step"
+                    stepVar%vType = IOINT
+                    stepVar%data = [GetStepInt(trim(gStrO))]
+                    call WriteCacheAtt(stepVar,cacheId)
+                endif 
+            endif
 
             if (present(gStrOO)) then
                 !Create subgroup
@@ -1253,5 +1270,34 @@ contains
         endif
         call h5aclose_f(attrId,herror)
     end function readRealHDF
+
+
+    !> Read STR from HDF5 attribute
+    function readStrHDF(gId,vId,attrName,vDefOpt) result(vOut)
+        integer(HID_T), intent(in) :: gId
+        character(len=*),intent(in) :: vId
+            !! Group/dataset name
+        character(len=*),intent(in) :: attrName
+            !! Attribute name we are looking up
+        character(len=strLen), intent(in), optional :: vDefOpt
+
+        character(len=strLen) :: vOut,vDef
+        logical :: aExists
+        integer :: herror
+
+        if (present(vDefOpt)) then
+            vDef = vDefOpt
+        else
+            vDef = ""
+        endif
+
+        call h5aexists_by_name_f(gID,trim(vId),trim(attrName),aExists,herror)
+        if (aExists) then
+            call h5ltget_attribute_string_f(gID,trim(vId),trim(attrName),vOut,herror)
+        else
+            vOut = vDef
+        endif
+
+    end function readStrHDF
 
 end module ioH5

@@ -55,8 +55,8 @@ module ebinit
         !Initialize and allocate plasmapause parameters
         if (Model%doPP) call initPP(ebState,inpXML,doStatic)
 
-        
         end associate
+
     end subroutine ebInit_fromMHDGrid
 
     subroutine setGrid(Model,ebGr)

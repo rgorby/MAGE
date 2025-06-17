@@ -12,6 +12,7 @@ module voltapp
     use chmp2mhd_interface
     use mix2mhd_interface
     use imag2mhd_interface
+    use imag2mix_interface
     use ebsquish
     use innermagsphere
     use dates
@@ -21,6 +22,10 @@ module voltapp
     use gcminterp
     use gcmtypes
     use planethelper
+    use shellGrid
+    use shellGridGen
+    use voltappHelper
+    use voltCplHelper
     
     implicit none
 
@@ -99,6 +104,7 @@ module voltapp
         if (vApp%isLoud) then
             call printPlanetParams(vApp%planet)
         endif
+        call xmlInp%Set_Val(vApp%doGeoCorot,"/Kaiju/Gamera/prob/doGeoCorot",vApp%doGeoCorot)
 
         !Initialize state information
         !Check for Earth to decide what things need to happen
@@ -200,6 +206,10 @@ module voltapp
 
             ! correct Gamera start time
             gApp%Model%t = vApp%time / gApp%Model%Units%gT0
+            gApp%State%time = gApp%Model%t
+
+            call genVoltShellGrid(vApp, xmlInp)
+            call initVoltState(vApp)
 
         endif
 
@@ -235,17 +245,7 @@ module voltapp
             call InitInnerMag(vApp,gApp,xmlInp)
 
             if(gApp%Model%isRestart) then
-                select type(rcmApp=>vApp%imagApp)
-                    type is (rcmIMAG_T)
-                        !Check if Voltron and RCM have the same restart number
-                        if (vApp%IO%nRes /= rcmApp%rcmCpl%rcm_nRes) then
-                            write(*,*) "Gamera and RCM disagree on restart number, you should sort that out."
-                            write(*,*) "Error code: A house divided cannot stand"
-                            write(*,*) "   Voltron nRes = ", vApp%IO%nRes
-                            write(*,*) "   RCM     nRes = ", rcmApp%rcmCpl%rcm_nRes
-                            stop
-                        endif
-                end select
+                call vApp%imagApp%ReadRestart(gApp%Model%RunID, nRes)
             endif
 
         endif
@@ -303,6 +303,13 @@ module voltapp
             vApp%IO%tOut = tIO
         endif
 
+        ! Do some final checks
+        if (abs(gApp%Model%t - gApp%State%time) > TINY) then
+            write(*,*)"GAMERA Model%t and State%time don't match, dying"
+            write(*,*)"Model: ",gApp%Model%t,", State: ",gApp%State%time
+            stop
+        endif
+
         end associate
 
     end subroutine initVoltron
@@ -312,43 +319,47 @@ module voltapp
         class(voltApp_T), intent(inout) :: vApp
         real(rp), intent(in) :: dt
 
-        real(rp) :: stepEndTime
+        real(rp) :: stepEndTime, remainingStep
 
         stepEndTime = vApp%time + dt
 
         do while(stepEndTime .ge. vApp%DeepT)
-            ! advance to next DeepT
-            ! loop always starts with updated Gamera data
-
-            ! call base update function with local data
-            call Tic("DeepUpdate")
-            call DeepUpdate(vApp, vApp%gApp)
-            call Toc("DeepUpdate")
-
-            ! this will step coupled Gamera
-            call vApp%gApp%StartUpdateMhdData(vApp)
+            ! Finish Gamera processing up to DeepT
             call vApp%gApp%FinishUpdateMhdData(vApp)
 
-            ! step complete
             vApp%time = vApp%DeepT
             vApp%MJD = T2MJD(vApp%time,vApp%gApp%Model%MJD0)
 
             ! update the next predicted coupling interval
             vApp%DeepT = vApp%DeepT + vApp%DeepDT
+
+            call Tic("DeepUpdate")
+            call DeepUpdate(vApp, vApp%gApp)
+            call Toc("DeepUpdate")
+
+            call vApp%gApp%StartUpdateMhdData(vApp)
+
         enddo
+
+        remainingStep = stepEndTime - vApp%time
+
+        if(remainingStep > TINY) then
+            ! partially step Gamera with dts less than coupling interval
+            call vApp%gApp%PartialUpdateMhdData(vApp, remainingStep)
+        endif
 
         ! step end time is greater than, or equal to, the current DeepT
         ! advance to that partial deep step time
-        vApp%time = stepEndTime
+        vApp%time = max(stepEndTime,vApp%gApp%Model%t*vApp%gApp%Model%Units%gT0)
         vApp%MJD = T2MJD(vApp%time,vApp%gApp%Model%MJD0)
 
     end subroutine stepVoltron
-    
+
     !Initialize Voltron app based on Gamera data
     subroutine initializeFromGamera(vApp, gApp, xmlInp, optFilename)
         type(voltApp_T), intent(inout) :: vApp
         class(gamApp_T), intent(inout) :: gApp
-	type(XML_Input_T), intent(inout) :: xmlInp
+        type(XML_Input_T), intent(inout) :: xmlInp
         character(len=*), optional, intent(in) :: optFilename
 
         character(len=strLen) :: RunID, resID
@@ -416,11 +427,11 @@ module voltapp
         call init_mix2MhdCoupler(vApp%gApp, vApp%remixApp)
         ! initialize additional coupled gamera data
         call vApp%gApp%InitMhdCoupler(vApp)
-	if(isRestart) then
-	    call xmlInp%Set_Val(resID,"/Kaiju/gamera/restart/resID","msphere")
+        if(isRestart) then
+            call xmlInp%Set_Val(resID,"/Kaiju/gamera/restart/resID","msphere")
             call xmlInp%Set_Val(nRes,"/Kaiju/gamera/restart/nRes" ,-1)
-	    call vApp%gApp%ReadRestart(resID, nRes)
-	endif
+            call vApp%gApp%ReadRestart(resID, nRes)
+        endif
 
         call init_mhd2Mix(vApp%mhd2mix, gApp, vApp%remixApp)
         !vApp%mix2mhd%mixOutput = 0.0
@@ -453,8 +464,10 @@ module voltapp
 
             call init_mhd2Chmp(vApp%mhd2chmp, gApp, vApp%ebTrcApp)
             call init_chmp2Mhd(vApp%chmp2mhd, vApp%ebTrcApp, gApp)
+            call init_raiju_mix(vApp%imagApp,vApp%remixApp)
 
-            vApp%iDeep = ShellBoundary(gApp%Model,gApp%Grid,vApp%rTrc)
+            vApp%iDeep = gApp%Grid%ie-1
+            
         endif !doDeep
 
     end subroutine initializeFromGamera
@@ -467,7 +480,9 @@ module voltapp
         ! convert gamera inputs to remix
         call MJDRecalc(vApp%MJD)
         if (vApp%doDeep) then
-            call mapIMagToRemix(vApp%imag2mix,vApp%remixApp)
+!            call mapIMagToRemix(vApp%imag2mix,vApp%remixApp) ! rcm style
+!            call mapRaijuToRemix(vApp)
+            call CoupleIMagToMix(vApp)
         endif
         call mapGameraToRemix(vApp%mhd2mix, vApp%remixApp)
 
@@ -502,12 +517,19 @@ module voltapp
         call runRemix(vApp)
         call Toc("ReMIX", .true.)
 
+        ! Update potential on voltron's grid
+        call updateVoltPotential(vApp)
+
+
         call Tic("R2G")
         call CouplePotentialToMhd(vApp)
         call Toc("R2G")
 
         ! only do imag after spinup with deep enabled
         if(vApp%doDeep .and. vApp%time >= 0) then
+            ! DoImag needs PreDeep
+            ! DoImag can be in || with squish
+            ! PostDeep needs everything
             call PreDeep(vApp, gApp)
               call DoImag(vApp)
               call SquishStart(vApp)
@@ -515,7 +537,14 @@ module voltapp
               call SquishEnd(vApp)
             call PostDeep(vApp, gApp)
         elseif(vApp%doDeep) then
+            !Doing deep but t<0, call spinup Gas0 (empirical TM plasma sheet)
+            !Will kick back w/o doing anything if there's no appetizer
+
             gApp%Grid%Gas0 = 0
+            !Load TM03 into Gas0 for ingestion during spinup
+            !Note: Using vApp%time instead of gamera time units
+            call LoadSpinupGas0(gApp%Model,gApp%Grid,vApp%time)            
+            
         endif
 
     end subroutine DeepUpdate
@@ -525,12 +554,19 @@ module voltapp
         class(voltApp_T), intent(inout) :: vApp
 
         !Update i-shell to trace within in case rTrc has changed
-        vApp%iDeep = ShellBoundary(gApp%Model,gApp%Grid,vApp%rTrc)
+        vApp%iDeep = gApp%Grid%ie-1
         
         !Pull in updated fields to CHIMP
         call Tic("G2C")
         call convertGameraToChimp(vApp%mhd2chmp,gApp,vApp%ebTrcApp)
         call Toc("G2C")
+        call Tic("VoltTubes",.true.)
+        call genVoltTubes(vApp)
+        call Toc("VoltTubes",.true.)
+
+        ! Diagnostics that need fresh voltron information
+        call calcPotDrop(vApp)
+
 
     end subroutine
 
@@ -539,7 +575,10 @@ module voltapp
 
         !Advance inner magnetosphere model to tAdv
         call Tic("InnerMag", .true.)
-        call vApp%imagApp%doAdvance(vApp,vApp%DeepT)
+        ! Do field line tracing using chmpApp and packinto  vApp%imagApp%ijTubes here
+        call vApp%imagApp%toIMAG(vApp)
+        !call vApp%imagApp%doAdvance(vApp,vApp%DeepT)
+        call vApp%imagApp%AdvanceModel(vApp%DeepDT)
         call Toc("InnerMag", .true.)
 
     end subroutine
@@ -650,6 +689,7 @@ module voltapp
         class(gamApp_T), intent(in) :: gApp
         character(len=*), intent(in), optional     :: optFilename
 
+        integer :: b
         character(len=strLen) :: xmlStr
         type(XML_Input_T) :: inpXML
         real(rp) :: xyz0(NDIM)
@@ -676,7 +716,12 @@ module voltapp
         call setBackground(Model,inpXML)
         call inpXML%Set_Val(Model%doDip,'tracer/doDip',.false.)
 
-    !Initialize ebState
+        !Initialize ebState
+        if (gApp%Model%doMultiF) then
+            write(*,*) "Initializing MF-Chimp ..."
+            !Set proper number of species for chimp
+            Model%nSpc = gApp%Model%nSpc        
+        endif
         !CHIMP grid is initialized from Gamera's active corners
         call ebInit_fromMHDGrid(Model,ebState,inpXML,Gr%xyz(Gr%is:Gr%ie+1,Gr%js:Gr%je+1,Gr%ks:Gr%ke+1,1:NDIM))
         !Replace CHIMP 8-point average centers w/ more accurate Gamera quadrature centers        
@@ -684,9 +729,11 @@ module voltapp
 
         call InitLoc(Model,ebState%ebGr,inpXML)
 
-    !Initialize squish indices
+        !Initialize squish indices
         allocate(vApp%ebTrcApp%ebSquish%blockStartIndices(vApp%ebTrcApp%ebSquish%numSquishBlocks))
-        call LoadBalanceBlocks(vApp) ! start off with all blocks equal in size
+        do b=1,vApp%ebTrcApp%ebSquish%numSquishBlocks
+            vApp%ebTrcApp%ebSquish%blockStartIndices(b) = ebGr%ks + ((b-1)*(ebGr%ke+1))/vApp%ebTrcApp%ebSquish%numSquishBlocks
+        enddo
 
         !Do simple test to make sure locator is reasonable
         xyz0 = Gr%xyz(Gr%is+1,Gr%js,Gr%ks,:)
@@ -698,6 +745,75 @@ module voltapp
         end associate
 
     end subroutine init_volt2Chmp
+
+
+    subroutine genVoltShellGrid(vApp, xmlInp)
+        class(voltApp_T) , intent(inout) :: vApp
+        type(XML_Input_T), intent(in) :: xmlInp
+
+        character(len=strLen) :: gType
+        integer :: Nt, Np
+            !! Number of active cells in theta and phi
+        integer :: Ng
+            !! Number of ghosts in every direction
+        integer, dimension(4) :: nGhosts
+            !! Number of ghosts in N, S, E, W directions
+        real(rp), dimension(:), allocatable :: phi
+            !! Active cell array in phi direction
+        real(rp), dimension(:), allocatable :: theta_hemi
+            !! Active cell array in theta direction for 1 hemisphere
+        real(rp), dimension(:), allocatable :: theta_global
+            !! Active cell array in theta direction for both hemispheres
+        real(rp) :: sh_radius
+            !! ShellGrid radius in Re
+        ! Stuff for warp grid
+        integer :: nPow
+            !! Power applied to non-linear scaling term
+        real(rp) :: hWgt
+            !! Weight between linear and non-linear term. 1=linear, 0=non-linear
+        real(rp) :: xLow, xHigh
+            !! Bounds for generating x values between 0 and 1
+            !! FIXME: replace with theta_center and x_scale, and calculate our x_low and x_high from that
+        integer :: i
+
+        ! Note: Nt is for a single hemisphere, we will manually double it in a minute
+        ! TODO: This means we will always have even number of total cells, and a cell interfce right on the equator
+        !  Can upgrade to allow for odd number later
+        call xmlInp%Set_Val(Nt, "grid/Nt", 180 )  ! 1 deg res default for uniform grid
+        call xmlInp%Set_Val(Np, "grid/Np", 360)  ! 1 deg res default
+        ! Ghost cells
+        call xmlInp%Set_Val(Ng, "grid/Ng", 4)  ! # of ghosts in every direction
+        nGhosts = 0
+        nGhosts(EAST) = Ng
+        nGhosts(WEST) = Ng
+
+        ! Allocate arrays
+        allocate(theta_global(Nt*2+1))
+        allocate(theta_hemi(Nt+1))
+        allocate(phi(Np+1))
+
+        call xmlInp%Set_Val(gType, "grid/gType","UNISPH")
+        select case(gType)
+            case("UNISPH")
+                vApp%gridType = V_GRID_UNIFORM
+                call genThetaPhi_uniform(Nt, Np, 0.0_rp, 90.0_rp, theta_hemi, phi)
+            case ("WARPSPH")
+                vApp%gridType = V_GRID_SHAFEE
+                call xmlInp%Set_Val(nPow , "grid/nPow" , 5   )  ! Controls sharpness/bluntness. Must be odd. 5 or 7 are good
+                call xmlInp%Set_Val(hWgt , "grid/h"    , 0.2 )  ! Controls width of high-res region
+                call xmlInp%Set_Val(xLow , "grid/xLow" , 0.2 )  ! Controls zoom / shift towards pole
+                call xmlInp%Set_Val(xHigh, "grid/xHigh", 0.90)  ! Controls zoom / shift towards equator
+                call genThetaPhi_Shafee2008(Nt, Np, 0.0_rp, 90.0_rp, nPow,hWgt,xLow,xHigh,theta_hemi,phi)
+        end select
+
+        theta_global(1:Nt+1) = theta_hemi
+        theta_global(Nt+1:2*Nt+1) = PI - theta_hemi(Nt+1:1:-1)  ! Reverse theta_hemi to mirror into Southern hemisphere
+        sh_radius = vApp%planet%ri_m/vApp%planet%rp_m
+
+        ! Now we can make our global ShellGrid
+        call GenShellGrid(vApp%shGrid, theta_global, phi, "VOLTRON", nGhosts, sh_radius)
+
+    end subroutine genVoltShellGrid
 
 end module voltapp
 

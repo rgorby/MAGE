@@ -1,5 +1,7 @@
 module mixtypes
-  use mixdefs
+   use mixdefs
+   use dktypes
+  use shellGrid
 
   implicit none
 
@@ -10,6 +12,7 @@ module mixtypes
      integer  :: euv_model_type
      integer  :: et_model_type
      integer  :: aurora_model_type
+     integer  :: sigma_model_type
      real(rp) :: alphaZ
      real(rp) :: betaZ
      real(rp) :: alpha
@@ -60,6 +63,8 @@ module mixtypes
      integer :: hemisphere=NORTH
      real(rp) :: tilt=0.
      logical :: isIMAG = .false.
+
+     type(ShellGridVar_T)   :: pot_shGr
   end type mixState_T
 
   type mixGrid_T
@@ -100,17 +105,19 @@ module mixtypes
   end type Solver_T
 
   type mixConductance_T
-    integer :: euv_model_type, et_model_type, aurora_model_type
-    real(rp) :: alpha, beta, R, F107,pedmin,hallmin,sigma_ratio,ped0, alphaZ, betaZ
-    logical :: const_sigma, doRamp, doChill, doStarlight, apply_cap, doMR, doAuroralSmooth, doEMA
+    integer :: euv_model_type, et_model_type, sigma_model_type!, aurora_model_type
+!    real(rp) :: alpha, beta, R, F107,pedmin,hallmin,sigma_ratio,ped0, alphaZ, betaZ
+    real(rp) :: F107, pedmin, hallmin, sigma_ratio, ped0
+!    logical :: const_sigma, doRamp, doChill, doStarlight, apply_cap, doMR, doAuroralSmooth, doEMA
+    logical :: const_sigma, doStarlight, apply_cap, doEMA
 
     ! arrays on the grid
     real(rp), dimension(:,:), allocatable :: zenith, coszen
     real(rp), dimension(:,:), allocatable :: euvSigmaP, euvSigmaH
     real(rp), dimension(:,:), allocatable :: deltaSigmaP, deltaSigmaH
-    real(rp), dimension(:,:), allocatable :: E0, phi0, deltaE, aRes
-    real(rp), dimension(:,:), allocatable :: rampFactor, AuroraMask, PrecipMask, drift
-    real(rp), dimension(:,:), allocatable :: engFlux, avgEng
+!    real(rp), dimension(:,:), allocatable :: E0, phi0, deltaE, aRes
+!    real(rp), dimension(:,:), allocatable :: rampFactor, AuroraMask, PrecipMask, drift
+!    real(rp), dimension(:,:), allocatable :: engFlux, avgEng
   end type mixConductance_T
   
   ! used to store an entire instance of MIX (e.g., one per hemisphere)
@@ -118,9 +125,11 @@ module mixtypes
      type(mixState_T)       :: St
      type(mixGrid_T)        :: G       ! G - primary MIX grid used for the solver. 
      type(mixGrid_T)        :: mixGfpd ! mixGfpd - flipped grid for mapping from MHD, moved from mhd2mix type.  
+     type(ShellGrid_T)      :: shGr    ! ShellGrid representation of grid
      type(mixGrid_T)        :: Ggeo    ! Ggeo - G grid converted to geo updated every coupling step     type(mixParams_T)      :: P
      type(mixParams_T)      :: P
      type(Solver_T)         :: S
+     type(dkParams_T)       :: aurora
      type(mixConductance_T) :: conductance
      real(rp)               :: rad_iono_m   ! Ionosphere radius in meters
      real(rp)               :: rad_planet_m ! Planet     radius in meters

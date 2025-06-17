@@ -213,6 +213,9 @@ module mixsolver
       ! this computes the matrix coefs and RHS
       call set_solver_matrix_and_rhs(P,G,St,S)
 
+      ! reset initial solution guess to 0 each time
+      S%solution = 0.0_rp
+
       ! actual solve
       ! note initial condition is set to 0.
       ! there is a version of this in mix.F90 that stores the old solution

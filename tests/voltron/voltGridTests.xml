@@ -1,0 +1,9 @@
+<?xml version="1.0"?>
+<Kaiju>
+    <Uniform>
+        <grid Nt="90" Np="180" gType="UNISPH"/>
+    </Uniform>
+    <Warped>
+        <grid Nt="90" Np="180" gType="WARPSPH"/>
+    </Warped>
+</Kaiju>

@@ -54,17 +54,17 @@ contains
     end associate
   end subroutine checkGamera
 
-  subroutine checkRCM(vApp)
-    type(voltApp_T), intent(in) :: vApp
-    associate(pName => vApp%planet%name)
-    select type(rcmApp=>vApp%imagApp)
-        type is (rcmIMAG_T)
-            @assertLessThanOrEqual(abs(rcmApp%rcmCpl%planet_radius - vApp%planet%rp_m), 1E-8_rp, "RCM Planet Radius differs from voltron for "//trim(pName))
-            @assertLessThanOrEqual(abs(rcmApp%rcmCpl%iono_radius - vApp%planet%ri_m), 1E-8_rp, "RCM Planet Radius differs from voltron for "//trim(pName))
-            ! TODO: ways to check planetM0g and RIonRCM where/when its actually used
-    end select
-    end associate
-  end subroutine checkRCM
+  !subroutine checkRCM(vApp)
+  !  type(voltApp_T), intent(in) :: vApp
+  !  associate(pName => vApp%planet%name)
+  !  select type(rcmApp=>vApp%imagApp)
+  !      type is (rcmIMAG_T)
+  !          @assertLessThanOrEqual(abs(rcmApp%rcmCpl%planet_radius - vApp%planet%rp_m), 1E-8_rp, "RCM Planet Radius differs from voltron for "//trim(pName))
+  !          @assertLessThanOrEqual(abs(rcmApp%rcmCpl%iono_radius - vApp%planet%ri_m), 1E-8_rp, "RCM Planet Radius differs from voltron for "//trim(pName))
+  !          ! TODO: ways to check planetM0g and RIonRCM where/when its actually used
+  !  end select
+  !  end associate
+  !end subroutine checkRCM
 
   subroutine checkChimp(vApp)
     type(voltApp_T), intent(in) :: vApp
@@ -97,7 +97,7 @@ contains
     ! Run tests
     call checkVoltron(vApp, REarth, RionE*1E6_rp, 9.807_rp, EarthM0g, EarthPsi0, .true.)
     call checkGamera(vApp, vApp%gApp)
-    call checkRCM(vApp)
+    !call checkRCM(vApp)
     !Does REMIX need to be checked? Only relies on msphutil's RadIonosphere() (2021/10/12)
     call checkChimp(vApp)
 
@@ -116,7 +116,7 @@ contains
     ! Run tests
     call checkVoltron(vApp, RJupiterXE*REarth, 1.01*RJupiterXE*REarth, 24.79_rp, JupiterM0g, jupCorot, .true.)
     call checkGamera(vApp, vApp%gApp)
-    call checkRCM(vApp)
+    !call checkRCM(vApp)
     !Does REMIX need to be checked? Only relies on msphutil's RadIonosphere() (2021/10/12)
     call checkChimp(vApp)
 
@@ -142,7 +142,7 @@ contains
     ! Run tests
     call checkVoltron(vApp, 1.3*REarth, 1.01*1.3*REarth, 12.0_rp, 0.3*EarthM0g, corotXML, .true.)
     call checkGamera(vApp, vApp%gApp)
-    call checkRCM(vApp)
+    !call checkRCM(vApp)
     !Does REMIX need to be checked? Only relies on msphutil's RadIonosphere() (2021/10/12)
     call checkChimp(vApp)
 

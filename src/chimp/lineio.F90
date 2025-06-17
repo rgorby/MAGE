@@ -16,7 +16,7 @@ module lineio
     !Initialize output
     subroutine initFLio(Model,fLines)
         type(chmpModel_T), intent(inout) :: Model
-        type(fLine_T), intent(in), optional :: fLines(:)
+        type(magLine_T), intent(in), optional :: fLines(:)
 
         !Create filename
         write(flOutF,'(2a)') trim(adjustl(Model%RunID)),'.fl.h5'
@@ -30,7 +30,7 @@ module lineio
         integer, intent(in) :: N
         type(chmpModel_T), intent(inout) :: Model
         type(ebGrid_T), intent(in) :: ebGr
-        type(fLine_T), dimension(N), intent(in) :: fLns
+        type(magLine_T), dimension(N), intent(in) :: fLns
 
         type(IOVAR_T), dimension(MAXFLVS) :: IOVars
 
@@ -57,11 +57,11 @@ module lineio
     subroutine LineOut(Model,ebGr,fL,fOut,gStr,lnStr)
         type(chmpModel_T), intent(in) :: Model
         type(ebGrid_T), intent(in) :: ebGr
-        type(fLine_T), intent(in) :: fL
+        type(magLine_T), intent(in) :: fL
         character(len=strLen), intent(in) :: fOut,gStr,lnStr
 
         type(IOVAR_T), dimension(MAXFLVS) :: IOVars
-        integer :: i,Np,Nv
+        integer :: i,Np
         real(rp) :: bS,bdV,OCb
 
         Np = fL%Nm + fL%Np + 1
@@ -95,15 +95,13 @@ module lineio
         call AddOutVar(IOVars,"y0",fL%x0(YDIR))
         call AddOutVar(IOVars,"z0",fL%x0(ZDIR))
 
-        if (Model%doMHD) then
-            Nv = NumVFL
-        else
-            Nv = 0
-        endif
+        call AddOutVar(IOVars,"B",oBScl*fL%magB,uStr="nT")
 
-        do i=0,Nv
-            call AddOutVar(IOVars,fL%lnVars(i)%idStr,fL%lnVars(i)%V)
-        enddo
+        if (Model%doMHD) then
+            !Only output bulk
+            call AddOutVar(IOVars,"D",fL%Gas(:,DEN     ,BLK),uStr="#/cc")
+            call AddOutVar(IOVars,"P",fL%Gas(:,PRESSURE,BLK),uStr="nPa" )
+        endif
 
         !Write output chain
         call WriteVars(IOVars,.true.,fOut,gStr,lnStr)

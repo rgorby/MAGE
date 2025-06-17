@@ -11,6 +11,7 @@ module voltapp_mpi
     use volthelpers_mpi
     use voltapp
     use gcm_mpi
+    use loadBalance
     
     implicit none
 
@@ -39,7 +40,7 @@ module voltapp_mpi
         type(MPI_Comm) :: allVoltComm
         character(len=strLen) :: inpXML
         type(XML_Input_T) :: xmlInp
-        integer :: commSize, ierr, numCells, length, ic
+        integer :: commSize, ierr, numCells, length, ic, b
         integer, allocatable, dimension(:) :: neighborRanks, inData, outData
         integer :: nHelpers, gamNRES, commId
         character( len = MPI_MAX_ERROR_STRING) :: message
@@ -83,9 +84,16 @@ module voltapp_mpi
         end if
 
         call xmlInp%Set_Val(vApp%useHelpers,"/Kaiju/Voltron/Helpers/useHelpers",.false.)
-        call xmlInp%Set_Val(vApp%doSquishHelp,"/Kaiju/Voltron/Helpers/doSquishHelp",.true.)
-        call xmlInp%Set_Val(vApp%squishLoadBalance,"/Kaiju/Voltron/Helpers/squishLoadBalance",.true.)
         call xmlInp%Set_Val(nHelpers,"/Kaiju/Voltron/Helpers/numHelpers",0)
+
+        ! squish helper options
+        call xmlInp%Set_Val(vApp%doSquishHelp,"/Kaiju/Voltron/Helpers/doSquishHelp",.true.)
+        call xmlInp%Set_Val(vApp%masterSquish,"/Kaiju/Voltron/Helpers/masterSquish",.false.)
+        call xmlInp%Set_Val(vApp%squishLoadBalance,"/Kaiju/Voltron/Helpers/squishLoadBalance",.true.)
+
+        ! tube helper options
+        call xmlInp%Set_Val(vApp%doTubeHelp,"/Kaiju/Voltron/Helpers/doTubeHelp",.true.)
+        call xmlInp%Set_Val(vApp%tubeLoadbalance,"/Kaiju/Voltron/Helpers/tubeLoadbalance",.true.)
 
         if(vApp%masterSquish .and. vApp%squishLoadBalance) then
             print *,"Dynamic load balancing of squish helpers is not supported if the"
@@ -141,9 +149,18 @@ module voltapp_mpi
                     ! number of squish blocks changed
                     deallocate(vApp%ebTrcApp%ebSquish%blockStartIndices)
                     allocate(vApp%ebTrcApp%ebSquish%blockStartIndices(vApp%ebTrcApp%ebSquish%numSquishBlocks))
-                    call LoadBalanceBlocks(vApp) ! redo the default load balancing for this number of blocks
+                    do b=1,vApp%ebTrcApp%ebSquish%numSquishBlocks
+                        vApp%ebTrcApp%ebSquish%blockStartIndices(b) = vApp%ebTrcApp%ebState%ebGr%ks + &
+                            ((b-1)*(vApp%ebTrcApp%ebState%ebGr%ke+1))/vApp%ebTrcApp%ebSquish%numSquishBlocks
+                    enddo
                 endif
+                call createLoadBalancer(vApp%squishLb, nHelpers,&
+                        vApp%ebTrcApp%ebState%ebGr%ke+1 - vApp%ebTrcApp%ebState%ebGr%ks + 1, .true.)
 
+            endif
+
+            if(vApp%doTubeHelp) then
+                call createLoadBalancer(vApp%tubeLb,nHelpers,vApp%shGrid%je+1-vApp%shGrid%js+1,.true.)
             endif
 
             call MPI_Comm_Size(allVoltComm, commSize, ierr)
@@ -190,9 +207,12 @@ module voltapp_mpi
                 print *,message(1:length)
                 call mpi_Abort(MPI_COMM_WORLD, 1, ierr)
             end if
+
+            call voltronAndHelpersInit(vApp)
+            
         endif
 
-        if(.not. vApp%doSerialMHD) then
+        if(.not. vApp%doSerialMHD .and. .not. vApp%gApp%Model%isRestart) then
             !initial coupling
             call Tic("DeepUpdate")
             call DeepUpdate_mpi(vApp)
@@ -248,10 +268,17 @@ module voltapp_mpi
         if (.not. vApp%isLoud) call xmlInp%BeQuiet()
 
         call xmlInp%Set_Val(vApp%useHelpers,"/Kaiju/Voltron/Helpers/useHelpers",.false.)
+        call xmlInp%Set_Val(nHelpers,"/Kaiju/Voltron/Helpers/numHelpers",0)
+
+        ! squish helper options
         call xmlInp%Set_Val(vApp%doSquishHelp,"/Kaiju/Voltron/Helpers/doSquishHelp",.true.)
         call xmlInp%Set_Val(vApp%masterSquish,"/Kaiju/Voltron/Helpers/masterSquish",.false.)
         call xmlInp%Set_Val(vApp%squishLoadBalance,"/Kaiju/Voltron/Helpers/squishLoadBalance",.true.)
-        call xmlInp%Set_Val(nHelpers,"/Kaiju/Voltron/Helpers/numHelpers",0)
+
+        ! tube helper options
+        call xmlInp%Set_Val(vApp%doTubeHelp,"/Kaiju/Voltron/Helpers/doTubeHelp",.true.)
+        call xmlInp%Set_Val(vApp%tubeLoadbalance,"/Kaiju/Voltron/Helpers/tubeLoadbalance",.true.)
+
         call MPI_Comm_Size(allVoltComm, commSize, ierr)
         if(ierr /= MPI_Success) then
             call MPI_Error_string( ierr, message, length, ierr)
@@ -301,6 +328,8 @@ module voltapp_mpi
             call mpi_Abort(MPI_COMM_WORLD, 1, ierr)
         end if
 
+        call voltronAndHelpersInit(vApp)
+
     end subroutine
 
     !Step Voltron if necessary (currently just updating state variables)
@@ -310,7 +339,7 @@ module voltapp_mpi
 
         real(rp) :: stepEndTime
 
-        stepEndTime = vApp%time + dt
+        stepEndTime = vApp%time + dt + (dt*1e-14) ! add small offset to avoid floating point errors
 
         do while(stepEndTime .ge. vApp%DeepT)
             ! if Gamera is processing data, finish it
@@ -362,6 +391,9 @@ module voltapp_mpi
         call runRemix(vApp)
         call Toc("ReMIX", .true.)
 
+        ! Update potential on voltron's grid
+        call updateVoltPotential(vApp)
+
         call Tic("R2G")
         call CouplePotentialToMhd(vApp)
         call Toc("R2G")
@@ -369,23 +401,49 @@ module voltapp_mpi
         ! only do imag after spinup
         if(vApp%doDeep .and. vApp%time >= 0) then
             call Tic("DeepUpdate", .true.)
-            call PreDeep(vApp, vApp%gApp)
+
+            if(vApp%useHelpers) call vhReqStep(vApp)
+
+            ! instead of PreDeep, use Tube Helpers and replicate other calls
+            !Update i-shell to trace within in case rTrc has changed
+            vApp%iDeep = vApp%gApp%Grid%ie-1
+
+            !Pull in updated fields to CHIMP
+            call Tic("G2C")
+            call convertGameraToChimp(vApp%mhd2chmp,vApp%gApp,vApp%ebTrcApp)
+            call Toc("G2C")
+            call Tic("VoltTubes",.true.)
+            if(vApp%useHelpers .and. vApp%doTubeHelp) then
+                call VhReqTubeStart(vApp)
+                call vhReqTubeEnd(vApp)
+                ! Now pack into tubeShell
+                call Tic("Tube2Shell")
+                call tubes2Shell(vApp%shGrid, vApp%State%ijTubes, vApp%State%tubeShell)
+                call Toc("Tube2Shell")
+            else
+                call genVoltTubes(vApp)
+            endif
+            call Toc("VoltTubes",.true.)
+
             call SquishStart(vApp)
 
             if(vApp%useHelpers .and. vApp%doSquishHelp) then
                 call Tic("VoltHelpers", .true.)
-                call vhReqStep(vApp)
                 call vhReqSquishStart(vApp)
                 call Toc("VoltHelpers", .true.)
             endif
 
             ! moving this to after voltron helpers are started
+            call calcPotDrop(vApp)
             call DoImag(vApp)
 
             vApp%deepProcessingInProgress = .true.
             call Toc("DeepUpdate", .true.)
         else
             vApp%gApp%Grid%Gas0 = 0
+            !Load TM03 into Gas0 for ingestion during spinup
+            !Note: Using vApp%time instead of gamera time units
+            call LoadSpinupGas0(vApp%gApp%Model,vApp%gApp%Grid,vApp%time)       
         endif
 
     end subroutine startDeep
@@ -496,6 +554,10 @@ module voltapp_mpi
                 call vhHandleSquishStart(vApp)
             CASE (VHSQUISHEND)
                 call vhHandleSquishEnd(vApp)
+            CASE (VHTUBESTART)
+                call vhHandleTubeStart(vApp)
+            CASE (VHTUBEEND)
+                call vhHandleTubeEnd(vApp)
             case (VHQUIT)
                 helperQuit = .true.
             CASE DEFAULT

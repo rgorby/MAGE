@@ -1,0 +1,211 @@
+module testTubeHelpers
+  use testHelperMpi
+  use voltapp_mpi
+  use gamCouple_mpi_G2V
+  use uservoltic
+  use ioH5
+
+  implicit none
+
+  type(gamCouplerMpi_gam_T), allocatable :: gamCplMpi
+  type(voltAppMpi_T), allocatable :: voltAppMpi
+  logical :: amHelper = .false.
+
+contains
+
+  @before
+  subroutine emptySetup(this)
+      class (MpiTestMethod), intent(inout) :: this
+      ! does nothing, fighting with pfunit
+  end subroutine
+
+  subroutine manualSetup(this, caseFile)
+      class (MpiTestMethod), intent(inout) :: this
+      character(len=*), intent(in) :: caseFile
+
+      integer :: ierror
+      type(MPI_Comm) :: gamComm, voltComm
+      type(XML_Input_T) :: xmlInp
+
+      call setMpiReal()
+
+      ! hard-coded for 4 gamera ranks for these tests right now
+      if(this%getProcessRank() < 4) then
+          allocate(gamCplMpi)
+
+          ! make gamera-only mpi communicator
+          call MPI_Comm_Split(getMpiF08Communicator(this), gamId, this%getProcessRank(), gamCplMpi%gOptionsMpi%gamComm, ierror)
+
+          gamCplMpi%gOptionsCplMpiG%couplingPoolComm = getMpiF08Communicator(this)
+          gamCplMpi%gOptions%userInitFunc => initUser
+          gamCplMpi%gOptionsMpi%doIO = .false.
+          xmlInp = New_XML_Input(trim(caseFile),'Kaiju',.true.)
+          call gamCplMpi%InitModel(xmlInp)
+      elseif(this%getProcessRank() == 4) then
+          allocate(voltAppMpi)
+          amHelper = .false.
+
+          ! make gamera-only mpi communicator
+          call MPI_Comm_Split(getMpiF08Communicator(this), voltId, this%getProcessRank(), voltComm, ierror)
+
+          voltAppMpi%vOptions%gamUserInitFunc => initUser
+	  allocate(voltAppMpi%vOptionsMpi%couplingPoolComm)
+          voltAppMpi%vOptionsMpi%couplingPoolComm = getMpiF08Communicator(this)
+          call initVoltron_mpi(voltAppMpi, trim(caseFile))
+      else
+          allocate(voltAppMpi)
+          amHelper = .true.
+
+          ! make gamera-only mpi communicator
+          call MPI_Comm_Split(getMpiF08Communicator(this), voltId, this%getProcessRank(), voltComm, ierror)
+
+          voltAppMpi%vOptions%gamUserInitFunc => initUser
+	  allocate(voltAppMpi%vOptionsMpi%couplingPoolComm)
+          voltAppMpi%vOptionsMpi%couplingPoolComm = getMpiF08Communicator(this)
+          call initVoltronHelper_mpi(voltAppMpi, trim(caseFile))
+      endif
+
+  end subroutine manualSetup
+
+  @after
+  subroutine teardown(this)
+      class (MpiTestMethod), intent(inout) :: this
+
+      if(allocated(voltAppMpi)) then
+          call endVoltronWaits(voltAppMpi)
+          deallocate(voltAppMpi)
+      endif
+      if(allocated(gamCplMpi)) deallocate(gamCplMpi)
+
+  end subroutine teardown
+
+  subroutine runApplication()
+      logical :: helperQuit
+
+      if(allocated(gamCplMpi)) then
+          ! adjust tFin time to gamera units
+          call gamCplMpi%AdvanceModel(gamCplMpi%Model%tFin - gamCplMpi%Model%t)
+      else
+          if(amHelper) then
+              helperQuit = .false.
+              do while(.not. helperQuit)
+                  call helpVoltron(voltAppMpi, helperQuit)
+              end do
+          else
+              do while (voltAppMpi%time < voltAppMpi%tFin)
+                  call stepVoltron_mpi(voltAppMpi, voltAppMpi%tFin-voltAppMpi%time)
+              end do
+              if(voltAppMpi%useHelpers) call vhReqHelperQuit(voltAppMpi)
+          endif
+      endif
+
+  end subroutine runApplication
+
+  @test(npes=[8])
+  subroutine testHelpTubes(this)
+      class (MpiTestMethod), intent(inout) :: this
+
+      type(Tube_T), dimension(:,:), allocatable :: distTubes
+      integer :: i,j,k
+      logical :: helperQuit
+      character(len=strLen) :: errStr
+
+      ! debugging
+      !type(IOVAR_T), dimension(12) :: IOVars
+
+      write (*,'(a,I0)') 'Testing HelpTubes ',this%getNumProcesses()
+
+      call manualSetup(this, 'testHelpersTubes_4.xml')
+
+      call runApplication()
+
+      ! Now compare distributed tubes results to local-only tubes results
+      if(allocated(voltAppMpi)) then
+          if(.not. amHelper) then
+              ! prepare for calculating tubes
+              call vhReqStep(voltAppMpi)
+              voltAppMpi%iDeep = voltAppMpi%gApp%Grid%ie-1
+              call convertGameraToChimp(voltAppMpi%mhd2chmp,voltAppMpi%gApp,voltAppMpi%ebTrcApp)
+
+
+              ! calculate distributed tubes results from most recent data
+              call VhReqTubeStart(voltAppMpi)
+
+              ! now calculate local-only tubes in parallel
+              call calcTubes(voltAppMpi)
+
+              ! save local results
+              allocate(distTubes,  MOLD=voltAppMpi%State%ijTubes)
+              distTubes = voltAppMpi%State%ijTubes
+
+              ! collect results from helpers
+              call vhReqTubeEnd(voltAppMpi)
+              call vhReqHelperQuit(voltAppMpi) ! tell the helpers they're done
+
+              do i=1,size(voltAppMpi%state%ijTubes,1)
+                  do j=1,size(voltAppMpi%state%ijTubes,2)
+                      write(errStr,'(A,I0,A,I0,A)') 'tubes at (',i,',',j,') '
+
+                      !pfunit asserts aren't allowed to spawn multiple lines. sorry
+                      @assertEqual(voltAppMpi%State%ijTubes(i,j)%xyz0(1), distTubes(i,j)%xyz0(1), 1.0e-15_rp, trim(errStr)//'xyz0(1) error too large')
+                      @assertEqual(voltAppMpi%State%ijTubes(i,j)%xyz0(2), distTubes(i,j)%xyz0(2), 1.0e-15_rp, trim(errStr)//'xyz0(2) error too large')
+                      @assertEqual(voltAppMpi%State%ijTubes(i,j)%xyz0(3), distTubes(i,j)%xyz0(3), 1.0e-15_rp, trim(errStr)//'xyz0(3) error too large')
+                      @assertEqual(voltAppMpi%State%ijTubes(i,j)%lat0,  distTubes(i,j)%lat0,  1.0e-15_rp, trim(errStr)//'lat0 error too large')
+                      @assertEqual(voltAppMpi%State%ijTubes(i,j)%lon0,  distTubes(i,j)%lon0,  1.0e-15_rp, trim(errStr)//'lon0 error too large')
+                      @assertEqual(voltAppMpi%State%ijTubes(i,j)%invlat, distTubes(i,j)%invlat, 1.0e-15_rp, trim(errStr)//'invlat error too large')
+                      @assertEqual(voltAppMpi%State%ijTubes(i,j)%latc, distTubes(i,j)%latc, 1.0e-15_rp, trim(errStr)//'latc error too large')
+                      @assertEqual(voltAppMpi%State%ijTubes(i,j)%lonc, distTubes(i,j)%lonc, 1.0e-15_rp, trim(errStr)//'lonc error too large')
+                      @assertEqual(voltAppMpi%State%ijTubes(i,j)%topo, distTubes(i,j)%topo, trim(errStr)//'topo mismatch')
+
+                      @assertEqual(voltAppMpi%State%ijTubes(i,j)%bVol, distTubes(i,j)%bVol, 1.0e-15_rp, trim(errStr)//'bVol error too large')
+
+                      @assertEqual(voltAppMpi%State%ijTubes(i,j)%bmin, distTubes(i,j)%bmin, 1.0e-15_rp, trim(errStr)//'bmin error too large')
+                      @assertEqual(voltAppMpi%State%ijTubes(i,j)%X_bmin(1), distTubes(i,j)%X_bmin(1), 1.0e-15_rp, trim(errStr)//'X_bmin(1) error too large')
+                      @assertEqual(voltAppMpi%State%ijTubes(i,j)%X_bmin(2), distTubes(i,j)%X_bmin(2), 1.0e-15_rp, trim(errStr)//'X_bmin(2) error too large')
+                      @assertEqual(voltAppMpi%State%ijTubes(i,j)%X_bmin(3), distTubes(i,j)%X_bmin(3), 1.0e-15_rp, trim(errStr)//'X_bmin(3) error too large')
+                      @assertEqual(voltAppMpi%State%ijTubes(i,j)%bVol, distTubes(i,j)%bVol, 1.0e-15_rp, trim(errStr)//'bVol error too large')
+                      @assertEqual(voltAppMpi%State%ijTubes(i,j)%Lb, distTubes(i,j)%Lb, 1.0e-15_rp, trim(errStr)//'Lb error too large')
+                      @assertEqual(voltAppMpi%State%ijTubes(i,j)%Tb, distTubes(i,j)%Tb, 1.0e-15_rp, trim(errStr)//'Tb error too large')
+                      @assertEqual(voltAppMpi%State%ijTubes(i,j)%pot,  distTubes(i,j)%pot,  1.0e-15_rp, trim(errStr)//'pot error too large')
+                      @assertEqual(voltAppMpi%State%ijTubes(i,j)%crpot, distTubes(i,j)%crpot, 1.0e-15_rp, trim(errStr)//'crpot error too large')
+                      @assertEqual(voltAppMpi%State%ijTubes(i,j)%potc, distTubes(i,j)%potc, 1.0e-15_rp, trim(errStr)//'potc error too large')
+                      if(isnan(voltAppMpi%State%ijTubes(i,j)%wMAG)) then
+                          @assertIsNan(distTubes(i,j)%wMAG, trim(errStr)//'wMAG inconsistent NaN')
+                      else
+                          @assertEqual(voltAppMpi%State%ijTubes(i,j)%wMAG, distTubes(i,j)%wMAG, 1.0e-15_rp, trim(errStr)//'wMAG error too large')
+                      endif
+                      @assertEqual(voltAppMpi%State%ijTubes(i,j)%rCurv, distTubes(i,j)%rCurv, 1.0e-15_rp, trim(errStr)//'rCurv error too large')
+                      @assertEqual(voltAppMpi%State%ijTubes(i,j)%avgBeta, distTubes(i,j)%avgBeta, 1.0e-15_rp, trim(errStr)//'avgBeta error too large')
+                      @assertEqual(voltAppMpi%State%ijTubes(i,j)%losscone, distTubes(i,j)%losscone, 1.0e-15_rp, trim(errStr)//'losscone error too large')
+                      @assertEqual(voltAppMpi%State%ijTubes(i,j)%lossconec, distTubes(i,j)%lossconec, 1.0e-15_rp, trim(errStr)//'lossconec error too large')
+                      @assertEqual(voltAppMpi%State%ijTubes(i,j)%TioTe0, distTubes(i,j)%TioTe0, 1.0e-15_rp, trim(errStr)//'TioTe0 error too large')
+                      @assertEqual(voltAppMpi%State%ijTubes(i,j)%nTrc, distTubes(i,j)%nTrc, trim(errStr)//'nTrc mismatch')
+
+                      ! Compare fluid variables
+                      do k = 0, MAXTUBEFLUIDS
+                          write(errStr,'(A,I0,A,I0,A,I0,A)') 'tubes at (',i,',',j,') - fluid ',k,' - '
+
+                          @assertEqual(voltAppMpi%State%ijTubes(i,j)%avgP(k), distTubes(i,j)%avgP(k), 1.0e-15_rp, trim(errStr)//'avgP error too large')
+                          @assertEqual(voltAppMpi%State%ijTubes(i,j)%avgN(k), distTubes(i,j)%avgN(k), 1.0e-15_rp, trim(errStr)//'avgN error too large')
+                          @assertEqual(voltAppMpi%State%ijTubes(i,j)%stdP(k), distTubes(i,j)%stdP(k), 1.0e-15_rp, trim(errStr)//'stdP error too large')
+                          @assertEqual(voltAppMpi%State%ijTubes(i,j)%stdN(k), distTubes(i,j)%stdN(k), 1.0e-15_rp, trim(errStr)//'stdN error too large')
+                      end do
+
+                  enddo
+              enddo
+
+              deallocate(distTubes)
+
+          else
+              ! helpers
+              helperQuit = .false.
+              do while(.not. helperQuit)
+                  call helpVoltron(voltAppMpi, helperQuit)
+              end do
+          endif
+      endif
+
+  end subroutine
+
+end module testTubeHelpers
+

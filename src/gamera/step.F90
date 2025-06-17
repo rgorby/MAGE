@@ -214,6 +214,7 @@ module step
 
         real(rp) :: dtijk
         real(rp), dimension(NVAR) :: pW,pCon
+        real(rp), dimension(NDIM) :: E,B
         integer :: s,iG,jG,kG
         character(len=strLen) :: oStr
         isBad = .false.
@@ -229,12 +230,16 @@ module step
             iG = i+Gr%ijkShift(IDIR)
             jG = j+Gr%ijkShift(JDIR)
             kG = k+Gr%ijkShift(KDIR)
+            B = State%Bxyz(i,j,k,:)
+            if (Model%doBackground) then
+                B = B + Gr%B0(i,j,k,:)
+            endif
 
             write(*,'(A,3I5)')     '<------- Bad Cell @ ijk = ',iG,jG,kG
             write(*,'(A,3es12.2)') 'xyz       = ', Gr%xyzcc(i,j,k,:)
             
             oStr = 'Bxyz [' // trim(Model%gamOut%bID) // '] = '
-            write(*,'(A,3es12.2)') trim(oStr),State%Bxyz(i,j,k,:)*Model%gamOut%bScl
+            write(*,'(A,3es12.2)') trim(oStr),B*Model%gamOut%bScl
 
             do s=0,Model%nSpc
                 !Get prim variables
@@ -253,6 +258,16 @@ module step
                 oStr = '   Vxyz [' // trim(Model%gamOut%vID) // ']    = '
                 write(*,'(A,3es12.2)') trim(oStr),pW(VELX:VELZ)*Model%gamOut%vScl
             enddo
+
+            if (Model%doSource .and. Model%isMagsphere) then
+                E = Gr%Gas0(i,j,k,IONEX:IONEZ)
+                !Also output source info
+                write(*,'(A,2es12.2)') 'Src X1/X2 [deg] = ', rad2deg*Gr%Gas0(i,j,k,PROJLAT),rad2deg*Gr%Gas0(i,j,k,PROJLON)
+                write(*,'(A,1es12.2)') 'Src DT [s]      = ', Model%gamOut%tScl*Gr%Gas0(i,j,k,IM_TSCL)
+                write(*,'(A,3es12.2)') 'Src ionE        = ', Model%gamOut%eScl*E
+                write(*,'(A,2es12.2)') 'Src COLD D/P    = ', Model%gamOut%dScl*Gr%Gas0(i,j,k,IM_D_COLD),Model%gamOut%pScl*Gr%Gas0(i,j,k,IM_P_COLD)
+                write(*,'(A,2es12.2)') 'Src RING D/P    = ', Model%gamOut%dScl*Gr%Gas0(i,j,k,IM_D_RING),Model%gamOut%pScl*Gr%Gas0(i,j,k,IM_P_RING)
+            endif
             write(*,'(A)') '------->'
             !$OMP END CRITICAL
 

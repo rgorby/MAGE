@@ -44,7 +44,7 @@ module clocks
     !Global clock array
     type(Clock_T), dimension(maxClocks) :: kClocks
     integer, private :: nclk=0 !Current number of clocks
-    logical, private :: slimTimers = .false.
+    logical, private :: slimTimers = .true.
 
     !interface for reading clock time
     interface readClock

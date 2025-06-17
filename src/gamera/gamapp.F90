@@ -60,7 +60,7 @@ module gamapp
 
         !Initialize Grid/State/Model (Hatch Gamera)
         !Will enforce 1st BCs, caculate 1st timestep, set oldState
-        call Hatch(gameraApp%Model,gameraApp%Grid,gameraApp%State,gameraApp%oState,gameraApp%Solver,xmlInp,gameraApp%gOptions%userInitFunc)
+        call Hatch(gameraApp%Model,gameraApp%Grid,gameraApp%State,gameraApp%oState,gameraApp%ooState,gameraApp%Solver,xmlInp,gameraApp%gOptions%userInitFunc)
         call cleanClocks()
 
         if (.not. gameraApp%Model%isSub) then
@@ -95,7 +95,7 @@ module gamapp
 
         call Tic("Gamera",.true.)
         !Advance system
-        call AdvanceMHD(gameraApp%Model,gameraApp%Grid,gameraApp%State,gameraApp%oState,gameraApp%Solver,gameraApp%Model%dt)
+        call AdvanceMHD(gameraApp%Model,gameraApp%Grid,gameraApp%State,gameraApp%oState,gameraApp%ooState,gameraApp%Solver,gameraApp%Model%dt)
         call Toc("Gamera",.true.)
 
         !Call user-defined per-step function

@@ -579,35 +579,62 @@ def prompt_user_for_run_options(args):
 
     #-------------------------------------------------------------------------
 
-    # RCM options
-    options["rcm"] = {}
+    # RAIJU options
+    options["raiju"] = {}
 
-    # <conductance> options
-    options["rcm"]["rcmdomain"] = {}
-    o = options["rcm"]["rcmdomain"]
-    od = option_descriptions["rcm"]["rcmdomain"]
-    for on in od:
-        o[on] = get_run_option(on, od[on], mode)
-
-    # <ellipse> options
-    # Only use if domType == "ELLIPSE"?
-    options["rcm"]["ellipse"] = {}
-    o = options["rcm"]["ellipse"]
-    od = option_descriptions["rcm"]["ellipse"]
+    # <output> options
+    options["raiju"]["output"] = {}
+    o = options["raiju"]["output"]
+    od = option_descriptions["raiju"]["output"]
     for on in od:
         o[on] = get_run_option(on, od[on], mode)
 
     # <grid> options
-    options["rcm"]["grid"] = {}
-    o = options["rcm"]["grid"]
-    od = option_descriptions["rcm"]["grid"]
+    options["raiju"]["grid"] = {}
+    o = options["raiju"]["grid"]
+    od = option_descriptions["raiju"]["grid"]
+    for on in od:
+        o[on] = get_run_option(on, od[on], mode)
+
+    # <domain> options
+    options["raiju"]["domain"] = {}
+    o = options["raiju"]["domain"]
+    od = option_descriptions["raiju"]["domain"]
+    for on in od:
+        o[on] = get_run_option(on, od[on], mode)
+
+    # <config> options
+    options["raiju"]["config"] = {}
+    o = options["raiju"]["config"]
+    od = option_descriptions["raiju"]["config"]
     for on in od:
         o[on] = get_run_option(on, od[on], mode)
 
     # <plasmasphere> options
-    options["rcm"]["plasmasphere"] = {}
-    o = options["rcm"]["plasmasphere"]
-    od = option_descriptions["rcm"]["plasmasphere"]
+    options["raiju"]["plasmasphere"] = {}
+    o = options["raiju"]["plasmasphere"]
+    od = option_descriptions["raiju"]["plasmasphere"]
+    for on in od:
+        o[on] = get_run_option(on, od[on], mode)
+
+    # <losses> options
+    options["raiju"]["losses"] = {}
+    o = options["raiju"]["losses"]
+    od = option_descriptions["raiju"]["losses"]
+    for on in od:
+        o[on] = get_run_option(on, od[on], mode)
+
+    # <cpl> options
+    options["raiju"]["cpl"] = {}
+    o = options["raiju"]["cpl"]
+    od = option_descriptions["raiju"]["cpl"]
+    for on in od:
+        o[on] = get_run_option(on, od[on], mode)
+
+    # <fluidIn1> options
+    options["raiju"]["fluidIn1"] = {}
+    o = options["raiju"]["fluidIn1"]
+    od = option_descriptions["raiju"]["fluidIn1"]
     for on in od:
         o[on] = get_run_option(on, od[on], mode)
 
@@ -703,9 +730,9 @@ def run_preprocessing_steps(options):
                 "-f107", "100", "-kp", "3"]
         subprocess.run(args, check=True)
 
-    # Create the RCM configuration file.
-    # NOTE: Assumes genRCM.py is in PATH.
-    cmd = "genRCM.py"
+    # Create the RAIJU configuration file.
+    # NOTE: Assumes genRAIJU.py is in PATH.
+    cmd = "genRAIJU.py"
     args = [cmd]
     subprocess.run(args, check=True)
 

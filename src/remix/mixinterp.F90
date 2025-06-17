@@ -108,7 +108,8 @@ module mixinterp
       real(rp) :: p, t
       integer, intent(out) :: i,j
 
-      ! FIXME: treat when outside the boundary
+      ! NOTE: we don't trap for cases outside the boundary here
+      ! and fix it on a case by case basis outside of this function.
       j = minloc(abs(G%p(:,1)-p),1)
       i = minloc(abs(G%t(1,:)-t),1)
 
@@ -147,7 +148,7 @@ module mixinterp
                j1p1=j1+1
             end if
             
-            !FIXME: Something here causing overrun on index 2
+            ! Something was causing overrun on index 2 here
             ! vgm 041820: seems like this has been fixed by the if statement below
             ! at least -check bounds runs fine, and the code seems fine too
             if (i1 == size(F1,2)) then

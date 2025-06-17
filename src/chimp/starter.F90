@@ -13,7 +13,7 @@ module starter
     use userebic
     use kaiomp
     use particleio
-    
+
     implicit none
 
 !----------------------------------------
@@ -135,7 +135,8 @@ module starter
         
     !Output block
         call inpXML%Set_Val(Model%tsOut,'output/tsOut',10)
-        call inpXML%Set_Val(Model%dtOut,'output/dtOut',10.0)
+        call inpXML%Set_Val(Model%dtOut,'output/dtOut',Model%dt*oTScl)
+
         call inpXML%Set_Val(T0Out,'output/T0Out',T0Out)
         call inpXML%Set_Val(Model%doTimer,'output/timer',.false.)
         call inpXML%Set_Val(Model%doEQProj,'output/doEQProj',.false.)
@@ -261,11 +262,13 @@ module starter
         USE streamutils, ONLY : setStreamlineKnobs
         type(chmpModel_T), intent(inout) :: Model
         type(XML_Input_T), intent(inout) :: inpXML
+
         !Set knobs for streamline tracing
         call setStreamlineKnobs(Model,inpXML)
         
         !Set things in Shue
         call setShue(Model,inpXML)
+
     end subroutine setStreamline
-    
+
 end module starter

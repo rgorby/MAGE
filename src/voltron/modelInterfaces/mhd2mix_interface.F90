@@ -125,8 +125,10 @@ module mhd2mix_interface
                     iG = JpSt+i-1
 
                     !Get new bAvg
-                    B0 = gameraApp%State%Bxyz(iG,j,k,:) + gameraApp%Grid%B0(iG,j,k,:)
-                    mhd2mix%gBAvg(i,j,k,:) = mhd2mix%wAvg*B0 + (1-mhd2mix%wAvg)*mhd2mix%gBAvg(i,j,k,:)
+                    !B0 = gameraApp%State%Bxyz(iG,j,k,:) + gameraApp%Grid%B0(iG,j,k,:)
+                    !mhd2mix%gBAvg(i,j,k,:) = mhd2mix%wAvg*B0 + (1-mhd2mix%wAvg)*mhd2mix%gBAvg(i,j,k,:)
+                    B0 = gameraApp%Grid%B0(iG,j,k,:)
+                    mhd2mix%gBAvg(i,j,k,:) = B0
 
                     !Get FAC
                     B0 = mhd2mix%gBAvg(i,j,k,:)

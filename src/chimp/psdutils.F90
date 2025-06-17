@@ -150,9 +150,9 @@ module psdutils
                 x0(YDIR) = R*sin(psGr%pC(j))
                 x0(ZDIR) = 0.0
 
-                call cleanStream(psGr%bLns(i,j))
+                call cleanLine(psGr%bLns(i,j))
                 !Trace field line
-                call genStream(Model,ebState,x0,t,psGr%bLns(i,j))
+                call genLine(Model,ebState,x0,t,psGr%bLns(i,j))
 
                 !Turn field line into flux tube volume afa alpha
                 call TubedV(Model,psGr,psGr%bLns(i,j),i,j)
@@ -252,7 +252,7 @@ module psdutils
     subroutine dVFlow(Model,psGr,bTrc,i,j,Qmhd,kT,Vr)
         type(chmpModel_T), intent(in) :: Model
         type(PSEq_T), intent(in) :: psGr
-        type(fLine_T), intent(in)  :: bTrc
+        type(magLine_T), intent(in)  :: bTrc
         integer, intent(in) :: i,j
         real(rp), intent(out) :: Vr,kT,Qmhd(NVARMHD)
 
@@ -284,17 +284,16 @@ module psdutils
         n = 1
         do k=-Nm,Np-1
             dl(n)   = norm2(bTrc%xyz(k+1,:)-bTrc%xyz(k,:))
-            bAvg(n) = 0.5*(bTrc%lnVars(0)%V(k+1) + bTrc%lnVars(0)%V(k))
-            eD(n)   = 0.5*(bTrc%lnVars(DEN)%V(k+1) + bTrc%lnVars(DEN)%V(k))
-            eP(n)   = 0.5*(bTrc%lnVars(PRESSURE)%V(k+1) + bTrc%lnVars(PRESSURE)%V(k))
+            bAvg(n) = 0.5*(bTrc%magB(k+1) + bTrc%magB(k))
+
+            eD(n)   = 0.5*( bTrc%Gas(k+1,DEN     ,BLK) + bTrc%Gas(k,DEN     ,BLK) )
+            eP(n)   = 0.5*( bTrc%Gas(k+1,PRESSURE,BLK) + bTrc%Gas(k,PRESSURE,BLK) )
             
-            Vxyz = [bTrc%lnVars(VELX)%V(k+1),bTrc%lnVars(VELY)%V(k+1),bTrc%lnVars(VELZ)%V(k+1)]
+            Vxyz = bTrc%Gas(k+1,VELX:VELZ,BLK)
             VrP = dot_product(bTrc%xyz(k+1,:),Vxyz)/norm2(bTrc%xyz(k+1,:))
-            Vxyz = [bTrc%lnVars(VELX)%V(k  ),bTrc%lnVars(VELY)%V(k  ),bTrc%lnVars(VELZ)%V(k  )]
+            Vxyz = bTrc%Gas(k,VELX:VELZ,BLK)
             VrM = dot_product(bTrc%xyz(k  ,:),Vxyz)/norm2(bTrc%xyz(k  ,:))
 
-            !VrP = dot_product(bTrc%xyz(k+1,:),bTrc%lnVars(VELX:VELZ)%V(k+1))/norm2(bTrc%xyz(k+1,:))
-            !VrM = dot_product(bTrc%xyz(k  ,:),bTrc%lnVars(VELX:VELZ)%V(k  ))/norm2(bTrc%xyz(k  ,:))
             eV(n)   = 0.5*(VrP+VrM)
             n = n+1
         enddo
@@ -303,9 +302,7 @@ module psdutils
         dV0 = sum(dV)
         Qmhd(DEN)      = sum(eD*dV)/dV0
         Qmhd(PRESSURE) = sum(eP*dV)/dV0
-        Qmhd(VELX) = bTrc%lnVars(VELX)%V(0)
-        Qmhd(VELY) = bTrc%lnVars(VELY)%V(0)
-        Qmhd(VELZ) = bTrc%lnVars(VELZ)%V(0)
+        Qmhd(VELX:VELZ) = bTrc%Gas(0,VELX:VELZ,BLK)
 
         Vr = sum(eV*dV)/dV0
 
@@ -323,7 +320,7 @@ module psdutils
     subroutine TubedV(Model,psGr,bTrc,i,j)
         type(chmpModel_T), intent(in) :: Model
         type(PSEq_T), intent(inout) :: psGr
-        type(fLine_T), intent(in)  :: bTrc
+        type(magLine_T), intent(in)  :: bTrc
         integer, intent(in) :: i,j
 
         real(rp) :: R,dr,dp,dA,Beq,bMin,aeq
@@ -338,7 +335,7 @@ module psdutils
         dA = R*dR*dp
 
         !Get field line quantities
-        Beq = bTrc%lnVars(0)%V0
+        Beq = minval(bTrc%magB)
 
         associate(Np=>bTrc%Np,Nm=>bTrc%Nm)
         !Find if this field line is closed
@@ -366,7 +363,7 @@ module psdutils
         n = 1
         do k=-Nm,Np-1
             dl(n)   = norm2(bTrc%xyz(k+1,:)-bTrc%xyz(k,:))
-            bAvg(n) = 0.5*(bTrc%lnVars(0)%V(k+1) + bTrc%lnVars(0)%V(k))
+            bAvg(n) = 0.5*(bTrc%magB(k+1) + bTrc%magB(k))
             n = n+1
         enddo
 

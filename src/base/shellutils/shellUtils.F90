@@ -8,6 +8,31 @@ module shellUtils
     contains
 
 
+    subroutine ijExtra_SGV(loc, iExtra, jExtra)
+        !! Determine which dimensions have extra index relative to # cells based on variable's location on grid
+        integer, intent(in) :: loc
+        integer, intent(out) :: iExtra
+        integer, intent(out) :: jExtra
+        
+        select case(loc)
+            case(SHGR_CC)
+                iExtra = 0
+                jExtra = 0
+            case(SHGR_CORNER)
+                iExtra = 1
+                jExtra = 1
+            case(SHGR_FACE_THETA)
+                iExtra = 1
+                jExtra = 0
+            case(SHGR_FACE_PHI)
+                iExtra = 0
+                jExtra = 1
+            case default
+                write(*,*) "initShellGridVar got an invalid data location:",loc
+                stop
+        end select
+    end subroutine ijExtra_SGV
+
     subroutine wrapJ_SGV(sh, sgVar)
         !! Wrap a ShellGridVar around the periodic j/phi boundary
         !! Assumes all vars within active domain are valid to wrap
@@ -18,6 +43,7 @@ module shellUtils
         associate(Q => sgVar%data)
 
         ! Theta faces are cell-centered w.r.t. j direction
+        !! TODO: Catch for zero ghosts in j direction
         if (sgVar%loc == SHGR_CC .or. sgVar%loc == SHGR_FACE_THETA) then
             ! Starting ghost cells
             Q(:, sh%jsg:sh%js-1) = Q(:, sh%je-sh%Ngw+1:sh%je)
@@ -49,12 +75,12 @@ module shellUtils
             iLoc = shGr%ieg+ceiling((t-shGr%maxGTheta)/(shGr%th(shGr%ieg+1)-shGr%th(shGr%ieg)))
             dTheta = shGr%thc(shGr%ieg) - shGr%thc(shGr%ieg-1)
             tLoc = shGr%thc(shGr%ieg) + dTheta*(iLoc - shGr%ieg)
-            !write(*,*)"theta going out of bounds",t,shGr%maxGTheta
+            !write(*,*)"theta going out of max bounds",t,shGr%maxGTheta
         else if ( (t<shGr%minGTheta) ) then
             iLoc = shGr%isg-ceiling((shGr%minGTheta-t)/(shGr%th(shGr%isg+1)-shGr%th(shGr%isg)))
             dTheta = shGr%thc(shGr%isg+1) - shGr%thc(shGr%isg)
             tLoc = shGr%thc(shGr%isg) - dTheta*(shGr%isg - iLoc)
-            !write(*,*)"theta going out of bounds",t,shGr%minGTheta
+            !write(*,*)"theta going out of min bounds",t,shGr%minGTheta
         else
             ! If still here then the lat bounds are okay, find closest lat cell center
             iLoc = shGr%isg
@@ -186,5 +212,20 @@ module shellUtils
         endif
 
     end subroutine jLocCC2Corner
+
+    subroutine printShellGridInfo(shGr)
+        type(ShellGrid_T), intent(in) :: shGr
+
+        write(*,*)'------SG-------'
+        write(*,*)' Name: ',trim(shGr%name)
+        write(*,*)' Ghosts(N,S,W,E): ',shGr%Ngn,shGr%Ngs,shGr%Ngw,shGr%Nge
+        write(*,*)' Nt,Np: ',shGr%Nt, shGr%Np
+        write(*,*)' isChild:', shGr%isChild, trim(shGr%parentName)
+        write(*,*)' Theta corners:'
+        write(*,*)shGr%th*rad2deg
+        write(*,*)' Phi corners:'
+        write(*,*)shGr%ph*rad2deg
+        write(*,*)'------SG-------'
+    end subroutine printShellGridInfo
 
 end module shellUtils

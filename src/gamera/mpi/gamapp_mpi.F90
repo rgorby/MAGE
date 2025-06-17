@@ -319,7 +319,7 @@ module gamapp_mpi
         endif
 
         ! call appropriate subroutines to calculate all appropriate grid data from the corner data
-        call CalcGridInfo(Model,Grid,gamAppMpi%State,gamAppMpi%oState,gamAppMpi%Solver,xmlInp,userInitFunc)
+        call CalcGridInfo(Model,Grid,gamAppMpi%State,gamAppMpi%oState,gamappMpi%ooState,gamAppMpi%Solver,xmlInp,userInitFunc)
 
         ! All Gamera ranks compare restart numbers to ensure they're the same
         if(Model%isRestart .and. Grid%isTiled) then
@@ -472,10 +472,17 @@ module gamapp_mpi
             if(Model%isRestart) then
                 !Update the ghost cells in the old state
                 call updateMpiBCs(gamAppMpi, gamAppMpi%oState)
+                if(Model%doAB3) then
+                    call updateMpiBCs(gamAppMpi, gamAppMpi%ooState)
+                endif
             else
                 !Manufacture an old state
                 gamAppMpi%oState = gamAppMpi%State
                 gamAppMpi%oState%time = gamAppMpi%State%time-Model%dt !Initial old state
+                if(Model%doAB3) then
+                    gamAppMpi%ooState = gamAppMpi%oState
+                    gamAppMpi%ooState%time = gamAppMpi%oState%time-Model%dt
+                endif
             endif
 
         endif

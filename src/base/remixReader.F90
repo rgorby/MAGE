@@ -12,7 +12,7 @@ module remixReader
 
     implicit none
 
-    integer :: MAXIOVARS = 20
+    integer, private, parameter :: MAXIOVARS = 20
 
 !------
 ! Types

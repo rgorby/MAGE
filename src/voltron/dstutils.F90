@@ -32,7 +32,10 @@ module dstutils
         type(Model_T), intent(in)  :: Model
         type(Grid_T) , intent(in)  :: Gr
         type(State_T), intent(in)  :: State
-        real(rp)     , intent(out) :: BSDst0,DPSDst,AvgBSDst,BSSMRs(4)
+        real(rp)     , intent(out), optional :: BSDst0
+        real(rp)     , intent(out), optional :: DPSDst
+        real(rp)     , intent(out), optional :: AvgBSDst
+        real(rp)     , intent(out), optional :: BSSMRs(4)
 
         integer :: i,j,k,n
         real (rp), dimension(:,:,:,:), allocatable :: dB,Jxyz !Full-sized arrays
@@ -40,9 +43,9 @@ module dstutils
         real(rp) :: phi,lat,jScl
         real(rp), dimension(NumStat) :: StatDSTs
 
-        BSDst0   = 0.0
-        DPSDst   = 0.0
-        AvgBSDst = 0.0
+        if(present(BSDst0  )) BSDst0    = 0.0
+        if(present(DPSDst  )) DPSDst   = 0.0
+        if(present(AvgBSDst)) AvgBSDst = 0.0
 
         call allocGridVec(Model,Gr,dB  )
         call allocGridVec(Model,Gr,Jxyz)
@@ -67,10 +70,10 @@ module dstutils
         
     !Get Dst's
         !DPS Dst from ring current energy density
-        DPSDst = CalcDPSDst(Model,Gr)
+        if(present(DPSDst)) DPSDst = CalcDPSDst(Model,Gr)
         !Quick Dst from center of earth
         xyz0 = 0.0 !Measure at center of Earth
-        BSDst0  = BSDstAt(Model,Gr,Jxyz,xyz0)
+        if(present(BSDst0)) BSDst0  = BSDstAt(Model,Gr,Jxyz,xyz0)
 
         !Get simple station-averaged Dst (using Bn ~ zhat at equator)         
         do n=1,NumStat
@@ -81,14 +84,15 @@ module dstutils
             xyz0(ZDIR) = SR0*sin(lat)
             StatDSTs(n) = BSDstAt(Model,Gr,Jxyz,xyz0)
         enddo
-        AvgBSDst = sum(StatDSTs)/NumStat
+        if(present(AvgBSDst)) AvgBSDst = sum(StatDSTs)/NumStat
+
         
         if (NumStat /= 4) then
             write(*,*) "Fix EstDST ..."
             stop
         else
             !Assuming ordering, 12/18/00/06
-            BSSMRs = StatDSTs
+            if(present(BSSMRs)) BSSMRs = StatDSTs
         endif
     end subroutine EstDST
 
@@ -165,8 +169,8 @@ module dstutils
             do j=Gr%js,Gr%je
                 do i=Gr%is+i0,Gr%ie
                     dV  = Gr%volume(i,j,k)
-                    if (Gr%Gas0(i,j,k,IMPR ,BLK)>TINY) then
-                        KTot = KTot + dV*Gr%Gas0(i,j,k,IMPR ,BLK) !Code units
+                    if (Gr%Gas0(i,j,k,IM_P_RING)>TINY) then
+                        KTot = KTot + dV*Gr%Gas0(i,j,k,IM_P_RING) !Code units
                     endif
 
                 enddo ! i loop

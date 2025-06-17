@@ -73,6 +73,7 @@ module chmpunits
         !If not running in MAGE mode, assume planet doesn't exist and kick to setChimpUnits below
         if (.not. Model%isMAGE) then
             call setChimpUnits(Model,inpXML,uStrO)
+            return
         endif
 
         !Defaults

@@ -28,6 +28,22 @@ module ebutils
         DivA = JacA(XDIR,XDIR) + JacA(YDIR,YDIR) + JacA(ZDIR,ZDIR)
         
     end function Jac2Div
+
+    !Force Jacobian to be divergence free
+    function Div0Jac(JacA) result(Jd0)
+        real(rp), dimension(NDIM,NDIM), intent(in) :: JacA
+        real(rp), dimension(NDIM,NDIM) :: Jd0
+
+        real(rp) :: Tr
+
+        Tr = JacA(XDIR,XDIR) + JacA(YDIR,YDIR) + JacA(ZDIR,ZDIR)
+        Jd0 = JacA
+        Jd0(XDIR,XDIR) = JacA(XDIR,XDIR) - Tr/3.0
+        Jd0(YDIR,YDIR) = JacA(YDIR,YDIR) - Tr/3.0
+        Jd0(ZDIR,ZDIR) = JacA(ZDIR,ZDIR) - Tr/3.0
+
+    end function Div0Jac
+    
     !Get local magnetic triad from B
     subroutine MagTriad(r,B,xhat,yhat,bhat)
         real(rp), dimension(NDIM), intent(in) :: r,B
@@ -70,8 +86,7 @@ module ebutils
            rcurv = -TINY
         endif
     end function getRCurv
-
-
+    
 !Split momentum into 3 components: p11,pPerp,pExB
     subroutine SplitP(Model,p,E,B,vExB,p11,pPerp)
         type(chmpModel_T), intent(in) :: Model

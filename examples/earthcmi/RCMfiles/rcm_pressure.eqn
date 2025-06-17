@@ -1,3 +1,0 @@
-#!MC 1410
-$!ALTERDATA 
-  EQUATION = '{rcm pressure}={ion pressure(pa)}+{electron pressure(pa)}'

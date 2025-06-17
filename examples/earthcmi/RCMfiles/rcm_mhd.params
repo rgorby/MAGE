@@ -1,5 +1,0 @@
-.true.   rcmutorcm.dat file      (in TORCM) will be written?
-.true.   rcmu.dat  file      (in TOMHD) will be written?
-.true.   debug vars print to stdout (in TORCM,TOMHD)
-1.0      Internal RCM time step (in s)  will be set to ?
-.false.  Running RCM in tilted mode

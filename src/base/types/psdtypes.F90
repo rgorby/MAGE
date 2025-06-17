@@ -54,7 +54,7 @@ module psdtypes
         real(rp), allocatable :: dG(:,:,:,:) 
 
         !Holder for field lines traced from equator
-        type(fLine_T), allocatable :: bLns(:,:)
+        type(magLine_T), allocatable :: bLns(:,:)
 
         !Equatorial MHD values (primitive)
         !Den (#/cc), Vxyz (cm/s), Pressure (nPa)
@@ -79,8 +79,8 @@ module psdtypes
         real(rp) :: dtStp !Time between Steps in h5p input files
         !TP values, size (NumTP,NVARPS)
         real(rp), dimension(:,:), allocatable :: TPs
-        logical, dimension(:), allocatable :: isWgt,isIn
-        real(rp), dimension(:), allocatable :: wgt,tx
+        logical , dimension(:)  , allocatable :: isWgt,isIn
+        real(rp), dimension(:)  , allocatable :: wgt,tx
 
         real(rp) :: dTau = 0.0 !Injection timescale (code time)
         real(rp) :: dShell = 0.0 !Thickness of injection shell (L0)
