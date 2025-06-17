@@ -732,9 +732,9 @@ def run_preprocessing_steps(options):
 
     # Create the RAIJU configuration file.
     # NOTE: Assumes genRAIJU.py is in PATH.
-    # cmd = "genRAIJU.py"
-    # args = [cmd]
-    # subprocess.run(args, check=True)
+    cmd = "genRAIJU.py"
+    args = [cmd]
+    subprocess.run(args, check=True)
 
 
 def create_ini_files(options):
