@@ -213,16 +213,17 @@ message("\tIC file is ${RAIJUIC}")
 add_subdirectory(src/raiju)
 add_custom_target(raiju ALL)
 
-message("\tAdding executable raijuSA.x")
+# disabling raijuSA.x for now until it is completed
+#message("\tAdding executable raijuSA.x")
 #add_executable(raijuSA.x src/drivers/raijuSAx.F90 ${RAIJUIC})
-add_executable(raijuSA.x src/drivers/raijuSAx.F90)
-target_link_libraries(raijuSA.x raijulib baselib)
-add_dependencies(raiju raijuSA.x)
+#add_executable(raijuSA.x src/drivers/raijuSAx.F90)
+#target_link_libraries(raijuSA.x baselib raijulib)
+#add_dependencies(raiju raijuSA.x)
 
 message("\tAdding executable raijuOWD.x")
 #add_executable(raijuOWD.x src/drivers/raijuOWDx.F90 ${RAIJUIC})
 add_executable(raijuOWD.x src/drivers/raijuOWDx.F90)
-target_link_libraries(raijuOWD.x voltlib gamlib remixlib chimplib raijulib baselib)
+target_link_libraries(raijuOWD.x baselib voltlib gamlib remixlib chimplib raijulib)
 add_dependencies(raiju raijuOWD.x)
 
 
@@ -265,7 +266,7 @@ if(ENABLE_MPI)
     add_custom_target(voltron_mpi ALL)
     message("\tAdding executable voltron_mpi.x")
     add_executable(voltron_mpi.x src/drivers/voltron_mpix.F90)
-    target_link_libraries(voltron_mpi.x voltmpilib voltlib gammpilib gamlib dragonkinglib remixlib chimplib  basempilib baselib)
+    target_link_libraries(voltron_mpi.x baselib basempilib voltmpilib voltlib gammpilib gamlib dragonkinglib remixlib chimplib raijulib)
     add_dependencies(voltron_mpi voltron_mpi.x)
 
     #-------------

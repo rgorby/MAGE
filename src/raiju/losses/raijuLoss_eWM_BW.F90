@@ -224,7 +224,7 @@ module raijuLoss_eWM_BW
             !$OMP private(i,j,k,isGood,L,MLT,E,NpsphPnt,wNBlend,wLBlend,tauPS,tauHiss,tauCHORUS)
             do j=sh%jsg,sh%jeg
                 do i=sh%isg,sh%ieg
-                    isGood = State%active(i,j)
+                    isGood = State%active(i,j) == RAIJUACTIVE
                     if (.not. isGood) then
                         cycle
                     endif
