@@ -11,7 +11,7 @@ module dkaurora
 !  use euvhelper
   use auroralhelper
 !  use kai2geo
-  use rcmdefs, ONLY : tiote_RCM
+  use raijudefs, ONLY : def_tiote
   
   implicit none
 
@@ -89,7 +89,7 @@ module dkaurora
       ! MHD inner boundary, used to calc mirror ratio.
       RinMHD = Params%RinMHD
       ! Te/Tmhd
-      alpha_RCM = 1.0/(tiote_RCM+1.0)
+      alpha_RCM = 1.0/(def_tiote+1.0)
       ! Loss cone rate
       beta_RCM  = aurora%beta
       beta_inp  = aurora%beta
@@ -285,17 +285,18 @@ module dkaurora
                ! Else set diffuse or no precipitation depending on rcm values relative to the threshold.
                mhd_SigPH = SigmaP_Robinson(mhd_eavg,mhd_eflx)**2+SigmaH_Robinson(mhd_eavg,mhd_eflx)**2
                rcm_SigPH = SigmaP_Robinson(rcm_eavg,rcm_eflx)**2+SigmaH_Robinson(rcm_eavg,rcm_eflx)**2
-               if(mhd_nflx>GuABNF .and. mhd_SigPH>rcm_SigPH) then
-                  St%Vars(i,j,AUR_TYPE) = AT_RMono
-               else
-                  St%Vars(i,j,NUM_FLUX) = rcm_nflx
-                  St%Vars(i,j,AVG_ENG)  = rcm_eavg
-                  if(rcm_nflx>GuABNF) then
-                     St%Vars(i,j,AUR_TYPE) = AT_RMfnE
-                  else
-                     St%Vars(i,j,AUR_TYPE) = AT_NoPre
-                  endif
-               endif
+               St%Vars(i,j,AUR_TYPE) = AT_RMono
+               !if(mhd_nflx>GuABNF .and. mhd_SigPH>rcm_SigPH) then
+               !   St%Vars(i,j,AUR_TYPE) = AT_RMono
+               !else
+               !   St%Vars(i,j,NUM_FLUX) = rcm_nflx
+               !   St%Vars(i,j,AVG_ENG)  = rcm_eavg
+               !   if(rcm_nflx>GuABNF) then
+               !      St%Vars(i,j,AUR_TYPE) = AT_RMfnE
+               !   else
+               !      St%Vars(i,j,AUR_TYPE) = AT_NoPre
+               !   endif
+               !endif
             else
                ! Linearly merge MHD and RCM diffuse nflux and eflux.
                ! Note where deltaE>eTINY but beta_RCM<=0.01, gtype will be near 1.

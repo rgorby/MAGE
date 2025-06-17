@@ -89,7 +89,9 @@ module auroralhelper
     subroutine CalcMagE(Gr,pot,MagE)
         type(mixGrid_T), intent(in) :: Gr
         real(rp), dimension(Gr%Np,Gr%Nt), intent(in)  :: pot
+            !! [kV]
         real(rp), dimension(Gr%Np,Gr%Nt), intent(out) :: MagE
+            !! [mV/m]
 
         integer :: i,j
         real(rp) :: R0,Et,Ep,dth,dph,th,EAvg

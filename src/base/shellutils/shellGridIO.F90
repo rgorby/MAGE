@@ -266,11 +266,11 @@ module shellGridIO
         logical, intent(in), optional :: doIOpO
         
         type(IOVAR_T), dimension(5) :: IOVars
-        logical :: doGroup, exists
+        logical :: doGroup, maskExists
         character(len=strLen) :: gStr
-        logical :: doIOp = .false.
+        logical :: doIOp
         character(len=strLen) :: idStr_mask
-        logical :: doReadMask = .false.
+        logical :: doReadMask
         real(rp), dimension(:,:), allocatable :: Q
 
         if(present(gStrO)) then
@@ -279,6 +279,7 @@ module shellGridIO
             doGroup = .false.
         endif
 
+        doIOp = .false.
         if (present(doIOpO)) doIOp = doIOpO
         allocate(Q(sgv%isv:sgv%iev, sgv%jsv:sgv%jev))
         write(idStr_mask, "(A,A)") trim(idStr), "_mask"
@@ -287,16 +288,17 @@ module shellGridIO
         call AddInVar(IOVars, idStr)
 
         if (doGroup) then
-            exists = ioExist(baseStr, idStr_mask, gStrO)
+            maskExists = ioExist(baseStr, idStr_mask, gStrO)
         else
-            exists = ioExist(baseStr, idStr_mask)
+            maskExists = ioExist(baseStr, idStr_mask)
         endif
 
-        if (exists) then
+        if (maskExists) then
             doReadMask = .true.
             call AddInVar(IOVars, idStr_mask)
         else
             write(*,*)"ReadInSGV_0D: Did not find mask variable for id=",trim(idStr)
+            doReadMask = .false.
         endif
         if(doGroup) then
             call ReadVars(IOVars, doIOp, baseStr, gStrO)
@@ -321,12 +323,12 @@ module shellGridIO
         
         integer :: k
         type(IOVAR_T), dimension(5) :: IOVars
-        logical :: doGroup, exists
+        logical :: doGroup, maskExists
         character(len=strLen) :: gStr
-        logical :: doIOp = .false.
+        logical :: doIOp
         character(len=strLen) :: idStr_mask
         integer, dimension(1) :: sgv_shape
-        logical :: doReadMask = .false.
+        logical :: doReadMask
         real(rp), dimension(:,:,:), allocatable :: Q
 
         if(present(gStrO)) then
@@ -335,6 +337,7 @@ module shellGridIO
             doGroup = .false.
         endif
 
+        doIOp = .false.
         if (present(doIOpO)) doIOp = doIOpO
         sgv_shape = shape(sgv)
 
@@ -345,16 +348,17 @@ module shellGridIO
         call AddInVar(IOVars, idStr)
 
         if (doGroup) then
-            exists = ioExist(baseStr, idStr_mask, gStrO)
+            maskExists = ioExist(baseStr, idStr_mask, gStrO)
         else
-            exists = ioExist(baseStr, idStr_mask)
+            maskExists = ioExist(baseStr, idStr_mask)
         endif
 
-        if (exists) then
+        if (maskExists) then
             doReadMask = .true.
             call AddInVar(IOVars, idStr_mask)
         else
             write(*,*)"ReadInSGV_1D: Did not find mask variable for id=",trim(idStr)
+            doReadMask = .false.
         endif
         if(doGroup) then
             call ReadVars(IOVars, doIOp, baseStr, gStrO)

@@ -9,21 +9,8 @@ module mixconductance
   use euvhelper
   use auroralhelper
   use kai2geo
-  use rcmdefs, ONLY : tiote_RCM
   
   implicit none
-
-!  real(rp), dimension(:,:), allocatable, private :: beta_RCM,alpha_RCM,gtype_RCM ! two-dimensional beta based on RCM fluxes.
-
-  !Replacing some hard-coded inline values (bad) w/ module private values (slightly less bad)
-!  real(rp), parameter, private :: maxDrop = 20.0 !Hard-coded max potential drop [kV]
-!  real(rp), parameter, private :: eTINY = mixeTINY ! Floor of average energy [keV]
-!  real(rp), parameter, private :: Ne_floor = 0.03e6 ! minimum Ne in [/m^3] when evaluating the linearized FL relation.
-!  real(rp), parameter, private :: Ne_psp = 10.0e6 ! Ne threshold for the plasmasphere in [/m^3].
-!  real(rp), parameter, private :: GuABNF = 1.e7 ! Gussenhoven+[1983] Auroral Boundary Number Flux in [#/cm^s/s].
-!  real(rp), private :: RinMHD = 0.0 !Rin of MHD grid (0 if not running w/ MHD)
-!  real(rp), private :: MIXgamma
-!  real(rp), private :: beta_inp
 
   contains
 
@@ -63,39 +50,6 @@ module mixconductance
       if (.not. allocated(conductance%deltaSigmaP)) allocate(conductance%deltaSigmaP(G%Np,G%Nt))
       if (.not. allocated(conductance%deltaSigmaH)) allocate(conductance%deltaSigmaH(G%Np,G%Nt))
 
-!      if (.not. allocated(conductance%rampFactor)) allocate(conductance%rampFactor(G%Np,G%Nt))
-!      if (.not. allocated(conductance%ares)) allocate(conductance%ares(G%Np,G%Nt))
-!      if (.not. allocated(conductance%deltaE)) allocate(conductance%deltaE(G%Np,G%Nt))
-!      if (.not. allocated(conductance%E0)) allocate(conductance%E0(G%Np,G%Nt))
-!      if (.not. allocated(conductance%phi0)) allocate(conductance%phi0(G%Np,G%Nt))
-!      if (.not. allocated(conductance%engFlux)) allocate(conductance%engFlux(G%Np,G%Nt))
-
-!      if (.not. allocated(conductance%avgEng)) allocate(conductance%avgEng(G%Np,G%Nt))
-!      if (.not. allocated(conductance%drift)) allocate(conductance%drift(G%Np,G%Nt))      
-!      if (.not. allocated(conductance%AuroraMask)) allocate(conductance%AuroraMask(G%Np,G%Nt))      
-!      if (.not. allocated(conductance%PrecipMask)) allocate(conductance%PrecipMask(G%Np,G%Nt))    
-
-      ! these arrays are global and should not be! reallocate them
-!      if(allocated(beta_RCM)) deallocate(beta_RCM)
-!      if(allocated(alpha_RCM)) deallocate(alpha_RCM)
-!      if(allocated(gtype_RCM)) deallocate(gtype_RCM)
-
-!      allocate(beta_RCM(G%Np,G%Nt))
-!      allocate(alpha_RCM(G%Np,G%Nt))
-!      allocate(gtype_RCM(G%Np,G%Nt))
-
-!      call SetMIXgamma(Params%gamma)
-      ! MHD inner boundary, used to calc mirror ratio.
-!      RinMHD = Params%RinMHD
-      ! Te/Tmhd
-!      alpha_RCM = 1.0/(tiote_RCM+1.0)
-      ! Loss cone rate
-!      beta_RCM  = conductance%beta
-!      beta_inp  = conductance%beta
-      ! RCM grid weight: 1. Totally on closed RCM; 0. Totally outside RCM.
-      ! if conductance_IM_GTYPE is not called, gtype_RCM has all zero, MHD values have a weight of 1.
-!      gtype_RCM = 0.0
-
     end subroutine conductance_init
 
     subroutine conductance_total(conductance,G,St,gcm,h)
@@ -107,9 +61,12 @@ module mixconductance
       type(gcm_T),optional,intent(in) :: gcm
       integer,optional,intent(in) :: h
 
-      real(rp), dimension(:,:), allocatable :: SigH0,SigP0 !Old values of SigH/SigP
+      real(rp), dimension(:,:), allocatable :: SigH0,SigP0,MagE !Old values of SigH/SigP
       real(rp) :: dT,upTau,dnTau,wAvgU,wAvgD
       integer :: i,j
+      logical :: doET
+
+      doET = .true. !Just setting this here for testing instead of doing the full xml option (don't tell Jeff)
 
       !Save old Sigs
       allocate(SigH0(G%Np,G%Nt))
@@ -135,8 +92,22 @@ module mixconductance
       else
          ! Use vector addition of auroral and EUV conductance.
          call conductance_aurora(conductance,G,St)
+
+         if (doET) then
+            !Add ET enhancement to embiggen auroral conductance
+            allocate(MagE(G%Np,G%Nt))
+            MagE = 0.0
+            call CalcMagE(G,St%Vars(:,:,POT),MagE) !Get magnitude of E field [mV/m]
+            !Apply ET in diffuse regions where auroral conductance is above floor
+            where ( (conductance%deltaSigmaP > conductance%pedmin + TINY) .and. (St%Vars(:,:,DELTAE) < TINY) )
+               conductance%deltaSigmaP(:,:) = SigET_P(MagE(:,:))*conductance%deltaSigmaP(:,:)
+               conductance%deltaSigmaH(:,:) = SigET_H(MagE(:,:))*conductance%deltaSigmaH(:,:)
+            endwhere
+         endif
+
          St%Vars(:,:,SIGMAP) = sqrt( conductance%euvSigmaP**2 + conductance%deltaSigmaP**2) 
          St%Vars(:,:,SIGMAH) = sqrt( conductance%euvSigmaH**2 + conductance%deltaSigmaH**2)
+         
       endif
 
       !Before applying cap, do optional exponential smoothing
@@ -146,7 +117,7 @@ module mixconductance
          dT = 5.D0
 
          dnTau = 30.D0 ![s], fall timescale (eg recombination)
-         upTau = 5.D0  ![s], increase timescale (eg state averaging)
+         upTau = 30.D0  ![s], increase timescale (eg state averaging)
 
          wAvgD = 1.D0 - exp(-3.D0*dT/max(dT,dnTau))
          wAvgU = 1.D0 - exp(-3.D0*dT/max(dT,upTau))

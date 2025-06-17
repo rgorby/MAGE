@@ -11,6 +11,9 @@ module raijuLoss_SS
 
     type, extends(baseRaijuLoss_T) :: raiLoss_SS_T
         logical :: reqsGood = .false.
+
+        real(rp) :: tauMult = 1.0_rp
+            !! Multiplier on strong scattering tau. Experimental, probably leave it alone
         contains
         
         procedure :: doInit => SSLossInit
@@ -32,6 +35,8 @@ module raijuLoss_SS
         this%reqsGood = .true.
         ! And they gonna precipitate
         this%isPrecip = .true.
+
+        call xmlInp%Set_Val(this%tauMult,"/Kaiju/RAIJU/losses/ssMult",this%tauMult)
 
     end subroutine SSLossInit
 
@@ -65,7 +70,7 @@ module raijuLoss_SS
         integer, intent(in) :: i, j, k
         real(rp) :: tau
 
-        tau = CalcTau_StrongScattering(Model, Grid, State, i, j, k)
+        tau = this%tauMult*CalcTau_StrongScattering(Model, Grid, State, i, j, k)
 
     end function SSLossCalcTau
     

@@ -418,26 +418,21 @@ module raijuRecon
     end subroutine calcBoundaryFluxes
 
 
-    subroutine calcFluxes(Model, Grid, State, k, Qcc, Qflux)
+    subroutine calcFluxes(Model, Grid, State, k, isGoodRecon, Qcc, Qflux)
         !! Takes cell-centered quantity (Qcc) and uses state information to calculate flux of Q through cell faces (Qflux)
         type(raijuModel_T), intent(in) :: Model
         type(raijuGrid_T ), intent(in) :: Grid
         type(raijuState_T), intent(inout) :: State
         integer, intent(in) :: k
+        logical , dimension(Grid%shGrid%isg:Grid%shGrid%ieg, &
+                            Grid%shGrid%jsg:Grid%shGrid%jeg), intent(in) :: isGoodRecon
         real(rp), dimension(Grid%shGrid%isg:Grid%shGrid%ieg, &
-                            Grid%shGrid%jsg:Grid%shGrid%jeg),      intent(in) :: Qcc
+                            Grid%shGrid%jsg:Grid%shGrid%jeg), intent(in) :: Qcc
             !! Cell-centered quantity (eta)
         real(rp), dimension(Grid%shGrid%isg:Grid%shGrid%ieg+1, &
                             Grid%shGrid%jsg:Grid%shGrid%jeg+1, 2), intent(inout) :: Qflux
             !! Flux of Q through faces
-
-        ! Make some needed arrays here, figure out how to optimize later
-        logical , dimension(Grid%shGrid%isg:Grid%shGrid%ieg, &
-                            Grid%shGrid%jsg:Grid%shGrid%jeg) :: isG
-        !real(rp), dimension(Grid%shGrid%isg:Grid%shGrid%ieg, &
-        !                    Grid%shGrid%jsg:Grid%shGrid%jeg) :: QA
-        !real(rp), dimension(Grid%shGrid%isg:Grid%shGrid%ieg+1, &
-        !                    Grid%shGrid%jsg:Grid%shGrid%jeg+1, 2) :: QAface, Qface, QpdmL, QpdmR, QfluxL, QfluxR
+        
         real(rp), dimension(Grid%shGrid%isg:Grid%shGrid%ieg+1, &
                             Grid%shGrid%jsg:Grid%shGrid%jeg+1, 2) :: QfaceL, QfaceR
         real(rp) :: QfluxL, QfluxR
@@ -448,20 +443,12 @@ module raijuRecon
         QfluxL = 0.0
         QfluxR = 0.0
         Qflux  = 0.0
-
-        where (State%active .ne. RAIJUINACTIVE)
-            isG = .true.
-        elsewhere
-            isG = .false.
-        end where
-
         
         ! ReconFaces(Model, Grid, isG, Qcc, QfaceL, QfaceR, QreconLO, QreconRO)
         if (Model%doOutput_debug) then
-            call ReconFaces(Model, Grid, isG, Qcc, QfaceL, QfaceR, State%etaFaceReconL(:,:,k,:), State%etaFaceReconR(:,:,k,:))
-            !call ReconFaces(Model, Grid, isG, Qcc, QfaceL, QfaceR, State%etaFaceReconL, State%etaFaceReconR)
+            call ReconFaces(Model, Grid, isGoodRecon, Qcc, QfaceL, QfaceR, State%etaFaceReconL(:,:,k,:), State%etaFaceReconR(:,:,k,:))
         else
-            call ReconFaces(Model, Grid, isG, Qcc, QfaceL, QfaceR)
+            call ReconFaces(Model, Grid, isGoodRecon, Qcc, QfaceL, QfaceR)
         endif
 
         if (Model%doUseVelLRs) then

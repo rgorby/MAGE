@@ -5,8 +5,8 @@ module imaghelper
     use earthhelper
     use math
     use geopack
-    use rcmdefs, ONLY: tiote_RCM
-
+    use raijudefs, ONLY: def_tiote
+    
     implicit none
 
     !Stuff to calculate TM03 plasma sheet model
@@ -341,13 +341,13 @@ module imaghelper
 		endif
 		call EvalTM03(xyzGSM_TM03,ionD,ionP,isIn)
 		if (.not. isIn) then
-			TioTe = tiote_RCM
+			TioTe = def_tiote
 		else
 			ionT = DP2kT(ionD,ionP)
 			eleT = Tps_dgsr2016(xyzGSM_DSGR16(XDIR),xyzGSM_DSGR16(YDIR),xyzGSM_DSGR16(ZDIR))
 			
 			if ( (ionT<TINY) .or. (eleT<TINY) ) then
-				TioTe = tiote_RCM
+				TioTe = def_tiote
 			else
 				TioTe = ionT/eleT
 			endif

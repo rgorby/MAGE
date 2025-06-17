@@ -387,6 +387,8 @@ module raijustarter
             allocate( State%eta_half (sh%isg:sh%ieg, sh%jsg:sh%jeg, Grid%Nk) )
             ! Where we kept all our stuff one step ago
             allocate( State%eta_last (sh%isg:sh%ieg, sh%jsg:sh%jeg, Grid%Nk) )
+            ! Where all the stuff sorta was over the last State%dt
+            allocate( State%eta_avg  (sh%isg:sh%ieg, sh%jsg:sh%jeg, Grid%Nk) )
             ! I shells shat should be evolved for each k
             allocate( State%activeShells (sh%isg:sh%ieg, Grid%Nk) )
             ! Effective potential (used for output only)
@@ -445,6 +447,8 @@ module raijustarter
             ! Coupling output data
             allocate(State%Den  (0:Model%nSpc))
             allocate(State%Press(0:Model%nSpc))
+            allocate(State%Den_avg  (0:Model%nSpc))
+            allocate(State%Press_avg(0:Model%nSpc))
             do s=0,Model%nSpc
                 call initShellVar(Grid%shGrid, SHGR_CC, State%Den  (s))
                 call initShellVar(Grid%shGrid, SHGR_CC, State%Press(s))
@@ -452,6 +456,13 @@ module raijustarter
                 State%Press(s)%data = 0.0
                 State%Den  (s)%mask = .false.
                 State%Press(s)%mask = .false.
+
+                call initShellVar(Grid%shGrid, SHGR_CC, State%Den_avg  (s))
+                call initShellVar(Grid%shGrid, SHGR_CC, State%Press_avg(s))
+                State%Den_avg  (s)%data = 0.0
+                State%Press_avg(s)%data = 0.0
+                State%Den_avg  (s)%mask = .false.
+                State%Press_avg(s)%mask = .false.
             enddo
             allocate(State%precipNFlux(Grid%Nk))
             allocate(State%precipEFlux(Grid%Nk))

@@ -13,6 +13,8 @@ module raijuPreAdvancer
     use shellGrid
     use shellInterp
 
+    use arrayutil
+
     implicit none
 
     contains
@@ -31,6 +33,7 @@ module raijuPreAdvancer
         integer :: k
 
         ! Clear things that will be accumulated over the advance
+        call fillArray(State%eta_avg, 0.0_rp)
         ! (losses handled in updateRaiLosses)
 
         ! Moments to etas, initial active shell calculation
@@ -336,6 +339,9 @@ module raijuPreAdvancer
             enddo
             !deallocate(gradQtmp)
         endif
+
+        call wrapJcc(Grid%shGrid, gradQ(:,:,RAI_TH))
+        call wrapJcc(Grid%shGrid, gradQ(:,:,RAI_PH))
 
         gradQ = gradQ / Rp_m  ! [Q/m]
 

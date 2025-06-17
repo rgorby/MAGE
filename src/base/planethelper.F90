@@ -228,7 +228,7 @@ module planethelper
         P = max(kT,TINY)*D/6.25
     end function DkT2P
 
-    !Turn density [#/cc] and pressure [nPa] to temperature [keV]
+    !> Turn density [#/cc] and pressure [nPa] to temperature [keV]
     function DP2kT(D,P) result(kT)
         real(rp), intent(in) :: D
             !! Density [#/cc]

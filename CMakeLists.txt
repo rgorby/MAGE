@@ -49,17 +49,6 @@ mark_as_advanced(bricksize)
 set(MAXTUBESIZE 5000 CACHE STRING "Size of array buffer for holding flux tubes")
 add_compile_definitions(MAXTUBESIZE=${MAXTUBESIZE})
 
-#RCM grid size (required to be defined at compile time)
-set(RCMSIZEI 180 CACHE STRING "RCM Grid: Number of Colatitude Cells")
-set(RCMSIZEJ 361 CACHE STRING "RCM Grid: Number of Longitude Cells")
-set(RCMSIZEK 160 CACHE STRING "RCM Grid: Number of Lambda Cells")
-set(RCMWRAPJ 3   CACHE STRING "RCM Grid: Number of periodic wrap cells")
-mark_as_advanced(RCMWRAPJ)
-add_compile_definitions(RCMSIZEI=${RCMSIZEI})
-add_compile_definitions(RCMSIZEJ=${RCMSIZEJ})
-add_compile_definitions(RCMSIZEK=${RCMSIZEK})
-add_compile_definitions(RCMWRAPJ=${RCMWRAPJ})
-
 #-------------
 #Set default IC files
 file(GLOB GAMICDEF src/gamera/ICs/null.F90)
@@ -204,12 +193,10 @@ add_custom_target(remix ALL)
 message("\tAdding executable remix.x")
 add_executable(remix.x src/drivers/remix.F90)
 add_executable(remix2remix.x src/drivers/remix2remix.F90)
-add_executable(remix2rcm.x src/drivers/remix2rcm.F90)
 target_link_libraries(remix.x       remixlib dragonkinglib baselib)
 target_link_libraries(remix2remix.x remixlib dragonkinglib baselib)
-target_link_libraries(remix2rcm.x   remixlib dragonkinglib baselib)
 add_dependencies(remixlib dragonkinglib)
-add_dependencies(remix remix.x remix2remix.x remix2rcm.x dragonkinglib baselib)
+add_dependencies(remix remix.x remix2remix.x dragonkinglib baselib)
 
 #-------------
 # ShellGrid Tester
@@ -219,18 +206,6 @@ target_link_libraries(testNewRMS.x baselib)
 add_dependencies(testNewRMS.x baselib)
 
 #-------------
-#Kaiju: RCM
-message("Adding RCM module ...")
-message("\tRCM Grid is of size ${RCMSIZEI} x ${RCMSIZEJ} x ${RCMSIZEK}")
-#Add source
-add_subdirectory(src/rcm)
-add_custom_target(rcm ALL)
-message("\tAdding executable rcm.x")
-add_executable(rcm.x src/drivers/rcmx.F90)
-target_link_libraries(rcm.x rcmlib baselib)
-add_dependencies(rcm rcm.x baselib)
-
-#-------------
 #Kaiju: RAIJU
 message("Adding RAIJU module ...")
 message("\tIC file is ${RAIJUIC}")
@@ -238,16 +213,17 @@ message("\tIC file is ${RAIJUIC}")
 add_subdirectory(src/raiju)
 add_custom_target(raiju ALL)
 
-message("\tAdding executable raijuSA.x")
+# disabling raijuSA.x for now until it is completed
+#message("\tAdding executable raijuSA.x")
 #add_executable(raijuSA.x src/drivers/raijuSAx.F90 ${RAIJUIC})
-add_executable(raijuSA.x src/drivers/raijuSAx.F90)
-target_link_libraries(raijuSA.x raijulib baselib)
-add_dependencies(raiju raijuSA.x)
+#add_executable(raijuSA.x src/drivers/raijuSAx.F90)
+#target_link_libraries(raijuSA.x baselib raijulib)
+#add_dependencies(raiju raijuSA.x)
 
 message("\tAdding executable raijuOWD.x")
 #add_executable(raijuOWD.x src/drivers/raijuOWDx.F90 ${RAIJUIC})
 add_executable(raijuOWD.x src/drivers/raijuOWDx.F90)
-target_link_libraries(raijuOWD.x voltlib gamlib remixlib chimplib raijulib baselib)
+target_link_libraries(raijuOWD.x baselib voltlib gamlib remixlib chimplib raijulib)
 add_dependencies(raiju raijuOWD.x)
 
 
@@ -259,7 +235,7 @@ add_subdirectory(src/voltron)
 add_custom_target(voltron ALL)
 message("\tAdding executable voltron.x")
 add_executable(voltron.x src/drivers/voltronx.F90)
-target_link_libraries(voltron.x baselib voltlib gamlib dragonkinglib remixlib chimplib rcmlib raijulib)
+target_link_libraries(voltron.x baselib voltlib gamlib dragonkinglib remixlib chimplib raijulib)
 add_dependencies(voltron voltron.x)
 
 if(ENABLE_MPI)
@@ -290,8 +266,7 @@ if(ENABLE_MPI)
     add_custom_target(voltron_mpi ALL)
     message("\tAdding executable voltron_mpi.x")
     add_executable(voltron_mpi.x src/drivers/voltron_mpix.F90)
-    target_link_libraries(voltron_mpi.x voltmpilib voltlib gammpilib gamlib dragonkinglib remixlib chimplib rcmlib basempilib baselib)
-#    target_link_libraries(voltron_mpi.x baselib basempilib voltmpilib voltlib gammpilib gamlib remixlib chimplib rcmlib raijulib)
+    target_link_libraries(voltron_mpi.x baselib basempilib voltmpilib voltlib gammpilib gamlib dragonkinglib remixlib chimplib raijulib)
     add_dependencies(voltron_mpi voltron_mpi.x)
 
     #-------------

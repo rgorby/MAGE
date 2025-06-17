@@ -397,6 +397,9 @@ module raijutypes
             !! (Ngi, Ngj, Nk) [#/cc * Rp/T] etas  0.5*dt forward from t
         real(rp), dimension(:,:,:), allocatable :: eta_last
             !! (Ngi, Ngj, Nk) [#/cc * Rp/T] etas from previous time step, used for halt-time calculation
+        real(rp), dimension(:,:,:), allocatable :: eta_avg
+            !! (Ngi, Ngj, Nk) [#/cc * Rp/T] etas averaged over time step State%dt
+
         logical, dimension(:,:), allocatable :: activeShells
             !! (Ngi, Nk) i shells that should be evolved for a given lambda
         real(rp), dimension(:,:,:), allocatable :: pEff
@@ -428,7 +431,7 @@ module raijutypes
         real(rp), dimension(:,:,:), allocatable :: Dstd
             !! (Ngi, Ngj, Ns) Normalized standard deviation of the species density along the field line
         real(rp), dimension(:,:), allocatable :: tiote
-            !! (Ngi, Ngj, Ns) Ratio of ion temperature to electron temperature
+            !! (Ngi, Ngj) Ratio of ion temperature to electron temperature
         real(rp), dimension(:,:,:), allocatable :: Bmin
             !! (Ngi+1, Ngj+1, NDIM) [nT] Bmin vector
         real(rp), dimension(:,:,:), allocatable :: xyzMin
@@ -502,9 +505,13 @@ module raijutypes
         !real(rp), dimension(:,:,:), allocatable :: vAvg
         !real(rp), dimension(:,:,:), allocatable :: Press
         type(ShellGridVar_T), dimension(:), allocatable :: Den
-            !! (Ngi, Ngj, Nspc+1) Density  [#/cc]
+            !! (Ngi, Ngj, Nspc+1) Density, evaluated using instantaneous etas  [#/cc]
         type(ShellGridVar_T), dimension(:), allocatable :: Press
-            !! (Ngi, Ngj, Nspc+1) Pressure [nPa]
+            !! (Ngi, Ngj, Nspc+1) Pressure, evaluated using instantaneous etas [nPa]
+        type(ShellGridVar_T), dimension(:), allocatable :: Den_avg
+            !! (Ngi, Ngj, Nspc+1) Density, evaluated using etas averaged over time State%dt  [#/cc]
+        type(ShellGridVar_T), dimension(:), allocatable :: Press_avg
+            !! (Ngi, Ngj, Nspc+1) Pressure, evaluated using etas averaged over time State%dt [nPa]
         type(ShellGridVar_T) :: Tb
             !! (Ngi, Ngj) [s] Bounce timescale (Alfven crossing time)
         

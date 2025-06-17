@@ -12,8 +12,6 @@ program raijuSAx
     use raijuBCs
     use raijuPreAdvancer, only : raijuPreAdvance
     use raijuAdvancer   , only : raijuAdvance
-    use raijuclaw   , only : raijuAdvance_claw
-
 
     implicit none
 

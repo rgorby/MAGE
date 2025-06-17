@@ -17,7 +17,6 @@ module raijuIO
     implicit none
 
     integer, parameter, private :: MAXIOVAR = 70
-    !type(IOVAR_T), dimension(MAXIOVAR), private :: IOVars
     logical, private :: doRoot = .true. !Whether root variables need to be written
     logical, private :: doFat = .false. !Whether to output lots of extra datalogical, private :: doRoot = .true. !Whether root variables need to be written
 
@@ -216,7 +215,8 @@ module raijuIO
         call AddOutVar(IOVars,"bminY",State%Bmin(is:ie+1,js:je+1,YDIR),uStr="nT")
         call AddOutVar(IOVars,"bminZ",State%Bmin(is:ie+1,js:je+1,ZDIR),uStr="nT")
 
-        call AddOutVar(IOVars,"eta",State%eta(is:ie,js:je, :),uStr="#/cm^3 * Rx/T") !! TODO: Maybe swap with just intensity instead
+        call AddOutVar(IOVars,"eta"    ,State%eta    (is:ie,js:je, :),uStr="#/cm^3 * Rx/T") !! TODO: Maybe swap with just intensity instead
+        call AddOutVar(IOVars,"eta_avg",State%eta_avg(is:ie,js:je, :),uStr="#/cm^3 * Rx/T") !! TODO: Maybe swap with just intensity instead
 
         ! Calc intensity
         allocate(outTmp3D(is:ie,js:je,Grid%Nk))
@@ -286,7 +286,9 @@ module raijuIO
 
         ! Moments
         call AddOutSGV(IOVars, "Pressure", State%Press, outBndsO=outBnds2D, uStr="nPa" , dStr="Pressure from RAIJU flavors", doWriteMaskO=.false.)
-        call AddOutSGV(IOVars, "Density" , State%Den  , outBndsO=outBnds2D, uStr="#/cc", dStr="Density from RAIJU flavors", doWriteMaskO=.false.)
+        call AddOutSGV(IOVars, "Density" , State%Den  , outBndsO=outBnds2D, uStr="#/cc", dStr="Density from RAIJU flavors" , doWriteMaskO=.false.)
+        call AddOutSGV(IOVars, "Pressure_avg", State%Press_avg, outBndsO=outBnds2D, uStr="nPa" , dStr="Step-averaged Pressure from RAIJU flavors", doWriteMaskO=.false.)
+        call AddOutSGV(IOVars, "Density_avg" , State%Den_avg  , outBndsO=outBnds2D, uStr="#/cc", dStr="Step-averaged Density from RAIJU flavors" , doWriteMaskO=.false.)
         
 
         ! Calculate flux tube entropy using bulk pressure
@@ -326,8 +328,6 @@ module raijuIO
                     outPrecipN(:,:,s) = outPrecipN(:,:,s) + State%precipNFlux(k)%data(is:ie,js:je)
                     outPrecipE(:,:,s) = outPrecipE(:,:,s) + State%precipEFlux(k)%data(is:ie,js:je)
                 enddo
-                !outPrecipN(:,:,s)    = sum(State%precipNFlux(is:ie,js:je,kS:kE), dim=3)
-                !outPrecipE(:,:,s)    = sum(State%precipEFlux(is:ie,js:je,kS:kE), dim=3)
                 outCCHeatFlux(:,:,s) = sum(State%CCHeatFlux (is:ie,js:je,kS:kE), dim=3)
 
                 where (outPrecipN(:,:,s) > TINY)
@@ -350,8 +350,6 @@ module raijuIO
 
             if (Model%doOutput_3DLoss) then
                 call AddOutVar(IOVars, "dEta_dt" , State%dEta_dt(is:ie,js:je,:), uStr="eta_units/s")
-                !call AddOutVar(IOVars, "precipNFlux_Nk"    , State%precipNFlux(is:ie,js:je,:), uStr="#/cm^2/s")
-                !call AddOutVar(IOVars, "precipEFlux_Nk"    , State%precipEFlux(is:ie,js:je,:), uStr="erg/cm^2/s")
                 call AddOutVar(IOVars, "CCHeatFlux_Nk" , State%CCHeatFlux (is:ie,js:je,:), uStr="eV/cm^2/s")
                 call AddOutSGV(IOVars, "precipNFlux_Nk", State%precipNFlux, outBndsO=outBnds2D, uStr="#/cm^2/s" , dStr="precipNFlux from RAIJU flavors", doWriteMaskO=.false.)
                 call AddOutSGV(IOVars, "precipEFlux_Nk", State%precipEFlux, outBndsO=outBnds2D, uStr="erg/cm^2/s" , dStr="precipEFlux from RAIJU flavors", doWriteMaskO=.false.)
@@ -471,9 +469,7 @@ module raijuIO
         real(rp), dimension(:,:), allocatable :: outActiveShell
         real(rp), dimension(:,:,:), allocatable :: tmpOut3D
 
-        ! As a first pass, be very liberal with what we save. If its too much we can be smarter
         ! Always do ghosts
-
         is = Grid%shGrid%isg
         ie = Grid%shGrid%ieg
         js = Grid%shGrid%jsg
@@ -529,6 +525,7 @@ module raijuIO
         ! Core variables
         call AddOutVar(IOVars,"eta"        ,State%eta         (:,:,:)     ,uStr="#/cm^3 * Rx/T")
         call AddOutVar(IOVars,"eta_last"   ,State%eta_last    (:,:,:)     ,uStr="#/cm^3 * Rx/T")
+        call AddOutVar(IOVars,"eta_avg"    ,State%eta_avg     (:,:,:)     ,uStr="#/cm^3 * Rx/T")
         call AddOutVar(IOVars,"active"     ,State%active      (:,:)*1.0_rp,uStr="-1=Inactive, 0=Buffer, 1=Active")
         call AddOutVar(IOVars,"active_last",State%active_last (:,:)*1.0_rp,uStr="-1=Inactive, 0=Buffer, 1=Active")
         call AddOutVar(IOVars,"OCBDist"    ,State%OCBDist     (:,:)*1.0_rp,dStr="Cell distance from an open closed boundary")
@@ -541,23 +538,11 @@ module raijuIO
         end where
         call AddOutVar(IOVars,"activeShells",outActiveShell,uStr="[Ni, Nk]")
         ! Moments
-        !allocate(tmpOut3D(is:ie,js:je,0:Grid%nSpc))
-        !tmpOut3D = 0.0
-        !do s=0,Grid%nSpc
-        !    tmpOut3D(:,:,s) = State%Press(s)%data(is:ie,js:je)
-        !enddo
-        !call AddOutVar(IOVars,"Pressure",tmpOut3D(:,:,:),uStr="nPa")
-        !tmpOut3D = 0.0
-        !do s=0,Grid%nSpc
-        !    tmpOut3D(:,:,s) = State%Den(s)%data(is:ie,js:je)
-        !enddo
-        !call AddOutVar(IOVars,"Density",tmpOut3D(:,:,:),uStr="amu/cc")
-        !deallocate(tmpOut3D)
         call AddOutSGV(IOVars, "Pressure", State%Press, doWriteMaskO=.true., uStr="nPa")
         call AddOutSGV(IOVars, "Density" , State%Den  , doWriteMaskO=.true., uStr="#/cc")
+        call AddOutSGV(IOVars, "Pressure_avg", State%Press_avg, doWriteMaskO=.true., uStr="nPa")
+        call AddOutSGV(IOVars, "Density_avg" , State%Den_avg  , doWriteMaskO=.true., uStr="#/cc")
         ! Precip
-        !call AddOutVar(IOVars,"precipNFlux",State%precipNFlux(:,:,:),uStr="#/cm^2/s")
-        !call AddOutVar(IOVars,"precipEFlux",State%precipEFlux(:,:,:),uStr="erg/cm^2/s")
         call AddOutSGV(IOVars, "precipNFlux_Nk", State%precipNFlux, doWriteMaskO=.true., uStr="#/cm^2/s")
         call AddOutSGV(IOVars, "precipEFlux_Nk", State%precipEFlux, doWriteMaskO=.true., uStr="erg/cm^2/s")
         call AddOutVar(IOVars,"precipLossRates_Nk", State%lossRates(:,:,:), uStr="1/s")
@@ -568,7 +553,6 @@ module raijuIO
         ! More solver stuff
         call AddOutVar(IOVars, "dtk"   , State%dtk(:), uStr="s")
         call AddOutVar(IOVars, "nStepk", State%nStepk(:)*1.0_rp, uStr="#", dStr="Number of steps each channel has taken")
-        !call AddOutVar(IOVars, "nStepk" , State%nStepk(:), uStr="#", dStr="Number of steps each channel has taken")
         call AddOutVar(IOVars, "iVel"   , State%iVel  (:,:,:,:)     , uStr="m/s")
         call AddOutVar(IOVars, "cVel"   , State%cVel  (:,:,:,:), uStr="m/s")
 
@@ -630,16 +614,12 @@ module raijuIO
 
         call AddInVar(IOVars,"eta"        )
         call AddInVar(IOVars,"eta_last"   )
+        call AddInVar(IOVars,"eta_avg"    )
         call AddInVar(IOVars,"active"     )
         call AddInVar(IOVars,"active_last")
         call AddInVar(IOVars,"OCBDist"    )
         call AddInVar(IOVars,"activeShells")
 
-        !call AddInVar(IOVars,"Pressure")
-        !call AddInVar(IOVars,"Density")
-
-        !call AddInVar(IOVars,"precipNFlux")
-        !call AddInVar(IOVars,"precipEFlux")
         call AddInVar(IOVars,"precipLossRates_Nk")
 
         call AddInVar(IOVars, "gradPotE"    )
@@ -692,12 +672,8 @@ module raijuIO
 
         call IOArray3DFill(IOVars, "eta"     , State%eta     (:,:,:))
         call IOArray3DFill(IOVars, "eta_last", State%eta_last(:,:,:))
+        call IOArray3DFill(IOVars, "eta_avg" , State%eta_avg (:,:,:))
 
-        !call IOArray3DFill(IOVars, "Pressure", State%Press(:,:,:))
-        !call IOArray3DFill(IOVars, "Density" , State%Den  (:,:,:))
-
-        !call IOArray3DFill(IOVars, "precipNFlux", State%precipNFlux(:,:,:))
-        !call IOArray3DFill(IOVars, "precipEFlux", State%precipEFlux(:,:,:))
         call IOArray3DFill(IOVars, "precipLossRates_Nk", State%lossRates(:,:,:))
 
         call IOArray3DFill(IOVars, "gradPotE"    , State%gradPotE    (:,:,:))
@@ -732,17 +708,6 @@ module raijuIO
         call IOArray2DFill(IOVars, "activeShells",tmpReal2D)
         State%activeShells = merge(.true., .false., tmpReal2D .eq. 1.0)
 
-        ! Moments
-        !allocate(tmpReal3D(is:ie,js:je,0:Grid%nSpc))
-        !call IOArray3DFill(IOVars, "Pressure", tmpReal3D)
-        !do s=0,Grid%nSpc
-        !    State%Press(s)%data = tmpReal3D(:,:,s)
-        !enddo
-        !call IOArray3DFill(IOVars, "Density", tmpReal3D)
-        !do s=0,Grid%nSpc
-        !    State%Den(s)%data = tmpReal3D(:,:,s)
-        !enddo
-
         ! 1D Nk
         allocate(tmpReal1D(Grid%Nk))
         call IOArray1DFill(IOVars, "nStepk", tmpReal1D)
@@ -751,6 +716,8 @@ module raijuIO
         ! ShellGridVars
         call ReadInSGV(State%Press, inH5, "Pressure", "State", doIOpO=.false.)
         call ReadInSGV(State%Den  , inH5, "Density" , "State", doIOpO=.false.)
+        call ReadInSGV(State%Press_avg, inH5, "Pressure_avg", "State", doIOpO=.false.)
+        call ReadInSGV(State%Den_avg  , inH5, "Density_avg" , "State", doIOpO=.false.)
         call ReadInSGV(State%precipNFlux, inH5, "precipNFlux_Nk", "State", doIOpO=.false.)
         call ReadInSGV(State%precipEFlux, inH5, "precipEFlux_Nk", "State", doIOpO=.false.)
 
