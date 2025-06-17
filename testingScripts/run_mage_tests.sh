@@ -351,7 +351,7 @@ cp -p $new_test_code_root/testingScripts/mage_build_test_modules/* ./testingScri
 cp -p $new_test_code_root/tests/*-template.pbs ./tests/
 # src/rcm/claw.F was removed by the repository surgery in June 2025.
 # We need to add it back as a patch until we remove src/rcm from the code.
-cp -p $PATCH_DIR/claw.F ./src/rcm/
+# cp -p $PATCH_DIR/claw.F ./src/rcm/
 # </HACK>
 
 # ############################################################################
