@@ -1,6 +1,5 @@
 Copyright 2018 Johns Hopkins University Applied Physics Laboratory  
-Copyright 2018 US National Science Foundation National Center for
-Atmospheric Research  
+Copyright 2018 US National Science Foundation National Center for Atmospheric Research  
 Copyright 2018 John G. Lyon  
 Copyright 2019 Rice University  
 
