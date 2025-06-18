@@ -262,12 +262,12 @@
             "moduledir": {
                 "LEVEL": "EXPERT",
                 "prompt": "Module directory",
-                "default": null
+                "default": [null]
             },
             "local_modules": {
                 "LEVEL": "EXPERT",
                 "prompt": "Commands to add local module PATH",
-                "default": null
+                "default": [null]
             },
             "environment_variables": {
                 "LEVEL": "EXPERT",
