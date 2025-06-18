@@ -8,6 +8,8 @@ module gamCoupleHelper
     use mhdgroup
     use output
     use cmiutils
+    use uservoltic ! required to have IonInnerBC_T defined
+
 
     implicit none
 
@@ -99,6 +101,15 @@ module gamCoupleHelper
         !Remix Coupling Variables
         call AddOutVar(IOVars,"mixOutput",App%mixOutput)
         call AddOutVar(IOVars,"gPsi"     ,App%gPsi)
+        call AddOutVar(IOVars,"Gas0"     ,App%Grid%Gas0)
+        SELECT type(iiBC=>App%Grid%externalBCs(INI)%p)
+            TYPE IS (IonInnerBC_T)
+                    call AddOutVar(IOVars,"inEijk",iiBC%inEijk)
+                    call AddOutVar(IOVars,"inExyz",iiBC%inExyz)
+            CLASS DEFAULT
+                write(*,*) 'Could not find Ion Inner BC in writeGamCouplerRestart'
+                stop
+        END SELECT
 
         !Write out, force real precision
         call WriteVars(IOVars,.false.,ResF)
@@ -142,12 +153,29 @@ module gamCoupleHelper
         !Read Remix Coupling Variables
         call AddInVar(IOVars,"mixOutput")
         call AddInVar(IOVars,"gPsi")
+        call AddInVar(IOVars,"Gas0")
+        call AddInVar(IOVars,"inEijk")
+        call AddInVar(IOVars,"inExyz")
 
         !Get data
         call ReadVars(IOVars,.false.,ResF)
 
         call IOArray5DFill(IOVars,"mixOutput",App%mixOutput)
         call IOArray3DFill(IOVars,"gPsi",App%gPsi)
+
+        n0 = FindIO(IOVars,"Gas0")
+        if (IOVars(n0)%isDone) then
+            ! restart is newer and has full data
+            call IOArray4DFill(IOVars,"Gas0",App%Grid%Gas0)
+            SELECT type(iiBC=>App%Grid%externalBCs(INI)%p)
+                TYPE IS (IonInnerBC_T)
+                        call IOArray4DFill(IOVars,"inEijk",iiBC%inEijk)
+                        call IOArray4DFill(IOVars,"inExyz",iiBC%inExyz)
+                CLASS DEFAULT
+                    write(*,*) 'Could not find Ion Inner BC in readGamCouplerRestart'
+                    stop
+            END SELECT
+        endif
 
     end subroutine
 
