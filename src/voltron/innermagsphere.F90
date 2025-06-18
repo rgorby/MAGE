@@ -6,11 +6,7 @@ module innermagsphere
     use ebtypes
     use volttypes
     use gamapp
-!    use sstimag
-    use sstLLimag
-    use rcmimag
     use msphutils, only : RadIonosphere
-    use rcmXimag
     use cmiutils, only : SquishCorners
     
     implicit none
@@ -22,184 +18,64 @@ module innermagsphere
     subroutine InitInnerMag(vApp,gApp,iXML)
         type(voltApp_T)  , intent(inout) :: vApp
         !logical, intent(in) :: isRestart
-        type(gamApp_T), intent(in) :: gApp
+        class(gamApp_T), intent(in) :: gApp
         type(XML_Input_T), intent(inout) :: iXML
         character(len=strLen) :: imStr
 
+        real(rp) :: mhd_Rin = 2.0
+
         if (.not. vApp%doDeep) return !Why are you even here?
 
-        call iXML%Set_Val(imStr,"coupling/imType","SST")
+        call iXML%Set_Val(imStr,"coupling/imType","RAIJU")
 
         !NOTE: Using the fact that x2 is longitude and 2P periodic for both inner mag models
         select case (trim(toUpper(imStr)))
         case("SST","TS07")
-            vApp%imType = IMAGSST
-            vApp%prType = LPPROJ !R-phi
-            allocate(empData_T :: vApp%imagApp)
+            write(*,*)"ERROR: SST not updated for new imag plumbing."
+            stop
+            !vApp%imType = IMAGSST
+            !vApp%prType = LPPROJ !R-phi
+            !allocate(empData_T :: vApp%imagApp)
         ! case("SSTLL")  ! on lon-lat grid in the ionosphere -- like RCM
         !     vApp%imType = IMAGSSTLL
         !     vApp%prType = LLPROJ !R-phi
         !     allocate(empData_T :: vApp%imagApp)
         case("RCM")
-            vApp%imType = IMAGRCM
-            vApp%prType = LLPROJ !Lat-lon
-            allocate(rcmIMAG_T :: vApp%imagApp)
+            write(*,*)"ERROR: RCM not updated for new imag plumbing."
+            stop
+            !vApp%imType = IMAGRCM
+            !vApp%prType = LLPROJ !Lat-lon
+            !allocate(rcmIMAG_T :: vApp%imagApp)
         case("RCMX")
-            vApp%imType = IMAGRCMX
-            vApp%prType = LLPROJ !Lat-lon
-            allocate(rcmXIMAG_T :: vApp%imagApp)
+            write(*,*)"ERROR: RCMX not updated for new imag plumbing."
+            stop
+            !vApp%imType = IMAGRCMX
+            !vApp%prType = LLPROJ !Lat-lon
+            !allocate(rcmXIMAG_T :: vApp%imagApp)
+        case("RAIJU")
+            vApp%imType = IMAGRAIJU
+            vApp%prType = LLPROJ
+            allocate(raijuCoupler_T :: vApp%imagApp)
+            allocate(imagOptions_T :: vApp%imagApp%opt)
         case DEFAULT
             write(*,*) 'Unkown imType, bailing ...'
             stop
         end select
 
-        call vApp%imagApp%doInit(iXML,gApp%Model%isRestart,vApp)
-
-    end subroutine InitInnerMag
-
-    !Use inner mag model to prepare Gamera source terms
-    subroutine InnerMag2Gamera(vApp,gApp)
-        type(voltApp_T), intent(inout) :: vApp
-        type(gamApp_T) , intent(inout) :: gApp
-
-        integer :: i,j,k,Nk
-        real(rp) :: x1,x2,t
-        real(rp) :: imW(NVARIMAG),Qs(8)
-        logical :: isTasty
-        real(rp), dimension(:,:,:,:), allocatable :: SrcNC !Node-centered source terms 
-
-
-    !Proceed in two steps
-    ! 1) Get ingestion values at each node (cell corner)
-    ! 2) Loop over cells and average from corners to cell centers
-
-        !TODO: Think about what time to evaluate at
-        t = gApp%Model%t*gApp%Model%Units%gT0
-        
-        associate(Gr=>gApp%Grid,chmp2mhd=>vApp%chmp2mhd)
-
-        !Create local storage for cell corner imW's
-        allocate(SrcNC(Gr%is:chmp2mhd%iMax+1,Gr%js:Gr%je+1,Gr%ks:Gr%ke+1,1:NVARIMAG))
-        SrcNC = 0.0
-        chmp2mhd%isEdible = .false.
-      
-    ! 1) Cell corner ingestion
-        !$OMP PARALLEL DO default(shared) collapse(2) &
-        !$OMP schedule(dynamic) &
-        !$OMP private(i,j,k,x1,x2,imW,isTasty)
-        do k=Gr%ks,Gr%ke+1
-            do j=Gr%js,Gr%je+1
-                do i=Gr%is,chmp2mhd%iMax+1
-
-                    if (chmp2mhd%isGood(i,j,k)) then
-                        !Good projection, let's get some values
-                        x1 = chmp2mhd%xyzSquish(i,j,k,1)
-                        x2 = chmp2mhd%xyzSquish(i,j,k,2)
-                        call vApp%imagApp%doEval(x1,x2,t,imW,isTasty)
-                    else
-                        !Projection wasn't good, nothing good to eat
-                        imW = 0.0
-                        isTasty = .false.
-                        
-                    endif !isGood
-                    SrcNC(i,j,k,:) = imW
-                    chmp2mhd%isEdible(i,j,k) = isTasty
-                enddo !i loop
-            enddo
-        enddo
-
-
-    ! 2) Corners => Centers
-        Gr%Gas0 = 0.0
-
-        !$OMP PARALLEL DO default(shared) collapse(2) &
-        !$OMP schedule(dynamic) &
-        !$OMP private(i,j,k,imW,Qs)
-        do k=Gr%ks,Gr%ke
-            do j=Gr%js,Gr%je
-                do i=Gr%is,chmp2mhd%iMax
-
-                    if ( all(chmp2mhd%isEdible(i:i+1,j:j+1,k:k+1)) ) then
-                    !Density and pressure
-                        call SquishCorners(SrcNC(i:i+1,j:j+1,k:k+1,IMDEN),Qs)
-                        imW(IMDEN) = ArithMean(Qs)
-                        call SquishCorners(SrcNC(i:i+1,j:j+1,k:k+1,IMPR) ,Qs)
-                        imW(IMPR)  = ArithMean(Qs)
-                    !x1 and x2
-                        call SquishCorners(SrcNC(i:i+1,j:j+1,k:k+1,IMX1),Qs)
-                        imW(IMX1) = ArithMean(Qs)
-                        call SquishCorners(SrcNC(i:i+1,j:j+1,k:k+1,IMX2),Qs)
-                        imW(IMX2) = CircMeanDeg(Qs)
-                        
-                    !Timescale
-                        call SquishCorners(SrcNC(i:i+1,j:j+1,k:k+1,IMTSCL),Qs)
-                        if ( all(Qs>TINY) ) then
-                            imW(IMTSCL) = ArithMean(Qs)
-                        else if (any(Qs>TINY)) then
-                            imW(IMTSCL) = sum(Qs,mask=(Qs>TINY))/count(Qs>TINY)
-                        else
-                            imW(IMTSCL) = vApp%DeepDT
-                        endif
-                    else
-                        !Not good to eat
-                        imW = 0.0
-                    endif
-
-                    imW(IMTSCL) = max(imW(IMTSCL),vApp%DeepDT)
-
-                    !Do scaling and store
-                    !density/pressure coming back in #/cc and nPa
-                    !ingestion timescale coming back in seconds
-                    Gr%Gas0(i,j,k,IMDEN ,BLK) = imW(IMDEN)
-                    Gr%Gas0(i,j,k,IMPR  ,BLK) = imW(IMPR)/gApp%Model%Units%gP0
-                    Gr%Gas0(i,j,k,IMX1  ,BLK) = imW(IMX1)
-                    Gr%Gas0(i,j,k,IMX2  ,BLK) = imW(IMX2)
-                    Gr%Gas0(i,j,k,IMTSCL,BLK) = imW(IMTSCL)/gApp%Model%Units%gT0
-                
-                enddo !i loop
-            enddo
-        enddo
-
-    !Now do some touch up at the axis and get outta here
-
-        !Do averaging for first cell next to singularity
-        !Do for +/- X pole and density/pressure
-        Nk = Gr%ke-Gr%ks+1
-        !$OMP PARALLEL DO default(shared) &
-        !$OMP private(i,imW)
-        do i=Gr%is,chmp2mhd%iMax
-            !+X pole
-            imW(IMDEN) = AvgOverGood(Gr%Gas0(i,Gr%js,Gr%ks:Gr%ke,IMDEN,BLK),Nk)
-            imW(IMPR ) = AvgOverGood(Gr%Gas0(i,Gr%js,Gr%ks:Gr%ke,IMPR ,BLK),Nk)
-            Gr%Gas0(i,Gr%js,Gr%ks:Gr%ke,IMDEN,BLK) = imW(IMDEN)
-            Gr%Gas0(i,Gr%js,Gr%ks:Gr%ke,IMPR ,BLK) = imW(IMPR )
-
-            !-X pole
-            imW(IMDEN) = AvgOverGood(Gr%Gas0(i,Gr%je,Gr%ks:Gr%ke,IMDEN,BLK),Nk)
-            imW(IMPR ) = AvgOverGood(Gr%Gas0(i,Gr%je,Gr%ks:Gr%ke,IMPR ,BLK),Nk)
-            Gr%Gas0(i,Gr%je,Gr%ks:Gr%ke,IMDEN,BLK) = imW(IMDEN)
-            Gr%Gas0(i,Gr%je,Gr%ks:Gr%ke,IMPR ,BLK) = imW(IMPR )
-        enddo
-
+        ! Set options
+        associate(opt=>vApp%imagApp%opt, Gr=>gApp%Grid)
+        opt%swF  = vApp%symh%wID
+        opt%mjd0 = gApp%Model%MJD0
+        opt%mhdRin  = norm2(Gr%xyz(Gr%is,Gr%js,Gr%ks,:))
+        opt%mhdRinG = norm2(Gr%xyz(Gr%isg,Gr%js,Gr%ks,:)) ! Calc lowlat BC from Gamera
+        opt%voltGrid = vApp%shGrid
+        call iXML%Set_Val(opt%doColdStart,"/Kaiju/voltron/imag/doInit",.false.) ! Whether or not IMAG should coldStart at volt%t = 0
         end associate
 
-        contains
-            function AvgOverGood(Q,Nk) result(Qavg)
-                real(rp), intent(in), dimension(Nk) :: Q
-                integer , intent(in) :: Nk
+        !call vApp%imagApp%doInit(iXML,gApp%Model%isRestart,vApp)
+        call vApp%imagApp%InitModel(iXML)
+        call vApp%imagApp%InitIO(iXML)
 
-                real(rp) :: Qavg
-                integer :: Nkg
-
-                if ( any(Q>TINY) ) then
-                    Nkg = count(Q>TINY)
-                    Qavg = sum(Q,mask=(Q>TINY))/Nkg
-                else
-                    Qavg = 0.0
-                endif
-
-            end function AvgOverGood
-
-    end subroutine InnerMag2Gamera
+    end subroutine InitInnerMag
 
 end module innermagsphere

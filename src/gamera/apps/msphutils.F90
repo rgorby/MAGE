@@ -13,6 +13,7 @@ module msphutils
     use earthhelper
     use msphingest
     use planethelper
+    use timeHelpers
 
     implicit none
 !NOTE: Following comments are deprecated, see updated planet scaling datatypes
@@ -187,11 +188,7 @@ module msphutils
         real(rp), intent(in) :: T
         character(len=strLen), intent(out) :: tStr
 
-        if (abs(T*tScl)>60.0) then
-            write(tStr,'(f9.3,a)' ) T*tScl/60.0, ' [min]'
-        else
-            write(tStr,'(es9.2,a)') T*tScl     , ' [sec]'
-        endif
+        call timeStrFmt(T, tStr, tScl)
 
     end subroutine magsphereTime
     
@@ -244,11 +241,11 @@ module msphutils
 
     !Apply spherical wall boundary over all species
     !Take ghost conserved quantities and conjugate point conserved quantities
-    subroutine SphereWall(Model,gU,pU,V,Dopt)
+    subroutine SphereWall(Model,gU,pU,V,B,Dopt)
         type(Model_T), intent(in) :: Model
         real(rp), intent(inout) :: gU(NVAR,BLK:Model%nSpc)
         real(rp), intent(in)    :: pU(NVAR,BLK:Model%nSpc)
-        real(rp), intent(in) :: V(NDIM)
+        real(rp), intent(in) :: V(NDIM),B(NDIM)
         real(rp), intent(in), optional :: Dopt
 
         integer :: s,s0,sE
@@ -301,7 +298,7 @@ module msphutils
         enddo
 
         if (Model%doMultiF) then
-            call MultiF2Bulk(Model,gU)
+            call MultiF2Bulk(Model,gU,B)
         endif
 
     end subroutine SphereWall
@@ -384,8 +381,9 @@ module msphutils
                         doChill = Model%doBoris .and. (CsC>cLim*Model%Ca) .and. (doGAMChill)
                         if (doChill .and. Model%doSource) then
                             !If this is a pressure ingestion region, then let the pressure go wild
-                            if (Grid%Gas0(i,j,k,IMPR ,BLK)>TINY) doChill = .false.
+                            if (Grid%Gas0(i,j,k,IM_P_RING)>TINY) doChill = .false.
                         endif !doChill and doSource check
+                        
                         if (doChill) then
                             call CellC2P(Model,pCon,pW)
                             P = pW(PRESSURE) !Cell pressure
@@ -634,4 +632,18 @@ module msphutils
         pot = -GM0/rad
     end subroutine PhiGrav
       
+    !Useful for MF to distinguish thermal populations 
+    !Takes conserved vars and returns temperature [keV]
+    function Gam2keV(Model,U)
+        type(Model_T), intent(in) :: Model
+        real(rp)     , intent(in) :: U(NVAR)
+        real(rp) :: Gam2keV
+        real(rp) :: D,P,pW(NVAR)
+        
+        call CellC2P(Model,U,pW)
+        D = pW(DEN)     *Model%gamOut%dScl !=> #/cc
+        P = pW(PRESSURE)*Model%gamOut%pScl !=> nPa
+        Gam2keV = DP2kT(D,P) !Temp in keV from D (#/cc) and P (nPa)
+    end function Gam2keV
+
 end module msphutils

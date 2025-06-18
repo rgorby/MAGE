@@ -27,6 +27,7 @@ module mpidefs
 
 !MPI Coupling Communicator Id
     integer, parameter :: voltId   = 116
+    integer, parameter :: helperId = 64
     integer, parameter :: gamId    = 45
     integer, parameter :: rcmId    = 34
     integer, parameter :: tgcmId   = 57
@@ -166,5 +167,21 @@ contains
       retVal = .true.
 
   end function printDataType
+
+  subroutine checkAndHandleMpiErrorCode(ierr)
+    integer, intent(in) :: ierr
+
+    integer :: length, ierrcopy
+    character( len = MPI_MAX_ERROR_STRING) :: message
+
+    ierrcopy = ierr ! because the mpi functions insist on passing ierr with modifying intent
+
+    if(ierr /= MPI_Success) then
+        call MPI_Error_string( ierr, message, length, ierrcopy)
+        print *,message(1:length)
+        call mpi_Abort(MPI_COMM_WORLD, 1, ierrcopy)
+    end if
+
+  end subroutine
 
 end module mpidefs

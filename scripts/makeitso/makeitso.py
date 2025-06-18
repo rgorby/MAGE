@@ -104,6 +104,39 @@ def create_command_line_parser():
     return parser
 
 
+def update_loaded_options(options):
+    """Update a loaded set of run options to account for format changes.
+
+    Update a loaded set of run options to account for format changes.
+
+    Parameters
+    ----------
+    options : dict
+        Dictionary of program options, each entry maps str to str.
+
+    Returns
+    -------
+    options : dict
+        Updated dictionary of program options.
+
+    Raises
+    ------
+    None
+    """
+    # <HACK>
+    # If the tsOut attribute is found, rename it to dtCon.
+    DEFAULT_GEO_DTCON = "300"  # Seconds
+    if "tsOut" in options["voltron"]["output"]:
+        print("WARNING: Replacing obsolete parameter tsOut with default dtCon"
+              f" value of {DEFAULT_GEO_DTCON} seconds!")
+        options["voltron"]["output"]["dtCon"] = DEFAULT_GEO_DTCON
+        del options["voltron"]["output"]["tsOut"]
+    # </HACK>
+
+    # Return the updated options.
+    return options
+
+
 def get_run_option(name, description, mode="BASIC"):
     """Prompt the user for a single run option.
 
@@ -250,11 +283,11 @@ def prompt_user_for_run_options(args):
     for on in ["job_name"]:
         o[on] = get_run_option(on, od[on], mode)
 
-    # Ask the user if a boundary condition file is available. If not, offer to
+    # Ask the user if a solar wind file is available. If not, offer to
     # generate one from the start and end date.
     for on in ["bcwind_available"]:
         o[on] = get_run_option(on, od[on], mode)
-    if o["bcwind_available"] == "Y":
+    if o["bcwind_available"].upper() == "Y":
         for on in ["bcwind_file"]:
             o[on] = get_run_option(on, od[on], mode)
         # Fetch the start and stop date from the bcwind file.
@@ -263,7 +296,7 @@ def prompt_user_for_run_options(args):
         o["stop_date"] = stop_date
     else:
         # Prompt for the start and stop date of the run. This will also be
-        # used as the start and stop date of the data in the boundary condition
+        # used as the start and stop date of the data in the solar wind
         # file, which will be created using CDAWeb data.
         for on in ["start_date", "stop_date"]:
             o[on] = get_run_option(on, od[on], mode)
@@ -283,7 +316,7 @@ def prompt_user_for_run_options(args):
     # for the segment duration (which is the simulation duration).
     for on in ["use_segments"]:
         o[on] = get_run_option(on, od[on], mode)
-    if o["use_segments"] == "Y":
+    if o["use_segments"].upper() == "Y":
         for on in ["segment_duration"]:
             o[on] = get_run_option(on, od[on], mode)
     else:
@@ -292,7 +325,7 @@ def prompt_user_for_run_options(args):
     # Compute the number of segments based on the simulation duration and
     # segment duration, with 1 additional segment just for spinup. Add 1 if
     # there is a remainder.
-    if o["use_segments"] == "Y":
+    if o["use_segments"].upper() == "Y":
         num_segments = simulation_duration/float(o["segment_duration"])
         if num_segments > int(num_segments):
             num_segments += 1
@@ -546,35 +579,62 @@ def prompt_user_for_run_options(args):
 
     #-------------------------------------------------------------------------
 
-    # RCM options
-    options["rcm"] = {}
+    # RAIJU options
+    options["raiju"] = {}
 
-    # <conductance> options
-    options["rcm"]["rcmdomain"] = {}
-    o = options["rcm"]["rcmdomain"]
-    od = option_descriptions["rcm"]["rcmdomain"]
-    for on in od:
-        o[on] = get_run_option(on, od[on], mode)
-
-    # <ellipse> options
-    # Only use if domType == "ELLIPSE"?
-    options["rcm"]["ellipse"] = {}
-    o = options["rcm"]["ellipse"]
-    od = option_descriptions["rcm"]["ellipse"]
+    # <output> options
+    options["raiju"]["output"] = {}
+    o = options["raiju"]["output"]
+    od = option_descriptions["raiju"]["output"]
     for on in od:
         o[on] = get_run_option(on, od[on], mode)
 
     # <grid> options
-    options["rcm"]["grid"] = {}
-    o = options["rcm"]["grid"]
-    od = option_descriptions["rcm"]["grid"]
+    options["raiju"]["grid"] = {}
+    o = options["raiju"]["grid"]
+    od = option_descriptions["raiju"]["grid"]
+    for on in od:
+        o[on] = get_run_option(on, od[on], mode)
+
+    # <domain> options
+    options["raiju"]["domain"] = {}
+    o = options["raiju"]["domain"]
+    od = option_descriptions["raiju"]["domain"]
+    for on in od:
+        o[on] = get_run_option(on, od[on], mode)
+
+    # <config> options
+    options["raiju"]["config"] = {}
+    o = options["raiju"]["config"]
+    od = option_descriptions["raiju"]["config"]
     for on in od:
         o[on] = get_run_option(on, od[on], mode)
 
     # <plasmasphere> options
-    options["rcm"]["plasmasphere"] = {}
-    o = options["rcm"]["plasmasphere"]
-    od = option_descriptions["rcm"]["plasmasphere"]
+    options["raiju"]["plasmasphere"] = {}
+    o = options["raiju"]["plasmasphere"]
+    od = option_descriptions["raiju"]["plasmasphere"]
+    for on in od:
+        o[on] = get_run_option(on, od[on], mode)
+
+    # <losses> options
+    options["raiju"]["losses"] = {}
+    o = options["raiju"]["losses"]
+    od = option_descriptions["raiju"]["losses"]
+    for on in od:
+        o[on] = get_run_option(on, od[on], mode)
+
+    # <cpl> options
+    options["raiju"]["cpl"] = {}
+    o = options["raiju"]["cpl"]
+    od = option_descriptions["raiju"]["cpl"]
+    for on in od:
+        o[on] = get_run_option(on, od[on], mode)
+
+    # <fluidIn1> options
+    options["raiju"]["fluidIn1"] = {}
+    o = options["raiju"]["fluidIn1"]
+    od = option_descriptions["raiju"]["fluidIn1"]
     for on in od:
         o[on] = get_run_option(on, od[on], mode)
 
@@ -582,6 +642,49 @@ def prompt_user_for_run_options(args):
 
     # Return the options dictionary.
     return options
+
+
+def validate_grid_file(path : str, grid_type : str):
+    """Validate a LFM grid file.
+
+    Validate a LFM grid file. Check that the grid sizes in each dimension
+    are correct for the selected resolution.
+
+    Parameters
+    ----------
+    path : str
+        Path to LFM grid file to validate.
+    grid_type : str
+        Single character grid type specifier (D)ouble, (Q)uad, (O)ct, (H)ex
+
+    Returns
+    -------
+    is_valid : bool
+        True if grid file is valid, else False.
+
+    Raises
+    ------
+    None
+    """
+    # Specify the expected grid cell counts in each dimension for each grid
+    # type.
+    grid_shapes = {
+        'D': (73, 57, 57),
+        'Q': (137, 105, 105),
+        'O': (265, 201, 201),
+        'H': (521, 393, 393),
+    }
+
+    # Open the file and read the grid sizes.
+    is_valid = False
+    with h5py.File(path, 'r') as hf:
+        if (hf['X'].shape == grid_shapes[grid_type] and
+            hf['Y'].shape == grid_shapes[grid_type] and
+            hf['Z'].shape == grid_shapes[grid_type]):
+            is_valid = True
+
+    # Return the result of the check.
+    return is_valid
 
 
 def run_preprocessing_steps(options):
@@ -602,25 +705,34 @@ def run_preprocessing_steps(options):
     ------
     None
     """
-    # Create the LFM grid file.
-    # NOTE: Assumes genLFM.py is in PATH.
-    cmd = "genLFM.py"
-    args = [cmd, "-gid", options["simulation"]["gamera_grid_type"],
-            '-Rin', options["simulation"]["gamera_grid_inner_radius"],
-            '-Rout', options["simulation"]["gamera_grid_outer_radius"]]
-    subprocess.run(args, check=True)
+    # Check if the grid file exists and is valid. Create if needed.
+    grid_file = f'lfm{options["simulation"]["gamera_grid_type"]}.h5'
+    if os.path.exists(grid_file):
+        if validate_grid_file(grid_file,
+                              options['simulation']['gamera_grid_type']):
+            print(f'Using existing grid file {grid_file}.')
+        else:
+            raise TypeError(f'Invalid grid file {grid_file} found, aborting.')
+    else:
+        # Create the LFM grid file. Assumes genLFM.py is in PATH.
+        cmd = 'genLFM.py'
+        args = [cmd, '-gid', options['simulation']['gamera_grid_type'],
+                '-Rin', options['simulation']['gamera_grid_inner_radius'],
+                '-Rout', options['simulation']['gamera_grid_outer_radius']]
+        subprocess.run(args, check=True)
 
     # If needed, create the solar wind file by fetching data from CDAWeb.
     # NOTE: Assumes cda2wind.py is in PATH.
     if options["simulation"]["bcwind_available"] == "N":
         cmd = "cda2wind.py"
         args = [cmd, "-t0", options["simulation"]["start_date"], "-t1",
-                options["simulation"]["stop_date"], "-interp", "-bx"]
+                options["simulation"]["stop_date"], "-interp", "-bx",
+                "-f107", "100", "-kp", "3"]
         subprocess.run(args, check=True)
 
-    # Create the RCM configuration file.
-    # NOTE: Assumes genRCM.py is in PATH.
-    cmd = "genRCM.py"
+    # Create the RAIJU configuration file.
+    # NOTE: Assumes genRAIJU.py is in PATH.
+    cmd = "genRAIJU.py"
     args = [cmd]
     subprocess.run(args, check=True)
 
@@ -865,6 +977,7 @@ def main():
         # Read the run options from a JSON file.
         with open(options_path, "r", encoding="utf-8") as f:
             options = json.load(f)
+        options = update_loaded_options(options)
     else:
         # Prompt the user for the run options.
         options = prompt_user_for_run_options(args)

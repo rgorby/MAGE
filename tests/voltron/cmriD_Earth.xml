@@ -9,7 +9,7 @@
     <imag doInit="T"/>
     <ebsquish epsSquish="0.05"/>
     <threading NumTh="36"/>
-    </VOLTRON>
+  </VOLTRON>
   <Gamera>
     <sim runid="msphere" doH5g="T" H5Grid="lfmD.h5" icType="user" pdmb="0.75" rmeth="7UP"/>
     <coupling blockHalo="T"/>
@@ -31,7 +31,7 @@
   </CHIMP>
   <REMIX>
     <conductance doStarlight="T" doRamp="F" doMR="F"/>
-    <precipitation aurora_model_type="RCMONO" alpha="0.2" beta="0.4" doAuroralSmooth="F"/>
+    <precipitation aurora_model_type="LINMRG" alpha="0.2" beta="0.4" doAuroralSmooth="F"/>
   </REMIX>
   <RCM>
     <ellipse xSun="12.5" yDD="15.0" xTail="-15.0" isDynamic="T"/>

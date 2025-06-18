@@ -5,16 +5,14 @@
 This script generates a report on the results of the most recent run of
 the MAGE Fortran unit tests.
 
-This script *assumes* that enough time has passed that the unit test runs
-(which were submitted as PBS jobs) have completed. Those *should* take
-around 20 minutes. Add that to the build time for the unitTest.py script,
-and a conservative guess is to run this script 2 hours after running the
-unitTest.py script.
+This script should be run by the PBS script unitTestReport.pbs, to ensure
+that the report is only generated when the other unit test jobs are complete.
 
 Authors
 -------
 Jeff Garretson
 Eric Winter
+
 """
 
 
@@ -27,7 +25,7 @@ import sys
 # Import 3rd-party modules.
 
 # Import project modules.
-from kaipy.testing import common
+import common
 
 
 # Program constants
@@ -35,8 +33,11 @@ from kaipy.testing import common
 # Program description.
 DESCRIPTION = 'Report on the MAGE Fortran unit test results.'
 
-# Home directory of kaiju installation
-KAIJUHOME = os.environ['KAIJUHOME']
+# Root of directory tree for this set of tests.
+MAGE_TEST_SET_ROOT = os.environ['MAGE_TEST_SET_ROOT']
+
+# Directory for unit tests
+UNIT_TEST_DIRECTORY = os.path.join(MAGE_TEST_SET_ROOT, 'unitTest')
 
 # glob pattern for naming unit test directories
 UNIT_TEST_DIRECTORY_GLOB_PATTERN = 'unitTest_*'
@@ -46,9 +47,6 @@ BUILD_BIN_DIR = 'bin'
 
 # Name of file containing job IDs for each unit test directory.
 JOB_ID_LIST_FILE = 'jobs.txt'
-
-# Name of file to receive unit test report.
-UNIT_TEST_REPORT_FILE = 'Report.txt'
 
 
 def main():
@@ -77,56 +75,44 @@ def main():
         print(f"args = {args}")
     debug = args.debug
     be_loud = args.loud
+    slack_on_fail = args.slack_on_fail
     is_test = args.test
     verbose = args.verbose
 
-    # -------------------------------------------------------------------------
+    # ------------------------------------------------------------------------
 
     if debug:
         print(f"Starting {sys.argv[0]} at {datetime.datetime.now()}")
         print(f"Current directory is {os.getcwd()}")
 
-    # -------------------------------------------------------------------------
+    # ------------------------------------------------------------------------
 
-    # Set up for communication with Slack.
-    slack_client = common.slack_create_client()
-    if debug:
-        print(f"slack_client = {slack_client}")
+    # Move to the unit test directory.
+    os.chdir(UNIT_TEST_DIRECTORY)
 
-    # -------------------------------------------------------------------------
-
-    # Move to the MAGE installation directory.
-    os.chdir(KAIJUHOME)
-
-    # -------------------------------------------------------------------------
-
-    # Find the current branch.
-    git_branch_name = common.git_get_branch_name()
-    if debug:
-        print(f"git_branch_name = {git_branch_name}")
-
-    # -------------------------------------------------------------------------
+    # ------------------------------------------------------------------------
 
     # Get list of unit test directories.
     unit_test_directories = glob.glob(UNIT_TEST_DIRECTORY_GLOB_PATTERN)
     if debug:
         print(f"unit_test_directories = {unit_test_directories}")
 
-    # -------------------------------------------------------------------------
+    # ------------------------------------------------------------------------
 
-    # Initialize the combined report string.
-    combined_test_summary_message = ''
+    # Initialize result flags.
+    myError = False
+    jobKilled = False
+    okFailure = False
+    okCount = 0
 
     # Check the results in each unit test directory.
     for unit_test_directory in unit_test_directories:
         if verbose:
             print(f"Checking unit test results in {unit_test_directory}.")
 
-        # Move back to the kaiju home.
-        os.chdir(KAIJUHOME)
-
         # Move to the directory containing the unit test results.
-        path = os.path.join(unit_test_directory, BUILD_BIN_DIR)
+        path = os.path.join(UNIT_TEST_DIRECTORY, unit_test_directory,
+                            BUILD_BIN_DIR)
         if debug:
             print(f"path = {path}")
         os.chdir(path)
@@ -147,33 +133,28 @@ def main():
         if debug:
             print(f"job_ids = {job_ids}")
 
-        # <HACK>
-        # This needs to be reorganized.
+        # NOTE: This needs to be reorganized.
 
         # Compute the names of the job log files.
-        job_file_0 = f"testResGen.o{job_ids[0]}"
-        job_file_1 = f"caseTests.o{job_ids[1]}"
-        job_file_2 = f"nonCaseTests1.o{job_ids[2]}"
-        # job_file_3 = f"nonCaseTests2.o{job_ids[3]}"  # SKIP FOR NOW
+        job_file_0 = f"genTestData.o{job_ids[0]}"  # 0 OKs
+        job_file_1 = f"runCaseTests.o{job_ids[1]}" # 2 OKs
+        job_file_2 = f"runNonCaseTests1.o{job_ids[2]}"  # 7 OKs
+        job_file_3 = f"runNonCaseTests2.o{job_ids[3]}"  # 1 OK
         if debug:
-            print(f"job_file_1 = {job_file_0}")
-            print(f"job_file_2 = {job_file_1}")
-            print(f"job_file_3 = {job_file_2}")
+            print(f"job_file_0 = {job_file_0}")
+            print(f"job_file_1 = {job_file_1}")
+            print(f"job_file_2 = {job_file_2}")
+            print(f"job_file_3 = {job_file_3}")
 
         # Combine the results of each test log file.
         bigFile = []
-        # job_files = [job_file_0, job_file_1, job_file_2, job_file_3]
-        job_files = [job_file_0, job_file_1, job_file_2]
+        job_files = [job_file_0, job_file_1, job_file_2, job_file_3]
         for job_file in job_files:
             with open(job_file, 'r', encoding='utf-8') as f:
                 bigFile += f.readlines()
             bigFile.append('\n\n\n')
 
         # Scan through for some key things like "error" and "job killed"
-        myError = False
-        jobKilled = False
-        okFailure = False
-        okCount = 0
         for line in bigFile:
             line = line.rstrip()
             if line == ' OK':
@@ -183,9 +164,14 @@ def main():
             elif 'job killed' in line:
                 jobKilled = True
 
-        # There should be exactly 6 OKs (8 if job_file_3 is used).
-        if okCount != 6:
+        # There should be exactly 10 OKs.
+        OK_COUNT_EXPECTED = 10
+        if verbose:
+            print(f"Found {okCount} OKs, expected {OK_COUNT_EXPECTED}.")
+        if okCount != OK_COUNT_EXPECTED:
             okFailure = True
+        else:
+            okFailure = False
 
         if debug:
             print(f"myError = {myError}")
@@ -193,65 +179,67 @@ def main():
             print(f"okFailure = {okFailure}")
             print(f"okCount = {okCount}")
 
-        # Summarize the test results
-        test_summary_message = (
-            'Results of unit test report `unitTestReport.py`:\n'
-            f"kaiju code branch: `{git_branch_name}`\n"
-            f"Unit test directory: `{unit_test_directory}`\n"
-        )
-        test_summary_message += 'Fortran units tests: '
-        if not okFailure and not myError and not jobKilled:
-            test_summary_message += 'PASSED\n'
-        else:
-            test_summary_message += '*FAILED*\n'
-
-        # Update the report string.
-        if myError:
-            test_summary_message += 'There were errors!\n'
-        if jobKilled:
-            test_summary_message += 'The job was killed early!\n'
-        if okFailure:
-            test_summary_message += (
-                'There were not the correct amount of OKs!\n'
-            )
-
-        # Save the test result summary for this direectory.
-        with open(UNIT_TEST_REPORT_FILE, 'w', encoding='utf-8') as f:
-            f.write(test_summary_message)
-
-        # Update the combined report string.
-        combined_test_summary_message += test_summary_message
-        # </HACK>
-
         # End of unit test directory loop
-
-    # Move back to the kaiju home.
-    os.chdir(KAIJUHOME)
 
     # If no tests were complete, say so.
     if len(unit_test_directories) == 0:
-        combined_test_summary_message = (
+        print(
             'Results of unit test report `unitTestReport.py`:\n'
-            f"kaiju code branch: `{git_branch_name}`\n"
             'No Fortran unit test results were available.'
         )
 
-    # -------------------------------------------------------------------------
+    # ------------------------------------------------------------------------
 
-    # If loud mode is on, post report to Slack.
-    if be_loud:
-        common.slack_send_message(slack_client, combined_test_summary_message,
-                                  is_test=is_test)
+    # Detail the test results
+    test_report_details_string = ''
+    test_report_details_string += (
+        f"Test results are on `derecho` in {os.getcwd()}.\n"
+    )
+    if myError:
+        test_report_details_string += 'Errors occurred during testing.\n'
+    if jobKilled:
+        test_report_details_string += 'The testing job was killed.\n'
+    if okFailure:
+        test_report_details_string += 'There was not the correct OK count.\n'
+    else:
+        test_report_details_string += 'Individual tests: *ALL PASSED*\n'
 
-    # Print the test summary.
-    print(combined_test_summary_message)
+    # Summarize the test results.
+    test_report_summary_string = (
+        f"Unit test results for `{os.environ['BRANCH_OR_COMMIT']}`: "
+    )
+    if myError or jobKilled or okFailure:
+        test_report_summary_string += '*FAILED*'
+    else:
+        test_report_summary_string += '*PASSED*'
 
-    # -------------------------------------------------------------------------
+    # Print the test results summary and details.
+    print(test_report_summary_string)
+    print(test_report_details_string)
+
+    # If a test failed, or loud mode is on, post report to Slack.
+    if (slack_on_fail and 'FAILED' in test_report_details_string) or be_loud:
+        slack_client = common.slack_create_client()
+        if debug:
+            print(f"slack_client = {slack_client}")
+        slack_response_summary = common.slack_send_message(
+            slack_client, test_report_summary_string, is_test=is_test
+        )
+        if debug:
+            print(f"slack_response_summary = {slack_response_summary}")
+        thread_ts = slack_response_summary['ts']
+        slack_response_summary = common.slack_send_message(
+            slack_client, test_report_details_string, thread_ts=thread_ts,
+            is_test=is_test
+        )
+        if debug:
+            print(f"slack_response_summary = {slack_response_summary}")
+
+    # ------------------------------------------------------------------------
 
     if debug:
         print(f"Ending {sys.argv[0]} at {datetime.datetime.now()}")
 
 
 if __name__ == '__main__':
-    """Call main program function."""
     main()

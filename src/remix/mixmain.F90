@@ -4,6 +4,7 @@ module mixmain
   use mixtypes
   use mixparams
   use mixgeom
+  use dkaurora
   use mixconductance
   use mixstate
   use mixsolver
@@ -48,13 +49,14 @@ module mixmain
 
          if (present(mixIOobj)) then
             call init_grid(I(h),mixIOobj)
-            call init_state(I(h)%G,I(h)%St,mixIOobj%vars(:,:,:,h)) ! passing only the hemisphere variables            
+            call init_state(I(h)%G,I(h)%St,mixIOobj%vars(:,:,:,h), shGrO=I(h)%shGr) ! passing only the hemisphere variables            
          else
             call init_grid(I(h))
-            call init_state(I(h)%G,I(h)%St)            
+            call init_state(I(h)%G,I(h)%St, shGrO=I(h)%shGr)            
          end if
          
          call conductance_init(I(h)%conductance,I(h)%P,I(h)%G)
+         call dragonking_init(I(h)%aurora,I(h)%P,I(h)%G)
 
          ! check that hemisphere makes sense.
          if ((I(h)%St%hemisphere.ne.NORTH).and.(I(h)%St%hemisphere.ne.SOUTH)) then
@@ -159,6 +161,11 @@ module mixmain
           !write(*,*) "Get rePOT: ", maxval(I(h)%St%Vars(:,:,POT)),minval(I(h)%St%Vars(:,:,POT))
         else
           call Tic("MIX-COND")
+          ! Compute auroral precipitation flux regardless of coupling mode.
+          ! Note conductance_euv is used inside dragonking_total.
+          call conductance_euv(I(h)%conductance,I(h)%G,I(h)%St)
+          call dragonking_total(I(h)%aurora,I(h)%G,I(h)%St,I(h)%conductance)
+
           if (present(gcm)) then
             !write(*,*) 'doGCM!'
             call conductance_total(I(h)%conductance,I(h)%G,I(h)%St,gcm,h)

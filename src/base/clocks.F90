@@ -44,7 +44,7 @@ module clocks
     !Global clock array
     type(Clock_T), dimension(maxClocks) :: kClocks
     integer, private :: nclk=0 !Current number of clocks
-    logical, private :: slimTimers = .false.
+    logical, private :: slimTimers = .true.
 
     !interface for reading clock time
     interface readClock
@@ -180,7 +180,7 @@ module clocks
         do n=1,nclk
             kClocks(n)%tElap = 0
             ! if the clock is active, reset the tic to right now
-            if(kClocks(n)%isOn) call Tic(kClocks(n)%cID)
+            if(kClocks(n)%isOn) call Tic(kClocks(n)%cID, .true.)
         enddo
 
     end subroutine cleanClocks

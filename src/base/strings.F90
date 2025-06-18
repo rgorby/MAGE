@@ -93,5 +93,26 @@ module strings
 
     end subroutine GitBranch
 
+    function isKareem()
+        logical :: isKareem
+        character(len=strLen) :: uStr
+        integer :: status
+
+        call getlog(uStr)
+        
+        if ( (uStr == 'soratka1') .or. (uStr == 'skareem') ) then
+            isKareem = .true.
+        else
+            !Check for somebody pretending to be kareem
+            call get_environment_variable("ISKAREEM",uStr,status=status)
+            if (status == 1) then
+                !Environment variable does not exist
+                isKareem = .false.
+            else
+                !Variable exists, so pretend it's kareem
+                isKareem = .true.
+            endif
+        endif
+    end function isKareem
 
 end module strings

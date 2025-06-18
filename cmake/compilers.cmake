@@ -87,10 +87,17 @@ if(CMAKE_Fortran_COMPILER_ID MATCHES Intel)
     #Production with Debug Info
     set(PRODWITHDEBUGINFO "-traceback -debug all -align array64byte -align rec32byte -no-prec-div -fast-transcendentals")
 	#Debug
-    if(NOT DISABLE_DEBUG_BOUNDS_CHECKS)
-        set(DEBUG "-traceback -check bounds -check uninit -debug all -gen-interfaces -warn interfaces -fp-stack-check")
-    else()
-        set(DEBUG "-traceback -debug all -gen-interfaces -warn interfaces")
+        set(DEBUG "-traceback -debug all -gen-interfaces")
+        if(NOT DISABLE_DEBUG_BOUNDS_CHECKS)
+                string(APPEND DEBUG " -check bounds -check uninit -fp-stack-check -fstack-security-check")
+        endif()
+        if(NOT PFUNIT_FOUND)
+                # Known bug with warning interfaces and PFUNIT
+                string(APPEND DEBUG " -warn interfaces")
+        endif()
+
+    if(PRINT_OPT_INFO)
+        string(APPEND CMAKE_Fortran_FLAGS " -check arg_temp_created -qopt-report-phase=vec -qopt-report=2")
     endif()
 
 	#Now do OS-dep options
@@ -137,7 +144,13 @@ elseif(CMAKE_Fortran_COMPILER_ID MATCHES GNU)
     endif()
 	#Now do machine-dep options
 	if (CMAKE_SYSTEM_NAME MATCHES Darwin)
-		string(APPEND CMAKE_Fortran_FLAGS " -Wl,-stack_size,0x40000000,-stack_addr,0xf0000000")
+		if (CMAKE_HOST_SYSTEM_PROCESSOR MATCHES arm64)
+			#Apple silicon
+			message("OSX Arch: ${CMAKE_HOST_SYSTEM_PROCESSOR}")
+		else()
+			#Older stuff, add big stack
+			string(APPEND CMAKE_Fortran_FLAGS " -Wl,-stack_size,0x40000000,-stack_addr,0xf0000000")
+		endif()
 	endif()
 endif()
 

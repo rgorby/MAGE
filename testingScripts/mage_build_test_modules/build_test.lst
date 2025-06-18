@@ -1,3 +1,5 @@
-01.lst
-02.lst
-03.lst
+# This is the list of module sets to use for the nightly build tests.
+intel_mkl_mpich.lst
+intel_mpich.lst
+gfortran_mpich.lst
+intel_mkl_mpich_esmf.lst

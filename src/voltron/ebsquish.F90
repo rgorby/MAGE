@@ -28,63 +28,6 @@ module ebsquish
     real(rp), parameter, private :: ShueScl   = 2.0 !Safety factor for Shue MP
     contains
 
-    !Adjust the starting indices of the squish blocks according to the passed in array values
-    subroutine LoadBalanceBlocks(vApp, balanceVals)
-        class(voltApp_T), intent(inout) :: vApp
-        real(rp), optional, intent(in) :: balanceVals(vApp%ebTrcApp%ebSquish%numSquishBlocks)
-
-        real(rp), dimension(:), allocatable, save :: assignedPercents
-        real(rp) :: totalPercent, balanceValsSum, defaultBalance
-        integer :: b
-
-        associate(ebSquish=>vApp%ebTrcApp%ebSquish,ebGr=>vApp%ebTrcApp%ebState%ebGr)
-
-        if(.not. allocated(assignedPercents)) allocate(assignedPercents(ebSquish%numSquishBlocks))
-        if(ebSquish%numSquishBlocks /= SIZE(assignedPercents)) then
-            deallocate(assignedPercents)
-            allocate(assignedPercents(ebSquish%numSquishBlocks))
-        endif
-
-        if(.not. present(balanceVals)) then
-            ! make all blocks equal
-            assignedPercents = 1.0_rp/ebSquish%numSquishBlocks
-        else
-            ! use the mean of balances as the default
-            defaultBalance = sum(balanceVals)/size(balanceVals)
-            ! calculate the relative size of each block
-            balanceValsSum = 0.0_rp
-            do b=1,ebSquish%numSquishBlocks
-                if(balanceVals(b) <= 0) then
-                    ! we can't have a block with size zero
-                    balanceValsSum = balanceValsSum + defaultBalance
-                else
-                    ! this input is valid
-                    balanceValsSum = balanceValsSum + balanceVals(b)
-                endif
-            enddo
-
-            assignedPercents = 0.0_rp
-            do b=1,ebSquish%numSquishBlocks
-                if(balanceVals(b) <= 0) then
-                    ! using default of 1
-                    assignedPercents(b) = defaultBalance / balanceValsSum
-                else
-                    assignedPercents(b) = balanceVals(b) / balanceValsSum
-                endif
-            enddo
-        endif
-
-        ! use the calculated percentage of each block to assign starting indices
-        totalPercent = 0.0_rp
-        do b=1,ebSquish%numSquishBlocks
-            ebSquish%blockStartIndices(b) = GetIndexAtPercent(vApp, totalPercent)
-            totalPercent = totalPercent + assignedPercents(b)
-        enddo
-
-        end associate
-
-    end subroutine
-
     !Find i-index of outer boundary of coupling domain
     function ShellBoundary(gModel,Gr,R) result(iMax)
         type(Model_T), intent(in) :: gModel
@@ -241,31 +184,29 @@ module ebsquish
         call Toc("SQ-Project")
     end subroutine DoSquishBlock
 
-    !Get the k index pct % of the way through the squish data
+    !Input is an offset into the k-direction of
+    !the squish data. Adjust it to be a starting k-index
     !where this will obey all rules about quick squish stride,
     !using the correct start index, etc..
-    function GetIndexAtPercent(vApp, pct) result(pctIndex)
+    function GetAdjustedSquishStart(vApp, offset) result(adjIndex)
         class(voltApp_T), intent(in) :: vApp
-        real(rp), intent(in) :: pct
-        integer :: pctIndex
+        integer, intent(in) :: offset
+        integer :: adjIndex
 
-        integer :: Nk,nSkp,offset
-        real(rp) :: correctPct
+        integer :: nSkp
 
         associate(ebSquish=>vApp%ebTrcApp%ebSquish,ebGr=>vApp%ebTrcApp%ebState%ebGr)
 
-        correctPct = MIN(1.0_rp, MAX(0.0_rp, pct)) ! ensure pct is between 0 and 1
-
-        Nk = ebGr%ke+1 - ebGr%ks + 1
         if (vApp%doQkSquish) then
             nSkp = vApp%qkSquishStride !Stride through grid for projections
         else
             nSkp = 1
         endif
 
-        offset = Nk*correctPct
-        offset = offset - MOD(offset,nSkp) ! ensure index is aligned with quick squish
-        pctIndex = ebGr%ks + offset
+
+        adjIndex = offset - MOD(offset,nSkp) ! ensure index is aligned with quick squish
+        adjIndex = ebGr%ks + adjIndex
+
         end associate
 
     end function
@@ -474,17 +415,16 @@ module ebsquish
         x2 = 0.0
         xE = 0.0
         
+        if (ebApp%ebModel%doDip) then
+            isGood = .true.
+            x1 = InvLatitude(xyz)
+            x2 = katan2(xyz(YDIR),xyz(XDIR))
+            return
+        endif
+
         !Do quick short-cut to save us some effort
         isGood = inShueMP_SM(xyz,ShueScl)
         if (.not. isGood) return
-        
-        if (ebApp%ebModel%doDip) then
-            isGood = .true.
-            xyz0 = DipoleShift(xyz,norm2(xyz)+startEps)
-            x1 = InvLatitude(xyz0)
-            x2 = katan2(xyz0(YDIR),xyz0(XDIR))
-            return
-        endif
 
         ! trap for when we're within epsilon of the inner boundary
         ! (really, it's probably only the first shell of nodes at R=Rinner_boundary that doesn't trace correctly)
