@@ -42,7 +42,7 @@ Docs](https://kaiju-doc.readthedocs.io/en/latest/).
 ### License ###
 
 `Kaiju` is distributed under the [BSD 3-Clause
-license](https://github.com/JHUAPL/kaiju/LICENSE.md).
+license](LICENSE.md).
 
 
 ### Contribution guidelines ###
