@@ -3,8 +3,8 @@
 # -- Project information
 
 project = 'kaiju'
-# copyright = '2024, Center for Geospace Storms'
-author = 'Center for Geospace Storms'
+copyright = '2025, JHU/APL and NSF NCAR'
+author = 'Kaiju Development Team'
 
 release = '0.75.3'
 version = '0.75.3'
