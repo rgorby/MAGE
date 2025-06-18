@@ -26,11 +26,54 @@ module set:
 .. code-block:: bash
 
     module --force purge
+    
+    module use -a /swbuild/analytix/tools/modulefile
     module load nas
     module load pkgsrc/2022Q1-rome
     module load comp-intel/2020.4.304
     module load mpi-hpe/mpt.2.23
     module load hdf5/1.8.18_mpt
+    module load miniconda3/v4
+
+
+.. note::
+
+    For MAGE runs coupled with TIEGCM (known as "GTR"), use the following modules:
+
+    .. warning::
+
+        The GTR currently required custom built NetCDF and ESMF modules on ``pleiades``. If you need to
+        run GTR, you will need access to ``/home7/nrao3/local3`` and ``/nobackup/nrao3/tiegcm/tiegcm3.0/data``,
+        please reach out to ``nikhilr@ucar.edu`` with the following:
+        
+            - Your Pleiades username
+            - Your Name
+            - Your Institution
+
+    .. code-block:: bash
+
+        module --force purge
+        
+        module use -a /nasa/modulefiles/testing
+        module use -a /swbuild/analytix/tools/modulefile
+        module load nas
+        module load comp-intel/2020.4.304
+        module load mpi-hpe/mpt.2.30
+        module load szip/2.1.1
+        module load hdf5/1.12.3_mpt
+        module load miniconda3/v4
+
+        export FC=mpif90
+        export CC=mpicc
+        export CXX=mpicxx
+
+        export PREFIX=/home7/nrao3/local3
+        export LIBRARY_PATH=${LIBRARY_PATH}:$PREFIX/lib
+        export LD_LIBRARY_PATH=$LIBRARY_PATH
+        export CPATH=$PREFIX/include
+        export PATH=${PATH}:$PREFIX/bin
+
+
 
 .. important::
 
@@ -61,21 +104,22 @@ build directory in any convenient location.
     # NOTE: The FC definition is *required* for proper cmake operation.
     FC=`which ifort` cmake -DENABLE_MPI=ON .. >& cmake.out
 
-    # Compile the kaiju software.
-    make >& make.out
+    # You can pick one compile target below or compile all of them, if you'd like
 
-The build takes 20-30 minutes on ``pleiades``. When finished, your build
-directory will contain a ``bin`` subdirectory which will contain the complete
-set of ``kaiju`` executables.
+    # Compile the MAGE model for geospace simulations
+    make -j4 voltron_mpi.x >& make-voltron.out
 
-.. note:: The compiled programs of interest in this case are
-    ``voltron_mpi.x`` (for MAGE) and ``gamhelio_mpi.x`` (for the inner
-    heliosphere). Documentation for the remaining tools is found
-    :doc:`here </userGuide/kaijuTools/index>`. These tools are often run by
-    using wrapper scripts found in the ``kaipy`` package.
+    # Compile the GAMERA-helio model for inner heliosphere simulations
+    make -j4 gamhelio_mpi.x >& make-gamhelio.out
 
-.. note:: You can choose to compile only specific programs from the ``kaiju``
-    package, which will speed up the compilation. For instance, to compile
-    just the MPI components of ``MAGE``, you would use the command ``make
-    gamera_mpi.x rcm.x remix.x voltron_mpi.x``.
+    # Compile analysis tools
+    make -j4 calcdb.x chop.x sctrack.x slice.x >& make-analysis.out
+
+    
+When finished, your build directory will contain a ``bin``
+subdirectory which will contain the compiled ``kaiju`` executables.
+
+.. note:: Documentation on the analysis tools is found
+    :doc:`here </tools/index>`.
+
 

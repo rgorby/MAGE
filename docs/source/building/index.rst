@@ -25,7 +25,7 @@ Getting the source code
 -----------------------
 
 The ``kaiju`` source code can be obtained by cloning the ``kaiju`` repository
-on BitBucket:
+on GitHub:
 
 .. code-block:: bash
 
@@ -33,7 +33,7 @@ on BitBucket:
 
 .. important::
 
-    The ``kaiju`` repository on BitBucket uses ``git-lfs`` to support the
+    The ``kaiju`` repository on GitHub uses ``git-lfs`` to support the
     use of large binary files. You *must* make sure ``git-lfs`` is
     available in your ``git`` installation to ensure a complete clone
     of the ``kaiju`` repository.

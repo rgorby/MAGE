@@ -1,31 +1,31 @@
-Geospace Quick Start
-====================
+MAGE - Without TIEGCM (GR) Quick Start
+==========================================
 
-
-These instructions illustrate the process of running a magnetosphere
-simulation using the MAGE model in the ``kaiju`` code.
+These instructions illustrate the process of running a geospace
+simulation using the MAGE model without coupling with TIEGCM. We call
+this version of the model "GR" ("GAMERA-RAIJU") for brevity.
 
 
 Before you begin
-----------------
+--------------------------------------------
 
 *Source* (not *run*) the environment setup scripts for the ``kaiju`` and
 ``kaipy`` software. For example:
 
 .. code-block:: bash
 
-    source /path/to/your/kaiju-clone/scripts/setupEnvironment.sh
+    source /path/to/your/kaiju/scripts/setupEnvironment.sh
     source /path/to/your/kaipy/scripts/setupEnvironment.sh
 
 
-Running a magnetosphere simulation with MAGE
+Running a geospace simulation with MAGE
 --------------------------------------------
 
 The MAGE software needs several files in order to run. The detailed steps
 for creating these files have been combined into a script called
 ``makeitso.py``. The script is provided in the ``kaiju`` code repository. More
 information on ``makeitso.py`` is available
-:doc:`here <../../userGuide/makeitso/makeitso>`.
+:doc:`here </makeitso/makeitso>`.
 
 You can see the options supported by ``makeitso.py`` by running it with the
 ``--help`` or ``-h`` command-line option.
@@ -35,7 +35,7 @@ You can see the options supported by ``makeitso.py`` by running it with the
     makeitso.py --help
     usage: makeitso.py [-h] [--clobber] [--debug] [--mode MODE] [--options_path OPTIONS_PATH] [--verbose]
 
-    Interactive script to prepare a MAGE magnetosphere model run.
+    Interactive script to prepare a MAGE geospace model run.
 
     optional arguments:
       -h, --help            show this help message and exit
@@ -50,25 +50,24 @@ For this example, we will run the code on ``derecho``, and use the default
 ``BASIC`` mode, which requires the minimum amount of input from the user. At
 each prompt, you can either type in a value, or hit the :kbd:`Return` key to
 accept the default value (shown in square brackets at the end of the prompt).
-To get started, load the CDF library and run ``makeitso.py`` with no
-arguments:
+To get started, load the CDF library (needed for fetching solar wind data) and
+run ``makeitso.py`` with no arguments:
 
 .. code-block:: bash
 
     source /path/to/your/cdf/bin/definitions.B
     $KAIJUHOME/scripts/makeitso/makeitso.py
     Name to use for PBS job(s) [geospace]:
-    Do you have an existing boundary condition file to use? (Y|N) [N]:
-    Start date for simulation (yyyy-mm-ddThh:mm:ss) [2016-08-09T09:00:00]:
-    Stop date for simulation (yyyy-mm-ddThh:mm:ss) [2016-08-09T11:00:00]:
-    Do you want to split your job into multiple segments? (Y|N) [N]:
+    Do you have an existing boundary condition file to use? (Y|y|N|n) [N]:
+    Start date for simulation (yyyy-mm-ddThh:mm:ss) [2001-06-01T23:00:00]:
+    Stop date for simulation (yyyy-mm-ddThh:mm:ss) [2001-06-02T01:00:00]:
+    Do you want to split your job into multiple segments? (Y|y|N|n) [N]:
     GAMERA grid type (D|Q|O|H) [Q]:
     Name of HPC system (derecho|pleiades) [pleiades]: derecho
     PBS account name [<YOUR_ACCOUNT_HERE>]:
     Run directory [.]:
     Path to kaiju installation [<YOUR_KAIJUHOME_HERE>]:
     Path to kaiju build directory [<YOUR_BUILD_DIRECTORY_HERE>]:
-
     PBS queue name (develop|main|preempt) [main]:
     Job priority (regular|economy) [economy]:
     WARNING: You are responsible for ensuring that the wall time is sufficient to run a segment of your simulation!
@@ -101,18 +100,19 @@ You should see output similar to this:
     Retrieving f10.7 data from CDAWeb
     Retrieving solar wind data from CDAWeb
             Using Bx fields
-    Bx Fit Coefficients are  [-3.78792744 -0.77915822 -1.0774984 ]
+    Bx Fit Coefficients are  [4.00339086 -0.20513105 -0.33969058]
     Saving "OMNI_HRO_1MIN.txt_bxFit.png"
     Converting to Gamera solar wind file
             Found 21 variables and 120 lines
             Offsetting from LFM start ( 0.00 min) to Gamera start ( 0.00 min)
     Saving "OMNI_HRO_1MIN.txt.png"
     Writing Gamera solar wind to bcwind.h5
-    Reading /glade/derecho/scratch/ewinter/cgs/aplkaiju/kaipy-private/development/kaipy-private/kaipy/rcm/dktable
-    Reading /glade/derecho/scratch/ewinter/cgs/aplkaiju/kaipy-private/development/kaipy-private/kaipy/rcm/wmutils/chorus_polynomial.txt
-    Dimension of parameters in Chorus wave model, Kp: 6 MLT: 97 L: 41 Ek: 155
-    Wrote RCM configuration to rcmconfig.h5
-
+    Making new raijuconfig.h5, destroying pre-existing file if there
+    Stamping file with git hash and branch, and script args
+    Adding waveModel to raijuconfig.h5
+    Reading /glade/derecho/scratch/ewinter/cgs/aplkaiju/kaipy-private/dev_312/kaipy-private/kaipy/raiju/waveModel/chorus_polynomial.txt
+    Adding Species to raijuconfig.h5
+    Adding params used to generate lambda distribution as root attribute
 
     Template creation complete!
 
@@ -127,7 +127,7 @@ You should now see the following files in your run directory:
     ls
     bcwind.h5        geospace.json    OMNI_HRO_1MIN.txt_bxFit.png
     geospace-00.pbs  geospace_pbs.sh  OMNI_HRO_1MIN.txt.png
-    geospace-00.xml  lfmQ.h5          rcmconfig.h5
+    geospace-00.xml  lfmQ.h5          raijuconfig.h5
 
 The image files are summaries of the CDAWeb data used in the initial condition
 file (``bcwind.h5``). Those plots should look similar to this:
@@ -166,13 +166,21 @@ strings):
     `REMIX <https://cgs.jhuapl.edu/Models/remix.php>`_ portion of the
     `MAGE <https://cgs.jhuapl.edu/Models>`_ model.
 
-* ``geospace.rcm.h5``
+* ``geospace.raiju.h5``
 
     This file contains the results from the
-    `RCM <https://cgs.jhuapl.edu/Models/rcm.php>`_ portion of the
-    `MAGE <https://cgs.jhuapl.edu/Models>`_ model.
+    RAIJU portion of the `MAGE <https://cgs.jhuapl.edu/Models>`_ model.
 
-* ``geospace_*.gam.Res.RRRRR.h5``
+* ``geospace.volt.h5``
+
+    This file contains the results from the
+    VOLTRON portion of the `MAGE <https://cgs.jhuapl.edu/Models>`_ model.
+
+* ``*Cpl*.h5``
+
+    Data used in coupling the different members of the model suite.
+
+* ``*.Res.RRRRR.h5``
 
     These are checkpoint files generated during the simulation which can be
     used as restart points for future simulations.

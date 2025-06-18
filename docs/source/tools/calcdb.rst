@@ -6,7 +6,7 @@ Introduction
 ------------
 
 The tool ``calcdb.x`` is a compiled Fortran program which uses the output from
-a ``kaiju`` magnetosphere simulation to compute the values of the ground
+a MAGE simulation to compute the values of the ground
 magnetic field disturbance.
 
 

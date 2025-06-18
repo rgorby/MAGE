@@ -1,9 +1,10 @@
-``makeitso-gamhelio.py``
-========================
+Makeitso-gamhelio -- Use for GAMERA-Helio
+========================================================================
 
 The Python script ``makeits-gamhelio.py`` was developed to simplify the
-process of configuring and running a heliosphere model with the ``kaiju``
-software. It provides an interactive, prompt-driven interface to specify all
+process of configuring and running GAMERA-helio (that is, the inner
+heliosphere applicatoin of the ``kaiju``
+software.) It provides an interactive, prompt-driven interface to specify all
 of the parameters needed for a model run.
 
 The ``makeitso-gamhelio.py`` script can operate in one of three different
