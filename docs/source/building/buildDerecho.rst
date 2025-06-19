@@ -64,6 +64,12 @@ module set:
         module load netcdf-mpi/4.9.2
         module load esmf/8.6.0
         module load conda/latest
+    
+    .. warning::
+        
+        Build the GTR version of the code in the ``build_gtr`` subdirectory
+        under the ``kaiju`` source code directory, not the ``build_mpi``
+        subdirectory as the module set is different.
 
 .. important::
 
@@ -89,6 +95,10 @@ build directory in any convenient location.
     # Create the build directory and enter it.
     mkdir build_mpi
     cd build_mpi
+
+    # If you are building the GTR version of the code, create the build_gtr directory instead:
+    # mkdir build_gtr
+    # cd build_gtr
 
     # Run cmake to create the Makefile, saving output.
     # NOTE: The FC definition is *required* for proper cmake operation.

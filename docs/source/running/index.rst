@@ -35,7 +35,7 @@ environment with all prerequisites, is available on
     encounter compatibility issues.
 
 
-Table of Contents
+Running Guides
 -----------------
 
 .. toctree::

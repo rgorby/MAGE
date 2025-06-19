@@ -9,13 +9,11 @@ this version of the model "GTR" ("GAMERA-TIEGCM-RAIJU") for brevity.
 Before you begin
 ------------------------------------------------
 
-*Source* (not *run*) the environment setup scripts for the ``kaiju`` and
-``kaipy`` software. For example:
+*Source* (not *run*) the environment setup scripts for the ``kaiju`` software. For example:
 
 .. code-block:: bash
 
     source /path/to/your/kaiju-clone/scripts/setupEnvironment.sh
-    source /path/to/your/kaipy/scripts/setupEnvironment.sh
     export TIEGCMHOME=/path/to/your/tiegcm
     export TIEGCMDATA=/path/to/your/tiegcm/data
 
@@ -28,6 +26,8 @@ Before you begin
     The TIEGCMDATA directory is located in the following locations:
         - On ``derecho``: ``/glade/campaign/hao/itmodel/tiegcm3.0/new_data``
         - On ``pleiades``: ``/nobackup/nrao3/tiegcm/tiegcm3.0/data``
+        - The required data files can be downloaded from the NCAR Globus endpoint using the following link: `TIEGCM Data Files <https://app.globus.org/file-manager?origin_id=b2502c58-c3eb-470f-86d4-cbdcd0aeb6c8&origin_path=%2F>`_
+
 
 Build guide for TIEGCM
 ************************************************
@@ -221,8 +221,8 @@ To get started, run ``engage.py`` with no arguments:
     makeitso from /glade/u/home/nikhilr/kaiju_engage/kaiju-private/scripts/makeitso/makeitso.py
     
     Name to use for PBS job(s) [geospace]: 
-    Start date for simulation (yyyy-mm-ddThh:mm:ss) [2016-08-09T09:00:00]: 
-    Stop date for simulation (yyyy-mm-ddThh:mm:ss) [2016-08-09T11:00:00]: 
+    Start date for simulation (yyyy-mm-ddThh:mm:ss) [2001-06-01T23:00:00]:
+    Stop date for simulation (yyyy-mm-ddThh:mm:ss) [2001-06-02T01:00:00]:
     Do you want to split your job into multiple segments? (Y|N) [Y]: 
     Segment length in simulated seconds [7200.0]: 3600
     GAMERA grid type (D|Q|O|H) [Q]: 
@@ -237,6 +237,13 @@ To get started, run ``engage.py`` with no arguments:
     Requested wall time for each PBS job segment (HH:MM:SS) [01:00:00]: 12:00:00
     Root directory for the simulation [<YOUR_RUN_DIRECTORY_HERE>]: 
     Conda environment to use for the simulation [<YOUR_CONDA_ENVIRONMENT_DIRECTORY_HERE>]: 
+
+.. warning::
+
+    Make sure to set ``Path to kaiju build directory`` to the directory where you built the
+    ``voltron_mpi.x`` executable with the module set for GTR runs. If you followed the build
+    instructions, this should be the ``build_gtr`` subdirectory. This is required for running
+    the model in GTR mode.
 
 ``engage.py`` will then prompt you for the following additional information from ``makeitso``:
 
@@ -280,10 +287,12 @@ You should see output similar to this:
             Offsetting from LFM start ( 0.00 min) to Gamera start ( 0.00 min)
     Saving "OMNI_HRO_1MIN.txt.png"
     Writing Gamera solar wind to bcwind.h5
-    Reading /glade/u/home/nikhilr/kaiju_engage/kaipy-private/kaipy/rcm/dktable
-    Reading /glade/u/home/nikhilr/kaiju_engage/kaipy-private/kaipy/rcm/wmutils/chorus_polynomial.txt
-    Dimension of parameters in Chorus wave model, Kp: 6 MLT: 97 L: 41 Ek: 155
-    Wrote RCM configuration to rcmconfig.h5
+    Making new raijuconfig.h5, destroying pre-existing file if there
+    Stamping file with git hash and branch, and script args
+    Adding waveModel to raijuconfig.h5
+    Reading /glade/derecho/scratch/ewinter/cgs/aplkaiju/kaipy-private/dev_312/kaipy-private/kaipy/raiju/waveModel/chorus_polynomial.txt
+    Adding Species to raijuconfig.h5
+    Adding params used to generate lambda distribution as root attribute
 
     Template creation complete!
 
@@ -351,7 +360,7 @@ You should now see the following files in your run directory:
     engage_parameters.json  geospace-SPINUP.xml     makeitso_parameters.json
     geospace-01.inp         geospace-WARMUP-01.pbs  OMNI_HRO_1MIN.txt_bxFit.png
     geospace-01.pbs         geospace-WARMUP-01.xml  OMNI_HRO_1MIN.txt.png
-    geospace-01.xml         geospace-WARMUP-02.pbs  rcmconfig.h5
+    geospace-01.xml         geospace-WARMUP-02.pbs  raijuconfig.h5
     geospace-02.inp         geospace-WARMUP-02.xml  tiegcm.exe
     geospace-02.pbs         geospace-WARMUP-03.pbs  tiegcmrun_parameters.json
     geospace-02.xml         geospace-WARMUP-03.xml  tiegcm_standalone
@@ -446,11 +455,10 @@ strings):
     `REMIX <https://cgs.jhuapl.edu/Models/remix.php>`_ portion of the
     `MAGE <https://cgs.jhuapl.edu/Models>`_ model.
 
-* ``geospace.rcm.h5``
+* ``geospace.raiju.h5``
 
     This file contains the results from the
-    `RCM <https://cgs.jhuapl.edu/Models/rcm.php>`_ portion of the
-    `MAGE <https://cgs.jhuapl.edu/Models>`_ model.
+    RAIJU portion of the `MAGE <https://cgs.jhuapl.edu/Models>`_ model.
 
 * ``geospace_sech_*.nc``
 
