@@ -9,7 +9,8 @@ this version of the model "GTR" ("GAMERA-TIEGCM-RAIJU") for brevity.
 Before you begin
 ------------------------------------------------
 
-*Source* (not *run*) the environment setup scripts for the ``kaiju`` software. For example:
+*Source* (not *run*) the environment setup scripts for the ``kaiju`` software and add paths to ``TIEGCMHOME`` and ``TIEGCMDATA``.
+For example:
 
 .. code-block:: bash
 
