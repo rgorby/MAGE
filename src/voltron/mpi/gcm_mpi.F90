@@ -111,10 +111,10 @@ contains
         ! transform all gcm points to SM
 
         !Skip MPI exchange on first restart
-        if (present(gcmCplComm) .and. gcm%isRestart) then
-            !gcm%isRestart = .False.
-            return
-        endif
+        !if (present(gcmCplComm) .and. gcm%isRestart) then
+        !    !gcm%isRestart = .False.
+        !    return
+        !endif
         !Must MIX export first.  TIEGCM will also import first.
         call Tic("Export")
         if (present(gcmCplComm)) then
