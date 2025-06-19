@@ -135,7 +135,7 @@ module voltapp_mpi
             write(*,*) "Initializing GCM ..."
             call init_gcm_mpi(vApp%gcm,vApp%remixApp%ion,vApp%gApp%Model%isRestart)
             ! Perform one initial coupling for TIEGCM
-            call coupleGCM2MIX(vApp%gcm,vApp%remixApp%ion,vApp%MJD,vApp%time,vApp%mageCplComm,vApp%gcmCplRank)
+            !call coupleGCM2MIX(vApp%gcm,vApp%remixApp%ion,vApp%MJD,vApp%time,vApp%mageCplComm,vApp%gcmCplRank)
         end if
 
         if(vApp%useHelpers) then
