@@ -87,6 +87,7 @@ module mixconductance
                conductance%deltaSigmaP(:,:) = SigET_P(MagE(:,:))*conductance%deltaSigmaP(:,:)
                conductance%deltaSigmaH(:,:) = SigET_H(MagE(:,:))*conductance%deltaSigmaH(:,:)
             endwhere
+            deallocate(MagE)
          endif
 
          St%Vars(:,:,SIGMAP) = sqrt( conductance%euvSigmaP**2 + conductance%deltaSigmaP**2) 
