@@ -34,6 +34,7 @@ module mixconductance
       conductance%doStarlight       = Params%doStarlight
       conductance%apply_cap         = Params%apply_cap
       conductance%doEMA             = Params%doEMA
+      conductance%doET              = Params%doET
 
       if (.not. allocated(conductance%zenith)) allocate(conductance%zenith(G%Np,G%Nt))
       if (.not. allocated(conductance%coszen)) allocate(conductance%coszen(G%Np,G%Nt))
@@ -56,9 +57,6 @@ module mixconductance
       real(rp), dimension(:,:), allocatable :: SigH0,SigP0,MagE !Old values of SigH/SigP
       real(rp) :: dT,upTau,dnTau,wAvgU,wAvgD
       integer :: i,j
-      logical :: doET
-
-      doET = .true. !Just setting this here for testing instead of doing the full xml option (don't tell Jeff)
 
       !Save old Sigs
       allocate(SigH0(G%Np,G%Nt))
@@ -79,7 +77,7 @@ module mixconductance
          ! Use vector addition of auroral and EUV conductance.
          call conductance_aurora(conductance,G,St)
 
-         if (doET) then
+         if (conductance%doET) then
             !Add ET enhancement to embiggen auroral conductance
             allocate(MagE(G%Np,G%Nt))
             MagE = 0.0
