@@ -48,7 +48,7 @@ on GitHub:
     compiler and an HDF5 library.
 
 
-Table of Contents
+Building Guides
 -----------------
 
 .. toctree::

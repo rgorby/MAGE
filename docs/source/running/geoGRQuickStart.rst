@@ -9,13 +9,11 @@ this version of the model "GR" ("GAMERA-RAIJU") for brevity.
 Before you begin
 --------------------------------------------
 
-*Source* (not *run*) the environment setup scripts for the ``kaiju`` and
-``kaipy`` software. For example:
+*Source* (not *run*) the environment setup scripts for the ``kaiju`` software. For example:
 
 .. code-block:: bash
 
     source /path/to/your/kaiju/scripts/setupEnvironment.sh
-    source /path/to/your/kaipy/scripts/setupEnvironment.sh
 
 
 Running a geospace simulation with MAGE

@@ -81,6 +81,7 @@ This section provdes an annotated example session of ``engage.py`` running
 in the default ``BASIC`` mode on the ``derecho`` supercomputer.
 
 1. ``engage`` native parameters will be requested
+#####################################################
 
 .. code-block:: bash
 
@@ -94,8 +95,8 @@ as the basis for most of the files created by ``engage.py``, the
 
 .. code-block:: bash
 
-  Start date for simulation (yyyy-mm-ddThh:mm:ss) [2016-08-09T09:00:00]:
-  Stop date for simulation (yyyy-mm-ddThh:mm:ss) [2016-08-09T11:00:00]:
+  Start date for simulation (yyyy-mm-ddThh:mm:ss) [2001-06-01T23:00:00]:
+  Stop date for simulation (yyyy-mm-ddThh:mm:ss) [2001-06-02T01:00:00]:
 
 Enter the start and stop date and time for the solar wind data you want to
 use. The required data will be fetched from CDAWeb, and converted into a
@@ -117,8 +118,8 @@ Enter the length of each segment in simulated seconds. The default is the entire
 of the simulation, but you can enter a shorter time to split the simulation into
 multiple segments. For example, if you enter ``3600``, the simulation will be
 split into two segments, each one hour long. The first segment will run from
-``2016-08-09T09:00:00`` to ``2016-08-09T10:00:00``, and the second segment will run
-from ``2016-08-09T10:00:00`` to ``2016-08-09T11:00:00``.
+``2001-06-01T23:00:00`` to ``2001-06-02T00:00:00``, and the second segment will run
+from ``2001-06-02T00:00:00`` to ``2001-06-02T01:00:00``.
 
 .. code-block:: bash
 
@@ -190,6 +191,7 @@ activated when you run the ``engage.py`` script.
 
 
 2. ``makeitso`` parameters will be requested
+#####################################################
 
 .. code-block:: bash
 
@@ -256,10 +258,12 @@ your simulation.
           Offsetting from LFM start ( 0.00 min) to Gamera start ( 0.00 min)
   Saving "OMNI_HRO_1MIN.txt.png"
   Writing Gamera solar wind to bcwind.h5
-  Reading /glade/derecho/scratch/ewinter/cgs/aplkaiju/kaipy-private/development/kaipy-private/kaipy/rcm/dktable
-  Reading /glade/derecho/scratch/ewinter/cgs/aplkaiju/kaipy-private/development/kaipy-private/kaipy/rcm/wmutils/chorus_polynomial.txt
-  Dimension of parameters in Chorus wave model, Kp: 6 MLT: 97 L: 41 Ek: 155
-  Wrote RCM configuration to rcmconfig.h5
+  Making new raijuconfig.h5, destroying pre-existing file if there
+  Stamping file with git hash and branch, and script args
+  Adding waveModel to raijuconfig.h5
+  Reading /glade/derecho/scratch/ewinter/cgs/aplkaiju/kaipy-private/dev_312/kaipy-private/kaipy/raiju/waveModel/chorus_polynomial.txt
+  Adding Species to raijuconfig.h5
+  Adding params used to generate lambda distribution as root attribute
   Creating .ini file(s) for run.
   Converting .ini file(s) to .xml file(s).
 
@@ -267,12 +271,14 @@ your simulation.
   Template creation complete!
 
 
-  Creating PBS job script(s) for run.
-  The PBS job scripts ['./geospace-00.pbs'] are ready.
-  The PBS scripts ['./geospace-00.pbs'] have been created, each with a corresponding XML file. To submit the jobs with the proper dependency (to ensure each segment runs in order), please run the script geospace_pbs.sh like this:
+  Template creation complete!
+
+
+  The PBS scripts ['./geospace-SPINUP.pbs', './geospace-WARMUP-01.pbs', './geospace-WARMUP-02.pbs', './geospace-01.pbs'] have been created, each with a corresponding XML file. To submit the jobs with the proper dependency (to ensure each segment runs in order), please run the script geospace_pbs.sh like this:
   bash geospace_pbs.sh
 
 3. ``tiegcmrun`` parameters will be requested
+#####################################################
 
 .. code-block:: bash
 
