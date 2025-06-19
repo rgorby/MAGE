@@ -25,22 +25,14 @@ module mixconductance
       conductance%euv_model_type    = Params%euv_model_type
       conductance%et_model_type     = Params%et_model_type
       conductance%sigma_model_type  = Params%sigma_model_type
-!      conductance%alpha             = Params%alpha
-!      conductance%beta              = Params%beta
-!      conductance%R                 = Params%R
       conductance%F107              = Params%F107
       conductance%pedmin            = Params%pedmin
       conductance%hallmin           = Params%hallmin
       conductance%sigma_ratio       = Params%sigma_ratio
       conductance%ped0              = Params%ped0
       conductance%const_sigma       = Params%const_sigma
-!      conductance%doRamp            = Params%doRamp
-!      conductance%doChill           = Params%doChill
       conductance%doStarlight       = Params%doStarlight
-!      conductance%doMR              = Params%doMR
-!      conductance%doAuroralSmooth   = Params%doAuroralSmooth      
       conductance%apply_cap         = Params%apply_cap
-!      conductance%aurora_model_type = Params%aurora_model_type
       conductance%doEMA             = Params%doEMA
 
       if (.not. allocated(conductance%zenith)) allocate(conductance%zenith(G%Np,G%Nt))
@@ -73,12 +65,6 @@ module mixconductance
       allocate(SigP0(G%Np,G%Nt))
       SigP0 = St%Vars(:,:,SIGMAP)
       SigH0 = St%Vars(:,:,SIGMAH)
-
-!      ! Compute EUV though because it's used in fedder
-!      call conductance_euv(conductance,G,St)
-
-!      ! Compute auroral precipitation flux
-!      call dragonking_total(conductance,G,St)
       
       if (present(gcm)) then
          ! Use GCM conductance.
