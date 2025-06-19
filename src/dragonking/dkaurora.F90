@@ -262,17 +262,17 @@ module dkaurora
                mhd_SigPH = SigmaP_Robinson(mhd_eavg,mhd_eflx)**2+SigmaH_Robinson(mhd_eavg,mhd_eflx)**2
                rcm_SigPH = SigmaP_Robinson(rcm_eavg,rcm_eflx)**2+SigmaH_Robinson(rcm_eavg,rcm_eflx)**2
                St%Vars(i,j,AUR_TYPE) = AT_RMono
-               !if(mhd_nflx>GuABNF .and. mhd_SigPH>rcm_SigPH) then
-               !   St%Vars(i,j,AUR_TYPE) = AT_RMono
-               !else
-               !   St%Vars(i,j,NUM_FLUX) = rcm_nflx
-               !   St%Vars(i,j,AVG_ENG)  = rcm_eavg
-               !   if(rcm_nflx>GuABNF) then
-               !      St%Vars(i,j,AUR_TYPE) = AT_RMfnE
-               !   else
-               !      St%Vars(i,j,AUR_TYPE) = AT_NoPre
-               !   endif
-               !endif
+               if(mhd_nflx>GuABNF .and. mhd_SigPH>rcm_SigPH) then
+                  St%Vars(i,j,AUR_TYPE) = AT_RMono
+               else
+                  St%Vars(i,j,NUM_FLUX) = rcm_nflx
+                  St%Vars(i,j,AVG_ENG)  = rcm_eavg
+                  if(rcm_nflx>GuABNF) then
+                     St%Vars(i,j,AUR_TYPE) = AT_RMfnE
+                  else
+                     St%Vars(i,j,AUR_TYPE) = AT_NoPre
+                  endif
+               endif
             else
                ! Linearly merge MHD and RCM diffuse nflux and eflux.
                ! Note where deltaE>eTINY but beta_RCM<=0.01, gtype will be near 1.
