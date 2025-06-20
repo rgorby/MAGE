@@ -495,11 +495,11 @@ module voltapp
 
         ! solve for remix output
         if (vApp%time<=0) then
-            call run_mix(vApp%remixApp%ion,curTilt,doModelOpt=.false.,mjd=vApp%MJD)
+            call run_mix(vApp%remixApp%ion,curTilt,doModelOpt=.false.)
         else if (vApp%doGCM) then
-            call run_mix(vApp%remixApp%ion,curTilt,gcm=vApp%gcm,mjd=vApp%MJD)
+            call run_mix(vApp%remixApp%ion,curTilt,gcm=vApp%gcm)
         else
-            call run_mix(vApp%remixApp%ion,curTilt,doModelOpt=.true.,mjd=vApp%MJD)
+            call run_mix(vApp%remixApp%ion,curTilt,doModelOpt=.true.)
         endif
 
     end subroutine runRemix
