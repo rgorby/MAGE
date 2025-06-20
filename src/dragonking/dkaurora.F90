@@ -37,44 +37,20 @@ module dkaurora
 
       ! define these module-wide variables so we don't have to pass the Params object to all the aurora functions
       ! this is similar to how it was done in MIX
-!      conductance%euv_model_type    = Params%euv_model_type
-!      conductance%et_model_type     = Params%et_model_type
       aurora%alpha             = Params%alpha
       aurora%beta              = Params%beta
       aurora%R                 = Params%R
-!      conductance%F107              = Params%F107
-!      conductance%pedmin            = Params%pedmin
-!      conductance%hallmin           = Params%hallmin
-!      conductance%sigma_ratio       = Params%sigma_ratio
-!      conductance%ped0              = Params%ped0
-!      conductance%const_sigma       = Params%const_sigma
       aurora%doRamp            = Params%doRamp
       aurora%doChill           = Params%doChill
-!      conductance%doStarlight       = Params%doStarlight
       aurora%doMR              = Params%doMR
       aurora%doAuroralSmooth   = Params%doAuroralSmooth
-!      conductance%apply_cap         = Params%apply_cap
       aurora%aurora_model_type = Params%aurora_model_type
-!      conductance%doEMA             = Params%doEMA
-
-!      if (.not. allocated(conductance%zenith)) allocate(conductance%zenith(G%Np,G%Nt))
-!      if (.not. allocated(conductance%coszen)) allocate(conductance%coszen(G%Np,G%Nt))
-!      if (.not. allocated(conductance%euvSigmaP)) allocate(conductance%euvSigmaP(G%Np,G%Nt))
-!      if (.not. allocated(conductance%euvSigmaH)) allocate(conductance%euvSigmaH(G%Np,G%Nt))
-!      if (.not. allocated(conductance%deltaSigmaP)) allocate(conductance%deltaSigmaP(G%Np,G%Nt))
-!      if (.not. allocated(conductance%deltaSigmaH)) allocate(conductance%deltaSigmaH(G%Np,G%Nt))
 
       if (.not. allocated(aurora%rampFactor)) allocate(aurora%rampFactor(G%Np,G%Nt))
-!      if (.not. allocated(conductance%ares)) allocate(conductance%ares(G%Np,G%Nt))
       if (.not. allocated(aurora%deltaE)) allocate(aurora%deltaE(G%Np,G%Nt))
       if (.not. allocated(aurora%E0)) allocate(aurora%E0(G%Np,G%Nt))
       if (.not. allocated(aurora%phi0)) allocate(aurora%phi0(G%Np,G%Nt))
-!      if (.not. allocated(conductance%engFlux)) allocate(conductance%engFlux(G%Np,G%Nt))
-
-!      if (.not. allocated(conductance%avgEng)) allocate(conductance%avgEng(G%Np,G%Nt))
-!      if (.not. allocated(conductance%drift)) allocate(conductance%drift(G%Np,G%Nt))      
-!      if (.not. allocated(conductance%AuroraMask)) allocate(conductance%AuroraMask(G%Np,G%Nt))      
-      if (.not. allocated(aurora%PrecipMask)) allocate(aurora%PrecipMask(G%Np,G%Nt))    
+      if (.not. allocated(aurora%PrecipMask)) allocate(aurora%PrecipMask(G%Np,G%Nt))
 
       ! these arrays are global and should not be! reallocate them
       if(allocated(beta_RCM)) deallocate(beta_RCM)
@@ -286,17 +262,17 @@ module dkaurora
                mhd_SigPH = SigmaP_Robinson(mhd_eavg,mhd_eflx)**2+SigmaH_Robinson(mhd_eavg,mhd_eflx)**2
                rcm_SigPH = SigmaP_Robinson(rcm_eavg,rcm_eflx)**2+SigmaH_Robinson(rcm_eavg,rcm_eflx)**2
                St%Vars(i,j,AUR_TYPE) = AT_RMono
-               !if(mhd_nflx>GuABNF .and. mhd_SigPH>rcm_SigPH) then
-               !   St%Vars(i,j,AUR_TYPE) = AT_RMono
-               !else
-               !   St%Vars(i,j,NUM_FLUX) = rcm_nflx
-               !   St%Vars(i,j,AVG_ENG)  = rcm_eavg
-               !   if(rcm_nflx>GuABNF) then
-               !      St%Vars(i,j,AUR_TYPE) = AT_RMfnE
-               !   else
-               !      St%Vars(i,j,AUR_TYPE) = AT_NoPre
-               !   endif
-               !endif
+               if(mhd_nflx>GuABNF .and. mhd_SigPH>rcm_SigPH) then
+                  St%Vars(i,j,AUR_TYPE) = AT_RMono
+               else
+                  St%Vars(i,j,NUM_FLUX) = rcm_nflx
+                  St%Vars(i,j,AVG_ENG)  = rcm_eavg
+                  if(rcm_nflx>GuABNF) then
+                     St%Vars(i,j,AUR_TYPE) = AT_RMfnE
+                  else
+                     St%Vars(i,j,AUR_TYPE) = AT_NoPre
+                  endif
+               endif
             else
                ! Linearly merge MHD and RCM diffuse nflux and eflux.
                ! Note where deltaE>eTINY but beta_RCM<=0.01, gtype will be near 1.
