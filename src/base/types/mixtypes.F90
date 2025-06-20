@@ -33,6 +33,7 @@ module mixtypes
      logical  :: apply_cap
      logical  :: doSWF107
      logical  :: doEMA
+     logical  :: doET
 
      ! solver
      integer :: maxitr
@@ -106,18 +107,13 @@ module mixtypes
 
   type mixConductance_T
     integer :: euv_model_type, et_model_type, sigma_model_type!, aurora_model_type
-!    real(rp) :: alpha, beta, R, F107,pedmin,hallmin,sigma_ratio,ped0, alphaZ, betaZ
     real(rp) :: F107, pedmin, hallmin, sigma_ratio, ped0
-!    logical :: const_sigma, doRamp, doChill, doStarlight, apply_cap, doMR, doAuroralSmooth, doEMA
-    logical :: const_sigma, doStarlight, apply_cap, doEMA
+    logical :: const_sigma, doStarlight, apply_cap, doEMA, doET
 
     ! arrays on the grid
     real(rp), dimension(:,:), allocatable :: zenith, coszen
     real(rp), dimension(:,:), allocatable :: euvSigmaP, euvSigmaH
     real(rp), dimension(:,:), allocatable :: deltaSigmaP, deltaSigmaH
-!    real(rp), dimension(:,:), allocatable :: E0, phi0, deltaE, aRes
-!    real(rp), dimension(:,:), allocatable :: rampFactor, AuroraMask, PrecipMask, drift
-!    real(rp), dimension(:,:), allocatable :: engFlux, avgEng
   end type mixConductance_T
   
   ! used to store an entire instance of MIX (e.g., one per hemisphere)
