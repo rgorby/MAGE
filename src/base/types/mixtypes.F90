@@ -136,41 +136,6 @@ module mixtypes
   type mixApp_T
      type(mixIon_T), dimension(:), allocatable :: ion
   end type mixApp_T
-  type, abstract, extends(BaseApp_T) :: mixApp1_T
-
-     type(mixIon_T), dimension(:), allocatable :: ion
-
-     contains
-
-
-     !!!procedure :: InitModel           => mixInitModel
-     !!!procedure :: InitIO              => mixInitIO
-     !!!procedure :: WriteRestart        => mixWriteRestart
-     !!!procedure :: ReadRestart         => mixReadRestart
-     !!!procedure :: WriteConsoleOutput  => mixWriteConsoleOutput
-     !!!procedure :: WriteFileOutput     => mixWriteFileOutput
-     !!!procedure :: WriteSlimFileOutput => mixWriteSlimFileOutput
-     !!!procedure :: AdvanceModel        => mixAdvanceModel
-     !!!procedure :: Cleanup             => mixCleanup
-
-  end type mixApp1_T
-
-  type, abstract, extends(mixApp1_T) :: mixCpl_T
-
-     !Shell grid global potential
-
-  contains
-     ! in hub2mix, it would check if GCM exists, if so get gcm conductance
-     ! if GCM does not exist, then calculate conductance via conductance_total and
-     ! use DK precipitation
-     ! Must be called before AdvanceModel
-      !!!procedure :: getData => hub2mix
-      ! in mix2hub, we take the two hemisphere potential (or one from global) 
-      ! and load it into a shell grid
-      ! Must be called after AdvanceModel
-      !!!procedure :: pubData => mix2hub
-
-  end type mixCpl_T
 
   ! use this as a container to store the variables read from a previous H5 file
   type mixIO_T

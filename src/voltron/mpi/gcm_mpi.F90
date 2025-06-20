@@ -44,7 +44,7 @@ contains
       type(MPI_Comm) :: gcmCplComm
       integer, intent(in) :: gcmCplRank
 
-      integer :: g,i
+      integer :: g,icolor
 
       !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
 
@@ -52,46 +52,47 @@ contains
  
       write(*,*) "MIXCPL Waiting for Grid"
 
-      i = 0
+      icolor = 0
       do g=1,2
         select case(g)
         case (1)
-          call init_gcm_mpi_import(gcm%GEO,gcmCplComm,gcmCplRank,i)
+          call init_gcm_mpi_import(gcm%GEO,gcmCplComm,gcmCplRank,icolor)
           write(*,*) "MIXCPL LOAD GEO"
         case (2)
-          call init_gcm_mpi_import(gcm%APEX,gcmCplComm,gcmCplRank,i)
+          call init_gcm_mpi_import(gcm%APEX,gcmCplComm,gcmCplRank,icolor)
           write(*,*) "MIXCPL LOAD APEX"
         end select
 
       end do
     end subroutine init_gcm_mix_mpi
 
-    subroutine init_gcm_mpi_import(gcm,gcmCplComm,gcmCplRank,i)
+    subroutine init_gcm_mpi_import(gcm,gcmCplComm,gcmCplRank,icolor)
         type(gcm_grid_T),intent(inout):: gcm
-        type(MPI_Comm) :: gcmCplComm
-       integer, intent(in) :: gcmCplRank
+        type(MPI_Comm), intent(in) :: gcmCplComm
+        integer, intent(in) :: gcmCplRank
+        integer, intent(inout) :: icolor
 
-        integer :: i,nlon,nlat,Nh,ierr
+        integer :: nlon,nlat,Nh,ierr
 
         Nh = GCMhemispheres
 
-        i = i + 1
-        call mpi_recv(gcm%nlat, 1, MPI_INTEGER, gcmCplRank, (tgcmId+voltId)*100+i, gcmCplComm, MPI_STATUS_IGNORE,ierr)
+        icolor = icolor + 1
+        call mpi_recv(gcm%nlat, 1, MPI_INTEGER, gcmCplRank, (tgcmId+voltId)*100+icolor, gcmCplComm, MPI_STATUS_IGNORE,ierr)
         write(*,*) "MIXCPL GOT NLAT: ",gcm%nlat
 
-        i = i + 1
-        call mpi_recv(gcm%nlon, 1, MPI_INTEGER, gcmCplRank, (tgcmId+voltId)*100+i, gcmCplComm, MPI_STATUS_IGNORE,ierr)
+        icolor = icolor + 1
+        call mpi_recv(gcm%nlon, 1, MPI_INTEGER, gcmCplRank, (tgcmId+voltId)*100+icolor, gcmCplComm, MPI_STATUS_IGNORE,ierr)
         write(*,*) "MIXCPL GOT NLON: ",gcm%nlon
 
 
         if (.not.allocated(gcm%inlat)) allocate(gcm%inlat(gcm%nlat))
         if (.not.allocated(gcm%inlon)) allocate(gcm%inlon(gcm%nlon))
 
-        i = i + 1
-        call mpi_recv(gcm%inlat, gcm%nlat, MPI_DOUBLE_PRECISION, gcmCplRank, (tgcmId+voltId)*100+i, gcmCplComm, MPI_STATUS_IGNORE,ierr)
+        icolor = icolor + 1
+        call mpi_recv(gcm%inlat, gcm%nlat, MPI_DOUBLE_PRECISION, gcmCplRank, (tgcmId+voltId)*100+icolor, gcmCplComm, MPI_STATUS_IGNORE,ierr)
         write(*,*) "MIXCPL GOT LAT: ",gcm%inlat
-        i = i + 1
-        call mpi_recv(gcm%inlon, gcm%nlon, MPI_DOUBLE_PRECISION, gcmCplRank, (tgcmId+voltId)*100+i, gcmCplComm, MPI_STATUS_IGNORE,ierr)
+        icolor = icolor + 1
+        call mpi_recv(gcm%inlon, gcm%nlon, MPI_DOUBLE_PRECISION, gcmCplRank, (tgcmId+voltId)*100+icolor, gcmCplComm, MPI_STATUS_IGNORE,ierr)
         write(*,*) "MIXCPL GOT LON: ",gcm%inlon
         write(*,*) "MIXCPL GOT GRID INFO: ",gcm%nlat,gcm% nlon
 
