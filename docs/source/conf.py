@@ -33,3 +33,17 @@ html_theme = 'sphinx_rtd_theme'
 
 # -- Options for EPUB output
 epub_show_urls = 'footnote'
+
+html_static_path = ['_static']
+html_logo = '_static/MAGE_Logo_final_dark-bg_vertical.png'
+
+html_theme_options = {
+    'logo_only': True,
+    'display_version': False,
+    'collapse_navigation': False,
+    'navigation_depth': 4,
+}
+
+html_css_files = [
+    'css/sidebar_theme.css',
+]
