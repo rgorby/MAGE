@@ -118,7 +118,6 @@ module mixmain
       type(gcm_T),optional,intent(inout) :: gcm
       real(rp),intent(in) :: tilt
       logical, optional, intent(in) :: doModelOpt  ! allow to change on the fly whether we use conductance model
-      real(rp), optional, intent(in) :: mjd ! used to calculate the remix GEO grid as a function of time
 
       logical :: doModel=.true.   ! always default to xml input deck unless doModelOpt is present and on
       logical :: isRestart = .false.
@@ -143,7 +142,7 @@ module mixmain
           I(h)%conductance%const_sigma = .true.            
         end if
 
-        if (present(mjd) .and. .not. present(gcm)) then
+        if (.not. present(gcm)) then
           !write(*,*) "GRID TRANSFORM!"
           if (I(h)%St%hemisphere .eq. NORTH) then
             call transform_grid(I(h)%G,I(h)%Ggeo,iSMtoGEO,h,ym1=1)
