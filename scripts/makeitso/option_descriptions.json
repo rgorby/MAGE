@@ -21,12 +21,12 @@
         "start_date": {
             "LEVEL": "BASIC",
             "prompt": "Start date for simulation (yyyy-mm-ddThh:mm:ss)",
-            "default": "2016-08-09T09:00:00"
+            "default": "2001-06-01T23:00:00"
         },
         "stop_date": {
             "LEVEL": "BASIC",
             "prompt": "Stop date for simulation (yyyy-mm-ddThh:mm:ss)",
-            "default": "2016-08-09T11:00:00"
+            "default": "2001-06-02T01:00:00"
         },
         "use_segments": {
             "LEVEL": "BASIC",
@@ -545,8 +545,8 @@
             "imType": {
                 "LEVEL": "EXPERT",
                 "prompt": "(VOLTRON) Inner magnetosphere model to use",
-                "default": "RCM",
-                "valids": ["RCM", "SST", "TS07", "RCMX"]
+                "default": "RAIJU",
+                "valids": ["RAIJU"]
             },
             "doAsyncCoupling": {
                 "LEVEL": "EXPERT",
@@ -673,89 +673,141 @@
         }
     },
 
-    "rcm": {
-        "rcmdomain": {
-            "domType": {
+    "raiju": {
+        "output": {
+            "loudConsole": {
                 "LEVEL": "EXPERT",
-                "prompt": "(RCM) RCM domain type",
-                "default": "ELLIPSE",
-                "NOTE": "OBSOLETE?"
-            }
-        },
-        "ellipse": {
-            "xSun": {
-                "LEVEL": "INTERMEDIATE",
-                "prompt": "(RCM) Maximum extent in +x direction in Earth radii",
-                "default": "12.5"
-            },
-            "yDD": {
-                "LEVEL": "INTERMEDIATE",
-                "prompt": "(RCM) Maximum extent in +/- y dimension in Earth radii",
-                "default": "15.0"
-            },
-            "xTail": {
-                "LEVEL": "INTERMEDIATE",
-                "prompt": "(RCM) Maximum extent in -x direction in Earth radii",
-                "default": "-15.0"
-            },
-            "isDynamic": {
-                "LEVEL": "EXPERT",
-                "prompt": "(RCM) Dynamically determine the RCM outer boundary",
-                "default": "T",
+                "prompt": "(RAIJU) loudConsole",
+                "default": "F",
                 "valids": ["T", "F"]
             }
         },
         "grid": {
-            "LowLat": {
-                "LEVEL": "INTERMEDIATE",
-                "prompt": "(RCM) Low-latitude boundary (degrees) for RCM grid",
-                "default": "30.0",
-                "NOTE": "Should map to 0.5 Re less than MHD inner boundary"
+            "gType": {
+                "LEVEL": "EXPERT",
+                "prompt": "(RAIJU) gType",
+                "default": "SHGRID",
+                "valids": ["SHGRID"]
             },
-            "HiLat": {
-                "LEVEL": "INTERMEDIATE",
-                "prompt": "(RCM) High-latitude boundary (degrees) for RCM grid",
-                "default": "75.0"
+            "ThetaL": {
+                "LEVEL": "EXPERT",
+                "prompt": "(RAIJU) ThetaL",
+                "default": "15",
+                "valids": ["15"]
+            }
+        },
+        "domain": {
+            "tail_buffer": {
+                "LEVEL": "EXPERT",
+                "prompt": "(RAIJU) tail_buffer",
+                "default": "15.0",
+                "valids": ["15.0"]
+            },
+            "sun_buffer": {
+                "LEVEL": "EXPERT",
+                "prompt": "(RAIJU) sun_buffer",
+                "default": "15.0",
+                "valids": ["15.0"]
+            },
+            "tail_active": {
+                "LEVEL": "EXPERT",
+                "prompt": "(RAIJU) tail_active",
+                "default": "12.0",
+                "valids": ["12.0"]
+            },
+            "sun_active": {
+                "LEVEL": "EXPERT",
+                "prompt": "(RAIJU) sun_active",
+                "default": "12.0",
+                "valids": ["12.0"]
+            }
+        },
+        "config": {
+            "fname": {
+                "LEVEL": "EXPERT",
+                "prompt": "(RAIJU) fname",
+                "default": "raijuconfig.h5",
+                "valids": ["raijuconfig.h5"]
             }
         },
         "plasmasphere": {
-            "isDynamic": {
-                "LEVEL": "INTERMEDIATE",
-                "prompt": "(RCM) Enable evolution of plasmasphere using ExB",
+            "doPsphere": {
+                "LEVEL": "EXPERT",
+                "prompt": "(RAIJU) doPsphere",
                 "default": "T",
                 "valids": ["T", "F"]
             },
-            "initKp": {
+            "doExcessMap": {
                 "LEVEL": "EXPERT",
-                "prompt": "(RCM) Value of Kp used to initialize plasmasphere density profile",
-                "default": "5",
-                "NOTE": "From Gallagher (2000?)"
-            },
-            "doRefill": {
-                "LEVEL": "INTERMEDIATE",
-                "prompt": "(RCM) Allow plasmasphere refilling",
+                "prompt": "(RAIJU) doExcessMap",
                 "default": "T",
-                "valids": ["T", "F"],
-                "NOTE": "Empirical model from Denton (2012)"
-            },
-            "tAvg": {
-                "LEVEL": "INTERMEDIATE",
-                "prompt": "(RCM) Weighting timescale (seconds) for exponential moving average of ionospheric potential",
-                "default": "60.0"
+                "valids": ["T", "F"]
             }
         },
-        "loss": {
-            "doFLCLoss": {
+        "losses": {
+            "doLosses": {
                 "LEVEL": "EXPERT",
-                "prompt": "(RCM) rcm_loss_doFLCDo field line curvature loss",
-                "default": "F",
+                "prompt": "(RAIJU) doLosses",
+                "default": "T",
                 "valids": ["T", "F"]
             },
-            "eLossMethod": {
+            "doCX": {
                 "LEVEL": "EXPERT",
-                "prompt": "(RCM) Electron loss model",
-                "default": "WM",
-                "valids": ["WM", "FDG", "SS"]
+                "prompt": "(RAIJU) doCX",
+                "default": "T",
+                "valids": ["T", "F"]
+            },
+            "doCC": {
+                "LEVEL": "EXPERT",
+                "prompt": "(RAIJU) doCC",
+                "default": "T",
+                "valids": ["T", "F"]
+            },
+            "doEWM": {
+                "LEVEL": "EXPERT",
+                "prompt": "(RAIJU) doEWM",
+                "default": "T",
+                "valids": ["T", "F"]
+            },
+            "ewmType": {
+                "LEVEL": "EXPERT",
+                "prompt": "(RAIJU) ewmType",
+                "default": "SS",
+                "valids": ["SS"]
+            }
+        },
+        "cpl": {
+            "nFluidsIn": {
+                "LEVEL": "EXPERT",
+                "prompt": "(RAIJU) nFluidsIn",
+                "default": "1",
+                "valids": ["1"]
+            },
+            "startupTscl": {
+                "LEVEL": "EXPERT",
+                "prompt": "(RAIJU) startupTscl",
+                "default": "7200.0",
+                "valids": ["7200.0"]
+            }
+        },
+        "fluidIn1": {
+            "imhd": {
+                "LEVEL": "EXPERT",
+                "prompt": "(RAIJU) imhd",
+                "default": "0",
+                "valids": ["0"]
+            },
+            "flav": {
+                "LEVEL": "EXPERT",
+                "prompt": "(RAIJU) flav",
+                "default": "2",
+                "valids": ["2"]
+            },
+            "excessToPsph": {
+                "LEVEL": "EXPERT",
+                "prompt": "(RAIJU) excessToPsph",
+                "default": "T",
+                "valids": ["T", "F"]
             }
         }
     }
