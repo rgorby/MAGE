@@ -76,7 +76,7 @@
             "qkSquishStride": "2",
             "dtCouple": "5.0",
             "doDeep": "T",
-            "imType": "RCM",
+            "imType": "RAIJU",
             "doAsyncCoupling": "F"
         },
         "restart": {

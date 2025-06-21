@@ -37,7 +37,7 @@ module set:
 .. code-block:: bash
 
     module --force purge
-    module load ncarenv/23.09
+    module load ncarenv/23.06
     module load cmake/3.26.3
     module load craype/2.7.20
     module load intel/2023.0.0
