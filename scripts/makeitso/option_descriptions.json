@@ -182,6 +182,11 @@
             }
         },
         "pleiades": {
+            "group_list": {
+                "LEVEL": "BASIC",
+                "prompt": "PBS group list",
+                "default": null
+            },
             "queue": {
                 "LEVEL": "BASIC",
                 "prompt": "PBS queue name",
@@ -253,6 +258,16 @@
                     "mpi-hpe/mpt.2.23",
                     "hdf5/1.8.18_mpt"
                 ]
+            },
+            "moduledir": {
+                "LEVEL": "EXPERT",
+                "prompt": "Module directory",
+                "default": [null]
+            },
+            "local_modules": {
+                "LEVEL": "EXPERT",
+                "prompt": "Commands to add local module PATH",
+                "default": [null]
             },
             "environment_variables": {
                 "LEVEL": "EXPERT",
@@ -523,6 +538,12 @@
                 "LEVEL": "INTERMEDIATE",
                 "prompt": "(VOLTRON) Use stride for field line tracing for RCM ingestion into gamera",
                 "default": "T",
+                "valids": ["T", "F"]
+            },
+            "doGCM": {
+                "LEVEL": "INTERMEDIATE",
+                "prompt": "(VOLTRON) Run in GCM mode",
+                "default": "F",
                 "valids": ["T", "F"]
             },
             "qkSquishStride": {

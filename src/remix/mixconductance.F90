@@ -25,23 +25,16 @@ module mixconductance
       conductance%euv_model_type    = Params%euv_model_type
       conductance%et_model_type     = Params%et_model_type
       conductance%sigma_model_type  = Params%sigma_model_type
-!      conductance%alpha             = Params%alpha
-!      conductance%beta              = Params%beta
-!      conductance%R                 = Params%R
       conductance%F107              = Params%F107
       conductance%pedmin            = Params%pedmin
       conductance%hallmin           = Params%hallmin
       conductance%sigma_ratio       = Params%sigma_ratio
       conductance%ped0              = Params%ped0
       conductance%const_sigma       = Params%const_sigma
-!      conductance%doRamp            = Params%doRamp
-!      conductance%doChill           = Params%doChill
       conductance%doStarlight       = Params%doStarlight
-!      conductance%doMR              = Params%doMR
-!      conductance%doAuroralSmooth   = Params%doAuroralSmooth      
       conductance%apply_cap         = Params%apply_cap
-!      conductance%aurora_model_type = Params%aurora_model_type
       conductance%doEMA             = Params%doEMA
+      conductance%doET              = Params%doET
 
       if (.not. allocated(conductance%zenith)) allocate(conductance%zenith(G%Np,G%Nt))
       if (.not. allocated(conductance%coszen)) allocate(conductance%coszen(G%Np,G%Nt))
@@ -64,21 +57,12 @@ module mixconductance
       real(rp), dimension(:,:), allocatable :: SigH0,SigP0,MagE !Old values of SigH/SigP
       real(rp) :: dT,upTau,dnTau,wAvgU,wAvgD
       integer :: i,j
-      logical :: doET
-
-      doET = .true. !Just setting this here for testing instead of doing the full xml option (don't tell Jeff)
 
       !Save old Sigs
       allocate(SigH0(G%Np,G%Nt))
       allocate(SigP0(G%Np,G%Nt))
       SigP0 = St%Vars(:,:,SIGMAP)
       SigH0 = St%Vars(:,:,SIGMAH)
-
-!      ! Compute EUV though because it's used in fedder
-!      call conductance_euv(conductance,G,St)
-
-!      ! Compute auroral precipitation flux
-!      call dragonking_total(conductance,G,St)
       
       if (present(gcm)) then
          ! Use GCM conductance.
@@ -93,7 +77,7 @@ module mixconductance
          ! Use vector addition of auroral and EUV conductance.
          call conductance_aurora(conductance,G,St)
 
-         if (doET) then
+         if (conductance%doET) then
             !Add ET enhancement to embiggen auroral conductance
             allocate(MagE(G%Np,G%Nt))
             MagE = 0.0
@@ -103,6 +87,7 @@ module mixconductance
                conductance%deltaSigmaP(:,:) = SigET_P(MagE(:,:))*conductance%deltaSigmaP(:,:)
                conductance%deltaSigmaH(:,:) = SigET_H(MagE(:,:))*conductance%deltaSigmaH(:,:)
             endwhere
+            deallocate(MagE)
          endif
 
          St%Vars(:,:,SIGMAP) = sqrt( conductance%euvSigmaP**2 + conductance%deltaSigmaP**2) 

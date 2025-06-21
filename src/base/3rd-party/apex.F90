@@ -1,7 +1,9 @@
-! This software has been obtained from https://github.com/NCAR/apex_fortran
+! This software has been modified from the version obtained from https://github.com/NCAR/apex_fortran
 ! it is distributed under the BSD 3-Clause license.
 
 module apex
+  use kdefs
+  use dates
 !
 ! With this update the APEX package is being seperated from TIEGCM and is being released 
 !  a under the BSD 3-Clause License.
@@ -51,10 +53,12 @@ module apex
 !   and magnetic local time.
 !
   implicit none
-  real,parameter :: re = 6371.2,            & ! Reference radius of IGRF
+
+  private
+  real(rp),parameter :: re = 6371.2,            & ! Reference radius of IGRF
                     eps = 1.e-5,            & ! Small number
                     fltnvrs = 298.257223563   ! Inverse flatness of geoid
-  real,allocatable,save :: &
+  real(rp),allocatable,save :: &
     xarray(:,:,:), & ! cos(quasi-dipole latitude)*cos(apex longitude)
                      !   minus dipole value
     yarray(:,:,:), & ! cos(quasi-dipole latitude)*sin(apex longitude)
@@ -70,24 +74,22 @@ module apex
 !
 ! This grid (geolat,geolon,geoalt is equivalent to gdlat,gdlon,gdalt, 
 ! as passed to apex_mka.
-  real,allocatable,save :: geolat(:), geolon(:), geoalt(:)    
+  real(rp),allocatable,save :: geolat(:), geolon(:), geoalt(:)
 
   integer,parameter :: nmax=13 ! maximum degree of IGRF coefficients
   integer,parameter :: ncoef = nmax*nmax + 2*nmax + 1 ! 196
-  real,dimension(ncoef) :: &
+  real(rp),dimension(ncoef) :: &
     gb, & ! Coefficients for magnetic field calculation
     gv    ! Coefficients for magnetic potential calculation
 ! 
- real, parameter :: &
+ real(rp), parameter :: &
     dtr=0.0174532925199432957692369076847, & ! degrees to radians
     rtd=57.2957795130823208767981548147      ! radians to degrees
-
-  real :: &
+  real(rp) :: &
     pola ! Limiting latitude magnitude (deg); when the geographic
 !          latitude is poleward of pola, then xarray,yarray,zarray,varray
 !          are forced to be constant for all longitudes at each altitude.  
-
-  real,parameter ::        & ! Formerly common /APXCON/
+  real(rp),parameter ::        & ! Formerly common /APXCON/
     req  = 6378.137,       & ! Equatorial earth radius
     precise = 7.6e-11,     & ! Precision factor
     glatlim = 89.9,        & ! Limit above which gradients are recalculated
@@ -95,20 +97,19 @@ module apex
     req2 = req*req,        & 
     req2e2 = req2*(2. - 1./fltnvrs)/fltnvrs
 !
-  real ::  & ! Formerly /APXDIPL/ and /DIPOLE/
+  real(rp) ::  & ! Formerly /APXDIPL/ and /DIPOLE/
     colat, & ! Geocentric colatitude of geomagnetic dipole north pole (deg)
     elon,  & ! East longitude of geomagnetic dipole north pole (deg)
     vp,    & ! Magnitude, in T.m, of dipole component of magnetic
              ! potential at geomagnetic pole and geocentric radius re
     ctp,stp  ! cosine and sine of colat
 !
-  real ::  & ! Formerly /FLDCOMD/
+  real(rp) ::  & ! Formerly /FLDCOMD/
     bx,    & ! X comp. of field vector at the current tracing point (Gauss)
     by,    & ! Y comp. of field vector at the current tracing point (Gauss)
     bz,    & ! Z comp. of field vector at the current tracing point (Gauss)
     bb       ! Magnitude of field vector at the current tracing point (Gauss)
-
-  real ::      & ! Formerly /APXIN/
+  real(rp) ::      & ! Formerly /APXIN/
     yapx(3,3)    ! Matrix of cartesian coordinates (loaded columnwise) 
 !
 ! /ITRA/ was only in subs linapx and itrace, so it could be removed from module
@@ -117,27 +118,53 @@ module apex
 !
   integer ::   & ! Formerly /ITRA/ 
     nstp         ! Step count. Incremented in sub linapx.
-  real    ::   & 
+  real(rp)    ::   &
     y(3),      & ! Array containing current tracing point cartesian coordinates.
     yp(3),     & ! Array containing previous tracing point cartesian coordinates.
     sgn,       & ! Determines direction of trace. Set in subprogram linapx
     ds           ! Step size (Km) Computed in subprogram linapx.
-
-  real ::         & ! limits beyond which east-west gradients are computed 
+  real(rp) ::         & ! limits beyond which east-west gradients are computed
     glatmn,glatmx   ! differently to avoid potential underflow (apex_mka)
 
+    
+  public :: init_apex
+  public :: apex_mall
+  public :: apex_q2g
 contains
+
+!-----------------------------------------------------------------------
+
+    subroutine init_apex(mjd,altmax)
+      real(rp), intent(in) :: mjd,altmax
+      integer :: iyr,idoy,imon,iday,ihr,imin
+      real(rp) :: rsec
+      real(rp) :: mjdin
+      real(rp) :: yrfrac
+
+      mjdin = mjd ! mjdin of mjd2ut is for inout intent.
+      call mjd2ut(mjdin,iyr,idoy,imon,iday,ihr,imin,rsec)
+
+      ! Apex setup requires fraction of year
+      if (mod(iyr,4) .eq. 0) then
+        yrfrac = iyr + idoy/366._rp + ihr/24._rp/366._rp + imin/60._rp/24._rp/366._rp + rsec/60._rp/60._rp/24._rp/366._rp
+      else
+        yrfrac = iyr + idoy/365._rp + ihr/24._rp/365._rp + imin/60._rp/24._rp/365._rp + rsec/60._rp/60._rp/24._rp/365._rp
+      end if
+        !write (*,'('' set up apex for date='',f7.2,'' altmax='',f10.1)') date,altmax
+      call apex_setup(yrfrac,altmax)
+
+    end subroutine init_apex
+
 !-----------------------------------------------------------------------
 subroutine apex_setup(date,altmax)
 ! Set up 3D arrays over the Earth for geomagnetic-field epoch date,
 !  up to an altitude of at least altmax,
 !  for use when calling apex_mall, apex_q2g, or apex_m2g.
-
-  real, intent(in) ::  &
+  real(rp), intent(in) ::  &
                date,   & ! Date in year and fraction (e.g., 2018.5) 
                altmax    ! Maximum altitude that will be used (km).
 !   
-  integer,parameter :: nvert = 40 ! Resolution parameter, corresponding
+  integer,parameter :: nvert = 120 ! Resolution parameter, corresponding
 !   to the maximum number of vertical grid increments when altmax=infinity.
 !   Points are spaced uniformly in 1/r between the Earth's surface and an
 !   altitude that is at least altmax (or a very large value if altmax=infinity).  
@@ -147,14 +174,14 @@ subroutine apex_setup(date,altmax)
                mxalt =   nvert+1    ! maximum number of height grid points
 ! Local
   integer :: nlat,nlon,nalt ! Numbers of lat, lon, alt grid points
-  real :: gplat(mxlat),gplon(mxlon),gpalt(mxalt) ! grid latitudes (deg),
+  real(rp) :: gplat(mxlat),gplon(mxlon),gpalt(mxalt) ! grid latitudes (deg),
 !   longitudes (deg), and altitudes (km), respectively
   integer :: ier ! Error flag, non-zero if there is a problem. 
 
   nlat = 0
   nlon = 0
   nalt = 0
-  call ggrid(nvert,-90.,90.,-180.,180.,0.,altmax, &
+  call ggrid(nvert,-90._rp,90._rp,-180._rp,180._rp,0._rp,altmax, &
                  gplat,gplon,gpalt,mxlat,mxlon,mxalt,nlat,nlon,nalt)
   call apex_mka(date,gplat,gplon,gpalt,nlat,nlon,nalt,ier)
     if (ier /= 0) then
@@ -174,14 +201,14 @@ subroutine ggrid(nvert,glatmin,glatmax,glonmin,glonmax,altmin,altmax, &
 !
 ! Input args:
   integer,intent(in) :: nvert,mxlat,mxlon,mxalt
-  real,intent(in) :: glatmin,glatmax,glonmin,glonmax,altmin,altmax
+  real(rp),intent(in) :: glatmin,glatmax,glonmin,glonmax,altmin,altmax
 !
 ! Output args:
   integer,intent(out) :: nlat,nlon,nalt
-  real,intent(out) :: gplat(mxlat),gplon(mxlon),gpalt(mxalt)
+  real(rp),intent(out) :: gplat(mxlat),gplon(mxlon),gpalt(mxalt)
 !
 ! Local:
-  real :: dlon,dlat,diht,dnv,glonmaxx,x
+  real(rp) :: dlon,dlat,diht,dnv,glonmaxx,x
   integer :: nlatmin,nlatmax,nlonmin,nlonmax,naltmin,naltmax
   integer :: i,j,k,kk
 !
@@ -233,7 +260,7 @@ subroutine ggrid(nvert,glatmin,glatmax,glonmin,glonmax,altmin,altmax, &
   do j=1,nlat
     gplat(j) = dlat*float(nlatmin+j-1) - 90.
   enddo
-  gplat(nlat) = amin1(gplat(nlat),90.)
+  gplat(nlat) = min(gplat(nlat),90.)
   do i=1,nlon
     gplon(i) = dlon*float(nlonmin+i-1) - 180.
   enddo
@@ -260,18 +287,18 @@ subroutine apex_mka(date,gplat,gplon,gpalt,nlat,nlon,nalt,ier)
 ! This defines module 3d data xarray,yarray,zarray,varray
 !
 ! Input args:
-  real,intent(in) :: date              ! year and fraction
+  real(rp),intent(in) :: date              ! year and fraction
   integer,intent(in) :: nlat,nlon,nalt ! dimensions of 3d grid
-  real,intent(inout) :: gplat(nlat),gplon(nlon),gpalt(nalt)
+  real(rp),intent(inout) :: gplat(nlat),gplon(nlon),gpalt(nalt)
 !
 ! Output args:
   integer,intent(out) :: ier
 !
 ! Local:
   integer :: i,j,k,kpol,istat
-  real :: reqore,rqorm1,cp,ct,st,sp,stmcpm,stmspm,ctm
-  real :: aht,alat,phia,bmag,xmag,ymag,zdown,vmp ! apex_sub output
-  real :: vnor,rp,reqam1,a,slp,clp,phiar
+  real(rp) :: reqore,rqorm1,cp,ct,st,sp,stmcpm,stmspm,ctm
+  real(rp) :: aht,alat,phia,bmag,xmag,ymag,zdown,vmp ! apex_sub output
+  real(rp) :: vnor,rp,reqam1,a,slp,clp,phiar
 !
 ! pola:
 !   Limiting latitude magnitude (deg); when the geographic latitude is
@@ -396,13 +423,12 @@ subroutine apex_mall(glat,glon,alt,hr, b,bhat,bmag,si,alon,xlatm,vmp,W,&
 ! before calling this subroutine.
 !
 ! Args:
-  real,intent(in)  :: & ! Input
+  real(rp),intent(in)  :: & ! Input
     glat             ,& ! Geographic (geodetic) latitude (deg)
     glon             ,& ! Geographic (geodetic) longitude (deg)
     alt              ,& ! Altitude (km)
     hr                  ! Reference altitude (km)
-
-  real,intent(out) :: & ! Output
+  real(rp),intent(out) :: & ! Output
     b(3)             ,& ! Magnetic field components (east, north, up), in nT    
     bhat(3)          ,& ! components (east, north, up) of unit vector along 
                         ! geomagnetic field direction
@@ -421,17 +447,17 @@ subroutine apex_mall(glat,glon,alt,hr, b,bhat,bmag,si,alon,xlatm,vmp,W,&
     F                   ! F described in Richmond [1995] for quasi-dipole
                         !  coordinates
 !
-   real,dimension(3),intent(out) :: d1,d2,d3,e1,e2,e3,f1,f2,f3,g1,g2,g3 ! Components of base vectors
+   real(rp),dimension(3),intent(out) :: d1,d2,d3,e1,e2,e3,f1,f2,f3,g1,g2,g3 ! Components of base vectors
    integer,intent(out) :: ier ! error return
 !
 ! Local:
-  real :: glonloc,cth,sth,glatx,clm,r3_2
-  real :: fx,fy,fz,fv
-  real :: dfxdth,dfydth,dfzdth,dfvdth, &
+  real(rp) :: glonloc,cth,sth,glatx,clm,r3_2
+  real(rp) :: fx,fy,fz,fv
+  real(rp) :: dfxdth,dfydth,dfzdth,dfvdth, &
           dfxdln,dfydln,dfzdln,dfvdln, &
           dfxdh ,dfydh ,dfzdh ,dfvdh
-  real,dimension(3) :: gradx,grady,gradz,gradv, grclm,clmgrp,rgrlp
-  real ::                        & ! dummies for polar calls to intrp
+  real(rp),dimension(3) :: gradx,grady,gradz,gradv, grclm,clmgrp,rgrlp
+  real(rp) ::                        & ! dummies for polar calls to intrp
     fxdum,fydum,fzdum,fvdum,     &
     dmxdth,dmydth,dmzdth,dmvdth, &
     dmxdh,dmydh,dmzdh,dmvdh
@@ -505,39 +531,38 @@ subroutine apex_q2g(qdlat_in,qdlon,alt,gdlat,gdlon,ier)
 !  vectors vary appropriately with longitude.
 !
 ! Args:
-  real,intent(in) ::  & ! inputs
+  real(rp),intent(in) ::  & ! inputs
     qdlat_in,         & ! quasi-dipole latitude (deg)
     qdlon,            & ! quasi-dipole longitude (deg)
     alt                 ! altitude (km)
-
-  real,intent(out) :: & ! outputs
+  real(rp),intent(out) :: & ! outputs
     gdlat,            & ! geodetic latitude (deg)
     gdlon               ! geodetic longitude (deg)
   integer,intent(out) :: ier ! error return
 !
 ! Local:
-  real :: x0,y0,z0,xnorm,xdif,ydif,zdif,dist2,hgrd2e,hgrd2n,hgrd2,&
+  real(rp) :: x0,y0,z0,xnorm,xdif,ydif,zdif,dist2,hgrd2e,hgrd2n,hgrd2,&
     angdist,distlon,glatx,cal,sal,coslm,slm,cad,sad,slp,clm2,slm2,&
     sad2,cal2,clp2,clp,dylon,qdlat
-  real :: ylat,ylon ! first guess output by gm2gc, input to intrp
+  real(rp) :: ylat,ylon ! first guess output by gm2gc, input to intrp
   integer :: iter
   integer,parameter :: niter=20
-  real ::                        & ! output of sub intrp
+  real(rp) ::                        & ! output of sub intrp
     fx,fy,fz,fv,                 & ! interpolated values of x,y,z,v
     dfxdth,dfydth,dfzdth,dfvdth, & ! derivatives of x,y,z,v wrt colatitude
     dfxdln,dfydln,dfzdln,dfvdln, & ! derivatives of x,y,z,v wrt longitude
     dfxdh ,dfydh ,dfzdh ,dfvdh     ! derivatives of x,y,z,v wrt altitude
-  real ::                        & ! dummies for polar calls to intrp
+  real(rp) ::                        & ! dummies for polar calls to intrp
     fxdum,fydum,fzdum,fvdum,     &
     dmxdth,dmydth,dmzdth,dmvdth, &
     dmxdh,dmydh,dmzdh,dmvdh
-  real :: cth,sth  ! output of adpl
+  real(rp) :: cth,sth  ! output of adpl
   character(len=5) :: edge
 
   ier = 0 ; gdlat = 0. ; gdlon = 0.
 ! Keep qdlat away from poles
-  qdlat = amax1(qdlat_in,-90.+sqrt(precise)*rtd)
-  qdlat = amin1(qdlat   , 90.-sqrt(precise)*rtd)
+  qdlat = max(qdlat_in,-90.+sqrt(precise)*rtd)
+  qdlat = min(qdlat   , 90.-sqrt(precise)*rtd)
 !
 ! Determine quasi-cartesian coordinates on a unit sphere of the
 ! desired magnetic lat,lon in quasi-dipole coordinates.
@@ -682,15 +707,15 @@ subroutine gradxyzv(alt,cth,sth, &
 ! 940803 A. D. Richmond; updated 180510
 !
 ! Args:
-  real,intent(in) :: alt,cth,sth
-  real,dimension(3),intent(out) :: gradx,grady,gradz,gradv
-  real,intent(in) ::             &
+  real(rp),intent(in) :: alt,cth,sth
+  real(rp),dimension(3),intent(out) :: gradx,grady,gradz,gradv
+  real(rp),intent(in) ::             &
     dfxdth,dfydth,dfzdth,dfvdth, &
     dfxdln,dfydln,dfzdln,dfvdln, &
     dfxdh,dfydh,dfzdh,dfvdh
 !
 ! Local:
-  real :: d,d2,rho,dddthod,drhodth,dzetdth,ddisdth
+  real(rp) :: d,d2,rho,dddthod,drhodth,dzetdth,ddisdth
 
 !
   d2 = req2 - req2e2*cth*cth
@@ -724,12 +749,12 @@ subroutine grapxyzv(alt,cth,sth, &
 ! Calculates east component of gradient near pole.
 !
 ! Args:
-  real,intent(in) :: alt,cth,sth
-  real,intent(in) :: dfxdln,dfydln,dfzdln,dfvdln
-  real,dimension(3),intent(out) :: gradx,grady,gradz,gradv
+  real(rp),intent(in) :: alt,cth,sth
+  real(rp),intent(in) :: dfxdln,dfydln,dfzdln,dfvdln
+  real(rp),dimension(3),intent(out) :: gradx,grady,gradz,gradv
 !
 ! Local:
-  real :: d,d2,rho,dddthod,drhodth,dzetdth,ddisdth
+  real(rp) :: d,d2,rho,dddthod,drhodth,dzetdth,ddisdth
 !
   d2 = req2 - req2e2*cth*cth
   d = sqrt(d2)
@@ -753,28 +778,26 @@ subroutine gradlpv(hr,alt,fx,fy,fz,fv,gradx,grady,gradz,gradv, &
 ! gradients of apex latitude, longitude.
 !
 ! Args:
-  real,intent(in) :: & ! scalar inputs
+  real(rp),intent(in) :: & ! scalar inputs
     hr,              & ! reference altitude (km)
     alt,             & ! altitude (km)
     fx,fy,fz,fv        ! interpolated values of x,y,z,v, plus 
                        ! pseudodipole component
-  real,dimension(3),intent(in) :: & ! 3-component inputs
+  real(rp),dimension(3),intent(in) :: & ! 3-component inputs
     gradx,grady,gradz,gradv ! interpolated gradients of x,y,z,v,
                             ! including pseudodipole components (east,north,up)
 !
 ! Local:
   integer :: i
-  real :: rr,r,rn,sqrror,cpm,spm,bo,rn2,x2py2,xnorm,xlp,slp,clp,grclp
-
-  real,intent(out) :: & ! scalar outputs
+  real(rp) :: rr,r,rn,sqrror,cpm,spm,bo,rn2,x2py2,xnorm,xlp,slp,clp,grclp
+  real(rp),intent(out) :: & ! scalar outputs
     xlatm,  & !  modified apex latitude (lambda_m), degrees
     xlonm,  & !  apex longitude (phi_a), degrees
     vmp,    & !  magnetic potential, in T.m.
     qdlat,  & !  quasi-dipole latitude, degrees
     clm,    & !  cos(lambda_m)
     r3_2      !  ((re + alt)/(re + hr))**(3/2)
-
-  real,dimension(3),intent(out) :: & ! 3-component outputs 
+  real(rp),dimension(3),intent(out) :: & ! 3-component outputs
     grclm,   & ! grad(cos(lambda_m)), in km-1
     clmgrp,  & ! cos(lambda_m)*grad(phi_a), in km-1
     rgrlp,   & ! (re + alt)*grad(lambda')
@@ -833,33 +856,30 @@ subroutine basevec(hr,xlatm,grclm,clmgrp,rgrlp,b,clm,r3_2, &
 ! Vector components:  east, north, up
 !
 ! Args:
-  real,intent(in) :: & ! scalar inputs
+  real(rp),intent(in) :: & ! scalar inputs
     hr,      & ! reference altitude
     xlatm,   & ! modified apex latitude (deg)
     clm,     & ! cos(lambda_m)
     r3_2       ! ((re + altitude)/(re + hr))**(3/2)
-
-  real,dimension(3),intent(in) :: & ! 3-component inputs
+  real(rp),dimension(3),intent(in) :: & ! 3-component inputs
     grclm,   & ! grad(cos(lambda_m)), in km-1
     clmgrp,  & ! cos(lambda_m)*grad(phi_a), in km-1
     rgrlp,   & ! (re + altitude)*grad(lambda')
     b          !  magnetic field, in nT
-
-  real,intent(out) :: & ! scalar output
+  real(rp),intent(out) :: & ! scalar output
     bmag,    & ! magnitude of magnetic field, in nT
     sim,     & ! sin(I_m) of Richmond reference
     si,      & ! sin(I)
     F,       & ! F of Richmond reference
     D,       & ! D of Richmond reference
     W          ! W of Richmond reference
-
-  real,dimension(3),intent(out) :: & ! 3-component outputs
+  real(rp),dimension(3),intent(out) :: & ! 3-component outputs
     bhat,             & ! unit vector along geomagnetic field direction
     d1,d2,d3,e1,e2,e3,f1,f2,f3,g1,g2,g3   ! base vectors of Richmond reference
 !
 ! Local:
   integer :: i
-  real :: rr,simoslm,d1db,d2db
+  real(rp) :: rr,simoslm,d1db,d2db
 
   rr = re + hr
   simoslm = 2./sqrt(4. - 3.*clm*clm)
@@ -942,11 +962,11 @@ subroutine apex_sub(dlat,dlon,alt,aht,alat,alon,bmag,xmag,ymag,zmag,vmp)
 !            vmp  = geomagnetic potential (T-m)
 !
 ! Args:
-  real,intent(inout) :: dlat,dlon,alt
-  real,intent(out) :: aht,alat,alon,bmag,xmag,ymag,zmag,vmp
+  real(rp),intent(inout) :: dlat,dlon,alt
+  real(rp),intent(out) :: aht,alat,alon,bmag,xmag,ymag,zmag,vmp
 !
 ! Local:
-  real :: x,y,z,xre,yre,zre
+  real(rp) :: x,y,z,xre,yre,zre
   integer :: iflag
 
   vmp = 0.
@@ -979,14 +999,14 @@ subroutine linapx(gdlat,glon,alt,aht,alat,alon,xmag,ymag,zmag,fmag)
 !
 ! Input Args:
 !
-  real,intent(inout) :: & ! These may be changed by convrt, depending on iflag
+  real(rp),intent(inout) :: & ! These may be changed by convrt, depending on iflag
     gdlat,              & ! latitude of starting point (deg)
     glon,               & ! longitude of starting point (deg)
     alt                   ! height of starting point (km)
 !
 ! Output Args:
 !
-  real,intent(out) :: &
+  real(rp),intent(out) :: &
     aht,              & ! (Apex height+req)/req, where req is equatorial earth radius
     alat,             & ! Apex latitude (deg)
     alon,             & ! Apex longitude (deg)
@@ -1010,8 +1030,8 @@ subroutine linapx(gdlat,glon,alt,aht,alat,alon,xmag,ymag,zmag,fmag)
 !
 ! Local:
 !
-  real :: gclat,r,singml,cgml2,rho,xlat,xlon,ht
-  real :: bnrth,beast,bdown,babs,y1,y2,y3
+  real(rp) :: gclat,r,singml,cgml2,rho,xlat,xlon,ht
+  real(rp) :: bnrth,beast,bdown,babs,y1,y2,y3
   integer :: iflag,iapx
   integer,parameter :: maxs = 200
 !
@@ -1103,14 +1123,14 @@ subroutine convrt(iflag,gdlat,alt,x1,x2,caller)
 !
 ! Args:
   integer,intent(in) :: iflag
-  real,intent(inout) :: gdlat,alt
-  real,intent(inout) :: x1,x2
+  real(rp),intent(inout) :: gdlat,alt
+  real(rp),intent(inout) :: x1,x2
   character(len=*),intent(in) :: caller
 !
 ! Local:
-  real :: sinlat,coslat,d,z,rho,rkm,scl,gclat,ri,a2,a4,a6,a8,&
+  real(rp) :: sinlat,coslat,d,z,rho,rkm,scl,gclat,ri,a2,a4,a6,a8,&
     ccl,s2cl,c2cl,s4cl,c4cl,s8cl,s6cl,dltcl,sgl 
-  real,parameter ::                                         &
+  real(rp),parameter ::                                         &
     e2=(2.-1./fltnvrs)/fltnvrs                            , &
     e4=e2*e2, e6=e4*e2, e8=e4*e4                          , &
     ome2req = (1.-e2)*req                                 , &
@@ -1188,12 +1208,12 @@ end subroutine convrt
 subroutine gd2cart(gdlat,glon,alt,x,y,z)
 !
 ! Arg:
-  real,intent(inout) :: gdlat,alt,z
-  real,intent(in) :: glon
-  real,intent(out) :: x,y
+  real(rp),intent(inout) :: gdlat,alt,z
+  real(rp),intent(in) :: glon
+  real(rp),intent(out) :: x,y
 !
 ! Local:
-  real :: ang,rho
+  real(rp) :: ang,rho
   integer :: iflag
 
   iflag = 1 ! Convert from geodetic to cylindrical (rho,z are output)
@@ -1245,15 +1265,15 @@ subroutine feldg(iflag,glat,glon,alt,bnrth,beast,bdown,babs)
 !
 ! Args:
   integer,intent(in) :: iflag
-  real,intent(in)    :: glon
-  real,intent(inout) :: glat,alt
-  real,intent(out)   :: bnrth,beast,bdown,babs
+  real(rp),intent(in)    :: glon
+  real(rp),intent(inout) :: glat,alt
+  real(rp),intent(out)   :: bnrth,beast,bdown,babs
 !
 ! Local:
   integer :: i,is,ihmax,last,imax,mk,k,ih,m,il,ihm,ilm
-  real :: rlat,ct,st,rlon,cp,sp,xxx,yyy,zzz,rq,f,x,y,z
-  real :: xi(3),h(ncoef),g(ncoef)
-  real :: s,t,bxxx,byyy,bzzz,brho
+  real(rp) :: rlat,ct,st,rlon,cp,sp,xxx,yyy,zzz,rq,f,x,y,z
+  real(rp) :: xi(3),h(ncoef),g(ncoef)
+  real(rp) :: s,t,bxxx,byyy,bzzz,brho
 
   if (iflag == 1) then
     is   = 1
@@ -1399,11 +1419,11 @@ subroutine dipapx(gdlat,gdlon,alt,bnorth,beast,bdown,A,alon)
 !     for the functions of the angles are as shown below.  Note: stfcpa,
 !     stfspa are sin(TF) times cos(PA), sin(PA), respectively.
 !
-  real,intent(in)  :: gdlat,gdlon,alt,bnorth,beast,bdown
-  real,intent(out) :: a,alon
+  real(rp),intent(in)  :: gdlat,gdlon,alt,bnorth,beast,bdown
+  real(rp),intent(out) :: a,alon
 !
 ! Local:
-  real :: bhor,std,ctd,sb,cb,ctg,stg,ang,sang,cang,cte,ste,sa,ca, &
+  real(rp) :: bhor,std,ctd,sb,cb,ctg,stg,ang,sang,cang,cte,ste,sa,ca, &
           cottd,capang,sapang,stfcpa,stfspa,ha,r
 
   bhor = sqrt(bnorth*bnorth + beast*beast)
@@ -1455,8 +1475,8 @@ subroutine itrace(iapx)
 !
 ! Local:
   integer :: i,j
-  real :: yploc(3,4) ! local yp (i.e., not module data yp)
-  real :: term,d2,d6,d12,d24,rc,rp
+  real(rp) :: yploc(3,4) ! local yp (i.e., not module data yp)
+  real(rp) :: term,d2,d6,d12,d24,rc,rp
 
   iapx = 1
 !
@@ -1536,7 +1556,7 @@ subroutine itrace(iapx)
 end subroutine itrace
 !-----------------------------------------------------------------------
 real function rdus(d,e,f)
-  real,intent(in) :: d,e,f
+  real(rp),intent(in) :: d,e,f
   rdus = sqrt(d**2 + e**2 + f**2)
 end function rdus
 !-----------------------------------------------------------------------
@@ -1551,17 +1571,17 @@ subroutine fndapx(alt,zmag,A,alat,alon)
 ! Rewritten in Fortran 90 by B. Foster, 2013, eliminating common blocks.
 !
 ! Args:
-  real,intent(in) ::  &
+  real(rp),intent(in) ::  &
                  alt, & ! altitude in km
                  zmag   ! Z component of magnetic field (sign only is needed)
-  real,intent(out) :: &
+  real(rp),intent(out) :: &
                  A,   & ! apex radius
                  alat,& ! apex latitude
                  alon   ! apex longitude
 !
 ! Local:
   integer :: i,iflag_convrt, iflag_feldg
-  real :: z(3),ht(3),yloc(3),gdlt,gdln,x,ydum,f,rho,xinter,rasq,xlon,ang,&
+  real(rp) :: z(3),ht(3),yloc(3),gdlt,gdln,x,ydum,f,rho,xinter,rasq,xlon,ang,&
     cang,sang,r,cte,ste,stfcpa,stfspa
 !
 ! Get geodetic field components.
@@ -1578,12 +1598,12 @@ subroutine fndapx(alt,zmag,A,alat,alon)
 ! Find cartesian coordinates at dip equator by interpolation
 !
   do i=1,3
-    call fint(z(1),z(2),z(3),yapx(i,1),yapx(i,2),yapx(i,3),0.,yloc(i))
+    call fint(z(1),z(2),z(3),yapx(i,1),yapx(i,2),yapx(i,3),0._rp,yloc(i))
   enddo
 !
 ! Find apex height by interpolation
 !
-  call fint(z(1),z(2),z(3),ht(1),ht(2),ht(3),0.,xinter)
+  call fint(z(1),z(2),z(3),ht(1),ht(2),ht(3),0._rp,xinter)
 !
 ! Ensure that xinter is not less than original starting altitude:
   xinter = max(alt,xinter)
@@ -1633,8 +1653,8 @@ subroutine fint(a1,a2,a3,a4,a5,a6,a7,result)
 ! Second degree interpolation
 !
 ! Args:
-  real,intent(in) :: a1,a2,a3,a4,a5,a6,a7
-  real,intent(out) :: result
+  real(rp),intent(in) :: a1,a2,a3,a4,a5,a6,a7
+  real(rp),intent(out) :: result
 
   result = ((a2-a3)*(a7-a2)*(a7-a3)*a4-(a1-a3)*(a7-a1)*(a7-a3)*a5+ &
     (a1-a2)*(a7-a1)*(a7-a2)*a6)/((a1-a2)*(a1-a3)*(a2-a3))
@@ -1645,11 +1665,11 @@ end subroutine fint
 subroutine gm2gc(gmlat,gmlon,gclat,gclon)
 !
 ! Args:
-  real,intent(in)  :: gmlat,gmlon ! geomagnetic dipole lat,lon
-  real,intent(out) :: gclat,gclon ! geocentric lat,lon
+  real(rp),intent(in)  :: gmlat,gmlon ! geomagnetic dipole lat,lon
+  real(rp),intent(out) :: gclat,gclon ! geocentric lat,lon
 !
 ! Local:
-  real :: ylat,ylon,stm,ctm,ctc
+  real(rp) :: ylat,ylon,stm,ctm,ctc
 
   stm = cos(gmlat*dtr)
   ctm = sin(gmlat*dtr)
@@ -1674,10 +1694,10 @@ subroutine intrp(glat,glon,alt, gplat,gplon,gpalt, nlat,nlon,nalt, &
 !
 ! Args:
 !
-  real,intent(in)    :: glat,glon,alt
+  real(rp),intent(in)    :: glat,glon,alt
   integer,intent(in) :: nlat,nlon,nalt
-  real,intent(in)    :: gplat(nlat),gplon(nlon),gpalt(nalt)
-  real,intent(out)   ::          &
+  real(rp),intent(in)    :: gplat(nlat),gplon(nlon),gpalt(nalt)
+  real(rp),intent(out)   ::          &
     fx,fy,fz,fv,                 &
     dfxdth,dfydth,dfzdth,dfvdth, &
     dfxdln,dfydln,dfzdln,dfvdln, &
@@ -1687,8 +1707,8 @@ subroutine intrp(glat,glon,alt, gplat,gplon,gpalt, nlat,nlon,nalt, &
 ! Local:
 !
   integer :: i,j,k,i0,j0,k0
-  real :: glonloc,xi,dlon,yj,dlat,hti,diht,zk,fac,omfac
-  real :: dfxdn,dfxde,dfxdd, &
+  real(rp) :: glonloc,xi,dlon,yj,dlat,hti,diht,zk,fac,omfac
+  real(rp) :: dfxdn,dfxde,dfxdd, &
           dfydn,dfyde,dfydd, &
           dfzdn,dfzde,dfzdd, &
           dfvdn,dfvde,dfvdd, &
@@ -1806,19 +1826,19 @@ subroutine trilin(u,nlat,nlon,xi,yj,zk,fu,dfudx,dfudy,dfudz)
   integer,intent(in) :: &
     nlat,               & ! first dimension of u from calling routine
     nlon                  ! second dimension of u from calling routine
-  real,intent(in)    :: &
+  real(rp),intent(in)    :: &
     u(1:2,1:2,1:2),     & ! u(1,1,1) is address of lower corner of interpolation box
     xi,  & ! fractional distance across box in x direction
     yj,  & ! fractional distance across box in y direction
     zk     ! fractional distance across box in z direction
-  real,intent(out)   :: &
+  real(rp),intent(out)   :: &
     fu,                 & ! interpolated value of u
     dfudx,              & ! interpolated derivative of u with respect to i (x direction)
     dfudy,              & ! interpolated derivative of u with respect to j (y direction)
     dfudz                 ! interpolated derivative of u with respect to k (z direction)
 !
 ! Local:
-  real :: omxi,omyj,omzk
+  real(rp) :: omxi,omyj,omzk
 
 ! write(6,"('Enter trilin: xi,yj,zk=',3e12.4)") xi,yj,zk
 ! write(6,"('Enter trilin: u(1,1,1),u(1,2,1),u(1,1,2),u(1,2,2)=',4e12.4)") &
@@ -1860,15 +1880,15 @@ subroutine adpl(glat,glon,cth,sth,fx,fy,fz,fv, &
 !  Add-back of pseudodipole component to x,y,z,v and their derivatives.
 !
 ! Args:
-  real,intent(in)      :: glat,glon
-  real,intent(out)     :: cth,sth
-  real,intent(inout)   ::        &
+  real(rp),intent(in)      :: glat,glon
+  real(rp),intent(out)     :: cth,sth
+  real(rp),intent(inout)   ::        &
      fx,fy,fz,fv,                &
     dfxdth,dfydth,dfzdth,dfvdth, &
     dfxdln,dfydln,dfzdln,dfvdln
 !
 ! Local:
-  real :: cph,sph,ctm
+  real(rp) :: cph,sph,ctm
 
   cph = cos((glon-elon)*dtr)
   sph = sin((glon-elon)*dtr)
@@ -1896,9 +1916,9 @@ subroutine setmiss(xmiss,xlatm,alon,vmp,b,bmag,be3,sim,si,F,D,W, &
   bhat,d1,d2,d3,e1,e2,e3,f1,f2,f3,g1,g2,g3)
 !
 ! Args:
-  real,intent(in)  :: xmiss
-  real,intent(out) :: xlatm,alon,vmp,bmag,be3,sim,si,F,D,W
-  real,dimension(3),intent(out) :: bhat,d1,d2,d3,e1,e2,e3,b,f1,f2,f3,g1,g2,g3
+  real(rp),intent(in)  :: xmiss
+  real(rp),intent(out) :: xlatm,alon,vmp,bmag,be3,sim,si,F,D,W
+  real(rp),dimension(3),intent(out) :: bhat,d1,d2,d3,e1,e2,e3,b,f1,f2,f3,g1,g2,g3
 
   xlatm = xmiss
   alon  = xmiss
@@ -1931,27 +1951,27 @@ subroutine cofrm(date)
   implicit none
 !
 ! Input arg:
-  real,intent(in) :: date
+  real(rp),intent(in) :: date
 !
 ! Local:
   integer :: m,n,i,l,ll,lm,nmx,nc,kmx,k,mm,nn,col
-  real :: t,one,tc,r,f,f0, gpl
+  real(rp) :: t,one,tc,r,f,f0, gpl
   integer,parameter :: n1=120, n2=195, isv=0
   integer,parameter :: &
     ncn1=19, & ! number of coefficients dimensioned n1
     ncn2=8     ! number of coefficients dimensioned n2: increase with each IGRF update
   integer,parameter :: ngh = n1*ncn1 + n2*ncn2 + 1 ! not sure why the extra +1
-  real,save :: g1(n1,ncn1), g2(n2,ncn2), gh(ngh)
+  real(rp),save :: g1(n1,ncn1), g2(n2,ncn2), gh(ngh)
   !real,save :: g1f(n1,ncn1), g2f(n2,ncn2)
-  real,parameter :: alt = 0.
-  real, allocatable :: matrix(:,:) ! Support for reading IGRF coeffs from file
-  logical :: igrf14coeffs_read = .true.
+  real(rp),parameter :: alt = 0.
+  real(rp), allocatable :: matrix(:,:) ! Support for reading IGRF coeffs from file
+  logical :: igrf14coeffs_read = .false.
 
-  if (date < 1900. .or. date > 2035.) then ! Update with each IGRF update
+  if (date < 1900._rp .or. date > 2035._rp) then ! Update with each IGRF update
     write(6,"('>>> cofrm: date=',f8.2,' Date must be >= 1900 and <= 2035')") date
     stop 'cofrm'
   endif
-  if (date > 2030.) then ! Update with each IGRF update
+  if (date > 2030._rp) then ! Update with each IGRF update
     write(6,"('>>> WARNING cofrm:')")
     write(6,"(/,'   This version of IGRF is intended for use up to ')")
     write(6,"('     2030. Values for ',f9.3,' will be computed but')") date
@@ -2557,14 +2577,14 @@ subroutine cofrm(date)
     gh(i+1:i+n2) = g2(:,n)
 !   write(6,"('cofrm: n=',i3,' i+1:i+n2=',i4,':',i4)") n,i+1,i+n2
   enddo
-  gh(ngh) = 0. ! not sure why gh is dimensioned with the extra element, so set it to 0. 
+  gh(ngh) = 0._rp ! not sure why gh is dimensioned with the extra element, so set it to 0.
 
-  if (date < 2025.) then ! Update with each IGRF update
-    t   = 0.2*(date - 1900.)
+  if (date < 2025._rp) then ! Update with each IGRF update
+    t   = 0.2_rp*(date - 1900._rp)
     ll  = t
     one = ll
     t   = t - one
-    if (date < 1995.) then
+    if (date < 1995._rp) then
       nmx   = 10
       nc    = nmx*(nmx+2)
       ll    = nc*ll
@@ -2572,21 +2592,21 @@ subroutine cofrm(date)
     else
       nmx   = 13
       nc    = nmx*(nmx+2)
-      ll    = 0.2*(date - 1995.0)
+      ll    = 0.2_rp*(date - 1995.0_rp)
       ll    = 120*19 + nc*ll
       kmx   = (nmx+1)*(nmx+2)/2
     endif
     tc    = 1.0 - t
     if (isv.eq.1) then
-      tc = -0.2
-      t = 0.2
+      tc = -0.2_rp
+      t = 0.2_rp
     endif
   else ! date >= 2025
-    t     = date - 2025.0 ! Update with each IGRF update
-    tc    = 1.0
+    t     = date - 2025.0_rp ! Update with each IGRF update
+    tc    = 1.0_rp
     if (isv.eq.1) then
-      t = 1.0
-      tc = 0.0
+      t = 1.0_rp
+      tc = 0.0_rp
     end if
     ll    = 3450 ! Update with each IGRF update
     nmx   = 13
@@ -2601,8 +2621,8 @@ subroutine cofrm(date)
 ! Set outputs gb(ncoef) and gv(ncoef)
 ! These are module data above.
 ! 
-  gb(1) = 0.
-  gv(1) = 0.
+  gb(1) = 0._rp
+  gv(1) = 0._rp
   f0 = -1.e-5
   do k=2,kmx
     if (n < m) then
@@ -2610,8 +2630,8 @@ subroutine cofrm(date)
       n = n+1
     endif ! n < m
     lm = ll + l
-    if (m == 0) f0 = f0 * float(n)/2.
-    if (m == 0) f  = f0 / sqrt(2.0)
+    if (m == 0) f0 = f0 * float(n)/2._rp
+    if (m == 0) f  = f0 / sqrt(2.0_rp)
     nn = n+1
     mm = 1      
       
@@ -2641,7 +2661,7 @@ subroutine cofrm(date)
 !
   gpl = sqrt( gb(2  )**2+ gb(3  )**2+ gb(4  )**2)
   ctp = gb(2  )/gpl
-  stp = sqrt(1. - ctp*ctp)
+  stp = sqrt(1._rp - ctp*ctp)
 
   colat = (acos(ctp))*rtd
   elon = atan2( gb(4  ), gb(3  ))*rtd
@@ -2649,7 +2669,7 @@ subroutine cofrm(date)
 ! Compute magnitude of magnetic potential at pole, radius Re.
 !      .2 = 2*(10**-4 T/gauss)*(1000 m/km) (2 comes through f0).
 !
-  vp = .2*gpl*re
+  vp = .2_rp*gpl*re
 
 end subroutine cofrm
 
@@ -2678,21 +2698,21 @@ subroutine subsol(iyr,iday,ihr,imn,sec,sbsllat,sbsllon)
     iday,  & ! Day number of year (e.g., IDAY = 32 for Feb 1)
     ihr,   & ! Hour of day    (e.g., 13 for 13:49)
     imn      ! Minute of hour (e.g., 49 for 13:49)
-  real,intent(in) :: sec ! Second and fraction after the hour/minute.
+  real(rp),intent(in) :: sec ! Second and fraction after the hour/minute.
 !
 ! Output Args:
-  real,intent(out) :: &
+  real(rp),intent(out) :: &
     sbsllat, & ! geographic latitude of subsolar point (degrees)
     sbsllon    ! geographic longitude of subsolar point (-180 to +180)
 !
 ! Local:
   integer,parameter :: minyear=1601, maxyear = 2100
   
-  real :: yr,l0,g0,ut,df,lf,gf,l,g,grad,n,epsilon,epsrad,alpha,delta,&
+  real(rp) :: yr,l0,g0,ut,df,lf,gf,l,g,grad,n,epsilon,epsrad,alpha,delta,&
     etdeg,aptime,lambda,lamrad,sinlam
   integer :: nleap,ncent,nrot
 
-  sbsllat=0. ; sbsllon=0.
+  sbsllat=0._rp ; sbsllon=0._rp
 
   yr = iyr-2000
 !
@@ -2723,7 +2743,7 @@ subroutine subsol(iyr,iday,ihr,imn,sec,sbsllat,sbsllon)
 !          + (.9856474*(366+365*3) - 4*360.)*NLEAP,
 !  where ARBITRARY INTEGER = YR+1.  This gives:
 !
-      l0 = -79.549 + (-.238699*(yr-4*nleap) + 3.08514e-2*nleap)
+      l0 = -79.549_rp + (-.238699_rp*(yr-4*nleap) + 3.08514e-2*nleap)
 !                 
 ! G0 = Mean anomaly at 12 UT on January 1 of IYR:
 !     G0 = 357.528 + .9856003*(365*(YR-NLEAP) + 366*NLEAP)
@@ -2734,19 +2754,19 @@ subroutine subsol(iyr,iday,ihr,imn,sec,sbsllat,sbsllon)
 !          + (.9856003*(366+365*3) - 4*360.)*NLEAP,
 !  where ARBITRARY INTEGER = YR+1.  This gives:
 !
-      g0 = -2.472 + (-.2558905*(yr-4*nleap) - 3.79617e-2*nleap)
+      g0 = -2.472_rp + (-.2558905_rp*(yr-4*nleap) - 3.79617e-2*nleap)
 !     
 ! Universal time in seconds:
       ut = float(ihr*3600 + imn*60) + sec
 !
 ! Days (including fraction) since 12 UT on January 1 of IYR:
-      df = (ut/86400. - 1.5) + iday
+      df = (ut/86400._rp - 1.5_rp) + iday
 !
 ! Addition to Mean longitude of Sun since January 1 of IYR: 
-      lf = .9856474*df
+      lf = .9856474_rp*df
 ! 
 ! Addition to Mean anomaly since January 1 of IYR:
-      gf = .9856003*df
+      gf = .9856003_rp*df
 ! 
 ! Mean longitude of Sun:
       l = l0 + lf
@@ -2756,15 +2776,15 @@ subroutine subsol(iyr,iday,ihr,imn,sec,sbsllat,sbsllon)
       grad = g*dtr
 ! 
 ! Ecliptic longitude:
-      lambda = l + 1.915*sin(grad) + .020*sin(2.*grad)
+      lambda = l + 1.915_rp*sin(grad) + .020_rp*sin(2._rp*grad)
       lamrad = lambda*dtr
       sinlam = sin(lamrad)
 ! 
 ! Days (including fraction) since 12 UT on January 1 of 2000:
-      n = df + 365.*yr + float(nleap)
+      n = df + 365._rp*yr + float(nleap)
 ! 
 ! Obliquity of ecliptic: 
-      epsilon = 23.439 - 4.e-7*n
+      epsilon = 23.439_rp - 4.e-7*n
       epsrad = epsilon*dtr
 ! 
 ! Right ascension:
@@ -2778,16 +2798,16 @@ subroutine subsol(iyr,iday,ihr,imn,sec,sbsllat,sbsllon)
 ! 
 ! Equation of time (degrees):
       etdeg = l - alpha
-      nrot = nint(etdeg/360.)
+      nrot = nint(etdeg/360._rp)
       etdeg = etdeg - float(360*nrot)
 ! 
 ! Apparent time (degrees):
 ! Earth rotates one degree every 240 s.
-      aptime = ut/240. + etdeg
+      aptime = ut/240._rp + etdeg
 !
 ! Subsolar longitude (output argument):
-      sbsllon = 180. - aptime
-      nrot = nint(sbsllon/360.)
+      sbsllon = 180._rp - aptime
+      nrot = nint(sbsllon/360._rp)
       sbsllon = sbsllon - float(360*nrot)
 
 end subroutine subsol
@@ -2814,25 +2834,25 @@ subroutine solgmlon(gclat,gclon,colat,elon,mlon)
 !     stfspa are sin(TF) times cos(PA), sin(PA), respectively.
 !
 ! Input Args:
-  real,intent(in)  :: &
+  real(rp),intent(in)  :: &
                gclat, & ! geocentric latitude, deg.
                gclon, & ! geocentric longitude, deg.
                colat, & ! geocentric colatitude of dipole north pole, deg.
                elon     ! geocentric east longitude of dipole north pole, deg.
 ! 
 ! Output Arg: Geomagnetic dipole longitude of the point (deg, -180. to 180.)
-  real,intent(out) :: mlon 
+  real(rp),intent(out) :: mlon
 !
 ! Local:
-  real :: ctp,stp,ang,cang,sang,cte,ste,stfcpa,stfspa
+  real(rp) :: ctp,stp,ang,cang,sang,cte,ste,stfcpa,stfspa
 
   ctp = cos(colat*dtr)
-  stp = sqrt(1. - ctp*ctp)
+  stp = sqrt(1._rp - ctp*ctp)
   ang = (gclon-elon)*dtr
   cang = cos(ang)
   sang = sin(ang)
   cte = sin(gclat*dtr)
-  ste = sqrt(1.-cte*cte)
+  ste = sqrt(1._rp-cte*cte)
   stfcpa = ste*ctp*cang - cte*stp
   stfspa = sang*ste
   mlon = atan2(stfspa,stfcpa)*rtd
@@ -2853,10 +2873,10 @@ subroutine mlt2alon(xmlt,sbsllat,sbsllon,clatp,polon,alonx)
 !   Output:
 !    alonx   = apex magnetic longitude of the point (deg, -180. to 180.)
 !
-  real, intent(in) :: xmlt,sbsllat,sbsllon,clatp,polon
-  real, intent(out):: alonx
+  real(rp), intent(in) :: xmlt,sbsllat,sbsllon,clatp,polon
+  real(rp), intent(out):: alonx
 ! Local  
-  real :: smlon
+  real(rp) :: smlon
 !  
 ! 2018 May 17 ADR: Technically, geocentric instead of geographic (geodetic)
 !   latitude should be used in call to solgmlon, but the error caused is
@@ -2865,9 +2885,9 @@ subroutine mlt2alon(xmlt,sbsllat,sbsllon,clatp,polon,alonx)
 !   between geocentric and geographic latitudes is height-dependent. 
 !  
   call solgmlon(sbsllat,sbsllon,clatp,polon,smlon)
-  alonx = 15.*(xmlt-12)+smlon
-  if(alonx.gt.180) alonx = alonx-360.
-  if(alonx.le.-180) alonx = alonx+360.
+  alonx = 15._rp*(xmlt-12)+smlon
+  if(alonx.gt.180) alonx = alonx-360._rp
+  if(alonx.le.-180) alonx = alonx+360._rp
 
 end subroutine mlt2alon
 !-----------------------------------------------------------------------
@@ -2886,12 +2906,12 @@ subroutine magloctm(alon,sbsllat,sbsllon,clatp,polon,mlt)
 !    polon   = East longitude of geomagnetic dipole north pole (deg)
 !
 !   Output:
-!    mlt (real) = magnetic local time for the apex longitude alon (hours)
+!    mlt (real(rp)) = magnetic local time for the apex longitude alon (hours)
 !
- real, intent(in) :: alon,sbsllat,sbsllon,clatp,polon
- real, intent(out):: mlt
+ real(rp), intent(in) :: alon,sbsllat,sbsllon,clatp,polon
+ real(rp), intent(out):: mlt
 ! Local
-  real :: smlon
+  real(rp) :: smlon
   
 !
 ! 2018 May 17 ADR: Technically, geocentric instead of geographic (geodetic)
@@ -2901,9 +2921,9 @@ subroutine magloctm(alon,sbsllat,sbsllon,clatp,polon,mlt)
 !   between geocentric and geographic latitudes is height-dependent. 
 !  
   call solgmlon(sbsllat,sbsllon,clatp,polon,smlon)
-  mlt = (alon-smlon)/15.+12.
-  if(mlt.ge.24.) mlt = mlt-24
-  if(mlt.lt. 0.) mlt = mlt + 24.
+  mlt = (alon-smlon)/15._rp+12._rp
+  if(mlt.ge.24._rp) mlt = mlt-24
+  if(mlt.lt. 0._rp) mlt = mlt + 24._rp
 !
 end subroutine magloctm
 !-----------------------------------------------------------------------
@@ -2922,10 +2942,10 @@ subroutine cossza(glat,glon,sbsllat,sbsllon,csza)
 !  OUTPUT:
 !    csza    = cosine of solar zenith angle
 !
- real, intent(in) :: glat,glon,sbsllat,sbsllon
- real, intent(out):: csza
+ real(rp), intent(in) :: glat,glon,sbsllat,sbsllon
+ real(rp), intent(out):: csza
 !Local
- real :: ct,st,cs,ss,ang
+ real(rp) :: ct,st,cs,ss,ang
 !
  ct = sin(glat*dtr)
  st = sqrt(1-ct*ct)
@@ -2939,18 +2959,17 @@ end subroutine cossza
 subroutine apex_m2g(xlatm,alon,alt,hr,gdlat,gdlon)
 !  Given Modified Apex coordinates determine geographic
 !   coordinates (gdlat, gdlon). 
-
-  real, intent(in) ::  &
+  real(rp), intent(in) ::  &
              xlatm,  & ! modified magnetic apex latitude 
              alon,   & ! modified magnetic apex longitude
              alt,    & ! altitude
              hr        ! reference height for modified magnetic apex coordinates
-  real, intent(out) :: &
+  real(rp), intent(out) :: &
              gdlat,  & ! geographic (geodetic) latitude
              gdlon     ! geographic (geodetic) longitude
 ! Local
   integer :: ier
-  real :: qdlat, qdlon ! Quasi-Dipole latitude, longitude
+  real(rp) :: qdlat, qdlon ! Quasi-Dipole latitude, longitude
 !   
 ! equation 6.2 (Richmond, 1995)
   qdlat = acos(sqrt((re+alt)/(re+hr))*cos(xlatm*dtr))*rtd 
@@ -2969,11 +2988,11 @@ end subroutine apex_m2g
 subroutine gc2gm(gclat,gclon,gmlat,gmlon)
 !
 ! Args:
-  real,intent(in)  :: gclat,gclon ! geocentric lat,lon (deg)
-  real,intent(out) :: gmlat,gmlon ! geomagnetic dipole lat,lon (deg)
+  real(rp),intent(in)  :: gclat,gclon ! geocentric lat,lon (deg)
+  real(rp),intent(out) :: gmlat,gmlon ! geomagnetic dipole lat,lon (deg)
 !
 ! Local:
-  real :: stc,ctc,ctm
+  real(rp) :: stc,ctc,ctm
 
   stc = cos(gclat*dtr)
   ctc = sin(gclat*dtr)
@@ -2995,14 +3014,14 @@ end subroutine gc2gm
 subroutine read_igrf(filename, coeffs)
   implicit none
   character(len=*), intent(in) :: filename
-  real, allocatable, intent(out) :: coeffs(:,:)
+  real(rp), allocatable, intent(out) :: coeffs(:,:)
 
   integer, parameter :: max_rows = 199, max_cols = 30 ! Update these when IGRF updates coefficients
   character(len=512) :: line
   character(len=1) :: dummy_type
   integer :: dummy1, dummy2
   integer :: row, nrows, header_rows, ncols, i, ios, unit, total_tokens
-  real, allocatable :: values(:)
+  real(rp), allocatable :: values(:)
 
   !external :: count_tokens
 
@@ -3029,8 +3048,8 @@ subroutine read_igrf(filename, coeffs)
   ncols = max_cols - 3
   allocate(coeffs(nrows, ncols))
   allocate(values(ncols))
-  coeffs = 0.0D0
-  values = 0.0D0
+  coeffs = 0.0_rp
+  values = 0.0_rp
 
   do while (row <= max_rows)
     read(unit, '(A)', iostat=ios) line

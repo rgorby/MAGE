@@ -26,6 +26,7 @@ module voltapp
     use shellGridGen
     use voltappHelper
     use voltCplHelper
+    use apex, only : init_apex
     
     implicit none
 
@@ -384,6 +385,9 @@ module voltapp
             call DisableSymLinks()
         endif
 
+        ! Setting apex reference altitude
+        call init_apex(vApp%MJD,vApp%gcm%altmax)
+
         if(present(optFilename)) then
             ! read from the prescribed file
             call init_mix(vApp%remixApp%ion,[NORTH, SOUTH],optFilename=optFilename,RunID=RunID,isRestart=isRestart,nRes=vApp%IO%nRes,optIO=vApp%writeFiles)
@@ -491,11 +495,11 @@ module voltapp
 
         ! solve for remix output
         if (vApp%time<=0) then
-            call run_mix(vApp%remixApp%ion,curTilt,doModelOpt=.false.,mjd=vApp%MJD)
+            call run_mix(vApp%remixApp%ion,curTilt,doModelOpt=.false.)
         else if (vApp%doGCM) then
-            call run_mix(vApp%remixApp%ion,curTilt,gcm=vApp%gcm,mjd=vApp%MJD)
+            call run_mix(vApp%remixApp%ion,curTilt,gcm=vApp%gcm)
         else
-            call run_mix(vApp%remixApp%ion,curTilt,doModelOpt=.true.,mjd=vApp%MJD)
+            call run_mix(vApp%remixApp%ion,curTilt,doModelOpt=.true.)
         endif
 
     end subroutine runRemix

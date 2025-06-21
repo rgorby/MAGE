@@ -34,7 +34,7 @@ module mixdefs
 
   ! enumerator for transform variables
   enum, bind(C)
-    enumerator :: iSMtoGEO,iGEOtoSM,iSMtoGSM,iGSMtoSM,iGEOtoGSM,iGSMtoGEO
+    enumerator :: iSMtoGEO,iGEOtoSM,iSMtoGSM,iGSMtoSM,iGEOtoGSM,iGSMtoGEO,iAPEXtoSM,iSMtoAPEX
   end enum
 
   real(rp), parameter :: mixeTINY = 1.D-8 ! Floor of average energy [keV]
