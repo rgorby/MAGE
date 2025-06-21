@@ -37,7 +37,7 @@ module set:
 .. code-block:: bash
 
     module --force purge
-    module load ncarenv/23.09
+    module load ncarenv/23.06
     module load cmake/3.26.3
     module load craype/2.7.20
     module load intel/2023.0.0
@@ -64,6 +64,12 @@ module set:
         module load netcdf-mpi/4.9.2
         module load esmf/8.6.0
         module load conda/latest
+    
+    .. warning::
+        
+        Build the GTR version of the code in the ``build_gtr`` subdirectory
+        under the ``kaiju`` source code directory, not the ``build_mpi``
+        subdirectory as the module set is different.
 
 .. important::
 
@@ -90,9 +96,15 @@ build directory in any convenient location.
     mkdir build_mpi
     cd build_mpi
 
+    # If you are building the GTR version of the code, create the build_gtr directory instead:
+    # mkdir build_gtr
+    # cd build_gtr
+
     # Run cmake to create the Makefile, saving output.
     # NOTE: The FC definition is *required* for proper cmake operation.
     FC=`which ifort` cmake -DENABLE_MPI=ON .. >& cmake.out
+    # If you are building the GTR version of the code, use the following cmake command instead:
+    # FC=`which ifort` cmake -DENABLE_MPI=ON make -DALLOW_INVALID_COMPILERS=ON .. >& cmake.out
 
     # You can pick one compile target below or compile all of them, if you'd like
 

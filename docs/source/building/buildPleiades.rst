@@ -72,7 +72,12 @@ module set:
         export LD_LIBRARY_PATH=$LIBRARY_PATH
         export CPATH=$PREFIX/include
         export PATH=${PATH}:$PREFIX/bin
-
+    
+    .. warning::
+        
+        Build the GTR version of the code in the ``build_gtr`` subdirectory
+        under the ``kaiju`` source code directory, not the ``build_mpi``
+        subdirectory as the module set is different.
 
 
 .. important::
@@ -99,6 +104,11 @@ build directory in any convenient location.
     # Create the build directory and enter it.
     mkdir build_mpi
     cd build_mpi
+
+    # If you are building the GTR version of the code, create the build_gtr directory instead:
+    # mkdir build_gtr
+    # cd build_gtr
+
 
     # Run cmake to create the Makefile, saving output.
     # NOTE: The FC definition is *required* for proper cmake operation.
