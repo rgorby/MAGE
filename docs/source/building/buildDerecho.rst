@@ -103,6 +103,8 @@ build directory in any convenient location.
     # Run cmake to create the Makefile, saving output.
     # NOTE: The FC definition is *required* for proper cmake operation.
     FC=`which ifort` cmake -DENABLE_MPI=ON .. >& cmake.out
+    # If you are building the GTR version of the code, use the following cmake command instead:
+    # FC=`which ifort` cmake -DENABLE_MPI=ON make -DALLOW_INVALID_COMPILERS=ON .. >& cmake.out
 
     # You can pick one compile target below or compile all of them, if you'd like
 
