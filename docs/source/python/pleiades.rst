@@ -55,10 +55,9 @@ Using the python environment
 ----------------------------
 
 Once your python environment is created, you must activate it for use with the
-``kaiju`` software, and then enable the ``kaipy`` software:
+``kaiju`` software:
 
 .. code-block:: bash
 
     conda activate kaiju-3.12
-    source /path/to/kaipy/kaipy/scripts/setupEnvironment.sh
-    # or setupEnvironment.csh if using tcsh or a similar shell.
+

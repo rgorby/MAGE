@@ -37,7 +37,7 @@ module set:
 .. code-block:: bash
 
     module --force purge
-    module load ncarenv/23.09
+    module load ncarenv/23.06
     module load cmake/3.26.3
     module load craype/2.7.20
     module load intel/2023.0.0
@@ -103,6 +103,8 @@ build directory in any convenient location.
     # Run cmake to create the Makefile, saving output.
     # NOTE: The FC definition is *required* for proper cmake operation.
     FC=`which ifort` cmake -DENABLE_MPI=ON .. >& cmake.out
+    # If you are building the GTR version of the code, use the following cmake command instead:
+    # FC=`which ifort` cmake -DENABLE_MPI=ON make -DALLOW_INVALID_COMPILERS=ON .. >& cmake.out
 
     # You can pick one compile target below or compile all of them, if you'd like
 

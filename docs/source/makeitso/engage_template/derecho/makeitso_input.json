@@ -76,7 +76,7 @@
             "qkSquishStride": "2",
             "dtCouple": "5.0",
             "doDeep": "T",
-            "imType": "RCM",
+            "imType": "RAIJU",
             "doAsyncCoupling": "F"
         },
         "restart": {
@@ -115,25 +115,42 @@
             "doAuroralSmooth": "F"
         }
     },
-    "rcm": {
-        "rcmdomain": {
-            "domType": "ELLIPSE"
-        },
-        "ellipse": {
-            "xSun": "12.5",
-            "yDD": "15.0",
-            "xTail": "-15.0",
-            "isDynamic": "T"
+    "raiju": {
+        "output": {
+            "loudConsole": "F"
         },
         "grid": {
-            "LowLat": "30.0",
-            "HiLat": "75.0"
+            "gType": "SHGRID",
+            "ThetaL": "15"
+        },
+        "domain": {
+            "tail_buffer": "15.0",
+            "sun_buffer": "15.0",
+            "tail_active": "12.0",
+            "sun_active": "12.0"
+        },
+        "config": {
+            "fname": "raijuconfig.h5"
         },
         "plasmasphere": {
-            "isDynamic": "T",
-            "initKp": "5",
-            "doRefill": "T",
-            "tAvg": "60.0"
+            "doPsphere": "T",
+            "doExcessMap": "T"
+        },
+        "losses": {
+            "doLosses": "T",
+            "doCX": "T",
+            "doCC": "T",
+            "doEWM": "T",
+            "ewmType": "SS"
+        },
+        "cpl": {
+            "nFluidsIn": "1",
+            "startupTscl": "7200.0"
+        },
+        "fluidIn1": {
+            "imhd": "0",
+            "flav": "2",
+            "excessToPsph": "T"
         }
     }
 }
