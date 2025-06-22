@@ -28,7 +28,7 @@ Users are also welcome to run previous versions of `MAGE` via the
 NASA's [Community Coordinated Modeling
 Center](https://ccmc.gsfc.nasa.gov/). `MAGE` versions
 [0.75](https://ccmc.gsfc.nasa.gov/models/MAGE~0.75/) and
-[1.0](https://ccmc.gsfc.nasa.gov/models/MAGE~1.00/) are available for
+[1.0](https://ccmc.gsfc.nasa.gov/models/MAGE~1.0/) are available for
 runs on request. `MAGE 0.75` includes `GAMERA`, `REMIX` and `RCM`. `MAGE
 1.0` adds two-way coupling with `TIEGCM` to `MAGE 0.75`.
 
@@ -37,7 +37,12 @@ runs on request. `MAGE 0.75` includes `GAMERA`, `REMIX` and `RCM`. `MAGE
 ### Documentation ###
 
 Current documentation for the `kaiju` software is available via [Read The
-Docs](https://kaiju-doc.readthedocs.io/en/latest/).
+Docs](https://kaiju-docs.readthedocs.io/en/latest/).
+
+### Analysis ###
+
+You are encouraged to use the [Kaipy](https://github.com/jhuapl/kaipy) package for analysis and
+visualization of `Kaiju` simulations.
 
 ### License ###
 
@@ -49,7 +54,7 @@ license](LICENSE.md).
 
 All contributions should be made by forking this repository and
   submitting a pull request. See documentation for our [rules of the
-  road](https://kaiju-doc.readthedocs.io/en/latest/). 
+  road](https://kaiju-docs.readthedocs.io/en/latest/). 
 
 
 ### Who do I talk to? ###
