@@ -1057,7 +1057,7 @@ subroutine linapx(gdlat,glon,alt,aht,alat,alon,xmag,ymag,zmag,fmag)
 !
   iflag = 1 
   call feldg(iflag,gdlat,glon,alt,xmag,ymag,zmag,fmag)
-  sgn = sign(1.,-zmag)
+  sgn = sign(1.0_rp,-zmag)
 !
 ! Use cartesian coordinates to get magnetic field components
 ! (from which gradients steer the tracing)

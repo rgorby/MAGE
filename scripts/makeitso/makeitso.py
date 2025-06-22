@@ -225,10 +225,10 @@ def update_option_descriptions(option_descriptions: dict, args: dict):
         coupling = args["coupling"]
         simulation = args["simulation"]
         gr_warm_up_time = float(coupling["gr_warm_up_time"])
-        #dt = datetime.timedelta(seconds=gr_warm_up_time)
+        dt = datetime.timedelta(seconds=gr_warm_up_time)
         start_date = simulation["start_date"]
         t0 = datetime.datetime.fromisoformat(start_date)
-        #t0 -= dt
+        t0 -= dt
         start_date = datetime.datetime.isoformat(t0)
         option_descriptions["simulation"]["start_date"]["prompt"] = None
         option_descriptions["simulation"]["start_date"]["default"] = (
@@ -953,6 +953,7 @@ def create_ini_files(options: dict, args: dict):
         # NOTE: This is a special case for the GTR runs. The
         # gr_warm_up_time is used to determine the end time of the
         # warmup segment
+        num_warmup_segments = 0
         if "coupling" in args:
             tFin_warmup = float(coupling["gr_warm_up_time"]) + 1.0
             for job in range(1, i_last_warmup_ini + 1):
@@ -980,10 +981,12 @@ def create_ini_files(options: dict, args: dict):
                 ini_files.append(ini_file)
                 with open(ini_file, "w", encoding="utf-8") as f:
                     f.write(ini_content)
-            
+            num_warmup_segments = i_last_warmup_ini 
         # Create an .ini file for each simulation segment. Files for each
         # segment will be numbered starting with 1.
-        for job in range(1, int(options["pbs"]["num_segments"]) + 1):
+        print(f"Creating {options['pbs']['num_segments']} segments, "
+              f"with {num_warmup_segments} warmup segments.")
+        for job in range(1, int(options["pbs"]["num_segments"]) + 1 - num_warmup_segments):
             opt = copy.deepcopy(options)  # Need a copy of options
             runid = opt["simulation"]["job_name"]
             # NOTE: This naming scheme supports a maximum of 99 segments.
@@ -1006,7 +1009,7 @@ def create_ini_files(options: dict, args: dict):
             if "coupling" in args:
                 opt["voltron"]["coupling"]["doGCM"] = doGCM
                 # tFin padding different for last segment.
-                if job == int(options["pbs"]["num_segments"]):
+                if job == int(options["pbs"]["num_segments"]) - num_warmup_segments:
                     tfin_padding = -1.0
                 else:
                     # Subtract 1 from tFin padding for coupling beacuse to offset the +1.0 for restart file done above.
