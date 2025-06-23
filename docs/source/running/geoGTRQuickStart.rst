@@ -9,6 +9,19 @@ this version of the model "GTR" ("GAMERA-TIEGCM-RAIJU") for brevity.
 Before you begin
 ------------------------------------------------
 
+Getting the TIE-GCM source code
+************************************************
+
+The ``TIE-GCM`` source code can be obtained by cloning the ``TIE-GCM`` repository
+on GitHub:
+
+.. code-block:: bash
+
+    git clone https://github.com/NCAR/tiegcm.git
+
+Setting environment variables
+************************************************
+
 *Source* (not *run*) the environment setup scripts for the ``kaiju`` software and add paths to ``TIEGCMHOME`` and ``TIEGCMDATA``.
 For example:
 
