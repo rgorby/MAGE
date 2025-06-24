@@ -435,9 +435,9 @@ This image shows how the segments are run in order:
 The image files are summaries of the CDAWeb data used in the initial condition
 file (``bcwind.h5``). Those plots should look similar to this:
 
-.. image:: Bx_fit.png
+.. image:: Bx_fit_gtr.png
 
-.. image:: sw.png
+.. image:: sw_gtr.png
 
 Submitting the GTR model run
 *************************************
@@ -527,4 +527,4 @@ Now perform a quick visualization of the results from your model using the
 This script will create a file called ``qkmsphpic.png``, which should look
 similar to this:
 
-.. image:: qkmsphpic.png
+.. image:: qkmsphpic_gtr.png
