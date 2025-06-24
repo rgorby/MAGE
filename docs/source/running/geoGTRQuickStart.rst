@@ -232,7 +232,7 @@ Running ``engage.py``
 .. code-block:: bash
 
     cp $TIEGCMHOME/tiegcm_build_Q/stdout/tiegcm.exe .
-    cp $TIEGCMHOME/tiegcm_build_Q/stdouttiegcm.x .
+    cp $TIEGCMHOME/tiegcm_build_Q/stdout/tiegcm.x .
     cp $KAIJUHOME/build_gtr/bin/voltron_mpi.x .
 
 
