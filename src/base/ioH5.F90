@@ -917,10 +917,10 @@ contains
                         !Create cache group
                         call h5gcreate_f(h5fId,trim(attrGrpName),cacheId,herr)     
                         cacheCreate = .true.    
+                    else
+                        ! Open attribute cache group
+                        call h5gopen_f(h5fId,trim(attrGrpName),cacheId,herr)
                     endif 
-                    ! Open attribute cache group
-                    call h5gopen_f(h5fId,trim(attrGrpName),cacheId,herr)  
-
                     ! Check attribute cache size and resize
                     call CheckAttCacheSize(trim(gStrO), cacheId, cacheExist, cacheCreate)
                     ! Write Step# to cache
