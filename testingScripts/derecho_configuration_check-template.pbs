@@ -20,21 +20,18 @@ echo 'The currently loaded modules are:'
 module list
 
 echo 'Loading python environment.'
-export CONDARC="{{ condarc }}"
-export CONDA_ENVS_PATH="{{ conda_envs_path }}"
-mage_miniconda3="{{ mage_test_root }}/miniconda3"
-mage_conda="${mage_miniconda3}/bin/conda"
-__conda_setup="$($mage_conda 'shell.bash' 'hook' 2> /dev/null)"
+__conda_setup="$('/glade/u/home/ewinter/miniconda3/bin/conda' 'shell.bash' 'hook' 2> /dev/null)"
 if [ $? -eq 0 ]; then
     eval "$__conda_setup"
 else
-    if [ -f "$mage_miniconda3/etc/profile.d/conda.sh" ]; then
-        . "$mage_miniconda3/etc/profile.d/conda.sh"
+    if [ -f "/glade/u/home/ewinter/miniconda3/etc/profile.d/conda.sh" ]; then
+        . "/glade/u/home/ewinter/miniconda3/etc/profile.d/conda.sh"
     else
-        export PATH="$mage_miniconda3/bin:$PATH"
+        export PATH="/glade/u/home/ewinter/miniconda3/bin:$PATH"
     fi
 fi
 unset __conda_setup
+
 conda activate {{ conda_environment }}
 echo "The current conda environment is ${CONDA_PREFIX}."
 
