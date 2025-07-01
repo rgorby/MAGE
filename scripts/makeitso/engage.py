@@ -386,7 +386,7 @@ def prompt_user_for_run_options(args):
     od["account_name"]["default"] = os.getlogin()
     od["kaiju_install_directory"]["default"] = os.environ["KAIJUHOME"]
     od["kaiju_build_directory"]["default"] = os.path.join(
-        os.environ["KAIJUHOME"], "build_mpi")
+        os.environ["KAIJUHOME"], "build_gtr")
     od["num_segments"]["default"] = str(num_segments)
     for on in od:
         o[on] = makeitso.get_run_option(on, od[on], mode)
@@ -548,9 +548,11 @@ def main():
         gamera_grid_type = makeitso_options["simulation"]["gamera_grid_type"]
         # Coupling parameters are passed from engage to makeitso
         gr_warm_up_time = engage_options["coupling"]["gr_warm_up_time"]
+        dt = datetime.timedelta(seconds=float(gr_warm_up_time))
         start_date = engage_options["simulation"]["start_date"]
         stop_date = engage_options["simulation"]["stop_date"]
         t0 = datetime.datetime.fromisoformat(start_date)
+        t0 -= dt
         t1 = datetime.datetime.fromisoformat(stop_date)
         start_date = datetime.datetime.isoformat(t0)
         makeitso_options["simulation"]["start_date"] = start_date
