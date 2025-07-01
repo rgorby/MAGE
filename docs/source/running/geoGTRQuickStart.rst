@@ -9,16 +9,6 @@ this version of the model "GTR" ("GAMERA-TIEGCM-RAIJU") for brevity.
 Before you begin
 ------------------------------------------------
 
-Getting the TIE-GCM source code
-************************************************
-
-The ``TIE-GCM`` source code can be obtained by cloning the ``TIE-GCM`` repository
-on GitHub:
-
-.. code-block:: bash
-
-    git clone https://github.com/NCAR/tiegcm.git
-
 Setting environment variables
 ************************************************
 
@@ -42,147 +32,9 @@ For example:
         - On ``pleiades``: ``/nobackup/nrao3/tiegcm/tiegcm3.0/data``
         - The required data files can be downloaded from the NCAR Globus endpoint using the following link: `TIEGCM Data Files <https://app.globus.org/file-manager?origin_id=b2502c58-c3eb-470f-86d4-cbdcd0aeb6c8&origin_path=%2F>`_
 
-
-Build guide for TIEGCM
-************************************************
-`TIEGCM <https://tiegcm-docs.readthedocs.io/>`_ is a comprehensive, first-principles, three-dimensional, 
-non-linear representation of the coupled thermosphere and ionosphere system that includes a self-consistent solution 
-of the middle and low-latitude dynamo field. 
-
-Two TIEGCM executables are required for running the GTR model:
-
-    - TIEGCM Standalone
-        This is the TIEGCM code that runs independently and is used for initialization of the model.
-    - TIEGCM Coupled
-        This is the TIEGCM code that runs in a coupled mode with the GR model, providing 
-        real-time updates to the thermosphere and ionosphere conditions during the simulation.
-
-Depending on the Gamera resolution you will need to compile different TIEGCM resolution executables:
-    - For a ``D`` run
-        - TIEGCM Standalone: horires = 2.5, vertres = 0.25(1/4), mres = 2
-        - TIEGCM Coupled: horires = 2.5, vertres = 0.25(1/4), mres = 2
-    - For a ``Q`` run
-        - TIEGCM Standalone: horires = 2.5, vertres = 0.25(1/4), mres = 2
-        - TIEGCM Coupled: horires = 1.25, vertres = 0.125(1/8), mres = 1
-    - For a ``O`` run
-        - TIEGCM Standalone: horires = 1.25, vertres = 0.125(1/8), mres = 1
-        - TIEGCM Coupled: horires = 0.625, vertres = 0.0625(1/16), mres = 0.5
-
-
-The TIEGCM code is built using the ``tiegcmrun`` script, which is provided in
-the ``tiegcm`` code repository. The script is provided in the
-``tiegcm/tiegcmrun`` directory. More information on ``tiegcmrun.py`` can be found
-in the `TIEGCM Quick Start Guide <https://tiegcm-docs.readthedocs.io/en/latest/tiegcm/quickstart.html>`_.
-
-.. important::
-    Make sure to load the modules lised in the ``kaiju`` build instructions
-    before running the ``tiegcmrun`` script. (:doc:`Derecho </building/buildDerecho>` or :doc:`Pleiades </building/buildPleiades>`)
-
-Lets take an example of building the TIEGCM code for a ``Q`` run on ``derecho``:
-#########################################################################################
-
-1. First we will create a directory for the "Q" TIEGCM build in the TIEGCMHOME directory.
-
-.. code-block:: bash
-
-    cd $TIEGCMHOME
-    mkdir tiegcm_build_Q
-    cd tiegcm_build_Q
-
-2. Next, we will build the standalone TIEGCM executable by running the ``tiegcmrun.py`` script with the ``-oc``.
-
-.. note::
-    The ``-oc`` option stands for "only compile", which means that the script will only compile the code and not run it.
-    Since the Gamera resolution is ``Q``, we will set the horizontal resolution for the standalone TIEGCM to 2.5 degrees,
-    vertical resolution to 0.25 degrees, and the top altitude to 7.0 RE.
-
-.. code-block:: bash
-
-    $TIEGCMHOME/tiegcmrun/tiegcmrun.py -oc
-    Instructions:
-    -> Default Selected input parameter is given in GREEN
-    -> Warnings and Information are given in YELLOW
-    -> Errors are given in RED
-    -> Valid values (if any) are given in brackets eg. (value1 | value2 | value3) 
-    -> Enter '?' for any input parameter to get a detailed description
-
-
-    Run Options:
-    User Mode = BASIC
-    Compile = True
-    Execute = False
-    Coupling = False
-
-
-    Name of HPC system (derecho|pleiades|linux) [derecho]: 
-    Standalone Executable [/glade/derecho/scratch/nikhilr/tiegcm_build/exec/tiegcm.exe]: 
-    Horizontal Resolution (Deg) (5.0|2.5|1.25|0.625) [2.5]: 
-    Vertical Resolution (Scale Height) (1/2|1/4|1/8|1/16) [1/4]: 
-    Magnetic grid resolution (Degree) (2|1|0.5) [2]: 
-
-After these inputs, the script will compile the TIEGCM code and create the standalone executable and should output something like this:
-
-.. code-block:: bash
-
-    ..
-    .. 
-    gmake[1]: Leaving directory '/glade/derecho/scratch/nikhilr/tiegcm_build/exec'    
-    Executable copied from /glade/derecho/scratch/nikhilr/tiegcm_build/exec/tiegcm.exe to /glade/derecho/scratch/nikhilr/tiegcm_build/stdout
-
-3. Next, we will build the coupled TIEGCM executable by running the ``tiegcmrun.py`` script with the ``-oc`` and ``-co`` options.
-
-.. note::
-    The ``-co`` option stands for "coupled", which means that the script will compile the code for the coupled TIEGCM executable.
-    Since the Gamera resolution is ``Q``, we will set the horizontal resolution for the coupled TIEGCM to 1.25 degrees,
-    vertical resolution to 0.125 degree.
-
-.. code-block:: bash
-
-    $TIEGCMHOME/tiegcmrun/tiegcmrun.py -oc -co
-    Instructions:
-    -> Default Selected input parameter is given in GREEN
-    -> Warnings and Information are given in YELLOW
-    -> Errors are given in RED
-    -> Valid values (if any) are given in brackets eg. (value1 | value2 | value3) 
-    -> Enter '?' for any input parameter to get a detailed description
-
-    Run Options:
-    User Mode = BASIC
-    Compile = True
-    Execute = False
-    Coupling = True
-
-    Name of HPC system (derecho|pleiades|linux) [derecho]: 
-    Coupled Executable [/glade/derecho/scratch/nikhilr/tiegcm_build/exec/tiegcm.x]: 
-    Horizontal Resolution (Deg) (5.0|2.5|1.25|0.625) [2.5]: 1.25
-    Vertical Resolution (Scale Height) (1/2|1/4|1/8|1/16) [1/8]: 
-    Magnetic grid resolution (Degree) (2|1|0.5) [1]: 
-
-After these inputs, the script will compile the TIEGCM code and create the coupled executable and should output something like this:
-
-.. code-block:: bash
-
-    ..
-    ..
-    gmake[1]: Leaving directory '/glade/derecho/scratch/nikhilr/tiegcm_build/exec'    
-    Executable copied from /glade/derecho/scratch/nikhilr/tiegcm_build/exec/tiegcm.x to /glade/derecho/scratch/nikhilr/tiegcm_build/stdout
-
-4. You should now see the following files in your run directory:
-
-.. code-block:: bash
-
-    ls
-    exec  hist  stdout
-
-The executables are located in the ``stdout`` directory, and the stdout files
-
-.. code-block:: bash
-
-    ls stdout
-    defs.h  tiegcm.exe  tiegcm.x
-
 Running a geospace simulation with MAGE
 --------------------------------------------
+
 The MAGE software needs several files in order to run. The detailed steps
 for creating these files have been combined into a script called
 ``engage.py``. The script is provided in the ``kaiju`` code repository. More
@@ -212,15 +64,15 @@ You can see the options supported by ``engage.py`` by running it with the
                             Path to tiegcm JSON file of options (default: None)
     --verbose, -v         Print verbose output (default: False).
 
+Running ``engage.py``
+************************************************
+
 For this example, we will run the code on ``derecho``, and use the default
 ``BASIC`` mode, which requires the minimum amount of input from the user. At
 each prompt, you can either type in a value, or hit the :kbd:`Return` key to
 accept the default value (shown in square brackets at the end of the prompt).
 
-Running ``engage.py``
-************************************************
-
-1. First we will create a directory for the "Q" TIEGCM build in the TIEGCMHOME directory.
+1. First we will create a directory for this run in your scratch space.
 
 .. code-block:: bash
 
@@ -228,6 +80,10 @@ Running ``engage.py``
     cd quickstart_gtr
 
 2. Copy the executables you built in the previous steps to your run directory.
+
+.. note::
+    The TIE-GCM executables for a `Q` run was built in the `tiegcm_build_Q` directory in
+    the build guide.  
 
 .. code-block:: bash
 
@@ -242,7 +98,7 @@ Running ``engage.py``
 
     $KAIJUHOME/scripts/makeitso/engage.py 
     
-    tiegcmrum from /glade/u/home/nikhilr/kaiju_engage/tiegcm/tiegcmrun/tiegcmrun.py
+    tiegcmrun from /glade/u/home/nikhilr/kaiju_engage/tiegcm/tiegcmrun/tiegcmrun.py
     makeitso from /glade/u/home/nikhilr/kaiju_engage/kaiju-private/scripts/makeitso/makeitso.py
     
     Name to use for PBS job(s) [geospace]: 
