@@ -96,6 +96,17 @@ build directory in any convenient location.
     # Compile analysis tools
     make -j4 calcdb.x chop.x sctrack.x slice.x >& make-analysis.out
 
+.. warning::
+
+    Pleiades faces issues while loading the ``hdf5/1.12.3_mpt`` module at times.
+    If you aren't able to build ``kaiju`` with the above module set, unload 
+    the ``hdf5/1.12.3_mpt`` module and load it again:
+
+    .. code-block:: bash
+
+        module unload hdf5/1.12.3_mpt
+        module load hdf5/1.12.3_mpt
+
     
 When finished, your build directory will contain a ``bin``
 subdirectory which will contain the compiled ``kaiju`` executables.
@@ -363,7 +374,7 @@ Build guide for TIEGCM code for a ``O`` run on ``derecho``:
 
 .. note::
     Since the Gamera resolution is ``O``, we will set the following:
-    
+
         - horizontal resolution for the coupled TIEGCM to 0.625 degrees
         - vertical resolution to  0.0625(1/16) scale height
         - magnetic grid resolution to 0.5 degrees
