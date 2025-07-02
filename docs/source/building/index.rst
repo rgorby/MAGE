@@ -54,5 +54,7 @@ Building Guides
 .. toctree::
     :maxdepth: 1
 
-    buildDerecho
-    buildPleiades
+    buildDerecho_GR
+    buildPleiades_GR
+    buildDerecho_GTR
+    buildPleiades_GTR

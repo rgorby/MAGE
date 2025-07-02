@@ -1,5 +1,5 @@
-Building the ``kaiju`` software on ``derecho``
-==============================================
+Building the ``kaiju`` software on ``derecho`` for MAGE - Without TIEGCM (GR) 
+=============================================================================================
 
 
 Introduction
@@ -46,31 +46,6 @@ module set:
     module load hdf5-mpi/1.12.2
     module load conda/latest
 
-.. note::
-
-    For MAGE runs coupled with TIEGCM (known as "GTR"), use the following modules:
-
-    .. code-block:: bash
-
-        module --force purge
-        module load ncarenv/23.09
-        module load cmake/3.26.3
-        module load craype/2.7.31
-        module load intel-classic/2023.2.1
-        module load cray-mpich/8.1.27
-        module load ncarcompilers/1.0.0
-        module load mkl/2023.2.0
-        module load hdf5-mpi/1.12.2
-        module load netcdf-mpi/4.9.2
-        module load esmf/8.6.0
-        module load conda/latest
-    
-    .. warning::
-        
-        Build the GTR version of the code in the ``build_gtr`` subdirectory
-        under the ``kaiju`` source code directory, not the ``build_mpi``
-        subdirectory as the module set is different.
-
 .. important::
 
     You must use these exact versions of the modules to ensure the software
@@ -96,15 +71,10 @@ build directory in any convenient location.
     mkdir build_mpi
     cd build_mpi
 
-    # If you are building the GTR version of the code, create the build_gtr directory instead:
-    # mkdir build_gtr
-    # cd build_gtr
-
     # Run cmake to create the Makefile, saving output.
     # NOTE: The FC definition is *required* for proper cmake operation.
     FC=`which ifort` cmake -DENABLE_MPI=ON .. >& cmake.out
     # If you are building the GTR version of the code, use the following cmake command instead:
-    # FC=`which ifort` cmake -DENABLE_MPI=ON make -DALLOW_INVALID_COMPILERS=ON .. >& cmake.out
 
     # You can pick one compile target below or compile all of them, if you'd like
 

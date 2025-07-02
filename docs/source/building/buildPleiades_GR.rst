@@ -1,5 +1,5 @@
-Building the ``kaiju`` software on ``pleiades``
-===============================================
+Building the ``kaiju`` software on ``pleiades`` for MAGE - Without TIEGCM (GR) 
+==============================================================================================
 
 Introduction
 ------------
@@ -27,58 +27,13 @@ module set:
 
     module --force purge
     
-    module use -a /swbuild/analytix/tools/modulefile
+    module use -a /swbuild/analytix/tools/modulefiles
     module load nas
     module load pkgsrc/2022Q1-rome
     module load comp-intel/2020.4.304
     module load mpi-hpe/mpt.2.23
     module load hdf5/1.8.18_mpt
     module load miniconda3/v4
-
-
-.. note::
-
-    For MAGE runs coupled with TIEGCM (known as "GTR"), use the following modules:
-
-    .. warning::
-
-        The GTR currently required custom built NetCDF and ESMF modules on ``pleiades``. If you need to
-        run GTR, you will need access to ``/home7/nrao3/local3`` and ``/nobackup/nrao3/tiegcm/tiegcm3.0/data``,
-        please reach out to ``nikhilr@ucar.edu`` with the following:
-        
-            - Your Pleiades username
-            - Your Name
-            - Your Institution
-
-    .. code-block:: bash
-
-        module --force purge
-        
-        module use -a /nasa/modulefiles/testing
-        module use -a /swbuild/analytix/tools/modulefile
-        module load nas
-        module load comp-intel/2020.4.304
-        module load mpi-hpe/mpt.2.30
-        module load szip/2.1.1
-        module load hdf5/1.12.3_mpt
-        module load miniconda3/v4
-
-        export FC=mpif90
-        export CC=mpicc
-        export CXX=mpicxx
-
-        export PREFIX=/home7/nrao3/local3
-        export LIBRARY_PATH=${LIBRARY_PATH}:$PREFIX/lib
-        export LD_LIBRARY_PATH=$LIBRARY_PATH
-        export CPATH=$PREFIX/include
-        export PATH=${PATH}:$PREFIX/bin
-    
-    .. warning::
-        
-        Build the GTR version of the code in the ``build_gtr`` subdirectory
-        under the ``kaiju`` source code directory, not the ``build_mpi``
-        subdirectory as the module set is different.
-
 
 .. important::
 
@@ -104,11 +59,6 @@ build directory in any convenient location.
     # Create the build directory and enter it.
     mkdir build_mpi
     cd build_mpi
-
-    # If you are building the GTR version of the code, create the build_gtr directory instead:
-    # mkdir build_gtr
-    # cd build_gtr
-
 
     # Run cmake to create the Makefile, saving output.
     # NOTE: The FC definition is *required* for proper cmake operation.
