@@ -382,6 +382,8 @@ module voltapp_mpi
         call convertGameraToRemix(vApp%mhd2mix, vApp%gApp, vApp%remixApp)
         call Toc("G2R")
 
+        call MJDRecalc(vApp%MJD)
+
         if (vApp%doGCM .and. vApp%time >=0 .and. vApp%gcmCplRank /= -1) then
             call Tic("GCM2MIX")
             call coupleGCM2MIX(vApp%gcm,vApp%remixApp%ion,vApp%MJD,vApp%time,vApp%mageCplComm,vApp%gcmCplRank)
