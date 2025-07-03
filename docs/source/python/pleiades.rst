@@ -48,8 +48,11 @@ the required Python packages.
     pip install kaipy
     # OR
     # If you are using a clone of the kaipy repository:
-    pip install -r /path/to/kaipy/requirements.txt
-
+    cd /path/to/kaipy
+    pip install -e .
+    # -e is used to install the package in editable mode, which allows
+    # you to make changes to the code and have them reflected without needing
+    # to reinstall the package.
 
 Using the python environment
 ----------------------------
