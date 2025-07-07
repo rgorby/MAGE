@@ -462,11 +462,11 @@ module raijuetautils
                 if (dpsph >= maxX*dppT) cycle !Too much already there
                 etaT = dppT/eta2cc
 
-                ! if ((rad <= RInMHD) .and. (dppT > dpsph)) then
-                !     !If this is inside MHD inner boundary, be at least at target value
-                !     State%eta(i,j,k0) = etaT
-                !     cycle
-                ! endif
+                if ((rad <= 2.5) .and. (dppT > dpsph)) then
+                    !If this is inside MHD inner boundary, be at least at target value
+                    State%eta(i,j,k0) = etaT
+                    cycle
+                endif
                 
                 !If still here then calculate refilling
                 dndt = 10.0**(3.48-0.331*rad) !cm^-3/day, Denton+ 2012 eqn 1
