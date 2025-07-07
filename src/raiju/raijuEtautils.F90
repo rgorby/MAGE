@@ -420,4 +420,20 @@ module raijuetautils
 
     end function getInitPsphere
 
+    !Do plasmasphere refilling for the interval we're about to advance
+    subroutine plasmasphereRefill(Model,Grid,State)
+        type(raijuModel_T), intent(in) :: Model
+        type(raijuGrid_T) , intent(in) :: Grid
+        type(raijuState_T), intent(inout) :: State
+
+        integer :: i,j,psphIdx
+        real(rp) :: maxX
+        
+        maxX = 2.0 !Max over-filling relative to target, i.e. don't go above maxX x den-target
+        psphIdx = spcIdx(Grid, F_PSPH) !plasmasphere index
+
+
+    end subroutine plasmasphereRefill
+
+    call plasmasphereRefill(Model,Grid,State)
 end module raijuetautils
