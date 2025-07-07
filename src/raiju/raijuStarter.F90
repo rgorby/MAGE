@@ -483,6 +483,9 @@ module raijustarter
                 allocate( State%etaFacePDMR  (sh%isg:sh%ieg+1, sh%jsg:sh%jeg+1, Grid%Nk, 2) )
                 allocate( State%etaFlux      (sh%isg:sh%ieg+1, sh%jsg:sh%jeg+1, Grid%Nk, 2) )
             endif
+
+            State%KpTS%wID = Model%tsF
+            call State%tsKp%initTS("Kp")
         
         end associate
         

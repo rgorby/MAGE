@@ -390,6 +390,10 @@ module raijutypes
         type(IOClock_T) :: IO
             !! Timers for IO operations
 
+        ! I feel like philosophically this should be in Grid but that feels weird so its here
+        type(TimeSeries_T) :: KpTS
+            !! Kp timeseries from solar wind file
+
         ! -- Solver values -- !
         real(rp), dimension(:,:,:), allocatable :: eta
             !! (Ngi, Ngj, Nk) [#/cc * Rp/T] etas
