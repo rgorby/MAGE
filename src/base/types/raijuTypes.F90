@@ -263,6 +263,8 @@ module raijutypes
             !! Maximum tailward extent of the active region
         real(rp) :: maxSun_active
             !! Maximum sunward extent of the active region
+        real(rp) :: activeDomRad
+            !! [Rp] Cells are forced to be active below this radius
 
         ! Active shell settings
         logical :: doActiveShell

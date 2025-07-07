@@ -165,11 +165,13 @@ module raijustarter
         call iXML%Set_Val(Model%maxSun_buffer , "domain/sun_buffer" , def_maxSun_buffer)
         call iXML%Set_Val(Model%maxTail_active, "domain/tail_active", def_maxTail_active)
         call iXML%Set_Val(Model%maxSun_active , "domain/sun_active" , def_maxSun_active)
+        call iXML%Set_Val(Model%activeDomRad  , "domain/activeRad"  , def_activeDomRad)
         ! Store all distances as positive values, we'll add signs as needed later
         Model%maxTail_buffer = abs(Model%maxTail_buffer)
         Model%maxSun_buffer  = abs(Model%maxSun_buffer)
         Model%maxTail_active = abs(Model%maxTail_active)
         Model%maxSun_active  = abs(Model%maxSun_active)
+        Model%activeDomRad   = abs(Model%activeDomRad)
 
         !---Solver ---!
         call iXML%Set_Val(Model%doUseVelLRs,'sim/useVelLRs',def_doUseVelLRs)
