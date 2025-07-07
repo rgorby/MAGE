@@ -143,6 +143,7 @@ module raijustarter
         !--- Plasmasphere ---!
         call iXML%Set_Val(Model%doPlasmasphere, "plasmasphere/doPsphere",.true.)
         call iXML%Set_Val(Model%doPsphEvol, 'plasmasphere/doEvol',.true.)
+        call iXML%Set_Val(Model%psphEvolRad, 'plasmasphere/evolRad', def_psphEvolRad)
         ! Determine number of species. First set default, then read from xml to overwrite if present
         if (Model%doPlasmasphere) then
             Model%nSpc = 3

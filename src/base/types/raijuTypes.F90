@@ -245,6 +245,8 @@ module raijutypes
         real(rp) :: psphInitKp
         logical :: doPsphEvol
             !! Whether or not to actually evolve the plasmasphere
+        real(rp) :: psphEvolRad
+            !! [Rp] Radius below which plasmasphere is not evolved
         ! TODO: Extra params for refilling rate, determining initial profile, etc.
 
         ! Some constants

@@ -104,7 +104,12 @@ module raijudefs
     real(rp), parameter :: def_lim_vaFrac_soft = 0.6_rp
     real(rp), parameter :: def_lim_vaFrac_hard = 0.4_rp
     real(rp), parameter :: def_lim_bmin_soft  = 5.0_rp
-        ! [nT]
+        !! [nT]
     real(rp), parameter :: def_lim_bmin_hard  = 2.0_rp
+        !! [nT]
+
+    ! Plasmasphere stuff
+    real(rp), parameter :: def_psphEvolRad = 2.25
+        !! [Rp] radius under which plasmasphere is not evolved
 
 end module raijudefs
