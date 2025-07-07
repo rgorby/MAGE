@@ -485,7 +485,7 @@ module raijustarter
             endif
 
             State%KpTS%wID = Model%tsF
-            call State%tsKp%initTS("Kp")
+            call State%KpTS%initTS("Kp")
         
         end associate
         
