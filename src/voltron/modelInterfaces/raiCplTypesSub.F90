@@ -180,11 +180,13 @@ submodule (volttypes) raijuCplTypesSub
         enddo
 
         
-        call InterpShellVar_TSC_pnt(sh, State%Tb, th, ph, tScl)
+        !call InterpShellVar_TSC_pnt(sh, State%Tb, th, ph, tScl)
         !tScl = Model%nBounce*tScl  ! [s]
         
         ! 1/(x)^4 for x from 1 to 0.5 goes from 1 to 16. Higher exponents means stronger ramp-up
-        tScl = 15.0_rp/(App%vaFrac%data(i0,j0))**2  ! [s]
+        !tScl = 15.0_rp/(App%vaFrac%data(i0,j0))**2  ! [s]
+
+        call InterpShellVar_TSC_pnt(sh, App%tscl_mhdIngest, th, ph, tScl)
 
         ! Adjust IM_TSCL if we wanna ramp up over time
         if (t < App%startup_blendTscl) then
@@ -369,6 +371,8 @@ submodule (volttypes) raijuCplTypesSub
         real(rp), intent(in) :: dt
 
         call App%raiApp%AdvanceModel(dt)
+
+        call raiCpl_PostAdvance(App)
         App%raiApp%State%t = App%raiApp%State%t + dt
         App%raiApp%State%ts = App%raiApp%State%ts + 1
         App%raiApp%State%mjd = T2MJD(dt,App%raiApp%State%mjd)
