@@ -10,8 +10,6 @@ module raijuCplHelper
     use raijugrids
     use ioh5
     use files
-    
-    use imagtubes
     use mixdefs
     use raijuColdStartHelper, only : initRaijuColdStarter
     
@@ -218,50 +216,6 @@ module raijuCplHelper
 
         end associate
     end subroutine
-
-!------
-! One-way driving from file helpers
-!------
-
-    subroutine genImagTubes(raiCpl, vApp)
-        class(raijuCoupler_T), intent(inout) :: raiCpl
-        type(voltApp_T), intent(in   ) :: vApp
-
-        integer :: i,j
-        real(rp) :: seedR, eqR
-        type(magLine_T) :: magLine
-        ! Get field line info and potential from voltron
-        ! And put the data into RAIJU's fromV coupling object
-
-        associate(sh=>raiCpl%raiApp%Grid%shGrid , &
-            planet=>raiCpl%raiApp%Model%planet, &
-            ebApp =>vApp%ebTrcApp)
-
-            seedR =  planet%ri_m/planet%rp_m
-            ! Do field line tracing, populate fromV%ijTubes
-            !$OMP PARALLEL DO default(shared) &
-            !$OMP schedule(dynamic) &
-            !$OMP private(i,j,eqR)
-            do i=sh%isg,sh%ieg+1
-                do j=sh%jsg,sh%jeg+1
-                    call CleanLine(raiCpl%magLines(i,j))
-
-                    eqR = DipColat2L(raiCpl%raiApp%Grid%thRp(i))  ! Function assumes colat coming from 1 Rp, make sure we use the right theta value
-                    if (eqR < raiCpl%opt%mhdRin) then
-                        call DipoleTube(vApp, sh%th(i), sh%ph(j), raiCpl%ijTubes(i,j))
-                    else
-                        call MHDTube(ebApp, planet,   & !ebTrcApp, planet
-                            sh%th(i), sh%ph(j), seedR, &  ! colat, lon, r
-                            raiCpl%ijTubes(i,j), raiCpl%magLines(i,j), &  ! IMAGTube_T, magLine_T
-                            doShiftO=.true.)
-                    endif
-
-                enddo
-            enddo
-        end associate
-
-    end subroutine genImagTubes
-
 
 !------
 ! Real-time coupling stuff
