@@ -223,7 +223,8 @@ module volttypes
             !! Used to limit active region to tubes that can reasonably be treated as averaged and slowly-evolving
         type(ShellGridVar_T) :: Tb
             !! (Ngi, Ngj) Bounce timesale
-
+        type(ShellGridVar_T) :: avgBeta
+            !! (Ngi, Ngj) Cross-sectional flux-tube area - averaged beta (woof)
 
         type(ShellGridVar_T) :: pot_total
             !! Total electrostatic potential from (ionosphere + corot) [kV]
