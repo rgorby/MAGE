@@ -196,7 +196,7 @@ submodule (volttypes) raijuCplTypesSub
             imW(IM_P_RING) = imW(IM_P_RING)*wRAI + wMHD*p_mhd
         endif
 
-        call InterpShellVar_TSC_pnt(sh, State%Tb, th, ph, tScl)
+        !call InterpShellVar_TSC_pnt(sh, State%Tb, th, ph, tScl)
         !tScl = Model%nBounce*tScl  ! [s]
         
         ! 1/(x)^4 for x from 1 to 0.5 goes from 1 to 16. Higher exponents means stronger ramp-up
