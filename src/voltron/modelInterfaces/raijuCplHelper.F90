@@ -77,6 +77,8 @@ module raijuCplHelper
             enddo
             call initShellVar(raiCpl%shGr, SHGR_CC, raiCpl%tiote)
             call initShellVar(raiCpl%shGr, SHGR_CC, raiCpl%Tb)
+            call initShellVar(raiCpl%shGr, SHGR_CC, raiCpl%avgBeta)
+
         end associate
         
         ! Initial values
@@ -144,8 +146,8 @@ module raijuCplHelper
         do i=1,NDIM
             call InterpShellVar_TSC_SG(raiCpl%shGr, raiCpl%xyzMin(i), raiCpl%shGr, raiCpl%xyzMincc(i), srcMaskO=topoSrcMask)
         enddo
-        call InterpShellVar_TSC_SG(voltGrid, tubeShell%Tb, raiCpl%shGr, raiCpl%Tb, srcMaskO=topoSrcMask)
-        
+        call InterpShellVar_TSC_SG(voltGrid, tubeShell%Tb     , raiCpl%shGr, raiCpl%Tb     , srcMaskO=topoSrcMask)
+        call InterpShellVar_TSC_SG(voltGrid, tubeShell%avgBeta, raiCpl%shGr, raiCpl%avgBeta, srcMaskO=topoSrcMask)
 
     end subroutine tubeShell2RaiCpl
 
