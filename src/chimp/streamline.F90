@@ -90,11 +90,6 @@ module streamline
             doShue = .false.
         endif
 
-        if ( (.not. doSH) .and. (.not. doNH) ) then
-            !What are you even asking for?
-            return
-        endif
-
         !Allocate temp arrays to hold information along each direction
         !Trailing dimension (1-2) represents -/+ directions
         allocate(xyzn (0:MaxFL,NDIM,2))
