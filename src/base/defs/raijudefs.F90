@@ -101,7 +101,7 @@ module raijudefs
         !! [deg] Max allowable angle between any two normals surrounding a cell corner
     real(rp), parameter :: def_bminThresh   = 1.0  
         !! [nT] default allowable bmin strencgh
-    real(rp), parameter :: def_nBounce   = 1.0
+    real(rp), parameter :: def_nBounce   = 3.0
         !! Number of Alfven bounces (Tb) required to be considered a "good" flux tube for coupling
 
 

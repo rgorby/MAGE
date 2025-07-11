@@ -279,7 +279,7 @@ module raijuCplHelper
             do i=sh%isg,sh%ieg
                 if (tscl%mask(i,j) .eq. .true.) then
                     vaFrac_cc = 0.25*sum(State%vaFrac(i:i+1,j:j+1))
-                    tscl%data(i,j) = 2.0_rp*State%dt/(vaFrac_cc)**2 
+                    tscl%data(i,j) = raiCpl%raiApp%Model%nBounce*State%dt/(vaFrac_cc)**2 
                 endif
             enddo
         enddo
