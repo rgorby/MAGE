@@ -432,46 +432,46 @@ module raijuetautils
         real(rp) :: NowKp
         real(rp) :: xeq,yeq,rad,cc2eta,eta2cc
         real(rp) :: dppT,dpsph,etaT,dndt,deta
-        logical :: isGood
         
         
         k0 = Grid%spc(spcIdx(Grid, F_PSPH))%kStart !plasmasphere index
         NowKp = State%KpTS%evalAt(State%t)
 
         !$OMP PARALLEL DO default(shared) &
-        !$OMP private(i,j,isGood,xeq,yeq,rad,dppT,cc2eta) &
+        !$OMP private(i,j,isGood,xeq,yeq,rad,dppT,cc2eta,eta2cc) &
         !$OMP private(dpsph,etaT,deta,dndt)
-
         do j=Grid%shGrid%jsg,Grid%shGrid%jeg
             do i=Grid%shGrid%isg,Grid%shGrid%ieg
-                isGood = (State%active(i,j) == RAIJUACTIVE)
-                if (.not. isGood) cycle !Don't refill nonsense
+                if (State%active(i,j) == RAIJUACTIVE) then
 
-                xeq = State%xyzMincc(i,j,XDIR)
-                yeq = State%xyzMincc(i,j,YDIR)
-                rad = sqrt(xeq**2.0 + yeq**2.0)
+                    xeq = State%xyzMincc(i,j,XDIR)
+                    yeq = State%xyzMincc(i,j,YDIR)
+                    rad = sqrt(xeq**2.0 + yeq**2.0)
 
-                !Closed field line, calculate Gallagher w/ current Kp to get target density
-                dppT = GallagherXY(xeq,yeq,NowKp)
-                cc2eta = State%bvol_cc(i,j)*sclEta
-                eta2cc = 1.0/cc2eta !Convert eta to #/cc
+                    !Closed field line, calculate Gallagher w/ current Kp to get target density
+                    dppT = GallagherXY(xeq,yeq,NowKp)
+                    cc2eta = State%bvol_cc(i,j)*sclEta
+                    eta2cc = 1.0/cc2eta !Convert eta to #/cc
 
-                dpsph = eta2cc*State%eta(i,j,k0) !Current plasmasphere density [#/cc]
+                    dpsph = eta2cc*State%eta(i,j,k0) !Current plasmasphere density [#/cc]
 
-                !Check for other outs before doing anything
-                if (dpsph >= maxX*dppT) cycle !Too much already there
-                etaT = dppT/eta2cc
+                    !Check for other outs before doing anything
+                    if (dpsph >= maxX*dppT) then 
+                        continue ! Too much already there, don't touch it
+                    else
+                        etaT = dppT/eta2cc
 
-                if ((rad <= 2.5) .and. (dppT > dpsph)) then
-                    !If this is inside MHD inner boundary, be at least at target value
-                    State%eta(i,j,k0) = etaT
-                    cycle
+                        if ((rad <= Model%Model%psphEvolRad) .and. (dppT > dpsph)) then
+                            !If this is inside MHD inner boundary, be at least at target value
+                            State%eta(i,j,k0) = etaT
+                        else
+                            !If still here then calculate refilling
+                            dndt = 10.0**(3.48-0.331*rad) !cm^-3/day, Denton+ 2012 eqn 1
+                            deta = (State%dt*s2day)*dndt/eta2cc !Change in eta over dt
+                            State%eta(i,j,k0) = State%eta(i,j,k0) + deta
+                        endif
+                    endif
                 endif
-                
-                !If still here then calculate refilling
-                dndt = 10.0**(3.48-0.331*rad) !cm^-3/day, Denton+ 2012 eqn 1
-                deta = (State%dt*s2day)*dndt/eta2cc !Change in eta over dt
-                State%eta(i,j,k0) = State%eta(i,j,k0) + deta
             enddo !i
         enddo !j
 

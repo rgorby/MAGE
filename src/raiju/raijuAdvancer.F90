@@ -307,11 +307,11 @@ module raijuAdvancer
             do i=Grid%shGrid%isg,Grid%shGrid%ieg
                 Req = sqrt(State%xyzMincc(i,j,XDIR)**2 + State%xyzMincc(i,j,YDIR)**2)
                 if (Req < Model%psphEvolRad) then
-                    cycle
-                endif
-
-                if (State%active(i,j) == RAIJUACTIVE) then
-                    isGoodEvol(i,j) = .true.
+                    continue  ! Keep points within this radius set to no evol 
+                else
+                    if (State%active(i,j) == RAIJUACTIVE) then
+                        isGoodEvol(i,j) = .true.
+                    endif
                 endif
             enddo
         enddo

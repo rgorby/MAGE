@@ -273,7 +273,7 @@ module raijuCplHelper
 
         ! First, calculate our tscl point-by-point
         !$OMP PARALLEL DO default(shared) &
-        !$OMP private(i,j)
+        !$OMP private(i,j,vaFrac_cc)
         do j=sh%jsg,sh%jeg
             do i=sh%isg,sh%ieg
                 if (tscl%mask(i,j) .eq. .true.) then
