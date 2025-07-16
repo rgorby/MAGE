@@ -438,7 +438,7 @@ module raijuetautils
         NowKp = State%KpTS%evalAt(State%t)
 
         !$OMP PARALLEL DO default(shared) &
-        !$OMP private(i,j,isGood,xeq,yeq,rad,dppT,cc2eta,eta2cc) &
+        !$OMP private(i,j,xeq,yeq,rad,dppT,cc2eta,eta2cc) &
         !$OMP private(dpsph,etaT,deta,dndt)
         do j=Grid%shGrid%jsg,Grid%shGrid%jeg
             do i=Grid%shGrid%isg,Grid%shGrid%ieg
@@ -461,7 +461,7 @@ module raijuetautils
                     else
                         etaT = dppT/eta2cc
 
-                        if ((rad <= Model%Model%psphEvolRad) .and. (dppT > dpsph)) then
+                        if ((rad <= Model%psphEvolRad) .and. (dppT > dpsph)) then
                             !If this is inside MHD inner boundary, be at least at target value
                             State%eta(i,j,k0) = etaT
                         else
