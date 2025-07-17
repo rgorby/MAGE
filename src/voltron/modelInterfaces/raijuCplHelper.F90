@@ -10,8 +10,8 @@ module raijuCplHelper
     use raijugrids
     use ioh5
     use files
+    use arrayutil
     
-    use imagtubes
     use mixdefs
     use raijuColdStartHelper, only : initRaijuColdStarter
     
@@ -38,6 +38,8 @@ module raijuCplHelper
 
         ! Options
         call iXML%Set_Val(raiCpl%startup_blendTscl, "cpl/startupTscl", raiCpl%startup_blendTscl)
+        call iXML%Set_Val(raiCpl%tsclSm_dL  , "cpl/tsclSm_dL"  , raiCpl%tsclSm_dL  )
+        call iXML%Set_Val(raiCpl%tsclSm_dMLT, "cpl/tsclSm_dMLT", raiCpl%tsclSm_dMLT)
         
         ! State sub-modules that need coupler settings
         call initRaijuColdStarter(raiCpl%raiApp%Model, iXML, raiCpl%raiApp%State%coldStarter,tEndO=raiCpl%startup_blendTscl)
@@ -79,6 +81,9 @@ module raijuCplHelper
             enddo
             call initShellVar(raiCpl%shGr, SHGR_CC, raiCpl%tiote)
             call initShellVar(raiCpl%shGr, SHGR_CC, raiCpl%Tb)
+            call initShellVar(raiCpl%shGr, SHGR_CC, raiCpl%avgBeta)
+
+            call initShellVar(raiCpl%shGr, SHGR_CC, raiCpl%tscl_mhdIngest)
         end associate
         
         ! Initial values
@@ -146,8 +151,8 @@ module raijuCplHelper
         do i=1,NDIM
             call InterpShellVar_TSC_SG(raiCpl%shGr, raiCpl%xyzMin(i), raiCpl%shGr, raiCpl%xyzMincc(i), srcMaskO=topoSrcMask)
         enddo
-        call InterpShellVar_TSC_SG(voltGrid, tubeShell%Tb, raiCpl%shGr, raiCpl%Tb, srcMaskO=topoSrcMask)
-        
+        call InterpShellVar_TSC_SG(voltGrid, tubeShell%Tb     , raiCpl%shGr, raiCpl%Tb     , srcMaskO=topoSrcMask)
+        call InterpShellVar_TSC_SG(voltGrid, tubeShell%avgBeta, raiCpl%shGr, raiCpl%avgBeta, srcMaskO=topoSrcMask)
 
     end subroutine tubeShell2RaiCpl
 
@@ -220,50 +225,6 @@ module raijuCplHelper
     end subroutine
 
 !------
-! One-way driving from file helpers
-!------
-
-    subroutine genImagTubes(raiCpl, vApp)
-        class(raijuCoupler_T), intent(inout) :: raiCpl
-        type(voltApp_T), intent(in   ) :: vApp
-
-        integer :: i,j
-        real(rp) :: seedR, eqR
-        type(magLine_T) :: magLine
-        ! Get field line info and potential from voltron
-        ! And put the data into RAIJU's fromV coupling object
-
-        associate(sh=>raiCpl%raiApp%Grid%shGrid , &
-            planet=>raiCpl%raiApp%Model%planet, &
-            ebApp =>vApp%ebTrcApp)
-
-            seedR =  planet%ri_m/planet%rp_m
-            ! Do field line tracing, populate fromV%ijTubes
-            !$OMP PARALLEL DO default(shared) &
-            !$OMP schedule(dynamic) &
-            !$OMP private(i,j,eqR)
-            do i=sh%isg,sh%ieg+1
-                do j=sh%jsg,sh%jeg+1
-                    call CleanLine(raiCpl%magLines(i,j))
-
-                    eqR = DipColat2L(raiCpl%raiApp%Grid%thRp(i))  ! Function assumes colat coming from 1 Rp, make sure we use the right theta value
-                    if (eqR < raiCpl%opt%mhdRin) then
-                        call DipoleTube(vApp, sh%th(i), sh%ph(j), raiCpl%ijTubes(i,j))
-                    else
-                        call MHDTube(ebApp, planet,   & !ebTrcApp, planet
-                            sh%th(i), sh%ph(j), seedR, &  ! colat, lon, r
-                            raiCpl%ijTubes(i,j), raiCpl%magLines(i,j), &  ! IMAGTube_T, magLine_T
-                            doShiftO=.true.)
-                    endif
-
-                enddo
-            enddo
-        end associate
-
-    end subroutine genImagTubes
-
-
-!------
 ! Real-time coupling stuff
 !------
 
@@ -281,6 +242,177 @@ module raijuCplHelper
         call InterpShellVar_ParentToChild(vApp%shGrid, vApp%State%potential_corot, raiCpl%shGr, raiCpl%pot_corot)
         
     end subroutine
+
+
+!------
+! Post-advance calculations
+!------
+
+    subroutine raiCpl_PostAdvance(raiCpl)
+        class(raijuCoupler_T), intent(inout) :: raiCpl
+
+        call raiCpl_calcTsclMHD(raiCpl)
+    end subroutine raiCpl_PostAdvance
+
+
+    subroutine raiCpl_calcTsclMHD(raiCpl)
+        class(raijuCoupler_T), intent(inout) :: raiCpl
+
+        integer :: i,j
+        real(rp) :: vaFrac_cc
+        
+        associate(tscl=>raiCpl%tscl_mhdIngest, State=>raiCpl%raiApp%State, sh=>raiCpl%shGr)
+
+        ! Defaults
+        call fillArray(tscl%data, State%dt)
+        where (State%active /= RAIJUINACTIVE)
+            tscl%mask = .true.
+        elsewhere
+            tscl%mask = .false.
+        end where
+
+        ! First, calculate our tscl point-by-point
+        !$OMP PARALLEL DO default(shared) &
+        !$OMP private(i,j,vaFrac_cc)
+        do j=sh%jsg,sh%jeg
+            do i=sh%isg,sh%ieg
+                if (tscl%mask(i,j) .eq. .true.) then
+                    vaFrac_cc = 0.25*sum(State%vaFrac(i:i+1,j:j+1))
+                    tscl%data(i,j) = raiCpl%raiApp%Model%nBounce*State%dt/(vaFrac_cc)**2 
+                endif
+            enddo
+        enddo
+
+        ! Now do smoothing
+        call smoothRaijuVar_eq(State, sh, raiCpl%tsclSm_dMLT, raiCpl%tsclSm_dL, tscl)
+
+        ! We had the mask include buffer cells for smoothing reasons, but now we want anyone interpolating to only use active cells
+        where (State%active == RAIJUACTIVE)
+            tscl%mask = .true.
+        elsewhere
+            tscl%mask = .false.
+        end where
+
+        end associate
+
+
+        contains
+
+        subroutine smoothRaijuVar_eq(State, sh, dMLT, dL, var)
+            !! Smooth a raiju variable with stencil in equatorial projection
+            type(raijuState_T), intent(in) :: State
+            type(ShellGrid_T), intent(in) :: sh
+            real(rp), intent(in) :: dMLT
+            real(rp), intent(in) :: dL
+            type(ShellGridVar_T), intent(inout) :: var
+                !! Variable to smooth. Assumes var%mask can be used to include/exclude points
+
+            integer :: i, j, j_eval, ipnt, jpnt
+            integer :: dj, dj_half, nGood
+            logical :: doIScan
+            real(rp) :: var_sum
+            real(rp) :: L_center, L_pnt
+            real(rp) :: dPhi_rad, dMLT_pnt, dL_pnt
+            real(rp), dimension(:,:), allocatable :: tmp_var_sm
+
+            
+            if (.not. sh%isPhiUniform) then
+                write(*,*) "ERROR: raiCpl_calcTsclMHD expects raiCpl ShellGrid to have periodic phi, but it does not"
+                write(*,*) "  Goodbye."
+                stop
+            endif
+
+            if (var%loc /= SHGR_CC ) then
+                write(*,*) "ERROR: raiCpl_calcTsclMHD expects raiCpl ShellGridVar to be located at cell center"
+                write(*,*) "  Given var with location enum:",var%loc
+                write(*,*) "  Goodbye."
+                stop
+            endif
+
+            allocate(tmp_var_sm(var%isv:var%iev, var%jsv:var%jev))
+            call fillArray(tmp_var_sm, 0.0_rp)
+
+            dphi_rad = dMLT * PI/12.0_rp  ! Convert delta-MLT to a delta-phi in radians
+            dj_half = 0
+            do while(sh%ph(sh%js + dj_half + 1) - sh%phc(sh%js) < dphi_rad/2.0_rp)  ! Increase dj_half until its dphi is half of target dphi_rad (you're welcome)
+                dj_half = dj_half + 1
+            enddo
+
+            !$OMP PARALLEL DO default(shared) &
+            !$OMP schedule(dynamic) &
+            !$OMP private(i, j, dj, doIScan) &
+            !$OMP private(nGood, var_sum, ipnt, jpnt, L_center, L_pnt, dL_pnt)
+            do j=sh%jsg,sh%jeg
+                do i=sh%isg,sh%ieg
+                    if (var%mask(i,j) .eq. .false.) then
+                        cycle
+                    endif
+
+                    L_center = norm2(State%xyzMincc(i,j,XDIR:YDIR))  ! XY plane to L shell / radius from planet
+
+                    nGood = 0
+                    var_sum = 0.0_rp
+                    ! Loop over j stencil range
+                    do dj=-dj_half,dj_half
+                        jpnt = j + dj
+                        if (jpnt < sh%js) then
+                            jpnt = jpnt + sh%Np
+                        elseif (jpnt > sh%je) then
+                            jpnt = jpnt - sh%Np
+                        endif
+
+                        ! Sweep in i+ direction (earthward)
+                        doIScan = .true.
+                        ipnt = i
+                        do while (doIScan)
+                            L_pnt = norm2(State%xyzMincc(ipnt,jpnt,XDIR:YDIR))
+                            dL_pnt = abs(L_center  - L_pnt)
+
+                            ! First decide if we are gonna keep going after this point
+                            if (ipnt >= sh%ieg .or. dL_pnt > dL/2.0_rp) then
+                                doIScan = .false.
+                            endif
+
+                            ! Decide if we should include this point
+                            if (var%mask(ipnt,jpnt) .eq. .true. .and. dL_pnt < dL/2.0_rp) then
+                                nGood = nGood + 1
+                                var_sum = var_sum + var%data(ipnt,jpnt)
+                            endif
+                            ipnt = ipnt + 1
+                        enddo
+
+                        ! Same thing but in the -i direction
+                        doIScan = .true.
+                        ipnt = i-1
+                        do while(doIScan)
+                            L_pnt = norm2(State%xyzMincc(ipnt,jpnt,XDIR:YDIR))
+                            dL_pnt = abs(L_center  - L_pnt)
+
+                            if (ipnt <= sh%isg .or. dL_pnt > dL/2.0_rp) then
+                                doIScan = .false.
+                            endif
+
+                            if (var%mask(ipnt,jpnt) .eq. .true. .and. dL_pnt < dL/2.0_rp) then
+                                nGood = nGood + 1
+                                var_sum = var_sum + var%data(ipnt,jpnt)
+                            endif
+                            ipnt = ipnt - 1
+                        enddo
+                    enddo
+
+                    ! Now calculate and save our average
+                    if (nGood > 0) then
+                        tmp_var_sm(i,j) = var_sum/(1.0_rp*nGood)
+                    endif
+                enddo
+            enddo
+
+            ! Put it back into the original variable and we're done
+            var%data(:,:) = tmp_var_sm(:,:)
+
+        end subroutine smoothRaijuVar_eq
+
+    end subroutine raiCpl_calcTsclMHD
 
 
 !------
@@ -302,23 +434,24 @@ module raijuCplHelper
         call writeShellGrid(raiCpl%shGr, ResF,"/ShellGrid")
 
         call ClearIO(IOVars)
-        call AddOutVar(IOVars, "tLastUpdate", raiCpl%tLastUpdate, uStr="s")
-        call AddOutSGV(IOVars, "Pavg"       , raiCpl%Pavg       , doWriteMaskO=.true.)
-        call AddOutSGV(IOVars, "Davg"       , raiCpl%Davg       , doWriteMaskO=.true.)
-        call AddOutSGV(IOVars, "Pstd"       , raiCpl%Pstd       , doWriteMaskO=.true.)
-        call AddOutSGV(IOVars, "Dstd"       , raiCpl%Dstd       , doWriteMaskO=.true.)
-        call AddOutSGV(IOVars, "Bmin"       , raiCpl%Bmin       , doWriteMaskO=.true.)
-        call AddOutSGV(IOVars, "xyzMin"     , raiCpl%xyzMin     , doWriteMaskO=.true.)
-        call AddOutSGV(IOVars, "xyzMincc"   , raiCpl%xyzMincc   , doWriteMaskO=.true.)
-        call AddOutSGV(IOVars, "topo"       , raiCpl%topo       , doWriteMaskO=.true.)
-        call AddOutSGV(IOVars, "thcon"      , raiCpl%thcon      , doWriteMaskO=.true.)
-        call AddOutSGV(IOVars, "phcon"      , raiCpl%phcon      , doWriteMaskO=.true.)
-        call AddOutSGV(IOVars, "bvol"       , raiCpl%bvol       , doWriteMaskO=.true.)
-        call AddOutSGV(IOVars, "bvol_cc"    , raiCpl%bvol_cc    , doWriteMaskO=.true.)
-        call AddOutSGV(IOVars, "vaFrac"     , raiCpl%vaFrac     , doWriteMaskO=.true.)
-        call AddOutSGV(IOVars, "Tb"         , raiCpl%Tb         , doWriteMaskO=.true.)
-        call AddOutSGV(IOVars, "pot_total"  , raiCpl%pot_total  , doWriteMaskO=.true.)
-        call AddOutSGV(IOVars, "pot_corot"  , raiCpl%pot_corot  , doWriteMaskO=.true.)
+        call AddOutVar(IOVars, "tLastUpdate"   , raiCpl%tLastUpdate   , uStr="s")
+        call AddOutSGV(IOVars, "Pavg"          , raiCpl%Pavg          , doWriteMaskO=.true.)
+        call AddOutSGV(IOVars, "Davg"          , raiCpl%Davg          , doWriteMaskO=.true.)
+        call AddOutSGV(IOVars, "Pstd"          , raiCpl%Pstd          , doWriteMaskO=.true.)
+        call AddOutSGV(IOVars, "Dstd"          , raiCpl%Dstd          , doWriteMaskO=.true.)
+        call AddOutSGV(IOVars, "Bmin"          , raiCpl%Bmin          , doWriteMaskO=.true.)
+        call AddOutSGV(IOVars, "xyzMin"        , raiCpl%xyzMin        , doWriteMaskO=.true.)
+        call AddOutSGV(IOVars, "xyzMincc"      , raiCpl%xyzMincc      , doWriteMaskO=.true.)
+        call AddOutSGV(IOVars, "topo"          , raiCpl%topo          , doWriteMaskO=.true.)
+        call AddOutSGV(IOVars, "thcon"         , raiCpl%thcon         , doWriteMaskO=.true.)
+        call AddOutSGV(IOVars, "phcon"         , raiCpl%phcon         , doWriteMaskO=.true.)
+        call AddOutSGV(IOVars, "bvol"          , raiCpl%bvol          , doWriteMaskO=.true.)
+        call AddOutSGV(IOVars, "bvol_cc"       , raiCpl%bvol_cc       , doWriteMaskO=.true.)
+        call AddOutSGV(IOVars, "vaFrac"        , raiCpl%vaFrac        , doWriteMaskO=.true.)
+        call AddOutSGV(IOVars, "Tb"            , raiCpl%Tb            , doWriteMaskO=.true.)
+        call AddOutSGV(IOVars, "pot_total"     , raiCpl%pot_total     , doWriteMaskO=.true.)
+        call AddOutSGV(IOVars, "pot_corot"     , raiCpl%pot_corot     , doWriteMaskO=.true.)
+        call AddOutSGV(IOVars, "tscl_mhdIngest", raiCpl%tscl_mhdIngest, doWriteMaskO=.true.)
         call WriteVars(IOVars, .false., ResF)
         call MapSymLink(ResF,lnResF)
     end subroutine
@@ -347,22 +480,23 @@ module raijuCplHelper
         raiCpl%tLastUpdate = GetIOReal(IOVars, "tLastUpdate")
 
         ! ShellGridVars
-        call ReadInSGV(raiCpl%Pavg     ,ResF, "Pavg"     , doIOpO=.false.)
-        call ReadInSGV(raiCpl%Davg     ,ResF, "Davg"     , doIOpO=.false.)
-        call ReadInSGV(raiCpl%Pstd     ,ResF, "Pstd"     , doIOpO=.false.)
-        call ReadInSGV(raiCpl%Dstd     ,ResF, "Dstd"     , doIOpO=.false.)
-        call ReadInSGV(raiCpl%Bmin     ,ResF, "Bmin"     , doIOpO=.false.)
-        call ReadInSGV(raiCpl%xyzMin   ,ResF, "xyzMin"   , doIOpO=.false.)
-        call ReadInSGV(raiCpl%xyzMincc ,ResF, "xyzMincc" , doIOpO=.false.)
-        call ReadInSGV(raiCpl%topo     ,ResF, "topo"     , doIOpO=.false.)
-        call ReadInSGV(raiCpl%thcon    ,ResF, "thcon"    , doIOpO=.false.)
-        call ReadInSGV(raiCpl%phcon    ,ResF, "phcon"    , doIOpO=.false.)
-        call ReadInSGV(raiCpl%bvol     ,ResF, "bvol"     , doIOpO=.false.)
-        call ReadInSGV(raiCpl%bvol_cc  ,ResF, "bvol_cc"  , doIOpO=.false.)
-        call ReadInSGV(raiCpl%vaFrac   ,ResF, "vaFrac"   , doIOpO=.false.)
-        call ReadInSGV(raiCpl%Tb       ,ResF, "Tb"       , doIOpO=.false.)
-        call ReadInSGV(raiCpl%pot_total,ResF, "pot_total", doIOpO=.false.)
-        call ReadInSGV(raiCpl%pot_corot,ResF, "pot_corot", doIOpO=.false.)
+        call ReadInSGV(raiCpl%Pavg          ,ResF, "Pavg"          , doIOpO=.false.)
+        call ReadInSGV(raiCpl%Davg          ,ResF, "Davg"          , doIOpO=.false.)
+        call ReadInSGV(raiCpl%Pstd          ,ResF, "Pstd"          , doIOpO=.false.)
+        call ReadInSGV(raiCpl%Dstd          ,ResF, "Dstd"          , doIOpO=.false.)
+        call ReadInSGV(raiCpl%Bmin          ,ResF, "Bmin"          , doIOpO=.false.)
+        call ReadInSGV(raiCpl%xyzMin        ,ResF, "xyzMin"        , doIOpO=.false.)
+        call ReadInSGV(raiCpl%xyzMincc      ,ResF, "xyzMincc"      , doIOpO=.false.)
+        call ReadInSGV(raiCpl%topo          ,ResF, "topo"          , doIOpO=.false.)
+        call ReadInSGV(raiCpl%thcon         ,ResF, "thcon"         , doIOpO=.false.)
+        call ReadInSGV(raiCpl%phcon         ,ResF, "phcon"         , doIOpO=.false.)
+        call ReadInSGV(raiCpl%bvol          ,ResF, "bvol"          , doIOpO=.false.)
+        call ReadInSGV(raiCpl%bvol_cc       ,ResF, "bvol_cc"       , doIOpO=.false.)
+        call ReadInSGV(raiCpl%vaFrac        ,ResF, "vaFrac"        , doIOpO=.false.)
+        call ReadInSGV(raiCpl%Tb            ,ResF, "Tb"            , doIOpO=.false.)
+        call ReadInSGV(raiCpl%pot_total     ,ResF, "pot_total"     , doIOpO=.false.)
+        call ReadInSGV(raiCpl%pot_corot     ,ResF, "pot_corot"     , doIOpO=.false.)
+        call ReadInSGV(raiCpl%tscl_mhdIngest,ResF, "tscl_mhdIngest", doIOpO=.false.)
 
     end subroutine
 

@@ -78,6 +78,12 @@ module raijuOut
         State%IO%tRes = State%IO%tRes + State%IO%dtRes
         State%IO%nRes = State%IO%nRes + 1
 
+        ! Handle case where we are coupled to voltron and 5s ahead of everyone
+        ! 5s will accumulate in restart file even though we only ever stay 5s ahead
+        if (.not. Model%isSA .and. State%t > State%dt) then
+            State%t = State%t - State%dt  ! Current time - coupling time
+        endif
+
 
     end subroutine raijuResInput
 
