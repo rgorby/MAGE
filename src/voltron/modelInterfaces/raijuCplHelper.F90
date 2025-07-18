@@ -276,7 +276,7 @@ module raijuCplHelper
         !$OMP private(i,j,vaFrac_cc)
         do j=sh%jsg,sh%jeg
             do i=sh%isg,sh%ieg
-                if (tscl%mask(i,j) .eq. .true.) then
+                if (tscl%mask(i,j)) then
                     vaFrac_cc = 0.25*sum(State%vaFrac(i:i+1,j:j+1))
                     tscl%data(i,j) = raiCpl%raiApp%Model%nBounce*State%dt/(vaFrac_cc)**2 
                 endif
@@ -344,7 +344,7 @@ module raijuCplHelper
             !$OMP private(nGood, var_sum, ipnt, jpnt, L_center, L_pnt, dL_pnt)
             do j=sh%jsg,sh%jeg
                 do i=sh%isg,sh%ieg
-                    if (var%mask(i,j) .eq. .false.) then
+                    if (.not. var%mask(i,j)) then
                         cycle
                     endif
 
@@ -374,7 +374,7 @@ module raijuCplHelper
                             endif
 
                             ! Decide if we should include this point
-                            if (var%mask(ipnt,jpnt) .eq. .true. .and. dL_pnt < dL/2.0_rp) then
+                            if (var%mask(ipnt,jpnt) .and. (dL_pnt < dL/2.0_rp)) then
                                 nGood = nGood + 1
                                 var_sum = var_sum + var%data(ipnt,jpnt)
                             endif
@@ -392,7 +392,7 @@ module raijuCplHelper
                                 doIScan = .false.
                             endif
 
-                            if (var%mask(ipnt,jpnt) .eq. .true. .and. dL_pnt < dL/2.0_rp) then
+                            if (var%mask(ipnt,jpnt) .and. (dL_pnt < dL/2.0_rp)) then
                                 nGood = nGood + 1
                                 var_sum = var_sum + var%data(ipnt,jpnt)
                             endif
