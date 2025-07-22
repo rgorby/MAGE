@@ -443,7 +443,7 @@ module voltapp_mpi
 
             vApp%deepProcessingInProgress = .true.
             call Toc("DeepUpdate", .true.)
-        else
+         elseif(vApp%doDeep) then
             vApp%gApp%Grid%Gas0 = 0
             !Load TM03 into Gas0 for ingestion during spinup
             !Note: Using vApp%time instead of gamera time units
