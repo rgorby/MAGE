@@ -12,6 +12,59 @@ module tubehelper
 
     contains
 
+
+    subroutine init_TubeShell(sh, tubeShell, TioTeO)
+        type(ShellGrid_T), intent(in) :: sh
+            !! Voltron shellgrid
+        type(TubeShell_T), intent(inout) :: tubeShell
+            !! IMAGTubeShell object we are initializing
+        !logical, dimension(:,:), intent(in), optional :: maskO
+        real(rp), intent(in), optional :: TioteO
+            !! Default Ti/Te ratio
+
+        integer :: i
+        real(rp) :: tiote
+
+        if (present(TioteO)) then
+            tiote = TioteO
+        else 
+            tiote = 4.0
+        endif
+
+
+        do i=1,NDIM
+            call initShellVar(sh, SHGR_CORNER, tubeShell%xyz0(i))
+            call initShellVar(sh, SHGR_CORNER, tubeShell%X_bmin(i))
+        enddo
+        call initShellVar(sh, SHGR_CORNER, tubeShell%lat0   )
+        call initShellVar(sh, SHGR_CORNER, tubeShell%lon0   )
+        call initShellVar(sh, SHGR_CORNER, tubeShell%latc   )
+        call initShellVar(sh, SHGR_CORNER, tubeShell%lonc   )
+        call initShellVar(sh, SHGR_CORNER, tubeShell%invlat )
+        call initShellVar(sh, SHGR_CORNER, tubeShell%topo   )
+        call initShellVar(sh, SHGR_CORNER, tubeShell%bmin   )
+        call initShellVar(sh, SHGR_CORNER, tubeShell%bVol   )
+        call initShellVar(sh, SHGR_CORNER, tubeShell%Lb     )
+        call initShellVar(sh, SHGR_CORNER, tubeShell%Tb     )
+        call initShellVar(sh, SHGR_CORNER, tubeShell%wMAG   )
+        call initShellVar(sh, SHGR_CORNER, tubeShell%rCurv  )
+        call initShellVar(sh, SHGR_CORNER, tubeShell%avgBeta)
+        do i=0,MAXTUBEFLUIDS
+            call initShellVar(sh, SHGR_CORNER, tubeShell%avgP(i))
+            call initShellVar(sh, SHGR_CORNER, tubeShell%avgN(i))
+            call initShellVar(sh, SHGR_CORNER, tubeShell%stdP(i))
+            call initShellVar(sh, SHGR_CORNER, tubeShell%stdN(i))
+        enddo
+        call initShellVar(sh, SHGR_CORNER, tubeShell%losscone )
+        call initShellVar(sh, SHGR_CORNER, tubeShell%lossconec)
+        call initShellVar(sh, SHGR_CORNER, tubeShell%TioTe0   )
+        call initShellVar(sh, SHGR_CORNER, tubeShell%nTrc     )
+
+        tubeShell%TioTe0%data = tiote
+
+
+    end subroutine init_TubeShell
+
     subroutine FakeTube(P,xyz0,bTube)
         !! Given a seed xyz0 generate a fake tube that seems plausible
         type(planet_T), intent(in)  :: P

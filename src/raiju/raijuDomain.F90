@@ -34,6 +34,10 @@ module raijuDomain
             State%active = RAIJUACTIVE
         end where
 
+        ! HOWEVER...
+        ! Force all cells below X Re to be active, with enough buffer cells, and suffer the consequences if that includes bad flux tubes
+        call forceActiveWithinRadius(Model, Grid, State, State%active)
+
     end subroutine setActiveDomain
 
 
@@ -571,5 +575,34 @@ module raijuDomain
         enddo
 
     end subroutine calcCornerNormAngles
+
+
+    subroutine forceActiveWithinRadius(Model, Grid, State, active)
+        type(raijuModel_T), intent(in) :: Model
+        type(raijuGrid_T ), intent(in) :: Grid
+        type(raijuState_T), intent(in) :: State
+        integer, dimension(Grid%shGrid%isg:Grid%shGrid%ieg,Grid%shGrid%jsg:Grid%shGrid%jeg), intent(inout) :: active
+
+        integer :: i,j
+        real(rp) :: rad_next
+
+        do j=Grid%shGrid%jsg,Grid%shGrid%jeg
+            i = Grid%shGrid%ie
+            rad_next = sqrt(State%xyzMincc(i-1,j,XDIR)**2 + State%xyzMincc(i-1,j,YDIR)**2)
+            do while(rad_next < Model%activeDomRad)
+                i = i - 1
+                rad_next = sqrt(State%xyzMincc(i-1,j,XDIR)**2 + State%xyzMincc(i-1,j,YDIR)**2)
+            enddo
+            ! i is now the last cell in this j within activeDomRad
+            if (State%active(i,j) .ne. RAIJUACTIVE) then
+                ! Something bad happened, active domain is really small
+                ! Throw caution to the wind and make it active anyways, good luck everybody
+                active(i              :Grid%shGrid%ieg ,j) = RAIJUACTIVE
+                active(i-Grid%nB-1    :i-1             ,j) = RAIJUBUFFER
+                active(Grid%shGrid%isg:i-Grid%nB-2     ,j) = RAIJUINACTIVE
+            endif
+        enddo
+
+    end subroutine forceActiveWithinRadius
 
 end module raijuDomain

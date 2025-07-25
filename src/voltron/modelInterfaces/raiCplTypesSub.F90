@@ -134,6 +134,10 @@ submodule (volttypes) raijuCplTypesSub
         real(rp) :: active_interp
         real(rp) :: d_cold, t_cold, d_hot, p_hot
         real(rp) :: tScl, rampC
+        real(rp) :: wMHD,wRAI,alpha,beta,p_mhd
+
+        logical, parameter :: doWolf = .true.
+        real(rp), parameter :: wRAI0 = 0.5
 
         associate(Model=>App%raiApp%Model, State=>App%raiApp%State, sh=>App%raiApp%Grid%shGrid, spcList=>App%raiApp%Grid%spc)
 
@@ -179,22 +183,32 @@ submodule (volttypes) raijuCplTypesSub
             endif
         enddo
 
-        
-        call InterpShellVar_TSC_pnt(sh, State%Tb, th, ph, tScl)
-        tScl = Model%nBounce*tScl  ! [s]
-        !tScl = 10.0_rp  ! [s]
+        !Wolf-limit the pressure going back
+        if (doWolf) then
+            !You're sending the wolf? Shit, that's all you had to say
+            call InterpShellVar_TSC_pnt(App%shGr, App%avgBeta  , th, ph, beta )
+            call InterpShellVar_TSC_pnt(App%shGr, App%Pavg(BLK), th, ph, p_mhd) !MHD flux-tube averaged pressure (sum over all fluids)
+            alpha = 1.0 + beta*5.0/6.0
+            wRAI  = 1.0/alpha !Full wolf-limited weight
+            wRAI = max(wRAI,wRAI0) !Don't allow Raiju contribution to drop below wRCM0
+            call ClampValue(wRAI,0.0_rp,1.0_rp)
+            wMHD = 1 - wRAI ! = (alpha-1)/alpha w/o any clamping
+            imW(IM_P_RING) = imW(IM_P_RING)*wRAI + wMHD*p_mhd
+        endif
 
+        !call InterpShellVar_TSC_pnt(sh, State%Tb, th, ph, tScl)
+        !tScl = Model%nBounce*tScl  ! [s]
+        
         ! 1/(x)^4 for x from 1 to 0.5 goes from 1 to 16. Higher exponents means stronger ramp-up
-        !tScl = 15.0_rp/(App%vaFrac%data(i0,j0))**4  ! [s]
+        !tScl = 15.0_rp/(App%vaFrac%data(i0,j0))**2  ! [s]
+
+        call InterpShellVar_TSC_pnt(sh, App%tscl_mhdIngest, th, ph, tScl)
 
         ! Adjust IM_TSCL if we wanna ramp up over time
         if (t < App%startup_blendTscl) then
             rampC = RampDown(t, 0.0_rp, App%startup_blendTscl)
             !tScl = sqrt(tScl*App%startup_blendTscl)*rampC + (1-rampC)*tScl  ! idk
             tScl = rampC*30.0_rp*tScl + (1-rampC)*tScl  ! No good reason for 30 except for wanting starting tScl to be ~8-10 minutes
-            !if (th > 50*deg2rad .and. th < 55*deg2rad .and. ph > 130*deg2rad .and. ph < 150*deg2rad) then
-            !    write(*,*)"--",t,App%startup_blendTscl,rampC,tScl
-            !endif
         endif
         
         imW(IM_TSCL) = tScl
@@ -373,6 +387,8 @@ submodule (volttypes) raijuCplTypesSub
         real(rp), intent(in) :: dt
 
         call App%raiApp%AdvanceModel(dt)
+
+        call raiCpl_PostAdvance(App)
         App%raiApp%State%t = App%raiApp%State%t + dt
         App%raiApp%State%ts = App%raiApp%State%ts + 1
         App%raiApp%State%mjd = T2MJD(dt,App%raiApp%State%mjd)

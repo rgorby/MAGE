@@ -167,7 +167,6 @@ module mixmain
           call dragonking_total(I(h)%aurora,I(h)%G,I(h)%St,I(h)%conductance)
 
           if (present(gcm)) then
-            write(*,*) 'doGCM!'
             call conductance_total(I(h)%conductance,I(h)%G,I(h)%St,gcm,h)
           else
             !write(*,*) "conductance: total"

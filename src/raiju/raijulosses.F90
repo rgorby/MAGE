@@ -93,7 +93,7 @@ module raijulosses
         integer :: k
         logical, dimension(Grid%shGrid%isg:Grid%shGrid%ieg,Grid%shGrid%jsg:Grid%shGrid%jeg) :: isGood
 
-        where (State%active .eq. RAIJUACTIVE)
+        where (State%active .ne. RAIJUINACTIVE)
             isGood = .true.
         elsewhere
             isGood = .false.

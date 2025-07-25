@@ -245,6 +245,8 @@ module raijutypes
         real(rp) :: psphInitKp
         logical :: doPsphEvol
             !! Whether or not to actually evolve the plasmasphere
+        real(rp) :: psphEvolRad
+            !! [Rp] Radius below which plasmasphere is not evolved
         ! TODO: Extra params for refilling rate, determining initial profile, etc.
 
         ! Some constants
@@ -261,6 +263,8 @@ module raijutypes
             !! Maximum tailward extent of the active region
         real(rp) :: maxSun_active
             !! Maximum sunward extent of the active region
+        real(rp) :: activeDomRad
+            !! [Rp] Cells are forced to be active below this radius
 
         ! Active shell settings
         logical :: doActiveShell
@@ -389,6 +393,10 @@ module raijutypes
             !! Current coupling timestep and sub-stepping timestep
         type(IOClock_T) :: IO
             !! Timers for IO operations
+
+        ! I feel like philosophically this should be in Grid but that feels weird so its here
+        type(TimeSeries_T) :: KpTS
+            !! Kp timeseries from solar wind file
 
         ! -- Solver values -- !
         real(rp), dimension(:,:,:), allocatable :: eta
