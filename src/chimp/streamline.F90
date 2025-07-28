@@ -22,16 +22,13 @@ module streamline
 
         if (Model%isMAGE .and. (trim(toUpper(Model%uID)) == "EARTHCODE")) then
             !This is for Earth and we're running in tandem w/ mage
+            call inpXML%Set_Val(ShueScl,'streamshue/ShueScl' ,ShueScl)
+            call inpXML%Set_Val(rShue  ,'streamshue/rShue'   ,rShue  )
+            call inpXML%Set_Val(NpChk  ,'streamshue/NpChk'   ,NpChk  )
             call inpXML%Set_Val(doShueG,'streamshue/doShue' ,.false.)
-
-            if (doShueG) then
-                !Setup shue for short-circuiting
-                write(*,*) "Initializing SHUE-MP checking ..."
-                call inpXML%Set_Val(ShueScl,'streamshue/ShueScl' ,ShueScl)
-                call inpXML%Set_Val(rShue  ,'streamshue/rShue'   ,rShue  )
-                call inpXML%Set_Val(NpChk  ,'streamshue/NpChk'   ,NpChk  )
-            endif
+            if (doShueG) write(*,*) "Initializing SHUE-MP checking ..."
         else
+            rShue = HUGE
             doShueG = .false.
         endif
 

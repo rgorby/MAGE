@@ -719,7 +719,7 @@ module voltapp
         call inpXML%Set_Val(Model%epsds,'tracer/epsds',1.0e-2)    
         call setBackground(Model,inpXML)
         call inpXML%Set_Val(Model%doDip,'tracer/doDip',.false.)
-        call setShue(Model,inpXML)
+        call setStreamline(Model,inpXML)
         
         !Initialize ebState
         if (gApp%Model%doMultiF) then
