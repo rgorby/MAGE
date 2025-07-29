@@ -49,7 +49,7 @@ def create_command_line_parser():
         help="Run full suite of comparative tests (over-rides --compTests) (default: %(default)s)."
     )
     parser.add_argument(
-        "--buildTest",  action='store_true',default=False,
+        "--buildTests",  action='store_true',default=False,
         help="Run build tests (default: %(default)s)."
     )
     parser.add_argument(
@@ -57,12 +57,8 @@ def create_command_line_parser():
         help="Run tests to build Initial Condition files (default: %(default)s)."
     )
     parser.add_argument(
-        "--memCheck",  action='store_true',default=False,
-        help="Run memory check test (default: %(default)s)."
-    )
-    parser.add_argument(
-        "--threadCheck",  action='store_true',default=False,
-        help="Run thread check test (default: %(default)s)."
+        "--intelChecks",  action='store_true',default=False,
+        help="Run Intel Inspector memory and thread check tests (default: %(default)s)."
     )
     
     parser.add_argument(
@@ -129,10 +125,9 @@ def main():
         args.weeklyDash = True
         args.compTests = True
         args.compTestsFull = True
-        args.buildTest = True
+        args.buildTests = True
         args.icTests = True
-        args.memCheck = True
-        args.threadCheck = True
+        args.intelChecks = True
     
     if args.compTestsFull:
         args.compTests = False
@@ -142,21 +137,23 @@ def main():
         print("Running unit tests")
         subprocess.call(['python', os.path.join(os.environ['MAGE_TEST_ROOT'],'testingScripts','unitTest.py'),'-tv'])
     if args.weeklyDash:
-        print("Weekly dash not yet supported")
+        print("Running weekly dash")
+        subprocess.call(['python', os.path.join(os.environ['MAGE_TEST_ROOT'],'testingScripts','weeklyDash.py'),'-tv'])
     if args.compTests:
         print("Running default comparative tests subset")
         subprocess.call(['python', os.path.join(os.environ['MAGE_TEST_ROOT'],'testingScripts','relativeTests.py'),'-tv'])
     if args.compTestsFull:
         print("Running full comparative tests")
         subprocess.call(['python', os.path.join(os.environ['MAGE_TEST_ROOT'],'testingScripts','relativeTests.py'),'-tva'])
-    if args.buildTest:
-        print("Build test not yet supported")
+    if args.buildTests:
+        print("Running build tests")
+        subprocess.call(['python', os.path.join(os.environ['MAGE_TEST_ROOT'],'testingScripts','buildTest.py'),'-tv'])
     if args.icTests:
-        print("Initial Condition tests not yet supported")
-    if args.memCheck:
-        print("Memory check test not yet supported")
-    if args.threadCheck:
-        print("Thread check test not yet supported")
+        print("Running Initial Condition tests")
+        subprocess.call(['python', os.path.join(os.environ['MAGE_TEST_ROOT'],'testingScripts','ICtest.py'),'-tv'])
+    if args.intelChecks:
+        print("Running memory and thread tests")
+        subprocess.call(['python', os.path.join(os.environ['MAGE_TEST_ROOT'],'testingScripts','intelChecks.py'),'-tv'])
 
 if __name__ == "__main__":
     main()
