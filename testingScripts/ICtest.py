@@ -42,11 +42,11 @@ import common
 DESCRIPTION = 'Script for MAGE initial condition build testing'
 
 # Root of directory tree for this set of tests.
-MAGE_TEST_SET_ROOT = os.environ['MAGE_TEST_SET_ROOT']
+KAIJU_TEST_SET_ROOT = os.environ['KAIJU_TEST_SET_ROOT']
 
 # Directory for initial condition build tests
 INITIAL_CONDITION_BUILD_TEST_DIRECTORY = os.path.join(
-    MAGE_TEST_SET_ROOT, 'ICtest'
+    KAIJU_TEST_SET_ROOT, 'ICtest'
 )
 
 # Home directory of kaiju installation
