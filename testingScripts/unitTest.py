@@ -16,25 +16,14 @@ jinja2 template.
 1. genTestData.pbs - Data generation. Runs in about 10 minutes on 5 derecho
    nodes. Output in PBS job file genTestData.o*, and cmiD_deep_8_genRes.out.
 
-2. runCaseTests.pbs - Runs in about 35 minutes on 1 derecho node. Only runs if
+2. runCaseTests.pbs - Runs in about 20 minutes on 1 derecho node. Only runs if
    genTestData.pbs completes successfully. Output in PBS log file
    runCaseTests.o*, caseTests.out, and caseMpiTests.out.
 
-3. runNonCaseTests1.pbs - Runs in about 2 minutes on 1 derecho node. Only runs
+3. runNonCaseTests1.pbs - Runs in about 3 minutes on 1 derecho node. Only runs
    if genTestData.pbs completes successfully. Output in PBS log file
    runNonCaseTests1.o*, gamTests.out, mixTests.out, voltTests.out,
    baseMpiTests.out, gamMpiTests.out. shgrTests.out.
-   NOTE: As of 2024-08-22, voltTests.out will contain errors like this when
-   run on the development branch:
-
-   ...
-   [testebsquish.pf:151]
-   Squish Fake Projection Latitude value is wrong. Check Squish Processing and Output.
-   AssertEqual failure:
-         Expected: <147591.2572518899>
-           Actual: <143412.6753716097>
-       Difference: <-4178.581880280253> (greater than tolerance of .1000000000000000E-06)
-   ...
 
 4. runNonCaseTests2.pbs - Runs in about XX minutes on 2 derecho nodes. Only
    runs if genTestData.pbs completes successfully. Output in PBS log file
@@ -52,7 +41,6 @@ Authors
 -------
 Jeff Garretson
 Eric Winter
-
 """
 
 
@@ -131,18 +119,18 @@ UNIT_TEST_SCRIPTS_DIRECTORY = os.path.join(KAIJUHOME, "tests")
 DATA_GENERATION_PBS_TEMPLATE = os.path.join(
     UNIT_TEST_SCRIPTS_DIRECTORY, "genTestData-template.pbs"
 )
-# RUN_CASE_TESTS_PBS_TEMPLATE = os.path.join(
-#     UNIT_TEST_SCRIPTS_DIRECTORY, "runCaseTests-template.pbs"
-# )
-# RUN_NON_CASE_TESTS_1_PBS_TEMPLATE = os.path.join(
-#     UNIT_TEST_SCRIPTS_DIRECTORY, "runNonCaseTests1-template.pbs"
-# )
-# RUN_NON_CASE_TESTS_2_PBS_TEMPLATE = os.path.join(
-#     UNIT_TEST_SCRIPTS_DIRECTORY, "runNonCaseTests2-template.pbs"
-# )
-# UNIT_TEST_REPORT_PBS_TEMPLATE = os.path.join(
-#     UNIT_TEST_SCRIPTS_DIRECTORY, "unitTestReport-template.pbs"
-# )
+RUN_CASE_TESTS_PBS_TEMPLATE = os.path.join(
+    UNIT_TEST_SCRIPTS_DIRECTORY, "runCaseTests-template.pbs"
+)
+RUN_NON_CASE_TESTS_1_PBS_TEMPLATE = os.path.join(
+    UNIT_TEST_SCRIPTS_DIRECTORY, "runNonCaseTests1-template.pbs"
+)
+RUN_NON_CASE_TESTS_2_PBS_TEMPLATE = os.path.join(
+    UNIT_TEST_SCRIPTS_DIRECTORY, "runNonCaseTests2-template.pbs"
+)
+UNIT_TEST_REPORT_PBS_TEMPLATE = os.path.join(
+    UNIT_TEST_SCRIPTS_DIRECTORY, "unitTestReport-template.pbs"
+)
 
 # Prefix for naming unit test directories
 UNIT_TEST_DIRECTORY_PREFIX = "unitTest_"
@@ -162,16 +150,16 @@ UNIT_TEST_DATA_INPUT_FILES = [
 
 # Names of PBS scripts to create from templates.
 DATA_GENERATION_PBS_SCRIPT = "genTestData.pbs"
-# RUN_CASE_TESTS_PBS_SCRIPT = "runCaseTests.pbs"
-# RUN_NON_CASE_TESTS_1_PBS_SCRIPT = "runNonCaseTests1.pbs"
-# RUN_NON_CASE_TESTS_2_PBS_SCRIPT = "runNonCaseTests2.pbs"
-# UNIT_TEST_REPORT_PBS_SCRIPT = "unitTestReport.pbs"
+RUN_CASE_TESTS_PBS_SCRIPT = "runCaseTests.pbs"
+RUN_NON_CASE_TESTS_1_PBS_SCRIPT = "runNonCaseTests1.pbs"
+RUN_NON_CASE_TESTS_2_PBS_SCRIPT = "runNonCaseTests2.pbs"
+UNIT_TEST_REPORT_PBS_SCRIPT = "unitTestReport.pbs"
 
-# # Branch or commit (or tag) used for testing.
-# BRANCH_OR_COMMIT = os.environ["BRANCH_OR_COMMIT"]
+# Branch or commit (or tag) used for testing.
+BRANCH_OR_COMMIT = os.environ["BRANCH_OR_COMMIT"]
 
-# # Name of file to hold job list.
-# JOB_LIST_FILE = "jobs.txt"
+# Name of file to hold job list.
+JOB_LIST_FILE = "jobs.txt"
 
 
 def create_command_line_parser():
@@ -220,9 +208,9 @@ def unitTest(args: dict = None):
     # Set missing arguments to defaults.
     args = args_default | args
     debug = args["debug"]
-    # loud = args["loud"]
-    # slack_on_fail = args["slack_on_fail"]
-    # test = args["test"]
+    loud = args["loud"]
+    slack_on_fail = args["slack_on_fail"]
+    test = args["test"]
     verbose = args["verbose"]
 
     # ------------------------------------------------------------------------
@@ -275,33 +263,33 @@ def unitTest(args: dict = None):
     if debug:
         print(f"{data_generation_pbs_template=}")
 
-#     # Read the template for the PBS script used for the case tests.
-#     with open(RUN_CASE_TESTS_PBS_TEMPLATE, "r", encoding="utf-8") as f:
-#         template_content = f.read()
-#     run_case_tests_pbs_template = Template(template_content)
-#     if debug:
-#         print(f"{run_case_tests_pbs_template=}")
+    # Read the template for the PBS script used for the case tests.
+    with open(RUN_CASE_TESTS_PBS_TEMPLATE, "r", encoding="utf-8") as f:
+        template_content = f.read()
+    run_case_tests_pbs_template = Template(template_content)
+    if debug:
+        print(f"{run_case_tests_pbs_template=}")
 
-#     # Read the template for the PBS script used for the 1st non-case tests.
-#     with open(RUN_NON_CASE_TESTS_1_PBS_TEMPLATE, "r", encoding="utf-8") as f:
-#         template_content = f.read()
-#     run_non_case_tests_1_pbs_template = Template(template_content)
-#     if debug:
-#         print(f"{run_non_case_tests_1_pbs_template=}")
+    # Read the template for the PBS script used for the 1st non-case tests.
+    with open(RUN_NON_CASE_TESTS_1_PBS_TEMPLATE, "r", encoding="utf-8") as f:
+        template_content = f.read()
+    run_non_case_tests_1_pbs_template = Template(template_content)
+    if debug:
+        print(f"{run_non_case_tests_1_pbs_template=}")
 
-#     # Read the template for the PBS script used for the 2nd non-case tests.
-#     with open(RUN_NON_CASE_TESTS_2_PBS_TEMPLATE, "r", encoding="utf-8") as f:
-#         template_content = f.read()
-#     run_non_case_tests_2_pbs_template = Template(template_content)
-#     if debug:
-#         print(f"{run_non_case_tests_2_pbs_template=}")
+    # Read the template for the PBS script used for the 2nd non-case tests.
+    with open(RUN_NON_CASE_TESTS_2_PBS_TEMPLATE, "r", encoding="utf-8") as f:
+        template_content = f.read()
+    run_non_case_tests_2_pbs_template = Template(template_content)
+    if debug:
+        print(f"{run_non_case_tests_2_pbs_template=}")
 
-#     # Read the template for the PBS script used for report generation.
-#     with open(UNIT_TEST_REPORT_PBS_TEMPLATE, "r", encoding="utf-8") as f:
-#         template_content = f.read()
-#     unit_test_report_pbs_template = Template(template_content)
-#     if debug:
-#         print(f"{unit_test_report_pbs_template=}")
+    # Read the template for the PBS script used for report generation.
+    with open(UNIT_TEST_REPORT_PBS_TEMPLATE, "r", encoding="utf-8") as f:
+        template_content = f.read()
+    unit_test_report_pbs_template = Template(template_content)
+    if debug:
+        print(f"{unit_test_report_pbs_template=}")
 
     # ------------------------------------------------------------------------
 
@@ -432,7 +420,7 @@ def unitTest(args: dict = None):
         pbs_options["modules"] = module_names
         pbs_options["conda_environment"] = os.environ["CONDA_ENVIRONMENT"]
         pbs_options["kaijuhome"] = KAIJUHOME
-        # pbs_options["branch_or_commit"] = BRANCH_OR_COMMIT
+        pbs_options["branch_or_commit"] = BRANCH_OR_COMMIT
 
         # Go to the bin directory for testing.
         if verbose:
@@ -485,245 +473,245 @@ def unitTest(args: dict = None):
 
         # --------------------------------------------------------------------
 
-#         # Set options specific to the case tests job, then render the
-#         # template.
-#         pbs_options["job_name"] = "runCaseTests"
-#         pbs_options["walltime"] = "00:40:00"
-#         pbs_content = run_case_tests_pbs_template.render(pbs_options)
-#         if verbose:
-#             print(f"Creating {RUN_CASE_TESTS_PBS_SCRIPT}.")
-#         with open(RUN_CASE_TESTS_PBS_SCRIPT, "w", encoding="utf-8") as f:
-#             f.write(pbs_content)
+        # Set options specific to the case tests job, then render the
+        # template.
+        pbs_options["job_name"] = "runCaseTests"
+        pbs_options["walltime"] = "00:40:00"
+        pbs_content = run_case_tests_pbs_template.render(pbs_options)
+        if verbose:
+            print(f"Creating {RUN_CASE_TESTS_PBS_SCRIPT}.")
+        with open(RUN_CASE_TESTS_PBS_SCRIPT, "w", encoding="utf-8") as f:
+            f.write(pbs_content)
 
-#         # Run the case tests job if data was generated.
-#         cmd = (
-#             f"qsub -W depend=afterok:{job_ids[i_module_set][0]} "
-#             f"{RUN_CASE_TESTS_PBS_SCRIPT}"
-#         )
-#         if debug:
-#             print(f"{cmd=}")
-#         try:
-#             cproc = subprocess.run(cmd, shell=True, check=True,
-#                                    text=True, capture_output=True)
-#         except subprocess.CalledProcessError as e:
-#             print("ERROR: qsub failed.\n"
-#                   f"e.cmd = {e.cmd}\n"
-#                   f"e.returncode = {e.returncode}\n"
-#                   "See test log for output.\n"
-#                   "Skipping remaining steps for module set "
-#                   f"{module_set_name}.",
-#                   file=sys.stderr)
-#             continue
-#         job_id = cproc.stdout.split(".")[0]
-#         if debug:
-#             print(f"{job_id=}")
-#         job_ids[i_module_set][1] = job_id
+        # Run the case tests job if data was generated.
+        cmd = (
+            f"qsub -W depend=afterok:{job_ids[i_module_set][0]} "
+            f"{RUN_CASE_TESTS_PBS_SCRIPT}"
+        )
+        if debug:
+            print(f"{cmd=}")
+        try:
+            cproc = subprocess.run(cmd, shell=True, check=True,
+                                   text=True, capture_output=True)
+        except subprocess.CalledProcessError as e:
+            print("ERROR: qsub failed.\n"
+                  f"e.cmd = {e.cmd}\n"
+                  f"e.returncode = {e.returncode}\n"
+                  "See test log for output.\n"
+                  "Skipping remaining steps for module set "
+                  f"{module_set_name}.",
+                  file=sys.stderr)
+            continue
+        job_id = cproc.stdout.split(".")[0]
+        if debug:
+            print(f"{job_id=}")
+        job_ids[i_module_set][1] = job_id
 
-#         # --------------------------------------------------------------------
+        # --------------------------------------------------------------------
 
-#         # Set options specific to the 1st non-case tests job, then render the
-#         # template.
-#         pbs_options["job_name"] = "runNonCaseTests1"
-#         pbs_options["walltime"] = "00:05:00"
-#         if verbose:
-#             print(f"Creating {RUN_NON_CASE_TESTS_1_PBS_SCRIPT}.")
-#         pbs_content = run_non_case_tests_1_pbs_template.render(pbs_options)
-#         with open(RUN_NON_CASE_TESTS_1_PBS_SCRIPT, "w", encoding="utf-8") as f:
-#             f.write(pbs_content)
+        # Set options specific to the 1st non-case tests job, then render the
+        # template.
+        pbs_options["job_name"] = "runNonCaseTests1"
+        pbs_options["walltime"] = "00:05:00"
+        if verbose:
+            print(f"Creating {RUN_NON_CASE_TESTS_1_PBS_SCRIPT}.")
+        pbs_content = run_non_case_tests_1_pbs_template.render(pbs_options)
+        with open(RUN_NON_CASE_TESTS_1_PBS_SCRIPT, "w", encoding="utf-8") as f:
+            f.write(pbs_content)
 
-#         # Run the 1st non-case tests job if data was generated.
-#         cmd = (
-#             f"qsub -W depend=afterok:{job_ids[i_module_set][0]} "
-#             f"{RUN_NON_CASE_TESTS_1_PBS_SCRIPT}"
-#         )
-#         if debug:
-#             print(f"{cmd=}")
-#         try:
-#             cproc = subprocess.run(cmd, shell=True, check=True,
-#                                    text=True, capture_output=True)
-#         except subprocess.CalledProcessError as e:
-#             print("ERROR: qsub failed.\n"
-#                   f"e.cmd = {e.cmd}\n"
-#                   f"e.returncode = {e.returncode}\n"
-#                   "See test log for output.\n"
-#                   "Skipping remaining steps for module set "
-#                   f"{module_set_name}.",
-#                   file=sys.stderr)
-#             continue
-#         job_id = cproc.stdout.split(".")[0]
-#         if debug:
-#             print(f"{job_id=}")
-#         job_ids[i_module_set][2] = job_id
+        # Run the 1st non-case tests job if data was generated.
+        cmd = (
+            f"qsub -W depend=afterok:{job_ids[i_module_set][0]} "
+            f"{RUN_NON_CASE_TESTS_1_PBS_SCRIPT}"
+        )
+        if debug:
+            print(f"{cmd=}")
+        try:
+            cproc = subprocess.run(cmd, shell=True, check=True,
+                                   text=True, capture_output=True)
+        except subprocess.CalledProcessError as e:
+            print("ERROR: qsub failed.\n"
+                  f"e.cmd = {e.cmd}\n"
+                  f"e.returncode = {e.returncode}\n"
+                  "See test log for output.\n"
+                  "Skipping remaining steps for module set "
+                  f"{module_set_name}.",
+                  file=sys.stderr)
+            continue
+        job_id = cproc.stdout.split(".")[0]
+        if debug:
+            print(f"{job_id=}")
+        job_ids[i_module_set][2] = job_id
 
-#         # --------------------------------------------------------------------
+        # --------------------------------------------------------------------
 
-#         # Set options specific to the 2nd non-case tests job, then render the
-#         # template.
-#         pbs_options["job_name"] = "runNonCaseTests2"
-#         pbs_options["walltime"] = "12:00:00"
-#         pbs_content = run_non_case_tests_2_pbs_template.render(pbs_options)
-#         with open(RUN_NON_CASE_TESTS_2_PBS_SCRIPT, "w", encoding="utf-8") as f:
-#             f.write(pbs_content)
+        # Set options specific to the 2nd non-case tests job, then render the
+        # template.
+        pbs_options["job_name"] = "runNonCaseTests2"
+        pbs_options["walltime"] = "12:00:00"
+        pbs_content = run_non_case_tests_2_pbs_template.render(pbs_options)
+        with open(RUN_NON_CASE_TESTS_2_PBS_SCRIPT, "w", encoding="utf-8") as f:
+            f.write(pbs_content)
 
-#         # Run the 2nd non-case tests job if data was generated.
-#         cmd = (
-#             f"qsub -W depend=afterok:{job_ids[i_module_set][0]} "
-#             f"{RUN_NON_CASE_TESTS_2_PBS_SCRIPT}"
-#         )
-#         if debug:
-#             print(f"{cmd=}")
-#         try:
-#             cproc = subprocess.run(cmd, shell=True, check=True,
-#                                    text=True, capture_output=True)
-#         except subprocess.CalledProcessError as e:
-#             print("ERROR: qsub failed.\n"
-#                   f"e.cmd = {e.cmd}\n"
-#                   f"e.returncode = {e.returncode}\n"
-#                   "See test log for output.\n"
-#                   "Skipping remaining steps for module set "
-#                   f"{module_set_name}.",
-#                   file=sys.stderr)
-#             continue
-#         job_id = cproc.stdout.split(".")[0]
-#         if debug:
-#             print(f"{job_id=}")
-#         job_ids[i_module_set][3] = job_id
+        # Run the 2nd non-case tests job if data was generated.
+        cmd = (
+            f"qsub -W depend=afterok:{job_ids[i_module_set][0]} "
+            f"{RUN_NON_CASE_TESTS_2_PBS_SCRIPT}"
+        )
+        if debug:
+            print(f"{cmd=}")
+        try:
+            cproc = subprocess.run(cmd, shell=True, check=True,
+                                   text=True, capture_output=True)
+        except subprocess.CalledProcessError as e:
+            print("ERROR: qsub failed.\n"
+                  f"e.cmd = {e.cmd}\n"
+                  f"e.returncode = {e.returncode}\n"
+                  "See test log for output.\n"
+                  "Skipping remaining steps for module set "
+                  f"{module_set_name}.",
+                  file=sys.stderr)
+            continue
+        job_id = cproc.stdout.split(".")[0]
+        if debug:
+            print(f"{job_id=}")
+        job_ids[i_module_set][3] = job_id
 
-#         # --------------------------------------------------------------------
+        # --------------------------------------------------------------------
 
-#         # Set options specific to the report generation job, then render the
-#         # template.
-#         pbs_options["job_name"] = "unitTestReport"
-#         pbs_options["walltime"] = "00:10:00"
-#         pbs_options["slack_bot_token"] = os.environ["SLACK_BOT_TOKEN"]
-#         pbs_options["kaiju_test_root"] = KAIJU_TEST_ROOT
-#         pbs_options["kaiju_test_set_root"] = os.environ["KAIJU_TEST_SET_ROOT"]
-#         pbs_options["report_options"] = ""
-#         if debug:
-#             pbs_options["report_options"] += " -d"
-#         if be_loud:
-#             pbs_options["report_options"] += " -l"
-#         if slack_on_fail:
-#             pbs_options["report_options"] += " -s"
-#         if is_test:
-#             pbs_options["report_options"] += " -t"
-#         if verbose:
-#             pbs_options["report_options"] += " -v"
-#         pbs_content = unit_test_report_pbs_template.render(pbs_options)
-#         with open(UNIT_TEST_REPORT_PBS_SCRIPT, "w", encoding="utf-8") as f:
-#             f.write(pbs_content)
+        # Set options specific to the report generation job, then render the
+        # template.
+        pbs_options["job_name"] = "unitTestReport"
+        pbs_options["walltime"] = "00:10:00"
+        pbs_options["slack_bot_token"] = os.environ["SLACK_BOT_TOKEN"]
+        pbs_options["kaiju_test_root"] = KAIJU_TEST_ROOT
+        pbs_options["kaiju_test_set_root"] = os.environ["KAIJU_TEST_SET_ROOT"]
+        pbs_options["report_options"] = ""
+        if debug:
+            pbs_options["report_options"] += " -d"
+        if loud:
+            pbs_options["report_options"] += " -l"
+        if slack_on_fail:
+            pbs_options["report_options"] += " -s"
+        if test:
+            pbs_options["report_options"] += " -t"
+        if verbose:
+            pbs_options["report_options"] += " -v"
+        pbs_content = unit_test_report_pbs_template.render(pbs_options)
+        with open(UNIT_TEST_REPORT_PBS_SCRIPT, "w", encoding="utf-8") as f:
+            f.write(pbs_content)
 
-#         # Run the report generation job if all others ran OK.
-#         cmd = (
-#             f"qsub -W depend=afterok:{':'.join(job_ids[i_module_set][1:4])} "
-#             f"{UNIT_TEST_REPORT_PBS_SCRIPT}"
-#         )
-#         if debug:
-#             print(f"{cmd=}")
-#         try:
-#             cproc = subprocess.run(cmd, shell=True, check=True,
-#                                    text=True, capture_output=True)
-#         except subprocess.CalledProcessError as e:
-#             print("ERROR: qsub failed.\n"
-#                   f"e.cmd = {e.cmd}\n"
-#                   f"e.returncode = {e.returncode}\n"
-#                   "See test log for output.\n"
-#                   "Skipping remaining steps for module set "
-#                   f"{module_set_name}.",
-#                   file=sys.stderr)
-#             continue
-#         job_id = cproc.stdout.split(".")[0]
-#         if debug:
-#             print(f"{job_id=}")
-#         job_ids[i_module_set][4] = job_id
+        # Run the report generation job if all others ran OK.
+        cmd = (
+            f"qsub -W depend=afterok:{':'.join(job_ids[i_module_set][1:4])} "
+            f"{UNIT_TEST_REPORT_PBS_SCRIPT}"
+        )
+        if debug:
+            print(f"{cmd=}")
+        try:
+            cproc = subprocess.run(cmd, shell=True, check=True,
+                                   text=True, capture_output=True)
+        except subprocess.CalledProcessError as e:
+            print("ERROR: qsub failed.\n"
+                  f"e.cmd = {e.cmd}\n"
+                  f"e.returncode = {e.returncode}\n"
+                  "See test log for output.\n"
+                  "Skipping remaining steps for module set "
+                  f"{module_set_name}.",
+                  file=sys.stderr)
+            continue
+        job_id = cproc.stdout.split(".")[0]
+        if debug:
+            print(f"{job_id=}")
+        job_ids[i_module_set][4] = job_id
 
-#         # --------------------------------------------------------------------
+        # --------------------------------------------------------------------
 
-#         # Record the job IDs for this module set in a file.
-#         if verbose:
-#             print(f"Saving job IDs for module set {module_set_name} "
-#                   f"in {JOB_LIST_FILE}.")
-#         with open(JOB_LIST_FILE, "w", encoding="utf-8") as f:
-#             for job_id in job_ids[i_module_set]:
-#                 f.write(f"{job_id}\n")
+        # Record the job IDs for this module set in a file.
+        if verbose:
+            print(f"Saving job IDs for module set {module_set_name} "
+                  f"in {JOB_LIST_FILE}.")
+        with open(JOB_LIST_FILE, "w", encoding="utf-8") as f:
+            for job_id in job_ids[i_module_set]:
+                f.write(f"{job_id}\n")
 
-#         # This module set worked.
-#         submit_ok[i_module_set] = True
+        # This module set worked.
+        submit_ok[i_module_set] = True
 
-#     # End of loop over module sets
-#     if debug:
-#         print(f"{submit_ok=}")
-#         print(f"{job_ids=}")
+    # End of loop over module sets
+    if debug:
+        print(f"{submit_ok=}")
+        print(f"{job_ids=}")
 
-#     # ------------------------------------------------------------------------
+    # ------------------------------------------------------------------------
 
-#     # Detail the test results
-#     test_report_details_string = ""
-#     test_report_details_string += (
-#         f"Test results are on `derecho` in `{UNIT_TEST_DIRECTORY}`.\n"
-#     )
-#     for (i_module_set, module_list_file) in enumerate(module_list_files):
-#         if not submit_ok[i_module_set]:
-#             test_report_details_string += (
-#                 f"Module set `{module_list_file}`: *FAILED*"
-#             )
-#             continue
-#         test_report_details_string += (
-#             f"`{DATA_GENERATION_PBS_SCRIPT}` for module set "
-#             f"`{module_list_file}` submitted as PBS job "
-#             f"{job_ids[i_module_set][0]}.\n"
-#         )
-#         test_report_details_string += (
-#             f"`{RUN_CASE_TESTS_PBS_SCRIPT}` for module set "
-#             f"`{module_list_file}` submitted as PBS job "
-#             f"{job_ids[i_module_set][1]}.\n"
-#         )
-#         test_report_details_string += (
-#             f"`{RUN_NON_CASE_TESTS_1_PBS_SCRIPT}` for module set "
-#             f"`{module_list_file}` submitted as PBS job "
-#             f"{job_ids[i_module_set][2]}.\n"
-#         )
-#         test_report_details_string += (
-#             f"`{RUN_NON_CASE_TESTS_2_PBS_SCRIPT}` for module set "
-#             f"`{module_list_file}` submitted as PBS job "
-#             f"{job_ids[i_module_set][3]}.\n"
-#         )
-#         test_report_details_string += (
-#             f"`{UNIT_TEST_REPORT_PBS_SCRIPT}` for module set "
-#             f"`{module_list_file}` submitted as PBS job "
-#             f"{job_ids[i_module_set][4]}.\n"
-#         )
+    # Detail the test results
+    test_report_details_string = ""
+    test_report_details_string += (
+        f"Test results are on `derecho` in `{UNIT_TEST_DIRECTORY}`.\n"
+    )
+    for (i_module_set, module_list_file) in enumerate(module_list_files):
+        if not submit_ok[i_module_set]:
+            test_report_details_string += (
+                f"Module set `{module_list_file}`: *FAILED*"
+            )
+            continue
+        test_report_details_string += (
+            f"`{DATA_GENERATION_PBS_SCRIPT}` for module set "
+            f"`{module_list_file}` submitted as PBS job "
+            f"{job_ids[i_module_set][0]}.\n"
+        )
+        test_report_details_string += (
+            f"`{RUN_CASE_TESTS_PBS_SCRIPT}` for module set "
+            f"`{module_list_file}` submitted as PBS job "
+            f"{job_ids[i_module_set][1]}.\n"
+        )
+        test_report_details_string += (
+            f"`{RUN_NON_CASE_TESTS_1_PBS_SCRIPT}` for module set "
+            f"`{module_list_file}` submitted as PBS job "
+            f"{job_ids[i_module_set][2]}.\n"
+        )
+        test_report_details_string += (
+            f"`{RUN_NON_CASE_TESTS_2_PBS_SCRIPT}` for module set "
+            f"`{module_list_file}` submitted as PBS job "
+            f"{job_ids[i_module_set][3]}.\n"
+        )
+        test_report_details_string += (
+            f"`{UNIT_TEST_REPORT_PBS_SCRIPT}` for module set "
+            f"`{module_list_file}` submitted as PBS job "
+            f"{job_ids[i_module_set][4]}.\n"
+        )
 
-#     # Summarize the test results
-#     test_report_summary_string = (
-#         f"Unit test submission for `{os.environ['BRANCH_OR_COMMIT']}`: "
-#     )
-#     if "FAILED" in test_report_details_string:
-#         test_report_summary_string += "*FAILED*"
-#     else:
-#         test_report_summary_string += "*PASSED*"
+    # Summarize the test results
+    test_report_summary_string = (
+        f"Unit test submission for `{os.environ['BRANCH_OR_COMMIT']}`: "
+    )
+    if "FAILED" in test_report_details_string:
+        test_report_summary_string += "*FAILED*"
+    else:
+        test_report_summary_string += "*PASSED*"
 
-#     # Print the test results summary and details.
-#     print(test_report_summary_string)
-#     print(test_report_details_string)
+    # Print the test results summary and details.
+    print(test_report_summary_string)
+    print(test_report_details_string)
 
-#     # If a test failed, or loud mode is on, post report to Slack.
-#     if (slack_on_fail and "FAILED" in test_report_details_string) or be_loud:
-#         slack_client = common.slack_create_client()
-#         if debug:
-#             print(f"{slack_client=}")
-#         slack_response_summary = common.slack_send_message(
-#             slack_client, test_report_summary_string, is_test=is_test
-#         )
-#         if debug:
-#             print(f"slack_{slack_response_summary=}")
-#         thread_ts = slack_response_summary["ts"]
-#         slack_response_summary = common.slack_send_message(
-#             slack_client, test_report_details_string, thread_ts=thread_ts,
-#             is_test=is_test
-#         )
-#         if debug:
-#             print(f"{slack_response_summary=}")
+    # If a test failed, or loud mode is on, post report to Slack.
+    if (slack_on_fail and "FAILED" in test_report_details_string) or loud:
+        slack_client = common.slack_create_client()
+        if debug:
+            print(f"{slack_client=}")
+        slack_response_summary = common.slack_send_message(
+            slack_client, test_report_summary_string, is_test=test
+        )
+        if debug:
+            print(f"slack_{slack_response_summary=}")
+        thread_ts = slack_response_summary["ts"]
+        slack_response_summary = common.slack_send_message(
+            slack_client, test_report_details_string, thread_ts=thread_ts,
+            is_test=test
+        )
+        if debug:
+            print(f"{slack_response_summary=}")
 
     # ------------------------------------------------------------------------
 

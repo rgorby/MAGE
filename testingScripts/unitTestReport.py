@@ -34,10 +34,10 @@ import common
 DESCRIPTION = 'Report on the MAGE Fortran unit test results.'
 
 # Root of directory tree for this set of tests.
-MAGE_TEST_SET_ROOT = os.environ['MAGE_TEST_SET_ROOT']
+KAIJU_TEST_SET_ROOT = os.environ['KAIJU_TEST_SET_ROOT']
 
 # Directory for unit tests
-UNIT_TEST_DIRECTORY = os.path.join(MAGE_TEST_SET_ROOT, 'unitTest')
+UNIT_TEST_DIRECTORY = os.path.join(KAIJU_TEST_SET_ROOT, 'unitTest')
 
 # glob pattern for naming unit test directories
 UNIT_TEST_DIRECTORY_GLOB_PATTERN = 'unitTest_*'

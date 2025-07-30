@@ -22,7 +22,7 @@ echo 'Setting up MAGE environment.'
 source {{ kaijuhome }}/scripts/setupEnvironment.sh
 
 echo 'Setting environment variables.'
-# export OMP_NUM_THREADS=128
+export OMP_NUM_THREADS=128
 export MPI_TYPE_DEPTH=32
 export KMP_STACKSIZE=128M
 echo 'The active environment variables are:'
