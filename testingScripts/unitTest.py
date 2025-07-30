@@ -25,11 +25,11 @@ jinja2 template.
    runNonCaseTests1.o*, gamTests.out, mixTests.out, voltTests.out,
    baseMpiTests.out, gamMpiTests.out. shgrTests.out.
 
-4. runNonCaseTests2.pbs - Runs in about XX minutes on 2 derecho nodes. Only
+4. runNonCaseTests2.pbs - Runs in about 30 minutes on 2 derecho nodes. Only
    runs if genTestData.pbs completes successfully. Output in PBS log file
    runNonCaseTests2.o*, and voltMpiTests.out.
 
-5. unitTestReport.pbs - Report generation. Runs in about XX minutes on 1
+5. unitTestReport.pbs - Report generation. Runs in a few seconds on 1
    derecho node. Only runs if jobs 2-4 complete successfully. Output in PBS
    log file unitTestReport.o*, and unitTestReport.out.
 
