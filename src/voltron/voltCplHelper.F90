@@ -64,7 +64,7 @@ module voltCplHelper
                         call CleanLine(magLine)
                         !Note: Not using volt time b/c chimp wants time in its units
                         call genLine(ebApp%ebModel,ebApp%ebState,xyz0,ebApp%ebState%eb1%time, magLine,&
-                                     doShueO=.false.,doNHO=doNH,doSHO=doSH)
+                                     doNHO=doNH,doSHO=doSH)
                         call Line2Tube(ebApp,vApp%planet,magLine,vApp%State%ijTubes(i,j))
                     endif
 

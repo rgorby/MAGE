@@ -719,7 +719,8 @@ module voltapp
         call inpXML%Set_Val(Model%epsds,'tracer/epsds',1.0e-2)    
         call setBackground(Model,inpXML)
         call inpXML%Set_Val(Model%doDip,'tracer/doDip',.false.)
-
+        call setStreamline(Model,inpXML)
+        
         !Initialize ebState
         if (gApp%Model%doMultiF) then
             write(*,*) "Initializing MF-Chimp ..."
@@ -736,7 +737,8 @@ module voltapp
         !Initialize squish indices
         allocate(vApp%ebTrcApp%ebSquish%blockStartIndices(vApp%ebTrcApp%ebSquish%numSquishBlocks))
         do b=1,vApp%ebTrcApp%ebSquish%numSquishBlocks
-            vApp%ebTrcApp%ebSquish%blockStartIndices(b) = ebGr%ks + ((b-1)*(ebGr%ke+1))/vApp%ebTrcApp%ebSquish%numSquishBlocks
+            vApp%ebTrcApp%ebSquish%blockStartIndices(b) = &
+                GetAdjustedSquishStart(vApp,((b-1)*(ebGr%ke+1))/vApp%ebTrcApp%ebSquish%numSquishBlocks)
         enddo
 
         !Do simple test to make sure locator is reasonable

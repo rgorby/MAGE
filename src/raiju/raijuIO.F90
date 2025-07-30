@@ -275,7 +275,7 @@ module raijuIO
         call AddOutVar(IOVars,"pot_corot",State%pot_corot(is:ie+1,js:je+1),uStr="kV",dStr="(corners) Corotation potential")
 
         ! Idk about you but I did not expect true to equal -1
-        allocate(outTmp2D(is:ie, Grid%Nk))
+        allocate(outTmp2D(Grid%shGrid%isg:Grid%shGrid%ieg, Grid%Nk))
         where (State%activeShells)
             outTmp2D = 1.0
         elsewhere
@@ -421,6 +421,7 @@ module raijuIO
             allocate(outTmp2D(Grid%shGrid%isg:Grid%shGrid%ieg  ,Grid%shGrid%jsg:Grid%shGrid%jeg))
             call calcMapJacNorm(Grid, State%xyzMin, outTmp2D)
             call AddOutVar(IOVars, "mapJacNorm", outTmp2D(is:ie,js:je), dStr="L_(2,1) norm of lat/lon => xyzMin Jacobian")
+            deallocate(outTmp2D)
         endif
 
         call WriteVars(IOVars,.true.,Model%raijuH5, gStr)
