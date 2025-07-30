@@ -40,10 +40,10 @@ import common
 DESCRIPTION = 'Script for MAGE build testing'
 
 # Root of directory tree for this set of tests.
-MAGE_TEST_SET_ROOT = os.environ['MAGE_TEST_SET_ROOT']
+KAIJU_TEST_SET_ROOT = os.environ['KAIJU_TEST_SET_ROOT']
 
 # Directory for build tests
-BUILD_TEST_DIRECTORY = os.path.join(MAGE_TEST_SET_ROOT, 'buildTest')
+BUILD_TEST_DIRECTORY = os.path.join(KAIJU_TEST_SET_ROOT, 'buildTest')
 
 # Path to directory to use for building executable list
 EXECUTABLE_LIST_BUILD_DIRECTORY = os.path.join(BUILD_TEST_DIRECTORY,
