@@ -232,11 +232,15 @@ def unitTest(args: dict = None):
     if verbose:
         print("Copying compiled pFUnit binaries.")
     for directory in PFUNIT_BINARY_DIRECTORIES:
-        from_path = os.path.join(PFUNIT_HOME, directory)
-        to_path = os.path.join(KAIJU_EXTERNAL_DIRECTORY, directory)
-        if debug:
-            print(f"Copying {from_path} to {to_path}.")
-        shutil.copytree(from_path, to_path)
+        if not os.path.exists(os.path.join(KAIJU_EXTERNAL_DIRECTORY, directory)):
+            from_path = os.path.join(PFUNIT_HOME, directory)
+            to_path = os.path.join(KAIJU_EXTERNAL_DIRECTORY, directory)
+            if debug:
+                print(f"Copying {from_path} to {to_path}.")
+            shutil.copytree(from_path, to_path)
+        else:
+            if debug:
+                print(f"pFUnit directory {directory} already exists.")
 
     # ------------------------------------------------------------------------
 
@@ -414,13 +418,13 @@ def unitTest(args: dict = None):
 
         # Assemble common data to fill in the PBS templates.
         pbs_options = {}
-        pbs_options["account"] = os.environ["DERECHO_TESTING_ACCOUNT"]
-        pbs_options["queue"] = os.environ["DERECHO_TESTING_QUEUE"]
-        pbs_options["job_priority"] = os.environ["DERECHO_TESTING_PRIORITY"]
-        pbs_options["modules"] = module_names
+        pbs_options['account'] = os.environ['DERECHO_TESTING_ACCOUNT']
+        pbs_options['queue'] = os.environ['DERECHO_TESTING_QUEUE']
+        pbs_options['job_priority'] = os.environ['DERECHO_TESTING_PRIORITY']
+        pbs_options['modules'] = module_names
+        pbs_options['kaijuhome'] = KAIJUHOME
+        pbs_options['branch_or_commit'] = BRANCH_OR_COMMIT
         pbs_options["conda_environment"] = os.environ["CONDA_ENVIRONMENT"]
-        pbs_options["kaijuhome"] = KAIJUHOME
-        pbs_options["branch_or_commit"] = BRANCH_OR_COMMIT
 
         # Go to the bin directory for testing.
         if verbose:
@@ -430,14 +434,31 @@ def unitTest(args: dict = None):
         # --------------------------------------------------------------------
 
         # Copy in inputs for unit test data generation.
-        for filename in UNIT_TEST_DATA_INPUT_FILES:
-            from_path = os.path.join(
-                UNIT_TEST_DATA_INPUT_DIRECTORY, filename
-            )
-            to_path = os.path.join(".", filename)
+        if os.path.exists(UNIT_TEST_DATA_INPUT_DIRECTORY):
+            for filename in UNIT_TEST_DATA_INPUT_FILES:
+                from_path = os.path.join(
+                    UNIT_TEST_DATA_INPUT_DIRECTORY, filename
+                )
+                to_path = os.path.join('.', filename)
+                if debug:
+                    print(f"Copying {from_path} to {to_path}.")
+                shutil.copyfile(from_path, to_path)
+        else:
+            cmd = "cda2wind.py -t0 2016-08-09T09:00:00 -t1 2016-08-09T11:00:00"
             if debug:
-                print(f"Copying {from_path} to {to_path}.")
-            shutil.copyfile(from_path, to_path)
+                print(f"cmd = {cmd}")
+            cproc = subprocess.run(cmd, shell=True, check=True,
+                                   text=True, capture_output=True)
+            cmd = "genLFM.py"
+            if debug:
+                print(f"cmd = {cmd}")
+            cproc = subprocess.run(cmd, shell=True, check=True,
+                                   text=True, capture_output=True)
+            cmd = "genRAIJU.py"
+            if debug:
+                print(f"cmd = {cmd}")
+            cproc = subprocess.run(cmd, shell=True, check=True,
+                                   text=True, capture_output=True)
 
         # Set options specific to the data generation job, then render the
         # template.
@@ -511,8 +532,8 @@ def unitTest(args: dict = None):
 
         # Set options specific to the 1st non-case tests job, then render the
         # template.
-        pbs_options["job_name"] = "runNonCaseTests1"
-        pbs_options["walltime"] = "00:05:00"
+        pbs_options['job_name'] = 'runNonCaseTests1'
+        pbs_options['walltime'] = '01:00:00'
         if verbose:
             print(f"Creating {RUN_NON_CASE_TESTS_1_PBS_SCRIPT}.")
         pbs_content = run_non_case_tests_1_pbs_template.render(pbs_options)
