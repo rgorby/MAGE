@@ -293,10 +293,11 @@ module imag2mhd_interface
                         do i=Gr%isg,Gr%ieg
                             isActive = (j >= Gr%js) .and. (j <= Gr%je) .and. &
                                        (k >= Gr%ks) .and. (k <= Gr%ks)
-                            if (isActive) cycle
-                            !If still here map this ghost to active and set value based on active
-                            call lfmIJKcc(Model,Gr,i,j,k,ip,jp,kp)
-                            Q(i,j,k) = Q(ip,jp,kp)
+                            if(.not. isActive) then
+                                !If still here map this ghost to active and set value based on active
+                                call lfmIJKcc(Model,Gr,i,j,k,ip,jp,kp)
+                                Q(i,j,k) = Q(ip,jp,kp)
+                            endif
                         enddo
                     enddo !j
                 enddo !k
