@@ -286,8 +286,11 @@ module imag2mhd_interface
                 integer :: i,j,k,ip,jp,kp
                 logical :: isActive
 
-                !$OMP PARALLEL DO default(shared) collapse(2) &
-                !$OMP private(i,j,k,isActive,ip,jp,kp)
+                !!$OMP PARALLEL DO default(shared) collapse(2) &
+                !!$OMP private(i,j,k,isActive,ip,jp,kp)
+                ! this causes a race condition copying values between ghost cells
+                ! probably a false positive since some of the cells are just copying
+                ! values onto themselves, but easier to remove for now
                 do k=Gr%ksg,Gr%keg
                     do j=Gr%jsg,Gr%jeg
                         do i=Gr%isg,Gr%ieg
