@@ -40,19 +40,17 @@ DESCRIPTION = "Script for MAGE checks with Intel Inspector tools"
 # Home directory of kaiju installation
 KAIJUHOME = os.environ["KAIJUHOME"]
 
+# Root of kaiju testing directory.
+KAIJU_TEST_ROOT = os.environ["KAIJU_TEST_ROOT"]
+
 # Root of directory tree for this set of tests.
-MAGE_TEST_SET_ROOT = os.environ["MAGE_TEST_SET_ROOT"]
+KAIJU_TEST_SET_ROOT = os.environ["KAIJU_TEST_SET_ROOT"]
 
 # Directory for Intel Inspector checks
-INTEL_CHECKS_DIRECTORY = os.path.join(MAGE_TEST_SET_ROOT, "intelChecks")
+INTEL_CHECKS_DIRECTORY = os.path.join(KAIJU_TEST_SET_ROOT, "intelChecks")
 
 # Path to directory containing the test scripts
 TEST_SCRIPTS_DIRECTORY = os.path.join(KAIJUHOME, "testingScripts")
-
-# Path to directory containing the input data
-TEST_INPUTS_DIRECTORY = os.path.join(
-    os.environ["MAGE_TEST_ROOT"], "intel_checks_inputs"
-)
 
 # Path to directory containing module lists
 MODULE_LIST_DIRECTORY = os.path.join(TEST_SCRIPTS_DIRECTORY,
@@ -83,11 +81,12 @@ INTEL_CHECKS_DIRECTORY_PREFIX = "intelChecks_"
 # Name of build subdirectory containing binaries
 BUILD_BIN_DIR = "bin"
 
+# Path to directory containing the input data
+TEST_INPUTS_DIRECTORY = os.path.join(KAIJU_TEST_ROOT, "intel_checks_inputs")
+
 # Data and configuration files used by the Intel Inspector tests.
 TEST_INPUT_FILES = [
-    "tinyCase.xml",
     "memSuppress.sup",
-    "rcmconfig.h5",
     "threadSuppress.sup",
     "tinyCase.xml",
 ]
@@ -192,8 +191,8 @@ def intelChecks(args: dict):
     if debug:
         print(f"submit_ok = {submit_ok}")
 
-    # Create a list of lists for job IDs. There are 3 job IDs per set - one for
-    # memory check, one for thread check, and one for the test report.
+    # Create a list of lists for job IDs. There are 3 job IDs per set - one
+    # for memory check, one for thread check, and one for the test report.
     job_ids = [[None, None, None]]*len(module_list_files)
     if debug:
         print(f"job_ids = {job_ids}")
@@ -308,11 +307,11 @@ def intelChecks(args: dict):
             from_path = os.path.join(TEST_INPUTS_DIRECTORY, filename)
             to_path = os.path.join(".", filename)
             shutil.copyfile(from_path, to_path)
-        
+
         # Generate bcwind data file.
         if verbose:
             print("Creating bcwind data file.")
-        cmd = "cda2wind.py -t0 2016-08-09T09:00:00 -t1 2016-08-09T11:00:00"
+        cmd = "cda2wind -t0 2016-08-09T09:00:00 -t1 2016-08-09T11:00:00"
         if debug:
             print(f"cmd = {cmd}")
         try:
@@ -322,17 +321,17 @@ def intelChecks(args: dict):
                   f"{module_set_name}.\n"
                   f"e.cmd = {e.cmd}\n"
                   f"e.returncode = {e.returncode}\n"
-                  "See testing log for output from cda2wind.py.\n"
+                  "See testing log for output from cda2wind.\n"
                   "Skipping remaining steps for module set"
                   f"{module_set_name}\n")
             continue
         if debug:
             print(f"cproc = {cproc}")
-        
+
         # Generate the LFM grid file.
         if verbose:
             print("Creating LFM grid file.")
-        cmd = "genLFM.py -gid D"
+        cmd = "genLFM -gid D"
         if debug:
             print(f"cmd = {cmd}")
         try:
@@ -342,7 +341,7 @@ def intelChecks(args: dict):
                   f"{module_set_name}.\n"
                   f"e.cmd = {e.cmd}\n"
                   f"e.returncode = {e.returncode}\n"
-                  "See testing log for output from genLFM.py.\n"
+                  "See testing log for output from genLFM.\n"
                   "Skipping remaining steps for module set"
                   f"{module_set_name}\n")
             continue
@@ -352,7 +351,7 @@ def intelChecks(args: dict):
         # Generate the Raiju configuration file.
         if verbose:
             print("Creating Raiju configuration file.")
-        cmd = "genRAIJU.py"
+        cmd = "genRAIJU"
         if debug:
             print(f"cmd = {cmd}")
         try:
@@ -362,7 +361,7 @@ def intelChecks(args: dict):
                   f" for module set {module_set_name}.\n"
                   f"e.cmd = {e.cmd}\n"
                   f"e.returncode = {e.returncode}\n"
-                  "See testing log for output from genRAIJU.py.\n"
+                  "See testing log for output from genRAIJU.\n"
                   "Skipping remaining steps for module set "
                   f"{module_set_name}\n")
             continue
@@ -380,11 +379,11 @@ def intelChecks(args: dict):
         pbs_options["job_priority"] = os.environ["DERECHO_TESTING_PRIORITY"]
         pbs_options["modules"] = module_names
         pbs_options["kaijuhome"] = KAIJUHOME
-        pbs_options["kaipyhome"] = os.environ["KAIPYHOME"]
         pbs_options["tmpdir"] = os.environ["TMPDIR"]
         pbs_options["slack_bot_token"] = os.environ["SLACK_BOT_TOKEN"]
-        pbs_options["mage_test_root"] = os.environ["MAGE_TEST_ROOT"]
+        pbs_options["mage_test_root"] = KAIJU_TEST_ROOT
         pbs_options["branch_or_commit"] = BRANCH_OR_COMMIT
+        pbs_options["conda_environment"] = os.environ["CONDA_ENVIRONMENT"]
 
         # Set options specific to the memory check, then render the template.
         pbs_options["job_name"] = "mage_intelCheckSubmitMem"
