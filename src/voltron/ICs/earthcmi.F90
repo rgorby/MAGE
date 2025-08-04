@@ -58,6 +58,7 @@ module uservoltic
         procedure(HackStep_T), pointer :: tsHack
         procedure(HackSaveRestart_T), pointer :: saveResHack
         procedure(HackLoadRestart_T), pointer :: loadResHack
+        procedure(HackIO_T), pointer :: saveIOHack
 
         real(rp) :: M0g
         integer :: s,s0
@@ -68,10 +69,12 @@ module uservoltic
         tsHack => NULL()
         saveResHack => NULL()
         loadResHack => NULL()
+        saveIOHack => NULL()
         Model%HackE => eHack
         Model%HackStep => tsHack
         Model%HackSaveRestart => saveResHack
         Model%HackLoadRestart => loadResHack
+        Model%HackIO => saveIOHack
 
         !Get defaults from input deck
 
@@ -159,6 +162,9 @@ module uservoltic
         Model%HackLoadRestart => loadResHack
         saveResHack => SaveUserRes
         Model%HackSaveRestart => saveResHack
+        saveIOHack => SaveUserIO
+        Model%HackIO => saveIOHack
+
 
         !Local functions
         !NOTE: Don't put BCs here as they won't be visible after the initialization call
@@ -639,6 +645,26 @@ module uservoltic
         endif
 
     end subroutine SaveUserRes
+    
+    subroutine SaveUserIO(Model,Grid,State,IOVars)
+        class(Model_T), intent(in)    :: Model
+        class(Grid_T) , intent(in)    :: Grid
+        class(State_T), intent(in)    :: State
+        type(IOVAR_T), dimension(:), intent(inout) :: IOVars
 
+        integer :: nbc
+
+        if ( Grid%hasLowerBC(IDIR) ) then
+            nbc = FindBC(Model,Grid,INI)
+                SELECT type(iiBC=>Grid%externalBCs(nbc)%p)
+                    TYPE IS (IonInnerBC_T)
+                        call AddOutVar(IOVars, "inEijk", iiBC%inEijk(:,:,:,:) )
+                        call AddOutVar(IOVars, "inExyz", iiBC%inExyz(:,:,:,:) )
+                CLASS DEFAULT
+                    ! do nothing on gamera ranks without this BC
+            END SELECT
+        endif
+
+    end subroutine SaveUserIO
 
 end module uservoltic
