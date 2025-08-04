@@ -40,10 +40,10 @@ DEFAULT_MODULE_SET_FILE = os.path.join(
 )
 
 # Root of directory tree for this set of tests.
-MAGE_TEST_SET_ROOT = os.environ["MAGE_TEST_SET_ROOT"]
+KAIJU_TEST_SET_ROOT = os.environ["KAIJU_TEST_SET_ROOT"]
 
 # Directory for derecho configuration check results
-DERECHO_CONFIGURATION_CHECK = os.path.join(MAGE_TEST_SET_ROOT,
+DERECHO_CONFIGURATION_CHECK = os.path.join(KAIJU_TEST_SET_ROOT,
                                            "derecho_configuration_check")
 
 # Path to directory containing the test scripts
@@ -182,10 +182,9 @@ def derecho_configuration_check(args: dict):
     # pbs_options["condarc"] = os.environ["CONDARC"]
     # pbs_options["conda_envs_path"] = os.environ["CONDA_ENVS_PATH"]
     pbs_options["conda_environment"] = os.environ["CONDA_ENVIRONMENT"]
-    pbs_options["mage_test_root"] = os.environ["MAGE_TEST_ROOT"]
-    pbs_options["mage_test_set_root"] = os.environ["MAGE_TEST_SET_ROOT"]
+    pbs_options["kaiju_test_root"] = os.environ["KAIJU_TEST_ROOT"]
+    pbs_options["kaiju_test_set_root"] = os.environ["KAIJU_TEST_SET_ROOT"]
     pbs_options["kaijuhome"] = KAIJUHOME
-    pbs_options["kaipy_private_root"] = os.environ["KAIPY_PRIVATE_ROOT"]
     pbs_options["tmpdir"] = os.environ["TMPDIR"]
     pbs_options["slack_bot_token"] = os.environ["SLACK_BOT_TOKEN"]
     pbs_options["branch_or_commit"] = os.environ["BRANCH_OR_COMMIT"]
