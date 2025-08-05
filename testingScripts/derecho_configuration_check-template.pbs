@@ -39,10 +39,6 @@ echo 'Setting up MAGE environment.'
 source {{ kaijuhome }}/scripts/setupEnvironment.sh
 echo "The kaiju software is located at ${KAIJUHOME}."
 
-echo 'Setting up kaipy environment.'
-source {{ kaipy_private_root }}/kaipy/scripts/setupEnvironment.sh
-echo "The kaipy software is located at ${KAIPYHOME}."
-
 echo 'Setting environment variables.'
 export TMPDIR={{ tmpdir }}
 export SLACK_BOT_TOKEN={{ slack_bot_token }}
@@ -79,10 +75,10 @@ echo 'Generating the solar wind boundary condition file.'
 {{ cda2wind_cmd }}
 echo "The solar wind boundary condition file is `ls bcwind.h5`."
 
-# Generate the RCM configuration file.
-echo 'Generating the RCM configuration file.'
-{{ genRCM_cmd }}
-echo "The RCM configuration file is `ls rcmconfig.h5`."
+# Generate the RAIJU configuration file.
+echo 'Generating the RAIJU configuration file.'
+genRAIJU
+echo "The RAIJU configuration file is `ls raijuconfig.h5`."
 
 # Moved this setting here to avoid error from genLFM.py.
 export OMP_NUM_THREADS=128

@@ -143,15 +143,12 @@ def derecho_configuration_check(args: dict):
     make_cmd = "make voltron_mpi.x"
 
     # Create the command to generate the LFM grid.
-    genLFM_cmd = "genLFM.py -gid Q"
+    genLFM_cmd = "genLFM -gid Q"
 
     # Create the command to generate the solar wind boundary condition file.
     cda2wind_cmd = (
-        "cda2wind.py -t0 2016-08-09T02:00:00 -t1 2016-08-09T12:00:00"
+        "cda2wind -t0 2016-08-09T02:00:00 -t1 2016-08-09T12:00:00"
     )
-
-    # Create the command to generate the RCM configuration.
-    genRCM_cmd = "genRCM.py"
 
     # Create the command for launching an MPI program.
     mpiexec_cmd = f"mpiexec {KAIJUHOME}/scripts/preproc/pinCpuCores.sh"
@@ -192,7 +189,6 @@ def derecho_configuration_check(args: dict):
     pbs_options["make_cmd"] = make_cmd
     pbs_options["genLFM_cmd"] = genLFM_cmd
     pbs_options["cda2wind_cmd"] = cda2wind_cmd
-    pbs_options["genRCM_cmd"] = genRCM_cmd
     pbs_options["mpiexec_cmd"] = mpiexec_cmd
     pbs_options["voltron_cmd"] = voltron_cmd
 
