@@ -419,7 +419,7 @@ def prompt_user_for_run_options(option_descriptions: dict, args: dict):
     # condition file can be generated.
     for on in ["bcwind_available"]:
         o[on] = get_run_option(on, od[on], mode)
-    if o["bcwind_available"] == "Y":
+    if o["bcwind_available"].upper() == "Y":
         for on in ["bcwind_file"]:
             o[on] = get_run_option(on, od[on], mode)
         # Fetch the start and stop date from the bcwind file.
@@ -899,6 +899,7 @@ def create_ini_files(options: dict, args: dict):
         coupling = args["coupling"]
         gr_warm_up_time = float(coupling["gr_warm_up_time"])
         segment_duration = float(options["simulation"]["segment_duration"])
+        simulation_duration = float(options["voltron"]["time"]["tFin"])
         i_last_warmup_ini = (gr_warm_up_time/segment_duration)
         if i_last_warmup_ini == int(i_last_warmup_ini):
             warmup_segment_duration = segment_duration
@@ -984,9 +985,15 @@ def create_ini_files(options: dict, args: dict):
             num_warmup_segments = i_last_warmup_ini 
         # Create an .ini file for each simulation segment. Files for each
         # segment will be numbered starting with 1.
-        print(f"Creating {options['pbs']['num_segments']} segments, "
-              f"with {num_warmup_segments} warmup segments.")
-        for job in range(1, int(options["pbs"]["num_segments"]) + 1 - num_warmup_segments):
+        if "coupling" in args:
+            num_segments = (simulation_duration - num_warmup_segments*warmup_segment_duration)/segment_duration
+            if num_segments > int(num_segments):
+                num_segments = int(num_segments) + 1
+            else:
+                num_segments = int(num_segments)
+        else:
+            num_segments = int(options["pbs"]["num_segments"])
+        for job in range(1, num_segments + 1):
             opt = copy.deepcopy(options)  # Need a copy of options
             runid = opt["simulation"]["job_name"]
             # NOTE: This naming scheme supports a maximum of 99 segments.
@@ -1009,7 +1016,7 @@ def create_ini_files(options: dict, args: dict):
             if "coupling" in args:
                 opt["voltron"]["coupling"]["doGCM"] = doGCM
                 # tFin padding different for last segment.
-                if job == int(options["pbs"]["num_segments"]) - num_warmup_segments:
+                if job == num_segments:
                     tfin_padding = -1.0
                 else:
                     # Subtract 1 from tFin padding for coupling beacuse to offset the +1.0 for restart file done above.
@@ -1210,9 +1217,21 @@ def create_pbs_scripts(xml_files: list, options: dict, args: dict):
         coupling = args["coupling"]
         gr_warm_up_time = float(coupling["gr_warm_up_time"])
         segment_duration = float(options["simulation"]["segment_duration"])
-        i_last_warmup_pbs_script = int(gr_warm_up_time/segment_duration)
+        simulation_duration = float(options["voltron"]["time"]["tFin"])
+        i_last_warmup_ini = (gr_warm_up_time/segment_duration)
+        if i_last_warmup_ini == int(i_last_warmup_ini):
+            warmup_segment_duration = segment_duration
+        else:
+            warmup_segment_duration = gr_warm_up_time/4
+            if warmup_segment_duration != int(warmup_segment_duration):
+                print("Error: gr_warm_up_time is not evenly divisible by 4.")
+                raise ValueError("Invalid gr_warm_up_time value.")
+            i_last_warmup_ini = (gr_warm_up_time/warmup_segment_duration)
+        i_last_warmup_ini = int(i_last_warmup_ini)
+        num_warmup_segments = i_last_warmup_ini
+        #i_last_warmup_pbs_script = int(gr_warm_up_time/segment_duration)
         spinup_pbs_scripts.append(pbs_scripts[0]) # Spinup script is first
-        warmup_pbs_scripts = pbs_scripts[1:i_last_warmup_pbs_script + 1] # Warmup scripts
+        warmup_pbs_scripts = pbs_scripts[1:num_warmup_segments + 1] # Warmup scripts
     # Return the paths to the PBS scripts.
     return pbs_scripts, submit_all_jobs_script,spinup_pbs_scripts, warmup_pbs_scripts
 

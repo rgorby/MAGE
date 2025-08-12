@@ -564,7 +564,12 @@ def main():
 
         segment_duration = float(engage_options["simulation"]["segment_duration"])
         makeitso_options["voltron"]["time"]["tFin"] = int((t1-t0).total_seconds())
-        makeitso_options["pbs"]["num_segments"] = str(int((t1-t0).total_seconds()/segment_duration))
+        num_segments = (t1-t0).total_seconds()/segment_duration
+        if num_segments > int(num_segments):
+            num_segments = int(num_segments) + 1
+        else:
+            num_segments = int(num_segments)
+        makeitso_options["pbs"]["num_segments"] = str(num_segments)
         select2 = 1 + int(makeitso_options["pbs"]["num_helpers"])
         makeitso_options["pbs"]["select2"] = str(select2)
 
@@ -652,7 +657,9 @@ def main():
 
     # Create the PBS job scripts.
     pbs_scripts, submit_all_jobs_script = create_pbs_scripts(engage_options,makeitso_options, makeitso_pbs_scripts, tiegcm_options, tiegcm_inp_scripts, tiegcm_pbs_scripts)
-    print(f"pbs_scripts = {pbs_scripts}")
+    print(f"GR_pbs_scripts = {makeitso_pbs_scripts}")
+    print(f"Tiegcm_pbs_scripts = {tiegcm_pbs_scripts}")
+    print(f"GTR_pbs_scripts = {pbs_scripts}")
     print(f"submit_all_jobs_script = {submit_all_jobs_script}")
     
 
