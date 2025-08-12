@@ -658,8 +658,13 @@ module uservoltic
             nbc = FindBC(Model,Grid,INI)
                 SELECT type(iiBC=>Grid%externalBCs(nbc)%p)
                     TYPE IS (IonInnerBC_T)
-                        call AddOutVar(IOVars, "inEijk", iiBC%inEijk(:,:,:,:) )
-                        call AddOutVar(IOVars, "inExyz", iiBC%inExyz(:,:,:,:) )
+                        if (writeGhosts) then
+                            call AddOutVar(IOVars, "inEijk", iiBC%inEijk(:,:,:,:) )
+                            call AddOutVar(IOVars, "inExyz", iiBC%inExyz(:,:,:,:) )
+                        else
+                            call AddOutVar(IOVars, "inEijk", iiBC%inEijk(Grid%is:Grid%ie+1,Grid%js:Grid%je+1,Grid%ks:Grid%ke+1,:) )
+                            call AddOutVar(IOVars, "inExyz", iiBC%inExyz(Grid%is:Grid%ie,Grid%js:Grid%je,Grid%ks:Grid%ke,:) )
+                        endif
                 CLASS DEFAULT
                     ! do nothing on gamera ranks without this BC
             END SELECT

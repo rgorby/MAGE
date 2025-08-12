@@ -360,6 +360,7 @@ module gamapp_mpi
                             ! print *, 'Over-writing min I BC to be an MPI BC'
                             deallocate(Grid%externalBCs(INI)%p)
                             allocate(Grid%externalBCs(INI)%p,source=mpiNullBc_T(INI))
+                            Grid%isDT = Grid%is
                         endif
                 END SELECT
 
@@ -377,6 +378,7 @@ module gamapp_mpi
                             ! print *, 'Over-writing max I BC to be an MPI BC'
                             deallocate(Grid%externalBCs(OUTI)%p)
                             allocate(Grid%externalBCs(OUTI)%p,source=mpiNullBc_T(OUTI))
+                            Grid%ieDT = Grid%ie
                         endif
                 END SELECT
 
@@ -399,6 +401,7 @@ module gamapp_mpi
                             ! print *, 'Over-writing min J BC to be an MPI BC'
                             deallocate(Grid%externalBCs(INJ)%p)
                             allocate(Grid%externalBCs(INJ)%p,source=mpiNullBc_T(INJ))
+                            Grid%jsDT = Grid%js
                         endif
                 END SELECT
 
@@ -416,6 +419,7 @@ module gamapp_mpi
                             ! print *, 'Over-writing max J BC to be an MPI BC'
                             deallocate(Grid%externalBCs(OUTJ)%p)
                             allocate(Grid%externalBCs(OUTJ)%p,source=mpiNullBc_T(OUTJ))
+                            Grid%jeDT = Grid%je
                         endif
                 END SELECT
 
@@ -438,6 +442,7 @@ module gamapp_mpi
                             ! print *, 'Over-writing min K BC to be an MPI BC'
                             deallocate(Grid%externalBCs(INK)%p)
                             allocate(Grid%externalBCs(INK)%p,source=mpiNullBc_T(INK))
+                            Grid%ksDT = Grid%ks
                         endif
                 END SELECT
 
@@ -455,6 +460,7 @@ module gamapp_mpi
                             ! print *, 'Over-writing max K BC to be an MPI BC'
                             deallocate(Grid%externalBCs(OUTK)%p)
                             allocate(Grid%externalBCs(OUTK)%p,source=mpiNullBc_T(OUTK))
+                            Grid%keDT = Grid%ke
                         endif
                 END SELECT
 
