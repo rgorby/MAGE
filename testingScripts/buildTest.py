@@ -37,44 +37,44 @@ import common
 # Program constants
 
 # Program description.
-DESCRIPTION = 'Script for MAGE build testing'
+DESCRIPTION = "Script for MAGE build testing"
 
 # Root of directory tree for this set of tests.
-KAIJU_TEST_SET_ROOT = os.environ['KAIJU_TEST_SET_ROOT']
+MAGE_TEST_SET_ROOT = os.environ["MAGE_TEST_SET_ROOT"]
 
 # Directory for build tests
-BUILD_TEST_DIRECTORY = os.path.join(KAIJU_TEST_SET_ROOT, 'buildTest')
+BUILD_TEST_DIRECTORY = os.path.join(MAGE_TEST_SET_ROOT, "buildTest")
 
 # Path to directory to use for building executable list
 EXECUTABLE_LIST_BUILD_DIRECTORY = os.path.join(BUILD_TEST_DIRECTORY,
-                                               'build_executable_list')
+                                               "build_executable_list")
 
 # Home directory of kaiju installation
-KAIJUHOME = os.environ['KAIJUHOME']
+KAIJUHOME = os.environ["KAIJUHOME"]
 
 # Path to directory containing the test scripts
-TEST_SCRIPTS_DIRECTORY = os.path.join(KAIJUHOME, 'testingScripts')
+TEST_SCRIPTS_DIRECTORY = os.path.join(KAIJUHOME, "testingScripts")
 
 # Path to directory containing module lists
 MODULE_LIST_DIRECTORY = os.path.join(TEST_SCRIPTS_DIRECTORY,
-                                     'mage_build_test_modules')
+                                     "mage_build_test_modules")
 
 # Path to module list file to use when generating the list of executables
 # Use a module set without MKL.
 EXECUTABLE_LIST_MODULE_LIST = os.path.join(MODULE_LIST_DIRECTORY,
-                                           'intel_mpich.lst')
+                                           "intel_mpich.lst")
 
 # Path to file containing list of module sets to use for build tests
-BUILD_TEST_LIST_FILE = os.path.join(MODULE_LIST_DIRECTORY, 'build_test.lst')
+BUILD_TEST_LIST_FILE = os.path.join(MODULE_LIST_DIRECTORY, "build_test.lst")
 
 # Prefix for naming build test directories
-BUILD_TEST_DIRECTORY_PREFIX = 'buildTest_'
+BUILD_TEST_DIRECTORY_PREFIX = "buildTest_"
 
 # Name of subdirectory of current build subdirectory containing binaries
-BUILD_BIN_DIR = 'bin'
+BUILD_BIN_DIR = "bin"
 
 # Branch or commit (or tag) used for testing.
-BRANCH_OR_COMMIT = os.environ['BRANCH_OR_COMMIT']
+BRANCH_OR_COMMIT = os.environ["BRANCH_OR_COMMIT"]
 
 
 def main():
@@ -126,7 +126,7 @@ def main():
     # Do a preliminary cmake run to generate the list of executables.
 
     if verbose:
-        print('Generating list of executables.')
+        print("Generating list of executables.")
 
     # Create and move to the preliminary build folder.
     os.mkdir(EXECUTABLE_LIST_BUILD_DIRECTORY)
@@ -134,7 +134,7 @@ def main():
 
     # Read the module list file for building the executable list.
     if verbose:
-        print('Reading module list for executable list generation.')
+        print("Reading module list for executable list generation.")
     module_names, cmake_environment, cmake_options = (
         common.read_build_module_list_file(EXECUTABLE_LIST_MODULE_LIST)
     )
@@ -144,16 +144,16 @@ def main():
         print(f"cmake_options = {cmake_options}")
 
     # Assemble the commands to load the listed modules.
-    module_cmd = f"module --force purge; module load {' '.join(module_names)}"
+    module_cmd = f"module --force purge; module load {" ".join(module_names)}"
     if debug:
         print(f"module_cmd = {module_cmd}")
 
     # Run cmake to build the Makefile.
     if verbose:
-        print('Running cmake for executable list generation.')
+        print("Running cmake for executable list generation.")
     cmd = (
         f"{module_cmd}; {cmake_environment} cmake {cmake_options} {KAIJUHOME}"
-        ' >& cmake.out'
+        " >& cmake.out"
     )
     if debug:
         print(f"cmd = {cmd}")
@@ -161,20 +161,20 @@ def main():
         _ = subprocess.run(cmd, shell=True, check=True)
     except subprocess.CalledProcessError as e:
         print(
-            'ERROR: cmake for building executable list failed.\n'
+            "ERROR: cmake for building executable list failed.\n"
             f"e.cmd = {e.cmd}"
             f"e.returncode = {e.returncode}\n"
             f"See {os.path.join(EXECUTABLE_LIST_BUILD_DIRECTORY, 'cmake.out')}"
-            ' for output from cmake.\n'
-            'Unable to generate executable list.',
+            " for output from cmake.\n"
+            "Unable to generate executable list.",
             file=sys.stderr
         )
         raise
 
     # Run make to build the list of executable targets.
     if verbose:
-        print('Running make for executable list generation.')
-    pattern = r'\.x'
+        print("Running make for executable list generation.")
+    pattern = r"\.x"
     cmd = f"{module_cmd}; make help | grep '{pattern}'"
     if debug:
         print(f"cmd = {cmd}")
@@ -185,16 +185,16 @@ def main():
                                stderr=subprocess.STDOUT)
     except subprocess.CalledProcessError as e:
         path = os.path.join(
-            EXECUTABLE_LIST_BUILD_DIRECTORY, 'make_to_grep.out'
+            EXECUTABLE_LIST_BUILD_DIRECTORY, "make_to_grep.out"
         )
-        with open(path, 'w', encoding='utf-8') as f:
+        with open(path, "w", encoding="utf-8") as f:
             f.write(e.stdout)
         print(
-            'ERROR: make for building executable list failed.\n'
+            "ERROR: make for building executable list failed.\n"
             f"e.cmd = {e.cmd}\n"
             f"e.returncode = {e.returncode}\n"
             f"See {path} for output from make piped to grep.\n"
-            'Unable to generate executable list.',
+            "Unable to generate executable list.",
             file=sys.stderr
         )
         raise
@@ -230,11 +230,11 @@ def main():
     # Do a build with each set of modules.
     for (i_test, module_list_file) in enumerate(module_list_files):
         if verbose:
-            print('Performing build test with module list file '
+            print("Performing build test with module list file "
                   f"{module_list_file}.")
 
         # Extract the name of the list.
-        module_set_name = module_list_file.rstrip('.lst')
+        module_set_name = module_list_file.rstrip(".lst")
         if debug:
             print(f"module_set_name = {module_set_name}.")
 
@@ -267,7 +267,7 @@ def main():
         # Run cmake to build the Makefile.
         if verbose:
             print(
-                'Running cmake to create Makefile for module set'
+                "Running cmake to create Makefile for module set"
                 f" {module_set_name}."
             )
         cmd = (
@@ -285,7 +285,7 @@ def main():
                 f"e.cmd = {e.cmd}\n"
                 f"e.returncode = {e.returncode}\n"
                 f"See {os.path.join(build_directory, 'cmake.out')}"
-                ' for output from cmake.\n'
+                " for output from cmake.\n"
                 f"Skipping remaining steps for module set {module_set_name}",
                 file=sys.stderr
             )
@@ -294,7 +294,7 @@ def main():
         # Run the build.
         if verbose:
             print(
-                'Running make to build kaiju for module set'
+                "Running make to build kaiju for module set"
                 f" {module_set_name}."
             )
         cmd = f"{module_cmd}; {make_cmd} >& make.out"
@@ -309,7 +309,7 @@ def main():
                 f"e.cmd = {e.cmd}\n"
                 f"e.returncode = {e.returncode}\n"
                 f"See {os.path.join(build_directory, 'make.out')}"
-                ' for output from make.\n'
+                " for output from make.\n"
                 f"Skipping remaining steps for module set {module_set_name}",
                 file=sys.stderr
             )
@@ -336,33 +336,33 @@ def main():
     # ------------------------------------------------------------------------
 
     # Detail the test results
-    test_report_details_string = ''
+    test_report_details_string = ""
     test_report_details_string += (
         f"Test results are on `derecho` in `{BUILD_TEST_DIRECTORY}`.\n"
     )
     for (i_test, module_list_file) in enumerate(module_list_files):
-        module_set_name = module_list_file.rstrip('.lst')
+        module_set_name = module_list_file.rstrip(".lst")
         test_report_details_string += f"Module set `{module_set_name}`: "
         if test_passed[i_test]:
-            test_report_details_string += '*PASSED*\n'
+            test_report_details_string += "*PASSED*\n"
         else:
-            test_report_details_string += '*FAILED*\n'
+            test_report_details_string += "*FAILED*\n"
 
     # Summarize the test results.
     test_report_summary_string = (
         f"Build test results for `{BRANCH_OR_COMMIT}`: "
     )
-    if 'FAILED' in test_report_details_string:
-        test_report_summary_string += '*FAILED*'
+    if "FAILED" in test_report_details_string:
+        test_report_summary_string += "*FAILED*"
     else:
-        test_report_summary_string += '*PASSED*'
+        test_report_summary_string += "*PASSED*"
 
     # Print the test results summary and details.
     print(test_report_summary_string)
     print(test_report_details_string)
 
     # If a test failed, or loud mode is on, post report to Slack.
-    if (slack_on_fail and 'FAILED' in test_report_summary_string) or be_loud:
+    if (slack_on_fail and "FAILED" in test_report_summary_string) or be_loud:
         slack_client = common.slack_create_client()
         if debug:
             print(f"slack_client = {slack_client}")
@@ -371,7 +371,7 @@ def main():
         )
         if debug:
             print(f"slack_response_summary = {slack_response_summary}")
-        thread_ts = slack_response_summary['ts']
+        thread_ts = slack_response_summary["ts"]
         slack_response_summary = common.slack_send_message(
             slack_client, test_report_details_string, thread_ts=thread_ts,
             is_test=is_test
@@ -379,11 +379,17 @@ def main():
         if debug:
             print(f"slack_response_summary = {slack_response_summary}")
 
+    # Also write a summary file to the root folder of this test
+    with open(os.path.join(MAGE_TEST_SET_ROOT, "testSummary.out"), "w",
+              encoding="utf-8") as f:
+        f.write(test_report_details_string)
+        f.write("\n")
+
     # ------------------------------------------------------------------------
 
     if debug:
         print(f"Ending {sys.argv[0]} at {datetime.datetime.now()}")
 
 
-if __name__ == '__main__':
+if __name__ == "__main__":
     main()
