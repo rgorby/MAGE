@@ -39,47 +39,47 @@ import common
 # Program constants
 
 # Program description.
-DESCRIPTION = 'Script for MAGE initial condition build testing'
+DESCRIPTION = "Script for MAGE initial condition build testing"
 
 # Root of directory tree for this set of tests.
-KAIJU_TEST_SET_ROOT = os.environ['KAIJU_TEST_SET_ROOT']
+MAGE_TEST_SET_ROOT = os.environ["MAGE_TEST_SET_ROOT"]
 
 # Directory for initial condition build tests
 INITIAL_CONDITION_BUILD_TEST_DIRECTORY = os.path.join(
-    KAIJU_TEST_SET_ROOT, 'ICtest'
+    MAGE_TEST_SET_ROOT, "ICtest"
 )
 
 # Home directory of kaiju installation
-KAIJUHOME = os.environ['KAIJUHOME']
+KAIJUHOME = os.environ["KAIJUHOME"]
 
 # Path to directory containing the test scripts
-TEST_SCRIPTS_DIRECTORY = os.path.join(KAIJUHOME, 'testingScripts')
+TEST_SCRIPTS_DIRECTORY = os.path.join(KAIJUHOME, "testingScripts")
 
 # Path to directory containing module lists
 MODULE_LIST_DIRECTORY = os.path.join(
-    TEST_SCRIPTS_DIRECTORY, 'mage_build_test_modules'
+    TEST_SCRIPTS_DIRECTORY, "mage_build_test_modules"
 )
 
 # Path to file containing names of module lists to use for initial
 # condition build tests
 # Path to module list file to use when generating the list of executables
 INITIAL_CONDITION_BUILD_TEST_LIST_FILE = os.path.join(
-    MODULE_LIST_DIRECTORY, 'initial_condition_build_test.lst'
+    MODULE_LIST_DIRECTORY, "initial_condition_build_test.lst"
 )
 
 # Path to directory containing initial condition source code
 INITIAL_CONDITION_SRC_DIRECTORY = os.path.join(
-    KAIJUHOME, 'src', 'gamera', 'ICs'
+    KAIJUHOME, "src", "gamera", "ICs"
 )
 
 # Prefix for subdirectory names for individual builds.
-INITIAL_CONDITION_BUILD_DIR_PREFIX = 'ICtest_'
+INITIAL_CONDITION_BUILD_DIR_PREFIX = "ICtest_"
 
 # Name of build subdirectory containing binaries
-BUILD_BIN_DIR = 'bin'
+BUILD_BIN_DIR = "bin"
 
 # Branch or commit (or tag) used for testing.
-BRANCH_OR_COMMIT = os.environ['BRANCH_OR_COMMIT']
+BRANCH_OR_COMMIT = os.environ["BRANCH_OR_COMMIT"]
 
 
 def main():
@@ -145,7 +145,7 @@ def main():
     for root, _, filenames in os.walk(
         INITIAL_CONDITION_SRC_DIRECTORY
     ):
-        if 'deprecated' not in root and 'underdev' not in root:
+        if "deprecated" not in root and "underdev" not in root:
             for filename in filenames:
                 initial_condition_paths.append(os.path.join(root, filename))
     if debug:
@@ -160,18 +160,18 @@ def main():
         test_passed.append([False]*len(initial_condition_paths))
 
     # Define the make command for each build.
-    make_cmd = 'make gamera.x'
+    make_cmd = "make gamera.x"
     if debug:
         print(f"make_cmd = {make_cmd}")
 
     # Build with each initial condition with each set of modules.
     for (i_test, module_list_file) in enumerate(module_list_files):
         if verbose:
-            print('Performing initial condition build tests with module set '
+            print("Performing initial condition build tests with module set "
                   f"{module_list_file}.")
 
         # Extract the name of the list.
-        module_set_name = module_list_file.rstrip('.lst')
+        module_set_name = module_list_file.rstrip(".lst")
         if debug:
             print(f"module_set_name = {module_set_name}.")
 
@@ -232,7 +232,7 @@ def main():
             # Run cmake to build the Makefile.
             if verbose:
                 print(
-                    'Running cmake to create Makefile for module set'
+                    "Running cmake to create Makefile for module set"
                     f" {module_set_name},"
                     f" initial condition {initial_condition_name}."
                 )
@@ -252,7 +252,7 @@ def main():
                     f"e.cmd = {e.cmd}\n"
                     f"e.returncode = {e.returncode}\n"
                     f"See {os.path.join(build_directory, 'cmake.out')}"
-                    ' for output from cmake.\n'
+                    " for output from cmake.\n"
                     "Skipping remaining steps for module set "
                     f"{module_set_name}, initial condition "
                     "{initial_condition_name}.",
@@ -263,7 +263,7 @@ def main():
             # Run the build.
             if verbose:
                 print(
-                    'Running make to build kaiju for module set'
+                    "Running make to build kaiju for module set"
                     f" {module_set_name}, initial condition"
                     f" {initial_condition_name}."
                 )
@@ -280,7 +280,7 @@ def main():
                     f"e.cmd = {e.cmd}\n"
                     f"e.returncode = {e.returncode}\n"
                     f"See {os.path.join(build_directory, 'make.out')}"
-                    ' for output from make.\n'
+                    " for output from make.\n"
                     "Skipping remaining steps for module set "
                     f"{module_set_name}, initial condition "
                     "{initial_condition_name}.",
@@ -289,7 +289,7 @@ def main():
                 continue
 
             # Check for gamera.x.
-            executable_list = ['gamera.x']
+            executable_list = ["gamera.x"]
             missing = []
             for executable in executable_list:
                 path = os.path.join(build_directory, BUILD_BIN_DIR, executable)
@@ -308,13 +308,13 @@ def main():
     # ------------------------------------------------------------------------
 
     # Detail the test results
-    test_report_details_string = ''
+    test_report_details_string = ""
     test_report_details_string += (
-        'Test results are on `derecho` in '
+        "Test results are on `derecho` in "
         f"`{INITIAL_CONDITION_BUILD_TEST_DIRECTORY}`.\n"
     )
     for (i_test, module_list_file) in enumerate(module_list_files):
-        module_set_name = module_list_file.rstrip('.lst')
+        module_set_name = module_list_file.rstrip(".lst")
         for (j_ic, initial_condition_path) in enumerate(
             initial_condition_paths
         ):
@@ -326,25 +326,25 @@ def main():
                 f"`{initial_condition_name}`: "
             )
             if test_passed[i_test][j_ic]:
-                test_report_details_string += '*PASSED*\n'
+                test_report_details_string += "*PASSED*\n"
             else:
-                test_report_details_string += '*FAILED*\n'
+                test_report_details_string += "*FAILED*\n"
 
     # Summarize the test results.
     test_report_summary_string = (
         f"Initial condition build test results for `{BRANCH_OR_COMMIT}`: "
     )
-    if 'FAILED' in test_report_details_string:
-        test_report_summary_string += '*FAILED*\n'
+    if "FAILED" in test_report_details_string:
+        test_report_summary_string += "*FAILED*\n"
     else:
-        test_report_summary_string += '*PASSED*\n'
+        test_report_summary_string += "*PASSED*\n"
 
     # Print the test results summary and details.
     print(test_report_summary_string)
     print(test_report_details_string)
 
     # If a test failed, or loud mode is on, post report to Slack.
-    if (slack_on_fail and 'FAILED' in test_report_summary_string) or be_loud:
+    if (slack_on_fail and "FAILED" in test_report_summary_string) or be_loud:
         slack_client = common.slack_create_client()
         if debug:
             print(f"slack_client = {slack_client}")
@@ -353,7 +353,7 @@ def main():
         )
         if debug:
             print(f"slack_response_summary = {slack_response_summary}")
-        thread_ts = slack_response_summary['ts']
+        thread_ts = slack_response_summary["ts"]
         slack_response_summary = common.slack_send_message(
             slack_client, test_report_details_string, thread_ts=thread_ts,
             is_test=is_test
@@ -361,11 +361,17 @@ def main():
         if debug:
             print(f"slack_response_summary = {slack_response_summary}")
 
+    # Also write a summary file to the root folder of this test
+    with open(os.path.join(MAGE_TEST_SET_ROOT, "testSummary.out"), "w",
+              encoding="utf-8") as f:
+        f.write(test_report_details_string)
+        f.write("\n")
+
     # ------------------------------------------------------------------------
 
     if debug:
         print(f"Ending {sys.argv[0]} at {datetime.datetime.now()}")
 
 
-if __name__ == '__main__':
+if __name__ == "__main__":
     main()
