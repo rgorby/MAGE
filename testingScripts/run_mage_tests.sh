@@ -4,13 +4,12 @@
 
 # IMPORTANT NOTES:
 
-# This bash script was designed to run from a cron job on the 'cron'
-# host at UCAR, using ssh to execute this script on a derecho login
-# node. See kaiju/testingScripts/crontab for an example of how to
-# invoke this script.
+# This bash script was designed to run from a cron job on the 'cron' host at
+# NCAR, using ssh to execute this script on a derecho login node. See
+# kaiju/testingScripts/crontab for an example of how to invoke this script.
 
-# SSH must be configured so that ssh from cron to derecho does not
-# require a password.
+# SSH must be configured so that ssh from cron to derecho does not require a
+# password.
 
 # ############################################################################
 
@@ -19,40 +18,39 @@ echo "Starting $0 at `date` on `hostname`."
 
 # ############################################################################
 
-# Variables to configure the kaiju testing environment.
-
-# Run this command to cause the script to exit on any failure.
+# Force this script to exit on any failure.
 set -e
+
+# ----------------------------------------------------------------------------
 
 # These *should* be the only variables you have to change when moving the
 # testing environment around or changing python environments.
 
-# Exported environment variables:
-
 # Root of kaiju testing environment - *everything* goes under here, except
 # for the outputs from the individual test runs.
-export KAIJU_TEST_ROOT='/glade/campaign/hao/msphere/automated_kaiju_tests'
+export MAGE_TEST_ROOT='/glade/campaign/hao/msphere/automated_kaiju_tests'
+
+# Root of kaiju test results tree.
+export MAGE_TEST_RESULTS_ROOT='/glade/derecho/scratch/ewinter/mage_testing'
+
+# Location of the miniconda installation used for testing.
+export MAGE_MINICONDA='/glade/u/home/ewinter/miniconda3'
+
+# Setup command for conda.
+__conda_setup="$('/glade/u/home/ewinter/miniconda3/bin/conda' 'shell.bash' 'hook' 2> /dev/null)"
 
 # conda environment for testing
 export CONDA_ENVIRONMENT='kaiju-3.12-testing'
 
-# IMPORTANT: Set this environment variable to force the python print()
-# function to automatically flush its output in all of the testing scripts.
-# This will ensure that output from the testing scripts is logged in the order
-# that it is created.
-export PYTHONUNBUFFERED='TRUE'
+# ----------------------------------------------------------------------------
 
-# Root of kaiju test results tree.
-export KAIJU_TEST_RESULTS_ROOT='/glade/derecho/scratch/ewinter/mage_testing'
+# Other exported environment variables
 
 # Path to directory containing the dateime-stamped directories for individual
 # sets of test runs.
-export KAIJU_TEST_RUNS_ROOT="${KAIJU_TEST_RESULTS_ROOT}/test_runs"
+export MAGE_TEST_RUNS_ROOT="${MAGE_TEST_RESULTS_ROOT}/test_runs"
 
-# Root directory for current set of tests (set in the code below).
-export KAIJU_TEST_SET_ROOT
-
-# # PBS account to use for running tests on derecho
+# PBS account to use for running tests on derecho
 export DERECHO_TESTING_ACCOUNT='P28100045'
 
 # PBS queue to use for running tests on derecho
@@ -64,16 +62,24 @@ export DERECHO_TESTING_PRIORITY='economy'
 # Set the token for sending messages to Slack.
 export SLACK_BOT_TOKEN=`cat $HOME/.ssh/slack.txt`
 
-# Variables used by this script:
+# IMPORTANT: Set this environment variable to force the python print()
+# function to automatically flush its output in all of the testing scripts.
+# This will ensure that output from the testing scripts is logged in the order
+# that it is created.
+export PYTHONUNBUFFERED='TRUE'
+
+# ----------------------------------------------------------------------------
+
+# Non-exported variables used by this script
 
 # Path to the SSH key to use for running the tests. The key must have no
 # passphrase. This is needed to allow passwordless access to BitBucket.
 ssh_key_for_testing='/glade/u/home/ewinter/.ssh/id_rsa_kaiju_testing'
 
 # Setup script for CDF code
-cdf_setup_script="${KAIJU_TEST_ROOT}/local/cdf/3.9.0/bin/definitions.B"
+cdf_setup_script="${MAGE_TEST_ROOT}/local/cdf/3.9.0/bin/definitions.B"
 
-# Address of kaiju repository on BitBucket.
+# Address of kaiju-private repository on BitBucket.
 kaiju_repository='git@bitbucket.org:aplkaiju/kaiju-private.git'
 
 # Name of local directory containing clone of repository.
@@ -206,22 +212,20 @@ fi
 # ############################################################################
 
 # Activate the conda installation for MAGE testing.
-# This code is based on the code that the miniconda installer puts into
-# ~/.bashrc or ~/.bash_profile when a user installs miniconda.
 if $verbose; then
     echo "Setting up conda environment for MAGE testing ${CONDA_ENVIRONMENT}."
 fi
 
-# Load the conda environment for testing.
+# This code is based on the code that the miniconda installer puts into
+# ~/.bashrc or ~/.bash_profile when a user installs miniconda.
 # This code is needed since $HOME/.bashrc is not run.
-__conda_setup="$('/glade/u/home/ewinter/miniconda3/bin/conda' 'shell.bash' 'hook' 2> /dev/null)"
 if [ $? -eq 0 ]; then
     eval "$__conda_setup"
 else
-    if [ -f "/glade/u/home/ewinter/miniconda3/etc/profile.d/conda.sh" ]; then
-        . "/glade/u/home/ewinter/miniconda3/etc/profile.d/conda.sh"
+    if [ -f "${MAGE_MINICONDA}/etc/profile.d/conda.sh" ]; then
+        . "${MAGE_MINICONDA}/etc/profile.d/conda.sh"
     else
-        export PATH="/glade/u/home/ewinter/miniconda3/bin:$PATH"
+        export PATH="${MAGE_MINICONDA}/bin:$PATH"
     fi
 fi
 unset __conda_setup
@@ -230,7 +234,10 @@ if $verbose; then
     echo "conda environment is `echo $CONDA_PREFIX`"
 fi
 
-conda list kaipy
+if $verbose; then
+    echo 'The installed version of kaipy in this environment is:'
+    conda list kaipy
+fi
 
 # ############################################################################
 
@@ -271,31 +278,24 @@ test_set_dir="${testing_datetime}-${BRANCH_OR_COMMIT}"
 if $debug; then
     echo "test_set_dir=${test_set_dir}"
 fi
-export KAIJU_TEST_SET_ROOT="${KAIJU_TEST_RUNS_ROOT}/${test_set_dir}"
+export MAGE_TEST_SET_ROOT="${MAGE_TEST_RUNS_ROOT}/${test_set_dir}"
 if $verbose; then
-    echo "Creating directory for this set of tests at ${KAIJU_TEST_SET_ROOT}."
+    echo "Creating directory for this set of tests at ${MAGE_TEST_SET_ROOT}."
 fi
-mkdir $KAIJU_TEST_SET_ROOT
-if [[ $? != 0 ]]; then
-    echo "Unable to create testing directory ${KAIJU_TEST_SET_ROOT}, aborting!"
-    exit 1
-fi
+mkdir $MAGE_TEST_SET_ROOT
 
 # ############################################################################
 
-# Fetch the version of the code to test.
-
 # Move to the directory for this set of tests.
-cd $KAIJU_TEST_SET_ROOT
+cd $MAGE_TEST_SET_ROOT
 
-# Clone the kaiju repository.
+# Clone the kaiju-private repository, call it kaiju locally.
 if $verbose; then
     echo "Cloning repository ${kaiju_repository}."
 fi
 git clone $kaiju_repository $local_kaiju_name
 
-# Move into the repository clone, and check out the version of the code to
-# use for testing.
+# Move into the repository clone.
 cd $local_kaiju_name
 
 # If a branch was requested, switch to that branch. Otherwise, if a commit
@@ -315,20 +315,20 @@ mv testingScripts TEST_CODE_BACKUP/
 mv tests TEST_CODE_BACKUP/
 
 # Copy latest test code.
-new_test_code_root="${KAIJU_TEST_ROOT}/kaiju-private"
+new_test_code_root="${MAGE_TEST_ROOT}/kaiju-private"
 if $verbose; then
     echo "Copying updated test files from ${new_test_code_root}."
 fi
 cp -rp $new_test_code_root/testingScripts ./testingScripts
 cp -rp $new_test_code_root/tests ./tests
-# patch_root="${KAIJU_TEST_ROOT}/MAGE_1.0_inputs"
+# patch_root="${MAGE_TEST_ROOT}/MAGE_1.0_inputs"
 # cp -p $patch_root/claw.F src/rcm/claw.F
 # </HACK>
 
 # ############################################################################
 
-# Set up the kaiju environment.
-kaiju_setup_script="${KAIJU_TEST_SET_ROOT}/${local_kaiju_name}/scripts/setupEnvironment.sh"
+# Set up the kaiju environment using the just-checked-out code.
+kaiju_setup_script="${MAGE_TEST_SET_ROOT}/${local_kaiju_name}/scripts/setupEnvironment.sh"
 if $verbose; then
     echo "Sourcing kaiju setup script ${kaiju_setup_script}."
 fi
@@ -358,9 +358,9 @@ for mage_test in ${tests_to_run[@]}
 do
     echo $test_output_separator
     if $verbose; then
-        echo "Moving to ${KAIJU_TEST_SET_ROOT}."
+        echo "Moving to ${MAGE_TEST_SET_ROOT}."
     fi
-    cd $KAIJU_TEST_SET_ROOT
+    cd $MAGE_TEST_SET_ROOT
     cmd="python ${kaiju_test_scripts_dir}/${mage_test}"
     if $verbose; then
         echo "Running test '${cmd}' at `date` on `hostname`."
