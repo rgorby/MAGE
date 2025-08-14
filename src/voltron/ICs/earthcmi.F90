@@ -611,13 +611,13 @@ module uservoltic
             nbc = FindBC(Model,Grid,INI)
                 SELECT type(iiBC=>Grid%externalBCs(nbc)%p)
                     TYPE IS (IonInnerBC_T)
-                        if(ioExist(inH5,"inEijk")) then
+                        if(ioExist(inH5,"_inEijk")) then
                             call ClearIO(IOVars)
-                            call AddInVar(IOVars,"inEijk")
-                            call AddInVar(IOVars,"inExyz")
+                            call AddInVar(IOVars,"_inEijk")
+                            call AddInVar(IOVars,"_inExyz")
                             call ReadVars(IOVars,.false.,inH5)
-                            call IOArray4DFill(IOVars, "inEijk", iiBC%inEijk(:,:,:,:) )
-                            call IOArray4DFill(IOVars, "inExyz", iiBC%inExyz(:,:,:,:) )
+                            call IOArray4DFill(IOVars, "_inEijk", iiBC%inEijk(:,:,:,:) )
+                            call IOArray4DFill(IOVars, "_inExyz", iiBC%inExyz(:,:,:,:) )
                         endif
                 CLASS DEFAULT
                     ! do nothing on gamera ranks without this BC
@@ -641,8 +641,8 @@ module uservoltic
             nbc = FindBC(Model,Grid,INI)
                 SELECT type(iiBC=>Grid%externalBCs(nbc)%p)
                     TYPE IS (IonInnerBC_T)
-                        call AddOutVar(IOVars, "inEijk", iiBC%inEijk(:,:,:,:) )
-                        call AddOutVar(IOVars, "inExyz", iiBC%inExyz(:,:,:,:) )
+                        call AddOutVar(IOVars, "_inEijk", iiBC%inEijk(:,:,:,:) )
+                        call AddOutVar(IOVars, "_inExyz", iiBC%inExyz(:,:,:,:) )
                 CLASS DEFAULT
                     ! do nothing on gamera ranks without this BC
             END SELECT
@@ -665,11 +665,11 @@ module uservoltic
                 SELECT type(iiBC=>Grid%externalBCs(nbc)%p)
                     TYPE IS (IonInnerBC_T)
                         if (writeGhosts) then
-                            !call AddOutVar(IOVars, "inEijk", iiBC%inEijk(:,:,:,:) )
-                            call AddOutVar(IOVars, "inExyz", iiBC%inExyz(:,:,:,:) )
+                            !call AddOutVar(IOVars, "_inEijk", iiBC%inEijk(:,:,:,:) )
+                            call AddOutVar(IOVars, "_inExyz", iiBC%inExyz(:,:,:,:) )
                         else
-                            !call AddOutVar(IOVars, "inEijk", iiBC%inEijk(:,Grid%js:Grid%je+1,Grid%ks:Grid%ke+1,:) )
-                            call AddOutVar(IOVars, "inExyz", iiBC%inExyz(:,Grid%js:Grid%je,Grid%ks:Grid%ke,:) )
+                            !call AddOutVar(IOVars, "_inEijk", iiBC%inEijk(:,Grid%js:Grid%je+1,Grid%ks:Grid%ke+1,:) )
+                            call AddOutVar(IOVars, "_inExyz", iiBC%inExyz(:,Grid%js:Grid%je,Grid%ks:Grid%ke,:) )
                         endif
                 CLASS DEFAULT
                     ! do nothing on gamera ranks without this BC
