@@ -32,7 +32,7 @@ from jinja2 import Template
 import common
 
 
-# Program constants
+# # Program constants
 
 # Program description.
 DESCRIPTION = "Script for MAGE checks with Intel Inspector tools"
@@ -40,14 +40,11 @@ DESCRIPTION = "Script for MAGE checks with Intel Inspector tools"
 # Home directory of kaiju installation
 KAIJUHOME = os.environ["KAIJUHOME"]
 
-# Root of kaiju testing directory.
-KAIJU_TEST_ROOT = os.environ["KAIJU_TEST_ROOT"]
-
 # Root of directory tree for this set of tests.
-KAIJU_TEST_SET_ROOT = os.environ["KAIJU_TEST_SET_ROOT"]
+MAGE_TEST_SET_ROOT = os.environ["MAGE_TEST_SET_ROOT"]
 
 # Directory for Intel Inspector checks
-INTEL_CHECKS_DIRECTORY = os.path.join(KAIJU_TEST_SET_ROOT, "intelChecks")
+INTEL_CHECKS_DIRECTORY = os.path.join(MAGE_TEST_SET_ROOT, "intelChecks")
 
 # Path to directory containing the test scripts
 TEST_SCRIPTS_DIRECTORY = os.path.join(KAIJUHOME, "testingScripts")
@@ -81,14 +78,11 @@ INTEL_CHECKS_DIRECTORY_PREFIX = "intelChecks_"
 # Name of build subdirectory containing binaries
 BUILD_BIN_DIR = "bin"
 
-# Path to directory containing the input data
-TEST_INPUTS_DIRECTORY = os.path.join(KAIJU_TEST_ROOT, "intel_checks_inputs")
-
 # Data and configuration files used by the Intel Inspector tests.
 TEST_INPUT_FILES = [
+    "tinyCase.xml",
     "memSuppress.sup",
     "threadSuppress.sup",
-    "tinyCase.xml",
 ]
 
 # Name of PBS file for memory checks.
@@ -191,8 +185,8 @@ def intelChecks(args: dict):
     if debug:
         print(f"submit_ok = {submit_ok}")
 
-    # Create a list of lists for job IDs. There are 3 job IDs per set - one
-    # for memory check, one for thread check, and one for the test report.
+    # Create a list of lists for job IDs. There are 3 job IDs per set - one for
+    # memory check, one for thread check, and one for the test report.
     job_ids = [[None, None, None]]*len(module_list_files)
     if debug:
         print(f"job_ids = {job_ids}")
@@ -304,10 +298,10 @@ def intelChecks(args: dict):
         if verbose:
             print("Copying files needed for Intel checks.")
         for filename in TEST_INPUT_FILES:
-            from_path = os.path.join(TEST_INPUTS_DIRECTORY, filename)
+            from_path = os.path.join(TEST_SCRIPTS_DIRECTORY, filename)
             to_path = os.path.join(".", filename)
             shutil.copyfile(from_path, to_path)
-
+        
         # Generate bcwind data file.
         if verbose:
             print("Creating bcwind data file.")
@@ -327,7 +321,7 @@ def intelChecks(args: dict):
             continue
         if debug:
             print(f"cproc = {cproc}")
-
+        
         # Generate the LFM grid file.
         if verbose:
             print("Creating LFM grid file.")
@@ -379,10 +373,12 @@ def intelChecks(args: dict):
         pbs_options["job_priority"] = os.environ["DERECHO_TESTING_PRIORITY"]
         pbs_options["modules"] = module_names
         pbs_options["kaijuhome"] = KAIJUHOME
+        pbs_options["kaipyhome"] = os.environ["KAIPYHOME"]
         pbs_options["tmpdir"] = os.environ["TMPDIR"]
         pbs_options["slack_bot_token"] = os.environ["SLACK_BOT_TOKEN"]
-        pbs_options["mage_test_root"] = KAIJU_TEST_ROOT
+        pbs_options["mage_test_root"] = os.environ["MAGE_TEST_ROOT"]
         pbs_options["branch_or_commit"] = BRANCH_OR_COMMIT
+        pbs_options["mage_test_set_root"] = os.environ["MAGE_TEST_SET_ROOT"]
         pbs_options["conda_environment"] = os.environ["CONDA_ENVIRONMENT"]
 
         # Set options specific to the memory check, then render the template.
