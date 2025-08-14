@@ -29,6 +29,7 @@ module uservoltic
     real(rp), private :: Rho0,P0
     real(rp), private :: Kp0
     logical , private :: doPP0  !Use MF starter plasmasphere
+    logical , private :: writeBCData ! Whether to write IC BC data
 
     ! type for remix BC
     type, extends(innerIBC_T) :: IonInnerBC_T
@@ -82,6 +83,7 @@ module uservoltic
         call inpXML%Set_Val(Rho0 ,"prob/Rho0",0.2_rp)
         call inpXML%Set_Val(P0   ,"prob/P0"  ,0.001_rp)
         call inpXML%Set_Val(doPP0,"prob/doPP0",.false.)
+        call inpXML%Set_Val(writeBCData,"prob/writeBC",.false.)
 
         !Set magnetosphere parameters
         call setMagsphere(Model,inpXML)
@@ -633,6 +635,8 @@ module uservoltic
  
         integer :: nbc
 
+        if (.not. writeBCData) return
+
         if ( Grid%hasLowerBC(IDIR) ) then
             nbc = FindBC(Model,Grid,INI)
                 SELECT type(iiBC=>Grid%externalBCs(nbc)%p)
@@ -654,16 +658,18 @@ module uservoltic
 
         integer :: nbc
 
+        if (.not. writeBCData) return
+
         if ( Grid%hasLowerBC(IDIR) ) then
             nbc = FindBC(Model,Grid,INI)
                 SELECT type(iiBC=>Grid%externalBCs(nbc)%p)
                     TYPE IS (IonInnerBC_T)
                         if (writeGhosts) then
-                            call AddOutVar(IOVars, "inEijk", iiBC%inEijk(:,:,:,:) )
+                            !call AddOutVar(IOVars, "inEijk", iiBC%inEijk(:,:,:,:) )
                             call AddOutVar(IOVars, "inExyz", iiBC%inExyz(:,:,:,:) )
                         else
-                            call AddOutVar(IOVars, "inEijk", iiBC%inEijk(Grid%is:Grid%ie+1,Grid%js:Grid%je+1,Grid%ks:Grid%ke+1,:) )
-                            call AddOutVar(IOVars, "inExyz", iiBC%inExyz(Grid%is:Grid%ie,Grid%js:Grid%je,Grid%ks:Grid%ke,:) )
+                            !call AddOutVar(IOVars, "inEijk", iiBC%inEijk(:,Grid%js:Grid%je+1,Grid%ks:Grid%ke+1,:) )
+                            call AddOutVar(IOVars, "inExyz", iiBC%inExyz(:,Grid%js:Grid%je,Grid%ks:Grid%ke,:) )
                         endif
                 CLASS DEFAULT
                     ! do nothing on gamera ranks without this BC
