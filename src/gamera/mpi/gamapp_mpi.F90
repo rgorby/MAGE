@@ -677,11 +677,13 @@ module gamapp_mpi
             call Toc("Sync Math")
         endif
 
-        !Update BCs MPI style
-        call updateMpiBCs(gamAppMpi, gamAppmpi%State)
-
         !Calculate new timestep
         call CalcDT_mpi(gamAppMpi)
+        ! *** THIS MUST BE BEFORE updateMpiBCs
+        ! *** CalcDT can adjust cell values via CPR and other emergency correction schemes
+
+        !Update BCs MPI style
+        call updateMpiBCs(gamAppMpi, gamAppmpi%State)
 
     end subroutine stepGamera_mpi
 
