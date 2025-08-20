@@ -34,10 +34,10 @@ import common
 DESCRIPTION = 'Report on the MAGE Fortran unit test results.'
 
 # Root of directory tree for this set of tests.
-KAIJU_TEST_SET_ROOT = os.environ['KAIJU_TEST_SET_ROOT']
+MAGE_TEST_SET_ROOT = os.environ['MAGE_TEST_SET_ROOT']
 
 # Directory for unit tests
-UNIT_TEST_DIRECTORY = os.path.join(KAIJU_TEST_SET_ROOT, 'unitTest')
+UNIT_TEST_DIRECTORY = os.path.join(MAGE_TEST_SET_ROOT, 'unitTest')
 
 # glob pattern for naming unit test directories
 UNIT_TEST_DIRECTORY_GLOB_PATTERN = 'unitTest_*'
@@ -137,8 +137,8 @@ def main():
 
         # Compute the names of the job log files.
         job_file_0 = f"genTestData.o{job_ids[0]}"  # 0 OKs
-        job_file_1 = f"runCaseTests.o{job_ids[1]}"  # 2 OKs
-        job_file_2 = f"runNonCaseTests1.o{job_ids[2]}"  # 6 OKs
+        job_file_1 = f"runCaseTests.o{job_ids[1]}" # 2 OKs
+        job_file_2 = f"runNonCaseTests1.o{job_ids[2]}"  # 7 OKs
         job_file_3 = f"runNonCaseTests2.o{job_ids[3]}"  # 1 OK
         if debug:
             print(f"job_file_0 = {job_file_0}")
@@ -164,8 +164,8 @@ def main():
             elif 'job killed' in line:
                 jobKilled = True
 
-        # There should be exactly 9 OKs.
-        OK_COUNT_EXPECTED = 9
+        # There should be exactly 10 OKs.
+        OK_COUNT_EXPECTED = 10
         if verbose:
             print(f"Found {okCount} OKs, expected {OK_COUNT_EXPECTED}.")
         if okCount != OK_COUNT_EXPECTED:
@@ -234,7 +234,12 @@ def main():
         )
         if debug:
             print(f"slack_response_summary = {slack_response_summary}")
-
+    
+    # Also write a summary file to the root folder of this test
+    with open(os.path.join(MAGE_TEST_SET_ROOT,'testSummary.out'), 'w', encoding='utf-8') as f:
+        f.write(test_report_details_string)
+        f.write('\n')
+    
     # ------------------------------------------------------------------------
 
     if debug:

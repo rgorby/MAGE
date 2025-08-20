@@ -40,10 +40,10 @@ DEFAULT_MODULE_SET_FILE = os.path.join(
 )
 
 # Root of directory tree for this set of tests.
-KAIJU_TEST_SET_ROOT = os.environ["KAIJU_TEST_SET_ROOT"]
+MAGE_TEST_SET_ROOT = os.environ["MAGE_TEST_SET_ROOT"]
 
 # Directory for weekly dash results
-WEEKLY_DASH_DIRECTORY = os.path.join(KAIJU_TEST_SET_ROOT, "weeklyDash")
+WEEKLY_DASH_DIRECTORY = os.path.join(MAGE_TEST_SET_ROOT, "weeklyDash")
 
 # Path to directory containing the test scripts
 TEST_SCRIPTS_DIRECTORY = os.path.join(KAIJUHOME, "testingScripts")
@@ -149,6 +149,9 @@ def weekly_dash(args: dict):
         "cda2wind -t0 2016-08-09T02:00:00 -t1 2016-08-09T12:00:00"
     )
 
+    # Create the command to generate the raiju configuration.
+    genRAIJU_cmd = "genRAIJU"
+
     # Create the command for launching an MPI program.
     mpiexec_cmd = f"mpiexec {KAIJUHOME}/scripts/preproc/pinCpuCores.sh"
 
@@ -176,8 +179,8 @@ def weekly_dash(args: dict):
     pbs_options["walltime"] = "08:00:00"
     pbs_options["modules"] = module_names
     pbs_options["conda_environment"] = os.environ["CONDA_ENVIRONMENT"]
-    pbs_options["kaiju_test_root"] = os.environ["KAIJU_TEST_ROOT"]
-    pbs_options["kaiju_test_set_root"] = os.environ["KAIJU_TEST_SET_ROOT"]
+    pbs_options["mage_test_root"] = os.environ["MAGE_TEST_ROOT"]
+    pbs_options["mage_test_set_root"] = os.environ["MAGE_TEST_SET_ROOT"]
     pbs_options["kaijuhome"] = KAIJUHOME
     pbs_options["tmpdir"] = os.environ["TMPDIR"]
     pbs_options["slack_bot_token"] = os.environ["SLACK_BOT_TOKEN"]
@@ -186,6 +189,7 @@ def weekly_dash(args: dict):
     pbs_options["make_cmd"] = make_cmd
     pbs_options["genLFM_cmd"] = genLFM_cmd
     pbs_options["cda2wind_cmd"] = cda2wind_cmd
+    pbs_options["genRAIJU_cmd"] = genRAIJU_cmd
     pbs_options["mpiexec_cmd"] = mpiexec_cmd
     pbs_options["voltron_cmd"] = voltron_cmd
 
