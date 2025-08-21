@@ -420,4 +420,61 @@ module raijuetautils
 
     end function getInitPsphere
 
+    !Do plasmasphere refilling for the interval we're about to advance
+    subroutine plasmasphereRefill(Model,Grid,State)
+        type(raijuModel_T), intent(in) :: Model
+        type(raijuGrid_T) , intent(in) :: Grid
+        type(raijuState_T), intent(inout) :: State
+
+        integer :: i,j,k0
+        real(rp), parameter :: maxX = 2.0 !Max over-filling relative to target, i.e. don't go above maxX x den-target
+        real(rp), parameter :: day2s = 24.0*60.0*60,s2day=1.0/day2s
+        real(rp) :: NowKp
+        real(rp) :: xeq,yeq,rad,cc2eta,eta2cc
+        real(rp) :: dppT,dpsph,etaT,dndt,deta
+        
+        
+        k0 = Grid%spc(spcIdx(Grid, F_PSPH))%kStart !plasmasphere index
+        NowKp = State%KpTS%evalAt(State%t)
+
+        !$OMP PARALLEL DO default(shared) &
+        !$OMP private(i,j,xeq,yeq,rad,dppT,cc2eta,eta2cc) &
+        !$OMP private(dpsph,etaT,deta,dndt)
+        do j=Grid%shGrid%jsg,Grid%shGrid%jeg
+            do i=Grid%shGrid%isg,Grid%shGrid%ieg
+                if (State%active(i,j) == RAIJUACTIVE) then
+
+                    xeq = State%xyzMincc(i,j,XDIR)
+                    yeq = State%xyzMincc(i,j,YDIR)
+                    rad = sqrt(xeq**2.0 + yeq**2.0)
+
+                    !Closed field line, calculate Gallagher w/ current Kp to get target density
+                    dppT = GallagherXY(xeq,yeq,NowKp)
+                    cc2eta = State%bvol_cc(i,j)*sclEta
+                    eta2cc = 1.0/cc2eta !Convert eta to #/cc
+
+                    dpsph = eta2cc*State%eta(i,j,k0) !Current plasmasphere density [#/cc]
+
+                    !Check for other outs before doing anything
+                    if (dpsph >= maxX*dppT) then 
+                        continue ! Too much already there, don't touch it
+                    else
+                        etaT = dppT/eta2cc
+
+                        if ((rad <= Model%psphEvolRad) .and. (dppT > dpsph)) then
+                            !If this is inside MHD inner boundary, be at least at target value
+                            State%eta(i,j,k0) = etaT
+                        else
+                            !If still here then calculate refilling
+                            dndt = 10.0**(3.48-0.331*rad) !cm^-3/day, Denton+ 2012 eqn 1
+                            deta = (State%dt*s2day)*dndt/eta2cc !Change in eta over dt
+                            State%eta(i,j,k0) = State%eta(i,j,k0) + deta
+                        endif
+                    endif
+                endif
+            enddo !i
+        enddo !j
+
+    end subroutine plasmasphereRefill
+
 end module raijuetautils

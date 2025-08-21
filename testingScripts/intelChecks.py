@@ -81,7 +81,6 @@ BUILD_BIN_DIR = "bin"
 # Data and configuration files used by the Intel Inspector tests.
 TEST_INPUT_FILES = [
     "tinyCase.xml",
-    "bcwind.h5",
     "memSuppress.sup",
     "threadSuppress.sup",
 ]
@@ -302,7 +301,27 @@ def intelChecks(args: dict):
             from_path = os.path.join(TEST_SCRIPTS_DIRECTORY, filename)
             to_path = os.path.join(".", filename)
             shutil.copyfile(from_path, to_path)
-
+        
+        # Generate bcwind data file.
+        if verbose:
+            print("Creating bcwind data file.")
+        cmd = "cda2wind.py -t0 2016-08-09T09:00:00 -t1 2016-08-09T11:00:00"
+        if debug:
+            print(f"cmd = {cmd}")
+        try:
+            cproc = subprocess.run(cmd, shell=True, check=True)
+        except subprocess.CalledProcessError as e:
+            print("ERROR: Unable to create bcwind data file for module set "
+                  f"{module_set_name}.\n"
+                  f"e.cmd = {e.cmd}\n"
+                  f"e.returncode = {e.returncode}\n"
+                  "See testing log for output from cda2wind.py.\n"
+                  "Skipping remaining steps for module set"
+                  f"{module_set_name}\n")
+            continue
+        if debug:
+            print(f"cproc = {cproc}")
+        
         # Generate the LFM grid file.
         if verbose:
             print("Creating LFM grid file.")
@@ -323,20 +342,20 @@ def intelChecks(args: dict):
         if debug:
             print(f"cproc = {cproc}")
 
-        # Generate the RCM configuration file.
+        # Generate the Raiju configuration file.
         if verbose:
-            print("Creating RCM configuration file.")
-        cmd = "genRCM.py"
+            print("Creating Raiju configuration file.")
+        cmd = "genRAIJU.py"
         if debug:
             print(f"cmd = {cmd}")
         try:
             cproc = subprocess.run(cmd, shell=True, check=True)
         except subprocess.CalledProcessError as e:
-            print("ERROR: Unable to create RCM configuration file"
+            print("ERROR: Unable to create Raiju configuration file"
                   f" for module set {module_set_name}.\n"
                   f"e.cmd = {e.cmd}\n"
                   f"e.returncode = {e.returncode}\n"
-                  "See testing log for output from genRCM.py.\n"
+                  "See testing log for output from genRAIJU.py.\n"
                   "Skipping remaining steps for module set "
                   f"{module_set_name}\n")
             continue
@@ -359,6 +378,8 @@ def intelChecks(args: dict):
         pbs_options["slack_bot_token"] = os.environ["SLACK_BOT_TOKEN"]
         pbs_options["mage_test_root"] = os.environ["MAGE_TEST_ROOT"]
         pbs_options["branch_or_commit"] = BRANCH_OR_COMMIT
+        pbs_options["mage_test_set_root"] = os.environ["MAGE_TEST_SET_ROOT"]
+        pbs_options["conda_environment"] = os.environ["CONDA_ENVIRONMENT"]
 
         # Set options specific to the memory check, then render the template.
         pbs_options["job_name"] = "mage_intelCheckSubmitMem"

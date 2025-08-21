@@ -175,6 +175,10 @@ module volttypes
             !! [s] Time scale over which we ramp up to full IM_TSCL for MHD ingestion
         logical :: doColdstartCX = .true.
             !! Whether or not we apply charge exchange to initial coldstart ion profile
+        real(rp) :: tsclSm_dL = 1.0_rp
+            !! [Rp] theta/L-direction smoothing scale for mhd ingestion timescale
+        real(rp) :: tsclSm_dMLT = 1.0_rp
+            !! [hr] phi/MLT-direction smoothing scale for mhd ingestion timescale
 
         ! --- Grid --- !
         type(ShellGrid_T) :: shGr
@@ -219,12 +223,17 @@ module volttypes
             !! Used to limit active region to tubes that can reasonably be treated as averaged and slowly-evolving
         type(ShellGridVar_T) :: Tb
             !! (Ngi, Ngj) Bounce timesale
-
+        type(ShellGridVar_T) :: avgBeta
+            !! (Ngi, Ngj) Cross-sectional flux-tube area - averaged beta (woof)
 
         type(ShellGridVar_T) :: pot_total
             !! Total electrostatic potential from (ionosphere + corot) [kV]
         type(ShellGridVar_T) :: pot_corot
             !! Just corotation potential, just for output purposes [kV]
+
+        ! Post-advance stuff leaving raiju
+        type(ShellGridVar_T) :: tscl_mhdIngest
+            !! [s] Timescale at which we think MHD should ingest our info
 
         contains
 

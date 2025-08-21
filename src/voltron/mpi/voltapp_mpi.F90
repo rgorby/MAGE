@@ -152,8 +152,8 @@ module voltapp_mpi
                     deallocate(vApp%ebTrcApp%ebSquish%blockStartIndices)
                     allocate(vApp%ebTrcApp%ebSquish%blockStartIndices(vApp%ebTrcApp%ebSquish%numSquishBlocks))
                     do b=1,vApp%ebTrcApp%ebSquish%numSquishBlocks
-                        vApp%ebTrcApp%ebSquish%blockStartIndices(b) = vApp%ebTrcApp%ebState%ebGr%ks + &
-                            ((b-1)*(vApp%ebTrcApp%ebState%ebGr%ke+1))/vApp%ebTrcApp%ebSquish%numSquishBlocks
+                        vApp%ebTrcApp%ebSquish%blockStartIndices(b) = &
+                            GetAdjustedSquishStart(vApp,((b-1)*(vApp%ebTrcApp%ebState%ebGr%ke+1))/vApp%ebTrcApp%ebSquish%numSquishBlocks)
                     enddo
                 endif
                 call createLoadBalancer(vApp%squishLb, nHelpers,&
@@ -383,6 +383,8 @@ module voltapp_mpi
         call convertGameraToRemix(vApp%mhd2mix, vApp%gApp, vApp%remixApp)
         call Toc("G2R")
 
+        call MJDRecalc(vApp%MJD)
+
         if (vApp%doGCM .and. vApp%time >=0 .and. vApp%gcmCplRank /= -1) then
             call Tic("GCM2MIX")
             call coupleGCM2MIX(vApp%gcm,vApp%remixApp%ion,vApp%MJD,vApp%time,vApp%mageCplComm,vApp%gcmCplRank)
@@ -442,7 +444,7 @@ module voltapp_mpi
 
             vApp%deepProcessingInProgress = .true.
             call Toc("DeepUpdate", .true.)
-        else
+         elseif(vApp%doDeep) then
             vApp%gApp%Grid%Gas0 = 0
             !Load TM03 into Gas0 for ingestion during spinup
             !Note: Using vApp%time instead of gamera time units

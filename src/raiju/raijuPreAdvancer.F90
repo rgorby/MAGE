@@ -41,6 +41,9 @@ module raijuPreAdvancer
         call applyRaijuBCs(Model, Grid, State, doWholeDomainO=State%isFirstCpl) ! If fullEtaMap=True, mom2eta map is applied to the whole domain
         call Toc("BCs")
 
+        ! Handle plasmaasphere refilling for the full step about to happen
+        call plasmasphereRefill(Model,Grid,State)
+
         ! Handle edge cases that may effect the validity of information carried over from last coupling period
         call prepEtaLast(Grid%shGrid, State, State%isFirstCpl)
 

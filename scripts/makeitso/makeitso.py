@@ -846,7 +846,7 @@ def run_preprocessing_steps(options: dict, args: dict):
 
     # If needed, create the solar wind file by fetching data from CDAWeb.
     # NOTE: Assumes kaipy is installed.
-    if options["simulation"]["bcwind_available"] == "N":
+    if options["simulation"]["bcwind_available"].upper() == "N":
         cmd = "cda2wind"
         args = [cmd, "-t0", options["simulation"]["start_date"], "-t1",
                 options["simulation"]["stop_date"], "-interp", "-bx",

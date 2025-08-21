@@ -78,7 +78,6 @@ module raijuOut
         State%IO%tRes = State%IO%tRes + State%IO%dtRes
         State%IO%nRes = State%IO%nRes + 1
 
-
     end subroutine raijuResInput
 
 

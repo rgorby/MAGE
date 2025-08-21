@@ -160,7 +160,7 @@ def generateAndRunCase(caseName,pbsTemplate,pbs_options,xmlTemplate,xml_options,
     shutil.copy2('../voltron.x', './voltron.x')
     shutil.copy2('../voltron_mpi.x', './voltron_mpi.x')
     shutil.copy2('../lfmD.h5', './lfmD.h5')
-    shutil.copy2('../rcmconfig.h5', './rcmconfig.h5')
+    shutil.copy2('../raijuconfig.h5', './raijuconfig.h5')
     shutil.copy2('../bcwind.h5', './bcwind.h5')
     # Submit the job
     if verbose:
@@ -643,16 +643,16 @@ def main():
                   f"{module_set_name}\n")
             continue
 
-        # Generate the RCM configuration file.
+        # Generate the Raiju configuration file.
         if verbose:
-            print('Creating RCM configuration file.')
-        cmd = 'genRCM.py'
+            print('Creating Raiju configuration file.')
+        cmd = 'genRAIJU.py'
         if debug:
             print(f"cmd = {cmd}")
         try:
             _ = subprocess.run(cmd, shell=True, check=True)
         except subprocess.CalledProcessError as e:
-            print('ERROR: Unable to create RCM configuration file'
+            print('ERROR: Unable to create Raiju configuration file'
                   f" for module set {module_set_name}.\n"
                   f"e.cmd = {e.cmd}\n"
                   f"e.returncode = {e.returncode}\n"
@@ -674,6 +674,7 @@ def main():
         base_pbs_options['mage_test_root'] = os.environ['MAGE_TEST_ROOT']
         base_pbs_options['mage_test_set_root'] = os.environ['MAGE_TEST_SET_ROOT']
         base_pbs_options['branch_or_commit'] = os.environ['BRANCH_OR_COMMIT']
+        base_pbs_options["conda_environment"] = os.environ["CONDA_ENVIRONMENT"]
         base_pbs_options['report_options'] = ''
         if debug:
             base_pbs_options['report_options'] += ' -d'
