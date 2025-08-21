@@ -20,7 +20,7 @@
         "stop_date": {
             "LEVEL": "BASIC",
             "prompt": "Stop date for simulation (yyyy-mm-ddThh:mm:ss)",
-            "default":  "2017-08-02T21:44:23"
+            "default": "2017-08-02T21:44:23"
         },
         "use_segments": {
             "LEVEL": "BASIC",
