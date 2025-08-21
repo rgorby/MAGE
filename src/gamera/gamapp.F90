@@ -82,11 +82,11 @@ module gamapp
         call Toc("DT")
 
         !Enforce BCs
-        call Tic("BCs")
+        call Tic("BCs", .true.)
         call EnforceBCs(gameraApp%Model,gameraApp%Grid,gameraApp%State)
         !Update Bxyz's
         call bFlux2Fld (gameraApp%Model,gameraApp%Grid,gameraApp%State%magFlux,gameraApp%State%Bxyz) 
-        call Toc("BCs")
+        call Toc("BCs", .true.)
         
     end subroutine stepGamera
 

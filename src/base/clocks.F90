@@ -8,6 +8,7 @@ module clocks
     !Global clock parameters
     integer, parameter :: maxClocks = 80
     integer :: clockRate=0,clockMax=0
+    integer :: cleanClockStep=0
 
     !Clock output (min/max depth)
     integer :: clkMinD = 1, clkMaxD = 5
@@ -174,8 +175,13 @@ module clocks
     end subroutine Toc
 
     !Reset clocks
-    subroutine cleanClocks()
+    subroutine cleanClocks(cleanStep)
+        integer, optional, intent(in) :: cleanStep
         integer :: n
+
+        ! optional, allow the user to record what model step the clocks were cleaned at
+        ! this can help the user track per-step timing info
+        if(present(cleanStep)) cleanClockStep = cleanStep
 
         do n=1,nclk
             kClocks(n)%tElap = 0

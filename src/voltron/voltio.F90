@@ -389,7 +389,7 @@ module voltio
         type(IOVAR_T), dimension(MAXVOLTIOVAR) :: IOVars
         real(rp) :: symh
 
-        integer :: is,ie,js,je
+        integer :: is,ie,js,je,nClkSteps
         real(rp) :: Csijk,Con(NVAR)
         real(rp) :: BSDst0,AvgBSDst,DPSDst,BSSMRs(4)
         integer, dimension(4) :: outSGVBnds_corner
@@ -443,6 +443,18 @@ module voltio
         call AddOutVar(IOVars,"time" ,vApp%time)
         call AddOutVar(IOVars,"MJD"  ,vApp%MJD)
         call AddOutVar(IOVars,"timestep",vApp%ts)
+
+        !Performance metrics
+        if(vApp%writePerf) then
+            nClkSteps = vApp%ts - cleanClockStep
+            call AddOutVar(IOVars,"perf_stepTime",readClock(1)/nClkSteps)
+            call AddOutVar(IOVars,"perf_gamTime", readClock('GameraSync')/nClkSteps)
+            call AddOutVar(IOVars,"perf_squishTime", (readClock('Squish')+readClock('VoltHelpers'))/nClkSteps)
+            call AddOutVar(IOVars,"perf_imagTime", readClock('InnerMag')/nClkSteps)
+            call AddOutVar(IOVars,"perf_mixTime", readClock('ReMIX')/nClkSteps)
+            call AddOutVar(IOVars,"perf_tubesTime", readClock('VoltTubes')/nClkSteps)
+            call AddOutVar(IOVars,"perf_ioTime", readClock('IO')/nClkSteps)
+        endif
 
 
         ! voltState stuff

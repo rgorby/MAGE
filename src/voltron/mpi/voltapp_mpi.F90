@@ -359,6 +359,7 @@ module voltapp_mpi
             call Tic("DeepUpdate")
             call DeepUpdate_mpi(vApp)
             call Toc("DeepUpdate")
+            vApp%ts = vApp%ts + 1
 
             if(vApp%doSerialMHD) call vApp%gApp%StartUpdateMhdData(vApp)
 

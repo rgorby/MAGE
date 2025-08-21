@@ -345,6 +345,7 @@ module volttypes
         type (IOClock_T) :: IO
         logical :: isLoud = .true. !Console output
         logical :: writeFiles = .true. !File output
+        logical :: writePerf = .true. ! Write performance data to files
 
         !Apps
         type(mixApp_T) :: remixApp

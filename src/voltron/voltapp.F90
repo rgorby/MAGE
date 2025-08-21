@@ -337,6 +337,7 @@ module voltapp
             call Tic("DeepUpdate")
             call DeepUpdate(vApp, vApp%gApp)
             call Toc("DeepUpdate")
+            vApp%ts = vApp%ts + 1
 
             call vApp%gApp%StartUpdateMhdData(vApp)
 

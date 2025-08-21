@@ -154,7 +154,7 @@ module raijuIO
         logical, optional, intent(in) :: doGhostsO
 
         type(IOVAR_T), dimension(MAXIOVAR) :: IOVars
-        integer :: i,j,k,s
+        integer :: i,j,k,s, nClkSteps
         integer :: is, ie, js, je, ks, ke
         integer, dimension(4) :: outBnds2D
         logical :: doGhosts
@@ -423,8 +423,14 @@ module raijuIO
             call AddOutVar(IOVars, "mapJacNorm", outTmp2D(is:ie,js:je), dStr="L_(2,1) norm of lat/lon => xyzMin Jacobian")
         endif
 
-        call WriteVars(IOVars,.true.,Model%raijuH5, gStr)
+        !Performance Metrics
+        nClkSteps = State%ts - cleanClockStep
+        call AddOutVar(IOVars, "perf_stepTime", readClock(1)/nClkSteps)
+        call AddOutVar(IOVars, "perf_preAdvance", readClock("Pre-Advance")/nClkSteps)
+        call AddOutVar(IOVars, "perf_advanceState", readClock("AdvanceState")/nClkSteps)
+        call AddOutVar(IOVars, "perf_moments", readClock("Moments Eval")/nClkSteps)
 
+        call WriteVars(IOVars,.true.,Model%raijuH5, gStr)
 
         ! Any extra groups to add
         if (Model%doLosses .and. Model%doOutput_3DLoss) then
