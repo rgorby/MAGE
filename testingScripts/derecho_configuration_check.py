@@ -150,6 +150,9 @@ def derecho_configuration_check(args: dict):
         "cda2wind -t0 2016-08-09T02:00:00 -t1 2016-08-09T12:00:00"
     )
 
+    # # Create the command to generate the RCM configuration.
+    # genRCM_cmd = "genRCM.py"
+
     # Create the command for launching an MPI program.
     mpiexec_cmd = f"mpiexec {KAIJUHOME}/scripts/preproc/pinCpuCores.sh"
 
@@ -182,6 +185,7 @@ def derecho_configuration_check(args: dict):
     pbs_options["mage_test_root"] = os.environ["MAGE_TEST_ROOT"]
     pbs_options["mage_test_set_root"] = os.environ["MAGE_TEST_SET_ROOT"]
     pbs_options["kaijuhome"] = KAIJUHOME
+    # pbs_options["kaipy_private_root"] = os.environ["KAIPY_PRIVATE_ROOT"]
     pbs_options["tmpdir"] = os.environ["TMPDIR"]
     pbs_options["slack_bot_token"] = os.environ["SLACK_BOT_TOKEN"]
     pbs_options["branch_or_commit"] = os.environ["BRANCH_OR_COMMIT"]
@@ -189,6 +193,7 @@ def derecho_configuration_check(args: dict):
     pbs_options["make_cmd"] = make_cmd
     pbs_options["genLFM_cmd"] = genLFM_cmd
     pbs_options["cda2wind_cmd"] = cda2wind_cmd
+    # pbs_options["genRCM_cmd"] = genRCM_cmd
     pbs_options["mpiexec_cmd"] = mpiexec_cmd
     pbs_options["voltron_cmd"] = voltron_cmd
 

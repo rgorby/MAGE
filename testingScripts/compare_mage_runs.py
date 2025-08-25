@@ -517,6 +517,83 @@ def merge_REMIX_quicklook_plots(plots_north: list, plots_south: list):
     return merged_plot_north, merged_plot_south
 
 
+# def create_RCM_quicklook_plots(xml_files: list):
+#     """Create the RCM quicklook plot for each run.
+
+#     Create the RCM quicklook plot for each run.
+
+#     Parameters
+#     ----------
+#     xml_files : list of str
+#         List of XML files describing each run.
+
+#     Returns
+#     -------
+#     quicklook_plots : list of str
+#         Path to each quicklook file.
+
+#     Raises
+#     ------
+#     None
+#     """
+#     # Save the current directory.
+#     cwd = os.getcwd()
+
+#     # Make the RCM quicklook plot for each run.
+#     quicklook_plots = []
+#     for xml_file in xml_files:
+
+#         # Extract the run ID.
+#         runid = common.extract_runid(xml_file)
+
+#         # Compute the path to the results directory.
+#         results_dir = os.path.split(xml_file)[0]
+
+#         # Move to the results directory.
+#         os.chdir(results_dir)
+
+#         # Create the quicklook plot.
+#         cmd = f"rcmpic.py -id {runid}"
+#         _ = subprocess.run(cmd, shell=True, check=True)
+
+#         # Add the plot to the list.
+#         path = os.path.join(results_dir, "qkrcmpic.png")
+#         quicklook_plots.append(path)
+
+#         # Return to the original directory.
+#         os.chdir(cwd)
+
+#     # Return the list of quicklook plots.
+#     return quicklook_plots
+
+
+# def merge_RCM_quicklook_plots(quicklook_plots: list):
+#     """Merge the RCM quicklook plots for all runs.
+
+#     Merge the RCM quicklook plots for all runs.
+
+#     Parameters
+#     ----------
+#     quicklook_plots : list of str
+#         List of quicklook plots to merge.
+
+#     Returns
+#     -------
+#     merged_plot : str
+#         Path to merged quicklook file.
+
+#     Raises
+#     ------
+#     None
+#     """
+#     # Merge RCM quicklooks.
+#     merged_plot = "combined_qkrcmpic.png"
+#     cmd = f"convert {' '.join(quicklook_plots)} -append {merged_plot}"
+#     print(f"cmd = {cmd}")
+#     _ = subprocess.run(cmd, shell=True, check=True)
+#     return merged_plot
+
+
 def compare_mage_runs(args):
     """Compare a set of MAGE model runs.
 
@@ -645,6 +722,7 @@ def compare_mage_runs(args):
         "combined_msphpic.png",
         "combined_remix_n.png",
         "combined_remix_s.png",
+        # "combined_qkrcmpic.png",
     ]
     comments_to_post = [
         "Real-Time Performance\n\n",
@@ -653,6 +731,7 @@ def compare_mage_runs(args):
         "Magnetosphere Quicklook Comparison Plots\n\n",
         "REMIX (north) Quicklook Comparison Plots\n\n",
         "REMIX (south) Quicklook Comparison Plots\n\n",
+        # "RCM Quicklook Comparison Plots\n\n",
     ]
 
     # If loud mode is on, post results to Slack.
