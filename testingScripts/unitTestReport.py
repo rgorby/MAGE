@@ -164,7 +164,7 @@ def main():
             elif 'job killed' in line:
                 jobKilled = True
 
-        # There should be exactly 10 OKs.
+        # There should be exactly 9 OKs.
         OK_COUNT_EXPECTED = 9
         if verbose:
             print(f"Found {okCount} OKs, expected {OK_COUNT_EXPECTED}.")

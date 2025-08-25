@@ -179,8 +179,8 @@ def derecho_configuration_check(args: dict):
     # pbs_options["condarc"] = os.environ["CONDARC"]
     # pbs_options["conda_envs_path"] = os.environ["CONDA_ENVS_PATH"]
     pbs_options["conda_environment"] = os.environ["CONDA_ENVIRONMENT"]
-    pbs_options["kaiju_test_root"] = os.environ["MAGE_TEST_ROOT"]
-    pbs_options["kaiju_test_set_root"] = os.environ["MAGE_TEST_SET_ROOT"]
+    pbs_options["mage_test_root"] = os.environ["MAGE_TEST_ROOT"]
+    pbs_options["mage_test_set_root"] = os.environ["MAGE_TEST_SET_ROOT"]
     pbs_options["kaijuhome"] = KAIJUHOME
     pbs_options["tmpdir"] = os.environ["TMPDIR"]
     pbs_options["slack_bot_token"] = os.environ["SLACK_BOT_TOKEN"]

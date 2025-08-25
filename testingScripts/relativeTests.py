@@ -667,8 +667,8 @@ def main():
         base_pbs_options['kaijuhome'] = KAIJUHOME
         base_pbs_options['tmpdir'] = os.environ['TMPDIR']
         base_pbs_options['slack_bot_token'] = os.environ['SLACK_BOT_TOKEN']
-        base_pbs_options['kaiju_test_root'] = os.environ['MAGE_TEST_ROOT']
-        base_pbs_options['kaiju_test_set_root'] = os.environ['MAGE_TEST_SET_ROOT']
+        base_pbs_options['mage_test_root'] = os.environ['MAGE_TEST_ROOT']
+        base_pbs_options['mage_test_set_root'] = os.environ['MAGE_TEST_SET_ROOT']
         base_pbs_options['branch_or_commit'] = os.environ['BRANCH_OR_COMMIT']
         base_pbs_options["conda_environment"] = os.environ["CONDA_ENVIRONMENT"]
         base_pbs_options['report_options'] = ''

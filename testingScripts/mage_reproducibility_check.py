@@ -281,8 +281,8 @@ def mage_reproducibility_check(args: dict):
     pbs_options["kaijuhome"] = KAIJUHOME
     pbs_options["tmpdir"] = os.environ["TMPDIR"]
     pbs_options["slack_bot_token"] = os.environ["SLACK_BOT_TOKEN"]
-    pbs_options["kaiju_test_root"] = os.environ["MAGE_TEST_ROOT"]
-    pbs_options["kaiju_test_set_root"] = os.environ["MAGE_TEST_SET_ROOT"]
+    pbs_options["mage_test_root"] = os.environ["MAGE_TEST_ROOT"]
+    pbs_options["mage_test_set_root"] = os.environ["MAGE_TEST_SET_ROOT"]
     pbs_options["branch_or_commit"] = os.environ["BRANCH_OR_COMMIT"]
     pbs_options["genLFM_cmd"] = genLFM_cmd
     pbs_options["cda2wind_cmd"] = cda2wind_cmd
@@ -359,8 +359,8 @@ def mage_reproducibility_check(args: dict):
     pbs_options["kaijuhome"] = KAIJUHOME
     pbs_options["tmpdir"] = os.environ["TMPDIR"]
     pbs_options["slack_bot_token"] = os.environ["SLACK_BOT_TOKEN"]
-    pbs_options["kaiju_test_root"] = os.environ["MAGE_TEST_ROOT"]
-    pbs_options["kaiju_test_set_root"] = os.environ["MAGE_TEST_SET_ROOT"]
+    pbs_options["mage_test_root"] = os.environ["MAGE_TEST_ROOT"]
+    pbs_options["mage_test_set_root"] = os.environ["MAGE_TEST_SET_ROOT"]
     pbs_options["branch_or_commit"] = os.environ["BRANCH_OR_COMMIT"]
     pbs_options["xml1"] = os.path.join(build_directory, "run1",
                                        "weeklyDashGo.xml")

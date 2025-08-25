@@ -53,8 +53,8 @@ export SLACK_BOT_TOKEN={{ slack_bot_token }}
 export OMP_NUM_THREADS=128
 export MPI_TYPE_DEPTH=32
 export KMP_STACKSIZE=128M
-export KAIJU_TEST_ROOT={{ kaiju_test_root }}
-export KAIJU_TEST_SET_ROOT={{ kaiju_test_set_root }}
+export MAGE_TEST_ROOT="{{ mage_test_root }}"
+export MAGE_TEST_SET_ROOT={{ mage_test_set_root }}
 export BRANCH_OR_COMMIT={{ branch_or_commit }}
 
 echo 'The active environment variables are:'
@@ -70,10 +70,10 @@ echo 'Generating the solar wind boundary condition file.'
 {{ cda2wind_cmd }}
 echo "The solar wind boundary condition file is `ls bcwind.h5`."
 
-# Generate the RAIJU configuration file.
-echo 'Generating the RAIJU configuration file.'
-genRAIJU
-echo "The RAIJU configuration file is `ls raijuconfig.h5`."
+# Generate the Raiju configuration file.
+echo 'Generating the Raiju configuration file.'
+{{ genRaiju_cmd }}
+echo "The Raiju configuration file is `ls raijuconfig.h5`."
 
 # Run the model.
 MPICOMMAND="{{ mpiexec_cmd }}"
