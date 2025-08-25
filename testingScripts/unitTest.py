@@ -444,7 +444,7 @@ def main():
         # Set options specific to the data generation job, then render the
         # template.
         pbs_options['job_name'] = 'genTestData'
-        pbs_options['walltime'] = '02:00:00'
+        pbs_options['walltime'] = '00:30:00'
         pbs_content = data_generation_pbs_template.render(pbs_options)
         if verbose:
             print(f"Creating {DATA_GENERATION_PBS_SCRIPT}.")

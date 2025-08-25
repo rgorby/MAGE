@@ -4,9 +4,9 @@
 
 This script runs a series of tests of the MAGE software using Intel tools.
 
-The Intel Inspector memory checks run in about 2 hours on two derecho nodes.
+The Intel Inspector memory checks run in about an hour on two derecho nodes.
 
-The Intel Inspector thread checks run in about 2.5 hours on two derecho nodes.
+The Intel Inspector thread checks run in about 45 minutes on two derecho nodes.
 
 The report script runs in about 2 minutes on one derecho node.
 
@@ -301,7 +301,7 @@ def intelChecks(args: dict):
             from_path = os.path.join(TEST_SCRIPTS_DIRECTORY, filename)
             to_path = os.path.join(".", filename)
             shutil.copyfile(from_path, to_path)
-
+        
         # Generate bcwind data file.
         if verbose:
             print("Creating bcwind data file.")
@@ -321,7 +321,7 @@ def intelChecks(args: dict):
             continue
         if debug:
             print(f"cproc = {cproc}")
-
+        
         # Generate the LFM grid file.
         if verbose:
             print("Creating LFM grid file.")

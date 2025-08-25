@@ -9,6 +9,7 @@ Authors
 -------
 Jeff Garretson
 Eric Winter
+
 """
 
 
@@ -39,17 +40,6 @@ DEFAULT_MODULE_SET_FILE = os.path.join(
     KAIJUHOME, "testingScripts", "mage_build_test_modules", "intel_mpich.lst"
 )
 
-# Default values for command-line arguments when none are supplied (such as
-# when this code is called by external code).
-args_default = {
-    "debug": False,
-    "loud": False,
-    "slack_on_fail": False,
-    "test": False,
-    "verbose": False,
-    "module_set_file": DEFAULT_MODULE_SET_FILE,
-}
-
 # Root of directory tree for this set of tests.
 MAGE_TEST_SET_ROOT = os.environ["MAGE_TEST_SET_ROOT"]
 
@@ -62,6 +52,11 @@ REPRODUCIBILITY_CHECK_DIRECTORY_PREFIX = "reproducibility_check_"
 
 # Path to directory containing the test scripts
 TEST_SCRIPTS_DIRECTORY = os.path.join(KAIJUHOME, "testingScripts")
+
+# List of weekly dash test files to copy
+WEEKLY_DASH_TEST_FILES = [
+    "weeklyDashGo.xml",
+]
 
 # Path to jinja2 template file for PBS script for build job.
 BUILD_MAGE_PBS_TEMPLATE_FILE = os.path.join(
@@ -79,11 +74,6 @@ RUN_MAGE_PBS_TEMPLATE_FILE = os.path.join(
 # Name of rendered PBS script for MAGE runs.
 RUN1_MAGE_PBS_SCRIPT = "run1_mage.pbs"
 RUN2_MAGE_PBS_SCRIPT = "run2_mage.pbs"
-
-# List of weekly dash test files to copy
-WEEKLY_DASH_TEST_FILES = [
-    "weeklyDashGo.xml",
-]
 
 # Path to jinja2 template file for PBS script for comparison.
 MAGE_REPRODUCIBILITY_CHECK_PBS_TEMPLATE_FILE = os.path.join(
@@ -236,7 +226,8 @@ def mage_reproducibility_check(args: dict):
 
     # Submit the job.
     cmd = f"qsub {BUILD_MAGE_PBS_SCRIPT}"
-    cproc = subprocess.run(cmd, shell=True, text=True, capture_output=True)
+    cproc = subprocess.run(cmd, shell=True, check=True, text=True,
+                           capture_output=True)
     jobid_build = cproc.stdout.split(".")[0]
 
     # ------------------------------------------------------------------------
@@ -255,6 +246,7 @@ def mage_reproducibility_check(args: dict):
     cda2wind_cmd = (
         "cda2wind -t0 2016-08-09T02:00:00 -t1 2016-08-09T12:00:00"
     )
+    genRaiju_cmd = "genRAIJU"
     mpiexec_cmd = f"mpiexec {KAIJUHOME}/scripts/preproc/pinCpuCores.sh"
     voltron_cmd = "../bin/voltron_mpi.x weeklyDashGo.xml"
 
@@ -277,15 +269,18 @@ def mage_reproducibility_check(args: dict):
     pbs_options["job_priority"] = os.environ["DERECHO_TESTING_PRIORITY"]
     pbs_options["walltime"] = "08:00:00"
     pbs_options["modules"] = module_names
+    pbs_options["mage_test_root"] = os.environ["MAGE_TEST_ROOT"]
+    pbs_options["mage_test_set_root"] = os.environ["MAGE_TEST_SET_ROOT"]
     pbs_options["conda_environment"] = os.environ["CONDA_ENVIRONMENT"]
     pbs_options["kaijuhome"] = KAIJUHOME
     pbs_options["tmpdir"] = os.environ["TMPDIR"]
     pbs_options["slack_bot_token"] = os.environ["SLACK_BOT_TOKEN"]
-    pbs_options["mage_test_root"] = os.environ["MAGE_TEST_ROOT"]
-    pbs_options["mage_test_set_root"] = os.environ["MAGE_TEST_SET_ROOT"]
     pbs_options["branch_or_commit"] = os.environ["BRANCH_OR_COMMIT"]
+    pbs_options["cmake_cmd"] = cmake_cmd
+    pbs_options["make_cmd"] = make_cmd
     pbs_options["genLFM_cmd"] = genLFM_cmd
     pbs_options["cda2wind_cmd"] = cda2wind_cmd
+    pbs_options["genRaiju_cmd"] = genRaiju_cmd
     pbs_options["mpiexec_cmd"] = mpiexec_cmd
     pbs_options["voltron_cmd"] = voltron_cmd
 
@@ -355,12 +350,12 @@ def mage_reproducibility_check(args: dict):
     pbs_options["job_priority"] = os.environ["DERECHO_TESTING_PRIORITY"]
     pbs_options["walltime"] = "02:00:00"
     pbs_options["modules"] = module_names
+    pbs_options["mage_test_root"] = os.environ["MAGE_TEST_ROOT"]
+    pbs_options["mage_test_set_root"] = os.environ["MAGE_TEST_SET_ROOT"]
     pbs_options["conda_environment"] = os.environ["CONDA_ENVIRONMENT"]
     pbs_options["kaijuhome"] = KAIJUHOME
     pbs_options["tmpdir"] = os.environ["TMPDIR"]
     pbs_options["slack_bot_token"] = os.environ["SLACK_BOT_TOKEN"]
-    pbs_options["mage_test_root"] = os.environ["MAGE_TEST_ROOT"]
-    pbs_options["mage_test_set_root"] = os.environ["MAGE_TEST_SET_ROOT"]
     pbs_options["branch_or_commit"] = os.environ["BRANCH_OR_COMMIT"]
     pbs_options["xml1"] = os.path.join(build_directory, "run1",
                                        "weeklyDashGo.xml")
@@ -425,44 +420,31 @@ def mage_reproducibility_check(args: dict):
     if debug:
         print(f"Ending {sys.argv[0]} at {datetime.datetime.now()}")
 
-    # Return nominal status.
-    return 0
-
 
 def main():
-    """Main program code for the command-line version of this file.
-
-    This is the main program code for the command-line version of this file.
-    It processes command-line options, then calls the primary code.
-
-    Parameters
-    ----------
-    None
-
-    Returns
-    -------
-    None
-
-    Raises
-    ------
-    None
-    """
+    """Driver for command-line version of code."""
     # Set up the command-line parser.
     parser = create_command_line_parser()
+
+#     # Add additional arguments specific to this script.
+#     parser.add_argument(
+#         "--module_set_file", "-f", default=DEFAULT_MODULE_SET_FILE,
+#         help=(
+#             "Path to text file containing set of modules to build with "
+#             "(default: %(default)s)"
+#         )
+#     )
 
     # Parse the command-line arguments.
     args = parser.parse_args()
     if args.debug:
         print(f"args = {args}")
 
-    # ------------------------------------------------------------------------
+    # Convert the arguments from Namespace to dict.
+    args = vars(args)
 
-    # Call the main program logic. Note that the Namespace object (args)
-    # returned from the option parser is converted to a dict using vars().
-    mage_reproducibility_check(vars(args))
-
-    # Exit normally.
-    sys.exit(0)
+    # Pass the command-line arguments to the main function as a dict.
+    mage_reproducibility_check(args)
 
 
 if __name__ == "__main__":
