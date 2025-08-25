@@ -51,10 +51,10 @@ args_default = {
 }
 
 # Root of directory tree for this set of tests.
-KAIJU_TEST_SET_ROOT = os.environ["KAIJU_TEST_SET_ROOT"]
+MAGE_TEST_SET_ROOT = os.environ["MAGE_TEST_SET_ROOT"]
 
 # Directory for reproducibility check results
-REPRODUCIBILITY_CHECK_DIRECTORY = os.path.join(KAIJU_TEST_SET_ROOT,
+REPRODUCIBILITY_CHECK_DIRECTORY = os.path.join(MAGE_TEST_SET_ROOT,
                                                "reproducibility_check")
 
 # Prefix for reproducibility check directory name
@@ -281,8 +281,8 @@ def mage_reproducibility_check(args: dict):
     pbs_options["kaijuhome"] = KAIJUHOME
     pbs_options["tmpdir"] = os.environ["TMPDIR"]
     pbs_options["slack_bot_token"] = os.environ["SLACK_BOT_TOKEN"]
-    pbs_options["kaiju_test_root"] = os.environ["KAIJU_TEST_ROOT"]
-    pbs_options["kaiju_test_set_root"] = os.environ["KAIJU_TEST_SET_ROOT"]
+    pbs_options["kaiju_test_root"] = os.environ["MAGE_TEST_ROOT"]
+    pbs_options["kaiju_test_set_root"] = os.environ["MAGE_TEST_SET_ROOT"]
     pbs_options["branch_or_commit"] = os.environ["BRANCH_OR_COMMIT"]
     pbs_options["genLFM_cmd"] = genLFM_cmd
     pbs_options["cda2wind_cmd"] = cda2wind_cmd
@@ -359,8 +359,8 @@ def mage_reproducibility_check(args: dict):
     pbs_options["kaijuhome"] = KAIJUHOME
     pbs_options["tmpdir"] = os.environ["TMPDIR"]
     pbs_options["slack_bot_token"] = os.environ["SLACK_BOT_TOKEN"]
-    pbs_options["kaiju_test_root"] = os.environ["KAIJU_TEST_ROOT"]
-    pbs_options["kaiju_test_set_root"] = os.environ["KAIJU_TEST_SET_ROOT"]
+    pbs_options["kaiju_test_root"] = os.environ["MAGE_TEST_ROOT"]
+    pbs_options["kaiju_test_set_root"] = os.environ["MAGE_TEST_SET_ROOT"]
     pbs_options["branch_or_commit"] = os.environ["BRANCH_OR_COMMIT"]
     pbs_options["xml1"] = os.path.join(build_directory, "run1",
                                        "weeklyDashGo.xml")
