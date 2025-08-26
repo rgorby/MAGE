@@ -33,6 +33,7 @@ import datetime
 import json
 import os
 import subprocess
+import math
 
 # Import 3rd-party modules.
 import h5py
@@ -889,27 +890,28 @@ def create_ini_files(options: dict, args: dict):
     # Set default value for padding to tFin for coupling.
     tfin_padding = 0.0
     # Engage modifications to parameters.
-    # If TIEGCM coupling is specified, warmup segments are calculated
-    # based on gr_warm_up_time and segment duration. If the segment
-    # duration is not evenly divisible by gr_warm_up_time, the
-    # warmup segment duration is set to gr_warm_up_time/4.
-    # The number of warmup segments is set to gr_warm_up_time/
-    # warmup_segment_duration. 
+    # If TIEGCM coupling is specified, calculate warmup segments based 
+    # on gr_warm_up_time and segment_duration.
+    # If gr_warm_up_time is an exact multiple of segment_duration, 
+    # use segment_duration for each warmup segment.
+    # If gr_warm_up_time is less than segment_duration, use 
+    # gr_warm_up_time as the duration for a single warmup segment.
+    # If gr_warm_up_time is greater than segment_duration but not an 
+    # exact multiple, use segment_duration and round up the number of segments.
     if "coupling" in args:     
         coupling = args["coupling"]
         gr_warm_up_time = float(coupling["gr_warm_up_time"])
         segment_duration = float(options["simulation"]["segment_duration"])
         simulation_duration = float(options["voltron"]["time"]["tFin"])
-        i_last_warmup_ini = (gr_warm_up_time/segment_duration)
-        if i_last_warmup_ini == int(i_last_warmup_ini):
+        if gr_warm_up_time % segment_duration == 0:
             warmup_segment_duration = segment_duration
-        else:
-            warmup_segment_duration = gr_warm_up_time/4
-            if warmup_segment_duration != int(warmup_segment_duration):
-                print("Error: gr_warm_up_time is not evenly divisible by 4.")
-                raise ValueError("Invalid gr_warm_up_time value.")
-            i_last_warmup_ini = (gr_warm_up_time/warmup_segment_duration)
-        i_last_warmup_ini = int(i_last_warmup_ini)
+            i_last_warmup_ini = int(gr_warm_up_time/warmup_segment_duration)
+        elif gr_warm_up_time < segment_duration:
+            warmup_segment_duration = gr_warm_up_time
+            i_last_warmup_ini = int(gr_warm_up_time/warmup_segment_duration)
+        elif gr_warm_up_time > segment_duration:
+            warmup_segment_duration = segment_duration
+            i_last_warmup_ini = int(math.ceil(gr_warm_up_time/segment_duration))
         # Add padding to tFin for coupling.
         if coupling["tfin_delta"] == "T":
             tfin_coupling_padding = float(options["voltron"]["coupling"]["dtCouple"]) - 1
@@ -986,11 +988,7 @@ def create_ini_files(options: dict, args: dict):
         # Create an .ini file for each simulation segment. Files for each
         # segment will be numbered starting with 1.
         if "coupling" in args:
-            num_segments = (simulation_duration - num_warmup_segments*warmup_segment_duration)/segment_duration
-            if num_segments > int(num_segments):
-                num_segments = int(num_segments) + 1
-            else:
-                num_segments = int(num_segments)
+            num_segments = math.ceil((simulation_duration - num_warmup_segments*warmup_segment_duration)/segment_duration)
         else:
             num_segments = int(options["pbs"]["num_segments"])
         for job in range(1, num_segments + 1):
@@ -1218,16 +1216,15 @@ def create_pbs_scripts(xml_files: list, options: dict, args: dict):
         gr_warm_up_time = float(coupling["gr_warm_up_time"])
         segment_duration = float(options["simulation"]["segment_duration"])
         simulation_duration = float(options["voltron"]["time"]["tFin"])
-        i_last_warmup_ini = (gr_warm_up_time/segment_duration)
-        if i_last_warmup_ini == int(i_last_warmup_ini):
+        if gr_warm_up_time % segment_duration == 0:
             warmup_segment_duration = segment_duration
-        else:
-            warmup_segment_duration = gr_warm_up_time/4
-            if warmup_segment_duration != int(warmup_segment_duration):
-                print("Error: gr_warm_up_time is not evenly divisible by 4.")
-                raise ValueError("Invalid gr_warm_up_time value.")
-            i_last_warmup_ini = (gr_warm_up_time/warmup_segment_duration)
-        i_last_warmup_ini = int(i_last_warmup_ini)
+            i_last_warmup_ini = int(gr_warm_up_time/warmup_segment_duration)
+        elif gr_warm_up_time < segment_duration:
+            warmup_segment_duration = gr_warm_up_time
+            i_last_warmup_ini = int(gr_warm_up_time/warmup_segment_duration)
+        elif gr_warm_up_time > segment_duration:
+            warmup_segment_duration = segment_duration
+            i_last_warmup_ini = int(math.ceil(gr_warm_up_time/segment_duration))
         num_warmup_segments = i_last_warmup_ini
         #i_last_warmup_pbs_script = int(gr_warm_up_time/segment_duration)
         spinup_pbs_scripts.append(pbs_scripts[0]) # Spinup script is first

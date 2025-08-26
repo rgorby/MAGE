@@ -28,6 +28,7 @@ import json
 import os
 import sys
 import subprocess
+import math
 
 # Import 3rd-party modules.
 import netCDF4
@@ -356,7 +357,7 @@ def prompt_user_for_run_options(args):
     for on in ["use_segments"]:
         od[on]["default"] = "Y"
         o[on] = makeitso.get_run_option(on, od[on], mode)
-    if o["use_segments"] == "Y":
+    if o["use_segments"].upper() == "Y":
         for on in ["segment_duration"]:
             o[on] = makeitso.get_run_option(on, od[on], mode)
     else:
@@ -364,7 +365,7 @@ def prompt_user_for_run_options(args):
 
     # Compute the number of segments based on the simulation duration and
     # segment duration, add 1 if there is a remainder.
-    if o["use_segments"] == "Y":
+    if o["use_segments"].upper() == "Y":
         num_segments = simulation_duration/float(o["segment_duration"])
         if num_segments > int(num_segments):
             num_segments += 1
@@ -564,11 +565,7 @@ def main():
 
         segment_duration = float(engage_options["simulation"]["segment_duration"])
         makeitso_options["voltron"]["time"]["tFin"] = int((t1-t0).total_seconds())
-        num_segments = (t1-t0).total_seconds()/segment_duration
-        if num_segments > int(num_segments):
-            num_segments = int(num_segments) + 1
-        else:
-            num_segments = int(num_segments)
+        num_segments = math.ceil((t1-t0).total_seconds()/segment_duration)
         makeitso_options["pbs"]["num_segments"] = str(num_segments)
         select2 = 1 + int(makeitso_options["pbs"]["num_helpers"])
         makeitso_options["pbs"]["select2"] = str(select2)
