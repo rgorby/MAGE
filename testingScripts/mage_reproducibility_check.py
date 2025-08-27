@@ -153,7 +153,6 @@ def mage_reproducibility_check(args: dict):
         If an exception occurs in subprocess.run()
     """
     # Set missing arguments to defaults.
-    args = args_default | args
     debug = args["debug"]
     loud = args["loud"]
     slack_on_fail = args["slack_on_fail"]
