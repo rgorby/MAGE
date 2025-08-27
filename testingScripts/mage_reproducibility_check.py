@@ -152,13 +152,13 @@ def mage_reproducibility_check(args: dict):
     subprocess.CalledProcessError
         If an exception occurs in subprocess.run()
     """
-    # Set missing arguments to defaults.
-    debug = args["debug"]
-    loud = args["loud"]
-    slack_on_fail = args["slack_on_fail"]
-    test = args["test"]
-    verbose = args["verbose"]
-    module_set_file = args["module_set_file"]
+    # Local convenience variables.
+    debug = args.get("debug", False)
+    loud = args.get("loud", False)
+    slack_on_fail = args.get("slack_on_fail", False)
+    test = args.get("test", False)
+    verbose = args.get("verbose", False)
+    module_set_file = args.get("module_set_file", DEFAULT_MODULE_SET_FILE)
 
     # ------------------------------------------------------------------------
 

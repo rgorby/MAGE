@@ -417,14 +417,6 @@ def compare_mage_runs_numerical(args: dict):
         print(f"comparison_result = {comparison_result}")
     comparison_results.append(comparison_result)
 
-    # # Compare the MHD RCM output files.
-    # if verbose:
-    #     print("Comparing MHD RCM output files.")
-    # comparison_result = compare_MHDRCM_results(runxml1, runxml2, verbose)
-    # if debug:
-    #     print(f"comparison_result = {comparison_result}")
-    # comparison_results.append(comparison_result)
-
     # Compare the REMIX output files.
     if verbose:
         print("Comparing REMIX output files.")
@@ -432,14 +424,6 @@ def compare_mage_runs_numerical(args: dict):
     if debug:
         print(f"comparison_result = {comparison_result}")
     comparison_results.append(comparison_result)
-
-    # # Compare the RCM output files.
-    # if verbose:
-    #     print("Comparing RCM output files.")
-    # comparison_result = compare_RCM_results(runxml1, runxml2, verbose)
-    # if debug:
-    #     print(f"comparison_result = {comparison_result}")
-    # comparison_results.append(comparison_result)
 
     # Compare the VOLTRON output files.
     if verbose:
@@ -454,9 +438,7 @@ def compare_mage_runs_numerical(args: dict):
     # Detail the test results.
     test_report_details_string = ""
     test_report_details_string += f"GAMERA: *{comparison_results[0]}*\n"
-    # test_report_details_string += f"MHD RCM: *{comparison_results[1]}*\n"
     test_report_details_string += f"REMIX: *{comparison_results[2]}*\n"
-    # test_report_details_string += f"RCM: *{comparison_results[3]}*\n"
     test_report_details_string += f"VOLTRON: *{comparison_results[4]}*\n"
 
     # Summarize the test results.
