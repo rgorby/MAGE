@@ -321,8 +321,6 @@ if $verbose; then
 fi
 cp -rp $new_test_code_root/testingScripts ./testingScripts
 cp -rp $new_test_code_root/tests ./tests
-# patch_root="${MAGE_TEST_ROOT}/MAGE_1.0_inputs"
-# cp -p $patch_root/claw.F src/rcm/claw.F
 # </HACK>
 
 # ############################################################################

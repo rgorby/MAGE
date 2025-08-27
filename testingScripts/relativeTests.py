@@ -653,7 +653,7 @@ def main():
                   f" for module set {module_set_name}.\n"
                   f"e.cmd = {e.cmd}\n"
                   f"e.returncode = {e.returncode}\n"
-                  'See testing log for output from genRCM.\n'
+                  'See testing log for output from genRAIJU.\n'
                   'Skipping remaining steps for module set '
                   f"{module_set_name}\n")
             continue
