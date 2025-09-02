@@ -316,8 +316,8 @@ def compare_mage_runs_numerical(args: dict):
     # Detail the test results.
     test_report_details_string = ""
     test_report_details_string += f"GAMERA: *{comparison_results[0]}*\n"
-    test_report_details_string += f"REMIX: *{comparison_results[2]}*\n"
-    test_report_details_string += f"VOLTRON: *{comparison_results[4]}*\n"
+    test_report_details_string += f"REMIX: *{comparison_results[1]}*\n"
+    test_report_details_string += f"VOLTRON: *{comparison_results[2]}*\n"
 
     # Summarize the test results.
     if run_description is not None:
