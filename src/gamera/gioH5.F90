@@ -541,13 +541,14 @@ module gioH5
         !---------------------
         !Performance metrics
 
-        nClkSteps = Model%ts - cleanClockStep
-        call AddOutVar(IOVars,"perf_stepTime",readClock(1)/nClkSteps)
-        call AddOutVar(IOVars,"perf_mathTime", readClock('Gamera')/nClkSteps)
-        call AddOutVar(IOVars,"perf_bcTime", readClock('BCs')/nClkSteps)
-        call AddOutVar(IOVars,"perf_haloTime", readClock('Halos')/nClkSteps)
-        call AddOutVar(IOVars,"perf_voltTime", readClock('VoltSync')/nClkSteps)
-        call AddOutVar(IOVars,"perf_ioTime", readClock('IO')/nClkSteps)
+        nClkSteps = readNCalls('Advance')
+        call AddOutVar(IOVars,"_perf_stepTime",readClock(1)/nClkSteps)
+        call AddOutVar(IOVars,"_perf_mathTime", readClock('Gamera')/nClkSteps)
+        call AddOutVar(IOVars,"_perf_bcTime", readClock('BCs')/nClkSteps)
+        call AddOutVar(IOVars,"_perf_haloTime", readClock('Halos')/nClkSteps)
+        call AddOutVar(IOVars,"_perf_voltTime", readClock('VoltSync')/nClkSteps)
+        call AddOutVar(IOVars,"_perf_ioTime", readClock('IO')/nClkSteps)
+        call AddOutVar(IOVars,"_perf_advanceTime", readClock('Advance')/nClkSteps)
 
         !----------------------
 

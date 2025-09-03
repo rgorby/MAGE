@@ -73,6 +73,7 @@ module gamapp
     subroutine stepGamera(gameraApp)
         class(gamApp_T), intent(inout) :: gameraApp
 
+        call Tic("Advance", .true.)
         !update the state variables to the next timestep
         call UpdateStateData(gameraApp)
 
@@ -87,6 +88,8 @@ module gamapp
         !Update Bxyz's
         call bFlux2Fld (gameraApp%Model,gameraApp%Grid,gameraApp%State%magFlux,gameraApp%State%Bxyz) 
         call Toc("BCs", .true.)
+
+        call Toc("Advance", .true.)
         
     end subroutine stepGamera
 

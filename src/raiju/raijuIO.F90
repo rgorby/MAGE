@@ -425,11 +425,11 @@ module raijuIO
         endif
 
         !Performance Metrics
-        nClkSteps = State%ts - cleanClockStep
-        call AddOutVar(IOVars, "perf_stepTime", readClock(1)/nClkSteps)
-        call AddOutVar(IOVars, "perf_preAdvance", readClock("Pre-Advance")/nClkSteps)
-        call AddOutVar(IOVars, "perf_advanceState", readClock("AdvanceState")/nClkSteps)
-        call AddOutVar(IOVars, "perf_moments", readClock("Moments Eval")/nClkSteps)
+        nClkSteps = readNCalls('DeepUpdate')
+        call AddOutVar(IOVars, "_perf_stepTime", readClock(1)/nClkSteps)
+        call AddOutVar(IOVars, "_perf_preAdvance", readClock("Pre-Advance")/nClkSteps)
+        call AddOutVar(IOVars, "_perf_advanceState", readClock("AdvanceState")/nClkSteps)
+        call AddOutVar(IOVars, "_perf_moments", readClock("Moments Eval")/nClkSteps)
 
         call WriteVars(IOVars,.true.,Model%raijuH5, gStr)
 

@@ -227,7 +227,7 @@ program voltron_mpix
             
             !Reset clocks last so data is available for all output
             if (doResetClocks) then
-                call cleanClocks(vApp%ts)
+                call cleanClocks()
                 doResetClocks = .false.
             endif
 
@@ -282,7 +282,7 @@ program voltron_mpix
             endif
 
             if (doResetClocks) then
-                call cleanClocks(gApp%Model%ts)
+                call cleanClocks()
                 doResetClocks = .false.
             endif
 

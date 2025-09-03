@@ -54,7 +54,7 @@ program voltronx
         endif
         !Reset clocks last
         if (doResetClocks) then
-            call cleanClocks(vApp%ts)
+            call cleanClocks()
             doResetClocks = .false.
         endif
 

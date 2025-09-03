@@ -668,6 +668,7 @@ module gamapp_mpi
         integer :: ierr,i
         real(rp) :: tmp
 
+        call Tic("Advance", .true.)
         !update the state variables to the next timestep
         call UpdateStateData(gamAppMpi)
 
@@ -686,6 +687,7 @@ module gamapp_mpi
 
         !Update BCs MPI style
         call updateMpiBCs(gamAppMpi, gamAppmpi%State)
+        call Toc("Advance", .true.)
 
     end subroutine stepGamera_mpi
 

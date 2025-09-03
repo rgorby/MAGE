@@ -445,17 +445,15 @@ module voltio
         call AddOutVar(IOVars,"timestep",vApp%ts)
 
         !Performance metrics
-        if(vApp%writePerf) then
-            nClkSteps = vApp%ts - cleanClockStep
-            call AddOutVar(IOVars,"perf_stepTime",readClock(1)/nClkSteps)
-            call AddOutVar(IOVars,"perf_gamTime", readClock('GameraSync')/nClkSteps)
-            call AddOutVar(IOVars,"perf_squishTime", (readClock('Squish')+readClock('VoltHelpers'))/nClkSteps)
-            call AddOutVar(IOVars,"perf_imagTime", readClock('InnerMag')/nClkSteps)
-            call AddOutVar(IOVars,"perf_mixTime", readClock('ReMIX')/nClkSteps)
-            call AddOutVar(IOVars,"perf_tubesTime", readClock('VoltTubes')/nClkSteps)
-            call AddOutVar(IOVars,"perf_ioTime", readClock('IO')/nClkSteps)
-        endif
-
+        nClkSteps = readNCalls('DeepUpdate')
+        call AddOutVar(IOVars,"_perf_stepTime",readClock(1)/nClkSteps)
+        call AddOutVar(IOVars,"_perf_deepUpdateTime",readClock(1)/nClkSteps)
+        call AddOutVar(IOVars,"_perf_gamTime", readClock('GameraSync')/nClkSteps)
+        call AddOutVar(IOVars,"_perf_squishTime", (readClock('Squish')+readClock('VoltHelpers'))/nClkSteps)
+        call AddOutVar(IOVars,"_perf_imagTime", readClock('InnerMag')/nClkSteps)
+        call AddOutVar(IOVars,"_perf_mixTime", readClock('ReMIX')/nClkSteps)
+        call AddOutVar(IOVars,"_perf_tubesTime", readClock('VoltTubes')/nClkSteps)
+        call AddOutVar(IOVars,"_perf_ioTime", readClock('IO')/nClkSteps)
 
         ! voltState stuff
         call AddOutSGV(IOVars, "Potential_total", vApp%State%potential_total, &
