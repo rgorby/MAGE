@@ -147,6 +147,11 @@ module raijutypes
 
 
         !--- State ---!
+        logical :: doCS_next_preAdv = .false.
+            !! Signal to run coldstart next time raiju preAdvances
+        real(rp) :: modelDst_next_preAdv = 0.0_rp
+            !! Target Dst [nT] when we run coldstart next
+
         logical :: doneFirstCS = .false.
             !! Have we executed once already?
         real(rp) :: lastEval = -1*HUGE

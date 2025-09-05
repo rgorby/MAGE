@@ -4,6 +4,7 @@ module raijuColdStartHelper
     use raijutypes
     use imaghelper
     use earthhelper
+    use arrayutil
 
     use raijuetautils
     use raijuloss_CX
@@ -41,7 +42,7 @@ module raijuColdStartHelper
 ! Worker routines
 !------
 
-    subroutine raijuGeoColdStart(Model, Grid, State, t0, dstModel)
+    subroutine raijuGeoColdStart(Model, Grid, State, t0, dstModel, doAccumulateO)
         !! Cold start RAIJU assuming we are at Earth sometime around 21st century
         type(raijuModel_T), intent(in) :: Model
         type(raijuGrid_T), intent(in) :: Grid
@@ -50,24 +51,28 @@ module raijuColdStartHelper
             !! Target time to pull SW values from
         real(rp), intent(in) :: dstModel
             !! Current dst of global model
+        logical, optional, intent(in) :: doAccumulateO
+            !! If true, keep State%eta and add coldstart to it.
+            !! If false, replace State%eta with coldStart info
+            !! Default: false
 
-        logical :: isFirstCS
+        logical :: isFirstCS, doAccumulate
         integer :: s, sIdx_p, sIdx_e
         real(rp) :: dstReal, dstTarget
         real(rp) :: dps_current, dps_preCX, dps_postCX, dps_rescale, dps_ele
         real(rp) :: etaScale
-        logical, dimension(Grid%shGrid%isg:Grid%shGrid%ieg, Grid%shGrid%jsg:Grid%shGrid%jeg) :: isGood
+        logical , dimension(Grid%shGrid%isg:Grid%shGrid%ieg, Grid%shGrid%jsg:Grid%shGrid%jeg) :: isGood
+        real(rp), dimension(Grid%shGrid%isg:Grid%shGrid%ieg, Grid%shGrid%jsg:Grid%shGrid%jeg, Grid%Nk) :: etaCS
 
-        associate(cs=>State%coldStarter)
-        !write(*,*)"Coldstart running..."
-        
-
-        isFirstCS = .not. State%coldStarter%doneFirstCS
-
-        if (.not. isFirstCS .and. .not. cs%doUpdate) then
-            return
+        if (present(doAccumulateO)) then
+            doAccumulate = doAccumulateO
+        else
+            doAccumulate = .false.
         endif
 
+        call fillArray(etaCS, 0.0_rp)
+
+        associate(cs=>State%coldStarter)
 
         where (State%active .eq. RAIJUACTIVE)
             isGood = .true.
@@ -77,34 +82,17 @@ module raijuColdStartHelper
 
         sIdx_p = spcIdx(Grid, F_HOTP)
         sIdx_e = spcIdx(Grid, F_HOTE)
-        
-
-        if (isFirstCS) then
-            ! Start by nuking all etas we will set up ourselves
-            do s=1,Grid%nSpc
-                !! Skip plasmashere, let that be handled on its own
-                !if ( Grid%spc(s)%flav == F_PSPH) then  
-                !    continue
-                !endif
-                State%eta(:,:,Grid%spc(s)%kStart:Grid%spc(s)%kEnd) = 0.0
-            enddo
-        endif
-
-        !! Init psphere
-        !if (isFirstCS .or. cs%doPsphUpdate) then
-        !    call setRaijuInitPsphere(Model, Grid, State, Model%psphInitKp)
-        !endif
 
         ! Update Dst target
         dstReal = GetSWVal('symh', Model%tsF, t0)
-        if (isFirstCS) then
+        if (.not. cs%doneFirstCS) then
             ! On first try, we assume there is no existing ring current, and its our job to make up the entire difference
             dstTarget = dstReal - dstModel
 
         else if (t0 > (cs%lastEval + cs%evalCadence)) then
             ! If we are updating, there should already be some ring current
             ! If dstReal - dstModel is still < 0, we need to add ADDITIONAL pressure to get them to match
-            dps_current = spcEta2DPS(Model, Grid, State, Grid%spc(sIdx_p), isGood) + spcEta2DPS(Model, Grid, State, Grid%spc(sIdx_e), isGood)
+            dps_current = spcEta2DPS(Model, Grid, State%bvol_cc, State%eta, Grid%spc(sIdx_p), isGood) + spcEta2DPS(Model, Grid, State%bvol_cc, State%eta, Grid%spc(sIdx_e), isGood)
             dstTarget = dstReal - (dstModel - dps_current)
         else
             ! Otherwise we have nothing to do, just chill til next update time
@@ -118,28 +106,26 @@ module raijuColdStartHelper
             return
         endif
 
-        if (isFirstCS) then
-            ! Init psphere
+        if (.not. cs%doneFirstCS) then
+            ! Init psphere (doesn't care about accumulation, always hard resets)
             call setRaijuInitPsphere(Model, Grid, State, Model%psphInitKp)
             ! Init hot protons
-            call raiColdStart_initHOTP(Model, Grid, State, t0, dstTarget)
-            dps_preCX  = spcEta2DPS(Model, Grid, State, Grid%spc(sIdx_p), isGood)
+            call raiColdStart_initHOTP(Model, Grid, State, t0, dstTarget, etaCS)
+            dps_preCX  = spcEta2DPS(Model, Grid, State%bvol_cc, etaCS, Grid%spc(sIdx_p), isGood)
             ! Hit it with some charge exchange
             if (cs%doCX) then
-                call raiColdStart_applyCX(Model, Grid, State, Grid%spc(sIdx_p))
+                call raiColdStart_applyCX(Model, Grid, State, Grid%spc(sIdx_p), etaCS)
             endif
-            dps_postCX = spcEta2DPS(Model, Grid, State, Grid%spc(sIdx_p), isGood)
-            ! Calc moments to update pressure and density
-            call EvalMoments(Grid, State)
+            dps_postCX = spcEta2DPS(Model, Grid, State%bvol_cc, etaCS, Grid%spc(sIdx_p), isGood)
             ! Use HOTP moments to set electrons
-            call raiColdStart_initHOTE(Model, Grid, State)
-            dps_ele = spcEta2DPS(Model, Grid, State, Grid%spc(sIdx_e), isGood)
+            call raiColdStart_initHOTE(Model, Grid, State, etaCS)
+            dps_ele = spcEta2DPS(Model, Grid, State%bvol_cc, etaCS, Grid%spc(sIdx_e), isGood)
             dps_current = dps_postCX  ! Note: if using fudge we're gonna lose electrons immediately, don't include them in current dst for now
         endif
 
         etaScale = abs(dstTarget / dps_current)    
-        State%eta(:,:,Grid%spc(sIdx_p)%kStart:Grid%spc(sIdx_p)%kEnd) = etaScale*State%eta(:,:,Grid%spc(sIdx_p)%kStart:Grid%spc(sIdx_p)%kEnd)
-        dps_rescale = spcEta2DPS(Model, Grid, State, Grid%spc(sIdx_p), isGood)
+        etaCS(:,:,Grid%spc(sIdx_p)%kStart:Grid%spc(sIdx_p)%kEnd) = etaScale*etaCS(:,:,Grid%spc(sIdx_p)%kStart:Grid%spc(sIdx_p)%kEnd)
+        dps_rescale = spcEta2DPS(Model, Grid, State%bvol_cc, etaCS, Grid%spc(sIdx_p), isGood)
 
         if (isfirstCS) then
             write(*,*)          "RAIJU Cold starting..."
@@ -161,18 +147,26 @@ module raijuColdStartHelper
 
         end associate
 
+        ! finally, put it into raiju state
+        if(doAccumulate) then
+            State%eta = State%eta + etaCS
+        else
+            State%eta = etaCS
+        endif
+
         State%coldStarter%doneFirstCS = .true.
 
     end subroutine raijuGeoColdStart
 
 
-    subroutine raiColdStart_initHOTP(Model, Grid, State, t0, dstTarget)
+    subroutine raiColdStart_initHOTP(Model, Grid, State, t0, dstTarget, etaCS)
         type(raijuModel_T), intent(in) :: Model
         type(raijuGrid_T), intent(in) :: Grid
-        type(raijuState_T), intent(inout) :: State
+        type(raijuState_T), intent(in) :: State
         real(rp), intent(in) :: t0
             !! Target time to pull SW values from
         real(rp), intent(in) :: dstTarget
+        real(rp), dimension(Grid%shGrid%isg:Grid%shGrid%ieg, Grid%shGrid%jsg:Grid%shGrid%jeg, Grid%Nk), intent(inout) :: etaCS
 
         real(rp) :: dstTarget_p
         logical :: isInTM03
@@ -218,7 +212,7 @@ module raijuColdStartHelper
         endif
 
         ! Set everything to zero to start
-        State%eta(:,:,spc%kStart:spc%kEnd) = 0.0_rp
+        etaCS(:,:,spc%kStart:spc%kEnd) = 0.0_rp
 
         ! Now set our initial density and pressure profile
         do j=sh%jsg,sh%jeg
@@ -250,7 +244,7 @@ module raijuColdStartHelper
                 endif
 
                 ! Finally map it to HOTP etas
-                call DkT2SpcEta(Model, spc, State%eta(i,j,spc%kStart:spc%kEnd), D_final, kt_rc, vm)
+                call DkT2SpcEta(Model, spc, etaCS(i,j,spc%kStart:spc%kEnd), D_final, kt_rc, vm)
 
             enddo
         enddo
@@ -260,11 +254,12 @@ module raijuColdStartHelper
     end subroutine raiColdStart_initHOTP
 
 
-    subroutine raiColdStart_applyCX(Model, Grid, State, spc)
+    subroutine raiColdStart_applyCX(Model, Grid, State, spc, etaCS)
         type(raijuModel_T), intent(in) :: Model
         type(raijuGrid_T), intent(in) :: Grid
-        type(raijuState_T), intent(inout) :: State
+        type(raijuState_T), intent(in) :: State
         type(raijuSpecies_T), intent(in) :: spc
+        real(rp), dimension(Grid%shGrid%isg:Grid%shGrid%ieg, Grid%shGrid%jsg:Grid%shGrid%jeg, Grid%Nk), intent(inout) :: etaCS
 
         integer :: i,j,k
         type(raiLoss_CX_T) :: lossCX
@@ -281,7 +276,7 @@ module raijuColdStartHelper
             do i=Grid%shGrid%isg,Grid%shGrid%ieg
                 do k = spc%kStart,spc%kEnd
                     tau = lossCX%calcTau(Model, Grid, State, i, j, k)
-                    State%eta(i,j,k) = State%eta(i,j,k)*exp(-tCX/tau)
+                    etaCS(i,j,k) = etaCS(i,j,k)*exp(-tCX/tau)
                 enddo
             enddo
         enddo
@@ -289,20 +284,24 @@ module raijuColdStartHelper
     end subroutine raiColdStart_applyCX
 
 
-    subroutine raiColdStart_initHOTE(Model, Grid, State)
+    subroutine raiColdStart_initHOTE(Model, Grid, State, etaCS)
         type(raijuModel_T), intent(in) :: Model
         type(raijuGrid_T), intent(in) :: Grid
-        type(raijuState_T), intent(inout) :: State
+        type(raijuState_T), intent(in) :: State
+        real(rp), dimension(Grid%shGrid%isg:Grid%shGrid%ieg, Grid%shGrid%jsg:Grid%shGrid%jeg, Grid%Nk), intent(inout) :: etaCS
 
         integer :: sIdx_e, sIdx_p
         integer :: i,j
+        real(rp) :: press_p, den_p
         real(rp) :: kt_p, kt_e, den, vm
 
         sIdx_p = spcIdx(Grid, F_HOTP)
         sIdx_e = spcIdx(Grid, F_HOTE)
 
+
+        associate(spc_p=>Grid%spc(sIdx_p), spc_e=>Grid%spc(sIdx_e))
         ! Set everything to zero to start
-        State%eta(:,:,Grid%spc(sIdx_e)%kStart:Grid%spc(sIdx_e)%kEnd) = 0.0_rp
+        etaCS(:,:,spc_e%kStart:spc_e%kEnd) = 0.0_rp
 
         !$OMP PARALLEL DO default(shared) &
         !$OMP schedule(dynamic) &
@@ -312,14 +311,21 @@ module raijuColdStartHelper
                 if (State%active(i,j) .eq. RAIJUINACTIVE) cycle
 
                 vm = State%bvol_cc(i,j)**(-2./3.)
-                den = State%Den(sIdx_p)%data(i,j)
-                kt_p = DP2kT(den, State%Press(sIdx_p)%data(i,j))
+                !den = State%Den(sIdx_p)%data(i,j)
+                !kt_p = DP2kT(den, State%Press(sIdx_p)%data(i,j))
+
+                den_p   = SpcEta2Den  (spc_p, etaCS(i,j,spc_p%kStart:spc_p%kEnd), State%bvol_cc(i,j))
+                press_p = SpcEta2Press(spc_p, etaCS(i,j,spc_p%kStart:spc_p%kEnd), State%bvol_cc(i,j))
+                kt_p = DP2kT(den_p, press_p)
+
                 kt_e = kt_p / Model%tiote
                 call DkT2SpcEta(Model, Grid%spc(sIdx_e), &
-                                State%eta(i,j,Grid%spc(sIdx_e)%kStart:Grid%spc(sIdx_e)%kEnd), &
-                                den, kt_e, vm)
+                                etaCS(i,j,Grid%spc(sIdx_e)%kStart:Grid%spc(sIdx_e)%kEnd), &
+                                den_p, kt_e, vm)
             enddo
         enddo
+
+        end associate
 
     end subroutine raiColdStart_initHOTE
 

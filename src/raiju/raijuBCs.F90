@@ -5,6 +5,7 @@ module raijuBCs
     use raijutypes
     use raijuetautils
     use raijudomain
+    use raijuColdStartHelper
 
     implicit none
 
@@ -29,11 +30,13 @@ module raijuBCs
             doWholeDomain = .false.
         endif
 
-        ! Now that topo is set, we can calculate active domain
-        call setActiveDomain(Model, Grid, State)
-
         call calcMomentIngestionLocs(Model, Grid, State, doWholeDomain, doMomentIngest)
         call applyMomentIngestion(Model, Grid, State, doMomentIngest)
+
+        if (State%coldStarter%doCS_next_preAdv) then
+            call raijuGeoColdStart(Model, Grid, State, State%t, State%coldStarter%modelDst_next_preAdv, doAccumulateO=.true.)
+            State%coldStarter%doCS_next_preAdv = .false.
+        endif
 
 
         if (Model%doActiveShell ) then
