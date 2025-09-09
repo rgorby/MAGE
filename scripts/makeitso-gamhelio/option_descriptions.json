@@ -35,8 +35,8 @@
         "hpc_system": {
             "LEVEL": "BASIC",
             "prompt": "Name of HPC system",
-            "default": "pleiades",
-            "valids": ["derecho", "pleiades"]
+            "default": "atiken",
+            "valids": ["derecho", "atiken"]
         }
     },
 
@@ -129,7 +129,7 @@
                 "default": "mpiexec pinCpuCores.sh"
             }
         },
-        "pleiades": {
+        "atiken": {
             "queue": {
                 "LEVEL": "BASIC",
                 "prompt": "PBS queue name",
@@ -149,7 +149,7 @@
             "ncpus": {
                 "LEVEL": "EXPERT",
                 "prompt": "Number of cores per node",
-                "default": "28"
+                "default": "128"
             },
             "mpiprocs": {
                 "LEVEL": "EXPERT",
@@ -159,12 +159,12 @@
             "ompthreads": {
                 "LEVEL": "EXPERT",
                 "prompt": "Number of OMP threads per MPI rank",
-                "default": "14"
+                "default": "126"
             },
             "other": {
                 "LEVEL": "EXPERT",
                 "prompt": "Additional options for PBS -l",
-                "default": ":model=bro"
+                "default": ":model=mil_ait"
             },
             "modules": {
                 "LEVEL": "EXPERT",
@@ -460,7 +460,7 @@
                 "prompt": "(GAMERA) Block halo MPI",
                 "default": {
                     "derecho": "T",
-                    "pleiades": "F"
+                    "atiken": "F"
                 },
                 "valids": ["T", "F"]
             }

@@ -163,7 +163,7 @@ def create_pbs_scripts(gr_options: dict, makeitso_options:dict,makeitso_pbs_scri
     options["pbs"]["tie_mpiprocs"] = tiegcm_options["job"]["resource"]["mpiprocs"]
     options["pbs"]["tie_mpiranks"] = tiegcm_options["job"]["nprocs"]
     options["pbs"]["tie_exe"] = tiegcm_options["model"]["data"]["coupled_modelexe"] 
-    if tiegcm_options["simulation"]["hpc_system"] == "pleiades":
+    if tiegcm_options["simulation"]["hpc_system"] == "atiken":
         options["pbs"]["model"] = tiegcm_options["job"]["resource"]["model"]    
     
     # GR PBS parameters
@@ -181,7 +181,7 @@ def create_pbs_scripts(gr_options: dict, makeitso_options:dict,makeitso_pbs_scri
     if tiegcm_options["simulation"]["hpc_system"] == "derecho":
         options["pbs"]["mpiexec_command"] = "mpiexec"
         options["pbs"]["mpiexec_option"] = "-n"
-    elif tiegcm_options["simulation"]["hpc_system"] == "pleiades":
+    elif tiegcm_options["simulation"]["hpc_system"] == "atiken":
         options["pbs"]["mpiexec_command"] = "mpiexec_mpt"
         options["pbs"]["mpiexec_option"] = "-np"
         options["pbs"]["tie_scripts"] = "correctOMPenvironment.sh $NODEFILE_1 omplace"
@@ -402,7 +402,7 @@ def prompt_user_for_run_options(args):
         od["num_helpers"]["default"][gamera_grid_type]
     )
     od["modules"] = oed["modules"]
-    if hpc_platform == "pleiades":
+    if hpc_platform == "atiken":
         od["moduledir"] = oed["moduledir"]
         od["local_modules"] = oed["local_modules"]
     for on in od:
@@ -495,7 +495,7 @@ def main():
             od["num_helpers"]["default"][gamera_grid_type]
         )
         od["modules"] = oed["modules"]
-        if hpc_platform == "pleiades":
+        if hpc_platform == "atiken":
             od["moduledir"] = oed["moduledir"]
             od["local_modules"] = oed["local_modules"]
         for on in od:

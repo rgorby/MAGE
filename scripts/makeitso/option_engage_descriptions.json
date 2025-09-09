@@ -54,7 +54,7 @@
                 ]
             }
         },
-        "pleiades": {
+        "atiken": {
             "modules": {
                 "LEVEL": "EXPERT",
                 "prompt": "Modules to load",
