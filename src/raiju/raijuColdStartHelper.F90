@@ -101,8 +101,11 @@ module raijuColdStartHelper
         
         cs%lastEval = t0
         cs%lastTarget = dstTarget
+        cs%doneFirstCS = .true.  ! Whether we do anything or not, we were at least called once
         
-        if (dstTarget > 0) then  ! We got nothing to contribute
+        if (dstTarget > 0) then  ! We've got nothing to contribute
+            write(*,*)"RAIJU coldstart not adding anything"
+            write(*,*)'doAccumulate=',doAccumulate
             return
         endif
 
@@ -153,8 +156,6 @@ module raijuColdStartHelper
         else
             State%eta = etaCS
         endif
-
-        State%coldStarter%doneFirstCS = .true.
 
     end subroutine raijuGeoColdStart
 
