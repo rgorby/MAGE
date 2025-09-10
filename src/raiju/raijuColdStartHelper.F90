@@ -56,7 +56,7 @@ module raijuColdStartHelper
             !! If false, replace State%eta with coldStart info
             !! Default: false
 
-        logical :: isFirstCS, doAccumulate
+        logical :: doInitRC, doAccumulate
         integer :: s, sIdx_p, sIdx_e
         real(rp) :: dstReal, dstTarget
         real(rp) :: dps_current, dps_preCX, dps_postCX, dps_rescale, dps_ele
@@ -88,32 +88,33 @@ module raijuColdStartHelper
         if (.not. cs%doneFirstCS) then
             ! On first try, we assume there is no existing ring current, and its our job to make up the entire difference
             dstTarget = dstReal - dstModel
-
+            doInitRC = .true.
         else if (t0 > (cs%lastEval + cs%evalCadence)) then
             ! If we are updating, there should already be some ring current
             ! If dstReal - dstModel is still < 0, we need to add ADDITIONAL pressure to get them to match
             dps_current = spcEta2DPS(Model, Grid, State%bvol_cc, State%eta, Grid%spc(sIdx_p), isGood) + spcEta2DPS(Model, Grid, State%bvol_cc, State%eta, Grid%spc(sIdx_e), isGood)
             dstTarget = dstReal - (dstModel - dps_current)
-        else
-            ! Otherwise we have nothing to do, just chill til next update time
-            return
+            doInitRC = .false.
         endif
         
         cs%lastEval = t0
         cs%lastTarget = dstTarget
         cs%doneFirstCS = .true.  ! Whether we do anything or not, we were at least called once
+
+        ! Init psphere (will always run if this function is called)
+        call setRaijuInitPsphere(Model, Grid, State, Model%psphInitKp)
         
-        if (dstTarget > 0) then  ! We've got nothing to contribute
+        ! Now decide if we need to add a starter ring current
+        if (dstTarget >= 0) then  ! We've got nothing to contribute
             write(*,*)"RAIJU coldstart not adding anything"
             write(*,*)'doAccumulate=',doAccumulate
             return
         endif
 
-        if (.not. cs%doneFirstCS) then
-            ! Init psphere (doesn't care about accumulation, always hard resets)
-            call setRaijuInitPsphere(Model, Grid, State, Model%psphInitKp)
+        if (doInitRC) then
             ! Init hot protons
-            call raiColdStart_initHOTP(Model, Grid, State, t0, dstTarget, etaCS)
+            !call raiColdStart_initHOTP(Model, Grid, State, t0, dstTarget, etaCS)
+            call raiColdStart_initHOTP_RCOnly(Model, Grid, State, t0, dstTarget, etaCS)
             dps_preCX  = spcEta2DPS(Model, Grid, State%bvol_cc, etaCS, Grid%spc(sIdx_p), isGood)
             ! Hit it with some charge exchange
             if (cs%doCX) then
@@ -130,7 +131,7 @@ module raijuColdStartHelper
         etaCS(:,:,Grid%spc(sIdx_p)%kStart:Grid%spc(sIdx_p)%kEnd) = etaScale*etaCS(:,:,Grid%spc(sIdx_p)%kStart:Grid%spc(sIdx_p)%kEnd)
         dps_rescale = spcEta2DPS(Model, Grid, State%bvol_cc, etaCS, Grid%spc(sIdx_p), isGood)
 
-        if (isfirstCS) then
+        if (doInitRC) then
             write(*,*)          "RAIJU Cold starting..."
             write(*,'(a,f7.2)') "  Real Dst             : ",dstReal
             write(*,'(a,f7.2)') "  Model Dst            : ",dstModel
@@ -159,6 +160,71 @@ module raijuColdStartHelper
 
     end subroutine raijuGeoColdStart
 
+
+    subroutine raiColdStart_initHOTP_RCOnly(Model, Grid, State, t0, dstTarget, etaCS)
+        type(raijuModel_T), intent(in) :: Model
+        type(raijuGrid_T), intent(in) :: Grid
+        type(raijuState_T), intent(in) :: State
+        real(rp), intent(in) :: t0
+            !! Target time to pull SW values from
+        real(rp), intent(in) :: dstTarget
+        real(rp), dimension(Grid%shGrid%isg:Grid%shGrid%ieg, Grid%shGrid%jsg:Grid%shGrid%jeg, Grid%Nk), intent(inout) :: etaCS
+
+        real(rp) :: dstTarget_p
+        logical :: isInTM03
+        integer :: i,j,sIdx
+        integer, dimension(2) :: ij_TM
+        real(rp) :: vSW, dSW, dPS_emp, pPS_emp, ktPS_emp
+        real(rp) :: x0_TM, y0_TM, T0_TM, Bvol0_TM, P0_ps, N0_ps
+        real(rp) :: L, vm, P_rc, D_rc, kt_rc
+
+        sIdx = spcIdx(Grid, F_HOTP)
+        associate(sh=>Grid%shGrid, spc=>Grid%spc(sIdx))
+
+        ! Set everything to zero to start
+        etaCS(:,:,spc%kStart:spc%kEnd) = 0.0_rp
+
+        ! Scale target Dst down to account for electrons contributing stuff later
+        dstTarget_p = dstTarget / (1.0 + 1.0/Model%tiote)
+        call SetQTRC(dstTarget_p,doVerbO=.false.) ! This sets a global QTRC_P0 inside earthhelper.F90
+
+
+        ! Get reference TM value at -10 Re
+        x0_TM = -10.0-TINY
+        y0_TM = 0.0
+        ! Empirical temperature
+        call EvalTM03([x0_TM,y0_TM,0.0_rp],N0_ps,P0_ps,isInTM03)
+        T0_TM = DP2kT(N0_ps, P0_ps)
+        ! Model FTV
+        ij_TM = minloc( sqrt( (State%xyzMincc(:,:,XDIR)-x0_TM)**2 + (State%xyzMincc(:,:,YDIR)**2) ) )
+        Bvol0_TM = State%bvol_cc(ij_TM(IDIR), ij_TM(JDIR))
+
+        ! Now set our initial density and pressure profile
+        do j=sh%jsg,sh%jeg
+            do i=sh%isg,sh%ie  ! Note: Not setting low lat ghosts, we want them to be zero
+                
+                if (State%active(i,j) .eq. RAIJUINACTIVE) cycle
+
+                L = norm2(State%xyzMincc(i,j,XDIR:YDIR))
+                vm = State%bvol_cc(i,j)**(-2./3.)
+
+                kt_rc = T0_TM*(Bvol0_TM/State%bvol_cc(i,j))**(2./3.)
+                kt_rc = min(kt_rc, 4.0*T0_TM)  ! Limit cap. Not a big fan, but without cap we get stuff that's too energetic and won't go away (until FLC maybe)
+
+
+                P_rc = P_QTRC(L)  ! From earthhelper.F90
+                D_rc = PkT2Den(P_rc, kt_rc)
+                
+
+                ! Finally map it to HOTP etas
+                call DkT2SpcEta(Model, spc, etaCS(i,j,spc%kStart:spc%kEnd), D_rc, kt_rc, vm)
+
+            enddo
+        enddo
+
+        end associate
+
+    end subroutine raiColdStart_initHOTP_RCOnly
 
     subroutine raiColdStart_initHOTP(Model, Grid, State, t0, dstTarget, etaCS)
         type(raijuModel_T), intent(in) :: Model

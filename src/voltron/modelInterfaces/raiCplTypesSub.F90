@@ -66,16 +66,17 @@ submodule (volttypes) raijuCplTypesSub
             ! Someone updated raiCpl's coupling variables by now, stuff it into RAIJU proper
             call raiCpl2RAIJU(App)
 
-            if (.not. raiApp%State%coldStarter%doneFirstCS .or. vApp%time < raiApp%State%coldStarter%tEnd) then
-                !! Make sure we run at least once
-                ! Calc voltron dst ourselves since vApp%BSDst is only set on console output
-                call EstDST(vApp%gApp%Model,vApp%gApp%Grid,vApp%gApp%State,BSDst0=BSDst)
-                raiApp%State%coldStarter%doCS_next_preAdv = .true.
-                raiApp%State%coldStarter%modelDst_next_preAdv = BSDst
-                !call setActiveDomain(raiApp%Model, raiApp%Grid, raiApp%State)
-                !call raijuGeoColdStart(raiApp%Model, raiApp%Grid, raiApp%State, vApp%time, BSDst)
-            endif
-
+            associate(cs=>raiApp%State%coldStarter)
+                if (.not. cs%doneFirstCS .or. (cs%doUpdate .and. vApp%time < cs%tEnd) ) then
+                    !! Make sure we run at least once
+                    ! Calc voltron dst ourselves since vApp%BSDst is only set on console output
+                    call EstDST(vApp%gApp%Model,vApp%gApp%Grid,vApp%gApp%State,BSDst0=BSDst)
+                    raiApp%State%coldStarter%doCS_next_preAdv = .true.
+                    raiApp%State%coldStarter%modelDst_next_preAdv = BSDst
+                    !call setActiveDomain(raiApp%Model, raiApp%Grid, raiApp%State)
+                    !call raijuGeoColdStart(raiApp%Model, raiApp%Grid, raiApp%State, vApp%time, BSDst)
+                endif
+            end associate
         end associate
     end subroutine volt2RAIJU
 

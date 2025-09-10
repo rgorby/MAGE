@@ -30,11 +30,6 @@ module raijuBCs
             doWholeDomain = .false.
         endif
 
-        if(doWholeDomain) then
-            write(*,*)"applyRaijuBCs: doWholeDomain=T"
-        else
-            write(*,*)"applyRaijuBCs: doWholeDomain=F"
-        endif
 
         call calcMomentIngestionLocs(Model, Grid, State, doWholeDomain, doMomentIngest)
         call applyMomentIngestion(Model, Grid, State, doMomentIngest)
