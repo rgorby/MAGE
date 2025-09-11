@@ -16,7 +16,7 @@ module raijuIO
 
     implicit none
 
-    integer, parameter, private :: MAXIOVAR = 70
+    integer, parameter, private :: MAXIOVAR = 100
     logical, private :: doRoot = .true. !Whether root variables need to be written
     logical, private :: doFat = .false. !Whether to output lots of extra datalogical, private :: doRoot = .true. !Whether root variables need to be written
 

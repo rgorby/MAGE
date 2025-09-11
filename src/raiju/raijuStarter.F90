@@ -553,6 +553,8 @@ module raijustarter
         ! Similarly, set vaFrac to safe value in case stand-alone never writes to it
         State%vaFrac = 1.0
 
+        State%isFirstCpl = .true.
+
         ! Init State sub-modules
         if (Model%isSA) then
             ! If we are standalone, this is the place to get coldStarter settings

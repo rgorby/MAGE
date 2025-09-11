@@ -33,6 +33,8 @@ module raijuColdStartHelper
             call iXML%Set_Val(coldStarter%tEnd,'coldStarter/tEnd',coldStarter%evalCadence-TINY)  ! Don't do any updates as default
         endif
 
+        coldStarter%doneFirstCS = .false.
+
     end subroutine initRaijuColdStarter
 
 
@@ -57,6 +59,7 @@ module raijuColdStartHelper
             !! Default: false
 
         logical :: doInitRC, doAccumulate
+        integer :: i,j,k
         integer :: s, sIdx_p, sIdx_e
         real(rp) :: dstReal, dstTarget
         real(rp) :: dps_current, dps_preCX, dps_postCX, dps_rescale, dps_ele
@@ -74,7 +77,7 @@ module raijuColdStartHelper
 
         associate(cs=>State%coldStarter)
 
-        where (State%active .eq. RAIJUACTIVE)
+        where (State%active .ne. RAIJUINACTIVE)
             isGood = .true.
         elsewhere
             isGood = .false.
@@ -105,16 +108,16 @@ module raijuColdStartHelper
         call setRaijuInitPsphere(Model, Grid, State, Model%psphInitKp)
         
         ! Now decide if we need to add a starter ring current
-        if (dstTarget >= 0) then  ! We've got nothing to contribute
-            write(*,*)"RAIJU coldstart not adding anything"
-            write(*,*)'doAccumulate=',doAccumulate
-            return
-        endif
+        !if (dstTarget >= 0) then  ! We've got nothing to contribute
+        !    write(*,*)"RAIJU coldstart not adding anything"
+        !    write(*,*)'doAccumulate=',doAccumulate
+        !    return
+        !endif
 
         if (doInitRC) then
             ! Init hot protons
-            !call raiColdStart_initHOTP(Model, Grid, State, t0, dstTarget, etaCS)
-            call raiColdStart_initHOTP_RCOnly(Model, Grid, State, t0, dstTarget, etaCS)
+            call raiColdStart_initHOTP(Model, Grid, State, t0, dstTarget, etaCS)
+            !call raiColdStart_initHOTP_RCOnly(Model, Grid, State, t0, dstTarget, etaCS)
             dps_preCX  = spcEta2DPS(Model, Grid, State%bvol_cc, etaCS, Grid%spc(sIdx_p), isGood)
             ! Hit it with some charge exchange
             if (cs%doCX) then
@@ -127,19 +130,23 @@ module raijuColdStartHelper
             dps_current = dps_postCX  ! Note: if using fudge we're gonna lose electrons immediately, don't include them in current dst for now
         endif
 
-        etaScale = abs(dstTarget / dps_current)    
-        etaCS(:,:,Grid%spc(sIdx_p)%kStart:Grid%spc(sIdx_p)%kEnd) = etaScale*etaCS(:,:,Grid%spc(sIdx_p)%kStart:Grid%spc(sIdx_p)%kEnd)
-        dps_rescale = spcEta2DPS(Model, Grid, State%bvol_cc, etaCS, Grid%spc(sIdx_p), isGood)
+        if (dstTarget < 0) then
+            etaScale = abs(dstTarget / dps_current)    
+            etaCS(:,:,Grid%spc(sIdx_p)%kStart:Grid%spc(sIdx_p)%kEnd) = etaScale*etaCS(:,:,Grid%spc(sIdx_p)%kStart:Grid%spc(sIdx_p)%kEnd)
+            dps_rescale = spcEta2DPS(Model, Grid, State%bvol_cc, etaCS, Grid%spc(sIdx_p), isGood)
+        else
+            dps_rescale = dps_current
+        endif
 
         if (doInitRC) then
             write(*,*)          "RAIJU Cold starting..."
-            write(*,'(a,f7.2)') "  Real Dst             : ",dstReal
-            write(*,'(a,f7.2)') "  Model Dst            : ",dstModel
-            write(*,'(a,f7.2)') "  Target DPS-Dst       : ",dstTarget
-            write(*,'(a,f7.2)') "  Hot proton pre-loss  : ",dps_preCX
-            write(*,'(a,f7.2)') "            post-loss  : ",dps_postCX
-            write(*,'(a,f7.2)') "         post-rescale  : ",dps_rescale
-            write(*,'(a,f7.2)') "  Hot electron DPS-Dst : ",dps_ele
+            write(*,'(a,f10.6)') "  Real Dst             : ",dstReal
+            write(*,'(a,f10.6)') "  Model Dst            : ",dstModel
+            write(*,'(a,f10.6)') "  Target DPS-Dst       : ",dstTarget
+            write(*,'(a,f10.6)') "  Hot proton pre-loss  : ",dps_preCX
+            write(*,'(a,f10.6)') "            post-loss  : ",dps_postCX
+            write(*,'(a,f10.6)') "         post-rescale  : ",dps_rescale
+            write(*,'(a,f10.6)') "  Hot electron DPS-Dst : ",dps_ele
         else
             write(*,'(a,f7.2)') "  Real Dst             : ",dstReal
             write(*,'(a,f7.2)') "  Model Dst            : ",dstModel
@@ -153,7 +160,20 @@ module raijuColdStartHelper
 
         ! finally, put it into raiju state
         if(doAccumulate) then
-            State%eta = State%eta + etaCS
+            !State%eta = State%eta + etaCS
+            associate(sh=>Grid%shGrid)
+                !$OMP PARALLEL DO default(shared) &
+                !$OMP private(i,j,k)
+                do k=1,Grid%Nk
+                    do j=sh%jsg,sh%jeg
+                        do i=sh%isg,sh%ieg
+                            if (etaCS(i,j,k) > State%eta(i,j,k)) then
+                                State%eta(i,j,k) = etaCS(i,j,k)
+                            endif
+                        enddo
+                    enddo
+                enddo
+            end associate
         else
             State%eta = etaCS
         endif
@@ -253,8 +273,10 @@ module raijuColdStartHelper
         call InitTM03(Model%tsF,t0)
 
         ! Scale target Dst down to account for electrons contributing stuff later
-        dstTarget_p = dstTarget / (1.0 + 1.0/Model%tiote)
-        call SetQTRC(dstTarget_p,doVerbO=.false.) ! This sets a global QTRC_P0 inside earthhelper.F90
+        if (dstTarget < 0) then
+            dstTarget_p = dstTarget / (1.0 + 1.0/Model%tiote)
+            call SetQTRC(dstTarget_p,doVerbO=.false.) ! This sets a global QTRC_P0 inside earthhelper.F90
+        endif
 
         ! Get Borovsky statistical values
         vSW = abs(GetSWVal("Vx",Model%tsF,t0))
@@ -295,7 +317,11 @@ module raijuColdStartHelper
 
                 call EvalTM03_SM(State%xyzMincc(i,j,:),N0_ps,P0_ps,isInTM03)
 
-                P_rc = P_QTRC(L)  ! From earthhelper.F90
+                if (dstTarget < 0) then
+                    P_rc = P_QTRC(L)  ! From earthhelper.F90
+                else
+                    P_rc = 0.0
+                endif
 
                 if (.not. isInTM03) then
                     N0_ps = dPS_emp
@@ -337,8 +363,7 @@ module raijuColdStartHelper
         call lossCX%doInit(Model, Grid, nullXML)
         
         !$OMP PARALLEL DO default(shared) &
-        !$OMP schedule(dynamic) &
-        !$OMP private(i,j,tau)
+        !$OMP private(i,j,k,tau)
         do j=Grid%shGrid%jsg,Grid%shGrid%jeg
             do i=Grid%shGrid%isg,Grid%shGrid%ieg
                 do k = spc%kStart,spc%kEnd
@@ -372,7 +397,7 @@ module raijuColdStartHelper
 
         !$OMP PARALLEL DO default(shared) &
         !$OMP schedule(dynamic) &
-        !$OMP private(i,j,vm,den,kt_p,kt_e)
+        !$OMP private(i,j,vm,den_p, press_p,kt_p,kt_e)
         do j=Grid%shGrid%jsg,Grid%shGrid%jeg
             do i=Grid%shGrid%isg,Grid%shGrid%ie  ! Note: Not setting low lat ghosts, we want them to be zero
                 if (State%active(i,j) .eq. RAIJUINACTIVE) cycle

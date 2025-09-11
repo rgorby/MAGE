@@ -307,7 +307,6 @@ module raijuPreAdvancer
         associate(sh=>Grid%shGrid)
 
         !$OMP PARALLEL DO default(shared) &
-        !$OMP schedule(dynamic) &
         !$OMP private(i,j,qLow,qHigh)
         do j=sh%jsg,sh%jeg
             do i=sh%isg,sh%ieg
@@ -335,7 +334,6 @@ module raijuPreAdvancer
             allocate(gradQtmp(sh%isg:sh%ieg,sh%jsg:sh%jeg, 2))
             gradQtmp = gradQ    
             !$OMP PARALLEL DO default(shared) &
-            !$OMP schedule(dynamic) &
             !$OMP private(i,j)
             do j=sh%jsg+1,sh%jeg-1
                 do i=sh%isg+1,sh%ieg-1
@@ -486,12 +484,11 @@ module raijuPreAdvancer
         gradVM(:,:,RAI_TH) = gradVM(:,:,RAI_TH) + dV0_dth
         
         !$OMP PARALLEL DO default(shared) &
-        !$OMP schedule(dynamic) &
         !$OMP private(i,j,bVolcc)
         do j=sh%jsg,sh%jeg
             do i=sh%isg,sh%ieg
-                bVolcc = toCenter2D(dV(i:i+1,j:j+1)) + DipFTV_colat(Grid%thcRp(i), B0)  ! Will include smoothing of dV if enabled
-                !bVolcc = toCenter2D(V(i:i+1,j:j+1))
+                !bVolcc = toCenter2D(dV(i:i+1,j:j+1)) + DipFTV_colat(Grid%thcRp(i), B0)  ! Will include smoothing of dV if enabled
+                bVolcc = toCenter2D(V(i:i+1,j:j+1))
                 gradVM(i,j,:) = (-2./3.)*bVolcc**(-5./3.)*gradVM(i,j,:)
             enddo
         enddo
@@ -567,13 +564,14 @@ module raijuPreAdvancer
         enddo
         ! Now everyone else
         !$OMP PARALLEL DO default(shared) &
-        !$OMP schedule(dynamic) &
         !$OMP private(i,j)
         do j=jsg+1,jeg
             do i=isg+1,ieg
                 Vsm(i,j) = SmoothOperator33(V(i-1:i+1,j-1:j+1), isGc(i-1:i+1,j-1:j+1))
             enddo
         enddo
+
+        call wrapJcorners(sh, Vsm)
 
         ! Write back to provided array
         V = Vsm
