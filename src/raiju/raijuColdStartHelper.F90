@@ -147,8 +147,7 @@ module raijuColdStartHelper
             write(*,'(a,f7.2)') "            post-loss  : ",dps_postCX
             write(*,'(a,f7.2)') "         post-rescale  : ",dps_rescale
             write(*,'(a,f7.2)') "  Hot electron DPS-Dst : ",dps_ele
-        el7
-2           write(*,'(a,f7.2)') "  Real Dst             : ",dstReal
+            write(*,'(a,f7.2)') "  Real Dst             : ",dstReal
             write(*,'(a,f7.2)') "  Model Dst            : ",dstModel
             write(*,'(a,f7.2)') "  Current DPS-Dst      : ",dps_current
             write(*,'(a,f7.2)') "  Target DPS-Dst       : ",dstTarget

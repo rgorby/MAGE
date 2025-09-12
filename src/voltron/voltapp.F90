@@ -99,6 +99,8 @@ module voltapp
 
         ! adjust XMl reader root
         call xmlInp%SetRootStr('Kaiju/Voltron')
+        ! Make sure verbosity is still right after others do stuff with the reader
+        call xmlInp%SetVerbose(vApp%isLoud)
 
         !Initialize planet information
         call getPlanetParams(vApp%planet, xmlInp)
