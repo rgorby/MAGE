@@ -175,6 +175,7 @@ module raijustarter
         Model%activeDomRad   = abs(Model%activeDomRad)
 
         !---Solver ---!
+        call iXML%Set_Val(Model%doSmoothGrads,'sim/doSmoothGrads',def_doSmoothGrads)
         call iXML%Set_Val(Model%doUseVelLRs,'sim/useVelLRs',def_doUseVelLRs)
         call iXML%Set_Val(Model%maxItersPerSec,'sim/maxIter',def_maxItersPerSec)
         call iXML%Set_Val(Model%maxOrder,'sim/maxOrder',7)

@@ -226,6 +226,8 @@ module raijutypes
             !! For debug
         logical :: writeGhosts
             !! For debug
+        logical :: doSmoothGrads
+            !! Whether or not we smooth variables (bvol and electric potential) before taking gradients
         logical :: doClockConsoleOut
             !! If we are driving, output clock info
         logical :: doOutput_potGrads

@@ -264,7 +264,7 @@ module raijuPreAdvancer
 
         associate(sh=>Grid%shGrid)
         ! Gauss-Green calculation of cell-averaged gradients
-        call potExB(Grid%shGrid, State, pExB, doSmoothO=.true., isGCornerO=isGCorner)  ! [V]
+        call potExB(Grid%shGrid, State, pExB, doSmoothO=Model%doSmoothGrads, isGCornerO=isGCorner)  ! [V]
         call potCorot(Model%planet, Grid%shGrid, pCorot, Model%doGeoCorot)  ! [V]
         call calcGradIJ_cc(Model%planet%rp_m, Grid, isGCorner, pExB  , State%gradPotE_cc    , doLimO=.true. )  ! [V/m]
         call calcGradIJ_cc(Model%planet%rp_m, Grid, isGCorner, pCorot, State%gradPotCorot_cc, doLimO=.false.)  ! [V/m]
@@ -273,7 +273,7 @@ module raijuPreAdvancer
         ! lambda is constant, so just need grad(V^(-2/3) )
         call calcGradVM_cc(Model%planet%rp_m, Model%planet%ri_m, Model%planet%magMoment, &
                             Grid, isGCorner, State%bvol, State%gradVM_cc, &
-                            doSmoothO=.true., doLimO=.true.)
+                            doSmoothO=Model%doSmoothGrads, doLimO=.true.)
         end associate
         
     end subroutine calcPotGrads_cc
