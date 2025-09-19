@@ -88,47 +88,37 @@ module raijuColdStartHelper
 
         ! Update Dst target
         dstReal = GetSWVal('symh', Model%tsF, t0)
-        if (.not. cs%doneFirstCS) then
+        if (cs%doneFirstCS) then
+            write(*,*)"Already coldstarted once, you shouldn't be here "
+            return
+        else
             ! On first try, we assume there is no existing ring current, and its our job to make up the entire difference
             dstTarget = dstReal - dstModel
-            doInitRC = .true.
-        else if (t0 > (cs%lastEval + cs%evalCadence)) then
-            ! If we are updating, there should already be some ring current
-            ! If dstReal - dstModel is still < 0, we need to add ADDITIONAL pressure to get them to match
-            dps_current = spcEta2DPS(Model, Grid, State%bvol_cc, State%eta, Grid%spc(sIdx_p), isGood) + spcEta2DPS(Model, Grid, State%bvol_cc, State%eta, Grid%spc(sIdx_e), isGood)
-            dstTarget = dstReal - (dstModel - dps_current)
-            doInitRC = .false.
         endif
         
         cs%lastEval = t0
         cs%lastTarget = dstTarget
         cs%doneFirstCS = .true.  ! Whether we do anything or not, we were at least called once
-
-        ! Init psphere (will always run if this function is called)
-        call setRaijuInitPsphere(Model, Grid, State, Model%psphInitKp)
         
         ! Now decide if we need to add a starter ring current
-        !if (dstTarget >= 0) then  ! We've got nothing to contribute
-        !    write(*,*)"RAIJU coldstart not adding anything"
-        !    write(*,*)'doAccumulate=',doAccumulate
-        !    return
-        !endif
-
-        if (doInitRC) then
-            ! Init hot protons
-            call raiColdStart_initHOTP(Model, Grid, State, t0, dstTarget, etaCS)
-            !call raiColdStart_initHOTP_RCOnly(Model, Grid, State, t0, dstTarget, etaCS)
-            dps_preCX  = spcEta2DPS(Model, Grid, State%bvol_cc, etaCS, Grid%spc(sIdx_p), isGood)
-            ! Hit it with some charge exchange
-            if (cs%doCX) then
-                call raiColdStart_applyCX(Model, Grid, State, Grid%spc(sIdx_p), etaCS)
-            endif
-            dps_postCX = spcEta2DPS(Model, Grid, State%bvol_cc, etaCS, Grid%spc(sIdx_p), isGood)
-            ! Use HOTP moments to set electrons
-            call raiColdStart_initHOTE(Model, Grid, State, etaCS)
-            dps_ele = spcEta2DPS(Model, Grid, State%bvol_cc, etaCS, Grid%spc(sIdx_e), isGood)
-            dps_current = dps_postCX  ! Note: if using fudge we're gonna lose electrons immediately, don't include them in current dst for now
+        if (dstTarget >= 0) then  ! We've got nothing to contribute
+            write(*,*)"RAIJU coldstart not adding starter ring current"
+            return
         endif
+
+        ! Init hot protons
+        !call raiColdStart_initHOTP(Model, Grid, State, t0, dstTarget, etaCS)
+        call raiColdStart_initHOTP_RCOnly(Model, Grid, State, t0, dstTarget, etaCS)
+        dps_preCX  = spcEta2DPS(Model, Grid, State%bvol_cc, etaCS, Grid%spc(sIdx_p), isGood)
+        ! Hit it with some charge exchange
+        if (cs%doCX) then
+            call raiColdStart_applyCX(Model, Grid, State, Grid%spc(sIdx_p), etaCS)
+        endif
+        dps_postCX = spcEta2DPS(Model, Grid, State%bvol_cc, etaCS, Grid%spc(sIdx_p), isGood)
+        ! Use HOTP moments to set electrons
+        call raiColdStart_initHOTE(Model, Grid, State, etaCS)
+        dps_ele = spcEta2DPS(Model, Grid, State%bvol_cc, etaCS, Grid%spc(sIdx_e), isGood)
+        dps_current = dps_postCX  ! Note: if using fudge we're gonna lose electrons immediately, don't include them in current dst for now
 
         if (dstTarget < 0) then
             etaScale = abs(dstTarget / dps_current)    
@@ -138,41 +128,20 @@ module raijuColdStartHelper
             dps_rescale = dps_current
         endif
 
-        if (doInitRC) then
-            write(*,*)          "RAIJU Cold starting..."
-            write(*,'(a,f7.2)') "  Real Dst             : ",dstReal
-            write(*,'(a,f7.2)') "  Model Dst            : ",dstModel
-            write(*,'(a,f7.2)') "  Target DPS-Dst       : ",dstTarget
-            write(*,'(a,f7.2)') "  Hot proton pre-loss  : ",dps_preCX
-            write(*,'(a,f7.2)') "            post-loss  : ",dps_postCX
-            write(*,'(a,f7.2)') "         post-rescale  : ",dps_rescale
-            write(*,'(a,f7.2)') "  Hot electron DPS-Dst : ",dps_ele
-            write(*,'(a,f7.2)') "  Real Dst             : ",dstReal
-            write(*,'(a,f7.2)') "  Model Dst            : ",dstModel
-            write(*,'(a,f7.2)') "  Current DPS-Dst      : ",dps_current
-            write(*,'(a,f7.2)') "  Target DPS-Dst       : ",dstTarget
-            write(*,'(a,f7.2)') "  post-rescale         : ",dps_rescale
-            write(*,'(a,f7.2)') "  Hot electron DPS-Dst : ",dps_ele
-        endif
+        write(*,*)          "RAIJU Cold starting..."
+        write(*,'(a,f7.2)') "  Real Dst             : ",dstReal
+        write(*,'(a,f7.2)') "  Model Dst            : ",dstModel
+        write(*,'(a,f7.2)') "  Target DPS-Dst       : ",dstTarget
+        write(*,'(a,f7.2)') "  Hot proton pre-loss  : ",dps_preCX
+        write(*,'(a,f7.2)') "            post-loss  : ",dps_postCX
+        write(*,'(a,f7.2)') "         post-rescale  : ",dps_rescale
+        write(*,'(a,f7.2)') "  Hot electron DPS-Dst : ",dps_ele
 
         end associate
 
         ! finally, put it into raiju state
         if(doAccumulate) then
-            !State%eta = State%eta + etaCS
-            associate(sh=>Grid%shGrid)
-                !$OMP PARALLEL DO default(shared) &
-                !$OMP private(i,j,k)
-                do k=1,Grid%Nk
-                    do j=sh%jsg,sh%jeg
-                        do i=sh%isg,sh%ieg
-                            if (etaCS(i,j,k) > State%eta(i,j,k)) then
-                                State%eta(i,j,k) = etaCS(i,j,k)
-                            endif
-                        enddo
-                    enddo
-                enddo
-            end associate
+            State%eta = State%eta + etaCS
         else
             State%eta = etaCS
         endif
@@ -244,6 +213,7 @@ module raijuColdStartHelper
         end associate
 
     end subroutine raiColdStart_initHOTP_RCOnly
+
 
     subroutine raiColdStart_initHOTP(Model, Grid, State, t0, dstTarget, etaCS)
         type(raijuModel_T), intent(in) :: Model
