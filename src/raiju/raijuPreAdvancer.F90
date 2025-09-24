@@ -487,9 +487,15 @@ module raijuPreAdvancer
         !$OMP private(i,j,bVolcc)
         do j=sh%jsg,sh%jeg
             do i=sh%isg,sh%ieg
-                !bVolcc = toCenter2D(dV(i:i+1,j:j+1)) + DipFTV_colat(Grid%thcRp(i), B0)  ! Will include smoothing of dV if enabled
-                bVolcc = toCenter2D(V(i:i+1,j:j+1))
-                gradVM(i,j,:) = (-2./3.)*bVolcc**(-5./3.)*gradVM(i,j,:)
+                if(all(isGcorner(i:i+1,j:j+1))) then
+                    !bVolcc = toCenter2D(dV(i:i+1,j:j+1)) + DipFTV_colat(Grid%thcRp(i), B0)  ! Will include smoothing of dV if enabled
+                    bVolcc = toCenter2D(V(i:i+1,j:j+1))
+                    gradVM(i,j,:) = (-2./3.)*bVolcc**(-5./3.)*gradVM(i,j,:)
+                else
+                    ! gradVM should be zero for this point coming out of calcGradIJ_cc, but set to dipole value just in case
+                    gradVM(i,j,RAI_PH) = 0.0
+                    gradVM(i,j,RAI_TH) = (-2./3.)*DipFTV_colat(Grid%thcRp(i), B0)**(-5./3.)*dV0_dth(i,j)
+                endif
             enddo
         enddo
 
