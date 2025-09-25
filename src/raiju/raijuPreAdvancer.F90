@@ -41,6 +41,9 @@ module raijuPreAdvancer
 
         ! Moments to etas, initial active shell calculation
         call Tic("BCs")
+        if (State%isFirstCpl) then
+            call setRaijuInitPsphere(Model, Grid, State, Model%psphInitKp)
+        endif
         call applyRaijuBCs(Model, Grid, State, doWholeDomainO=State%isFirstCpl) ! If fullEtaMap=True, mom2eta map is applied to the whole domain
         call Toc("BCs")
 
