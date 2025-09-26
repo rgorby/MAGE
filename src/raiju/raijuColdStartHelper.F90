@@ -107,8 +107,8 @@ module raijuColdStartHelper
         endif
 
         ! Init hot protons
-        !call raiColdStart_initHOTP(Model, Grid, State, t0, dstTarget, etaCS)
-        call raiColdStart_initHOTP_RCOnly(Model, Grid, State, t0, dstTarget, etaCS)
+        call raiColdStart_initHOTP(Model, Grid, State, t0, dstTarget, etaCS)
+        !call raiColdStart_initHOTP_RCOnly(Model, Grid, State, t0, dstTarget, etaCS)
         dps_preCX  = spcEta2DPS(Model, Grid, State%bvol_cc, etaCS, Grid%spc(sIdx_p), isGood)
         ! Hit it with some charge exchange
         if (cs%doCX) then
@@ -141,7 +141,17 @@ module raijuColdStartHelper
 
         ! finally, put it into raiju state
         if(doAccumulate) then
-            State%eta = State%eta + etaCS
+            !$OMP PARALLEL DO default(shared) &
+            !$OMP private(i,j,k)
+            do j=Grid%shGrid%jsg,Grid%shGrid%jeg
+                do i=Grid%shGrid%isg,Grid%shGrid%ieg
+                    do k=1,Grid%Nk
+                        if(etaCS(i,j,k) > State%eta(i,j,k)) then
+                            State%eta(i,j,k) = etaCS(i,j,k)
+                        endif
+                    enddo
+                enddo
+            enddo
         else
             State%eta = etaCS
         endif

@@ -497,7 +497,8 @@ module raijuPreAdvancer
                 else
                     ! gradVM should be zero for this point coming out of calcGradIJ_cc, but set to dipole value just in case
                     gradVM(i,j,RAI_PH) = 0.0
-                    gradVM(i,j,RAI_TH) = (-2./3.)*DipFTV_colat(Grid%thcRp(i), B0)**(-5./3.)*dV0_dth(i,j)
+                    gradVM(i,j,RAI_TH) = 0.0
+                    !gradVM(i,j,RAI_TH) = (-2./3.)*DipFTV_colat(Grid%thcRp(i), B0)**(-5./3.)*dV0_dth(i,j)
                 endif
             enddo
         enddo
