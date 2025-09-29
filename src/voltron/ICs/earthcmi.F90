@@ -204,7 +204,17 @@ module uservoltic
                 Vy = 0.0
                 Vz = 0.0
             end subroutine PSphereIC
-
+        if (Model%doResistive) then
+           call inpXML%Set_Val(State%Resistivity%Lx  ,"resist/Lx"  ,1.0_rp)
+           call inpXML%Set_Val(State%Resistivity%Ly  ,"resist/Ly"  ,10.0_rp)
+           call inpXML%Set_Val(State%Resistivity%Lz  ,"resist/Lz"  ,10.0_rp)
+           call inpXML%Set_Val(State%Resistivity%Xpos,"resist/Xpos",-30.0_rp)
+           call inpXML%Set_Val(State%Resistivity%Ypos,"resist/Ypos",0.0_rp)
+           call inpXML%Set_Val(State%Resistivity%Zpos,"resist/Zpos",0.0_rp)
+           call inpXML%Set_Val(State%Resistivity%doGSM,"resist/doGSM",.True.)
+           call inpXML%Set_Val(State%Resistivity%eta,"resist/eta",0.05)
+           call calcResistivity(Model,Grid,State)
+        endif
     end subroutine initUser
 
     !Routines to do every timestep
@@ -243,7 +253,66 @@ module uservoltic
             END SELECT
         endif
 
+        !if we are doing resistivity in GSM coordinates we need to recalculate resistivity every time step.
+        if (Model%doResistive .and. State%Resistivity%doGSM) then
+           call calcResistivity(Model,Gr,State)
+        endif
     end subroutine PerStep
+
+    !calculates resistivity in either SM or GSM coordinates
+    subroutine calcResistivity(Model,Grid,State)
+      class(Model_T), intent(in)    :: Model
+      class(Grid_T) , intent(in) :: Grid
+      class(State_T), intent(inout) :: State
+      integer :: i,j,k,eD
+      real (rp) :: fact,curmjd,x0,y0,z0,lx,ly,lz
+      real(rp), dimension(NDIM) :: xloc,xloc1,ecc,eccsm
+
+      !DIR$ ATTRIBUTES align : ALIGN :: ecc,eccsm,xloc,xloc1
+
+      xloc=0.
+      xloc1=0.
+      ecc=0.
+      eccsm=0.
+      if (State%Resistivity%doGSM) then
+         !for GSM coordinates we first call MJDRecalc to be safe. note that although we call the routine to transform from SM to GSW, MJDRecalc sets the radial flow to the X-GSM direction and therefore it turns GSW into GSM.
+         curmjd = T2MJD(Model%t*Model%Units%gT0,Model%MJD0)
+         call MJDRecalc(curmjd)
+      endif
+
+      !!$OMP PARALLEL DO default(shared) collapse(2)&
+      !!$OMP private(i,j,k,eD,x0,y0,z0,lx,ly,lz,fact) &
+      !!$OMP private(ecc,eccsm,xloc,xloc1)
+      do eD=1,NDIM
+         do k=Grid%ks-1, Grid%ke+1
+            do j=Grid%js-1, Grid%je+1
+               do i=Grid%is-1,Grid%ie+1
+                  !get xyz location on the edge in SM coordinates
+                  call edgeCoords(Model,Grid,i,j,k,eD,xloc,xloc1)
+                  ecc=0.
+                  eccsm=0.
+                  if (State%Resistivity%doGSM) then
+                     !converts from SM to GSM if last argument is positive.
+                     eccsm = 0.5_rp*(xloc+xloc1)
+                     call SMGSW_08(eccsm(XDIR),eccsm(YDIR),eccsm(ZDIR),ecc(XDIR),ecc(YDIR),ecc(ZDIR),1)
+                  else
+                     ecc = 0.5_rp*(xloc+xloc1)
+                  endif
+
+                  !Calculates the resistivity based on input data
+                  x0=State%Resistivity%Xpos
+                  y0=State%Resistivity%Ypos
+                  z0=State%Resistivity%Zpos
+                  lx=State%Resistivity%Lx
+                  ly=State%Resistivity%Ly
+                  lz=State%Resistivity%Lz
+                  fact=((ecc(XDIR)-x0)/lx)**2.0_rp+((ecc(YDIR)-y0)/ly)**2.0_rp+((ecc(ZDIR)-z0)/lz)**2.0_rp
+                  State%Deta(i,j,k,eD)=State%Resistivity%eta/cosh(fact)**2.0_rp
+               enddo
+            enddo
+         enddo
+      enddo
+    end subroutine calcResistivity
 
     !Fixes electric field before application
     subroutine EFix(Model,Gr,State)
