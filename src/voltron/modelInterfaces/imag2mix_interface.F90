@@ -231,7 +231,7 @@ module imag2mix_interface
             imP_avg(RAI_EDEN)  = imP_avg(RAI_EDEN )/nPnts**2
             imP_avg(RAI_EPRE)  = imP_avg(RAI_EPRE )/nPnts**2
             imP_avg(RAI_NPSP)  = imP_avg(RAI_NPSP )/nPnts**2
-            imP_avg(RAI_EAVG)  = imP_avg(RAI_EFLUX) / imP_avg(RAI_ENFLX)
+            imP_avg(RAI_EAVG)  = imP_avg(RAI_EFLUX) / max(TINY, imP_avg(RAI_ENFLX))
             imP_avg(RAI_GTYPE) = imP_avg(RAI_GTYPE)/nGood
             imP_avg(RAI_THCON) = imP_avg(RAI_THCON)/nGood
             imP_avg(RAI_PHCON) = imP_avg(RAI_PHCON)/nGood
