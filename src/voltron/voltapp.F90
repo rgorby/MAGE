@@ -99,6 +99,8 @@ module voltapp
 
         ! adjust XMl reader root
         call xmlInp%SetRootStr('Kaiju/Voltron')
+        ! Make sure verbosity is still right after others do stuff with the reader
+        call xmlInp%SetVerbose(vApp%isLoud)
 
         !Initialize planet information
         call getPlanetParams(vApp%planet, xmlInp)
@@ -209,7 +211,7 @@ module voltapp
             gApp%Model%t = vApp%time / gApp%Model%Units%gT0
             gApp%State%time = gApp%Model%t
 
-            call genVoltShellGrid(vApp, xmlInp)
+            call genVoltShellGrid(vApp, xmlInp, gApp%Grid%Nkp)
             call initVoltState(vApp)
 
         endif
@@ -334,9 +336,10 @@ module voltapp
             ! update the next predicted coupling interval
             vApp%DeepT = vApp%DeepT + vApp%DeepDT
 
-            call Tic("DeepUpdate")
+            call Tic("DeepUpdate",.true.)
             call DeepUpdate(vApp, vApp%gApp)
-            call Toc("DeepUpdate")
+            call Toc("DeepUpdate",.true.)
+            vApp%ts = vApp%ts + 1
 
             call vApp%gApp%StartUpdateMhdData(vApp)
 
@@ -753,11 +756,14 @@ module voltapp
     end subroutine init_volt2Chmp
 
 
-    subroutine genVoltShellGrid(vApp, xmlInp)
+    subroutine genVoltShellGrid(vApp, xmlInp, gamRes)
         class(voltApp_T) , intent(inout) :: vApp
         type(XML_Input_T), intent(in) :: xmlInp
+        integer, intent(in) :: gamRes
 
         character(len=strLen) :: gType
+        integer :: Nt_def, Np_def
+            !! Default number of active cells in theta and phi unless xml says otherwise
         integer :: Nt, Np
             !! Number of active cells in theta and phi
         integer :: Ng
@@ -785,8 +791,30 @@ module voltapp
         ! Note: Nt is for a single hemisphere, we will manually double it in a minute
         ! TODO: This means we will always have even number of total cells, and a cell interfce right on the equator
         !  Can upgrade to allow for odd number later
-        call xmlInp%Set_Val(Nt, "grid/Nt", 180 )  ! 1 deg res default for uniform grid
-        call xmlInp%Set_Val(Np, "grid/Np", 360)  ! 1 deg res default
+
+        ! First determine defaults
+        if (gamRes<=64) then
+            ! DBL
+            Nt_def = 90
+            Np_def = 180
+        else if (gamRes<=128) then
+            ! QUAD
+            Nt_def = 180
+            Np_def = 360
+        else if (gamRes<=256) then
+            ! OCT
+            Nt_def = 360
+            Np_def = 720
+        else 
+            ! HEX or above
+            ! Idk good luck
+            Nt_def = 540
+            Np_def = 1440
+        endif
+
+
+        call xmlInp%Set_Val(Nt, "grid/Nt", Nt_def)  ! 1 deg res default for uniform grid
+        call xmlInp%Set_Val(Np, "grid/Np", Np_def)  ! 1 deg res default
         ! Ghost cells
         call xmlInp%Set_Val(Ng, "grid/Ng", 4)  ! # of ghosts in every direction
         nGhosts = 0
