@@ -475,7 +475,7 @@ module voltapp
 
         ! convert gamera inputs to remix
         call MJDRecalc(vApp%MJD)
-        if (vApp%doDeep) then
+        if ( vApp%doDeep .and. (vApp%time>0) ) then
             call CoupleIMagToMix(vApp)
         endif
         call mapGameraToRemix(vApp%mhd2mix, vApp%remixApp)
