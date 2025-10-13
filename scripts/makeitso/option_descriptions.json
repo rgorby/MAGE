@@ -57,8 +57,8 @@
         "hpc_system": {
             "LEVEL": "BASIC",
             "prompt": "Name of HPC system",
-            "default": "atiken",
-            "valids": ["derecho", "atiken"]
+            "default": "aitken",
+            "valids": ["derecho", "aitken"]
         }
     },
 
@@ -181,7 +181,7 @@
                 "default": "mpiexec pinCpuCores.sh"
             }
         },
-        "atiken": {
+        "aitken": {
             "group_list": {
                 "LEVEL": "BASIC",
                 "prompt": "PBS group list",
@@ -488,7 +488,7 @@
                 "prompt": "(GAMERA) Block halo MPI",
                 "default": {
                     "derecho": "T",
-                    "atiken": "F"
+                    "aitken": "F"
                 },
                 "valids": ["T", "F"]
             }
@@ -574,7 +574,7 @@
                 "prompt": "(VOLTRON) Perform asynchronous model coupling",
                 "default": {
                     "derecho": "F",
-                    "atiken": "T"
+                    "aitken": "T"
                 },
                 "valids": ["T", "F"]
             }
