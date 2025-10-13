@@ -128,11 +128,15 @@ if(CMAKE_Fortran_COMPILER_ID MATCHES Intel)
 		endif()
 		string(APPEND PROD " -march=core-avx2")
 		string(APPEND PRODWITHDEBUGINFO " -march=core-avx2")
+	elseif (HOST MATCHES stampede3)
+		message("You're on Stampede3!")
+		string(APPEND PROD " -xCORE-AVX512")
+		string(APPEND PRODWITHDEBUGINFO " -xCORE-AVX512")
 	endif()
 
 	#Check Intel Fortran version
 	if(NOT ALLOW_INVALID_COMPILERS AND CMAKE_Fortran_COMPILER_VERSION VERSION_GREATER "2021.9" AND CMAKE_Fortran_COMPILER_VERSION VERSION_LESS "2025.1")
-		message(FATAL_ERROR "Intel Fortran compilers newer than 2023 (version 2021.8) are not supported. Set the ALLOW_INVALID_COMPILERS variable to ON to force compilation at your own risk.")
+		message(FATAL_ERROR "Intel OneAPI compilers between 2022-2024 have compiler bugs which cause weird numerical errors in our code. You can set the ALLOW_INVALID_COMPILERS variable to ON to force compilation at your own risk. You'll probably get what you deserve.")
 	endif()
 
 elseif(CMAKE_Fortran_COMPILER_ID MATCHES GNU)
