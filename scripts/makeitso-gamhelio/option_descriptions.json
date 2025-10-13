@@ -35,8 +35,8 @@
         "hpc_system": {
             "LEVEL": "BASIC",
             "prompt": "Name of HPC system",
-            "default": "atiken",
-            "valids": ["derecho", "atiken"]
+            "default": "aitken",
+            "valids": ["derecho", "aitken"]
         }
     },
 
@@ -129,7 +129,7 @@
                 "default": "mpiexec pinCpuCores.sh"
             }
         },
-        "atiken": {
+        "aitken": {
             "queue": {
                 "LEVEL": "BASIC",
                 "prompt": "PBS queue name",
@@ -455,7 +455,7 @@
                 "prompt": "(GAMERA) Block halo MPI",
                 "default": {
                     "derecho": "T",
-                    "atiken": "F"
+                    "aitken": "F"
                 },
                 "valids": ["T", "F"]
             }
