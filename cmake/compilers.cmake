@@ -83,7 +83,12 @@ if(CMAKE_Fortran_COMPILER_ID MATCHES Intel)
 	#Base
 	string(APPEND CMAKE_Fortran_FLAGS " -fPIC -fpconstant")
 	#Production
-    set(PROD "-align array64byte -align rec32byte -no-prec-div -fast-transcendentals")
+    set(PROD "-align array64byte -align rec32byte -no-prec-div")
+    if (CMAKE_Fortran_COMPILER_VERSION VERSION_LESS 23.1)
+    	#Fast transcendentals removed in ifx
+    	string(APPEND PROD " -fast-transcendentals")
+    endif()
+    	
     #Production with Debug Info
     set(PRODWITHDEBUGINFO "-traceback -debug all -align array64byte -align rec32byte -no-prec-div -fast-transcendentals")
 	#Debug
@@ -126,7 +131,7 @@ if(CMAKE_Fortran_COMPILER_ID MATCHES Intel)
 	endif()
 
 	#Check Intel Fortran version
-	if(NOT ALLOW_INVALID_COMPILERS AND CMAKE_Fortran_COMPILER_VERSION VERSION_GREATER "2021.9")
+	if(NOT ALLOW_INVALID_COMPILERS AND CMAKE_Fortran_COMPILER_VERSION VERSION_GREATER "2021.9" AND CMAKE_Fortran_COMPILER_VERSION VERSION_LESS "2025.1")
 		message(FATAL_ERROR "Intel Fortran compilers newer than 2023 (version 2021.8) are not supported. Set the ALLOW_INVALID_COMPILERS variable to ON to force compilation at your own risk.")
 	endif()
 
