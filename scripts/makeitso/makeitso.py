@@ -990,13 +990,15 @@ def create_ini_files(options: dict, args: dict):
         start_dt = datetime.datetime.fromisoformat(options["simulation"]["start_date"])
         if "coupling" in args:
             num_segments = math.ceil((simulation_duration - num_warmup_segments*warmup_segment_duration)/segment_duration)
-            #start_dt = datetime.datetime.fromisoformat(options["simulation"]["start_date"])
             for job in range(1, num_segments + 1):
                 dT = float(options["simulation"]["segment_duration"])
                 tfin_delta = float(coupling["gr_warm_up_time"])
                 tStart_segment = (job - 1)*dT + tfin_delta
                 tFin_segment = job*dT + tfin_delta + 1.0
-                # Check if the segment end time is exactly Jan 1, 00:00:00 of any year
+                # Check if the segment end time is exactly Jan 1, 00:00:00 of any year 
+                # (Helps with year boundary issues in TIEGCM).
+                # If so, adjust the segment end time to be Jan 1 of the next year.
+                # This is only done if the segment start and end times are in different years.
                 segment_start_dt = start_dt + datetime.timedelta(seconds=tStart_segment)
                 segment_end_dt = start_dt + datetime.timedelta(seconds=tFin_segment-1)
                 if (segment_start_dt).year != (segment_end_dt).year:
