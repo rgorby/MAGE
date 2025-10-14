@@ -159,7 +159,7 @@
             "ompthreads": {
                 "LEVEL": "EXPERT",
                 "prompt": "Number of OMP threads per MPI rank",
-                "default": "126"
+                "default": "64"
             },
             "other": {
                 "LEVEL": "EXPERT",
