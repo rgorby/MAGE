@@ -204,6 +204,10 @@ module uservoltic
                 Vy = 0.0
                 Vz = 0.0
             end subroutine PSphereIC
+
+
+    end subroutine initUser
+
         if (Model%doResistive) then
            call inpXML%Set_Val(State%Resistivity%Lx  ,"resist/Lx"  ,1.0_rp)
            call inpXML%Set_Val(State%Resistivity%Ly  ,"resist/Ly"  ,10.0_rp)
@@ -215,8 +219,7 @@ module uservoltic
            call inpXML%Set_Val(State%Resistivity%eta,"resist/eta",0.05)
            call calcResistivity(Model,Grid,State)
         endif
-    end subroutine initUser
-
+        
     !Routines to do every timestep
     subroutine PerStep(Model,Gr,State)
         class(Model_T), intent(in) :: Model
