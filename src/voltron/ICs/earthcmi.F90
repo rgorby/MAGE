@@ -160,6 +160,19 @@ module uservoltic
         saveResHack => SaveUserRes
         Model%HackSaveRestart => saveResHack
 
+    ! Harry's resistivity setup changes -RG
+        if (Model%doResistive) then
+           call inpXML%Set_Val(State%Resistivity%Lx  ,"resist/Lx"  ,1.0_rp)
+           call inpXML%Set_Val(State%Resistivity%Ly  ,"resist/Ly"  ,10.0_rp)
+           call inpXML%Set_Val(State%Resistivity%Lz  ,"resist/Lz"  ,10.0_rp)
+           call inpXML%Set_Val(State%Resistivity%Xpos,"resist/Xpos",-30.0_rp)
+           call inpXML%Set_Val(State%Resistivity%Ypos,"resist/Ypos",0.0_rp)
+           call inpXML%Set_Val(State%Resistivity%Zpos,"resist/Zpos",0.0_rp)
+           call inpXML%Set_Val(State%Resistivity%doGSM,"resist/doGSM",.True.)
+           call inpXML%Set_Val(State%Resistivity%eta,"resist/eta",0.05)
+           call calcResistivity(Model,Grid,State)
+        endif
+
         !Local functions
         !NOTE: Don't put BCs here as they won't be visible after the initialization call
         contains
@@ -205,20 +218,8 @@ module uservoltic
                 Vz = 0.0
             end subroutine PSphereIC
 
-
     end subroutine initUser
 
-        if (Model%doResistive) then
-           call inpXML%Set_Val(State%Resistivity%Lx  ,"resist/Lx"  ,1.0_rp)
-           call inpXML%Set_Val(State%Resistivity%Ly  ,"resist/Ly"  ,10.0_rp)
-           call inpXML%Set_Val(State%Resistivity%Lz  ,"resist/Lz"  ,10.0_rp)
-           call inpXML%Set_Val(State%Resistivity%Xpos,"resist/Xpos",-30.0_rp)
-           call inpXML%Set_Val(State%Resistivity%Ypos,"resist/Ypos",0.0_rp)
-           call inpXML%Set_Val(State%Resistivity%Zpos,"resist/Zpos",0.0_rp)
-           call inpXML%Set_Val(State%Resistivity%doGSM,"resist/doGSM",.True.)
-           call inpXML%Set_Val(State%Resistivity%eta,"resist/eta",0.05)
-           call calcResistivity(Model,Grid,State)
-        endif
         
     !Routines to do every timestep
     subroutine PerStep(Model,Gr,State)
