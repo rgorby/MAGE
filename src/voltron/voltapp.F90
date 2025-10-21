@@ -459,19 +459,8 @@ module voltapp
                 call init_volt2Chmp(vApp,gApp)
             endif
 
-            !Ensure chimp and voltron restart numbers match
-            ! Actually chimp doesn't write restart files right now
-            !if (isRestart .and. vApp%IO%nRes /= ebTrcApp%ebModel%IO%nRes) then
-            !    write(*,*) "Voltron and Chimp disagree on restart number, you should sort that out."
-            !    write(*,*) "Error code: A house divided cannot stand"
-            !    write(*,*) "   Voltron nRes = ", vApp%IO%nRes
-            !    write(*,*) "   Chimp   nRes = ", ebTrcApp%ebModel%IO%nRes
-            !    stop
-            !endif
-
             call init_mhd2Chmp(vApp%mhd2chmp, gApp, vApp%ebTrcApp)
             call init_chmp2Mhd(vApp%chmp2mhd, vApp%ebTrcApp, gApp)
-            call init_raiju_mix(vApp%imagApp,vApp%remixApp)
 
             vApp%iDeep = gApp%Grid%ie-1
             
@@ -486,9 +475,7 @@ module voltapp
 
         ! convert gamera inputs to remix
         call MJDRecalc(vApp%MJD)
-        if (vApp%doDeep) then
-!            call mapIMagToRemix(vApp%imag2mix,vApp%remixApp) ! rcm style
-!            call mapRaijuToRemix(vApp)
+        if ( vApp%doDeep .and. (vApp%time>0) ) then
             call CoupleIMagToMix(vApp)
         endif
         call mapGameraToRemix(vApp%mhd2mix, vApp%remixApp)
