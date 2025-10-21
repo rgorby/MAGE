@@ -40,6 +40,12 @@ module gamtypes
         !doMassRA = F => rho,mom  ,inte
     end type Ring_T
 
+!For using resistivity. This will default to putting resistivity in the equatorial plane in GSM coordinates
+    type Resistance
+       real(rp) :: Lx,Ly,Lz,Xpos,Ypos,Zpos,eta
+       logical :: doGSM=.True.
+    end type Resistance
+
 !Unit information
 !Holds information about Gamera MHD scaling & how to scale input values
     type gUnits_T
@@ -245,6 +251,8 @@ module gamtypes
 
 !State information
     type :: State_T
+        type(Resistance) :: Resistivity
+        
         !Time info
         real(rp) :: time = -HUGE
         !real(rp) :: MJD = -HUGE
