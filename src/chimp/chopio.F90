@@ -17,7 +17,7 @@ module chopio
     
     integer  :: Nx1 = 64, Nx2 = 64, Nx3 = 64
     real(rp) :: originOff = 0.0 !Default origin offset
-    real(rp) :: lookDir = 0.0   !Default RTP grid tilt to match s/c pointing vector
+    real(rp) :: lookDir = 0.0   !Default CONE grid tilt
 
     real(rp) :: xyzMax = 10.0 !Default bound
     real(rp), dimension(:,:,:), allocatable :: xxi,yyi,zzi,xxc,yyc,zzc
@@ -39,8 +39,7 @@ module chopio
         integer :: iS,iE
         real(rp) :: xcc(NDIM)
         logical :: doLogR
-        real(rp) :: xOff,yOff,zOff
-        ! ^ origin offsets (cartesian) for RTP and conical chopping at sat location
+        real(rp) :: xOff,yOff,zOff  !Cartesian offsets for CONE grid origin
         real(rp) :: theta_pitch,phi_yaw !Theta and phi for y and z rotations in 3D space
         real(rp) :: xxi_temp,yyi_temp,zzi_temp  !Temp variables for 3D rotations
         real(rp) :: xxi_tilt,yyi_tilt,zzi_tilt,xxi_pan,yyi_pan,zzi_pan  !More temp variables for 3D rotations
@@ -68,12 +67,12 @@ module chopio
         call inpXML%Set_Val(Nx2,'chop/Nx2',Nx2)
         call inpXML%Set_Val(Nx3,'chop/Nx3',Nx3)
 
-        !Get origin offset for RTP (spherical) chopping. Default to originOff (zero)
+        !Get origin offset for CONE chopping. Default to originOff (zero)
         call inpXML%Set_Val(xOff,'chop/xOff',originOff)
         call inpXML%Set_Val(yOff,'chop/yOff',originOff)
         call inpXML%Set_Val(zOff,'chop/zOff',originOff)
 
-        !Get pitch and yaw angles for RTP conical chopping. Default to lookDir (zero)
+        !Get pitch and yaw angles for CONE chopping. Default to lookDir (zero)
         call inpXML%Set_Val(theta_pitch,'chop/lookPol',lookDir)
         call inpXML%Set_Val(phi_yaw,'chop/lookAzi',lookDir)
 
@@ -158,7 +157,7 @@ module chopio
                 enddo
             enddo
         !---------
-        ! Conical/Solid angle (based heavily on RTP)
+        ! Conical/Solid angle (based on RTP)
         case("CONE")
             !Check for log spacing in r
             call inpXML%Set_Val(doLogR,'chop/doLogR',.false.)
