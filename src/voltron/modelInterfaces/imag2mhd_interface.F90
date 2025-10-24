@@ -79,13 +79,11 @@ module imag2mhd_interface
                             !Below inner boundary, do dipole projection
                             isGoodCC(i,j,k) = .true.
                             xyz = Gr%xyzcc(i,j,k,:) !Gamera grid center
-                            call Proj2Rad(xyz,Rion,x1,x2)
-                            Gr%Gas0(i,j,k,PROJLAT) = x1
+                            call NHProj(xyz,x1,x2)
+                            Gr%Gas0(i,j,k,PROJLAT) = x1 !Must project to NH
                             Gr%Gas0(i,j,k,PROJLON) = x2
-
                         else
                             !Get value from xyzsquish
-
                             if ( all(vApp%chmp2mhd%isGood(i:i+1,j:j+1,k:k+1)) ) then
                                 !All values are good, so just do this thing
                                 call SquishCorners(vApp%chmp2mhd%xyzSquish(i:i+1,j:j+1,k:k+1,1),Qs)
@@ -123,7 +121,7 @@ module imag2mhd_interface
                         if (i < Gr%is) then
                             !Use dipole projection
                             xyz = Gr%xyz(i,j,k,:) !Gamera grid corner
-                            call Proj2Rad(xyz,Rion,x1,x2)
+                            call NHProj(xyz,x1,x2)
                             isG = .true.
                         else
                             x1  = vApp%chmp2mhd%xyzSquish(i,j,k,1)
@@ -307,18 +305,14 @@ module imag2mhd_interface
 
             end subroutine FillGhostsCC
 
-            !Project xyz along dipole to R0 and return lat (x1) and lon (x2)
-            subroutine Proj2Rad(xyz,R0,x1,x2)
-                real(rp), intent(in ) :: xyz(NDIM), R0
+            !Get azimuth and invariant latitude
+            subroutine NHProj(xyz,x1,x2)
+                real(rp), intent(in ) :: xyz(NDIM)
                 real(rp), intent(out) :: x1,x2
-
-                real(rp), dimension(NDIM) :: xyz0
-
-                xyz0 = DipoleShift(xyz,R0)
-                x1 = asin(xyz0(ZDIR)/R0) !Lat
-                x2 = katan2(xyz0(YDIR),xyz0(XDIR)) !katan => [0,2pi] instead of [-pi,pi]
-
-            end subroutine Proj2Rad 
+               
+               x1 = InvLatitude(xyz)
+               x2 = katan2(xyz(YDIR),xyz(XDIR)) !katan => [0,2pi] instead of [-pi,pi]
+            end subroutine NHProj
 
     end subroutine
 
