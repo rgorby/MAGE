@@ -282,28 +282,37 @@ module imag2mhd_interface
                 real(rp), intent(inout) :: Q(Gr%isg:Gr%ieg,Gr%jsg:Gr%jeg,Gr%ksg:Gr%keg)
 
                 integer :: i,j,k,ip,jp,kp
-                logical :: isActive
 
-                !!$OMP PARALLEL DO default(shared) collapse(2) &
-                !!$OMP private(i,j,k,isActive,ip,jp,kp)
-                ! this causes a race condition copying values between ghost cells
-                ! probably a false positive since some of the cells are just copying
-                ! values onto themselves, but easier to remove for now
+                !$OMP PARALLEL DO default(shared) collapse(2) &
+                !$OMP private(i,j,k,ip,jp,kp)
                 do k=Gr%ksg,Gr%keg
                     do j=Gr%jsg,Gr%jeg
                         do i=Gr%isg,Gr%ieg
-                            isActive = (j >= Gr%js) .and. (j <= Gr%je) .and. &
-                                       (k >= Gr%ks) .and. (k <= Gr%ks)
-                            if(.not. isActive) then
-                                !If still here map this ghost to active and set value based on active
+                            if (.not. isPhysical(Model,Gr,i,j,k)) then
+                                !This is a geometric ghost so we can map it to a physical cell
                                 call lfmIJKcc(Model,Gr,i,j,k,ip,jp,kp)
                                 Q(i,j,k) = Q(ip,jp,kp)
-                            endif
+                            endif !isPhys
                         enddo
                     enddo !j
                 enddo !k
 
             end subroutine FillGhostsCC
+
+            !Checks if cell is "physical" as opposed to "geometric". 
+            !Ie, i ghosts are physical but j/k ghosts are geometric (they point to other physical cells)
+            function isPhysical(Model,Gr,i,j,k)
+                type(Model_T), intent(in) :: Model
+                type(Grid_T) , intent(in) :: Gr
+                integer, intent(in) :: i,j,k
+                logical :: isPhysical       
+
+
+                isPhysical = (j >= Gr%js) .and. (j <= Gr%je) .and. &
+                             (k >= Gr%ks) .and. (k <= Gr%ke)
+
+
+            end function isPhysical
 
             !Get azimuth and invariant latitude
             subroutine NHProj(xyz,x1,x2)
