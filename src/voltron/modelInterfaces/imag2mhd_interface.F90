@@ -307,11 +307,8 @@ module imag2mhd_interface
                 integer, intent(in) :: i,j,k
                 logical :: isPhysical       
 
-
                 isPhysical = (j >= Gr%js) .and. (j <= Gr%je) .and. &
                              (k >= Gr%ks) .and. (k <= Gr%ke)
-
-
             end function isPhysical
 
             !Get azimuth and invariant latitude
