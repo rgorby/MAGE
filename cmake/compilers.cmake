@@ -130,13 +130,22 @@ if(CMAKE_Fortran_COMPILER_ID MATCHES Intel)
 		string(APPEND PRODWITHDEBUGINFO " -march=core-avx2")
 	elseif (HOST MATCHES stampede3)
 		message("You're on Stampede3!")
+		if (ENABLE_MKL)
+			string(APPEND CMAKE_Fortran_FLAGS " -qmkl")
+		endif()
 		string(APPEND PROD " -xCORE-AVX512")
 		string(APPEND PRODWITHDEBUGINFO " -xCORE-AVX512")
 	endif()
 
+
 	#Check Intel Fortran version
 	if(NOT ALLOW_INVALID_COMPILERS AND CMAKE_Fortran_COMPILER_VERSION VERSION_GREATER "2021.9" AND CMAKE_Fortran_COMPILER_VERSION VERSION_LESS "2025.1")
 		message(FATAL_ERROR "Intel OneAPI compilers between 2022-2024 have compiler bugs which cause weird numerical errors in our code. You can set the ALLOW_INVALID_COMPILERS variable to ON to force compilation at your own risk. You'll probably get what you deserve.")
+	endif()
+
+	#Check for MKL + intel25
+	if (ENABLE_MKL AND (CMAKE_Fortran_COMPILER_VERSION VERSION_GREATER "2024"))
+		message(WARNING "Intel OneAPI MKL has been found to fail in weird ways and should probably be avoided. But hey, do what you want. I'm a warning message, not a cop.")
 	endif()
 
 elseif(CMAKE_Fortran_COMPILER_ID MATCHES GNU)
