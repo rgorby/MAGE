@@ -404,7 +404,9 @@ module voltapp_mpi
             call Toc("G2C")
 
             if(vApp%useHelpers .and. vApp%doTubeHelp) then
+                call Tic("VoltTubes",.true.)
                 call VhReqTubeStart(vApp)
+                call Toc("VoltTubes",.true.)
             endif
         endif
 
