@@ -394,6 +394,15 @@ module voltapp_mpi
         ! tubes are only done after spinup
         if(vApp%doDeep .and. vApp%time >= 0) then
             if(vApp%useHelpers) call vhReqStep(vApp)
+
+            !Update i-shell to trace within in case rTrc has changed
+            vApp%iDeep = vApp%gApp%Grid%ie-1
+
+            !Pull in updated fields to CHIMP
+            call Tic("G2C")
+            call convertGameraToChimp(vApp%mhd2chmp,vApp%gApp,vApp%ebTrcApp)
+            call Toc("G2C")
+
             if(vApp%useHelpers .and. vApp%doTubeHelp) then
                 call VhReqTubeStart(vApp)
             endif
@@ -415,13 +424,6 @@ module voltapp_mpi
         if(vApp%doDeep .and. vApp%time >= 0) then
             ! instead of PreDeep, use Tube Helpers and replicate other calls
 
-            !Update i-shell to trace within in case rTrc has changed
-            vApp%iDeep = vApp%gApp%Grid%ie-1
-
-            !Pull in updated fields to CHIMP
-            call Tic("G2C")
-            call convertGameraToChimp(vApp%mhd2chmp,vApp%gApp,vApp%ebTrcApp)
-            call Toc("G2C")
             call Tic("VoltTubes",.true.)
             if(vApp%useHelpers .and. vApp%doTubeHelp) then
                 ! Tubes were started earlier
