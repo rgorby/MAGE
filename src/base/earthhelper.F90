@@ -96,6 +96,11 @@ module earthhelper
 
         D = 0.0
 
+        xfn = 0.0_rp
+        yfn = 0.0_rp
+        xfd = 0.0_rp
+        yfd = 0.0_rp
+
         if (present(kpO)) then
             kp = nint(kpO) ! Gallagher model takes integer Kp
         else
