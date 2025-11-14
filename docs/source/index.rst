@@ -33,3 +33,13 @@ Table of contents
     makeitso/index
     tools/index
     roadrules
+
+.. only:: misc
+
+   Internal Docs
+   -------------
+
+   .. toctree::
+      :maxdepth: 2
+
+      misc/index

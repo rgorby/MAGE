@@ -9,10 +9,8 @@ This page provides links to documentation for CHIMP.
 .. toctree::
     :maxdepth: 1
 
-    calcdb.x
+    chimpQuickStart
     chimpXML
-    chop.x
     psd.x
     push.x
-    slice.x
     trace.x

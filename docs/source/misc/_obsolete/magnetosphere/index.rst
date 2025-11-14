@@ -5,11 +5,11 @@ Magnetosphere Simulations with MAGE
     :maxdepth: 1
 
     analysisTools/index
-    compCosts/index
     exoOuterPlanets/index
     hidra/index
     mage/index
     xml/index
+    planetaryQuickStart
     Gamerasphere
     gameraRCM
     gameraRemix

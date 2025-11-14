@@ -102,7 +102,6 @@ Building the ``kaiju`` software on Ubuntu 20.04
 .. version of ``kaiju`` is not supported on Ubuntu 20.04 at this time.
 
 .. toctree::
-    :maxdepth: 1
 
    ubuntu-20.04_build_cdf
    ubuntu-20.04_build_hdf5

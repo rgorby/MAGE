@@ -1,7 +1,7 @@
 MPI Test Template
 =================
 
-.. code-block:: fortran
+.. code-block:: none
 
     module <INSERT MODULE NAME>
        use testHelperMpi

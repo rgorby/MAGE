@@ -31,8 +31,7 @@ Compilation
 
 Assume Kaiju repository has been installed successfully at $KAIJUDIR, and
 $KAIJUDIR/scripts has been added to $PATH and $KAIJUDIR added to $PYTHONPATH.
-(Instructions for installation can be found
-:doc:`here </quickStart/building/index>`).
+
 The commands to compile for MPI parallelized Voltron, which is the mostly used
 mode, include:
 
@@ -236,8 +235,7 @@ MPI Differences
 
 Running a coupled Gamera-RCM case with MPI support requires three things:
 
-#. Building the MPI version of the coupled executable - see the
-:doc:`build instructions </quickStart/building/index>`.
+#. Building the MPI version of the coupled executable.
 #. Modifying case XML to supply additional MPI decomposition information
 #. Modifying the submission script to request multiple nodes and use mpirun
 

@@ -6,7 +6,7 @@ Introduction
 
 This guide assumes that you have already checked out a local copy of our git
 repository using the other pages in our wiki. If not, please check other pages
-first such as :doc:`the quickstart guide </quickStart/index>`.
+first.
 
 This guide will talk about concepts such as pull requests and branching.
 Details about them are beyond the scope of this guide, so for additional

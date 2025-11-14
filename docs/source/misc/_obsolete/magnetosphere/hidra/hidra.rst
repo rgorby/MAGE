@@ -12,7 +12,7 @@ Get set up on Pleiades
 
 
 #. Setup RSA tokens: copy from bitbucket to Pleiades Font End (pfe) and
-`follow wiki <https://www.nas.nasa.gov/hecc/support/kb/enabling-your-rsa-securid-hard-token-(fob>`_\ _59.html)
+`follow wiki <https://www.nas.nasa.gov/hecc/support/kb/enabling-your-rsa-securid-hard-token-fob_59.html>`_
 
 #. Setup of ssh pass through,
 `follow wiki <https://www.nas.nasa.gov/hecc/support/kb/setting-up-ssh-passthrough_232.html>`_
@@ -26,7 +26,7 @@ SecureID mobile app (dual-factor authentication):
 
 
 #. Setup the sup client
-`from wiki <https://www.nas.nasa.gov/hecc/support/kb/using-the-secure-unattended-proxy-(sup>`_\ _145.html)
+`from wiki <https://www.nas.nasa.gov/hecc/support/kb/using-the-secure-unattended-proxy-sup_145.html>`_
 
 This will enable you to send large files between remote and local servers with
 ``shiftc``

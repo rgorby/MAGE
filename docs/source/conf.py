@@ -1,5 +1,5 @@
 # Configuration file for the Sphinx documentation builder.
-
+import os
 # -- Project information
 
 project = 'kaiju'
@@ -47,3 +47,17 @@ html_theme_options = {
 html_css_files = [
     'css/sidebar_theme.css',
 ]
+
+exclude_patterns = [
+    "_build",
+    "Thumbs.db",
+    ".DS_Store",
+]
+
+if not os.environ.get("BUILD_ALL"):
+    exclude_patterns.append("misc/**")
+
+def setup(app):
+
+    if os.environ.get('BUILD_ALL'):
+        app.tags.add('misc')

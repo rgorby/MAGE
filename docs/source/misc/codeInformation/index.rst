@@ -7,3 +7,4 @@ Code Information
     codeOrg
     derivation_of_precipitation
     interpolationInMAGE
+    dataCompression

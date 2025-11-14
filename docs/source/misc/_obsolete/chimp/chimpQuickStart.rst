@@ -52,7 +52,7 @@ the start time of the simulation being used for the calculation.
 ``tFin`` is the stop time the test particle trajectories, in seconds from
 the start time of the simulation being used for the calculation.
 
-For other parameters see the :doc:`Chimp XML </userGuide/chimp/chimpXML>` page.
+For other parameters see the :doc:`Chimp XML <chimpXML>` page.
 
 Create the PBS file
 ^^^^^^^^^^^^^^^^^^^
