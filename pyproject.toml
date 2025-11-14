@@ -1,8 +1,0 @@
-[build-system]
-requires = ["flit_core >=3.2,<4"]
-build-backend = "flit_core.buildapi"
-
-[project]
-name = "kaiju"
-authors = [{name = "Eric Winter", email = "eric.winter@jhuapl.edu"}]
-dynamic = ["0.75.3", "Kaiju documentation"]
