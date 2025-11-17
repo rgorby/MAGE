@@ -39,9 +39,6 @@ TEST_DIRECTORY = os.path.join(MAGE_TEST_SET_ROOT, 'compTest')
 # Home directory of kaiju installation
 KAIJUHOME = os.environ['KAIJUHOME']
 
-# Home directory of kaipy installation
-KAIPYHOME = os.environ['KAIPYHOME']
-
 # Path to directory containing the test scripts
 TEST_SCRIPTS_DIRECTORY = os.path.join(KAIJUHOME, 'testingScripts')
 
@@ -160,7 +157,7 @@ def generateAndRunCase(caseName,pbsTemplate,pbs_options,xmlTemplate,xml_options,
     shutil.copy2('../voltron.x', './voltron.x')
     shutil.copy2('../voltron_mpi.x', './voltron_mpi.x')
     shutil.copy2('../lfmD.h5', './lfmD.h5')
-    shutil.copy2('../rcmconfig.h5', './rcmconfig.h5')
+    shutil.copy2('../raijuconfig.h5', './raijuconfig.h5')
     shutil.copy2('../bcwind.h5', './bcwind.h5')
     # Submit the job
     if verbose:
@@ -610,7 +607,7 @@ def main():
         # Generate the LFM grid file.
         if verbose:
             print('Creating LFM grid file.')
-        cmd = 'genLFM.py -gid D'
+        cmd = 'genLFM -gid D'
         if debug:
             print(f"cmd = {cmd}")
         try:
@@ -620,7 +617,7 @@ def main():
                   f"{module_set_name}.\n"
                   f"e.cmd = {e.cmd}\n"
                   f"e.returncode = {e.returncode}\n"
-                  'See testing log for output from genLFM.py.\n'
+                  'See testing log for output from genLFM.\n'
                   'Skipping remaining steps for module set'
                   f"{module_set_name}\n")
             continue
@@ -628,7 +625,7 @@ def main():
         # Generate the solar wind boundary condition file.
         if verbose:
             print('Creating solar wind initial conditions file.')
-        cmd = 'cda2wind.py -t0 2016-08-09T02:00:00 -t1 2016-08-09T12:00:00'
+        cmd = 'cda2wind -t0 2016-08-09T02:00:00 -t1 2016-08-09T12:00:00'
         if debug:
             print(f"cmd = {cmd}")
         try:
@@ -638,25 +635,25 @@ def main():
                   f" for module set {module_set_name}.\n"
                   f"e.cmd = {e.cmd}\n"
                   f"e.returncode = {e.returncode}\n"
-                  'See testing log for output from cda2wind.py.\n'
+                  'See testing log for output from cda2wind.\n'
                   'Skipping remaining steps for module set'
                   f"{module_set_name}\n")
             continue
 
-        # Generate the RCM configuration file.
+        # Generate the Raiju configuration file.
         if verbose:
-            print('Creating RCM configuration file.')
-        cmd = 'genRCM.py'
+            print('Creating Raiju configuration file.')
+        cmd = 'genRAIJU'
         if debug:
             print(f"cmd = {cmd}")
         try:
             _ = subprocess.run(cmd, shell=True, check=True)
         except subprocess.CalledProcessError as e:
-            print('ERROR: Unable to create RCM configuration file'
+            print('ERROR: Unable to create Raiju configuration file'
                   f" for module set {module_set_name}.\n"
                   f"e.cmd = {e.cmd}\n"
                   f"e.returncode = {e.returncode}\n"
-                  'See testing log for output from genRCM.py.\n'
+                  'See testing log for output from genRAIJU.\n'
                   'Skipping remaining steps for module set '
                   f"{module_set_name}\n")
             continue
@@ -668,12 +665,12 @@ def main():
         base_pbs_options['job_priority'] = os.environ['DERECHO_TESTING_PRIORITY']
         base_pbs_options['modules'] = module_names
         base_pbs_options['kaijuhome'] = KAIJUHOME
-        base_pbs_options['kaipyhome'] = KAIPYHOME
         base_pbs_options['tmpdir'] = os.environ['TMPDIR']
         base_pbs_options['slack_bot_token'] = os.environ['SLACK_BOT_TOKEN']
         base_pbs_options['mage_test_root'] = os.environ['MAGE_TEST_ROOT']
         base_pbs_options['mage_test_set_root'] = os.environ['MAGE_TEST_SET_ROOT']
         base_pbs_options['branch_or_commit'] = os.environ['BRANCH_OR_COMMIT']
+        base_pbs_options["conda_environment"] = os.environ["CONDA_ENVIRONMENT"]
         base_pbs_options['report_options'] = ''
         if debug:
             base_pbs_options['report_options'] += ' -d'

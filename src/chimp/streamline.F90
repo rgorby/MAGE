@@ -12,6 +12,7 @@ module streamline
     real(rp), private :: ShueScl = 2.0  !Safety factor for Shue MP
     real(rp), private :: rShue   = 6.0  !Radius to start checking Shue
     integer , private :: NpChk   = 10   !Cadence for Shue checking
+    logical , private :: doShueG = .false. !Global doShue, can be overriden by optional arguments to routines
 
     contains
 
@@ -21,15 +22,16 @@ module streamline
 
         if (Model%isMAGE .and. (trim(toUpper(Model%uID)) == "EARTHCODE")) then
             !This is for Earth and we're running in tandem w/ mage
-            !Setup shue for short-circuiting
-            write(*,*) "Initializing SHUE-MP checking ..."
             call inpXML%Set_Val(ShueScl,'streamshue/ShueScl' ,ShueScl)
             call inpXML%Set_Val(rShue  ,'streamshue/rShue'   ,rShue  )
             call inpXML%Set_Val(NpChk  ,'streamshue/NpChk'   ,NpChk  )
+            call inpXML%Set_Val(doShueG,'streamshue/doShue' ,.false.)
+            if (doShueG) write(*,*) "Initializing SHUE-MP checking ..."
         else
-            !Otherwise don't care about Shue
             rShue = HUGE
+            doShueG = .false.
         endif
+
     end subroutine setShue
 
     !Trace field line w/ seed point x0 (both directions)
@@ -84,15 +86,11 @@ module streamline
             doSH = .false.
         endif
 
+        !If optional argument, do whatever it says. Otherwise default to global value
         if (present(doShueO)) then
             doShue = doShueO
         else
-            doShue = .false.
-        endif
-
-        if ( (.not. doSH) .and. (.not. doNH) ) then
-            !What are you even asking for?
-            return
+            doShue = doShueG
         endif
 
         !Allocate temp arrays to hold information along each direction
@@ -754,7 +752,7 @@ module streamline
         if (present(doShueO)) then
             doShue = doShueO
         else
-            doShue = .false.
+            doShue = doShueG
         endif
 
     !Initialize
@@ -832,7 +830,7 @@ module streamline
     !Slimmed down projection to northern hemisphere for MAGE
     !RinO is optional cut-off inner radius when in northern hemisphere
     !epsO is optional epsilon (otherwise use Model default)
-    subroutine mageproject(Model,ebState,x0,t,xyz,Np,isG,epsO,MaxStepsO)
+    subroutine mageproject(Model,ebState,x0,t,xyz,Np,isG,epsO,MaxStepsO,doShueO)
         type(chmpModel_T), intent(in) :: Model
         type(ebState_T), intent(in)   :: ebState
         real(rp), intent(in)  :: x0(NDIM),t
@@ -841,12 +839,13 @@ module streamline
         logical,  intent(out) :: isG
         real(rp), intent(in), optional :: epsO
         integer , intent(in), optional :: MaxStepsO
+        logical , intent(in), optional :: doShueO
 
         type(GridPoint_T) :: gPt
         integer :: sgn,MaxSteps
         real(rp) :: eps,h
         real(rp), dimension(NDIM) :: dx,B,oB
-        logical :: inDom,isSC,isDone
+        logical :: inDom,isSC,isDone,doShue
 
         if (present(epsO)) then
             eps = epsO
@@ -858,6 +857,12 @@ module streamline
             MaxSteps = MaxStepsO
         else
             MaxSteps = MaxFL
+        endif
+
+        if (present(doShueO)) then
+            doShue = doShueO
+        else
+            doShue = doShueG
         endif
 
         sgn = +1 !Step towards NH
@@ -940,7 +945,7 @@ module streamline
                 logical :: inMP
 
                 inDom = inDomain(xyz,Model,ebState%ebGr)
-                if ( (modulo(Np,NpChk) == 0) .and. (norm2(gPt%xyz)>=rShue) ) then
+                if ( doShue .and. (modulo(Np,NpChk) == 0) .and. (norm2(gPt%xyz)>=rShue) ) then
                     inMP  = inShueMP_SM(xyz,ShueScl)
                 else
                     inMP = .true.

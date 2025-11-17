@@ -16,7 +16,7 @@ module raijuIO
 
     implicit none
 
-    integer, parameter, private :: MAXIOVAR = 70
+    integer, parameter, private :: MAXIOVAR = 100
     logical, private :: doRoot = .true. !Whether root variables need to be written
     logical, private :: doFat = .false. !Whether to output lots of extra datalogical, private :: doRoot = .true. !Whether root variables need to be written
 
@@ -154,7 +154,7 @@ module raijuIO
         logical, optional, intent(in) :: doGhostsO
 
         type(IOVAR_T), dimension(MAXIOVAR) :: IOVars
-        integer :: i,j,k,s
+        integer :: i,j,k,s, nClkSteps
         integer :: is, ie, js, je, ks, ke
         integer, dimension(4) :: outBnds2D
         logical :: doGhosts
@@ -275,7 +275,7 @@ module raijuIO
         call AddOutVar(IOVars,"pot_corot",State%pot_corot(is:ie+1,js:je+1),uStr="kV",dStr="(corners) Corotation potential")
 
         ! Idk about you but I did not expect true to equal -1
-        allocate(outTmp2D(is:ie, Grid%Nk))
+        allocate(outTmp2D(Grid%shGrid%isg:Grid%shGrid%ieg, Grid%Nk))
         where (State%activeShells)
             outTmp2D = 1.0
         elsewhere
@@ -421,10 +421,17 @@ module raijuIO
             allocate(outTmp2D(Grid%shGrid%isg:Grid%shGrid%ieg  ,Grid%shGrid%jsg:Grid%shGrid%jeg))
             call calcMapJacNorm(Grid, State%xyzMin, outTmp2D)
             call AddOutVar(IOVars, "mapJacNorm", outTmp2D(is:ie,js:je), dStr="L_(2,1) norm of lat/lon => xyzMin Jacobian")
+            deallocate(outTmp2D)
         endif
 
-        call WriteVars(IOVars,.true.,Model%raijuH5, gStr)
+        !Performance Metrics
+        nClkSteps = readNCalls('DeepUpdate')
+        call AddOutVar(IOVars, "_perf_stepTime", readClock(1)/nClkSteps)
+        call AddOutVar(IOVars, "_perf_preAdvance", readClock("Pre-Advance")/nClkSteps)
+        call AddOutVar(IOVars, "_perf_advanceState", readClock("AdvanceState")/nClkSteps)
+        call AddOutVar(IOVars, "_perf_moments", readClock("Moments Eval")/nClkSteps)
 
+        call WriteVars(IOVars,.true.,Model%raijuH5, gStr)
 
         ! Any extra groups to add
         if (Model%doLosses .and. Model%doOutput_3DLoss) then
@@ -496,6 +503,12 @@ module raijuIO
         else
             call AddOutVar(IOVars,"cs_doneFirstCS", 0)
         endif
+        if (State%coldStarter%doCS_next_preAdv) then
+            call AddOutVar(IOVars,"cs_doCS_next_preAdv", 1)
+        else
+            call AddOutVar(IOVars,"cs_doCS_next_preAdv", 0)
+        endif
+        call AddOutVar(IOVars, "cs_modelDst_next_preAdv", State%coldStarter%modelDst_next_preAdv)
         call AddOutVar(IOVars, "cs_lastEval", State%coldStarter%lastEval)
         call AddOutVar(IOVars, "cs_lastTarget", State%coldStarter%lastTarget)
 
@@ -591,6 +604,8 @@ module raijuIO
         call AddInVar(IOVars,"nRes")
         call AddInVar(IOVars,"tRes")
         call AddInVar(IOVars,"isFirstCpl")
+        call AddInVar(IOVars,"cs_doCS_next_preAdv")
+        call AddInVar(IOVars,"cs_modelDst_next_preAdv")
         call AddInVar(IOVars,"cs_doneFirstCS")
         call AddInVar(IOVars,"cs_lastEval")
         call AddInVar(IOVars,"cs_lastTarget")
@@ -644,12 +659,15 @@ module raijuIO
         ! Coldstarter
         State%coldStarter%lastEval   = GetIOReal(IOVars, "cs_lastEval")
         State%coldStarter%lastTarget = GetIOReal(IOVars, "cs_lastTarget")
+        State%coldStarter%modelDst_next_preAdv = GetIOReal(IOVars, "cs_modelDst_next_preAdv")
         
         ! Handle boolean attributes
         tmpInt = GetIOInt(IOVars, "isFirstCpl")
         State%isFirstCpl = tmpInt .eq. 1
         tmpInt = GetIOInt(IOVars, "cs_doneFirstCS")
         State%coldStarter%doneFirstCS = tmpInt .eq. 1
+        tmpInt = GetIOInt(IOVars, "cs_doCS_next_preAdv")
+        State%coldStarter%doCS_next_preAdv = tmpInt .eq. 1
 
         call IOArray2DFill(IOVars, "xmin" , State%xyzMin(:,:,XDIR))
         call IOArray2DFill(IOVars, "ymin" , State%xyzMin(:,:,YDIR))

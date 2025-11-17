@@ -4,7 +4,7 @@
   <voltron>
     <time tFin="677.115987461"/>
     <spinup doSpin="T" tSpin="60.0" tIO="0.0"/>
-    <coupling dtCouple="5.0" rTrc="40.0" imType="RCM" doQkSquish="T" doDynDT="T" doAsyncCoupling="F"/>
+    <coupling dtCouple="5.0" rTrc="40.0" imType="RAIJU" doQkSquish="T" doDynDT="T" doAsyncCoupling="F"/>
     <restart dtRes="1800.0"/>
     <imag doInit="T"/>
     <ebsquish epsSquish="0.05"/>
@@ -37,11 +37,15 @@
     <domain dtype="MAGE"/>
     <tracer epsds="0.05"/>
   </CHIMP>
-  <RCM>
-    <output debug="F" toRCM="F" toMHD="F"/>
-    <clawpack doKaiClaw="F" doOMPClaw="T"/>
-    <ellipse xSun="10.0" yDD="12.5" xTail="-15.0" isDynamic="F"/>
-    <grid LowLat="25.0" HiLat="75.0" doLatStretch="F"/>
-    <plasmasphere isDynamic="T" initKp="1"/>
-  </RCM>
+   <RAIJU>
+    <output loudConsole="T" doFat="F" doLossExtras="F" doDebug="F" writeGhosts="F"/>
+    <grid gType="SHGRID" ThetaL="15" ThetaU="50"/>
+    <domain tail_buffer="15.0" sun_buffer="15.0" tail_active="12.0" sun_active="12.0"/>
+    <sim pdmb="0.75"/>
+    <config fname="raijuconfig.h5"/>
+    <plasmasphere doPsphere="T" doExcessMap="T"/>
+    <losses doLosses="T" doCX="T" doSS="T" doCC="T"/>
+    <cpl nFluidsIn="1" startupTscl="7200.0" vaFracThresh="0.60" bminThresh="5.0" Pstd="5.0" normAngThresh="180.0"/>
+    <fluidIn1 imhd="0" flav="2" excessToPsph="T"/>
+  </RAIJU>
 </Kaiju>

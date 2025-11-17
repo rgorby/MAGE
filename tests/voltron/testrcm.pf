@@ -16,7 +16,8 @@ contains
   subroutine lastSerial()
   end subroutine lastSerial
 
-  @test
+  ! no more rcm, no more rcm test
+  !@test
   subroutine testRcmFakeTubes()
     ! testing that rcm produces expected output when debug tubes is enabled
     type(voltApp_T) :: voltronApp

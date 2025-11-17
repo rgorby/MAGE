@@ -34,21 +34,21 @@ module raijuAdvancer
 
         State%dt = dtCpl
 
-        call Tic("Pre-Advance")
+        call Tic("Pre-Advance",.true.)
         call raijuPreAdvance(Model, Grid, State)
-        call Toc("Pre-Advance")
+        call Toc("Pre-Advance",.true.)
         State%isFirstCpl = .false.
 
         ! Step
-        call Tic("AdvanceState")
+        call Tic("AdvanceState",.true.)
         call AdvanceState(Model, Grid, State)
-        call Toc("AdvanceState")
+        call Toc("AdvanceState",.true.)
 
         ! etas back to moments
-        call Tic("Moments Eval")
+        call Tic("Moments Eval",.true.)
         call EvalMoments(Grid, State)
         call EvalMoments(Grid, State, doAvgO=.true.)
-        call Toc("Moments Eval")
+        call Toc("Moments Eval",.true.)
 
     end subroutine raijuAdvance
 
@@ -111,11 +111,16 @@ module raijuAdvancer
         odt = State%dtk(k)
 
         ! NOTE: When we actually implement activeShells these will need to be updated within time loop
-        where (State%active .eq. RAIJUACTIVE)
-            isGoodEvol = .true.
-        elsewhere
-            isGoodEvol = .false.
-        end where
+        if (Grid%spc(Grid%k2spc(k))%flav==F_PSPH) then
+            call calcEvolDom_psph(Model, Grid, State, isGoodEvol)
+        else
+            where (State%active .eq. RAIJUACTIVE)
+                isGoodEvol = .true.
+            elsewhere
+                isGoodEvol = .false.
+            end where
+        endif
+
         where (State%active .ne. RAIJUINACTIVE)
             isGoodRecon = .true.
         elsewhere
@@ -283,5 +288,34 @@ module raijuAdvancer
         enddo
 
     end subroutine calcEtaHalf
+
+
+    subroutine calcEvolDom_psph(Model, Grid, State, isGoodEvol)
+        type(raijuModel_T), intent(in) :: Model
+        type(raijuGrid_T ), intent(in) :: Grid
+        type(raijuState_T), intent(in) :: State
+
+        logical, dimension(Grid%shGrid%isg:Grid%shGrid%ieg, &
+                           Grid%shGrid%jsg:Grid%shGrid%jeg), intent(inout) :: isGoodEvol
+
+        integer :: i,j
+        real(rp) :: Req
+
+        isGoodEvol = .false.  ! Can't use fillArray yet, no version for logicals
+
+        do j=Grid%shGrid%jsg,Grid%shGrid%jeg
+            do i=Grid%shGrid%isg,Grid%shGrid%ieg
+                Req = sqrt(State%xyzMincc(i,j,XDIR)**2 + State%xyzMincc(i,j,YDIR)**2)
+                if (Req < Model%psphEvolRad) then
+                    continue  ! Keep points within this radius set to no evol 
+                else
+                    if (State%active(i,j) == RAIJUACTIVE) then
+                        isGoodEvol(i,j) = .true.
+                    endif
+                endif
+            enddo
+        enddo
+
+    end subroutine
 
 end module raijuAdvancer

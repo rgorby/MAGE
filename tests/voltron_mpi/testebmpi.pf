@@ -124,7 +124,8 @@ contains
 
   end subroutine
 
-  @test(npes=[2,5,9])
+  ! not supported without RCM
+  !@test(npes=[2,5,9])
   subroutine VMPIsquishDipoleTest(this)
       class (MpiTestMethod), intent(inout) :: this
 
