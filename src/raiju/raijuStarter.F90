@@ -316,10 +316,20 @@ module raijustarter
 
         ! Set grid params
         call iXML%Set_Val(Grid%nB, "grid/Nbnd", 4      )  ! Number of cells between open boundary and active domain
-        call iXML%Set_Val(tmpStr, "grid/gType","UNISPH")
+
+        ! If we are restarting, use shellGrid from file
+        if (Model%isRestart) then
+            tmpStr = "RESTART"
+        else
+            ! Otherwise, ask user how we should be making our grid
+            call iXML%Set_Val(tmpStr, "grid/gType","UNISPH")
+        endif
 
         ! Fill out Grid object depending on chosen method
         select case(tmpStr)
+            case("RESTART")
+                Grid%gType = RAI_G_SHGRID ! Idk, not important right now
+                call GenShellGridFromFile(Grid%shGrid, RAI_SG_NAME, Model%ResF)
             case("UNISPH")
                 Grid%gType = RAI_G_UNISPH
                 ! Generate our own grid from scratch
@@ -339,7 +349,7 @@ module raijustarter
                     write(*,*) "RAIJU expecting a ShellGrid_T but didn't receive one. Dying."
                 endif
             case DEFAULT
-                write(*,*) "RAIJU Received invalid grid definition: ",Grid%gType
+                write(*,*) "RAIJU Received invalid grid definition: ",tmpStr
                 write(*,*) " Dying."
                 stop
         end select
