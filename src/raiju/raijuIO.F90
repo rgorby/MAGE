@@ -89,7 +89,6 @@ module raijuIO
         ! Ready for output
         ! Some model setting info
         call ClearIO(IOVars)
-        call AddOutVar(IOVars,"doFatOutput"   ,Model%doOutput_potGrads)  ! Attr
         call AddOutVar(IOVars,"doDebugOutput" ,Model%doOutput_debug   )  ! Attr
         call AddOutVar(IOVars,"doWriteGhosts" ,Model%writeGhosts      )  ! Attr
         call AddOutVar(IOVars,"doGeoCorot"    ,Model%doGeoCorot       )  ! Attr
@@ -343,22 +342,11 @@ module raijuIO
             endif
         endif
         
-        if (Model%doOutput_potGrads) then
-            ! (Ni, Nj, 2)
-            call AddOutVar(IOVars, "gradPotE"       , State%gradPotE    (is:ie+1,js:je+1,:), uStr="V/m")
-            call AddOutVar(IOVars, "gradPotCorot"   , State%gradPotCorot(is:ie+1,js:je+1,:), uStr="V/m")
-            call AddOutVar(IOVars, "gradVM"         , State%gradVM      (is:ie+1,js:je+1,:), uStr="V/m/lambda")
-            call AddOutVar(IOVars, "gradPotE_cc"    , State%gradPotE_cc    (is:ie,js:je,:) , uStr="V/m")
-            call AddOutVar(IOVars, "gradPotCorot_cc", State%gradPotCorot_cc(is:ie,js:je,:) , uStr="V/m")
-            call AddOutVar(IOVars, "gradVM_cc"      , State%gradVM_cc      (is:ie,js:je,:) , uStr="V/m/lambda")
-
-            ! Calc pEffective based on current state
-            ! Make full ghost size since that's what the subroutine expects
-            allocate(outTmp3D(Grid%shGrid%isg:Grid%shGrid%ieg+1,Grid%shGrid%jsg:Grid%shGrid%jeg+1,Grid%Nk))
-            call calcEffectivePotential(Model, Grid, State, outTmp3D)
-            call AddOutVar(IOVars, "pEffective", outTmp3D(is:ie+1,js:je+1,:)*1e-3, uStr="kV")
-            deallocate(outTmp3D)
-        endif
+        
+        ! (Ni, Nj, 2)
+        call AddOutVar(IOVars, "gradPotE_cc"    , State%gradPotE_cc    (is:ie,js:je,:) , uStr="V/m")
+        call AddOutVar(IOVars, "gradPotCorot_cc", State%gradPotCorot_cc(is:ie,js:je,:) , uStr="V/m")
+        call AddOutVar(IOVars, "gradVM_cc"      , State%gradVM_cc      (is:ie,js:je,:) , uStr="V/m/lambda")
 
         if (Model%doOutput_debug) then
             ! New members, being tucked away into debug only
