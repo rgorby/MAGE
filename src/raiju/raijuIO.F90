@@ -274,8 +274,8 @@ module raijuIO
         deallocate(outTmp2D)
 
         ! Moments
-        call AddOutSGV(IOVars, "Pressure_avg", State%Press_avg, outBndsO=outBnds2D, uStr="nPa" , dStr="Step-averaged Pressure from RAIJU flavors", doWriteMaskO=.false.)
-        call AddOutSGV(IOVars, "Density_avg" , State%Den_avg  , outBndsO=outBnds2D, uStr="#/cc", dStr="Step-averaged Density from RAIJU flavors" , doWriteMaskO=.false.)
+        call AddOutSGV(IOVars, "Pressure", State%Press_avg, outBndsO=outBnds2D, uStr="nPa" , dStr="Step-averaged Pressure from RAIJU flavors", doWriteMaskO=.false.)
+        call AddOutSGV(IOVars, "Density" , State%Den_avg  , outBndsO=outBnds2D, uStr="#/cc", dStr="Step-averaged Density from RAIJU flavors" , doWriteMaskO=.false.)
         
 
         ! Calculate flux tube entropy using bulk pressure
