@@ -137,8 +137,8 @@ module raijustarter
             else
                 tmpStr = "/Kaiju/Gamera/restart/resId"
             endif
-            call iXML%Set_Val(tmpResId, trim(tmpStr), Model%RunID)
-            call genResInFname(Model, Model%ResF, runIdO=tmpResId)  ! Determine filename to read from
+            call iXML%Set_Val(Model%resId, trim(tmpStr), Model%RunID)
+            call genResInFname(Model, Model%ResF, runIdO=Model%resId)  ! Determine filename to read from
         endif
         
         !--- Plasmasphere ---!

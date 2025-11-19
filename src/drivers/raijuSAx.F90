@@ -59,7 +59,7 @@ program raijuSAx
     call raiApp%InitIO(inpXML)
     raiApp%State%isFirstCpl = .false.
     if (raiApp%Model%isRestart) then
-        call raiApp%ReadRestart(raiApp%Model%RunID, raiApp%Model%nResIn)
+        call raiApp%ReadRestart(raiApp%Model%resID, raiApp%Model%nResIn)
         raiApp%State%isFirstCpl = .false.
     endif
     
