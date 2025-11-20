@@ -14,4 +14,5 @@ These are documents that are not ready or not intended for public consumption.
     user_rules/index
     codeInformation/index
     tools/index
+    FAQ
     
