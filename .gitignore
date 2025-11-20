@@ -120,3 +120,15 @@ TEST*.xml
 *.flv
 *.mov
 *.wmv
+
+# -----------------------------
+# Jupyter / Notebooks
+# -----------------------------
+analysis/notebooks/Tutorial/.ipynb_checkpoints
+
+# -----------------------------
+# Ignore exeptions
+# -----------------------------
+# Unignore docs/source/building
+!docs/source/building/
+!docs/source/building/**
