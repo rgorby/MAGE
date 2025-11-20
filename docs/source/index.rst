@@ -33,8 +33,9 @@ Table of contents
     makeitso/index
     tools/index
     roadrules
+    misc/index
 
-.. only:: misc
+.. only:: _obsolete
 
    Internal Docs
    -------------
@@ -42,4 +43,4 @@ Table of contents
    .. toctree::
       :maxdepth: 2
 
-      misc/index
+      _obsolete/index

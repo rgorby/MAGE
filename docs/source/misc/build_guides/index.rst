@@ -1,4 +1,4 @@
-Build guides documentation
+Build guides
 ======================================
 
 .. toctree::

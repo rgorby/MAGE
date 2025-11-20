@@ -12,4 +12,6 @@ These are documents that are not ready or not intended for public consumption.
     rcm/index
     testing/index
     user_rules/index
+    codeInformation/index
+    tools/index
     

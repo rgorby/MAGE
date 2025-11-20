@@ -55,9 +55,9 @@ exclude_patterns = [
 ]
 
 if not os.environ.get("BUILD_ALL"):
-    exclude_patterns.append("misc/**")
+    exclude_patterns.append("_obsolete/**")
 
 def setup(app):
 
     if os.environ.get('BUILD_ALL'):
-        app.tags.add('misc')
+        app.tags.add('_obsolete')
