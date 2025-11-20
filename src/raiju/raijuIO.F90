@@ -432,11 +432,12 @@ module raijuIO
     end subroutine WriteRaiju
 
 
-    subroutine WriteRaijuRes(Model, Grid, State, ResF)
+    subroutine WriteRaijuRes(Model, Grid, State, opt, ResF)
         !! Writes RAIJU restart info to provided path ResF
         type(raijuModel_T), intent(in) :: Model
         type(raijuGrid_T ), intent(in) :: Grid
         type(raijuState_T), intent(in) :: State
+        type(raijuOptions_T), intent(in) :: opt
         character(len=strLen), intent(in) :: ResF
 
         ! If a restart already exists, get rid of old one
@@ -446,11 +447,26 @@ module raijuIO
         call writeShellGrid(Grid%shGrid, ResF)
         ! And species info
         call writeSpeciesInfo(Model, Grid, ResF)
+        ! App options
+        call WriteRaijuResOpts(opt, ResF)
         ! All necessary State info
         call WriteRaijuResState(Model, Grid, State, ResF)
 
     end subroutine WriteRaijuRes
 
+
+    subroutine WriteRaijuResOpts(opt, ResF)
+        type(raijuOptions_T), intent(in) :: opt
+        character(len=strLen), intent(in) :: ResF
+
+        type(IOVAR_T), dimension(20) :: IOVars
+
+        call AddOutVar(IOVars, "thetaL", opt%thetaL%get())
+        call AddOutVar(IOVars, "thetaU", opt%thetaU%get())
+
+        call WriteVars(IOVars,.false.,ResF,"Options")
+
+    end subroutine
 
     subroutine WriteRaijuResState(Model, Grid, State, ResF)
         !! Writes RAIJU State restart info to provided path ResF
