@@ -6,7 +6,7 @@ Introduction
 ------------
 
 This section describes how to build the ``kaiju`` software on two different
-supercomputers - ``derecho`` and ``pleiades``. If you are trying to build the
+supercomputers - ``derecho`` and ``aitken``. If you are trying to build the
 ``kaiju`` software on a different system, use these instructions as a starting
 point.
 
@@ -40,7 +40,7 @@ on GitHub:
 
 .. note:: The ``kaiju`` software can be built in serial or MPI versions. The
     serial version is best for single-processor machines such as a laptop,
-    while supercomputers such as ``derecho`` and ``pleiades`` typically use
+    while supercomputers such as ``derecho`` and ``aitken`` typically use
     the MPI version, to take advantage of multiple compute nodes. These
     instructions describe how to build the MPI version of ``kaiju``. The build
     instructions for the single-machine serial version are essentially the
@@ -55,6 +55,6 @@ Building Guides
     :maxdepth: 1
 
     buildDerecho_GR
-    buildPleiades_GR
+    buildAitken_GR
     buildDerecho_GTR
-    buildPleiades_GTR
+    buildAitken_GTR

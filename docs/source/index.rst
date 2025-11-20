@@ -35,7 +35,7 @@ Table of contents
     roadrules
     misc/index
 
-.. only:: _obsolete
+.. only:: obsolete
 
    Internal Docs
    -------------

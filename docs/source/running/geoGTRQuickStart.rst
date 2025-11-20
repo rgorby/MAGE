@@ -29,7 +29,7 @@ For example:
 
     The TIEGCMDATA directory is located in the following locations:
         - On ``derecho``: ``/glade/campaign/hao/itmodel/tiegcm3.0/new_data``
-        - On ``pleiades``: ``/nobackup/nrao3/tiegcm/tiegcm3.0/data``
+        - On ``aitken``: ``/nobackup/nrao3/tiegcm/tiegcm3.0/data``
         - The required data files can be downloaded from the NCAR Globus endpoint using the following link: `TIEGCM Data Files <https://app.globus.org/file-manager?origin_id=b2502c58-c3eb-470f-86d4-cbdcd0aeb6c8&origin_path=%2F>`_
 
 Running a geospace simulation with MAGE
@@ -107,7 +107,7 @@ accept the default value (shown in square brackets at the end of the prompt).
     Do you want to split your job into multiple segments? (Y|N) [Y]: 
     Segment length in simulated seconds [7200.0]: 3600
     GAMERA grid type (D|Q|O|H) [Q]: 
-    Name of HPC system (derecho|pleiades) [pleiades]: derecho
+    Name of HPC system (derecho|aitken) [aitken]: derecho
     PBS account name [<YOUR_ACCOUNT_HERE>]: 
     Run directory [.]: 
     Path to kaiju installation [<YOUR_KAIJUHOME_HERE>]: 

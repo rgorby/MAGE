@@ -59,7 +59,7 @@ An example in ``BASIC`` mode
 ----------------------------
 
 This section provdes an annotated example session of ``makeitso.py`` running
-in the default ``BASIC`` mode on the ``pleiades`` supercomputer.
+in the default ``BASIC`` mode on the ``aitken`` supercomputer.
 
 .. code-block:: bash
 
@@ -106,9 +106,9 @@ hex- (``H``) resolutions in the LFM grid used in the ``kaiju`` software.
 
 .. code-block:: bash
 
-  Name of HPC system (derecho|pleiades) [pleiades]:
+  Name of HPC system (derecho|aitken) [aitken]:
 
-The ``makeitso.py`` script supports the ``derecho`` and ``pleiades``
+The ``makeitso.py`` script supports the ``derecho`` and ``aitken``
 supercomputers. The selection you make here will customize the remaining
 prompts for the selected system.
 
@@ -116,7 +116,7 @@ prompts for the selected system.
 
   PBS account name [your_login_name]:
 
-On ``pleiades``, your login name is usable here. On ``derecho``, you will need
+On ``aitken``, your login name is usable here. On ``derecho``, you will need
 a PBS account ID.
 
 .. code-block:: bash

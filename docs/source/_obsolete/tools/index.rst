@@ -6,6 +6,5 @@ MAGE Tools
 
     debugging
     globusEndpoint
-    nasaJupyter
     Pokeball
     Sublime_Text

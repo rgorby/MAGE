@@ -7,7 +7,7 @@ installed as part of the process of setting up your Python environment for
 that version instead of building the code from source.
 
 
-HPC systems (``derecho`` and ``pleiades``)
+HPC systems (``derecho`` and ``aitken``)
 ------------------------------------------
 
 This procedure builds the code under ``$HOME/local/src``, and installs the

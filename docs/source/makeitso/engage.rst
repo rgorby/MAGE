@@ -130,9 +130,9 @@ hex- (``H``) resolutions in the LFM grid used in the ``kaiju`` software.
 
 .. code-block:: bash
 
-  Name of HPC system (derecho|pleiades) [pleiades]: derecho
+  Name of HPC system (derecho|aitken) [aitken]: derecho
 
-The ``engage.py`` script supports the ``derecho`` and ``pleiades``
+The ``engage.py`` script supports the ``derecho`` and ``aitken``
 supercomputers. The selection you make here will customize the remaining
 prompts for the selected system.
 
@@ -140,7 +140,7 @@ prompts for the selected system.
 
   PBS account name [your_login_name]:
 
-On ``pleiades``, your login name is usable here. On ``derecho``, you will need
+On ``aitken``, your login name is usable here. On ``derecho``, you will need
 a PBS account ID.
 
 .. code-block:: bash
@@ -470,11 +470,11 @@ Here are templates for the JSON files:
     - :download:`makeitso_input.json <engage_template/derecho/makeitso_input.json>`
     - :download:`tiegcm_input.json <engage_template/derecho/tiegcmrun_input.json>`
 
-  - Pleiades:
+  - aitken:
 
-    - :download:`engage_input.json <engage_template/pleiades/engage_input.json>`
-    - :download:`makeitso_input.json <engage_template/pleiades/makeitso_input.json>`
-    - :download:`tiegcm_input.json <engage_template/pleiades/tiegcmrun_input.json>`
+    - :download:`engage_input.json <engage_template/aitken/engage_input.json>`
+    - :download:`makeitso_input.json <engage_template/aitken/makeitso_input.json>`
+    - :download:`tiegcm_input.json <engage_template/aitken/tiegcmrun_input.json>`
 
 These JSON files can be used as a starting point for your own simulations. You will 
 need to modify certain parameters in them:

@@ -61,7 +61,7 @@ run ``makeitso.py`` with no arguments:
     Stop date for simulation (yyyy-mm-ddThh:mm:ss) [2001-06-02T01:00:00]:
     Do you want to split your job into multiple segments? (Y|y|N|n) [N]:
     GAMERA grid type (D|Q|O|H) [Q]:
-    Name of HPC system (derecho|pleiades) [pleiades]: derecho
+    Name of HPC system (derecho|aitken) [aitken]: derecho
     PBS account name [<YOUR_ACCOUNT_HERE>]:
     Run directory [.]:
     Path to kaiju installation [<YOUR_KAIJUHOME_HERE>]:

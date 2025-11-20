@@ -92,9 +92,9 @@ each using the results of the previous job as a starting point. If you enter
 
 .. code-block:: bash
 
-    Name of HPC system (derecho|pleiades) [pleiades]:
+    Name of HPC system (derecho|aitken) [aitken]:
 
-The ``makeitso-gamhelio.py`` script supports the ``derecho`` and ``pleiades``
+The ``makeitso-gamhelio.py`` script supports the ``derecho`` and ``aitken``
 supercomputers. The selection you make here will customize the remaining
 prompts for the selected system.
 
@@ -102,7 +102,7 @@ prompts for the selected system.
 
   PBS account name [your_login_name]:
 
-On ``pleiades``, your login name is usable here. On ``derecho``, you will need
+On ``aitken``, your login name is usable here. On ``derecho``, you will need
 a PBS account ID.
 
 .. code-block:: bash

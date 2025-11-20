@@ -67,7 +67,7 @@ To get started, run ``makeitso-gamhelio.py`` with no arguments:
    Start date for simulation (yyyy-mm-ddThh:mm:ss) [2017-07-20T05:22:47]: 
    Stop date for simulation (yyyy-mm-ddThh:mm:ss) [2017-08-16T12:05:59]: 
    Do you want to split your job into multiple segments? (Y|y|N|n) [N]: 
-   Name of HPC system (derecho|pleiades) [pleiades]: derecho
+   Name of HPC system (derecho|aitken) [aitken]: derecho
    PBS account name [<YOUR_ACCOUNT_HERE>]:
    Path to kaiju installation [<YOUR_KAIJUHOME_HERE>]:
    Path to kaiju build directory [<YOUR_BUILD_DIRECTORY_HERE>]:

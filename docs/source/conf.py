@@ -54,10 +54,9 @@ exclude_patterns = [
     ".DS_Store",
 ]
 
-if not os.environ.get("BUILD_ALL"):
-    exclude_patterns.append("_obsolete/**")
+#if not os.environ.get("BUILD_ALL"):
+#    exclude_patterns.append("_obsolete/**")
 
 def setup(app):
-
     if os.environ.get('BUILD_ALL'):
-        app.tags.add('_obsolete')
+        app.tags.add('obsolete')

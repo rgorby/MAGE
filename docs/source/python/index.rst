@@ -21,4 +21,4 @@ the proper prerequisites to use the ``kaiju`` and ``kaipy`` tools.
     :maxdepth: 1
 
     derecho
-    pleiades
+    aitken
