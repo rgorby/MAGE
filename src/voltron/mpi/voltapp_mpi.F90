@@ -152,8 +152,8 @@ module voltapp_mpi
                     deallocate(vApp%ebTrcApp%ebSquish%blockStartIndices)
                     allocate(vApp%ebTrcApp%ebSquish%blockStartIndices(vApp%ebTrcApp%ebSquish%numSquishBlocks))
                     do b=1,vApp%ebTrcApp%ebSquish%numSquishBlocks
-                        vApp%ebTrcApp%ebSquish%blockStartIndices(b) = vApp%ebTrcApp%ebState%ebGr%ks + &
-                            ((b-1)*(vApp%ebTrcApp%ebState%ebGr%ke+1))/vApp%ebTrcApp%ebSquish%numSquishBlocks
+                        vApp%ebTrcApp%ebSquish%blockStartIndices(b) = &
+                            GetAdjustedSquishStart(vApp,((b-1)*(vApp%ebTrcApp%ebState%ebGr%ke+1))/vApp%ebTrcApp%ebSquish%numSquishBlocks)
                     enddo
                 endif
                 call createLoadBalancer(vApp%squishLb, nHelpers,&
@@ -356,9 +356,10 @@ module voltapp_mpi
 
             if(.not. vApp%doSerialMHD) call vApp%gApp%StartUpdateMhdData(vApp)
 
-            call Tic("DeepUpdate")
+            call Tic("DeepUpdate",.true.)
             call DeepUpdate_mpi(vApp)
-            call Toc("DeepUpdate")
+            call Toc("DeepUpdate",.true.)
+            vApp%ts = vApp%ts + 1
 
             if(vApp%doSerialMHD) call vApp%gApp%StartUpdateMhdData(vApp)
 
@@ -382,11 +383,32 @@ module voltapp_mpi
         call convertGameraToRemix(vApp%mhd2mix, vApp%gApp, vApp%remixApp)
         call Toc("G2R")
 
+        call MJDRecalc(vApp%MJD)
+
         if (vApp%doGCM .and. vApp%time >=0 .and. vApp%gcmCplRank /= -1) then
             call Tic("GCM2MIX")
             call coupleGCM2MIX(vApp%gcm,vApp%remixApp%ion,vApp%MJD,vApp%time,vApp%mageCplComm,vApp%gcmCplRank)
             call Toc("GCM2MIX")
         end if
+
+        ! tubes are only done after spinup
+        if(vApp%doDeep .and. vApp%time >= 0) then
+            if(vApp%useHelpers) call vhReqStep(vApp)
+
+            !Update i-shell to trace within in case rTrc has changed
+            vApp%iDeep = vApp%gApp%Grid%ie-1
+
+            !Pull in updated fields to CHIMP
+            call Tic("G2C")
+            call convertGameraToChimp(vApp%mhd2chmp,vApp%gApp,vApp%ebTrcApp)
+            call Toc("G2C")
+
+            if(vApp%useHelpers .and. vApp%doTubeHelp) then
+                call Tic("VoltTubes",.true.)
+                call VhReqTubeStart(vApp)
+                call Toc("VoltTubes",.true.)
+            endif
+        endif
 
         ! run remix
         call Tic("ReMIX", .true.)
@@ -402,21 +424,11 @@ module voltapp_mpi
 
         ! only do imag after spinup
         if(vApp%doDeep .and. vApp%time >= 0) then
-            call Tic("DeepUpdate", .true.)
-
-            if(vApp%useHelpers) call vhReqStep(vApp)
-
             ! instead of PreDeep, use Tube Helpers and replicate other calls
-            !Update i-shell to trace within in case rTrc has changed
-            vApp%iDeep = vApp%gApp%Grid%ie-1
 
-            !Pull in updated fields to CHIMP
-            call Tic("G2C")
-            call convertGameraToChimp(vApp%mhd2chmp,vApp%gApp,vApp%ebTrcApp)
-            call Toc("G2C")
             call Tic("VoltTubes",.true.)
             if(vApp%useHelpers .and. vApp%doTubeHelp) then
-                call VhReqTubeStart(vApp)
+                ! Tubes were started earlier
                 call vhReqTubeEnd(vApp)
                 ! Now pack into tubeShell
                 call Tic("Tube2Shell")
@@ -440,8 +452,7 @@ module voltapp_mpi
             call DoImag(vApp)
 
             vApp%deepProcessingInProgress = .true.
-            call Toc("DeepUpdate", .true.)
-        else
+         elseif(vApp%doDeep) then
             vApp%gApp%Grid%Gas0 = 0
             !Load TM03 into Gas0 for ingestion during spinup
             !Note: Using vApp%time instead of gamera time units
@@ -457,7 +468,6 @@ module voltapp_mpi
 
         ! only do imag after spinup with deep enabled
         if(vApp%doDeep .and. vApp%time >= 0) then
-            call Tic("DeepUpdate", .true.)
 
             do while(SquishBlocksRemain(vApp))
                 call Tic("Squish",.true.)
@@ -475,7 +485,6 @@ module voltapp_mpi
 
             call SquishEnd(vApp)
             call PostDeep(vApp, vApp%gApp)
-            call Toc("DeepUpdate", .true.)
         endif
 
     end subroutine endDeep
@@ -494,11 +503,9 @@ module voltapp_mpi
         if(.not. vApp%deepProcessingInProgress) return
 
         if(SquishBlocksRemain(vApp)) then
-            call Tic("DeepUpdate")
             call Tic("Squish",.true.)
             call DoSquishBlock(vApp)
             call Toc("Squish",.true.)
-            call Toc("DeepUpdate")
         endif
 
         if(.not. SquishBlocksRemain(vApp)) then

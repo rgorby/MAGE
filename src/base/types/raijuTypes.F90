@@ -147,6 +147,11 @@ module raijutypes
 
 
         !--- State ---!
+        logical :: doCS_next_preAdv = .false.
+            !! Signal to run coldstart next time raiju preAdvances
+        real(rp) :: modelDst_next_preAdv = 0.0_rp
+            !! Target Dst [nT] when we run coldstart next
+
         logical :: doneFirstCS = .false.
             !! Have we executed once already?
         real(rp) :: lastEval = -1*HUGE
@@ -188,6 +193,8 @@ module raijutypes
             !! Whether we initialize state from a restart file
         integer :: nResIn = -1
             !! Restart number to use for state init (-1 for symlink)
+        character(len=strLen) :: resId = ""
+            !! Restart filename id (resID.raiju.Res.xxxxx.h5) to read from
         character(len=strLen) :: ResF = ""
             !! Restart filename to read from
         
@@ -221,10 +228,10 @@ module raijutypes
             !! For debug
         logical :: writeGhosts
             !! For debug
+        logical :: doSmoothGrads
+            !! Whether or not we smooth variables (bvol and electric potential) before taking gradients
         logical :: doClockConsoleOut
             !! If we are driving, output clock info
-        logical :: doOutput_potGrads
-            !! Output extra 3D arrays
         logical :: doOutput_debug
             !! Dump lots of otherwise unnecessary stuff
         logical :: doOutput_3DLoss
@@ -245,6 +252,8 @@ module raijutypes
         real(rp) :: psphInitKp
         logical :: doPsphEvol
             !! Whether or not to actually evolve the plasmasphere
+        real(rp) :: psphEvolRad
+            !! [Rp] Radius below which plasmasphere is not evolved
         ! TODO: Extra params for refilling rate, determining initial profile, etc.
 
         ! Some constants
@@ -261,6 +270,8 @@ module raijutypes
             !! Maximum tailward extent of the active region
         real(rp) :: maxSun_active
             !! Maximum sunward extent of the active region
+        real(rp) :: activeDomRad
+            !! [Rp] Cells are forced to be active below this radius
 
         ! Active shell settings
         logical :: doActiveShell
@@ -389,6 +400,10 @@ module raijutypes
             !! Current coupling timestep and sub-stepping timestep
         type(IOClock_T) :: IO
             !! Timers for IO operations
+
+        ! I feel like philosophically this should be in Grid but that feels weird so its here
+        type(TimeSeries_T) :: KpTS
+            !! Kp timeseries from solar wind file
 
         ! -- Solver values -- !
         real(rp), dimension(:,:,:), allocatable :: eta

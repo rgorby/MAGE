@@ -422,8 +422,8 @@ module ebsquish
             return
         endif
 
-        !Do quick short-cut to save us some effort
-        isGood = inShueMP_SM(xyz,ShueScl)
+        !Can add short circuit code here, but nothing for now
+        isGood = .true. !Let's be optimistic
         if (.not. isGood) return
 
         ! trap for when we're within epsilon of the inner boundary

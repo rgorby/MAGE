@@ -1,9 +1,6 @@
 cmake_minimum_required(VERSION 3.20.2)
-project(Kaiju Fortran)
-
-# use the new version of CMP0074, this tells cmake to use <PACKAGE>_ROOT environment
-#   variables when looking for packages
-cmake_policy(SET CMP0074 NEW)
+project(Kaiju Fortran C)
+#K: Adding C to project to deal w/ issues w/ most recent HDF (10/13/25)
 
 # add and search for pfunit (fingers crossed)
 list(APPEND CMAKE_PREFIX_PATH "./external")
@@ -162,22 +159,6 @@ target_link_libraries(gamera.x gamlib baselib)
 add_dependencies(gamera gamera.x)
 
 #-------------
-#Kaiju: Gamera helio
-message("Adding Gamera Helio module ...")
-
-#Add source
-#add_subdirectory(src/gamera)
-
-#Print gamera helio info
-#message("\tBricksize is ${bricksize}")
-message("\tIC file is ${GAMHELIC}")
-add_custom_target(gamhelio ALL)
-message("\tAdding executable gamhelio.x")
-add_executable(gamhelio.x src/drivers/gamerax.F90 ${GAMHELIC})
-target_link_libraries(gamhelio.x gamlib baselib)
-add_dependencies(gamera gamhelio.x)
-
-#-------------
 #Kaiju: Dragon King
 message("Adding dragonking module ...")
 #Add source
@@ -214,11 +195,11 @@ add_subdirectory(src/raiju)
 add_custom_target(raiju ALL)
 
 # disabling raijuSA.x for now until it is completed
-#message("\tAdding executable raijuSA.x")
+message("\tAdding executable raijuSA.x")
 #add_executable(raijuSA.x src/drivers/raijuSAx.F90 ${RAIJUIC})
-#add_executable(raijuSA.x src/drivers/raijuSAx.F90)
-#target_link_libraries(raijuSA.x baselib raijulib)
-#add_dependencies(raiju raijuSA.x)
+add_executable(raijuSA.x src/drivers/raijuSAx.F90)
+target_link_libraries(raijuSA.x baselib raijulib)
+add_dependencies(raiju raijuSA.x)
 
 message("\tAdding executable raijuOWD.x")
 #add_executable(raijuOWD.x src/drivers/raijuOWDx.F90 ${RAIJUIC})
@@ -237,6 +218,18 @@ message("\tAdding executable voltron.x")
 add_executable(voltron.x src/drivers/voltronx.F90)
 target_link_libraries(voltron.x baselib voltlib gamlib dragonkinglib remixlib chimplib raijulib)
 add_dependencies(voltron voltron.x)
+
+#-------------
+#Kaiju: Gamera helio
+message("Adding Gamera Helio module ...")
+#Print gamera helio info
+message("\tBricksize is ${bricksize}")
+message("\tIC file is ${GAMHELIC}")
+add_custom_target(gamhelio ALL)
+message("\tAdding executable gamhelio.x")
+add_executable(gamhelio.x src/drivers/gamerax.F90 ${GAMHELIC})
+target_link_libraries(gamhelio.x gamlib baselib)
+add_dependencies(gamera gamhelio.x)
 
 if(ENABLE_MPI)
     #-------------
@@ -272,6 +265,7 @@ if(ENABLE_MPI)
     #-------------
     #Kaiju: Gamera Helio MPI
     message("Adding Gamera Helio MPI module ...")
+    message("\tIC file is ${GAMHELIC}")
     add_custom_target(gamhelio_mpi ALL)
     message("\tAdding executable gamhelio_mpi.x")
     add_executable(gamhelio_mpi.x src/drivers/gamera_mpix.F90 ${GAMHELIC})

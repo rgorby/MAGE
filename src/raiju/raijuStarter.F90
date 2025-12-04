@@ -5,6 +5,7 @@ module raijustarter
     use shellgrid
     use xml_input
     use planethelper
+    use arrayutil
 
     ! Raiju
     use raijudefs
@@ -136,13 +137,14 @@ module raijustarter
             else
                 tmpStr = "/Kaiju/Gamera/restart/resId"
             endif
-            call iXML%Set_Val(tmpResId, trim(tmpStr), Model%RunID)
-            call genResInFname(Model, Model%ResF, runIdO=tmpResId)  ! Determine filename to read from
+            call iXML%Set_Val(Model%resId, trim(tmpStr), Model%RunID)
+            call genResInFname(Model, Model%ResF, runIdO=Model%resId)  ! Determine filename to read from
         endif
         
         !--- Plasmasphere ---!
         call iXML%Set_Val(Model%doPlasmasphere, "plasmasphere/doPsphere",.true.)
         call iXML%Set_Val(Model%doPsphEvol, 'plasmasphere/doEvol',.true.)
+        call iXML%Set_Val(Model%psphEvolRad, 'plasmasphere/evolRad', def_psphEvolRad)
         ! Determine number of species. First set default, then read from xml to overwrite if present
         if (Model%doPlasmasphere) then
             Model%nSpc = 3
@@ -164,13 +166,16 @@ module raijustarter
         call iXML%Set_Val(Model%maxSun_buffer , "domain/sun_buffer" , def_maxSun_buffer)
         call iXML%Set_Val(Model%maxTail_active, "domain/tail_active", def_maxTail_active)
         call iXML%Set_Val(Model%maxSun_active , "domain/sun_active" , def_maxSun_active)
+        call iXML%Set_Val(Model%activeDomRad  , "domain/activeRad"  , def_activeDomRad)
         ! Store all distances as positive values, we'll add signs as needed later
         Model%maxTail_buffer = abs(Model%maxTail_buffer)
         Model%maxSun_buffer  = abs(Model%maxSun_buffer)
         Model%maxTail_active = abs(Model%maxTail_active)
         Model%maxSun_active  = abs(Model%maxSun_active)
+        Model%activeDomRad   = abs(Model%activeDomRad)
 
         !---Solver ---!
+        call iXML%Set_Val(Model%doSmoothGrads,'sim/doSmoothGrads',def_doSmoothGrads)
         call iXML%Set_Val(Model%doUseVelLRs,'sim/useVelLRs',def_doUseVelLRs)
         call iXML%Set_Val(Model%maxItersPerSec,'sim/maxIter',def_maxItersPerSec)
         call iXML%Set_Val(Model%maxOrder,'sim/maxOrder',7)
@@ -240,7 +245,6 @@ module raijustarter
         !--- Output ---!
         call iXML%Set_Val(Model%isLoud           , "output/loudConsole",.false.)
         call iXML%Set_Val(Model%writeGhosts      , "output/writeGhosts",.false.)
-        call iXML%Set_Val(Model%doOutput_potGrads, "output/doFat"      ,.false.)
         call iXML%Set_Val(Model%doOutput_3DLoss  , "output/doLossExtras" ,.false.)  ! Several (Ni,Nj,Nk) arrays
         call iXML%Set_Val(Model%doOutput_debug   , "output/doDebug"    ,.false.)
 
@@ -312,10 +316,20 @@ module raijustarter
 
         ! Set grid params
         call iXML%Set_Val(Grid%nB, "grid/Nbnd", 4      )  ! Number of cells between open boundary and active domain
-        call iXML%Set_Val(tmpStr, "grid/gType","UNISPH")
+
+        ! If we are restarting, use shellGrid from file
+        if (Model%isRestart) then
+            tmpStr = "RESTART"
+        else
+            ! Otherwise, ask user how we should be making our grid
+            call iXML%Set_Val(tmpStr, "grid/gType","UNISPH")
+        endif
 
         ! Fill out Grid object depending on chosen method
         select case(tmpStr)
+            case("RESTART")
+                Grid%gType = RAI_G_SHGRID ! Idk, not important right now
+                call GenShellGridFromFile(Grid%shGrid, RAI_SG_NAME, Model%ResF)
             case("UNISPH")
                 Grid%gType = RAI_G_UNISPH
                 ! Generate our own grid from scratch
@@ -335,7 +349,7 @@ module raijustarter
                     write(*,*) "RAIJU expecting a ShellGrid_T but didn't receive one. Dying."
                 endif
             case DEFAULT
-                write(*,*) "RAIJU Received invalid grid definition: ",Grid%gType
+                write(*,*) "RAIJU Received invalid grid definition: ",tmpStr
                 write(*,*) " Dying."
                 stop
         end select
@@ -379,71 +393,116 @@ module raijustarter
 
             ! dt for every lambda channel
             allocate( State%dtk (Grid%Nk) )
+            call fillArray(State%dtk, 0.0_rp)
             ! nSteps for each channel
             allocate( State%nStepk(Grid%Nk) )
+            call fillArray(State%nStepk, 0)
             ! Where we keep all our stuff
             allocate( State%eta      (sh%isg:sh%ieg, sh%jsg:sh%jeg, Grid%Nk) )
+            call fillArray(State%eta, 0.0_rp)
             ! Where we keep all our stuff but a half-step ahead of now
             allocate( State%eta_half (sh%isg:sh%ieg, sh%jsg:sh%jeg, Grid%Nk) )
+            call fillArray(State%eta_half, 0.0_rp)
             ! Where we kept all our stuff one step ago
             allocate( State%eta_last (sh%isg:sh%ieg, sh%jsg:sh%jeg, Grid%Nk) )
+            call fillArray(State%eta_last, 0.0_rp)
             ! Where all the stuff sorta was over the last State%dt
             allocate( State%eta_avg  (sh%isg:sh%ieg, sh%jsg:sh%jeg, Grid%Nk) )
+            call fillArray(State%eta_avg, 0.0_rp)
             ! I shells shat should be evolved for each k
             allocate( State%activeShells (sh%isg:sh%ieg, Grid%Nk) )
+            State%activeShells = .false.
             ! Effective potential (used for output only)
             allocate( State%pEff(sh%isg:sh%ieg+1, sh%jsg:sh%jeg+1, Grid%Nk) )
+            call fillArray(State%pEff, 0.0_rp)
             ! Gradient of ionspheric potential
             allocate( State%gradPotE     (sh%isg:sh%ieg+1, sh%jsg:sh%jeg+1, 2) )
+            call fillArray(State%gradPotE, 0.0_rp)
             ! Gradient of corotation potential
             allocate( State%gradPotCorot (sh%isg:sh%ieg+1, sh%jsg:sh%jeg+1, 2) )
+            call fillArray(State%gradPotCorot, 0.0_rp)
             ! Gradient of (flux tube volume ^ -2/3)
             allocate( State%gradVM      (sh%isg:sh%ieg+1, sh%jsg:sh%jeg+1, 2) )
+            call fillArray(State%gradVM, 0.0_rp)
             ! Interface and cell velocities
             allocate( State%gradPotE_cc    (sh%isg:sh%ieg, sh%jsg:sh%jeg, 2) )
+            call fillArray(State%gradPotE_cc, 0.0_rp)
             allocate( State%gradPotCorot_cc(sh%isg:sh%ieg, sh%jsg:sh%jeg, 2) )
+            call fillArray(State%gradPotCorot_cc, 0.0_rp)
             allocate( State%gradVM_cc      (sh%isg:sh%ieg, sh%jsg:sh%jeg, 2) )
+            call fillArray(State%gradVM_cc, 0.0_rp)
             allocate( State%iVel (sh%isg:sh%ieg+1, sh%jsg:sh%jeg+1, Grid%Nk, 2) )
+            call fillArray(State%iVel, 0.0_rp)
             allocate( State%iVelL(sh%isg:sh%ieg+1, sh%jsg:sh%jeg+1, Grid%Nk, 2) )
+            call fillArray(State%iVelL, 0.0_rp)
             allocate( State%iVelR(sh%isg:sh%ieg+1, sh%jsg:sh%jeg+1, Grid%Nk, 2) )
+            call fillArray(State%iVelR, 0.0_rp)
             allocate( State%cVel (sh%isg:sh%ieg  , sh%jsg:sh%jeg  , Grid%Nk, 2) )
+            call fillArray(State%cVel, 0.0_rp)
             
             ! Coupling input moments
             allocate( State%Pavg(sh%isg:sh%ieg  , sh%jsg:sh%jeg, 0:Grid%nFluidIn) )
+            call fillArray(State%Pavg, 0.0_rp)
             allocate( State%Davg(sh%isg:sh%ieg  , sh%jsg:sh%jeg, 0:Grid%nFluidIn) )
+            call fillArray(State%Davg, 0.0_rp)
             allocate( State%Pstd(sh%isg:sh%ieg  , sh%jsg:sh%jeg, 0:Grid%nFluidIn) )
+            call fillArray(State%Pstd, 0.0_rp)
             allocate( State%Dstd(sh%isg:sh%ieg  , sh%jsg:sh%jeg, 0:Grid%nFluidIn) )
+            call fillArray(State%Dstd, 0.0_rp)
             allocate( State%domWeights(sh%isg:sh%ieg  , sh%jsg:sh%jeg) )
+            call fillArray(State%domWeights, 0.0_rp)
             allocate( State%tiote(sh%isg:sh%ieg  , sh%jsg:sh%jeg) )
+            call fillArray(State%tiote, 0.0_rp)
             call initShellVar(Grid%shGrid, SHGR_CC, State%Tb)
+            State%Tb%data = 0.0
+            State%Tb%mask = .false.
             ! Bmin surface
             allocate( State%Bmin    (sh%isg:sh%ieg+1, sh%jsg:sh%jeg+1, 3 ) )
+            call fillArray(State%Bmin, 0.0_rp)
             allocate( State%xyzMin  (sh%isg:sh%ieg+1, sh%jsg:sh%jeg+1, 3 ) )
+            call fillArray(State%xyzMin, 0.0_rp)
             allocate( State%xyzMincc(sh%isg:sh%ieg  , sh%jsg:sh%jeg  , 3 ) )
+            call fillArray(State%xyzMincc, 0.0_rp)
             allocate( State%thcon   (sh%isg:sh%ieg+1, sh%jsg:sh%jeg+1    ) )
+            call fillArray(State%thcon, 0.0_rp)
             allocate( State%phcon   (sh%isg:sh%ieg+1, sh%jsg:sh%jeg+1    ) )
+            call fillArray(State%phcon, 0.0_rp)
             ! 2D corner quantities
             allocate( State%topo     (sh%isg:sh%ieg+1, sh%jsg:sh%jeg+1) )
+            call fillArray(State%topo, 0)
             allocate( State%espot    (sh%isg:sh%ieg+1, sh%jsg:sh%jeg+1) )
+            call fillArray(State%espot, 0.0_rp)
             allocate( State%pot_corot(sh%isg:sh%ieg+1, sh%jsg:sh%jeg+1) )
+            call fillArray(State%pot_corot, 0.0_rp)
             allocate( State%bvol     (sh%isg:sh%ieg+1, sh%jsg:sh%jeg+1) )
+            call fillArray(State%bvol, 0.0_rp)
             allocate( State%bvol_cc  (sh%isg:sh%ieg  , sh%jsg:sh%jeg  ) )
+            call fillArray(State%bvol_cc, 0.0_rp)
             allocate( State%vaFrac   (sh%isg:sh%ieg+1, sh%jsg:sh%jeg+1) )
+            call fillArray(State%vaFrac, 0.0_rp)
             ! 1D cell-centered quantities
             allocate( State%bndLoc(sh%jsg:sh%jeg) )
+            call fillArray(State%bndLoc, 0)
             ! 2D cell-centered quantities
             allocate( State%active      (sh%isg:sh%ieg, sh%jsg:sh%jeg) )
+            call fillArray(State%active, 0)
             allocate( State%active_last (sh%isg:sh%ieg, sh%jsg:sh%jeg) )
+            call fillArray(State%active_last, 0)
             allocate( State%OCBDist(sh%isg:sh%ieg, sh%jsg:sh%jeg) )
-
+            call fillArray(State%OCBDist, 0)
             
             allocate( State%lossRates      (sh%isg:sh%ieg, sh%jsg:sh%jeg, Grid%Nk) )
+            call fillArray(State%lossRates, 0.0_rp)
             allocate( State%precipType_ele (sh%isg:sh%ieg, sh%jsg:sh%jeg, Grid%Nk) )
+            call fillArray(State%precipType_ele, 0.0_rp)
             allocate( State%lossRatesPrecip(sh%isg:sh%ieg, sh%jsg:sh%jeg, Grid%Nk) )
+            call fillArray(State%lossRatesPrecip, 0.0_rp)
             !allocate( State%precipNFlux    (sh%isg:sh%ieg, sh%jsg:sh%jeg, Grid%Nk) )
             !allocate( State%precipEFlux    (sh%isg:sh%ieg, sh%jsg:sh%jeg, Grid%Nk) )
             allocate( State%dEta_dt        (sh%isg:sh%ieg, sh%jsg:sh%jeg, Grid%Nk) )
+            call fillArray(State%dEta_dt, 0.0_rp)
             allocate( State%CCHeatFlux     (sh%isg:sh%ieg, sh%jsg:sh%jeg, Grid%Nk) )
+            call fillArray(State%CCHeatFlux, 0.0_rp)
             ! Coupling output data
             allocate(State%Den  (0:Model%nSpc))
             allocate(State%Press(0:Model%nSpc))
@@ -478,14 +537,21 @@ module raijustarter
             ! Only bother allocating persistent versions of debug stuff if we need them
             if (Model%doOutput_debug) then
                 allocate( State%etaFaceReconL(sh%isg:sh%ieg+1, sh%jsg:sh%jeg+1, Grid%Nk, 2) )
+                call fillArray(State%etaFaceReconL, 0.0_rp)
                 allocate( State%etaFaceReconR(sh%isg:sh%ieg+1, sh%jsg:sh%jeg+1, Grid%Nk, 2) )
+                call fillArray(State%etaFaceReconR, 0.0_rp)
                 allocate( State%etaFacePDML  (sh%isg:sh%ieg+1, sh%jsg:sh%jeg+1, Grid%Nk, 2) )
+                call fillArray(State%etaFacePDML, 0.0_rp)
                 allocate( State%etaFacePDMR  (sh%isg:sh%ieg+1, sh%jsg:sh%jeg+1, Grid%Nk, 2) )
+                call fillArray(State%etaFacePDMR, 0.0_rp)
                 allocate( State%etaFlux      (sh%isg:sh%ieg+1, sh%jsg:sh%jeg+1, Grid%Nk, 2) )
+                call fillArray(State%etaFlux, 0.0_rp)
             endif
+
+            State%KpTS%wID = Model%tsF
+            call State%KpTS%initTS("Kp")
         
         end associate
-        
         
         ! For now, just set t to tStart and ts to 0
         State%t = Model%t0
@@ -496,6 +562,8 @@ module raijustarter
         State%activeShells = .true.
         ! Similarly, set vaFrac to safe value in case stand-alone never writes to it
         State%vaFrac = 1.0
+
+        State%isFirstCpl = .true.
 
         ! Init State sub-modules
         if (Model%isSA) then

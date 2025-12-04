@@ -2,10 +2,10 @@ module voltappHelper
 
     use kdefs
     use voltTypes
-    use imagtubes
     use kai2geo
     use mixinterfaceutils
-
+    use tubehelper
+    
     implicit none
 
     contains
