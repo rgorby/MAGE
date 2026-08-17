@@ -726,7 +726,7 @@ module gioH5
                     call AddOutVar(IOVars, trim(xID) // "Bxyz"   ,xState%Bxyz   (:,:,:,:)) 
                 endif
             !-rg (06/03)
-                if (Model%doResistive .and. .not. Model%dmresis) then
+                if (Model%doResistive) then
                    call AddOutVar(IOVars, trim(xID) // "Deta"   ,xState%Deta   (:,:,:,:))
                 endif
             end subroutine AddState2IO
@@ -782,7 +782,7 @@ module gioH5
         call AddInVar(IOVars,"oGas")
         call AddInVar(IOVars,"omagFlux")
         !-rg (06/03)
-        if (Model%doResistive .and. .not. Model%dmresis) then
+        if (Model%doResistive) then
            call AddInVar(IOVars,"Deta")
            call AddInVar(IOVars,"oDeta")
         endif
@@ -895,7 +895,7 @@ module gioH5
                 endif
 
                 !-rg (06/03)
-                if (Model%doResistive .and. .not. Model%dmresis) then
+                if (Model%doResistive) then
                    if (skipGhosts) then
                       call IOArray4DFill(IOVars,trim(xID) // "Deta",xState%Deta(Gr%is:Gr%ie+1,Gr%js:Gr%je+1,Gr%ks:Gr%ke+1,:))
                    else
