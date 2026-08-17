@@ -436,6 +436,27 @@ module gioH5
             call GameraOut("Jy",gamOut%jID,gamOut%jScl,gVec(:,:,:,YDIR))
             call GameraOut("Jz",gamOut%jID,gamOut%jScl,gVec(:,:,:,ZDIR))
 
+! !-RG change 06/03(outputs resitivity and diffusive velocity (Checked that this was indeed an extra one, keeping the one that starts on line 505)
+!             if(Model%doResistive .or. Model%SpinRes) then
+!                 !$OMP PARALLEL DO default(shared) collapse(2) &
+!                 !$OMP private(i,j,k)
+! 		        do k=kMin,kMax
+!                     do j=jMin,jMax
+!                         do i=iMin,iMax
+!                             !Save cell-centered eta
+!                             gVar(i,j,k) = EdgeScalar2CC(Model,Gr,State%Deta,i,j,k)
+!                             !Save cell-centered diffusive velocity
+!                             gVar1(i,j,k) = gVar(i,j,k)*2.0/minval([Gr%di(i,j,k),Gr%dj(i,j,k),Gr%dk(i,j,k)])
+! 			            enddo
+!                     enddo
+!                 enddo
+
+!                 !Should change this to have more meaningful scaling
+!                 call GameraOut("Eta","CODE",1.0_rp,gVar(iMin:iMax,jMin:jMax,kMin:kMax))
+!                 !Output diffusive velocity scaled to proper output velocity units
+! 		call GameraOut("Vdiff",gamOut%vID,gamOut%vScl,gVar1(iMin:iMax,jMin:jMax,kMin:kMax))
+!              end if
+
             !Calculate/Write xyz electric fields
             if (doFat) then
             
@@ -480,7 +501,7 @@ module gioH5
                 call GameraOut("SrcDT"     ,"s"       ,gamOut%tScl,Gr%Gas0(Gr%is:Gr%ie,Gr%js:Gr%je,Gr%ks:Gr%ke,IM_TSCL  ))
             
             endif
-
+            ! -RG (06/03) change, added resistivity and diffusive velocity output [kept earlier changes]
             if(Model%doResistive) then
                 !$OMP PARALLEL DO default(shared) collapse(2) &
                 !$OMP private(i,j,k)
@@ -489,7 +510,6 @@ module gioH5
                         do i=iMin,iMax
                             !Save cell-centered eta
                             gVar(i,j,k) = EdgeScalar2CC(Model,Gr,State%Deta,i,j,k)
-
                             !Save cell-centered diffusive velocity
                             gVar1(i,j,k) = gVar(i,j,k)*2.0/minval([Gr%di(i,j,k),Gr%dj(i,j,k),Gr%dk(i,j,k)])
                         enddo
@@ -691,7 +711,10 @@ module gioH5
                     call AddOutVar(IOVars, trim(xID) // "magFlux",xState%magFlux(:,:,:,:))
                     call AddOutVar(IOVars, trim(xID) // "Bxyz"   ,xState%Bxyz   (:,:,:,:)) 
                 endif
-
+            !-rg (06/03)
+                if (Model%doResistive .and. .not. Model%dmresis) then
+                   call AddOutVar(IOVars, trim(xID) // "Deta"   ,xState%Deta   (:,:,:,:))
+                endif
             end subroutine AddState2IO
     end subroutine writeH5Res
     
@@ -744,7 +767,11 @@ module gioH5
         call AddInVar(IOVars,"ot"   ,vTypeO=IOREAL)
         call AddInVar(IOVars,"oGas")
         call AddInVar(IOVars,"omagFlux")
-
+        !-rg (06/03)
+        if (Model%doResistive .and. .not. Model%dmresis) then
+           call AddInVar(IOVars,"Deta")
+           call AddInVar(IOVars,"oDeta")
+        endif
         if (Model%doAB3 .and. hasOO) then
             call AddInVar(IOVars,"oot"   ,vTypeO=IOREAL)
             call AddInVar(IOVars,"ooGas")
@@ -852,6 +879,15 @@ module gioH5
                         call IOArray4DFill(IOVars,trim(xID) // "magFlux",xState%magFlux(:,:,:,:))
                     endif
                 endif
+
+                !-rg (06/03)
+                if (Model%doResistive .and. .not. Model%dmresis) then
+                   if (skipGhosts) then
+                      call IOArray4DFill(IOVars,trim(xID) // "Deta",xState%Deta(Gr%is:Gr%ie+1,Gr%js:Gr%je+1,Gr%ks:Gr%ke+1,:))
+                   else
+                      call IOArray4DFill(IOVars,trim(xID) // "Deta",xState%Deta(:,:,:,:))
+                   endif
+                endif
 
             end subroutine PullState
 
